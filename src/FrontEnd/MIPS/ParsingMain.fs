@@ -802,16 +802,23 @@ let private parsePOP76R6 bin =
   if Bits.extract bin 25u 21u = 0u then Op.JIALC, None, None, getRtOff16 bin
   else Op.BNEZC, None, None, getRsRel21 bin
 
-/// CMP.cond.fmt's condition is the low five bits of the function field.
-/// Conditions 0 to 7 mean what the same numbers mean for C.cond.fmt, so
-/// they share the Condition type. From 8 up they do NOT: Release 6 puts
-/// the signalling forms of 0 to 7 there, where the older encoding has
-/// SF, NGLE, SEQ, NGL, LT, NGE, LE and NGT. Those need their own names
-/// before they can be decoded, so they are refused rather than silently
-/// given the older meaning.
+/// <summary>
+/// CMP.cond.fmt's condition is the low five bits of the function field, and
+/// all sixteen of them are the same conditions C.cond.fmt has.
+///
+/// Both encodings put the SIGNALLING form of a predicate eight above the
+/// quiet one, and they agree number for number: where the older one writes
+/// SF, NGLE, SEQ, NGL, LT, NGE, LE and NGT at 8 to 15, Release 6 writes SAF,
+/// SUN, SEQ, SUEQ, SLT, SULT, SLE and SULE -- the same eight predicates under
+/// names that say what they are rather than what they are not. So they share
+/// the Condition type, and the spelling is the disassembler's to choose.
+///
+/// Above 15 is not a condition: the field is five bits and only sixteen of
+/// the thirty-two are defined.
+/// </summary>
 let private parseCMPR6 fmt binary =
   let cond = Bits.extract binary 4u 0u
-  if cond > 7u then raise ParsingFailureException
+  if cond > 0xFu then raise ParsingFailureException
   else Op.CMP, Some(getCondition cond), Some fmt, getFdFsFt binary
 /// Table A.18 MIPS64 COP1 Encoding of Function Field When rs=S, Revision 6.06
 let private parseCOP1WhenRsS release binary =
@@ -1058,7 +1065,34 @@ let private parseCOP1WhenRsL binary =
 /// </summary>
 let private parseCOP1WhenRsPS binary =
   let b20to16 = Bits.extract binary 20u 16u
+  let b17to16 = Bits.extract binary 17u 16u (* 0:tf *)
   match Bits.extract binary 5u 0u with
+  (* The arithmetic. A pair is two single-precision numbers side by side, so
+     each of these is two single-precision operations and not one on the
+     whole width. There is no DIV.PS: the architecture leaves that function
+     reserved, and reading one out of the word would invent an instruction. *)
+  | 0b000000u ->
+    Op.ADD, None, Some Fmt.PS, getFdFsFt binary
+  | 0b000001u ->
+    Op.SUB, None, Some Fmt.PS, getFdFsFt binary
+  | 0b000010u ->
+    Op.MUL, None, Some Fmt.PS, getFdFsFt binary
+  | 0b000101u ->
+    Op.ABS, None, Some Fmt.PS, getFdFs binary
+  | 0b000110u ->
+    if b20to16 = 0u then Op.MOV, None, Some Fmt.PS, getFdFs binary
+    else raise ParsingFailureException
+  | 0b000111u ->
+    if b20to16 = 0u then Op.NEG, None, Some Fmt.PS, getFdFs binary
+    else raise ParsingFailureException
+  | 0b010001u ->
+    if b17to16 = 0b00u then Op.MOVF, None, Some Fmt.PS, getFdFsCc binary
+    elif b17to16 = 0b01u then Op.MOVT, None, Some Fmt.PS, getFdFsCc binary
+    else raise ParsingFailureException
+  | 0b010010u ->
+    Op.MOVZ, None, Some Fmt.PS, getFdFsRt binary
+  | 0b010011u ->
+    Op.MOVN, None, Some Fmt.PS, getFdFsRt binary
   | 0b100000u ->
     if b20to16 = 0u then Op.CVTSPU, None, None, getFdFs binary
     else raise ParsingFailureException
@@ -1073,6 +1107,14 @@ let private parseCOP1WhenRsPS binary =
     Op.PULPS, None, None, getFdFsFt binary
   | 0b101111u ->
     Op.PUUPS, None, None, getFdFsFt binary
+  (* The comparison answers TWO condition codes, the upper half's going to
+     cc + 1 and the lower half's to cc, which is why a pair cannot be
+     compared by comparing the two as one number. *)
+  | b when b &&& 0b110000u = 0b110000u ->
+    let cc = Bits.extract binary 10u 8u
+    let oprFn = if cc = 0u then getFsFt else getCcFsFt
+    let cond = getCondition (Bits.extract binary 3u 0u) |> Some
+    Op.C, cond, Some Fmt.PS, oprFn binary
   | _ ->
     raise ParsingFailureException
 
@@ -1486,6 +1528,15 @@ let getOperationSize opcode wordSz =
 /// Which encoding the word was read from makes no difference: microMIPS32
 /// has no 64-bit instructions either, and its own opcode map leaves the
 /// major opcodes theirs would need empty.
+///
+/// The paired-single format does not belong here, and neither do the two
+/// unaligned moves that serve it. Their field reads "MIPS64, MIPS32
+/// Release 2", so a 32-bit CPU does have them -- what a 32-bit FPU does
+/// not have is the register width to make the result predictable, which
+/// is a condition on FR rather than on the instruction existing. The
+/// indexed accesses beside them -- LDXC1 and SDXC1 -- move a doubleword
+/// too and were never listed here, so listing these was not even
+/// consistent with itself.
 /// </summary>
 let isMIPS64Only = function
   | Op.DADD | Op.DADDI | Op.DADDIU | Op.DADDU | Op.DAHI | Op.DALIGN

@@ -175,19 +175,50 @@ let private suffixNames<'T when 'T: comparison> () =
 /// Every condition a floating-point compare tests.
 let conditions = suffixNames<Condition> ()
 
+/// <summary>
+/// The same conditions under the names Release 6 writes them by.
+///
+/// They cannot simply be added to the map above, because three of them mean
+/// something else there: <c>lt</c>, <c>le</c> and <c>seq</c> name the
+/// signalling predicates for C.cond.fmt and the quiet ones for CMP.cond.fmt.
+/// Which table to read is therefore the OPCODE's to say.
+/// </summary>
+let r6Conditions =
+  [ "af", Condition.F
+    "un", Condition.UN
+    "eq", Condition.EQ
+    "ueq", Condition.UEQ
+    "lt", Condition.OLT
+    "ult", Condition.ULT
+    "le", Condition.OLE
+    "ule", Condition.ULE
+    "saf", Condition.SF
+    "sun", Condition.NGLE
+    "seq", Condition.SEQ
+    "sueq", Condition.NGL
+    "slt", Condition.LT
+    "sult", Condition.NGE
+    "sle", Condition.LE
+    "sule", Condition.NGT ]
+  |> Map.ofList
+
+/// The condition names the instruction is written with.
+let conditionsFor opcode =
+  if opcode = Opcode.CMP then r6Conditions else conditions
+
 /// Every format the operands of a floating-point instruction are read in.
 let formats = suffixNames<FPRFormat> ()
 
 /// The condition and the format a mnemonic hangs off its name, which is at
 /// most one of each and in that order.
-let private trySuffixes (parts: string[]) =
+let private trySuffixes opcode (parts: string[]) =
   match parts with
   | [||] ->
     Some(None, None)
   | [| fmt |] ->
     Map.tryFind fmt formats |> Option.map (fun fmt -> None, Some fmt)
   | [| cond; fmt |] ->
-    match Map.tryFind cond conditions, Map.tryFind fmt formats with
+    match Map.tryFind cond (conditionsFor opcode), Map.tryFind fmt formats with
     | Some cond, Some fmt -> Some(Some cond, Some fmt)
     | _ -> None
   | _ ->
@@ -208,7 +239,7 @@ let decomposeMnemonic (mnemonic: string) =
     else
       let name = String.Join('.', parts[..length - 1])
       match Map.tryFind name opcodes |> Option.map (fun opcode ->
-              opcode, trySuffixes parts[length..]) with
+              opcode, trySuffixes opcode parts[length..]) with
       | Some(opcode, Some(cond, fmt)) -> Some(opcode, cond, fmt)
       | Some(_, None) | None -> tryPrefix (length - 1)
   tryPrefix parts.Length

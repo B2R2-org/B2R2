@@ -102,6 +102,40 @@ let private reDupSrc3 opr1 opr2 opr3 expr1 expr2 expr3 tmp1 tmp2 tmp3 bld =
       tmp3 := expr3
   }
 
+/// <summary>
+/// The paired-single form of an arithmetic instruction on two registers.
+///
+/// A pair is two single-precision numbers side by side, so this is two
+/// single-precision operations and not one on the whole width: each half
+/// rounds on its own and is normalised on its own. Computing it at
+/// sixty-four bits produces a number out of bits that were never one number,
+/// which is what grouping the format with D did.
+/// </summary>
+let private pairedArith op arith (dst, src1, src2) bld =
+  append bld {
+    let fdB, fdA = transOprToFPPair bld dst
+    let fs = transOprToFPPairConcat bld src1
+    let ft = transOprToFPPairConcat bld src2
+    let struct (hi, lo) = tmpVars2 bld 32<rt>
+    let struct (sHi, sLo, tHi, tLo) = tmpVars4 bld 32<rt>
+    sHi := AST.xthi 32<rt> fs
+    sLo := AST.xtlo 32<rt> fs
+    tHi := AST.xthi 32<rt> ft
+    tLo := AST.xtlo 32<rt> ft
+    hi := op sHi tHi
+    lo := op sLo tLo
+    normalizeNaN 32<rt> hi bld
+    normalizeNaN 32<rt> lo bld
+    (* One record for the pair, not one each: the two halves are two
+       operations and the register that holds what was raised is one. Cause
+       is rewritten whole by every instruction, so recording each half in
+       turn would leave only the second half's answer there. *)
+    let raisedHi = fpRaised bld 32<rt> arith sHi tHi hi
+    let raisedLo = fpRaised bld 32<rt> arith sLo tLo lo
+    fpRecord bld (raisedHi .| raisedLo)
+    writeFPResult fdB fdA (AST.concat hi lo) bld
+  }
+
 let add (ins: Instruction) bld =
   lift bld ins {
     let dst, src1, src2 = getThreeOprs ins
@@ -128,7 +162,10 @@ let add (ins: Instruction) bld =
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fadd tSrc1 tSrc2
       normalizeNaN 32<rt> result bld
+      fpExceptions bld 32<rt> FPAdd tSrc1 tSrc2 result
       fd := result
+    | Some Fmt.PS ->
+      pairedArith AST.fadd FPAdd (dst, src1, src2) bld
     | _ ->
       let fdB, fdA = transOprToFPPair bld dst
       let fs, ft = transFPConcatTwoOprs bld (src1, src2)
@@ -136,6 +173,7 @@ let add (ins: Instruction) bld =
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fadd tSrc1 tSrc2
       normalizeNaN 64<rt> result bld
+      fpExceptions bld 64<rt> FPAdd tSrc1 tSrc2 result
       writeFPResult fdB fdA result bld
   }
 
@@ -466,9 +504,21 @@ let private condNaNOf bld oprSz (mantissa, exponent) sameReg tFs tFt =
     AST.xtlo 1<rt> (src1Exponent .& (src1Mantissa != AST.num0 oprSz)) .|
     AST.xtlo 1<rt> (src2Exponent .& (src2Mantissa != AST.num0 oprSz))
 
-let cCond ins bld =
-  lift bld ins {
-    let oprSz, cc, fs, ft, sameReg = getCCondOpr ins bld
+/// Whether the predicate is one of the signalling half. The manual's
+/// condition field is four bits and the top one is what separates the two
+/// spellings of each comparison: the signalling one raises Invalid for a
+/// quiet NaN as well, which is how a program asks to be told about an
+/// unordered comparison it did not expect.
+let private conditionSignals (condition: Condition option) =
+  match condition with
+  | Some c -> int c >= 8
+  | None -> false
+
+/// Writes the answer of one comparison into one condition code, and hands
+/// back whether the comparison raised Invalid.
+let private compareIntoCC (ins: Instruction) bld oprSz cc (fs, ft) sameReg =
+  let invalid = tmpVar bld 1<rt>
+  append bld {
     let num0 = AST.num0 oprSz
     let num1 = AST.num1 oprSz
     let struct (tFs, tFt, mantissa) = tmpVars3 bld oprSz
@@ -494,6 +544,34 @@ let cCond ins bld =
     unordered := AST.ite condNaN num1 num0
     condition := (bit2 .& less) .| (bit1 .& equal) .| (bit0 .& unordered)
     setFPConditionCode bld cc condition
+    invalid :=
+      fpCompareInvalid bld oprSz (conditionSignals ins.Condition) tFs tFt
+  }
+  invalid
+
+/// <summary>
+/// A comparison, whose answer goes to a condition code rather than to a
+/// register.
+///
+/// A pair answers TWO of them: the upper half's comparison goes to cc + 1 and
+/// the lower half's to cc. Comparing the two pairs as one sixty-four bit
+/// number answers one code, out of bits that were never one number.
+/// </summary>
+let cCond ins bld =
+  lift bld ins {
+    let oprSz, cc, fs, ft, sameReg = getCCondOpr ins bld
+    match ins.Fmt with
+    | Some Fmt.PS ->
+      let lower = AST.xtlo 32<rt> fs, AST.xtlo 32<rt> ft
+      let upper = AST.xthi 32<rt> fs, AST.xthi 32<rt> ft
+      let invLo = compareIntoCC ins bld 32<rt> cc lower sameReg
+      let invHi = compareIntoCC ins bld 32<rt> (cc + 1) upper sameReg
+      (* Two comparisons and one register to record them in, so the record is
+         their union: see the note in pairedArith. *)
+      fpExceptionsInvalidOnly bld (invLo .| invHi)
+    | _ ->
+      let invalid = compareIntoCC ins bld oprSz cc (fs, ft) sameReg
+      fpExceptionsInvalidOnly bld invalid
   }
 
 /// FCCR, FEXR and FENR are windows onto FCSR rather than registers of their
@@ -641,17 +719,21 @@ let cvtd ins bld =
     let fd, fs = getTwoOprs ins
     let fdB, fdA = transOprToFPPair bld fd
     let result = tmpVar bld 64<rt>
-    match ins.Fmt with
-    | Some Fmt.W ->
-      let fs = transOprToFPConvert ins bld fs
-      result := AST.cast CastKind.SIntToFloat 64<rt> fs
-    | Some Fmt.S ->
-      let fs = transOprToFPConvert ins bld fs
-      result := AST.cast CastKind.FloatCast 64<rt> fs
-    | _ ->
-      let fs = transOprToFPPairConcat bld fs
-      result := AST.cast CastKind.SIntToFloat 64<rt> fs
+    let struct (src, srcSz, fromInt) =
+      match ins.Fmt with
+      | Some Fmt.W -> struct (transOprToFPConvert ins bld fs, 32<rt>, true)
+      | Some Fmt.S -> struct (transOprToFPConvert ins bld fs, 32<rt>, false)
+      | _ -> struct (transOprToFPPairConcat bld fs, 64<rt>, true)
+    result :=
+      if fromInt then AST.cast CastKind.SIntToFloat 64<rt> src
+      else AST.cast CastKind.FloatCast 64<rt> src
     normalizeNaN 64<rt> result bld
+    if fromInt then
+      let back = AST.floatToSInt RoundingMode.TowardZero srcSz result
+      fpExceptionsFromInt bld src back
+    else
+      let back = AST.cast CastKind.FloatCast srcSz result
+      fpExceptionsConvert bld srcSz 64<rt> back src result
     writeFPResult fdB fdA result bld
   }
 
@@ -671,7 +753,8 @@ let private wordOfFP bld convert src inf nan =
     AST.sgt wide (numI64 0x7fffffffL 64<rt>)
     .| AST.slt wide (numI64 -0x80000000L 64<rt>)
   let narrowed = AST.xtlo 32<rt> wide
-  AST.ite (outOfRange .| inf .| nan) (numI32 0x7fffffff 32<rt>) narrowed
+  let noInteger = outOfRange .| inf .| nan
+  struct (AST.ite noInteger (numI32 0x7fffffff 32<rt>) narrowed, noInteger)
 
 /// The doubleword one converts to. There is no wider integer to convert into,
 /// so the range is decided on the operand itself: a magnitude of 2^63 or more
@@ -688,7 +771,9 @@ let private longOfFP bld convert srcSz src inf nan =
     eval := convert bld 64<rt> src
   }
   let outOfRange = AST.fge src upper .| AST.flt src lower
-  AST.ite (outOfRange .| inf .| nan) (numI64 0x7fffffffffffffffL 64<rt>) eval
+  let noInteger = outOfRange .| inf .| nan
+  struct (AST.ite noInteger (numI64 0x7fffffffffffffffL 64<rt>) eval,
+          noInteger)
 
 /// Rounds the way the instruction's own name says, which is what every
 /// conversion but CVT does.
@@ -730,7 +815,10 @@ let cvtw ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         dst, src, inf, nan
-    dst := wordOfFP bld roundingOfFCSR src inf nan
+    let srcSz = if ins.Fmt = Some Fmt.S then 32<rt> else 64<rt>
+    let struct (value, noInteger) = wordOfFP bld roundingOfFCSR src inf nan
+    dst := value
+    fpExceptionsToInt bld srcSz src noInteger
   }
 
 let cvtl ins bld =
@@ -766,7 +854,10 @@ let cvtl ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         src, inf, nan
-    eval := longOfFP bld roundingOfFCSR srcSz src inf nan
+    let struct (value, noInteger) =
+      longOfFP bld roundingOfFCSR srcSz src inf nan
+    eval := value
+    fpExceptionsToInt bld srcSz src noInteger
     writeFPResult fdB fdA eval bld
   }
 
@@ -776,17 +867,21 @@ let cvts ins bld =
     let fd = transOprToFPConvert ins bld fd
     let dst = if is32Bit bld then fd else AST.xtlo 32<rt> fd
     let result = tmpVar bld 32<rt>
-    match ins.Fmt with
-    | Some Fmt.L ->
-      let fs = transOprToFPPairConcat bld fs
-      result := AST.cast CastKind.SIntToFloat 32<rt> fs
-    | Some Fmt.D ->
-      let fs = transOprToFPPairConcat bld fs
-      result := AST.cast CastKind.FloatCast 32<rt> fs
-    | _ ->
-      let fs = transOprToFPConvert ins bld fs
-      result := AST.cast CastKind.SIntToFloat 32<rt> fs
+    let struct (src, srcSz, fromInt) =
+      match ins.Fmt with
+      | Some Fmt.L -> struct (transOprToFPPairConcat bld fs, 64<rt>, true)
+      | Some Fmt.D -> struct (transOprToFPPairConcat bld fs, 64<rt>, false)
+      | _ -> struct (transOprToFPConvert ins bld fs, 32<rt>, true)
+    result :=
+      if fromInt then AST.cast CastKind.SIntToFloat 32<rt> src
+      else AST.cast CastKind.FloatCast 32<rt> src
     normalizeNaN 32<rt> result bld
+    if fromInt then
+      let back = AST.floatToSInt RoundingMode.TowardZero srcSz result
+      fpExceptionsFromInt bld src back
+    else
+      let back = AST.cast CastKind.FloatCast srcSz result
+      fpExceptionsConvert bld srcSz 32<rt> back src result
     dst := result
   }
 
@@ -1091,6 +1186,7 @@ let div (ins: Instruction) bld =
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
       result := AST.fdiv tSrc1 tSrc2
       normalizeNaN 64<rt> result bld
+      fpExceptions bld 64<rt> FPDiv tSrc1 tSrc2 result
       writeFPResult fdB fdA result bld
     | _ ->
       let fd, fs, ft = getThreeOprs ins
@@ -1099,6 +1195,7 @@ let div (ins: Instruction) bld =
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
       result := AST.fdiv tSrc1 tSrc2
       normalizeNaN 32<rt> result bld
+      fpExceptions bld 32<rt> FPDiv tSrc1 tSrc2 result
       dst := result
   }
 
@@ -1695,7 +1792,7 @@ let align ins bld wide =
 /// `compute` is handed the width and the two source values and returns the
 /// result; `readDst` says whether the destination is also an input, which it
 /// is for SEL.fmt and nothing else.
-let private fpR6Binary ins bld readDst compute =
+let private fpR6BinaryWith ins bld readDst compute record =
   lift bld ins {
     let dst, src1, src2 = getThreeOprs ins
     match ins.Fmt with
@@ -1704,7 +1801,11 @@ let private fpR6Binary ins bld readDst compute =
       let struct (a, b, result) = tmpVars3 bld 32<rt>
       a := fs
       b := ft
-      result := compute 32<rt> (if readDst then fd else a) a b
+      let d = if readDst then fd else a
+      result := compute 32<rt> d a b
+      (* Before the destination is written, so a record that reads it sees
+         what the instruction read. *)
+      record 32<rt> d a b result
       fd := result
     | _ ->
       let fdB, fdA = transOprToFPPair bld dst
@@ -1715,10 +1816,14 @@ let private fpR6Binary ins bld readDst compute =
       b := ft
       if readDst then d := transOprToFPPairConcat bld dst else d := a
       result := compute 64<rt> d a b
+      record 64<rt> d a b result
       writeFPResult fdB fdA result bld
   }
 
-let private fpR6Unary ins bld compute =
+let private fpR6Binary ins bld readDst compute =
+  fpR6BinaryWith ins bld readDst compute (fun _ _ _ _ _ -> ())
+
+let private fpR6UnaryWith ins bld compute record =
   lift bld ins {
     let dst, src = getTwoOprs ins
     match ins.Fmt with
@@ -1727,14 +1832,19 @@ let private fpR6Unary ins bld compute =
       let struct (a, result) = tmpVars2 bld 32<rt>
       a := fs
       result := compute 32<rt> a
+      record 32<rt> a result
       fd := result
     | _ ->
       let fdB, fdA = transOprToFPPair bld dst
       let struct (a, result) = tmpVars2 bld 64<rt>
       a := transOprToFPPairConcat bld src
       result := compute 64<rt> a
+      record 64<rt> a result
       writeFPResult fdB fdA result bld
   }
+
+let private fpR6Unary ins bld compute =
+  fpR6UnaryWith ins bld compute (fun _ _ _ -> ())
 
 let private signBitOf sz =
   if sz = 32<rt> then numU64 0x80000000UL sz
@@ -1764,8 +1874,14 @@ let fpSelect ins bld kind =
 ///   - Zeroes are ordered by SIGN, where a comparison calls them equal:
 ///     MAX(+0, -0) is +0 and MIN(+0, -0) is -0. An `fgt` sees no difference
 ///     between the two and would return whichever operand came second.
+/// The one thing a choice between two numbers, or a comparison of them, can
+/// raise: a quiet NaN is part of what those answer and a signalling one is
+/// not.
+let private recordSignalling bld sz a b =
+  fpExceptionsInvalidOnly bld (fpEitherSignalling bld sz a b)
+
 let fpMinMax ins bld wantMax absolute =
-  fpR6Binary ins bld false (fun sz _ a b ->
+  fpR6BinaryWith ins bld false (fun sz _ a b ->
     let signMask = signBitOf sz
     let ca = if absolute then a .& AST.not signMask else a
     let cb = if absolute then b .& AST.not signMask else b
@@ -1805,13 +1921,24 @@ let fpMinMax ins bld wantMax absolute =
     let quiet = AST.ite (aNaN .& bNaN) a oneNaN
     let signalling = AST.ite bSNaN (b .| mantMSB) quiet
     AST.ite aSNaN (a .| mantMSB) signalling)
+    (fun sz _ a b _ -> recordSignalling bld sz a b)
 
 /// RINT.fmt rounds to an integral value in the operand's own format, in the
 /// direction FCSR names -- which is what a conversion no RoundCtrl encloses
 /// rounds by. So the field is not read here and the four directions are not
 /// spelled out: the cast that keeps the value a float is the whole of it.
 let rint ins bld =
-  fpR6Unary ins bld (fun sz v -> AST.cast CastKind.RoundToIntegral sz v)
+  fpR6UnaryWith ins bld (fun sz v -> AST.cast CastKind.RoundToIntegral sz v)
+    (fun sz a result ->
+      (* Rounding to an integer loses whatever the operand had below the
+         point, and nothing else: the answer is always representable, so
+         there is no overflow and no underflow to have. *)
+      let struct (invalid, inexact) = tmpVars2 bld 1<rt>
+      append bld {
+        invalid := fpEitherSignalling bld sz a a
+        inexact := AST.not invalid .& fpRoundChanged bld sz a result
+      }
+      fpExceptionsRounded bld invalid inexact)
 
 /// CLASS.fmt -- a ten-bit mask naming the IEEE class of its operand.
 ///
@@ -1867,7 +1994,7 @@ let fpClass ins bld =
 /// been wrong for a NaN whose sign the operation is supposed to keep.
 /// </summary>
 let private fusedMultiplyAdd add ins bld =
-  fpR6Binary ins bld true (fun sz d a b ->
+  fpR6BinaryWith ins bld true (fun sz d a b ->
     let mantBits = if sz = 32<rt> then 23 else 52
     let expMask = numU64 ((((1UL <<< (int sz - mantBits - 1)) - 1UL))
                           <<< mantBits) sz
@@ -1894,6 +2021,8 @@ let private fusedMultiplyAdd add ins bld =
     let signalD = AST.ite (isSNaN d) (d .| quietBit) quietA
     let signalB = AST.ite (isSNaN b) (b .| quietBit) signalD
     AST.ite (isSNaN a) (a .| quietBit) signalB)
+    (fun sz d a b result ->
+      fpExceptionsFused bld sz (not add) a b d result)
 
 /// MADDF.fmt: the destination plus the product.
 let maddf ins bld = fusedMultiplyAdd true ins bld
@@ -1905,7 +2034,7 @@ let msubf ins bld = fusedMultiplyAdd false ins bld
 /// answer goes into an FPR as all-ones or all-zeros rather than into a
 /// condition-code bit, which is why BC1EQZ and BC1NEZ test a register.
 let fpCmpR6 (ins: Instruction) bld =
-  fpR6Binary ins bld false (fun sz _ a b ->
+  fpR6BinaryWith ins bld false (fun sz _ a b ->
     (* Unordered is "neither less, nor equal, nor greater", which is what a
        NaN operand makes true. *)
     let unordered =
@@ -1920,11 +2049,28 @@ let fpCmpR6 (ins: Instruction) bld =
       | Some Condition.ULT -> unordered .| AST.flt a b
       | Some Condition.OLE -> AST.flt a b .| AST.feq a b
       | Some Condition.ULE -> unordered .| AST.flt a b .| AST.feq a b
+      (* The signalling eight test the same thing as the quiet eight; what
+         they differ in is what an unordered comparison does to FCSR, which
+         is recorded below and not decided here. *)
+      | Some Condition.SF -> AST.b0
+      | Some Condition.NGLE -> unordered
+      | Some Condition.SEQ -> AST.feq a b
+      | Some Condition.NGL -> unordered .| AST.feq a b
+      | Some Condition.LT -> AST.flt a b
+      | Some Condition.NGE -> unordered .| AST.flt a b
+      | Some Condition.LE -> AST.flt a b .| AST.feq a b
+      | Some Condition.NGT -> unordered .| AST.flt a b .| AST.feq a b
       | _ -> raise InvalidOperandException
     let ones =
       if sz = 32<rt> then numU64 0xFFFFFFFFUL sz
       else numU64 0xFFFFFFFFFFFFFFFFUL sz
     AST.ite cond ones (AST.num0 sz))
+    (fun sz _ a b _ ->
+      (* A signalling operand always raises; a QUIET one raises only where
+         the predicate is one of the signalling eight, which is the whole of
+         what separates them from the eight below. *)
+      let signals = conditionSignals ins.Condition
+      fpExceptionsInvalidOnly bld (fpCompareInvalid bld sz signals a b))
 
 /// BC1EQZ and BC1NEZ branch on bit 0 of an FPR. They are compact -- Release 6
 /// has no delay slot -- so the transfer is the compact one.
@@ -2210,42 +2356,133 @@ let lui ins bld =
             (AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>))
   }
 
+/// <summary>
+/// The paired-single form of a multiply-add.
+///
+/// Two single-precision multiply-adds, one per half, each normalised on its
+/// own. <c>combine</c> is given the product and the addend in that order, so
+/// that the four members keep the operand order each of them is written with.
+/// <c>signMask</c> is the bit the negated pair flip AFTER normalising, since
+/// the negation applies to the default NaN an invalid operation produces as
+/// much as to a number; it is zero for the two that do not negate, which
+/// makes the flip a no-op rather than a branch.
+/// </summary>
+let private pairedFused combine arith addendFirst signMask oprs bld =
+  let fd, fr, fs, ft = oprs
+  append bld {
+    let fdB, fdA = transOprToFPPair bld fd
+    let fr = transOprToFPPairConcat bld fr
+    let fs = transOprToFPPairConcat bld fs
+    let ft = transOprToFPPairConcat bld ft
+    let struct (hi, lo) = tmpVars2 bld 32<rt>
+    let struct (sHi, tHi, rHi, pHi) = tmpVars4 bld 32<rt>
+    let struct (sLo, tLo, rLo, pLo) = tmpVars4 bld 32<rt>
+    let upper = AST.xthi 32<rt>
+    let lower = AST.xtlo 32<rt>
+    sHi := upper fs
+    tHi := upper ft
+    rHi := upper fr
+    sLo := lower fs
+    tLo := lower ft
+    rLo := lower fr
+    pHi := AST.fmul sHi tHi
+    pLo := AST.fmul sLo tLo
+    hi := combine pHi rHi
+    lo := combine pLo rLo
+    normalizeNaN 32<rt> hi bld
+    normalizeNaN 32<rt> lo bld
+    (* Four roundings and one register: two halves, each a product and then a
+       sum. Recorded before the sign is flipped, which raises nothing. *)
+    let addOf p r result =
+      if addendFirst then fpRaised bld 32<rt> arith r p result
+      else fpRaised bld 32<rt> arith p r result
+    let mulHi = fpRaised bld 32<rt> FPMul sHi tHi pHi
+    let mulLo = fpRaised bld 32<rt> FPMul sLo tLo pLo
+    let addHi = addOf pHi rHi hi
+    let addLo = addOf pLo rLo lo
+    fpRecord bld (mulHi .| mulLo .| addHi .| addLo)
+    hi := numU64 signMask 32<rt> <+> hi
+    lo := numU64 signMask 32<rt> <+> lo
+    writeFPResult fdB fdA (AST.concat hi lo) bld
+  }
+
+/// <summary>
+/// What an UNFUSED multiply-add raised, which is what its multiply raised and
+/// what its add raised, together.
+///
+/// It rounds twice -- MD00087 spells the operation out as a product and then
+/// a sum -- so an intermediate product that overflows raises the overflow
+/// even where the addend would have brought the answer back. Cause holds what
+/// the INSTRUCTION raised, and that is both roundings; recording them one
+/// after the other would leave only the second there.
+/// </summary>
+let private mAddSubRecord bld oprSz opFn a b c product result =
+  let rMul = fpRaised bld oprSz FPMul a b product
+  let rAdd =
+    if opFn then fpRaised bld oprSz FPAdd product c result
+    else fpRaised bld oprSz FPSub product c result
+  fpRecord bld (rMul .| rAdd)
+
+/// The integer MADD and MSUB, which accumulate into the HI/LO pair rather
+/// than into a register, and have nothing in common with the floating-point
+/// forms but the name.
+let private mAddSubInteger ins (bld: LowUIRBuilder) opFn =
+  let rs, rt = transTwoOprs ins bld
+  let op = if opFn then AST.add else AST.sub
+  let result = tmpVar bld 64<rt>
+  let hi = regVar bld R.HI
+  let lo = regVar bld R.LO
+  append bld {
+    if is32Bit bld then
+      result :=
+        op (AST.concat hi lo) (AST.sext 64<rt> rs .* AST.sext 64<rt> rt)
+      hi := AST.xthi 32<rt> result
+      lo := AST.xtlo 32<rt> result
+    else
+      let hilo = AST.concat (AST.xtlo 32<rt> hi) (AST.xtlo 32<rt> lo)
+      let rs = AST.sext 64<rt> (AST.xtlo 32<rt> rs)
+      let rt = AST.sext 64<rt> (AST.xtlo 32<rt> rt)
+      result := op hilo (rs .* rt)
+      hi := signExtHi64 result
+      lo := signExtLo64 result
+  }
+
 let mAddSub (ins: Instruction) bld opFn =
   lift bld ins {
     match ins.Fmt with
     | None ->
-      let rs, rt = transTwoOprs ins bld
-      let op = if opFn then AST.add else AST.sub
-      let result = tmpVar bld 64<rt>
-      let hi = regVar bld R.HI
-      let lo = regVar bld R.LO
-      if is32Bit bld then
-        result :=
-          op (AST.concat hi lo) (AST.sext 64<rt> rs .* AST.sext 64<rt> rt)
-        hi := AST.xthi 32<rt> result
-        lo := AST.xtlo 32<rt> result
-      else
-        let hilo = AST.concat (AST.xtlo 32<rt> hi) (AST.xtlo 32<rt> lo)
-        let rs = AST.sext 64<rt> (AST.xtlo 32<rt> rs)
-        let rt = AST.sext 64<rt> (AST.xtlo 32<rt> rt)
-        result := op hilo (rs .* rt)
-        hi := signExtHi64 result
-        lo := signExtLo64 result
-    | Some Fmt.PS | Some Fmt.D ->
+      mAddSubInteger ins bld opFn
+    | Some Fmt.PS ->
+      let combine p r = if opFn then AST.fadd p r else AST.fsub p r
+      let arith = if opFn then FPAdd else FPSub
+      pairedFused combine arith false 0UL (getFourOprs ins) bld
+    | Some Fmt.D ->
       let op = if opFn then AST.fadd else AST.fsub
       let fd, fr, fs, ft = getFourOprs ins
       let fdB, fdA = transOprToFPPair bld fd
       let fr, fs, ft = transFPConcatThreeOprs bld (fr, fs, ft)
-      let result = tmpVar bld 64<rt>
-      result := op (AST.fmul fs ft) fr
+      let struct (a, b, c) = tmpVars3 bld 64<rt>
+      let struct (product, result) = tmpVars2 bld 64<rt>
+      a := fs
+      b := ft
+      c := fr
+      product := AST.fmul a b
+      result := op product c
       normalizeNaN 64<rt> result bld
+      mAddSubRecord bld 64<rt> opFn a b c product result
       writeFPResult fdB fdA result bld
     | _ ->
       let op = if opFn then AST.fadd else AST.fsub
       let fd, fr, fs, ft = getFourOprs ins |> transFourSingleFP bld
-      let result = tmpVar bld 32<rt>
-      result := op (AST.fmul fs ft) fr
+      let struct (a, b, c) = tmpVars3 bld 32<rt>
+      let struct (product, result) = tmpVars2 bld 32<rt>
+      a := fs
+      b := ft
+      c := fr
+      product := AST.fmul a b
+      result := op product c
       normalizeNaN 32<rt> result bld
+      mAddSubRecord bld 32<rt> opFn a b c product result
       fd := result
   }
 
@@ -2335,7 +2572,9 @@ let mov ins bld =
     | Some Fmt.S ->
       let fd, fs = transTwoSingleFP bld (fd, fs)
       fd := fs
-    | Some Fmt.D ->
+    (* A pair is copied whole: both halves move and neither is read as a
+       number, so the width is all this needs to know. *)
+    | Some Fmt.D | Some Fmt.PS ->
       let fdB, fdA = transOprToFPPair bld fd
       let fs = transOprToFPPairConcat bld fs
       let result = tmpVar bld 64<rt>
@@ -2343,6 +2582,29 @@ let mov ins bld =
       writeFPResult fdB fdA result bld
     | _ ->
       raise InvalidOperandException
+  }
+
+/// <summary>
+/// The paired-single form of a move on a condition the floating-point unit
+/// last tested.
+///
+/// Each half moves on a condition code of its OWN: the upper on cc + 1 and
+/// the lower on cc, which is the pair of codes C.cond.PS writes. Moving both
+/// on one code is the same instruction only where the two happen to agree.
+/// </summary>
+let private pairedMoveOnCC negate cc (dst, src) bld =
+  append bld {
+    let dstB, dstA = transOprToFPPair bld dst
+    let dstVal = transOprToFPPairConcat bld dst
+    let srcVal = transOprToFPPairConcat bld src
+    let lower = fpConditionCode cc bld
+    let upper = fpConditionCode (cc + 1) bld
+    let lower = if negate then AST.not lower else lower
+    let upper = if negate then AST.not upper else upper
+    let struct (hi, lo) = tmpVars2 bld 32<rt>
+    hi := AST.ite upper (AST.xthi 32<rt> srcVal) (AST.xthi 32<rt> dstVal)
+    lo := AST.ite lower (AST.xtlo 32<rt> srcVal) (AST.xtlo 32<rt> dstVal)
+    writeFPResult dstB dstA (AST.concat hi lo) bld
   }
 
 let movt ins bld =
@@ -2359,6 +2621,8 @@ let movt ins bld =
       let srcB, srcA = transOprToFPPair bld src
       dstB := AST.ite cond srcB dstB
       dstA := AST.ite cond srcA dstA
+    | Some Fmt.PS ->
+      pairedMoveOnCC false cc (dst, src) bld
     | _ ->
       let dst, src = transOpr ins bld dst, transOpr ins bld src
       dst := AST.ite cond src dst
@@ -2378,6 +2642,8 @@ let movf ins bld =
       let srcB, srcA = transOprToFPPair bld src
       dstB := AST.ite cond srcB dstB
       dstA := AST.ite cond srcA dstA
+    | Some Fmt.PS ->
+      pairedMoveOnCC true cc (dst, src) bld
     | _ ->
       let dst, src = transOpr ins bld dst, transOpr ins bld src
       dst := AST.ite cond src dst
@@ -2434,6 +2700,7 @@ let mul ins bld =
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fmul tSrc1 tSrc2
       normalizeNaN 32<rt> result bld
+      fpExceptions bld 32<rt> FPMul tSrc1 tSrc2 result
       dst := result
     | Some Fmt.D ->
       let dstB, dstA = transOprToFPPair bld dst
@@ -2442,7 +2709,10 @@ let mul ins bld =
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fmul tSrc1 tSrc2
       normalizeNaN 64<rt> result bld
+      fpExceptions bld 64<rt> FPMul tSrc1 tSrc2 result
       writeFPResult dstB dstA result bld
+    | Some Fmt.PS ->
+      pairedArith AST.fmul FPMul (dst, src1, src2) bld
     | _ ->
       raise InvalidOperandException
   }
@@ -2528,6 +2798,16 @@ let neg ins bld =
       fd := fs <+> mask
   }
 
+/// The same two roundings as MADD's, at the operand order the negated forms
+/// use: NMADD adds the addend to the product and NMSUB takes the addend off
+/// it, and a subtraction is not commutative.
+let private nmAddSubRecord bld oprSz add a b c product result =
+  let rMul = fpRaised bld oprSz FPMul a b product
+  let rAdd =
+    if add then fpRaised bld oprSz FPAdd c product result
+    else fpRaised bld oprSz FPSub product c result
+  fpRecord bld (rMul .| rAdd)
+
 let private negatedMultiplyAdd add ins bld =
   lift bld ins {
     let fd, src1, src2, src3 = getFourOprs ins
@@ -2536,7 +2816,8 @@ let private negatedMultiplyAdd add ins bld =
       let dst, fr, fs, ft = transFourSingleFP bld (fd, src1, src2, src3)
       let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 32<rt>
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
-      let product = AST.fmul tSrc2 tSrc3
+      let product = tmpVar bld 32<rt>
+      product := AST.fmul tSrc2 tSrc3
       let sum =
         if add then AST.fadd tSrc1 product else AST.fsub product tSrc1
       (* The negation is of the RESULT, so it applies to the default NaN an
@@ -2544,6 +2825,9 @@ let private negatedMultiplyAdd add ins bld =
          then flip the sign, or the canonicalisation undoes the negation. *)
       result := sum
       normalizeNaN 32<rt> result bld
+      (* Recorded before the negation: flipping a sign raises nothing, and the
+         value the add produced is what the two roundings are asked about. *)
+      nmAddSubRecord bld 32<rt> add tSrc2 tSrc3 tSrc1 product result
       result := numU64 0x80000000UL 32<rt> <+> result
       dst := result
     | Some Fmt.D ->
@@ -2551,13 +2835,19 @@ let private negatedMultiplyAdd add ins bld =
       let fr, fs, ft = transFPConcatThreeOprs bld (src1, src2, src3)
       let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 64<rt>
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
-      let product = AST.fmul tSrc2 tSrc3
+      let product = tmpVar bld 64<rt>
+      product := AST.fmul tSrc2 tSrc3
       let sum =
         if add then AST.fadd tSrc1 product else AST.fsub product tSrc1
       result := sum
       normalizeNaN 64<rt> result bld
+      nmAddSubRecord bld 64<rt> add tSrc2 tSrc3 tSrc1 product result
       result := numU64 0x8000000000000000UL 64<rt> <+> result
       writeFPResult fdB fdA result bld
+    | Some Fmt.PS ->
+      let combine p r = if add then AST.fadd r p else AST.fsub p r
+      let arith = if add then FPAdd else FPSub
+      pairedFused combine arith add 0x80000000UL (fd, src1, src2, src3) bld
     | _ ->
       raise InvalidOperandException
   }
@@ -3048,15 +3338,17 @@ let sqrt ins bld =
       let result = tmpVar bld 32<rt>
       result := AST.ite cond (numU32 0x80000000u 32<rt>) (AST.fsqrt fs)
       normalizeNaN 32<rt> result bld
+      fpExceptions bld 32<rt> FPSqrt fs fs result
       fd := result
     | _ ->
       let fdB, fdA = transOprToFPPair bld fd
-      let fs = transOprToFPPairConcat bld fs
-      let cond = fs == numU64 0x8000000000000000UL 64<rt>
-      let result = tmpVar bld 64<rt>
+      let struct (src, result) = tmpVars2 bld 64<rt>
+      src := transOprToFPPairConcat bld fs
+      let cond = src == numU64 0x8000000000000000UL 64<rt>
       result :=
-        AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt fs)
+        AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt src)
       normalizeNaN 64<rt> result bld
+      fpExceptions bld 64<rt> FPSqrt src src result
       writeFPResult fdB fdA result bld
   }
 
@@ -3188,35 +3480,65 @@ let sltiAndU ins bld amtOp =
     rt := rtVal
   }
 
+/// The paired-single form of the subtract, which carries its own treatment
+/// of a result that has gone subnormal and so needs both operands kept.
+let private pairedSub (dst, src1, src2) bld =
+  append bld {
+    let fdB, fdA = transOprToFPPair bld dst
+    let fs = transOprToFPPairConcat bld src1
+    let ft = transOprToFPPairConcat bld src2
+    let struct (hiA, hiB, hi) = tmpVars3 bld 32<rt>
+    let struct (loA, loB, lo) = tmpVars3 bld 32<rt>
+    hiA := AST.xthi 32<rt> fs
+    hiB := AST.xthi 32<rt> ft
+    loA := AST.xtlo 32<rt> fs
+    loB := AST.xtlo 32<rt> ft
+    hi := AST.fsub hiA hiB
+    lo := AST.fsub loA loB
+    normalizeNaN 32<rt> hi bld
+    normalizeNaN 32<rt> lo bld
+    (* One record for the pair: see the note in pairedArith. *)
+    let raisedHi = fpRaised bld 32<rt> FPSub hiA hiB hi
+    let raisedLo = fpRaised bld 32<rt> FPSub loA loB lo
+    fpRecord bld (raisedHi .| raisedLo)
+    writeFPResult fdB fdA (AST.concat hi lo) bld
+  }
+
+/// SUB is SUBU plus a trap: a signed overflow raises Integer Overflow and
+/// leaves the destination alone, rather than writing the truncated result.
+/// This arm used to be a plain subtract, which is SUBU.
+let private subTrapping ins bld (dst, src1, src2) =
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  let rd = transOpr ins bld dst
+  let rs = transOpr ins bld src1
+  let rt = transOpr ins bld src2
+  let result = if is32Bit bld then rs .- rt else signExtLo64 (rs .- rt)
+  let cond = checkOverflowOnSub rs rt result
+  append bld {
+    AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
+    AST.lmark lblL0
+    AST.sideEffect (Exception IntegerOverflow)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblL1
+    rd := result
+    AST.lmark lblEnd
+  }
+
 let sub ins bld =
   lift bld ins {
     let dst, src1, src2 = getThreeOprs ins
     match ins.Fmt with
     | None ->
-      (* SUB is SUBU plus a trap: a signed overflow raises Integer Overflow
-         and leaves the destination alone, rather than writing the truncated
-         result. This arm used to be a plain subtract, which is SUBU. *)
-      let lblL0 = label bld "L0"
-      let lblL1 = label bld "L1"
-      let lblEnd = label bld "End"
-      let rd = transOpr ins bld dst
-      let rs = transOpr ins bld src1
-      let rt = transOpr ins bld src2
-      let result = if is32Bit bld then rs .- rt else signExtLo64 (rs .- rt)
-      let cond = checkOverflowOnSub rs rt result
-      AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
-      AST.lmark lblL0
-      AST.sideEffect (Exception IntegerOverflow)
-      AST.jmp (AST.jmpDest lblEnd)
-      AST.lmark lblL1
-      rd := result
-      AST.lmark lblEnd
+      subTrapping ins bld (dst, src1, src2)
     | Some Fmt.S ->
       let dst, fs, ft = transThreeSingleFP bld (dst, src1, src2)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fsub tSrc1 tSrc2
       normalizeNaN 32<rt> result bld
+      fpExceptions bld 32<rt> FPSub tSrc1 tSrc2 result
       dst := result
     | Some Fmt.D ->
       let dstB, dstA = transOprToFPPair bld dst
@@ -3225,7 +3547,10 @@ let sub ins bld =
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fsub tSrc1 tSrc2
       normalizeNaN 64<rt> result bld
+      fpExceptions bld 64<rt> FPSub tSrc1 tSrc2 result
       writeFPResult dstB dstA result bld
+    | Some Fmt.PS ->
+      pairedSub (dst, src1, src2) bld
     | _ ->
       raise InvalidOperandException
   }
@@ -3296,7 +3621,11 @@ let private convertToWord mode ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         dst, tSrc, inf, nan
-    dst := wordOfFP bld (roundingOf mode) src inf nan
+    let srcSz = if ins.Fmt = Some Fmt.S then 32<rt> else 64<rt>
+    let struct (value, noInteger) =
+      wordOfFP bld (roundingOf mode) src inf nan
+    dst := value
+    fpExceptionsToInt bld srcSz src noInteger
   }
 
 /// TRUNC.W.fmt: the word nearest the operand towards zero.
@@ -3344,7 +3673,10 @@ let private convertToLong mode ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         src, inf, nan
-    eval := longOfFP bld (roundingOf mode) srcSz src inf nan
+    let struct (value, noInteger) =
+      longOfFP bld (roundingOf mode) srcSz src inf nan
+    eval := value
+    fpExceptionsToInt bld srcSz src noInteger
     writeFPResult fdB fdA eval bld
   }
 

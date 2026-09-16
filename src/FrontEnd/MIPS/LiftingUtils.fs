@@ -549,3 +549,429 @@ let fma sz negProduct negAddend x y z =
     | 64<rt> -> "FMA64"
     | _ -> raise InvalidRegTypeException
   AST.app name args sz
+
+/// <summary>
+/// The arithmetic an IEEE exception can be raised by.
+///
+/// Which operation it was decides how the exact answer is recovered, and the
+/// divide is the only one of the five that can raise the zero divide.
+/// </summary>
+type FPArith =
+  | FPAdd
+  | FPSub
+  | FPMul
+  | FPDiv
+  | FPSqrt
+
+/// The sign bit of a width.
+let private signBitOfWidth oprSz =
+  if oprSz = 32<rt> then numU32 0x80000000u 32<rt>
+  else numU64 0x8000000000000000UL 64<rt>
+
+/// Everything below the sign bit, which is the magnitude.
+let private magnitudeOfWidth oprSz =
+  if oprSz = 32<rt> then numU32 0x7fffffffu 32<rt>
+  else numU64 0x7fffffff_ffffffffUL 64<rt>
+
+/// The biased exponent as a number, which is zero for a subnormal and for a
+/// zero, and all ones for an infinity and for a NaN.
+let private biasedExponent oprSz v =
+  if oprSz = 32<rt> then (v >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
+  else (v >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+
+/// The value that exponent holds for an infinity and for a NaN.
+let private exponentAllOnes oprSz =
+  if oprSz = 32<rt> then numI32 0xff 32<rt> else numI32 0x7ff 64<rt>
+
+/// The leading mantissa bit, which is the one that tells a quiet NaN from a
+/// signalling one -- in whichever direction the guest has selected.
+let private quietBitOfWidth oprSz =
+  if oprSz = 32<rt> then numU32 0x400000u 32<rt>
+  else numU64 0x8000000000000UL 64<rt>
+
+/// A NaN by its bits: the exponent all ones and a mantissa that is not zero.
+let private fpIsNaN oprSz v =
+  (biasedExponent oprSz v == exponentAllOnes oprSz)
+  .& (getMantissa v oprSz != AST.num0 oprSz)
+
+/// An infinity by its bits: the same exponent and a mantissa that is zero.
+let private fpIsInfinite oprSz v =
+  (biasedExponent oprSz v == exponentAllOnes oprSz)
+  .& (getMantissa v oprSz == AST.num0 oprSz)
+
+/// Either zero, whose sign this does not ask about.
+let private fpIsZero oprSz v =
+  (v .& magnitudeOfWidth oprSz) == AST.num0 oprSz
+
+/// <summary>
+/// Whether the value is a NaN this guest reads as signalling.
+///
+/// Which leading mantissa bit means which is not fixed. IEEE-2008 reads a set
+/// bit as quiet; MIPS before that release read it the other way round, its
+/// default NaN being 0x7fbfffff, whose leading mantissa bit is clear.
+///
+/// Release 6 settled it: NAN2008 is read-only ONE there, so the question has
+/// an answer before the register is read and the bit cannot say otherwise.
+/// Earlier releases leave it to the processor, and there FCSR bit 18 is what
+/// says which side the guest is on.
+/// </summary>
+let private fpIsSignalling (bld: ILowUIRBuilder) oprSz v =
+  let quiet = (v .& quietBitOfWidth oprSz) != AST.num0 oprSz
+  if bld.ISA.MIPSRelease = MIPSRelease.R6 then
+    fpIsNaN oprSz v .& AST.not quiet
+  else
+    let nan2008 =
+      (regVar bld R.FCSR .& numU32 0x40000u 32<rt>) != AST.num0 32<rt>
+    fpIsNaN oprSz v .& AST.ite nan2008 (AST.not quiet) quiet
+
+/// Two to the six hundredth, and its own square root. A residual that would
+/// otherwise be denormal is computed on operands scaled by one of these.
+let private scale600 = numU64 0x6570000000000000UL 64<rt>
+
+let private scale300 = numU64 0x52b0000000000000UL 64<rt>
+
+/// <summary>
+/// Whether the value sits low enough in the exponent range that an error at
+/// its own scale would be denormal.
+///
+/// The error of a rounded operation is about two to the minus fifty-third of
+/// the value the rounding happened at, so it falls below the smallest
+/// denormal once that value is within about fifty-three of the bottom. The
+/// bottom few binades are what this asks about, with room to spare.
+/// </summary>
+let private fpIsTiny oprSz v =
+  (biasedExponent oprSz v >> numI32 2 oprSz) == AST.num0 oprSz
+
+/// <summary>
+/// The exact error of the result, computed in the format the operation was
+/// computed in: what added to it gives the answer the operation would have
+/// had with no rounding at all.
+///
+/// The sum uses Knuth's two-sum and the other three a fused multiply-add,
+/// both of which are exact by construction. Subtracting is adding the second
+/// operand with its sign flipped, and flipping it here rather than before the
+/// operation is what keeps a NaN operand's own sign out of the answer.
+/// </summary>
+let private fpErrorTerm wide op a b r =
+  match op with
+  | FPAdd | FPSub ->
+    let b = if op = FPSub then b <+> signBitOfWidth wide else b
+    let bb = AST.fsub r a
+    AST.fadd (AST.fsub a (AST.fsub r bb)) (AST.fsub b bb)
+  | FPMul ->
+    fma wide false true a b r
+  | FPDiv ->
+    fma wide false true r b a
+  | FPSqrt ->
+    fma wide false true r r a
+
+/// <summary>
+/// The same error, taken on operands scaled up by a power of two.
+///
+/// Exact is not the same as representable: an error small enough to be
+/// denormal is itself rounded, and then it comes back zero and the operation
+/// is called exact. Scaling by a power of two is exact, so the error comes
+/// back scaled by the same amount -- zero exactly when it was zero.
+///
+/// Where each operation is scaled is where its error lives. A product's and a
+/// square root's error is at the scale of the ANSWER; a quotient's is at the
+/// scale of the DIVIDEND, because it is what rounding a over b lost
+/// multiplied back by b, so a quotient of perfectly ordinary size can still
+/// have an error that no format can hold.
+/// </summary>
+let private fpScaledErrorTerm wide op a b r =
+  match op with
+  | FPMul ->
+    let scaledR = AST.fmul (AST.fmul r scale600) scale600
+    fma wide false true (AST.fmul a scale600) (AST.fmul b scale600) scaledR
+  | FPDiv ->
+    fma wide false true (AST.fmul r scale600) b (AST.fmul a scale600)
+  | FPSqrt ->
+    let scaledR = AST.fmul r scale300
+    fma wide false true scaledR scaledR (AST.fmul a scale600)
+  | _ ->
+    fpErrorTerm wide op a b r
+
+/// <summary>
+/// The error, at a width that can hold it, and zero exactly when the result
+/// is exact -- which is the whole of what Inexact means.
+///
+/// A single-precision operation is recovered at double precision, where every
+/// exact answer it can produce fits and nothing is too small to represent. A
+/// double-precision one has no wider format to fall back on, so where its
+/// error could be denormal the scaled form is taken instead. The bounds that
+/// make the scaling safe hold under exactly that condition: a denormal
+/// product has both operands under two to the fifty-fifth unless one of them
+/// is zero, which makes the product exact anyway; a denormal dividend leaves
+/// a quotient under two to the fifty-fifth; and a square root is small only
+/// where its operand is.
+/// </summary>
+let private fpResidual oprSz op src1 src2 res =
+  let wide = if oprSz = 32<rt> then 64<rt> else oprSz
+  let up e = AST.cast CastKind.FloatCast wide e
+  let a, b, r = up src1, up src2, up res
+  let plain = fpErrorTerm wide op a b r
+  if wide <> oprSz then
+    plain
+  else
+    let scaled = fpScaledErrorTerm wide op a b r
+    let zeroIn = fpIsZero oprSz src1 .| fpIsZero oprSz src2
+    match op with
+    | FPAdd | FPSub ->
+      plain
+    | FPMul ->
+      AST.ite (fpIsTiny oprSz res .& AST.not zeroIn) scaled plain
+    | FPDiv | FPSqrt ->
+      AST.ite (fpIsTiny oprSz src1) scaled plain
+
+/// The five exceptions as the bits FCSR keeps them in -- Invalid highest and
+/// Inexact lowest -- from one-bit conditions.
+let private fpBits invalid divZero overflow underflow inexact =
+  (AST.zext 32<rt> invalid << numI32 4 32<rt>)
+  .| (AST.zext 32<rt> divZero << numI32 3 32<rt>)
+  .| (AST.zext 32<rt> overflow << numI32 2 32<rt>)
+  .| (AST.zext 32<rt> underflow << numI32 1 32<rt>)
+  .| AST.zext 32<rt> inexact
+
+/// Nothing raised, for the exceptions an operation cannot have.
+let private fpNone = AST.num0 1<rt>
+
+/// <summary>
+/// The exceptions an arithmetic operation raised, as the five bits FCSR
+/// keeps them in: Invalid highest and Inexact lowest.
+///
+/// Four of the five are read off the operands and the result. Inexact cannot
+/// be: it is whether the answer was rounded, which only the exact answer
+/// says. It is also what makes a small result an underflow rather than merely
+/// small -- a tiny answer that lost nothing did not underflow.
+///
+/// The square root reads one operand, and its caller passes that one twice.
+/// </summary>
+let fpRaised bld oprSz op src1 src2 result =
+  let struct (invalid, divZero, overflow) = tmpVars3 bld 1<rt>
+  let struct (underflow, inexact, special) = tmpVars3 bld 1<rt>
+  let struct (exact, finiteIn) = tmpVars2 bld 1<rt>
+  let raised = tmpVar bld 32<rt>
+  let nanIn = fpIsNaN oprSz src1 .| fpIsNaN oprSz src2
+  let infIn = fpIsInfinite oprSz src1 .| fpIsInfinite oprSz src2
+  let divZeroCond =
+    if op = FPDiv then
+      fpIsZero oprSz src2 .& AST.not (fpIsZero oprSz src1) .& finiteIn
+    else
+      AST.num0 1<rt>
+  append bld {
+    finiteIn := AST.not (nanIn .| infIn)
+    (* A NaN nothing brought in is one the operation manufactured, which is
+       what Invalid means: zero over zero, infinity less infinity, the square
+       root of a negative. *)
+    invalid :=
+      fpIsSignalling bld oprSz src1 .| fpIsSignalling bld oprSz src2
+      .| (fpIsNaN oprSz result .& AST.not nanIn)
+    divZero := divZeroCond
+    special := fpIsNaN oprSz result .| invalid .| divZero
+    overflow := AST.not special .& finiteIn .& fpIsInfinite oprSz result
+    exact :=
+      (fpResidual oprSz op src1 src2 result .& magnitudeOfWidth 64<rt>)
+      == AST.num0 64<rt>
+    (* An infinite operand gives an exact answer -- infinity plus a finite is
+       that infinity, and a finite over an infinity is zero -- so only an
+       overflow makes an infinite RESULT inexact. *)
+    inexact := AST.not special .& finiteIn .& (overflow .| AST.not exact)
+    underflow :=
+      inexact .& AST.not overflow
+      .& (biasedExponent oprSz result == AST.num0 oprSz)
+    raised := fpBits invalid divZero overflow underflow inexact
+  }
+  raised
+
+/// <summary>
+/// Records in FCSR the IEEE exceptions an arithmetic operation raised.
+///
+/// MIPS keeps them three times over. Cause holds what THIS instruction
+/// raised and is written whole by every one of them; Enables says which of
+/// the five trap; Flags accumulates the ones that did not, until software
+/// clears it. An instruction that traps never reaches the next one, so what
+/// is modelled here is the untrapped case -- Cause takes everything raised,
+/// and Flags takes what is not enabled.
+/// </summary>
+let fpRecord bld raised =
+  let fcsr = regVar bld R.FCSR
+  let enabled = (fcsr >> numI32 7 32<rt>) .& numI32 0x1f 32<rt>
+  append bld {
+    fcsr :=
+      (fcsr .& numU32 0xfffc0fffu 32<rt>)
+      .| (raised << numI32 12 32<rt>)
+      .| ((raised .& AST.not enabled) << numI32 2 32<rt>)
+  }
+
+let fpExceptions bld oprSz op src1 src2 result =
+  fpRecord bld (fpRaised bld oprSz op src1 src2 result)
+
+/// <summary>
+/// What a conversion to an INTEGER raises, which is two of the five and
+/// neither of them a rounding of the kind the arithmetic does.
+///
+/// Invalid is the operand having no integer at all -- a NaN, an infinity, or
+/// a magnitude the destination cannot hold -- which the architecture answers
+/// with a default result rather than with a number, and which the caller has
+/// already worked out to choose that result.
+///
+/// Inexact is the operand having a fraction for the conversion to discard,
+/// and it is asked of the OPERAND rather than of the answer: every rounding
+/// leaves an exact integer alone, so which direction the instruction rounds
+/// in does not come into it.
+/// </summary>
+let fpExceptionsToInt bld oprSz src noInteger =
+  let struct (invalid, inexact) = tmpVars2 bld 1<rt>
+  append bld {
+    invalid := noInteger
+    inexact :=
+      AST.not invalid
+      .& (AST.roundToIntegral RoundingMode.TowardZero oprSz src != src)
+  }
+  fpRecord bld (fpBits invalid fpNone fpNone fpNone inexact)
+
+/// <summary>
+/// What a conversion between two FORMATS raises.
+///
+/// The answer is the operand in another format, so the only thing that can be
+/// lost is the rounding into it -- and whether anything was is asked by
+/// converting the answer back and seeing whether the operand comes out. A
+/// widening conversion always passes that; a narrowing one passes it exactly
+/// when it lost nothing, which is what Inexact means.
+///
+/// Overflow and Underflow go with it: a narrowing that ran out of exponent
+/// answers an infinity where the operand was finite, or a denormal where it
+/// was not.
+/// </summary>
+let fpExceptionsConvert bld srcSz dstSz back src result =
+  let struct (invalid, overflow, underflow, inexact) = tmpVars4 bld 1<rt>
+  let finiteIn = AST.not (fpIsNaN srcSz src .| fpIsInfinite srcSz src)
+  append bld {
+    invalid :=
+      fpIsSignalling bld srcSz src
+      .| (fpIsNaN dstSz result .& AST.not (fpIsNaN srcSz src))
+    overflow := AST.not invalid .& finiteIn .& fpIsInfinite dstSz result
+    inexact :=
+      AST.not invalid
+      .& (overflow .| (finiteIn .& (back != src)))
+    underflow :=
+      inexact .& AST.not overflow
+      .& (biasedExponent dstSz result == AST.num0 dstSz)
+  }
+  fpRecord bld (fpBits invalid fpNone overflow underflow inexact)
+
+/// <summary>
+/// What a conversion FROM an integer raises, which is Inexact and nothing
+/// else.
+///
+/// An integer is never a NaN and never an infinity, and every one of them is
+/// inside the range of both floating formats, so the only thing such a
+/// conversion can do is round -- and whether it did is asked by converting
+/// the answer back and seeing whether the integer comes out.
+/// </summary>
+let fpExceptionsFromInt bld src back =
+  let inexact = tmpVar bld 1<rt>
+  append bld {
+    inexact := back != src
+  }
+  fpRecord bld (fpBits fpNone fpNone fpNone fpNone inexact)
+
+/// <summary>
+/// Whether a comparison of these two operands raises Invalid.
+///
+/// A signalling NaN always does. A quiet one does only where the predicate is
+/// one of the signalling half -- the manual gives every condition two
+/// spellings for exactly this, one that signals on an unordered comparison
+/// and one that does not -- which is what the caller passes here.
+/// </summary>
+let fpCompareInvalid bld oprSz signalsOnQuiet a b =
+  if signalsOnQuiet then fpIsNaN oprSz a .| fpIsNaN oprSz b
+  else fpIsSignalling bld oprSz a .| fpIsSignalling bld oprSz b
+
+/// Whether either operand is a NaN this guest reads as signalling, which is
+/// the one thing an operation that does not round can still raise.
+let fpEitherSignalling bld oprSz a b =
+  fpIsSignalling bld oprSz a .| fpIsSignalling bld oprSz b
+
+/// Whether the value was changed by being rounded to an integer, which is
+/// what RINT can lose. An operand that is already one loses nothing whichever
+/// direction the rounding goes in.
+let fpRoundChanged bld oprSz src result =
+  AST.not (fpIsNaN oprSz src .| fpIsInfinite oprSz src) .& (result != src)
+
+/// <summary>
+/// What a FUSED multiply-add raised.
+///
+/// It is one operation with one rounding, so it is not the union of a
+/// multiply's exceptions and an add's -- an intermediate product that would
+/// have overflowed on its own does not overflow here, because there is no
+/// intermediate product. What it can lose is the single rounding at the end,
+/// and finding out whether it did means the exact value of a times b plus d,
+/// which no format holds.
+///
+/// It is held as a sum of pieces instead. The product is exact as p plus its
+/// own error, which a multiply-add recovers; adding d to p is exact as s plus
+/// the error Knuth's two-sum gives; and the answer is the rounding of those
+/// three together. So the error of the whole is what is left after taking the
+/// answer off the largest piece, plus the two small ones -- and s and the
+/// answer are within one step of each other, which makes that subtraction
+/// exact.
+/// </summary>
+let fpExceptionsFused bld oprSz negProduct src1 src2 addend result =
+  let struct (invalid, overflow, underflow) = tmpVars3 bld 1<rt>
+  let struct (inexact, finiteIn) = tmpVars2 bld 1<rt>
+  let struct (a, p, pe) = tmpVars3 bld oprSz
+  let struct (s, bb, se) = tmpVars3 bld oprSz
+  let err = tmpVar bld oprSz
+  let b, d = src2, addend
+  let anyNaN =
+    fpIsNaN oprSz src1 .| fpIsNaN oprSz b .| fpIsNaN oprSz d
+  let anyInf =
+    fpIsInfinite oprSz src1 .| fpIsInfinite oprSz b .| fpIsInfinite oprSz d
+  append bld {
+    (* Subtracting the product is asked for by flipping the multiplicand's
+       sign, which is safe here because a NaN operand never reaches the
+       arithmetic below: everything it decides is gated on there being none. *)
+    a :=
+      if negProduct then src1 <+> signBitOfWidth oprSz else src1
+    finiteIn := AST.not (anyNaN .| anyInf)
+    invalid :=
+      fpIsSignalling bld oprSz src1 .| fpIsSignalling bld oprSz b
+      .| fpIsSignalling bld oprSz d
+      .| (fpIsNaN oprSz result .& AST.not anyNaN)
+    overflow :=
+      AST.not invalid .& finiteIn .& fpIsInfinite oprSz result
+    p := AST.fmul a b
+    pe := fma oprSz false true a b p
+    s := AST.fadd p d
+    bb := AST.fsub s p
+    se := AST.fadd (AST.fsub p (AST.fsub s bb)) (AST.fsub d bb)
+    err := AST.fadd (AST.fadd (AST.fsub s result) se) pe
+    inexact :=
+      AST.not invalid .& finiteIn
+      .& (overflow
+          .| ((err .& magnitudeOfWidth oprSz) != AST.num0 oprSz))
+    underflow :=
+      inexact .& AST.not overflow
+      .& (biasedExponent oprSz result == AST.num0 oprSz)
+  }
+  fpRecord bld (fpBits invalid fpNone overflow underflow inexact)
+
+/// What an operation raises where rounding is all it can lose: Invalid for a
+/// signalling operand and Inexact for a result that was rounded. Nothing it
+/// answers can overflow or be denormal, so the other three cannot happen.
+let fpExceptionsRounded bld invalid inexact =
+  fpRecord bld (fpBits invalid fpNone fpNone fpNone inexact)
+
+/// <summary>
+/// What an operation raises where the only thing it can raise is Invalid.
+///
+/// The comparisons are the family: they answer a condition rather than a
+/// number, so nothing is rounded and nothing overflows, and the one thing
+/// that can go wrong is being asked to order a NaN. A signalling one always
+/// signals; a quiet one signals only where the predicate is one of the
+/// signalling half, which is what the manual's ordered conditions are.
+/// </summary>
+let fpExceptionsInvalidOnly bld invalid =
+  fpRecord bld (fpBits invalid fpNone fpNone fpNone fpNone)

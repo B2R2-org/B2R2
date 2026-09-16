@@ -39,14 +39,19 @@ open B2R2.Assembly.MIPS.AsmField
 /// The five bits above the registers, which say the format the operands of an
 /// instruction of the first space are read in.
 ///
-/// Only the two kinds of floating-point number are named here: a fixed-point
-/// one is something the unit converts to and from rather than works on, so
-/// every instruction but a conversion leaves those two out.
+/// Only the kinds of floating-point number are named here: a fixed-point one
+/// is something the unit converts to and from rather than works on, so every
+/// instruction but a conversion leaves those out.
+///
+/// The paired single is a third kind. It is two single-precision numbers in
+/// one register, and the instructions that read it are the ones whose
+/// function field it shares with S and D.
 /// </summary>
 let private floatFormat ins =
   match ins.Fmt with
   | Some FPRFormat.S -> 0b10000u
   | Some FPRFormat.D -> 0b10001u
+  | Some FPRFormat.PS -> 0b10110u
   | Some fmt -> fail $"{ins.Opcode} is not read in the {fmt} format"
   | None -> fail $"{ins.Opcode} is written with the format it reads"
 

@@ -46,6 +46,35 @@ let condToString = function
   | Condition.NGT -> ".ngt"
   | _ -> raise ParsingFailureException
 
+/// <summary>
+/// The names Release 6 gives the same sixteen conditions when CMP.cond.fmt
+/// writes them.
+///
+/// The encodings are the ones above and so are the meanings; only the
+/// spelling differs. Three of the quiet eight lose a letter that said which
+/// way an unordered comparison went -- OLT is LT here -- and all eight of the
+/// signalling ones are named for the predicate they signal on rather than for
+/// the one they deny.
+/// </summary>
+let r6CondToString = function
+  | Condition.F -> ".af"
+  | Condition.UN -> ".un"
+  | Condition.EQ -> ".eq"
+  | Condition.UEQ -> ".ueq"
+  | Condition.OLT -> ".lt"
+  | Condition.ULT -> ".ult"
+  | Condition.OLE -> ".le"
+  | Condition.ULE -> ".ule"
+  | Condition.SF -> ".saf"
+  | Condition.NGLE -> ".sun"
+  | Condition.SEQ -> ".seq"
+  | Condition.NGL -> ".sueq"
+  | Condition.LT -> ".slt"
+  | Condition.NGE -> ".sult"
+  | Condition.LE -> ".sle"
+  | Condition.NGT -> ".sule"
+  | _ -> raise ParsingFailureException
+
 let fmtToString = function
   | Fmt.S -> ".s"
   | Fmt.D -> ".d"
@@ -419,6 +448,7 @@ let opCodeToString = function
 let inline appendCond (ins: Instruction) opcode =
   match ins.Condition with
   | None -> opcode
+  | Some c when ins.Opcode = Op.CMP -> opcode + r6CondToString c
   | Some c -> opcode + condToString c
 
 let inline appendFmt (ins: Instruction) opcode =
