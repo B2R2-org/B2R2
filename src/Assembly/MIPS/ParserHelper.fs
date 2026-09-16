@@ -136,6 +136,7 @@ let private irregularNames =
     Opcode.TRUNCL, "trunc.l"
     Opcode.TRUNCW, "trunc.w"
     Opcode.JALRHB, "jalr.hb"
+    Opcode.JALRSHB, "jalrs.hb"
     Opcode.JRHB, "jr.hb"
     (* The paired-single names carry the format in the name rather than in a
        suffix, because neither half of a pair is written in any other format
@@ -243,6 +244,17 @@ let decomposeMnemonic (mnemonic: string) =
       | Some(opcode, Some(cond, fmt)) -> Some(opcode, cond, fmt)
       | Some(_, None) | None -> tryPrefix (length - 1)
   tryPrefix parts.Length
+
+/// <summary>
+/// Whether the instruction names a whole list of registers rather than one.
+///
+/// The list is written as the registers one after another, so how many
+/// operands the instruction has depends on how many are in it, and the
+/// opcode is what says to read them as one operand instead of several.
+/// </summary>
+let takesRegList = function
+  | Opcode.LWM | Opcode.SWM | Opcode.LDM | Opcode.SDM -> true
+  | _ -> false
 
 /// <summary>
 /// Whether the instruction names a place, which is the operand the

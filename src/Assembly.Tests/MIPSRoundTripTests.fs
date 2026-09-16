@@ -91,6 +91,37 @@ type MIPSRoundTripTests() =
 
   static let assembler64 = Assembler(isa64, 0UL) :> ILowerable
 
+  /// The second encoding of the same instruction set. It is the same text
+  /// over a different word, so everything above the encoder is shared and
+  /// what a sweep of it adds is the word underneath.
+  static let isaMicro =
+    ISA(
+      Architecture.MIPS,
+      Endian.Little,
+      WordSize.Bit64,
+      int MIPSISAMode.MicroMIPS
+    )
+
+  static let assemblerMicro = Assembler(isaMicro, 0UL) :> ILowerable
+
+  static let parserMicro =
+    MIPSParser(isaMicro, BinReader.Init Endian.Little)
+    :> IInstructionParsable
+
+  static let isaMicroR6 =
+    ISA(
+      Architecture.MIPS,
+      Endian.Little,
+      WordSize.Bit64,
+      int MIPSISAMode.MicroMIPS ||| int MIPSRelease.R6
+    )
+
+  static let assemblerMicroR6 = Assembler(isaMicroR6, 0UL) :> ILowerable
+
+  static let parserMicroR6 =
+    MIPSParser(isaMicroR6, BinReader.Init Endian.Little)
+    :> IInstructionParsable
+
   static let disasm (parser: IInstructionParsable) (bytes: byte[]) =
     (parser.Parse(bytes, 0UL)).Disasm()
 
@@ -124,6 +155,11 @@ type MIPSRoundTripTests() =
 
   /// The same sweep over the Release 6 encoding space.
   static let sweepProbesR6 = lazy (MIPSSweep.probesR6 ())
+
+  /// The same again over the microMIPS encoding space, at both releases.
+  static let sweepProbesMicro = lazy (MicroMIPSSweep.probes ())
+
+  static let sweepProbesMicroR6 = lazy (MicroMIPSSweep.probesR6 ())
 
   /// What the decoder of the other word size makes of a probe, which differs
   /// from what the sweep recorded only in how the registers are named.
@@ -414,5 +450,47 @@ type MIPSRoundTripTests() =
       match assembler32.Lower "  nop\n  addiu v0, v1, 0x1" with
       | Ok [ _; _ ] -> ()
       | Ok _ | Error _ -> Assert.Fail $"'{bad}' left the assembler unusable"
+
+  /// <summary>
+  /// The same rule over the second encoding: anything the microMIPS decoder
+  /// decodes, the assembler encodes to a word meaning the same.
+  /// </summary>
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every microMIPS instruction the decoder decodes encodes``() =
+    let probes = sweepProbesMicro.Force()
+    let broken =
+      probes
+      |> List.choose (fun probe ->
+        brokenSource assemblerMicro parserMicro probe.Text)
+      |> List.distinct
+      |> List.sort
+    printfn "MICROMIPS-SWEPT(%d) UNENCODABLE(%d):\n%s"
+      (List.length probes) (List.length broken) (String.concat "\n" broken)
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      "These microMIPS instructions do not encode, or mean something else."
+    )
+
+  /// The same over the Release 6 microMIPS encoding space, which is a
+  /// different space rather than an extension of this one.
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every Release 6 microMIPS instruction encodes``() =
+    let probes = sweepProbesMicroR6.Force()
+    let broken =
+      probes
+      |> List.choose (fun probe ->
+        brokenSource assemblerMicroR6 parserMicroR6 probe.Text)
+      |> List.distinct
+      |> List.sort
+    printfn "MICROMIPS-R6-SWEPT(%d) UNENCODABLE(%d):\n%s"
+      (List.length probes) (List.length broken) (String.concat "\n" broken)
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      "These Release 6 microMIPS instructions do not encode, or differ."
+    )
 
 // vim: set tw=80 sts=2 sw=2:

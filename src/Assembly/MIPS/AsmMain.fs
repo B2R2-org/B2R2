@@ -37,7 +37,11 @@ type UserState =
     /// from zero, and a label does not take one of its own.
     LabelMap: Map<string, int>
     /// Index of the instruction being parsed, which a label does not change.
-    CurIndex: int }
+    CurIndex: int
+    /// Address of the instruction being parsed. The older encoding could
+    /// multiply the index by four to get it; microMIPS cannot, an
+    /// instruction there being two bytes or four.
+    CurAddr: Addr }
 
 /// <summary>
 /// Adds a table of encoders to another, keeping what was already there for the
@@ -95,10 +99,10 @@ let buildEncoderTable (release: MIPSRelease) =
 
 /// Resolves a label to the address of the instruction it marks. A label that
 /// was never defined is a mistake in the source, not a lookup that failed.
-let private findLabel state (baseAddr: Addr) lbl count =
+let private findLabel state (addresses: Addr[]) lbl count =
   match Map.tryFind lbl state.LabelMap with
   | Some index when index <= count ->
-    baseAddr + uint64 (index * 4)
+    addresses[index]
   | Some _ | None ->
     raise <| EncodingFailureException $"Undefined label '{lbl}'"
 
@@ -110,11 +114,11 @@ let private findLabel state (baseAddr: Addr) lbl count =
 /// here and a jump holds which word of the region it sits in the place is, so
 /// the two are one operand read at different times.
 /// </summary>
-let private resolveLabels state baseAddr count index ins =
-  let pc = baseAddr + uint64 (index * 4)
+let private resolveLabels state (addresses: Addr[]) count index ins =
+  let pc = addresses[index]
   let resolve = function
     | GoToLabel lbl ->
-      let target = findLabel state baseAddr lbl count
+      let target = findLabel state addresses lbl count
       if namesRegion ins.Opcode then OpImm(region pc target)
       else OpAddr(Relative(int64 (target - pc)))
     | operand ->
@@ -129,21 +133,42 @@ let private encodeInstruction (encoders: Map<_, _>) ins =
   | None ->
     raise <| EncodingFailureException $"{ins.Opcode} is not supported yet"
 
-/// The bytes of an encoded instruction, in the order the given endianness
-/// stores them.
-let private toBytes endian (word: uint32) =
+/// <summary>
+/// The bytes of an encoded instruction of the older encoding, in the order
+/// the given endianness stores them. The length is what the caller worked
+/// out and is always four here, so it goes unread.
+/// </summary>
+let toBytes endian (_length: int) (word: uint32) =
   let bytes = System.BitConverter.GetBytes word
   if endian = Endian.Big then Array.rev bytes else bytes
 
 /// <summary>
-/// Assembles a whole source. Every MIPS instruction is one word long, so where
-/// each of them sits follows from counting the ones before it, and how far
-/// away a label is can be worked out before anything is encoded.
+/// Where each instruction of a source sits, and where the end of it is.
+///
+/// The array holds one address per instruction plus one for the place after
+/// the last, which is the address a label written below everything marks. An
+/// instruction is four bytes in the older encoding and two or four in
+/// microMIPS, so this is a running total rather than a multiplication.
 /// </summary>
-let assemble (encoders: Lazy<_>) state endian baseAddr instrs =
+let private addressesOf sizeOf (baseAddr: Addr) instrs =
+  let mutable next = baseAddr
+  [| for ins in instrs do
+       yield next
+       next <- next + uint64 (sizeOf ins)
+     yield next |]
+
+/// <summary>
+/// Assembles a whole source.
+///
+/// How long an instruction is follows from what it is rather than from what
+/// its operands turned out to be, so where everything sits is known before
+/// anything is encoded and a label can be resolved in one pass.
+/// </summary>
+let assemble (encoders: Lazy<_>) state endian baseAddr sizeOf toBytes instrs =
   let count = List.length instrs
+  let addresses = addressesOf sizeOf baseAddr instrs
   instrs
   |> List.mapi (fun index ins ->
-    resolveLabels state baseAddr count index ins
+    resolveLabels state addresses count index ins
     |> encodeInstruction encoders.Value
-    |> toBytes endian)
+    |> toBytes endian (sizeOf ins))
