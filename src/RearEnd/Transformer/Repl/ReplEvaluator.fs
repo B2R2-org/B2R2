@@ -257,6 +257,145 @@ module TransformerReplEvaluator =
     let stringMatch: StringMatch = stringMatch
     [ stringMatch.ToString() ]
 
+  let private formatBytes address (bytes: byte[]) =
+    let hex = bytes |> Array.map (sprintf "%02x") |> String.concat " "
+    let ascii =
+      bytes
+      |> Array.map (fun byte ->
+        if byte >= 0x20uy && byte <= 0x7euy then char byte else '.')
+      |> String
+    $"0x{address:x}: {hex}  {ascii}"
+
+  let private renderRegisterView view =
+    let view: RegisterView = view
+    let lines =
+      view.Registers
+      |> Array.map (fun reg -> $"  {reg.Name}= {reg.Value}")
+      |> Array.toList
+    $"registers pc=0x{view.PC:x}" :: lines
+
+  let private renderMemoryView view =
+    let view: MemoryView = view
+    [ "memory"
+      $"  {formatBytes view.Address view.Bytes}" ]
+
+  let private renderMemoryDiff diff =
+    let diff: MemoryDiff = diff
+    match diff.Before, diff.After with
+    | Some before, Some after when before = after ->
+      [ $"  unchanged {formatBytes diff.Address after}" ]
+    | Some before, Some after ->
+      [ $"  before {formatBytes diff.Address before}"
+        $"  after  {formatBytes diff.Address after}" ]
+    | Some before, None ->
+      [ $"  before {formatBytes diff.Address before}"
+        "  after  <unreadable>" ]
+    | None, Some after ->
+      [ "  before <unreadable>"
+        $"  after  {formatBytes diff.Address after}" ]
+    | None, None ->
+      [ "  before <unreadable>"
+        "  after  <unreadable>" ]
+
+  let private renderAccessBytes label addr bytes =
+    match bytes with
+    | Some bytes -> $"    {label} {formatBytes addr bytes}"
+    | None -> $"    {label} <unreadable>"
+
+  let private renderMemoryAccess access =
+    let access: MemoryAccess = access
+    let head =
+      match access.Kind with
+      | MemoryAccessKind.Read ->
+        $"  read  at 0x{access.Instruction:x}"
+      | MemoryAccessKind.Write ->
+        $"  write at 0x{access.Instruction:x}"
+    let head =
+      head + $" addr=0x{access.Address:x} size={access.Size}"
+    match access.Kind with
+    | MemoryAccessKind.Read ->
+      [ head
+        renderAccessBytes "value " access.Address access.After ]
+    | MemoryAccessKind.Write ->
+      [ head
+        renderAccessBytes "before" access.Address access.Before
+        renderAccessBytes "after " access.Address access.After ]
+
+  let private renderTrace trace =
+    let trace: ExecutionTrace = trace
+    let header =
+      [ $"trace {trace.InstructionCount} executed instructions"
+        $"  attempted: {trace.Instructions.Length}"
+        $"  start: 0x{trace.Start:x}"
+        $"  final-pc: 0x{trace.FinalPC:x}" ]
+    let instructions =
+      trace.Instructions
+      |> Array.map (fun ins ->
+        $"  0x{ins.Address:x}: {ins.Disassembly}")
+      |> Array.toList
+    let registers =
+      if Array.isEmpty trace.RegisterDiffs then
+        [ "registers: no visible changes" ]
+      else
+        "registers:"
+        :: (trace.RegisterDiffs |> Array.toList |> List.map (fun line ->
+          "  " + line))
+    let accesses =
+      if Array.isEmpty trace.MemoryAccesses then
+        [ "memory accesses: none" ]
+      else
+        "memory accesses:"
+        :: (trace.MemoryAccesses |> Array.toList |> List.collect
+          renderMemoryAccess)
+    let watch =
+      if Array.isEmpty trace.MemoryDiffs then []
+      else
+        "memory watch:"
+        :: (trace.MemoryDiffs |> Array.toList |> List.collect
+          renderMemoryDiff)
+    let stops =
+      if Array.isEmpty trace.StopReasons then []
+      else "stop-reasons:" :: (trace.StopReasons |> Array.toList
+        |> List.map (fun reason -> "  " + reason))
+    header @ instructions @ registers @ accesses @ watch @ stops
+
+  let private renderRequirements needs =
+    let needs: ContextRequirements = needs
+    let target =
+      match needs.EndAddress, needs.Count with
+      | Some finish, _ -> $"0x{needs.Start:x}-0x{finish:x}"
+      | None, Some count -> $"0x{needs.Start:x} count={count}"
+      | None, None -> $"0x{needs.Start:x}"
+    let header =
+      [ $"context requirements for {target}"
+        $"  registers: {needs.Registers.Length}"
+        $"  memory: {needs.Memory.Length}" ]
+    let registers =
+      if Array.isEmpty needs.Registers then
+        [ "required registers: none" ]
+      else
+        "required registers:"
+        :: (needs.Registers |> Array.toList |> List.map (fun item ->
+          $"  {item.Name} read at 0x{item.Address:x}  {item.Disassembly}"
+          + $"  => @set-reg name={item.Name} value=<value>"))
+    let memory =
+      if Array.isEmpty needs.Memory then
+        [ "required memory: none" ]
+      else
+        "required memory:"
+        :: (needs.Memory |> Array.toList |> List.map (fun item ->
+          match item.Address with
+          | Some addr ->
+            $"  0x{addr:x} size={item.Size} at 0x{item.At:x}"
+            + $"  => @mem write addr=0x{addr:x} bytes=<hex>"
+          | None ->
+            $"  <unknown> size={item.Size} at 0x{item.At:x}"
+            + $"  ({item.Reason})"))
+    header @ registers @ memory
+
+  let private renderAddressValue (value: AddressValue) =
+    [ $"0x{value.Address:x}" ]
+
   let private ansiOfColor = function
     | NoColor -> ""
     | Red -> "\x1b[31m"
@@ -308,6 +447,18 @@ module TransformerReplEvaluator =
       renderFunction fn
     | :? StringMatch as stringMatch ->
       renderStringMatch stringMatch
+    | :? RegisterView as view ->
+      renderRegisterView view
+    | :? MemoryView as view ->
+      renderMemoryView view
+    | :? ExecutionTrace as trace ->
+      renderTrace trace
+    | :? ContextRequirements as needs ->
+      renderRequirements needs
+    | :? AddressValue as value ->
+      renderAddressValue value
+    | :? ConcExecutorValue as executor ->
+      executor.SummaryLines
     | :? Array as values ->
       let header = $"{value.GetType().GetElementType().Name} array"
       let header = $"{header} ({values.Length} values)"
@@ -372,7 +523,7 @@ module TransformerReplEvaluator =
     | None -> description
 
   let private suggestions registry kind =
-    let actions = ActionRegistry.getCompatible kind registry
+    let actions = ActionRegistry.getApplicable kind registry
     if List.isEmpty actions || kind = ReplValueKind.Unit then []
     else "Available next actions:" :: List.map formatAction actions
 
@@ -476,9 +627,6 @@ module TransformerReplEvaluator =
         File.Exists value || Directory.Exists value, "an existing path"
       | ActionArgumentKind.OutputPath ->
         isPath value, "a valid output path"
-      | ActionArgumentKind.PathOrHex ->
-        File.Exists value || Directory.Exists value || isHexString value,
-        "an existing path or even-length hexadecimal bytes"
       | ActionArgumentKind.ISA ->
         isISA value, "a supported ISA name"
       | ActionArgumentKind.Integer ->
@@ -520,6 +668,54 @@ module TransformerReplEvaluator =
       if String.IsNullOrWhiteSpace key then None
       else Some(key.ToLowerInvariant(), annotation, value)
 
+  let private bindingText (state: TransformerReplState) name =
+    state.Bindings
+    |> Map.tryFind name
+    |> Option.bind (fun value ->
+      match value.Collection.Values with
+      | [| :? AddressValue as value |] -> Some $"0x{value.Address:x}"
+      | [| :? int as value |] -> Some(string value)
+      | [| :? string as value |] -> Some value
+      | _ -> None)
+
+  let private resolveAssignmentValue state (token: string) =
+    let index = token.IndexOf '='
+    if index <= 0 then token
+    else
+      let lhs = token[..index - 1].Trim()
+      let rhs = token[index + 1..].Trim()
+      let lhs = bindingText state lhs |> Option.defaultValue lhs
+      let rhs = bindingText state rhs |> Option.defaultValue rhs
+      lhs + "=" + rhs
+
+  let private resolveArgumentBindings state args =
+    args |> List.map (resolveAssignmentValue state)
+
+  let private joinBracketValue opener rest =
+    let rec loop depth output = function
+      | [] -> None
+      | token :: tail ->
+        let depth = InputAnalysis.updateDepth depth token
+        let output = token :: output
+        if depth = 0 then
+          Some(List.rev output, tail)
+        else
+          loop depth output tail
+    loop 1 [ opener ] rest
+
+  let private compactBracketArguments args =
+    let rec loop output = function
+      | token :: "[" :: rest
+          when token.EndsWith("=", StringComparison.Ordinal) ->
+        match joinBracketValue "[" rest with
+        | Some(value, tail) ->
+          let value = value |> String.concat " "
+          loop ((token + value) :: output) tail
+        | None -> (List.rev output) @ (token :: "[" :: rest)
+      | token :: rest -> loop (token :: output) rest
+      | [] -> List.rev output
+    loop [] args
+
   let private typeAliases argument =
     let argument: ActionArgument = argument
     let primary = ActionMetadata.argumentKindName argument.Kind
@@ -529,7 +725,6 @@ module TransformerReplEvaluator =
       | ActionArgumentKind.Path
       | ActionArgumentKind.ExistingPath
       | ActionArgumentKind.OutputPath
-      | ActionArgumentKind.PathOrHex
       | ActionArgumentKind.ISA
       | ActionArgumentKind.Section
       | ActionArgumentKind.Action
@@ -562,10 +757,18 @@ module TransformerReplEvaluator =
     |> Result.map (fun parsed ->
       { parsed with Positional = List.rev parsed.Positional })
 
-  let private triggerKeys = [ "operation"; "op"; "action" ]
-
   let private equalsIgnoreCase left right =
     String.Equals(left, right, StringComparison.OrdinalIgnoreCase)
+
+  let private positionalArgumentsAllowed parsed syntax =
+    let parsed: ParsedArguments = parsed
+    let syntax: ActionSyntax = syntax
+    let positional = parsed.Positional
+    let arguments = List.truncate (List.length positional) syntax.Arguments
+    List.length arguments = List.length positional
+    && arguments
+       |> List.forall (fun argument ->
+         argument.Kind = ActionArgumentKind.Action)
 
   let private tryTakeTrigger parsed syntax =
     let syntax: ActionSyntax = syntax
@@ -575,13 +778,7 @@ module TransformerReplEvaluator =
       match parsed.Positional with
       | actual :: rest when equalsIgnoreCase actual expected ->
         Some { parsed with Positional = rest }
-      | _ ->
-        triggerKeys
-        |> List.tryFind (fun key ->
-          Map.tryFind key parsed.Named
-          |> Option.exists (fun (_, value) -> equalsIgnoreCase value expected))
-        |> Option.map (fun key ->
-          { parsed with Named = Map.remove key parsed.Named })
+      | _ -> None
 
   let private tryFindNamed named argument =
     ActionMetadata.argumentKeys argument
@@ -624,7 +821,10 @@ module TransformerReplEvaluator =
       | None -> args
     tryTakeTrigger parsed syntax
     |> Option.map (fun parsed ->
-      if Map.isEmpty parsed.Named then
+      if not (List.isEmpty parsed.Positional)
+         && not (positionalArgumentsAllowed parsed syntax) then
+        Error "positional arguments are not supported; use name=value."
+      elif Map.isEmpty parsed.Named then
         Ok
           { Syntax = syntax
             Arguments = addTrigger parsed.Positional
@@ -762,10 +962,7 @@ module TransformerReplEvaluator =
   let private parseBatchAction tokens =
     parseArguments tokens
     |> Result.bind (fun parsed ->
-      let named =
-        [ "action"; "operation"; "op" ]
-        |> List.tryPick (fun name ->
-          Map.tryFind name parsed.Named |> Option.map snd)
+      let named = Map.tryFind "action" parsed.Named |> Option.map snd
       match named, parsed.Positional with
       | Some action, [] -> Ok action
       | None, [ action ] -> Ok action
@@ -816,7 +1013,7 @@ module TransformerReplEvaluator =
       Error "batch params must be a function: fun item index -> ..."
 
   let private parseBatchSpec args =
-    match tryTakeNamedParameter [ "params"; "parameters" ] args with
+    match tryTakeNamedParameter [ "params" ] args with
     | Some(actionTokens, parameterTokens) ->
       parseBatchAction actionTokens
       |> Result.bind (fun action ->
@@ -933,9 +1130,9 @@ module TransformerReplEvaluator =
     cancellationToken.ThrowIfCancellationRequested()
     collection
 
-  let rec private invoke registry (registered: RegisteredAction)
-                         (input: ReplValue) (segment: ReplPipelineSegment)
-                         cancellationToken =
+  let rec private invoke registry state (registered: RegisteredAction)
+                          (input: ReplValue) (segment: ReplPipelineSegment)
+                          cancellationToken =
     let metadata = registered.Metadata
     if metadata.ID = "print" then
       Error "The print action is unavailable in the REPL; use :show instead."
@@ -957,12 +1154,29 @@ module TransformerReplEvaluator =
       | _ ->
         Error $"{metadata.ID} expects {expected}, but received {actual}."
     elif metadata.ID = "batch" then
-      invokeBatch registry input segment cancellationToken
+      invokeBatch registry state input segment cancellationToken
+    elif metadata.ID = "set-context" then
+      let args =
+        segment.Arguments
+        |> resolveArgumentBindings state
+        |> compactBracketArguments
+      let segment = { segment with Arguments = args }
+      try
+        transform registered input segment cancellationToken
+        |> ReplValue.ofCollection ReplValueKind.ConcExecutor
+        |> Ok
+      with
+      | :? OperationCanceledException -> reraise ()
+      | error -> Error error.Message
     else
-      validateArguments input metadata segment.Arguments
+      let args =
+        segment.Arguments
+        |> resolveArgumentBindings state
+        |> compactBracketArguments
+      validateArguments input metadata args
       |> Result.bind (fun normalizedArgs ->
       try
-        let rawArgs = segment.Arguments
+        let rawArgs = args
         let segment = { segment with Arguments = normalizedArgs }
         let outputKind =
           ActionMetadata.outputForArguments metadata (Some input.Kind)
@@ -974,7 +1188,7 @@ module TransformerReplEvaluator =
       | :? OperationCanceledException -> reraise ()
       | error -> Error error.Message)
 
-  and private invokeBatch registry input segment cancellationToken =
+  and private invokeBatch registry state input segment cancellationToken =
     let output = ResizeArray<obj>()
     let outputKinds = ResizeArray<ReplValueKind>()
     parseBatchSpec segment.Arguments
@@ -1001,8 +1215,10 @@ module TransformerReplEvaluator =
               let segment =
                 { Head = ActionMetadata.actionName registered.Metadata.ID
                   Arguments = arguments }
-              match invoke registry registered (singletonValue item) segment
-                      cancellationToken with
+              match
+                invoke registry state registered (singletonValue item) segment
+                  cancellationToken
+              with
               | Error message ->
                 Error $"batch item {index}: {message}"
               | Ok value ->
@@ -1091,14 +1307,14 @@ module TransformerReplEvaluator =
     | _ ->
       Ok None
 
-  let private runRemaining registry initial segments cancellationToken =
+  let private runRemaining registry state initial segments cancellationToken =
     segments
     |> List.fold (fun result segment ->
       result
       |> Result.bind (fun input ->
         match tryFindAction registry segment.Head with
         | Some registered ->
-          invoke registry registered input segment cancellationToken
+          invoke registry state registered input segment cancellationToken
         | None ->
           Error $"Unknown action: {actionID segment.Head}")) (Ok initial)
 
@@ -1112,7 +1328,7 @@ module TransformerReplEvaluator =
       match tryLiteral state evalElement first with
       | Error message -> Error message
       | Ok(Some value) ->
-        runRemaining registry value rest cancellationToken
+        runRemaining registry state value rest cancellationToken
       | Ok None ->
         let binding =
           if isActionReference first.Head || not (List.isEmpty first.Arguments)
@@ -1120,7 +1336,7 @@ module TransformerReplEvaluator =
           else TransformerReplState.tryFind first.Head state
         match binding with
         | Some value ->
-          runRemaining registry value rest cancellationToken
+          runRemaining registry state value rest cancellationToken
         | None ->
           match tryFindAction registry first.Head with
           | Some registered ->
@@ -1134,9 +1350,9 @@ module TransformerReplEvaluator =
                   $"{registered.Metadata.ID} requires a current value."
             input
             |> Result.bind (fun value ->
-              invoke registry registered value first cancellationToken)
+              invoke registry state registered value first cancellationToken)
             |> Result.bind (fun value ->
-              runRemaining registry value rest cancellationToken)
+              runRemaining registry state value rest cancellationToken)
           | None ->
             Error $"Unknown value or action: {first.Head}"
 
@@ -1239,6 +1455,52 @@ module TransformerReplEvaluator =
           $"{index + 1}: {item.Label}  {item.Detail}  => {command}")
         |> continueWith state
 
+  let private normalizeNeedsArguments state args =
+    let args = args |> resolveArgumentBindings state |> compactBracketArguments
+    match parseArguments args with
+    | Error message -> Error message
+    | Ok parsed when not (List.isEmpty parsed.Positional) ->
+      Error ":needs only accepts named parameters after the executor name."
+    | Ok parsed ->
+      let allowed = set [ "start"; "count"; "end" ]
+      let unknown =
+        parsed.Named
+        |> Map.toList
+        |> List.map fst
+        |> List.filter (fun name -> not (Set.contains name allowed))
+      match unknown with
+      | name :: _ -> Error $"Unknown :needs parameter: {name}"
+      | [] ->
+        let find name = Map.tryFind name parsed.Named |> Option.map snd
+        match find "start", find "count", find "end" with
+        | None, None, None -> Ok []
+        | None, Some count, None -> Ok [ count ]
+        | Some start, Some count, None -> Ok [ start; count ]
+        | Some start, None, Some finish -> Ok [ start; finish ]
+        | Some start, None, None -> Ok [ start; "1" ]
+        | None, _, Some _ -> Error ":needs end= requires start=."
+        | Some _, Some _, Some _ ->
+          Error ":needs accepts either count= or end=, not both."
+
+  let private needs state name args =
+    match TransformerReplState.tryFind name state with
+    | None ->
+      fail state $"Unknown binding: {name}"
+    | Some value ->
+      match value.Collection.Values with
+      | [| :? ConcExecutorValue as executor |] ->
+        match normalizeNeedsArguments state args with
+        | Error message -> fail state message
+        | Ok args ->
+          try
+            let requirements = executor.Needs args
+            let state = TransformerReplState.setLastNeeds requirements state
+            continueWith state (renderRequirements requirements)
+          with error ->
+            fail state error.Message
+      | _ ->
+        fail state $":needs expects a ConcExecutor binding: {name}"
+
   let private restore state id name command =
     match TransformerReplState.restoreValue id name state with
     | Error message ->
@@ -1340,6 +1602,7 @@ module TransformerReplEvaluator =
       "  let <name> = <value> |> @<action> [argument ...]"
       "  <expression>          evaluate without binding"
       "  :inspect [name]       list selectable functions and sections"
+      "  :needs <ctx> [k=v]    list required concrete context"
       "  :values               list retained value history"
       "  :restore <id> [as n]  restore a historical value"
       "  :undo                 undo the last value-producing command"
@@ -1437,6 +1700,8 @@ module TransformerReplEvaluator =
       exportValue state name path
     | Ok(Inspect name) ->
       inspect state name
+    | Ok(Needs(name, args)) ->
+      needs state name args
     | Ok(Restore(id, name)) ->
       restore state id name input
     | Ok(SaveScript path) ->

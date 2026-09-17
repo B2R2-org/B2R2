@@ -41,6 +41,11 @@ type ReplValueKind =
   | Fingerprint
   | ClusterResult
   | ConcExecutor
+  | RegisterView
+  | MemoryView
+  | ExecutionTrace
+  | ContextRequirements
+  | Address
   | Range
   | StringMatch
   | SectionInfo
@@ -69,7 +74,6 @@ type ActionArgumentKind =
   | Path
   | ExistingPath
   | OutputPath
-  | PathOrHex
   | ISA
   | Integer
   | Float
@@ -123,7 +127,7 @@ type RegisteredAction =
 type ActionRegistry =
   { Actions: Map<string, RegisteredAction>
     AllSorted: RegisteredAction list
-    Compatible: Map<ReplValueKind, RegisteredAction list> }
+    Applicable: Map<ReplValueKind, RegisteredAction list> }
 
 module ReplValueKind =
   let rec toString kind =
@@ -142,6 +146,11 @@ module ReplValueKind =
     | ReplValueKind.Fingerprint -> "Fingerprint"
     | ReplValueKind.ClusterResult -> "ClusterResult"
     | ReplValueKind.ConcExecutor -> "ConcExecutor"
+    | ReplValueKind.RegisterView -> "RegisterView"
+    | ReplValueKind.MemoryView -> "MemoryView"
+    | ReplValueKind.ExecutionTrace -> "ExecutionTrace"
+    | ReplValueKind.ContextRequirements -> "ContextRequirements"
+    | ReplValueKind.Address -> "Address"
     | ReplValueKind.Range -> "Range"
     | ReplValueKind.StringMatch -> "StringMatch"
     | ReplValueKind.SectionInfo -> "SectionInfo"
@@ -166,6 +175,11 @@ module ReplValueKind =
       ReplValueKind.Fingerprint
       ReplValueKind.ClusterResult
       ReplValueKind.ConcExecutor
+      ReplValueKind.RegisterView
+      ReplValueKind.MemoryView
+      ReplValueKind.ExecutionTrace
+      ReplValueKind.ContextRequirements
+      ReplValueKind.Address
       ReplValueKind.Range
       ReplValueKind.StringMatch
       ReplValueKind.SectionInfo
@@ -238,7 +252,6 @@ module ActionMetadata =
     | ActionArgumentKind.Path -> "Path"
     | ActionArgumentKind.ExistingPath -> "Path"
     | ActionArgumentKind.OutputPath -> "Path"
-    | ActionArgumentKind.PathOrHex -> "PathOrHex"
     | ActionArgumentKind.ISA -> "ISA"
     | ActionArgumentKind.Integer -> "Int"
     | ActionArgumentKind.Float -> "Float"
@@ -256,12 +269,11 @@ module ActionMetadata =
     | ActionArgumentKind.Path
     | ActionArgumentKind.ExistingPath
     | ActionArgumentKind.OutputPath -> "path"
-    | ActionArgumentKind.PathOrHex -> "path-or-hex"
     | ActionArgumentKind.ISA -> "isa"
     | ActionArgumentKind.Integer -> "n"
     | ActionArgumentKind.Float -> "n"
     | ActionArgumentKind.HexPattern -> "hex-pattern"
-    | ActionArgumentKind.HexBytes -> "hex-bytes"
+    | ActionArgumentKind.HexBytes -> "hex"
     | ActionArgumentKind.Address -> "addr"
     | ActionArgumentKind.AddressOrSize -> "addr-or-size"
     | ActionArgumentKind.Section -> "section"
@@ -326,28 +338,7 @@ module ActionMetadata =
       |> String.concat " | "
 
   let argumentKeys (argument: ActionArgument) =
-    let keys =
-      match argument.Name with
-      | "base-name" -> [ "base-name"; "basename"; "base"; "name" ]
-      | "break" -> [ "break"; "breakpoint"; "bp" ]
-      | "bytes-after" -> [ "bytes-after"; "after" ]
-      | "bytes-before" -> [ "bytes-before"; "before" ]
-      | "directory" -> [ "directory"; "dir" ]
-      | "end" -> [ "end" ]
-      | "end-or-size" -> [ "end-or-size"; "end"; "offset"; "size" ]
-      | "entry" -> [ "entry"; "address"; "addr" ]
-      | "extension" -> [ "extension"; "ext" ]
-      | "hex" -> [ "hex"; "bytes"; "hex-bytes" ]
-      | "hex-bytes" -> [ "hex-bytes"; "hex"; "bytes" ]
-      | "hex-pattern" -> [ "hex-pattern"; "pattern" ]
-      | "min-points" -> [ "min-points"; "min"; "minpts" ]
-      | "n-gram-size" -> [ "n-gram-size"; "ngram"; "n" ]
-      | "path" -> [ "path" ]
-      | "path-or-hex" -> [ "path-or-hex"; "path"; "hex" ]
-      | "params" -> [ "params"; "parameters" ]
-      | "window-size" -> [ "window-size"; "window" ]
-      | name -> [ name ]
-    keys |> List.map (fun key -> key.ToLowerInvariant())
+    [ argument.Name.ToLowerInvariant() ]
 
   let private argument name kind isOptional choices description =
     { Name = name
@@ -529,9 +520,46 @@ module ActionMetadata =
       required "value" ActionArgumentKind.Address
         "Concrete integer or pointer value."
     contract "arg" ReplValueKind.ConcExecutor ReplValueKind.ConcExecutor
-      ActionRole.Transform 20 "arg index=<n> value=<value> -> ConcExecutor"
+      ActionRole.Transform 20 "arg index=<n> value=<addr> -> ConcExecutor"
       [ "executor |> @arg index=0 value=0x70000000" ]
       [ syntax None [ index; value ] ]
+
+  let private setReg =
+    let name =
+      required "name" ActionArgumentKind.Text "Register name."
+    let value =
+      required "value" ActionArgumentKind.Address
+        "Concrete integer or pointer value."
+    contract "set-reg" ReplValueKind.ConcExecutor
+      ReplValueKind.ConcExecutor
+      ActionRole.Transform 20
+      "set-reg name=<reg> value=<value> -> ConcExecutor"
+      [ "executor |> @set-reg name=RDI value=0x70000000" ]
+      [ syntax None [ name; value ] ]
+
+  let private setContext =
+    let stack =
+      optional "stack" ActionArgumentKind.Address
+        "Stack pointer value to set."
+    let regs =
+      optional "regs" ActionArgumentKind.Text
+        "Register assignments: [RDI=0x1; RSP=sp]."
+    let mem =
+      optional "mem" ActionArgumentKind.Text
+        "Memory assignments: [0x70000000=41424300]."
+    contract "set-context" ReplValueKind.ConcExecutor
+      ReplValueKind.ConcExecutor
+      ActionRole.Transform 18
+      "set-context [stack=<addr>] [regs=[...]] [mem=[...]] -> ConcExecutor"
+      [ "executor |> @set-context regs=[RDI=0x1; RSP=sp]"
+        "executor |> @set-context mem=[0x70000000=41424300]" ]
+      [ syntax None [ stack ]
+        syntax None [ regs ]
+        syntax None [ mem ]
+        syntax None [ stack; regs ]
+        syntax None [ stack; mem ]
+        syntax None [ regs; mem ]
+        syntax None [ stack; regs; mem ] ]
 
   let private count =
     contract "count" ReplValueKind.Any ReplValueKind.Int
@@ -569,8 +597,8 @@ module ActionMetadata =
         "Minimum number of neighboring fingerprints."
     contract "dbscan" (ReplValueKind.Collection ReplValueKind.Fingerprint)
       ReplValueKind.ClusterResult ActionRole.Reducer 50
-      "dbscan [<eps>] [<min-points>] -> ClusterResult"
-      [ "fingerprints |> @dbscan 0.2 3" ]
+      "dbscan [eps=<n>] [min-points=<n>] -> ClusterResult"
+      [ "fingerprints |> @dbscan eps=0.2 min-points=3" ]
       [ syntax None [ eps; minPts ] ]
 
   let private detect =
@@ -578,8 +606,8 @@ module ActionMetadata =
       required "path" ActionArgumentKind.ExistingPath
         "File or directory to compare with the fingerprint."
     contract "detect" ReplValueKind.Fingerprint ReplValueKind.Text
-      ActionRole.Transform 30 "detect <path> -> Text"
-      [ "fingerprint |> @detect temp/bin" ] [ syntax None [ path ] ]
+      ActionRole.Transform 30 "detect path=<path> -> Text"
+      [ "fingerprint |> @detect path=temp/bin" ] [ syntax None [ path ] ]
 
   let private diff =
     let pair kind = ReplValueKind.Tuple [ kind; kind ]
@@ -588,6 +616,7 @@ module ActionMetadata =
         pair ReplValueKind.ByteArray
         pair ReplValueKind.InstructionArray
         pair ReplValueKind.CFG
+        pair ReplValueKind.ConcExecutor
         pair ReplValueKind.Text
         pair ReplValueKind.TextArtifact ]
       ReplValueKind.Text ActionRole.Reducer 60
@@ -614,7 +643,7 @@ module ActionMetadata =
       required "end" ActionArgumentKind.AddressOrSize
         "Exclusive end offset or +size."
     let bytes =
-      required "hex-bytes" ActionArgumentKind.HexBytes
+      required "hex" ActionArgumentKind.HexBytes
         "Replacement bytes as a hexadecimal string."
     let insert = syntax (Some "insert") [ offset; bytes ]
     let delete = syntax (Some "delete") [ offset; endOffset ]
@@ -637,10 +666,11 @@ module ActionMetadata =
       optional "bytes-after" ActionArgumentKind.Integer
         "Context bytes following each match."
     let signature =
-      "grep <hex-pattern> [<bytes-before>] [<bytes-after>] -> Binary"
+      "grep pattern=<hex> [bytes-before=<n>] [bytes-after=<n>] -> Binary"
     contract "grep" ReplValueKind.Binary ReplValueKind.Binary
       ActionRole.Transform 30 signature
-      [ "binary |> @grep 7f454c46 0 16" ]
+      [ "binary |> @grep pattern=7f454c46"
+        "binary |> @grep pattern=7f454c46 bytes-before=4 bytes-after=16" ]
       [ syntax None [ pattern; before; after ] ]
 
   let private hexdump =
@@ -659,11 +689,11 @@ module ActionMetadata =
 
   let private regs =
     let register =
-      optional "register" ActionArgumentKind.Text
+      optional "name" ActionArgumentKind.Text
         "Register name to print; defaults to all defined registers."
-    contract "regs" ReplValueKind.ConcExecutor ReplValueKind.Text
-      ActionRole.Transform 20 "regs [register=<name>] -> Text"
-      [ "executor |> @regs"; "executor |> @regs register=RAX" ]
+    contract "regs" ReplValueKind.ConcExecutor ReplValueKind.RegisterView
+      ActionRole.Transform 20 "regs [name=<reg>] -> RegisterView"
+      [ "executor |> @regs"; "executor |> @regs name=RAX" ]
       [ syntax None [ register ] ]
 
   let private run =
@@ -725,31 +755,46 @@ module ActionMetadata =
       [ syntax None [ source; optionalISA ]
         syntax None [ hex; requiredISA ] ]
 
-  let private memRead =
-    let address =
-      required "address" ActionArgumentKind.Address
+  let private random =
+    let minAddress =
+      required "min" ActionArgumentKind.Address
+        "Inclusive lower address bound."
+    let maxAddress =
+      required "max" ActionArgumentKind.Address
+        "Exclusive upper address bound."
+    contract "random" ReplValueKind.Unit ReplValueKind.Address
+      ActionRole.Source 20
+      "random min=<addr> max=<addr> -> Address"
+      [ "let ptr = @random min=0x70000000 max=0x70001000" ]
+      [ syntax None [ minAddress; maxAddress ] ]
+
+  let private userStack =
+    contract "user-stack" ReplValueKind.Unit ReplValueKind.Address
+      ActionRole.Source 19 "user-stack -> Address"
+      [ "let sp = @user-stack" ] [ syntax None [] ]
+
+  let private mem =
+    let addr =
+      required "addr" ActionArgumentKind.Address
         "Starting concrete memory address."
     let size =
       required "size" ActionArgumentKind.Integer
         "Number of bytes to read."
-    contract "mem-read" ReplValueKind.ConcExecutor ReplValueKind.Text
-      ActionRole.Transform 20
-      "mem-read address=<addr> size=<n> -> Text"
-      [ "executor |> @mem-read address=0x70000000 size=16" ]
-      [ syntax None [ address; size ] ]
-
-  let private memWrite =
-    let address =
-      required "address" ActionArgumentKind.Address
-        "Starting concrete memory address."
     let bytes =
-      required "hex-bytes" ActionArgumentKind.HexBytes
+      required "bytes" ActionArgumentKind.HexBytes
         "Bytes to write as a hexadecimal string."
-    contract "mem-write" ReplValueKind.ConcExecutor ReplValueKind.ConcExecutor
+    let signature =
+      "mem read addr=<addr> size=<n> -> MemoryView | "
+      + "mem write addr=<addr> bytes=<hex> -> ConcExecutor"
+    contract "mem" ReplValueKind.ConcExecutor
+      ReplValueKind.Any
       ActionRole.Transform 20
-      "mem-write address=<addr> bytes=<hex> -> ConcExecutor"
-      [ "executor |> @mem-write address=0x70000000 bytes=41424300" ]
-      [ syntax None [ address; bytes ] ]
+      signature
+      [ "executor |> @mem read addr=0x70000000 size=16"
+        "executor |> @mem write addr=0x70000000 bytes=41424300" ]
+      [ syntaxOutput (Some "read") ReplValueKind.MemoryView [ addr; size ]
+        syntaxOutput (Some "write") ReplValueKind.ConcExecutor
+          [ addr; bytes ] ]
 
   let private pick =
     let index =
@@ -757,8 +802,8 @@ module ActionMetadata =
         "1-based value index in the current collection."
     contract "pick" (ReplValueKind.Collection ReplValueKind.Any)
       ReplValueKind.Any
-      ActionRole.Transform 5 "pick <index> -> Any"
-      [ "graphs |> @pick 1" ] [ syntax None [ index ] ]
+      ActionRole.Transform 5 "pick index=<n> -> Any"
+      [ "graphs |> @pick index=1" ] [ syntax None [ index ] ]
 
   let private print =
     contract "print" ReplValueKind.Any ReplValueKind.Unit
@@ -797,24 +842,24 @@ module ActionMetadata =
 
   let private trace =
     let count =
-      required "count" ActionArgumentKind.Integer
+      optional "count" ActionArgumentKind.Integer
         "Number of machine instructions; defaults to 1."
-    let address =
-      required "address" ActionArgumentKind.Address
-        "Starting concrete memory address to watch."
+    let watch =
+      required "watch" ActionArgumentKind.Address
+        "Optional memory address for before/after watch output."
     let size =
       required "size" ActionArgumentKind.Integer
         "Number of watched memory bytes."
-    contract "trace" ReplValueKind.ConcExecutor ReplValueKind.Text
+    contract "trace" ReplValueKind.ConcExecutor ReplValueKind.ExecutionTrace
       ActionRole.Transform 20
-      "trace [count=<n>] [address=<addr> size=<n>] -> Text"
+      "trace [count=<n>] [watch=<addr> size=<n>] -> ExecutionTrace"
       [ "executor |> @trace"
         "executor |> @trace count=4"
-        "executor |> @trace count=1 address=0x70000000 size=16" ]
+        "executor |> @trace count=1 watch=0x70000000 size=16" ]
       [ syntax None []
         syntax None [ count ]
-        syntax None [ address; size ]
-        syntax None [ count; address; size ] ]
+        syntax None [ watch; size ]
+        syntax None [ count; watch; size ] ]
 
   let private strings =
     let minimum =
@@ -848,8 +893,8 @@ module ActionMetadata =
         "Window size; defaults to 4."
     contract "winnowing" ReplValueKind.Binary ReplValueKind.Fingerprint
       ActionRole.Transform 40
-      "winnowing [<n-gram-size>] [<window-size>] -> Fingerprint"
-      [ "binary |> @winnowing 4 4" ]
+      "winnowing [n-gram-size=<n>] [window-size=<n>] -> Fingerprint"
+      [ "binary |> @winnowing n-gram-size=4 window-size=4" ]
       [ syntax None [ ngram; window ] ]
 
   let private write =
@@ -884,15 +929,18 @@ module ActionMetadata =
       list
       llvm
       load
+      mem
       pick
       print
-      memRead
-      memWrite
+      random
       regs
       run
+      setContext
+      setReg
       slice
       step
       trace
+      userStack
       strings
       save
       winnowing
@@ -936,6 +984,11 @@ module ActionRegistry =
       ReplValueKind.Fingerprint
       ReplValueKind.ClusterResult
       ReplValueKind.ConcExecutor
+      ReplValueKind.RegisterView
+      ReplValueKind.MemoryView
+      ReplValueKind.ExecutionTrace
+      ReplValueKind.ContextRequirements
+      ReplValueKind.Address
       ReplValueKind.Range
       ReplValueKind.StringMatch
       ReplValueKind.SectionInfo
@@ -952,6 +1005,8 @@ module ActionRegistry =
       ReplValueKind.Float
       ReplValueKind.Bool
       ReplValueKind.Tuple [ ReplValueKind.Binary; ReplValueKind.Binary ]
+      ReplValueKind.Tuple
+        [ ReplValueKind.ConcExecutor; ReplValueKind.ConcExecutor ]
       ReplValueKind.Tuple [ ReplValueKind.Any; ReplValueKind.Any ]
       ReplValueKind.Tuple
         [ ReplValueKind.Fingerprint; ReplValueKind.Fingerprint ]
@@ -963,7 +1018,7 @@ module ActionRegistry =
     |> List.map snd
     |> List.sortBy (fun action -> action.Metadata.ID.ToLowerInvariant())
 
-  let private compatibleActions kind actions =
+  let private applicableActions kind actions =
     actions
     |> List.filter (fun registered ->
       registered.Metadata.ID <> "print"
@@ -973,13 +1028,13 @@ module ActionRegistry =
 
   let private fromMap actions =
     let all = sortActions actions
-    let compatible =
+    let applicable =
       valueKinds
-      |> List.map (fun kind -> kind, compatibleActions kind all)
+      |> List.map (fun kind -> kind, applicableActions kind all)
       |> Map.ofList
     { Actions = actions
       AllSorted = all
-      Compatible = compatible }
+      Applicable = applicable }
 
   let private addTypes registry (types: Type[]) =
     types
@@ -1025,10 +1080,10 @@ module ActionRegistry =
   let getAll registry =
     registry.AllSorted
 
-  let getCompatible kind registry =
-    match Map.tryFind kind registry.Compatible with
+  let getApplicable kind registry =
+    match Map.tryFind kind registry.Applicable with
     | Some actions -> actions
-    | None -> compatibleActions kind registry.AllSorted
+    | None -> applicableActions kind registry.AllSorted
 
   let toActionMap registry =
     registry.Actions |> Map.map (fun _ registered -> registered.Action)

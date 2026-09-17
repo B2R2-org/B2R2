@@ -75,6 +75,7 @@ type ReplUndoCapture =
   { Bindings: Map<string, ReplValue>
     Current: ReplValue option
     ValueHistory: ReplValueHistoryEntry list
+    LastNeeds: ContextRequirements option
     ReplayCommands: string list }
 
 /// State that persists across commands in a Transformer REPL session.
@@ -87,6 +88,7 @@ type TransformerReplState =
     ReplayMode: ReplReplayMode
     SessionPath: string option
     ExecutionLog: ReplExecutionLogEntry list
+    LastNeeds: ContextRequirements option
     LastError: string option
     NextValueID: int
     NextLogID: int
@@ -102,6 +104,12 @@ module ReplValue =
     elif typ = typeof<Fingerprint> then ReplValueKind.Fingerprint
     elif typ = typeof<ClusterResult> then ReplValueKind.ClusterResult
     elif typ = typeof<ConcExecutorValue> then ReplValueKind.ConcExecutor
+    elif typ = typeof<RegisterView> then ReplValueKind.RegisterView
+    elif typ = typeof<MemoryView> then ReplValueKind.MemoryView
+    elif typ = typeof<ExecutionTrace> then ReplValueKind.ExecutionTrace
+    elif typ = typeof<ContextRequirements> then
+      ReplValueKind.ContextRequirements
+    elif typ = typeof<AddressValue> then ReplValueKind.Address
     elif typ = typeof<BinaryRange> then ReplValueKind.Range
     elif typ = typeof<StringMatch> then ReplValueKind.StringMatch
     elif typ = typeof<SectionInfo> then ReplValueKind.SectionInfo
@@ -124,6 +132,11 @@ module ReplValue =
     | :? Fingerprint -> ReplValueKind.Fingerprint
     | :? ClusterResult -> ReplValueKind.ClusterResult
     | :? ConcExecutorValue -> ReplValueKind.ConcExecutor
+    | :? RegisterView -> ReplValueKind.RegisterView
+    | :? MemoryView -> ReplValueKind.MemoryView
+    | :? ExecutionTrace -> ReplValueKind.ExecutionTrace
+    | :? ContextRequirements -> ReplValueKind.ContextRequirements
+    | :? AddressValue -> ReplValueKind.Address
     | :? BinaryRange -> ReplValueKind.Range
     | :? StringMatch -> ReplValueKind.StringMatch
     | :? SectionInfo -> ReplValueKind.SectionInfo
@@ -227,6 +240,7 @@ module TransformerReplState =
       ReplayMode = ReplReplayMode.Reproducible
       SessionPath = None
       ExecutionLog = []
+      LastNeeds = None
       LastError = None
       NextValueID = 1
       NextLogID = 1
@@ -236,6 +250,7 @@ module TransformerReplState =
     { Bindings = state.Bindings
       Current = state.Current
       ValueHistory = state.ValueHistory
+      LastNeeds = state.LastNeeds
       ReplayCommands = state.ReplayCommands }
 
   let recordCommand command state =
@@ -261,6 +276,9 @@ module TransformerReplState =
 
   let setSessionPath path state =
     { state with SessionPath = Some path }
+
+  let setLastNeeds needs state =
+    { state with LastNeeds = Some needs; LastError = None }
 
   let recordExecution timestamp duration status command detail state =
     let entry =
@@ -311,6 +329,7 @@ module TransformerReplState =
             Bindings = previous.Bindings
             Current = previous.Current
             ValueHistory = previous.ValueHistory
+            LastNeeds = previous.LastNeeds
             ReplayCommands = previous.ReplayCommands
             LastError = None
             UndoStack = rest }

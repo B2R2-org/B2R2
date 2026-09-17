@@ -39,6 +39,7 @@ type TransformerReplCommand =
   | ShowExpression of ReplPipelineSegment list
   | TypeOf of binding: string option
   | Inspect of binding: string option
+  | Needs of binding: string * arguments: string list
   | Actions
   | History
   | Values
@@ -64,7 +65,8 @@ type ReplBindingHeader =
     TypePrefixStart: int option
     HasEquals: bool
     Expression: string option
-    ExpressionStart: int option }
+    ExpressionStart: int option
+    SyntaxError: string option }
 
 module ReplLanguage =
   [<RequireQualifiedAccess>]
@@ -128,10 +130,46 @@ module ReplLanguage =
           loop (index + 1) quote tokens
     loop 0 None []
 
+  let private matchingClose = function
+    | "(" -> Some ")"
+    | "[" -> Some "]"
+    | "[|" -> Some "|]"
+    | _ -> None
+
+  let private isClosing = function
+    | ")" | "]" | "|]" -> true
+    | _ -> false
+
+  let private validateDelimiters tokens =
+    let rec loop stack = function
+      | [] ->
+        match stack with
+        | [] -> Ok tokens
+        | opener :: _ ->
+          let closer = matchingClose opener |> Option.defaultValue "?"
+          Error $"Unclosed '{opener}'; expected '{closer}'."
+      | token :: rest ->
+        match matchingClose token, isClosing token, stack with
+        | Some _, _, _ ->
+          loop (token :: stack) rest
+        | None, true, [] ->
+          Error $"Unexpected '{token}' with no matching opener."
+        | None, true, opener :: tail ->
+          let expected = matchingClose opener |> Option.defaultValue "?"
+          if token = expected then loop tail rest
+          else
+            let message =
+              $"Mismatched delimiter: expected '{expected}' before '{token}'."
+            Error message
+        | None, false, _ ->
+          loop stack rest
+    loop [] tokens
+
   let tokenize text =
     tokenizeWith TokenizeMode.Partial text |> Result.defaultValue []
 
-  let tokenizeStrict text = tokenizeWith TokenizeMode.Strict text
+  let tokenizeStrict text =
+    tokenizeWith TokenizeMode.Strict text |> Result.bind validateDelimiters
 
   let splitWords text = tokenize text
 
@@ -223,7 +261,14 @@ module ReplLanguage =
         | _ ->
           let command = current |> List.rev |> String.concat "\n"
           if isIncomplete command then
-            Error $"Incomplete script command: {command}"
+            let detail =
+              if command.TrimEnd().EndsWith("->", StringComparison.Ordinal) then
+                "lambda body is missing after '->'."
+              else
+                match tokenizeStrict command with
+                | Error message -> message
+                | Ok _ -> command
+            Error $"Incomplete script command: {detail}"
           else
             Ok(List.rev (command :: commands))
       | (line: string) :: rest ->
@@ -324,11 +369,18 @@ module ReplLanguage =
         else
           None, None, index
       let index = skipSpaces input index
+      let hasCloseParen =
+        hasOpenParen && index < input.Length && input[index] = ')'
       let index =
-        if hasOpenParen && index < input.Length && input[index] = ')' then
+        if hasCloseParen then
           skipSpaces input (index + 1)
         else
           index
+      let syntaxError =
+        if hasOpenParen && not hasCloseParen then
+          Some "Expected ')' after parenthesized binding."
+        else
+          None
       let hasEquals = index < input.Length && input[index] = '='
       let expressionStart = if hasEquals then Some(index + 1) else None
       { Name = name
@@ -337,7 +389,8 @@ module ReplLanguage =
         TypePrefixStart = if hasEquals then None else typStart
         HasEquals = hasEquals
         Expression = expressionStart |> Option.map (fun index -> input[index..])
-        ExpressionStart = expressionStart })
+        ExpressionStart = expressionStart
+        SyntaxError = syntaxError })
 
   let bindingExpected input =
     bindingHeader input
@@ -362,33 +415,42 @@ module ReplLanguage =
     loop 0 [] [] tokens
 
   let splitTopLevelStrict separator tokens =
-    let rec loop depth current elements = function
+    let rec loop depth current elements sawSeparator = function
       | [] when List.isEmpty current ->
-        Ok(List.rev elements)
+        if sawSeparator then
+          Error $"Trailing '{separator}' in literal."
+        else
+          Ok(List.rev elements)
       | [] ->
         Ok(List.rev (List.rev current :: elements))
       | token :: _ when token = separator && depth = 0
         && List.isEmpty current ->
         Error "Empty literal element."
       | token :: rest when token = separator && depth = 0 ->
-        loop depth [] (List.rev current :: elements) rest
+        loop depth [] (List.rev current :: elements) true rest
       | token :: rest ->
-        loop (updateDepth depth token) (token :: current) elements rest
-    loop 0 [] [] tokens
+        loop (updateDepth depth token) (token :: current) elements false rest
+    loop 0 [] [] false tokens
 
   let splitPipelineTokens tokens =
-    let rec loop depth segments current = function
+    let rec loop depth segments current sawPipeline = function
       | [] when List.isEmpty current ->
-        Error "Empty pipeline segment."
+        if sawPipeline then
+          Error "Pipeline operator '|>' must be followed by an expression."
+        else
+          Error "An expression is required."
       | [] ->
         Ok(List.rev (List.rev current :: segments))
       | token :: _ when token = "|>" && depth = 0 && List.isEmpty current ->
-        Error "Empty pipeline segment."
+        if List.isEmpty segments then
+          Error "Pipeline operator '|>' cannot start an expression."
+        else
+          Error "Pipeline operator '|>' must be followed by an expression."
       | token :: rest when token = "|>" && depth = 0 ->
-        loop depth (List.rev current :: segments) [] rest
+        loop depth (List.rev current :: segments) [] true rest
       | token :: rest ->
-        loop (updateDepth depth token) segments (token :: current) rest
-    loop 0 [] [] tokens
+        loop (updateDepth depth token) segments (token :: current) false rest
+    loop 0 [] [] false tokens
 
   let private toSegment = function
     | head :: arguments -> Ok { Head = head; Arguments = arguments }
@@ -489,11 +551,16 @@ module ReplLanguage =
   let parseEvaluation input tokens =
     match bindingHeader input with
     | Some header ->
+      match header.SyntaxError with
+      | Some message -> Error message
+      | None ->
       match header.Name, header.HasEquals, header.Expression with
       | Some name, true, Some expression when isValidName name ->
         let expected =
           match header.TypeAnnotation with
-          | Some "" | None -> Ok None
+          | Some typ when String.IsNullOrWhiteSpace typ ->
+            Error "Type annotation is missing after ':'."
+          | None -> Ok None
           | Some typ -> parseKind typ |> Result.map Some
         expected
         |> Result.bind (fun expected ->

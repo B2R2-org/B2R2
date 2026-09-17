@@ -51,6 +51,10 @@ module TransformerReplParser =
       Ok(ExportValue(name, path))
     | [ ":inspect" ] -> Ok(Inspect None)
     | [ ":inspect"; name ] -> Ok(Inspect(Some name))
+    | ":needs" :: name :: args when ReplLanguage.isValidName name ->
+      Ok(Needs(name, args))
+    | [ ":needs" ] ->
+      Error ":needs requires an executor binding."
     | [ ":restore"; id ] -> parseRestore id None
     | [ ":restore"; id; "as"; name ] when ReplLanguage.isValidName name ->
       parseRestore id (Some name)
