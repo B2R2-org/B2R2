@@ -1,0 +1,135 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+namespace B2R2.RearEnd.Transformer
+
+open System
+
+/// Cursor-local syntax facts used by interactive suggestion providers.
+type InputContext =
+  { InputBeforeCursor: string
+    Prefix: string
+    TokenStart: int
+    TokenLength: int
+    Words: string list
+    Expression: string
+    Segment: string
+    SegmentWords: string list
+    HasBinding: bool
+    HasPipeline: bool }
+
+module InputAnalysis =
+  let tokenizeWith mode text = ReplLanguage.tokenizeWith mode text
+
+  let tokenize text = ReplLanguage.tokenize text
+
+  let tokenizeStrict text = ReplLanguage.tokenizeStrict text
+
+  let splitWords text = ReplLanguage.splitWords text
+
+  let updateDepth depth token = ReplLanguage.updateDepth depth token
+
+  let splitPipelineTokens text = ReplLanguage.splitPipelineText text
+
+  let splitPipeline text = ReplLanguage.splitPipeline text
+
+  let splitTopLevelCommands text = ReplLanguage.splitTopLevelCommands text
+
+  let isIncomplete text = ReplLanguage.isIncomplete text
+
+  let combineCommandLines lines = ReplLanguage.combineCommandLines lines
+
+  let allButLast values =
+    match List.rev values with
+    | _ :: rest -> List.rev rest
+    | [] -> []
+
+  let expressionPortion input = ReplLanguage.expressionPortion input
+
+  let tokenStart (input: string) cursor =
+    let isPunctuation chr =
+      chr = '(' || chr = ')' || chr = '[' || chr = ']'
+      || chr = ',' || chr = ';'
+    let rec loop index quote start =
+      if index >= cursor then
+        start
+      else
+        let chr = input[index]
+        match quote with
+        | Some delimiter when chr = delimiter ->
+          loop (index + 1) None start
+        | Some _ ->
+          loop (index + 1) quote start
+        | None when chr = '\'' || chr = '"' ->
+          loop (index + 1) (Some chr) index
+        | None when chr = '|' && index + 1 < cursor
+          && input[index + 1] = '>' ->
+          loop (index + 2) None (index + 2)
+        | None when chr = '-' && index + 1 < cursor
+          && input[index + 1] = '>' ->
+          loop (index + 2) None (index + 2)
+        | None when chr = '|' && index + 1 < cursor
+          && input[index + 1] = ']' ->
+          loop (index + 2) None (index + 2)
+        | None when chr = '[' && index + 1 < cursor
+          && input[index + 1] = '|' ->
+          loop (index + 2) None (index + 2)
+        | None when isPunctuation chr ->
+          loop (index + 1) None (index + 1)
+        | None when chr = ' ' || chr = '\t' || chr = '=' ->
+          loop (index + 1) None (index + 1)
+        | None ->
+          loop (index + 1) None start
+    loop 0 None 0
+
+  let topLevelLastPipeline input = ReplLanguage.topLevelLastPipeline input
+
+  let activeExpression input = ReplLanguage.activeExpression input
+
+  let analyze (input: string) cursor =
+    let cursor = max 0 (min cursor input.Length)
+    let start = tokenStart input cursor
+    let prefix =
+      if cursor <= start then "" else input[start..cursor - 1]
+    let inputBeforeCursor =
+      if cursor = 0 then "" else input[..cursor - 1]
+    let words = splitWords inputBeforeCursor
+    let expression = expressionPortion inputBeforeCursor
+    let expression = activeExpression expression
+    let lastPipeline = topLevelLastPipeline expression
+    let segmentStart =
+      lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
+    let segment = expression[segmentStart..]
+    let trimmed = inputBeforeCursor.TrimStart()
+    { InputBeforeCursor = inputBeforeCursor
+      Prefix = prefix
+      TokenStart = start
+      TokenLength = cursor - start
+      Words = words
+      Expression = expression
+      Segment = segment
+      SegmentWords = splitWords segment
+      HasBinding =
+        ReplLanguage.bindingHeader trimmed |> Option.isSome
+      HasPipeline = Option.isSome lastPipeline }
