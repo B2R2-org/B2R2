@@ -66,6 +66,20 @@ module private ConcRegionPerm =
     | MemoryAccessKind.Read -> permission.Read
     | MemoryAccessKind.Write -> permission.Write
 
+  let executeViolation regions addr =
+    if List.isEmpty regions then
+      None
+    else
+      let finish = addr + 1UL
+      let contains region =
+        addr >= region.Start && finish <= region.Finish && finish >= addr
+      match regions |> List.tryFind contains with
+      | None -> Some "outside configured regions"
+      | Some region when not region.Permission.Execute ->
+        let permission = format region.Permission
+        Some $"not permitted by {region.Name}:{permission}"
+      | Some _ -> None
+
 module private ConcActionParsing =
   let parseUInt64 (value: string) =
     let style, value =
@@ -92,6 +106,7 @@ type private TracingMemory(inner: ConcMemory,
                            regions: ConcMemoryRegion list) =
   let accesses = ResizeArray<MemoryAccess>()
   let mutable instruction = 0UL
+  let mutable hasViolation = false
 
   let accessViolation kind addr size =
     if List.isEmpty regions then
@@ -121,6 +136,8 @@ type private TracingMemory(inner: ConcMemory,
     if ok then Some bytes else None
 
   let addAccess kind addr size before after =
+    let violation = accessViolation kind addr size
+    if Option.isSome violation then hasViolation <- true else ()
     accesses.Add
       { Instruction = instruction
         Kind = kind
@@ -128,7 +145,7 @@ type private TracingMemory(inner: ConcMemory,
         Size = size
         Before = before
         After = after
-        Violation = accessViolation kind addr size }
+        Violation = violation }
 
   let appendBytes left right =
     match left, right with
@@ -167,6 +184,8 @@ type private TracingMemory(inner: ConcMemory,
     |> List.toArray
 
   member _.Accesses = coalesceAccesses ()
+
+  member _.HasViolation = hasViolation
 
   member _.SetInstruction addr = instruction <- addr
 
@@ -424,6 +443,10 @@ type ConcExecutorValue private(binary: Binary,
       .ZeroCallerContext()
 
   let runOne ct stops (addr: Addr) (runState: ConcState) =
+    match ConcRegionPerm.executeViolation regions addr with
+    | Some reason ->
+      invalidOp $"Execute access violation at 0x{addr:x}: {reason}."
+    | None -> ()
     match runState.Memory with
     | :? TracingMemory as memory -> memory.SetInstruction addr
     | _ -> ()
@@ -437,8 +460,7 @@ type ConcExecutorValue private(binary: Binary,
 
   let hasAccessViolation (runState: ConcState) =
     match runState.Memory with
-    | :? TracingMemory as memory ->
-      hasViolationAccess memory.Accesses
+    | :? TracingMemory as memory -> memory.HasViolation
     | _ -> false
 
   let runSteps (ct: CancellationToken) stops (start: Addr) count
