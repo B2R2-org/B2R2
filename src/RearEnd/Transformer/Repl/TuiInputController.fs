@@ -300,10 +300,12 @@ module TransformerTuiInputController =
       TransformerTuiModel.moveTranscriptCursorInView height height 0 model
       |> TuiInputResult.Update
     | ConsoleKey.UpArrow when control ->
-      TransformerTuiModel.moveTranscriptCommand -1 model
+      let height = pageHeight model
+      TransformerTuiModel.moveTranscriptCommand height -1 model
       |> TuiInputResult.Update
     | ConsoleKey.DownArrow when control ->
-      TransformerTuiModel.moveTranscriptCommand 1 model
+      let height = pageHeight model
+      TransformerTuiModel.moveTranscriptCommand height 1 model
       |> TuiInputResult.Update
     | ConsoleKey.UpArrow ->
       let height = pageHeight model
@@ -387,8 +389,6 @@ module TransformerTuiInputController =
         TuiInputResult.Update model
       | ConsoleKey.Enter when isLayoutCommand model.Input ->
         applyLayoutCommand model.Input model
-      | ConsoleKey.Enter when InputAnalysis.isIncomplete model.Input ->
-        TransformerTuiModel.insertText "\n" model |> TuiInputResult.Update
       | ConsoleKey.Enter ->
         TuiInputResult.Execute(model, model.Input)
       | ConsoleKey.PageUp ->

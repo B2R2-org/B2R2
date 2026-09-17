@@ -311,7 +311,7 @@ module TransformerTuiRenderer =
       let pane = model.ViewPane
       let lines =
         pane
-        |> Option.map _.Lines
+        |> Option.map (fun pane -> Array.toList pane.Lines)
         |> Option.defaultValue
           [ { Kind = TuiLineKind.System; Text = "No result to view." } ]
       lines |> List.collect (wrapLine width)
@@ -380,14 +380,24 @@ module TransformerTuiRenderer =
 
   let private viewLine pane index (line: TuiLine) =
     match pane.Anchor with
+    | Some _ when viewSelectionContains pane index
+                  || pane.Cursor.Line = index ->
+      let text =
+        if containsAnsi line.Text then sanitize line.Text else line.Text
+      { line with
+          Kind = TuiLineKind.Cursor
+          Text = selectViewText pane index text }
     | Some _ ->
-      let kind =
-        if pane.Cursor.Line = index then TuiLineKind.Cursor else line.Kind
-      { line with Kind = kind; Text = selectViewText pane index line.Text }
+      line
     | None ->
       let selected =
         viewSelectionContains pane index || pane.Cursor.Line = index
-      { line with Kind = selectedTextKind selected line.Kind }
+      let text =
+        if selected && containsAnsi line.Text then sanitize line.Text
+        else line.Text
+      { line with
+          Kind = selectedTextKind selected line.Kind
+          Text = text }
 
   let private takeViewPaneLines width height offset model =
     let pane = model.ViewPane
@@ -400,13 +410,14 @@ module TransformerTuiRenderer =
       elif cursor.Line >= offset + height then cursor.Line - height + 1
       else offset
     let lines =
-      model.ViewPane
-      |> Option.map (fun pane ->
-        pane.Lines |> List.mapi (viewLine pane))
-      |> Option.defaultValue
+      match model.ViewPane with
+      | Some pane ->
+        let finish = min pane.Lines.Length (offset + height)
+        [ for index in offset .. finish - 1 do
+            viewLine pane index pane.Lines[index] ]
+      | None ->
         [ { Kind = TuiLineKind.System; Text = "No result to view." } ]
     lines
-    |> List.skip offset
     |> List.truncate height
     |> List.collect (wrapLine width)
     |> List.truncate height
@@ -418,32 +429,7 @@ module TransformerTuiRenderer =
     let first = max 0 (last - count)
     lines |> List.skip first |> List.truncate (last - first)
 
-  let private selectedLineIndex lines =
-    lines
-    |> List.tryFindIndex (fun line -> line.Kind = TuiLineKind.Selection)
-
-  let private latestCommandIndex lines =
-    lines
-    |> List.mapi (fun index line -> index, line)
-    |> List.filter (fun (_, line) -> line.Kind = TuiLineKind.Command)
-    |> List.tryLast
-    |> Option.map fst
-
-  let private transcriptViewportStart count lines =
-    let anchor = latestCommandIndex lines |> Option.defaultValue 0
-    let maximumStart = max 0 (List.length lines - count)
-    let start =
-      match selectedLineIndex lines with
-      | Some selected when selected < anchor ->
-        selected
-      | Some selected when selected >= anchor + count ->
-        selected - count + 1
-      | _ ->
-        anchor
-    max 0 (min maximumStart start)
-
-  let private takeAnchoredLines width count lines =
-    let start = transcriptViewportStart count lines
+  let private takeAnchoredLines width count start lines =
     lines
     |> List.skip start
     |> List.collect (wrapLine width)
@@ -464,8 +450,8 @@ module TransformerTuiRenderer =
     |> loop [] 0
     |> takeLast count offset
 
-  let private takeTranscriptLines width count offset lines =
-    if offset = 0 then takeAnchoredLines width count lines
+  let private takeTranscriptLines width count offset start lines =
+    if offset = 0 then takeAnchoredLines width count start lines
     else takeScrolledLines width count offset lines
 
   let private takeBody bodyHeight bodyWidth registry model =
@@ -474,13 +460,13 @@ module TransformerTuiRenderer =
       let lines: TuiLine list =
         TransformerTuiModel.transcriptDisplayLines bodyHeight model
         |> List.map (fun (line: TuiTranscriptLine) -> line.Line)
-      takeTranscriptLines bodyWidth bodyHeight model.ScrollOffset
-        lines
+      let start = TransformerTuiModel.transcriptViewportStart bodyHeight model
+      takeTranscriptLines bodyWidth bodyHeight model.ScrollOffset start lines
     | _ ->
       if model.Overlay = TuiOverlay.View then
         let lineCount =
           model.ViewPane
-          |> Option.map (fun pane -> List.length pane.Lines)
+          |> Option.map (fun pane -> pane.Lines.Length)
           |> Option.defaultValue 0
         let maximumOffset = max 0 (lineCount - bodyHeight)
         let offset = min model.ScrollOffset maximumOffset
@@ -507,7 +493,7 @@ module TransformerTuiRenderer =
   let private paneStatus model fallback =
     match model.Overlay, model.ViewPane with
     | TuiOverlay.View, Some pane ->
-      let count = List.length pane.Lines
+      let count = pane.Lines.Length
       let line = min (pane.Cursor.Line + 1) (max 1 count)
       let column = pane.Cursor.Column + 1
       let find =

@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Text.RegularExpressions
 
 /// Visual role of one line retained in the TUI transcript.
 [<RequireQualifiedAccess>]
@@ -79,7 +80,7 @@ type TuiTextCursor =
 /// View pane state for one command result.
 type TuiViewPane =
   { BlockIndex: int
-    Lines: TuiLine list
+    Lines: TuiLine array
     Cursor: TuiTextCursor
     Anchor: TuiTextCursor option
     FindText: string
@@ -94,6 +95,7 @@ type TransformerTuiModel =
     Input: string
     Cursor: int
     ScrollOffset: int
+    TranscriptViewportStart: int option
     TranscriptCursor: TuiTextCursor
     ViewPane: TuiViewPane option
     HistoryIndex: int option
@@ -113,6 +115,8 @@ type TransformerTuiModel =
 module TransformerTuiModel =
   let private maximumTranscriptLines = 5000
 
+  let private ansiPattern = Regex("\x1B\[[0-?]*[ -/]*[@-~]")
+
   let private isCommandLine line =
     line.Kind = TuiLineKind.Command
 
@@ -129,6 +133,7 @@ module TransformerTuiModel =
       Input = ""
       Cursor = 0
       ScrollOffset = 0
+      TranscriptViewportStart = None
       TranscriptCursor = { Line = 0; Column = 0 }
       ViewPane = None
       HistoryIndex = None
@@ -174,12 +179,14 @@ module TransformerTuiModel =
       lines |> List.map (fun text -> { Kind = kind; Text = text })
     { model with
         Transcript = trimTranscript (model.Transcript @ additions)
-        ScrollOffset = 0 }
+        ScrollOffset = 0
+        TranscriptViewportStart = None }
 
   let appendTuiLines lines model =
     { model with
         Transcript = trimTranscript (model.Transcript @ lines)
-        ScrollOffset = 0 }
+        ScrollOffset = 0
+        TranscriptViewportStart = None }
 
   let appendCommand command model =
     let index = commandCount model + 1
@@ -196,6 +203,7 @@ module TransformerTuiModel =
         CollapsedCommands = Set.empty
         FoldTarget = None
         ScrollOffset = 0
+        TranscriptViewportStart = None
         Status = "Transcript cleared" }
 
   let setSession session model = { model with Session = session }
@@ -229,11 +237,13 @@ module TransformerTuiModel =
         Overlay = TuiOverlay.None
         ViewPane = None
         ScrollOffset = 0
+        TranscriptViewportStart = None
         Status = "View closed" }
 
   let focusShell model =
     { model with
-        Focus = TuiFocus.Shell }
+        Focus = TuiFocus.Shell
+        TranscriptViewportStart = None }
 
   let focusTranscript model =
     let target =
@@ -253,7 +263,8 @@ module TransformerTuiModel =
         Focus = TuiFocus.Shell
         HistoryIndex = None
         SuggestionIndex = 0
-        ScrollOffset = 0 }
+        ScrollOffset = 0
+        TranscriptViewportStart = None }
 
   let clearInput model = setInput "" 0 model
 
@@ -548,25 +559,68 @@ module TransformerTuiModel =
 
   let transcriptDisplayLines height (model: TransformerTuiModel)
       : TuiTranscriptLine list =
-    let flush index block output =
-      match block with
-      | [] -> output
-      | block ->
-        output @ compactTranscriptBlock model height index (List.rev block)
-    let folder (index, block, output) (line: TuiTranscriptLine) =
+    let output = ResizeArray<TuiTranscriptLine>()
+    let block = ResizeArray<TuiTranscriptLine>()
+    let mutable blockIndex = 0
+    let flush () =
+      if block.Count > 0 then
+        block
+        |> Seq.toList
+        |> compactTranscriptBlock model height blockIndex
+        |> output.AddRange
+        block.Clear()
+      else
+        ()
+    let mutable lineIndex = 0
+    for line in model.Transcript do
+      let line =
+        { Source = TuiTranscriptSource.Line lineIndex
+          Line = line }
       match line.Line.Kind with
       | TuiLineKind.Command ->
-        let output = flush index block output
-        index + 1, [ line ], output
+        flush ()
+        blockIndex <- blockIndex + 1
+        block.Add line
       | _ ->
-        index, line :: block, output
-    let index, block, output =
-      model.Transcript
-      |> List.mapi (fun index (line: TuiLine) ->
-        { Source = TuiTranscriptSource.Line index
-          Line = line })
-      |> List.fold folder (0, [], [])
-    flush index block output
+        block.Add line
+      lineIndex <- lineIndex + 1
+    flush ()
+    Seq.toList output
+
+  let private latestDisplayCommandIndex
+    (lines: TuiTranscriptLine list) =
+    lines
+    |> List.mapi (fun index line -> index, line)
+    |> List.filter (fun (_, line) -> line.Line.Kind = TuiLineKind.Command)
+    |> List.tryLast
+    |> Option.map fst
+
+  let private selectedDisplayLineIndex
+    (lines: TuiTranscriptLine list) =
+    lines
+    |> List.tryFindIndex (fun line ->
+      line.Line.Kind = TuiLineKind.Selection)
+
+  let private clampViewportStart height count start =
+    max 0 (min start (max 0 (count - height)))
+
+  let private autoTranscriptViewportStart height
+                                          (lines: TuiTranscriptLine list) =
+    let anchor = latestDisplayCommandIndex lines |> Option.defaultValue 0
+    let maximumStart = max 0 (List.length lines - height)
+    let start =
+      match selectedDisplayLineIndex lines with
+      | Some selected when selected < anchor -> selected
+      | Some selected when selected >= anchor + height ->
+        selected - height + 1
+      | _ -> anchor
+    max 0 (min maximumStart start)
+
+  let transcriptViewportStart height model =
+    let lines = transcriptDisplayLines height model
+    match model.TranscriptViewportStart with
+    | Some start -> clampViewportStart height (List.length lines) start
+    | None -> autoTranscriptViewportStart height lines
 
   let private transcriptDisplayCursorIndex height model =
     transcriptDisplayLines height model
@@ -577,7 +631,13 @@ module TransformerTuiModel =
     match source with
     | TuiTranscriptSource.Line index -> Some index
     | TuiTranscriptSource.HiddenRange(first, last) ->
-      if direction < 0 then Some last else Some first
+      let cursor = model.TranscriptCursor.Line
+      if first <= cursor && cursor <= last then
+        if direction < 0 then Some(first - 1)
+        elif direction > 0 then Some(last + 1)
+        else Some cursor
+      elif direction < 0 then Some last
+      else Some first
     | TuiTranscriptSource.Synthetic ->
       Some model.TranscriptCursor.Line
 
@@ -586,6 +646,7 @@ module TransformerTuiModel =
     let current =
       transcriptDisplayCursorIndex height model
       |> Option.defaultValue 0
+    let currentStart = transcriptViewportStart height model
     let target =
       max 0 (min (List.length displayLines - 1) (current + rowDelta))
     let line =
@@ -598,10 +659,26 @@ module TransformerTuiModel =
       { Line = line
         Column = model.TranscriptCursor.Column + columnDelta }
       |> clampCursor model.Transcript
-    { model with
-        TranscriptCursor = cursor
-        FoldTarget = blockAtLine cursor.Line model.Transcript
-        Status = "Transcript focused" }
+    let next =
+      { model with
+          TranscriptCursor = cursor
+          FoldTarget = blockAtLine cursor.Line model.Transcript
+          ScrollOffset = 0
+          Status = "Transcript focused" }
+    let nextLines = transcriptDisplayLines height next
+    let nextCursor =
+      transcriptDisplayCursorIndex height next
+      |> Option.defaultValue target
+    let nextStart =
+      if nextCursor < currentStart then
+        nextCursor
+      elif nextCursor >= currentStart + height then
+        nextCursor - height + 1
+      else
+        currentStart
+    { next with
+        TranscriptViewportStart =
+          Some(clampViewportStart height (List.length nextLines) nextStart) }
 
   let focusTranscriptAt offset model =
     let baseLine =
@@ -618,6 +695,7 @@ module TransformerTuiModel =
         Focus = TuiFocus.Transcript
         TranscriptCursor = cursor
         FoldTarget = blockAtLine cursor.Line model.Transcript
+        ScrollOffset = 0
         Status = "Transcript focused" }
 
   let moveTranscriptCursor lineDelta columnDelta model =
@@ -630,7 +708,7 @@ module TransformerTuiModel =
         FoldTarget = blockAtLine cursor.Line model.Transcript
         Status = "Transcript focused" }
 
-  let moveTranscriptCommand offset model =
+  let moveTranscriptCommand height offset model =
     let positions = commandPositions model.Transcript
     if List.isEmpty positions then
       { model with Status = "There is no command in the transcript" }
@@ -642,11 +720,21 @@ module TransformerTuiModel =
       let index = max 0 (min (List.length positions - 1) (current + offset))
       let line = positions[index]
       let cursor = { Line = line; Column = 0 }
-      { model with
-          Focus = TuiFocus.Transcript
-          TranscriptCursor = cursor
-          FoldTarget = Some(index + 1)
-          Status = $"Selected result #{index + 1}" }
+      let next =
+        { model with
+            Focus = TuiFocus.Transcript
+            TranscriptCursor = cursor
+            FoldTarget = Some(index + 1)
+            ScrollOffset = 0
+            Status = $"Selected result #{index + 1}" }
+      let lines = transcriptDisplayLines height next
+      let cursorIndex =
+        transcriptDisplayCursorIndex height next
+        |> Option.defaultValue 0
+      let start =
+        cursorIndex - (height / 2)
+        |> clampViewportStart height (List.length lines)
+      { next with TranscriptViewportStart = Some start }
 
   let openViewPane blockIndex model =
     let lines =
@@ -662,7 +750,7 @@ module TransformerTuiModel =
         lines
     let pane =
       { BlockIndex = blockIndex
-        Lines = lines
+        Lines = List.toArray lines
         Cursor = { Line = 0; Column = 0 }
         Anchor = None
         FindText = ""
@@ -686,7 +774,14 @@ module TransformerTuiModel =
     | None -> { model with Status = "There is no command result to view" }
 
   let private clampViewCursor pane cursor =
-    clampCursor pane.Lines cursor
+    let lineCount = pane.Lines.Length
+    let line = max 0 (min cursor.Line (max 0 (lineCount - 1)))
+    let text =
+      pane.Lines
+      |> Array.tryItem line
+      |> Option.map _.Text
+      |> Option.defaultValue ""
+    { Line = line; Column = max 0 (min cursor.Column text.Length) }
 
   let private updateViewPane updater model =
     match model.ViewPane with
@@ -735,11 +830,12 @@ module TransformerTuiModel =
   let findInView model =
     match model.ViewPane with
     | Some pane when not (String.IsNullOrEmpty pane.FindText) ->
-      let start = min (pane.Cursor.Line + 1) (List.length pane.Lines)
-      let indexed = pane.Lines |> List.mapi (fun index line -> index, line)
+      let start = min (pane.Cursor.Line + 1) pane.Lines.Length
+      let indexed = pane.Lines |> Array.mapi (fun index line -> index, line)
       let candidates =
-        (indexed |> List.skip start) @ (indexed |> List.truncate start)
-      match candidates |> List.tryFind (snd >> lineContains pane.FindText) with
+        Array.append (indexed |> Array.skip start)
+          (indexed |> Array.truncate start)
+      match candidates |> Array.tryFind (snd >> lineContains pane.FindText) with
       | Some(index, line) ->
         let column =
           line.Text.IndexOf(pane.FindText, StringComparison.OrdinalIgnoreCase)
@@ -760,21 +856,32 @@ module TransformerTuiModel =
     else cursor, anchor
 
   let selectedViewText pane =
+    let cleanText (text: string) =
+      let text = ansiPattern.Replace(text, "")
+      text
+      |> Seq.map (fun chr ->
+        if chr = '\t' then ' '
+        elif Char.IsControl chr then ' '
+        else chr)
+      |> Array.ofSeq
+      |> String
     let sliceText start finish (text: string) =
+      let text = cleanText text
       let start = max 0 (min start text.Length)
       let finish = max start (min finish text.Length)
       if start >= finish then "" else text[start..finish - 1]
     match pane.Anchor with
     | None ->
       pane.Lines
-      |> List.tryItem pane.Cursor.Line
-      |> Option.map _.Text
+      |> Array.tryItem pane.Cursor.Line
+      |> Option.map (fun line -> cleanText line.Text)
       |> Option.defaultValue ""
     | Some anchor ->
       let first, last = orderedSelection anchor pane.Cursor
       pane.Lines
-      |> List.mapi (fun index line -> index, line.Text)
-      |> List.choose (fun (index, text) ->
+      |> Array.mapi (fun index line -> index, line.Text)
+      |> Array.choose (fun (index, text) ->
+        let text = cleanText text
         if index < first.Line || index > last.Line then
           None
         elif first.Line = last.Line then
