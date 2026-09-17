@@ -770,11 +770,13 @@ type ConcExecAction() =
           cancellationToken.ThrowIfCancellationRequested()
           match input with
           | :? Binary as binary -> ConcExecutorValue(binary) |> box
+          | :? BinarySlice as slice ->
+            ConcExecutorValue(slice.ToBinary()) |> box
           | _ -> invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "conc-exec"
-    member _.Signature with get() = "Binary -> ConcExecutor"
+    member _.Signature with get() = "Binary | BinarySlice -> ConcExecutor"
     member _.Description with get() =
       "Create a stateful concrete executor backed by binary section memory."
     member _.Transform(args, collection) =

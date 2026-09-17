@@ -35,12 +35,12 @@ type HexdumpAction() =
     cs
 
   let rec hexdump (o: obj) =
-    let typ = o.GetType()
-    if typ = typeof<Binary> then hexdumpBinary o
-    else invalidArg (nameof o) "Invalid input type."
+    match o with
+    | :? Binary as binary -> hexdumpBinary binary
+    | :? BinarySlice as slice -> hexdumpBinary (slice.ToBinary())
+    | _ -> invalidArg (nameof o) "Invalid input type."
 
-  and hexdumpBinary o =
-    let bin = unbox<Binary> o
+  and hexdumpBinary bin =
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     let baseAddr = hdl.File.BaseAddress
@@ -62,7 +62,7 @@ type HexdumpAction() =
 
   interface IAction with
     member _.ActionID with get() = "hexdump"
-    member _.Signature with get() = "Binary -> Text"
+    member _.Signature with get() = "Binary | BinarySlice -> Text"
     member _.Description with get() =
       """
     Take in a binary and convert it to a hexdump string.

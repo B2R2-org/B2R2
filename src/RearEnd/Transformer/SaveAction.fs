@@ -33,7 +33,11 @@ type SaveAction() =
     cancellationToken.ThrowIfCancellationRequested()
     match input with
     | :? Binary as bin -> ReplArtifactWriter.writeBinary fname bin
-    | _ -> invalidArg (nameof input) "save only supports Binary values."
+    | :? BinarySlice as slice ->
+      ReplArtifactWriter.writeBinary fname (slice.ToBinary())
+    | _ ->
+      invalidArg (nameof input)
+        "save only supports Binary or BinarySlice values."
 
   let transform cancellationToken (args: string list) collection =
     match args, collection.Values with
@@ -48,7 +52,8 @@ type SaveAction() =
 
   interface IAction with
     member _.ActionID with get() = "save"
-    member _.Signature with get() = "Binary -> save path=<path> -> Unit"
+    member _.Signature with get() =
+      "Binary | BinarySlice -> save path=<path> -> Unit"
     member _.Description with get() =
       """
     Take in a Binary value and save its raw bytes to the <file>.

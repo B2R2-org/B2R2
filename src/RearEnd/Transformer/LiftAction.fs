@@ -46,8 +46,14 @@ type LiftAction() =
     else
       sb.ToString()
 
+  let binaryOfInput (input: obj) =
+    match input with
+    | :? Binary as binary -> binary
+    | :? BinarySlice as slice -> slice.ToBinary()
+    | _ -> invalidArg "input" "Invalid input type."
+
   let liftByteArray cancellationToken (o: obj) =
-    let bin = unbox<Binary> o
+    let bin = binaryOfInput o
     let hdl = Binary.Handle bin
     let lifter = hdl.NewLiftingUnit()
     let baddr = hdl.File.BaseAddress
@@ -65,7 +71,7 @@ type LiftAction() =
 
   interface IAction with
     member _.ActionID with get() = "lift"
-    member _.Signature with get() = "Binary -> string"
+    member _.Signature with get() = "Binary | BinarySlice -> string"
     member _.Description with get() =
       """
     Take in a binary and linearly disassemble the binary and lift it to a

@@ -58,10 +58,7 @@ type StringsAction() =
   let isPrintable byte =
     byte >= 0x20uy && byte <= 0x7euy
 
-  let collectStrings minLength pattern (binary: Binary) =
-    let hdl = Binary.Handle binary
-    let bytes = hdl.File.RawBytes.ToArray()
-    let baseAddress = hdl.File.BaseAddress
+  let collectStrings minLength pattern source baseAddress (bytes: byte[]) =
     let builder = StringBuilder()
     let strings = ResizeArray<StringMatch>()
     let flush startIndex =
@@ -70,7 +67,7 @@ type StringsAction() =
         if pattern |> Option.forall (fun (pat: string) ->
           text.IndexOf(pat, StringComparison.OrdinalIgnoreCase) >= 0) then
           strings.Add
-            { Source = binary
+            { Source = source
               Address = baseAddress + uint64 startIndex
               Text = text }
         else
@@ -88,6 +85,16 @@ type StringsAction() =
     flush startIndex
     strings.ToArray() |> Array.map box
 
+  let collectFromBinary minLength pattern binary =
+    let hdl = Binary.Handle binary
+    let bytes = hdl.File.RawBytes.ToArray()
+    collectStrings minLength pattern binary hdl.File.BaseAddress bytes
+
+  let collectFromSlice minLength pattern slice =
+    let slice: BinarySlice = slice
+    collectStrings minLength pattern slice.Source slice.StartAddress
+      slice.Bytes
+
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
     let minLength = parseMinLength args
@@ -100,13 +107,16 @@ type StringsAction() =
             cancellationToken.ThrowIfCancellationRequested()
             match input with
             | :? Binary as binary ->
-              collectStrings minLength pattern binary
+              collectFromBinary minLength pattern binary
+            | :? BinarySlice as slice ->
+              collectFromSlice minLength pattern slice
             | _ -> invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "strings"
     member _.Signature with get() =
-      "Binary * [min] [pattern] -> StringMatch collection"
+      "Binary | BinarySlice -> strings [min] [pattern] "
+      + "-> StringMatch collection"
     member _.Description with get() =
       "Extract printable ASCII strings, optionally filtered by text."
     member _.Transform(args, collection) =

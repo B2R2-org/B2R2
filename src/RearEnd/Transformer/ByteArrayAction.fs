@@ -29,10 +29,14 @@ open B2R2.FrontEnd
 
 /// The `bytes` action.
 type BytesAction() =
-  let convert cancellationToken input =
+  let convert cancellationToken (input: obj) =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
-    let binary = unbox<Binary> input
+    let binary =
+      match input with
+      | :? Binary as binary -> binary
+      | :? BinarySlice as slice -> slice.ToBinary()
+      | _ -> invalidArg (nameof input) "Invalid input type."
     let hdl = Binary.Handle binary
     { Bytes = hdl.File.RawBytes.ToArray()
       BaseAddress = hdl.File.BaseAddress
@@ -46,7 +50,7 @@ type BytesAction() =
 
   interface IAction with
     member _.ActionID with get() = "bytes"
-    member _.Signature with get() = "Binary -> ByteArray"
+    member _.Signature with get() = "Binary | BinarySlice -> ByteArray"
     member _.Description with get() =
       "Extract raw bytes while retaining address and ISA information."
     member _.Transform(args, collection) =

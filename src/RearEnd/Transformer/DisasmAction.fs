@@ -52,8 +52,14 @@ type DisasmAction() =
     else
       List.rev acc |> List.toArray
 
+  let binaryOfInput (input: obj) =
+    match input with
+    | :? Binary as binary -> binary
+    | :? BinarySlice as slice -> slice.ToBinary()
+    | _ -> invalidArg "input" "Invalid input type."
+
   let disasmByteArray cancellationToken _args (o: obj) =
-    let bin = unbox<Binary> o
+    let bin = binaryOfInput o
     let hdl = Binary.Handle bin
     let lifter = hdl.NewLiftingUnit()
     let baddr = hdl.File.BaseAddress
@@ -71,7 +77,8 @@ type DisasmAction() =
 
   interface IAction with
     member _.ActionID with get() = "disasm"
-    member _.Signature with get() = "Binary -> Instruction array"
+    member _.Signature with get() =
+      "Binary | BinarySlice -> Instruction array"
     member _.Description with get() =
       """
     Take in a binary and linearly disassemble the binary to return a list of

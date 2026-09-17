@@ -53,15 +53,25 @@ type WinnowingAction() =
       else
         computeFingerprint cancellationToken (m :: acc) annot m n wsz
           (idx + 1) ngrams
-    else { Patterns = List.rev acc
-           NGramSize = n
-           WindowSize = wsz
-           Annotation = annot }
+    else
+      { Patterns = List.rev acc
+        NGramSize = n
+        WindowSize = wsz
+        Annotation = annot }
+
+  let binaryAndAnnotation (input: obj) =
+    match input with
+    | :? Binary as bin ->
+      bin, Binary.MakeAnnotation("Winnowing from ", bin)
+    | :? BinarySlice as slice ->
+      slice.ToBinary(), $"Winnowing from {slice}"
+    | _ ->
+      invalidArg (nameof input)
+        "winnowing supports Binary or BinarySlice values."
 
   let winnowing cancellationToken n wsz input =
-    let bin = unbox<Binary> input
+    let bin, annot = binaryAndAnnotation input
     let hdl = Binary.Handle bin
-    let annot = Binary.MakeAnnotation("Winnowing from ", bin)
     let span = hdl.File.RawBytes.Span
     if span.Length < n + wsz then
       invalidArg (nameof input) "The input binary is too small."
@@ -85,7 +95,7 @@ type WinnowingAction() =
   interface IAction with
     member _.ActionID with get() = "winnowing"
     member _.Signature with get() =
-      "Binary -> winnowing [n-gram-size=<n>] [window-size=<n>]"
+      "Binary | BinarySlice -> winnowing [n-gram-size=<n>] [window-size=<n>]"
       + " -> Fingerprint"
     member _.Description with get() =
       """
