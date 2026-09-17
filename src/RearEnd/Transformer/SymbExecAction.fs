@@ -378,6 +378,26 @@ type SymbExecutorValue(binary: Binary,
                       hookText,
                       solver)
 
+  member _.WithPrecondition(condition: StopPoint<SymbState> -> bool) =
+    let state = state.Clone()
+    let point =
+      { Address = state.PC
+        InstructionCount = 0
+        Instruction = None
+        Statements = [||]
+        State = state }
+    if condition point then
+      SymbExecutorValue(binary,
+                        state,
+                        inputs,
+                        avoids,
+                        regions,
+                        hooks,
+                        hookText,
+                        solver)
+    else
+      invalidOp "The symbolic precondition is unsatisfiable."
+
   member _.WithStrlenHook addr =
     let registry =
       hooks
@@ -912,6 +932,14 @@ module private SymbCondition =
     let m = Regex.Match(text, pattern, options)
     if m.Success then Some m else None
 
+  let parseConditionList atomParser body =
+    Regex.Split(body, @"\s*&&\s*")
+    |> Array.toList
+    |> List.map atomParser
+    |> function
+      | [ atom ] -> atom
+      | atoms -> And atoms
+
   let parseAtom text =
     let number = @"(0x[0-9a-f]+|[0-9]+)"
     let op = @"(==|=|!=|<>|<=|>=|<|>)"
@@ -963,12 +991,7 @@ module private SymbCondition =
               invalidArg (nameof text) $"Invalid pp condition: {text}"
 
   let parseBody body =
-    Regex.Split(body, @"\s*&&\s*")
-    |> Array.toList
-    |> List.map parseAtom
-    |> function
-      | [ atom ] -> atom
-      | atoms -> And atoms
+    parseConditionList parseAtom body
 
   let parse text =
     let text = stripOuterParens text
@@ -978,6 +1001,52 @@ module private SymbCondition =
     | None ->
       invalidArg (nameof text)
         "Expected condition function: fun pp -> <predicate>."
+
+  let stripListBrackets (text: string) =
+    let text = text.Trim()
+    if text.StartsWith("[", StringComparison.Ordinal)
+       && text.EndsWith("]", StringComparison.Ordinal) then
+      text[1..text.Length - 2].Trim()
+    else
+      text
+
+  let parsePreconditionAtom text =
+    let number = @"(0x[0-9a-f]+|[0-9]+)"
+    let op = @"(==|=|!=|<>|<=|>=|<|>)"
+    let text = norm text
+    let regPattern =
+      @"^([A-Za-z][A-Za-z0-9_]*)\s*" + op + @"\s*" + number + "$"
+    let memPattern =
+      @"^MEM\s*\[\s*" + number + @"(?::([0-9]+))?\s*\]\s*"
+      + op + @"\s*" + number + "$"
+    match tryMatch regPattern text with
+    | Some m ->
+      let term = Register m.Groups[1].Value
+      let relop = parseRelOp m.Groups[2].Value
+      Compare(term, relop, SymbArgs.parseAddr m.Groups[3].Value)
+    | None ->
+      match tryMatch memPattern text with
+      | Some m ->
+        let size =
+          if m.Groups[2].Success then SymbArgs.parseInt m.Groups[2].Value
+          else 8
+        let term =
+          Memory(SymbArgs.parseAddr m.Groups[1].Value,
+                 RegType.fromByteWidth size)
+        let relop = parseRelOp m.Groups[3].Value
+        Compare(term, relop, SymbArgs.parseAddr m.Groups[4].Value)
+      | None ->
+        invalidArg (nameof text) $"Invalid precondition: {text}"
+
+  let parsePreconditions text =
+    stripListBrackets text
+    |> fun text -> Regex.Split(text, @"\s*(?:;|&&)\s*")
+    |> Array.toList
+    |> List.filter (String.IsNullOrWhiteSpace >> not)
+    |> List.map parsePreconditionAtom
+    |> function
+      | [ atom ] -> atom
+      | atoms -> And atoms
 
   let constFor (expr: SymbExpr) (value: Addr) =
     SymbExpr.Const(BitVector(uint64 value, expr.Type))
@@ -1728,6 +1797,9 @@ type SymbSearchAction() =
   let cond =
     SymbMetadata.arg "cond" ActionArgumentKind.ParameterFunction false
       "Program-point predicate: fun pp -> pp.at(0x401000)."
+  let precond =
+    SymbMetadata.arg "precond" ActionArgumentKind.Text true
+      "Initial constraints: ESI>99 or [ESI>99;RDX!=0]."
   let maxDepth =
     SymbMetadata.arg "max-depth" ActionArgumentKind.Integer true
       "Maximum instructions per path. Default: 512."
@@ -1740,10 +1812,11 @@ type SymbSearchAction() =
   let prune =
     SymbMetadata.choice "prune" true [ "true"; "false" ]
       "Use the solver to prune infeasible paths. Default: true."
-  let condArgs = [ cond; maxDepth; maxStates; loopBound; prune ]
+  let condArgs = [ cond; precond; maxDepth; maxStates; loopBound; prune ]
   let signature =
     "SymbExecutor -> @symb-search cond:ParameterFunction=<fun> "
-    + "[max-depth:Int=<n>] [max-states:Int=<n>] "
+    + "[precond:String=<conditions>] [max-depth:Int=<n>] "
+    + "[max-states:Int=<n>] "
     + "[loop-bound:Int=<n>] [prune:Choice=<true|false>] -> SymbRunResult"
   let metadata =
     { SymbMetadata.metadata
@@ -1754,18 +1827,44 @@ type SymbSearchAction() =
         signature
         "Search for symbolic inputs satisfying a state condition."
         [ "sx |> @symb-search cond=(fun pp -> pp.at(0x401000))"
+          "sx |> @symb-search precond=ESI>99 "
+          + "cond=(fun _ -> mem.accessViolation())"
           "sx |> @symb-search cond=(fun _ -> mem.accessViolation())" ]
         with
         Syntaxes =
           [ SymbMetadata.syntax None condArgs ] }
+
+  let isBoolText (text: string) =
+    match text.Trim().ToLowerInvariant() with
+    | "true" | "false" -> true
+    | _ -> false
+
+  let isOptionValue (text: string) =
+    match Int32.TryParse text with
+    | true, _ -> true
+    | _ -> isBoolText text
+
+  let splitPrecondition = function
+    | candidate :: rest when isOptionValue candidate |> not ->
+      Some candidate, rest
+    | args -> None, args
 
   let transformOne args (value: obj) =
     match value with
     | :? SymbExecutorValue as executor ->
       match args with
       | cond :: rest ->
-        let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults rest
         let hdl = Binary.Handle executor.Binary
+        let precond, rest = splitPrecondition rest
+        let executor =
+          match precond with
+          | Some precond ->
+            let condition = SymbCondition.parsePreconditions precond
+            let predicate =
+              SymbCondition.toPredicate hdl executor.Regions condition
+            executor.WithPrecondition predicate.Invoke
+          | None -> executor
+        let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults rest
         let condition = SymbCondition.parse cond
         let result =
           match SymbCondition.trySatisfyAddress condition with
