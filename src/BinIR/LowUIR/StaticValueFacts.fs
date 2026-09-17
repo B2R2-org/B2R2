@@ -76,49 +76,49 @@ module StaticValueFacts =
         Temps = intersectEqual ctx1.Temps ctx2.Temps }
 
   let rec private evalExpr ctx = function
-    | Num(bv, _) ->
+    | Num(Value = bv) ->
       Some bv
-    | Var(_, rid, _, _) ->
+    | Var(RegisterID = rid) ->
       Map.tryFind rid ctx.Regs
-    | PCVar(rt, _, _) ->
+    | PCVar(Type = rt) ->
       BitVector(ctx.PC, rt) |> Some
-    | TempVar(_, n, _) ->
+    | TempVar(Index = n) ->
       Map.tryFind n ctx.Temps
     | ExprList _ ->
       None
-    | UnOp(UnOpType.NEG, e, _) ->
+    | UnOp(Op = UnOpType.NEG; Operand = e) ->
       evalUnOp ctx e BitVector.Neg
-    | UnOp(UnOpType.NOT, e, _) ->
+    | UnOp(Op = UnOpType.NOT; Operand = e) ->
       evalUnOp ctx e BitVector.Not
     | UnOp _ ->
       None
-    | BinOp(BinOpType.ADD, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.ADD; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.Add
-    | BinOp(BinOpType.SUB, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.SUB; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.Sub
-    | BinOp(BinOpType.MUL, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.MUL; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.Mul
-    | BinOp(BinOpType.DIV, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.DIV; Left = e1; Right = e2) ->
       evalDivOp ctx e1 e2 BitVector.Div
-    | BinOp(BinOpType.SDIV, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.SDIV; Left = e1; Right = e2) ->
       evalDivOp ctx e1 e2 BitVector.SDiv
-    | BinOp(BinOpType.MOD, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.MOD; Left = e1; Right = e2) ->
       evalDivOp ctx e1 e2 BitVector.Modulo
-    | BinOp(BinOpType.SMOD, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.SMOD; Left = e1; Right = e2) ->
       evalDivOp ctx e1 e2 BitVector.SModulo
-    | BinOp(BinOpType.AND, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.AND; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.And
-    | BinOp(BinOpType.OR, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.OR; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.Or
-    | BinOp(BinOpType.XOR, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.XOR; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.Xor
-    | BinOp(BinOpType.SHL, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.SHL; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.Shl
-    | BinOp(BinOpType.SHR, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.SHR; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.Shr
-    | BinOp(BinOpType.SAR, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.SAR; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.Sar
-    | BinOp(BinOpType.CONCAT, _, e1, e2, _) ->
+    | BinOp(Op = BinOpType.CONCAT; Left = e1; Right = e2) ->
       evalBinOp ctx e1 e2 BitVector.Concat
     | _ ->
       None
@@ -141,13 +141,13 @@ module StaticValueFacts =
 
   let private updateContextAtDef ctx dst src =
     match dst, evalExpr ctx src with
-    | Var(_, rid, _, _), Some value ->
+    | Var(RegisterID = rid), Some value ->
       { ctx with Regs = Map.add rid value ctx.Regs }
-    | Var(_, rid, _, _), None ->
+    | Var(RegisterID = rid), None ->
       { ctx with Regs = Map.remove rid ctx.Regs }
-    | TempVar(_, n, _), Some value ->
+    | TempVar(Index = n), Some value ->
       { ctx with Temps = Map.add n value ctx.Temps }
-    | TempVar(_, n, _), None ->
+    | TempVar(Index = n), None ->
       { ctx with Temps = Map.remove n ctx.Temps }
     | _ ->
       ctx
@@ -156,54 +156,54 @@ module StaticValueFacts =
     | Num _ | Var _ | PCVar _ | TempVar _
     | JmpDest _ | FuncName _ | Undefined _ ->
       reads, writes
-    | ExprList(exprs, _) ->
+    | ExprList(Elements = exprs) ->
       List.fold (fun (reads, writes) e ->
         collectReadsFromExpr ctx reads writes e) (reads, writes) exprs
-    | UnOp(_, e, _) ->
+    | UnOp(Operand = e) ->
       collectReadsFromExpr ctx reads writes e
-    | BinOp(_, _, e1, e2, _)
-    | RelOp(_, e1, e2, _) ->
+    | BinOp(Left = e1; Right = e2)
+    | RelOp(Left = e1; Right = e2) ->
       let reads, writes = collectReadsFromExpr ctx reads writes e1
       collectReadsFromExpr ctx reads writes e2
-    | Load(_, _, addrExpr, _) ->
+    | Load(Addr = addrExpr) ->
       let reads, writes = collectReadsFromExpr ctx reads writes addrExpr
       match evalAddr ctx addrExpr with
       | Some addr -> Set.add addr reads, writes
       | None -> reads, writes
-    | Ite(cond, e1, e2, _) ->
+    | Ite(Cond = cond; TrueExpr = e1; FalseExpr = e2) ->
       let reads, writes = collectReadsFromExpr ctx reads writes cond
       let reads, writes = collectReadsFromExpr ctx reads writes e1
       collectReadsFromExpr ctx reads writes e2
-    | Cast(_, _, e, _) ->
+    | Cast(Operand = e) ->
       collectReadsFromExpr ctx reads writes e
-    | RoundCtrl(mode, body, _) ->
+    | RoundCtrl(Mode = mode; Body = body) ->
       let reads, writes = collectReadsFromExpr ctx reads writes mode
       collectReadsFromExpr ctx reads writes body
-    | Extract(e, _, _, _) ->
+    | Extract(Operand = e) ->
       collectReadsFromExpr ctx reads writes e
 
   let private collectFromStmt addr ctx reads writes = function
-    | ISMark(_, _) | LMark(_, _) ->
+    | ISMark _ | LMark _ ->
       ctx, reads, writes, Set.empty
-    | IEMark(len, _) ->
+    | IEMark(Length = len) ->
       ctx, reads, writes, Set.singleton (addr + uint64 len)
-    | Put(dst, src, _) ->
+    | Put(Dst = dst; Src = src) ->
       let reads, writes = collectReadsFromExpr ctx reads writes src
       updateContextAtDef ctx dst src, reads, writes, Set.empty
-    | Store(_, addrExpr, src, _) ->
+    | Store(Addr = addrExpr; Value = src) ->
       let reads, writes = collectReadsFromExpr ctx reads writes addrExpr
       let reads, writes = collectReadsFromExpr ctx reads writes src
       match evalAddr ctx addrExpr with
       | Some addr -> ctx, reads, Set.add addr writes, Set.empty
       | None -> ctx, reads, writes, Set.empty
-    | Jmp(target, _)
-    | InterJmp(target, _, _) ->
+    | Jmp(Target = target)
+    | InterJmp(Target = target) ->
       let reads, writes = collectReadsFromExpr ctx reads writes target
       match evalAddr ctx target with
       | Some addr -> ctx, reads, writes, Set.singleton addr
       | None -> ctx, reads, writes, Set.empty
-    | CJmp(cond, target1, target2, _)
-    | InterCJmp(cond, target1, target2, _) ->
+    | CJmp(Cond = cond; TrueTarget = target1; FalseTarget = target2)
+    | InterCJmp(Cond = cond; TrueTarget = target1; FalseTarget = target2) ->
       let reads, writes = collectReadsFromExpr ctx reads writes cond
       let reads, writes = collectReadsFromExpr ctx reads writes target1
       let reads, writes = collectReadsFromExpr ctx reads writes target2
@@ -216,7 +216,7 @@ module StaticValueFacts =
         ctx, reads, writes, Set.singleton addr2
       | None, None ->
         ctx, reads, writes, Set.empty
-    | ExternalCall(args, _) ->
+    | ExternalCall(Call = args) ->
       let reads, writes = collectReadsFromExpr ctx reads writes args
       clearContext ctx, reads, writes, Set.empty
     | SideEffect _ ->
@@ -226,7 +226,7 @@ module StaticValueFacts =
     let labelMap = Dictionary<Label, int>()
     stmts
     |> Array.iteri (fun idx -> function
-      | LMark(lbl, _) -> labelMap[lbl] <- idx
+      | LMark(Label = lbl) -> labelMap[lbl] <- idx
       | _ -> ())
     labelMap
 
@@ -237,7 +237,7 @@ module StaticValueFacts =
 
   let private tryFindTarget ctx target =
     match target with
-    | JmpDest(lbl, _) -> tryFindLabel ctx lbl
+    | JmpDest(Target = lbl) -> tryFindLabel ctx lbl
     | _ -> None
 
   let private targetSucc ctx target =
@@ -260,9 +260,9 @@ module StaticValueFacts =
     if next < stmtsLen then [ next, ctx ] else []
 
   let private getSuccs stmtsLen idx ctx = function
-    | Jmp(target, _) ->
+    | Jmp(Target = target) ->
       targetSucc ctx target
-    | CJmp(cond, trueTarget, falseTarget, _) ->
+    | CJmp(Cond = cond; TrueTarget = trueTarget; FalseTarget = falseTarget) ->
       cjmpSuccs ctx cond trueTarget falseTarget
     | InterJmp _ | InterCJmp _ ->
       []

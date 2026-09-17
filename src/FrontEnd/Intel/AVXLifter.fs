@@ -1809,7 +1809,7 @@ let private maskedMove (ins: Instruction) bld packSz =
     let bytes = RegType.toByteWidth packSz
     let addressOf opr =
       match transOpr ins bld false opr with
-      | Load(_, _, addr, _) -> addr
+      | Load(Addr = addr) -> addr
       | _ -> raise InvalidOperandException
     let elemAt addr i =
       AST.loadLE packSz (addr .+ numI32 (i * bytes) (Expr.typeOf addr))

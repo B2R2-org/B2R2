@@ -1531,7 +1531,7 @@ let lr ins bld =
     let addr = getAddrFromMem mem
     let sz =
       match mem with
-      | Load(_, sz, _, _) -> sz
+      | Load(Type = sz) -> sz
       | _ -> raise InvalidExprException
     let v = tmpVar bld sz
     AST.sideEffect AtomicBegin

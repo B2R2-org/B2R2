@@ -1283,26 +1283,26 @@ module private SymbCondition =
 
   let rec readAddresses (point: StopPoint<SymbState>) (expr: LowUIRExpr) =
     match expr with
-    | LowUIRExpr.Load(_, _, addr, _) ->
+    | LowUIRExpr.Load(Addr = addr) ->
       match tryAddress point addr with
       | Some expr ->
         [ expr ]
       | None ->
         []
-    | LowUIRExpr.ExprList(exprs, _) ->
+    | LowUIRExpr.ExprList(Elements = exprs) ->
       exprs |> List.collect (readAddresses point)
-    | LowUIRExpr.UnOp(_, expr, _)
-    | LowUIRExpr.Cast(_, _, expr, _)
-    | LowUIRExpr.Extract(expr, _, _, _) ->
+    | LowUIRExpr.UnOp(Operand = expr)
+    | LowUIRExpr.Cast(Operand = expr)
+    | LowUIRExpr.Extract(Operand = expr) ->
       readAddresses point expr
-    | LowUIRExpr.BinOp(_, _, lhs, rhs, _)
-    | LowUIRExpr.RelOp(_, lhs, rhs, _) ->
+    | LowUIRExpr.BinOp(Left = lhs; Right = rhs)
+    | LowUIRExpr.RelOp(Left = lhs; Right = rhs) ->
       readAddresses point lhs @ readAddresses point rhs
-    | LowUIRExpr.Ite(cond, thenExpr, elseExpr, _) ->
+    | LowUIRExpr.Ite(Cond = cond; TrueExpr = thenExpr; FalseExpr = elseExpr) ->
       readAddresses point cond
       @ readAddresses point thenExpr
       @ readAddresses point elseExpr
-    | LowUIRExpr.RoundCtrl(mode, body, _) ->
+    | LowUIRExpr.RoundCtrl(Mode = mode; Body = body) ->
       readAddresses point mode @ readAddresses point body
     | _ ->
       []
@@ -1317,24 +1317,28 @@ module private SymbCondition =
 
   let stmtAccesses point (stmt: LowUIRStmt) =
     match stmt with
-    | LowUIRStmt.Put(_, rhs, _) ->
+    | LowUIRStmt.Put(Src = rhs) ->
       readAccesses point rhs
-    | LowUIRStmt.Store(_, addr, value, _) ->
+    | LowUIRStmt.Store(Addr = addr; Value = value) ->
       let reads = readAccesses point addr @ readAccesses point value
       match tryWriteAccess point addr with
       | Some write ->
         write :: reads
       | None ->
         reads
-    | LowUIRStmt.Jmp(target, _)
-    | LowUIRStmt.InterJmp(target, _, _) ->
+    | LowUIRStmt.Jmp(Target = target)
+    | LowUIRStmt.InterJmp(Target = target) ->
       readAccesses point target
-    | LowUIRStmt.CJmp(cond, trueTarget, falseTarget, _)
-    | LowUIRStmt.InterCJmp(cond, trueTarget, falseTarget, _) ->
+    | LowUIRStmt.CJmp(Cond = cond
+                      TrueTarget = trueTarget
+                      FalseTarget = falseTarget)
+    | LowUIRStmt.InterCJmp(Cond = cond
+                           TrueTarget = trueTarget
+                           FalseTarget = falseTarget) ->
       readAccesses point cond
       @ readAccesses point trueTarget
       @ readAccesses point falseTarget
-    | LowUIRStmt.ExternalCall(expr, _) ->
+    | LowUIRStmt.ExternalCall(Call = expr) ->
       readAccesses point expr
     | _ ->
       []

@@ -204,40 +204,40 @@ type State<'L, 'ExeCtx
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
       convertUseToReachingDefSSAExpr svp exeCtx varKind
-    | ExprList(l, _) ->
+    | ExprList(Elements = l) ->
       List.map (computeSSAExpr pp exeCtx) l |> SSA.ExprList
-    | UnOp(op, e, _) ->
+    | UnOp(Op = op; Operand = e) ->
       let sexpr = computeSSAExpr pp exeCtx e
       let rt = Expr.typeOf e
       SSA.UnOp(op, rt, sexpr)
-    | BinOp(op, rt, e1, e2, _) ->
+    | BinOp(Op = op; Type = rt; Left = e1; Right = e2) ->
       let sexpr1 = computeSSAExpr pp exeCtx e1
       let sexpr2 = computeSSAExpr pp exeCtx e2
       SSA.BinOp(op, rt, sexpr1, sexpr2)
-    | RelOp(op, e1, e2, _) ->
+    | RelOp(Op = op; Left = e1; Right = e2) ->
       let sexpr1 = computeSSAExpr pp exeCtx e1
       let sexpr2 = computeSSAExpr pp exeCtx e2
       let rt = Expr.typeOf e1
       SSA.RelOp(op, rt, sexpr1, sexpr2)
-    | Extract(e, _, pos, _) ->
+    | Extract(Operand = e; StartPos = pos) ->
       let sexpr = computeSSAExpr pp exeCtx e
       let rt = Expr.typeOf e
       SSA.Extract(sexpr, rt, pos)
-    | Cast(op, _, e, _) ->
+    | Cast(Kind = op; Operand = e) ->
       let sexpr = computeSSAExpr pp exeCtx e
       let rt = Expr.typeOf e
       SSA.Cast(op, rt, sexpr)
-    | RoundCtrl(mode, body, _) as e ->
+    | RoundCtrl(Mode = mode; Body = body) as e ->
       let smode = computeSSAExpr pp exeCtx mode
       let sbody = computeSSAExpr pp exeCtx body
       SSA.RoundCtrl(smode, Expr.typeOf e, sbody)
-    | Ite(e1, e2, e3, _) ->
+    | Ite(Cond = e1; TrueExpr = e2; FalseExpr = e3) ->
       let sexpr1 = computeSSAExpr pp exeCtx e1
       let sexpr2 = computeSSAExpr pp exeCtx e2
       let sexpr3 = computeSSAExpr pp exeCtx e3
       let rt = Expr.typeOf e2
       SSA.Ite(sexpr1, rt, sexpr2, sexpr3)
-    | Load(_, rt, e, _) ->
+    | Load(Type = rt; Addr = e) ->
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       match spEvaluateExpr spp e with
       | StackPointerDomain.ConstSP bv ->
@@ -249,17 +249,17 @@ type State<'L, 'ExeCtx
         let e = computeSSAExpr pp exeCtx e
         let fakeMemoryVar = { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 }
         SSA.Load(fakeMemoryVar, rt, e)
-    | PCVar(rt, _rname, _) ->
+    | PCVar(Type = rt; Name = _rname) ->
       let fakeAddr = 0xdeadbeef1UL
       let bv = BitVector(fakeAddr, rt)
       SSA.Num bv
-    | Num(bv, _) ->
+    | Num(Value = bv) ->
       SSA.Num bv
-    | FuncName(name, _) ->
+    | FuncName(Name = name) ->
       SSA.FuncName name
-    | Undefined(rt, name, _) ->
+    | Undefined(Type = rt; Reason = name) ->
       SSA.Undefined(rt, name)
-    | JmpDest(_, _) ->
+    | JmpDest _ ->
       Terminator.impossible ()
 
   /// Computes the pseudo-SSA statement for the given statement at the given
@@ -268,14 +268,14 @@ type State<'L, 'ExeCtx
   /// and does not introduce fresh memory variables).
   let computeSSAStmt stmt pp exeCtx =
     match stmt with
-    | Put(dstVar, e, _) ->
+    | Put(Dst = dstVar; Src = e) ->
       let expr = computeSSAExpr pp exeCtx e
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       let varKind = VarKind.ofIRExpr dstVar
       let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
       let var = getSSAVarFromDefSvp svp
       SSA.Def(var, expr)
-    | Store(_, dstExpr, srcExpr, _) ->
+    | Store(Addr = dstExpr; Value = srcExpr) ->
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       match spEvaluateExpr spp dstExpr with
       | StackPointerDomain.ConstSP bv ->
@@ -293,19 +293,21 @@ type State<'L, 'ExeCtx
         let fakeOutMemoryVar = { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 }
         let storeExpr = SSA.Store(fakeInMemoryVar, rt, dstExpr, srcExpr)
         SSA.Def(fakeOutMemoryVar, storeExpr)
-    | InterJmp(targetExpr, _, _) ->
+    | InterJmp(Target = targetExpr) ->
       let targetExpr = computeSSAExpr pp exeCtx targetExpr
       let jmpType = SSA.InterJmp targetExpr
       SSA.Jmp jmpType
-    | InterCJmp(condExpr, tTargetExpr, fTargetExpr, _) ->
+    | InterCJmp(Cond = condExpr
+                TrueTarget = tTargetExpr
+                FalseTarget = fTargetExpr) ->
       let condExpr = computeSSAExpr pp exeCtx condExpr
       let tTargetExpr = computeSSAExpr pp exeCtx tTargetExpr
       let fTargetExpr = computeSSAExpr pp exeCtx fTargetExpr
       let jmpType = SSA.InterCJmp(condExpr, tTargetExpr, fTargetExpr)
       SSA.Jmp jmpType
-    | SideEffect(se, _) ->
+    | SideEffect(Effect = se) ->
       SSA.SideEffect se
-    | ExternalCall(extCallExpr, _) ->
+    | ExternalCall(Call = extCallExpr) ->
       let extCallSExpr = computeSSAExpr pp exeCtx extCallExpr
       let inVars = [] (* We just fill in empty variables for now. *)
       let outVars = []
@@ -760,14 +762,14 @@ module internal AnalysisCore = begin
     let mutable outDefs = inDefs
     for (stmt, pp) in stmtInfos do
       match stmt with
-      | Put(dst, src, _) ->
+      | Put(Dst = dst; Src = src) ->
         let varKind = VarKind.ofIRExpr dst
         let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
         let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
         updateWithExpr state outDefs spp src
         updateStackPointer state spp varKind src
         outDefs <- strongUpdateReachingDef outDefs varKind svp
-      | Store(_, addr, value, _) ->
+      | Store(Addr = addr; Value = value) ->
         let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
         updateWithExpr state outDefs spp addr
         updateWithExpr state outDefs spp value
@@ -782,15 +784,15 @@ module internal AnalysisCore = begin
           outDefs <- strongUpdateReachingDef outDefs varKind svp
         | _ ->
           ()
-      | InterJmp(dstExpr, _, _) ->
+      | InterJmp(Target = dstExpr) ->
         let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
         updateWithExpr state outDefs spp dstExpr
-      | InterCJmp(condExpr, tExpr, fExpr, _) ->
+      | InterCJmp(Cond = condExpr; TrueTarget = tExpr; FalseTarget = fExpr) ->
         let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
         updateWithExpr state outDefs spp condExpr
         updateWithExpr state outDefs spp tExpr
         updateWithExpr state outDefs spp fExpr
-      | ExternalCall(e, _) ->
+      | ExternalCall(Call = e) ->
         let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
         updateWithExpr state outDefs spp e
       | Jmp _ | CJmp _ ->
@@ -960,7 +962,7 @@ module internal AnalysisCore = begin
 
   let domainTransfer (state: State<_, _>) exeCtx (stmt, pp) =
     match stmt with
-    | Put(dst, src, _) ->
+    | Put(Dst = dst; Src = src) ->
       let varKind = VarKind.ofIRExpr dst
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
@@ -969,7 +971,7 @@ module internal AnalysisCore = begin
       let curr = state.EvalExpr(spp, src)
       let defUseMap = state.DefUseMap
       updateAbsValue subState defUseMap svp prev curr
-    | Store(_, addr, value, _) ->
+    | Store(Addr = addr; Value = value) ->
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       match state.StackPointerSubState.EvalExpr(spp, addr) with
       | StackPointerDomain.ConstSP bv ->

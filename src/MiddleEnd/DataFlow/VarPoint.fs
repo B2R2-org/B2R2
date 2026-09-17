@@ -53,8 +53,8 @@ module VarKind =
   /// Converts a LowUIR expression to a VarKind.
   let ofIRExpr (e: LowUIR.Expr) =
     match e with
-    | LowUIR.Var(_, rid, _, _) -> Regular rid
-    | LowUIR.TempVar(_, n, _) -> Temporary n
+    | LowUIR.Var(RegisterID = rid) -> Regular rid
+    | LowUIR.TempVar(Index = n) -> Temporary n
     | _ -> Terminator.impossible ()
 
   /// Converts an SSA variable kind to a VarKind.
@@ -76,30 +76,30 @@ module VarKind =
   /// can turn its address into a frame offset.
   let rec iterUses onVarRead tryStackOffset (e: LowUIR.Expr) =
     match e with
-    | LowUIR.Var(_, rid, _, _) ->
+    | LowUIR.Var(RegisterID = rid) ->
       onVarRead (Regular rid)
-    | LowUIR.TempVar(_, n, _) ->
+    | LowUIR.TempVar(Index = n) ->
       onVarRead (Temporary n)
-    | LowUIR.ExprList(exprs, _) ->
+    | LowUIR.ExprList(Elements = exprs) ->
       for e in exprs do iterUses onVarRead tryStackOffset e
-    | LowUIR.Load(_, _, addr, _) ->
+    | LowUIR.Load(Addr = addr) ->
       iterUses onVarRead tryStackOffset addr
       match tryStackOffset addr with
       | Some offset -> onVarRead (StackLocal offset)
       | None -> ()
-    | LowUIR.UnOp(_, e, _)
-    | LowUIR.Cast(_, _, e, _)
-    | LowUIR.Extract(e, _, _, _) ->
+    | LowUIR.UnOp(Operand = e)
+    | LowUIR.Cast(Operand = e)
+    | LowUIR.Extract(Operand = e) ->
       iterUses onVarRead tryStackOffset e
-    | LowUIR.BinOp(_, _, e1, e2, _)
-    | LowUIR.RelOp(_, e1, e2, _) ->
+    | LowUIR.BinOp(Left = e1; Right = e2)
+    | LowUIR.RelOp(Left = e1; Right = e2) ->
       iterUses onVarRead tryStackOffset e1
       iterUses onVarRead tryStackOffset e2
-    | LowUIR.Ite(e1, e2, e3, _) ->
+    | LowUIR.Ite(Cond = e1; TrueExpr = e2; FalseExpr = e3) ->
       iterUses onVarRead tryStackOffset e1
       iterUses onVarRead tryStackOffset e2
       iterUses onVarRead tryStackOffset e3
-    | LowUIR.RoundCtrl(mode, body, _) ->
+    | LowUIR.RoundCtrl(Mode = mode; Body = body) ->
       iterUses onVarRead tryStackOffset mode
       iterUses onVarRead tryStackOffset body
     | _ ->

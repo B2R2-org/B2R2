@@ -1628,7 +1628,7 @@ let rldicr ins updateCond bld =
 /// The end of an rldic/rldimi mask, which the shift amount fixes at 63 - sh.
 let private maskEndOfShift sh =
   match sh with
-  | Num(n, _) -> numI32 (63 - int (n.ToUInt64())) 64<rt>
+  | Num(Value = n) -> numI32 (63 - int (n.ToUInt64())) 64<rt>
   | _ -> raise InvalidExprException
 
 let rldic ins updateCond bld =
@@ -2239,7 +2239,7 @@ let trapGeneric ins (bld: ILowUIRBuilder) narrow =
   lift bld ins {
     let struct (tO, ra, rb) = transThreeOprs ins bld
     let tO = match tO with
-             | Num(n, _) -> int (n.ToUInt64())
+             | Num(Value = n) -> int (n.ToUInt64())
              | _ -> raise InvalidExprException
     let ra, rb =
       if narrow then AST.xtlo 32<rt> ra, AST.xtlo 32<rt> rb else ra, rb

@@ -93,25 +93,25 @@ let internal extract (t: RegType) pos (t2: RegType) =
 /// Type-checks a LowUIR expression.
 let rec expr e =
   match e with
-  | UnOp(_, e, _) ->
+  | UnOp(Operand = e) ->
     expr e
-  | BinOp(BinOpType.CONCAT, t, e1, e2, _) ->
+  | BinOp(Op = BinOpType.CONCAT; Type = t; Left = e1; Right = e2) ->
     expr e1 && expr e2 && concat e1 e2 = t
-  | BinOp(_, t, e1, e2, _) ->
+  | BinOp(Type = t; Left = e1; Right = e2) ->
     expr e1 && expr e2 && binop e1 e2 = t
-  | RelOp(_, e1, e2, _) ->
+  | RelOp(Left = e1; Right = e2) ->
     expr e1 && expr e2 && Expr.typeOf e1 = Expr.typeOf e2
-  | Load(_, _, addr, _) ->
+  | Load(Addr = addr) ->
     expr addr
-  | Ite(cond, e1, e2, _) ->
+  | Ite(Cond = cond; TrueExpr = e1; FalseExpr = e2) ->
     Expr.typeOf cond = 1<rt> && expr e1 && expr e2
     && Expr.typeOf e1 = Expr.typeOf e2
-  | Cast(CastKind.SignExt, t, e, _)
-  | Cast(CastKind.ZeroExt, t, e, _) ->
+  | Cast(Kind = CastKind.SignExt; Type = t; Operand = e)
+  | Cast(Kind = CastKind.ZeroExt; Type = t; Operand = e) ->
     expr e && t >= Expr.typeOf e
-  | RoundCtrl(mode, body, _) ->
+  | RoundCtrl(Mode = mode; Body = body) ->
     expr mode && expr body && Expr.typeOf mode = RoundingMode.modeType
-  | Extract(e, t, p, _) ->
+  | Extract(Operand = e; Type = t; StartPos = p) ->
     expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= Expr.typeOf e)
   | _ ->
     true
@@ -119,10 +119,17 @@ let rec expr e =
 /// Type-checks a LowUIR statement.
 let stmt s =
   match s with
-  | Put(v, e, _) -> (Expr.typeOf v) = (Expr.typeOf e)
-  | Store(_, a, v, _) -> expr a && expr v
-  | Jmp(a, _) -> expr a
-  | CJmp(cond, e1, e2, _) -> expr cond && expr e1 && expr e2
-  | InterJmp(addr, _, _) -> expr addr
-  | InterCJmp(cond, a1, a2, _) -> expr cond && expr a1 && expr a2
-  | _ -> true
+  | Put(Dst = v; Src = e) ->
+    (Expr.typeOf v) = (Expr.typeOf e)
+  | Store(Addr = a; Value = v) ->
+    expr a && expr v
+  | Jmp(Target = a) ->
+    expr a
+  | CJmp(Cond = cond; TrueTarget = e1; FalseTarget = e2) ->
+    expr cond && expr e1 && expr e2
+  | InterJmp(Target = addr) ->
+    expr addr
+  | InterCJmp(Cond = cond; TrueTarget = a1; FalseTarget = a2) ->
+    expr cond && expr a1 && expr a2
+  | _ ->
+    true

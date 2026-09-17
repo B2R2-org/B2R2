@@ -41,7 +41,7 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
 
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
-    | Num(bv, _) ->
+    | Num(Value = bv) ->
       StackPointerDomain.ConstSP bv
     | Var _ | TempVar _ ->
       state.GetAbsValueOfUse(pp, VarKind.ofIRExpr e)
@@ -53,7 +53,7 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
       StackPointerDomain.NotConstSP
     | FuncName _ ->
       StackPointerDomain.NotConstSP
-    | BinOp(op, _, e1, e2, _) ->
+    | BinOp(Op = op; Left = e1; Right = e2) ->
       let c1 = evaluateExpr state pp e1
       let c2 = evaluateExpr state pp e2
       StackPointerDomain.evalBinOp op c1 c2

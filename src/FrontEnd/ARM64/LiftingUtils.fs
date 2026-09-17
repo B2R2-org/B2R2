@@ -43,7 +43,7 @@ let assignXZRAware size dst src =
   let orgDst = AST.unwrap dst
   let orgDstSz = Expr.typeOf orgDst
   match orgDst with
-  | Var(_, rid, _, _) when rid = Register.toRegID R.XZR ->
+  | Var(RegisterID = rid) when rid = Register.toRegID R.XZR ->
     AST.assign orgDst (AST.num0 orgDstSz)
   | _ ->
     if orgDstSz > size then AST.assign orgDst (AST.zext orgDstSz src)
@@ -105,7 +105,7 @@ let getPseudoRegVarToArr bld reg eSize dataSize elems =
 
 let private getMemExpr128 expr =
   match expr with
-  | Load(e, 128<rt>, expr, _) ->
+  | Load(Endian = e; Type = 128<rt>; Addr = expr) ->
     let add = AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
     struct (add, AST.load e 64<rt> expr)
   | _ ->
@@ -341,8 +341,8 @@ let transOprFPImm (ins: Instruction) eSize src =
 
 let separateMemExpr expr =
   match expr with
-  | Load(_, _, BinOp(BinOpType.ADD, _, b, o, _), _) -> b, o
-  | Load(_, _, e, _) -> e, AST.num0 64<rt>
+  | Load(Addr = BinOp(Op = BinOpType.ADD; Left = b; Right = o)) -> b, o
+  | Load(Addr = e) -> e, AST.num0 64<rt>
   | _ -> raise InvalidOperandException
 
 let transOneOpr (ins: Instruction) bld =
@@ -688,7 +688,7 @@ let transOprOfORR (ins: Instruction) bld =
 
 let unwrapReg e =
   match e with
-  | Extract(e, 32<rt>, 0, _) -> e
+  | Extract(Operand = e; Type = 32<rt>; StartPos = 0) -> e
   | _ -> raise InvalidOperandException
 
 let transOprOfSMSUBL (ins: Instruction) bld =

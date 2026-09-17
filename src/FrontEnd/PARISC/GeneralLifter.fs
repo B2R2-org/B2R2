@@ -38,7 +38,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 /// difference away, and a branch discarding its link all rely on.
 let inline (:=) dst src =
   match dst with
-  | Var(_, rid, _, _) when rid = Register.toRegID Register.GR0 -> dst := dst
+  | Var(RegisterID = rid) when rid = Register.toRegID Register.GR0 -> dst := dst
   | _ -> dst := src
 
 /// Zero-extends to the given width, or leaves the expression alone when it is

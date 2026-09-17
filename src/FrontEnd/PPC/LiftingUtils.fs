@@ -60,8 +60,10 @@ let regTypeOf (bits: int): RegType = LanguagePrimitives.Int32WithMeasure bits
 let getExtMask mb me =
   let struct (mb, me) =
     match mb, me with
-    | Num(b, _), Num(m, _) -> struct (int (b.ToUInt64()), int (m.ToUInt64()))
-    | _ -> raise InvalidExprException
+    | Num(Value = b), Num(Value = m) ->
+      struct (int (b.ToUInt64()), int (m.ToUInt64()))
+    | _ ->
+      raise InvalidExprException
   let allOnes = System.UInt32.MaxValue
   let mask =
     if mb = me + 1 then
@@ -78,8 +80,10 @@ let getExtMask mb me =
 let getExtMask64 mb me =
   let struct (mb, me) =
     match mb, me with
-    | Num(b, _), Num(m, _) -> struct (int (b.ToUInt64()), int (m.ToUInt64()))
-    | _ -> raise InvalidExprException
+    | Num(Value = b), Num(Value = m) ->
+      struct (int (b.ToUInt64()), int (m.ToUInt64()))
+    | _ ->
+      raise InvalidExprException
   let allOnes = System.UInt64.MaxValue
   let mask =
     if mb = me + 1 then
@@ -95,7 +99,7 @@ let getExtMask64 mb me =
 /// which reaches into the high word when mb > me.
 let getWordMaskIn64 mb me =
   match mb, me with
-  | Num(b, _), Num(m, _) ->
+  | Num(Value = b), Num(Value = m) ->
     getExtMask64 (numI32 (int (b.ToUInt64()) + 32) 32<rt>)
                  (numI32 (int (m.ToUInt64()) + 32) 32<rt>)
   | _ ->

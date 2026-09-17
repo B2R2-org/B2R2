@@ -32,28 +32,28 @@ open B2R2.BinIR.LowUIR
 
 let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
   match expr with
-  | Num(bv, _) ->
+  | Num(Value = bv) ->
     builder.Number(bv.ToUInt64(), bv.Length)
-  | Var(_, reg, _, _) ->
+  | Var(RegisterID = reg) ->
     builder.EmitRegLoad reg
   | PCVar _ ->
     builder.EmitPCLoad()
-  | TempVar(_, n, _) ->
+  | TempVar(Index = n) ->
     (tempMap: Dictionary<_, _>)[n]
-  | Load(_, typ, addr, _) ->
+  | Load(Type = typ; Addr = addr) ->
     let id = translateExpr builder tempMap addr
     builder.EmitMemLoad(id, typ)
-  | UnOp(op, exp, _) ->
+  | UnOp(Op = op; Operand = exp) ->
     translateUnOp builder tempMap op exp
-  | BinOp(op, typ, lhs, rhs, _) ->
+  | BinOp(Op = op; Type = typ; Left = lhs; Right = rhs) ->
     translateBinOp builder tempMap op typ lhs rhs
-  | RelOp(op, lhs, rhs, _) ->
+  | RelOp(Op = op; Left = lhs; Right = rhs) ->
     let etyp = Expr.typeOf lhs
     translateRelOp builder tempMap op etyp lhs rhs
-  | Cast(kind, rt, e, _) ->
+  | Cast(Kind = kind; Type = rt; Operand = e) ->
     let etyp = Expr.typeOf e
     translateCast builder tempMap e kind etyp rt
-  | Extract(e, len, pos, _) ->
+  | Extract(Operand = e; Type = len; StartPos = pos) ->
     let etyp = Expr.typeOf e
     let e = translateExpr builder tempMap e
     builder.EmitExtract(e, etyp, len, pos)
@@ -204,29 +204,29 @@ let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
   let tempMap = Dictionary<int, LLVMExpr>()
   let translateStmt stmt =
     match stmt with
-    | ISMark(insLen, _) ->
+    | ISMark(Length = insLen) ->
       lastAddr <- lastAddr + lastLen
       lastLen <- uint64 insLen
       builder.EmitComment $"0x{lastAddr:x}"
     | IEMark _ ->
       ()
-    | Put(_, Undefined _, _) ->
+    | Put(Src = Undefined _) ->
       ()
-    | Put(Var(_, reg, _, _), rhs, _) ->
+    | Put(Dst = Var(RegisterID = reg); Src = rhs) ->
       let r = translateExpr builder tempMap rhs
       builder.EmitRegStore(reg, r)
-    | Put(TempVar(_, n, _), rhs, _) ->
+    | Put(Dst = TempVar(Index = n); Src = rhs) ->
       let r = translateExpr builder tempMap rhs
       tempMap[n] <- r
-    | Store(_, addr, v, _) ->
+    | Store(Addr = addr; Value = v) ->
       let addr = translateExpr builder tempMap addr
       let t = Expr.typeOf v
       let v = translateExpr builder tempMap v
       builder.EmitMemStore(addr, t, v)
-    | InterJmp(target, _, _) ->
+    | InterJmp(Target = target) ->
       let target = translateExpr builder tempMap target
       builder.EmitInterJmp(target, succs)
-    | InterCJmp(c, t, f, _) ->
+    | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
       let typ = Expr.typeOf t
       let c = translateExpr builder tempMap c
       let t = translateExpr builder tempMap t

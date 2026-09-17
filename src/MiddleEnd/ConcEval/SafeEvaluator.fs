@@ -53,20 +53,34 @@ let private unwrap = function
 /// state.
 let rec evalExpr (st: ConcState) e =
   match e with
-  | Num(n, _) -> Def n |> Ok
-  | Var(_, n, _, _) -> st.TryGetReg n |> Ok
-  | PCVar(t, _, _) -> BitVector(st.PC, t) |> Def |> Ok
-  | TempVar(_, n, _) -> st.TryGetTmp n |> Ok
-  | UnOp(t, e, _) -> evalUnOp st e t
-  | BinOp(t, _, e1, e2, _) -> evalBinOp st e1 e2 t
-  | RelOp(t, e1, e2, _) -> evalRelOp st e1 e2 t
-  | Load(endian, t, addr, _) -> evalLoad st endian t addr
-  | Ite(cond, e1, e2, _) -> evalIte st cond e1 e2
-  | Cast(kind, t, e, _) -> evalCast st t e kind
-  | RoundCtrl(mode, body, _) -> evalRoundCtrl st mode body
-  | Extract(e, t, p, _) -> evalExpr st e |> map2 BitVector.Extract t p
-  | Undefined _ -> Ok Undef
-  | _ -> Error ErrorCase.InvalidExprEvaluation
+  | Num(Value = n) ->
+    Def n |> Ok
+  | Var(RegisterID = n) ->
+    st.TryGetReg n |> Ok
+  | PCVar(Type = t) ->
+    BitVector(st.PC, t) |> Def |> Ok
+  | TempVar(Index = n) ->
+    st.TryGetTmp n |> Ok
+  | UnOp(Op = t; Operand = e) ->
+    evalUnOp st e t
+  | BinOp(Op = t; Left = e1; Right = e2) ->
+    evalBinOp st e1 e2 t
+  | RelOp(Op = t; Left = e1; Right = e2) ->
+    evalRelOp st e1 e2 t
+  | Load(Endian = endian; Type = t; Addr = addr) ->
+    evalLoad st endian t addr
+  | Ite(Cond = cond; TrueExpr = e1; FalseExpr = e2) ->
+    evalIte st cond e1 e2
+  | Cast(Kind = kind; Type = t; Operand = e) ->
+    evalCast st t e kind
+  | RoundCtrl(Mode = mode; Body = body) ->
+    evalRoundCtrl st mode body
+  | Extract(Operand = e; Type = t; StartPos = p) ->
+    evalExpr st e |> map2 BitVector.Extract t p
+  | Undefined _ ->
+    Ok Undef
+  | _ ->
+    Error ErrorCase.InvalidExprEvaluation
 
 and private evalLoad st endian t addr =
   match evalExpr st addr |> unwrap |> Result.map (fun bv -> bv.ToUInt64()) with
@@ -117,7 +131,7 @@ and private evalCast st t e = function
 /// </summary>
 and private evalRoundCtrl st mode body =
   match mode, body with
-  | Num(m, _), Cast(CastKind.FloatToSInt, t, e, _) ->
+  | Num(Value = m), Cast(Kind = CastKind.FloatToSInt; Type = t; Operand = e) ->
     evalFtoI st (enum<RoundingMode> (int (m.ToUInt64()))) t e
   | _ ->
     evalExpr st body
@@ -198,8 +212,8 @@ let private evalPut st lhs rhs =
   match evalExpr st rhs with
   | Ok(Def v) ->
     match lhs with
-    | Var(_, n, _, _) -> st.SetReg(n, v) |> Ok
-    | TempVar(_, n, _) -> st.SetTmp(n, v) |> Ok
+    | Var(RegisterID = n) -> st.SetReg(n, v) |> Ok
+    | TempVar(Index = n) -> st.SetTmp(n, v) |> Ok
     | PCVar _ -> st.PC <- v.ToUInt64(); Ok()
     | _ -> Error ErrorCase.InvalidExprEvaluation
   | _ ->
@@ -218,7 +232,7 @@ let private evalStore st endian addr v =
 
 let private evalJmp (st: ConcState) target =
   match target with
-  | JmpDest(n, _) -> st.TryGoToLabel n
+  | JmpDest(Target = n) -> st.TryGoToLabel n
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let private evalCJmp st cond t f =
@@ -241,7 +255,7 @@ let rec private concretizeArgs st acc = function
 
 let private evalArgs st args =
   match args with
-  | BinOp(BinOpType.APP, _, _, ExprList(args, _), _) ->
+  | BinOp(Op = BinOpType.APP; Right = ExprList(Elements = args)) ->
     args |> concretizeArgs st []
   | _ ->
     Error ErrorCase.InvalidExprEvaluation
@@ -250,28 +264,28 @@ let private evalArgs st args =
 /// statement has nothing to skip.
 let evalStmt (st: ConcState) stmt =
   match stmt with
-  | ISMark(len, _) ->
+  | ISMark(Length = len) ->
     st.CurrentInsLen <- len; st.NextStmt() |> Ok
-  | IEMark(len, _) ->
+  | IEMark(Length = len) ->
     st.AdvancePC len; st.AbortInstr() |> Ok
   | LMark _ ->
     st.NextStmt() |> Ok
-  | Put(lhs, rhs, _) ->
+  | Put(Dst = lhs; Src = rhs) ->
     evalPut st lhs rhs |> Result.map st.NextStmt
-  | Store(e, addr, v, _) ->
+  | Store(Endian = e; Addr = addr; Value = v) ->
     evalStore st e addr v |> Result.map st.NextStmt
-  | Jmp(target, _) ->
+  | Jmp(Target = target) ->
     evalJmp st target
-  | CJmp(cond, t, f, _) ->
+  | CJmp(Cond = cond; TrueTarget = t; FalseTarget = f) ->
     evalCJmp st cond t f
-  | InterJmp(target, _, _) ->
+  | InterJmp(Target = target) ->
     evalPCUpdate st target |> Result.map st.AbortInstr
-  | InterCJmp(c, t, f, _) ->
+  | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
     evalIntCJmp st c t f |> Result.map st.AbortInstr
-  | ExternalCall(args, _) ->
+  | ExternalCall(Call = args) ->
     evalArgs st args
     |> Result.map (fun args -> st.OnExternalCall(args, st) |> st.NextStmt)
-  | SideEffect(eff, _) ->
+  | SideEffect(Effect = eff) ->
     st.OnSideEffect(eff, st)
     if st.IsInstrTerminated then () else st.AbortInstr true
     Ok()

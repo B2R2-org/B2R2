@@ -78,12 +78,16 @@ let inline isConst (e: Expr) =
 
 let private getMemExpr128 expr =
   match expr with
-  | Load(e, 128<rt>, BinOp(BinOpType.ADD, _, b, Num(n, _), _), _)
-  | Load(e, 128<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
+  | Load(Endian = e
+         Type = 128<rt>
+         Addr = BinOp(Op = BinOpType.ADD; Left = b; Right = Num(Value = n)))
+  | Load(Endian = e
+         Type = 128<rt>
+         Addr = BinOp(Op = BinOpType.ADD; Left = Num(Value = n); Right = b)) ->
     let off1 = AST.num n
     let off2 = BitVector.Add(n, BitVector(8, n.Length)) |> AST.num
     struct (AST.load e 64<rt> (b .+ off2), AST.load e 64<rt> (b .+ off1))
-  | Load(e, 128<rt>, expr, _) ->
+  | Load(Endian = e; Type = 128<rt>; Addr = expr) ->
     let qwordAt8 = AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
     struct (qwordAt8, AST.load e 64<rt> expr)
   | _ ->
@@ -91,8 +95,12 @@ let private getMemExpr128 expr =
 
 let private getMemExpr256 expr =
   match expr with
-  | Load(e, 256<rt>, BinOp(BinOpType.ADD, _, b, Num(n, _), _), _)
-  | Load(e, 256<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
+  | Load(Endian = e
+         Type = 256<rt>
+         Addr = BinOp(Op = BinOpType.ADD; Left = b; Right = Num(Value = n)))
+  | Load(Endian = e
+         Type = 256<rt>
+         Addr = BinOp(Op = BinOpType.ADD; Left = Num(Value = n); Right = b)) ->
     let off1 = AST.num n
     let off2 = BitVector.Add(n, BitVector(8, n.Length)) |> AST.num
     let off3 = BitVector.Add(n, BitVector(16, n.Length)) |> AST.num
@@ -102,7 +110,7 @@ let private getMemExpr256 expr =
     let qwordAtOffset2 = AST.load e 64<rt> (b .+ off2)
     let qwordAtOffset1 = AST.load e 64<rt> (b .+ off1)
     struct (qwordAtOffset4, qwordAtOffset3, qwordAtOffset2, qwordAtOffset1)
-  | Load(e, 256<rt>, expr, _) ->
+  | Load(Endian = e; Type = 256<rt>; Addr = expr) ->
     let qwordAt24 = AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr))
     let qwordAt16 = AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr))
     let qwordAt8 = AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
@@ -112,8 +120,12 @@ let private getMemExpr256 expr =
 
 let private getMemExpr512 expr =
   match expr with
-  | Load(e, 512<rt>, BinOp(BinOpType.ADD, _, b, Num(n, _), _), _)
-  | Load(e, 512<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
+  | Load(Endian = e
+         Type = 512<rt>
+         Addr = BinOp(Op = BinOpType.ADD; Left = b; Right = Num(Value = n)))
+  | Load(Endian = e
+         Type = 512<rt>
+         Addr = BinOp(Op = BinOpType.ADD; Left = Num(Value = n); Right = b)) ->
     let off1 = AST.num n
     let off2 = BitVector.Add(n, BitVector(8, n.Length)) |> AST.num
     let off3 = BitVector.Add(n, BitVector(16, n.Length)) |> AST.num
@@ -131,7 +143,7 @@ let private getMemExpr512 expr =
     let qword2 = AST.load e 64<rt> (b .+ off2)
     let qword1 = AST.load e 64<rt> (b .+ off1)
     struct (qword8, qword7, qword6, qword5, qword4, qword3, qword2, qword1)
-  | Load(e, 512<rt>, expr, _) ->
+  | Load(Endian = e; Type = 512<rt>; Addr = expr) ->
     let qword56 = AST.load e 64<rt> (expr .+ numI32 56 (Expr.typeOf expr))
     let qword48 = AST.load e 64<rt> (expr .+ numI32 48 (Expr.typeOf expr))
     let qword40 = AST.load e 64<rt> (expr .+ numI32 40 (Expr.typeOf expr))
@@ -641,7 +653,7 @@ let transOneOpr (ins: Instruction) bld =
 let transReg bld useTmpVar expr =
   if useTmpVar then
     match expr with
-    | Extract(_, rt, _, _) ->
+    | Extract(Type = rt) ->
       let t = tmpVar bld rt
       append bld {
         direct t := expr
@@ -674,19 +686,17 @@ let transThreeOprs (ins: Instruction) bld useTmpVar =
 /// For x87 FPU Top register or x87 FPU Tag word sections.
 let extractDstAssign e1 e2 =
   match e1 with
-  | Extract(BinOp(BinOpType.SHR,
-                  16<rt>,
-                  BinOp(BinOpType.AND,
-                        16<rt>,
-                        (Var(16<rt>, rId, _, _) as e1),
-                        mask,
-                        _),
-                  amt,
-                  _),
-             8<rt>,
-             0,
-             _) when int rId = 0x4F (* FSW *)
-                     || int rId = 0x50 (* FTW *) ->
+  | Extract(Operand = BinOp(Op = BinOpType.SHR
+                            Type = 16<rt>
+                            Left = BinOp(Op = BinOpType.AND
+                                         Type = 16<rt>
+                                         Left = (Var(Type = 16<rt>
+                                                     RegisterID = rId) as e1)
+                                         Right = mask)
+                            Right = amt)
+            Type = 8<rt>
+            StartPos = 0) when int rId = 0x4F (* FSW *)
+                              || int rId = 0x50 (* FTW *) ->
     direct e1 :=
       (e1 .& (AST.not mask)) .| (((AST.zext 16<rt> e2) << amt) .& mask)
   | _ ->
@@ -703,7 +713,7 @@ let maxNum rt =
 
 let castNum newType e =
   match e with
-  | Num(n, _) -> BitVector.Cast(n, newType) |> AST.num
+  | Num(Value = n) -> BitVector.Cast(n, newType) |> AST.num
   | _ -> raise InvalidOperandException
 
 let getMask oprSize =
@@ -958,7 +968,7 @@ let buildAF bld e1 e2 r size =
 
 let isExprZero e =
   match e with
-  | Num(bv, _) when bv.IsZero -> true
+  | Num(Value = bv) when bv.IsZero -> true
   | _ -> false
 
 let buildPF bld r size cond =

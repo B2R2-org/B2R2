@@ -56,7 +56,7 @@ type FunctionSummaryTests() =
     if blk.IsAbstract then
       [| for stmt in blk.AbstractContent.Rundown do
            match stmt with
-           | Put(dst, _, _) -> dst
+           | Put(Dst = dst) -> dst
            | _ -> () |]
     else
       [||]
@@ -82,7 +82,7 @@ type FunctionSummaryTests() =
       summaryDefs
       |> Array.choose (fun dst ->
         match dst with
-        | Var(_, _, name, _) -> Some name
+        | Var(Name = name) -> Some name
         | _ -> None)
     CollectionAssert.Contains(names, "ZMM0A")
     CollectionAssert.Contains(names, "ZMM0B")

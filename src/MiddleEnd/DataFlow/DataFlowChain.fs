@@ -83,38 +83,38 @@ module DataFlowChain =
 
   let rec private extractUseFromExpr e acc =
     match e with
-    | Var(_, id, _, _) ->
+    | Var(RegisterID = id) ->
       Regular id :: acc
-    | TempVar(_, n, _) ->
+    | TempVar(Index = n) ->
       Temporary n :: acc
-    | UnOp(_, e, _) ->
+    | UnOp(Operand = e) ->
       extractUseFromExpr e acc
-    | BinOp(_, _, e1, e2, _) ->
+    | BinOp(Left = e1; Right = e2) ->
       extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-    | RelOp(_, e1, e2, _) ->
+    | RelOp(Left = e1; Right = e2) ->
       extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-    | Load(_, _, e, _) ->
+    | Load(Addr = e) ->
       extractUseFromExpr e acc
-    | Ite(c, e1, e2, _) ->
+    | Ite(Cond = c; TrueExpr = e1; FalseExpr = e2) ->
       extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 acc))
-    | Cast(_, _, e, _) ->
+    | Cast(Operand = e) ->
       extractUseFromExpr e acc
-    | RoundCtrl(mode, body, _) ->
+    | RoundCtrl(Mode = mode; Body = body) ->
       extractUseFromExpr mode (extractUseFromExpr body acc)
-    | Extract(e, _, _, _) ->
+    | Extract(Operand = e) ->
       extractUseFromExpr e acc
     | _ ->
       []
 
   let private extractUseFromStmt s =
     match s with
-    | Put(_, e, _)
-    | Store(_, _, e, _)
-    | Jmp(e, _)
-    | CJmp(e, _, _, _)
-    | InterJmp(e, _, _) ->
+    | Put(Src = e)
+    | Store(Value = e)
+    | Jmp(Target = e)
+    | CJmp(Cond = e)
+    | InterJmp(Target = e) ->
       extractUseFromExpr e []
-    | InterCJmp(c, e1, e2, _) ->
+    | InterCJmp(Cond = c; TrueTarget = e1; FalseTarget = e2) ->
       extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 []))
     | _ ->
       []

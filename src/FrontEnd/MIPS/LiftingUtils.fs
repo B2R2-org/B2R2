@@ -34,7 +34,7 @@ open B2R2.FrontEnd.MIPS
 
 let inline (:=) dst src =
   match dst with
-  | Var(_, rid, _, _) when rid = Register.toRegID Register.R0 ->
+  | Var(RegisterID = rid) when rid = Register.toRegID Register.R0 ->
     dst := dst (* Prevent setting r0. Our optimizer will remove this anyways. *)
   | _ ->
     dst := src

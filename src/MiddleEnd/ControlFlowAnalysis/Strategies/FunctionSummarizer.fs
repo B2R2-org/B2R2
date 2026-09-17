@@ -56,7 +56,7 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
   /// definition target, so we define each of the chunks it concatenates.
   let rec returnValueDefs acc e =
     match e with
-    | BinOp(BinOpType.CONCAT, _, hi, lo, _) ->
+    | BinOp(Op = BinOpType.CONCAT; Left = hi; Right = lo) ->
       returnValueDefs (returnValueDefs acc hi) lo
     | _ ->
       (e, AST.undef (Expr.typeOf e) "ret") :: acc

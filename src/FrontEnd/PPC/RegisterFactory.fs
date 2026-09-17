@@ -892,7 +892,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var(_, id, _, _) -> id
+      | Var(RegisterID = id) -> id
       | _ -> raise InvalidRegisterException
 
     member _.GetRegisterID name = Register.ofString name |> Register.toRegID

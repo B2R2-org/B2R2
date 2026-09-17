@@ -38,17 +38,20 @@ type LowUIRBasicBlock internal(pp, summary, liftedInss, lblMap) =
   let isTerminatingStmt stmt =
     match stmt with
     | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _
-    | SideEffect(SysCall, _)
-    | SideEffect(Terminate, _)
-    | SideEffect(Interrupt _, _) -> true
+    | SideEffect(Effect = SysCall)
+    | SideEffect(Effect = Terminate)
+    | SideEffect(Effect = Interrupt _) -> true
     | _ -> false
 
   let rec isSemanticallyNop (stmts: Stmt[]) len idx =
     if idx < len then
       match stmts[idx] with
-      | ISMark _ | IEMark _ -> isSemanticallyNop stmts len (idx + 1)
-      | Put(d, s, _) when d = s -> isSemanticallyNop stmts len (idx + 1)
-      | _ -> false
+      | ISMark _ | IEMark _ ->
+        isSemanticallyNop stmts len (idx + 1)
+      | Put(Dst = d; Src = s) when d = s ->
+        isSemanticallyNop stmts len (idx + 1)
+      | _ ->
+        false
     else
       true
 

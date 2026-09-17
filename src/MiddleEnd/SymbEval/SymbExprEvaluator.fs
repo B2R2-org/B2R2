@@ -200,21 +200,21 @@ module SymbExprEvaluator =
   /// state.
   let rec eval (state: SymbState) (expr: Expr) =
     match expr with
-    | Num(n, _) ->
+    | Num(Value = n) ->
       SymbExpr.Const n |> Ok
-    | Var(_, rid, _, _) ->
+    | Var(RegisterID = rid) ->
       evalRegister state rid
-    | PCVar(typ, _, _) ->
+    | PCVar(Type = typ) ->
       SymbExpr.Const(BitVector(state.PC, typ)) |> Ok
-    | TempVar(_, idx, _) ->
+    | TempVar(Index = idx) ->
       evalTemporary state idx
-    | UnOp(op, expr, _) ->
+    | UnOp(Op = op; Operand = expr) ->
       eval state expr |> Result.bind (foldUnOp op)
-    | BinOp(op, typ, lhs, rhs, _) ->
+    | BinOp(Op = op; Type = typ; Left = lhs; Right = rhs) ->
       bind2 (foldBinOp op typ) (eval state lhs) (eval state rhs)
-    | RelOp(op, lhs, rhs, _) ->
+    | RelOp(Op = op; Left = lhs; Right = rhs) ->
       bind2 (foldRelOp op) (eval state lhs) (eval state rhs)
-    | Load(endian, typ, addr, _) ->
+    | Load(Endian = endian; Type = typ; Addr = addr) ->
       match eval state addr with
       | Ok(Const bv) ->
         SymbMemoryOperation.load (bv.ToUInt64()) endian typ state.Memory
@@ -222,7 +222,7 @@ module SymbExprEvaluator =
         Error(UnsupportedSymbolicAddress addr)
       | Error e ->
         Error e
-    | Ite(cond, thenExpr, elseExpr, _) ->
+    | Ite(Cond = cond; TrueExpr = thenExpr; FalseExpr = elseExpr) ->
       match eval state cond with
       | Ok(Const bv) when bv.IsTrue ->
         eval state thenExpr
@@ -237,11 +237,11 @@ module SymbExprEvaluator =
         |> unsupportedOp
       | Error e ->
         Error e
-    | Cast(kind, typ, expr, _) ->
+    | Cast(Kind = kind; Type = typ; Operand = expr) ->
       eval state expr |> Result.bind (foldCast kind typ)
-    | Extract(expr, typ, pos, _) ->
+    | Extract(Operand = expr; Type = typ; StartPos = pos) ->
       eval state expr |> Result.bind (foldExtract typ pos)
-    | Undefined(typ, reason, _) ->
+    | Undefined(Type = typ; Reason = reason) ->
       SymbExpr.undef typ reason |> Ok
     | _ ->
       unsupportedExpr expr

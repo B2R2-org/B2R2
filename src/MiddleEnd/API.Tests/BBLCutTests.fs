@@ -62,7 +62,8 @@ type BBLCutTests() =
       latter.LabelMap.Values |> Seq.map (fun pp -> pp.Address) |> Seq.distinct
     Assert.AreEqual<uint64>(0x1UL, Seq.exactlyOne labelAddrs)
     match latter.Internals.Terminator with
-    | CJmp(_, JmpDest(tLbl, _), JmpDest(fLbl, _), _) ->
+    | CJmp(TrueTarget = JmpDest(Target = tLbl)
+           FalseTarget = JmpDest(Target = fLbl)) ->
       Assert.AreEqual<bool>(true, latter.LabelMap.ContainsKey tLbl)
       Assert.AreEqual<bool>(true, latter.LabelMap.ContainsKey fLbl)
     | terminator ->

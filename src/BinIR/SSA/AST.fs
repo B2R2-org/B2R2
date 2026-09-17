@@ -35,48 +35,52 @@ open B2R2
 open B2R2.BinIR
 
 let rec private translateDest = function
-  | LowUIR.Var(ty, r, n, _) -> { Kind = RegVar(ty, r, n); Identifier = -1 }
-  | LowUIR.PCVar(ty, _, _) -> { Kind = PCVar(ty); Identifier = -1 }
-  | LowUIR.TempVar(ty, n, _) -> { Kind = TempVar(ty, n); Identifier = -1 }
-  | _ -> raise InvalidExprException
+  | LowUIR.Var(Type = ty; RegisterID = r; Name = n) ->
+    { Kind = RegVar(ty, r, n); Identifier = -1 }
+  | LowUIR.PCVar(Type = ty) ->
+    { Kind = PCVar(ty); Identifier = -1 }
+  | LowUIR.TempVar(Type = ty; Index = n) ->
+    { Kind = TempVar(ty, n); Identifier = -1 }
+  | _ ->
+    raise InvalidExprException
 
 let private translateLabel addr = function
-  | LowUIR.JmpDest(lbl, _) -> lbl
-  | LowUIR.Undefined(_, s, _) -> Label(s, -1, addr)
+  | LowUIR.JmpDest(Target = lbl) -> lbl
+  | LowUIR.Undefined(Reason = s) -> Label(s, -1, addr)
   | _ -> raise InvalidExprException
 
 let rec translateExpr (e: LowUIR.Expr) =
   match e with
-  | LowUIR.Num(bv, _) ->
+  | LowUIR.Num(Value = bv) ->
     Num bv
   | (LowUIR.Var _ as e)
   | (LowUIR.PCVar _ as e)
   | (LowUIR.TempVar _ as e) ->
     Var <| translateDest e
-  | LowUIR.ExprList(exprs, _) ->
+  | LowUIR.ExprList(Elements = exprs) ->
     ExprList(List.map translateExpr exprs)
-  | LowUIR.UnOp(op, e, _) ->
+  | LowUIR.UnOp(Op = op; Operand = e) ->
     let ty = LowUIR.Expr.typeOf e
     UnOp(op, ty, translateExpr e)
-  | LowUIR.FuncName(s, _) ->
+  | LowUIR.FuncName(Name = s) ->
     FuncName s
-  | LowUIR.BinOp(op, ty, e1, e2, _) ->
+  | LowUIR.BinOp(Op = op; Type = ty; Left = e1; Right = e2) ->
     BinOp(op, ty, translateExpr e1, translateExpr e2)
-  | LowUIR.RelOp(op, e1, e2, _) ->
+  | LowUIR.RelOp(Op = op; Left = e1; Right = e2) ->
     RelOp(op, 1<rt>, translateExpr e1, translateExpr e2)
-  | LowUIR.Load(_, ty, e, _) ->
+  | LowUIR.Load(Type = ty; Addr = e) ->
     Load({ Kind = MemVar; Identifier = -1 }, ty, translateExpr e)
-  | LowUIR.Ite(e1, e2, e3, _) ->
+  | LowUIR.Ite(Cond = e1; TrueExpr = e2; FalseExpr = e3) ->
     let ty = LowUIR.Expr.typeOf e2
     Ite(translateExpr e1, ty, translateExpr e2, translateExpr e3)
-  | LowUIR.Cast(op, ty, e, _) ->
+  | LowUIR.Cast(Kind = op; Type = ty; Operand = e) ->
     Cast(op, ty, translateExpr e)
-  | LowUIR.RoundCtrl(mode, body, _) ->
+  | LowUIR.RoundCtrl(Mode = mode; Body = body) ->
     let ty = LowUIR.Expr.typeOf body
     RoundCtrl(translateExpr mode, ty, translateExpr body)
-  | LowUIR.Extract(e, ty, pos, _) ->
+  | LowUIR.Extract(Operand = e; Type = ty; StartPos = pos) ->
     Extract(translateExpr e, ty, pos)
-  | LowUIR.Undefined(ty, s, _) ->
+  | LowUIR.Undefined(Type = ty; Reason = s) ->
     Undefined(ty, s)
   | _ ->
     raise InvalidExprException (* Name *)
@@ -89,13 +93,13 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
     Def(pc, n) |> Some
   | LowUIR.IEMark _ ->
     None
-  | LowUIR.LMark(lbl, _) ->
+  | LowUIR.LMark(Label = lbl) ->
     LMark lbl |> Some
-  | LowUIR.Put(var, expr, _) ->
+  | LowUIR.Put(Dst = var; Src = expr) ->
     let dest = translateDest var
     let expr = translateExpr expr
     Def(dest, expr) |> Some
-  | LowUIR.Store(_, addr, expr, _) ->
+  | LowUIR.Store(Addr = addr; Value = expr) ->
     let ty = LowUIR.Expr.typeOf expr
     let addr = translateExpr addr
     let expr = translateExpr expr
@@ -103,30 +107,30 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
     let dstMem = { Kind = MemVar; Identifier = -1 }
     let store = Store(srcMem, ty, addr, expr)
     Def(dstMem, store) |> Some
-  | LowUIR.Jmp(expr, _) ->
+  | LowUIR.Jmp(Target = expr) ->
     let label = translateLabel addr expr
     let jmp = IntraJmp label
     Jmp jmp |> Some
-  | LowUIR.CJmp(expr, label1, label2, _) ->
+  | LowUIR.CJmp(Cond = expr; TrueTarget = label1; FalseTarget = label2) ->
     let expr = translateExpr expr
     let label1 = translateLabel addr label1
     let label2 = translateLabel addr label2
     let jmp = IntraCJmp(expr, label1, label2)
     Jmp jmp |> Some
-  | LowUIR.InterJmp(expr, _, _) ->
+  | LowUIR.InterJmp(Target = expr) ->
     let expr = translateExpr expr
     let jmp = InterJmp(expr)
     Jmp jmp |> Some
-  | LowUIR.InterCJmp(expr1, expr2, expr3, _) ->
+  | LowUIR.InterCJmp(Cond = expr1; TrueTarget = expr2; FalseTarget = expr3) ->
     let expr1 = translateExpr expr1
     let expr2 = translateExpr expr2
     let expr3 = translateExpr expr3
     let jmp = InterCJmp(expr1, expr2, expr3)
     Jmp jmp |> Some
-  | LowUIR.ExternalCall(args, _) ->
+  | LowUIR.ExternalCall(Call = args) ->
     let e = args |> translateExpr
     ExternalCall(e, [], []) |> Some
-  | LowUIR.SideEffect(s, _) ->
+  | LowUIR.SideEffect(Effect = s) ->
     SideEffect s |> Some
 
 let translateStmts defaultRegType addr (postProc: IStmtPostProcessor) stmts =

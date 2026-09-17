@@ -42,15 +42,24 @@ type Stmt =
   /// Metadata representing the start of a machine instruction. More
   /// specifically, it contains the length of the instruction. There must be a
   /// single IMark per a machine instruction.
-  | ISMark of uint32 * HashConsingInfo
+  | ISMark of Length: uint32
+#if HASHCONS
+            * HashCons: HashConsingInfo
+#endif
 
   /// Metadata representing the end of a machine instruction. It contains the
   /// length of the current instruction.
-  | IEMark of uint32 * HashConsingInfo
+  | IEMark of Length: uint32
+#if HASHCONS
+            * HashCons: HashConsingInfo
+#endif
 
   /// Metadata representing a label (as in an assembly language). LMark is only
   /// valid within a machine instruction.
-  | LMark of Label * HashConsingInfo
+  | LMark of Label: Label
+#if HASHCONS
+           * HashCons: HashConsingInfo
+#endif
 
   /// This statement puts a value into a register. The first argument is a
   /// destination operand, and the second argument is a source operand. The
@@ -59,7 +68,10 @@ type Stmt =
   /// Example: [Put(T_1:I32, Load(LE, T_2:I32))]
   /// loads a 32-bit value from the address T2, and store the value to the
   /// temporary register T1.
-  | Put of Expr * Expr * HashConsingInfo
+  | Put of Dst: Expr * Src: Expr
+#if HASHCONS
+         * HashCons: HashConsingInfo
+#endif
 
   /// This statement stores a value into a memory. The first argument
   /// represents the endianness, the second argument is a destination operand,
@@ -67,35 +79,56 @@ type Stmt =
   ///
   /// Example: Store(LE, T_1:I32, T_2:I32)
   /// stores a 32-bit value T_2 into the address T_1
-  | Store of Endian * Expr * Expr * HashConsingInfo
+  | Store of Endian: Endian * Addr: Expr * Value: Expr
+#if HASHCONS
+           * HashCons: HashConsingInfo
+#endif
 
   /// This statement represents a jump (unconditional) to an LMark. The first
   /// argument specifies the target address.
-  | Jmp of Expr * HashConsingInfo
+  | Jmp of Target: Expr
+#if HASHCONS
+         * HashCons: HashConsingInfo
+#endif
 
   /// This statement represents a conditional jump to an LMark. The first
   /// argument specifies a jump condition. If the condition is true, jump to
   /// the address specified by the second argument. Otherwise, jump to the
   /// address specified by the third argument.
-  | CJmp of Expr * Expr * Expr * HashConsingInfo
+  | CJmp of Cond: Expr * TrueTarget: Expr * FalseTarget: Expr
+#if HASHCONS
+          * HashCons: HashConsingInfo
+#endif
 
   /// This is an unconditional jump instruction to another instruction. This is
   /// an inter-instruction jump unlike Jmp statement. The first argument is the
   /// jump target address.
-  | InterJmp of Expr * InterJmpKind * HashConsingInfo
+  | InterJmp of Target: Expr * Kind: InterJmpKind
+#if HASHCONS
+              * HashCons: HashConsingInfo
+#endif
 
   /// This is a conditional jump instruction to another instruction. The first
   /// argument specifies a jump condition. If the condition is true, change the
   /// program counter to jump to the address specified by the second argument.
   /// Otherwise, jump to the address specified by the third argument.
-  | InterCJmp of Expr * Expr * Expr * HashConsingInfo
+  | InterCJmp of Cond: Expr * TrueTarget: Expr * FalseTarget: Expr
+#if HASHCONS
+               * HashCons: HashConsingInfo
+#endif
 
   /// External function call. This statement represents a uninterpreted function
   /// call. The argument expression is in a curried form.
-  | ExternalCall of Expr * HashConsingInfo
+  | ExternalCall of Call: Expr
+#if HASHCONS
+                  * HashCons: HashConsingInfo
+#endif
 
   /// This represents an instruction with side effects such as a system call.
-  | SideEffect of SideEffect * HashConsingInfo
+  | SideEffect of Effect: SideEffect
+#if HASHCONS
+                * HashCons: HashConsingInfo
+#endif
 with
 #if HASHCONS
   /// Unique ID of the hash consed statement.
@@ -204,49 +237,49 @@ with
 
   static member internal AppendToString(stmt, sb: StringBuilder) =
     match stmt with
-    | ISMark(len, _) ->
+    | ISMark(Length = len) ->
       sb.Append("(") |> ignore
       sb.Append(len.ToString()) |> ignore
       sb.Append(") {") |> ignore
-    | IEMark(len, _) ->
+    | IEMark(Length = len) ->
       sb.Append("} // ") |> ignore
       sb.Append(len.ToString()) |> ignore
-    | LMark(lbl, _) ->
+    | LMark(Label = lbl) ->
       sb.Append(":") |> ignore
       sb.Append lbl.Name |> ignore
-    | Put(exp1, exp2, _) ->
+    | Put(Dst = exp1; Src = exp2) ->
       Expr.AppendToString(exp1, sb)
       sb.Append(" := ") |> ignore
       Expr.AppendToString(exp2, sb)
-    | Jmp(exp, _) ->
+    | Jmp(Target = exp) ->
       sb.Append("jmp ") |> ignore
       Expr.AppendToString(exp, sb)
-    | InterJmp(exp, _, _) ->
+    | InterJmp(Target = exp) ->
       sb.Append("ijmp ") |> ignore
       Expr.AppendToString(exp, sb)
-    | Store(_endian, exp1, exp2, _) ->
+    | Store(Endian = _endian; Addr = exp1; Value = exp2) ->
       sb.Append("[") |> ignore
       Expr.AppendToString(exp1, sb)
       sb.Append("] := ") |> ignore
       Expr.AppendToString(exp2, sb)
-    | CJmp(cond, t, f, _) ->
+    | CJmp(Cond = cond; TrueTarget = t; FalseTarget = f) ->
       sb.Append("if ") |> ignore
       Expr.AppendToString(cond, sb)
       sb.Append(" then jmp ") |> ignore
       Expr.AppendToString(t, sb)
       sb.Append(" else jmp ") |> ignore
       Expr.AppendToString(f, sb)
-    | InterCJmp(cond, t, f, _) ->
+    | InterCJmp(Cond = cond; TrueTarget = t; FalseTarget = f) ->
       sb.Append("if ") |> ignore
       Expr.AppendToString(cond, sb)
       sb.Append(" then ijmp ") |> ignore
       Expr.AppendToString(t, sb)
       sb.Append(" else ijmp ") |> ignore
       Expr.AppendToString(f, sb)
-    | ExternalCall(args, _) ->
+    | ExternalCall(Call = args) ->
       sb.Append("call ") |> ignore
       Expr.AppendToString(args, sb)
-    | SideEffect(eff, _) ->
+    | SideEffect(Effect = eff) ->
       sb.Append("!!" + SideEffect.toString eff) |> ignore
 
   override this.ToString() =

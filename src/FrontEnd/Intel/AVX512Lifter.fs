@@ -1483,7 +1483,7 @@ let vgatherpf ins bld = GeneralLifter.nop ins bld
 /// addresses, one element at a time, rather than touching the whole operand.
 let private addressOf ins bld opr =
   match transOpr ins bld false opr with
-  | Load(_, _, addr, _) -> addr
+  | Load(Addr = addr) -> addr
   | _ -> raise InvalidOperandException
 
 /// VEXPAND spreads the source's elements over the destination's, one for each

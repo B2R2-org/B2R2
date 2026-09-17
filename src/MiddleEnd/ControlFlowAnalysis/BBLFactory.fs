@@ -159,14 +159,14 @@ type BBLFactory(hdl: BinHandle,
       hasIntraFlow <- false
       for j = 0 to liftedIns.Stmts.Length - 1 do
         match liftedIns.Stmts[j] with
-        | LMark(label, _) ->
+        | LMark(Label = label) ->
           let insAddr = liftedIns.Original.Address
           lblMap[label] <- ProgramPoint(insAddr, j)
           intraLeaders.AddLast((i, j)) |> ignore
           hasIntraFlow <- true
-        | InterJmp(PCVar _, InterJmpKind.Base, _)
-        | InterCJmp(_, PCVar _, _, _)
-        | InterCJmp(_, _, PCVar _, _) ->
+        | InterJmp(Target = PCVar _; Kind = InterJmpKind.Base)
+        | InterCJmp(TrueTarget = PCVar _)
+        | InterCJmp(FalseTarget = PCVar _) ->
           (* JMP PC means that the instruction jumps to itself. *)
           if i = 0 then () (* Ignore if it is the first lifted instruction. *)
           else addLeaderHead intraLeaders intraLeaders.Last i
@@ -199,13 +199,14 @@ type BBLFactory(hdl: BinHandle,
     match liftedIns.Stmts[ndx] with
     | IEMark _ ->
       extractLabelInfo lblMap liftedIns insAddr (ndx - 1)
-    | Jmp(JmpDest(label, _), _) ->
+    | Jmp(Target = JmpDest(Target = label)) ->
       [ KeyValuePair(label, lblMap[label]) ]
-    | CJmp(_, JmpDest(label1, _), JmpDest(label2, _), _) ->
+    | CJmp(TrueTarget = JmpDest(Target = label1)
+           FalseTarget = JmpDest(Target = label2)) ->
       [ KeyValuePair(label1, lblMap[label1])
         KeyValuePair(label2, lblMap[label2]) ]
-    | CJmp(_, JmpDest(label, _), _, _)
-    | CJmp(_, _, JmpDest(label, _), _) ->
+    | CJmp(TrueTarget = JmpDest(Target = label))
+    | CJmp(FalseTarget = JmpDest(Target = label)) ->
       [ KeyValuePair(label, lblMap[label]) ]
     | _ ->
       []

@@ -39,7 +39,7 @@ type Labels(lbls) =
     lbls.Clear()
     for i = 0 to Array.length stmts - 1 do
       match stmts[i] with
-      | LMark(s, _) -> lbls.Add(s, i)
+      | LMark(Label = s) -> lbls.Add(s, i)
       | _ -> ()
 
   member _.Index sym = lbls[sym]

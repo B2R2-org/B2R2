@@ -52,18 +52,18 @@ let initialValue (hdl: BinHandle) =
 /// point, resolving every variable it reads through `evalVar`.
 let rec evalExpr evalVar pt (e: Expr) =
   match e with
-  | Num(bv, _) ->
+  | Num(Value = bv) ->
     StackPointerDomain.ConstSP bv
   | Var _ | TempVar _ ->
     evalVar (VarKind.ofIRExpr e) pt
-  | Load(_, _, addr, _) ->
+  | Load(Addr = addr) ->
     match evalExpr evalVar pt addr with
     | StackPointerDomain.ConstSP bv ->
       let offset = bv.ToUInt64() |> toFrameOffset
       evalVar (StackLocal offset) pt
     | c ->
       c
-  | BinOp(binOpType, _, e1, e2, _) ->
+  | BinOp(Op = binOpType; Left = e1; Right = e2) ->
     let v1 = evalExpr evalVar pt e1
     let v2 = evalExpr evalVar pt e2
     match binOpType with

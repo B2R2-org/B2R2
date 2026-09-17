@@ -122,22 +122,22 @@ and EVMFuncUserContext() =
     stmtInfos
     |> Array.fold (fun offBV (stmt, _) ->
       match stmt with
-      | Put(Var(_, regId, _, _), src, _)
+      | Put(Dst = Var(RegisterID = regId); Src = src)
         when regId = spId -> evalStackPointer spId offBV src
       | _ -> offBV) initialBV
     |> convertStackPointerToInt32
 
   and evalStackPointer spId offBV = function
-    | BinOp(binOp, _, e1, e2, _) ->
+    | BinOp(Op = binOp; Left = e1; Right = e2) ->
       let v1 = evalStackPointer spId offBV e1
       let v2 = evalStackPointer spId offBV e2
       match binOp with
       | BinOpType.ADD -> v1 + v2
       | BinOpType.SUB -> v1 - v2
       | _ -> Terminator.impossible ()
-    | Num(bv, _) ->
+    | Num(Value = bv) ->
       bv
-    | Var(_, regId, _, _) when regId = spId ->
+    | Var(RegisterID = regId) when regId = spId ->
       offBV
     | _ ->
       Terminator.impossible ()

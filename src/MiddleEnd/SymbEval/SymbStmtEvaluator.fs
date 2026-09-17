@@ -62,8 +62,8 @@ let private evalPut (st: SymbState) lhs rhs =
   match SymbExprEvaluator.eval st rhs with
   | Ok value ->
     match lhs with
-    | Var(_, rid, _, _) -> st.SetReg(rid, value); Ok()
-    | TempVar(_, idx, _) -> st.SetTmp(idx, value); Ok()
+    | Var(RegisterID = rid) -> st.SetReg(rid, value); Ok()
+    | TempVar(Index = idx) -> st.SetTmp(idx, value); Ok()
     | PCVar _ -> updatePC st value
     | _ -> UnsupportedExpression(Expr.toString lhs) |> Error
   | Error e ->
@@ -81,7 +81,7 @@ let private evalStore (st: SymbState) endian addr value =
     Error e
 
 let private evalJmp (st: SymbState) = function
-  | JmpDest(lbl, _) -> st.GoToLabel lbl; Ok()
+  | JmpDest(Target = lbl) -> st.GoToLabel lbl; Ok()
   | target -> UnsupportedExpression(Expr.toString target) |> Error
 
 let private evalConcreteCJmp (st: SymbState) cond trueTarget falseTarget =
@@ -150,38 +150,40 @@ let private whileContinuing _ = function
 let evalStmt (st: SymbState) stmt =
   let result =
     match stmt with
-    | ISMark(len, _) ->
+    | ISMark(Length = len) ->
       st.CurrentInsLen <- len
       st.NextStmt()
       Ok(SymbEvalSuccessor.Continue st)
-    | IEMark(len, _) ->
+    | IEMark(Length = len) ->
       st.AdvancePC len
       st.AbortInstr()
       Ok(SymbEvalSuccessor.Continue st)
     | LMark _ ->
       st.NextStmt()
       Ok(SymbEvalSuccessor.Continue st)
-    | Put(lhs, rhs, _) ->
+    | Put(Dst = lhs; Src = rhs) ->
       evalPut st lhs rhs |> Result.map (fun () ->
         st.NextStmt()
         SymbEvalSuccessor.Continue st)
-    | Store(endian, addr, value, _) ->
+    | Store(Endian = endian; Addr = addr; Value = value) ->
       evalStore st endian addr value |> Result.map (fun () ->
         st.NextStmt()
         SymbEvalSuccessor.Continue st)
-    | Jmp(target, _) ->
+    | Jmp(Target = target) ->
       evalJmp st target |> Result.map (fun () -> SymbEvalSuccessor.Continue st)
-    | CJmp(cond, trueTarget, falseTarget, _) ->
+    | CJmp(Cond = cond; TrueTarget = trueTarget; FalseTarget = falseTarget) ->
       evalCJmp st cond trueTarget falseTarget
-    | InterJmp(target, _, _) ->
+    | InterJmp(Target = target) ->
       evalPCUpdate st target |> Result.map (fun () ->
         st.AbortInstr()
         SymbEvalSuccessor.Continue st)
-    | InterCJmp(cond, trueTarget, falseTarget, _) ->
+    | InterCJmp(Cond = cond
+                TrueTarget = trueTarget
+                FalseTarget = falseTarget) ->
       evalIntCJmp st cond trueTarget falseTarget
     | ExternalCall _ ->
       unsupportedStmt stmt
-    | SideEffect(effect, _) ->
+    | SideEffect(Effect = effect) ->
       Ok(SymbEvalSuccessor.StoppedAtSideEffect(st, effect))
   match result with
   | Ok result -> result

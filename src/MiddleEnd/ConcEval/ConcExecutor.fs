@@ -92,20 +92,20 @@ type ConcExecutor(hdl: BinHandle) =
       State = st }
 
   let collectStmtReadRegisters rset = function
-    | Put(_, rhs, _) ->
+    | Put(Src = rhs) ->
       AST.updateRegsUses rset rhs
-    | Store(_, addr, value, _) ->
+    | Store(Addr = addr; Value = value) ->
       AST.updateRegsUses rset addr
       AST.updateRegsUses rset value
-    | CJmp(cond, _, _, _) ->
+    | CJmp(Cond = cond) ->
       AST.updateRegsUses rset cond
-    | InterJmp(target, _, _) ->
+    | InterJmp(Target = target) ->
       AST.updateRegsUses rset target
-    | InterCJmp(cond, target1, target2, _) ->
+    | InterCJmp(Cond = cond; TrueTarget = target1; FalseTarget = target2) ->
       AST.updateRegsUses rset cond
       AST.updateRegsUses rset target1
       AST.updateRegsUses rset target2
-    | ExternalCall(args, _) ->
+    | ExternalCall(Call = args) ->
       AST.updateRegsUses rset args
     | ISMark _
     | IEMark _
@@ -131,26 +131,37 @@ type ConcExecutor(hdl: BinHandle) =
     rset.Iterate(materializeRegister opts st)
 
   let rec hasUndefExpr = function
-    | Undefined _ -> true
-    | ExprList(exprs, _) -> List.exists hasUndefExpr exprs
-    | UnOp(_, e, _) -> hasUndefExpr e
-    | BinOp(_, _, e1, e2, _) -> hasUndefExpr e1 || hasUndefExpr e2
-    | RelOp(_, e1, e2, _) -> hasUndefExpr e1 || hasUndefExpr e2
-    | Load(_, _, addr, _) -> hasUndefExpr addr
-    | Ite(c, t, f, _) -> hasUndefExpr c || hasUndefExpr t || hasUndefExpr f
-    | Cast(_, _, e, _) -> hasUndefExpr e
-    | RoundCtrl(m, b, _) -> hasUndefExpr m || hasUndefExpr b
-    | Extract(e, _, _, _) -> hasUndefExpr e
+    | Undefined _ ->
+      true
+    | ExprList(Elements = exprs) ->
+      List.exists hasUndefExpr exprs
+    | UnOp(Operand = e) ->
+      hasUndefExpr e
+    | BinOp(Left = e1; Right = e2) ->
+      hasUndefExpr e1 || hasUndefExpr e2
+    | RelOp(Left = e1; Right = e2) ->
+      hasUndefExpr e1 || hasUndefExpr e2
+    | Load(Addr = addr) ->
+      hasUndefExpr addr
+    | Ite(Cond = c; TrueExpr = t; FalseExpr = f) ->
+      hasUndefExpr c || hasUndefExpr t || hasUndefExpr f
+    | Cast(Operand = e) ->
+      hasUndefExpr e
+    | RoundCtrl(Mode = m; Body = b) ->
+      hasUndefExpr m || hasUndefExpr b
+    | Extract(Operand = e) ->
+      hasUndefExpr e
     | Num _
     | Var _
     | PCVar _
     | TempVar _
     | JmpDest _
-    | FuncName _ -> false
+    | FuncName _ ->
+      false
 
   let isUndefWrite = function
-    | Put(_, rhs, _) -> hasUndefExpr rhs
-    | Store(_, _, value, _) -> hasUndefExpr value
+    | Put(Src = rhs) -> hasUndefExpr rhs
+    | Store(Value = value) -> hasUndefExpr value
     | _ -> false
 
   let stopAtSideEffect (opts: ConcRunOptions) =
@@ -163,8 +174,8 @@ type ConcExecutor(hdl: BinHandle) =
     opts.StopConditions |> List.contains ConcStopCondition.StopAfterReturn
 
   let tryEvalBranchCondition opts (st: ConcState) = function
-    | CJmp(cond, _, _, _)
-    | InterCJmp(cond, _, _, _) ->
+    | CJmp(Cond = cond)
+    | InterCJmp(Cond = cond) ->
       let rset = RegisterSet()
       AST.updateRegsUses rset cond
       rset.Iterate(materializeRegister opts st)
@@ -199,8 +210,8 @@ type ConcExecutor(hdl: BinHandle) =
      A memory cell has no such encoding: dropping it would expose whatever
      backs the address underneath, so an undefined store is left alone. *)
   let unsetUndefTarget (st: ConcState) = function
-    | Put(Var(_, n, _, _), _, _) -> st.UnsetReg n
-    | Put(TempVar(_, n, _), _, _) -> st.UnsetTmp n
+    | Put(Dst = Var(RegisterID = n)) -> st.UnsetReg n
+    | Put(Dst = TempVar(Index = n)) -> st.UnsetTmp n
     | _ -> ()
 
   let evalStmt (opts: ConcRunOptions) (st: ConcState) stmt =
@@ -222,7 +233,7 @@ type ConcExecutor(hdl: BinHandle) =
 
   let step opts st stmt =
     match stmt with
-    | SideEffect(eff, _) when stopAtSideEffect opts ->
+    | SideEffect(Effect = eff) when stopAtSideEffect opts ->
       Result.Error(EvalSideEffect eff)
     | _ ->
       match evalStmt opts st stmt with
