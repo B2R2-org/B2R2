@@ -876,6 +876,15 @@ module Suggestions =
         Form = SuggestionForm.SyntaxSnippet
         CursorOffset = Some cursorOffset } ]
 
+  let private lambdaKeywordCandidate =
+    [ { Text = "fun "
+        Label = "fun "
+        Detail = "start item-parameter function"
+        Kind = SuggestionKind.Argument
+        AppendSpace = false
+        Form = SuggestionForm.SyntaxSnippet
+        CursorOffset = None } ]
+
   let private hasNoArgumentSyntax metadata inputKind =
     let metadata: ActionMetadata = metadata
     metadata.Syntaxes
@@ -883,22 +892,14 @@ module Suggestions =
       ActionMetadata.syntaxAccepts inputKind syntax
       && List.isEmpty syntax.Arguments)
 
-  let private firstParameterName metadata inputKind =
-    syntaxArgument metadata inputKind [] 0
-    |> List.tryHead
-    |> Option.map (ActionMetadata.argumentKeys >> List.head)
-
-  let private arrowCandidate metadata inputKind =
-    firstParameterName metadata inputKind
-    |> Option.map (fun name ->
-      [ { Text = "-> " + name + "="
-          Label = "-> " + name + "="
-          Detail = "start item action parameters"
-          Kind = SuggestionKind.Argument
-          AppendSpace = false
-          Form = SuggestionForm.SyntaxSnippet
-          CursorOffset = None } ])
-    |> Option.defaultValue []
+  let private arrowCandidate =
+    [ { Text = "-> "
+        Label = "-> "
+        Detail = "start item action parameters"
+        Kind = SuggestionKind.Argument
+        AppendSpace = false
+        Form = SuggestionForm.SyntaxSnippet
+        CursorOffset = None } ]
 
   let private parameterNameSet tokens =
     tokens |> List.choose tryParameterName |> Set.ofList
@@ -927,19 +928,17 @@ module Suggestions =
     else
       []
 
-  let private iterElementKind registry state context =
-    let context: InputContext = context
-    let fullExpression = context.Expression
+  let private iterElementKind registry state fullExpression =
     let lastPipeline = InputAnalysis.topLevelLastPipeline fullExpression
     let sourceExpression =
       lastPipeline
       |> Option.map (fun index -> fullExpression[..index - 1])
-      |> Option.defaultValue context.Expression
+      |> Option.defaultValue fullExpression
     ReplTypeAnalysis.outputKind registry state sourceExpression
     |> Option.bind ReplTypeAnalysis.collectionElementKind
 
-  let private iterActionCandidates registry state context prefix =
-    match iterElementKind registry state context with
+  let private iterActionCandidates registry state fullExpression prefix =
+    match iterElementKind registry state fullExpression with
     | Some kind -> actionCandidates registry (Some kind) None prefix
     | None -> []
 
@@ -953,7 +952,7 @@ module Suggestions =
 
   let private iterBodyCandidates registry state context =
     let context: InputContext = context
-    let fullExpression = context.Expression
+    let fullExpression = context.FullExpression
     let lastPipeline = InputAnalysis.topLevelLastPipeline fullExpression
     let segment =
       lastPipeline
@@ -967,19 +966,22 @@ module Suggestions =
       | None when isCurrentIterKeyword head context ->
         None
       | None ->
-        iterActionCandidates registry state context context.Prefix |> Some
+        iterActionCandidates registry state fullExpression context.Prefix
+        |> Some
       | Some target when isCurrentIterAction target context ->
-        iterActionCandidates registry state context context.Prefix |> Some
+        iterActionCandidates registry state fullExpression context.Prefix
+        |> Some
       | Some target ->
         match ActionRegistry.tryFind target registry with
         | None ->
           if context.Prefix.StartsWith("@", StringComparison.Ordinal) then
-            iterActionCandidates registry state context context.Prefix |> Some
+            iterActionCandidates registry state fullExpression context.Prefix
+            |> Some
           else
             None
         | Some registered ->
           let itemKind =
-            iterElementKind registry state context
+            iterElementKind registry state fullExpression
           let lastIndex = context.InputBeforeCursor.Length - 1
           let endsWithSpace =
             context.InputBeforeCursor.Length > 0
@@ -1023,16 +1025,21 @@ module Suggestions =
             match analysis.LambdaParameters with
             | None ->
               if not (hasNoArgumentSyntax registered.Metadata inputKind) then
-                lambdaSkeletonCandidate |> Some
+                if analysis.HasOpeningDelimiter
+                   && not analysis.HasClosingDelimiter then
+                  lambdaKeywordCandidate |> Some
+                else
+                  lambdaSkeletonCandidate |> Some
               elif context.Prefix.StartsWith("@", StringComparison.Ordinal) then
-                iterActionCandidates registry state context context.Prefix
+                iterActionCandidates registry state fullExpression
+                  context.Prefix
                 |> Some
               else
                 None
             | Some args ->
               let expected = analysis.ExpectedParameterCount
               if List.length args = expected && endsWithSpace then
-                arrowCandidate registered.Metadata inputKind |> Some
+                arrowCandidate |> Some
               else
                 Some []
           | _ -> None
@@ -1244,6 +1251,7 @@ module Suggestions =
       lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
     let segment = expression[segmentStart..]
     { context with
+        FullExpression = expression
         Expression = expression
         Segment = segment
         SegmentWords = InputAnalysis.splitWords segment
@@ -1331,21 +1339,29 @@ module Suggestions =
           state.Current |> Option.map (fun value -> value.Kind)
       registered, inputKind, args)
 
-  let private iterHintTarget registry state context words =
+  let private iterHintTarget registry state fullExpression words =
     match words with
     | head :: args ->
       let analysis = ReplLanguage.analyzeIter head args
       analysis.ActionID
       |> Option.bind (fun target -> ActionRegistry.tryFind target registry)
       |> Option.map (fun registered ->
-        let inputKind = iterElementKind registry state context
+        let inputKind = iterElementKind registry state fullExpression
         registered, inputKind, analysis.Body)
     | [] -> None
 
   let private hintTarget registry state context =
-    match context.SegmentWords with
+    let context: InputContext = context
+    let fullExpression = context.FullExpression
+    let lastPipeline = InputAnalysis.topLevelLastPipeline fullExpression
+    let segment =
+      lastPipeline
+      |> Option.map (fun index -> fullExpression[index + 2..])
+      |> Option.defaultValue context.Segment
+    let words = InputAnalysis.splitWords segment
+    match words with
     | head :: _ when isIterHead head ->
-      iterHintTarget registry state context context.SegmentWords
+      iterHintTarget registry state fullExpression words
     | head :: args ->
       directHintTarget registry state context head args
     | [] ->

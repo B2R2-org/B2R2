@@ -74,6 +74,7 @@ type ReplIterAnalysis =
   { ActionID: string option
     LambdaParameters: string list option
     ExpectedParameterCount: int
+    HasOpeningDelimiter: bool
     HasArrow: bool
     HasClosingDelimiter: bool
     Body: string list }
@@ -389,9 +390,9 @@ module ReplLanguage =
     match tokens with
     | "(" :: rest ->
       match findClose 1 [] rest with
-      | Some(body, []) -> body, true
-      | _ -> tokens, false
-    | _ -> tokens, false
+      | Some(body, []) -> body, true, true
+      | _ -> tokens, true, false
+    | _ -> tokens, false, false
 
   let private tryActionID tokens =
     let named =
@@ -433,7 +434,7 @@ module ReplLanguage =
 
   let analyzeIter keyword args =
     let action, lambda = iterParts args
-    let lambda, hasClose = stripLambdaDelimiters lambda
+    let lambda, hasOpen, hasClose = stripLambdaDelimiters lambda
     let afterFun =
       match lambda |> List.tryFindIndex ((=) "fun") with
       | Some index -> Some(List.skip (index + 1) lambda)
@@ -452,6 +453,7 @@ module ReplLanguage =
     { ActionID = tryActionID action
       LambdaParameters = parameters
       ExpectedParameterCount = expectedIterParameterCount keyword
+      HasOpeningDelimiter = hasOpen
       HasArrow = hasArrow
       HasClosingDelimiter = hasClose
       Body = body }
@@ -478,7 +480,7 @@ module ReplLanguage =
     { ItemName = "_"; IndexName = "_"; Body = []; ActionID = action }
 
   let private parseIterLambda (keyword: string) action tokens =
-    let tokens, _ = stripLambdaDelimiters tokens
+    let tokens, _, _ = stripLambdaDelimiters tokens
     match keyword.ToLowerInvariant(), tokens with
     | "iter", [] -> Ok(emptyIterSpec action)
     | "iter", "fun" :: item :: "->" :: body

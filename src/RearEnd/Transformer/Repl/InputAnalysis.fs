@@ -41,6 +41,7 @@ type InputContext =
     TokenStart: int
     TokenLength: int
     Words: string list
+    FullExpression: string
     Expression: string
     Segment: string
     SegmentWords: string list
@@ -125,8 +126,8 @@ module InputAnalysis =
     let inputAfterCursor =
       if cursor = input.Length then "" else input[cursor..]
     let words = splitWords inputBeforeCursor
-    let expression = expressionPortion inputBeforeCursor
-    let expression = activeExpression expression
+    let fullExpression = expressionPortion inputBeforeCursor
+    let expression = activeExpression fullExpression
     let lastPipeline = topLevelLastPipeline expression
     let segmentStart =
       lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
@@ -141,6 +142,7 @@ module InputAnalysis =
       TokenStart = start
       TokenLength = cursor - start
       Words = words
+      FullExpression = fullExpression
       Expression = expression
       Segment = segment
       SegmentWords = splitWords segment
