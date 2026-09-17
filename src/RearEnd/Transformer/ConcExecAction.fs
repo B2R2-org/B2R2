@@ -65,8 +65,6 @@ type private TracingMemory(inner: ConcMemory) =
   let accesses = ResizeArray<MemoryAccess>()
   let mutable instruction = 0UL
 
-  let byteCount typ = RegType.toByteWidth typ
-
   let readBytes addr count =
     let bytes = Array.zeroCreate<byte> count
     let mutable ok = true
@@ -89,13 +87,56 @@ type private TracingMemory(inner: ConcMemory) =
         Before = before
         After = after }
 
-  member _.Accesses = accesses.ToArray()
+  let appendBytes left right =
+    match left, right with
+    | Some left, Some right -> Array.append left right |> Some
+    | _ -> None
+
+  let tryMerge (last: MemoryAccess) (access: MemoryAccess) =
+    if last.Instruction <> access.Instruction || last.Kind <> access.Kind then
+      None
+    elif access.Address = last.Address + uint64 last.Size then
+      { last with
+          Size = last.Size + access.Size
+          Before = appendBytes last.Before access.Before
+          After = appendBytes last.After access.After }
+      |> Some
+    elif access.Address + uint64 access.Size = last.Address then
+      { last with
+          Address = access.Address
+          Size = last.Size + access.Size
+          Before = appendBytes access.Before last.Before
+          After = appendBytes access.After last.After }
+      |> Some
+    else
+      None
+
+  let coalesceAccesses () =
+    accesses
+    |> Seq.fold (fun acc access ->
+      match acc with
+      | last :: rest ->
+        match tryMerge last access with
+        | Some merged -> merged :: rest
+        | None -> access :: acc
+      | [] -> [ access ]) []
+    |> List.rev
+    |> List.toArray
+
+  member _.Accesses = coalesceAccesses ()
 
   member _.SetInstruction addr = instruction <- addr
 
   interface IMemory<byte> with
 
-    member _.ByteRead(addr) = inner.ByteRead addr
+    member _.ByteRead(addr) =
+      let result = inner.ByteRead addr
+      let bytes =
+        match result with
+        | ValueSome value -> Some [| value |]
+        | ValueNone -> None
+      addAccess MemoryAccessKind.Read addr 1 None bytes
+      result
 
     member _.ByteWrite(addr, b) =
       let before = readBytes addr 1
@@ -313,6 +354,13 @@ type ConcExecutorValue(binary: Binary,
         ConcStopReason.InstructionLimitReached(addr, total)
       | reason -> reason)
 
+  let makeRunOptions (stops: ConcStopCondition list)
+                     (limit: int)
+                     : ConcRunOptions =
+    ConcRunOptions.Default(stops)
+      .WithMaxInstructions(limit)
+      .ZeroCallerContext()
+
   let runOne (addr: Addr) (runState: ConcState) =
     match runState.Memory with
     | :? TracingMemory as memory -> memory.SetInstruction addr
@@ -320,12 +368,13 @@ type ConcExecutorValue(binary: Binary,
     let instruction =
       { Address = addr
         Disassembly = instructionAt addr }
-    let options = ConcRunOptions.Default().WithMaxInstructions 1
-    let result = executor.Run(addr, runState, options)
+    let options: ConcRunOptions = makeRunOptions [] 1
+    let result: ConcRunResult = executor.Run(addr, runState, options)
     result, instruction
 
   let rec runSteps (start: Addr) count (runState: ConcState) =
-    let rec loop addr remaining instructions total lastResult =
+    let rec loop addr remaining instructions total
+                 (lastResult: ConcRunResult option) =
       if remaining <= 0 then
         lastResult, List.rev instructions
       else
@@ -346,8 +395,10 @@ type ConcExecutorValue(binary: Binary,
             (Some result)
     loop start count [] 0 None
 
-  let traceFromResult start beforeState result instructions accesses watch =
-    let result =
+  let traceFromResult start beforeState
+                      (result: ConcRunResult option)
+                      instructions accesses watch =
+    let result: ConcRunResult =
       match result with
       | Some result -> result
       | None ->
@@ -611,8 +662,8 @@ type ConcExecutorValue(binary: Binary,
       |> Option.toList
     let beforeState = state.Clone()
     let runState = state.Clone()
-    let options = ConcRunOptions.Default(stops).WithMaxInstructions limit
-    let result = executor.Run(start, runState, options)
+    let options: ConcRunOptions = makeRunOptions stops limit
+    let result: ConcRunResult = executor.Run(start, runState, options)
     let instruction =
       { Address = start
         Disassembly = instructionAt start }
