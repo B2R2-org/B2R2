@@ -195,22 +195,19 @@ module ReplValue =
   let private tupleKind values =
     values |> Array.map kindOfObject |> Array.toList |> ReplValueKind.Tuple
 
+  let private nonUnitKinds values =
+    values
+    |> Array.map kindOfObject
+    |> Array.filter (fun kind -> kind <> ReplValueKind.Unit)
+    |> Array.distinct
+
   let private elementKind values =
-    let kinds =
-      values
-      |> Array.map kindOfObject
-      |> Array.filter (fun kind -> kind <> ReplValueKind.Unit)
-      |> Array.distinct
-    match kinds with
+    match nonUnitKinds values with
     | [| kind |] -> kind
     | _ -> ReplValueKind.Any
 
   let validateHomogeneous literalName values =
-    let kinds =
-      values
-      |> Array.map kindOfObject
-      |> Array.filter (fun kind -> kind <> ReplValueKind.Unit)
-      |> Array.distinct
+    let kinds = nonUnitKinds values
     if kinds.Length <= 1 then
       Ok()
     else
