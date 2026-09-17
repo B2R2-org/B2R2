@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Threading
 open B2R2
 
 /// The `winnowing` action.
@@ -37,24 +38,27 @@ type WinnowingAction() =
         elif minHash = curHash && minPos < curPos then curHash, curPos
         else minHash, minPos
       min span (minHash, minPos) (idx + 1)
-    else
-      (minHash, minPos)
+    else (minHash, minPos)
 
-  let rec computeFingerprint acc annot prev n wsz idx (ngrams: (int * int)[]) =
+  let rec computeFingerprint cancellationToken acc annot prev n wsz idx
+                             (ngrams: (int * int)[]) =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
     if idx <= ngrams.Length - wsz then
       let span = ngrams.AsSpan(idx, wsz)
       let m = min span (Int32.MaxValue, Int32.MaxValue) 0
       if fst prev = fst m then
-        computeFingerprint acc annot prev n wsz (idx + 1) ngrams
+        computeFingerprint cancellationToken acc annot prev n wsz
+          (idx + 1) ngrams
       else
-        computeFingerprint (m :: acc) annot m n wsz (idx + 1) ngrams
-    else
-      { Patterns = List.rev acc
-        NGramSize = n
-        WindowSize = wsz
-        Annotation = annot }
+        computeFingerprint cancellationToken (m :: acc) annot m n wsz
+          (idx + 1) ngrams
+    else { Patterns = List.rev acc
+           NGramSize = n
+           WindowSize = wsz
+           Annotation = annot }
 
-  let winnowing n wsz input =
+  let winnowing cancellationToken n wsz input =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
     let annot = Binary.MakeAnnotation("Winnowing from ", bin)
@@ -63,8 +67,20 @@ type WinnowingAction() =
       invalidArg (nameof input) "The input binary is too small."
     else
       Utils.buildNgram [] n span 0
-      |> computeFingerprint [] annot (0, 0) n wsz 0
+      |> computeFingerprint cancellationToken [] annot (0, 0) n wsz 0
       |> box
+
+  let transform cancellationToken args collection =
+    let args: string list = args
+    let n, wsz =
+      match args with
+      | [] -> 4, 4
+      | [ n ] -> Convert.ToInt32 n, 4
+      | n :: w :: [] -> Convert.ToInt32 n, Convert.ToInt32 w
+      | _ -> invalidArg (nameof args) "Too many arguments given."
+    { Values =
+        collection.Values
+        |> Array.map (winnowing cancellationToken n wsz) }
 
   interface IAction with
     member _.ActionID with get() = "winnowing"
@@ -78,9 +94,8 @@ type WinnowingAction() =
       - [w] : Window size. The default is 4.
 """
     member _.Transform(args, collection) =
-      let n, wsz =
-        match args with
-        | [] -> 4, 4
-        | n :: w :: [] -> Convert.ToInt32 n, Convert.ToInt32 w
-        | _ -> invalidArg (nameof args) "Two many arguments given."
-      { Values = collection.Values |> Array.map (winnowing n wsz) }
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection

@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open System.Collections.Generic
+open System.Threading
 
 [<Struct>]
 type DbscanStatus =
@@ -46,10 +47,12 @@ with
 
 /// The `dbscan` action.
 type DbscanAction() =
-  let buildDistanceCache (elms: DbscanElement[]) =
+  let buildDistanceCache cancellationToken (elms: DbscanElement[]) =
+    let cancellationToken: CancellationToken = cancellationToken
     let cache = Array2D.zeroCreate elms.Length elms.Length
     for i = 0 to elms.Length - 1 do
       for j = i + 1 to elms.Length - 1 do
+        cancellationToken.ThrowIfCancellationRequested()
         let e1, e2 = elms[i], elms[j]
         let fp = HashSet e1.Fingerprint
         fp.IntersectWith e2.Fingerprint
@@ -62,46 +65,63 @@ type DbscanAction() =
 
   let dist (cache: float array2d) i j = cache[i, j]
 
-  let findNeighbors (cache: float array2d) i eps =
+  let findNeighbors cancellationToken (cache: float array2d) i eps =
+    let cancellationToken: CancellationToken = cancellationToken
     let neighbors = List<int>()
     for j = 0 to Array2D.length1 cache - 1 do
-      if dist cache i j <= eps then neighbors.Add j |> ignore else ()
+      cancellationToken.ThrowIfCancellationRequested()
+      if dist cache i j <= eps then
+        neighbors.Add j |> ignore
+      else ()
     neighbors
 
-  let cluster eps minpts (fingerprints: Fingerprint[]) =
+  let cluster cancellationToken eps minpts (fingerprints: Fingerprint[]) =
+    let cancellationToken: CancellationToken = cancellationToken
     let elms = fingerprints |> Array.map DbscanElement.Init
-    let cache = buildDistanceCache elms
+    let cache = buildDistanceCache cancellationToken elms
     let clusters = List<string[]>() (* List<List<string>> *)
     for i in 0 .. (elms.Length - 1) do
-      if elms[i].Status <> Unvisited then
-        ()
+      cancellationToken.ThrowIfCancellationRequested()
+      if elms[i].Status <> Unvisited then ()
       else
-        let neighbors = findNeighbors cache i eps
-        if neighbors.Count < minpts then
-          elms[i].Status <- Noise
+        let neighbors = findNeighbors cancellationToken cache i eps
+        if neighbors.Count < minpts then elms[i].Status <- Noise
         else
           let cluster = List<string> () (* List<string> *)
           elms[i].Status <- Visited
           cluster.Add elms[i].ElementName |> ignore
           neighbors.Remove i |> ignore
           while neighbors.Count > 0 do
+            cancellationToken.ThrowIfCancellationRequested()
             let n = neighbors[0]
             neighbors.RemoveAt 0
             if elms[n].Status = Noise then
               elms[n].Status <- Visited
               cluster.Add elms[n].ElementName |> ignore
-            elif elms[n].Status <> Unvisited then
-              ()
+            elif elms[n].Status <> Unvisited then ()
             else
               elms[n].Status <- Visited
               cluster.Add elms[n].ElementName |> ignore
-              let newNeighbors = findNeighbors cache n eps
+              let newNeighbors =
+                findNeighbors cancellationToken cache n eps
               if newNeighbors.Count >= minpts then
                 neighbors.AddRange newNeighbors
-              else
-                ()
+              else ()
           clusters.Add(cluster.ToArray()) |> ignore
     [| box { Clusters = clusters.ToArray() } |]
+
+  let transform cancellationToken args collection =
+    let args: string list = args
+    let eps, minPts =
+      match args with
+      | eps :: minPts :: [] -> Convert.ToDouble eps, Convert.ToInt32 minPts
+      | eps :: [] -> Convert.ToDouble eps, 3
+      | [] -> 0.2, 3
+      | _ -> invalidArg (nameof args) "Too many arguments given."
+    { Values =
+        collection.Values
+        |> Array.map unbox<Fingerprint>
+        |> cluster cancellationToken eps minPts }
 
   interface IAction with
     member _.ActionID with get() = "dbscan"
@@ -114,12 +134,8 @@ type DbscanAction() =
     use a default value of <eps> = 0.2 and <minPts> = 3.
 """
     member _.Transform(args, collection) =
-      let eps, minPts =
-        match args with
-        | eps :: minPts :: [] -> Convert.ToDouble eps, Convert.ToInt32 minPts
-        | eps :: [] -> Convert.ToDouble eps, 3
-        | [] -> 0.2, 3
-        | _ -> invalidArg (nameof args) "Too many arguments given."
-      { Values = collection.Values
-                 |> Array.map unbox<Fingerprint>
-                 |> cluster eps minPts }
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection

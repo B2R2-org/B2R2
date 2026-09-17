@@ -24,9 +24,13 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System.Threading
+
 /// The `jaccard` action.
 type JaccardAction() =
-  let jaccard fp0 fp1 =
+  let jaccard cancellationToken fp0 fp1 =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
     match unbox<Fingerprint> fp0, unbox<Fingerprint> fp1 with
     | fp0, fp1 ->
       let s0 = List.fold (fun s (v, _) -> Set.add v s) Set.empty fp0.Patterns
@@ -34,17 +38,26 @@ type JaccardAction() =
       float (Set.intersect s0 s1 |> Set.count)
       / float (Set.union s0 s1 |> Set.count)
 
+  let transform cancellationToken (args: string list) collection =
+    if args.Length <> 0 then
+      invalidArg (nameof args) "No arguments should be given."
+    elif collection.Values.Length = 2 then
+      let value =
+        jaccard cancellationToken collection.Values[0] collection.Values[1]
+      { Values = [| value |] }
+    else
+      invalidArg (nameof collection) "Two fingerprints should be given."
+
   interface IAction with
     member _.ActionID with get() = "jaccard"
-    member _.Signature with get() = "Fingerprint collection -> int"
+    member _.Signature with get() = "Fingerprint * Fingerprint -> float"
     member _.Description with get() =
       """
-    Take in two fingerprints and returns the jaccard index between them.
+    Take a tuple of two fingerprints and return their Jaccard index.
 """
     member _.Transform(args, collection) =
-      if args.Length <> 0 then
-        invalidArg (nameof args) "No arguments should be given."
-      elif collection.Values.Length = 2 then
-        { Values = [| jaccard collection.Values[0] collection.Values[1] |] }
-      else
-        invalidArg (nameof collection) "Two fingerprints should be given."
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection

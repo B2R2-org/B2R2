@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open System.IO
+open System.Threading
 open B2R2
 
 /// The `detect` action.
@@ -35,7 +36,9 @@ type DetectAction() =
     |> OutputColored
     |> box
 
-  let detectFile fp path =
+  let detectFile cancellationToken fp path =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
     let bs = File.ReadAllBytes path
     let span = ReadOnlySpan bs
     let ngram =
@@ -49,18 +52,29 @@ type DetectAction() =
         if ngram.Contains hash then cnt + 1 else cnt) 0
     path, float matchCnt / float fp.Patterns.Length
 
-  let detectDir fp path =
+  let detectDir cancellationToken fp path =
     Directory.GetFiles path
-    |> Array.map (detectFile fp)
+    |> Array.map (detectFile cancellationToken fp)
     |> Array.sortByDescending snd
     |> Array.map resultToString
     |> box
 
-  let detect path input =
+  let detect cancellationToken path input =
     let fp = unbox<Fingerprint> input
-    if File.Exists path then detectFile fp path |> resultToString
-    elif Directory.Exists path then detectDir fp path
+    if File.Exists path then
+      detectFile cancellationToken fp path |> resultToString
+    elif Directory.Exists path then
+      detectDir cancellationToken fp path
     else invalidArg (nameof path) "File not found."
+
+  let transform cancellationToken args collection =
+    match args with
+    | [ path ] ->
+      { Values =
+          collection.Values
+          |> Array.map (detect cancellationToken path) }
+    | [] -> invalidArg (nameof args) "A path should be given."
+    | _ -> invalidArg (nameof args) "Too many paths are given."
 
   interface IAction with
     member _.ActionID with get() = "detect"
@@ -73,8 +87,8 @@ type DetectAction() =
     directory. If the <path> is a file, it only analyzes the file.
 """
     member _.Transform(args, collection) =
-      let fps = collection.Values
-      match args with
-      | [ path ] -> { Values = fps |> Array.map (detect path) }
-      | [] -> invalidArg (nameof args) "A path should be given."
-      | _ -> invalidArg (nameof args) "Too many paths are given."
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection
