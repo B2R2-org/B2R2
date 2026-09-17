@@ -32,7 +32,7 @@ open System.Runtime.InteropServices
 open System.Runtime.Loader
 
 type private TransformerPluginLoadContext(pluginPath: string) =
-  inherit AssemblyLoadContext(isCollectible = false)
+  inherit AssemblyLoadContext(isCollectible = true)
 
   let pluginDir = Path.GetDirectoryName pluginPath
   let resolver = AssemblyDependencyResolver pluginPath
@@ -111,13 +111,18 @@ module TransformerPluginLoader =
 
   let private loadTypes fullPath =
     lazy
+      let context = TransformerPluginLoadContext fullPath
       try
-        let context = TransformerPluginLoadContext fullPath
         let assembly = context.LoadPluginAssembly()
         assembly.GetExportedTypes()
-      with :? ReflectionTypeLoadException as error ->
+      with
+      | :? ReflectionTypeLoadException as error ->
+        context.Unload()
         let detail = loaderExceptionText error
         invalidOp $"Failed to load plugin types: {detail}"
+      | _ ->
+        context.Unload()
+        reraise ()
 
   let exportedTypes path =
     if File.Exists path then
