@@ -586,9 +586,9 @@ module ActionMetadata =
       [ syntax None [ action; parameters ] ]
 
   let private concExec =
-    contract "concExec" ReplValueKind.Binary ReplValueKind.ConcExecutor
-      ActionRole.Transform 20 "concExec -> ConcExecutor"
-      [ "binary |> @concExec" ] [ syntax None [] ]
+    contract "conc-exec" ReplValueKind.Binary ReplValueKind.ConcExecutor
+      ActionRole.Transform 20 "conc-exec -> ConcExecutor"
+      [ "binary |> @conc-exec" ] [ syntax None [] ]
 
   let private dbscan =
     let eps = optional "eps" ActionArgumentKind.Float "Maximum distance."

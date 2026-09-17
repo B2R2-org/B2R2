@@ -773,7 +773,7 @@ type ConcExecAction() =
           | _ -> invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "concExec"
+    member _.ActionID with get() = "conc-exec"
     member _.Signature with get() = "Binary -> ConcExecutor"
     member _.Description with get() =
       "Create a stateful concrete executor backed by binary section memory."
