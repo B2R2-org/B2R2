@@ -247,7 +247,7 @@ module Suggestions =
       [ iterKeywordItem "iter"
           "syntax: iter @action [(fun item -> parameters)]"
         iterKeywordItem "iteri"
-          "syntax: iteri @action [(fun item index -> parameters)]" ]
+          "syntax: iteri @action [(fun index item -> parameters)]" ]
       |> List.filter (fun item -> matches prefix item.Text)
     | _ -> []
 
