@@ -463,12 +463,15 @@ type ConcExecutorValue private(binary: Binary,
       stopReasons result
 
   let aggregateStopReasons total reasons =
-    reasons
-    |> List.map (function
-      | ConcStopReason.InstructionLimitReached(addr, _) ->
-        ConcStopReason.InstructionLimitReached(addr, total)
-      | reason ->
-        reason)
+    if hasNonLimitStop reasons then
+      reasons |> List.filter (isLimitReason >> not)
+    else
+      reasons
+      |> List.map (function
+        | ConcStopReason.InstructionLimitReached(addr, _) ->
+          ConcStopReason.InstructionLimitReached(addr, total)
+        | reason ->
+          reason)
 
   let makeRunOptions (stops: ConcStopCondition list)
                      (limit: int)
