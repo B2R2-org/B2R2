@@ -862,11 +862,17 @@ module ActionMetadata =
     let functions =
       syntaxOutput (Some "functions")
         (ReplValueKind.Collection ReplValueKind.FunctionInfo) []
+    let knownFunctions =
+      syntaxOutput (Some "known-functions")
+        (ReplValueKind.Collection ReplValueKind.FunctionInfo) []
     contract "list" ReplValueKind.Binary ReplValueKind.Any
       ActionRole.Transform 10
-      "list <sections|functions> -> SectionInfo|FunctionInfo collection"
-      [ "binary |> @list sections"; "binary |> @list functions" ]
-      [ sections; functions ]
+      ("list <sections|functions|known-functions> -> "
+       + "SectionInfo|FunctionInfo collection")
+      [ "binary |> @list sections"
+        "binary |> @list functions"
+        "binary |> @list known-functions" ]
+      [ sections; functions; knownFunctions ]
 
   let private llvm =
     contract "llvm" ReplValueKind.Binary ReplValueKind.TextArtifact

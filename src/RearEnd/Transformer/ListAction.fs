@@ -26,7 +26,9 @@ namespace B2R2.RearEnd.Transformer
 
 open System.Threading
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
+open B2R2.MiddleEnd
 
 /// The `list` action.
 type ListAction() =
@@ -45,21 +47,37 @@ type ListAction() =
     BinFileOps.getSections hdl.File
     |> Array.map (sectionInfo bin >> box)
 
-  let listFunctions (input: obj) =
+  let symbolName (hdl: BinHandle) addr =
+    match BinFileOps.tryFindSymbolByAddr hdl.File addr with
+    | Ok symbol when not (System.String.IsNullOrWhiteSpace symbol.Name) ->
+      Some symbol.Name
+    | _ -> None
+
+  let functionInfo bin hdl addr =
+    { Source = bin
+      Entry = addr
+      Symbol = symbolName hdl addr }
+    |> box
+
+  let listKnownFunctions (input: obj) =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
-    let symbolName addr =
-      match BinFileOps.tryFindSymbolByAddr hdl.File addr with
-      | Ok symbol when not (System.String.IsNullOrWhiteSpace symbol.Name) ->
-        Some symbol.Name
-      | _ -> None
     BinFileOps.getFunctionAddresses hdl.File
     |> Array.sort
-    |> Array.map (fun addr ->
-      { Source = bin
-        Entry = addr
-        Symbol = symbolName addr }
-      |> box)
+    |> Array.map (functionInfo bin hdl)
+
+  let listFunctions (cancellationToken: CancellationToken) (input: obj) =
+    let bin = unbox<Binary> input
+    let hdl = Binary.Handle bin
+    let brew = BinaryBrew hdl
+    brew.Functions.Sequence
+    |> Seq.map (fun fn ->
+      cancellationToken.ThrowIfCancellationRequested()
+      fn.EntryPoint)
+    |> Seq.distinct
+    |> Seq.sort
+    |> Seq.map (functionInfo bin hdl)
+    |> Seq.toArray
 
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
@@ -70,21 +88,25 @@ type ListAction() =
         operation value)
     match args with
     | [ "sections" ] -> { Values = collect listSections }
-    | [ "functions" ] -> { Values = collect listFunctions }
+    | [ "functions" ] ->
+      { Values =
+          collection.Values
+          |> Array.collect (listFunctions cancellationToken) }
+    | [ "known-functions" ] -> { Values = collect listKnownFunctions }
     | _ -> invalidArg (nameof args) "Invalid argument."
 
   interface IAction with
     member _.ActionID with get() = "list"
     member _.Signature with get() =
-      "Binary * <sections|functions> -> typed collection"
+      "Binary * <sections|functions|known-functions> -> typed collection"
     member _.Description with get() =
       """
-    Take in a parsed binary and return a list of elements such as functions,
-    sections, etc. The output type is determined by the extra [cmd] argument.
-    Currently, we support the following [cmd]:
+    Take in a parsed binary and return a list of elements. The output type is
+    determined by the extra [cmd] argument. Currently, we support:
 
       - `sections`: returns a list of sections.
-      - `functions`: returns known function entry addresses.
+      - `functions`: recovers function entry addresses through analysis.
+      - `known-functions`: returns function entries known from binary metadata.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
