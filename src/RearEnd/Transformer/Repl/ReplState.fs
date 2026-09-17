@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Globalization
 open B2R2
 
 [<RequireQualifiedAccess>]
@@ -175,6 +176,21 @@ module ReplValue =
           | _ -> ReplValueKind.Any
       else
         kindOfType typ
+
+  let kindOf value = kindOfObject value
+
+  let tryArgumentText (value: obj) =
+    match value with
+    | null -> Some ""
+    | :? AddressValue as value -> Some $"0x{value.Address:x}"
+    | :? int as value ->
+      Some(value.ToString(CultureInfo.InvariantCulture))
+    | :? float as value ->
+      Some(value.ToString("R", CultureInfo.InvariantCulture))
+    | :? bool as value -> Some(if value then "true" else "false")
+    | :? string as value -> Some value
+    | :? SymbSolverValue as value -> Some("@" + value.ID)
+    | _ -> None
 
   let private tupleKind values =
     values |> Array.map kindOfObject |> Array.toList |> ReplValueKind.Tuple

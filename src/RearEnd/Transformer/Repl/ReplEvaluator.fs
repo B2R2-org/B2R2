@@ -838,10 +838,7 @@ module TransformerReplEvaluator =
     |> Map.tryFind name
     |> Option.bind (fun value ->
       match value.Collection.Values with
-      | [| :? AddressValue as value |] -> Some $"0x{value.Address:x}"
-      | [| :? int as value |] -> Some(string value)
-      | [| :? string as value |] -> Some value
-      | [| :? SymbSolverValue as value |] -> Some("@" + value.ID)
+      | [| value |] -> ReplValue.tryArgumentText value
       | _ -> None)
 
   let private resolveAssignmentValue state (token: string) =
@@ -1318,8 +1315,10 @@ module TransformerReplEvaluator =
     bindings |> List.fold replaceBinding token
 
   let private iterArguments (spec: IterSpec) (index: int) (item: obj) =
-    let itemText = if isNull item then "" else item.ToString()
-    let indexText = index.ToString(CultureInfo.InvariantCulture)
+    let unresolvedItem = "\u0000unrepresentable-iter-item\u0000"
+    let itemText =
+      ReplValue.tryArgumentText item |> Option.defaultValue unresolvedItem
+    let indexText = (index + 1).ToString(CultureInfo.InvariantCulture)
     let apply token =
       token
       |> replaceTemplate (spec: IterSpec).ItemName itemText
@@ -1349,7 +1348,12 @@ module TransformerReplEvaluator =
             Ok(bindings, body))
     statements
     |> List.fold folder (Ok([], []))
-    |> Result.map snd
+    |> Result.bind (fun (_, body) ->
+      if body |> List.exists (fun text -> text.Contains unresolvedItem) then
+        let kind = ReplValue.kindOf item |> formatKind
+        Error $"{spec.ItemName} of type {kind} cannot be an action argument."
+      else
+        Ok body)
 
   let private singletonValue item =
     ReplValue.ofCollection ReplValueKind.Any { Values = [| item |] }
@@ -1565,7 +1569,7 @@ module TransformerReplEvaluator =
               let item = values[index]
               match iterArguments spec index item with
               | Error message ->
-                Error $"{segment.Head} item {index}: {message}"
+                Error $"{segment.Head} item {index + 1}: {message}"
               | Ok arguments ->
                 let segment =
                   { Head = ActionMetadata.actionName registered.Metadata.ID
@@ -1575,7 +1579,7 @@ module TransformerReplEvaluator =
                     cancellationToken
                 with
                 | Error message ->
-                  Error $"{segment.Head} item {index}: {message}"
+                  Error $"{segment.Head} item {index + 1}: {message}"
                 | Ok value ->
                   if value.Kind <> ReplValueKind.Unit then
                     outputKinds.Add value.Kind
@@ -1962,7 +1966,7 @@ module TransformerReplEvaluator =
         else
           value.Collection.Values
           |> Array.iteri (fun index item ->
-            ReplArtifactWriter.write $"{fullPath}.{index}" item)
+            ReplArtifactWriter.write $"{fullPath}.{index + 1}" item)
         continueWith registry state
           [ $"Exported {name}: {normalizePath fullPath}" ]
       with error ->
