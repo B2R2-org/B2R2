@@ -73,6 +73,18 @@ type LiftingUnit
           member _.IsThumb with get() = false and set _ = ()
           member _.ITState with get() = 0uy and set _ = () }
 
+  (* MIPS has the same kind of switch and a different question behind it:
+     which of its three encodings the processor is reading. The bit that says
+     is the processor's own and the code moves it, so a decoder following
+     along has to be told. *)
+  let encodingSwitch =
+    match binFile.ISA.Arch with
+    | Architecture.MIPS ->
+      parser :?> MIPS.IEncodingSwitchable
+    | _ ->
+      { new MIPS.IEncodingSwitchable with
+          member _.ISAMode with get() = MIPSISAMode.MIPS and set _ = () }
+
   let names = Option.toObj binFile.NameResolver
 
   (* Both builders start with the address off, so that the same instruction
@@ -161,6 +173,19 @@ type LiftingUnit
   member _.ITState
     with get() = modeSwitch.ITState
     and set v = modeSwitch.ITState <- v
+
+  /// <summary>
+  /// Which encoding of its instruction set this unit is decoding, which is
+  /// meaningful on MIPS and reads as the ordinary one elsewhere.
+  ///
+  /// A running MIPS program moves it -- JALX crosses from one encoding to the
+  /// other, and so does a jump to an address carrying a one in the bit an
+  /// instruction address cannot use -- so an evaluator that follows the
+  /// program has to set it.
+  /// </summary>
+  member _.ISAMode
+    with get() = encodingSwitch.ISAMode
+    and set v = encodingSwitch.ISAMode <- v
 
 #if EMULATION
   /// The lazy condition-code op the IR builder currently carries: the last

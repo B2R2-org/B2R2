@@ -175,19 +175,36 @@ module internal Header =
   /// another encoding of the same instruction set, and every level has both.
   let [<Literal>] private MIPSMicroMIPS = 0x02000000u
 
-  /// The architecture level in a MIPS image's processor-specific flags,
-  /// which binutils calls EF_MIPS_ARCH. It settles two things, and this used
-  /// to read only the first: how wide a register is -- the level and not the
-  /// ELF class says that, n32 being 64-bit in a 32-bit file -- and which
-  /// RELEASE the code belongs to. Release 6 reassigned primary opcodes -- the
-  /// one ADDI had is POP10 there -- so a decoder that is not told cannot be
-  /// right for both. The release was being discarded here, which is why
-  /// Release 6 images could not be decoded at all.
+  /// <summary>
+  /// The same for MIPS16e, which binutils calls EF_MIPS_ARCH_ASE_M16.
+  ///
+  /// A separate bit rather than another value of the one above, because they
+  /// are separate announcements: an image says which extensions it uses and
+  /// not which one of them it uses. No processor implements both, so an image
+  /// that set both would be for no processor there is, and the microMIPS bit
+  /// is read first.
+  /// </summary>
+  let [<Literal>] private MIPSM16 = 0x04000000u
+
+  /// <summary>
+  /// The ISA of a MIPS image, from the processor-specific flags.
+  ///
+  /// The architecture level -- binutils calls it EF_MIPS_ARCH, and it is the
+  /// top nibble -- settles two things, and this used to read only the first:
+  /// how wide a register is, and which RELEASE the code belongs to. The width
+  /// is the level's to say and not the ELF class's, n32 being 64-bit in a
+  /// 32-bit file. Release 6 reassigned primary opcodes, the one ADDI had being
+  /// POP10 there, so a decoder that is not told cannot be right for both. The
+  /// release was being discarded here, which is why Release 6 images could not
+  /// be decoded at all. Which ENCODING the code is in is announced separately,
+  /// by the two ASE bits above.
+  /// </summary>
   let private getMIPSISA span (reader: IBinReader) cls =
     let flags = getELFFlags span reader cls
     let mode =
-      if flags &&& MIPSMicroMIPS = 0u then MIPSISAMode.MIPS
-      else MIPSISAMode.MicroMIPS
+      if flags &&& MIPSMicroMIPS <> 0u then MIPSISAMode.MicroMIPS
+      elif flags &&& MIPSM16 <> 0u then MIPSISAMode.MIPS16
+      else MIPSISAMode.MIPS
     let mips ws release =
       ISA(Architecture.MIPS, reader.Endianness, ws, int release ||| int mode)
     match flags &&& 0xf0000000u with
