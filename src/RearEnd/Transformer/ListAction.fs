@@ -24,26 +24,71 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System.Threading
 open B2R2
+open B2R2.FrontEnd.BinFile
 
 /// The `list` action.
 type ListAction() =
-  let listSections (input: obj) = Terminator.futureFeature ()
+  let sectionInfo bin section =
+    let section: BinSection = section
+    { Source = bin
+      Name = section.Name
+      Address = section.Address
+      Size = section.Size
+      FileSize = section.FileSize
+      Kind = section.Kind.ToString() }
+
+  let listSections (input: obj) =
+    let bin = unbox<Binary> input
+    let hdl = Binary.Handle bin
+    BinFileOps.getSections hdl.File
+    |> Array.map (sectionInfo bin >> box)
+
+  let listFunctions (input: obj) =
+    let bin = unbox<Binary> input
+    let hdl = Binary.Handle bin
+    let symbolName addr =
+      match BinFileOps.tryFindSymbolByAddr hdl.File addr with
+      | Ok symbol when not (System.String.IsNullOrWhiteSpace symbol.Name) ->
+        Some symbol.Name
+      | _ -> None
+    BinFileOps.getFunctionAddresses hdl.File
+    |> Array.sort
+    |> Array.map (fun addr ->
+      { Source = bin
+        Entry = addr
+        Symbol = symbolName addr }
+      |> box)
+
+  let transform cancellationToken args collection =
+    let cancellationToken: CancellationToken = cancellationToken
+    let collect operation =
+      collection.Values
+      |> Array.collect (fun value ->
+        cancellationToken.ThrowIfCancellationRequested()
+        operation value)
+    match args with
+    | [ "sections" ] -> { Values = collect listSections }
+    | [ "functions" ] -> { Values = collect listFunctions }
+    | _ -> invalidArg (nameof args) "Invalid argument."
 
   interface IAction with
     member _.ActionID with get() = "list"
-    member _.Signature with get() = "Binary * [cmd] -> unit"
+    member _.Signature with get() =
+      "Binary * <sections|functions> -> typed collection"
     member _.Description with get() =
       """
     Take in a parsed binary and return a list of elements such as functions,
     sections, etc. The output type is determined by the extra [cmd] argument.
     Currently, we support the following [cmd]:
 
-      - `sections` (sects|ss): returns a list of sections.
+      - `sections`: returns a list of sections.
+      - `functions`: returns known function entry addresses.
 """
     member _.Transform(args, collection) =
-      match args with
-      | [ "sections" ] | [ "sects" ] | [ "ss" ] ->
-        { Values = collection.Values |> Array.map listSections }
-      | _ ->
-        invalidArg (nameof args) "Invalid argument."
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection
