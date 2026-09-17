@@ -719,6 +719,78 @@ module ReplLanguage =
     ) (Ok []))
     |> Result.map List.rev
 
+  module private Grammar =
+    open FParsec
+
+    let symbol text = pstring text .>> spaces
+
+    let quoted delimiter =
+      pchar delimiter >>. manyCharsTill anyChar (pchar delimiter)
+      |>> fun text -> string delimiter + text + string delimiter
+
+    let bareCharacter chr =
+      not (Char.IsWhiteSpace chr)
+      && chr <> '(' && chr <> ')'
+      && chr <> '[' && chr <> ']'
+      && chr <> ',' && chr <> ';'
+      && chr <> '|' && chr <> '\'' && chr <> '"'
+
+    let word =
+      let quoted = quoted '\'' <|> quoted '"'
+      let bare = many1Satisfy bareCharacter |>> string
+      many1 (quoted <|> bare)
+      |>> String.concat ""
+      .>> spaces
+
+    let nestedToken, nestedTokenRef =
+      createParserForwardedToRef<string list, unit>()
+
+    let delimited opening closing =
+      between (symbol opening) (symbol closing) (many nestedToken)
+      |>> fun body -> opening :: List.concat body @ [ closing ]
+
+    let nested =
+      choice
+        [ attempt (delimited "[|" "|]")
+          attempt (delimited "(" ")")
+          attempt (delimited "[" "]")
+          symbol "|>" |>> List.singleton
+          symbol "," |>> List.singleton
+          symbol ";" |>> List.singleton
+          word |>> List.singleton ]
+
+    do nestedTokenRef.Value <- nested
+
+    let topLevelToken =
+      choice
+        [ attempt (delimited "[|" "|]")
+          attempt (delimited "(" ")")
+          attempt (delimited "[" "]")
+          symbol "," |>> List.singleton
+          symbol ";" |>> List.singleton
+          word |>> List.singleton ]
+
+    let pipeline =
+      spaces >>. sepBy1 (many1 topLevelToken |>> List.concat)
+        (symbol "|>") .>> eof
+
+    let parse text =
+      match run pipeline text with
+      | Success(segments, _, _) -> Result.Ok segments
+      | Failure(message, _, _) ->
+        Result.Error $"Invalid pipeline expression: {message}"
+
+  let parsePipeline text =
+    Grammar.parse text
+    |> Result.bind (fun segments ->
+      segments
+      |> List.map toSegment
+      |> List.fold (fun state item ->
+        Result.bind (fun values ->
+          Result.map (fun value -> value :: values) item) state
+      ) (Ok [])
+      |> Result.map List.rev)
+
   let private parseKind token =
     match ReplValueKind.tryParse token with
     | Some kind -> Ok kind
@@ -826,7 +898,7 @@ module ReplLanguage =
           |> Result.bind (fun tokens ->
             if List.isEmpty tokens then Error "An expression is required."
             else
-              parseSegments tokens
+              parsePipeline expression
               |> Result.map (fun segments ->
                 Evaluate(segments, Some name, expected))))
       | Some name, _, _ when not (isValidName name) ->
@@ -844,5 +916,5 @@ module ReplLanguage =
       | name :: "=" :: _ when isValidName name ->
         Error "Assignment without let is not supported. Use let <name> = ..."
       | _ ->
-        parseSegments tokens
+        parsePipeline input
         |> Result.map (fun segments -> Evaluate(segments, None, None))
