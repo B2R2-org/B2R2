@@ -80,7 +80,7 @@ module TransformerReplEvaluator =
   let [<Literal>] MaxPreviewCollectionItems = 128
 
   let private omittedLine omitted =
-    $"{omitted} more lines omitted; use @write to save the value."
+    $"{omitted} more lines omitted; press F4 for the full result."
 
   let private renderedTextLimit = function
     | Preview -> Some MaxPreviewTextLines
@@ -257,12 +257,13 @@ module TransformerReplEvaluator =
     @ if String.IsNullOrWhiteSpace bytes.Annotation then []
       else [ displayField "annotation" bytes.Annotation ]
 
-  let private renderFingerprint fingerprint =
+  let private renderFingerprint mode fingerprint =
     let fingerprint: Fingerprint = fingerprint
     let patterns =
       fingerprint.Patterns
-      |> List.truncate 16
-      |> List.map (fun (hash, position) -> $"{hash:x2}@{position}")
+      |> truncateByMode mode
+      |> Seq.map (fun (hash, position) -> $"{hash:x2}@{position}")
+      |> Seq.toList
     [ "Fingerprint"
       displayField "count" $"{List.length fingerprint.Patterns} patterns"
       displayField "n-gram" (string fingerprint.NGramSize)
@@ -271,13 +272,19 @@ module TransformerReplEvaluator =
       else [ displayField "annotation" fingerprint.Annotation ]
     @ displaySection "patterns" patterns
 
-  let private renderClusterResult result =
+  let private renderClusterResult mode result =
     let result: ClusterResult = result
     let clusters =
       result.Clusters
-      |> Array.mapi (fun index cluster ->
-        $"#{index + 1}: {cluster.Length} values")
-      |> Array.toList
+      |> truncateByMode mode
+      |> Seq.mapi (fun index cluster ->
+        match mode with
+        | Preview -> [ $"#{index + 1}: {cluster.Length} values" ]
+        | Full ->
+          $"#{index + 1} ({cluster.Length} values):"
+          :: (cluster |> Array.map (fun item -> "  " + item) |> Array.toList))
+      |> Seq.collect id
+      |> Seq.toList
     [ "ClusterResult"
       displayField "count" $"{result.Clusters.Length} clusters" ]
     @ displaySection "clusters" clusters
@@ -567,9 +574,9 @@ module TransformerReplEvaluator =
     | :? OutString as output ->
       renderOutString mode output
     | :? Fingerprint as fingerprint ->
-      renderFingerprint fingerprint
+      renderFingerprint mode fingerprint
     | :? ClusterResult as result ->
-      renderClusterResult result
+      renderClusterResult mode result
     | :? BinarySlice as slice ->
       renderSlice slice
     | :? SectionInfo as section ->
@@ -1777,6 +1784,20 @@ module TransformerReplEvaluator =
       | Error message ->
         fail registry state message
       | Ok value ->
+        let command =
+          let nondeterministic =
+            segments
+            |> List.exists (fun segment ->
+              let id = segment.Head.TrimStart '@'
+              equalsIgnoreCase id "random"
+              || equalsIgnoreCase id "user-stack")
+          match nondeterministic, value.Collection.Values with
+          | true, [| :? AddressValue as address |] ->
+            let literal = $"0x{address.Address:x}"
+            binding
+            |> Option.map (fun name -> $"let {name} = {literal}")
+            |> Option.defaultValue literal
+          | _ -> command
         let state =
           TransformerReplState.setValue binding value state
           |> TransformerReplState.recordReplayCommand command
@@ -1950,7 +1971,7 @@ module TransformerReplEvaluator =
   let private saveScript registry state path =
     try
       let header = "# B2R2 Transformer script v1"
-      let lines = header :: state.ReplayCommands |> List.toArray
+      let lines = header :: List.rev state.ReplayCommands |> List.toArray
       let fullPath = Path.GetFullPath path
       File.WriteAllLines(fullPath, lines)
       let state =

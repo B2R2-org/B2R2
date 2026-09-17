@@ -44,6 +44,8 @@ type LoadAction() =
       |> Array.singleton
     elif Directory.Exists(path = path) then
       Directory.GetFiles path
+      |> Array.sortWith (fun left right ->
+        System.StringComparer.OrdinalIgnoreCase.Compare(left, right))
       |> Array.map (fun f ->
         cancellationToken.ThrowIfCancellationRequested()
         lazy loadFile isa f

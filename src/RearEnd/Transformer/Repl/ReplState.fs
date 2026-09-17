@@ -288,7 +288,7 @@ module TransformerReplState =
   let recordReplayCommand command (state: TransformerReplState) =
     match state.ReplayMode with
     | ReplReplayMode.Reproducible ->
-      { state with ReplayCommands = state.ReplayCommands @ [ command ] }
+      { state with ReplayCommands = command :: state.ReplayCommands }
     | ReplReplayMode.Exploratory ->
       state
 
@@ -296,7 +296,7 @@ module TransformerReplState =
     match state.ReplayMode with
     | ReplReplayMode.Reproducible ->
       let line = "# " + comment
-      { state with ReplayCommands = state.ReplayCommands @ [ line ] }
+      { state with ReplayCommands = line :: state.ReplayCommands }
     | ReplReplayMode.Exploratory ->
       state
 
