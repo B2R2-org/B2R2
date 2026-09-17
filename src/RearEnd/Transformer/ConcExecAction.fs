@@ -83,7 +83,7 @@ module private ConcRegionPerm =
 module private ConcActionParsing =
   let parseUInt64 value = ContextParsing.parseAddress value
 
-  let randomAddress minAddress maxAddress =
+  let randomAddress minAddress maxAddress: AddressValue =
     if minAddress >= maxAddress then
       invalidArg (nameof maxAddress) "max must be greater than min."
     else
@@ -1126,11 +1126,9 @@ type RandomAction() =
         ConcActionParsing.parseUInt64 maxAddress
       | _ ->
         invalidArg (nameof args) "Expected: random min=<addr> max=<addr>."
-    { Values =
-        collection.Values
-        |> Array.map (fun _ ->
-          cancellationToken.ThrowIfCancellationRequested()
-          ConcActionParsing.randomAddress minAddress maxAddress |> box) }
+    cancellationToken.ThrowIfCancellationRequested()
+    let address = ConcActionParsing.randomAddress minAddress maxAddress
+    { Values = [| address |> box |] }
 
   interface IAction with
     member _.ActionID with get() = "random"
@@ -1156,11 +1154,8 @@ type UserStackAction() =
     let address =
       { address with
           Address = ConcActionParsing.alignDown 16UL address.Address }
-    { Values =
-        collection.Values
-        |> Array.map (fun _ ->
-          cancellationToken.ThrowIfCancellationRequested()
-          address |> box) }
+    cancellationToken.ThrowIfCancellationRequested()
+    { Values = [| address |> box |] }
 
   interface IAction with
     member _.ActionID with get() = "user-stack"
