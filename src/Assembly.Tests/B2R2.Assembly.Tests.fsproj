@@ -33,6 +33,7 @@
     <Compile Include="M68KRoundTripTests.fs" />
     <Compile Include="MIPSSweep.fs" />
     <Compile Include="MicroMIPSSweep.fs" />
+    <Compile Include="MIPS16Sweep.fs" />
     <Compile Include="MIPSRoundTripTests.fs" />
     <Compile Include="PARISCSweep.fs" />
     <Compile Include="PARISCRoundTripTests.fs" />

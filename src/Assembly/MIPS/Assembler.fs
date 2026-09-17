@@ -52,22 +52,35 @@ open B2R2.Assembly.MIPS.AsmMain
 /// </summary>
 type Assembler(isa: ISA, baseAddr: Addr) =
 
-  /// Whether the source is written in the second encoding of this
-  /// instruction set, which is the same text over a different word.
-  let isMicro = isa.MIPSISAMode = MIPSISAMode.MicroMIPS
+  /// Which encoding the source is written in, which is the same text over a
+  /// different word in all three cases.
+  let mode = isa.MIPSISAMode
 
   /// The table-driven encoders, built here so that they are collected with the
   /// assembler instead of living for as long as the process does.
   let encoders =
-    lazy (if isMicro then AsmMicroMIPS.buildEncoderTable isa.MIPSRelease
-          else buildEncoderTable isa.MIPSRelease)
+    lazy (match mode with
+          | MIPSISAMode.MicroMIPS ->
+            AsmMicroMIPS.buildEncoderTable isa.MIPSRelease
+          | MIPSISAMode.MIPS16 ->
+            AsmMIPS16.buildEncoderTable isa.MIPSRelease
+          | _ ->
+            buildEncoderTable isa.MIPSRelease)
 
   /// How many bytes an instruction takes, which is what the addresses of
   /// everything after it are counted with.
-  let sizeOf ins = if isMicro then AsmMicroMIPS.size ins else 4
+  let sizeOf ins =
+    match mode with
+    | MIPSISAMode.MicroMIPS -> AsmMicroMIPS.size ins
+    | MIPSISAMode.MIPS16 -> AsmMIPS16.size ins
+    | _ -> 4
 
   /// How an encoded instruction is stored.
-  let writeBytes = if isMicro then AsmMicroMIPS.toBytes else toBytes
+  let writeBytes =
+    match mode with
+    | MIPSISAMode.MicroMIPS -> AsmMicroMIPS.toBytes
+    | MIPSISAMode.MIPS16 -> AsmMIPS16.toBytes
+    | _ -> toBytes
 
   let addLabeldef lbl =
     updateUserState (fun us ->
@@ -199,12 +212,21 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     .>>. pOprMemory names opcode
     |>> fun (regs, mem) -> [ OpRegList regs; mem ]
 
+  /// The operands of SAVE and RESTORE: a frame size, and then the set of
+  /// registers to keep in the frame. The set may be empty, so the registers
+  /// are read with `many` rather than `many1`.
+  let pFrameListOperands names opcode =
+    pOperand names opcode
+    .>>. many (attempt (operandSeps >>? pRegisterIn names))
+    |>> fun (frame, regs) -> [ frame; OpRegList regs ]
+
   /// Reads the operands of an already-parsed mnemonic. Which operands an
   /// instruction takes depends on which one it is, so the opcode has to be
   /// known before they can be read.
   let pOperands (opcode, cond, fmt) =
     let names = namesFor opcode
     (if takesRegList opcode then pRegListOperands names opcode
+     elif takesFrameList opcode then pFrameListOperands names opcode
      else sepBy (pOperand names opcode) operandSeps)
     .>>. getUserState
     |>> (fun (operands, us) ->

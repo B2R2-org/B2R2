@@ -257,6 +257,19 @@ let takesRegList = function
   | _ -> false
 
 /// <summary>
+/// Whether the instruction names a frame size and then a set of registers,
+/// which is what MIPS16e writes a whole prologue or epilogue as.
+///
+/// Not the same shape as the list above: there the registers come first and
+/// the memory they move to or from last, here a number comes first and the
+/// set is whatever follows it -- and the set may be empty, the shortest
+/// prologue being one that moves the stack pointer and saves nothing.
+/// </summary>
+let takesFrameList = function
+  | Opcode.SAVE | Opcode.RESTORE -> true
+  | _ -> false
+
+/// <summary>
 /// Whether the instruction names a place, which is the operand the
 /// disassembler prints as the address it resolved rather than as the value the
 /// encoding holds.
@@ -289,7 +302,15 @@ let takesPlace = function
   | Opcode.BEQZALC | Opcode.BNEZALC | Opcode.BLEZALC | Opcode.BGEZALC
   | Opcode.BGTZALC | Opcode.BLTZALC
   | Opcode.BC1EQZ | Opcode.BC1NEZ
-  | Opcode.ADDIUPC | Opcode.LWPC | Opcode.LWUPC | Opcode.LDPC -> true
+  | Opcode.ADDIUPC | Opcode.LWPC | Opcode.LWUPC | Opcode.LDPC
+  (* MIPS16e. Its branches name a place the way every other branch does, and
+     its two PC-relative address instructions do too. The loads that read
+     relative to the program counter are LW and LD here rather than opcodes of
+     their own, and naming them costs nothing: what makes an operand a place
+     is that it is the LAST one and an immediate, which a load written against
+     a register never is. *)
+  | Opcode.BEQZ | Opcode.BNEZ | Opcode.BTEQZ | Opcode.BTNEZ
+  | Opcode.DADDIUPC | Opcode.LW | Opcode.LD -> true
   | _ -> false
 
 /// Whether the instruction names a word of the region it sits in, which is how
