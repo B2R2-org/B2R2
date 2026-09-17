@@ -67,8 +67,6 @@ type EditAction() =
   let tryParseISA (name: string) =
     try Some(ISA name) with _ -> None
 
-  let defaultISA = ISA(Architecture.Intel, WordSize.Bit64)
-
   let assemble code isa baseAddress =
     let asm = Assembler(isa, baseAddress)
     match asm.Lower code with
@@ -211,9 +209,17 @@ type EditAction() =
       ensureSliceRange slice startAddress endAddress
     | _ -> ()
 
+  let ensureResizable bin =
+    let hdl = Binary.Handle bin
+    if hdl.File.Format <> FileFormat.RawBinary then
+      invalidOp (
+        "Insert and delete only support raw binaries; structured binary "
+        + "metadata is not relocated.")
+
   let insert startAddress (snip: byte[]) o =
     ensureAddressInsideInput o startAddress
     let bin = binaryForEdit o
+    ensureResizable bin
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     let off = offsetForAddress bin startAddress
@@ -232,6 +238,7 @@ type EditAction() =
   let delete startAddress endAddress o =
     ensureRangeInsideInput o startAddress endAddress
     let bin = binaryForEdit o
+    ensureResizable bin
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     let soff, eoff = offsetForRange bin startAddress endAddress
@@ -257,10 +264,56 @@ type EditAction() =
     Array.blit newbs 0 bs soff (eoff - soff)
     makeResult o bin bs id
 
-  let replaceAsm startAddress code isa o =
+  let instructionLength bin (address: Addr) =
+    let hdl = Binary.Handle bin
+    let lifter = hdl.NewLiftingUnit()
+    match lifter.TryParseInstruction address with
+    | Ok instruction -> int instruction.Length
+    | Error error ->
+      invalidArg (nameof address)
+        $"Cannot decode instruction at 0x{address:x}: {error}"
+
+  let nopPadding isa address length =
+    if length = 0 then
+      [||]
+    else
+      let code = String.replicate length "nop\n"
+      let bytes = assemble code isa address
+      if bytes.Length = length then
+        bytes
+      else
+        invalidOp
+          $"Cannot encode {length} bytes of NOP padding for {isa.Arch}."
+
+  let replacementBytes startAddress code isa originalLength =
     let newbs = assemble code isa startAddress
-    let endAddress = startAddress + uint64 newbs.Length
-    replace startAddress endAddress newbs o
+    if newbs.Length > originalLength then
+      invalidArg (nameof code) (
+        "Replacement crosses the original instruction boundary. "
+        + "Use force-replace to overwrite subsequent instructions.")
+    elif newbs.Length = originalLength then
+      newbs
+    else
+      let padding = nopPadding isa (startAddress + uint64 newbs.Length)
+                               (originalLength - newbs.Length)
+      Array.append newbs padding
+
+  let replaceAsm startAddress code isa o =
+    let bin = binaryForEdit o
+    let originalLength = instructionLength bin startAddress
+    let bytes = replacementBytes startAddress code isa originalLength
+    let endAddress = startAddress + uint64 originalLength
+    replace startAddress endAddress bytes o
+
+  let replaceAsmForInput startAddress code isa o =
+    let isa = isa |> Option.defaultValue (Binary.Handle(binaryForEdit o)).ISA
+    replaceAsm startAddress code isa o
+
+  let forceReplaceAsmForInput startAddress code isa o =
+    let isa = isa |> Option.defaultValue (Binary.Handle(binaryForEdit o)).ISA
+    let bytes = assemble code isa startAddress
+    let endAddress = startAddress + uint64 bytes.Length
+    replace startAddress endAddress bytes o
 
   let map cancellationToken operation collection =
     let cancellationToken: CancellationToken = cancellationToken
@@ -297,13 +350,28 @@ type EditAction() =
       | None ->
         match tryParseISA hexstr with
         | Some isa ->
-          { Values = map cancellationToken (replaceAsm start finish isa)
+          { Values = map cancellationToken (replaceAsmForInput start finish
+                                                                (Some isa))
                        collection }
         | None -> invalidArg (nameof hexstr) "Invalid ISA."
     | "replace" :: start :: code :: [] ->
       let start = parseUInt64 start
-      { Values = map cancellationToken (replaceAsm start code defaultISA)
+      { Values = map cancellationToken (replaceAsmForInput start code None)
                    collection }
+    | "force-replace" :: start :: code :: isa :: [] ->
+      let start = parseUInt64 start
+      match tryParseISA isa with
+      | Some isa ->
+        { Values =
+            map cancellationToken (forceReplaceAsmForInput start code
+                                                            (Some isa))
+              collection }
+      | None -> invalidArg (nameof isa) "Invalid ISA."
+    | "force-replace" :: start :: code :: [] ->
+      let start = parseUInt64 start
+      { Values =
+          map cancellationToken (forceReplaceAsmForInput start code None)
+            collection }
     | _ -> invalidArg (nameof args) "Invalid edit action."
 
   interface IAction with
@@ -315,6 +383,7 @@ type EditAction() =
       + "replace start=<addr> end=<addr> hex=<hex> | "
       + "replace start=<addr> size=<n> hex=<hex> -> Binary; "
       + "replace start=<addr> asm=<instruction> [isa=<isa>] -> Binary; "
+      + "force-replace start=<addr> asm=<instruction> [isa=<isa>] -> Binary; "
       + "BinarySlice -> edit ... -> BinarySlice"
     member _.Description with get() =
       """
@@ -323,11 +392,13 @@ type EditAction() =
 
       - `insert start=<addr> hex=<hex>`
         Insert bytes at address addr. This will increase the size of the
-        resulting binary by the size of the given hex bytes.
+        resulting raw binary by the size of the given hex bytes. Structured
+        binaries are rejected because their metadata is not relocated.
 
       - `delete start=<addr> end=<end>`
         Remove bytes in the half-open range [addr, end). The resulting binary
-        will have the size less than the original one.
+        will have the size less than the original raw binary. Structured
+        binaries are rejected because their metadata is not relocated.
 
       - `delete start=<addr> size=<sz>`
         Remove sz bytes starting at address addr.
@@ -340,8 +411,14 @@ type EditAction() =
         Replace sz bytes starting at address addr.
 
       - `replace start=<addr> asm=<instruction> [isa=<isa>]`
-        Assemble instruction at addr and replace the original bytes with the
-        assembled bytes.
+        Assemble an instruction at addr and replace exactly one original
+        instruction. A shorter replacement is padded with NOPs. A longer
+        replacement is rejected.
+
+      - `force-replace start=<addr> asm=<instruction> [isa=<isa>]`
+        Assemble an instruction at addr and overwrite subsequent bytes when
+        necessary. This can cross instruction boundaries; the caller is
+        responsible for preserving control flow and binary metadata.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

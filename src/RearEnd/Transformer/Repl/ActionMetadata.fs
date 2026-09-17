@@ -742,7 +742,9 @@ module ActionMetadata =
         yield! forEditInputs (Some "replace") [ start; finish; bytes ]
         yield! forEditInputs (Some "replace") [ start; size; bytes ]
         yield! forEditInputs (Some "replace") [ start; asm ]
-        yield! forEditInputs (Some "replace") [ start; asm; isa ] ]
+        yield! forEditInputs (Some "replace") [ start; asm; isa ]
+        yield! forEditInputs (Some "force-replace") [ start; asm ]
+        yield! forEditInputs (Some "force-replace") [ start; asm; isa ] ]
     overloadContract "edit"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.Binary
@@ -750,7 +752,8 @@ module ActionMetadata =
       [ "binary |> @edit insert start=<addr> hex=<hex>"
         "binary |> @edit delete start=<addr> size=<size>"
         "binary |> @edit replace start=<addr> size=<size> hex=<hex>"
-        "binary |> @edit replace start=<addr> asm=<instruction> isa=<isa>" ]
+        "binary |> @edit replace start=<addr> asm=<instruction> isa=<isa>"
+        "binary |> @edit force-replace start=<addr> asm=<instruction>" ]
       syntaxes
 
   let private grep =
