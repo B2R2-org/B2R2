@@ -1407,7 +1407,8 @@ module Suggestions =
     |> List.distinctBy (fun item -> item.Text)
     |> List.truncate 20
 
-  let get registry (state: TransformerReplState) (input: string) cursor =
+  let getWithInputContext previousContext registry
+                          (state: TransformerReplState) (input: string) cursor =
     let cursor = max 0 (min cursor input.Length)
     let inputBeforeCursor =
       if cursor = 0 then "" else input[..cursor - 1]
@@ -1415,9 +1416,10 @@ module Suggestions =
     let context =
       match metaExpression with
       | Some(expression, _) ->
-        InputAnalysis.analyzeExpression input cursor expression
+        InputAnalysis.analyzeExpressionWithCache previousContext input cursor
+          expression
       | None ->
-        InputAnalysis.analyze input cursor
+        InputAnalysis.analyzeWithCache previousContext input cursor
     let expressionContext = context
     let expression, expressionStart =
       match metaExpression with
@@ -1444,7 +1446,7 @@ module Suggestions =
         Length = length
         Hint = Some "type annotation"
         HintHighlights = []
-        Diagnostics = [] }
+        Diagnostics = [] }, context
     | None ->
       let hint = completionHint registry state typeAnalysis expressionContext
       let items =
@@ -1470,4 +1472,7 @@ module Suggestions =
             hint |> Option.map snd |> Option.defaultValue []
           else
             []
-        Diagnostics = diagnostics }
+        Diagnostics = diagnostics }, context
+
+  let get registry state input cursor =
+    getWithInputContext None registry state input cursor |> fst

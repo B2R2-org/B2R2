@@ -43,7 +43,8 @@ type private SuggestionCache =
   { Input: string
     Cursor: int
     Session: TransformerReplState
-    Suggestions: SuggestionSet }
+    Suggestions: SuggestionSet
+    Context: InputContext }
 
 module TransformerRepl =
   let private printOutput output =
@@ -445,14 +446,17 @@ module TransformerRepl =
              && Object.ReferenceEquals(cached.Session, model.Session) ->
         cached.Suggestions
       | _ ->
-        let suggestions =
-          Suggestions.get registry model.Session model.Input model.Cursor
+        let previousContext = suggestionCache |> Option.map _.Context
+        let suggestions, context =
+          Suggestions.getWithInputContext previousContext registry model.Session
+            model.Input model.Cursor
         suggestionCache <-
           Some
             { Input = model.Input
               Cursor = model.Cursor
               Session = model.Session
-              Suggestions = suggestions }
+              Suggestions = suggestions
+              Context = context }
         suggestions
     try
       while not shouldExit do

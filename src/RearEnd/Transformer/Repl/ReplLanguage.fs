@@ -744,6 +744,13 @@ module ReplLanguage =
     ) (Ok []))
     |> Result.map List.rev
 
+  let private isBareCharacter chr =
+    not (Char.IsWhiteSpace chr)
+    && chr <> '(' && chr <> ')'
+    && chr <> '[' && chr <> ']'
+    && chr <> ',' && chr <> ';'
+    && chr <> '|' && chr <> '\'' && chr <> '"'
+
   module private Grammar =
     open FParsec
 
@@ -753,12 +760,7 @@ module ReplLanguage =
       pchar delimiter >>. manyCharsTill anyChar (pchar delimiter)
       |>> fun text -> string delimiter + text + string delimiter
 
-    let bareCharacter chr =
-      not (Char.IsWhiteSpace chr)
-      && chr <> '(' && chr <> ')'
-      && chr <> '[' && chr <> ']'
-      && chr <> ',' && chr <> ';'
-      && chr <> '|' && chr <> '\'' && chr <> '"'
+    let bareCharacter = isBareCharacter
 
     let word =
       let quoted = quoted '\'' <|> quoted '"'
@@ -935,6 +937,146 @@ module ReplLanguage =
       let closing =
         closing |> Option.map List.singleton |> Option.defaultValue []
       opening :: (children |> List.collect partialSyntaxTokens) @ closing
+
+  let rec private offsetPartialSyntax offset = function
+    | PartialToken(text, start, finish) ->
+      PartialToken(text, start + offset, finish + offset)
+    | PartialDelimited(opening, closing, start, finish, children) ->
+      PartialDelimited(opening, closing, start + offset, finish + offset,
+                       children |> List.map (offsetPartialSyntax offset))
+
+  let private offsetPartialSegment offset (segment: ReplPartialSegment) =
+    { Start = segment.Start + offset
+      End = segment.End + offset
+      Nodes = segment.Nodes |> List.map (offsetPartialSyntax offset)
+      Tokens = segment.Tokens }
+
+  let rec private updateLastSyntax (update: string -> string option) = function
+    | PartialToken(token, start, finish) ->
+      update token
+      |> Option.map (fun text ->
+        let delta = text.Length - token.Length
+        PartialToken(text, start, finish + delta), delta)
+    | PartialDelimited(opening, None, start, finish, children) ->
+      updateLastSyntaxList update children
+      |> Option.map (fun (children, delta) ->
+        PartialDelimited(opening, None, start, finish + delta, children),
+        delta)
+    | PartialDelimited _ ->
+      None
+
+  and private updateLastSyntaxList (update: string -> string option)
+                                   (nodes: ReplPartialSyntax list) =
+    match List.rev nodes with
+    | [] -> None
+    | node :: nodes ->
+      updateLastSyntax update node
+      |> Option.map (fun (node, delta) ->
+        List.rev (node :: nodes), delta)
+
+  let private updateLastSegment (update: string -> string option)
+                                (previousText: string)
+                                (pipeline: ReplPartialPipeline) =
+    match List.rev pipeline.Segments with
+    | segment :: segments when segment.End = previousText.Length ->
+      updateLastSyntaxList update segment.Nodes
+      |> Option.map (fun (nodes, delta) ->
+        let segment =
+          { segment with
+              End = segment.End + delta
+              Nodes = nodes
+              Tokens = nodes |> List.collect partialSyntaxTokens }
+        { pipeline with Segments = List.rev (segment :: segments) })
+    | _ ->
+      None
+
+  let private endsWithBareCharacter (text: string) =
+    text.Length > 0 && isBareCharacter text[text.Length - 1]
+
+  let private tryAppendToLastToken (previousText: string)
+                                   (pipeline: ReplPartialPipeline)
+                                   (text: string) =
+    if text.StartsWith(previousText, StringComparison.Ordinal) then
+      let suffix = text[previousText.Length..]
+      if endsWithBareCharacter previousText
+         && suffix |> Seq.forall isBareCharacter then
+        updateLastSegment (fun token ->
+          if token |> Seq.forall isBareCharacter then Some(token + suffix)
+          else None) previousText pipeline
+      else
+        None
+    else
+      None
+
+  let private tryRemoveFromLastToken (previousText: string)
+                                     (pipeline: ReplPartialPipeline)
+                                     (text: string) =
+    if previousText.StartsWith(text, StringComparison.Ordinal) then
+      let suffix = previousText[text.Length..]
+      if endsWithBareCharacter text
+         && suffix |> Seq.forall isBareCharacter then
+        updateLastSegment (fun token ->
+          let length = token.Length - suffix.Length
+          if length > 0 && token.EndsWith(suffix, StringComparison.Ordinal) then
+            Some token[..length - 1]
+          else
+            None) previousText pipeline
+      else
+        None
+    else
+      None
+
+  let private commonPrefixLength (left: string) (right: string) =
+    let limit = min left.Length right.Length
+    let mutable index = 0
+    while index < limit && left[index] = right[index] do
+      index <- index + 1
+    index
+
+  let private tryReparseChangedSegment (previousText: string)
+                                       (pipeline: ReplPartialPipeline)
+                                       (text: string) =
+    let changed = commonPrefixLength previousText text
+    let index =
+      pipeline.Segments
+      |> List.tryFindIndex (fun segment ->
+        segment.Start <= changed && changed <= segment.End)
+    match index with
+    | Some index ->
+      let segment = pipeline.Segments[index]
+      let suffix = text[segment.Start..]
+      if String.IsNullOrWhiteSpace suffix then
+        None
+      else
+        tryParsePartialPipeline suffix
+        |> Option.map (fun reparsed ->
+          let prefix = pipeline.Segments |> List.take index
+          let segments =
+            reparsed.Segments
+            |> List.map (offsetPartialSegment segment.Start)
+          let previousPipe =
+            pipeline.LastPipelineStart
+            |> Option.filter (fun position -> position < segment.Start)
+          let lastPipe =
+            reparsed.LastPipelineStart
+            |> Option.map ((+) segment.Start)
+            |> Option.orElse previousPipe
+          { Segments = prefix @ segments
+            LastPipelineStart = lastPipe
+            HasTrailingPipeline = reparsed.HasTrailingPipeline })
+    | None ->
+      None
+
+  let tryUpdatePartialPipeline (previousText: string)
+                               (pipeline: ReplPartialPipeline) (text: string) =
+    if text = previousText then
+      Some pipeline
+    else
+      tryAppendToLastToken previousText pipeline text
+      |> Option.orElseWith (fun () ->
+        tryRemoveFromLastToken previousText pipeline text)
+      |> Option.orElseWith (fun () ->
+        tryReparseChangedSegment previousText pipeline text)
 
   let private tryUnclosedNode nodes =
     let rec loop = function

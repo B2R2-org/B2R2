@@ -117,7 +117,18 @@ module InputAnalysis =
 
   let activeExpression input = ReplLanguage.activeExpression input
 
-  let analyzeExpression (input: string) cursor (fullExpression: string) =
+  let private partialPipeline previous fullExpression =
+    previous
+    |> Option.bind (fun (context: InputContext) ->
+      context.PartialPipeline
+      |> Option.bind (fun pipeline ->
+        ReplLanguage.tryUpdatePartialPipeline context.FullExpression pipeline
+          fullExpression))
+    |> Option.orElseWith (fun () ->
+      ReplLanguage.tryParsePartialPipeline fullExpression)
+
+  let analyzeExpressionWithCache previous (input: string) cursor
+                                 (fullExpression: string) =
     let cursor = max 0 (min cursor input.Length)
     let start = tokenStart input cursor
     let prefix =
@@ -127,7 +138,7 @@ module InputAnalysis =
     let inputAfterCursor =
       if cursor = input.Length then "" else input[cursor..]
     let words = splitWords inputBeforeCursor
-    let partialPipeline = ReplLanguage.tryParsePartialPipeline fullExpression
+    let partialPipeline = partialPipeline previous fullExpression
     let expression, segment, segmentWords, lastPipeline =
       match partialPipeline with
       | Some pipeline ->
@@ -180,9 +191,14 @@ module InputAnalysis =
         ReplLanguage.bindingHeader trimmed |> Option.isSome
       HasPipeline = Option.isSome lastPipeline }
 
-  let analyze (input: string) cursor =
+  let analyzeExpression (input: string) cursor fullExpression =
+    analyzeExpressionWithCache None input cursor fullExpression
+
+  let analyzeWithCache previous (input: string) cursor =
     let cursor = max 0 (min cursor input.Length)
     let inputBeforeCursor =
       if cursor = 0 then "" else input[..cursor - 1]
     let fullExpression = expressionPortion inputBeforeCursor
-    analyzeExpression input cursor fullExpression
+    analyzeExpressionWithCache previous input cursor fullExpression
+
+  let analyze (input: string) cursor = analyzeWithCache None input cursor
