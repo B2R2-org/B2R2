@@ -24,13 +24,17 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System.Threading
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 
 /// The `disasm` action.
 type DisasmAction() =
-  let rec disasm acc (lifter: LiftingUnit) (ptr: BinFilePointer) =
+  let rec disasm cancellationToken acc (lifter: LiftingUnit)
+                 (ptr: BinFilePointer) =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
     if ptr.CanReadFileBytes then
       match lifter.TryParseInstruction ptr with
       | Ok instr ->
@@ -39,16 +43,16 @@ type DisasmAction() =
           (BinFileOps.sliceByOffset lifter.File ptr.Offset insLen).ToArray()
         let ptr = ptr.Advance insLen
         let acc = ValidInstruction(instr, insBytes) :: acc
-        disasm acc lifter ptr
+        disasm cancellationToken acc lifter ptr
       | Error _ ->
         let badbyte = [| lifter.File.RawBytes.Span[ptr.Offset] |]
         let acc = BadInstruction(ptr.Addr, badbyte) :: acc
         let ptr = ptr.Advance 1
-        disasm acc lifter ptr
+        disasm cancellationToken acc lifter ptr
     else
       List.rev acc |> List.toArray
 
-  let disasmByteArray _args (o: obj) =
+  let disasmByteArray cancellationToken _args (o: obj) =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let lifter = hdl.NewLiftingUnit()
@@ -56,10 +60,14 @@ type DisasmAction() =
     let len = hdl.File.Length
     let ptr =
       BinFilePointer.CreateFileBacked(
-        baddr, baddr + uint64 len - 1UL, 0, len - 1
-      )
-    disasm [] lifter ptr
+        baddr, baddr + uint64 len - 1UL, 0, len - 1)
+    disasm cancellationToken [] lifter ptr
     |> box
+
+  let transform cancellationToken args collection =
+    { Values =
+        collection.Values
+        |> Array.map (disasmByteArray cancellationToken args) }
 
   interface IAction with
     member _.ActionID with get() = "disasm"
@@ -70,4 +78,8 @@ type DisasmAction() =
     instructions along with its corresponding bytes.
 """
     member _.Transform(args, collection) =
-      { Values = collection.Values |> Array.map (disasmByteArray args) }
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection

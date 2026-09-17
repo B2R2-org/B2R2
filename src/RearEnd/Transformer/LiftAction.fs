@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System.Threading
 open System.Text
 open B2R2.BinIR
 open B2R2.FrontEnd
@@ -31,19 +32,21 @@ open B2R2.FrontEnd.BinFile
 
 /// The `lift` action.
 type LiftAction() =
-  let rec lift (sb: StringBuilder) (lifter: LiftingUnit) (ptr: BinFilePointer) =
+  let rec lift cancellationToken (sb: StringBuilder) (lifter: LiftingUnit)
+               (ptr: BinFilePointer) =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
     if ptr.CanReadFileBytes then
       match lifter.TryParseInstruction ptr with
       | Ok instr ->
         let s = lifter.LiftInstruction instr |> PrettyPrinter.ToString
         let ptr = ptr.Advance(instr.Length)
-        lift (sb.Append s) lifter ptr
-      | Error _ ->
-        "Bad instruction found"
+        lift cancellationToken (sb.Append s) lifter ptr
+      | Error _ -> "Bad instruction found"
     else
       sb.ToString()
 
-  let liftByteArray (o: obj) =
+  let liftByteArray cancellationToken (o: obj) =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let lifter = hdl.NewLiftingUnit()
@@ -51,11 +54,14 @@ type LiftAction() =
     let len = hdl.File.Length
     let ptr =
       BinFilePointer.CreateFileBacked(
-        baddr, baddr + uint64 len - 1UL, 0, len - 1
-      )
+        baddr, baddr + uint64 len - 1UL, 0, len - 1)
     let sb = StringBuilder()
-    lift sb lifter ptr
+    lift cancellationToken sb lifter ptr
     |> box
+
+  let transform cancellationToken collection =
+    { Values =
+        collection.Values |> Array.map (liftByteArray cancellationToken) }
 
   interface IAction with
     member _.ActionID with get() = "lift"
@@ -66,4 +72,12 @@ type LiftAction() =
     sequence of LowUIR statements, and dump the result to a string.
 """
     member _.Transform(args, collection) =
-      { Values = collection.Values |> Array.map liftByteArray }
+      match args with
+      | [] -> transform CancellationToken.None collection
+      | _ -> invalidArg (nameof args) "Invalid argument."
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      match args with
+      | [] -> transform cancellationToken collection
+      | _ -> invalidArg (nameof args) "Invalid argument."

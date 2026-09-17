@@ -24,10 +24,16 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System.Threading
 open B2R2
 
 /// The `hexdump` action.
 type HexdumpAction() =
+  let appendLine (output: OutString) (cs: ColoredString) =
+    output.Render(fun color text -> cs.Append(color, text) |> ignore)
+    cs.Append(NoColor, System.Environment.NewLine) |> ignore
+    cs
+
   let rec hexdump (o: obj) =
     let typ = o.GetType()
     if typ = typeof<Binary> then hexdumpBinary o
@@ -39,16 +45,31 @@ type HexdumpAction() =
     let bs = hdl.File.RawBytes.ToArray()
     let baseAddr = hdl.File.BaseAddress
     Logging.HexDump.makeLines 16 hdl.ISA.WordSize true baseAddr bs
+    |> Array.fold (fun cs line -> appendLine line cs) (ColoredString())
+    |> OutputColored
     |> box
+
+  let transform cancellationToken args collection =
+    let cancellationToken: CancellationToken = cancellationToken
+    match args with
+    | [] ->
+      { Values =
+          collection.Values
+          |> Array.map (fun value ->
+            cancellationToken.ThrowIfCancellationRequested()
+            hexdump value) }
+    | _ -> invalidArg (nameof args) "Invalid argument given."
 
   interface IAction with
     member _.ActionID with get() = "hexdump"
-    member _.Signature with get() = "Binary -> string"
+    member _.Signature with get() = "Binary -> Text"
     member _.Description with get() =
       """
     Take in a binary and convert it to a hexdump string.
 """
     member _.Transform(args, collection) =
-      match args with
-      | [] -> { Values = collection.Values |> Array.map hexdump }
-      | _ -> invalidArg (nameof args) "Invalid argument given."
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection

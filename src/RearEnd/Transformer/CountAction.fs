@@ -24,24 +24,16 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2
+open System.Threading
 
 /// The `count` action.
 type CountAction() =
-  let rec count (o: obj) =
-    let typ = o.GetType()
-    if typ.IsArray then countArrayResult o
-    elif typ = typeof<Binary> then countBinary o
-    else Terminator.futureFeature ()
-
-  and countArrayResult (o: obj) =
-    let arr = o :?> _[]
-    if Array.isEmpty arr then 0 else 1
-
-  and countBinary (o: obj) =
-    let bin = o :?> Binary
-    let hdl = Binary.Handle bin
-    hdl.File.Length
+  let transform cancellationToken args collection =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
+    match args with
+    | [] -> { Values = [| collection.Values.Length |] }
+    | _ -> invalidArg (nameof args) "Invalid argument."
 
   interface IAction with
     member _.ActionID with get() = "count"
@@ -52,5 +44,9 @@ type CountAction() =
     action is useful when counting the number of results obtained from grep
     action.
 """
-    member _.Transform(_args, collection) =
-      { Values = [| collection.Values |> Array.sumBy count |] }
+    member _.Transform(args, collection) =
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection
