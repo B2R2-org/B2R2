@@ -415,14 +415,6 @@ let undef rt s =
   internExpr e hc (Expr.HashUndef(rt, s))
 #endif
 
-/// Construct a (Num 0) of size t.
-[<CompiledName("Num0")>]
-let num0 rt = num (BitVector.Zero rt)
-
-/// Construct a (Num 1) of size t.
-[<CompiledName("Num1")>]
-let num1 rt = num (BitVector.One rt)
-
 /// Num expression for a one-bit number zero.
 [<CompiledName("B0")>]
 let b0 = num (BitVector.Zero 1<rt>)
@@ -430,6 +422,46 @@ let b0 = num (BitVector.Zero 1<rt>)
 /// Num expression for a one-bit number one.
 [<CompiledName("B1")>]
 let b1 = num (BitVector.One 1<rt>)
+
+(* The widths a lifter asks for over and over. A Num is immutable, so one
+   node serves every use site, which is what b0 and b1 above already do for
+   one bit; keeping the rest spares a BitVector and a Num on every constant a
+   lifter writes. Wider ones go through BitVectorBig and are too rare to be
+   worth holding. *)
+let private zeros =
+  [| b0
+     num (BitVector.Zero 8<rt>)
+     num (BitVector.Zero 16<rt>)
+     num (BitVector.Zero 32<rt>)
+     num (BitVector.Zero 64<rt>) |]
+
+let private ones =
+  [| b1
+     num (BitVector.One 8<rt>)
+     num (BitVector.One 16<rt>)
+     num (BitVector.One 32<rt>)
+     num (BitVector.One 64<rt>) |]
+
+let private widthIndex rt =
+  match rt with
+  | 1<rt> -> 0
+  | 8<rt> -> 1
+  | 16<rt> -> 2
+  | 32<rt> -> 3
+  | 64<rt> -> 4
+  | _ -> -1
+
+/// Construct a (Num 0) of size t.
+[<CompiledName("Num0")>]
+let num0 rt =
+  let i = widthIndex rt
+  if i < 0 then num (BitVector.Zero rt) else zeros[i]
+
+/// Construct a (Num 1) of size t.
+[<CompiledName("Num1")>]
+let num1 rt =
+  let i = widthIndex rt
+  if i < 0 then num (BitVector.One rt) else ones[i]
 
 /// Concatenation.
 [<CompiledName("Concat")>]
@@ -451,6 +483,15 @@ let rec private concatLoop (arr: Expr[]) sPos ePos =
 /// </summary>
 [<CompiledName("RevConcat")>]
 let revConcat (arr: Expr[]) = concatLoop arr 0 (Array.length arr - 1)
+
+/// <summary>
+/// Concatenate a range of the given array in reverse order, as revConcat does
+/// for the whole of it. A caller that concatenates one slice after another
+/// takes this rather than copying each slice out first.
+/// </summary>
+[<CompiledName("RevConcatRange")>]
+let revConcatRange (arr: Expr[]) start len =
+  concatLoop arr start (start + len - 1)
 
 /// Unwrap (casted) expression.
 [<CompiledName("Unwrap")>]

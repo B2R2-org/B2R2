@@ -1916,8 +1916,8 @@ let pshufb (ins: Instruction) bld =
         }
         AST.ite (AST.xthi 1<rt> src) n0 (AST.xtlo packSize (tDst >> numShift))
       let result = Array.map shuffle src
-      direct dstA := Array.sub result 0 packNum |> AST.revConcat
-      direct dstB := Array.sub result packNum packNum |> AST.revConcat
+      direct dstA := AST.revConcatRange result 0 packNum
+      direct dstB := AST.revConcatRange result packNum packNum
     | _ ->
       raise InvalidOperandSizeException
   }
