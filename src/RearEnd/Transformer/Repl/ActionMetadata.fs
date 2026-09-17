@@ -742,24 +742,50 @@ module ActionMetadata =
     let names = args |> List.choose tokenParameterName
     names |> List.forall (fun name -> syntaxHasParameter name syntax)
 
-  let matchingSyntaxes metadata inputKind args =
+  let private matchingTriggerSyntaxes args syntaxes =
+    match args with
+    | actual :: _ ->
+      let triggered =
+        syntaxes
+        |> List.filter (fun syntax ->
+          (syntax: ActionSyntax).Trigger
+          |> Option.exists (fun trigger ->
+            String.Equals(
+              trigger,
+              actual,
+              StringComparison.OrdinalIgnoreCase
+            )))
+      if List.isEmpty triggered then syntaxes else triggered
+    | [] ->
+      syntaxes
+
+  let private inputSyntaxes metadata inputKind =
     let metadata: ActionMetadata = metadata
-    metadata.Syntaxes
-    |> List.filter (syntaxAccepts inputKind)
+    metadata.Syntaxes |> List.filter (syntaxAccepts inputKind)
+
+  let matchingSyntaxes metadata inputKind args =
+    inputSyntaxes metadata inputKind
+    |> matchingTriggerSyntaxes args
     |> List.filter (syntaxMatchesParameters args)
 
   let typedSignatureFor metadata inputKind args =
     let metadata: ActionMetadata = metadata
     let syntaxes = matchingSyntaxes metadata inputKind args
     let syntaxes =
-      if List.isEmpty syntaxes then metadata.Syntaxes else syntaxes
+      if List.isEmpty syntaxes then
+        inputSyntaxes metadata inputKind
+      else
+        syntaxes
     typedSignature { metadata with Syntaxes = syntaxes }
 
   let typedSignatureForLines metadata inputKind args =
     let metadata: ActionMetadata = metadata
     let syntaxes = matchingSyntaxes metadata inputKind args
     let syntaxes =
-      if List.isEmpty syntaxes then metadata.Syntaxes else syntaxes
+      if List.isEmpty syntaxes then
+        inputSyntaxes metadata inputKind
+      else
+        syntaxes
     typedSignatureLines { metadata with Syntaxes = syntaxes }
 
   let private cfg =

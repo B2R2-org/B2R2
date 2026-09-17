@@ -736,28 +736,30 @@ and SymbRunValue(source: SymbExecutorValue,
       if byte >= 0x20uy && byte <= 0x7euy then char byte else '.')
     |> String
 
+  let indexedByteGroups values =
+    values
+    |> List.choose tryIndexedByte
+    |> List.groupBy (fun (prefix, _, _) -> prefix)
+    |> List.choose (fun (prefix, indexed) ->
+      let indexed = indexed |> List.sortBy (fun (_, index, _) -> index)
+      let indexes = indexed |> List.map (fun (_, index, _) -> index)
+      let expected = [ 0 .. List.length indexes - 1 ]
+      if indexes = expected then
+        indexed
+        |> List.map (fun (_, _, value) -> value)
+        |> List.toArray
+        |> fun bytes -> Some(prefix, bytes)
+      else
+        None)
+
   let appendAsciiGroups (sb: StringBuilder) values =
-    let groups =
-      values
-      |> List.choose tryIndexedByte
-      |> List.groupBy (fun (prefix, _, _) -> prefix)
-      |> List.choose (fun (prefix, indexed) ->
-        let indexed = indexed |> List.sortBy (fun (_, index, _) -> index)
-        let indexes = indexed |> List.map (fun (_, index, _) -> index)
-        let expected = [ 0 .. List.length indexes - 1 ]
-        if indexes = expected then
-          indexed
-          |> List.map (fun (_, _, value) -> value)
-          |> List.toArray
-          |> fun bytes -> Some(prefix, printableAscii bytes)
-        else
-          None)
+    let groups = indexedByteGroups values
     if List.isEmpty groups then
       ()
     else
       sb.AppendLine("  ascii:") |> ignore
-      groups |> List.iter (fun (prefix, text) ->
-        sb.AppendLine($"    {prefix}: {text}") |> ignore)
+      groups |> List.iter (fun (prefix, bytes) ->
+        sb.AppendLine($"    {prefix}: {printableAscii bytes}") |> ignore)
 
   let statusText =
     match result.Timeout with
@@ -818,6 +820,10 @@ and SymbRunValue(source: SymbExecutorValue,
   member _.Source = source
 
   member _.Result = result
+
+  member _.ConcreteInputs =
+    result.SatisfiabilityAnswers
+    |> List.collect (fun answer -> indexedByteGroups answer.Values)
 
   member _.ModelText() =
     let sb = StringBuilder()

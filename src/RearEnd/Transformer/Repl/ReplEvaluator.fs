@@ -1159,8 +1159,13 @@ module TransformerReplEvaluator =
     | _ ->
       loop [] candidate.Syntax.Arguments candidate.Arguments
 
-  let private invalidArguments (metadata: ActionMetadata) detail =
-    let signature = ActionMetadata.typedSignature metadata
+  let private invalidArguments
+    (input: ReplValue)
+    (metadata: ActionMetadata)
+    args
+    detail =
+    let signature =
+      ActionMetadata.typedSignatureFor metadata (Some input.Kind) args
     Error(
       $"Invalid arguments for {metadata.ID}: {detail} "
       + $"Expected: {signature}")
@@ -1171,12 +1176,10 @@ module TransformerReplEvaluator =
     args =
     match parseArguments args with
     | Error message ->
-      invalidArguments metadata message
+      invalidArguments input metadata args message
     | Ok parsed ->
       let matching =
-        metadata.Syntaxes
-        |> List.filter (ActionMetadata.syntaxAccepts (Some input.Kind))
-        |> List.filter (ActionMetadata.syntaxMatchesParameters args)
+        ActionMetadata.matchingSyntaxes metadata (Some input.Kind) args
         |> List.choose (normalizeSyntax parsed)
       if List.isEmpty matching then
         let operations =
@@ -1190,7 +1193,7 @@ module TransformerReplEvaluator =
           | operations ->
             let choices = String.concat "|" operations
             $"operation must be one of {choices}."
-        invalidArguments metadata detail
+        invalidArguments input metadata args detail
       else
         let matching =
           matching
@@ -1202,7 +1205,8 @@ module TransformerReplEvaluator =
             | Error error ->
               Some(Error error))
         if List.isEmpty matching then
-          invalidArguments metadata "the number of arguments does not match."
+          invalidArguments
+            input metadata args "the number of arguments does not match."
         else
           let results =
             matching
@@ -1221,7 +1225,7 @@ module TransformerReplEvaluator =
             |> List.distinct
             |> List.tryHead
             |> Option.defaultValue "the argument layout is invalid."
-            |> invalidArguments metadata
+            |> invalidArguments input metadata args
 
   let private isActionReference (head: string) =
     head.StartsWith("@", StringComparison.Ordinal) && head.Length > 1
@@ -1870,6 +1874,42 @@ module TransformerReplEvaluator =
     | _ ->
       Ok value
 
+  let private sourceActionLabel registry segment =
+    let segment: ReplPipelineSegment = segment
+    if isIterHead segment.Head then
+      ReplLanguage.analyzeIter segment.Head segment.Arguments
+      |> _.ActionID
+      |> Option.map ActionMetadata.actionName
+    elif segment.Head.StartsWith("@", StringComparison.Ordinal) then
+      let id = segment.Head.TrimStart '@'
+      let name = ActionMetadata.actionName id
+      let trigger =
+        ActionRegistry.tryFind id registry
+        |> Option.bind (fun registered ->
+          let triggers =
+            registered.Metadata.Syntaxes
+            |> List.choose _.Trigger
+            |> List.distinct
+          segment.Arguments
+          |> List.tryHead
+          |> Option.bind (fun argument ->
+            triggers
+            |> List.tryFind (fun trigger ->
+              equalsIgnoreCase trigger argument)))
+      trigger |> Option.map (fun trigger -> $"{name} {trigger}")
+      |> Option.orElse (Some name)
+    else
+      None
+
+  let private observePipelineValue registry segments value state =
+    segments
+    |> List.tryLast
+    |> Option.bind (sourceActionLabel registry)
+    |> Option.map (fun action ->
+      TransformerReplState.observeValue
+        state.NextLogID action value state)
+    |> Option.defaultValue state
+
   let private evaluate
     includeSuggestions
     registry
@@ -1904,6 +1944,7 @@ module TransformerReplEvaluator =
             command
         let state =
           TransformerReplState.setValue binding value state
+          |> observePipelineValue registry segments value
           |> TransformerReplState.recordReplayCommand command
         let output =
           if includeSuggestions then
@@ -1924,6 +1965,7 @@ module TransformerReplEvaluator =
     | Error message ->
       fail registry state message
     | Ok value ->
+      let state = observePipelineValue registry segments value state
       continueValue registry state value
 
   let private showType registry state name =
