@@ -661,11 +661,11 @@ module ActionMetadata =
       [ "matches |> @count" ] [ syntax None [] ]
 
   let private concExec =
-    overloadContract "conc-exec"
+    overloadContract "make-concrete-executor"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.ConcExecutor
-      ActionRole.Transform 20 "conc-exec -> ConcExecutor"
-      [ "binary |> @conc-exec" ] [ syntax None [] ]
+      ActionRole.Transform 20 "make-concrete-executor -> ConcExecutor"
+      [ "binary |> @make-concrete-executor" ] [ syntax None [] ]
 
   let private dbscan =
     let eps = optional "eps" ActionArgumentKind.Float "Maximum distance."
@@ -837,11 +837,13 @@ module ActionMetadata =
     let breakpoint =
       optional "break" ActionArgumentKind.Address
         "Stop before executing this address."
-    contract "run" ReplValueKind.ConcExecutor ReplValueKind.ConcExecutor
+    contract "run-concrete" ReplValueKind.ConcExecutor
+      ReplValueKind.ConcExecutor
       ActionRole.Transform 20
-      "run [entry=<addr>] [limit=<n>] [break=<addr>] -> ConcExecutor"
-      [ "executor |> @run entry=<entry> limit=<limit>"
-        "executor |> @run entry=<entry> limit=<limit> break=<addr>" ]
+      ("run-concrete [entry=<addr>] [limit=<n>] [break=<addr>]"
+       + " -> ConcExecutor")
+      [ "executor |> @run-concrete entry=<entry> limit=<limit>"
+        "executor |> @run-concrete entry=<entry> limit=<limit> break=<addr>" ]
       [ syntax None [ entry; limit; breakpoint ] ]
 
   let private lift =

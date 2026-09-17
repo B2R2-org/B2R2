@@ -814,8 +814,9 @@ type ConcExecAction() =
           | _ -> invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "conc-exec"
-    member _.Signature with get() = "Binary | BinarySlice -> ConcExecutor"
+    member _.ActionID with get() = "make-concrete-executor"
+    member _.Signature with get() =
+      "Binary | BinarySlice -> make-concrete-executor -> ConcExecutor"
     member _.Description with get() =
       "Create a stateful concrete executor backed by binary section memory."
     member _.Transform(args, collection) =
@@ -838,10 +839,10 @@ type RunAction() =
           | _ -> invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "run"
+    member _.ActionID with get() = "run-concrete"
     member _.Signature with get() =
-      "ConcExecutor -> run [entry=<addr>] [limit=<n>] [break=<addr>]"
-      + " -> ConcExecutor"
+      "ConcExecutor -> run-concrete [entry=<addr>] [limit=<n>] "
+      + "[break=<addr>] -> ConcExecutor"
     member _.Description with get() =
       "Run concrete execution and update the executor state."
     member _.Transform(args, collection) =
