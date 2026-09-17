@@ -131,10 +131,57 @@ type TuiViewPane =
     FindText: string
     IsFinding: bool }
 
+/// Persistent transcript optimized for appending small batches of lines.
+type TuiTranscript =
+  private
+    { Leading: TuiLine list
+      Trailing: TuiLine list
+      Length: int
+      CommandCount: int }
+
+[<RequireQualifiedAccess>]
+module TuiTranscript =
+  let empty =
+    { Leading = []
+      Trailing = []
+      Length = 0
+      CommandCount = 0 }
+
+  let ofList lines =
+    { Leading = lines
+      Trailing = []
+      Length = List.length lines
+      CommandCount =
+        lines
+        |> List.filter (fun line -> line.Kind = TuiLineKind.Command)
+        |> List.length }
+
+  let toList transcript =
+    if List.isEmpty transcript.Trailing then transcript.Leading
+    else transcript.Leading @ List.rev transcript.Trailing
+
+  let append lines transcript =
+    let folder (trailing, length, commands) line =
+      let commands =
+        if line.Kind = TuiLineKind.Command then commands + 1 else commands
+      line :: trailing, length + 1, commands
+    let trailing, length, commands =
+      lines
+      |> List.fold folder
+        (transcript.Trailing, transcript.Length, transcript.CommandCount)
+    { transcript with
+        Trailing = trailing
+        Length = length
+        CommandCount = commands }
+
+  let length transcript = transcript.Length
+
+  let commandCount transcript = transcript.CommandCount
+
 /// UI state independent from terminal rendering and key reading.
 type TransformerTuiModel =
   { Session: TransformerReplState
-    Transcript: TuiLine list
+    Transcript: TuiTranscript
     ResultBlocks: Map<int, Lazy<TuiLine list>>
     LastViewLines: TuiLine list
     Input: string
@@ -211,6 +258,7 @@ module TransformerTuiModel =
           { Kind = TuiLineKind.System
             Text =
               "Load a binary or press F1 to see the interactive guide." } ]
+        |> TuiTranscript.ofList
       ResultBlocks = Map.empty
       LastViewLines = []
       Input = ""
@@ -233,12 +281,13 @@ module TransformerTuiModel =
       IsBusy = false
       SpinnerFrame = 0 }
 
-  let private trimTranscript lines =
-    if List.length lines <= maximumTranscriptLines then
-      lines
+  let private trimTranscript transcript =
+    if TuiTranscript.length transcript <= maximumTranscriptLines then
+      transcript
     else
+      let lines = TuiTranscript.toList transcript
       let commandCount =
-        lines |> List.filter isCommandLine |> List.length
+        TuiTranscript.commandCount transcript
       let outputBudget = max 0 (maximumTranscriptLines - commandCount)
       let folder (remaining, output) line =
         if isCommandLine line then
@@ -251,23 +300,31 @@ module TransformerTuiModel =
       |> List.rev
       |> List.fold folder (outputBudget, [])
       |> snd
+      |> TuiTranscript.ofList
 
   let private commandCount model =
-    model.Transcript
-    |> List.filter (fun line -> line.Kind = TuiLineKind.Command)
-    |> List.length
+    TuiTranscript.commandCount model.Transcript
+
+  let private transcriptLines model =
+    TuiTranscript.toList model.Transcript
 
   let appendLines kind lines model =
     let additions =
       lines |> List.map (fun text -> { Kind = kind; Text = text })
     { model with
-        Transcript = trimTranscript (model.Transcript @ additions)
+        Transcript =
+          model.Transcript
+          |> TuiTranscript.append additions
+          |> trimTranscript
         ScrollOffset = 0
         TranscriptViewportStart = None }
 
   let appendTuiLines lines model =
     { model with
-        Transcript = trimTranscript (model.Transcript @ lines)
+        Transcript =
+          model.Transcript
+          |> TuiTranscript.append lines
+          |> trimTranscript
         ScrollOffset = 0
         TranscriptViewportStart = None }
 
@@ -289,7 +346,7 @@ module TransformerTuiModel =
 
   let clearTranscript model =
     { model with
-        Transcript = []
+        Transcript = TuiTranscript.empty
         ResultBlocks = Map.empty
         LastViewLines = []
         TranscriptCursor = { Line = 0; Column = 0 }
@@ -685,7 +742,7 @@ module TransformerTuiModel =
       else
         ()
     let mutable lineIndex = 0
-    for line in model.Transcript do
+    for line in transcriptLines model do
       let line =
         { Source = TuiTranscriptSource.Line lineIndex
           Line = line }
@@ -766,6 +823,7 @@ module TransformerTuiModel =
       Some model.TranscriptCursor.Line
 
   let moveTranscriptCursorInView width height rowDelta columnDelta model =
+    let transcript = transcriptLines model
     let displayLines = transcriptDisplayRows width height model
     let current =
       transcriptDisplayCursorIndex rowDelta width height model
@@ -782,11 +840,11 @@ module TransformerTuiModel =
     let cursor =
       { Line = line
         Column = model.TranscriptCursor.Column + columnDelta }
-      |> clampCursor model.Transcript
+      |> clampCursor transcript
     let next =
       { model with
           TranscriptCursor = cursor
-          FoldTarget = blockAtLine cursor.Line model.Transcript
+          FoldTarget = blockAtLine cursor.Line transcript
           ScrollOffset = 0
           Status = "Transcript focused" }
     let nextLines = transcriptDisplayRows width height next
@@ -809,35 +867,37 @@ module TransformerTuiModel =
           Some(clampViewportStart height (List.length nextLines) nextStart) }
 
   let focusTranscriptAt offset model =
+    let transcript = transcriptLines model
     let baseLine =
       if model.Focus = TuiFocus.Shell then
-        commandPositions model.Transcript
+        commandPositions transcript
         |> List.tryLast
-        |> Option.defaultValue (max 0 (List.length model.Transcript - 1))
+        |> Option.defaultValue (max 0 (List.length transcript - 1))
       else
         model.TranscriptCursor.Line
     let cursor =
       { model.TranscriptCursor with Line = baseLine + offset }
-      |> clampCursor model.Transcript
+      |> clampCursor transcript
     { model with
         Focus = TuiFocus.Transcript
         TranscriptCursor = cursor
-        FoldTarget = blockAtLine cursor.Line model.Transcript
+        FoldTarget = blockAtLine cursor.Line transcript
         ScrollOffset = 0
         Status = "Transcript focused" }
 
   let moveTranscriptCursor lineDelta columnDelta model =
+    let transcript = transcriptLines model
     let cursor =
       { Line = model.TranscriptCursor.Line + lineDelta
         Column = model.TranscriptCursor.Column + columnDelta }
-      |> clampCursor model.Transcript
+      |> clampCursor transcript
     { model with
         TranscriptCursor = cursor
-        FoldTarget = blockAtLine cursor.Line model.Transcript
+        FoldTarget = blockAtLine cursor.Line transcript
         Status = "Transcript focused" }
 
   let moveTranscriptCommand width height offset model =
-    let positions = commandPositions model.Transcript
+    let positions = commandPositions (transcriptLines model)
     if List.isEmpty positions then
       { model with Status = "There is no command in the transcript" }
     else
@@ -870,7 +930,7 @@ module TransformerTuiModel =
       |> Map.tryFind blockIndex
       |> Option.map (fun lines -> lines.Value)
       |> Option.defaultWith (fun () ->
-        outputLinesOfBlock blockIndex model.Transcript)
+        outputLinesOfBlock blockIndex (transcriptLines model))
     let lines =
       if List.isEmpty lines then
         [ { Kind = TuiLineKind.System; Text = "This command has no output." } ]
@@ -892,7 +952,8 @@ module TransformerTuiModel =
 
   let openSelectedViewPane model =
     let blockIndex =
-      blockAtLine model.TranscriptCursor.Line model.Transcript
+      transcriptLines model
+      |> blockAtLine model.TranscriptCursor.Line
       |> Option.orElse model.FoldTarget
       |> Option.orElse (commandCount model |> function
         | 0 -> None
