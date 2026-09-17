@@ -253,6 +253,10 @@ module TransformerTuiModel =
   let setStatus status (model: TransformerTuiModel) =
     { model with Status = status }
 
+  let private clearTranscriptFocusStatus model =
+    if model.Status = "Transcript focused" then { model with Status = "" }
+    else model
+
   let setBusy isBusy model =
     { model with IsBusy = isBusy; SpinnerFrame = 0 }
 
@@ -281,6 +285,7 @@ module TransformerTuiModel =
     { model with
         Focus = TuiFocus.Shell
         TranscriptViewportStart = None }
+    |> clearTranscriptFocusStatus
 
   let focusTranscript model =
     let target =
@@ -302,6 +307,7 @@ module TransformerTuiModel =
         SuggestionIndex = 0
         ScrollOffset = 0
         TranscriptViewportStart = None }
+    |> clearTranscriptFocusStatus
 
   let clearInput model = setInput "" 0 model
 
