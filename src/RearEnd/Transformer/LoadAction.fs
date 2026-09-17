@@ -57,33 +57,19 @@ type LoadAction() =
     |> box
     |> Array.singleton
 
-  let isHexString value =
-    try
-      ByteArray.ofHexString value |> ignore
-      true
-    with _ ->
-      false
-
-  let loadSource (cancellationToken: CancellationToken) (isa: ISA)
-                 (value: string) =
-    if File.Exists(path = value) || Directory.Exists(path = value) then
-      loadPath cancellationToken isa value
-    elif isHexString value then
-      loadHex isa value
-    else
-      let message = $"File, directory, or hex bytes not found: {value}"
-      invalidArg (nameof value) message
-
   let transform cancellationToken (args: string list) collection =
     if collection.Values |> Array.forall isNull then ()
     else invalidArg (nameof collection) "Invalid argument type."
     match args with
-    | value :: isaName :: [] ->
+    | [ value; isaName ] when File.Exists value || Directory.Exists value ->
       let isa = ISA isaName
-      { Values = loadSource cancellationToken isa value }
-    | value :: [] ->
+      { Values = loadPath cancellationToken isa value }
+    | [ hex; isaName ] ->
+      let isa = ISA isaName
+      { Values = loadHex isa hex }
+    | [ value ] ->
       let isa = ISA Architecture.Intel
-      { Values = loadSource cancellationToken isa value }
+      { Values = loadPath cancellationToken isa value }
     | _ -> invalidArg (nameof args) "Invalid arguments given."
 
   interface IAction with

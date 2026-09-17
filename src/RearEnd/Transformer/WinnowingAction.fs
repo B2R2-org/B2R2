@@ -84,14 +84,16 @@ type WinnowingAction() =
 
   interface IAction with
     member _.ActionID with get() = "winnowing"
-    member _.Signature with get() = "Binary * [n] * [wsz] -> Fingerprint"
+    member _.Signature with get() =
+      "Binary -> winnowing [n-gram-size=<n>] [window-size=<n>]"
+      + " -> Fingerprint"
     member _.Description with get() =
       """
     Take in an input binary and returns its fingerprint, which is essentially a
     list of (hash * byte position) tuples.
 
-      - [n] : Size of n-gram. The default is 4.
-      - [w] : Window size. The default is 4.
+      - n-gram-size: Size of n-gram. The default is 4.
+      - window-size: Window size. The default is 4.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

@@ -77,22 +77,21 @@ type GrepAction() =
   interface IAction with
     member _.ActionID with get() = "grep"
     member _.Signature with get() =
-      "'a array * <pattern> * [bytes before] * [bytes after] -> 'a array"
+      "'a array -> grep pattern=<hex> [bytes-before=<n>] "
+      + "[bytes-after=<n>] -> 'a array"
     member _.Description with get() =
       """
     Take in an array as input and return one or more matched items from the
-    array as in the `grep` command. The <pattern> represents a binary pattern
-    using a regular expression with hexstrings. For example, the pattern
+    array as in the `grep` command. The pattern represents a binary pattern
+    using a regular expression with hex strings. For example, the pattern
     "3031.." will match a three-byte sequence {{ 0x30, 0x31, * }}, where * means
     any byte. Note that '.' means any 4-bit value in our regular expression.
     Similarly, the pattern "(30)+" means a sequence of 0x30s of any length,
     e.g., {{ 0x30, 0x30, 0x30, 0x30, 0x30 }} will match the pattern.
 
-    Two optional arguments [bytes before] and [bytes after] can be given to get
-    the context of the matched items. For example, if [bytes before] is 2 and
-    [bytes after] is 1, then the matched items will be surrounded by two bytes
-    before and one line after. If the matched items are at the beginning or end
-    of the array, the context will be truncated accordingly.
+    bytes-before and bytes-after can be given to include context around each
+    match. If the matched items are at the beginning or end of the array, the
+    context will be truncated accordingly.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

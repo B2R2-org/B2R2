@@ -125,32 +125,32 @@ type EditAction() =
 
   interface IAction with
     member _.ActionID with get() = "edit"
-    member _.Signature with get() = "Binary * <action> -> Binary"
+    member _.Signature with get() =
+      "Binary -> edit insert offset=<n> hex=<hex> | "
+      + "delete offset=<n> end=<n-or-size> | "
+      + "replace offset=<n> end=<n-or-size> hex=<hex> -> Binary"
     member _.Description with get() =
       """
     Take in a binary as well as edit action as input and return a modified
     binary as output. There are following supported edit actions.
 
-      - `insert` <n> <hexstring>
-        Insert bytes, given as <hexstring>, at offset <n>. This will increase
-        the size of the resulting binary by the size of the given hexstring.
+      - `insert offset=<n> hex=<hex>`
+        Insert bytes at offset n. This will increase the size of the resulting
+        binary by the size of the given hex bytes.
 
-      - `delete` <n> <m>
-        Remove bytes of size (m - n) in the given binary located at <n>. The
-        resulting binary will have the size less than the original one.
+      - `delete offset=<n> end=<m>`
+        Remove bytes in the half-open range [n, m). The resulting binary will
+        have the size less than the original one.
 
-      - `delete` <n> +<sz>
-        Remove bytes of size `sz` in the given binary located at <n>. The
-        resulting binary will have the size less than the original one.
+      - `delete offset=<n> end=+<sz>`
+        Remove sz bytes starting at offset n.
 
-      - `replace` <n> <m> <hexstring>
-        Replace bytes at offset from <n> to <m> with the given <hexstring>. The
-        end offset <m> is exclusive, and the hexstring size should be equal to
-        "m - n" where m > n.
+      - `replace offset=<n> end=<m> hex=<hex>`
+        Replace bytes in the half-open range [n, m). The hex byte length should
+        be equal to m - n.
 
-      - `replace` <n> +<sz> <hexstring>
-        Replace bytes at offset from n to (n + sz), exclusive, with the given
-        <hexstring>. The size of the hexstring should be equal to sz.
+      - `replace offset=<n> end=+<sz> hex=<hex>`
+        Replace sz bytes starting at offset n.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

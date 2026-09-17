@@ -127,16 +127,20 @@ type SliceAction() =
 
   interface IAction with
     member _.ActionID with get() = "slice"
-    member _.Signature with get() = "Binary * [optional arg(s)] -> Binary"
+    member _.Signature with get() =
+      "Binary -> slice section=<section> | "
+      + "start=<addr> end=<addr-or-size> | "
+      + "start=<addr> offset=<addr-or-size> -> Binary"
     member _.Description with get() =
       """
     Take in a byte array or a BinHandle and return a byte array of a part of the
     binary along with its starting address. Users can specify a specific address
-    range or a section name as argument(s), which are listed below.
+    range or a section name.
 
-      - <a1> <a2>: returns a slice of the bianry from <a1> to <a2>.
-      - <a1> +<n>: returns a slice of the bianry from <a1> to <a1 + n>.
-      - <sec_name>: returns a slice of the binary of the section <sec_name>.
+      - `section=<section>` returns the section with the given name.
+      - `start=<addr> end=<addr>` returns the half-open range [start, end).
+      - `start=<addr> end=+<n>` returns n bytes starting at start.
+      - `start=<addr> offset=+<n>` is accepted as the size form.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

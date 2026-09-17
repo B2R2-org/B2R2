@@ -40,11 +40,11 @@ type PickAction() =
       | _ ->
         invalidArg (nameof args) "Index must select an existing value."
     | _ ->
-      invalidArg (nameof args) "Expected: pick <index>."
+      invalidArg (nameof args) "Expected: pick index=<n>."
 
   interface IAction with
     member _.ActionID with get() = "pick"
-    member _.Signature with get() = "'a collection * <index> -> 'a"
+    member _.Signature with get() = "'a collection -> pick index=<n> -> 'a"
     member _.Description with get() =
       """
     Select one value from the current collection using a 1-based index.

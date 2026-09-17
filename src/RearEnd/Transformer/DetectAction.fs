@@ -78,13 +78,14 @@ type DetectAction() =
 
   interface IAction with
     member _.ActionID with get() = "detect"
-    member _.Signature with get() = "Fingerprint * <path> -> OutString"
+    member _.Signature with get() =
+      "Fingerprint -> detect path=<path> -> OutString"
     member _.Description with get() =
       """
     Take in a fingerprint and a path as input, and analyze file(s) in the given
     path to detect the fingerprint. This action will eventually return a match
-    score as output. If the <path> is a directory, it analyzes every file in the
-    directory. If the <path> is a file, it only analyzes the file.
+    score as output. If path is a directory, it analyzes every file in the
+    directory. If path is a file, it only analyzes the file.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
