@@ -34,6 +34,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.Executor
 open B2R2.MiddleEnd.SymbEval
 
@@ -56,6 +57,18 @@ module private SymbCallModels =
         Ok [ st ]
       | ValueNone ->
         Error(UninitializedRegister ctx.ArgumentRegisters[2])
+
+  let tryFind = function
+    | "fwrite" -> Some fwrite
+    | "strlen" -> Some SymbCallHooks.strlen
+    | _ -> None
+
+  let bindImports (hdl: BinHandle) =
+    BinFileOps.getImports hdl.File
+    |> Array.choose (fun entry ->
+      match entry.TrampolineAddress, tryFind entry.Name with
+      | Some addr, Some hook -> Some(addr, hook, entry.Name)
+      | _ -> None)
 
 type SymbSolverValue(id: string,
                      description: string,
@@ -293,6 +306,20 @@ type SymbExecutorValue(binary: Binary,
   new(binary: Binary) =
     let hdl = Binary.Handle binary
     let executor = SymbExecutor hdl
+    let bindings = SymbCallModels.bindImports hdl
+    let hooks =
+      if Array.isEmpty bindings then
+        None
+      else
+        bindings
+        |> Array.map (fun (addr, hook, _) -> addr, hook)
+        |> SymbCallHookRegistry
+        |> Some
+    let hookText =
+      bindings
+      |> Array.map (fun (addr, _, name) -> $"{name}@0x{addr:x} (automatic)")
+      |> Array.toList
+      |> List.rev
     let regions =
       ContextParsing.imageRegions hdl.File
       |> List.map (fun region ->
@@ -308,8 +335,8 @@ type SymbExecutorValue(binary: Binary,
                       [],
                       Set.empty,
                       regions,
-                      None,
-                      [],
+                      hooks,
+                      hookText,
                       None)
 
   member _.Binary = binary
