@@ -484,6 +484,15 @@ let rec private concatLoop (arr: Expr[]) sPos ePos =
 [<CompiledName("RevConcat")>]
 let revConcat (arr: Expr[]) = concatLoop arr 0 (Array.length arr - 1)
 
+/// <summary>
+/// Concatenate a range of the given array in reverse order, as revConcat does
+/// for the whole of it. A caller that concatenates one slice after another
+/// takes this rather than copying each slice out first.
+/// </summary>
+[<CompiledName("RevConcatRange")>]
+let revConcatRange (arr: Expr[]) start len =
+  concatLoop arr start (start + len - 1)
+
 /// Unwrap (casted) expression.
 [<CompiledName("Unwrap")>]
 let rec unwrap e =
