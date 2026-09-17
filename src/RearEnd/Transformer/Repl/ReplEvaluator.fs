@@ -1280,11 +1280,25 @@ module TransformerReplEvaluator =
 
   let private tryLoadPlugin registry path =
     try
-      ActionRegistry.loadPlugin path registry |> Some
-    with _ ->
-      None
+      ActionRegistry.loadPlugin path registry |> Ok
+    with error ->
+      let file = Path.GetFileName path
+      Error $"{file}: {error.Message}"
 
-  let private tryAutoLoadSolverAction registry solverID =
+  let private pluginFailureText solverID failures =
+    let shown = failures |> List.rev |> List.truncate 5
+    let omitted = max 0 (List.length failures - List.length shown)
+    let details = shown |> List.map (fun error -> "  - " + error)
+    let details =
+      if omitted = 0 then details
+      else details @ [ $"  - ... and {omitted} more failure(s)" ]
+    [ $"Solver plugin not found: {solverID}"
+      if not (List.isEmpty details) then
+        "Plugin load failures:"
+      yield! details ]
+    |> String.concat Environment.NewLine
+
+  let private tryAutoLoadSolver registry solverID (ct: CancellationToken) =
     let hasSolver registry =
       Option.isSome (SymbSolverRegistry.create solverID)
       || Option.isSome (tryFindAction registry solverID)
@@ -1292,19 +1306,20 @@ module TransformerReplEvaluator =
       Ok registry
     else
       pluginDllIndex.Value
-      |> List.fold (fun result path ->
-        match result with
-        | Ok registry when hasSolver registry -> Ok registry
-        | Ok registry ->
+      |> List.fold (fun (registry, failures) path ->
+        ct.ThrowIfCancellationRequested()
+        if hasSolver registry then
+          registry, failures
+        else
           match tryLoadPlugin registry path with
-          | Some registry -> Ok registry
-          | None -> Ok registry
-        | Error _ -> result) (Ok registry)
-      |> Result.bind (fun registry ->
+          | Ok registry -> registry, failures
+          | Error error -> registry, error :: failures)
+        (registry, [])
+      |> fun (registry, failures) ->
         if hasSolver registry then
           Ok registry
         else
-          Error $"Solver plugin not found: {solverID}")
+          pluginFailureText solverID failures |> Error
 
   let private registerSymbSolver registry args cancellationToken =
     match args |> List.tryPick (parameterValue "solver") with
@@ -1313,7 +1328,7 @@ module TransformerReplEvaluator =
       match SymbSolverRegistry.create solverID with
       | Some _ -> Ok registry
       | None ->
-        tryAutoLoadSolverAction registry solverID
+        tryAutoLoadSolver registry solverID cancellationToken
         |> Result.bind (fun registry ->
           match tryFindAction registry solverID with
           | None -> Error $"Unknown symbolic solver: {solverID}"
