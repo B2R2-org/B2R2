@@ -61,14 +61,18 @@ type private HelpAction(map: Map<string, IAction>) =
         printsn $"{act.Description}")
       exit 0
 
+let private normalizeActionID (actionID: string) =
+  actionID.ToLowerInvariant()
+
 let private accumulateActions map actions =
   actions
   |> Array.fold (fun map t ->
     let act = Activator.CreateInstance t :?> IAction
-    if Map.containsKey act.ActionID map then
+    let actionID = normalizeActionID act.ActionID
+    if Map.containsKey actionID map then
       invalidOp $"Duplicate action ID: {act.ActionID}"
     else
-      Map.add act.ActionID act map) map
+      Map.add actionID act map) map
 
 let inline private filterIActionType types =
   (types: System.Type[])
@@ -88,7 +92,7 @@ let private retrieveActionMap map =
     |> filterIActionType
     |> accumulateActions map
   let helpAction = HelpAction map :> IAction
-  Map.add helpAction.ActionID helpAction map
+  Map.add (normalizeActionID helpAction.ActionID) helpAction map
 
 let private splitBySpecialSeparators (args: string list) =
   args
@@ -114,7 +118,9 @@ let rec private parseActionCommands grps grp = function
   | arg :: rest -> parseActionCommands grps (arg :: grp) rest
 
 let private checkValidityOfCommandGroup cmdgrp =
-  let actionIDs = cmdgrp |> List.map List.tryHead
+  let actionIDs =
+    cmdgrp
+    |> List.map (List.tryHead >> Option.map normalizeActionID)
   let fstActionID = List.head actionIDs
   if actionIDs |> List.forall (fun actionID -> actionID = fstActionID) then
     ()
@@ -124,15 +130,16 @@ let private checkValidityOfCommandGroup cmdgrp =
 
 let private runCommand actionMap input (cmd: string list) =
   let actionID = List.head cmd
+  let normalizedID = normalizeActionID actionID
   let args = List.tail cmd
   let action: IAction =
-    match Map.tryFind (actionID.ToLowerInvariant()) actionMap with
+    match Map.tryFind normalizedID actionMap with
     | Some act -> act
     | None ->
       eprintsn $"({actionID}) is not a valid action."
       exit 1
 #if DEBUG
-  if actionID <> "help" then printsn $"[*] {actionID}"
+  if normalizedID <> "help" then printsn $"[*] {actionID}"
   else ()
 #endif
   try
