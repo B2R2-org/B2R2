@@ -25,7 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
-open System.Collections.Concurrent
+open System.Collections.Generic
 open System.IO
 open System.Reflection
 open System.Runtime.InteropServices
@@ -105,7 +105,7 @@ type private LoadedPlugin =
 
 [<RequireQualifiedAccess>]
 module TransformerPluginLoader =
-  let private cache = ConcurrentDictionary<string, Lazy<LoadedPlugin>>()
+  let private cache = Dictionary<string, LoadedPlugin>()
 
   let private loaderExceptionText (error: ReflectionTypeLoadException) =
     error.LoaderExceptions
@@ -114,24 +114,28 @@ module TransformerPluginLoader =
     |> String.concat Environment.NewLine
 
   let private loadPlugin fullPath =
-    lazy
-      let context = TransformerPluginLoadContext fullPath
-      try
-        let assembly = context.LoadPluginAssembly()
-        { Context = context
-          Types = assembly.GetExportedTypes() }
-      with
-      | :? ReflectionTypeLoadException as error ->
-        context.Unload()
-        let detail = loaderExceptionText error
-        invalidOp $"Failed to load plugin types: {detail}"
-      | _ ->
-        context.Unload()
-        reraise ()
+    let context = TransformerPluginLoadContext fullPath
+    try
+      let assembly = context.LoadPluginAssembly()
+      { Context = context
+        Types = assembly.GetExportedTypes() }
+    with
+    | :? ReflectionTypeLoadException as error ->
+      context.Unload()
+      let detail = loaderExceptionText error
+      invalidOp $"Failed to load plugin types: {detail}"
+    | _ ->
+      context.Unload()
+      reraise ()
 
   let exportedTypes path =
     if File.Exists path then
       let fullPath = Path.GetFullPath path
-      cache.GetOrAdd(fullPath, loadPlugin).Value.Types
+      match cache.TryGetValue fullPath with
+      | true, plugin -> plugin.Types
+      | false, _ ->
+        let plugin = loadPlugin fullPath
+        cache.Add(fullPath, plugin)
+        plugin.Types
     else
       invalidOp $"File not found: {path}"
