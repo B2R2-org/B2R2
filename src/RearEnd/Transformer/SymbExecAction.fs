@@ -45,6 +45,18 @@ type SymbCallHookRegistry = CallHookRegistry<SymbCallHook>
 
 type SymbSolverFactory = Func<ISolver>
 
+module private SymbCallModels =
+  let fwrite (ctx: CallContext) (st: SymbState) =
+    if ctx.ArgumentRegisters.Length < 3 then
+      Error(UnsupportedOperation "fwrite requires three argument registers.")
+    else
+      match st.TryGetReg ctx.ArgumentRegisters[2] with
+      | ValueSome count ->
+        st.SetReg(ctx.ReturnRegister, count)
+        Ok [ st ]
+      | ValueNone ->
+        Error(UninitializedRegister ctx.ArgumentRegisters[2])
+
 type SymbSolverValue(id: string,
                      description: string,
                      create: SymbSolverFactory) =
@@ -417,6 +429,21 @@ type SymbExecutorValue(binary: Binary,
       |> Option.defaultValue (SymbCallHookRegistry())
       |> fun registry -> registry.Register(addr, SymbCallHooks.strlen)
     let hookText = $"strlen@0x{addr:x}" :: hookText
+    SymbExecutorValue(binary,
+                      state,
+                      inputs,
+                      avoids,
+                      regions,
+                      Some registry,
+                      hookText,
+                      solver)
+
+  member _.WithFwriteHook addr =
+    let registry =
+      hooks
+      |> Option.defaultValue (SymbCallHookRegistry())
+      |> fun registry -> registry.Register(addr, SymbCallModels.fwrite)
+    let hookText = $"fwrite@0x{addr:x}" :: hookText
     SymbExecutorValue(binary,
                       state,
                       inputs,
@@ -1446,7 +1473,7 @@ type SymbHookAction() =
       "Address of an external call stub to model."
   let metadata =
     let signature =
-      "SymbExecutor -> @hook strlen addr:Address=<addr> "
+      "SymbExecutor -> @hook (strlen | fwrite) addr:Address=<addr> "
       + "-> SymbExecutor"
     { SymbMetadata.metadata
         "hook"
@@ -1455,14 +1482,18 @@ type SymbHookAction() =
         ActionRole.Transform
         signature
         "Attach a built-in symbolic model for an external function."
-        [ "sx |> @hook strlen addr=<addr>" ] with
-        Syntaxes = [ SymbMetadata.syntax (Some "strlen") [ addr ] ] }
+        [ "sx |> @hook strlen addr=<addr>"
+          "sx |> @hook fwrite addr=<addr>" ] with
+        Syntaxes =
+          [ SymbMetadata.syntax (Some "strlen") [ addr ]
+            SymbMetadata.syntax (Some "fwrite") [ addr ] ] }
 
   let transformOne args (value: obj) =
     match value with
     | :? SymbExecutorValue as executor ->
       match args with
       | [ "strlen"; addr ] -> executor.WithStrlenHook(SymbArgs.parseAddr addr)
+      | [ "fwrite"; addr ] -> executor.WithFwriteHook(SymbArgs.parseAddr addr)
       | _ -> invalidArg (nameof args) "Invalid hook arguments."
       |> box
     | value -> invalidOp $"hook expects SymbExecutor: {value}"
