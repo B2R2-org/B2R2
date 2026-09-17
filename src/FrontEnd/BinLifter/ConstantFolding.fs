@@ -37,58 +37,9 @@ type private VarMaps =
   { VarMap: Dictionary<RegisterID, Expr>
     TempVarMap: Dictionary<int, Expr> }
 
-(* Only the operations whose result is the same whatever the rounding direction
-   is in force are concretized here; the callers screen the rest out with
-   isRoundingDependent, BitVector's floating-point arithmetic having no
-   direction to be given. *)
-let private concretizeUnOp unopType bv =
-  match unopType with
-  | UnOpType.NEG -> BitVector.Neg bv
-  | UnOpType.NOT -> BitVector.Not bv
-  | _ -> Terminator.impossible ()
-
-let private concretizeBinOp binopType bv1 bv2 =
-  match binopType with
-  | BinOpType.ADD -> BitVector.Add(bv1, bv2)
-  | BinOpType.SUB -> BitVector.Sub(bv1, bv2)
-  | BinOpType.MUL -> BitVector.Mul(bv1, bv2)
-  | BinOpType.DIV -> BitVector.Div(bv1, bv2)
-  | BinOpType.SDIV -> BitVector.SDiv(bv1, bv2)
-  | BinOpType.MOD -> BitVector.Modulo(bv1, bv2)
-  | BinOpType.SMOD -> BitVector.SModulo(bv1, bv2)
-  | BinOpType.SHL -> BitVector.Shl(bv1, bv2)
-  | BinOpType.SHR -> BitVector.Shr(bv1, bv2)
-  | BinOpType.SAR -> BitVector.Sar(bv1, bv2)
-  | BinOpType.AND -> BitVector.And(bv1, bv2)
-  | BinOpType.OR -> BitVector.Or(bv1, bv2)
-  | BinOpType.XOR -> BitVector.Xor(bv1, bv2)
-  | BinOpType.CONCAT -> BitVector.Concat(bv1, bv2)
-  | _ -> Terminator.impossible ()
-
-let private concretizeRelOp relopType bv1 bv2 =
-  match relopType with
-  | RelOpType.EQ -> BitVector.Eq(bv1, bv2)
-  | RelOpType.NEQ -> BitVector.Neq(bv1, bv2)
-  | RelOpType.GT -> BitVector.Gt(bv1, bv2)
-  | RelOpType.GE -> BitVector.Ge(bv1, bv2)
-  | RelOpType.SGT -> BitVector.SGt(bv1, bv2)
-  | RelOpType.SGE -> BitVector.SGe(bv1, bv2)
-  | RelOpType.LT -> BitVector.Lt(bv1, bv2)
-  | RelOpType.LE -> BitVector.Le(bv1, bv2)
-  | RelOpType.SLT -> BitVector.SLt(bv1, bv2)
-  | RelOpType.SLE -> BitVector.SLe(bv1, bv2)
-  | RelOpType.FGT -> BitVector.FGt(bv1, bv2)
-  | RelOpType.FGE -> BitVector.FGe(bv1, bv2)
-  | RelOpType.FLT -> BitVector.FLt(bv1, bv2)
-  | RelOpType.FLE -> BitVector.FLe(bv1, bv2)
-  | _ -> Terminator.impossible ()
-
-let private concretizeCast castType rt bv =
-  match castType with
-  | CastKind.SignExt -> BitVector.SExt(bv, rt)
-  | CastKind.ZeroExt -> BitVector.ZExt(bv, rt)
-  | _ -> Terminator.impossible ()
-
+(* Folding a concrete operand is left to the AST constructors, which already
+   do it and already screen out the operations whose result a rounding
+   direction would decide. *)
 let rec private replace maps expr =
   match expr with
   | Var(RegisterID = name) ->
@@ -101,14 +52,7 @@ let rec private replace maps expr =
     | _ -> struct (false, expr)
   | UnOp(Op = t; Operand = e) ->
     let struct (changed, e) = replace maps e
-    if changed then
-      match e with
-      | Num(Value = bv) when not (UnOpType.isRoundingDependent t) ->
-        struct (true, AST.num <| concretizeUnOp t bv)
-      | _ ->
-        struct (true, AST.unop t e)
-    else
-      struct (false, expr)
+    if changed then struct (true, AST.unop t e) else struct (false, expr)
   | BinOp(Op = BinOpType.ADD; Left = e; Right = Num(Value = bv))
   | BinOp(Op = BinOpType.ADD; Left = Num(Value = bv); Right = e)
     when bv.IsZero ->
@@ -122,22 +66,13 @@ let rec private replace maps expr =
   | BinOp(Op = t; Left = e1; Right = e2) ->
     let struct (changed1, e1) = replace maps e1
     let struct (changed2, e2) = replace maps e2
-    match e1, e2 with
-    | Num(Value = bv1), Num(Value = bv2)
-      when not (BinOpType.isRoundingDependent t) ->
-      struct (true, AST.num <| concretizeBinOp t bv1 bv2)
-    | _ ->
-      if changed1 || changed2 then struct (true, AST.binop t e1 e2)
-      else struct (false, expr)
+    if changed1 || changed2 then struct (true, AST.binop t e1 e2)
+    else struct (false, expr)
   | RelOp(Op = t; Left = e1; Right = e2) ->
     let struct (changed1, e1) = replace maps e1
     let struct (changed2, e2) = replace maps e2
-    match e1, e2 with
-    | Num(Value = bv1), Num(Value = bv2) ->
-      struct (true, AST.num <| concretizeRelOp t bv1 bv2)
-    | _ ->
-      if changed1 || changed2 then struct (true, AST.relop t e1 e2)
-      else struct (false, expr)
+    if changed1 || changed2 then struct (true, AST.relop t e1 e2)
+    else struct (false, expr)
   | Load(Endian = endian; Type = rt; Addr = e) ->
     let struct (changed, e') = replace maps e
     if changed then struct (true, AST.load endian rt e')
@@ -147,11 +82,7 @@ let rec private replace maps expr =
     let struct (changed1, e1) = replace maps e1
     let struct (changed2, e2) = replace maps e2
     if changed0 || changed1 || changed2 then
-      match cond with
-      | Num(Value = bv) ->
-        if bv.IsTrue then struct (true, e1) else struct (false, e2)
-      | _ ->
-        struct (true, AST.ite cond e1 e2)
+      struct (true, AST.ite cond e1 e2)
     else
       struct (false, expr)
   | RoundCtrl(Mode = mode; Body = body) ->
@@ -163,32 +94,20 @@ let rec private replace maps expr =
       struct (false, expr)
   | Cast(Kind = kind; Type = rt; Operand = e) ->
     let struct (changed, e) = replace maps e
-    if changed then
-      match e with
-      | Num(Value = bv) when not (CastKind.isRoundingDependent kind) ->
-        struct (true, AST.num <| concretizeCast kind rt bv)
-      | _ ->
-        struct (true, AST.cast kind rt e)
-    else
-      struct (false, expr)
+    if changed then struct (true, AST.cast kind rt e)
+    else struct (false, expr)
   | Extract(Operand = e; Type = rt; StartPos = pos) ->
     let struct (changed, e) = replace maps e
-    if changed then
-      match e with
-      | Num(Value = bv) ->
-        struct (true, AST.num <| BitVector.Extract(bv, rt, pos))
-      | _ ->
-        struct (true, AST.extract e rt pos)
-    else
-      struct (false, expr)
+    if changed then struct (true, AST.extract e rt pos)
+    else struct (false, expr)
   | _ ->
     struct (false, expr)
 
 let private updateMapsAtDef maps dst src =
   match dst, src with
-  | Var(RegisterID = r), Num _ -> maps.VarMap.TryAdd(r, src) |> ignore
+  | Var(RegisterID = r), Num _ -> maps.VarMap[r] <- src
   | Var(RegisterID = r), _ -> maps.VarMap.Remove(r) |> ignore
-  | TempVar(Index = n), Num _ -> maps.TempVarMap.TryAdd(n, src) |> ignore
+  | TempVar(Index = n), Num _ -> maps.TempVarMap[n] <- src
   | TempVar(Index = n), _ -> maps.TempVarMap.Remove(n) |> ignore
   | _ -> ()
 

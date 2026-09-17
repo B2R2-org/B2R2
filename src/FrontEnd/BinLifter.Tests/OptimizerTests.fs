@@ -71,6 +71,34 @@ type OptimizerTests() =
     |> test ConstantFolding.optimize
 
   [<TestMethod>]
+  member _.``[ConstantFolding] ite false branch replacement test``() =
+    ([ varA := num 5u
+       varB := num 5u .+ varB ],
+     [ varA := num 5u
+       varB := AST.ite (varA .> num 10u) (num 1u) (varA .+ varB) ])
+    |> test ConstantFolding.optimize
+
+  [<TestMethod>]
+  member _.``[ConstantFolding] Redefined variable replacement test``() =
+    ([ varA := num 1u
+       varA := num 2u
+       varB := num 2u ],
+     [ varA := num 1u
+       varA := num 2u
+       varB := varA ])
+    |> test ConstantFolding.optimize
+
+  [<TestMethod>]
+  member _.``[ConstantFolding] Redefined tempvar replacement test``() =
+    ([ t32 1 := num 1u
+       t32 1 := num 2u
+       varB := num 2u ],
+     [ t32 1 := num 1u
+       t32 1 := num 2u
+       varB := t32 1 ])
+    |> test ConstantFolding.optimize
+
+  [<TestMethod>]
   member _.``[ConstantFolding] Tempvar replacement test``() =
     ([ t32 1 := num 6u
        varA := varA .- num 4u
