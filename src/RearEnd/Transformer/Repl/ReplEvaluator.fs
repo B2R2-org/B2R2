@@ -1389,11 +1389,14 @@ module TransformerReplEvaluator =
     |> List.distinct
     |> List.filter Directory.Exists
 
-  let private pluginDlls () =
-    pluginSearchRoots ()
-    |> List.collect (fun root ->
-      Directory.EnumerateFiles(root, "*.dll", SearchOption.AllDirectories)
-      |> Seq.toList)
+  let private pluginDllIndex =
+    lazy
+      pluginSearchRoots ()
+      |> List.collect (fun root ->
+        Directory.EnumerateFiles(root, "*.dll", SearchOption.AllDirectories)
+        |> Seq.toList)
+      |> List.sortWith (fun left right ->
+        StringComparer.OrdinalIgnoreCase.Compare(left, right))
 
   let private tryLoadPlugin registry path =
     try
@@ -1408,7 +1411,7 @@ module TransformerReplEvaluator =
     if hasSolver registry then
       Ok registry
     else
-      pluginDlls ()
+      pluginDllIndex.Value
       |> List.fold (fun result path ->
         match result with
         | Ok registry when hasSolver registry -> Ok registry

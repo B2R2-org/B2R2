@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Collections.Concurrent
 open System.IO
 open System.Reflection
 open System.Runtime.InteropServices
@@ -100,21 +101,27 @@ type private TransformerPluginLoadContext(pluginPath: string) =
 
 [<RequireQualifiedAccess>]
 module TransformerPluginLoader =
+  let private cache = ConcurrentDictionary<string, Lazy<Type[]>>()
+
   let private loaderExceptionText (error: ReflectionTypeLoadException) =
     error.LoaderExceptions
     |> Array.choose (fun exn ->
       if isNull exn then None else Some exn.Message)
     |> String.concat Environment.NewLine
 
-  let exportedTypes path =
-    if File.Exists path then
+  let private loadTypes fullPath =
+    lazy
       try
-        let fullPath = Path.GetFullPath path
         let context = TransformerPluginLoadContext fullPath
         let assembly = context.LoadPluginAssembly()
         assembly.GetExportedTypes()
       with :? ReflectionTypeLoadException as error ->
         let detail = loaderExceptionText error
         invalidOp $"Failed to load plugin types: {detail}"
+
+  let exportedTypes path =
+    if File.Exists path then
+      let fullPath = Path.GetFullPath path
+      cache.GetOrAdd(fullPath, loadTypes).Value
     else
       invalidOp $"File not found: {path}"

@@ -25,7 +25,9 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Collections.Concurrent
 open System.IO
+open System.Runtime.CompilerServices
 open B2R2.FrontEnd.BinFile
 
 /// The semantic category of an interactive completion candidate.
@@ -63,6 +65,16 @@ type SuggestionSet =
     Diagnostics: ReplTypeDiagnostic list }
 
 module Suggestions =
+  type private DirectoryCacheEntry =
+    { LastWrite: DateTime
+      Entries: (string * bool)[] }
+
+  let private directoryCache =
+    ConcurrentDictionary<string, DirectoryCacheEntry>()
+
+  let private addressCache =
+    ConditionalWeakTable<Binary, Lazy<(string * string) list>>()
+
   let private metaCommands =
     [ ":actions", "Show every available Transformer action"
       ":help", "Show interactive help"
@@ -312,6 +324,22 @@ module Suggestions =
   let private normalizePath (path: string) =
     path.Replace('\\', '/')
 
+  let private directoryEntries path =
+    let fullPath = Path.GetFullPath path
+    let lastWrite = Directory.GetLastWriteTimeUtc fullPath
+    match directoryCache.TryGetValue fullPath with
+    | true, cached when cached.LastWrite = lastWrite -> cached.Entries
+    | _ ->
+      let entries =
+        Directory.EnumerateFileSystemEntries fullPath
+        |> Seq.map (fun path -> path, Directory.Exists path)
+        |> Seq.sortBy (fst >> Path.GetFileName)
+        |> Seq.toArray
+      directoryCache[fullPath] <-
+        { LastWrite = lastWrite
+          Entries = entries }
+      entries
+
   let private pathCandidates (prefix: string) =
     let cleanPrefix = prefix.TrimStart([| '\''; '"' |])
     let directoryPart = Path.GetDirectoryName cleanPrefix
@@ -320,8 +348,8 @@ module Suggestions =
     let searchDirectory =
       if String.IsNullOrEmpty directoryPart then "." else directoryPart
     try
-      Directory.EnumerateFileSystemEntries searchDirectory
-      |> Seq.choose (fun path ->
+      directoryEntries searchDirectory
+      |> Seq.choose (fun (path, isDirectory) ->
         let name = Path.GetFileName path
         if matches filePart name then
           let relative =
@@ -329,7 +357,6 @@ module Suggestions =
               name
             else
               directoryPart.TrimEnd([| '/'; '\\' |]) + "/" + name
-          let isDirectory = Directory.Exists path
           let text =
             let relative = normalizePath relative
             if isDirectory then relative + "/" else relative
@@ -447,31 +474,34 @@ module Suggestions =
       | None ->
         match tryCurrentBinary state with
         | Some binary ->
-          let hdl = Binary.Handle binary
-          let sections = BinFileOps.getSections hdl.File
-          let sectionName address =
-            sections
-            |> Array.tryFind (fun section ->
-              let finish = section.Address + section.FileSize
-              section.FileSize > 0UL
-              && section.Address <= address && address < finish)
-            |> Option.map (fun section ->
-              if String.IsNullOrWhiteSpace section.Name then "<unnamed>"
-              else section.Name)
-            |> Option.defaultValue "<no section>"
-          let entryPoint = hdl.File.EntryPoint |> Option.toList
-          let functions =
-            BinFileOps.getFunctionAddresses hdl.File |> Array.toList
-          let sectionStarts =
-            sections
-            |> Array.map (fun section -> section.Address)
-            |> Array.toList
-          entryPoint @ functions @ sectionStarts
-          |> List.distinct
-          |> List.map (fun address ->
-            let text = $"0x{address:x}"
-            let detail = $"address {sectionName address}"
-            text, detail)
+          let buildAddressIndex binary =
+            lazy
+              let hdl = Binary.Handle binary
+              let sections = BinFileOps.getSections hdl.File
+              let sectionName address =
+                sections
+                |> Array.tryFind (fun section ->
+                  let finish = section.Address + section.FileSize
+                  section.FileSize > 0UL
+                  && section.Address <= address && address < finish)
+                |> Option.map (fun section ->
+                  if String.IsNullOrWhiteSpace section.Name then "<unnamed>"
+                  else section.Name)
+                |> Option.defaultValue "<no section>"
+              let entryPoint = hdl.File.EntryPoint |> Option.toList
+              let functions =
+                BinFileOps.getFunctionAddresses hdl.File |> Array.toList
+              let sectionStarts =
+                sections
+                |> Array.map (fun section -> section.Address)
+                |> Array.toList
+              entryPoint @ functions @ sectionStarts
+              |> List.distinct
+              |> List.map (fun address ->
+                let text = $"0x{address:x}"
+                let detail = $"address {sectionName address}"
+                text, detail)
+          addressCache.GetValue(binary, buildAddressIndex).Value
           |> List.filter (fst >> matches prefix)
           |> List.map (fun (text, detail) ->
             argumentItem SuggestionKind.Argument detail text)
