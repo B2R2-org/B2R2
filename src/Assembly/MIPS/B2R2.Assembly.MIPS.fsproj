@@ -10,6 +10,7 @@
     <Compile Include="AsmOpcode.fs" />
     <Compile Include="AsmFloat.fs" />
     <Compile Include="AsmMicroMIPS.fs" />
+    <Compile Include="AsmMIPS16.fs" />
     <Compile Include="AsmMain.fs" />
     <Compile Include="Assembler.fs" />
   </ItemGroup>
