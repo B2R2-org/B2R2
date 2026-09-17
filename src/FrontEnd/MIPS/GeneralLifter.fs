@@ -1695,9 +1695,22 @@ let loadUnsigned (ins: Instruction) bld =
     rt := AST.zext bld.RegType (loadedValue ins bld)
   }
 
-let readHWR ins bld =
+/// <summary>
+/// RDHWR, which is written with a select field in one encoding and without
+/// one in the other.
+///
+/// MD00594 gives microMIPS's as <c>RDHWR rt,rs</c> and spends the ten bits
+/// between them on the opcode, where the 32-bit encoding keeps a three-bit
+/// select beside the register. Which register is read is the same question
+/// either way, so the select is read past rather than required.
+/// </summary>
+let readHWR (ins: Instruction) bld =
   lift bld ins {
-    let rtOpr, rdOpr, _ = getThreeOprs ins
+    let rtOpr, rdOpr =
+      match ins.Operands with
+      | ThreeOperands(rt, rd, _) -> rt, rd
+      | TwoOperands(rt, rd) -> rt, rd
+      | _ -> raise InvalidOperandException
     let rt = transOpr ins bld rtOpr
     let value =
       match rdOpr with
