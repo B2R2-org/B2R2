@@ -863,6 +863,7 @@ module private SymbCondition =
     | WriteAddress
 
   type Condition =
+    | At of Addr
     | Compare of Term * RelOpType * Addr
     | MemoryPolicyViolation of SymbMemoryAccessKind option
     | And of Condition list
@@ -896,47 +897,51 @@ module private SymbCondition =
     let number = @"(0x[0-9a-f]+|[0-9]+)"
     let op = @"(==|=|!=|<>|<=|>=|<|>)"
     let text = norm text
-    if Regex.IsMatch(text, @"^(mem|memory)\.violation\s*\(\s*\)$",
-                     RegexOptions.IgnoreCase) then
-      MemoryPolicyViolation None
-    elif Regex.IsMatch(text, @"^(mem|memory)\.readViolation\s*\(\s*\)$",
+    let atPattern = @"^pp\.at\s*\(\s*" + number + @"\s*\)$"
+    match tryMatch atPattern text with
+    | Some m -> At(SymbArgs.parseAddr m.Groups[1].Value)
+    | None ->
+      if Regex.IsMatch(text, @"^(mem|memory)\.violation\s*\(\s*\)$",
                        RegexOptions.IgnoreCase) then
-      MemoryPolicyViolation(Some MemoryRead)
-    elif Regex.IsMatch(text, @"^(mem|memory)\.writeViolation\s*\(\s*\)$",
-                       RegexOptions.IgnoreCase) then
-      MemoryPolicyViolation(Some MemoryWrite)
-    else
-      let regPattern =
-        @"^pp\.REG\s*\[\s*([A-Za-z0-9_]+)\s*\]\s*"
-        + op + @"\s*" + number + "$"
-      let memPattern =
-        @"^pp\.MEM\s*\[\s*" + number + @"(?::([0-9]+))?\s*\]\s*"
-        + op + @"\s*" + number + "$"
-      let writePattern =
-        @"^pp\.WRITE\s*" + op + @"\s*" + number + "$"
-      match tryMatch regPattern text with
-      | Some m ->
-        let term = Register m.Groups[1].Value
-        let relop = parseRelOp m.Groups[2].Value
-        Compare(term, relop, SymbArgs.parseAddr m.Groups[3].Value)
-      | None ->
-        match tryMatch memPattern text with
+        MemoryPolicyViolation None
+      elif Regex.IsMatch(text, @"^(mem|memory)\.readViolation\s*\(\s*\)$",
+                         RegexOptions.IgnoreCase) then
+        MemoryPolicyViolation(Some MemoryRead)
+      elif Regex.IsMatch(text, @"^(mem|memory)\.writeViolation\s*\(\s*\)$",
+                         RegexOptions.IgnoreCase) then
+        MemoryPolicyViolation(Some MemoryWrite)
+      else
+        let regPattern =
+          @"^pp\.REG\s*\[\s*([A-Za-z0-9_]+)\s*\]\s*"
+          + op + @"\s*" + number + "$"
+        let memPattern =
+          @"^pp\.MEM\s*\[\s*" + number + @"(?::([0-9]+))?\s*\]\s*"
+          + op + @"\s*" + number + "$"
+        let writePattern =
+          @"^pp\.WRITE\s*" + op + @"\s*" + number + "$"
+        match tryMatch regPattern text with
         | Some m ->
-          let size =
-            if m.Groups[2].Success then SymbArgs.parseInt m.Groups[2].Value
-            else 8
-          let term =
-            Memory(SymbArgs.parseAddr m.Groups[1].Value,
-                   RegType.fromByteWidth size)
-          let relop = parseRelOp m.Groups[3].Value
-          Compare(term, relop, SymbArgs.parseAddr m.Groups[4].Value)
+          let term = Register m.Groups[1].Value
+          let relop = parseRelOp m.Groups[2].Value
+          Compare(term, relop, SymbArgs.parseAddr m.Groups[3].Value)
         | None ->
-          match tryMatch writePattern text with
+          match tryMatch memPattern text with
           | Some m ->
-            let relop = parseRelOp m.Groups[1].Value
-            Compare(WriteAddress, relop, SymbArgs.parseAddr m.Groups[2].Value)
+            let size =
+              if m.Groups[2].Success then SymbArgs.parseInt m.Groups[2].Value
+              else 8
+            let term =
+              Memory(SymbArgs.parseAddr m.Groups[1].Value,
+                     RegType.fromByteWidth size)
+            let relop = parseRelOp m.Groups[3].Value
+            Compare(term, relop, SymbArgs.parseAddr m.Groups[4].Value)
           | None ->
-            invalidArg (nameof text) $"Invalid pp condition: {text}"
+            match tryMatch writePattern text with
+            | Some m ->
+              let relop = parseRelOp m.Groups[1].Value
+              Compare(WriteAddress, relop, SymbArgs.parseAddr m.Groups[2].Value)
+            | None ->
+              invalidArg (nameof text) $"Invalid pp condition: {text}"
 
   let parseBody body =
     Regex.Split(body, @"\s*&&\s*")
@@ -968,21 +973,17 @@ module private SymbCondition =
     SymbExpr.relop relop lhs (constFor lhs rhs) |> addCondition state
 
   let tryRegister (hdl: BinHandle) (point: StopPoint<SymbState>) name =
-    if String.Equals(name, "PC", StringComparison.OrdinalIgnoreCase) then
-      let wordType = hdl.ISA.WordSize |> WordSize.toRegType
-      SymbExpr.Const(BitVector(uint64 point.Address, wordType)) |> Some
-    else
-      let factory = hdl.RegisterFactory
-      let rid =
-        try
-          factory.GetRegisterID(name = name) |> Some
-        with _ ->
-          try factory.GetRegisterID(name.ToUpperInvariant()) |> Some
-          with _ -> None
-      rid |> Option.bind (fun rid ->
-        match point.State.TryGetReg rid with
-        | ValueSome expr -> Some expr
-        | ValueNone -> None)
+    let factory = hdl.RegisterFactory
+    let rid =
+      try
+        factory.GetRegisterID(name = name) |> Some
+      with _ ->
+        try factory.GetRegisterID(name.ToUpperInvariant()) |> Some
+        with _ -> None
+    rid |> Option.bind (fun rid ->
+      match point.State.TryGetReg rid with
+      | ValueSome expr -> Some expr
+      | ValueNone -> None)
 
   let tryMemory (hdl: BinHandle) (point: StopPoint<SymbState>)
                 (addr: Addr) (typ: RegType) =
@@ -1111,6 +1112,7 @@ module private SymbCondition =
     (hdl: BinHandle) (regions: SymbMemoryRegion list)
     (condition: Condition) (point: StopPoint<SymbState>) =
     match condition with
+    | At addr -> point.Address = addr
     | Compare(Register name, relop, value) ->
       match tryRegister hdl point name with
       | Some expr -> compareExpr point.State expr relop value
@@ -1136,6 +1138,10 @@ module private SymbCondition =
     StopPredicate<SymbState>(fun point ->
       evaluate hdl regions condition point
     )
+
+  let trySatisfyAddress = function
+    | At addr -> Some addr
+    | _ -> None
 
 module private SymbMetadata =
   let arg name kind optional description =
@@ -1700,7 +1706,7 @@ type SymbRunAction() =
 type SymbSearchAction() =
   let cond =
     SymbMetadata.arg "cond" ActionArgumentKind.ParameterFunction false
-      "Program-point predicate: fun pp -> pp.REG[PC]=0x401000."
+      "Program-point predicate: fun pp -> pp.at(0x401000)."
   let maxDepth =
     SymbMetadata.arg "max-depth" ActionArgumentKind.Integer true
       "Maximum instructions per path. Default: 512."
@@ -1726,7 +1732,7 @@ type SymbSearchAction() =
         ActionRole.Transform
         signature
         "Search for symbolic inputs satisfying a state condition."
-        [ "sx |> @symb-search cond=(fun pp -> pp.REG[PC]=0x401000)"
+        [ "sx |> @symb-search cond=(fun pp -> pp.at(0x401000))"
           "sx |> @symb-search cond=(fun _ -> mem.writeViolation())" ]
         with
         Syntaxes =
@@ -1740,14 +1746,19 @@ type SymbSearchAction() =
         let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults rest
         let hdl = Binary.Handle executor.Binary
         let condition = SymbCondition.parse cond
-        let predicate =
-          SymbCondition.toPredicate hdl executor.Regions condition
-        executor.RunSatisfyCondition(predicate,
-                                     maxDepth,
-                                     maxStates,
-                                     loopBound,
-                                     prune)
-        |> box
+        let result =
+          match SymbCondition.trySatisfyAddress condition with
+          | Some target ->
+            executor.RunSatisfy(target, maxDepth, maxStates, loopBound, prune)
+          | None ->
+            let predicate =
+              SymbCondition.toPredicate hdl executor.Regions condition
+            executor.RunSatisfyCondition(predicate,
+                                         maxDepth,
+                                         maxStates,
+                                         loopBound,
+                                         prune)
+        result |> box
       | _ -> invalidArg (nameof args) "Invalid symb-search arguments."
     | value -> invalidOp $"symb-search expects SymbExecutor: {value}"
 
