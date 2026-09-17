@@ -56,6 +56,11 @@ module TransformerTuiInputController =
     let _, height = TransformerTuiTerminal.dimensions ()
     TransformerTuiModel.transcriptHeight height model
 
+  let private transcriptPageSize model =
+    let width, height = TransformerTuiTerminal.dimensions ()
+    let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
+    bodyWidth, TransformerTuiModel.transcriptHeight height model
+
   let private inspectionItems model =
     model.Session.Current
     |> Option.map TransformerReplInspection.inspect
@@ -92,7 +97,7 @@ module TransformerTuiInputController =
       TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
 
   let private normalizeClipboardText (text: string) =
-    text.Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' ')
+    text.Replace("\r\n", "\n").Replace('\r', '\n')
 
   let private copyInput model =
     if String.IsNullOrEmpty model.Input then
@@ -333,36 +338,38 @@ module TransformerTuiInputController =
     | ConsoleKey.F4 ->
       TransformerTuiModel.openSelectedViewPane model |> TuiInputResult.Update
     | ConsoleKey.PageUp ->
-      let height = pageHeight model
-      TransformerTuiModel.moveTranscriptCursorInView height (-height) 0 model
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptCursorInView
+        width height (-height) 0 model
       |> TuiInputResult.Update
     | ConsoleKey.PageDown ->
-      let height = pageHeight model
-      TransformerTuiModel.moveTranscriptCursorInView height height 0 model
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptCursorInView
+        width height height 0 model
       |> TuiInputResult.Update
     | ConsoleKey.UpArrow when control ->
-      let height = pageHeight model
-      TransformerTuiModel.moveTranscriptCommand height -1 model
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptCommand width height -1 model
       |> TuiInputResult.Update
     | ConsoleKey.DownArrow when control ->
-      let height = pageHeight model
-      TransformerTuiModel.moveTranscriptCommand height 1 model
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptCommand width height 1 model
       |> TuiInputResult.Update
     | ConsoleKey.UpArrow ->
-      let height = pageHeight model
-      TransformerTuiModel.moveTranscriptCursorInView height -1 0 model
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptCursorInView width height -1 0 model
       |> TuiInputResult.Update
     | ConsoleKey.DownArrow ->
-      let height = pageHeight model
-      TransformerTuiModel.moveTranscriptCursorInView height 1 0 model
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptCursorInView width height 1 0 model
       |> TuiInputResult.Update
     | ConsoleKey.LeftArrow ->
-      let height = pageHeight model
-      TransformerTuiModel.moveTranscriptCursorInView height 0 -1 model
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptCursorInView width height 0 -1 model
       |> TuiInputResult.Update
     | ConsoleKey.RightArrow ->
-      let height = pageHeight model
-      TransformerTuiModel.moveTranscriptCursorInView height 0 1 model
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptCursorInView width height 0 1 model
       |> TuiInputResult.Update
     | _ ->
       TuiInputResult.Update model

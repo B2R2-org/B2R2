@@ -429,39 +429,21 @@ module TransformerTuiRenderer =
     let first = max 0 (last - count)
     lines |> List.skip first |> List.truncate (last - first)
 
-  let private takeAnchoredLines width count start lines =
-    lines
-    |> List.skip start
-    |> List.collect (wrapLine width)
-    |> List.truncate count
-
-  let private takeScrolledLines width count offset lines =
-    let needed = count + offset
-    let rec loop acc lineCount = function
-      | [] ->
-        acc
-      | _ when lineCount >= needed ->
-        acc
-      | line :: rest ->
-        let wrapped = wrapLine width line
-        loop (wrapped @ acc) (lineCount + List.length wrapped) rest
-    lines
-    |> List.rev
-    |> loop [] 0
-    |> takeLast count offset
-
-  let private takeTranscriptLines width count offset start lines =
-    if offset = 0 then takeAnchoredLines width count start lines
-    else takeScrolledLines width count offset lines
+  let private takeTranscriptRows count offset start lines =
+    if offset = 0 then lines |> List.skip start |> List.truncate count
+    else takeLast count offset lines
 
   let private takeBody bodyHeight bodyWidth registry model =
     match model.Overlay with
     | TuiOverlay.None ->
-      let lines: TuiLine list =
-        TransformerTuiModel.transcriptDisplayLines bodyHeight model
-        |> List.map (fun (line: TuiTranscriptLine) -> line.Line)
-      let start = TransformerTuiModel.transcriptViewportStart bodyHeight model
-      takeTranscriptLines bodyWidth bodyHeight model.ScrollOffset start lines
+      let lines: (TuiLineKind * string) list =
+        TransformerTuiModel.transcriptDisplayRows bodyWidth bodyHeight model
+        |> List.map (fun (line: TuiTranscriptLine) ->
+          line.Line.Kind, line.Line.Text)
+      let start =
+        TransformerTuiModel.transcriptViewportStart
+          bodyWidth bodyHeight model
+      takeTranscriptRows bodyHeight model.ScrollOffset start lines
     | _ ->
       if model.Overlay = TuiOverlay.View then
         let lineCount =
@@ -500,8 +482,9 @@ module TransformerTuiRenderer =
         if pane.IsFinding then $"  find: {pane.FindText}"
         else ""
       $"view result #{pane.BlockIndex}  {line}/{count}:{column}{find}"
-    | _ when model.Focus = TuiFocus.Transcript ->
-      fallback
+    | _ when model.Focus = TuiFocus.Transcript
+             && fallback = "Transcript focused" ->
+      ""
     | _ ->
       fallback
 
@@ -602,7 +585,7 @@ module TransformerTuiRenderer =
           loop finish (paint reverse current :: chunks) rest
       String.concat "" (loop 0 [] highlights) + padding
 
-  let private splitHintText (text: string) : string list =
+  let private splitHintText (text: string): string list =
     text.Replace("\r\n", "\n").Replace('\r', '\n').Split '\n'
     |> Array.toList
 
@@ -732,7 +715,12 @@ module TransformerTuiRenderer =
       |> List.mapi (fun offset line ->
         let absolute = first + offset
         let prompt =
-          if model.IsBusy then "  " elif absolute = 0 then "> " else "  "
+          if model.IsBusy then
+            "  "
+          elif absolute = 0 then
+            "> "
+          else
+            "  "
         let isCursorLine = absolute = cursorLine
         let ghost =
           if isCursorLine && model.Cursor = model.Input.Length then
@@ -778,17 +766,10 @@ module TransformerTuiRenderer =
         TransformerTuiModel.transcriptHeight height model
       let suggestionCount =
         max 1 (availableBodyAndCompletion - bodyHeight)
-      let defaultRightWidth =
-        if width >= 100 then min 34 (width / 3) else 0
+      let leftWidth = TransformerTuiModel.transcriptBodyWidth width model
       let rightWidth =
-        match model.SidebarWidth with
-        | Some requested when requested <= 0 -> 0
-        | Some requested when width >= 60 ->
-          max 20 (min (width - 40) requested)
-        | Some _ -> 0
-        | None -> defaultRightWidth
+        if leftWidth < width then width - leftWidth - 1 else 0
       let hasSidebar = rightWidth > 0
-      let leftWidth = width - rightWidth - (if hasSidebar then 1 else 0)
       let body = takeBody bodyHeight leftWidth registry model
       let padding =
         List.replicate (bodyHeight - List.length body)
@@ -806,13 +787,16 @@ module TransformerTuiRenderer =
         if model.IsBusy then $"{spinner model.SpinnerFrame} running"
         else model.Status
       let paneStatus = paneStatus model busy
+      let status =
+        if String.IsNullOrWhiteSpace paneStatus then ""
+        else "  " + paneStatus
       let title = paint bold " B2R2 TRANSFORMER "
       let subtitle = paint dim " Interactive Binary Analysis"
       let state =
         $" current: {currentSummary model}  "
         + $"bindings: {Map.count model.Session.Bindings}  "
-        + $"focus: {model.Focus.ToString().ToLowerInvariant()}  "
-        + paneStatus
+        + $"focus: {model.Focus.ToString().ToLowerInvariant()}"
+        + status
       let divider = paint dim (String.replicate width "-")
       let suggestions =
         suggestionRows suggestionCount width completion model.SuggestionIndex

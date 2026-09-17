@@ -49,23 +49,65 @@ module TransformerRepl =
   let private printOutput output =
     (output: ReplOutput).Lines |> List.iter (printfn "%s")
 
-  let private runLineMode registry =
-    printfn "B2R2 Transformer interactive analysis"
-    printfn "Type :help for commands and :actions for available actions."
+  let private readRedirectedLines () =
+    let rec loop lines =
+      let input = Console.ReadLine()
+      if isNull input then
+        List.rev lines
+      else
+        loop (input :: lines)
+    loop []
+
+  let private evaluateLineModeCommand registry state (input: string) =
+    if input.Trim() = ":clear" then
+      registry, state, false
+    else
+      match TransformerReplEvaluator.evaluateLine registry state input with
+      | Exit _ ->
+        registry, state, true
+      | Continue(registry, state, output) ->
+        printOutput output
+        registry, state, false
+
+  let private runCombinedLineMode registry state lines =
+    match InputAnalysis.combineCommandLines lines with
+    | Error message ->
+      printfn "Error: %s" message
+    | Ok commands ->
+      let rec loop registry state = function
+        | [] ->
+          ()
+        | command :: rest ->
+          let registry, state, shouldExit =
+            evaluateLineModeCommand registry state command
+          if shouldExit then
+            ()
+          else
+            loop registry state rest
+      loop registry state commands
+
+  let private runPromptLineMode registry state =
     let rec loop registry state =
       let input = Console.ReadLine()
       if isNull input then
         ()
-      elif input.Trim() = ":clear" then
-        loop registry state
       else
-        match TransformerReplEvaluator.evaluateLine registry state input with
-        | Exit _ ->
+        let registry, state, shouldExit =
+          evaluateLineModeCommand registry state input
+        if shouldExit then
           ()
-        | Continue(registry, state, output) ->
-          printOutput output
+        else
           loop registry state
-    loop registry TransformerReplState.empty
+    loop registry state
+
+  let private runLineMode registry =
+    printfn "B2R2 Transformer interactive analysis"
+    printfn "Type :help for commands and :actions for available actions."
+    let state = TransformerReplState.empty
+    if Console.IsInputRedirected then
+      readRedirectedLines () |> runCombinedLineMode registry state
+    else
+      runPromptLineMode registry state
 
   let private scriptLines path =
     if not (System.IO.File.Exists path) then
@@ -102,10 +144,23 @@ module TransformerRepl =
   let private hasModifier modifier (key: ConsoleKeyInfo) =
     key.Modifiers &&& modifier = modifier
 
-  let private isTextKey key =
+  let private isTextKey (key: ConsoleKeyInfo) =
     not (hasModifier ConsoleModifiers.Control key)
     && not (hasModifier ConsoleModifiers.Alt key)
     && not (Char.IsControl key.KeyChar)
+
+  let private isLineBreakKey (key: ConsoleKeyInfo) =
+    not (hasModifier ConsoleModifiers.Control key)
+    && not (hasModifier ConsoleModifiers.Alt key)
+    && (key.Key = ConsoleKey.Enter
+        || key.KeyChar = '\r'
+        || key.KeyChar = '\n')
+
+  let private lineBreakText (key: ConsoleKeyInfo) =
+    if key.KeyChar = char 0 then "\n" else string key.KeyChar
+
+  let private normalizeLineBreaks (text: string) =
+    text.Replace("\r\n", "\n").Replace('\r', '\n')
 
   let private toTuiLine (line: string) =
     let kind =
@@ -322,10 +377,12 @@ module TransformerRepl =
         let key = Console.ReadKey true
         if isTextKey key then
           builder.Append(key.KeyChar) |> ignore
+        elif isLineBreakKey key && Console.KeyAvailable then
+          builder.Append(lineBreakText key) |> ignore
         else
           addPending key
           keepReading <- false
-      builder.ToString()
+      builder.ToString() |> normalizeLineBreaks
     let samePhysicalKey (left: ConsoleKeyInfo) (right: ConsoleKeyInfo) =
       left.Key = right.Key && left.Modifiers = right.Modifiers
     let isViewNavigationKey (key: ConsoleKeyInfo) =

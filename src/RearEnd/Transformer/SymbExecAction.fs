@@ -41,6 +41,8 @@ type LowUIRExpr = B2R2.BinIR.LowUIR.Expr
 
 type LowUIRStmt = B2R2.BinIR.LowUIR.Stmt
 
+type SymbCallHookRegistry = CallHookRegistry<SymbCallHook>
+
 type SymbSolverFactory = Func<ISolver>
 
 type SymbSolverValue(id: string,
@@ -578,17 +580,19 @@ and SymbRunValue(source: SymbExecutorValue,
         sb.AppendLine($"    {prefix}: {text}") |> ignore)
 
   let statusText =
-    match result with
-    | SymbRunResult.Reachable answers ->
-      $"reachable ({List.length answers} answer(s))"
-    | SymbRunResult.Unreachable -> "unreachable"
-    | SymbRunResult.Satisfiable answers ->
-      $"satisfiable ({List.length answers} model(s))"
-    | SymbRunResult.Unsatisfiable -> "unsatisfiable"
-    | SymbRunResult.Unknown failures ->
-      $"unknown ({List.length failures} failure(s))"
-    | SymbRunResult.TimedOut(timeout, _) ->
+    match result.Timeout with
+    | Some timeout ->
       $"timed out after {timeout} ms"
+    | None ->
+      match result.Answer with
+      | SymbAnswer.Reachable answers ->
+        $"reachable ({List.length answers} answer(s))"
+      | SymbAnswer.Unreachable -> "unreachable"
+      | SymbAnswer.Satisfiable answers ->
+        $"satisfiable ({List.length answers} model(s))"
+      | SymbAnswer.Unsatisfiable -> "unsatisfiable"
+      | SymbAnswer.Unknown failures ->
+        $"unknown ({List.length failures} failure(s))"
 
   let appendInputModels (sb: StringBuilder) values =
     if List.isEmpty values then
@@ -629,22 +633,21 @@ and SymbRunValue(source: SymbExecutorValue,
 
   member _.ModelText() =
     let sb = StringBuilder()
-    let rec appendResult = function
-      | SymbRunResult.Satisfiable answers ->
+    let appendResult = function
+      | SymbAnswer.Satisfiable answers ->
         answers |> List.iteri (fun idx answer ->
           appendSatAnswer sb (idx + 1) answer)
-      | SymbRunResult.Reachable answers ->
+      | SymbAnswer.Reachable answers ->
         answers |> List.iteri (fun idx answer ->
           appendReachAnswer sb (idx + 1) answer)
-      | SymbRunResult.Unknown failures ->
+      | SymbAnswer.Unknown failures ->
         failures |> List.iteri (fun idx failure ->
           appendFailure sb (idx + 1) failure)
-      | SymbRunResult.TimedOut(_, result) -> appendResult result
-      | SymbRunResult.Unreachable ->
+      | SymbAnswer.Unreachable ->
         sb.AppendLine("unreachable") |> ignore
-      | SymbRunResult.Unsatisfiable ->
+      | SymbAnswer.Unsatisfiable ->
         sb.AppendLine("unsatisfiable") |> ignore
-    appendResult result
+    appendResult result.Answer
     sb.ToString().TrimEnd()
 
   override this.ToString() =
@@ -978,12 +981,12 @@ module private SymbCondition =
           with _ -> None
       rid |> Option.bind (fun rid ->
         match point.State.TryGetReg rid with
-        | Ok expr -> Some expr
-        | Error _ -> None)
+        | ValueSome expr -> Some expr
+        | ValueNone -> None)
 
   let tryMemory (hdl: BinHandle) (point: StopPoint<SymbState>)
                 (addr: Addr) (typ: RegType) =
-    point.State.Memory.Load(addr, hdl.ISA.Endian, typ)
+    SymbMemoryOperation.load addr hdl.ISA.Endian typ point.State.Memory
     |> function
       | Ok expr -> Some expr
       | Error _ -> None
@@ -1013,7 +1016,7 @@ module private SymbCondition =
     exprs |> List.fold orExpr (boolConst false)
 
   let tryAddress (point: StopPoint<SymbState>) (addr: LowUIRExpr) =
-    match SymbExprTranslator.translate point.State addr with
+    match SymbExprEvaluator.eval point.State addr with
     | Ok expr -> Some expr
     | Error _ -> None
 

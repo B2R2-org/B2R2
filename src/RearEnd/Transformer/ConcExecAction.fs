@@ -35,6 +35,9 @@ open B2R2.BinIR.LowUIR
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ConcEval
+open B2R2.MiddleEnd.Executor
+
+type private ConcMemory = IMemory<byte>
 
 module private ConcActionParsing =
   let parseUInt64 (value: string) =
@@ -58,7 +61,7 @@ module private ConcActionParsing =
   let alignDown align (value: Addr) =
     if align = 0UL then value else value - (value % align)
 
-type private TracingMemory(inner: IMemory) =
+type private TracingMemory(inner: ConcMemory) =
   let accesses = ResizeArray<MemoryAccess>()
   let mutable instruction = 0UL
 
@@ -70,10 +73,10 @@ type private TracingMemory(inner: IMemory) =
     let mutable index = 0
     while ok && index < count do
       match inner.ByteRead(addr + uint64 index) with
-      | Ok value ->
+      | ValueSome value ->
         bytes[index] <- value
         index <- index + 1
-      | Result.Error _ ->
+      | ValueNone ->
         ok <- false
     if ok then Some bytes else None
 
@@ -90,16 +93,7 @@ type private TracingMemory(inner: IMemory) =
 
   member _.SetInstruction addr = instruction <- addr
 
-  interface IUndefinedMemory with
-
-    member _.MarkUndefined(addr, count) =
-      let before = readBytes addr count
-      match inner with
-      | :? IUndefinedMemory as mem -> mem.MarkUndefined(addr, count)
-      | _ -> ()
-      addAccess MemoryAccessKind.Write addr count before None
-
-  interface IMemory with
+  interface IMemory<byte> with
 
     member _.ByteRead(addr) = inner.ByteRead addr
 
@@ -108,31 +102,14 @@ type private TracingMemory(inner: IMemory) =
       inner.ByteWrite(addr, b)
       addAccess MemoryAccessKind.Write addr 1 before (Some [| b |])
 
-    member _.Read(addr, endian, typ) =
-      let size = byteCount typ
-      let result = inner.Read(addr, endian, typ)
-      let bytes =
-        match result with
-        | Ok _ -> readBytes addr size
-        | Result.Error _ -> None
-      addAccess MemoryAccessKind.Read addr size None bytes
-      result
-
-    member _.Write(addr, value, endian) =
-      let size = value.Length |> RegType.toByteWidth
-      let before = readBytes addr size
-      inner.Write(addr, value, endian)
-      let after = readBytes addr size
-      addAccess MemoryAccessKind.Write addr size before after
-
     member _.Clear() = inner.Clear()
 
-    member _.Clone() = TracingMemory(inner.Clone()) :> IMemory
+    member _.Clone() = TracingMemory(inner.Clone()) :> ConcMemory
 
 /// Stateful concrete executor used by the Transformer REPL.
 type ConcExecutorValue(binary: Binary,
-                       initialState: EvalState option,
-                       previousResult: ConcRunResult<EvalState> option,
+                       initialState: ConcState option,
+                       previousResult: ConcRunResult option,
                        previousTrace: ExecutionTrace option,
                        memoryRanges: (Addr * int) list) as this =
   let hdl = Binary.Handle binary
@@ -164,24 +141,30 @@ type ConcExecutorValue(binary: Binary,
   let clearRunState state ranges = withState state None None ranges
 
   let formatStopReason = function
-    | StoppedAtAddress addr -> $"stopped-at=0x{addr:x}"
-    | StoppedAfterAddress addr -> $"stopped-after=0x{addr:x}"
-    | StoppedAtReturn addr -> $"return-at=0x{addr:x}"
-    | StoppedAfterReturn addr -> $"return-after=0x{addr:x}"
-    | StoppedAtCall(addr, Some target) ->
+    | ConcStopReason.StoppedAtAddress addr -> $"stopped-at=0x{addr:x}"
+    | ConcStopReason.StoppedAfterAddress addr -> $"stopped-after=0x{addr:x}"
+    | ConcStopReason.StoppedAtReturn addr -> $"return-at=0x{addr:x}"
+    | ConcStopReason.StoppedAfterReturn addr -> $"return-after=0x{addr:x}"
+    | ConcStopReason.StoppedAtCall(addr, Some target) ->
       $"call-at=0x{addr:x} target=0x{target:x}"
-    | StoppedAtCall(addr, None) -> $"call-at=0x{addr:x}"
-    | StoppedAtSideEffect(addr, effect) ->
+    | ConcStopReason.StoppedAtCall(addr, None) -> $"call-at=0x{addr:x}"
+    | ConcStopReason.StoppedAtSideEffect(addr, effect) ->
       $"side-effect-at=0x{addr:x} effect={effect}"
-    | UndefinedValue addr -> $"undefined-at=0x{addr:x}"
-    | InstructionLimitReached(addr, limit) ->
+    | ConcStopReason.UndefinedValue addr -> $"undefined-at=0x{addr:x}"
+    | ConcStopReason.InstructionLimitReached(addr, limit) ->
       $"limit={limit} at=0x{addr:x}"
-    | EvaluationError(addr, error) -> $"error-at=0x{addr:x} error={error}"
-    | UserStopConditionMet addr -> $"user-stop-at=0x{addr:x}"
-    | InvalidInstructionAddress addr -> $"invalid-address=0x{addr:x}"
+    | ConcStopReason.EvaluationError(addr, error) ->
+      $"error-at=0x{addr:x} error={error}"
+    | ConcStopReason.UserStopConditionMet addr -> $"user-stop-at=0x{addr:x}"
+    | ConcStopReason.InvalidInstructionAddress addr ->
+      $"invalid-address=0x{addr:x}"
+    | ConcStopReason.CallHandlingFailure(addr, Some target, reason) ->
+      $"call-failure-at=0x{addr:x} target=0x{target:x} reason={reason}"
+    | ConcStopReason.CallHandlingFailure(addr, None, reason) ->
+      $"call-failure-at=0x{addr:x} reason={reason}"
 
   let isLimitReason = function
-    | InstructionLimitReached _ -> true
+    | ConcStopReason.InstructionLimitReached _ -> true
     | _ -> false
 
   let hasNonLimitStop reasons =
@@ -200,7 +183,7 @@ type ConcExecutorValue(binary: Binary,
     | None ->
       invalidOp "Stack pointer register is unavailable for this ISA."
 
-  let registerText (targetState: EvalState) rid =
+  let registerText (targetState: ConcState) rid =
     match targetState.TryGetReg rid with
     | Def value -> Some(value.ToString())
     | Undef -> None
@@ -211,7 +194,7 @@ type ConcExecutorValue(binary: Binary,
       registerText state rid |> Option.defaultValue "<undef>"
     | None -> "<unavailable>"
 
-  let isRegisterDefined (targetState: EvalState) rid =
+  let isRegisterDefined (targetState: ConcState) rid =
     match targetState.TryGetReg rid with
     | Def _ -> true
     | Undef -> false
@@ -308,7 +291,7 @@ type ConcExecutorValue(binary: Binary,
     | SideEffect _ ->
       []
 
-  let tryReadBytes (addr: Addr) (count: int) (targetState: EvalState) =
+  let tryReadBytes (addr: Addr) (count: int) (targetState: ConcState) =
     try (accessorFor targetState).ReadBytes(addr, count) |> Some
     with _ -> None
 
@@ -326,22 +309,22 @@ type ConcExecutorValue(binary: Binary,
   let aggregateStopReasons total reasons =
     reasons
     |> List.map (function
-      | InstructionLimitReached(addr, _) -> InstructionLimitReached(addr, total)
+      | ConcStopReason.InstructionLimitReached(addr, _) ->
+        ConcStopReason.InstructionLimitReached(addr, total)
       | reason -> reason)
 
-  let runOne (addr: Addr) (runState: EvalState) =
+  let runOne (addr: Addr) (runState: ConcState) =
     match runState.Memory with
     | :? TracingMemory as memory -> memory.SetInstruction addr
     | _ -> ()
     let instruction =
       { Address = addr
         Disassembly = instructionAt addr }
-    let result =
-      executor.Run(addr, runState,
-        ConcRunOptions.Default(StopAfterInstructionCount 1))
+    let options = ConcRunOptions.Default().WithMaxInstructions 1
+    let result = executor.Run(addr, runState, options)
     result, instruction
 
-  let rec runSteps (start: Addr) count (runState: EvalState) =
+  let rec runSteps (start: Addr) count (runState: ConcState) =
     let rec loop addr remaining instructions total lastResult =
       if remaining <= 0 then
         lastResult, List.rev instructions
@@ -381,9 +364,9 @@ type ConcExecutorValue(binary: Binary,
       MemoryDiffs = memoryDiff watch beforeState result.State
       StopReasons = stopReasons result }
 
-  let runWithTrace start count (sourceState: EvalState) watch =
+  let runWithTrace start count (sourceState: ConcState) watch =
     let traceMemory = TracingMemory(sourceState.Memory.Clone())
-    let runState = sourceState.Clone(traceMemory :> IMemory)
+    let runState = sourceState.Clone(traceMemory :> ConcMemory)
     let beforeState = runState.Clone()
     let result, instructions = runSteps start count runState
     let trace =
@@ -454,7 +437,7 @@ type ConcExecutorValue(binary: Binary,
     match SafeEvaluator.evalExpr state addrExpr with
     | Ok(Def addr) ->
       let addr = addr.ToUInt64()
-      match state.Memory.Read(addr, endian, typ) with
+      match Memory.read addr endian typ state.Memory with
       | Ok _ -> None
       | Result.Error _ ->
         let size = RegType.toByteWidth typ
@@ -623,11 +606,13 @@ type ConcExecutorValue(binary: Binary,
         parseUInt64 entry, parseInt limit, Some(parseUInt64 breakpoint)
       | _ -> invalidArg (nameof args) "Invalid run argument layout."
     let stops =
-      StopAfterInstructionCount limit
-      :: (breakpoint |> Option.map StopAtAddress |> Option.toList)
+      breakpoint
+      |> Option.map ConcStopCondition.StopAtAddress
+      |> Option.toList
     let beforeState = state.Clone()
     let runState = state.Clone()
-    let result = executor.Run(start, runState, ConcRunOptions.Default stops)
+    let options = ConcRunOptions.Default(stops).WithMaxInstructions limit
+    let result = executor.Run(start, runState, options)
     let instruction =
       { Address = start
         Disassembly = instructionAt start }
@@ -1019,7 +1004,7 @@ type RandomAction() =
 type UserStackAction() =
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
-    let top = ConcStateAccessor.DefaultStackTop
+    let top = 0x7fffffffe000UL
     let window = 0x100000UL
     let address =
       ConcActionParsing.randomAddress (top - window) top
