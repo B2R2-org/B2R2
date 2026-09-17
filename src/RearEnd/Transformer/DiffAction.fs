@@ -26,316 +26,258 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open System.Collections.Generic
+open System.Threading
 open B2R2
 open B2R2.RearEnd.Transformer.Utils
 
-type KVecDim =
-  { XOffsets: int[]
-    IdxForward: int
-    IdxBackward: int }
-
-type OverlappedPosition =
-  { X: int
-    Y: int }
-
-type Box =
-  { XOff: int
-    XLim: int
-    YOff: int
-    YLim: int }
-
-type DiffData =
-  { LineNo: int[]
-    LineID: int[]
-    ChangedLineNumbers: bool[]
-    Len: int }
+type LineDiffEdit =
+  | Equal of left: int * right: int
+  | Delete of left: int
+  | Insert of right: int
 
 /// The `diff` action.
 type DiffAction() =
-  let rec findUniqId lineNum cnt lines (dict: Dictionary<_, int>) =
-    if lineNum = Array.length lines then
-      dict
-    else
-      let found, _ = dict.TryGetValue lines[lineNum]
-      if not found then
-        dict.Add(lines[lineNum], cnt)
-        findUniqId (lineNum + 1) (cnt + 1) lines dict
-      else
-        findUniqId (lineNum + 1) cnt lines dict
-
-  let rec findChangedLines lineNum rchg lineToId (lines: _[]) =
-    if lineNum = -1 then
-      Array.ofList rchg
-    else
-      let found, _ = (lineToId: Dictionary<_, _>).TryGetValue lines[lineNum]
-      if found then
-        findChangedLines (lineNum - 1) (false :: rchg) lineToId lines
-      else
-        findChangedLines (lineNum - 1) (true :: rchg) lineToId lines
-
-  let rec matchIndices n
-                       lineID
-                       rindex
-                       (rchg: bool[])
-                       (lineToId: Dictionary<_, int>)
-                       lines =
-    if n = Array.length lines then
-      lineID, rindex
-    elif rchg[n] then
-      matchIndices (n + 1) lineID rindex rchg lineToId lines
-    else
-      let lineID' = Array.append lineID [| lineToId[lines[n]] |]
-      let rindex' = Array.append rindex [| n |]
-      matchIndices (n + 1) lineID' rindex' rchg lineToId lines
-
-  let rec findDiffstart n idA idB =
-    if n >= min (Array.length idA) (Array.length idB) then 0
-    elif idA[n] <> idB[n] then n
-    else findDiffstart (n + 1) idA idB
-
-  let rec findDiffend n idA idB =
-    if n >= min (Array.length idA) (Array.length idB) then
-      1
-    elif idA[(Array.length idA - 1) - n] <> idB[(Array.length idB - 1) - n] then
-      n
-    else
-      findDiffend (n + 1) idA idB
-
-  let trim idA idB (lnumA: int[]) (lnumB: int[]) =
-    let diffStart = findDiffstart 0 idA idB
-    let diffEnd = findDiffend 0 idA idB
-    let idA' = idA[diffStart..(Array.length idA - 1 - diffEnd)]
-    let idB' = idB[diffStart..(Array.length idB - 1 - diffEnd)]
-    let lnumA' = lnumA[diffStart..(Array.length lnumA - 1 - diffEnd)]
-    let lnumB' = lnumB[diffStart..(Array.length lnumB - 1 - diffEnd)]
-    idA', idB', lnumA', lnumB'
-
-  let prepareMyers linesA linesB =
-    let lineToIdA = Dictionary<_, int>() |> findUniqId 0 0 linesA
-    let lineToIdB = Dictionary<_, int>() |> findUniqId 0 0 linesB
-    let clnumA = findChangedLines (Array.length linesA - 1) [] lineToIdB linesA
-    let clnumB = findChangedLines (Array.length linesB - 1) [] lineToIdA linesB
-    let idA, lnumA = matchIndices 0 [||] [||] clnumA lineToIdA linesA
-    let idB, lnumB = matchIndices 0 [||] [||] clnumB lineToIdA linesB
-    let idA, idB, lnumA, lnumB = trim idA idB lnumA lnumB
-    let lnumA =
-      { LineNo = lnumA
-        LineID = idA
-        ChangedLineNumbers = clnumA
-        Len = Array.length lnumA }
-    let lnumB =
-      { LineNo = lnumB
-        LineID = idB
-        ChangedLineNumbers = clnumB
-        Len = Array.length lnumB }
-    lnumA, lnumB
-
-  /// Initialize the external K value
-  let adjustMin kvd idx min dmin value =
-    if min > dmin then
-      kvd.XOffsets[idx + (min - 1) - 1] <- value
-      min - 1
-    else
-      min + 1
-
-  /// Initialize the external K value
-  let adjustMax kvd idx max dmax value =
-    if max < dmax then
-      kvd.XOffsets[idx + (max + 1) + 1] <- value
-      max + 1
-    else
-      max - 1
-
-  let adjustBoundaryForward kvd min max dmin dmax =
-    let min' = adjustMin kvd kvd.IdxForward min dmin -1
-    let max' = adjustMax kvd kvd.IdxForward max dmax -1
-    min', max'
-
-  let adjustBoundaryBackward kvd min max dmin dmax =
-    let min' = adjustMin kvd kvd.IdxBackward min dmin Int32.MaxValue
-    let max' = adjustMax kvd kvd.IdxBackward max dmax Int32.MaxValue
-    min', max'
-
-  let rec takeSnakeForward x y boundX boundY (idA: int[]) (idB: int[]) =
-    if x < boundX && y < boundY && idA[x] = idB[y] then
-      takeSnakeForward (x + 1) (y + 1) boundX boundY idA idB
-    else
-      x
-
-  let rec takeSnakeBackward x y boundX boundY (idA: int[]) (idB: int[]) =
-    if x > boundX && y > boundY && idA[x - 1] = idB[y - 1] then
-      takeSnakeBackward (x - 1) (y - 1) boundX boundY idA idB
-    else
-      x
-
-  let rec traverseForward d fmin kvd idA idB box bmin bmax isOdd =
-    if d < fmin then
-      None
-    else
-      let x =
-        if kvd.XOffsets[kvd.IdxForward + d - 1]
-          >= kvd.XOffsets[kvd.IdxForward + d + 1] then
-          kvd.XOffsets[kvd.IdxForward + d - 1] + 1
-        else
-          kvd.XOffsets[kvd.IdxForward + d + 1]
-      let x = takeSnakeForward x (x - d) box.XLim box.YLim idA idB
-      kvd.XOffsets[kvd.IdxForward + d] <- x
-      if isOdd
-        && bmin <= d
-        && d <= bmax
-        && kvd.XOffsets[kvd.IdxBackward + d] <= x
-      then Some { X = x; Y = x - d }
-      else traverseForward (d - 2) fmin kvd idA idB box bmin bmax isOdd
-
-  let rec traverseBackward d bmin kvd idA idB box fmin fmax isOdd =
-    if d < bmin then
-      None
-    else
-      let x =
-        if kvd.XOffsets[kvd.IdxBackward + d - 1]
-          < kvd.XOffsets[kvd.IdxBackward + d + 1]
-        then kvd.XOffsets[kvd.IdxBackward + d - 1]
-        else kvd.XOffsets[kvd.IdxBackward + d + 1] - 1
-      let x = takeSnakeBackward x (x - d) box.XOff box.YOff idA idB
-      kvd.XOffsets[kvd.IdxBackward + d] <- x
-      if not isOdd
-        && fmin <= d
-        && d <= fmax
-        && x <= kvd.XOffsets[kvd.IdxForward + d] then Some { X = x; Y = x - d }
-      else traverseBackward (d - 2) bmin kvd idA idB box fmin fmax isOdd
-
-  let rec splitBox kvd idA idB box fmin fmax bmin bmax isOdd =
-    let dmin = box.XOff - box.YLim
-    let dmax = box.XLim - box.YOff
-    (* Forward *)
-    let fmin, fmax = adjustBoundaryForward kvd fmin fmax dmin dmax
-    let overlap1 = traverseForward fmax fmin kvd idA idB box bmin bmax isOdd
-    (* Backward *)
-    let bmin, bmax = adjustBoundaryBackward kvd bmin bmax dmin dmax
-    let overlap2 = traverseBackward bmax bmin kvd idA idB box fmin fmax isOdd
-    match (overlap1, overlap2) with
-    | (Some ov1, _) -> ov1
-    | (_, Some ov2) -> ov2
-    | (_, _) -> splitBox kvd idA idB box fmin fmax bmin bmax isOdd
-
-  /// Shrink the box by walking through SW diagonal snake.
-  let rec walkThroughDiagonalSW (idA: int[]) (idB: int[]) off1 lim1 off2 lim2 =
-    if off1 < lim1 && off2 < lim2 && idA[off1] = idB[off2] then
-      walkThroughDiagonalSW idA idB (off1 + 1) lim1 (off2 + 1) lim2
-    else
-      { XOff = off1; XLim = lim1; YOff = off2; YLim = lim2 }
-
-  /// Shrink the box by walking through NE diagonal snake.
-  let rec walkThroughDiagonalNE (idA: int[]) (idB: int[]) off1 lim1 off2 lim2 =
-    if off1 < lim1 && off2 < lim2 && idA[lim1 - 1] = idB[lim2 - 1] then
-      walkThroughDiagonalNE idA idB off1 (lim1 - 1) off2 (lim2 - 1)
-    else
-      { XOff = off1; XLim = lim1; YOff = off2; YLim = lim2 }
-
-  let rec markChangedLines dd off lim =
-    if off < lim then
-      dd.ChangedLineNumbers[dd.LineNo[off]] <- true
-      markChangedLines dd (off + 1) lim
-    else
-      ()
-
-  let shrinkBox idA idB box =
-    let box' = walkThroughDiagonalSW idA idB box.XOff box.XLim box.YOff box.YLim
-    walkThroughDiagonalNE idA idB box'.XOff box'.XLim box'.YOff box'.YLim
-
-  let rec cmpChangedLines kvd dd1 dd2 box =
-    (* Shrink the box by walking through each diagonal snake (SW and NE). *)
-    let box = shrinkBox dd1.LineID dd2.LineID box
-    if box.XOff = box.XLim then
-      markChangedLines dd2 box.YOff box.YLim
-    elif box.YOff = box.YLim then
-      markChangedLines dd1 box.XOff box.XLim
-    else
-      (* Divide *)
-      let fmid, bmid = box.XOff - box.YOff, box.XLim - box.YLim
-      let isOdd = (fmid - bmid) % 2 <> 0
-      kvd.XOffsets[kvd.IdxForward + fmid] <- box.XOff
-      kvd.XOffsets[kvd.IdxBackward + bmid] <- box.XLim
-      let spl = splitBox kvd dd1.LineID dd2.LineID box fmid fmid bmid bmid isOdd
-      (* Conquer *)
-      { XOff = box.XOff; XLim = spl.X; YOff = box.YOff; YLim = spl.Y }
-      |> cmpChangedLines kvd dd1 dd2
-      { XOff = spl.X; XLim = box.XLim; YOff = spl.Y; YLim = box.YLim }
-      |> cmpChangedLines kvd dd1 dd2
-
-  let myersDiff dd1 dd2 =
-    let nDiags = dd1.Len + dd2.Len + 3
-    let kvd =
-      { XOffsets = Array.zeroCreate (2 * nDiags + 2)
-        IdxForward = dd2.Len + 1
-        IdxBackward = dd2.Len + 1 + nDiags }
-    { XOff = 0; XLim = dd1.Len; YOff = 0; YLim = dd2.Len }
-    |> cmpChangedLines kvd dd1 dd2
-    dd1.ChangedLineNumbers, dd2.ChangedLineNumbers
-
   let [<Literal>] NumBytesPerLine = 16
+  let [<Literal>] MaxLineDiffCells = 2000000L
 
-  let padSpace (arr: _[]) =
-    let len = arr.Length
-    let padLen = NumBytesPerLine - len % NumBytesPerLine
-    Array.concat [| arr
-                    (Array.replicate (padLen - 1) (NoColor, "   "))
-                    [| (NoColor, "    ") |] |]
+  let byteAt (bytes: byte[]) index =
+    if index < bytes.Length then Some bytes[index] else None
 
-  let colorResult bs color res =
-    let hex = byteArrayToHexStringArray bs
-    Array.mapi2 (fun idx hex needColor ->
-      let isColor = if needColor then color else NoColor
-      let appendSpace = if idx = bs.Length - 1 then hex else hex + " "
-      isColor, appendSpace
-    ) hex res
-    |> padSpace
-    |> Array.chunkBySize NumBytesPerLine
+  let byteText = function
+    | Some(byte: byte) -> byte.ToString("x2")
+    | None -> "  "
 
-  let equalizeLines lines1 lines2 =
-    let maxlines = max (Array.length lines1) (Array.length lines2)
-    let dummyLine = padSpace [| (NoColor, "  ") |]
-    let appendLines1 =
-      Array.append lines1 (Array.replicate (maxlines - lines1.Length) dummyLine)
-    let appendLines2 =
-      Array.append lines2 (Array.replicate (maxlines - lines2.Length) dummyLine)
-    appendLines1, appendLines2
+  let byteColor left right color =
+    if left = right then NoColor else color
 
-  let diff bin1 bin2 =
-    let hdl1, hdl2 = Binary.Handle bin1, Binary.Handle bin2
-    let bs1, bs2 = hdl1.File.RawBytes.ToArray(), hdl2.File.RawBytes.ToArray()
-    let dd1, dd2 = prepareMyers bs1 bs2
-    let res1, res2 = myersDiff dd1 dd2
-    let res1, res2 = colorResult bs1 Red res1, colorResult bs2 Green res2
-    let res1, res2 = equalizeLines res1 res2
-    Array.mapi2 (fun lnum line1 line2 ->
-      let offsetStr = (lnum * NumBytesPerLine).ToString("x").PadLeft 8
-      Array.concat [| [| (NoColor, offsetStr + " | ") |]
-                      line1
-                      [| (NoColor, "| ") |]
-                      line2
-                      [| (NoColor, Environment.NewLine) |] |]) res1 res2
-    |> Array.concat
-    |> Array.fold (fun (cs: ColoredString) (col, str) ->
-      cs.Append(col, str)
-    ) (ColoredString())
+  let appendText color text (cs: ColoredString) =
+    cs.Append(color, text)
+
+  let appendLine color text cs =
+    cs
+    |> appendText color text
+    |> appendText NoColor Environment.NewLine
+
+  let appendByte color byte cs =
+    appendText color (byteText byte) cs
+
+  let appendSide (bytes: byte[]) (other: byte[]) color offset cs =
+    [ 0 .. NumBytesPerLine - 1 ]
+    |> List.fold (fun cs column ->
+      let index = offset + column
+      let byte = byteAt bytes index
+      let otherByte = byteAt other index
+      let cs = appendByte (byteColor byte otherByte color) byte cs
+      if column = NumBytesPerLine - 1 then cs else appendText NoColor " " cs)
+      cs
+
+  let appendByteRow marker bytes other color baseAddress (offset: int) cs =
+    let address = baseAddress + uint64 offset
+    let addressStr = $"0x{address:x}".PadLeft 10
+    cs
+    |> appendText color marker
+    |> appendText NoColor $" {addressStr} | "
+    |> appendSide bytes other color offset
+    |> appendText NoColor Environment.NewLine
+
+  let rowChanged (left: byte[]) (right: byte[]) offset =
+    [ 0 .. NumBytesPerLine - 1 ]
+    |> List.exists (fun column ->
+      let index = offset + column
+      byteAt left index <> byteAt right index)
+
+  let appendEqualRows count (cs: ColoredString) =
+    if count = 0 then cs
+    elif count = 1 then appendLine DarkCyan "  1 equal row" cs
+    else appendLine DarkCyan $"  {count} equal rows" cs
+
+  let appendChangedByteRow (left: byte[]) (right: byte[]) leftBase rightBase
+                           row cs =
+    let offset = row * NumBytesPerLine
+    cs
+    |> appendByteRow "-" left right Red leftBase offset
+    |> appendByteRow "+" right left Green rightBase offset
+
+  let appendByteDiffRows left right leftBase rightBase
+                         (changed: int list) rowCount cs =
+    let changed = HashSet<int>(changed)
+    let rec loop row equalRows cs =
+      if row = rowCount then
+        appendEqualRows equalRows cs
+      elif changed.Contains row then
+        cs
+        |> appendEqualRows equalRows
+        |> appendChangedByteRow left right leftBase rightBase row
+        |> loop (row + 1) 0
+      else
+        loop (row + 1) (equalRows + 1) cs
+    loop 0 0 cs
+
+  let buildLcsTable (left: string[]) (right: string[]) =
+    let table = Array2D.zeroCreate (left.Length + 1) (right.Length + 1)
+    for i = left.Length - 1 downto 0 do
+      for j = right.Length - 1 downto 0 do
+        if left[i] = right[j] then
+          table[i, j] <- table[i + 1, j + 1] + 1
+        else
+          table[i, j] <- max table[i + 1, j] table[i, j + 1]
+    table
+
+  let lineEdits (left: string[]) (right: string[]) =
+    let cells = int64 (left.Length + 1) * int64 (right.Length + 1)
+    if cells > MaxLineDiffCells then
+      let count = max left.Length right.Length
+      [ 0 .. count - 1 ]
+      |> List.collect (fun index ->
+        match index < left.Length, index < right.Length with
+        | true, true when left[index] = right[index] ->
+          [ Equal(index, index) ]
+        | true, true ->
+          [ Delete index; Insert index ]
+        | true, false ->
+          [ Delete index ]
+        | false, true ->
+          [ Insert index ]
+        | false, false ->
+          [])
+    else
+      let table = buildLcsTable left right
+      let rec loop i j edits =
+        if i < left.Length && j < right.Length && left[i] = right[j] then
+          loop (i + 1) (j + 1) (Equal(i, j) :: edits)
+        elif i < left.Length then
+          if j = right.Length || table[i + 1, j] >= table[i, j + 1] then
+            loop (i + 1) j (Delete i :: edits)
+          else
+            loop i (j + 1) (Insert j :: edits)
+        elif j < right.Length then
+          loop i (j + 1) (Insert j :: edits)
+        else
+          List.rev edits
+      loop 0 0 []
+
+  let appendLineDiff title (left: string[]) (right: string[]) =
+    let edits = lineEdits left right
+    let rec apply edits equalRows cs =
+      match edits with
+      | [] ->
+        appendEqualRows equalRows cs
+      | Equal _ :: rest ->
+        apply rest (equalRows + 1) cs
+      | Delete leftIndex :: rest ->
+        let lineNo = (leftIndex + 1).ToString().PadLeft 4
+        cs
+        |> appendEqualRows equalRows
+        |> appendLine Red $"- {lineNo}: {left[leftIndex]}"
+        |> apply rest 0
+      | Insert rightIndex :: rest ->
+        let lineNo = (rightIndex + 1).ToString().PadLeft 4
+        cs
+        |> appendEqualRows equalRows
+        |> appendLine Green $"+ {lineNo}: {right[rightIndex]}"
+        |> apply rest 0
+    let cs = ColoredString()
+    cs
+    |> appendLine NoColor title
+    |> apply edits 0
     |> OutputColored
+
+  let binaryBytes (bin: Binary) =
+    let hdl = Binary.Handle bin
+    hdl.File.RawBytes.ToArray()
+
+  let diffBytes cancellationToken title leftBase rightBase
+                (bs1: byte[]) (bs2: byte[]) =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
+    let maxLength = max bs1.Length bs2.Length
+    let rowCount = (maxLength + NumBytesPerLine - 1) / NumBytesPerLine
+    let changedRows =
+      [ 0 .. rowCount - 1 ]
+      |> List.filter (fun row ->
+        cancellationToken.ThrowIfCancellationRequested()
+        rowChanged bs1 bs2 (row * NumBytesPerLine))
+    if List.isEmpty changedRows then
+      OutputColored(ColoredString(NoColor, "No diff."))
+    else
+      let cs = ColoredString()
+      cs
+      |> appendLine NoColor title
+      |> appendByteDiffRows bs1 bs2 leftBase rightBase changedRows rowCount
+      |> OutputColored
+
+  let binaryBase (bin: Binary) =
+    let hdl = Binary.Handle bin
+    hdl.File.BaseAddress
+
+  let diffBinary cancellationToken bin1 bin2 =
+    diffBytes cancellationToken "byte diff" (binaryBase bin1)
+      (binaryBase bin2) (binaryBytes bin1) (binaryBytes bin2)
+
+  let splitText (text: string) =
+    text.Replace("\r\n", "\n").Split '\n'
+
+  let instructionLines (instructions: Instruction[]) =
+    instructions |> Array.map (fun instruction -> instruction.ToString())
+
+  let cfgLines = function
+    | CFG(entry, cfg, _) ->
+      [| $"entry: 0x{entry:x}"
+         $"vertices: {cfg.Vertices.Length}"
+         $"edges: {cfg.Edges.Length}"
+         $"roots: {cfg.Roots.Length}"
+         $"exits: {cfg.Exits.Length}" |]
+    | NoCFG error ->
+      [| $"error: {error}" |]
+
+  let diffValues cancellationToken (left: obj) (right: obj) =
+    match left, right with
+    | (:? Binary as left), (:? Binary as right) ->
+      diffBinary cancellationToken left right
+    | (:? BinaryBytes as left), (:? BinaryBytes as right) ->
+      diffBytes cancellationToken "byte diff" left.BaseAddress
+        right.BaseAddress left.Bytes right.Bytes
+    | (:? (Instruction[]) as left), (:? (Instruction[]) as right) ->
+      appendLineDiff "instruction diff" (instructionLines left)
+        (instructionLines right)
+    | (:? CFG as left), (:? CFG as right) ->
+      appendLineDiff "cfg diff" (cfgLines left) (cfgLines right)
+    | (:? TextArtifact as left), (:? TextArtifact as right) ->
+      appendLineDiff "text artifact diff" (splitText left.Content)
+        (splitText right.Content)
+    | (:? string as left), (:? string as right) ->
+      appendLineDiff "text diff" (splitText left) (splitText right)
+    | (:? OutString as left), (:? OutString as right) ->
+      appendLineDiff "text diff" (splitText (left.ToString()))
+        (splitText (right.ToString()))
+    | _ ->
+      let message =
+        "diff supports Binary, ByteArray, InstructionArray, CFG, and Text "
+        + "pairs."
+      invalidArg (nameof DiffAction) message
+
+  let transform cancellationToken args collection =
+    let values = collection.Values
+    if values.Length <> 2 then
+      invalidArg (nameof DiffAction) "Can only diff exactly two values."
+    else
+      match args with
+      | [] ->
+        let outstr = diffValues cancellationToken values[0] values[1]
+        { Values = [| box outstr |] }
+      | _ -> invalidArg (nameof DiffAction) "Invalid input to diff"
 
   interface IAction with
     member _.ActionID with get() = "diff"
-    member _.Signature with get() = "Binary collection -> OutString"
+    member _.Signature with get() =
+      "Binary|ByteArray|InstructionArray|CFG|Text pair -> OutString"
     member _.Description with get() =
       """
-    Take in two binaries as input and return a diff string as output.
+    Take a tuple of two values of the same supported type and return a diff.
 """
     member _.Transform(args, collection) =
-      let bins = collection.Values
-      if bins.Length <> 2 then
-        invalidArg (nameof DiffAction) "Can only diff extractly two binaries."
-      else
-        match args with
-        | [] ->
-          let outstr = diff (unbox<Binary> bins[0]) (unbox<Binary> bins[1])
-          { Values = [| box outstr |] }
-        | _ ->
-          invalidArg (nameof DiffAction) "Invalid input to diff"
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection
