@@ -81,13 +81,7 @@ module private ConcRegionPerm =
       | Some _ -> None
 
 module private ConcActionParsing =
-  let parseUInt64 (value: string) =
-    let style, value =
-      if value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
-        NumberStyles.HexNumber, value[2..]
-      else
-        NumberStyles.Integer, value
-    UInt64.Parse(value, style, CultureInfo.InvariantCulture)
+  let parseUInt64 value = ContextParsing.parseAddress value
 
   let randomAddress minAddress maxAddress =
     if minAddress >= maxAddress then
@@ -650,63 +644,15 @@ type ConcExecutorValue private(binary: Binary,
         let finish = addr + uint64 count
         $"    0x{addr:x}-0x{finish:x} ({count} bytes)"))
 
-  let trimBrackets (text: string) =
-    let text = text.Trim()
-    if text.StartsWith("[", StringComparison.Ordinal)
-       && text.EndsWith("]", StringComparison.Ordinal) then
-      text[1..text.Length - 2].Trim()
-    else
-      text
-
-  let contextEntries text =
-    let text = trimBrackets text
-    text.Split([| ';'; ',' |], StringSplitOptions.RemoveEmptyEntries)
-    |> Array.map _.Trim()
-    |> Array.filter (String.IsNullOrWhiteSpace >> not)
-
-  let splitContextEntry (entry: string) =
-    let index = entry.IndexOf '='
-    if index <= 0 then
-      invalidArg (nameof entry) $"Expected key=value entry: {entry}"
-    else
-      entry[..index - 1].Trim(), entry[index + 1..].Trim()
-
-  let parseRegionPermission (entry: string) (text: string) =
-    let text = text.Trim().ToLowerInvariant()
-    let valid =
-      text.Length > 0
-      && (text |> Seq.forall (fun ch ->
-        ch = 'r' || ch = 'w' || ch = 'x'))
-    if valid then
-      { Read = text.Contains "r"
-        Write = text.Contains "w"
-        Execute = text.Contains "x" }
-    else
-      invalidArg (nameof entry) $"Invalid region permission: {entry}"
-
   let parseRegionAssignment (entry: string) =
-    let name, spec = splitContextEntry entry
-    let permIndex = spec.LastIndexOf ':'
-    if permIndex <= 0 then
-      invalidArg (nameof entry) $"Expected region name=start..end:perm: {entry}"
-    else
-      let range = spec[..permIndex - 1].Trim()
-      let permission = parseRegionPermission entry spec[permIndex + 1..]
-      let rangeParts = range.Split([| ".." |], StringSplitOptions.None)
-      if rangeParts.Length <> 2 then
-        invalidArg (nameof entry)
-          $"Expected region range start..end: {entry}"
-      else
-        let startAddress = parseUInt64 (rangeParts[0].Trim())
-        let endAddress = parseUInt64 (rangeParts[1].Trim())
-        if startAddress >= endAddress then
-          invalidArg (nameof entry)
-            $"Region start must be smaller than end: {entry}"
-        else
-          { Name = name
-            Start = startAddress
-            Finish = endAddress
-            Permission = permission }
+    let region = ContextParsing.parseRegion entry
+    { Name = region.Name
+      Start = region.Start
+      Finish = region.Finish
+      Permission =
+        { Read = region.Permission.Read
+          Write = region.Permission.Write
+          Execute = region.Permission.Execute } }
 
   let parseContextArgs (args: string list) =
     let rec loop (stack: Addr option)
@@ -715,36 +661,31 @@ type ConcExecutorValue private(binary: Binary,
                  (nextRegions: ConcMemoryRegion list) = function
       | [] -> stack, List.rev regs, List.rev memory, List.rev nextRegions
       | (token: string) :: rest ->
-        let index = token.IndexOf '='
-        if index <= 0 then
-          invalidArg (nameof args) $"Expected name=value parameter: {token}"
-        else
-          let key = token[..index - 1].Trim().ToLowerInvariant()
-          let value = token[index + 1..].Trim()
-          match key with
-          | "stack" ->
-            loop (Some(parseUInt64 value)) regs memory nextRegions rest
-          | "regs" | "registers" ->
-            let regs =
-              contextEntries value
-              |> Array.fold (fun regs entry ->
-                splitContextEntry entry :: regs) regs
-            loop stack regs memory nextRegions rest
-          | "mem" | "memory" ->
-            let memory =
-              contextEntries value
-              |> Array.fold (fun memory entry ->
-                splitContextEntry entry :: memory) memory
-            loop stack regs memory nextRegions rest
-          | "regions" ->
-            let nextRegions =
-              contextEntries value
-              |> Array.fold (fun regions entry ->
-                parseRegionAssignment entry :: regions) nextRegions
-            loop stack regs memory nextRegions rest
-          | _ ->
-            invalidArg (nameof args)
-              $"Unknown make-concrete-context parameter: {key}"
+        let key, value = ContextParsing.splitParameter token
+        match key with
+        | "stack" ->
+          loop (Some(parseUInt64 value)) regs memory nextRegions rest
+        | "regs" | "registers" ->
+          let regs =
+            ContextParsing.entries value
+            |> Array.fold (fun regs entry ->
+              ContextParsing.splitAssignment entry :: regs) regs
+          loop stack regs memory nextRegions rest
+        | "mem" | "memory" ->
+          let memory =
+            ContextParsing.entries value
+            |> Array.fold (fun memory entry ->
+              ContextParsing.splitAssignment entry :: memory) memory
+          loop stack regs memory nextRegions rest
+        | "regions" ->
+          let nextRegions =
+            ContextParsing.entries value
+            |> Array.fold (fun regions entry ->
+              parseRegionAssignment entry :: regions) nextRegions
+          loop stack regs memory nextRegions rest
+        | _ ->
+          invalidArg (nameof args)
+            $"Unknown make-concrete-context parameter: {key}"
     loop None [] [] regions args
 
   let lastRunLines () =

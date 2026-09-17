@@ -727,12 +727,7 @@ and SymbRunValue(source: SymbExecutorValue,
       header
 
 module private SymbArgs =
-  let parseAddr (text: string) =
-    if text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
-      UInt64.Parse(text.Substring 2, NumberStyles.HexNumber,
-                   CultureInfo.InvariantCulture)
-    else
-      UInt64.Parse(text, CultureInfo.InvariantCulture)
+  let parseAddr text = ContextParsing.parseAddress text
 
   let parseInt (text: string) =
     Int32.Parse(text, CultureInfo.InvariantCulture)
@@ -743,42 +738,11 @@ module private SymbArgs =
     | "false" | "no" | "off" -> false
     | _ -> invalidArg (nameof text) $"Invalid boolean value: {text}"
 
-  let parseHexBytes (text: string) =
-    let text =
-      text.Replace(" ", String.Empty).Replace("_", String.Empty)
-    let text =
-      if text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
-        text.Substring 2
-      else
-        text
-    if text.Length % 2 <> 0 then
-      invalidArg (nameof text) "Hex byte strings must have an even length."
-    else
-      [| for index in 0 .. 2 .. text.Length - 2 ->
-           Byte.Parse(text.Substring(index, 2),
-                      NumberStyles.HexNumber,
-                      CultureInfo.InvariantCulture) |]
+  let parseHexBytes text = ContextParsing.parseHexBytes text
 
-  let trimBrackets (text: string) =
-    let text = text.Trim()
-    if text.StartsWith("[", StringComparison.Ordinal)
-       && text.EndsWith("]", StringComparison.Ordinal) then
-      text[1..text.Length - 2].Trim()
-    else
-      text
+  let contextEntries text = ContextParsing.entries text
 
-  let contextEntries text =
-    let text = trimBrackets text
-    text.Split([| ';'; ',' |], StringSplitOptions.RemoveEmptyEntries)
-    |> Array.map _.Trim()
-    |> Array.filter (String.IsNullOrWhiteSpace >> not)
-
-  let splitAssignment (entry: string) =
-    let index = entry.IndexOf '='
-    if index <= 0 then
-      invalidArg (nameof entry) $"Expected key=value entry: {entry}"
-    else
-      entry[..index - 1].Trim(), entry[index + 1..].Trim()
+  let splitAssignment text = ContextParsing.splitAssignment text
 
   let parseMemoryAssignment entry =
     let addr, hex = splitAssignment entry
@@ -807,97 +771,63 @@ module private SymbArgs =
         Name = spec[..sizeIndex - 1].Trim()
         Size = parseInt (spec[sizeIndex + 1..].Trim()) }
 
-  let parseRegionPermission (entry: string) (text: string) =
-    let text = text.Trim().ToLowerInvariant()
-    let valid =
-      text.Length > 0
-      && (text |> Seq.forall (fun ch ->
-        ch = 'r' || ch = 'w' || ch = 'x'))
-    if valid then
-      { Read = text.Contains "r"
-        Write = text.Contains "w"
-        Execute = text.Contains "x" }
-    else
-      invalidArg (nameof entry) $"Invalid region permission: {entry}"
-
   let parseRegionAssignment (entry: string) =
-    let name, spec = splitAssignment entry
-    let permIndex = spec.LastIndexOf ':'
-    if permIndex <= 0 then
-      invalidArg (nameof entry) $"Expected region name=start..end:perm: {entry}"
-    else
-      let range = spec[..permIndex - 1].Trim()
-      let permission = parseRegionPermission entry spec[permIndex + 1..]
-      let rangeParts =
-        range.Split([| ".." |], StringSplitOptions.None)
-      if rangeParts.Length <> 2 then
-        invalidArg (nameof entry)
-          $"Expected region range start..end: {entry}"
-      else
-        let startAddress = parseAddr (rangeParts[0].Trim())
-        let endAddress = parseAddr (rangeParts[1].Trim())
-        if startAddress >= endAddress then
-          invalidArg (nameof entry)
-            $"Region start must be smaller than end: {entry}"
-        else
-          { Name = name
-            Start = startAddress
-            Finish = endAddress
-            Permission = permission }
+    let region = ContextParsing.parseRegion entry
+    { Name = region.Name
+      Start = region.Start
+      Finish = region.Finish
+      Permission =
+        { Read = region.Permission.Read
+          Write = region.Permission.Write
+          Execute = region.Permission.Execute } }
 
   let parseContext args =
     let rec loop (spec: SymbContextSpec) = function
       | [] -> spec
       | (token: string) :: rest ->
-        let index = token.IndexOf '='
-        if index <= 0 then
-          invalidArg (nameof args) $"Expected name=value parameter: {token}"
-        else
-          let key = token[..index - 1].Trim().ToLowerInvariant()
-          let value = token[index + 1..].Trim()
-          let spec =
-            match key with
-            | "pc" ->
-              { spec with PC = Some(parseAddr value) }
-            | "stack" ->
-              { spec with Stack = Some(parseAddr value) }
-            | "regs" | "registers" ->
-              let registers =
-                contextEntries value
-                |> Array.toList
-                |> List.map (fun entry ->
-                  let name, value = splitAssignment entry
-                  name, parseAddr value)
-              { spec with Registers = spec.Registers @ registers }
-            | "mem" | "memory" ->
-              let memory =
-                contextEntries value
-                |> Array.toList
-                |> List.map parseMemoryAssignment
-              { spec with Memory = spec.Memory @ memory }
-            | "sym-mem" | "symbolic-memory" ->
-              let symbolic =
-                contextEntries value
-                |> Array.toList
-                |> List.map parseSymbolicMemoryAssignment
-              { spec with SymbolicMemory = spec.SymbolicMemory @ symbolic }
-            | "sym-regs" | "symbolic-registers" ->
-              let symbolic =
-                contextEntries value
-                |> Array.toList
-                |> List.map parseSymbolicRegisterAssignment
-              { spec with
-                  SymbolicRegisters = spec.SymbolicRegisters @ symbolic }
-            | "regions" ->
-              let regions =
-                contextEntries value
-                |> Array.toList
-                |> List.map parseRegionAssignment
-              { spec with Regions = spec.Regions @ regions }
-            | _ ->
-              invalidArg (nameof args)
-                $"Unknown make-symbolic-context parameter: {key}"
-          loop spec rest
+        let key, value = ContextParsing.splitParameter token
+        let spec =
+          match key with
+          | "pc" ->
+            { spec with PC = Some(parseAddr value) }
+          | "stack" ->
+            { spec with Stack = Some(parseAddr value) }
+          | "regs" | "registers" ->
+            let registers =
+              contextEntries value
+              |> Array.toList
+              |> List.map (fun entry ->
+                let name, value = splitAssignment entry
+                name, parseAddr value)
+            { spec with Registers = spec.Registers @ registers }
+          | "mem" | "memory" ->
+            let memory =
+              contextEntries value
+              |> Array.toList
+              |> List.map parseMemoryAssignment
+            { spec with Memory = spec.Memory @ memory }
+          | "sym-mem" | "symbolic-memory" ->
+            let symbolic =
+              contextEntries value
+              |> Array.toList
+              |> List.map parseSymbolicMemoryAssignment
+            { spec with SymbolicMemory = spec.SymbolicMemory @ symbolic }
+          | "sym-regs" | "symbolic-registers" ->
+            let symbolic =
+              contextEntries value
+              |> Array.toList
+              |> List.map parseSymbolicRegisterAssignment
+            { spec with SymbolicRegisters = spec.SymbolicRegisters @ symbolic }
+          | "regions" ->
+            let regions =
+              contextEntries value
+              |> Array.toList
+              |> List.map parseRegionAssignment
+            { spec with Regions = spec.Regions @ regions }
+          | _ ->
+            invalidArg (nameof args)
+              $"Unknown make-symbolic-context parameter: {key}"
+        loop spec rest
     let empty: SymbContextSpec =
       { PC = None
         Stack = None
