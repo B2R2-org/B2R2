@@ -653,7 +653,7 @@ module Suggestions =
 
   let private isContextAction head =
     let id = actionID head
-    id = "set-context" || id = "symb-context"
+    id = "set-context" || id = "make-symbolic-context"
 
   let private setContextListCandidates state (context: InputContext) =
     match context.SegmentWords with
@@ -743,7 +743,7 @@ module Suggestions =
     | ReplValueKind.Array kind -> Some kind
     | _ -> None
 
-  let private isBatchParameterStart token =
+  let private isIterParameterStart token =
     match tryParameterName token with
     | Some name -> name = "params"
     | None -> false
@@ -768,7 +768,7 @@ module Suggestions =
         | _ :: rest -> rest
       positional
       |> List.takeWhile (fun token ->
-        token <> "(" && not (isBatchParameterStart token))
+        token <> "(" && not (isIterParameterStart token))
       |> List.tryFind (fun token ->
         token.StartsWith("@", StringComparison.Ordinal))
       |> Option.map actionID
@@ -924,11 +924,20 @@ module Suggestions =
         requiredRegisterCandidates "=" state prefix
       elif registered.Metadata.ID = "set-context" && name = "mem" then
         requiredMemoryCandidates "=" state prefix
-      elif registered.Metadata.ID = "symb-context" && name = "regs" then
+      elif
+        registered.Metadata.ID = "make-symbolic-context"
+        && name = "regs"
+      then
         requiredRegisterCandidates "=" state prefix
-      elif registered.Metadata.ID = "symb-context" && name = "mem" then
+      elif
+        registered.Metadata.ID = "make-symbolic-context"
+        && name = "mem"
+      then
         requiredMemoryCandidates "=" state prefix
-      elif registered.Metadata.ID = "symb-context" && name = "sym-mem" then
+      elif
+        registered.Metadata.ID = "make-symbolic-context"
+        && name = "sym-mem"
+      then
         contextListValueCandidates "sym-mem" prefix
       else
         ActionMetadata.matchingSyntaxes registered.Metadata inputKind completed

@@ -872,7 +872,8 @@ module private SymbArgs =
                 |> List.map parseRegionAssignment
               { spec with Regions = spec.Regions @ regions }
             | _ ->
-              invalidArg (nameof args) $"Unknown symb-context parameter: {key}"
+              invalidArg (nameof args)
+                $"Unknown make-symbolic-context parameter: {key}"
           loop spec rest
     let empty: SymbContextSpec =
       { PC = None
@@ -1272,16 +1273,17 @@ type SymbExecAction() =
       "Solver provider action, such as @symb-z3."
   let metadata =
     let signature =
-      "Binary | BinarySlice -> @symb-exec [solver:Action=<action>] "
+      "Binary | BinarySlice -> @make-symbolic-executor "
+      + "[solver:Action=<action>] "
       + "-> SymbExecutor"
     { SymbMetadata.metadata
-        "symb-exec"
+        "make-symbolic-executor"
         ReplValueKind.Binary
         ReplValueKind.SymbExecutor
         ActionRole.Transform
         signature
         "Create a symbolic executor over a binary or binary slice."
-        [ "let sx = bin |> @symb-exec solver=@symb-z3" ] with
+        [ "let sx = bin |> @make-symbolic-executor solver=@symb-z3" ] with
         AlternativeInputs = [ ReplValueKind.BinarySlice ]
         Syntaxes = [ SymbMetadata.syntax None [ solver ] ] }
 
@@ -1291,14 +1293,14 @@ type SymbExecAction() =
       match SymbSolverRegistry.create solver with
       | Some solver -> Some solver
       | None -> invalidArg (nameof solver) $"Unknown solver: {solver}"
-    | _ -> invalidArg "args" "Invalid symb-exec arguments."
+    | _ -> invalidArg "args" "Invalid make-symbolic-executor arguments."
 
   let transformOne solver (value: obj) =
     let executor =
       match value with
       | :? Binary as binary -> SymbExecutorValue binary
       | :? BinarySlice as slice -> SymbExecutorValue(slice.ToBinary())
-      | value -> invalidOp $"symb-exec expects Binary: {value}"
+      | value -> invalidOp $"make-symbolic-executor expects Binary: {value}"
     solver
     |> Option.map executor.WithSolver
     |> Option.defaultValue executor
@@ -1492,23 +1494,24 @@ type SymbContextAction() =
     SymbMetadata.arg "regions" ActionArgumentKind.Text true
       "Memory regions: [track=0x70000000..0x70000400:rw]."
   let signature =
-    "SymbExecutor -> @symb-context [pc:Address=<addr>] "
+    "SymbExecutor -> @make-symbolic-context [pc:Address=<addr>] "
     + "[stack:Address=<addr>] [regs:String=<regs>] "
     + "[mem:String=<mem>] [sym-mem:String=<sym-mem>] "
     + "[sym-regs:String=<regs>] [regions:String=<regions>] "
     + "-> SymbExecutor"
   let metadata =
     { SymbMetadata.metadata
-        "symb-context"
+        "make-symbolic-context"
         ReplValueKind.SymbExecutor
         ReplValueKind.SymbExecutor
         ActionRole.Transform
         signature
         "Set symbolic execution PC, stack, registers, and memory at once."
-        [ "sx |> @symb-context pc=0x401136 stack=0x7fffffffe000"
-          "sx |> @symb-context regs=[RBP=0x1; RDI=0x70000000]"
-          "sx |> @symb-context sym-regs=[ESI=idx:4]"
-          "sx |> @symb-context regions=[buf=0x70000000..0x70001000:rw]" ]
+        [ "sx |> @make-symbolic-context pc=<addr> stack=<addr>"
+          "sx |> @make-symbolic-context regs=[RBP=<addr>; RDI=<addr>]"
+          "sx |> @make-symbolic-context sym-regs=[ESI=idx:4]"
+          "sx |> @make-symbolic-context "
+          + "regions=[buf=<start>..<end>:rw]" ]
         with
         Syntaxes =
           [ SymbMetadata.syntax None
@@ -1518,7 +1521,7 @@ type SymbContextAction() =
     match value with
     | :? SymbExecutorValue as executor ->
       SymbArgs.parseContext args |> executor.WithContext |> box
-    | value -> invalidOp $"symb-context expects SymbExecutor: {value}"
+    | value -> invalidOp $"make-symbolic-context expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->
@@ -1722,77 +1725,6 @@ type SymbRegAction() =
     member _.Transform(args, collection, _cancellationToken) =
       transform args collection
 
-type SymbRunAction() =
-  let target =
-    SymbMetadata.arg "target" ActionArgumentKind.Address false
-      "Target address to reach or satisfy."
-  let maxDepth =
-    SymbMetadata.arg "max-depth" ActionArgumentKind.Integer true
-      "Maximum instructions per path. Default: 512."
-  let maxStates =
-    SymbMetadata.arg "max-states" ActionArgumentKind.Integer true
-      "Maximum states to expand. Default: 2048."
-  let loopBound =
-    SymbMetadata.arg "loop-bound" ActionArgumentKind.Integer true
-      "Maximum visits to the same address. Default: 2."
-  let prune =
-    SymbMetadata.choice "prune" true [ "true"; "false" ]
-      "Use the solver to prune infeasible paths. Default: true."
-  let runArgs = [ target; maxDepth; maxStates; loopBound; prune ]
-  let signature =
-    "SymbExecutor -> @symb-run <reach|satisfy> "
-    + "target:Address=<addr> [max-depth:Int=<n>] "
-    + "[max-states:Int=<n>] [loop-bound:Int=<n>] "
-    + "[prune:Choice=<true|false>] -> SymbRunResult"
-  let metadata =
-    { SymbMetadata.metadata
-        "symb-run"
-        ReplValueKind.SymbExecutor
-        ReplValueKind.SymbRunResult
-        ActionRole.Transform
-        signature
-        "Run a bounded symbolic reachability or satisfiability query."
-        [ "sx |> @symb-run satisfy target=0xb max-depth=8"
-          "sx |> @symb-run reach target=0x11 max-depth=8" ] with
-        Syntaxes =
-          [ SymbMetadata.syntax (Some "reach") runArgs
-            SymbMetadata.syntax (Some "satisfy") runArgs ] }
-
-  let transformOne args (value: obj) =
-    match value with
-    | :? SymbExecutorValue as executor ->
-      match args with
-      | op :: target :: rest ->
-        let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults rest
-        let target = SymbArgs.parseAddr target
-        match op.ToLowerInvariant() with
-        | "reach" ->
-          executor.RunReach(target, maxDepth, maxStates, loopBound, prune)
-          |> box
-        | "satisfy" ->
-          executor.RunSatisfy(target, maxDepth, maxStates, loopBound, prune)
-          |> box
-        | _ -> invalidArg (nameof args) "Unknown symb-run operation."
-      | _ -> invalidArg (nameof args) "Invalid symb-run arguments."
-    | value -> invalidOp $"symb-run expects SymbExecutor: {value}"
-
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
-
 type SymbSearchAction() =
   let cond =
     SymbMetadata.arg "cond" ActionArgumentKind.ParameterFunction false
@@ -1814,22 +1746,22 @@ type SymbSearchAction() =
       "Use the solver to prune infeasible paths. Default: true."
   let condArgs = [ cond; precond; maxDepth; maxStates; loopBound; prune ]
   let signature =
-    "SymbExecutor -> @symb-search cond:ParameterFunction=<fun> "
+    "SymbExecutor -> @run-symbolic cond:ParameterFunction=<fun> "
     + "[precond:String=<conditions>] [max-depth:Int=<n>] "
     + "[max-states:Int=<n>] "
     + "[loop-bound:Int=<n>] [prune:Choice=<true|false>] -> SymbRunResult"
   let metadata =
     { SymbMetadata.metadata
-        "symb-search"
+        "run-symbolic"
         ReplValueKind.SymbExecutor
         ReplValueKind.SymbRunResult
         ActionRole.Transform
         signature
         "Search for symbolic inputs satisfying a state condition."
-        [ "sx |> @symb-search cond=(fun pp -> pp.at(0x401000))"
-          "sx |> @symb-search precond=ESI>99 "
+        [ "sx |> @run-symbolic cond=(fun pp -> pp.at(<addr>))"
+          "sx |> @run-symbolic precond=ESI>99 "
           + "cond=(fun _ -> mem.accessViolation())"
-          "sx |> @symb-search cond=(fun _ -> mem.accessViolation())" ]
+          "sx |> @run-symbolic cond=(fun _ -> mem.accessViolation())" ]
         with
         Syntaxes =
           [ SymbMetadata.syntax None condArgs ] }
@@ -1879,8 +1811,8 @@ type SymbSearchAction() =
                                          loopBound,
                                          prune)
         result |> box
-      | _ -> invalidArg (nameof args) "Invalid symb-search arguments."
-    | value -> invalidOp $"symb-search expects SymbExecutor: {value}"
+      | _ -> invalidArg (nameof args) "Invalid run-symbolic arguments."
+    | value -> invalidOp $"run-symbolic expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->

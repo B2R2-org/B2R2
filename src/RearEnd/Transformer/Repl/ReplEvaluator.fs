@@ -1373,7 +1373,10 @@ module TransformerReplEvaluator =
         Error "save expects one Binary; use iteri to save collection items."
       | _ ->
         Error $"{metadata.ID} expects {expected}, but received {actual}."
-    elif metadata.ID = "set-context" || metadata.ID = "symb-context" then
+    elif
+      metadata.ID = "set-context"
+      || metadata.ID = "make-symbolic-context"
+    then
       let args =
         segment.Arguments
         |> resolveArgumentBindings state
@@ -1395,7 +1398,7 @@ module TransformerReplEvaluator =
         |> resolveArgumentBindings state
         |> compactBracketArguments
       let ready =
-        if metadata.ID = "symb-exec" then
+        if metadata.ID = "make-symbolic-executor" then
           registerSymbSolver registry args cancellationToken
         else
           Ok registry
