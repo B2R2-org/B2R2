@@ -572,6 +572,42 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     fpClass ins bld
   | Op.RINT ->
     rint ins bld
+  (* MIPS16e. Everything the base architecture also has lifts through its own
+     arm above; these are the ones it has no instruction for. *)
+  | Op.BEQZ ->
+    m16BranchZero ins bld (==)
+  | Op.BNEZ ->
+    m16BranchZero ins bld (!=)
+  | Op.BTEQZ ->
+    m16BranchT ins bld (==)
+  | Op.BTNEZ ->
+    m16BranchT ins bld (!=)
+  | Op.CMP16 | Op.CMPI ->
+    m16Compare ins bld
+  | Op.NEG16 ->
+    m16Neg ins bld
+  | Op.NOT ->
+    m16Not ins bld
+  | Op.LI | Op.MOVE ->
+    m16Move ins bld
+  | Op.ZEB ->
+    m16Extend ins bld 8<rt> false
+  | Op.ZEH ->
+    m16Extend ins bld 16<rt> false
+  | Op.ZEW ->
+    m16Extend ins bld 32<rt> false
+  | Op.SEW ->
+    m16Extend ins bld 32<rt> true
+  | Op.SAVE ->
+    save ins bld
+  | Op.RESTORE ->
+    restore ins bld
+  | Op.DADDIUPC ->
+    addiupc ins bld
+  (* What the macro expands to is the implementation's, not the
+     architecture's, so there is nothing here to expand it into. *)
+  | Op.ASMACRO ->
+    unsupported ins bld
   | Op.MADDF ->
     maddf ins bld
   | Op.MSUBF ->
@@ -617,13 +653,25 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
   | Op.SLLV ->
     shiftLeftRightVar ins bld (<<)
   | Op.SLT ->
-    sltAndU ins bld (?<)
+    if ins.ISAMode = MIPSISAMode.MIPS16 then
+      m16SetLessThan ins bld (?<)
+    else
+      sltAndU ins bld (?<)
   | Op.SLTU ->
-    sltAndU ins bld (.<)
+    if ins.ISAMode = MIPSISAMode.MIPS16 then
+      m16SetLessThan ins bld (.<)
+    else
+      sltAndU ins bld (.<)
   | Op.SLTI ->
-    sltiAndU ins bld (?<)
+    if ins.ISAMode = MIPSISAMode.MIPS16 then
+      m16SetLessThan ins bld (?<)
+    else
+      sltiAndU ins bld (?<)
   | Op.SLTIU ->
-    sltiAndU ins bld (.<)
+    if ins.ISAMode = MIPSISAMode.MIPS16 then
+      m16SetLessThan ins bld (.<)
+    else
+      sltiAndU ins bld (.<)
   | Op.SSNOP ->
     nop ins bld
   | Op.SB | Op.SBE ->

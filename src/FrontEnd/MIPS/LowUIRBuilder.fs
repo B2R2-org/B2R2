@@ -37,11 +37,28 @@ type LowUIRBuilder(isa: ISA,
   let endian = isa.Endian
   let mutable delayedBranch = InterJmpKind.NotAJmp
 
+  let mutable branchCarriesMode = false
+
   /// Remember if a branch is delayed. If delayed, we store its InterJmpKind.
   /// Lifting results may vary depending on this.
   member _.DelayedBranch
     with get() = delayedBranch
      and set v = delayedBranch <- v
+
+  /// <summary>
+  /// Whether the delayed branch takes its ENCODING from the address it jumps
+  /// to, which a jump through a register does on a processor with one of the
+  /// compressed encodings.
+  ///
+  /// MD00076 3.8: "JR and JALR instructions load the ISA Mode bit from bit 0
+  /// of the source register. Bit 0 of PC is loaded with a 0". The branch is
+  /// delayed, so which encoding it lands in is not settled where the jump is
+  /// written but where the delay slot ends -- which is the one place that can
+  /// emit it, and this is how it is told.
+  /// </summary>
+  member _.BranchCarriesMode
+    with get() = branchCarriesMode
+     and set v = branchCarriesMode <- v
 
   member _.RegType with get() = regType
 

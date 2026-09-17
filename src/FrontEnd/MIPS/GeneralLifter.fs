@@ -231,13 +231,28 @@ let aui ins bld =
     rt := result
   }
 
-let b ins (bld: LowUIRBuilder) =
-  liftTransfer bld ins {
-    let nPC = regVar bld R.NPC
-    let offset = transOneOpr ins bld
-    bld.DelayedBranch <- InterJmpKind.Base
-    nPC := offset
-  }
+/// <summary>
+/// B, which has a delay slot in one encoding and not in the other.
+///
+/// MD00076 3.13: a MIPS16e branch does not have one, and "if a branch or jump
+/// is taken, the instruction immediately following the branch or jump is
+/// never executed". The base architecture's B is BEQ against the zero
+/// register and does have one. Same name, same effect on the program counter,
+/// and a different instruction after it -- so the encoding decides.
+/// </summary>
+let b (ins: Instruction) (bld: LowUIRBuilder) =
+  if ins.ISAMode = MIPSISAMode.MIPS16 then
+    lift bld ins {
+      let offset = transOneOpr ins bld
+      AST.interjmp offset InterJmpKind.Base
+    }
+  else
+    liftTransfer bld ins {
+      let nPC = regVar bld R.NPC
+      let offset = transOneOpr ins bld
+      bld.DelayedBranch <- InterJmpKind.Base
+      nPC := offset
+    }
 
 let bal ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
@@ -1345,14 +1360,58 @@ let j ins (bld: LowUIRBuilder) =
     nPC := dest
   }
 
-let jal ins (bld: LowUIRBuilder) =
+/// <summary>
+/// Whether a jump through a register carries the encoding to read at its
+/// target, which is a property of the PROCESSOR rather than of the
+/// instruction.
+///
+/// MD00076 3.8 says so outright: JR and JALR "load the ISA Mode bit from bit
+/// 0 of the source register" on a processor that implements MIPS16e, and
+/// "cause an Address exception" on one that does not. Which kind this is is
+/// what the image says it was built for, and that does not change as the
+/// program moves between encodings -- so it is asked of the ISA and not of
+/// the instruction, whose own encoding is whatever the last jump left.
+///
+/// </summary>
+let private carriesMode (bld: ILowUIRBuilder) =
+  bld.ISA.MIPSISAMode = MIPSISAMode.MIPS16
+
+/// <summary>
+/// The return address a call leaves behind, which carries the encoding it was
+/// made from.
+///
+/// MD00076 writes it as <c>(PC + n)[GPRLEN-1..1] || ISAMode</c>: the low bit
+/// is not part of the address but the mode to come back to, and a JR through
+/// this register reads it there. So a call made from the compressed encoding
+/// leaves an ODD address behind, and the return finds its way back.
+/// </summary>
+let private linkFrom (bld: LowUIRBuilder) ahead =
+  let pc = regVar bld R.PC
+  let raw = pc .+ numI32 ahead bld.RegType
+  if carriesMode bld then raw .| AST.num1 bld.RegType else raw
+
+/// <summary>
+/// How far past a call the instruction it returns to sits.
+///
+/// The call's own length plus its delay slot's, and the slot is not always a
+/// word: a MIPS16e one is a halfword, which is why MD00076 writes the link of
+/// JAL as <c>PC + 6</c> where the base architecture writes <c>PC + 8</c>, and
+/// the link of JALR as <c>PC + 4</c>. A call that left the wrong address
+/// behind returns two bytes late, and in an encoding of halfwords that is
+/// another instruction rather than a misalignment -- so nothing faults and
+/// the program simply goes somewhere else.
+/// </summary>
+let private afterSlot (ins: Instruction) =
+  let slot = if ins.ISAMode = MIPSISAMode.MIPS16 then 2 else 4
+  int ins.Length + slot
+
+let jal (ins: Instruction) (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     let lr = regVar bld R.R31
     let dest = getOneOpr ins |> transOpr ins bld
     bld.DelayedBranch <- InterJmpKind.IsCall
-    lr := pc .+ numI32 8 bld.RegType
+    lr := linkFrom bld (afterSlot ins)
     nPC := dest
   }
 
@@ -1367,24 +1426,23 @@ let jal ins (bld: LowUIRBuilder) =
 /// </summary>
 let jalx (ins: Instruction) (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     let dest = getOneOpr ins |> transOpr ins bld
     let toward =
-      if ins.IsMicroMIPS then InterJmpKind.SwitchToMIPS
+      if ins.IsCompressed then InterJmpKind.SwitchToMIPS
       else InterJmpKind.SwitchToMicroMIPS
     bld.DelayedBranch <- InterJmpKind.IsCall ||| toward
-    regVar bld R.R31 := pc .+ numI32 8 bld.RegType
+    regVar bld R.R31 := linkFrom bld (afterSlot ins)
     nPC := dest
   }
 
-let jalr ins (bld: LowUIRBuilder) =
+let jalr (ins: Instruction) (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     let struct (lr, rs) = getJALROprs ins bld
     bld.DelayedBranch <- InterJmpKind.IsCall
-    lr := pc .+ numI32 8 bld.RegType
+    bld.BranchCarriesMode <- carriesMode bld
+    lr := linkFrom bld (afterSlot ins)
     nPC := rs
   }
 
@@ -1393,6 +1451,7 @@ let jr ins (bld: LowUIRBuilder) =
     let nPC = regVar bld R.NPC
     let rs = transOneOpr ins bld
     bld.DelayedBranch <- InterJmpKind.Base
+    bld.BranchCarriesMode <- carriesMode bld
     nPC := rs
   }
 
@@ -1403,19 +1462,13 @@ let jr ins (bld: LowUIRBuilder) =
 /// after it is not executed before the jump takes effect, so a delay slot
 /// written for JR would run where JRC would not run it.
 /// </summary>
-let jumpRegCompact ins bld =
+let jumpRegCompact ins (bld: LowUIRBuilder) =
   lift bld ins {
     let rs = transOneOpr ins bld
-    AST.interjmp rs InterJmpKind.Base
+    if carriesMode bld then interJmpByMode bld rs InterJmpKind.Base
+    else append bld { AST.interjmp rs InterJmpKind.Base }
   }
 
-/// <summary>
-/// JALRS, whose delay slot holds one halfword rather than one word.
-///
-/// That is the whole of what sets it apart from JALR, and the link is where
-/// it shows: the call returns to the instruction after the slot, which is
-/// two bytes past the end of this one rather than four.
-/// </summary>
 /// <summary>
 /// JALS, which is JAL with a delay slot of one halfword.
 ///
@@ -1444,6 +1497,13 @@ let branchLinkShortSlot ins (bld: LowUIRBuilder) cmp =
     updateRAPCCond bld nAddr offset cond InterJmpKind.IsCall
   }
 
+/// <summary>
+/// JALRS, whose delay slot holds one halfword rather than one word.
+///
+/// That is the whole of what sets it apart from JALR, and the link is where
+/// it shows: the call returns to the instruction after the slot, which is
+/// two bytes past the end of this one rather than four.
+/// </summary>
 let jalrShortSlot ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
     let pc = regVar bld R.PC
@@ -1460,13 +1520,14 @@ let jalrShortSlot ins (bld: LowUIRBuilder) =
 /// The target is read into a temporary before the link is written, because
 /// nothing stops the call from jumping through the register it links into.
 /// </summary>
-let jalrCompact ins bld =
+let jalrCompact (ins: Instruction) (bld: LowUIRBuilder) =
   lift bld ins {
     let struct (lr, rs) = getJALROprs ins bld
     let target = tmpVar bld bld.RegType
     target := rs
-    lr := regVar bld R.PC .+ numI32 (int ins.Length) bld.RegType
-    AST.interjmp target InterJmpKind.IsCall
+    lr := linkFrom bld (int ins.Length)
+    if carriesMode bld then interJmpByMode bld target InterJmpKind.IsCall
+    else append bld { AST.interjmp target InterJmpKind.IsCall }
   }
 
 /// <summary>
@@ -1475,6 +1536,7 @@ let jalrCompact ins bld =
 /// Neither register is named: the jump is to the return address and the
 /// adjustment is to the stack pointer, and an epilogue never wants any
 /// others. The adjustment is unsigned because a return only ever unwinds.
+///
 /// </summary>
 let jumpRegAdjust ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
@@ -1482,6 +1544,7 @@ let jumpRegAdjust ins (bld: LowUIRBuilder) =
     let sp = regVar bld R.R29
     let imm = transOneOpr ins bld
     bld.DelayedBranch <- InterJmpKind.Base
+    bld.BranchCarriesMode <- carriesMode bld
     sp := sp .+ imm
     nPC := regVar bld R.R31
   }
@@ -1491,8 +1554,10 @@ let jumpRegAdjustCompact ins bld =
   lift bld ins {
     let sp = regVar bld R.R29
     let imm = transOneOpr ins bld
+    let ra = regVar bld R.R31
     sp := sp .+ imm
-    AST.interjmp (regVar bld R.R31) InterJmpKind.Base
+    if carriesMode bld then interJmpByMode bld ra InterJmpKind.Base
+    else append bld { AST.interjmp ra InterJmpKind.Base }
   }
 
 /// <summary>
@@ -1575,16 +1640,41 @@ let loadWordScaled ins bld =
       raise InvalidOperandException
   }
 
-let loadSigned ins bld =
+/// <summary>
+/// What a load reads, which is not always a memory operand.
+///
+/// MIPS16e reads a constant out of the instruction stream -- a word at a
+/// distance from the program counter -- and the disassembler prints that as
+/// the ADDRESS it resolved rather than as a base and an offset, there being
+/// no base register to print. So the operand arrives as a place, and taking
+/// it for the value would load the address into the register instead of what
+/// is at it. The compiler puts every literal a MIPS16e function needs in a
+/// pool it reads this way, so getting it wrong is not a corner: the first
+/// such load faults.
+/// </summary>
+let private loadedValue (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(_, OpAddr _) ->
+    (* Only LW and LD are written this way -- a doubleword and a word are the
+       only literals a pool holds -- so the width is the opcode's and there is
+       no operand to read it off. *)
+    let width = if ins.Opcode = Op.LD then 64<rt> else 32<rt>
+    let _, target = transTwoOprs ins bld
+    loadNative bld width target
+  | _ ->
+    let _, mem = transTwoOprs ins bld
+    mem
+
+let loadSigned (ins: Instruction) bld =
   lift bld ins {
-    let rt, mem = transTwoOprs ins bld
-    rt := AST.sext bld.RegType mem
+    let rt, _ = transTwoOprs ins bld
+    rt := AST.sext bld.RegType (loadedValue ins bld)
   }
 
-let loadUnsigned ins bld =
+let loadUnsigned (ins: Instruction) bld =
   lift bld ins {
-    let rt, mem = transTwoOprs ins bld
-    rt := AST.zext bld.RegType mem
+    let rt, _ = transTwoOprs ins bld
+    rt := AST.zext bld.RegType (loadedValue ins bld)
   }
 
 let readHWR ins bld =
@@ -3802,3 +3892,209 @@ let rsqrt ins bld =
       let result = AST.fdiv fnum (AST.fsqrt fs)
       writeFPResult fdB fdA result bld
   }
+
+/// <summary>
+/// The register MIPS16e compares into, which MD00076 calls T.
+///
+/// A halfword has no room for a destination as well as two operands and a
+/// function code, so CMP and CMPI write a register the encoding does not
+/// name. It is $24, and BTEQZ and BTNEZ are the only instructions that read
+/// it.
+/// </summary>
+let private tReg bld = regVar bld R.R24
+
+/// <summary>
+/// The address the instruction after a MIPS16e one sits at.
+///
+/// Not four bytes on. A MIPS16e instruction is two bytes, or four where an
+/// EXTEND widens it, so the fall-through of a branch is the instruction's own
+/// length away and not a constant.
+/// </summary>
+let private m16Next (ins: Instruction) bld =
+  regVar bld R.PC .+ numI32 (int ins.Length) bld.RegType
+
+/// <summary>
+/// A MIPS16e branch, which has NO DELAY SLOT.
+///
+/// MD00076 3.13: "Branch instructions and the JALRC and JRC jump instructions
+/// do not have a delay slot. If a branch or jump is taken, the instruction
+/// immediately following the branch or jump is never executed." That is the
+/// opposite of the base architecture, where every branch has one -- so the
+/// same opcode cannot take the same lifter in both encodings.
+/// </summary>
+let private m16Branch ins bld cond target =
+  append bld { AST.intercjmp cond target (m16Next ins bld) }
+
+/// BEQZ and BNEZ, which the base architecture writes as BEQ and BNE against
+/// the zero register and this encoding cannot, a three-bit field having no
+/// way to name it.
+let m16BranchZero ins bld cmp =
+  lift bld ins {
+    let rx, target = transTwoOprs ins bld
+    m16Branch ins bld (cmp rx (AST.num0 bld.RegType)) target
+  }
+
+/// BTEQZ and BTNEZ, which read what CMP and CMPI left in T.
+let m16BranchT ins bld cmp =
+  lift bld ins {
+    let target = transOneOpr ins bld
+    m16Branch ins bld (cmp (tReg bld) (AST.num0 bld.RegType)) target
+  }
+
+/// CMP and CMPI, whose answer is the exclusive-or rather than a comparison:
+/// what the branches then ask is whether it is zero, which is whether the two
+/// were equal.
+let m16Compare ins bld =
+  lift bld ins {
+    let a, b = transTwoOprs ins bld
+    tReg bld := a <+> b
+  }
+
+/// <summary>
+/// SLT, SLTU, SLTI and SLTIU, whose answer goes to T in this encoding.
+///
+/// MD00076 writes all four as "T ← (GPR[rx] &lt; ...)". The base architecture
+/// names a destination and a halfword has no room for one, so the comparison
+/// is the same instruction and where it lands is not -- which is why these
+/// keep the base architecture's opcode and take a lifter arm of their own.
+/// </summary>
+let m16SetLessThan ins bld cmp =
+  lift bld ins {
+    let a, b = transTwoOprs ins bld
+    tReg bld := AST.zext bld.RegType (cmp a b)
+  }
+
+/// NEG, which is the integer one this encoding has and not the
+/// floating-point NEG the base architecture's lifter answers to.
+let m16Neg ins bld =
+  lift bld ins {
+    let rx, ry = transTwoOprs ins bld
+    rx := AST.num0 bld.RegType .- ry
+  }
+
+/// NOT, which the base architecture writes as NOR against the zero register.
+let m16Not ins bld =
+  lift bld ins {
+    let rx, ry = transTwoOprs ins bld
+    rx := AST.not ry
+  }
+
+/// LI and MOVE, which both put one value in one register: LI a zero-extended
+/// immediate, MOVE the contents of the register the five-bit field names.
+let m16Move ins bld =
+  lift bld ins {
+    let dst, src = transTwoOprs ins bld
+    dst := src
+  }
+
+/// <summary>
+/// The width conversions: ZEB, ZEH, ZEW, SEB, SEH and SEW.
+///
+/// Three of the six are the base architecture's own and lift through its
+/// arms; these are the ones it has no instruction for. Each takes the low
+/// part of a register and fills the rest, which is a cast and not a shift
+/// pair.
+/// </summary>
+let m16Extend ins bld width signed =
+  lift bld ins {
+    let rx, ry = transTwoOprs ins bld
+    let part = AST.extract ry width 0
+    let widened =
+      if signed then AST.sext bld.RegType part
+      else AST.zext bld.RegType part
+    rx := widened
+  }
+
+/// <summary>
+/// The order SAVE and RESTORE touch the registers in, which is not the order
+/// they are named in.
+///
+/// MD00076 writes the sequence as nested conditions and it descends: the
+/// return address first, then the static registers from $30 back to $18,
+/// then $17 and $16, and last the argument registers kept as static, from $7
+/// back. Each takes the next word DOWN from the stack pointer, so a lifter
+/// that walked the printed list -- which ascends, because that is how an
+/// assembly programmer writes a set -- would put every one of them at another
+/// one's address.
+/// </summary>
+let private svrsOrder =
+  [ R.R31
+    R.R30
+    R.R23
+    R.R22
+    R.R21
+    R.R20
+    R.R19
+    R.R18
+    R.R17
+    R.R16
+    R.R7
+    R.R6
+    R.R5
+    R.R4 ]
+
+/// <summary>
+/// SAVE and RESTORE.
+///
+/// One instruction that is a whole function prologue or epilogue: the
+/// arguments stored UP from a base, the saved registers stored DOWN from it,
+/// and the stack pointer then moved by the frame size.
+///
+/// The base is not the same one. MD00076 gives SAVE as <c>temp ← GPR[29]</c>
+/// and RESTORE as <c>temp ← GPR[29] + framesize</c>, which is the same
+/// address both times: the registers sit just below where the pointer was
+/// before the frame was taken, and by the time RESTORE runs the pointer is a
+/// frame lower. Reading them from the pointer as it stands would read a frame
+/// too low, and the first thing to come back wrong is the return address --
+/// so the function returns to nowhere rather than computing anything
+/// incorrectly.
+///
+/// Every set is known when the instruction is decoded, so what comes out is a
+/// straight line of loads or stores and not a loop.
+/// </summary>
+let private svrsPlaces args saved =
+  let down =
+    svrsOrder
+    |> List.filter (fun r -> List.contains r saved)
+    |> List.mapi (fun i r -> r, -4L * int64 (i + 1))
+  let up = args |> List.mapi (fun i r -> r, 4L * int64 i)
+  up, down
+
+let private saveRestore ins bld isSave =
+  lift bld ins {
+    let frame, args, saved =
+      match getThreeOprs ins with
+      | OpImm f, OpRegList a, OpRegList s -> f, a, s
+      | _ -> raise InvalidOperandException
+    let sp = regVar bld R.R29
+    let frameSize = numU64 frame bld.RegType
+    let entry = tmpVar bld bld.RegType
+    entry := if isSave then sp else sp .+ frameSize
+    let word = 32<rt>
+    let at off = loadNative bld word (entry .+ numI64 off bld.RegType)
+    let up, down = svrsPlaces args saved
+    if isSave then
+      append bld {
+        (* The arguments, upwards from where the pointer arrived. RESTORE
+           writes none: the aregs field names them as arguments only on the
+           way in. *)
+        for (r, off) in up do
+          at off := AST.xtlo word (regVar bld r)
+        for (r, off) in down do
+          at off := AST.xtlo word (regVar bld r)
+      }
+    else
+      append bld {
+        for (r, off) in down do
+          regVar bld r := AST.sext bld.RegType (at off)
+      }
+    (* RESTORE's new pointer is the base it just read from, which is where
+       the pointer stood before the frame was taken. *)
+    sp := if isSave then entry .- frameSize else entry
+  }
+
+/// SAVE: the prologue.
+let save ins bld = saveRestore ins bld true
+
+/// RESTORE: the epilogue.
+let restore ins bld = saveRestore ins bld false

@@ -349,14 +349,42 @@ let normalizeNaN oprSz result bld =
     result := AST.ite isNaNCheck defaultNaN result
   }
 
+/// <summary>
+/// The jump a delay slot ends with, where the address it jumps to says which
+/// encoding to read there.
+///
+/// Two jumps with the same target and different kinds, chosen on the bit an
+/// instruction address cannot use. Nothing in the words at the target says
+/// which encoding they belong to, so the kind is the only way an evaluator
+/// following the program can be told -- and the address itself is handed over
+/// with that bit cleared, which MD00076 requires: "Bit 0 of PC is loaded with
+/// a 0, and no Address exception can occur".
+/// </summary>
+let interJmpByMode (bld: LowUIRBuilder) target kind =
+  append bld {
+    let lblCompressed = label bld "ToCompressed"
+    let lblWide = label bld "ToMIPS32"
+    let addr = target .& AST.not (AST.num1 bld.RegType)
+    let compressed = AST.xtlo 1<rt> target
+    AST.cjmp compressed (AST.jmpDest lblCompressed) (AST.jmpDest lblWide)
+    AST.lmark lblCompressed
+    AST.interjmp addr (kind ||| InterJmpKind.SwitchToMicroMIPS)
+    AST.lmark lblWide
+    AST.interjmp addr (kind ||| InterJmpKind.SwitchToMIPS)
+  }
+
 let advancePC (bld: LowUIRBuilder) insLen =
   if bld.DelayedBranch = InterJmpKind.NotAJmp then
     (* Do nothing, because IEMark will advance PC. *)
     (bld :> ILowUIRBuilder).Stream.MarkEnd insLen
   else
     let nPC = regVar bld R.NPC
-    append bld { AST.interjmp nPC bld.DelayedBranch }
+    if bld.BranchCarriesMode then
+      interJmpByMode bld nPC bld.DelayedBranch
+    else
+      append bld { AST.interjmp nPC bld.DelayedBranch }
     bld.DelayedBranch <- InterJmpKind.NotAJmp
+    bld.BranchCarriesMode <- false
 
 /// The Release 6 compact branches. A compact branch has no delay slot:
 /// it takes effect at the branch itself, so the not-taken path is the
@@ -397,6 +425,7 @@ let updatePCCond (bld: LowUIRBuilder) offset cond kind =
 /// This is why the two paths are not symmetric. `updatePCCond` can write NPC on
 /// both arms and let the delay slot carry the transfer, because there the slot
 /// runs either way; here it must not.
+///
 let updatePCCondLikely (bld: LowUIRBuilder) offset cond kind =
   append bld {
     let lblTrueCase = label bld "TrueCase"
