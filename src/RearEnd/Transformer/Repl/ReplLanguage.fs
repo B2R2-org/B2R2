@@ -126,9 +126,12 @@ module ReplLanguage =
       builder.Clear() |> ignore
       token :: tokens
 
+  let isTokenPunctuation = function
+    | '(' | ')' | '[' | ']' | ',' | ';' -> true
+    | _ -> false
+
   let tokenizeWith mode (text: string) =
     let builder = StringBuilder()
-    let punctuation = set [ '('; ')'; '['; ']'; ','; ';' ]
     let rec loop index quote tokens =
       if index = text.Length then
         match quote, mode with
@@ -165,7 +168,7 @@ module ReplLanguage =
           && text[index + 1] = '|' ->
           let tokens = finishToken builder tokens
           loop (index + 2) None ("[|" :: tokens)
-        | None when Set.contains chr punctuation ->
+        | None when isTokenPunctuation chr ->
           let tokens = finishToken builder tokens
           loop (index + 1) None (string chr :: tokens)
         | None when chr = '=' && builder.Length = 0 ->

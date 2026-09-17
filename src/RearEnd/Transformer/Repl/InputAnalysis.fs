@@ -78,9 +78,6 @@ module InputAnalysis =
   let expressionPortion input = ReplLanguage.expressionPortion input
 
   let tokenStart (input: string) cursor =
-    let isPunctuation chr =
-      chr = '(' || chr = ')' || chr = '[' || chr = ']'
-      || chr = ',' || chr = ';'
     let rec loop index quote start =
       if index >= cursor then
         start
@@ -105,7 +102,7 @@ module InputAnalysis =
         | None when chr = '[' && index + 1 < cursor
           && input[index + 1] = '|' ->
           loop (index + 2) None (index + 2)
-        | None when isPunctuation chr ->
+        | None when ReplLanguage.isTokenPunctuation chr ->
           loop (index + 1) None (index + 1)
         | None when chr = ' ' || chr = '\t' || chr = '=' ->
           loop (index + 1) None (index + 1)
