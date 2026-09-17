@@ -2097,8 +2097,5 @@ module TransformerReplEvaluator =
           let header = [ $"Script loaded: {normalizePath fullPath}" ]
           continueWith registry state (header @ Seq.toList outputs)
 
-  let evaluateLine registry state input =
-    evaluateInput true registry state input CancellationToken.None
-
-  let evaluateTuiLine registry state input cancellationToken =
+  let evaluateCommand registry state input cancellationToken =
     evaluateInput false registry state input cancellationToken

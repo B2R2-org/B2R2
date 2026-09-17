@@ -63,7 +63,10 @@ module TransformerRepl =
     if input.Trim() = ":clear" then
       registry, state, false
     else
-      match TransformerReplEvaluator.evaluateLine registry state input with
+      match
+        TransformerReplEvaluator.evaluateCommand registry state input
+          CancellationToken.None
+      with
       | Exit _ ->
         registry, state, true
       | Continue(registry, state, output) ->
@@ -102,8 +105,6 @@ module TransformerRepl =
     loop registry state
 
   let private runLineMode registry =
-    printfn "B2R2 Transformer interactive analysis"
-    printfn "Type :help for commands and :actions for available actions."
     let state = TransformerReplState.empty
     if Console.IsInputRedirected then
       readRedirectedLines () |> runCombinedLineMode registry state
@@ -128,7 +129,7 @@ module TransformerRepl =
         | [] -> 0
         | line :: rest ->
           let evaluation =
-            TransformerReplEvaluator.evaluateTuiLine registry state line
+            TransformerReplEvaluator.evaluateCommand registry state line
               CancellationToken.None
           match evaluation with
           | Exit _ ->
@@ -317,7 +318,7 @@ module TransformerRepl =
       let cancellation = new CancellationTokenSource()
       let task =
         Task.Run((fun () ->
-          TransformerReplEvaluator.evaluateTuiLine registry session command
+          TransformerReplEvaluator.evaluateCommand registry session command
             cancellation.Token), cancellation.Token)
       let model =
         model
