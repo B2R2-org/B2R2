@@ -57,6 +57,39 @@ type GrepAction() =
   let bytesPattern (bytes: BinaryBytes) =
     byteArrayToHexStringArray bytes.Bytes |> String.concat ""
 
+  let parseInt name (value: string) =
+    let value = Convert.ToInt32 value
+    if value < 0 then
+      invalidArg name "Context size must be non-negative."
+    else
+      value
+
+  let sameContext value =
+    let context = parseInt "context" value
+    context, context
+
+  let asymmetricContext before after =
+    parseInt "before" before, parseInt "after" after
+
+  let patternAndContext = function
+    | [ pattern ] ->
+      pattern, 0, 0
+    | [ pattern; context ] ->
+      let before, after = sameContext context
+      pattern, before, after
+    | [ pattern; before; after ] ->
+      let before, after = asymmetricContext before after
+      pattern, before, after
+    | _ ->
+      invalidArg "args" "Invalid grep arguments."
+
+  let tupleContext = function
+    | [] -> 0, 0
+    | [ context ] -> sameContext context
+    | [ before; after ] -> asymmetricContext before after
+    | _ ->
+      invalidArg "args" "Invalid grep arguments."
+
   let grepBytes cancellationToken source baseAddress (pattern: string)
                 bytesBefore bytesAfter (bs: byte[]) =
     let cancellationToken: CancellationToken = cancellationToken
@@ -145,33 +178,20 @@ type GrepAction() =
     let collect pattern before after =
       collection.Values
       |> Array.collect (grep cancellationToken pattern before after)
-    match args with
-    | bytesBefore :: bytesAfter :: [] when isTupleInput () ->
-      let bytesBefore = Convert.ToInt32 bytesBefore
-      let bytesAfter = Convert.ToInt32 bytesAfter
-      { Values = collectTuple bytesBefore bytesAfter }
-    | bytesBefore :: [] when isTupleInput () ->
-      let bytesBefore = Convert.ToInt32 bytesBefore
-      { Values = collectTuple bytesBefore 0 }
-    | [] when isTupleInput () ->
-      { Values = collectTuple 0 0 }
-    | pattern :: bytesBefore :: bytesAfter :: [] ->
-      let bytesBefore = Convert.ToInt32 bytesBefore
-      let bytesAfter = Convert.ToInt32 bytesAfter
-      { Values = collect pattern bytesBefore bytesAfter }
-    | pattern :: bytesBefore :: [] ->
-      let bytesBefore = Convert.ToInt32 bytesBefore
-      { Values = collect pattern bytesBefore 0 }
-    | [ pattern ] ->
-      { Values = collect pattern 0 0 }
-    | _ -> invalidArg (nameof args) "Single pattern should be given."
+    if isTupleInput () then
+      let before, after = tupleContext args
+      { Values = collectTuple before after }
+    else
+      let pattern, before, after = patternAndContext args
+      { Values = collect pattern before after }
 
   interface IAction with
     member _.ActionID with get() = "grep"
     member _.Signature with get() =
-      "Binary | BinarySlice -> grep pattern=<hex> [bytes-before=<n>] "
-      + "[bytes-after=<n>] -> BinarySlice collection | "
-      + "Binary * ByteArray -> grep [bytes-before=<n>] [bytes-after=<n>] "
+      "Binary | BinarySlice -> grep pattern=<hex> [context=<n>] | "
+      + "pattern=<hex> [before=<n>] [after=<n>] "
+      + "-> BinarySlice collection | Binary * ByteArray -> "
+      + "grep [context=<n>] | [before=<n>] [after=<n>] "
       + "-> BinarySlice collection"
     member _.Description with get() =
       """
@@ -183,9 +203,10 @@ type GrepAction() =
     Similarly, the pattern "(30)+" means a sequence of 0x30s of any length,
     e.g., {{ 0x30, 0x30, 0x30, 0x30, 0x30 }} will match the pattern.
 
-    bytes-before and bytes-after can be given to include context around each
-    match. If the matched items are at the beginning or end of the array, the
-    context will be truncated accordingly.
+    context can be given to include the same number of bytes before and after
+    each match. before and after can be given when asymmetric context is needed.
+    These two forms are mutually exclusive. If the matched items are at the
+    beginning or end of the array, the context will be truncated accordingly.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

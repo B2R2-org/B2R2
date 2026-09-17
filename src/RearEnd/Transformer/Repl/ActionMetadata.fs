@@ -94,6 +94,7 @@ type ActionArgument =
   { Name: string
     Kind: ActionArgumentKind
     IsOptional: bool
+    DefaultValue: string option
     Choices: string list
     Description: string }
 
@@ -382,7 +383,16 @@ module ActionMetadata =
     { Name = name
       Kind = kind
       IsOptional = isOptional
+      DefaultValue = None
       Choices = choices
+      Description = description }
+
+  let private argumentDefault name kind defaultValue description =
+    { Name = name
+      Kind = kind
+      IsOptional = true
+      DefaultValue = Some defaultValue
+      Choices = []
       Description = description }
 
   let private required name kind description =
@@ -390,6 +400,9 @@ module ActionMetadata =
 
   let private optional name kind description =
     argument name kind true [] description
+
+  let private optionalDefault name kind defaultValue description =
+    argumentDefault name kind defaultValue description
 
   let private choice name isOptional choices description =
     argument name ActionArgumentKind.Choice isOptional choices description
@@ -757,17 +770,21 @@ module ActionMetadata =
     let pattern =
       required "pattern" ActionArgumentKind.HexPattern
         "Regular expression over hexadecimal byte pairs."
+    let context =
+      optional "context" ActionArgumentKind.Integer
+        "Context bytes on both sides of each match."
     let before =
-      optional "bytes-before" ActionArgumentKind.Integer
+      optionalDefault "before" ActionArgumentKind.Integer "0"
         "Context bytes preceding each match."
     let after =
-      optional "bytes-after" ActionArgumentKind.Integer
+      optionalDefault "after" ActionArgumentKind.Integer "0"
         "Context bytes following each match."
     let byPattern =
-      "grep pattern=<hex> [bytes-before=<n>] [bytes-after=<n>] "
+      "grep pattern=<hex> [context=<n>] | "
+      + "pattern=<hex> [before=<n>] [after=<n>] "
       + "-> BinarySlice collection"
     let byBytes =
-      "grep [bytes-before=<n>] [bytes-after=<n>] "
+      "grep [context=<n>] | [before=<n>] [after=<n>] "
       + "-> BinarySlice collection"
     overloadContract "grep"
       [ ReplValueKind.Binary
@@ -778,10 +795,19 @@ module ActionMetadata =
       (ReplValueKind.Collection ReplValueKind.BinarySlice)
       ActionRole.Transform 30 (byPattern + " | " + byBytes)
       [ "binary |> @grep pattern=7f454c46"
-        "binary |> @grep pattern=7f454c46 bytes-before=4 bytes-after=16"
-        "(binary, needle) |> @grep bytes-before=4 bytes-after=16" ]
+        "binary |> @grep pattern=7f454c46 context=64"
+        "binary |> @grep pattern=7f454c46 before=4 after=16"
+        "(binary, needle) |> @grep before=4 after=16" ]
       [ syntaxFor [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+          None [ pattern; context ]
+        syntaxFor [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
           None [ pattern; before; after ]
+        syntaxFor
+          [ ReplValueKind.Tuple
+              [ ReplValueKind.Binary; ReplValueKind.ByteArray ]
+            ReplValueKind.Tuple
+              [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ] ]
+          None [ context ]
         syntaxFor
           [ ReplValueKind.Tuple
               [ ReplValueKind.Binary; ReplValueKind.ByteArray ]

@@ -1167,6 +1167,7 @@ module private SymbMetadata =
     { Name = name
       Kind = kind
       IsOptional = optional
+      DefaultValue = None
       Choices = []
       Description = description }
 
@@ -1174,6 +1175,7 @@ module private SymbMetadata =
     { Name = name
       Kind = ActionArgumentKind.Choice
       IsOptional = optional
+      DefaultValue = None
       Choices = choices
       Description = description }
 

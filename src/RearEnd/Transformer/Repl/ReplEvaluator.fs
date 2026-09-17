@@ -860,6 +860,10 @@ module TransformerReplEvaluator =
         | value :: tail ->
           fillArguments tail named rest (value :: output)
             ((argument, value) :: assignments)
+        | [] when argument.IsOptional
+                 && Option.isSome argument.DefaultValue ->
+          let value = Option.get argument.DefaultValue
+          fillArguments [] named rest (value :: output) assignments
         | [] when argument.IsOptional ->
           fillArguments [] named rest output assignments
         | [] ->
