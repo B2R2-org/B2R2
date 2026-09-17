@@ -90,7 +90,8 @@ module ReplTypeAnalysis =
     | [ name ] ->
       TransformerReplState.tryFind name state
       |> Option.map (fun value -> value.Kind)
-    | _ -> None
+    | _ ->
+      None
 
   let private homogeneousKind kinds =
     let kinds =
@@ -98,8 +99,10 @@ module ReplTypeAnalysis =
       |> List.filter (fun kind -> kind <> ReplValueKind.Unit)
       |> List.distinct
     match kinds with
-    | [ kind ] -> kind
-    | _ -> ReplValueKind.Any
+    | [ kind ] ->
+      kind
+    | _ ->
+      ReplValueKind.Any
 
   let private literalKind state tokens =
     match tokens, List.rev tokens with
@@ -138,17 +141,22 @@ module ReplTypeAnalysis =
         |> Some
       else
         None
-    | _ -> None
+    | _ ->
+      None
 
   let collectionElementKind = function
     | ReplValueKind.Collection kind
     | ReplValueKind.List kind
-    | ReplValueKind.Array kind -> Some kind
+    | ReplValueKind.Array kind ->
+      Some kind
     | ReplValueKind.Tuple kinds ->
       match List.distinct kinds with
-      | [ kind ] -> Some kind
-      | _ -> Some ReplValueKind.Any
-    | _ -> None
+      | [ kind ] ->
+        Some kind
+      | _ ->
+        Some ReplValueKind.Any
+    | _ ->
+      None
 
   let acceptsInput kind (metadata: ActionMetadata) =
     ActionMetadata.acceptedInputs metadata
@@ -162,8 +170,12 @@ module ReplTypeAnalysis =
     else
       ActionMetadata.outputForArguments metadata inputKind args
 
-  let private headDiagnostic baseOffset (segment: TextSegment) (head: string)
-                             actual (metadata: ActionMetadata) =
+  let private headDiagnostic
+    baseOffset
+    (segment: TextSegment)
+    (head: string)
+    actual
+    (metadata: ActionMetadata) =
     let expected =
       ActionMetadata.acceptedInputs metadata
       |> List.map ReplValueKind.toString
@@ -176,8 +188,12 @@ module ReplTypeAnalysis =
       Length = head.Length
       Message = $"{head} expects {expected}, but receives {actual}." }
 
-  let private directResult registry baseOffset input
-                           (segment: TextSegment) (tokens: string list) =
+  let private directResult
+    registry
+    baseOffset
+    input
+    (segment: TextSegment)
+    (tokens: string list) =
     match tokens with
     | head :: args ->
       match ActionRegistry.tryFind (actionID head) registry with
@@ -216,7 +232,8 @@ module ReplTypeAnalysis =
     let named =
       tokens |> List.tryPick (tryParameterValue "action")
     match named with
-    | Some target -> Some target
+    | Some target ->
+      Some target
     | None ->
       tokens
       |> List.skip 1
@@ -225,14 +242,19 @@ module ReplTypeAnalysis =
 
   let private iterArguments (tokens: string list) =
     match tokens |> List.tryFindIndex ((=) "->") with
-    | None -> []
+    | None ->
+      []
     | Some index ->
       tokens
       |> List.skip (index + 1)
       |> List.takeWhile ((<>) ")")
 
-  let private iterResult registry baseOffset input
-                         (segment: TextSegment) (tokens: string list) =
+  let private iterResult
+    registry
+    baseOffset
+    input
+    (segment: TextSegment)
+    (tokens: string list) =
     match input |> Option.bind collectionElementKind with
     | None ->
       match input, tokens with
@@ -262,7 +284,11 @@ module ReplTypeAnalysis =
             { Input = input
               Output = None
               Diagnostics =
-                [ headDiagnostic baseOffset segment target elementKind
+                [ headDiagnostic
+                    baseOffset
+                    segment
+                    target
+                    elementKind
                     metadata ] }
           else
             let args = iterArguments tokens
@@ -271,8 +297,11 @@ module ReplTypeAnalysis =
               Output = Some(ReplValueKind.Collection output)
               Diagnostics = [] }
 
-  let private transformResult registry baseOffset input
-                              (segment: TextSegment) =
+  let private transformResult
+    registry
+    baseOffset
+    input
+    (segment: TextSegment) =
     let tokens = segment.Tokens
     match tokens with
     | head :: _ when isIterHead head ->
@@ -329,12 +358,17 @@ module ReplTypeAnalysis =
   let analyze registry state baseOffset (expression: string) =
     textSegments expression |> analyzeSegments registry state baseOffset
 
-  let analyzePartial registry state baseOffset (expression: string)
-                     (pipeline: ReplPartialPipeline) =
+  let analyzePartial
+    registry
+    state
+    baseOffset
+    (expression: string)
+    (pipeline: ReplPartialPipeline) =
     pipeline.Segments
     |> List.map (fun segment ->
       let text =
-        if segment.Start >= expression.Length then ""
+        if segment.Start >= expression.Length then
+          ""
         else
           let last = min (expression.Length - 1) (segment.End - 1)
           expression[segment.Start..last]
@@ -344,13 +378,18 @@ module ReplTypeAnalysis =
         Tokens = segment.Tokens })
     |> analyzeSegments registry state baseOffset
 
-  let outputBeforeLastPartial registry state baseOffset
-                              (expression: string)
-                              (pipeline: ReplPartialPipeline) =
+  let outputBeforeLastPartial
+    registry
+    state
+    baseOffset
+    (expression: string)
+    (pipeline: ReplPartialPipeline) =
     let segments =
       match List.rev pipeline.Segments with
-      | _ :: rest -> List.rev rest
-      | [] -> []
+      | _ :: rest ->
+        List.rev rest
+      | [] ->
+        []
     let pipeline = { pipeline with Segments = segments }
     (analyzePartial registry state baseOffset expression pipeline).Output
 

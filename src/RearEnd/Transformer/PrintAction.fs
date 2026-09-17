@@ -34,13 +34,17 @@ type PrintAction() =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
     let typ = o.GetType()
-    if typ = typeof<ObjCollection> then printObjCollection cancellationToken o
+    if typ = typeof<ObjCollection> then
+      printObjCollection cancellationToken o
     elif typ = typeof<ClusterResult> then
       printClusterResult cancellationToken o
-    elif typ.IsArray then printArray cancellationToken o
+    elif typ.IsArray then
+      printArray cancellationToken o
     elif FSharpType.IsUnion typ
-      && typ.BaseType = typeof<OutString> then printOutString o
-    else printsn (o.ToString())
+      && typ.BaseType = typeof<OutString> then
+      printOutString o
+    else
+      printsn (o.ToString())
 
   and printObjCollection cancellationToken (o: obj) =
     let res = o :?> ObjCollection
@@ -72,7 +76,8 @@ type PrintAction() =
     | [] ->
       print cancellationToken (box collection)
       { Values = [||] }
-    | _ -> invalidArg (nameof args) "Invalid argument."
+    | _ ->
+      invalidArg (nameof args) "Invalid argument."
 
   interface IAction with
     member _.ActionID with get() = "print"

@@ -129,7 +129,10 @@ type SliceAction() =
     | Ok section when section.FileSize > uint64 Int32.MaxValue ->
       invalidArg (nameof secName) "The section is too large to slice."
     | Ok section when section.FileSize > 0UL ->
-      makeSlice bin section.Address (section.Address + section.FileSize)
+      makeSlice
+        bin
+        section.Address
+        (section.Address + section.FileSize)
         (Some section.Name)
     | Ok _ ->
       invalidArg (nameof secName) "The section has no file-backed data."
@@ -152,7 +155,8 @@ type SliceAction() =
     let endAddress =
       if a2.StartsWith '+' then
         a1 + parseUInt64 (a2[1..])
-      else parseUInt64 a2
+      else
+        parseUInt64 a2
     a1, endAddress
 
   let sliceBin args bin =
@@ -162,7 +166,8 @@ type SliceAction() =
       sliceByAddrRange bin a1 a2 |> box
     | secName :: [] ->
       sliceBySectionName bin secName |> box
-    | _ -> invalidArg (nameof args) "Invalid argument."
+    | _ ->
+      invalidArg (nameof args) "Invalid argument."
 
   let sliceSlice args (slice: BinarySlice) =
     match args with
@@ -171,15 +176,19 @@ type SliceAction() =
       sliceByAddrRangeInSlice slice a1 a2 |> box
     | secName :: [] ->
       sliceBySectionNameInSlice slice secName |> box
-    | _ -> invalidArg (nameof args) "Invalid argument."
+    | _ ->
+      invalidArg (nameof args) "Invalid argument."
 
   let slice cancellationToken args (input: obj) =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
     match input with
-    | :? Binary as bin -> sliceBin args bin
-    | :? BinarySlice as slice -> sliceSlice args slice
-    | _ -> invalidArg (nameof input) "Invalid input type."
+    | :? Binary as bin ->
+      sliceBin args bin
+    | :? BinarySlice as slice ->
+      sliceSlice args slice
+    | _ ->
+      invalidArg (nameof input) "Invalid input type."
 
   let transform cancellationToken args collection =
     { Values =

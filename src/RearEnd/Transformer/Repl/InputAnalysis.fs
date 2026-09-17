@@ -75,8 +75,10 @@ module InputAnalysis =
 
   let allButLast values =
     match List.rev values with
-    | _ :: rest -> List.rev rest
-    | [] -> []
+    | _ :: rest ->
+      List.rev rest
+    | [] ->
+      []
 
   let expressionPortion input = ReplLanguage.expressionPortion input
 
@@ -93,17 +95,25 @@ module InputAnalysis =
           loop (index + 1) quote start
         | None when chr = '\'' || chr = '"' ->
           loop (index + 1) (Some chr) index
-        | None when chr = '|' && index + 1 < cursor
-          && input[index + 1] = '>' ->
+        | None
+          when chr = '|'
+               && index + 1 < cursor
+               && input[index + 1] = '>' ->
           loop (index + 2) None (index + 2)
-        | None when chr = '-' && index + 1 < cursor
-          && input[index + 1] = '>' ->
+        | None
+          when chr = '-'
+               && index + 1 < cursor
+               && input[index + 1] = '>' ->
           loop (index + 2) None (index + 2)
-        | None when chr = '|' && index + 1 < cursor
-          && input[index + 1] = ']' ->
+        | None
+          when chr = '|'
+               && index + 1 < cursor
+               && input[index + 1] = ']' ->
           loop (index + 2) None (index + 2)
-        | None when chr = '[' && index + 1 < cursor
-          && input[index + 1] = '|' ->
+        | None
+          when chr = '['
+               && index + 1 < cursor
+               && input[index + 1] = '|' ->
           loop (index + 2) None (index + 2)
         | None when ReplLanguage.isTokenPunctuation chr ->
           loop (index + 1) None (index + 1)
@@ -122,13 +132,18 @@ module InputAnalysis =
     |> Option.bind (fun (context: InputContext) ->
       context.PartialPipeline
       |> Option.bind (fun pipeline ->
-        ReplLanguage.tryUpdatePartialPipeline context.FullExpression pipeline
+        ReplLanguage.tryUpdatePartialPipeline
+          context.FullExpression
+          pipeline
           fullExpression))
     |> Option.orElseWith (fun () ->
       ReplLanguage.tryParsePartialPipeline fullExpression)
 
-  let analyzeExpressionWithCache previous (input: string) cursor
-                                 (fullExpression: string) =
+  let analyzeExpressionWithCache
+    previous
+    (input: string)
+    cursor
+    (fullExpression: string) =
     let cursor = max 0 (min cursor input.Length)
     let start = tokenStart input cursor
     let prefix =
@@ -146,17 +161,22 @@ module InputAnalysis =
         match ReplLanguage.tryPartialScope pipeline with
         | Some scope ->
           let segment =
-            if scope.Start >= fullExpression.Length then ""
-            else fullExpression[scope.Start..]
+            if scope.Start >= fullExpression.Length then
+              ""
+            else
+              fullExpression[scope.Start..]
           segment, segment, scope.Tokens, lastPipeline
         | None ->
           let segmentStart =
             lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
           let segment =
-            if segmentStart >= fullExpression.Length then ""
-            else fullExpression[segmentStart..]
+            if segmentStart >= fullExpression.Length then
+              ""
+            else
+              fullExpression[segmentStart..]
           let words =
-            if pipeline.HasTrailingPipeline then []
+            if pipeline.HasTrailingPipeline then
+              []
             else
               pipeline.Segments
               |> List.tryLast
@@ -169,16 +189,20 @@ module InputAnalysis =
         let segmentStart =
           lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
         let segment =
-          if segmentStart >= expression.Length then ""
-          else expression[segmentStart..]
+          if segmentStart >= expression.Length then
+            ""
+          else
+            expression[segmentStart..]
         expression, segment, splitWords segment, lastPipeline
     let trimmed = inputBeforeCursor.TrimStart()
     { InputBeforeCursor = inputBeforeCursor
       InputAfterCursor = inputAfterCursor
       Prefix = prefix
       CompletionPhase =
-        if cursor = start then InputCompletionPhase.StartingToken
-        else InputCompletionPhase.EditingToken
+        if cursor = start then
+          InputCompletionPhase.StartingToken
+        else
+          InputCompletionPhase.EditingToken
       TokenStart = start
       TokenLength = cursor - start
       Words = words

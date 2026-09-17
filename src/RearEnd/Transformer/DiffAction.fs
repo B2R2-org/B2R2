@@ -44,8 +44,10 @@ type DiffAction() =
     if index < bytes.Length then Some bytes[index] else None
 
   let byteText = function
-    | Some(byte: byte) -> byte.ToString("x2")
-    | None -> "  "
+    | Some(byte: byte) ->
+      byte.ToString("x2")
+    | None ->
+      "  "
 
   let byteColor left right color =
     if left = right then NoColor else color
@@ -87,19 +89,33 @@ type DiffAction() =
       byteAt left index <> byteAt right index)
 
   let appendEqualRows count (cs: ColoredString) =
-    if count = 0 then cs
-    elif count = 1 then appendLine DarkCyan "  1 equal row" cs
-    else appendLine DarkCyan $"  {count} equal rows" cs
+    if count = 0 then
+      cs
+    elif count = 1 then
+      appendLine DarkCyan "  1 equal row" cs
+    else
+      appendLine DarkCyan $"  {count} equal rows" cs
 
-  let appendChangedByteRow (left: byte[]) (right: byte[]) leftBase rightBase
-                           row cs =
+  let appendChangedByteRow
+    (left: byte[])
+    (right: byte[])
+    leftBase
+    rightBase
+    row
+    cs =
     let offset = row * NumBytesPerLine
     cs
     |> appendByteRow "-" left right Red leftBase offset
     |> appendByteRow "+" right left Green rightBase offset
 
-  let appendByteDiffRows left right leftBase rightBase
-                         (changed: int list) rowCount cs =
+  let appendByteDiffRows
+    left
+    right
+    leftBase
+    rightBase
+    (changed: int list)
+    rowCount
+    cs =
     let changed = HashSet<int>(changed)
     let rec loop row equalRows cs =
       if row = rowCount then
@@ -193,8 +209,13 @@ type DiffAction() =
     let hdl = Binary.Handle bin
     hdl.File.RawBytes.ToArray()
 
-  let diffBytes cancellationToken title leftBase rightBase
-                (bs1: byte[]) (bs2: byte[]) =
+  let diffBytes
+    cancellationToken
+    title
+    leftBase
+    rightBase
+    (bs1: byte[])
+    (bs2: byte[]) =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
     let maxLength = max bs1.Length bs2.Length
@@ -219,13 +240,21 @@ type DiffAction() =
 
   let tryBinaryInput (input: obj) =
     match input with
-    | :? Binary as bin -> Some(binaryBase bin, binaryBytes bin)
-    | :? BinarySlice as slice -> Some(slice.StartAddress, slice.Bytes)
-    | _ -> None
+    | :? Binary as bin ->
+      Some(binaryBase bin, binaryBytes bin)
+    | :? BinarySlice as slice ->
+      Some(slice.StartAddress, slice.Bytes)
+    | _ ->
+      None
 
   let diffBinary cancellationToken bin1 bin2 =
-    diffBytes cancellationToken "byte diff" (binaryBase bin1)
-      (binaryBase bin2) (binaryBytes bin1) (binaryBytes bin2)
+    diffBytes
+      cancellationToken
+      "byte diff"
+      (binaryBase bin1)
+      (binaryBase bin2)
+      (binaryBytes bin1)
+      (binaryBytes bin2)
 
   let splitText (text: string) =
     text.Replace("\r\n", "\n").Split '\n'
@@ -246,13 +275,23 @@ type DiffAction() =
   let diffValues cancellationToken (left: obj) (right: obj) =
     match tryBinaryInput left, tryBinaryInput right with
     | Some(leftBase, leftBytes), Some(rightBase, rightBytes) ->
-      diffBytes cancellationToken "byte diff" leftBase rightBase leftBytes
+      diffBytes
+        cancellationToken
+        "byte diff"
+        leftBase
+        rightBase
+        leftBytes
         rightBytes
     | _ ->
       match left, right with
       | (:? BinaryBytes as left), (:? BinaryBytes as right) ->
-        diffBytes cancellationToken "byte diff" left.BaseAddress
-          right.BaseAddress left.Bytes right.Bytes
+        diffBytes
+          cancellationToken
+          "byte diff"
+          left.BaseAddress
+          right.BaseAddress
+          left.Bytes
+          right.Bytes
       | (:? (Instruction[]) as left), (:? (Instruction[]) as right) ->
         appendLineDiff "instruction diff" (instructionLines left)
           (instructionLines right)
@@ -283,7 +322,8 @@ type DiffAction() =
       | [] ->
         let outstr = diffValues cancellationToken values[0] values[1]
         { Values = [| box outstr |] }
-      | _ -> invalidArg (nameof DiffAction) "Invalid input to diff"
+      | _ ->
+        invalidArg (nameof DiffAction) "Invalid input to diff"
 
   interface IAction with
     member _.ActionID with get() = "diff"

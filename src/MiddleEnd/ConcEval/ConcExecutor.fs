@@ -360,56 +360,63 @@ type ConcExecutor(hdl: BinHandle) =
     | Some(Result.Error reason) -> EvalStopped reason
     | None -> evalInstr opts st stmts
 
-  let run (ct: CancellationToken) start (st: ConcState) (opts: ConcRunOptions) =
-    let invalidInstr reasons addr n =
-      let reason = ConcStopReason.InvalidInstructionAddress addr
-      mkResult (reasons @ [ reason ]) addr n st
-    let mkStopPoint addr n ins stmts =
-      { Address = addr
-        InstructionCount = n
-        Instruction = ins
-        Statements = stmts
-        State = st }
-    let rec loop n =
-      ct.ThrowIfCancellationRequested()
-      let addr = st.PC
-      let parsed = liftCache.TryParse addr
-      let point = mkStopPoint addr n (Result.toOption parsed) [||]
-      let reasons = collectPreInstrStopReasons point opts
-      match parsed with
+  let invalidInstr (st: ConcState) reasons addr n =
+    let reason = ConcStopReason.InvalidInstructionAddress addr
+    mkResult (reasons @ [ reason ]) addr n st
+
+  let mkStopPoint (st: ConcState) addr n ins stmts =
+    { Address = addr
+      InstructionCount = n
+      Instruction = ins
+      Statements = stmts
+      State = st }
+
+  let rec runLoop
+    (ct: CancellationToken)
+    (st: ConcState)
+    (opts: ConcRunOptions)
+    n =
+    ct.ThrowIfCancellationRequested()
+    let addr = st.PC
+    let parsed = liftCache.TryParse addr
+    let point = mkStopPoint st addr n (Result.toOption parsed) [||]
+    let reasons = collectPreInstrStopReasons point opts
+    match parsed with
+    | Result.Error _ ->
+      let reasons = reasons @ collectUserStopReasons point opts
+      invalidInstr st reasons addr n
+    | Ok ins ->
+      match liftCache.TryLift addr with
       | Result.Error _ ->
+        let point = mkStopPoint st addr n (Some ins) [||]
         let reasons = reasons @ collectUserStopReasons point opts
-        invalidInstr reasons addr n
-      | Ok ins ->
-        match liftCache.TryLift addr with
-        | Result.Error _ ->
-          let point = mkStopPoint addr n (Some ins) [||]
-          let reasons = reasons @ collectUserStopReasons point opts
-          invalidInstr reasons addr n
-        | Ok lifted ->
-          let stmts = lifted.Stmts
-          let point = mkStopPoint addr n (Some ins) stmts
-          let reasons = reasons @ collectUserStopReasons point opts
-          let reasons = reasons @ collectInstrStopReasons opts st addr ins stmts
-          let postReasons = collectPostInstrStopReasons opts st addr ins stmts
-          if List.isEmpty reasons then
-            match evalCallOrInstr opts st addr ins stmts with
-            | EvalOk ->
-              if List.isEmpty postReasons then loop (n + 1)
-              else mkResult postReasons st.PC (n + 1) st
-            | EvalStopped reason ->
-              mkResult [ reason ] st.PC n st
-            | EvalError e ->
-              mkResult [ ConcStopReason.EvaluationError(addr, e) ] st.PC n st
-            | EvalUndef ->
-              mkResult [ ConcStopReason.UndefinedValue addr ] st.PC n st
-            | EvalSideEffect eff ->
-              let reason = ConcStopReason.StoppedAtSideEffect(addr, eff)
-              mkResult [ reason ] st.PC n st
-          else
-            mkResult reasons addr n st
+        invalidInstr st reasons addr n
+      | Ok lifted ->
+        let stmts = lifted.Stmts
+        let point = mkStopPoint st addr n (Some ins) stmts
+        let reasons = reasons @ collectUserStopReasons point opts
+        let reasons = reasons @ collectInstrStopReasons opts st addr ins stmts
+        let postReasons = collectPostInstrStopReasons opts st addr ins stmts
+        if List.isEmpty reasons then
+          match evalCallOrInstr opts st addr ins stmts with
+          | EvalOk ->
+            if List.isEmpty postReasons then runLoop ct st opts (n + 1)
+            else mkResult postReasons st.PC (n + 1) st
+          | EvalStopped reason ->
+            mkResult [ reason ] st.PC n st
+          | EvalError e ->
+            mkResult [ ConcStopReason.EvaluationError(addr, e) ] st.PC n st
+          | EvalUndef ->
+            mkResult [ ConcStopReason.UndefinedValue addr ] st.PC n st
+          | EvalSideEffect eff ->
+            let reason = ConcStopReason.StoppedAtSideEffect(addr, eff)
+            mkResult [ reason ] st.PC n st
+        else
+          mkResult reasons addr n st
+
+  let run (ct: CancellationToken) start (st: ConcState) (opts: ConcRunOptions) =
     st.PC <- start
-    loop 0
+    runLoop ct st opts 0
 
   /// Create a fresh concrete evaluation state.
   member _.CreateState() = initializeState 0UL defaultStateCreationOptions

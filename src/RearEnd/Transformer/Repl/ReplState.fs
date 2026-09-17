@@ -87,71 +87,108 @@ type TransformerReplState =
     UndoStack: ReplUndoCapture list }
 
 module ReplValue =
+  let private typeKinds =
+    [ typeof<Binary>, ReplValueKind.Binary
+      typeof<BinaryBytes>, ReplValueKind.ByteArray
+      typeof<Instruction[]>, ReplValueKind.InstructionArray
+      typeof<CFG>, ReplValueKind.CFG
+      typeof<TextArtifact>, ReplValueKind.TextArtifact
+      typeof<Fingerprint>, ReplValueKind.Fingerprint
+      typeof<ClusterResult>, ReplValueKind.ClusterResult
+      typeof<ConcExecutorValue>, ReplValueKind.ConcExecutor
+      typeof<SymbExecutorValue>, ReplValueKind.SymbExecutor
+      typeof<SymbSolverValue>, ReplValueKind.SymbSolver
+      typeof<SymbRunValue>, ReplValueKind.SymbRunResult
+      typeof<RegisterView>, ReplValueKind.RegisterView
+      typeof<MemoryView>, ReplValueKind.MemoryView
+      typeof<ExecutionTrace>, ReplValueKind.ExecutionTrace
+      typeof<ContextRequirements>, ReplValueKind.ContextRequirements
+      typeof<AddressValue>, ReplValueKind.Address
+      typeof<BinarySlice>, ReplValueKind.BinarySlice
+      typeof<StringMatch>, ReplValueKind.StringMatch
+      typeof<SectionInfo>, ReplValueKind.SectionInfo
+      typeof<FunctionInfo>, ReplValueKind.FunctionInfo
+      typeof<string>, ReplValueKind.Text
+      typeof<int>, ReplValueKind.Int
+      typeof<float>, ReplValueKind.Float
+      typeof<bool>, ReplValueKind.Bool ]
+
   let private kindOfType (typ: Type) =
-    if typ = typeof<Binary> then ReplValueKind.Binary
-    elif typ = typeof<BinaryBytes> then ReplValueKind.ByteArray
-    elif typ = typeof<Instruction[]> then ReplValueKind.InstructionArray
-    elif typ = typeof<CFG> then ReplValueKind.CFG
-    elif typ = typeof<TextArtifact> then ReplValueKind.TextArtifact
-    elif typ = typeof<Fingerprint> then ReplValueKind.Fingerprint
-    elif typ = typeof<ClusterResult> then ReplValueKind.ClusterResult
-    elif typ = typeof<ConcExecutorValue> then ReplValueKind.ConcExecutor
-    elif typ = typeof<SymbExecutorValue> then ReplValueKind.SymbExecutor
-    elif typ = typeof<SymbSolverValue> then ReplValueKind.SymbSolver
-    elif typ = typeof<SymbRunValue> then ReplValueKind.SymbRunResult
-    elif typ = typeof<RegisterView> then ReplValueKind.RegisterView
-    elif typ = typeof<MemoryView> then ReplValueKind.MemoryView
-    elif typ = typeof<ExecutionTrace> then ReplValueKind.ExecutionTrace
-    elif typ = typeof<ContextRequirements> then
-      ReplValueKind.ContextRequirements
-    elif typ = typeof<AddressValue> then ReplValueKind.Address
-    elif typ = typeof<BinarySlice> then ReplValueKind.BinarySlice
-    elif typ = typeof<StringMatch> then ReplValueKind.StringMatch
-    elif typ = typeof<SectionInfo> then ReplValueKind.SectionInfo
-    elif typ = typeof<FunctionInfo> then ReplValueKind.FunctionInfo
-    elif typ = typeof<string> then ReplValueKind.Text
-    elif typeof<OutString>.IsAssignableFrom typ then ReplValueKind.Text
-    elif typ = typeof<int> then ReplValueKind.Int
-    elif typ = typeof<float> then ReplValueKind.Float
-    elif typ = typeof<bool> then ReplValueKind.Bool
-    else ReplValueKind.Any
+    if typeof<OutString>.IsAssignableFrom typ then
+      ReplValueKind.Text
+    else
+      typeKinds
+      |> List.tryPick (fun (expected, kind) ->
+        if typ = expected then
+          Some kind
+        else
+          None)
+      |> Option.defaultValue ReplValueKind.Any
 
   let rec private kindOfObject (value: obj) =
     match value with
-    | null -> ReplValueKind.Unit
-    | :? Binary -> ReplValueKind.Binary
-    | :? BinaryBytes -> ReplValueKind.ByteArray
-    | :? (Instruction[]) -> ReplValueKind.InstructionArray
-    | :? CFG -> ReplValueKind.CFG
-    | :? TextArtifact -> ReplValueKind.TextArtifact
-    | :? Fingerprint -> ReplValueKind.Fingerprint
-    | :? ClusterResult -> ReplValueKind.ClusterResult
-    | :? ConcExecutorValue -> ReplValueKind.ConcExecutor
-    | :? SymbExecutorValue -> ReplValueKind.SymbExecutor
-    | :? SymbSolverValue -> ReplValueKind.SymbSolver
-    | :? SymbRunValue -> ReplValueKind.SymbRunResult
-    | :? RegisterView -> ReplValueKind.RegisterView
-    | :? MemoryView -> ReplValueKind.MemoryView
-    | :? ExecutionTrace -> ReplValueKind.ExecutionTrace
-    | :? ContextRequirements -> ReplValueKind.ContextRequirements
-    | :? AddressValue -> ReplValueKind.Address
-    | :? BinarySlice -> ReplValueKind.BinarySlice
-    | :? StringMatch -> ReplValueKind.StringMatch
-    | :? SectionInfo -> ReplValueKind.SectionInfo
-    | :? FunctionInfo -> ReplValueKind.FunctionInfo
-    | :? string -> ReplValueKind.Text
-    | :? OutString -> ReplValueKind.Text
-    | :? int -> ReplValueKind.Int
-    | :? float -> ReplValueKind.Float
-    | :? bool -> ReplValueKind.Bool
+    | null ->
+      ReplValueKind.Unit
+    | :? Binary ->
+      ReplValueKind.Binary
+    | :? BinaryBytes ->
+      ReplValueKind.ByteArray
+    | :? (Instruction[]) ->
+      ReplValueKind.InstructionArray
+    | :? CFG ->
+      ReplValueKind.CFG
+    | :? TextArtifact ->
+      ReplValueKind.TextArtifact
+    | :? Fingerprint ->
+      ReplValueKind.Fingerprint
+    | :? ClusterResult ->
+      ReplValueKind.ClusterResult
+    | :? ConcExecutorValue ->
+      ReplValueKind.ConcExecutor
+    | :? SymbExecutorValue ->
+      ReplValueKind.SymbExecutor
+    | :? SymbSolverValue ->
+      ReplValueKind.SymbSolver
+    | :? SymbRunValue ->
+      ReplValueKind.SymbRunResult
+    | :? RegisterView ->
+      ReplValueKind.RegisterView
+    | :? MemoryView ->
+      ReplValueKind.MemoryView
+    | :? ExecutionTrace ->
+      ReplValueKind.ExecutionTrace
+    | :? ContextRequirements ->
+      ReplValueKind.ContextRequirements
+    | :? AddressValue ->
+      ReplValueKind.Address
+    | :? BinarySlice ->
+      ReplValueKind.BinarySlice
+    | :? StringMatch ->
+      ReplValueKind.StringMatch
+    | :? SectionInfo ->
+      ReplValueKind.SectionInfo
+    | :? FunctionInfo ->
+      ReplValueKind.FunctionInfo
+    | :? string ->
+      ReplValueKind.Text
+    | :? OutString ->
+      ReplValueKind.Text
+    | :? int ->
+      ReplValueKind.Int
+    | :? float ->
+      ReplValueKind.Float
+    | :? bool ->
+      ReplValueKind.Bool
     | _ ->
       let typ = value.GetType()
       if typ.IsArray then
         let elementType = typ.GetElementType()
         let directKind = kindOfType typ
         let elementKind = kindOfType elementType
-        if directKind <> ReplValueKind.Any then directKind
-        elif elementKind <> ReplValueKind.Any then elementKind
+        if directKind <> ReplValueKind.Any then
+          directKind
+        elif elementKind <> ReplValueKind.Any then
+          elementKind
         else
           let values = value :?> Array
           let kinds =
@@ -163,8 +200,10 @@ module ReplValue =
             |> Seq.truncate 2
             |> Seq.toList
           match kinds with
-          | [ kind ] -> kind
-          | _ -> ReplValueKind.Any
+          | [ kind ] ->
+            kind
+          | _ ->
+            ReplValueKind.Any
       else
         kindOfType typ
 
@@ -172,16 +211,22 @@ module ReplValue =
 
   let tryArgumentText (value: obj) =
     match value with
-    | null -> Some ""
-    | :? AddressValue as value -> Some $"0x{value.Address:x}"
+    | null ->
+      Some ""
+    | :? AddressValue as value ->
+      Some $"0x{value.Address:x}"
     | :? int as value ->
       Some(value.ToString(CultureInfo.InvariantCulture))
     | :? float as value ->
       Some(value.ToString("R", CultureInfo.InvariantCulture))
-    | :? bool as value -> Some(if value then "true" else "false")
-    | :? string as value -> Some value
-    | :? SymbSolverValue as value -> Some("@" + value.ID)
-    | _ -> None
+    | :? bool as value ->
+      Some(if value then "true" else "false")
+    | :? string as value ->
+      Some value
+    | :? SymbSolverValue as value ->
+      Some("@" + value.ID)
+    | _ ->
+      None
 
   let private tupleKind values =
     values |> Array.map kindOfObject |> Array.toList |> ReplValueKind.Tuple
@@ -194,8 +239,10 @@ module ReplValue =
 
   let private elementKind values =
     match nonUnitKinds values with
-    | [| kind |] -> kind
-    | _ -> ReplValueKind.Any
+    | [| kind |] ->
+      kind
+    | _ ->
+      ReplValueKind.Any
 
   let validateHomogeneous literalName values =
     let kinds = nonUnitKinds values
@@ -210,8 +257,10 @@ module ReplValue =
     let elementKind =
       if collection.Values.Length = 0 then
         match fallback with
-        | ReplValueKind.Collection kind -> kind
-        | kind -> kind
+        | ReplValueKind.Collection kind ->
+          kind
+        | kind ->
+          kind
       else
         elementKind collection.Values
     let kind =
@@ -225,13 +274,17 @@ module ReplValue =
         kind
       | _ when collection.Values.Length > 1 ->
         ReplValueKind.Collection elementKind
-      | _ when collection.Values.Length = 0 -> fallback
-      | _ -> elementKind
+      | _ when collection.Values.Length = 0 ->
+        fallback
+      | _ ->
+        elementKind
     let isCollection =
       collection.Values.Length > 1
       || match kind with
-         | ReplValueKind.Collection _ -> true
-         | _ -> false
+         | ReplValueKind.Collection _ ->
+           true
+         | _ ->
+           false
     { Kind = kind
       IsCollection = isCollection
       Collection = collection }
@@ -324,8 +377,10 @@ module TransformerReplState =
   let setValue name value state =
     let bindings =
       match name with
-      | Some name -> Map.add name value state.Bindings
-      | None -> state.Bindings
+      | Some name ->
+        Map.add name value state.Bindings
+      | None ->
+        state.Bindings
     let history =
       { ID = state.NextValueID; Name = name; Value = value }
       :: state.ValueHistory
@@ -344,8 +399,10 @@ module TransformerReplState =
 
   let restoreValue id name state =
     match tryFindHistory id state with
-    | Some entry -> Ok(setValue name entry.Value state)
-    | None -> Error $"Unknown value history ID: {id}"
+    | Some entry ->
+      Ok(setValue name entry.Value state)
+    | None ->
+      Error $"Unknown value history ID: {id}"
 
   let undo state =
     match state.UndoStack with
@@ -359,7 +416,8 @@ module TransformerReplState =
             ReplayCommands = previous.ReplayCommands
             LastError = None
             UndoStack = rest }
-    | [] -> Error "There is no value-producing command to undo."
+    | [] ->
+      Error "There is no value-producing command to undo."
 
   let replaceAnalysis replacement state =
     { replacement with

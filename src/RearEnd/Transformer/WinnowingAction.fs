@@ -31,8 +31,12 @@ open B2R2
 
 /// The `winnowing` action.
 type WinnowingAction() =
-  let computeFingerprint cancellationToken annot n wsz
-                         (ngrams: (int * int)[]) =
+  let computeFingerprint
+    cancellationToken
+    annot
+    n
+    wsz
+    (ngrams: (int * int)[]) =
     let cancellationToken: CancellationToken = cancellationToken
     let deque = LinkedList<int>()
     let patterns = ResizeArray<int * int>()
@@ -51,7 +55,10 @@ type WinnowingAction() =
         if hash <> previousHash then
           patterns.Add ngrams[selected]
           previousHash <- hash
-        else ()
+        else
+          ()
+      else
+        ()
     { Patterns = patterns |> Seq.toList
       NGramSize = n
       WindowSize = wsz
@@ -82,10 +89,14 @@ type WinnowingAction() =
     let args: string list = args
     let n, wsz =
       match args with
-      | [] -> 4, 4
-      | [ n ] -> Convert.ToInt32 n, 4
-      | n :: w :: [] -> Convert.ToInt32 n, Convert.ToInt32 w
-      | _ -> invalidArg (nameof args) "Too many arguments given."
+      | [] ->
+        4, 4
+      | [ n ] ->
+        Convert.ToInt32 n, 4
+      | n :: w :: [] ->
+        Convert.ToInt32 n, Convert.ToInt32 w
+      | _ ->
+        invalidArg (nameof args) "Too many arguments given."
     { Values =
         collection.Values
         |> Array.map (winnowing cancellationToken n wsz) }

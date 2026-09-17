@@ -41,7 +41,8 @@ type CFGAction() =
         else
           NumberStyles.Integer, address
       UInt64.Parse(address, style, CultureInfo.InvariantCulture)
-    | _ -> invalidArg (nameof args) "Expected: cfg entry=<address>."
+    | _ ->
+      invalidArg (nameof args) "Expected: cfg entry=<address>."
 
   let tryGetFunctionCFG cancellationToken source (fn: Function) =
     let cancellationToken: CancellationToken = cancellationToken
@@ -68,8 +69,10 @@ type CFGAction() =
     cancellationToken.ThrowIfCancellationRequested()
     let address = parseAddress args
     match findFunction address brew with
-    | Some fn -> [| tryGetFunctionCFG cancellationToken bin fn |> box |]
-    | None -> [| NoCFG $"Function not found: {address:x}" |> box |]
+    | Some fn ->
+      [| tryGetFunctionCFG cancellationToken bin fn |> box |]
+    | None ->
+      [| NoCFG $"Function not found: {address:x}" |> box |]
 
   let getFunctionCFG cancellationToken (fn: FunctionInfo) =
     let hdl = Binary.Handle fn.Source
@@ -77,7 +80,8 @@ type CFGAction() =
     match findFunction fn.Entry brew with
     | Some func ->
       [| tryGetFunctionCFG cancellationToken fn.Source func |> box |]
-    | None -> [| NoCFG $"Function not found: {fn.Entry:x}" |> box |]
+    | None ->
+      [| NoCFG $"Function not found: {fn.Entry:x}" |> box |]
 
   let getCFGs cancellationToken args (input: obj) =
     let cancellationToken: CancellationToken = cancellationToken
@@ -89,13 +93,19 @@ type CFGAction() =
         let brew = BinaryBrew hdl
         cancellationToken.ThrowIfCancellationRequested()
         match args with
-        | [] -> getAllCFGs cancellationToken bin brew
-        | _ -> getOneCFG cancellationToken args bin
-      with e -> [| e.ToString() |> NoCFG |> box |]
+        | [] ->
+          getAllCFGs cancellationToken bin brew
+        | _ ->
+          getOneCFG cancellationToken args bin
+      with e ->
+        [| e.ToString() |> NoCFG |> box |]
     | :? FunctionInfo as fn ->
-      if List.isEmpty args then getFunctionCFG cancellationToken fn
-      else invalidArg (nameof args) "FunctionInfo input accepts no arguments."
-    | _ -> invalidArg (nameof input) "Invalid argument."
+      if List.isEmpty args then
+        getFunctionCFG cancellationToken fn
+      else
+        invalidArg (nameof args) "FunctionInfo input accepts no arguments."
+    | _ ->
+      invalidArg (nameof input) "Invalid argument."
 
   let transform cancellationToken args collection =
     { Values =

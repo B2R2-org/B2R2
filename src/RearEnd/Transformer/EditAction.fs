@@ -51,7 +51,8 @@ type EditAction() =
           Source = makeBinary bin newbs
           EndAddress = newSliceEnd slice.EndAddress }
       |> box
-    | _ -> makeBinary bin newbs |> box
+    | _ ->
+      makeBinary bin newbs |> box
 
   let parseUInt64 (value: string) =
     let style, value =
@@ -74,7 +75,8 @@ type EditAction() =
       lowered
       |> List.collect (fun (_, bytes) -> bytes |> Array.toList)
       |> List.toArray
-    | Error error -> invalidArg (nameof code) error
+    | Error error ->
+      invalidArg (nameof code) error
 
   let parseEndAddress startAddress (value: string) =
     if value.StartsWith "+" then
@@ -135,7 +137,8 @@ type EditAction() =
         let sectionStart, sectionEnd = sectionRange section
         startAddress >= sectionStart && endAddress <= sectionEnd
       match sections |> Array.tryFind contains with
-      | Some section -> section
+      | Some section ->
+        section
       | None ->
         let range = formatRange startAddress endAddress
         let sections = describeSections sections
@@ -148,7 +151,8 @@ type EditAction() =
       let sectionStart, sectionEnd = sectionRange section
       address >= sectionStart && address <= sectionEnd
     match sections |> Array.tryFind contains with
-    | Some section -> section
+    | Some section ->
+      section
     | None ->
       let sections = describeSections sections
       let message =
@@ -164,8 +168,9 @@ type EditAction() =
       checkedRawOffset hdl endAddress
     else
       let section = findSectionForRange hdl startAddress endAddress
-      checkedFileOffset section startAddress,
-      checkedFileOffset section endAddress
+      let startOffset = checkedFileOffset section startAddress
+      let endOffset = checkedFileOffset section endAddress
+      startOffset, endOffset
 
   let offsetForAddress bin address =
     let hdl = Binary.Handle bin
@@ -177,9 +182,12 @@ type EditAction() =
 
   let binaryForEdit (input: obj) =
     match input with
-    | :? Binary as bin -> bin
-    | :? BinarySlice as slice -> slice.Source
-    | _ -> invalidArg "input" "Invalid input type."
+    | :? Binary as bin ->
+      bin
+    | :? BinarySlice as slice ->
+      slice.Source
+    | _ ->
+      invalidArg "input" "Invalid input type."
 
   let ensureSliceAddress (slice: BinarySlice) address =
     if address < slice.StartAddress || address > slice.EndAddress then
@@ -200,14 +208,17 @@ type EditAction() =
 
   let ensureAddressInsideInput (input: obj) address =
     match input with
-    | :? BinarySlice as slice -> ensureSliceAddress slice address
-    | _ -> ()
+    | :? BinarySlice as slice ->
+      ensureSliceAddress slice address
+    | _ ->
+      ()
 
   let ensureRangeInsideInput (input: obj) startAddress endAddress =
     match input with
     | :? BinarySlice as slice ->
       ensureSliceRange slice startAddress endAddress
-    | _ -> ()
+    | _ ->
+      ()
 
   let ensureResizable bin =
     let hdl = Binary.Handle bin
@@ -215,6 +226,8 @@ type EditAction() =
       invalidOp (
         "Insert and delete only support raw binaries; structured binary "
         + "metadata is not relocated.")
+    else
+      ()
 
   let insert startAddress (snip: byte[]) o =
     ensureAddressInsideInput o startAddress
@@ -224,7 +237,8 @@ type EditAction() =
     let bs = hdl.File.RawBytes.ToArray()
     let off = offsetForAddress bin startAddress
     let newbs = Array.zeroCreate (bs.Length + snip.Length)
-    if off > bs.Length then invalidArg (nameof off) "Offset is too large."
+    if off > bs.Length then
+      invalidArg (nameof off) "Offset is too large."
     elif off = 0 then
       Array.blit snip 0 newbs 0 snip.Length
       Array.blit bs 0 newbs snip.Length bs.Length
@@ -244,8 +258,10 @@ type EditAction() =
     let soff, eoff = offsetForRange bin startAddress endAddress
     let rmlen = eoff - soff
     let newbs = Array.zeroCreate (bs.Length - rmlen)
-    if rmlen > bs.Length || eoff > bs.Length || soff >= bs.Length || soff < 0
-    then invalidArg (nameof soff) "Wrong offset(s) given."
+    let invalidOffsets =
+      rmlen > bs.Length || eoff > bs.Length || soff >= bs.Length || soff < 0
+    if invalidOffsets then
+      invalidArg (nameof soff) "Wrong offset(s) given."
     elif soff = 0 then
       Array.blit bs rmlen newbs 0 (bs.Length - rmlen)
     else
@@ -268,7 +284,8 @@ type EditAction() =
     let hdl = Binary.Handle bin
     let lifter = hdl.NewLiftingUnit()
     match lifter.TryParseInstruction address with
-    | Ok instruction -> int instruction.Length
+    | Ok instruction ->
+      int instruction.Length
     | Error error ->
       invalidArg (nameof address)
         $"Cannot decode instruction at 0x{address:x}: {error}"
@@ -294,8 +311,11 @@ type EditAction() =
     elif newbs.Length = originalLength then
       newbs
     else
-      let padding = nopPadding isa (startAddress + uint64 newbs.Length)
-                               (originalLength - newbs.Length)
+      let padding =
+        nopPadding
+          isa
+          (startAddress + uint64 newbs.Length)
+          (originalLength - newbs.Length)
       Array.append newbs padding
 
   let replaceAsm startAddress code isa o =
@@ -350,29 +370,29 @@ type EditAction() =
       | None ->
         match tryParseISA hexstr with
         | Some isa ->
-          { Values = map cancellationToken (replaceAsmForInput start finish
-                                                                (Some isa))
-                       collection }
-        | None -> invalidArg (nameof hexstr) "Invalid ISA."
+          let replace =
+            replaceAsmForInput start finish (Some isa)
+          { Values = map cancellationToken replace collection }
+        | None ->
+          invalidArg (nameof hexstr) "Invalid ISA."
     | "replace" :: start :: code :: [] ->
       let start = parseUInt64 start
-      { Values = map cancellationToken (replaceAsmForInput start code None)
-                   collection }
+      let replace = replaceAsmForInput start code None
+      { Values = map cancellationToken replace collection }
     | "force-replace" :: start :: code :: isa :: [] ->
       let start = parseUInt64 start
       match tryParseISA isa with
       | Some isa ->
-        { Values =
-            map cancellationToken (forceReplaceAsmForInput start code
-                                                            (Some isa))
-              collection }
-      | None -> invalidArg (nameof isa) "Invalid ISA."
+        let replace = forceReplaceAsmForInput start code (Some isa)
+        { Values = map cancellationToken replace collection }
+      | None ->
+        invalidArg (nameof isa) "Invalid ISA."
     | "force-replace" :: start :: code :: [] ->
       let start = parseUInt64 start
-      { Values =
-          map cancellationToken (forceReplaceAsmForInput start code None)
-            collection }
-    | _ -> invalidArg (nameof args) "Invalid edit action."
+      let replace = forceReplaceAsmForInput start code None
+      { Values = map cancellationToken replace collection }
+    | _ ->
+      invalidArg (nameof args) "Invalid edit action."
 
   interface IAction with
     member _.ActionID with get() = "edit"

@@ -48,24 +48,28 @@ type AsmAction() =
 
   let parseArgs (args: string list) =
     match args with
-    | [ code ] -> code, defaultISA, 0UL
+    | [ code ] ->
+      code, defaultISA, 0UL
     | [ code; second ] ->
       match tryParseISA second with
-      | Some isa -> code, isa, 0UL
-      | None -> code, defaultISA, parseUInt64 second
+      | Some isa ->
+        code, isa, 0UL
+      | None ->
+        code, defaultISA, parseUInt64 second
     | [ code; isaName; baseAddress ] ->
       match tryParseISA isaName with
-      | Some isa -> code, isa, parseUInt64 baseAddress
-      | None -> invalidArg (nameof isaName) "Invalid ISA."
-    | _ -> invalidArg (nameof args) "Invalid argument."
+      | Some isa ->
+        code, isa, parseUInt64 baseAddress
+      | None ->
+        invalidArg (nameof isaName) "Invalid ISA."
+    | _ ->
+      invalidArg (nameof args) "Invalid argument."
 
   let normalizeMemory (code: string) =
-    Regex.Replace(
-      code,
-      @"\[\s*([^\]]*?)\s*\]",
-      MatchEvaluator(fun m ->
-        let inner = Regex.Replace(m.Groups[1].Value, @"\s*([+-])\s*", "$1")
-        "[" + inner + "]"))
+    let normalize (m: Match) =
+      let inner = Regex.Replace(m.Groups[1].Value, @"\s*([+-])\s*", "$1")
+      "[" + inner + "]"
+    Regex.Replace(code, @"\[\s*([^\]]*?)\s*\]", MatchEvaluator normalize)
 
   let assemblyCandidates (code: string) =
     [ code; normalizeMemory code ]
@@ -84,7 +88,8 @@ type AsmAction() =
           lowered
           |> List.collect (fun (_, bytes) -> bytes |> Array.toList)
           |> List.toArray
-        | Error error -> tryAssemble (error :: errors) rest
+        | Error error ->
+          tryAssemble (error :: errors) rest
     assemblyCandidates code
     |> tryAssemble []
 
@@ -101,8 +106,10 @@ type AsmAction() =
     |> box
 
   let transform cancellationToken args collection =
-    if collection.Values |> Array.forall isNull then ()
-    else invalidArg (nameof collection) "Invalid argument type."
+    if collection.Values |> Array.forall isNull then
+      ()
+    else
+      invalidArg (nameof collection) "Invalid argument type."
     { Values = [| transformOne cancellationToken args |] }
 
   interface IAction with

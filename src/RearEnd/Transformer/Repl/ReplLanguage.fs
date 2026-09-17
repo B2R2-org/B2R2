@@ -127,8 +127,10 @@ module ReplLanguage =
       token :: tokens
 
   let isTokenPunctuation = function
-    | '(' | ')' | '[' | ']' | ',' | ';' -> true
-    | _ -> false
+    | '(' | ')' | '[' | ']' | ',' | ';' ->
+      true
+    | _ ->
+      false
 
   let tokenizeWith mode (text: string) =
     let builder = StringBuilder()
@@ -154,17 +156,23 @@ module ReplLanguage =
         | None when Char.IsWhiteSpace chr ->
           let tokens = finishToken builder tokens
           loop (index + 1) None tokens
-        | None when chr = '|' && index + 1 < text.Length
+        | None when
+          chr = '|'
+          && index + 1 < text.Length
           && text[index + 1] = '>' ->
           let tokens = finishToken builder tokens
           loop (index + 2) None ("|>" :: tokens)
-        | None when chr = '|' && index + 1 < text.Length
+        | None when
+          chr = '|'
+          && index + 1 < text.Length
           && text[index + 1] = ']' ->
           let tokens = finishToken builder tokens
           loop (index + 2) None ("|]" :: tokens)
         | None when chr = '|' && mode = TokenizeMode.Strict ->
           Error "Use |> as the pipeline operator."
-        | None when chr = '[' && index + 1 < text.Length
+        | None when
+          chr = '['
+          && index + 1 < text.Length
           && text[index + 1] = '|' ->
           let tokens = finishToken builder tokens
           loop (index + 2) None ("[|" :: tokens)
@@ -180,20 +188,27 @@ module ReplLanguage =
     loop 0 None []
 
   let private matchingClose = function
-    | "(" -> Some ")"
-    | "[" -> Some "]"
-    | "[|" -> Some "|]"
-    | _ -> None
+    | "(" ->
+      Some ")"
+    | "[" ->
+      Some "]"
+    | "[|" ->
+      Some "|]"
+    | _ ->
+      None
 
   let private isClosing = function
-    | ")" | "]" | "|]" -> true
-    | _ -> false
+    | ")" | "]" | "|]" ->
+      true
+    | _ ->
+      false
 
   let private validateDelimiters tokens =
     let rec loop stack = function
       | [] ->
         match stack with
-        | [] -> Ok tokens
+        | [] ->
+          Ok tokens
         | opener :: _ ->
           let closer = matchingClose opener |> Option.defaultValue "?"
           Error $"Unclosed '{opener}'; expected '{closer}'."
@@ -205,7 +220,8 @@ module ReplLanguage =
           Error $"Unexpected '{token}' with no matching opener."
         | None, true, opener :: tail ->
           let expected = matchingClose opener |> Option.defaultValue "?"
-          if token = expected then loop tail rest
+          if token = expected then
+            loop tail rest
           else
             let message =
               $"Mismatched delimiter: expected '{expected}' before '{token}'."
@@ -251,9 +267,12 @@ module ReplLanguage =
   let splitWords text = tokenize text
 
   let updateDepth depth = function
-    | "(" | "[" | "[|" -> depth + 1
-    | ")" | "]" | "|]" -> max 0 (depth - 1)
-    | _ -> depth
+    | "(" | "[" | "[|" ->
+      depth + 1
+    | ")" | "]" | "|]" ->
+      max 0 (depth - 1)
+    | _ ->
+      depth
 
   let splitPipelineElements tokens =
     let rec loop depth segments current = function
@@ -275,8 +294,10 @@ module ReplLanguage =
     let addSegment start finish segments =
       let segment =
         if finish < start then "" else text[start..finish].Trim()
-      if String.IsNullOrWhiteSpace segment then segments
-      else segment :: segments
+      if String.IsNullOrWhiteSpace segment then
+        segments
+      else
+        segment :: segments
     let rec loop index quote depth start segments =
       if index >= String.length text then
         addSegment start (String.length text - 1) segments |> List.rev
@@ -289,7 +310,9 @@ module ReplLanguage =
           loop (index + 1) quote depth start segments
         | None when chr = '\'' || chr = '"' ->
           loop (index + 1) (Some chr) depth start segments
-        | None when chr = '[' && index + 1 < text.Length
+        | None when
+          chr = '['
+          && index + 1 < text.Length
           && text[index + 1] = '|' ->
           loop (index + 2) None (depth + 1) start segments
         | None when chr = '(' || chr = '[' ->
@@ -318,7 +341,9 @@ module ReplLanguage =
           loop (index + 1) quote depth
         | None when chr = '\'' || chr = '"' ->
           loop (index + 1) (Some chr) depth
-        | None when chr = '[' && index + 1 < text.Length
+        | None when
+          chr = '['
+          && index + 1 < text.Length
           && text[index + 1] = '|' ->
           loop (index + 2) None (depth + 1)
         | None when chr = '(' || chr = '[' ->
@@ -379,8 +404,10 @@ module ReplLanguage =
       "an expression is missing after '='."
     else
       match tokenizeStrict command with
-      | Error message -> message
-      | Ok _ -> command
+      | Error message ->
+        message
+      | Ok _ ->
+        command
 
   let combineCommandLines lines =
     let commandText current =
@@ -391,7 +418,8 @@ module ReplLanguage =
     let rec collect commands current = function
       | [] ->
         match current with
-        | [] -> Ok(List.rev commands)
+        | [] ->
+          Ok(List.rev commands)
         | _ ->
           let command = commandText current
           if isIncomplete command || needsNextLine command then
@@ -406,7 +434,8 @@ module ReplLanguage =
           collect commands current rest
         else
           match current with
-          | [] -> collect commands [ line ] rest
+          | [] ->
+            collect commands [ line ] rest
           | _ when pendingNeedsNext current || isContinuationLine line ->
             collect commands (line :: current) rest
           | _ ->
@@ -443,12 +472,15 @@ module ReplLanguage =
         None
 
   let private actionID (value: string) =
-    if value.StartsWith("@", StringComparison.Ordinal) then value[1..]
-    else value
+    if value.StartsWith("@", StringComparison.Ordinal) then
+      value[1..]
+    else
+      value
 
   let private takeNamedParameter name tokens =
     let rec loop before = function
-      | [] -> None
+      | [] ->
+        None
       | token :: rest ->
         match parameterValue name token with
         | Some value ->
@@ -461,25 +493,34 @@ module ReplLanguage =
 
   let private iterParts args =
     match takeNamedParameter "params" args with
-    | Some(action, lambda) -> action, lambda
+    | Some(action, lambda) ->
+      action, lambda
     | None ->
       match args with
-      | action :: lambda -> [ action ], lambda
-      | [] -> [], []
+      | action :: lambda ->
+        [ action ], lambda
+      | [] ->
+        [], []
 
   let private stripLambdaDelimiters tokens =
     let rec findClose depth body = function
-      | [] -> None
+      | [] ->
+        None
       | token :: rest ->
         let depth = updateDepth depth token
-        if depth = 0 then Some(List.rev body, rest)
-        else findClose depth (token :: body) rest
+        if depth = 0 then
+          Some(List.rev body, rest)
+        else
+          findClose depth (token :: body) rest
     match tokens with
     | "(" :: rest ->
       match findClose 1 [] rest with
-      | Some(body, []) -> body, true, true
-      | _ -> tokens, true, false
-    | _ -> tokens, false, false
+      | Some(body, []) ->
+        body, true, true
+      | _ ->
+        tokens, true, false
+    | _ ->
+      tokens, false, false
 
   let private tryActionID tokens =
     let named =
@@ -490,8 +531,10 @@ module ReplLanguage =
     match named, positional with
     | [ value ], [] when not (String.IsNullOrWhiteSpace value) ->
       Some(actionID value)
-    | [], [ value ] -> Some(actionID value)
-    | _ -> None
+    | [], [ value ] ->
+      Some(actionID value)
+    | _ ->
+      None
 
   let private mergeSeparatedEquals tokens =
     let rec loop output = function
@@ -508,9 +551,12 @@ module ReplLanguage =
       match tokens with
       | "{" :: rest ->
         match List.rev rest with
-        | "}" :: body -> List.rev body
-        | _ -> tokens
-      | _ -> tokens
+        | "}" :: body ->
+          List.rev body
+        | _ ->
+          tokens
+      | _ ->
+        tokens
     mergeSeparatedEquals tokens
 
   let private expectedIterParameterCount keyword =
@@ -524,19 +570,23 @@ module ReplLanguage =
     let lambda, hasOpen, hasClose = stripLambdaDelimiters lambda
     let afterFun =
       match lambda |> List.tryFindIndex ((=) "fun") with
-      | Some index -> Some(List.skip (index + 1) lambda)
-      | None -> None
+      | Some index ->
+        Some(List.skip (index + 1) lambda)
+      | None ->
+        None
     let parameters, hasArrow, body =
       match afterFun with
       | Some tokens ->
         match tokens |> List.tryFindIndex ((=) "->") with
         | Some index ->
-          Some(List.take index tokens), true,
-          List.skip (index + 1) tokens |> normalizeIterBody
+          let parameters = Some(List.take index tokens)
+          let body = List.skip (index + 1) tokens |> normalizeIterBody
+          parameters, true, body
         | None ->
           let parameters = tokens |> List.takeWhile ((<>) ")")
           Some parameters, false, []
-      | None -> None, false, []
+      | None ->
+        None, false, []
     { ActionID = tryActionID action
       LambdaParameters = parameters
       ExpectedParameterCount = expectedIterParameterCount keyword
@@ -552,9 +602,12 @@ module ReplLanguage =
     match named, positional with
     | [ action ], [] when not (String.IsNullOrWhiteSpace action) ->
       Ok(actionID action)
-    | [], [ action ] -> Ok(actionID action)
-    | [], [] -> Error $"{keyword} requires an action."
-    | _ :: _ :: _, _ -> Error "duplicate parameter: action."
+    | [], [ action ] ->
+      Ok(actionID action)
+    | [], [] ->
+      Error $"{keyword} requires an action."
+    | _ :: _ :: _, _ ->
+      Error "duplicate parameter: action."
     | _ :: _, _ ->
       Error $"{keyword} action must not be mixed with positional arguments."
     | [], _ ->
@@ -569,7 +622,8 @@ module ReplLanguage =
   let private parseIterLambda (keyword: string) action tokens =
     let tokens, _, _ = stripLambdaDelimiters tokens
     match keyword.ToLowerInvariant(), tokens with
-    | "iter", [] -> Ok(emptyIterSpec action)
+    | "iter", [] ->
+      Ok(emptyIterSpec action)
     | "iter", "fun" :: item :: "->" :: body
       when validLambdaParameter item ->
       Ok
@@ -601,7 +655,8 @@ module ReplLanguage =
       Error "iteri function must be: fun index item -> <action-parameters>."
     | "iteri", _ ->
       Error "iteri requires a function: fun index item -> ..."
-    | _, _ -> Error $"Unknown collection operator: {keyword}."
+    | _, _ ->
+      Error $"Unknown collection operator: {keyword}."
 
   let parseIter keyword args =
     let actionTokens, lambdaTokens = iterParts args
@@ -656,8 +711,10 @@ module ReplLanguage =
         index
       else
         match input[index] with
-        | ')' | '=' -> index
-        | _ -> loop (index + 1)
+        | ')' | '=' ->
+          index
+        | _ ->
+          loop (index + 1)
     let finish = loop start
     let typ, typStart = trimType input start finish
     typ, typStart, finish
@@ -670,8 +727,10 @@ module ReplLanguage =
       let index = if hasOpenParen then skipSpaces input (index + 1) else index
       let name, index =
         match parseIdentifier input index with
-        | Some(name, index) -> Some name, index
-        | None -> None, index
+        | Some(name, index) ->
+          Some name, index
+        | None ->
+          None, index
       let index = skipSpaces input index
       let typ, typStart, index =
         if index < input.Length && input[index] = ':' then
@@ -713,12 +772,15 @@ module ReplLanguage =
     match bindingHeader input with
     | Some header when header.HasEquals ->
       header.Expression |> Option.defaultValue ""
-    | _ -> input
+    | _ ->
+      input
 
   let splitTopLevel separator tokens =
     let rec loop depth current elements = function
-      | [] when List.isEmpty current -> List.rev elements
-      | [] -> List.rev (List.rev current :: elements)
+      | [] when List.isEmpty current ->
+        List.rev elements
+      | [] ->
+        List.rev (List.rev current :: elements)
       | token :: rest when token = separator && depth = 0 ->
         loop depth [] (List.rev current :: elements) rest
       | token :: rest ->
@@ -734,7 +796,9 @@ module ReplLanguage =
           Ok(List.rev elements)
       | [] ->
         Ok(List.rev (List.rev current :: elements))
-      | token :: _ when token = separator && depth = 0
+      | token :: _ when
+        token = separator
+        && depth = 0
         && List.isEmpty current ->
         Error "Empty literal element."
       | token :: rest when token = separator && depth = 0 ->
@@ -764,8 +828,10 @@ module ReplLanguage =
     loop 0 [] [] false tokens
 
   let private toSegment = function
-    | head :: arguments -> Ok { Head = head; Arguments = arguments }
-    | [] -> Error "Empty pipeline segment."
+    | head :: arguments ->
+      Ok { Head = head; Arguments = arguments }
+    | [] ->
+      Error "Empty pipeline segment."
 
   let parsePipelineTokens tokens =
     splitPipelineTokens tokens
@@ -834,7 +900,8 @@ module ReplLanguage =
 
     let parse text =
       match run pipeline text with
-      | Success(segments, _, _) -> Result.Ok segments
+      | Success(segments, _, _) ->
+        Result.Ok segments
       | Failure(message, _, _) ->
         Result.Error $"Invalid pipeline expression: {message}"
 
@@ -849,9 +916,12 @@ module ReplLanguage =
       let bare = many1Satisfy bareCharacter |>> string
       let part =
         lookAhead anyChar >>= function
-        | '\'' -> partialQuoted '\''
-        | '"' -> partialQuoted '"'
-        | _ -> bare
+        | '\'' ->
+          partialQuoted '\''
+        | '"' ->
+          partialQuoted '"'
+        | _ ->
+          bare
       many1 part
       |>> String.concat ""
 
@@ -877,15 +947,21 @@ module ReplLanguage =
         (opt (pstring closing .>> spaces))
         getPosition
         (fun start children close finish ->
-          PartialDelimited(opening, close, int start.Index, int finish.Index,
-                           children))
+          PartialDelimited(
+            opening,
+            close,
+            int start.Index,
+            int finish.Index,
+            children
+          ))
 
     let partialBracket =
       startsWith "[|" (partialDelimited "[|" "|]")
       <|> partialDelimited "[" "]"
 
     let rec nodeTokens = function
-      | PartialToken(text, _, _) -> [ text ]
+      | PartialToken(text, _, _) ->
+        [ text ]
       | PartialDelimited(opening, closing, _, _, children) ->
         let closing =
           closing |> Option.map List.singleton |> Option.defaultValue []
@@ -893,25 +969,39 @@ module ReplLanguage =
 
     let partialNested =
       lookAhead anyChar >>= function
-      | '[' -> partialBracket
-      | '(' -> partialDelimited "(" ")"
-      | '|' -> startsWith "|>" (partialSymbol "|>")
-      | ',' -> partialSymbol ","
-      | ';' -> partialSymbol ";"
-      | _ -> partialWord
+      | '[' ->
+        partialBracket
+      | '(' ->
+        partialDelimited "(" ")"
+      | '|' ->
+        startsWith "|>" (partialSymbol "|>")
+      | ',' ->
+        partialSymbol ","
+      | ';' ->
+        partialSymbol ";"
+      | _ ->
+        partialWord
 
     do partialNodeRef.Value <- partialNested
 
     let partialTopLevelToken =
       lookAhead anyChar >>= function
-      | '[' -> partialBracket
-      | '(' -> partialDelimited "(" ")"
-      | ')' -> partialSymbol ")"
-      | ']' -> partialSymbol "]"
-      | '|' -> startsWith "|]" (partialSymbol "|]")
-      | ',' -> partialSymbol ","
-      | ';' -> partialSymbol ";"
-      | _ -> partialWord
+      | '[' ->
+        partialBracket
+      | '(' ->
+        partialDelimited "(" ")"
+      | ')' ->
+        partialSymbol ")"
+      | ']' ->
+        partialSymbol "]"
+      | '|' ->
+        startsWith "|]" (partialSymbol "|]")
+      | ',' ->
+        partialSymbol ","
+      | ';' ->
+        partialSymbol ";"
+      | _ ->
+        partialWord
 
     let partialSegment =
       getPosition .>>. many1 partialTopLevelToken .>>. getPosition
@@ -934,8 +1024,11 @@ module ReplLanguage =
         <|> preturn (List.rev segments, lastPipe, false)
       spaces >>. opt partialSegment
       >>= function
-        | None -> preturn { Segments = []; LastPipelineStart = None
-                            HasTrailingPipeline = false }
+        | None ->
+          preturn
+            { Segments = []
+              LastPipelineStart = None
+              HasTrailingPipeline = false }
         | Some segment ->
           parseTail [ segment ] None
           |>> fun (segments, lastPipe, hasTrailing) ->
@@ -946,8 +1039,10 @@ module ReplLanguage =
 
     let parsePartial text =
       match run partialPipeline text with
-      | Success(result, _, _) -> Some result
-      | Failure _ -> None
+      | Success(result, _, _) ->
+        Some result
+      | Failure _ ->
+        None
 
   let parsePipeline text =
     Grammar.parse text
@@ -963,7 +1058,8 @@ module ReplLanguage =
   let tryParsePartialPipeline text = Grammar.parsePartial text
 
   let rec private partialSyntaxTokens = function
-    | PartialToken(text, _, _) -> [ text ]
+    | PartialToken(text, _, _) ->
+      [ text ]
     | PartialDelimited(opening, closing, _, _, children) ->
       let closing =
         closing |> Option.map List.singleton |> Option.defaultValue []
@@ -973,8 +1069,13 @@ module ReplLanguage =
     | PartialToken(text, start, finish) ->
       PartialToken(text, start + offset, finish + offset)
     | PartialDelimited(opening, closing, start, finish, children) ->
-      PartialDelimited(opening, closing, start + offset, finish + offset,
-                       children |> List.map (offsetPartialSyntax offset))
+      PartialDelimited(
+        opening,
+        closing,
+        start + offset,
+        finish + offset,
+        children |> List.map (offsetPartialSyntax offset)
+      )
 
   let private offsetPartialSegment offset (segment: ReplPartialSegment) =
     { Start = segment.Start + offset
@@ -999,7 +1100,8 @@ module ReplLanguage =
   and private updateLastSyntaxList (update: string -> string option)
                                    (nodes: ReplPartialSyntax list) =
     match List.rev nodes with
-    | [] -> None
+    | [] ->
+      None
     | node :: nodes ->
       updateLastSyntax update node
       |> Option.map (fun (node, delta) ->
@@ -1032,8 +1134,10 @@ module ReplLanguage =
       if endsWithBareCharacter previousText
          && suffix |> Seq.forall isBareCharacter then
         updateLastSegment (fun token ->
-          if token |> Seq.forall isBareCharacter then Some(token + suffix)
-          else None) previousText pipeline
+          if token |> Seq.forall isBareCharacter then
+            Some(token + suffix)
+          else
+            None) previousText pipeline
       else
         None
     else
@@ -1098,8 +1202,10 @@ module ReplLanguage =
     | None ->
       None
 
-  let tryUpdatePartialPipeline (previousText: string)
-                               (pipeline: ReplPartialPipeline) (text: string) =
+  let tryUpdatePartialPipeline
+    (previousText: string)
+    (pipeline: ReplPartialPipeline)
+    (text: string) =
     if text = previousText then
       Some pipeline
     else
@@ -1111,19 +1217,26 @@ module ReplLanguage =
 
   let private tryUnclosedNode nodes =
     let rec loop = function
-      | [] -> None
+      | [] ->
+        None
       | PartialDelimited(opening, closing, start, finish, children) :: rest ->
         match loop (List.rev children) with
-        | Some node -> Some node
+        | Some node ->
+          Some node
         | None when Option.isNone closing ->
           Some(opening, start, finish, children)
-        | None -> loop rest
-      | _ :: rest -> loop rest
+        | None ->
+          loop rest
+      | _ :: rest ->
+        loop rest
     loop (List.rev nodes)
 
   let tryPartialScope (pipeline: ReplPartialPipeline) =
-    let scope (opening: string) start finish
-              (children: ReplPartialSyntax list) =
+    let scope
+      (opening: string)
+      start
+      finish
+      (children: ReplPartialSyntax list) =
       let separator =
         children
         |> List.mapi (fun index node -> index, node)
@@ -1131,12 +1244,15 @@ module ReplLanguage =
           match node with
           | PartialToken(("," | ";"), _, tokenEnd) ->
             Some(index, tokenEnd)
-          | _ -> None)
+          | _ ->
+            None)
         |> List.tryLast
       let start, nodes =
         match separator with
-        | Some(index, tokenEnd) -> tokenEnd, children |> List.skip (index + 1)
-        | None -> start + opening.Length, children
+        | Some(index, tokenEnd) ->
+          tokenEnd, children |> List.skip (index + 1)
+        | None ->
+          start + opening.Length, children
       { Start = start
         End = finish
         Tokens = nodes |> List.collect partialSyntaxTokens }
@@ -1148,8 +1264,10 @@ module ReplLanguage =
 
   let private parseKind token =
     match ReplValueKind.tryParse token with
-    | Some kind -> Ok kind
-    | None -> Error $"Unknown type annotation: {token}"
+    | Some kind ->
+      Ok kind
+    | None ->
+      Error $"Unknown type annotation: {token}"
 
   let topLevelPipelinePositions (input: string) =
     let rec loop index quote depth positions =
@@ -1165,15 +1283,20 @@ module ReplLanguage =
         | None when chr = '\'' || chr = '"' ->
           loop (index + 1) (Some chr) depth positions
         | None when chr = '(' || chr = '[' ->
-          if chr = '[' && index + 1 < input.Length
+          if
+            chr = '['
+            && index + 1 < input.Length
              && input[index + 1] = '|' then
             loop (index + 2) None (depth + 1) positions
           else
             loop (index + 1) None (depth + 1) positions
         | None when chr = ')' || chr = ']' ->
           loop (index + 1) None (max 0 (depth - 1)) positions
-        | None when chr = '|' && index + 1 < input.Length
-          && input[index + 1] = '>' && depth = 0 ->
+        | None when
+          chr = '|'
+          && index + 1 < input.Length
+          && input[index + 1] = '>'
+          && depth = 0 ->
           loop (index + 2) None depth (index :: positions)
         | None ->
           loop (index + 1) None depth positions
@@ -1182,10 +1305,13 @@ module ReplLanguage =
   let topLevelLastPipeline input =
     topLevelPipelinePositions input |> List.tryLast
 
-  let activeExpression (input: string) =
-    let updateTop separator = function
-      | (openIndex, _) :: rest -> (openIndex, Some separator) :: rest
-      | [] -> []
+  let private updateActiveScope separator = function
+    | (openIndex, _) :: rest ->
+      (openIndex, Some separator) :: rest
+    | [] ->
+      []
+
+  let private activeScopeStack (input: string) =
     let rec loop index quote stack =
       if index >= input.Length then
         stack
@@ -1198,7 +1324,9 @@ module ReplLanguage =
           loop (index + 1) quote stack
         | None when chr = '\'' || chr = '"' ->
           loop (index + 1) (Some chr) stack
-        | None when chr = '[' && index + 1 < input.Length
+        | None when
+          chr = '['
+          && index + 1 < input.Length
           && input[index + 1] = '|' ->
           loop (index + 2) None ((index, None) :: stack)
         | None when chr = '(' || chr = '[' ->
@@ -1206,14 +1334,19 @@ module ReplLanguage =
         | None when chr = ')' || chr = ']' ->
           let stack =
             match stack with
-            | _ :: rest -> rest
-            | [] -> []
+            | _ :: rest ->
+              rest
+            | [] ->
+              []
           loop (index + 1) None stack
         | None when (chr = ',' || chr = ';') && not (List.isEmpty stack) ->
-          loop (index + 1) None (updateTop index stack)
+          loop (index + 1) None (updateActiveScope index stack)
         | None ->
           loop (index + 1) None stack
-    match loop 0 None [] with
+    loop 0 None []
+
+  let activeExpression (input: string) =
+    match activeScopeStack input with
     | (openIndex, separator) :: _ ->
       let start =
         separator |> Option.map ((+) 1) |> Option.defaultValue
@@ -1226,7 +1359,8 @@ module ReplLanguage =
     match bindingHeader input with
     | Some header ->
       match header.SyntaxError with
-      | Some message -> Error message
+      | Some message ->
+        Error message
       | None ->
       match header.Name, header.HasEquals, header.Expression with
       | Some name, true, Some expression when isValidName name ->
@@ -1234,8 +1368,10 @@ module ReplLanguage =
           match header.TypeAnnotation with
           | Some typ when String.IsNullOrWhiteSpace typ ->
             Error "Type annotation is missing after ':'."
-          | None -> Ok None
-          | Some typ -> parseKind typ |> Result.map Some
+          | None ->
+            Ok None
+          | Some typ ->
+            parseKind typ |> Result.map Some
         expected
         |> Result.bind (fun expected ->
           if String.IsNullOrWhiteSpace expression then

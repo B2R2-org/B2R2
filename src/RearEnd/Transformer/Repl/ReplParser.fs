@@ -32,8 +32,10 @@ module TransformerReplParser =
 
   let private parseInt (value: string) =
     match Int32.TryParse value with
-    | true, value -> Ok value
-    | _ -> Error "Value history ID must be an integer."
+    | true, value ->
+      Ok value
+    | _ ->
+      Error "Value history ID must be an integer."
 
   let private parseRestore id name =
     parseInt id |> Result.map (fun id -> Restore(id, name))
@@ -49,45 +51,68 @@ module TransformerReplParser =
       Ok value
 
   let private parseMetaCommand = function
-    | [] -> Ok NoInput
-    | [ ":quit" ] | [ ":q" ] -> Ok Quit
-    | [ ":help" ] -> Ok Help
-    | [ ":actions" ] -> Ok Actions
-    | [ ":history" ] -> Ok History
-    | [ ":values" ] -> Ok Values
-    | [ ":undo" ] -> Ok Undo
-    | [ ":log" ] -> Ok Log
+    | [] ->
+      Ok NoInput
+    | [ ":quit" ] | [ ":q" ] ->
+      Ok Quit
+    | [ ":help" ] ->
+      Ok Help
+    | [ ":actions" ] ->
+      Ok Actions
+    | [ ":history" ] ->
+      Ok History
+    | [ ":values" ] ->
+      Ok Values
+    | [ ":undo" ] ->
+      Ok Undo
+    | [ ":log" ] ->
+      Ok Log
     | [ ":export"; name; path ] when ReplLanguage.isValidName name ->
       parsePathArgument ":export" path
       |> Result.map (fun path -> ExportValue(name, path))
-    | [ ":inspect" ] -> Ok(Inspect None)
-    | [ ":inspect"; name ] -> Ok(Inspect(Some name))
-    | ":needs" :: name :: args when ReplLanguage.isValidName name ->
+    | [ ":inspect" ] ->
+      Ok(Inspect None)
+    | [ ":inspect"; name ] ->
+      Ok(Inspect(Some name))
+    | ":needs" :: name :: args
+      when ReplLanguage.isValidName name ->
       Ok(Needs(name, args))
     | [ ":needs" ] ->
       Error ":needs requires an executor binding."
-    | [ ":restore"; id ] -> parseRestore id None
+    | [ ":restore"; id ] ->
+      parseRestore id None
     | [ ":restore"; id; "as"; name ] when ReplLanguage.isValidName name ->
       parseRestore id (Some name)
     | [ ":script"; "save"; path ] ->
       parsePathArgument ":script save" path |> Result.map SaveScript
     | [ ":script"; "load"; path ] ->
       parsePathArgument ":script load" path |> Result.map LoadScript
-    | [ ":script"; "record" ] -> Ok(ScriptRecord None)
-    | [ ":script"; "record"; "on" ] -> Ok(ScriptRecord(Some true))
-    | [ ":script"; "record"; "off" ] -> Ok(ScriptRecord(Some false))
+    | [ ":script"; "record" ] ->
+      Ok(ScriptRecord None)
+    | [ ":script"; "record"; "on" ] ->
+      Ok(ScriptRecord(Some true))
+    | [ ":script"; "record"; "off" ] ->
+      Ok(ScriptRecord(Some false))
     | [ ":plugin"; "load"; path ] ->
       parsePathArgument ":plugin load" path |> Result.map PluginLoad
-    | [ ":plugin"; "load" ] -> Error ":plugin load requires a DLL path."
-    | [ ":plugin" ] -> Error ":plugin requires an operation: load."
-    | ":layout" :: options -> Ok(Layout options)
-    | "#" :: rest -> Ok(ScriptComment(String.concat " " rest))
-    | [ ":reset" ] -> Ok Reset
-    | [ ":show" ] -> Ok(Show None)
+    | [ ":plugin"; "load" ] ->
+      Error ":plugin load requires a DLL path."
+    | [ ":plugin" ] ->
+      Error ":plugin requires an operation: load."
+    | ":layout" :: options ->
+      Ok(Layout options)
+    | "#" :: rest ->
+      Ok(ScriptComment(String.concat " " rest))
+    | [ ":reset" ] ->
+      Ok Reset
+    | [ ":show" ] ->
+      Ok(Show None)
     | ":show" :: rest ->
       ReplLanguage.parsePipelineTokens rest |> Result.map ShowExpression
-    | [ ":type" ] -> Ok(TypeOf None)
-    | [ ":type"; name ] -> Ok(TypeOf(Some name))
+    | [ ":type" ] ->
+      Ok(TypeOf None)
+    | [ ":type"; name ] ->
+      Ok(TypeOf(Some name))
     | ":type" :: rest ->
       ReplLanguage.parsePipelineTokens rest |> Result.map TypeOfExpression
     | command :: _ when command.StartsWith ':' ->
@@ -103,8 +128,10 @@ module TransformerReplParser =
     else
       InputAnalysis.tokenizeStrict input
       |> Result.bind (function
-        | [] -> Ok NoInput
-        | command :: _ as tokens when command.StartsWith ':' ->
+        | [] ->
+          Ok NoInput
+        | command :: _ as tokens
+          when command.StartsWith ':' ->
           tokens |> List.map ReplLanguage.unquote |> parseMetaCommand
         | tokens ->
           ReplLanguage.parseEvaluation input tokens)

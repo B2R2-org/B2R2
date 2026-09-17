@@ -32,8 +32,11 @@ open B2R2.FrontEnd.BinFile
 
 /// The `lift` action.
 type LiftAction() =
-  let rec lift cancellationToken (sb: StringBuilder) (lifter: LiftingUnit)
-               (ptr: BinFilePointer) =
+  let rec lift
+    cancellationToken
+    (sb: StringBuilder)
+    (lifter: LiftingUnit)
+    (ptr: BinFilePointer) =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
     if ptr.CanReadFileBytes then
@@ -42,15 +45,19 @@ type LiftAction() =
         let s = lifter.LiftInstruction instr |> PrettyPrinter.ToString
         let ptr = ptr.Advance(instr.Length)
         lift cancellationToken (sb.Append s) lifter ptr
-      | Error _ -> "Bad instruction found"
+      | Error _ ->
+        "Bad instruction found"
     else
       sb.ToString()
 
   let binaryOfInput (input: obj) =
     match input with
-    | :? Binary as binary -> binary
-    | :? BinarySlice as slice -> slice.ToBinary()
-    | _ -> invalidArg "input" "Invalid input type."
+    | :? Binary as binary ->
+      binary
+    | :? BinarySlice as slice ->
+      slice.ToBinary()
+    | _ ->
+      invalidArg "input" "Invalid input type."
 
   let liftByteArray cancellationToken (o: obj) =
     let bin = binaryOfInput o
@@ -60,7 +67,11 @@ type LiftAction() =
     let len = hdl.File.Length
     let ptr =
       BinFilePointer.CreateFileBacked(
-        baddr, baddr + uint64 len - 1UL, 0, len - 1)
+        baddr,
+        baddr + uint64 len - 1UL,
+        0,
+        len - 1
+      )
     let sb = StringBuilder()
     lift cancellationToken sb lifter ptr
     |> box
@@ -79,11 +90,15 @@ type LiftAction() =
 """
     member _.Transform(args, collection) =
       match args with
-      | [] -> transform CancellationToken.None collection
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | [] ->
+        transform CancellationToken.None collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."
 
   interface ICancellableAction with
     member _.Transform(args, collection, cancellationToken) =
       match args with
-      | [] -> transform cancellationToken collection
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | [] ->
+        transform cancellationToken collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."

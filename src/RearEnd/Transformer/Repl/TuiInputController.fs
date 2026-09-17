@@ -37,8 +37,10 @@ module TransformerTuiInputController =
     key.Modifiers &&& modifier = modifier
 
   let private toggleOverlay overlay model =
-    if model.Overlay = overlay then TransformerTuiModel.closeOverlay model
-    else TransformerTuiModel.setOverlay overlay model
+    if model.Overlay = overlay then
+      TransformerTuiModel.closeOverlay model
+    else
+      TransformerTuiModel.setOverlay overlay model
 
   let private toggleView model =
     if model.Overlay = TuiOverlay.View then
@@ -49,8 +51,10 @@ module TransformerTuiInputController =
 
   let private scrollPage direction model =
     match model.Overlay with
-    | TuiOverlay.None -> TransformerTuiModel.scroll (direction) model
-    | _ -> TransformerTuiModel.scroll (-direction) model
+    | TuiOverlay.None ->
+      TransformerTuiModel.scroll (direction) model
+    | _ ->
+      TransformerTuiModel.scroll (-direction) model
 
   let private pageHeight model =
     let _, height = TransformerTuiTerminal.dimensions ()
@@ -68,9 +72,12 @@ module TransformerTuiInputController =
 
   let private overlayItemCount model =
     match model.Overlay with
-    | TuiOverlay.Inspect -> inspectionItems model |> List.length
-    | TuiOverlay.Values -> model.Session.ValueHistory |> List.length
-    | _ -> 0
+    | TuiOverlay.Inspect ->
+      inspectionItems model |> List.length
+    | TuiOverlay.Values ->
+      model.Session.ValueHistory |> List.length
+    | _ ->
+      0
 
   let private selectedOverlayCommand model =
     match model.Overlay with
@@ -98,19 +105,26 @@ module TransformerTuiInputController =
 
   let private parseInt (value: string) =
     match Int32.TryParse value with
-    | true, number -> Some number
-    | _ -> None
+    | true, number ->
+      Some number
+    | _ ->
+      None
 
   let private layoutSummary (model: TransformerTuiModel) =
     let sidebar =
       match model.SidebarWidth with
-      | None -> "auto"
-      | Some 0 -> "off"
-      | Some width -> string width
+      | None ->
+        "auto"
+      | Some 0 ->
+        "off"
+      | Some width ->
+        string width
     let transcript =
       match model.TranscriptHeight with
-      | None -> "auto"
-      | Some height -> string height
+      | None ->
+        "auto"
+      | Some height ->
+        string height
     $"layout sidebar={sidebar} "
     + $"transcript={transcript} shell={model.ShellHeight}"
 
@@ -160,12 +174,14 @@ module TransformerTuiInputController =
       |> TransformerTuiModel.clearInput
     let result =
       match words with
-      | [ ":layout" ] -> Ok model
+      | [ ":layout" ] ->
+        Ok model
       | ":layout" :: options ->
         let folder result optionText =
           result |> Result.bind (applyLayoutOption optionText)
         List.fold folder (Ok model) options
-      | _ -> Error "Invalid layout command."
+      | _ ->
+        Error "Invalid layout command."
     match result with
     | Ok next ->
       let summary = layoutSummary next
@@ -202,8 +218,10 @@ module TransformerTuiInputController =
 
   let private pressShellEnter model =
     match trySubmitPhrase model with
-    | TuiInputResult.Update _ -> appendShellText "\n" model
-    | result -> result
+    | TuiInputResult.Update _ ->
+      appendShellText "\n" model
+    | result ->
+      result
 
   let private submitShellInput model =
     submitPhrase model.Input model
@@ -289,8 +307,11 @@ module TransformerTuiInputController =
     | _ ->
       TuiInputResult.Update model
 
-  let private handleViewKey control shift (key: ConsoleKeyInfo)
-                            (model: TransformerTuiModel) =
+  let private handleViewKey
+    control
+    shift
+    (key: ConsoleKeyInfo)
+    (model: TransformerTuiModel) =
     if control && key.Key = ConsoleKey.F then
       TransformerTuiModel.setViewFind true model |> TuiInputResult.Update
     elif control && key.Key = ConsoleKey.Enter then
@@ -321,8 +342,10 @@ module TransformerTuiInputController =
       | _ ->
         TuiInputResult.Update model
 
-  let private handleTranscriptKey control (key: ConsoleKeyInfo)
-                                  (model: TransformerTuiModel) =
+  let private handleTranscriptKey
+    control
+    (key: ConsoleKeyInfo)
+    (model: TransformerTuiModel) =
     match key.Key with
     | ConsoleKey.Escape ->
       TransformerTuiModel.focusShell model |> TuiInputResult.Update
@@ -373,7 +396,8 @@ module TransformerTuiInputController =
     let layoutShortcut =
       if alt then tryHandleLayoutShortcut key model else None
     match layoutShortcut with
-    | Some result -> result
+    | Some result ->
+      result
     | None ->
       if model.Overlay = TuiOverlay.View
          && (model.ViewPane |> Option.exists (fun pane -> pane.IsFinding)) then
@@ -385,9 +409,13 @@ module TransformerTuiInputController =
            && not (shift && key.Key = ConsoleKey.DownArrow) then
         handleTranscriptKey control key model
       elif control && key.Key = ConsoleKey.D then
-        if String.IsNullOrEmpty model.Input then TuiInputResult.Stop model
-        else TuiInputResult.Update model
-      elif control && key.Key = ConsoleKey.Enter
+        if String.IsNullOrEmpty model.Input then
+          TuiInputResult.Stop model
+        else
+          TuiInputResult.Update model
+      elif
+        control
+        && key.Key = ConsoleKey.Enter
            && model.Overlay = TuiOverlay.None
            && model.Focus = TuiFocus.Shell then
         submitShellInput model

@@ -32,8 +32,10 @@ type CountAction() =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
     match args with
-    | [] -> { Values = [| collection.Values.Length |] }
-    | _ -> invalidArg (nameof args) "Invalid argument."
+    | [] ->
+      { Values = [| collection.Values.Length |] }
+    | _ ->
+      invalidArg (nameof args) "Invalid argument."
 
   interface IAction with
     member _.ActionID with get() = "count"

@@ -75,11 +75,15 @@ type LLVMAction() =
 """
     member _.Transform(args, collection) =
       match args with
-      | [] -> transform CancellationToken.None collection
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | [] ->
+        transform CancellationToken.None collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."
 
   interface ICancellableAction with
     member _.Transform(args, collection, cancellationToken) =
       match args with
-      | [] -> transform cancellationToken collection
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | [] ->
+        transform cancellationToken collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."

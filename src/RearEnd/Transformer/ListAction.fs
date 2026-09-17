@@ -51,7 +51,8 @@ type ListAction() =
     match BinFileOps.tryFindSymbolByAddr hdl.File addr with
     | Ok symbol when not (System.String.IsNullOrWhiteSpace symbol.Name) ->
       Some symbol.Name
-    | _ -> None
+    | _ ->
+      None
 
   let functionInfo bin hdl addr =
     { Source = bin
@@ -87,13 +88,16 @@ type ListAction() =
         cancellationToken.ThrowIfCancellationRequested()
         operation value)
     match args with
-    | [ "sections" ] -> { Values = collect listSections }
+    | [ "sections" ] ->
+      { Values = collect listSections }
     | [ "functions" ] ->
       { Values =
           collection.Values
           |> Array.collect (listFunctions cancellationToken) }
-    | [ "known-functions" ] -> { Values = collect listKnownFunctions }
-    | _ -> invalidArg (nameof args) "Invalid argument."
+    | [ "known-functions" ] ->
+      { Values = collect listKnownFunctions }
+    | _ ->
+      invalidArg (nameof args) "Invalid argument."
 
   interface IAction with
     member _.ActionID with get() = "list"

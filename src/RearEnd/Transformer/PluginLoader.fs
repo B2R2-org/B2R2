@@ -42,7 +42,8 @@ type private TransformerPluginLoadContext(pluginPath: string) =
     |> Seq.tryFind (fun assembly ->
       assembly.GetName().Name = name.Name)
     |> function
-      | Some assembly -> assembly
+      | Some assembly ->
+        assembly
       | None ->
         try
           AssemblyLoadContext.Default.LoadFromAssemblyName name
@@ -79,20 +80,27 @@ type private TransformerPluginLoadContext(pluginPath: string) =
       match tryFindDefaultAssembly name with
       | null ->
         match tryResolvePluginAssembly name with
-        | null -> null
-        | path -> base.LoadFromAssemblyPath path
-      | assembly -> assembly
+        | null ->
+          null
+        | path ->
+          base.LoadFromAssemblyPath path
+      | assembly ->
+        assembly
     else
       match tryResolvePluginAssembly name with
-      | null -> null
-      | path -> base.LoadFromAssemblyPath path
+      | null ->
+        null
+      | path ->
+        base.LoadFromAssemblyPath path
 
   override _.LoadUnmanagedDll name =
     let resolved = resolver.ResolveUnmanagedDllToPath name
     if isNull resolved then
       match probeNativeLibrary name with
-      | null -> 0n
-      | path -> base.LoadUnmanagedDllFromPath path
+      | null ->
+        0n
+      | path ->
+        base.LoadUnmanagedDllFromPath path
     else
       base.LoadUnmanagedDllFromPath resolved
 
@@ -132,7 +140,8 @@ module TransformerPluginLoader =
     if File.Exists path then
       let fullPath = Path.GetFullPath path
       match cache.TryGetValue fullPath with
-      | true, plugin -> plugin.Types
+      | true, plugin ->
+        plugin.Types
       | false, _ ->
         let plugin = loadPlugin fullPath
         cache.Add(fullPath, plugin)

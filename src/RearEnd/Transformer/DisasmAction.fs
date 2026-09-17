@@ -31,8 +31,11 @@ open B2R2.FrontEnd.BinFile
 
 /// The `disasm` action.
 type DisasmAction() =
-  let rec disasm cancellationToken acc (lifter: LiftingUnit)
-                 (ptr: BinFilePointer) =
+  let rec disasm
+    cancellationToken
+    acc
+    (lifter: LiftingUnit)
+    (ptr: BinFilePointer) =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
     if ptr.CanReadFileBytes then
@@ -54,9 +57,12 @@ type DisasmAction() =
 
   let binaryOfInput (input: obj) =
     match input with
-    | :? Binary as binary -> binary
-    | :? BinarySlice as slice -> slice.ToBinary()
-    | _ -> invalidArg "input" "Invalid input type."
+    | :? Binary as binary ->
+      binary
+    | :? BinarySlice as slice ->
+      slice.ToBinary()
+    | _ ->
+      invalidArg "input" "Invalid input type."
 
   let disasmByteArray cancellationToken _args (o: obj) =
     let bin = binaryOfInput o
@@ -66,7 +72,11 @@ type DisasmAction() =
     let len = hdl.File.Length
     let ptr =
       BinFilePointer.CreateFileBacked(
-        baddr, baddr + uint64 len - 1UL, 0, len - 1)
+        baddr,
+        baddr + uint64 len - 1UL,
+        0,
+        len - 1
+      )
     disasm cancellationToken [] lifter ptr
     |> box
 

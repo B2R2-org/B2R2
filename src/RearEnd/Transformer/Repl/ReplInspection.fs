@@ -75,8 +75,10 @@ module TransformerReplInspection =
     values
     |> Array.mapi (fun index value ->
       match value with
-      | :? CFG as cfg -> inspectCFG index cfg
-      | _ -> None)
+      | :? CFG as cfg ->
+        inspectCFG index cfg
+      | _ ->
+        None)
     |> Array.choose id
     |> Array.toList
 
@@ -84,6 +86,8 @@ module TransformerReplInspection =
     let value: ReplValue = value
     value.Collection.Values
     |> Array.tryPick (function
-      | :? Binary as binary -> Some(inspectBinary binary)
-      | _ -> None)
+      | :? Binary as binary ->
+        Some(inspectBinary binary)
+      | _ ->
+        None)
     |> Option.defaultWith (fun () -> inspectCFGs value.Collection.Values)

@@ -33,33 +33,45 @@ open System.Threading
 type StringsAction() =
   let tryParseInt (value: string) =
     match Int32.TryParse value with
-    | true, number -> Some number
-    | _ -> None
+    | true, number ->
+      Some number
+    | _ ->
+      None
 
   let parseInt (value: string) =
     Int32.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture)
 
   let parseMinLength (args: string list) =
     match args with
-    | [] -> 4
+    | [] ->
+      4
     | [ minLength ] when tryParseInt minLength |> Option.isSome ->
       parseInt minLength
-    | [ _ ] -> 4
+    | [ _ ] ->
+      4
     | minLength :: _ ->
       parseInt minLength
 
   let parsePattern (args: string list) =
     match args with
-    | [] -> None
-    | [ pattern ] when tryParseInt pattern |> Option.isSome -> None
-    | [ pattern ] -> Some pattern
-    | _ :: pattern :: _ -> Some pattern
+    | [] ->
+      None
+    | [ pattern ] when tryParseInt pattern |> Option.isSome ->
+      None
+    | [ pattern ] ->
+      Some pattern
+    | _ :: pattern :: _ ->
+      Some pattern
 
   let isPrintable byte =
     byte >= 0x20uy && byte <= 0x7euy
 
-  let collectStrings minLength pattern source baseAddress
-                     (bytes: ReadOnlySpan<byte>) =
+  let collectStrings
+    minLength
+    pattern
+    source
+    baseAddress
+    (bytes: ReadOnlySpan<byte>) =
     let builder = StringBuilder()
     let strings = ResizeArray<StringMatch>()
     let flush startIndex =
@@ -88,19 +100,28 @@ type StringsAction() =
 
   let collectFromBinary minLength pattern binary =
     let hdl = Binary.Handle binary
-    collectStrings minLength pattern binary hdl.File.BaseAddress
+    collectStrings
+      minLength
+      pattern
+      binary
+      hdl.File.BaseAddress
       hdl.File.RawBytes.Span
 
   let collectFromSlice minLength pattern slice =
     let slice: BinarySlice = slice
-    collectStrings minLength pattern slice.Source slice.StartAddress
+    collectStrings
+      minLength
+      pattern
+      slice.Source
+      slice.StartAddress
       (ReadOnlySpan slice.Bytes)
 
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
     let minLength = parseMinLength args
     let pattern = parsePattern args
-    if minLength <= 0 then invalidArg (nameof args) "min must be positive."
+    if minLength <= 0 then
+      invalidArg (nameof args) "min must be positive."
     else
       { Values =
           collection.Values
@@ -111,7 +132,8 @@ type StringsAction() =
               collectFromBinary minLength pattern binary
             | :? BinarySlice as slice ->
               collectFromSlice minLength pattern slice
-            | _ -> invalidArg (nameof input) "Invalid input type.") }
+            | _ ->
+              invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "strings"

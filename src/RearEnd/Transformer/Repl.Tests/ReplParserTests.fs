@@ -45,7 +45,8 @@ type ReplParserTests() =
 
   let parseEvaluate input =
     match TransformerReplParser.parse input with
-    | Ok(Evaluate(segments, binding, expected)) -> segments, binding, expected
+    | Ok(Evaluate(segments, binding, expected)) ->
+      segments, binding, expected
     | Ok command ->
       Assert.Fail $"Expected an evaluation, but parsed {command}."
       [], None, None
@@ -62,7 +63,8 @@ type ReplParserTests() =
 
   let parsePartial input =
     match ReplLanguage.tryParsePartialPipeline input with
-    | Some pipeline -> pipeline
+    | Some pipeline ->
+      pipeline
     | None ->
       Assert.Fail "Expected incomplete input to produce a partial pipeline."
       Unchecked.defaultof<ReplPartialPipeline>
@@ -121,8 +123,10 @@ type ReplParserTests() =
   [<TestMethod>]
   member _.``Pipeline parser rejects incomplete delimiters``() =
     match TransformerReplParser.parse "targets |> iter @strings (fun item" with
-    | Error _ -> ()
-    | Ok command -> Assert.Fail $"Expected a parse error, but parsed {command}."
+    | Error _ ->
+      ()
+    | Ok command ->
+      Assert.Fail $"Expected a parse error, but parsed {command}."
 
   [<TestMethod>]
   member _.``Partial iter analysis records a missing lambda arrow``() =
@@ -143,7 +147,8 @@ type ReplParserTests() =
     Assert.AreEqual(false, pipeline.HasTrailingPipeline)
     Assert.AreEqual<string list list>(
       [ [ "targets" ]; [ "iter"; "@strings"; "("; "fun"; "item" ] ],
-      pipeline.Segments |> List.map _.Tokens)
+      pipeline.Segments |> List.map _.Tokens
+    )
 
   [<TestMethod>]
   member _.``Partial parser identifies the active incomplete scope``() =
@@ -167,7 +172,9 @@ type ReplParserTests() =
     Assert.AreEqual(Some 8, pipeline.LastPipelineStart)
     Assert.AreEqual(true, pipeline.HasTrailingPipeline)
     Assert.AreEqual<string list list>(
-      [ [ "targets" ] ], pipeline.Segments |> List.map _.Tokens)
+      [ [ "targets" ] ],
+      pipeline.Segments |> List.map _.Tokens
+    )
 
   [<TestMethod>]
   member _.``Partial parser retains an unfinished quoted value``() =
@@ -175,7 +182,8 @@ type ReplParserTests() =
     Assert.AreEqual(false, pipeline.HasTrailingPipeline)
     Assert.AreEqual<string list list>(
       [ [ "target" ]; [ "@asm"; "code=\"cmp dword" ] ],
-      pipeline.Segments |> List.map _.Tokens)
+      pipeline.Segments |> List.map _.Tokens
+    )
 
   [<TestMethod>]
   member _.``Completion suggests iterator keywords while editing one``() =

@@ -63,19 +63,26 @@ type DbscanAction() =
             e2.Fingerprint, e1.Fingerprint
         let mutable intersection = 0
         for hash in smaller do
-          if larger.Contains hash then intersection <- intersection + 1
-          else ()
+          if larger.Contains hash then
+            intersection <- intersection + 1
+          else
+            ()
         let overlap = (* overlap coefficient *)
-          if smaller.Count = 0 then 0.0
-          else float intersection / float smaller.Count
+          if smaller.Count = 0 then
+            0.0
+          else
+            float intersection / float smaller.Count
         let dist = 1.0 - overlap
         cache[index i j] <- dist
     cache, index
 
   let dist (cache: float[]) index i j =
-    if i = j then 0.0
-    elif i < j then cache[index i j]
-    else cache[index j i]
+    if i = j then
+      0.0
+    elif i < j then
+      cache[index i j]
+    else
+      cache[index j i]
 
   let findNeighbors cancellationToken count cache index i eps =
     let cancellationToken: CancellationToken = cancellationToken
@@ -84,7 +91,8 @@ type DbscanAction() =
       cancellationToken.ThrowIfCancellationRequested()
       if dist cache index i j <= eps then
         neighbors.Add j |> ignore
-      else ()
+      else
+        ()
     neighbors
 
   let cluster cancellationToken eps minpts (fingerprints: Fingerprint[]) =
@@ -94,11 +102,13 @@ type DbscanAction() =
     let clusters = List<string[]>() (* List<List<string>> *)
     for i in 0 .. (elms.Length - 1) do
       cancellationToken.ThrowIfCancellationRequested()
-      if elms[i].Status <> Unvisited then ()
+      if elms[i].Status <> Unvisited then
+        ()
       else
         let neighbors =
           findNeighbors cancellationToken elms.Length cache cacheIndex i eps
-        if neighbors.Count < minpts then elms[i].Status <- Noise
+        if neighbors.Count < minpts then
+          elms[i].Status <- Noise
         else
           let cluster = List<string> () (* List<string> *)
           elms[i].Status <- Visited
@@ -108,25 +118,35 @@ type DbscanAction() =
           for neighbor in neighbors do
             if neighbor <> i && enqueued.Add neighbor then
               queue.Enqueue neighbor
-            else ()
+            else
+              ()
           while queue.Count > 0 do
             cancellationToken.ThrowIfCancellationRequested()
             let n = queue.Dequeue()
             if elms[n].Status = Noise then
               elms[n].Status <- Visited
               cluster.Add elms[n].ElementName |> ignore
-            elif elms[n].Status <> Unvisited then ()
+            elif elms[n].Status <> Unvisited then
+              ()
             else
               elms[n].Status <- Visited
               cluster.Add elms[n].ElementName |> ignore
               let newNeighbors =
-                findNeighbors cancellationToken elms.Length cache cacheIndex
-                  n eps
+                findNeighbors
+                  cancellationToken
+                  elms.Length
+                  cache
+                  cacheIndex
+                  n
+                  eps
               if newNeighbors.Count >= minpts then
                 for neighbor in newNeighbors do
-                  if enqueued.Add neighbor then queue.Enqueue neighbor
-                  else ()
-              else ()
+                  if enqueued.Add neighbor then
+                    queue.Enqueue neighbor
+                  else
+                    ()
+              else
+                ()
           clusters.Add(cluster.ToArray()) |> ignore
     [| box { Clusters = clusters.ToArray() } |]
 
@@ -134,10 +154,14 @@ type DbscanAction() =
     let args: string list = args
     let eps, minPts =
       match args with
-      | eps :: minPts :: [] -> Convert.ToDouble eps, Convert.ToInt32 minPts
-      | eps :: [] -> Convert.ToDouble eps, 3
-      | [] -> 0.2, 3
-      | _ -> invalidArg (nameof args) "Too many arguments given."
+      | eps :: minPts :: [] ->
+        Convert.ToDouble eps, Convert.ToInt32 minPts
+      | eps :: [] ->
+        Convert.ToDouble eps, 3
+      | [] ->
+        0.2, 3
+      | _ ->
+        invalidArg (nameof args) "Too many arguments given."
     { Values =
         collection.Values
         |> Array.map unbox<Fingerprint>

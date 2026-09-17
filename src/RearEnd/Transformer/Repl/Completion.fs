@@ -29,15 +29,18 @@ open System
 /// Applies and cycles already computed interactive suggestions.
 module Completion =
   let select offset count current =
-    if count = 0 then 0
-    else (current + offset + count) % count
+    if count = 0 then
+      0
+    else
+      (current + offset + count) % count
 
   let private hasInsertionBoundary (after: string) =
     if String.IsNullOrEmpty after then
       false
     else
       match after[0] with
-      | ')' | ']' | '}' | ',' | ';' -> true
+      | ')' | ']' | '}' | ',' | ';' ->
+        true
       | chr ->
         Char.IsWhiteSpace chr
         || after.StartsWith("|]", StringComparison.Ordinal)

@@ -67,7 +67,8 @@ type DetectAction() =
       detectFile cancellationToken fp path |> resultToString
     elif Directory.Exists path then
       detectDir cancellationToken fp path
-    else invalidArg (nameof path) "File not found."
+    else
+      invalidArg (nameof path) "File not found."
 
   let transform cancellationToken args collection =
     match args with
@@ -75,8 +76,10 @@ type DetectAction() =
       { Values =
           collection.Values
           |> Array.map (detect cancellationToken path) }
-    | [] -> invalidArg (nameof args) "A path should be given."
-    | _ -> invalidArg (nameof args) "Too many paths are given."
+    | [] ->
+      invalidArg (nameof args) "A path should be given."
+    | _ ->
+      invalidArg (nameof args) "Too many paths are given."
 
   interface IAction with
     member _.ActionID with get() = "detect"

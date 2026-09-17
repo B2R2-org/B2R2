@@ -65,7 +65,10 @@ module TransformerRepl =
       registry, state, false
     else
       match
-        TransformerReplEvaluator.evaluateCommand registry state input
+        TransformerReplEvaluator.evaluateCommand
+          registry
+          state
+          input
           CancellationToken.None
       with
       | Exit _ ->
@@ -127,10 +130,14 @@ module TransformerRepl =
       1
     | Ok lines ->
       let rec loop registry state = function
-        | [] -> 0
+        | [] ->
+          0
         | line :: rest ->
           let evaluation =
-            TransformerReplEvaluator.evaluateCommand registry state line
+            TransformerReplEvaluator.evaluateCommand
+              registry
+              state
+              line
               CancellationToken.None
           match evaluation with
           | Exit _ ->
@@ -187,8 +194,10 @@ module TransformerRepl =
       | None ->
         let line = toTuiLine line
         match current with
-        | Some output -> output.Add line
-        | None -> parent.Add line
+        | Some output ->
+          output.Add line
+        | None ->
+          parent.Add line
     { Parent = Seq.toList parent
       Commands =
         commands
@@ -207,8 +216,10 @@ module TransformerRepl =
     (fullReplay: Lazy<ScriptReplayOutput>)
     model =
     let model =
-      TransformerTuiModel.setResultBlock parentIndex
-        (lazy fullReplay.Value.Parent) model
+      TransformerTuiModel.setResultBlock
+        parentIndex
+        (lazy fullReplay.Value.Parent)
+        model
     fullReplay.Value.Commands
     |> List.mapi (fun index (_, lines) -> parentIndex + index + 1, lines)
     |> List.fold (fun model (index, lines) ->
@@ -232,8 +243,10 @@ module TransformerRepl =
     |> TransformerTuiModel.setLastViewLines lines
     |> fun model ->
       match blockIndex with
-      | Some index -> setReplayResultBlocks index fullReplay model
-      | None -> model
+      | Some index ->
+        setReplayResultBlocks index fullReplay model
+      | None ->
+        model
     |> TransformerTuiModel.appendTuiLines lines
 
   let private appendEvaluationOutput (output: ReplOutput) model =
@@ -258,8 +271,10 @@ module TransformerRepl =
       |> TransformerTuiModel.setLastViewLines lines
       |> fun model ->
         match blockIndex with
-        | Some index -> TransformerTuiModel.setResultBlock index fullLines model
-        | None -> model
+        | Some index ->
+          TransformerTuiModel.setResultBlock index fullLines model
+        | None ->
+          model
       |> TransformerTuiModel.appendTuiLines lines
 
   let private finishEvaluation evaluation model =
@@ -306,7 +321,10 @@ module TransformerRepl =
       let cancellation = new CancellationTokenSource()
       let task =
         Task.Run((fun () ->
-          TransformerReplEvaluator.evaluateCommand registry session command
+          TransformerReplEvaluator.evaluateCommand
+            registry
+            session
+            command
             cancellation.Token), cancellation.Token)
       let model =
         model
@@ -324,8 +342,12 @@ module TransformerRepl =
     let session =
       model.Session
       |> TransformerReplState.recordCommand running.Command
-      |> TransformerReplState.recordExecution running.StartedAt duration
-        ReplExecutionStatus.Cancelled running.Command None
+      |> TransformerReplState.recordExecution
+        running.StartedAt
+        duration
+        ReplExecutionStatus.Cancelled
+        running.Command
+        None
     model
     |> TransformerTuiModel.setSession session
     |> TransformerTuiModel.appendLines TuiLineKind.System
@@ -385,8 +407,10 @@ module TransformerRepl =
           | ConsoleKey.LeftArrow
           | ConsoleKey.RightArrow
           | ConsoleKey.PageUp
-          | ConsoleKey.PageDown -> true
-          | _ -> false)
+          | ConsoleKey.PageDown ->
+            true
+          | _ ->
+            false)
     let samePhysicalKey (left: ConsoleKeyInfo) (right: ConsoleKeyInfo) =
       left.Key = right.Key && left.Modifiers = right.Modifiers
     let repeatedKeyCount first =
@@ -416,10 +440,12 @@ module TransformerRepl =
         TransformerTuiModel.moveViewCursor 0 count shift model
       | ConsoleKey.PageUp ->
         TransformerTuiModel.pageViewCursor (-(pageHeight model) * count)
-          shift model
+          shift
+          model
       | ConsoleKey.PageDown ->
         TransformerTuiModel.pageViewCursor ((pageHeight model) * count)
-          shift model
+          shift
+          model
       | _ ->
         model
     let currentSuggestions () =
@@ -432,8 +458,12 @@ module TransformerRepl =
       | _ ->
         let previousContext = suggestionCache |> Option.map _.Context
         let suggestions, context =
-          Suggestions.getWithInputContext previousContext registry model.Session
-            model.Input model.Cursor
+          Suggestions.getWithInputContext
+            previousContext
+            registry
+            model.Session
+            model.Input
+            model.Cursor
         suggestionCache <-
           Some
             { Input = model.Input
@@ -475,7 +505,8 @@ module TransformerRepl =
               suggestionCache <- None
               model <- nextModel
               shouldExit <- exit
-            with error -> model <- failEvaluation error model
+            with error ->
+              model <- failEvaluation error model
           runningEvaluation.Cancellation.Dispose()
           running <- None
           dirty <- true
@@ -524,11 +555,15 @@ module TransformerRepl =
           dirty <- false
         else
           ()
-        if not shouldExit then Thread.Sleep 20
-        else ()
+        if not shouldExit then
+          Thread.Sleep 20
+        else
+          ()
     finally
       restoreTerminal ()
 
   let run registry =
-    if TransformerTuiTerminal.isInteractive () then runTui registry
-    else runLineMode registry
+    if TransformerTuiTerminal.isInteractive () then
+      runTui registry
+    else
+      runLineMode registry

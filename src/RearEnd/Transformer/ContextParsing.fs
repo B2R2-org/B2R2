@@ -45,8 +45,11 @@ type ContextRegion =
 module ContextParsing =
   let parseAddress (text: string) =
     if text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
-      UInt64.Parse(text[2..], NumberStyles.HexNumber,
-                   CultureInfo.InvariantCulture)
+      UInt64.Parse(
+        text[2..],
+        NumberStyles.HexNumber,
+        CultureInfo.InvariantCulture
+      )
     else
       UInt64.Parse(text, CultureInfo.InvariantCulture)
 
@@ -61,8 +64,11 @@ module ContextParsing =
       invalidArg (nameof text) "Hex byte strings must have an even length."
     else
       [| for index in 0 .. 2 .. text.Length - 2 ->
-           Byte.Parse(text.Substring(index, 2), NumberStyles.HexNumber,
-                      CultureInfo.InvariantCulture) |]
+           Byte.Parse(
+             text.Substring(index, 2),
+             NumberStyles.HexNumber,
+             CultureInfo.InvariantCulture
+           ) |]
 
   let trimBrackets (text: string) =
     let text = text.Trim()

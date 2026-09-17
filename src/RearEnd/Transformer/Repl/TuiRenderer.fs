@@ -64,8 +64,10 @@ module TransformerTuiRenderer =
     let root = Path.GetPathRoot fullPath |> normalizePath
     let root = if root.EndsWith "/" then root else root + "/"
     let current = DirectoryInfo(fullPath).Name
-    if String.IsNullOrEmpty current then root
-    else root + ".../" + current
+    if String.IsNullOrEmpty current then
+      root
+    else
+      root + ".../" + current
 
   let private sanitize (text: string) =
     let text = displayText text
@@ -104,24 +106,35 @@ module TransformerTuiRenderer =
       builder.ToString()
 
   let private fit width (text: string) =
-    if width <= 0 then ""
-    elif containsAnsi text then fitAnsi width text
+    if width <= 0 then
+      ""
+    elif containsAnsi text then
+      fitAnsi width text
     else
       let text = sanitize text
-      if text.Length > width then text[..width - 1]
-      else text.PadRight width
+      if text.Length > width then
+        text[..width - 1]
+      else
+        text.PadRight width
 
   let private wrap width text =
     displayText text |> TransformerTuiText.wrap width
 
   let private lineStyle = function
-    | TuiLineKind.Command -> cyan
-    | TuiLineKind.CommandContinuation -> cyan
-    | TuiLineKind.Output -> ""
-    | TuiLineKind.Error -> red
-    | TuiLineKind.System -> dim
-    | TuiLineKind.Selection -> reverse
-    | TuiLineKind.Cursor -> ""
+    | TuiLineKind.Command ->
+      cyan
+    | TuiLineKind.CommandContinuation ->
+      cyan
+    | TuiLineKind.Output ->
+      ""
+    | TuiLineKind.Error ->
+      red
+    | TuiLineKind.System ->
+      dim
+    | TuiLineKind.Selection ->
+      reverse
+    | TuiLineKind.Cursor ->
+      ""
 
   let private wrapLine width (line: TuiLine) =
     let prefix = TransformerTuiText.linePrefix line.Kind
@@ -275,11 +288,15 @@ module TransformerTuiRenderer =
     | overlay ->
       let lines =
         match overlay with
-        | TuiOverlay.Help -> helpLines
-        | TuiOverlay.Actions -> actionLines registry
-        | TuiOverlay.Bindings -> bindingLines model
+        | TuiOverlay.Help ->
+          helpLines
+        | TuiOverlay.Actions ->
+          actionLines registry
+        | TuiOverlay.Bindings ->
+          bindingLines model
         | TuiOverlay.None | TuiOverlay.View | TuiOverlay.Inspect
-        | TuiOverlay.Values | TuiOverlay.Log -> []
+        | TuiOverlay.Values | TuiOverlay.Log ->
+          []
       lines
       |> List.collect (fun text ->
         wrapLine width { Kind = TuiLineKind.System; Text = text })
@@ -289,20 +306,27 @@ module TransformerTuiRenderer =
 
   let private viewSelectionContains pane line =
     match pane.Anchor with
-    | None -> false
+    | None ->
+      false
     | Some anchor ->
       let first, last =
-        if anchor.Line <= pane.Cursor.Line then anchor, pane.Cursor
-        else pane.Cursor, anchor
+        if anchor.Line <= pane.Cursor.Line then
+          anchor, pane.Cursor
+        else
+          pane.Cursor, anchor
       line >= first.Line && line <= last.Line
 
   let private orderedViewSelection pane =
     pane.Anchor
     |> Option.map (fun anchor ->
-      if anchor.Line < pane.Cursor.Line then anchor, pane.Cursor
-      elif anchor.Line > pane.Cursor.Line then pane.Cursor, anchor
-      elif anchor.Column <= pane.Cursor.Column then anchor, pane.Cursor
-      else pane.Cursor, anchor)
+      if anchor.Line < pane.Cursor.Line then
+        anchor, pane.Cursor
+      elif anchor.Line > pane.Cursor.Line then
+        pane.Cursor, anchor
+      elif anchor.Column <= pane.Cursor.Column then
+        anchor, pane.Cursor
+      else
+        pane.Cursor, anchor)
 
   let private inlineSelection start finish (text: string) =
     let start = max 0 (min start text.Length)
@@ -317,7 +341,8 @@ module TransformerTuiRenderer =
 
   let private viewSelectionRange pane index length =
     match orderedViewSelection pane with
-    | None -> None
+    | None ->
+      None
     | Some(first, last) when index < first.Line || index > last.Line ->
       None
     | Some(first, last) when first.Line = last.Line ->
@@ -367,11 +392,16 @@ module TransformerTuiRenderer =
     let last = Array.create lineCount -1
     rows
     |> Array.iteri (fun index row ->
-      if first[row.SourceLine] = -1 then first[row.SourceLine] <- index
+      if first[row.SourceLine] = -1 then
+        first[row.SourceLine] <- index
+      else
+        ()
       last[row.SourceLine] <- index)
     Array.init lineCount (fun index ->
-      if first[index] = -1 then 0, 0
-      else first[index], last[index])
+      if first[index] = -1 then
+        0, 0
+      else
+        first[index], last[index])
 
   let private makeViewRows (lines: TuiLine array) (rows: ViewDisplayRow list) =
     let rows = rows |> List.toArray
@@ -407,12 +437,17 @@ module TransformerTuiRenderer =
         viewSelectionContains pane index || pane.Cursor.Line = index
       let kind =
         match pane.Anchor with
-        | Some _ when selected -> TuiLineKind.Cursor
-        | Some _ -> line.Kind
-        | None -> selectedTextKind selected line.Kind
+        | Some _ when selected ->
+          TuiLineKind.Cursor
+        | Some _ ->
+          line.Kind
+        | None ->
+          selectedTextKind selected line.Kind
       let text =
-        if selected && containsAnsi line.Text then sanitize line.Text
-        else line.Text
+        if selected && containsAnsi line.Text then
+          sanitize line.Text
+        else
+          line.Text
       let prefix = TransformerTuiText.linePrefix kind
       if containsAnsi text then
         [ { SourceLine = index
@@ -443,7 +478,8 @@ module TransformerTuiRenderer =
       when cache.Width = width
            && Object.ReferenceEquals(cache.Lines, pane.Lines) ->
       cache.ViewRows
-    | _ when pane.Lines |> Array.exists (fun line -> containsAnsi line.Text) ->
+    | _ when pane.Lines |> Array.exists (fun line ->
+      containsAnsi line.Text) ->
       dynamicViewDisplayRows width pane
     | _ ->
       let rows = plainViewDisplayRows width pane.Lines
@@ -476,9 +512,12 @@ module TransformerTuiRenderer =
       || pane.Cursor.Line = row.SourceLine
     let kind =
       match pane.Anchor with
-      | Some _ when selected -> TuiLineKind.Cursor
-      | Some _ -> row.Kind
-      | None -> selectedTextKind selected row.Kind
+      | Some _ when selected ->
+        TuiLineKind.Cursor
+      | Some _ ->
+        row.Kind
+      | None ->
+        selectedTextKind selected row.Kind
     let prefix =
       if row.IsFirst then TransformerTuiText.linePrefix kind else "  "
     let text =
@@ -529,8 +568,10 @@ module TransformerTuiRenderer =
     lines |> List.skip first |> List.truncate (last - first)
 
   let private takeTranscriptRows count offset start lines =
-    if offset = 0 then lines |> List.skip start |> List.truncate count
-    else takeLast count offset lines
+    if offset = 0 then
+      lines |> List.skip start |> List.truncate count
+    else
+      takeLast count offset lines
 
   let private takeBody bodyHeight bodyWidth registry model =
     match model.Overlay with
@@ -552,12 +593,16 @@ module TransformerTuiRenderer =
 
   let private currentSummary model =
     match model.Session.Current with
-    | Some value -> valueTypeDescription value
-    | None -> "none"
+    | Some value ->
+      valueTypeDescription value
+    | None ->
+      "none"
 
   let private scriptRecordText = function
-    | ReplReplayMode.Reproducible -> "on"
-    | ReplReplayMode.Exploratory -> "off"
+    | ReplReplayMode.Reproducible ->
+      "on"
+    | ReplReplayMode.Exploratory ->
+      "off"
 
   let private scriptPath model =
     model.Session.SessionPath |> Option.defaultValue "<none>"
@@ -569,8 +614,10 @@ module TransformerTuiRenderer =
       let line = min (pane.Cursor.Line + 1) (max 1 count)
       let column = pane.Cursor.Column + 1
       let find =
-        if pane.IsFinding then $"  find: {pane.FindText}"
-        else ""
+        if pane.IsFinding then
+          $"  find: {pane.FindText}"
+        else
+          ""
       $"view result #{pane.BlockIndex}  {line}/{count}:{column}{find}"
     | _ when model.Focus = TuiFocus.Transcript
              && fallback = "Transcript focused" ->
@@ -611,8 +658,10 @@ module TransformerTuiRenderer =
         "", $"{name}: {kind}")
     let error =
       match model.Session.LastError with
-      | Some message -> [ "", ""; red, "LAST ERROR"; red, message ]
-      | None -> []
+      | Some message ->
+        [ "", ""; red, "LAST ERROR"; red, message ]
+      | None ->
+        []
     header @ bindings @ error
     |> List.truncate height
 
@@ -640,15 +689,18 @@ module TransformerTuiRenderer =
       |> List.choose (fun (start, length) ->
         let start = max 0 start
         let finish = min visible (start + length)
-        if start < visible && start < finish then Some(start, finish)
-        else None)
+        if start < visible && start < finish then
+          Some(start, finish)
+        else
+          None)
       |> List.sortBy fst
     if List.isEmpty highlights then
       paint dim (text + padding)
     else
       let rec loop index chunks = function
         | [] ->
-          if index >= visible then List.rev chunks
+          if index >= visible then
+            List.rev chunks
           else
             let suffix = text[index..]
             List.rev (paint dim suffix :: chunks)
@@ -674,8 +726,10 @@ module TransformerTuiRenderer =
       let finish = start + length
       let start = max start lineStart
       let finish = min finish lineEnd
-      if start < finish then Some(start - lineStart, finish - start)
-      else None)
+      if start < finish then
+        Some(start - lineStart, finish - start)
+      else
+        None)
 
   let private styleDiagnostics (text: string) highlights =
     let ranges =
@@ -687,28 +741,34 @@ module TransformerTuiRenderer =
       |> List.sortBy fst
     let rec loop index chunks = function
       | [] ->
-        if index >= text.Length then List.rev chunks
-        else List.rev (text[index..] :: chunks)
+        if index >= text.Length then
+          List.rev chunks
+        else
+          List.rev (text[index..] :: chunks)
       | (start, finish) :: rest ->
         let start = max index start
         if start >= finish then
           loop index chunks rest
         else
           let chunks =
-            if index < start then text[index..start - 1] :: chunks
-            else chunks
+            if index < start then
+              text[index..start - 1] :: chunks
+            else
+              chunks
           let marked = paint (red + underline) text[start..finish - 1]
           loop finish (marked :: chunks) rest
     String.concat "" (loop 0 [] ranges)
 
   let private hintRows width completion =
     match completion.Hint with
-    | None -> []
+    | None ->
+      []
     | Some text ->
       let lines = splitHintText text
       let rec loop offset rows (lines: string list) =
         match lines with
-        | [] -> List.rev rows
+        | [] ->
+          List.rev rows
         | line :: rest ->
           let highlights =
             lineHighlights offset line.Length completion.HintHighlights
@@ -763,8 +823,10 @@ module TransformerTuiRenderer =
       |> List.tryItem selected
       |> Option.bind (fun item ->
         let prefix =
-          if model.Cursor <= completion.Start then ""
-          else model.Input[completion.Start..model.Cursor - 1]
+          if model.Cursor <= completion.Start then
+            ""
+          else
+            model.Input[completion.Start..model.Cursor - 1]
         let after = model.Input[model.Cursor..]
         let insert = Completion.insertionText item after
         if insert.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) then
@@ -786,27 +848,41 @@ module TransformerTuiRenderer =
     let column = lines |> List.tryLast |> Option.map _.Length
     line, Option.defaultValue 0 column
 
-  let private inputRow width (prompt: string) (line: string) lineStart
-                             cursorColumn (ghost: string) diagnostics =
+  let private inputRow
+    width
+    (prompt: string)
+    (line: string)
+    lineStart
+    cursorColumn
+    (ghost: string)
+    diagnostics =
     let available = max 1 (width - prompt.Length)
     let cursorColumn = max 0 (min cursorColumn line.Length)
     let start =
       if cursorColumn < available then 0 else cursorColumn - available + 1
     let before =
-      if cursorColumn <= start then ""
-      else line[start..cursorColumn - 1]
+      if cursorColumn <= start then
+        ""
+      else
+        line[start..cursorColumn - 1]
     let ghost =
       let length = max 0 (available - before.Length)
-      if length = 0 then ""
-      elif ghost.Length > length then ghost[..length - 1]
-      else ghost
+      if length = 0 then
+        ""
+      elif ghost.Length > length then
+        ghost[..length - 1]
+      else
+        ghost
     let after =
       if cursorColumn >= line.Length then "" else line[cursorColumn..]
     let afterLength = max 0 (available - before.Length - ghost.Length)
     let after =
-      if afterLength = 0 then ""
-      elif after.Length > afterLength then after[..afterLength - 1]
-      else after
+      if afterLength = 0 then
+        ""
+      elif after.Length > afterLength then
+        after[..afterLength - 1]
+      else
+        after
     let visibleLength = before.Length + ghost.Length + after.Length
     let beforeHighlights =
       lineHighlights (lineStart + start) before.Length diagnostics
@@ -820,13 +896,17 @@ module TransformerTuiRenderer =
 
   let private indexedInputLines (input: string) =
     let rec loop start output = function
-      | [] -> List.rev output
+      | [] ->
+        List.rev output
       | (line: string) :: rest ->
         loop (start + line.Length + 1) ((start, line) :: output) rest
     splitInputLines input |> loop 0 []
 
-  let private inputView width maxRows (model: TransformerTuiModel)
-                            (completion: SuggestionSet) =
+  let private inputView
+    width
+    maxRows
+    (model: TransformerTuiModel)
+    (completion: SuggestionSet) =
     let lines = indexedInputLines model.Input
     let cursorLine, cursorColumn =
       cursorInputPosition model.Input model.Cursor
@@ -846,18 +926,23 @@ module TransformerTuiRenderer =
             "  "
         let isCursorLine = absolute = cursorLine
         let ghost =
-          if isCursorLine then ghostText completion model.SuggestionIndex model
-          else ""
+          if isCursorLine then
+            ghostText completion model.SuggestionIndex model
+          else
+            ""
         let column = if isCursorLine then cursorColumn else 0
         let diagnostics =
           completion.Diagnostics
           |> List.map (fun item -> item.Start, item.Length)
-        inputRow width prompt line lineStart column ghost diagnostics,
-        isCursorLine)
+        let row =
+          inputRow width prompt line lineStart column ghost diagnostics
+        row, isCursorLine)
       |> List.fold (fun (rows, cursor) (row, isCursorLine) ->
         let cursor =
-          if isCursorLine then Some(List.length rows, row |> snd)
-          else cursor
+          if isCursorLine then
+            Some(List.length rows, row |> snd)
+          else
+            cursor
         (row |> fst) :: rows, cursor) ([], None)
     let rows = List.rev rows
     let cursor = cursor |> Option.defaultValue (0, 1)
@@ -877,12 +962,16 @@ module TransformerTuiRenderer =
 
   let private stateLine width model =
     let busy =
-      if model.IsBusy then $"{spinner model.SpinnerFrame} running"
-      else model.Status
+      if model.IsBusy then
+        $"{spinner model.SpinnerFrame} running"
+      else
+        model.Status
     let paneStatus = paneStatus model busy
     let status =
-      if String.IsNullOrWhiteSpace paneStatus then ""
-      else "  " + paneStatus
+      if String.IsNullOrWhiteSpace paneStatus then
+        ""
+      else
+        "  " + paneStatus
     let state =
       $" current: {currentSummary model}  "
       + $"bindings: {Map.count model.Session.Bindings}  "

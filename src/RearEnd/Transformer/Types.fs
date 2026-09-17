@@ -42,18 +42,22 @@ with
 
   static member Handle bin =
     match bin with
-    | Binary(hdl, _) -> hdl.Value
+    | Binary(hdl, _) ->
+      hdl.Value
 
   static member Annotation bin =
     match bin with
-    | Binary(_, annot) -> annot
+    | Binary(_, annot) ->
+      annot
 
   static member MakeAnnotation(prefix, bin) =
     match bin with
     | Binary(hdl, annot) ->
       let path = hdl.Value.File.Path
-      if String.IsNullOrEmpty path then annot
-      else $"{prefix}{path}"
+      if String.IsNullOrEmpty path then
+        annot
+      else
+        $"{prefix}{path}"
 
   /// <summary>
   /// Derives a Binary holding the whole content of the given one, edited. The
@@ -129,7 +133,11 @@ with
 
   member this.ToBinary() =
     Binary.OfFragment(
-      "Sliced from ", this.Source, this.Bytes, this.StartAddress)
+      "Sliced from ",
+      this.Source,
+      this.Bytes,
+      this.StartAddress
+    )
 
   override this.ToString() =
     let label = this.Label |> Option.defaultValue "slice"
@@ -171,8 +179,10 @@ type FunctionInfo =
 with
   override this.ToString() =
     match this.Symbol with
-    | Some symbol -> $"function 0x{this.Entry:x} {symbol}"
-    | None -> $"function 0x{this.Entry:x}"
+    | Some symbol ->
+      $"function 0x{this.Entry:x} {symbol}"
+    | None ->
+      $"function 0x{this.Entry:x}"
 
 /// A concrete register value shown from a concrete execution context.
 type RegisterValue =
@@ -267,14 +277,18 @@ with
 module ReplArtifactWriter =
   let rec write fname (o: obj) =
     match o with
-    | :? Binary as bin -> writeBinary fname bin
-    | :? BinarySlice as slice -> writeBinary fname (slice.ToBinary())
+    | :? Binary as bin ->
+      writeBinary fname bin
+    | :? BinarySlice as slice ->
+      writeBinary fname (slice.ToBinary())
     | :? BinaryBytes as bytes ->
       System.IO.File.WriteAllBytes(fname, bytes.Bytes)
     | :? TextArtifact as artifact ->
       System.IO.File.WriteAllText(fname, artifact.Content)
-    | :? OutString as os -> writeOutString fname os
-    | _ -> System.IO.File.WriteAllText(fname, o.ToString())
+    | :? OutString as os ->
+      writeOutString fname os
+    | _ ->
+      System.IO.File.WriteAllText(fname, o.ToString())
 
   and writeBinary fname bin =
     let hdl = Binary.Handle bin

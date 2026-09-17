@@ -32,7 +32,8 @@ type SaveAction() =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
     match input with
-    | :? Binary as bin -> ReplArtifactWriter.writeBinary fname bin
+    | :? Binary as bin ->
+      ReplArtifactWriter.writeBinary fname bin
     | :? BinarySlice as slice ->
       ReplArtifactWriter.writeBinary fname (slice.ToBinary())
     | _ ->

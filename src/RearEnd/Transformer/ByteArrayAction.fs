@@ -34,9 +34,12 @@ type BytesAction() =
     cancellationToken.ThrowIfCancellationRequested()
     let binary =
       match input with
-      | :? Binary as binary -> binary
-      | :? BinarySlice as slice -> slice.ToBinary()
-      | _ -> invalidArg (nameof input) "Invalid input type."
+      | :? Binary as binary ->
+        binary
+      | :? BinarySlice as slice ->
+        slice.ToBinary()
+      | _ ->
+        invalidArg (nameof input) "Invalid input type."
     let hdl = Binary.Handle binary
     { Bytes = hdl.File.RawBytes.ToArray()
       BaseAddress = hdl.File.BaseAddress
@@ -55,14 +58,18 @@ type BytesAction() =
       "Extract raw bytes while retaining address and ISA information."
     member _.Transform(args, collection) =
       match args with
-      | [] -> transform CancellationToken.None collection
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | [] ->
+        transform CancellationToken.None collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."
 
   interface ICancellableAction with
     member _.Transform(args, collection, cancellationToken) =
       match args with
-      | [] -> transform cancellationToken collection
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | [] ->
+        transform cancellationToken collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."
 
 /// The `as-binary` action.
 type AsBinaryAction() =
@@ -71,8 +78,11 @@ type AsBinaryAction() =
     cancellationToken.ThrowIfCancellationRequested()
     let bytes = unbox<BinaryBytes> input
     let hdl =
-      lazy BinHandle.LoadRawImage(
-        bytes.Bytes, bytes.ISA, bytes.BaseAddress, bytes.OS)
+      lazy (
+        BinHandle.LoadRawImage(
+          bytes.Bytes, bytes.ISA, bytes.BaseAddress, bytes.OS
+        )
+      )
     Binary.Init(bytes.Annotation, hdl) |> box
 
   let transform cancellationToken collection =
@@ -85,11 +95,15 @@ type AsBinaryAction() =
       "Reconstruct an analyzable raw Binary from retained bytes."
     member _.Transform(args, collection) =
       match args with
-      | [] -> transform CancellationToken.None collection
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | [] ->
+        transform CancellationToken.None collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."
 
   interface ICancellableAction with
     member _.Transform(args, collection, cancellationToken) =
       match args with
-      | [] -> transform cancellationToken collection
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | [] ->
+        transform cancellationToken collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."

@@ -39,8 +39,10 @@ type GrepAction() =
       None
     else
       match BinFileOps.tryFindSectionByOffset hdl.File (uint32 offset) with
-      | Ok section when Option.isSome section.Offset -> Some section
-      | _ -> None
+      | Ok section when Option.isSome section.Offset ->
+        Some section
+      | _ ->
+        None
 
   let mappedAddress bin (offset: uint64) =
     match trySectionByOffset bin offset with
@@ -51,8 +53,10 @@ type GrepAction() =
       hdl.File.BaseAddress + offset
 
   let mappedEndAddress bin (offset: uint64) =
-    if offset = 0UL then mappedAddress bin offset
-    else mappedAddress bin (offset - 1UL) + 1UL
+    if offset = 0UL then
+      mappedAddress bin offset
+    else
+      mappedAddress bin (offset - 1UL) + 1UL
 
   let bytesPattern (bytes: BinaryBytes) =
     Convert.ToHexString bytes.Bytes
@@ -84,15 +88,24 @@ type GrepAction() =
       invalidArg "args" "Invalid grep arguments."
 
   let tupleContext = function
-    | [] -> 0, 0
-    | [ context ] -> sameContext context
-    | [ before; after ] -> asymmetricContext before after
+    | [] ->
+      0, 0
+    | [ context ] ->
+      sameContext context
+    | [ before; after ] ->
+      asymmetricContext before after
     | _ ->
       invalidArg "args" "Invalid grep arguments."
 
-  let grepBytes cancellationToken source addressAt endAddressAt
-                (pattern: string) bytesBefore bytesAfter
-                (bs: ReadOnlySpan<byte>) =
+  let grepBytes
+    cancellationToken
+    source
+    addressAt
+    endAddressAt
+    (pattern: string)
+    bytesBefore
+    bytesAfter
+    (bs: ReadOnlySpan<byte>) =
     let cancellationToken: CancellationToken = cancellationToken
     let length = bs.Length
     let hs = Convert.ToHexString bs
@@ -102,7 +115,8 @@ type GrepAction() =
       cancellationToken.ThrowIfCancellationRequested()
       if m.Index % 2 = 0 && m.Length % 2 = 0 then
         Some(m.Index / 2, m.Length / 2)
-      else None)
+      else
+        None)
     |> Seq.map (fun (i, len) ->
       let soff = if (i - bytesBefore) < 0 then 0 else i - bytesBefore
       let eoff = i + len + bytesAfter
@@ -118,14 +132,28 @@ type GrepAction() =
     let hdl = Binary.Handle bin
     let addressAt offset = mappedAddress bin (uint64 offset)
     let endAddressAt offset = mappedEndAddress bin (uint64 offset)
-    grepBytes cancellationToken bin addressAt endAddressAt pattern before
-      after hdl.File.RawBytes.Span
+    grepBytes
+      cancellationToken
+      bin
+      addressAt
+      endAddressAt
+      pattern
+      before
+      after
+      hdl.File.RawBytes.Span
 
   let grepFromSlice cancellationToken pattern before after slice =
     let slice: BinarySlice = slice
     let addressAt offset = slice.StartAddress + uint64 offset
-    grepBytes cancellationToken slice.Source addressAt addressAt pattern before
-      after (ReadOnlySpan slice.Bytes)
+    grepBytes
+      cancellationToken
+      slice.Source
+      addressAt
+      addressAt
+      pattern
+      before
+      after
+      (ReadOnlySpan slice.Bytes)
 
   let grep cancellationToken pattern bytesBefore bytesAfter (input: obj) =
     match input with
@@ -135,7 +163,8 @@ type GrepAction() =
     | :? BinarySlice as slice ->
       grepFromSlice cancellationToken pattern bytesBefore bytesAfter slice
       |> Array.map box
-    | _ -> invalidArg (nameof input) "Invalid object is given."
+    | _ ->
+      invalidArg (nameof input) "Invalid object is given."
 
   let grepTuple cancellationToken before after (left: obj, right: obj) =
     match left, right with
@@ -145,7 +174,8 @@ type GrepAction() =
     | (:? BinarySlice as slice), (:? BinaryBytes as bytes) ->
       grepFromSlice cancellationToken (bytesPattern bytes) before after slice
       |> Array.map box
-    | _ -> invalidArg "input" "Invalid tuple is given."
+    | _ ->
+      invalidArg "input" "Invalid tuple is given."
 
   let transform cancellationToken args collection =
     let args: string list = args
@@ -153,11 +183,14 @@ type GrepAction() =
       match collection.Values with
       | [| left; right |] ->
         grepTuple cancellationToken before after (left, right)
-      | _ -> invalidArg (nameof collection) "Two tuple values are required."
+      | _ ->
+        invalidArg (nameof collection) "Two tuple values are required."
     let isTupleInput () =
       match collection.Values with
-      | [| _; (:? BinaryBytes) |] -> true
-      | _ -> false
+      | [| _; (:? BinaryBytes) |] ->
+        true
+      | _ ->
+        false
     let collect pattern before after =
       collection.Values
       |> Array.collect (grep cancellationToken pattern before after)

@@ -60,8 +60,10 @@ type LoadAction() =
     |> Array.singleton
 
   let transform cancellationToken (args: string list) collection =
-    if collection.Values |> Array.forall isNull then ()
-    else invalidArg (nameof collection) "Invalid argument type."
+    if collection.Values |> Array.forall isNull then
+      ()
+    else
+      invalidArg (nameof collection) "Invalid argument type."
     match args with
     | [ value; isaName ] when File.Exists value || Directory.Exists value ->
       let isa = ISA isaName
@@ -72,7 +74,8 @@ type LoadAction() =
     | [ value ] ->
       let isa = ISA Architecture.Intel
       { Values = loadPath cancellationToken isa value }
-    | _ -> invalidArg (nameof args) "Invalid arguments given."
+    | _ ->
+      invalidArg (nameof args) "Invalid arguments given."
 
   interface IAction with
     member _.ActionID with get() = "load"

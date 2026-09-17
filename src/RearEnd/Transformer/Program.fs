@@ -101,21 +101,25 @@ let private splitBySpecialSeparators (args: string list) =
       .Split(' ', StringSplitOptions.RemoveEmptyEntries) |> Array.toList)
 
 let rec private breakCommandByComma cmds cmd = function
-  | [] -> List.rev (List.rev cmd :: cmds)
+  | [] ->
+    List.rev (List.rev cmd :: cmds)
   | "," :: rest ->
     let cmds = if List.isEmpty cmd then cmds else (List.rev cmd) :: cmds
     breakCommandByComma cmds [] rest
-  | arg :: rest -> breakCommandByComma cmds (arg :: cmd) rest
+  | arg :: rest ->
+    breakCommandByComma cmds (arg :: cmd) rest
 
 let private accumulateIfNotEmpty grp acc =
   if List.isEmpty grp then acc else List.rev grp :: acc
 
 let rec private parseActionCommands grps grp = function
-  | [] -> List.rev (accumulateIfNotEmpty grp grps)
+  | [] ->
+    List.rev (accumulateIfNotEmpty grp grps)
   | "--" :: rest ->
     let grps = if List.isEmpty grp then grps else accumulateIfNotEmpty grp grps
     parseActionCommands grps [] rest
-  | arg :: rest -> parseActionCommands grps (arg :: grp) rest
+  | arg :: rest ->
+    parseActionCommands grps (arg :: grp) rest
 
 let private checkValidityOfCommandGroup cmdgrp =
   let actionIDs =
@@ -134,13 +138,16 @@ let private runCommand actionMap input (cmd: string list) =
   let args = List.tail cmd
   let action: IAction =
     match Map.tryFind normalizedID actionMap with
-    | Some act -> act
+    | Some act ->
+      act
     | None ->
       eprintsn $"({actionID}) is not a valid action."
       exit 1
 #if DEBUG
-  if normalizedID <> "help" then printsn $"[*] {actionID}"
-  else ()
+  if normalizedID <> "help" then
+    printsn $"[*] {actionID}"
+  else
+    ()
 #endif
   try
     action.Transform(args, input)
@@ -161,8 +168,10 @@ let private runCommand actionMap input (cmd: string list) =
 let inline private unwrap (c: ObjCollection) = c.Values
 
 let autoPrint actionMap collection =
-  if collection.Values.Length = 0 then ()
-  else runCommand actionMap collection [ "print" ] |> ignore
+  if collection.Values.Length = 0 then
+    ()
+  else
+    runCommand actionMap collection [ "print" ] |> ignore
 
 let private parseActions args actionMap =
   args

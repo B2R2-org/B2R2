@@ -57,9 +57,12 @@ module TransformerTuiText =
   let sanitize (text: string) =
     let builder = Text.StringBuilder()
     for chr in stripAnsi text do
-      if chr = '\t' then builder.Append ' ' |> ignore
-      elif Char.IsControl chr then ()
-      else builder.Append chr |> ignore
+      if chr = '\t' then
+        builder.Append ' ' |> ignore
+      elif Char.IsControl chr then
+        ()
+      else
+        builder.Append chr |> ignore
     builder.ToString()
 
   let wrapWithOffsets width text =
@@ -81,21 +84,31 @@ module TransformerTuiText =
           else
             index
         loop ((start, finish, line) :: lines) (skipWhitespace finish)
-    if width <= 0 then [ 0, 0, "" ]
-    elif String.IsNullOrEmpty text then [ 0, 0, "" ]
-    else loop [] 0
+    if width <= 0 then
+      [ 0, 0, "" ]
+    elif String.IsNullOrEmpty text then
+      [ 0, 0, "" ]
+    else
+      loop [] 0
 
   let wrap width text =
     wrapWithOffsets width text |> List.map (fun (_, _, line) -> line)
 
   let linePrefix = function
-    | TuiLineKind.Command -> "> "
-    | TuiLineKind.CommandContinuation -> "  "
-    | TuiLineKind.Error -> "! "
-    | TuiLineKind.System -> "* "
-    | TuiLineKind.Output -> "  "
-    | TuiLineKind.Selection -> "> "
-    | TuiLineKind.Cursor -> "  "
+    | TuiLineKind.Command ->
+      "> "
+    | TuiLineKind.CommandContinuation ->
+      "  "
+    | TuiLineKind.Error ->
+      "! "
+    | TuiLineKind.System ->
+      "* "
+    | TuiLineKind.Output ->
+      "  "
+    | TuiLineKind.Selection ->
+      "> "
+    | TuiLineKind.Cursor ->
+      "  "
 
 /// Source represented by one rendered transcript row.
 [<RequireQualifiedAccess>]
@@ -167,8 +180,10 @@ module TuiTranscript =
         |> List.length }
 
   let toList transcript =
-    if List.isEmpty transcript.Trailing then transcript.Leading
-    else transcript.Leading @ List.rev transcript.Trailing
+    if List.isEmpty transcript.Trailing then
+      transcript.Leading
+    else
+      transcript.Leading @ List.rev transcript.Trailing
 
   let append lines transcript =
     let folder (trailing, length, commands) line =
@@ -240,19 +255,24 @@ module TransformerTuiModel =
   let transcriptHeight terminalHeight model =
     let available = availableBodyAndCompletion terminalHeight model
     match (model: TransformerTuiModel).TranscriptHeight with
-    | Some requested -> max 1 (min (available - 1) requested)
-    | None -> defaultTranscriptHeight terminalHeight model
+    | Some requested ->
+      max 1 (min (available - 1) requested)
+    | None ->
+      defaultTranscriptHeight terminalHeight model
 
   let transcriptBodyWidth terminalWidth model =
     let defaultRightWidth =
       if terminalWidth >= 100 then min 34 (terminalWidth / 3) else 0
     let rightWidth =
       match (model: TransformerTuiModel).SidebarWidth with
-      | Some requested when requested <= 0 -> 0
+      | Some requested when requested <= 0 ->
+        0
       | Some requested when terminalWidth >= 60 ->
         max 20 (min (terminalWidth - 40) requested)
-      | Some _ -> 0
-      | None -> defaultRightWidth
+      | Some _ ->
+        0
+      | None ->
+        defaultRightWidth
     terminalWidth - rightWidth - (if rightWidth > 0 then 1 else 0)
 
   let private isCommandLine line =
@@ -344,7 +364,8 @@ module TransformerTuiModel =
     command.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n')
     |> Array.toList
     |> function
-      | [] -> []
+      | [] ->
+        []
       | first :: rest ->
         { Kind = TuiLineKind.Command; Text = first }
         :: (rest
@@ -380,8 +401,10 @@ module TransformerTuiModel =
     { model with Status = status }
 
   let private clearTranscriptFocusStatus model =
-    if model.Status = "Transcript focused" then { model with Status = "" }
-    else model
+    if model.Status = "Transcript focused" then
+      { model with Status = "" }
+    else
+      model
 
   let setBusy isBusy model =
     { model with IsBusy = isBusy; SpinnerFrame = 0 }
@@ -418,8 +441,10 @@ module TransformerTuiModel =
       model.FoldTarget
       |> Option.defaultValue (commandCount model)
       |> function
-        | 0 -> None
-        | index -> Some index
+        | 0 ->
+          None
+        | index ->
+          Some index
     { model with
         Focus = TuiFocus.Transcript
         FoldTarget = target }
@@ -601,8 +626,10 @@ module TransformerTuiModel =
 
   let applyCompletion completion model =
     match Completion.apply completion model.SuggestionIndex model.Input with
-    | Some(input, cursor) -> setInput input cursor model
-    | None -> model
+    | Some(input, cursor) ->
+      setInput input cursor model
+    | None ->
+      model
 
   let selectFoldTarget offset model =
     let count = commandCount model
@@ -620,8 +647,10 @@ module TransformerTuiModel =
     let target =
       model.FoldTarget
       |> Option.orElse (commandCount model |> function
-        | 0 -> None
-        | index -> Some index)
+        | 0 ->
+          None
+        | index ->
+          Some index)
     match target with
     | None ->
       { model with Status = "There is no command result to fold" }
@@ -696,10 +725,12 @@ module TransformerTuiModel =
 
   let private sourceContains line source =
     match source with
-    | TuiTranscriptSource.Line index -> index = line
+    | TuiTranscriptSource.Line index ->
+      index = line
     | TuiTranscriptSource.HiddenRange(first, last) ->
       first <= line && line <= last
-    | TuiTranscriptSource.Synthetic -> false
+    | TuiTranscriptSource.Synthetic ->
+      false
 
   let private cursorOnSource model source =
     model.Focus = TuiFocus.Transcript
@@ -722,17 +753,24 @@ module TransformerTuiModel =
       lines
       |> List.choose (fun line ->
         match line.Source with
-        | TuiTranscriptSource.Line index -> Some index
-        | TuiTranscriptSource.HiddenRange(first, last) -> Some first
-        | TuiTranscriptSource.Synthetic -> None)
+        | TuiTranscriptSource.Line index ->
+          Some index
+        | TuiTranscriptSource.HiddenRange(first, last) ->
+          Some first
+        | TuiTranscriptSource.Synthetic ->
+          None)
     match sourceLines with
-    | [] -> TuiTranscriptSource.Synthetic
+    | [] ->
+      TuiTranscriptSource.Synthetic
     | first :: _ ->
       let last = sourceLines |> List.last
       TuiTranscriptSource.HiddenRange(first, last)
 
-  let private compactTranscriptBlock model height index
-                                     (lines: TuiTranscriptLine list) =
+  let private compactTranscriptBlock
+    model
+    height
+    index
+    (lines: TuiTranscriptLine list) =
     let maxInline = max 6 (height - 2)
     let keep = max 2 (min 8 ((height - 3) / 2))
     let command, output =
@@ -830,17 +868,21 @@ module TransformerTuiModel =
     let maximumStart = max 0 (List.length lines - height)
     let start =
       match selectedDisplayLineIndex lines with
-      | Some selected when selected < anchor -> selected
+      | Some selected when selected < anchor ->
+        selected
       | Some selected when selected >= anchor + height ->
         selected - height + 1
-      | _ -> anchor
+      | _ ->
+        anchor
     max 0 (min maximumStart start)
 
   let transcriptViewportStart width height model =
     let lines = transcriptDisplayRows width height model
     match model.TranscriptViewportStart with
-    | Some start -> clampViewportStart height (List.length lines) start
-    | None -> autoTranscriptViewportStart height lines
+    | Some start ->
+      clampViewportStart height (List.length lines) start
+    | None ->
+      autoTranscriptViewportStart height lines
 
   let private transcriptDisplayCursorIndex direction width height model =
     transcriptDisplayRows width height model
@@ -851,20 +893,28 @@ module TransformerTuiModel =
       else
         None)
     |> fun matches ->
-      if direction > 0 then List.tryLast matches
-      else List.tryHead matches
+      if direction > 0 then
+        List.tryLast matches
+      else
+        List.tryHead matches
 
   let private transcriptLineOfSource direction model source =
     match source with
-    | TuiTranscriptSource.Line index -> Some index
+    | TuiTranscriptSource.Line index ->
+      Some index
     | TuiTranscriptSource.HiddenRange(first, last) ->
       let cursor = model.TranscriptCursor.Line
       if first <= cursor && cursor <= last then
-        if direction < 0 then Some(first - 1)
-        elif direction > 0 then Some(last + 1)
-        else Some cursor
-      elif direction < 0 then Some last
-      else Some first
+        if direction < 0 then
+          Some(first - 1)
+        elif direction > 0 then
+          Some(last + 1)
+        else
+          Some cursor
+      elif direction < 0 then
+        Some last
+      else
+        Some first
     | TuiTranscriptSource.Synthetic ->
       Some model.TranscriptCursor.Line
 
@@ -1002,11 +1052,15 @@ module TransformerTuiModel =
       |> blockAtLine model.TranscriptCursor.Line
       |> Option.orElse model.FoldTarget
       |> Option.orElse (commandCount model |> function
-        | 0 -> None
-        | count -> Some count)
+        | 0 ->
+          None
+        | count ->
+          Some count)
     match blockIndex with
-    | Some index -> openViewPane index model
-    | None -> { model with Status = "There is no command result to view" }
+    | Some index ->
+      openViewPane index model
+    | None ->
+      { model with Status = "There is no command result to view" }
 
   let private clampViewCursor pane cursor =
     let lineCount = pane.Lines.Length
@@ -1118,19 +1172,26 @@ module TransformerTuiModel =
       model
 
   let private orderedSelection anchor cursor =
-    if anchor.Line < cursor.Line then anchor, cursor
-    elif anchor.Line > cursor.Line then cursor, anchor
-    elif anchor.Column <= cursor.Column then anchor, cursor
-    else cursor, anchor
+    if anchor.Line < cursor.Line then
+      anchor, cursor
+    elif anchor.Line > cursor.Line then
+      cursor, anchor
+    elif anchor.Column <= cursor.Column then
+      anchor, cursor
+    else
+      cursor, anchor
 
   let selectedViewText pane =
     let cleanText (text: string) =
       let text = TransformerTuiText.stripAnsi text
       text
       |> Seq.map (fun chr ->
-        if chr = '\t' then ' '
-        elif Char.IsControl chr then ' '
-        else chr)
+        if chr = '\t' then
+          ' '
+        elif Char.IsControl chr then
+          ' '
+        else
+          chr)
       |> Array.ofSeq
       |> String
     let sliceText start finish (text: string) =

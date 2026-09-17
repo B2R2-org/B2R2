@@ -36,9 +36,12 @@ type HexdumpAction() =
 
   let rec hexdump (o: obj) =
     match o with
-    | :? Binary as binary -> hexdumpBinary binary
-    | :? BinarySlice as slice -> hexdumpBinary (slice.ToBinary())
-    | _ -> invalidArg (nameof o) "Invalid input type."
+    | :? Binary as binary ->
+      hexdumpBinary binary
+    | :? BinarySlice as slice ->
+      hexdumpBinary (slice.ToBinary())
+    | _ ->
+      invalidArg (nameof o) "Invalid input type."
 
   and hexdumpBinary bin =
     let hdl = Binary.Handle bin
@@ -58,7 +61,8 @@ type HexdumpAction() =
           |> Array.map (fun value ->
             cancellationToken.ThrowIfCancellationRequested()
             hexdump value) }
-    | _ -> invalidArg (nameof args) "Invalid argument given."
+    | _ ->
+      invalidArg (nameof args) "Invalid argument given."
 
   interface IAction with
     member _.ActionID with get() = "hexdump"

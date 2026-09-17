@@ -141,40 +141,71 @@ module ReplValueKind =
   let rec toString kind =
     let nested kind =
       match kind with
-      | ReplValueKind.Tuple _ -> $"({toString kind})"
-      | _ -> toString kind
+      | ReplValueKind.Tuple _ ->
+        $"({toString kind})"
+      | _ ->
+        toString kind
     match kind with
-    | ReplValueKind.Unit -> "Unit"
-    | ReplValueKind.Binary -> "Binary"
-    | ReplValueKind.ByteArray -> "ByteArray"
-    | ReplValueKind.InstructionArray -> "InstructionArray"
-    | ReplValueKind.CFG -> "CFG"
-    | ReplValueKind.Text -> "Text"
-    | ReplValueKind.TextArtifact -> "TextArtifact"
-    | ReplValueKind.Fingerprint -> "Fingerprint"
-    | ReplValueKind.ClusterResult -> "ClusterResult"
-    | ReplValueKind.ConcExecutor -> "ConcExecutor"
-    | ReplValueKind.SymbExecutor -> "SymbExecutor"
-    | ReplValueKind.SymbSolver -> "SymbSolver"
-    | ReplValueKind.SymbRunResult -> "SymbRunResult"
-    | ReplValueKind.RegisterView -> "RegisterView"
-    | ReplValueKind.MemoryView -> "MemoryView"
-    | ReplValueKind.ExecutionTrace -> "ExecutionTrace"
-    | ReplValueKind.ContextRequirements -> "ContextRequirements"
-    | ReplValueKind.Address -> "Address"
-    | ReplValueKind.BinarySlice -> "BinarySlice"
-    | ReplValueKind.StringMatch -> "StringMatch"
-    | ReplValueKind.SectionInfo -> "SectionInfo"
-    | ReplValueKind.FunctionInfo -> "FunctionInfo"
-    | ReplValueKind.Int -> "Int"
-    | ReplValueKind.Float -> "Float"
-    | ReplValueKind.Bool -> "Bool"
-    | ReplValueKind.Collection kind -> $"{nested kind} collection"
+    | ReplValueKind.Unit ->
+      "Unit"
+    | ReplValueKind.Binary ->
+      "Binary"
+    | ReplValueKind.ByteArray ->
+      "ByteArray"
+    | ReplValueKind.InstructionArray ->
+      "InstructionArray"
+    | ReplValueKind.CFG ->
+      "CFG"
+    | ReplValueKind.Text ->
+      "Text"
+    | ReplValueKind.TextArtifact ->
+      "TextArtifact"
+    | ReplValueKind.Fingerprint ->
+      "Fingerprint"
+    | ReplValueKind.ClusterResult ->
+      "ClusterResult"
+    | ReplValueKind.ConcExecutor ->
+      "ConcExecutor"
+    | ReplValueKind.SymbExecutor ->
+      "SymbExecutor"
+    | ReplValueKind.SymbSolver ->
+      "SymbSolver"
+    | ReplValueKind.SymbRunResult ->
+      "SymbRunResult"
+    | ReplValueKind.RegisterView ->
+      "RegisterView"
+    | ReplValueKind.MemoryView ->
+      "MemoryView"
+    | ReplValueKind.ExecutionTrace ->
+      "ExecutionTrace"
+    | ReplValueKind.ContextRequirements ->
+      "ContextRequirements"
+    | ReplValueKind.Address ->
+      "Address"
+    | ReplValueKind.BinarySlice ->
+      "BinarySlice"
+    | ReplValueKind.StringMatch ->
+      "StringMatch"
+    | ReplValueKind.SectionInfo ->
+      "SectionInfo"
+    | ReplValueKind.FunctionInfo ->
+      "FunctionInfo"
+    | ReplValueKind.Int ->
+      "Int"
+    | ReplValueKind.Float ->
+      "Float"
+    | ReplValueKind.Bool ->
+      "Bool"
+    | ReplValueKind.Collection kind ->
+      $"{nested kind} collection"
     | ReplValueKind.Tuple kinds ->
       kinds |> List.map toString |> String.concat " * "
-    | ReplValueKind.List kind -> $"{nested kind} list"
-    | ReplValueKind.Array kind -> $"{nested kind} array"
-    | ReplValueKind.Any -> "Any"
+    | ReplValueKind.List kind ->
+      $"{nested kind} list"
+    | ReplValueKind.Array kind ->
+      $"{nested kind} array"
+    | ReplValueKind.Any ->
+      "Any"
 
   let all =
     [ ReplValueKind.Binary
@@ -208,7 +239,8 @@ module ReplValueKind =
       String.Equals(
         toString kind,
         text,
-        StringComparison.OrdinalIgnoreCase))
+        StringComparison.OrdinalIgnoreCase
+      ))
 
   let tryParse (text: string) =
     let rec parse (text: string) =
@@ -231,7 +263,8 @@ module ReplValueKind =
         |> function
           | kinds when List.forall Option.isSome kinds ->
             kinds |> List.map Option.get |> ReplValueKind.Tuple |> Some
-          | _ -> None
+          | _ ->
+            None
       else
         parseAtomic text
     parse text
@@ -250,7 +283,8 @@ module ReplValueKind =
        | ReplValueKind.List actual, ReplValueKind.List expected
        | ReplValueKind.Array actual, ReplValueKind.Array expected ->
          isCompatible actual expected
-       | _ -> false
+       | _ ->
+         false
 
 module ActionMetadata =
   let actionName id = "@" + id
@@ -260,38 +294,66 @@ module ActionMetadata =
     metadata.Input :: metadata.AlternativeInputs
 
   let argumentKindName = function
-    | ActionArgumentKind.Text -> "String"
-    | ActionArgumentKind.Path -> "Path"
-    | ActionArgumentKind.ExistingPath -> "Path"
-    | ActionArgumentKind.OutputPath -> "Path"
-    | ActionArgumentKind.ISA -> "ISA"
-    | ActionArgumentKind.Integer -> "Int"
-    | ActionArgumentKind.Float -> "Float"
-    | ActionArgumentKind.HexPattern -> "HexPattern"
-    | ActionArgumentKind.HexBytes -> "HexBytes"
-    | ActionArgumentKind.Address -> "Address"
-    | ActionArgumentKind.Size -> "Size"
-    | ActionArgumentKind.Section -> "Section"
-    | ActionArgumentKind.Action -> "Action"
-    | ActionArgumentKind.ParameterFunction -> "ParameterFunction"
-    | ActionArgumentKind.Choice -> "Choice"
+    | ActionArgumentKind.Text ->
+      "String"
+    | ActionArgumentKind.Path ->
+      "Path"
+    | ActionArgumentKind.ExistingPath ->
+      "Path"
+    | ActionArgumentKind.OutputPath ->
+      "Path"
+    | ActionArgumentKind.ISA ->
+      "ISA"
+    | ActionArgumentKind.Integer ->
+      "Int"
+    | ActionArgumentKind.Float ->
+      "Float"
+    | ActionArgumentKind.HexPattern ->
+      "HexPattern"
+    | ActionArgumentKind.HexBytes ->
+      "HexBytes"
+    | ActionArgumentKind.Address ->
+      "Address"
+    | ActionArgumentKind.Size ->
+      "Size"
+    | ActionArgumentKind.Section ->
+      "Section"
+    | ActionArgumentKind.Action ->
+      "Action"
+    | ActionArgumentKind.ParameterFunction ->
+      "ParameterFunction"
+    | ActionArgumentKind.Choice ->
+      "Choice"
 
   let private argumentPlaceholder = function
-    | ActionArgumentKind.Text -> "text"
+    | ActionArgumentKind.Text ->
+      "text"
     | ActionArgumentKind.Path
     | ActionArgumentKind.ExistingPath
-    | ActionArgumentKind.OutputPath -> "path"
-    | ActionArgumentKind.ISA -> "isa"
-    | ActionArgumentKind.Integer -> "n"
-    | ActionArgumentKind.Float -> "n"
-    | ActionArgumentKind.HexPattern -> "hex-pattern"
-    | ActionArgumentKind.HexBytes -> "hex"
-    | ActionArgumentKind.Address -> "addr"
-    | ActionArgumentKind.Size -> "size"
-    | ActionArgumentKind.Section -> "section"
-    | ActionArgumentKind.Action -> "action"
-    | ActionArgumentKind.ParameterFunction -> "fun"
-    | ActionArgumentKind.Choice -> "choice"
+    | ActionArgumentKind.OutputPath ->
+      "path"
+    | ActionArgumentKind.ISA ->
+      "isa"
+    | ActionArgumentKind.Integer ->
+      "n"
+    | ActionArgumentKind.Float ->
+      "n"
+    | ActionArgumentKind.HexPattern ->
+      "hex-pattern"
+    | ActionArgumentKind.HexBytes ->
+      "hex"
+    | ActionArgumentKind.Address ->
+      "addr"
+    | ActionArgumentKind.Size ->
+      "size"
+    | ActionArgumentKind.Section ->
+      "section"
+    | ActionArgumentKind.Action ->
+      "action"
+    | ActionArgumentKind.ParameterFunction ->
+      "fun"
+    | ActionArgumentKind.Choice ->
+      "choice"
 
   let formatArgument argument =
     let argument: ActionArgument = argument
@@ -316,8 +378,10 @@ module ActionMetadata =
     let trigger = (syntax: ActionSyntax).Trigger |> Option.toList
     let args = syntax.Arguments |> List.map formatUsageArgument
     let syntax = String.concat " " (trigger @ args)
-    if String.IsNullOrWhiteSpace syntax then actionName metadata.ID
-    else actionName metadata.ID + " " + syntax
+    if String.IsNullOrWhiteSpace syntax then
+      actionName metadata.ID
+    else
+      actionName metadata.ID + " " + syntax
 
   let private sameArgument left right =
     let left: ActionArgument = left
@@ -345,11 +409,15 @@ module ActionMetadata =
     metadata.Syntaxes
     |> List.collect (fun syntax ->
       let syntax: ActionSyntax = syntax
-      if List.isEmpty syntax.Inputs then acceptedInputs metadata
-      else syntax.Inputs)
+      if List.isEmpty syntax.Inputs then
+        acceptedInputs metadata
+      else
+        syntax.Inputs)
     |> function
-      | [] -> acceptedInputs metadata
-      | inputs -> inputs |> List.distinct
+      | [] ->
+        acceptedInputs metadata
+      | inputs ->
+        inputs |> List.distinct
 
   let private outputKinds metadata =
     let metadata: ActionMetadata = metadata
@@ -358,8 +426,10 @@ module ActionMetadata =
       let syntax: ActionSyntax = syntax
       syntax.Output |> Option.defaultValue metadata.Output)
     |> function
-      | [] -> [ metadata.Output ]
-      | outputs -> outputs |> List.distinct
+      | [] ->
+        [ metadata.Output ]
+      | outputs ->
+        outputs |> List.distinct
 
   let usageLines metadata =
     let metadata: ActionMetadata = metadata
@@ -377,7 +447,9 @@ module ActionMetadata =
     let kinds = List.map ReplValueKind.toString >> String.concat ", "
     let description =
       metadata.Description.Split(
-        [| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
+        [| '\r'; '\n' |],
+        StringSplitOptions.RemoveEmptyEntries
+      )
       |> Array.tryHead
       |> Option.defaultValue ""
       |> fun line -> line.Trim()
@@ -387,64 +459,86 @@ module ActionMetadata =
       else
         [ "  " + description ]
     let input =
-      if metadata.Role = ActionRole.Source then []
-      else [ "  input: " + kinds (inputKinds metadata) ]
+      if metadata.Role = ActionRole.Source then
+        []
+      else
+        [ "  input: " + kinds (inputKinds metadata) ]
     let output = [ "  output: " + kinds (outputKinds metadata) ]
     let usage =
       usageLines metadata
       |> List.map (fun line -> "    " + line)
       |> function
-        | [] -> []
-        | lines -> "  usage:" :: lines
+        | [] ->
+          []
+        | lines ->
+          "  usage:" :: lines
     let examples =
       metadata.Examples
       |> List.map (fun example -> "    " + example)
       |> function
-        | [] -> []
-        | lines -> "  examples:" :: lines
+        | [] ->
+          []
+        | lines ->
+          "  examples:" :: lines
     [ $"{actionName metadata.ID} ({role})" ]
     @ details @ input @ output @ usage @ examples
 
+  let private formatSignatureInputs inputs =
+    inputs
+    |> List.map ReplValueKind.toString
+    |> String.concat " | "
+
+  let private hasSyntaxSpecifics metadata =
+    metadata.Syntaxes
+    |> List.exists (fun syntax ->
+      Option.isSome syntax.Output || not (List.isEmpty syntax.Inputs))
+
+  let private genericSignatureRows metadata =
+    let input = formatSignatureInputs (acceptedInputs metadata)
+    let output = ReplValueKind.toString metadata.Output
+    let syntaxes =
+      metadata.Syntaxes
+      |> List.map formatSyntax
+      |> List.map (fun syntax ->
+        if String.IsNullOrWhiteSpace syntax then
+          actionName metadata.ID
+        else
+          actionName metadata.ID + " " + syntax)
+      |> List.distinct
+    match syntaxes with
+    | [] ->
+      [ input, actionName metadata.ID, output ]
+    | syntaxes ->
+      syntaxes |> List.map (fun syntax -> input, syntax, output)
+
+  let private specificSignatureRows metadata =
+    metadata.Syntaxes
+    |> List.map (fun syntax ->
+      let inputs =
+        if List.isEmpty syntax.Inputs then
+          acceptedInputs metadata
+        else
+          syntax.Inputs
+      let input = formatSignatureInputs inputs
+      let output =
+        syntax.Output
+        |> Option.defaultValue metadata.Output
+        |> ReplValueKind.toString
+      let syntaxText = formatSyntax syntax
+      let body =
+        if String.IsNullOrWhiteSpace syntaxText then
+          actionName metadata.ID
+        else
+          actionName metadata.ID + " " + syntaxText
+      input, body, output)
+    |> List.distinct
+
   let private signatureRows metadata =
     let metadata: ActionMetadata = metadata
-    let formatInputs inputs =
-      inputs
-      |> List.map ReplValueKind.toString
-      |> String.concat " | "
-    let hasSyntaxSpecifics =
-      metadata.Syntaxes
-      |> List.exists (fun syntax ->
-        Option.isSome syntax.Output || not (List.isEmpty syntax.Inputs))
-    if not hasSyntaxSpecifics then
-      let input = formatInputs (acceptedInputs metadata)
-      let output = ReplValueKind.toString metadata.Output
-      let syntaxes =
-        metadata.Syntaxes
-        |> List.map formatSyntax
-        |> List.map (fun syntax ->
-          if String.IsNullOrWhiteSpace syntax then actionName metadata.ID
-          else actionName metadata.ID + " " + syntax)
-        |> List.distinct
-      match syntaxes with
-      | [] -> [ input, actionName metadata.ID, output ]
-      | syntaxes -> syntaxes |> List.map (fun syntax -> input, syntax, output)
+    if hasSyntaxSpecifics metadata then
+      specificSignatureRows metadata
     else
-      metadata.Syntaxes
-      |> List.map (fun syntax ->
-        let inputs =
-          if List.isEmpty syntax.Inputs then acceptedInputs metadata
-          else syntax.Inputs
-        let input = formatInputs inputs
-        let output =
-          syntax.Output
-          |> Option.defaultValue metadata.Output
-          |> ReplValueKind.toString
-        let syntaxText = formatSyntax syntax
-        let body =
-          if String.IsNullOrWhiteSpace syntaxText then actionName metadata.ID
-          else actionName metadata.ID + " " + syntaxText
-        input, body, output)
-      |> List.distinct
+      genericSignatureRows metadata
 
   let typedSignature metadata =
     signatureRows metadata
@@ -454,8 +548,10 @@ module ActionMetadata =
 
   let typedSignatureLines metadata =
     match signatureRows metadata with
-    | [] -> []
-    | [ input, body, output ] -> [ $"{input} -> {body} -> {output}" ]
+    | [] ->
+      []
+    | [ input, body, output ] ->
+      [ $"{input} -> {body} -> {output}" ]
     | rows ->
       let firstInput, _, firstOutput = List.head rows
       let sameInputOutput =
@@ -470,8 +566,10 @@ module ActionMetadata =
         |> List.mapi (fun index (_, body, _) ->
           let line =
             if index = 0 then prefix + body else continuation + body
-          if index = List.length rows - 1 then line + $" -> {firstOutput}"
-          else line)
+          if index = List.length rows - 1 then
+            line + $" -> {firstOutput}"
+          else
+            line)
       else
         rows
         |> List.map (fun (input, body, output) ->
@@ -550,8 +648,10 @@ module ActionMetadata =
   let private overloadContract id inputs output role priority signature =
     let primary, alternatives =
       match inputs with
-      | head :: tail -> head, tail
-      | [] -> invalidArg (nameof inputs) "Action input overloads are empty."
+      | head :: tail ->
+        head, tail
+      | [] ->
+        invalidArg (nameof inputs) "Action input overloads are empty."
     let create examples syntaxes =
       { ID = id
         Input = primary
@@ -568,8 +668,10 @@ module ActionMetadata =
   let syntaxAccepts inputKind syntax =
     let syntax: ActionSyntax = syntax
     match inputKind with
-    | None -> true
-    | Some kind when List.isEmpty syntax.Inputs -> true
+    | None ->
+      true
+    | Some kind when List.isEmpty syntax.Inputs ->
+      true
     | Some kind ->
       syntax.Inputs
       |> List.exists (fun expected -> ReplValueKind.isCompatible kind expected)
@@ -578,7 +680,8 @@ module ActionMetadata =
     let metadata: ActionMetadata = metadata
     let tokenParameterName (token: string) =
       let index = token.IndexOf '='
-      if index <= 0 then None
+      if index <= 0 then
+        None
       else
         let key = token[..index - 1]
         let typeIndex = key.IndexOf ':'
@@ -586,7 +689,8 @@ module ActionMetadata =
         Some(key.ToLowerInvariant())
     let matchesParameters syntax =
       let names = args |> List.choose tokenParameterName
-      if List.isEmpty args || List.isEmpty names then true
+      if List.isEmpty args || List.isEmpty names then
+        true
       else
         names
         |> List.forall (fun name ->
@@ -595,15 +699,19 @@ module ActionMetadata =
             argumentKeys argument |> List.contains name))
     let matchesTrigger syntax =
       match (syntax: ActionSyntax).Trigger, args with
-      | None, _ -> true
+      | None, _ ->
+        true
       | Some trigger, actual :: _ ->
         String.Equals(trigger, actual, StringComparison.OrdinalIgnoreCase)
-      | Some _, [] -> false
+      | Some _, [] ->
+        false
     metadata.Syntaxes
     |> List.filter (syntaxAccepts inputKind)
     |> List.tryPick (fun syntax ->
-      if matchesTrigger syntax && matchesParameters syntax then syntax.Output
-      else None)
+      if matchesTrigger syntax && matchesParameters syntax then
+        syntax.Output
+      else
+        None)
     |> Option.defaultValue metadata.Output
 
   let possibleOutputs metadata inputKind =
@@ -617,7 +725,8 @@ module ActionMetadata =
 
   let private tokenParameterName (token: string) =
     let index = token.IndexOf '='
-    if index <= 0 then None
+    if index <= 0 then
+      None
     else
       let key = token[..index - 1]
       let typeIndex = key.IndexOf ':'
@@ -657,30 +766,45 @@ module ActionMetadata =
     let address =
       required "entry" ActionArgumentKind.Address
         "Function entry address. Omit this to recover all CFGs."
-    overloadContract "cfg"
+    overloadContract
+      "cfg"
       [ ReplValueKind.Binary; ReplValueKind.FunctionInfo ]
       ReplValueKind.CFG
-      ActionRole.Transform 20
+      ActionRole.Transform
+      20
       "cfg -> CFG collection | cfg entry=<address> -> CFG"
       [ "binary |> @cfg"
         "binary |> @cfg entry=<entry>"
         "function |> @cfg" ]
-      [ syntaxForOutput [ ReplValueKind.Binary ] None
-          (ReplValueKind.Collection ReplValueKind.CFG) []
+      [ syntaxForOutput
+          [ ReplValueKind.Binary ]
+          None
+          (ReplValueKind.Collection ReplValueKind.CFG)
+          []
         syntaxFor [ ReplValueKind.Binary ] None [ address ]
         syntaxFor [ ReplValueKind.FunctionInfo ] None [] ]
 
   let private bytes =
-    overloadContract "bytes"
+    overloadContract
+      "bytes"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.ByteArray
-      ActionRole.Transform 20 "bytes -> ByteArray"
-      [ "binary |> @bytes" ] [ syntax None [] ]
+      ActionRole.Transform
+      20
+      "bytes -> ByteArray"
+      [ "binary |> @bytes" ]
+      [ syntax None [] ]
 
   let private asBinary =
-    contract "as-binary" ReplValueKind.ByteArray ReplValueKind.Binary
-      ActionRole.Transform 10 "as-binary -> Binary"
-      [ "rawBytes |> @as-binary" ] [ syntax None [] ]
+    contract
+      "as-binary"
+      ReplValueKind.ByteArray
+      ReplValueKind.Binary
+      ActionRole.Transform
+      10
+      "as-binary -> Binary"
+      [ "rawBytes |> @as-binary" ]
+      [ syntax None [] ]
 
   let private asm =
     let code =
@@ -692,10 +816,12 @@ module ActionMetadata =
     let baseAddress =
       optional "base" ActionArgumentKind.Address
         "Base address used for relative encodings."
-    overloadContract "asm"
+    overloadContract
+      "asm"
       [ ReplValueKind.Unit ]
       ReplValueKind.ByteArray
-      ActionRole.Source 5
+      ActionRole.Source
+      5
       "asm code=<text> [isa=<isa>] [base=<addr>] -> ByteArray"
       [ "@asm code=<assembly> isa=<isa>"
         "@asm code=<assembly> isa=<isa> base=<addr>" ]
@@ -711,8 +837,13 @@ module ActionMetadata =
     let value =
       required "value" ActionArgumentKind.Address
         "Concrete integer or pointer value."
-    contract "arg" ReplValueKind.ConcExecutor ReplValueKind.ConcExecutor
-      ActionRole.Transform 20 "arg index=<n> value=<addr> -> ConcExecutor"
+    contract
+      "arg"
+      ReplValueKind.ConcExecutor
+      ReplValueKind.ConcExecutor
+      ActionRole.Transform
+      20
+      "arg index=<n> value=<addr> -> ConcExecutor"
       [ "executor |> @arg index=<index> value=<addr>" ]
       [ syntax None [ index; value ] ]
 
@@ -729,9 +860,12 @@ module ActionMetadata =
     let regions =
       optional "regions" ActionArgumentKind.Text
         "Memory regions: [name=<start>..<end>:rw]."
-    contract "make-concrete-context" ReplValueKind.ConcExecutor
+    contract
+      "make-concrete-context"
       ReplValueKind.ConcExecutor
-      ActionRole.Transform 18
+      ReplValueKind.ConcExecutor
+      ActionRole.Transform
+      18
       ("make-concrete-context [stack=<addr>] [regs=[...]] [mem=[...]] "
        + "[regions=[...]] -> ConcExecutor")
       [ "executor |> @make-concrete-context regs=[<reg>=<value>; RSP=sp]"
@@ -749,24 +883,38 @@ module ActionMetadata =
         syntax None [ stack; regs; mem; regions ] ]
 
   let private count =
-    contract "count" ReplValueKind.Any ReplValueKind.Int
-      ActionRole.Reducer 60 "count -> Int"
-      [ "matches |> @count" ] [ syntax None [] ]
+    contract
+      "count"
+      ReplValueKind.Any
+      ReplValueKind.Int
+      ActionRole.Reducer
+      60
+      "count -> Int"
+      [ "matches |> @count" ]
+      [ syntax None [] ]
 
   let private concExec =
-    overloadContract "make-concrete-executor"
+    overloadContract
+      "make-concrete-executor"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.ConcExecutor
-      ActionRole.Transform 20 "make-concrete-executor -> ConcExecutor"
-      [ "binary |> @make-concrete-executor" ] [ syntax None [] ]
+      ActionRole.Transform
+      20
+      "make-concrete-executor -> ConcExecutor"
+      [ "binary |> @make-concrete-executor" ]
+      [ syntax None [] ]
 
   let private dbscan =
     let eps = optional "eps" ActionArgumentKind.Float "Maximum distance."
     let minPts =
       optional "min-points" ActionArgumentKind.Integer
         "Minimum number of neighboring fingerprints."
-    contract "dbscan" (ReplValueKind.Collection ReplValueKind.Fingerprint)
-      ReplValueKind.ClusterResult ActionRole.Reducer 50
+    contract
+      "dbscan"
+      (ReplValueKind.Collection ReplValueKind.Fingerprint)
+      ReplValueKind.ClusterResult
+      ActionRole.Reducer
+      50
       "dbscan [eps=<n>] [min-points=<n>] -> ClusterResult"
       [ "fingerprints |> @dbscan eps=<eps> min-points=<minimum>" ]
       [ syntax None [ eps; minPts ] ]
@@ -775,14 +923,21 @@ module ActionMetadata =
     let path =
       required "path" ActionArgumentKind.ExistingPath
         "File or directory to compare with the fingerprint."
-    contract "detect" ReplValueKind.Fingerprint ReplValueKind.Text
-      ActionRole.Transform 30 "detect path=<path> -> Text"
-      [ "fingerprint |> @detect path=temp/bin" ] [ syntax None [ path ] ]
+    contract
+      "detect"
+      ReplValueKind.Fingerprint
+      ReplValueKind.Text
+      ActionRole.Transform
+      30
+      "detect path=<path> -> Text"
+      [ "fingerprint |> @detect path=temp/bin" ]
+      [ syntax None [ path ] ]
 
   let private diff =
     let pair left right = ReplValueKind.Tuple [ left; right ]
     let samePair kind = pair kind kind
-    overloadContract "diff"
+    overloadContract
+      "diff"
       [ samePair ReplValueKind.Binary
         samePair ReplValueKind.BinarySlice
         pair ReplValueKind.Binary ReplValueKind.BinarySlice
@@ -793,7 +948,8 @@ module ActionMetadata =
         samePair ReplValueKind.ConcExecutor
         samePair ReplValueKind.Text
         samePair ReplValueKind.TextArtifact ]
-      ReplValueKind.Text ActionRole.Reducer 60
+      ReplValueKind.Text
+      ActionRole.Reducer 60
       "supported pair -> @diff -> Text"
       [ "let binaries = (oldBin, newBin)"
         "binaries |> @diff"
@@ -801,16 +957,42 @@ module ActionMetadata =
         "code |> @diff" ] [ syntax None [] ]
 
   let private disasm =
-    overloadContract "disasm"
+    overloadContract
+      "disasm"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.InstructionArray
-      ActionRole.Transform 30 "disasm -> InstructionArray"
-      [ "binary |> @disasm" ] [ syntax None [] ]
+      ActionRole.Transform
+      30
+      "disasm -> InstructionArray"
+      [ "binary |> @disasm" ]
+      [ syntax None [] ]
 
   let private dot =
-    contract "dot" ReplValueKind.CFG ReplValueKind.TextArtifact
-      ActionRole.Transform 10 "dot -> TextArtifact"
-      [ "graph |> @dot" ] [ syntax None [] ]
+    contract
+      "dot"
+      ReplValueKind.CFG
+      ReplValueKind.TextArtifact
+      ActionRole.Transform
+      10
+      "dot -> TextArtifact"
+      [ "graph |> @dot" ]
+      [ syntax None [] ]
+
+  let private editSyntaxes start finish size bytes asm isa =
+    let binary = [ ReplValueKind.Binary ]
+    let slice = [ ReplValueKind.BinarySlice ]
+    let forEditInputs trigger args =
+      [ syntaxForOutput binary trigger ReplValueKind.Binary args
+        syntaxForOutput slice trigger ReplValueKind.BinarySlice args ]
+    [ yield! forEditInputs (Some "insert") [ start; bytes ]
+      yield! forEditInputs (Some "delete") [ start; finish ]
+      yield! forEditInputs (Some "delete") [ start; size ]
+      yield! forEditInputs (Some "replace") [ start; finish; bytes ]
+      yield! forEditInputs (Some "replace") [ start; size; bytes ]
+      yield! forEditInputs (Some "replace") [ start; asm ]
+      yield! forEditInputs (Some "replace") [ start; asm; isa ]
+      yield! forEditInputs (Some "force-replace") [ start; asm ]
+      yield! forEditInputs (Some "force-replace") [ start; asm; isa ] ]
 
   let private edit =
     let start =
@@ -830,33 +1012,21 @@ module ActionMetadata =
     let isa =
       optional "isa" ActionArgumentKind.Text
         "Instruction-set architecture used for assembly."
-    let binary = [ ReplValueKind.Binary ]
-    let slice = [ ReplValueKind.BinarySlice ]
-    let forEditInputs trigger args =
-      [ syntaxForOutput binary trigger ReplValueKind.Binary args
-        syntaxForOutput slice trigger ReplValueKind.BinarySlice args ]
-    let syntaxes =
-      [ yield! forEditInputs (Some "insert") [ start; bytes ]
-        yield! forEditInputs (Some "delete") [ start; finish ]
-        yield! forEditInputs (Some "delete") [ start; size ]
-        yield! forEditInputs (Some "replace") [ start; finish; bytes ]
-        yield! forEditInputs (Some "replace") [ start; size; bytes ]
-        yield! forEditInputs (Some "replace") [ start; asm ]
-        yield! forEditInputs (Some "replace") [ start; asm; isa ]
-        yield! forEditInputs (Some "force-replace") [ start; asm ]
-        yield! forEditInputs (Some "force-replace") [ start; asm; isa ] ]
-    overloadContract "edit"
+    overloadContract
+      "edit"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.Binary
-      ActionRole.Transform 40 "edit <operation> ..."
+      ActionRole.Transform
+      40
+      "edit <operation> ..."
       [ "binary |> @edit insert start=<addr> hex=<hex>"
         "binary |> @edit delete start=<addr> size=<size>"
         "binary |> @edit replace start=<addr> size=<size> hex=<hex>"
         "binary |> @edit replace start=<addr> asm=<instruction> isa=<isa>"
         "binary |> @edit force-replace start=<addr> asm=<instruction>" ]
-      syntaxes
+      (editSyntaxes start finish size bytes asm isa)
 
-  let private grep =
+  let private grepArguments () =
     let pattern =
       required "pattern" ActionArgumentKind.HexPattern
         "Regular expression over hexadecimal byte pairs."
@@ -871,6 +1041,34 @@ module ActionMetadata =
       optionalDefault "after" ActionArgumentKind.Integer
         ActionArgumentDefault.Zero
         "Context bytes following each match."
+    pattern, context, before, after
+
+  let private grepSyntaxes pattern context before after =
+    [ syntaxFor
+        [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+        None
+        [ pattern; context ]
+      syntaxFor
+        [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+        None
+        [ pattern; before; after ]
+      syntaxFor
+        [ ReplValueKind.Tuple
+            [ ReplValueKind.Binary; ReplValueKind.ByteArray ]
+          ReplValueKind.Tuple
+            [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ] ]
+        None
+        [ context ]
+      syntaxFor
+        [ ReplValueKind.Tuple
+            [ ReplValueKind.Binary; ReplValueKind.ByteArray ]
+          ReplValueKind.Tuple
+            [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ] ]
+        None
+        [ before; after ] ]
+
+  let private grep =
+    let pattern, context, before, after = grepArguments ()
     let byPattern =
       "grep pattern=<hex> [context=<n>] | "
       + "pattern=<hex> [before=<n>] [after=<n>] "
@@ -878,48 +1076,43 @@ module ActionMetadata =
     let byBytes =
       "grep [context=<n>] | [before=<n>] [after=<n>] "
       + "-> BinarySlice collection"
-    overloadContract "grep"
+    overloadContract
+      "grep"
       [ ReplValueKind.Binary
         ReplValueKind.BinarySlice
         ReplValueKind.Tuple [ ReplValueKind.Binary; ReplValueKind.ByteArray ]
         ReplValueKind.Tuple
           [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ] ]
       (ReplValueKind.Collection ReplValueKind.BinarySlice)
-      ActionRole.Transform 30 (byPattern + " | " + byBytes)
+      ActionRole.Transform
+      30 (byPattern + " | " + byBytes)
       [ "binary |> @grep pattern=<hex-pattern>"
         "binary |> @grep pattern=<hex-pattern> context=<size>"
         "binary |> @grep pattern=<hex-pattern> before=<n> after=<n>"
         "(binary, needle) |> @grep before=<n> after=<n>" ]
-      [ syntaxFor [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
-          None [ pattern; context ]
-        syntaxFor [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
-          None [ pattern; before; after ]
-        syntaxFor
-          [ ReplValueKind.Tuple
-              [ ReplValueKind.Binary; ReplValueKind.ByteArray ]
-            ReplValueKind.Tuple
-              [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ] ]
-          None [ context ]
-        syntaxFor
-          [ ReplValueKind.Tuple
-              [ ReplValueKind.Binary; ReplValueKind.ByteArray ]
-            ReplValueKind.Tuple
-              [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ] ]
-          None [ before; after ] ]
+      (grepSyntaxes pattern context before after)
 
   let private hexdump =
-    overloadContract "hexdump"
+    overloadContract
+      "hexdump"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.Text
-      ActionRole.Transform 30 "hexdump -> Text"
-      [ "binary |> @hexdump" ] [ syntax None [] ]
+      ActionRole.Transform
+      30
+      "hexdump -> Text"
+      [ "binary |> @hexdump" ]
+      [ syntax None [] ]
 
   let private jaccard =
     let input =
       ReplValueKind.Tuple
         [ ReplValueKind.Fingerprint; ReplValueKind.Fingerprint ]
-    contract "jaccard" input ReplValueKind.Float
-      ActionRole.Reducer 60 "Fingerprint * Fingerprint -> @jaccard -> Float"
+    contract
+      "jaccard"
+      input ReplValueKind.Float
+      ActionRole.Reducer
+      60
+      "Fingerprint * Fingerprint -> @jaccard -> Float"
       [ "let fingerprints = (leftFingerprint, rightFingerprint)"
         "fingerprints |> @jaccard" ] [ syntax None [] ]
 
@@ -927,8 +1120,13 @@ module ActionMetadata =
     let register =
       optional "name" ActionArgumentKind.Text
         "Register name to print; defaults to all defined registers."
-    contract "regs" ReplValueKind.ConcExecutor ReplValueKind.RegisterView
-      ActionRole.Transform 20 "regs [name=<reg>] -> RegisterView"
+    contract
+      "regs"
+      ReplValueKind.ConcExecutor
+      ReplValueKind.RegisterView
+      ActionRole.Transform
+      20
+      "regs [name=<reg>] -> RegisterView"
       [ "executor |> @regs"; "executor |> @regs name=RAX" ]
       [ syntax None [ register ] ]
 
@@ -942,9 +1140,12 @@ module ActionMetadata =
     let breakpoint =
       optional "break" ActionArgumentKind.Address
         "Stop before executing this address."
-    contract "run-concrete" ReplValueKind.ConcExecutor
+    contract
+      "run-concrete"
       ReplValueKind.ConcExecutor
-      ActionRole.Transform 20
+      ReplValueKind.ConcExecutor
+      ActionRole.Transform
+      20
       ("run-concrete [entry=<addr>] [limit=<n>] [break=<addr>]"
        + " -> ConcExecutor")
       [ "executor |> @run-concrete entry=<entry> limit=<limit>"
@@ -952,24 +1153,35 @@ module ActionMetadata =
       [ syntax None [ entry; limit; breakpoint ] ]
 
   let private lift =
-    overloadContract "lift"
+    overloadContract
+      "lift"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.Text
-      ActionRole.Transform 40 "lift -> Text"
-      [ "binary |> @lift" ] [ syntax None [] ]
+      ActionRole.Transform
+      40
+      "lift -> Text"
+      [ "binary |> @lift" ]
+      [ syntax None [] ]
 
   let private list =
     let sections =
       syntaxOutput (Some "sections")
-        (ReplValueKind.Collection ReplValueKind.SectionInfo) []
+        (ReplValueKind.Collection ReplValueKind.SectionInfo)
+        []
     let functions =
       syntaxOutput (Some "functions")
-        (ReplValueKind.Collection ReplValueKind.FunctionInfo) []
+        (ReplValueKind.Collection ReplValueKind.FunctionInfo)
+        []
     let knownFunctions =
       syntaxOutput (Some "known-functions")
-        (ReplValueKind.Collection ReplValueKind.FunctionInfo) []
-    contract "list" ReplValueKind.Binary ReplValueKind.Any
-      ActionRole.Transform 10
+        (ReplValueKind.Collection ReplValueKind.FunctionInfo)
+        []
+    contract
+      "list"
+      ReplValueKind.Binary
+      ReplValueKind.Any
+      ActionRole.Transform
+      10
       ("list <sections|functions|known-functions> -> "
        + "SectionInfo|FunctionInfo collection")
       [ "binary |> @list sections"
@@ -978,9 +1190,15 @@ module ActionMetadata =
       [ sections; functions; knownFunctions ]
 
   let private llvm =
-    contract "llvm" ReplValueKind.Binary ReplValueKind.TextArtifact
-      ActionRole.Transform 50 "llvm -> TextArtifact"
-      [ "binary |> @llvm" ] [ syntax None [] ]
+    contract
+      "llvm"
+      ReplValueKind.Binary
+      ReplValueKind.TextArtifact
+      ActionRole.Transform
+      50
+      "llvm -> TextArtifact"
+      [ "binary |> @llvm" ]
+      [ syntax None [] ]
 
   let private load =
     let source =
@@ -993,8 +1211,12 @@ module ActionMetadata =
       optional "isa" ActionArgumentKind.ISA "Instruction-set architecture."
     let requiredISA =
       required "isa" ActionArgumentKind.ISA "Instruction-set architecture."
-    contract "load" ReplValueKind.Unit ReplValueKind.Binary
-      ActionRole.Source 0
+    contract
+      "load"
+      ReplValueKind.Unit
+      ReplValueKind.Binary
+      ActionRole.Source
+      0
       "load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> -> Binary"
       [ "@load path=<path>"
         "@load hex=<hex> isa=<isa>" ]
@@ -1008,16 +1230,26 @@ module ActionMetadata =
     let maxAddress =
       required "max" ActionArgumentKind.Address
         "Exclusive upper address bound."
-    contract "random" ReplValueKind.Unit ReplValueKind.Address
-      ActionRole.Source 20
+    contract
+      "random"
+      ReplValueKind.Unit
+      ReplValueKind.Address
+      ActionRole.Source
+      20
       "random min=<addr> max=<addr> -> Address"
       [ "let ptr = @random min=<min> max=<max>" ]
       [ syntax None [ minAddress; maxAddress ] ]
 
   let private userStack =
-    contract "user-stack" ReplValueKind.Unit ReplValueKind.Address
-      ActionRole.Source 19 "user-stack -> Address"
-      [ "let sp = @user-stack" ] [ syntax None [] ]
+    contract
+      "user-stack"
+      ReplValueKind.Unit
+      ReplValueKind.Address
+      ActionRole.Source
+      19
+      "user-stack -> Address"
+      [ "let sp = @user-stack" ]
+      [ syntax None [] ]
 
   let private mem =
     let addr =
@@ -1032,28 +1264,45 @@ module ActionMetadata =
     let signature =
       "mem read addr=<addr> size=<n> -> MemoryView | "
       + "mem write addr=<addr> bytes=<hex> -> ConcExecutor"
-    contract "mem" ReplValueKind.ConcExecutor
+    contract
+      "mem"
+      ReplValueKind.ConcExecutor
       ReplValueKind.Any
-      ActionRole.Transform 20
+      ActionRole.Transform
+      20
       signature
       [ "executor |> @mem read addr=<addr> size=<size>"
         "executor |> @mem write addr=<addr> bytes=<hex>" ]
       [ syntaxOutput (Some "read") ReplValueKind.MemoryView [ addr; size ]
-        syntaxOutput (Some "write") ReplValueKind.ConcExecutor
+        syntaxOutput
+          (Some "write")
+          ReplValueKind.ConcExecutor
           [ addr; bytes ] ]
 
   let private pick =
     let index =
       required "index" ActionArgumentKind.Integer
         "Zero-based value index in the current collection."
-    contract "pick" (ReplValueKind.Collection ReplValueKind.Any)
+    contract
+      "pick"
+      (ReplValueKind.Collection ReplValueKind.Any)
       ReplValueKind.Any
-      ActionRole.Transform 5 "pick index=<n> -> Any"
-      [ "graphs |> @pick index=<index>" ] [ syntax None [ index ] ]
+      ActionRole.Transform
+      5
+      "pick index=<n> -> Any"
+      [ "graphs |> @pick index=<index>" ]
+      [ syntax None [ index ] ]
 
   let private print =
-    contract "print" ReplValueKind.Any ReplValueKind.Unit
-      ActionRole.Sink 100 "print -> Unit" [] [ syntax None [] ]
+    contract
+      "print"
+      ReplValueKind.Any
+      ReplValueKind.Unit
+      ActionRole.Sink
+      100
+      "print -> Unit"
+      []
+      [ syntax None [] ]
 
   let private slice =
     let section =
@@ -1069,10 +1318,12 @@ module ActionMetadata =
     let signature =
       "slice section=<section> | start=<addr> end=<addr> | "
       + "start=<addr> offset=<size> -> BinarySlice"
-    overloadContract "slice"
+    overloadContract
+      "slice"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.BinarySlice
-      ActionRole.Transform 10 signature
+      ActionRole.Transform
+      10 signature
       [ "binary |> @slice section=.text"
         "binary |> @slice start=<start> offset=<size>" ]
       [ syntax None [ section ]
@@ -1083,8 +1334,13 @@ module ActionMetadata =
     let count =
       optional "count" ActionArgumentKind.Integer
         "Number of machine instructions; defaults to one."
-    contract "step" ReplValueKind.ConcExecutor ReplValueKind.ConcExecutor
-      ActionRole.Transform 20 "step [count=<n>] -> ConcExecutor"
+    contract
+      "step"
+      ReplValueKind.ConcExecutor
+      ReplValueKind.ConcExecutor
+      ActionRole.Transform
+      20
+      "step [count=<n>] -> ConcExecutor"
       [ "executor |> @step"; "executor |> @step count=<count>" ]
       [ syntax None [ count ] ]
 
@@ -1098,8 +1354,12 @@ module ActionMetadata =
     let size =
       required "size" ActionArgumentKind.Integer
         "Number of watched memory bytes."
-    contract "trace" ReplValueKind.ConcExecutor ReplValueKind.ExecutionTrace
-      ActionRole.Transform 20
+    contract
+      "trace"
+      ReplValueKind.ConcExecutor
+      ReplValueKind.ExecutionTrace
+      ActionRole.Transform
+      20
       "trace [count=<n>] [watch=<addr> size=<n>] -> ExecutionTrace"
       [ "executor |> @trace"
         "executor |> @trace count=<count>"
@@ -1116,10 +1376,12 @@ module ActionMetadata =
     let pattern =
       optional "pattern" ActionArgumentKind.Text
         "Case-insensitive substring filter."
-    overloadContract "strings"
+    overloadContract
+      "strings"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       (ReplValueKind.Collection ReplValueKind.StringMatch)
-      ActionRole.Transform 10
+      ActionRole.Transform
+      10
       "strings [min=<n>] [pattern=<text>] -> StringMatch collection"
       [ "binary |> @strings"
         "binary |> @strings pattern=ADMIN"
@@ -1129,11 +1391,15 @@ module ActionMetadata =
   let private save =
     let path =
       required "path" ActionArgumentKind.OutputPath "Destination file path."
-    overloadContract "save"
+    overloadContract
+      "save"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.Unit
-      ActionRole.Sink 90 "save path=<path> -> Unit"
-      [ "binary |> @save path=out.bin" ] [ syntax None [ path ] ]
+      ActionRole.Sink
+      90
+      "save path=<path> -> Unit"
+      [ "binary |> @save path=out.bin" ]
+      [ syntax None [ path ] ]
 
   let private winnowing =
     let ngram =
@@ -1142,10 +1408,12 @@ module ActionMetadata =
     let window =
       optional "window-size" ActionArgumentKind.Integer
         "Window size; defaults to four."
-    overloadContract "winnowing"
+    overloadContract
+      "winnowing"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.Fingerprint
-      ActionRole.Transform 40
+      ActionRole.Transform
+      40
       "winnowing [n-gram-size=<n>] [window-size=<n>] -> Fingerprint"
       [ "binary |> @winnowing n-gram-size=<n> window-size=<n>" ]
       [ syntax None [ ngram; window ] ]
@@ -1153,11 +1421,13 @@ module ActionMetadata =
   let private write =
     let path =
       required "path" ActionArgumentKind.OutputPath "Destination file path."
-    overloadContract "write"
+    overloadContract
+      "write"
       [ ReplValueKind.Text
         ReplValueKind.TextArtifact
         ReplValueKind.InstructionArray ]
-      ReplValueKind.Unit ActionRole.Sink 90 "write path=<path> -> Unit"
+      ReplValueKind.Unit
+      ActionRole.Sink 90 "write path=<path> -> Unit"
       [ "dump |> @write path=output.txt"
         "code |> @write path=disasm.txt" ] [ syntax None [ path ] ]
 
@@ -1219,7 +1489,8 @@ module ActionMetadata =
     | _ ->
       let actionID = action.ActionID.ToLowerInvariant()
       match Map.tryFind actionID builtIns with
-      | Some metadata -> normalize action metadata
+      | Some metadata ->
+        normalize action metadata
       | None ->
         let message = $"External action '{actionID}' must implement "
         invalidOp (message + "IActionMetadataProvider.")
@@ -1329,8 +1600,10 @@ module ActionRegistry =
   let create dllPath =
     let initial =
       match dllPath with
-      | Some path -> loadAssembly path Map.empty
-      | None -> Map.empty
+      | Some path ->
+        loadAssembly path Map.empty
+      | None ->
+        Map.empty
     let assembly = typeof<IAction>.Assembly
     assembly.GetExportedTypes()
     |> addTypes initial
@@ -1347,8 +1620,10 @@ module ActionRegistry =
 
   let getApplicable kind registry =
     match Map.tryFind kind registry.Applicable with
-    | Some actions -> actions
-    | None -> applicableActions kind registry.AllSorted
+    | Some actions ->
+      actions
+    | None ->
+      applicableActions kind registry.AllSorted
 
   let toActionMap registry =
     registry.Actions |> Map.map (fun _ registered -> registered.Action)

@@ -413,7 +413,9 @@ type SymbExecutor(hdl: BinHandle) =
   let makeStopPoint depth (st: SymbState) =
     let instruction, statements =
       match liftCache.TryLift st.PC with
-      | Ok lifted -> Some lifted.Instruction, lifted.Stmts
+      | Ok lifted ->
+        let instruction = Some lifted.Instruction
+        instruction, lifted.Stmts
       | Error _ ->
         match liftCache.TryParse st.PC with
         | Ok ins -> Some ins, [||]

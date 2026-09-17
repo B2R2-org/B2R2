@@ -58,13 +58,17 @@ module private ConcRegionPerm =
         if permission.Execute then Some "x" else None ]
       |> List.choose id
     match chars with
-    | [] -> "-"
-    | chars -> String.concat "" chars
+    | [] ->
+      "-"
+    | chars ->
+      String.concat "" chars
 
   let allows kind permission =
     match kind with
-    | MemoryAccessKind.Read -> permission.Read
-    | MemoryAccessKind.Write -> permission.Write
+    | MemoryAccessKind.Read ->
+      permission.Read
+    | MemoryAccessKind.Write ->
+      permission.Write
 
   let executeViolation regions addr =
     if List.isEmpty regions then
@@ -74,11 +78,13 @@ module private ConcRegionPerm =
       let contains region =
         addr >= region.Start && finish <= region.Finish && finish >= addr
       match regions |> List.tryFind contains with
-      | None -> Some "outside configured regions"
+      | None ->
+        Some "outside configured regions"
       | Some region when not region.Permission.Execute ->
         let permission = format region.Permission
         Some $"not permitted by {region.Name}:{permission}"
-      | Some _ -> None
+      | Some _ ->
+        None
 
 module private ConcActionParsing =
   let parseUInt64 value = ContextParsing.parseAddress value
@@ -110,11 +116,13 @@ type private TracingMemory(inner: ConcMemory,
       let contains region =
         addr >= region.Start && finish <= region.Finish && finish >= addr
       match regions |> List.tryFind contains with
-      | None -> Some "outside configured regions"
+      | None ->
+        Some "outside configured regions"
       | Some region when not (ConcRegionPerm.allows kind region.Permission) ->
         let permission = ConcRegionPerm.format region.Permission
         Some $"not permitted by {region.Name}:{permission}"
-      | Some _ -> None
+      | Some _ ->
+        None
 
   let readBytes addr count =
     let bytes = Array.zeroCreate<byte> count
@@ -143,8 +151,10 @@ type private TracingMemory(inner: ConcMemory,
 
   let appendBytes left right =
     match left, right with
-    | Some left, Some right -> Array.append left right |> Some
-    | _ -> None
+    | Some left, Some right ->
+      Array.append left right |> Some
+    | _ ->
+      None
 
   let tryMerge (last: MemoryAccess) (access: MemoryAccess) =
     if last.Instruction <> access.Instruction || last.Kind <> access.Kind then
@@ -171,9 +181,12 @@ type private TracingMemory(inner: ConcMemory,
       match acc with
       | last :: rest ->
         match tryMerge last access with
-        | Some merged -> merged :: rest
-        | None -> access :: acc
-      | [] -> [ access ]) []
+        | Some merged ->
+          merged :: rest
+        | None ->
+          access :: acc
+      | [] ->
+        [ access ]) []
     |> List.rev
     |> List.toArray
 
@@ -189,8 +202,10 @@ type private TracingMemory(inner: ConcMemory,
       let result = inner.ByteRead addr
       let bytes =
         match result with
-        | ValueSome value -> Some [| value |]
-        | ValueNone -> None
+        | ValueSome value ->
+          Some [| value |]
+        | ValueNone ->
+          None
       addAccess MemoryAccessKind.Read addr 1 None bytes
       result
 
@@ -219,8 +234,10 @@ type ConcExecutorValue private(binary: Binary,
 
   let state =
     match initialState with
-    | Some state -> state
-    | None -> createInitialState ()
+    | Some state ->
+      state
+    | None ->
+      createInitialState ()
 
   let parseUInt64 (value: string) =
     ConcActionParsing.parseUInt64 value
@@ -229,8 +246,10 @@ type ConcExecutorValue private(binary: Binary,
     Int32.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture)
 
   let defaultStart () =
-    if state.PC <> 0UL then state.PC
-    else hdl.File.EntryPoint |> Option.defaultValue hdl.File.BaseAddress
+    if state.PC <> 0UL then
+      state.PC
+    else
+      hdl.File.EntryPoint |> Option.defaultValue hdl.File.BaseAddress
 
   let accessorFor state = ConcStateAccessor(hdl, state)
 
@@ -241,18 +260,24 @@ type ConcExecutorValue private(binary: Binary,
     withState state None None ranges regions
 
   let formatStopReason = function
-    | ConcStopReason.StoppedAtAddress addr -> $"breakpoint at 0x{addr:x}"
+    | ConcStopReason.StoppedAtAddress addr ->
+      $"breakpoint at 0x{addr:x}"
     | ConcStopReason.StoppedAfterAddress addr ->
       $"after breakpoint at 0x{addr:x}"
-    | ConcStopReason.StoppedAtReturn addr -> $"return at 0x{addr:x}"
-    | ConcStopReason.StoppedAfterReturn addr -> $"after return at 0x{addr:x}"
+    | ConcStopReason.StoppedAtReturn addr ->
+      $"return at 0x{addr:x}"
+    | ConcStopReason.StoppedAfterReturn addr ->
+      $"after return at 0x{addr:x}"
     | ConcStopReason.StoppedAtCall(addr, Some target) ->
       $"call at 0x{addr:x} target=0x{target:x}"
-    | ConcStopReason.StoppedAtCall(addr, None) -> $"call at 0x{addr:x}"
+    | ConcStopReason.StoppedAtCall(addr, None) ->
+      $"call at 0x{addr:x}"
     | ConcStopReason.StoppedAtSideEffect(addr, effect) ->
       $"side effect at 0x{addr:x}: {effect}"
-    | ConcStopReason.UndefinedValue addr -> $"undefined value at 0x{addr:x}"
-    | ConcStopReason.InstructionLimitReached _ -> "instruction limit"
+    | ConcStopReason.UndefinedValue addr ->
+      $"undefined value at 0x{addr:x}"
+    | ConcStopReason.InstructionLimitReached _ ->
+      "instruction limit"
     | ConcStopReason.EvaluationError(addr, error) ->
       $"evaluation error at 0x{addr:x}: {error}"
     | ConcStopReason.UserStopConditionMet addr ->
@@ -265,50 +290,63 @@ type ConcExecutorValue private(binary: Binary,
       $"call handling failure at 0x{addr:x}: {reason}"
 
   let isLimitReason = function
-    | ConcStopReason.InstructionLimitReached _ -> true
-    | _ -> false
+    | ConcStopReason.InstructionLimitReached _ ->
+      true
+    | _ ->
+      false
 
   let hasNonLimitStop reasons =
     reasons |> List.exists (isLimitReason >> not)
 
   let tryGetRegisterID (name: string) =
     let factory = hdl.RegisterFactory
-    try Some(factory.GetRegisterID name)
+    try
+      Some(factory.GetRegisterID name)
     with _ ->
-      try Some(factory.GetRegisterID(name.ToUpperInvariant()))
-      with _ -> None
+      try
+        Some(factory.GetRegisterID(name.ToUpperInvariant()))
+      with _ ->
+        None
 
   let getStackPointerID () =
     match hdl.RegisterFactory.StackPointer with
-    | Some rid -> rid
+    | Some rid ->
+      rid
     | None ->
       invalidOp "Stack pointer register is unavailable for this ISA."
 
   let registerText (targetState: ConcState) rid =
     match targetState.TryGetReg rid with
-    | Def value -> Some(value.ToString())
-    | Undef -> None
+    | Def value ->
+      Some(value.ToString())
+    | Undef ->
+      None
 
   let stackText () =
     match hdl.RegisterFactory.StackPointer with
     | Some rid ->
       registerText state rid |> Option.defaultValue "<undef>"
-    | None -> "<unavailable>"
+    | None ->
+      "<unavailable>"
 
   let isRegisterDefined (targetState: ConcState) rid =
     match targetState.TryGetReg rid with
-    | Def _ -> true
-    | Undef -> false
+    | Def _ ->
+      true
+    | Undef ->
+      false
 
   let registerDiffs beforeState afterState =
     hdl.RegisterFactory.GetAllRegisterNames()
     |> Array.choose (fun name ->
       match tryGetRegisterID name with
-      | None -> None
+      | None ->
+        None
       | Some rid ->
         let before = registerText beforeState rid
         let after = registerText afterState rid
-        if before = after then None
+        if before = after then
+          None
         else
           let before = before |> Option.defaultValue "<undef>"
           let after = after |> Option.defaultValue "<undef>"
@@ -318,8 +356,10 @@ type ConcExecutorValue private(binary: Binary,
   let instructionAt (addr: Addr) =
     let lifter = hdl.NewLiftingUnit()
     match lifter.TryParseInstruction addr with
-    | Ok instruction -> instruction.Disasm()
-    | Error error -> $"<decode failed: {error}>"
+    | Ok instruction ->
+      instruction.Disasm()
+    | Error error ->
+      $"<decode failed: {error}>"
 
   let collectReadRegisters (rset: RegisterSet) = function
     | Put(_, rhs, _) ->
@@ -427,7 +467,8 @@ type ConcExecutorValue private(binary: Binary,
     |> List.map (function
       | ConcStopReason.InstructionLimitReached(addr, _) ->
         ConcStopReason.InstructionLimitReached(addr, total)
-      | reason -> reason)
+      | reason ->
+        reason)
 
   let makeRunOptions (stops: ConcStopCondition list)
                      (limit: int)
@@ -440,10 +481,13 @@ type ConcExecutorValue private(binary: Binary,
     match ConcRegionPerm.executeViolation regions addr with
     | Some reason ->
       invalidOp $"Execute access violation at 0x{addr:x}: {reason}."
-    | None -> ()
+    | None ->
+      ()
     match runState.Memory with
-    | :? TracingMemory as memory -> memory.SetInstruction addr
-    | _ -> ()
+    | :? TracingMemory as memory ->
+      memory.SetInstruction addr
+    | _ ->
+      ()
     let instruction =
       { Address = addr
         Disassembly = instructionAt addr }
@@ -454,13 +498,23 @@ type ConcExecutorValue private(binary: Binary,
 
   let hasAccessViolation (runState: ConcState) =
     match runState.Memory with
-    | :? TracingMemory as memory -> memory.HasViolation
-    | _ -> false
+    | :? TracingMemory as memory ->
+      memory.HasViolation
+    | _ ->
+      false
 
-  let runSteps (ct: CancellationToken) stops (start: Addr) count
-               (runState: ConcState) =
-    let rec loop addr remaining instructions total
-                 (lastResult: ConcRunResult option) =
+  let runSteps
+    (ct: CancellationToken)
+    stops
+    (start: Addr)
+    count
+    (runState: ConcState) =
+    let rec loop
+      addr
+      remaining
+      instructions
+      total
+      (lastResult: ConcRunResult option) =
       ct.ThrowIfCancellationRequested()
       if remaining <= 0 then
         lastResult, List.rev instructions
@@ -481,16 +535,25 @@ type ConcExecutorValue private(binary: Binary,
         if stopped then
           Some result, List.rev instructions
         else
-          loop result.FinalAddress (remaining - 1) instructions total
+          loop
+            result.FinalAddress
+            (remaining - 1)
+            instructions
+            total
             (Some result)
     loop start count [] 0 None
 
-  let traceFromResult start beforeState
-                      (result: ConcRunResult option)
-                      instructions accesses watch =
+  let traceFromResult
+    start
+    beforeState
+    (result: ConcRunResult option)
+    instructions
+    accesses
+    watch =
     let result: ConcRunResult =
       match result with
-      | Some result -> result
+      | Some result ->
+        result
       | None ->
         { StopReasons = []
           FinalAddress = start
@@ -505,27 +568,41 @@ type ConcExecutorValue private(binary: Binary,
       MemoryDiffs = memoryDiff watch beforeState result.State
       StopReasons = stopReasonsForTrace result accesses }
 
-  let runWithTrace ct start count (sourceState: ConcState)
-                   watch stops =
+  let runWithTrace
+    ct
+    start
+    count
+    (sourceState: ConcState)
+    watch
+    stops =
     let traceMemory = TracingMemory(sourceState.Memory.Clone(), regions)
     let runState = sourceState.Clone(traceMemory :> ConcMemory)
     let beforeState = runState.Clone()
     let result, instructions =
       runSteps ct stops start count runState
     let trace =
-      traceFromResult start beforeState result instructions
-        traceMemory.Accesses watch
+      traceFromResult
+        start
+        beforeState
+        result
+        instructions
+        traceMemory.Accesses
+        watch
     result, trace
 
   let parseNeedsArgs args =
     match args with
-    | [] -> defaultStart (), Some 1, None
-    | [ count ] -> defaultStart (), Some(parseInt count), None
+    | [] ->
+      defaultStart (), Some 1, None
+    | [ count ] ->
+      defaultStart (), Some(parseInt count), None
     | [ start; finishOrCount ]
         when finishOrCount.StartsWith("0x", StringComparison.Ordinal) ->
       parseUInt64 start, None, Some(parseUInt64 finishOrCount)
-    | [ start; count ] -> parseUInt64 start, Some(parseInt count), None
-    | _ -> invalidArg (nameof args) "Invalid needs argument layout."
+    | [ start; count ] ->
+      parseUInt64 start, Some(parseInt count), None
+    | _ ->
+      invalidArg (nameof args) "Invalid needs argument layout."
 
   let memoryRequirement at reason addr size =
     { Address = addr
@@ -548,8 +625,10 @@ type ConcExecutorValue private(binary: Binary,
   let uniqueMemory (items: RequiredMemory seq) =
     let key (item: RequiredMemory) =
       match item.Address with
-      | Some addr -> $"0x{addr:x}:{item.Size}"
-      | None -> $"{item.At:x}:{item.Reason}"
+      | Some addr ->
+        $"0x{addr:x}:{item.Size}"
+      | None ->
+        $"{item.At:x}:{item.Reason}"
     let seen = HashSet<string>()
     items
     |> Seq.filter (fun item -> seen.Add(key item))
@@ -563,25 +642,31 @@ type ConcExecutorValue private(binary: Binary,
       let rid = RegisterID.create ridx
       if isRegisterDefined state rid || derived.Contains ridx then
         ()
-      else output.Add(registerRequirement at disasm rid))
+      else
+        output.Add(registerRequirement at disasm rid))
     output
 
   let updateDerivedRegisters (derived: HashSet<int>) state stmt =
     let update rid rhs =
       match SafeEvaluator.evalExpr state rhs with
-      | Ok(Def _) -> derived.Remove rid |> ignore
+      | Ok(Def _) ->
+        derived.Remove rid |> ignore
       | Ok Undef
-      | Result.Error _ -> derived.Add rid |> ignore
+      | Result.Error _ ->
+        derived.Add rid |> ignore
     match stmt with
-    | Put(Var(_, rid, _, _), rhs, _) -> update (int rid) rhs
-    | _ -> ()
+    | Put(Var(_, rid, _, _), rhs, _) ->
+      update (int rid) rhs
+    | _ ->
+      ()
 
   let inspectLoadNeed at state (endian, typ, addrExpr) =
     match SafeEvaluator.evalExpr state addrExpr with
     | Ok(Def addr) ->
       let addr = addr.ToUInt64()
       match Memory.read addr endian typ state.Memory with
-      | Ok _ -> None
+      | Ok _ ->
+        None
       | Result.Error _ ->
         let size = RegType.toByteWidth typ
         Some(memoryRequirement at "memory read" (Some addr) size)
@@ -592,8 +677,10 @@ type ConcExecutorValue private(binary: Binary,
 
   let evalRequirementStmt state stmt =
     match SafeEvaluator.evalStmt state stmt with
-    | Ok() -> ()
-    | Result.Error _ -> ()
+    | Ok() ->
+      ()
+    | Result.Error _ ->
+      ()
 
   let needsForWindow start count finish =
     let lifter = hdl.NewLiftingUnit()
@@ -604,13 +691,16 @@ type ConcExecutorValue private(binary: Binary,
     let rec loop addr remaining =
       let inRange =
         match finish with
-        | Some finish -> addr < finish
-        | None -> remaining > 0
+        | Some finish ->
+          addr < finish
+        | None ->
+          remaining > 0
       if not inRange || not (hdl.File.IsValidAddr addr) then
         ()
       else
         match lifter.TryParseInstruction addr with
-        | Error _ -> ()
+        | Error _ ->
+          ()
         | Ok instruction ->
           let disasm = instruction.Disasm()
           let stmts = lifter.LiftInstruction instruction
@@ -637,7 +727,8 @@ type ConcExecutorValue private(binary: Binary,
 
   let memoryRangeLines () =
     match memoryRanges with
-    | [] -> [ "  user-memory: <none>" ]
+    | [] ->
+      [ "  user-memory: <none>" ]
     | ranges ->
       "  user-memory:"
       :: (ranges |> List.rev |> List.map (fun (addr, count) ->
@@ -659,7 +750,8 @@ type ConcExecutorValue private(binary: Binary,
                  (regs: (string * string) list)
                  (memory: (string * string) list)
                  (nextRegions: ConcMemoryRegion list) = function
-      | [] -> stack, List.rev regs, List.rev memory, List.rev nextRegions
+      | [] ->
+        stack, List.rev regs, List.rev memory, List.rev nextRegions
       | (token: string) :: rest ->
         let key, value = ContextParsing.splitParameter token
         match key with
@@ -690,11 +782,13 @@ type ConcExecutorValue private(binary: Binary,
 
   let lastRunLines () =
     match previousResult with
-    | None -> [ "  last-run: <none>" ]
+    | None ->
+      [ "  last-run: <none>" ]
     | Some result ->
       let reasons =
         match previousTrace with
-        | Some trace -> String.concat ", " trace.StopReasons
+        | Some trace ->
+          String.concat ", " trace.StopReasons
         | None ->
           result.StopReasons
           |> List.map formatStopReason
@@ -706,14 +800,16 @@ type ConcExecutorValue private(binary: Binary,
 
   let traceSummary (trace: ExecutionTrace option) =
     match trace with
-    | None -> "<none>"
+    | None ->
+      "<none>"
     | Some trace ->
       $"start=0x{trace.Start:x} final-pc=0x{trace.FinalPC:x} "
       + $"instructions={trace.InstructionCount}"
 
   let lastViolationLines () =
     match previousTrace with
-    | None -> []
+    | None ->
+      []
     | Some trace ->
       let violations =
         trace.MemoryAccesses
@@ -722,18 +818,23 @@ type ConcExecutorValue private(binary: Binary,
           |> Option.map (fun message ->
             let kind =
               match access.Kind with
-              | MemoryAccessKind.Read -> "read"
-              | MemoryAccessKind.Write -> "write"
+              | MemoryAccessKind.Read ->
+                "read"
+              | MemoryAccessKind.Write ->
+                "write"
             $"    {kind} at=0x{access.Instruction:x} "
             + $"addr=0x{access.Address:x} size={access.Size} {message}"))
         |> Array.toList
       match violations with
-      | [] -> []
-      | lines -> "  access-violations:" :: lines
+      | [] ->
+        []
+      | lines ->
+        "  access-violations:" :: lines
 
   let regionLines () =
     match regions with
-    | [] -> [ "  regions: <none>" ]
+    | [] ->
+      [ "  regions: <none>" ]
     | regions ->
       "  regions:"
       :: (regions |> List.map (fun region ->
@@ -763,8 +864,10 @@ type ConcExecutorValue private(binary: Binary,
 
   member _.SummaryLines =
     let path =
-      if String.IsNullOrWhiteSpace hdl.File.Path then "<raw>"
-      else hdl.File.Path
+      if String.IsNullOrWhiteSpace hdl.File.Path then
+        "<raw>"
+      else
+        hdl.File.Path
     [ "ConcExecutor"
       $"  binary: {path}"
       $"  isa: {hdl.ISA}"
@@ -781,12 +884,16 @@ type ConcExecutorValue private(binary: Binary,
   member _.Run(args: string list, ct) =
     let start, limit, breakpoint =
       match args with
-      | [] -> defaultStart (), 50000, None
-      | [ entry ] -> parseUInt64 entry, 50000, None
-      | [ entry; limit ] -> parseUInt64 entry, parseInt limit, None
+      | [] ->
+        defaultStart (), 50000, None
+      | [ entry ] ->
+        parseUInt64 entry, 50000, None
+      | [ entry; limit ] ->
+        parseUInt64 entry, parseInt limit, None
       | [ entry; limit; breakpoint ] ->
         parseUInt64 entry, parseInt limit, Some(parseUInt64 breakpoint)
-      | _ -> invalidArg (nameof args) "Invalid run argument layout."
+      | _ ->
+        invalidArg (nameof args) "Invalid run argument layout."
     let stops =
       breakpoint
       |> Option.map ConcStopCondition.StopAtAddress
@@ -797,7 +904,8 @@ type ConcExecutorValue private(binary: Binary,
     match result with
     | Some result ->
       withState result.State (Some result) (Some trace) memoryRanges regions
-    | None -> withState runState None (Some trace) memoryRanges regions
+    | None ->
+      withState runState None (Some trace) memoryRanges regions
 
   member this.Run(args: string list) =
     this.Run(args, CancellationToken.None)
@@ -810,7 +918,8 @@ type ConcExecutorValue private(binary: Binary,
     match result with
     | Some result ->
       withState result.State (Some result) (Some trace) memoryRanges regions
-    | None -> withState runState None (Some trace) memoryRanges regions
+    | None ->
+      withState runState None (Some trace) memoryRanges regions
 
   member this.Step(count: int) =
     this.Step(count, CancellationToken.None)
@@ -818,12 +927,16 @@ type ConcExecutorValue private(binary: Binary,
   member _.Trace(args: string list, ct) =
     let count, watch =
       match args with
-      | [] -> 1, None
-      | [ count ] -> parseInt count, None
-      | [ addr; size ] -> 1, Some(parseUInt64 addr, parseInt size)
+      | [] ->
+        1, None
+      | [ count ] ->
+        parseInt count, None
+      | [ addr; size ] ->
+        1, Some(parseUInt64 addr, parseInt size)
       | [ count; addr; size ] ->
         parseInt count, Some(parseUInt64 addr, parseInt size)
-      | _ -> invalidArg (nameof args) "Invalid trace argument layout."
+      | _ ->
+        invalidArg (nameof args) "Invalid trace argument layout."
     let runState = state.Clone()
     let _, trace =
       runWithTrace ct (defaultStart ()) count runState watch []
@@ -845,7 +958,8 @@ type ConcExecutorValue private(binary: Binary,
       let accessor = accessorFor nextState
       accessor.SetArgument(index, accessor.WordValue value)
       clearRunState nextState memoryRanges regions
-    | _ -> invalidArg (nameof args) "Invalid arg argument layout."
+    | _ ->
+      invalidArg (nameof args) "Invalid arg argument layout."
 
   member _.WriteMemory(args: string list) =
     match args with
@@ -857,7 +971,8 @@ type ConcExecutorValue private(binary: Binary,
       accessor.WriteBytes(addr, bytes)
       let ranges = (addr, bytes.Length) :: memoryRanges
       clearRunState nextState ranges regions
-    | _ -> invalidArg (nameof args) "Invalid mem write argument layout."
+    | _ ->
+      invalidArg (nameof args) "Invalid mem write argument layout."
 
   member _.SetContext(args: string list) =
     let stack, registers, memory, nextRegions = parseContextArgs args
@@ -867,7 +982,8 @@ type ConcExecutorValue private(binary: Binary,
       accessor.SetRegister(getStackPointerID (), accessor.WordValue addr))
     registers |> List.iter (fun (name, value) ->
       match tryGetRegisterID name with
-      | None -> invalidArg (nameof args) $"Unknown register: {name}"
+      | None ->
+        invalidArg (nameof args) $"Unknown register: {name}"
       | Some rid ->
         let value = parseUInt64 value
         accessor.SetRegister(rid, accessor.WordValue value))
@@ -887,13 +1003,16 @@ type ConcExecutorValue private(binary: Binary,
       let count = parseInt count
       { Address = addr
         Bytes = (accessorFor state).ReadBytes(addr, count) }
-    | _ -> invalidArg (nameof args) "Invalid mem read argument layout."
+    | _ ->
+      invalidArg (nameof args) "Invalid mem read argument layout."
 
   member _.Registers(args: string list) =
     let factory = hdl.RegisterFactory
     let registerNames =
-      if List.isEmpty args then factory.GetAllRegisterNames()
-      else args |> List.toArray
+      if List.isEmpty args then
+        factory.GetAllRegisterNames()
+      else
+        args |> List.toArray
     let requested = not (List.isEmpty args)
     let registers =
       registerNames
@@ -901,25 +1020,32 @@ type ConcExecutorValue private(binary: Binary,
         match tryGetRegisterID name with
         | None when requested ->
           Some { Name = name; Value = "<unknown>" }
-        | None -> None
+        | None ->
+          None
         | Some rid ->
           let name = factory.GetRegisterName rid
           match registerText state rid with
-          | Some value -> Some { Name = name; Value = value }
-          | None when requested -> Some { Name = name; Value = "<undef>" }
-          | None -> None)
+          | Some value ->
+            Some { Name = name; Value = value }
+          | None when requested ->
+            Some { Name = name; Value = "<undef>" }
+          | None ->
+            None)
     { PC = state.PC; Registers = registers }
 
   member _.DiffLines(other: ConcExecutorValue) =
     let pcLine =
-      if state.PC = other.State.PC then []
-      else [ $"pc: 0x{state.PC:x} -> 0x{other.State.PC:x}" ]
+      if state.PC = other.State.PC then
+        []
+      else
+        [ $"pc: 0x{state.PC:x} -> 0x{other.State.PC:x}" ]
     let regLines = registerDiffs state other.State
     let traceLines =
       [ $"left-trace: {traceSummary previousTrace}"
         $"right-trace: {traceSummary other.LastTrace}" ]
     match pcLine @ regLines with
-    | [] -> traceLines @ [ "registers: no visible changes" ]
+    | [] ->
+      traceLines @ [ "registers: no visible changes" ]
     | lines ->
       traceLines @ ("registers:" :: List.map (fun s -> "  " + s) lines)
 
@@ -934,10 +1060,12 @@ type ConcExecAction() =
         |> Array.map (fun input ->
           cancellationToken.ThrowIfCancellationRequested()
           match input with
-          | :? Binary as binary -> ConcExecutorValue(binary) |> box
+          | :? Binary as binary ->
+            ConcExecutorValue(binary) |> box
           | :? BinarySlice as slice ->
             ConcExecutorValue(slice.ToBinary()) |> box
-          | _ -> invalidArg (nameof input) "Invalid input type.") }
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "make-concrete-executor"
@@ -963,7 +1091,8 @@ type RunAction() =
           match input with
           | :? ConcExecutorValue as executor ->
             executor.Run(args, cancellationToken) |> box
-          | _ -> invalidArg (nameof input) "Invalid input type.") }
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "run-concrete"
@@ -990,7 +1119,8 @@ type ArgAction() =
           match input with
           | :? ConcExecutorValue as executor ->
             executor.SetArgument args |> box
-          | _ -> invalidArg (nameof input) "Invalid input type.") }
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "arg"
@@ -1016,7 +1146,8 @@ type SetContextAction() =
           match input with
           | :? ConcExecutorValue as executor ->
             executor.SetContext args |> box
-          | _ -> invalidArg (nameof input) "Invalid input type.") }
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "make-concrete-context"
@@ -1038,9 +1169,12 @@ type SetContextAction() =
 type MemAction() =
   let transformOne args (executor: ConcExecutorValue) =
     match args with
-    | "read" :: args -> executor.ReadMemory args |> box
-    | "write" :: args -> executor.WriteMemory args |> box
-    | _ -> invalidArg (nameof args) "Expected: mem read|write ..."
+    | "read" :: args ->
+      executor.ReadMemory args |> box
+    | "write" :: args ->
+      executor.WriteMemory args |> box
+    | _ ->
+      invalidArg (nameof args) "Expected: mem read|write ..."
 
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
@@ -1051,7 +1185,8 @@ type MemAction() =
           match input with
           | :? ConcExecutorValue as executor ->
             executor |> transformOne args
-          | _ -> invalidArg (nameof input) "Invalid input type.") }
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "mem"
@@ -1070,10 +1205,12 @@ type MemAction() =
 /// Step a concrete executor by a small instruction count.
 type StepAction() =
   let parseCount = function
-    | [] -> 1
+    | [] ->
+      1
     | [ (count: string) ] ->
       Int32.Parse(count, NumberStyles.Integer, CultureInfo.InvariantCulture)
-    | _ -> invalidArg "args" "At most one step count is allowed."
+    | _ ->
+      invalidArg "args" "At most one step count is allowed."
 
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
@@ -1085,7 +1222,8 @@ type StepAction() =
           match input with
           | :? ConcExecutorValue as executor ->
             executor.Step(count, cancellationToken) |> box
-          | _ -> invalidArg (nameof input) "Invalid input type.") }
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "step"
@@ -1111,7 +1249,8 @@ type TraceAction() =
           match input with
           | :? ConcExecutorValue as executor ->
             executor.Trace(args, cancellationToken) |> box
-          | _ -> invalidArg (nameof input) "Invalid input type.") }
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "trace"
@@ -1131,10 +1270,15 @@ type TraceAction() =
 type RandomAction() =
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
-    let minAddress, maxAddress =
+    let minAddress =
       match args with
       | [ minAddress; maxAddress ] ->
-        ConcActionParsing.parseUInt64 minAddress,
+        ConcActionParsing.parseUInt64 minAddress
+      | _ ->
+        invalidArg (nameof args) "Expected: random min=<addr> max=<addr>."
+    let maxAddress =
+      match args with
+      | [ minAddress; maxAddress ] ->
         ConcActionParsing.parseUInt64 maxAddress
       | _ ->
         invalidArg (nameof args) "Expected: random min=<addr> max=<addr>."
@@ -1190,8 +1334,10 @@ type RegsAction() =
         |> Array.map (fun input ->
           cancellationToken.ThrowIfCancellationRequested()
           match input with
-          | :? ConcExecutorValue as executor -> executor.Registers args |> box
-          | _ -> invalidArg (nameof input) "Invalid input type.") }
+          | :? ConcExecutorValue as executor ->
+            executor.Registers args |> box
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "regs"
