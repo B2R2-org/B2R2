@@ -62,21 +62,31 @@ module TransformerTuiText =
       else builder.Append chr |> ignore
     builder.ToString()
 
-  let wrap width text =
+  let wrapWithOffsets width text =
     let text = sanitize text
-    let rec loop lines (text: string) =
-      if text.Length <= width then
-        List.rev (text :: lines)
+    let rec loop lines start =
+      let remaining = text.Length - start
+      if remaining <= width then
+        let line = if remaining = 0 then "" else text[start..]
+        List.rev ((start, text.Length, line) :: lines)
       else
-        let candidate = text[..width - 1]
+        let candidate = text.Substring(start, width)
         let breakAt = candidate.LastIndexOf ' '
         let breakAt = if breakAt <= 0 then width else breakAt
-        let line = text[..breakAt - 1]
-        let rest = text[breakAt..].TrimStart()
-        loop (line :: lines) rest
-    if width <= 0 then [ "" ]
-    elif String.IsNullOrEmpty text then [ "" ]
-    else loop [] text
+        let finish = start + breakAt
+        let line = text.Substring(start, breakAt)
+        let rec skipWhitespace index =
+          if index < text.Length && Char.IsWhiteSpace text[index] then
+            skipWhitespace (index + 1)
+          else
+            index
+        loop ((start, finish, line) :: lines) (skipWhitespace finish)
+    if width <= 0 then [ 0, 0, "" ]
+    elif String.IsNullOrEmpty text then [ 0, 0, "" ]
+    else loop [] 0
+
+  let wrap width text =
+    wrapWithOffsets width text |> List.map (fun (_, _, line) -> line)
 
   let linePrefix = function
     | TuiLineKind.Command -> "> "

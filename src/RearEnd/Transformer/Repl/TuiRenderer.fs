@@ -372,35 +372,94 @@ module TransformerTuiRenderer =
           Kind = selectedTextKind selected line.Kind
           Text = text }
 
-  let private viewDisplayRows width pane =
+  type private ViewDisplayRow =
+    { SourceLine: int
+      Start: int
+      Finish: int
+      Kind: TuiLineKind
+      Text: string }
+
+  let private viewDisplayRows width (pane: TuiViewPane) =
     pane.Lines
     |> Array.indexed
     |> Array.toList
     |> List.collect (fun (index, line) ->
-      viewLine pane index line
-      |> wrapLine width
-      |> List.map (fun row -> index, row))
+      let line = viewLine pane index line
+      let prefix = TransformerTuiText.linePrefix line.Kind
+      if containsAnsi line.Text then
+        [ { SourceLine = index
+            Start = 0
+            Finish = TransformerTuiText.stripAnsi line.Text |> String.length
+            Kind = line.Kind
+            Text = prefix + line.Text } ]
+      else
+        displayText line.Text
+        |> TransformerTuiText.wrapWithOffsets (max 1 (width - prefix.Length))
+        |> List.mapi (fun row (start, finish, text) ->
+          let prefix = if row = 0 then prefix else "  "
+          { SourceLine = index
+            Start = start
+            Finish = finish
+            Kind = line.Kind
+            Text = prefix + text }))
 
-  let private takeViewPaneLines width height offset model =
+  type private ViewPaneLayout =
+    { Lines: (TuiLineKind * string) list
+      CursorPosition: (int * int) option }
+
+  let private rowRange (rows: ViewDisplayRow list) line =
+    rows
+    |> List.indexed
+    |> List.choose (fun (index, row) ->
+      if row.SourceLine = line then Some index else None)
+    |> function
+      | [] -> None
+      | indices -> Some(List.head indices, List.last indices)
+
+  let private cursorRow (rows: ViewDisplayRow list) (pane: TuiViewPane) first =
+    let column = pane.Cursor.Column
+    rows
+    |> List.indexed
+    |> List.tryFind (fun (_, row) ->
+      row.SourceLine = pane.Cursor.Line
+      && row.Start <= column && column <= row.Finish)
+    |> Option.map fst
+    |> Option.defaultValue first
+
+  let private viewPaneLayout width height offset (model: TransformerTuiModel) =
     match model.ViewPane with
     | Some pane ->
       let rows = viewDisplayRows width pane
-      let cursorRow =
-        rows
-        |> List.tryFindIndex (fun (index, _) -> index = pane.Cursor.Line)
-        |> Option.defaultValue 0
+      let first, last =
+        rowRange rows pane.Cursor.Line |> Option.defaultValue (0, 0)
       let maximumOffset = max 0 (List.length rows - height)
       let offset = min offset maximumOffset
       let offset =
-        if cursorRow < offset then cursorRow
-        elif cursorRow >= offset + height then cursorRow - height + 1
-        else offset
-      rows
-      |> List.skip offset
-      |> List.truncate height
-      |> List.map snd
+        if last - first + 1 >= height then
+          first
+        elif first < offset then
+          first
+        elif last >= offset + height then
+          last - height + 1
+        else
+          offset
+      let cursorRow = cursorRow rows pane first
+      let cursor =
+        if offset <= cursorRow && cursorRow < offset + height then
+          let row = rows[cursorRow]
+          let column = max row.Start (min pane.Cursor.Column row.Finish)
+          Some(cursorRow - offset, 3 + column - row.Start)
+        else
+          None
+      { Lines =
+          rows
+          |> List.skip offset
+          |> List.truncate height
+          |> List.map (fun row -> row.Kind, row.Text)
+        CursorPosition = cursor }
     | None ->
-      [ TuiLineKind.System, "No result to view." ]
+      { Lines = [ TuiLineKind.System, "No result to view." ]
+        CursorPosition = None }
 
   let private takeLast count offset lines =
     let length = List.length lines
@@ -425,14 +484,11 @@ module TransformerTuiRenderer =
           bodyWidth bodyHeight model
       takeTranscriptRows bodyHeight model.ScrollOffset start lines
     | _ ->
-      if model.Overlay = TuiOverlay.View then
-        takeViewPaneLines bodyWidth bodyHeight model.ScrollOffset model
-      else
-        let lines = overlayLines bodyWidth registry model
-        let maximumOffset = max 0 (List.length lines - bodyHeight)
-        lines
-        |> List.skip (min model.ScrollOffset maximumOffset)
-        |> List.truncate bodyHeight
+      let lines = overlayLines bodyWidth registry model
+      let maximumOffset = max 0 (List.length lines - bodyHeight)
+      lines
+      |> List.skip (min model.ScrollOffset maximumOffset)
+      |> List.truncate bodyHeight
 
   let private currentSummary model =
     match model.Session.Current with
@@ -467,20 +523,8 @@ module TransformerTuiRenderer =
     |> List.tryFindIndex (fun (kind, _) ->
       kind = TuiLineKind.Selection || kind = TuiLineKind.Cursor)
 
-  let private viewCursorColumn model =
-    model.ViewPane
-    |> Option.map (fun pane -> pane.Cursor.Column + 3)
-    |> Option.defaultValue 3
-
   let private transcriptCursorColumn model =
     model.TranscriptCursor.Column + 3
-
-  let private viewCursorPosition model body =
-    match model.Overlay, model.ViewPane with
-    | TuiOverlay.View, Some _ ->
-      selectedBodyIndex body
-      |> Option.map (fun row -> row, viewCursorColumn model)
-    | _ -> None
 
   let private transcriptCursorPosition model body =
     if model.Focus = TuiFocus.Transcript
@@ -791,13 +835,22 @@ module TransformerTuiRenderer =
       let rightWidth =
         if leftWidth < width then width - leftWidth - 1 else 0
       let hasSidebar = rightWidth > 0
-      let body = takeBody bodyHeight leftWidth registry model
+      let viewLayout =
+        if model.Overlay = TuiOverlay.View then
+          Some(viewPaneLayout leftWidth bodyHeight model.ScrollOffset model)
+        else
+          None
+      let body =
+        viewLayout
+        |> Option.map _.Lines
+        |> Option.defaultWith (fun () ->
+          takeBody bodyHeight leftWidth registry model)
       let padding =
         List.replicate (bodyHeight - List.length body)
           (TuiLineKind.Output, "")
       let cursorBodyPosition =
         transcriptCursorPosition model body
-        |> Option.orElse (viewCursorPosition model body)
+        |> Option.orElse (viewLayout |> Option.bind _.CursorPosition)
       let body = body @ padding
       let sidebar = sidebarLines bodyHeight model
       let sidebar = sidebar @ List.replicate (bodyHeight - List.length sidebar)
