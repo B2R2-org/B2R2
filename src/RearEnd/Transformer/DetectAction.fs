@@ -25,7 +25,9 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Collections.Generic
 open System.IO
+open System.Threading
 open B2R2
 
 /// The `detect` action.
@@ -35,46 +37,64 @@ type DetectAction() =
     |> OutputColored
     |> box
 
-  let detectFile fp path =
+  let detectFile cancellationToken fp path =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
     let bs = File.ReadAllBytes path
     let span = ReadOnlySpan bs
-    let ngram =
-      Utils.buildNgram [] fp.NGramSize span 0
-      |> Array.map fst
-      |> Set
+    let ngramCount = span.Length - fp.NGramSize + 1
+    let ngrams = HashSet<int>(ngramCount)
+    for index = 0 to ngramCount - 1 do
+      cancellationToken.ThrowIfCancellationRequested()
+      ngrams.Add(Utils.hashNgram span index fp.NGramSize) |> ignore
     let matchCnt =
       fp.Patterns
       |> List.fold (fun cnt pattern ->
         let hash, _ = pattern
-        if ngram.Contains hash then cnt + 1 else cnt) 0
+        if ngrams.Contains hash then cnt + 1 else cnt) 0
     path, float matchCnt / float fp.Patterns.Length
 
-  let detectDir fp path =
+  let detectDir cancellationToken fp path =
     Directory.GetFiles path
-    |> Array.map (detectFile fp)
+    |> Array.map (detectFile cancellationToken fp)
     |> Array.sortByDescending snd
     |> Array.map resultToString
     |> box
 
-  let detect path input =
+  let detect cancellationToken path input =
     let fp = unbox<Fingerprint> input
-    if File.Exists path then detectFile fp path |> resultToString
-    elif Directory.Exists path then detectDir fp path
-    else invalidArg (nameof path) "File not found."
+    if File.Exists path then
+      detectFile cancellationToken fp path |> resultToString
+    elif Directory.Exists path then
+      detectDir cancellationToken fp path
+    else
+      invalidArg (nameof path) "File not found."
+
+  let transform cancellationToken args collection =
+    match args with
+    | [ path ] ->
+      { Values =
+          collection.Values
+          |> Array.map (detect cancellationToken path) }
+    | [] ->
+      invalidArg (nameof args) "A path should be given."
+    | _ ->
+      invalidArg (nameof args) "Too many paths are given."
 
   interface IAction with
     member _.ActionID with get() = "detect"
-    member _.Signature with get() = "Fingerprint * <path> -> OutString"
+    member _.Signature with get() =
+      "Fingerprint -> detect path=<path> -> OutString"
     member _.Description with get() =
       """
     Take in a fingerprint and a path as input, and analyze file(s) in the given
     path to detect the fingerprint. This action will eventually return a match
-    score as output. If the <path> is a directory, it analyzes every file in the
-    directory. If the <path> is a file, it only analyzes the file.
+    score as output. If path is a directory, it analyzes every file in the
+    directory. If path is a file, it only analyzes the file.
 """
     member _.Transform(args, collection) =
-      let fps = collection.Values
-      match args with
-      | [ path ] -> { Values = fps |> Array.map (detect path) }
-      | [] -> invalidArg (nameof args) "A path should be given."
-      | _ -> invalidArg (nameof args) "Too many paths are given."
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection

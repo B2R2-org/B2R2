@@ -43,6 +43,7 @@
   <Project Path="Launcher/B2R2.RearEnd.Launcher.fsproj" />
   <Project Path="Repl/B2R2.RearEnd.Repl.fsproj" />
   <Project Path="ROP/B2R2.RearEnd.ROP.fsproj" />
+  <Project Path="Transformer/Repl.Tests/B2R2.RearEnd.Transformer.Repl.Tests.fsproj" />
   <Project Path="Transformer/B2R2.RearEnd.Transformer.fsproj" />
   <Project Path="Utils/B2R2.RearEnd.Utils.fsproj" />
   <Project Path="Visualization/B2R2.RearEnd.Visualization.fsproj" />

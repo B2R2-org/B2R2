@@ -26,7 +26,6 @@ module B2R2.RearEnd.Transformer.Program
 
 open System
 open System.IO
-open System.Reflection
 open B2R2
 open B2R2.RearEnd.Utils
 
@@ -53,18 +52,27 @@ type private HelpAction(map: Map<string, IAction>) =
       CmdOpts.writeIntro ()
       printsn usage
       map |> Map.iter (fun id act ->
-        printsn $"- {id}: {act.Signature}"
+        let signature =
+          try
+            ActionMetadata.ofAction act |> ActionMetadata.typedSignature
+          with _ ->
+            act.Signature
+        printsn $"- {id}: {signature}"
         printsn $"{act.Description}")
       exit 0
+
+let private normalizeActionID (actionID: string) =
+  actionID.ToLowerInvariant()
 
 let private accumulateActions map actions =
   actions
   |> Array.fold (fun map t ->
     let act = Activator.CreateInstance t :?> IAction
-    if Map.containsKey act.ActionID map then
+    let actionID = normalizeActionID act.ActionID
+    if Map.containsKey actionID map then
       invalidOp $"Duplicate action ID: {act.ActionID}"
     else
-      Map.add act.ActionID act map) map
+      Map.add actionID act map) map
 
 let inline private filterIActionType types =
   (types: System.Type[])
@@ -73,14 +81,9 @@ let inline private filterIActionType types =
     && (t.GetInterface(nameof IAction) |> isNull |> not))
 
 let private loadUserDLL dllPath =
-  if File.Exists dllPath then
-    let dllPath = Path.GetFullPath dllPath
-    let dll = Assembly.LoadFile dllPath
-    dll.GetExportedTypes()
-    |> filterIActionType
-    |> accumulateActions Map.empty
-  else
-    invalidOp $"File not found: {dllPath}"
+  TransformerPluginLoader.exportedTypes dllPath
+  |> filterIActionType
+  |> accumulateActions Map.empty
 
 let private retrieveActionMap map =
   let actionType = typeof<IAction>
@@ -89,7 +92,7 @@ let private retrieveActionMap map =
     |> filterIActionType
     |> accumulateActions map
   let helpAction = HelpAction map :> IAction
-  Map.add helpAction.ActionID helpAction map
+  Map.add (normalizeActionID helpAction.ActionID) helpAction map
 
 let private splitBySpecialSeparators (args: string list) =
   args
@@ -119,7 +122,9 @@ let rec private parseActionCommands grps grp = function
     parseActionCommands grps (arg :: grp) rest
 
 let private checkValidityOfCommandGroup cmdgrp =
-  let actionIDs = cmdgrp |> List.map List.tryHead
+  let actionIDs =
+    cmdgrp
+    |> List.map (List.tryHead >> Option.map normalizeActionID)
   let fstActionID = List.head actionIDs
   if actionIDs |> List.forall (fun actionID -> actionID = fstActionID) then
     ()
@@ -129,16 +134,20 @@ let private checkValidityOfCommandGroup cmdgrp =
 
 let private runCommand actionMap input (cmd: string list) =
   let actionID = List.head cmd
+  let normalizedID = normalizeActionID actionID
   let args = List.tail cmd
   let action: IAction =
-    match Map.tryFind (actionID.ToLowerInvariant()) actionMap with
+    match Map.tryFind normalizedID actionMap with
     | Some act ->
       act
     | None ->
       eprintsn $"({actionID}) is not a valid action."
       exit 1
 #if DEBUG
-  if actionID <> "help" then printsn $"[*] {actionID}" else ()
+  if normalizedID <> "help" then
+    printsn $"[*] {actionID}"
+  else
+    ()
 #endif
   try
     action.Transform(args, input)
@@ -159,8 +168,10 @@ let private runCommand actionMap input (cmd: string list) =
 let inline private unwrap (c: ObjCollection) = c.Values
 
 let autoPrint actionMap collection =
-  if collection.Values.Length = 0 then ()
-  else runCommand actionMap collection [ "print" ] |> ignore
+  if collection.Values.Length = 0 then
+    ()
+  else
+    runCommand actionMap collection [ "print" ] |> ignore
 
 let private parseActions args actionMap =
   args
@@ -178,6 +189,24 @@ let private parseActions args actionMap =
 [<EntryPoint>]
 let main argv =
   match List.ofArray argv with
+  | "script" :: path :: [] ->
+    let code = ActionRegistry.create None |> fun registry ->
+      TransformerRepl.runScript registry path
+    exit code
+  | "script" :: "-d" :: file :: path :: [] ->
+    let code = ActionRegistry.create (Some file) |> fun registry ->
+      TransformerRepl.runScript registry path
+    exit code
+  | "script" :: _ ->
+    eprintsn "Usage: transformer script [-d <dll file>] <script file>"
+    exit 1
+  | "repl" :: [] ->
+    ActionRegistry.create None |> TransformerRepl.run
+  | "repl" :: "-d" :: file :: [] ->
+    ActionRegistry.create (Some file) |> TransformerRepl.run
+  | "repl" :: _ ->
+    eprintsn "Usage: transformer repl [-d <dll file>]"
+    exit 1
   | [] ->
     retrieveActionMap Map.empty
     |> parseActions [ "help" ]

@@ -24,36 +24,30 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System
 open System.Threading
 
-/// The `jaccard` action.
-type JaccardAction() =
-  let jaccard cancellationToken fp0 fp1 =
+/// The `pick` action.
+type PickAction() =
+  let transform cancellationToken (args: string list) collection =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
-    match unbox<Fingerprint> fp0, unbox<Fingerprint> fp1 with
-    | fp0, fp1 ->
-      let s0 = List.fold (fun s (v, _) -> Set.add v s) Set.empty fp0.Patterns
-      let s1 = List.fold (fun s (v, _) -> Set.add v s) Set.empty fp1.Patterns
-      float (Set.intersect s0 s1 |> Set.count)
-      / float (Set.union s0 s1 |> Set.count)
-
-  let transform cancellationToken (args: string list) collection =
-    if args.Length <> 0 then
-      invalidArg (nameof args) "No arguments should be given."
-    elif collection.Values.Length = 2 then
-      let value =
-        jaccard cancellationToken collection.Values[0] collection.Values[1]
-      { Values = [| value |] }
-    else
-      invalidArg (nameof collection) "Two fingerprints should be given."
+    match args with
+    | [ indexText ] ->
+      match Int32.TryParse indexText with
+      | true, index when index >= 0 && index < collection.Values.Length ->
+        { Values = [| collection.Values[index] |] }
+      | _ ->
+        invalidArg (nameof args) "Index must select an existing value."
+    | _ ->
+      invalidArg (nameof args) "Expected: pick index=<n>."
 
   interface IAction with
-    member _.ActionID with get() = "jaccard"
-    member _.Signature with get() = "Fingerprint * Fingerprint -> float"
+    member _.ActionID with get() = "pick"
+    member _.Signature with get() = "'a collection -> pick index=<n> -> 'a"
     member _.Description with get() =
       """
-    Take a tuple of two fingerprints and return their Jaccard index.
+    Select one value from the current collection using a 0-based index.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

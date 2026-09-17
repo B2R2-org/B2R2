@@ -26,34 +26,38 @@ namespace B2R2.RearEnd.Transformer
 
 open System.Threading
 
-/// The `jaccard` action.
-type JaccardAction() =
-  let jaccard cancellationToken fp0 fp1 =
+/// The `save` action.
+type SaveAction() =
+  let save cancellationToken fname (input: obj) =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
-    match unbox<Fingerprint> fp0, unbox<Fingerprint> fp1 with
-    | fp0, fp1 ->
-      let s0 = List.fold (fun s (v, _) -> Set.add v s) Set.empty fp0.Patterns
-      let s1 = List.fold (fun s (v, _) -> Set.add v s) Set.empty fp1.Patterns
-      float (Set.intersect s0 s1 |> Set.count)
-      / float (Set.union s0 s1 |> Set.count)
+    match input with
+    | :? Binary as bin ->
+      ReplArtifactWriter.writeBinary fname bin
+    | :? BinarySlice as slice ->
+      ReplArtifactWriter.writeBinary fname (slice.ToBinary())
+    | _ ->
+      invalidArg (nameof input)
+        "save only supports Binary or BinarySlice values."
 
   let transform cancellationToken (args: string list) collection =
-    if args.Length <> 0 then
-      invalidArg (nameof args) "No arguments should be given."
-    elif collection.Values.Length = 2 then
-      let value =
-        jaccard cancellationToken collection.Values[0] collection.Values[1]
-      { Values = [| value |] }
-    else
-      invalidArg (nameof collection) "Two fingerprints should be given."
+    match args, collection.Values with
+    | [ fname ], [| value |] ->
+      save cancellationToken fname value
+      { Values = [||] }
+    | [ _ ], _ ->
+      invalidArg (nameof collection)
+        "save expects one Binary; use iteri to save collection items."
+    | _ ->
+      invalidArg (nameof args) "Expected: save path=<path>."
 
   interface IAction with
-    member _.ActionID with get() = "jaccard"
-    member _.Signature with get() = "Fingerprint * Fingerprint -> float"
+    member _.ActionID with get() = "save"
+    member _.Signature with get() =
+      "Binary | BinarySlice -> save path=<path> -> Unit"
     member _.Description with get() =
       """
-    Take a tuple of two fingerprints and return their Jaccard index.
+    Take in a Binary value and save its raw bytes to the <file>.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

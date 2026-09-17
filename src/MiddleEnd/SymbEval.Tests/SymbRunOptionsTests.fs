@@ -37,6 +37,7 @@ type SymbRunOptionsTests() =
     { Address = addr
       InstructionCount = 0
       Instruction = None
+      Statements = [||]
       State = SymbState() }
 
   [<TestMethod>]

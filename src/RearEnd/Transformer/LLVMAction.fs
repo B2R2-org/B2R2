@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System.Threading
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -32,9 +33,11 @@ open B2R2.MiddleEnd.LLVM
 /// The `llvm` action.
 type LLVMAction() =
 
-  let printOut hdl (fn: Function) =
+  let printOut cancellationToken hdl (fn: Function) =
+    let cancellationToken: CancellationToken = cancellationToken
     let builder = LLVMTranslator.createBuilder hdl fn.EntryPoint
-    fn.CFG |> DiGraph.iterVertex (fun bbl ->
+    DiGraph.iterVertex (fun bbl ->
+      cancellationToken.ThrowIfCancellationRequested()
       let succs =
         fn.CFG.GetSuccs bbl
         |> Array.map (fun s -> s.VData.Internals.PPoint.Address)
@@ -43,20 +46,29 @@ type LLVMAction() =
       bbl.VData.Internals.LiftedInstructions
       |> Array.collect (fun ins -> ins.Stmts)
       |> LLVMTranslator.translate builder bblAddr succs
-    )
+    ) fn.CFG
     builder.ToString()
 
-  let translate (o: obj) =
+  let translate cancellationToken (o: obj) =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let brew = BinaryBrew hdl
     let entryPoint = hdl.File.EntryPoint |> Option.defaultValue 0UL
     let fn = brew.Functions[entryPoint]
-    printOut hdl fn
+    cancellationToken.ThrowIfCancellationRequested()
+    { Name = $"llvm-{fn.EntryPoint:x}"
+      Extension = ".ll"
+      Content = printOut cancellationToken hdl fn }
+    |> box
+
+  let transform cancellationToken collection =
+    { Values = collection.Values |> Array.map (translate cancellationToken) }
 
   interface IAction with
     member _.ActionID with get() = "llvm"
-    member _.Signature with get() = "Binary -> string"
+    member _.Signature with get() = "Binary -> TextArtifact"
     member _.Description with get() =
       """
     Take in a parsed binary and lift it to an LLVM function, and then dump the
@@ -64,5 +76,15 @@ type LLVMAction() =
 """
     member _.Transform(args, collection) =
       match args with
-      | [] -> { Values = [| collection.Values |> Array.map translate |] }
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | [] ->
+        transform CancellationToken.None collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      match args with
+      | [] ->
+        transform cancellationToken collection
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."

@@ -25,39 +25,44 @@
 namespace B2R2.RearEnd.Transformer
 
 open System.IO
-open B2R2
+open System.Threading
 
 /// The `write` action.
 type WriteAction() =
-  let rec write fname (o: obj) =
+  let rec write cancellationToken fname (o: obj) =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
     match o with
-    | :? Binary as bin -> writeBinary fname bin
-    | :? OutString as os -> writeOutString fname os
-    | _ -> File.WriteAllText(fname, o.ToString())
+    | :? (Instruction[]) as instructions ->
+      let lines = instructions |> Array.map string
+      File.WriteAllLines(fname, lines)
+    | _ ->
+      ReplArtifactWriter.writeText fname o
 
-  and writeBinary fname bin =
-    let hdl = Binary.Handle bin
-    File.WriteAllBytes(fname, hdl.File.RawBytes.ToArray())
-
-  and writeOutString fname (os: OutString) =
-    File.WriteAllText(fname, os.ToString())
+  let transform cancellationToken (args: string list) collection =
+    if args.Length = collection.Values.Length then
+      let args = List.toArray args
+      Array.iter2 (write cancellationToken) args collection.Values
+      { Values = [||] }
+    elif args.Length = 1 then
+      let fname = List.head args
+      let fnames = collection.Values |> Array.mapi (fun i _ -> $"{fname}.{i}")
+      Array.iter2 (write cancellationToken) fnames collection.Values
+      { Values = [||] }
+    else
+      invalidArg (nameof args) "Input lengths mismatch."
 
   interface IAction with
     member _.ActionID with get() = "write"
-    member _.Signature with get() = "'a * <file> -> unit"
+    member _.Signature with get() =
+      "Text|InstructionArray * path=<path> -> Unit"
     member _.Description with get() =
       """
-    Take in an input object and write out its content to the <file>.
+    Take in a text value and write out its content to the <file>.
 """
     member _.Transform(args, collection) =
-      if args.Length = collection.Values.Length then
-        let args = List.toArray args
-        Array.iter2 write args collection.Values
-        { Values = [||] }
-      elif args.Length = 1 then
-        let fname = List.head args
-        let fnames = collection.Values |> Array.mapi (fun i _ -> $"{fname}.{i}")
-        Array.iter2 write fnames collection.Values
-        { Values = [||] }
-      else
-        invalidArg (nameof args) "Input lengths mismatch."
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection

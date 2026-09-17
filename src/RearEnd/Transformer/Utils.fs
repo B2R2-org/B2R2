@@ -25,12 +25,12 @@
 module B2R2.RearEnd.Transformer.Utils
 
 open System
+open System.Buffers.Binary
 open System.IO.Hashing
+open System.Threading
 open B2R2.FrontEnd.BinLifter
 
 let [<Literal>] MaxByteShow = 14
-
-let byteArrayToHexStringArray (bs: byte[]) = bs |> Array.map (sprintf "%02x")
 
 let makeSpanSummary (bs: ByteSpan) =
   if bs.Length > MaxByteShow then
@@ -46,10 +46,16 @@ let makeSpanSummary (bs: ByteSpan) =
 
 let makeByteArraySummary (bs: byte[]) = makeSpanSummary (ReadOnlySpan bs)
 
-let rec buildNgram acc n (span: ByteSpan) idx =
-  if idx <= span.Length - n then
-    let bs = span.Slice(idx, n).ToArray()
-    let h = XxHash32.Hash bs |> BitConverter.ToInt32
-    buildNgram ((h, idx) :: acc) n span (idx + 1)
-  else
-    List.rev acc |> List.toArray
+let makeMemorySummary (bs: ReadOnlyMemory<byte>) = makeSpanSummary bs.Span
+
+let hashNgram (span: ByteSpan) index size =
+  XxHash32.HashToUInt32(span.Slice(index, size))
+  |> BinaryPrimitives.ReverseEndianness
+  |> int
+
+let buildNgram (ct: CancellationToken) n (span: ByteSpan) =
+  let ngrams = Array.zeroCreate (span.Length - n + 1)
+  for idx = 0 to ngrams.Length - 1 do
+    ct.ThrowIfCancellationRequested()
+    ngrams[idx] <- hashNgram span idx n, idx
+  ngrams

@@ -25,62 +25,98 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Collections.Generic
+open System.Threading
 open B2R2
 
 /// The `winnowing` action.
 type WinnowingAction() =
-  let rec min (span: Span<int * int>) (minHash, minPos) idx =
-    if idx < span.Length then
-      let curHash, curPos = span[idx]
-      let minHash, minPos =
-        if minHash > curHash then curHash, curPos
-        elif minHash = curHash && minPos < curPos then curHash, curPos
-        else minHash, minPos
-      min span (minHash, minPos) (idx + 1)
-    else
-      (minHash, minPos)
-
-  let rec computeFingerprint acc annot prev n wsz idx (ngrams: (int * int)[]) =
-    if idx <= ngrams.Length - wsz then
-      let span = ngrams.AsSpan(idx, wsz)
-      let m = min span (Int32.MaxValue, Int32.MaxValue) 0
-      if fst prev = fst m then
-        computeFingerprint acc annot prev n wsz (idx + 1) ngrams
+  let computeFingerprint
+    cancellationToken
+    annot
+    n
+    wsz
+    (ngrams: (int * int)[]) =
+    let cancellationToken: CancellationToken = cancellationToken
+    let deque = LinkedList<int>()
+    let patterns = ResizeArray<int * int>()
+    let mutable previousHash = 0
+    for idx = 0 to ngrams.Length - 1 do
+      cancellationToken.ThrowIfCancellationRequested()
+      while deque.Count > 0 && deque.First.Value <= idx - wsz do
+        deque.RemoveFirst()
+      while deque.Count > 0
+            && fst ngrams[deque.Last.Value] >= fst ngrams[idx] do
+        deque.RemoveLast()
+      deque.AddLast idx |> ignore
+      if idx >= wsz - 1 then
+        let selected = deque.First.Value
+        let hash, _ = ngrams[selected]
+        if hash <> previousHash then
+          patterns.Add ngrams[selected]
+          previousHash <- hash
+        else
+          ()
       else
-        computeFingerprint (m :: acc) annot m n wsz (idx + 1) ngrams
-    else
-      { Patterns = List.rev acc
-        NGramSize = n
-        WindowSize = wsz
-        Annotation = annot }
+        ()
+    { Patterns = patterns |> Seq.toList
+      NGramSize = n
+      WindowSize = wsz
+      Annotation = annot }
 
-  let winnowing n wsz input =
-    let bin = unbox<Binary> input
+  let binaryAndAnnotation (input: obj) =
+    match input with
+    | :? Binary as bin ->
+      bin, Binary.MakeAnnotation("Winnowing from ", bin)
+    | :? BinarySlice as slice ->
+      slice.ToBinary(), $"Winnowing from {slice}"
+    | _ ->
+      invalidArg (nameof input)
+        "winnowing supports Binary or BinarySlice values."
+
+  let winnowing cancellationToken n wsz input =
+    let bin, annot = binaryAndAnnotation input
     let hdl = Binary.Handle bin
-    let annot = Binary.MakeAnnotation("Winnowing from ", bin)
     let span = hdl.File.RawBytes.Span
     if span.Length < n + wsz then
       invalidArg (nameof input) "The input binary is too small."
     else
-      Utils.buildNgram [] n span 0
-      |> computeFingerprint [] annot (0, 0) n wsz 0
+      Utils.buildNgram cancellationToken n span
+      |> computeFingerprint cancellationToken annot n wsz
       |> box
+
+  let transform cancellationToken args collection =
+    let args: string list = args
+    let n, wsz =
+      match args with
+      | [] ->
+        4, 4
+      | [ n ] ->
+        Convert.ToInt32 n, 4
+      | n :: w :: [] ->
+        Convert.ToInt32 n, Convert.ToInt32 w
+      | _ ->
+        invalidArg (nameof args) "Too many arguments given."
+    { Values =
+        collection.Values
+        |> Array.map (winnowing cancellationToken n wsz) }
 
   interface IAction with
     member _.ActionID with get() = "winnowing"
-    member _.Signature with get() = "Binary * [n] * [wsz] -> Fingerprint"
+    member _.Signature with get() =
+      "Binary | BinarySlice -> winnowing [n-gram-size=<n>] [window-size=<n>]"
+      + " -> Fingerprint"
     member _.Description with get() =
       """
     Take in an input binary and returns its fingerprint, which is essentially a
     list of (hash * byte position) tuples.
 
-      - [n] : Size of n-gram. The default is 4.
-      - [w] : Window size. The default is 4.
+      - n-gram-size: Size of n-gram. The default is 4.
+      - window-size: Window size. The default is 4.
 """
     member _.Transform(args, collection) =
-      let n, wsz =
-        match args with
-        | [] -> 4, 4
-        | n :: w :: [] -> Convert.ToInt32 n, Convert.ToInt32 w
-        | _ -> invalidArg (nameof args) "Two many arguments given."
-      { Values = collection.Values |> Array.map (winnowing n wsz) }
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection

@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.Executor
 
 open B2R2
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
 /// Represents an execution point that a stop condition or a query inspects.
@@ -35,6 +36,8 @@ type StopPoint<'State> =
     InstructionCount: int
     /// Instruction about to execute at this point, if it is parsable.
     Instruction: IInstruction option
+    /// LowUIR statements about to execute at this point, if liftable.
+    Statements: Stmt[]
     /// Executor-specific state at this point.
     State: 'State }
 

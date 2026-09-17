@@ -8,8 +8,15 @@
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="Types.fs" />
+    <Compile Include="ContextParsing.fs" />
     <Compile Include="IAction.fs" />
+    <Compile Include="PluginLoader.fs" />
+    <Compile Include="Repl\ActionMetadata.fs" />
+    <Compile Include="AsmAction.fs" />
+    <Compile Include="ByteArrayAction.fs" />
     <Compile Include="CFGAction.fs" />
+    <Compile Include="ConcExecAction.fs" />
+    <Compile Include="SymbExecAction.fs" />
     <Compile Include="CountAction.fs" />
     <Compile Include="DbscanAction.fs" />
     <Compile Include="DetectAction.fs" />
@@ -24,22 +31,47 @@
     <Compile Include="ListAction.fs" />
     <Compile Include="LLVMAction.fs" />
     <Compile Include="LoadAction.fs" />
+    <Compile Include="PickAction.fs" />
     <Compile Include="PrintAction.fs" />
     <Compile Include="SliceAction.fs" />
+    <Compile Include="SaveAction.fs" />
+    <Compile Include="StringsAction.fs" />
     <Compile Include="WinnowingAction.fs" />
     <Compile Include="WriteAction.fs" />
+    <Compile Include="Repl\ReplState.fs" />
+    <Compile Include="Repl\ReplInspection.fs" />
+    <Compile Include="Repl\ReplLanguage.fs" />
+    <Compile Include="Repl\InputAnalysis.fs" />
+    <Compile Include="Repl\ReplTypeAnalysis.fs" />
+    <Compile Include="Repl\ReplParser.fs" />
+    <Compile Include="Repl\ReplEvaluator.fs" />
+    <Compile Include="Repl\Suggestions.fs" />
+    <Compile Include="Repl\Completion.fs" />
+    <Compile Include="Repl\TuiModel.fs" />
+    <Compile Include="Repl\TuiRenderer.fs" />
+    <Compile Include="Repl\TuiTerminal.fs" />
+    <Compile Include="Repl\TuiInputController.fs" />
+    <Compile Include="Repl\Repl.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
+    <ProjectReference
+      Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
     <ProjectReference Include="..\..\MiddleEnd\API\B2R2.MiddleEnd.API.fsproj" />
-    <ProjectReference Include="..\..\MiddleEnd\LLVM\B2R2.MiddleEnd.LLVM.fsproj" />
+    <ProjectReference
+      Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
+    <ProjectReference
+      Include="..\..\MiddleEnd\SymbEval\B2R2.MiddleEnd.SymbEval.fsproj" />
+    <ProjectReference
+      Include="..\..\MiddleEnd\LLVM\B2R2.MiddleEnd.LLVM.fsproj" />
+    <ProjectReference Include="..\..\Assembly\API\B2R2.Assembly.API.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
     <PackageReference Include="System.IO.Hashing" Version="10.0.0" />
   </ItemGroup>
 
