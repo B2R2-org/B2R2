@@ -866,20 +866,13 @@ module TransformerReplEvaluator =
 
   let private compactBracketArguments args =
     let rec loop output = function
-      | token :: "(" :: rest
+      | token :: ("(" | "[" as opener) :: rest
           when token.EndsWith("=", StringComparison.Ordinal) ->
-        match joinBracketValue "(" rest with
+        match joinBracketValue opener rest with
         | Some(value, tail) ->
           let value = value |> String.concat " "
           loop ((token + value) :: output) tail
-        | None -> (List.rev output) @ (token :: "(" :: rest)
-      | token :: "[" :: rest
-          when token.EndsWith("=", StringComparison.Ordinal) ->
-        match joinBracketValue "[" rest with
-        | Some(value, tail) ->
-          let value = value |> String.concat " "
-          loop ((token + value) :: output) tail
-        | None -> (List.rev output) @ (token :: "[" :: rest)
+        | None -> (List.rev output) @ (token :: opener :: rest)
       | token :: rest -> loop (token :: output) rest
       | [] -> List.rev output
     loop [] args
@@ -1363,6 +1356,18 @@ module TransformerReplEvaluator =
               | :? OperationCanceledException -> reraise ()
               | error -> Error error.Message)
 
+  let private isContextAction metadata =
+    let metadata: ActionMetadata = metadata
+    metadata.ID = "make-concrete-context"
+    || metadata.ID = "make-symbolic-context"
+
+  let private contextOutputKind metadata =
+    let metadata: ActionMetadata = metadata
+    if metadata.ID = "make-concrete-context" then
+      ReplValueKind.ConcExecutor
+    else
+      ReplValueKind.SymbExecutor
+
   let rec private invoke registry state (registered: RegisteredAction)
                           (input: ReplValue) (segment: ReplPipelineSegment)
                           cancellationToken =
@@ -1382,53 +1387,35 @@ module TransformerReplEvaluator =
         Error "save expects one Binary; use iteri to save collection items."
       | _ ->
         Error $"{metadata.ID} expects {expected}, but received {actual}."
-    elif
-      metadata.ID = "make-concrete-context"
-      || metadata.ID = "make-symbolic-context"
-    then
-      let args =
-        segment.Arguments
-        |> resolveArgumentBindings state
-        |> List.map ReplLanguage.unquote
-        |> compactBracketArguments
-      let outputKind =
-        if metadata.ID = "make-concrete-context" then
-          ReplValueKind.ConcExecutor
-        else ReplValueKind.SymbExecutor
-      let segment = { segment with Arguments = args }
-      try
-        transform registered input segment cancellationToken
-        |> ReplValue.ofCollection outputKind
-        |> Ok
-      with
-      | :? OperationCanceledException -> reraise ()
-      | error -> Error error.Message
     else
       let args =
         segment.Arguments
         |> resolveArgumentBindings state
         |> List.map ReplLanguage.unquote
         |> compactBracketArguments
-      let ready =
-        if metadata.ID = "make-symbolic-executor" then
-          registerSymbSolver registry args cancellationToken
-        else
-          Ok registry
-      ready
-      |> Result.bind (fun _ -> validateArguments input metadata args)
-      |> Result.bind (fun normalizedArgs ->
-      try
-        let rawArgs = args
-        let segment = { segment with Arguments = normalizedArgs }
-        let outputKind =
-          ActionMetadata.outputForArguments metadata (Some input.Kind)
-            rawArgs
-        transform registered input segment cancellationToken
-        |> ReplValue.ofCollection outputKind
-        |> Ok
-      with
-      | :? OperationCanceledException -> reraise ()
-      | error -> Error error.Message)
+      let transformWith outputKind args =
+        let segment = { segment with Arguments = args }
+        try
+          transform registered input segment cancellationToken
+          |> ReplValue.ofCollection outputKind
+          |> Ok
+        with
+        | :? OperationCanceledException -> reraise ()
+        | error -> Error error.Message
+      if isContextAction metadata then
+        transformWith (contextOutputKind metadata) args
+      else
+        let ready =
+          if metadata.ID = "make-symbolic-executor" then
+            registerSymbSolver registry args cancellationToken
+          else
+            Ok registry
+        ready
+        |> Result.bind (fun _ -> validateArguments input metadata args)
+        |> Result.bind (fun normalizedArgs ->
+          let outputKind =
+            ActionMetadata.outputForArguments metadata (Some input.Kind) args
+          transformWith outputKind normalizedArgs)
 
   and private invokeIter registry state (input: ReplValue)
                          (segment: ReplPipelineSegment)
