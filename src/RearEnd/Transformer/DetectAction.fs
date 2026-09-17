@@ -42,7 +42,7 @@ type DetectAction() =
     let bs = File.ReadAllBytes path
     let span = ReadOnlySpan bs
     let ngram =
-      Utils.buildNgram fp.NGramSize span
+      Utils.buildNgram cancellationToken fp.NGramSize span
       |> Array.map fst
       |> Set
     let matchCnt =

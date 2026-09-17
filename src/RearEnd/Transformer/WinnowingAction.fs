@@ -74,7 +74,7 @@ type WinnowingAction() =
     if span.Length < n + wsz then
       invalidArg (nameof input) "The input binary is too small."
     else
-      Utils.buildNgram n span
+      Utils.buildNgram cancellationToken n span
       |> computeFingerprint cancellationToken annot n wsz
       |> box
 
