@@ -234,11 +234,13 @@ module TransformerReplEvaluator =
       |> Array.toList
     header :: clusters
 
-  let private renderRange range =
-    let range: BinaryRange = range
-    [ range.ToString()
-      $"  start: 0x{range.StartAddress:x}"
-      $"  end: 0x{range.EndAddress:x}" ]
+  let private renderSlice slice =
+    let slice: BinarySlice = slice
+    [ slice.ToString()
+      $"  source: {slice.Source}"
+      $"  start: 0x{slice.StartAddress:x}"
+      $"  end: 0x{slice.EndAddress:x}"
+      $"  size: {slice.Size} bytes" ]
 
   let private renderSection section =
     let section: SectionInfo = section
@@ -439,8 +441,8 @@ module TransformerReplEvaluator =
       renderFingerprint fingerprint
     | :? ClusterResult as result ->
       renderClusterResult result
-    | :? BinaryRange as range ->
-      renderRange range
+    | :? BinarySlice as slice ->
+      renderSlice slice
     | :? SectionInfo as section ->
       renderSection section
     | :? FunctionInfo as fn ->
@@ -616,11 +618,20 @@ module TransformerReplEvaluator =
       with _ -> false
 
   let private sectionExists input sectionName =
+    let sectionInsideSlice (slice: BinarySlice) section =
+      let section: BinSection = section
+      let finish = section.Address + section.FileSize
+      section.Address >= slice.StartAddress && finish <= slice.EndAddress
     (input: ReplValue).Collection.Values
     |> Array.exists (function
       | :? Binary as binary ->
         let file = (Binary.Handle binary).File
         BinFileOps.tryFindSectionByName file sectionName |> Result.isOk
+      | :? BinarySlice as slice ->
+        let file = (Binary.Handle slice.Source).File
+        match BinFileOps.tryFindSectionByName file sectionName with
+        | Ok section -> sectionInsideSlice slice section
+        | Error _ -> false
       | _ -> false)
 
   let private validateArgument input argument value =

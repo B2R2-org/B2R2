@@ -39,6 +39,10 @@ type SliceAction() =
   let sectionRange (section: BinSection) =
     section.Address, section.Address + section.FileSize
 
+  let rawRange (hdl: BinHandle) =
+    let startAddress = hdl.File.BaseAddress
+    startAddress, startAddress + uint64 hdl.File.Length
+
   let fileBackedSections (hdl: BinHandle) =
     BinFileOps.getSections hdl.File
     |> Array.filter (fun section -> section.FileSize > 0UL)
@@ -57,6 +61,23 @@ type SliceAction() =
     let sectionStart, sectionEnd = sectionRange section
     startAddress >= sectionStart && endAddress <= sectionEnd
 
+  let rangeInsideRaw hdl startAddress endAddress =
+    let rawStart, rawEnd = rawRange hdl
+    startAddress >= rawStart && endAddress <= rawEnd
+
+  let rangeInsideSlice (slice: BinarySlice) startAddress endAddress =
+    startAddress >= slice.StartAddress && endAddress <= slice.EndAddress
+
+  let makeSlice bin startAddress endAddress label =
+    let size = endAddress - startAddress
+    if size > uint64 Int32.MaxValue then
+      invalidArg (nameof bin) "The slice is too large."
+    else
+      { Source = bin
+        StartAddress = startAddress
+        EndAddress = endAddress
+        Label = label }
+
   let parseUInt64 (value: string) =
     let style, value =
       if value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
@@ -69,19 +90,38 @@ type SliceAction() =
     let hdl = Binary.Handle bin
     if startAddress >= endAddress then
       invalidArg (nameof bin) "Invalid address range."
+    elif hdl.File.Format = FileFormat.RawBinary then
+      if rangeInsideRaw hdl startAddress endAddress then
+        makeSlice bin startAddress endAddress None
+      else
+        let range = formatRange startAddress endAddress
+        let rawStart, rawEnd = rawRange hdl
+        let rawRange = formatRange rawStart rawEnd
+        invalidArg (nameof hdl)
+          $"Slice range {range} is outside raw binary range: {rawRange}"
     else
       let sections = fileBackedSections hdl
       let containsRange = rangeInsideSection startAddress endAddress
       match sections |> Array.tryFind containsRange with
       | Some _ ->
-        let size = endAddress - startAddress
-        let slice = hdl.File.Slice(startAddress, int size)
-        Binary.OfFragment("Sliced from ", bin, slice.ToArray(), startAddress)
+        makeSlice bin startAddress endAddress None
       | None ->
         let range = formatRange startAddress endAddress
         let sections = describeSections sections
         invalidArg (nameof hdl)
           $"Slice range {range} is outside file-backed sections: {sections}"
+
+  let sliceByAddrRangeInSlice slice startAddress endAddress =
+    let slice: BinarySlice = slice
+    if startAddress >= endAddress then
+      invalidArg (nameof slice) "Invalid address range."
+    elif rangeInsideSlice slice startAddress endAddress then
+      makeSlice slice.Source startAddress endAddress slice.Label
+    else
+      let range = formatRange startAddress endAddress
+      let sourceRange = formatRange slice.StartAddress slice.EndAddress
+      invalidArg (nameof slice)
+        $"Slice range {range} is outside source slice {sourceRange}"
 
   let sliceBySectionName bin secName =
     let hdl = Binary.Handle bin
@@ -89,13 +129,23 @@ type SliceAction() =
     | Ok section when section.FileSize > uint64 Int32.MaxValue ->
       invalidArg (nameof secName) "The section is too large to slice."
     | Ok section when section.FileSize > 0UL ->
-      let bytes = hdl.File.Slice(section.Address, int section.FileSize)
-      Binary.OfFragment(
-        "Sliced from ", bin, bytes.ToArray(), section.Address)
+      makeSlice bin section.Address (section.Address + section.FileSize)
+        (Some section.Name)
     | Ok _ ->
       invalidArg (nameof secName) "The section has no file-backed data."
     | Error _ ->
       invalidArg (nameof secName) $"Section not found: {secName}"
+
+  let sliceBySectionNameInSlice slice secName =
+    let slice: BinarySlice = slice
+    let sliced = sliceBySectionName slice.Source secName
+    if rangeInsideSlice slice sliced.StartAddress sliced.EndAddress then
+      sliced
+    else
+      let sectionRange = formatRange sliced.StartAddress sliced.EndAddress
+      let sourceRange = formatRange slice.StartAddress slice.EndAddress
+      invalidArg (nameof secName)
+        $"Section range {sectionRange} is outside source slice {sourceRange}"
 
   let parseTwoArgs (a1: string) (a2: string) =
     let a1 = parseUInt64 a1
@@ -114,11 +164,21 @@ type SliceAction() =
       sliceBySectionName bin secName |> box
     | _ -> invalidArg (nameof args) "Invalid argument."
 
+  let sliceSlice args (slice: BinarySlice) =
+    match args with
+    | a1 :: a2 :: [] ->
+      let a1, a2 = parseTwoArgs a1 a2
+      sliceByAddrRangeInSlice slice a1 a2 |> box
+    | secName :: [] ->
+      sliceBySectionNameInSlice slice secName |> box
+    | _ -> invalidArg (nameof args) "Invalid argument."
+
   let slice cancellationToken args (input: obj) =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
     match input with
     | :? Binary as bin -> sliceBin args bin
+    | :? BinarySlice as slice -> sliceSlice args slice
     | _ -> invalidArg (nameof input) "Invalid input type."
 
   let transform cancellationToken args collection =
@@ -128,14 +188,14 @@ type SliceAction() =
   interface IAction with
     member _.ActionID with get() = "slice"
     member _.Signature with get() =
-      "Binary -> slice section=<section> | "
+      "Binary | BinarySlice -> slice section=<section> | "
       + "start=<addr> end=<addr> | "
-      + "start=<addr> offset=<size> -> Binary"
+      + "start=<addr> offset=<size> -> BinarySlice"
     member _.Description with get() =
       """
-    Take in a byte array or a BinHandle and return a byte array of a part of the
-    binary along with its starting address. Users can specify a specific address
-    range or a section name.
+    Take in a binary and return a source-aware slice over the requested address
+    range or section. The slice keeps the original binary, so later actions can
+    still map addresses back to the source file.
 
       - `section=<section>` returns the section with the given name.
       - `start=<addr> end=<addr>` returns the half-open range [start, end).

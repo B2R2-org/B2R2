@@ -111,15 +111,28 @@ with
     let summary = Utils.makeByteArraySummary this.Bytes
     $"ByteArray | 0x{this.BaseAddress:x8} | {summary}"
 
-/// A concrete address range inside a source binary.
-type BinaryRange =
+/// A source-aware byte slice inside a binary.
+type BinarySlice =
   { Source: Binary
     StartAddress: Addr
     EndAddress: Addr
     Label: string option }
 with
+  member this.Size = this.EndAddress - this.StartAddress
+
+  member this.Bytes =
+    if this.Size > uint64 Int32.MaxValue then
+      invalidArg (nameof this) "The slice is too large."
+    else
+      let hdl = Binary.Handle this.Source
+      hdl.File.Slice(this.StartAddress, int this.Size).ToArray()
+
+  member this.ToBinary() =
+    Binary.OfFragment(
+      "Sliced from ", this.Source, this.Bytes, this.StartAddress)
+
   override this.ToString() =
-    let label = this.Label |> Option.defaultValue "range"
+    let label = this.Label |> Option.defaultValue "slice"
     $"{label} 0x{this.StartAddress:x}-0x{this.EndAddress:x} (end exclusive)"
 
 /// One printable string found in a binary.
@@ -254,6 +267,7 @@ module ReplArtifactWriter =
   let rec write fname (o: obj) =
     match o with
     | :? Binary as bin -> writeBinary fname bin
+    | :? BinarySlice as slice -> writeBinary fname (slice.ToBinary())
     | :? BinaryBytes as bytes ->
       System.IO.File.WriteAllBytes(fname, bytes.Bytes)
     | :? TextArtifact as artifact ->

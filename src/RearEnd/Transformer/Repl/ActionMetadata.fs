@@ -46,7 +46,7 @@ type ReplValueKind =
   | ExecutionTrace
   | ContextRequirements
   | Address
-  | Range
+  | BinarySlice
   | StringMatch
   | SectionInfo
   | FunctionInfo
@@ -151,7 +151,7 @@ module ReplValueKind =
     | ReplValueKind.ExecutionTrace -> "ExecutionTrace"
     | ReplValueKind.ContextRequirements -> "ContextRequirements"
     | ReplValueKind.Address -> "Address"
-    | ReplValueKind.Range -> "Range"
+    | ReplValueKind.BinarySlice -> "BinarySlice"
     | ReplValueKind.StringMatch -> "StringMatch"
     | ReplValueKind.SectionInfo -> "SectionInfo"
     | ReplValueKind.FunctionInfo -> "FunctionInfo"
@@ -180,7 +180,7 @@ module ReplValueKind =
       ReplValueKind.ExecutionTrace
       ReplValueKind.ContextRequirements
       ReplValueKind.Address
-      ReplValueKind.Range
+      ReplValueKind.BinarySlice
       ReplValueKind.StringMatch
       ReplValueKind.SectionInfo
       ReplValueKind.FunctionInfo
@@ -482,6 +482,15 @@ module ActionMetadata =
       else None)
     |> Option.defaultValue metadata.Output
 
+  let possibleOutputs metadata inputKind =
+    let metadata: ActionMetadata = metadata
+    let outputs =
+      metadata.Syntaxes
+      |> List.filter (syntaxAccepts inputKind)
+      |> List.choose (fun syntax -> syntax.Output)
+      |> List.distinct
+    if List.isEmpty outputs then [ metadata.Output ] else outputs
+
   let private tokenParameterName (token: string) =
     let index = token.IndexOf '='
     if index <= 0 then None
@@ -539,7 +548,9 @@ module ActionMetadata =
       ]
 
   let private bytes =
-    contract "bytes" ReplValueKind.Binary ReplValueKind.ByteArray
+    overloadContract "bytes"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.ByteArray
       ActionRole.Transform 20 "bytes -> ByteArray"
       [ "binary |> @bytes" ] [ syntax None [] ]
 
@@ -622,7 +633,9 @@ module ActionMetadata =
       [ syntax None [ action; parameters ] ]
 
   let private concExec =
-    contract "conc-exec" ReplValueKind.Binary ReplValueKind.ConcExecutor
+    overloadContract "conc-exec"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.ConcExecutor
       ActionRole.Transform 20 "conc-exec -> ConcExecutor"
       [ "binary |> @conc-exec" ] [ syntax None [] ]
 
@@ -646,24 +659,30 @@ module ActionMetadata =
       [ "fingerprint |> @detect path=temp/bin" ] [ syntax None [ path ] ]
 
   let private diff =
-    let pair kind = ReplValueKind.Tuple [ kind; kind ]
+    let pair left right = ReplValueKind.Tuple [ left; right ]
+    let samePair kind = pair kind kind
     overloadContract "diff"
-      [ pair ReplValueKind.Binary
-        pair ReplValueKind.ByteArray
-        pair ReplValueKind.InstructionArray
-        pair ReplValueKind.CFG
-        pair ReplValueKind.ConcExecutor
-        pair ReplValueKind.Text
-        pair ReplValueKind.TextArtifact ]
+      [ samePair ReplValueKind.Binary
+        samePair ReplValueKind.BinarySlice
+        pair ReplValueKind.Binary ReplValueKind.BinarySlice
+        pair ReplValueKind.BinarySlice ReplValueKind.Binary
+        samePair ReplValueKind.ByteArray
+        samePair ReplValueKind.InstructionArray
+        samePair ReplValueKind.CFG
+        samePair ReplValueKind.ConcExecutor
+        samePair ReplValueKind.Text
+        samePair ReplValueKind.TextArtifact ]
       ReplValueKind.Text ActionRole.Reducer 60
-      "supported same-type pair -> @diff -> Text"
+      "supported pair -> @diff -> Text"
       [ "let binaries = (oldBin, newBin)"
         "binaries |> @diff"
         "let code = (oldCode, newCode)"
         "code |> @diff" ] [ syntax None [] ]
 
   let private disasm =
-    contract "disasm" ReplValueKind.Binary ReplValueKind.InstructionArray
+    overloadContract "disasm"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.InstructionArray
       ActionRole.Transform 30 "disasm -> InstructionArray"
       [ "binary |> @disasm" ] [ syntax None [] ]
 
@@ -684,17 +703,25 @@ module ActionMetadata =
     let bytes =
       required "hex" ActionArgumentKind.HexBytes
         "Replacement bytes as a hexadecimal string."
-    let insert = syntax (Some "insert") [ start; bytes ]
-    let deleteEnd = syntax (Some "delete") [ start; finish ]
-    let deleteSize = syntax (Some "delete") [ start; size ]
-    let replaceEnd = syntax (Some "replace") [ start; finish; bytes ]
-    let replaceSize = syntax (Some "replace") [ start; size; bytes ]
-    contract "edit" ReplValueKind.Binary ReplValueKind.Binary
-      ActionRole.Transform 40 "edit <operation> ... -> Binary"
+    let binary = [ ReplValueKind.Binary ]
+    let slice = [ ReplValueKind.BinarySlice ]
+    let forEditInputs trigger args =
+      [ syntaxForOutput binary trigger ReplValueKind.Binary args
+        syntaxForOutput slice trigger ReplValueKind.BinarySlice args ]
+    let syntaxes =
+      [ yield! forEditInputs (Some "insert") [ start; bytes ]
+        yield! forEditInputs (Some "delete") [ start; finish ]
+        yield! forEditInputs (Some "delete") [ start; size ]
+        yield! forEditInputs (Some "replace") [ start; finish; bytes ]
+        yield! forEditInputs (Some "replace") [ start; size; bytes ] ]
+    overloadContract "edit"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.Binary
+      ActionRole.Transform 40 "edit <operation> ..."
       [ "binary |> @edit insert start=0x401000 hex=90"
         "binary |> @edit delete start=0x401000 size=4"
         "binary |> @edit replace start=0x401000 size=2 hex=9090" ]
-      [ insert; deleteEnd; deleteSize; replaceEnd; replaceSize ]
+      syntaxes
 
   let private grep =
     let pattern =
@@ -707,15 +734,20 @@ module ActionMetadata =
       optional "bytes-after" ActionArgumentKind.Integer
         "Context bytes following each match."
     let signature =
-      "grep pattern=<hex> [bytes-before=<n>] [bytes-after=<n>] -> Binary"
-    contract "grep" ReplValueKind.Binary ReplValueKind.Binary
+      "grep pattern=<hex> [bytes-before=<n>] [bytes-after=<n>] "
+      + "-> BinarySlice collection"
+    overloadContract "grep"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      (ReplValueKind.Collection ReplValueKind.BinarySlice)
       ActionRole.Transform 30 signature
       [ "binary |> @grep pattern=7f454c46"
         "binary |> @grep pattern=7f454c46 bytes-before=4 bytes-after=16" ]
       [ syntax None [ pattern; before; after ] ]
 
   let private hexdump =
-    contract "hexdump" ReplValueKind.Binary ReplValueKind.Text
+    overloadContract "hexdump"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.Text
       ActionRole.Transform 30 "hexdump -> Text"
       [ "binary |> @hexdump" ] [ syntax None [] ]
 
@@ -755,7 +787,9 @@ module ActionMetadata =
       [ syntax None [ entry; limit; breakpoint ] ]
 
   let private lift =
-    contract "lift" ReplValueKind.Binary ReplValueKind.Text
+    overloadContract "lift"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.Text
       ActionRole.Transform 40 "lift -> Text"
       [ "binary |> @lift" ] [ syntax None [] ]
 
@@ -863,9 +897,10 @@ module ActionMetadata =
         "Positive size relative to the start address."
     let signature =
       "slice section=<section> | start=<addr> end=<addr> | "
-      + "start=<addr> offset=<size> -> Binary"
-    contract "slice" ReplValueKind.Binary
-      ReplValueKind.Binary
+      + "start=<addr> offset=<size> -> BinarySlice"
+    overloadContract "slice"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.BinarySlice
       ActionRole.Transform 10 signature
       [ "binary |> @slice section=.text"
         "binary |> @slice start=0x401000 offset=32" ]
@@ -910,7 +945,8 @@ module ActionMetadata =
     let pattern =
       optional "pattern" ActionArgumentKind.Text
         "Case-insensitive substring filter."
-    contract "strings" ReplValueKind.Binary
+    overloadContract "strings"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       (ReplValueKind.Collection ReplValueKind.StringMatch)
       ActionRole.Transform 10
       "strings [min=<n>] [pattern=<text>] -> StringMatch collection"
@@ -922,7 +958,9 @@ module ActionMetadata =
   let private save =
     let path =
       required "path" ActionArgumentKind.OutputPath "Destination file path."
-    contract "save" ReplValueKind.Binary ReplValueKind.Unit
+    overloadContract "save"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.Unit
       ActionRole.Sink 90 "save path=<path> -> Unit"
       [ "binary |> @save path=out.bin" ] [ syntax None [ path ] ]
 
@@ -933,7 +971,9 @@ module ActionMetadata =
     let window =
       optional "window-size" ActionArgumentKind.Integer
         "Window size; defaults to 4."
-    contract "winnowing" ReplValueKind.Binary ReplValueKind.Fingerprint
+    overloadContract "winnowing"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.Fingerprint
       ActionRole.Transform 40
       "winnowing [n-gram-size=<n>] [window-size=<n>] -> Fingerprint"
       [ "binary |> @winnowing n-gram-size=4 window-size=4" ]
@@ -1031,7 +1071,7 @@ module ActionRegistry =
       ReplValueKind.ExecutionTrace
       ReplValueKind.ContextRequirements
       ReplValueKind.Address
-      ReplValueKind.Range
+      ReplValueKind.BinarySlice
       ReplValueKind.StringMatch
       ReplValueKind.SectionInfo
       ReplValueKind.FunctionInfo
@@ -1040,6 +1080,7 @@ module ActionRegistry =
       ReplValueKind.Collection ReplValueKind.SectionInfo
       ReplValueKind.Collection ReplValueKind.FunctionInfo
       ReplValueKind.Collection ReplValueKind.StringMatch
+      ReplValueKind.Collection ReplValueKind.BinarySlice
       ReplValueKind.Collection ReplValueKind.Any
       ReplValueKind.List ReplValueKind.Any
       ReplValueKind.Array ReplValueKind.Any
@@ -1047,6 +1088,12 @@ module ActionRegistry =
       ReplValueKind.Float
       ReplValueKind.Bool
       ReplValueKind.Tuple [ ReplValueKind.Binary; ReplValueKind.Binary ]
+      ReplValueKind.Tuple
+        [ ReplValueKind.BinarySlice; ReplValueKind.BinarySlice ]
+      ReplValueKind.Tuple
+        [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      ReplValueKind.Tuple
+        [ ReplValueKind.BinarySlice; ReplValueKind.Binary ]
       ReplValueKind.Tuple
         [ ReplValueKind.ConcExecutor; ReplValueKind.ConcExecutor ]
       ReplValueKind.Tuple [ ReplValueKind.Any; ReplValueKind.Any ]

@@ -110,7 +110,7 @@ module ReplValue =
     elif typ = typeof<ContextRequirements> then
       ReplValueKind.ContextRequirements
     elif typ = typeof<AddressValue> then ReplValueKind.Address
-    elif typ = typeof<BinaryRange> then ReplValueKind.Range
+    elif typ = typeof<BinarySlice> then ReplValueKind.BinarySlice
     elif typ = typeof<StringMatch> then ReplValueKind.StringMatch
     elif typ = typeof<SectionInfo> then ReplValueKind.SectionInfo
     elif typ = typeof<FunctionInfo> then ReplValueKind.FunctionInfo
@@ -137,7 +137,7 @@ module ReplValue =
     | :? ExecutionTrace -> ReplValueKind.ExecutionTrace
     | :? ContextRequirements -> ReplValueKind.ContextRequirements
     | :? AddressValue -> ReplValueKind.Address
-    | :? BinaryRange -> ReplValueKind.Range
+    | :? BinarySlice -> ReplValueKind.BinarySlice
     | :? StringMatch -> ReplValueKind.StringMatch
     | :? SectionInfo -> ReplValueKind.SectionInfo
     | :? FunctionInfo -> ReplValueKind.FunctionInfo
