@@ -55,7 +55,7 @@ type GrepAction() =
     else mappedAddress bin (offset - 1UL) + 1UL
 
   let bytesPattern (bytes: BinaryBytes) =
-    byteArrayToHexStringArray bytes.Bytes |> String.concat ""
+    Convert.ToHexString bytes.Bytes
 
   let parseInt name (value: string) =
     let value = Convert.ToInt32 value
@@ -90,59 +90,42 @@ type GrepAction() =
     | _ ->
       invalidArg "args" "Invalid grep arguments."
 
-  let grepBytes cancellationToken source baseAddress (pattern: string)
-                bytesBefore bytesAfter (bs: byte[]) =
+  let grepBytes cancellationToken source addressAt endAddressAt
+                (pattern: string) bytesBefore bytesAfter
+                (bs: ReadOnlySpan<byte>) =
     let cancellationToken: CancellationToken = cancellationToken
-    let hs = byteArrayToHexStringArray bs |> String.concat ""
-    let regex = Regex(pattern.ToLowerInvariant())
+    let length = bs.Length
+    let hs = Convert.ToHexString bs
+    let regex = Regex(pattern, RegexOptions.IgnoreCase)
     regex.Matches hs
     |> Seq.choose (fun m ->
       cancellationToken.ThrowIfCancellationRequested()
       if m.Index % 2 = 0 && m.Length % 2 = 0 then
         Some(m.Index / 2, m.Length / 2)
       else None)
-    |> Seq.toArray
-    |> Array.map (fun (i, len) ->
+    |> Seq.map (fun (i, len) ->
       let soff = if (i - bytesBefore) < 0 then 0 else i - bytesBefore
       let eoff = i + len + bytesAfter
-      let eoff = if eoff > bs.Length then bs.Length else eoff
-      let matchAddress = baseAddress + uint64 i
+      let eoff = if eoff > length then length else eoff
+      let matchAddress = addressAt i
       { Source = source
-        StartAddress = baseAddress + uint64 soff
-        EndAddress = baseAddress + uint64 eoff
+        StartAddress = addressAt soff
+        EndAddress = endAddressAt eoff
         Label = Some $"grep match=0x{matchAddress:x}" })
-
-  let grepFileBytes cancellationToken source (pattern: string)
-                    bytesBefore bytesAfter (bs: byte[]) =
-    let cancellationToken: CancellationToken = cancellationToken
-    let hs = byteArrayToHexStringArray bs |> String.concat ""
-    let regex = Regex(pattern.ToLowerInvariant())
-    regex.Matches hs
-    |> Seq.choose (fun m ->
-      cancellationToken.ThrowIfCancellationRequested()
-      if m.Index % 2 = 0 && m.Length % 2 = 0 then
-        Some(m.Index / 2, m.Length / 2)
-      else None)
     |> Seq.toArray
-    |> Array.map (fun (i, len) ->
-      let soff = if (i - bytesBefore) < 0 then 0 else i - bytesBefore
-      let eoff = i + len + bytesAfter
-      let eoff = if eoff > bs.Length then bs.Length else eoff
-      let matchAddress = mappedAddress source (uint64 i)
-      { Source = source
-        StartAddress = mappedAddress source (uint64 soff)
-        EndAddress = mappedEndAddress source (uint64 eoff)
-        Label = Some $"grep match=0x{matchAddress:x}" })
 
   let grepFromBinary cancellationToken pattern before after bin =
     let hdl = Binary.Handle bin
-    let bs = hdl.File.RawBytes.ToArray()
-    grepFileBytes cancellationToken bin pattern before after bs
+    let addressAt offset = mappedAddress bin (uint64 offset)
+    let endAddressAt offset = mappedEndAddress bin (uint64 offset)
+    grepBytes cancellationToken bin addressAt endAddressAt pattern before
+      after hdl.File.RawBytes.Span
 
   let grepFromSlice cancellationToken pattern before after slice =
     let slice: BinarySlice = slice
-    grepBytes cancellationToken slice.Source slice.StartAddress pattern before
-      after slice.Bytes
+    let addressAt offset = slice.StartAddress + uint64 offset
+    grepBytes cancellationToken slice.Source addressAt addressAt pattern before
+      after (ReadOnlySpan slice.Bytes)
 
   let grep cancellationToken pattern bytesBefore bytesAfter (input: obj) =
     match input with

@@ -25,39 +25,37 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Collections.Generic
 open System.Threading
 open B2R2
 
 /// The `winnowing` action.
 type WinnowingAction() =
-  let rec min (span: Span<int * int>) (minHash, minPos) idx =
-    if idx < span.Length then
-      let curHash, curPos = span[idx]
-      let minHash, minPos =
-        if minHash > curHash then curHash, curPos
-        elif minHash = curHash && minPos < curPos then curHash, curPos
-        else minHash, minPos
-      min span (minHash, minPos) (idx + 1)
-    else (minHash, minPos)
-
-  let rec computeFingerprint cancellationToken acc annot prev n wsz idx
-                             (ngrams: (int * int)[]) =
+  let computeFingerprint cancellationToken annot n wsz
+                         (ngrams: (int * int)[]) =
     let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
-    if idx <= ngrams.Length - wsz then
-      let span = ngrams.AsSpan(idx, wsz)
-      let m = min span (Int32.MaxValue, Int32.MaxValue) 0
-      if fst prev = fst m then
-        computeFingerprint cancellationToken acc annot prev n wsz
-          (idx + 1) ngrams
-      else
-        computeFingerprint cancellationToken (m :: acc) annot m n wsz
-          (idx + 1) ngrams
-    else
-      { Patterns = List.rev acc
-        NGramSize = n
-        WindowSize = wsz
-        Annotation = annot }
+    let deque = LinkedList<int>()
+    let patterns = ResizeArray<int * int>()
+    let mutable previousHash = 0
+    for idx = 0 to ngrams.Length - 1 do
+      cancellationToken.ThrowIfCancellationRequested()
+      while deque.Count > 0 && deque.First.Value <= idx - wsz do
+        deque.RemoveFirst()
+      while deque.Count > 0
+            && fst ngrams[deque.Last.Value] >= fst ngrams[idx] do
+        deque.RemoveLast()
+      deque.AddLast idx |> ignore
+      if idx >= wsz - 1 then
+        let selected = deque.First.Value
+        let hash, _ = ngrams[selected]
+        if hash <> previousHash then
+          patterns.Add ngrams[selected]
+          previousHash <- hash
+        else ()
+    { Patterns = patterns |> Seq.toList
+      NGramSize = n
+      WindowSize = wsz
+      Annotation = annot }
 
   let binaryAndAnnotation (input: obj) =
     match input with
@@ -76,8 +74,8 @@ type WinnowingAction() =
     if span.Length < n + wsz then
       invalidArg (nameof input) "The input binary is too small."
     else
-      Utils.buildNgram [] n span 0
-      |> computeFingerprint cancellationToken [] annot (0, 0) n wsz 0
+      Utils.buildNgram n span
+      |> computeFingerprint cancellationToken annot n wsz
       |> box
 
   let transform cancellationToken args collection =
