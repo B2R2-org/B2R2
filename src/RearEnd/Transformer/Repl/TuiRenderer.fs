@@ -337,19 +337,31 @@ module TransformerTuiRenderer =
       let after = if finish >= text.Length then "" else text[finish..]
       before + reverse + selected + reset + after
 
-  let private selectViewText pane index text =
+  let private viewSelectionRange pane index length =
     match orderedViewSelection pane with
-    | None -> text
+    | None -> None
     | Some(first, last) when index < first.Line || index > last.Line ->
-      text
+      None
     | Some(first, last) when first.Line = last.Line ->
-      inlineSelection first.Column last.Column text
+      Some(first.Column, last.Column)
     | Some(first, _) when index = first.Line ->
-      inlineSelection first.Column text.Length text
+      Some(first.Column, length)
     | Some(_, last) when index = last.Line ->
-      inlineSelection 0 last.Column text
+      Some(0, last.Column)
     | Some _ ->
-      inlineSelection 0 text.Length text
+      Some(0, length)
+
+  let private selectViewRow pane index start finish length (text: string) =
+    match viewSelectionRange pane index length with
+    | Some(selectionStart, selectionFinish) ->
+      let selectionStart = max start selectionStart
+      let selectionFinish = min finish selectionFinish
+      if selectionStart < selectionFinish then
+        inlineSelection (selectionStart - start) (selectionFinish - start) text
+      else
+        text
+    | None ->
+      text
 
   let private viewLine pane index (line: TuiLine) =
     match pane.Anchor with
@@ -359,7 +371,7 @@ module TransformerTuiRenderer =
         if containsAnsi line.Text then sanitize line.Text else line.Text
       { line with
           Kind = TuiLineKind.Cursor
-          Text = selectViewText pane index text }
+          Text = text }
     | Some _ ->
       line
     | None ->
@@ -393,7 +405,9 @@ module TransformerTuiRenderer =
             Kind = line.Kind
             Text = prefix + line.Text } ]
       else
-        displayText line.Text
+        let text = displayText line.Text
+        let length = TransformerTuiText.sanitize text |> String.length
+        text
         |> TransformerTuiText.wrapWithOffsets (max 1 (width - prefix.Length))
         |> List.mapi (fun row (start, finish, text) ->
           let prefix = if row = 0 then prefix else "  "
@@ -401,7 +415,8 @@ module TransformerTuiRenderer =
             Start = start
             Finish = finish
             Kind = line.Kind
-            Text = prefix + text }))
+            Text =
+              prefix + selectViewRow pane index start finish length text }))
 
   type private ViewPaneLayout =
     { Lines: (TuiLineKind * string) list
