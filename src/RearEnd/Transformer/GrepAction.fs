@@ -25,18 +25,22 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Threading
 open System.Text.RegularExpressions
 open B2R2.RearEnd.Transformer.Utils
 
 /// The `grep` action.
 type GrepAction() =
-  let grepFromBinary (pattern: string) bytesBefore bytesAfter bin =
+  let grepFromBinary cancellationToken (pattern: string) bytesBefore
+                     bytesAfter bin =
+    let cancellationToken: CancellationToken = cancellationToken
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     let hs = byteArrayToHexStringArray bs |> String.concat ""
     let regex = Regex(pattern.ToLowerInvariant())
     regex.Matches hs
     |> Seq.choose (fun m ->
+      cancellationToken.ThrowIfCancellationRequested()
       if m.Index % 2 = 0 then Some(m.Index / 2, m.Length / 2) else None)
     |> Seq.toArray
     |> Array.map (fun (i, len) ->
@@ -45,12 +49,30 @@ type GrepAction() =
       let eoff = if (eoff + bytesAfter) >= bs.Length then bs.Length - 1
                  else eoff + bytesAfter
       Binary.OfFragment("Greped from ", bin, bs[soff..eoff], uint64 soff))
-    |> box
 
-  let grep pattern bytesBefore bytesAfter (input: obj) =
+  let grep cancellationToken pattern bytesBefore bytesAfter (input: obj) =
     match input with
-    | :? Binary as bin -> grepFromBinary pattern bytesBefore bytesAfter bin
+    | :? Binary as bin ->
+      grepFromBinary cancellationToken pattern bytesBefore bytesAfter bin
+      |> Array.map box
     | _ -> invalidArg (nameof input) "Invalid object is given."
+
+  let transform cancellationToken args collection =
+    let args: string list = args
+    let collect pattern before after =
+      collection.Values
+      |> Array.collect (grep cancellationToken pattern before after)
+    match args with
+    | pattern :: bytesBefore :: bytesAfter :: [] ->
+      let bytesBefore = Convert.ToInt32 bytesBefore
+      let bytesAfter = Convert.ToInt32 bytesAfter
+      { Values = collect pattern bytesBefore bytesAfter }
+    | pattern :: bytesBefore :: [] ->
+      let bytesBefore = Convert.ToInt32 bytesBefore
+      { Values = collect pattern bytesBefore 0 }
+    | [ pattern ] ->
+      { Values = collect pattern 0 0 }
+    | _ -> invalidArg (nameof args) "Single pattern should be given."
 
   interface IAction with
     member _.ActionID with get() = "grep"
@@ -73,17 +95,8 @@ type GrepAction() =
     of the array, the context will be truncated accordingly.
 """
     member _.Transform(args, collection) =
-      match args with
-      | pattern :: bytesBefore :: bytesAfter :: [] ->
-        let bytesBefore = Convert.ToInt32 bytesBefore
-        let bytesAfter = Convert.ToInt32 bytesAfter
-        { Values = collection.Values
-                   |> Array.map (grep pattern bytesBefore bytesAfter) }
-      | pattern :: bytesBefore :: [] ->
-        let bytesBefore = Convert.ToInt32 bytesBefore
-        { Values = collection.Values
-                   |> Array.map (grep pattern bytesBefore 0) }
-      | [ pattern ] ->
-        { Values = collection.Values |> Array.map (grep pattern 0 0) }
-      | _ ->
-        invalidArg (nameof args) "Single pattern should be given."
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection

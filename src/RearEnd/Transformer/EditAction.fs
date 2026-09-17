@@ -25,25 +25,40 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Globalization
+open System.Threading
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 
 /// The `edit` action.
 type EditAction() =
   let makeBinary bin newbs =
-    Binary.OfEditedContent("Editted from ", bin, newbs) |> box
+    let hdl = Binary.Handle bin
+    if hdl.File.Format = FileFormat.RawBinary then
+      Binary.OfFragment("Editted from ", bin, newbs, hdl.File.BaseAddress)
+      |> box
+    else
+      Binary.OfEditedContent("Editted from ", bin, newbs) |> box
+
+  let parseInt32 (value: string) =
+    let style, value =
+      if value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
+        NumberStyles.HexNumber, value[2..]
+      else
+        NumberStyles.Integer, value
+    Int32.Parse(value, style, CultureInfo.InvariantCulture)
 
   let parseEndOffset soff (eoff: string) =
-    if eoff.StartsWith "+" then soff + Convert.ToInt32 eoff[1..] - 1
-    else Convert.ToInt32 eoff
+    if eoff.StartsWith "+" then soff + parseInt32 (eoff[1..])
+    else parseInt32 eoff
 
   let insert off (snip: byte[]) o =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     let newbs = Array.zeroCreate (bs.Length + snip.Length)
-    if off > bs.Length then
-      invalidArg (nameof off) "Offset is too large."
+    if off > bs.Length then invalidArg (nameof off) "Offset is too large."
     elif off = 0 then
       Array.blit snip 0 newbs 0 snip.Length
       Array.blit bs 0 newbs snip.Length bs.Length
@@ -57,11 +72,10 @@ type EditAction() =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
-    let rmlen = eoff - soff + 1
+    let rmlen = eoff - soff
     let newbs = Array.zeroCreate (bs.Length - rmlen)
-    if rmlen > bs.Length || eoff >= bs.Length || soff >= bs.Length || soff < 0
-    then
-      invalidArg (nameof soff) "Wrong offset(s) given."
+    if rmlen > bs.Length || eoff > bs.Length || soff >= bs.Length || soff < 0
+    then invalidArg (nameof soff) "Wrong offset(s) given."
     elif soff = 0 then
       Array.blit bs rmlen newbs 0 (bs.Length - rmlen)
     else
@@ -75,8 +89,39 @@ type EditAction() =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
-    Array.blit newbs 0 bs soff (eoff - soff + 1)
+    Array.blit newbs 0 bs soff (eoff - soff)
     makeBinary bin bs
+
+  let map cancellationToken operation collection =
+    let cancellationToken: CancellationToken = cancellationToken
+    collection.Values
+    |> Array.map (fun value ->
+      cancellationToken.ThrowIfCancellationRequested()
+      operation value)
+
+  let transform cancellationToken args collection =
+    match args with
+    | "insert" :: off :: hexstr :: [] ->
+      let off = parseInt32 off
+      let bs = ByteArray.ofHexString hexstr
+      { Values = map cancellationToken (insert off bs) collection }
+    | "delete" :: soff :: eoff :: [] ->
+      let soff = parseInt32 soff
+      let eoff = parseEndOffset soff eoff
+      if eoff > soff then
+        { Values = map cancellationToken (delete soff eoff) collection }
+      else
+        invalidArg (nameof args) "Invalid offsets."
+    | "replace" :: soff :: eoff :: hexstr :: [] ->
+      let soff = parseInt32 soff
+      let eoff = parseEndOffset soff eoff
+      let newbs = ByteArray.ofHexString hexstr
+      if eoff > soff && (eoff - soff) = newbs.Length then
+        let replace = replace soff eoff newbs
+        { Values = map cancellationToken replace collection }
+      else
+        invalidArg (nameof args) "Invalid offsets or hexstring."
+    | _ -> invalidArg (nameof args) "Invalid edit action."
 
   interface IAction with
     member _.ActionID with get() = "edit"
@@ -91,7 +136,7 @@ type EditAction() =
         the size of the resulting binary by the size of the given hexstring.
 
       - `delete` <n> <m>
-        Remove bytes of size (m - n + 1) in the given binary located at <n>. The
+        Remove bytes of size (m - n) in the given binary located at <n>. The
         resulting binary will have the size less than the original one.
 
       - `delete` <n> +<sz>
@@ -100,33 +145,16 @@ type EditAction() =
 
       - `replace` <n> <m> <hexstring>
         Replace bytes at offset from <n> to <m> with the given <hexstring>. The
-        size of the hexstring should be equal to "m - n + 1" where m > n.
+        end offset <m> is exclusive, and the hexstring size should be equal to
+        "m - n" where m > n.
 
       - `replace` <n> +<sz> <hexstring>
-        Replace bytes at offset from n to (n + sz - 1) with the given
+        Replace bytes at offset from n to (n + sz), exclusive, with the given
         <hexstring>. The size of the hexstring should be equal to sz.
 """
     member _.Transform(args, collection) =
-      match args with
-      | "insert" :: off :: hexstr :: [] ->
-        let off = Convert.ToInt32 off
-        let bs = ByteArray.ofHexString hexstr
-        { Values = collection.Values
-                   |> Array.map (insert off bs) }
-      | "delete" :: soff :: eoff :: [] ->
-        let soff = Convert.ToInt32 soff
-        let eoff = parseEndOffset soff eoff
-        if eoff >= soff then
-          { Values = collection.Values |> Array.map (delete soff eoff) }
-        else
-          invalidArg (nameof args) "Invalid offsets."
-      | "replace" :: soff :: eoff :: hexstr :: [] ->
-        let soff = Convert.ToInt32 soff
-        let eoff = parseEndOffset soff eoff
-        let newbs = ByteArray.ofHexString hexstr
-        if eoff >= soff && (eoff - soff + 1) = newbs.Length then
-          { Values = collection.Values |> Array.map (replace soff eoff newbs) }
-        else
-          invalidArg (nameof args) "Invalid offsets or hexstring."
-      | _ ->
-        invalidArg (nameof args) "Invalid edit action."
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection
