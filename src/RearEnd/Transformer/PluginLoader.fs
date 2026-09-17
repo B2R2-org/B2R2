@@ -113,8 +113,7 @@ module TransformerPluginLoader =
         let context = TransformerPluginLoadContext fullPath
         let assembly = context.LoadPluginAssembly()
         assembly.GetExportedTypes()
-      with
-      | :? ReflectionTypeLoadException as error ->
+      with :? ReflectionTypeLoadException as error ->
         let detail = loaderExceptionText error
         invalidOp $"Failed to load plugin types: {detail}"
     else

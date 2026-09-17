@@ -28,10 +28,35 @@ open System
 open System.Threading
 open System.Text.RegularExpressions
 open B2R2
+open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Transformer.Utils
 
 /// The `grep` action.
 type GrepAction() =
+  let trySectionByOffset bin (offset: uint64) =
+    let hdl = Binary.Handle bin
+    if offset > uint64 UInt32.MaxValue then
+      None
+    else
+      match BinFileOps.tryFindSectionByOffset hdl.File (uint32 offset) with
+      | Ok section when Option.isSome section.Offset -> Some section
+      | _ -> None
+
+  let mappedAddress bin (offset: uint64) =
+    match trySectionByOffset bin offset with
+    | Some section ->
+      section.Address + offset - Option.get section.Offset
+    | None ->
+      let hdl = Binary.Handle bin
+      hdl.File.BaseAddress + offset
+
+  let mappedEndAddress bin (offset: uint64) =
+    if offset = 0UL then mappedAddress bin offset
+    else mappedAddress bin (offset - 1UL) + 1UL
+
+  let bytesPattern (bytes: BinaryBytes) =
+    byteArrayToHexStringArray bytes.Bytes |> String.concat ""
+
   let grepBytes cancellationToken source baseAddress (pattern: string)
                 bytesBefore bytesAfter (bs: byte[]) =
     let cancellationToken: CancellationToken = cancellationToken
@@ -48,15 +73,38 @@ type GrepAction() =
       let soff = if (i - bytesBefore) < 0 then 0 else i - bytesBefore
       let eoff = i + len + bytesAfter
       let eoff = if eoff > bs.Length then bs.Length else eoff
+      let matchAddress = baseAddress + uint64 i
       { Source = source
         StartAddress = baseAddress + uint64 soff
         EndAddress = baseAddress + uint64 eoff
-        Label = Some "grep" })
+        Label = Some $"grep match=0x{matchAddress:x}" })
+
+  let grepFileBytes cancellationToken source (pattern: string)
+                    bytesBefore bytesAfter (bs: byte[]) =
+    let cancellationToken: CancellationToken = cancellationToken
+    let hs = byteArrayToHexStringArray bs |> String.concat ""
+    let regex = Regex(pattern.ToLowerInvariant())
+    regex.Matches hs
+    |> Seq.choose (fun m ->
+      cancellationToken.ThrowIfCancellationRequested()
+      if m.Index % 2 = 0 && m.Length % 2 = 0 then
+        Some(m.Index / 2, m.Length / 2)
+      else None)
+    |> Seq.toArray
+    |> Array.map (fun (i, len) ->
+      let soff = if (i - bytesBefore) < 0 then 0 else i - bytesBefore
+      let eoff = i + len + bytesAfter
+      let eoff = if eoff > bs.Length then bs.Length else eoff
+      let matchAddress = mappedAddress source (uint64 i)
+      { Source = source
+        StartAddress = mappedAddress source (uint64 soff)
+        EndAddress = mappedEndAddress source (uint64 eoff)
+        Label = Some $"grep match=0x{matchAddress:x}" })
 
   let grepFromBinary cancellationToken pattern before after bin =
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
-    grepBytes cancellationToken bin hdl.File.BaseAddress pattern before after bs
+    grepFileBytes cancellationToken bin pattern before after bs
 
   let grepFromSlice cancellationToken pattern before after slice =
     let slice: BinarySlice = slice
@@ -73,12 +121,40 @@ type GrepAction() =
       |> Array.map box
     | _ -> invalidArg (nameof input) "Invalid object is given."
 
+  let grepTuple cancellationToken before after (left: obj, right: obj) =
+    match left, right with
+    | (:? Binary as bin), (:? BinaryBytes as bytes) ->
+      grepFromBinary cancellationToken (bytesPattern bytes) before after bin
+      |> Array.map box
+    | (:? BinarySlice as slice), (:? BinaryBytes as bytes) ->
+      grepFromSlice cancellationToken (bytesPattern bytes) before after slice
+      |> Array.map box
+    | _ -> invalidArg "input" "Invalid tuple is given."
+
   let transform cancellationToken args collection =
     let args: string list = args
+    let collectTuple before after =
+      match collection.Values with
+      | [| left; right |] ->
+        grepTuple cancellationToken before after (left, right)
+      | _ -> invalidArg (nameof collection) "Two tuple values are required."
+    let isTupleInput () =
+      match collection.Values with
+      | [| _; (:? BinaryBytes) |] -> true
+      | _ -> false
     let collect pattern before after =
       collection.Values
       |> Array.collect (grep cancellationToken pattern before after)
     match args with
+    | bytesBefore :: bytesAfter :: [] when isTupleInput () ->
+      let bytesBefore = Convert.ToInt32 bytesBefore
+      let bytesAfter = Convert.ToInt32 bytesAfter
+      { Values = collectTuple bytesBefore bytesAfter }
+    | bytesBefore :: [] when isTupleInput () ->
+      let bytesBefore = Convert.ToInt32 bytesBefore
+      { Values = collectTuple bytesBefore 0 }
+    | [] when isTupleInput () ->
+      { Values = collectTuple 0 0 }
     | pattern :: bytesBefore :: bytesAfter :: [] ->
       let bytesBefore = Convert.ToInt32 bytesBefore
       let bytesAfter = Convert.ToInt32 bytesAfter
@@ -94,7 +170,9 @@ type GrepAction() =
     member _.ActionID with get() = "grep"
     member _.Signature with get() =
       "Binary | BinarySlice -> grep pattern=<hex> [bytes-before=<n>] "
-      + "[bytes-after=<n>] -> BinarySlice collection"
+      + "[bytes-after=<n>] -> BinarySlice collection | "
+      + "Binary * ByteArray -> grep [bytes-before=<n>] [bytes-after=<n>] "
+      + "-> BinarySlice collection"
     member _.Description with get() =
       """
     Take in an array as input and return one or more matched items from the

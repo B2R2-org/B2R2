@@ -11,6 +11,7 @@
     <Compile Include="IAction.fs" />
     <Compile Include="PluginLoader.fs" />
     <Compile Include="Repl\ActionMetadata.fs" />
+    <Compile Include="AsmAction.fs" />
     <Compile Include="ByteArrayAction.fs" />
     <Compile Include="BatchAction.fs" />
     <Compile Include="CFGAction.fs" />
@@ -65,6 +66,7 @@
       Include="..\..\MiddleEnd\SymbEval\B2R2.MiddleEnd.SymbEval.fsproj" />
     <ProjectReference
       Include="..\..\MiddleEnd\LLVM\B2R2.MiddleEnd.LLVM.fsproj" />
+    <ProjectReference Include="..\..\Assembly\API\B2R2.Assembly.API.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

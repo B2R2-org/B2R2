@@ -170,6 +170,8 @@ type EditAction() =
       let sliceRange = formatRange slice.StartAddress slice.EndAddress
       invalidArg (nameof address)
         $"Edit address 0x{address:x} is outside slice {sliceRange}."
+    else
+      ()
 
   let ensureSliceRange (slice: BinarySlice) startAddress endAddress =
     if startAddress < slice.StartAddress || endAddress > slice.EndAddress then
@@ -177,6 +179,8 @@ type EditAction() =
       let sliceRange = formatRange slice.StartAddress slice.EndAddress
       invalidArg (nameof startAddress)
         $"Edit range {editRange} is outside slice {sliceRange}."
+    else
+      ()
 
   let ensureAddressInsideInput (input: obj) address =
     match input with

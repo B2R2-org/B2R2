@@ -553,8 +553,7 @@ module ActionMetadata =
       [ syntaxForOutput [ ReplValueKind.Binary ] None
           (ReplValueKind.Collection ReplValueKind.CFG) []
         syntaxFor [ ReplValueKind.Binary ] None [ address ]
-        syntaxFor [ ReplValueKind.FunctionInfo ] None []
-      ]
+        syntaxFor [ ReplValueKind.FunctionInfo ] None [] ]
 
   let private bytes =
     overloadContract "bytes"
@@ -567,6 +566,28 @@ module ActionMetadata =
     contract "as-binary" ReplValueKind.ByteArray ReplValueKind.Binary
       ActionRole.Transform 10 "as-binary -> Binary"
       [ "rawBytes |> @as-binary" ] [ syntax None [] ]
+
+  let private asm =
+    let code =
+      required "code" ActionArgumentKind.Text
+        "Assembly instruction text."
+    let isa =
+      optional "isa" ActionArgumentKind.ISA
+        "Instruction-set architecture."
+    let baseAddress =
+      optional "base" ActionArgumentKind.Address
+        "Base address used for relative encodings."
+    overloadContract "asm"
+      [ ReplValueKind.Unit ]
+      ReplValueKind.ByteArray
+      ActionRole.Source 5
+      "asm code=<text> [isa=<isa>] [base=<addr>] -> ByteArray"
+      [ "@asm code=\"ret\" isa=x86-64"
+        "@asm code=\"cmp dword ptr [rbp - 0xc], 0x63\" isa=x86-64" ]
+      [ syntax None [ code ]
+        syntax None [ code; isa ]
+        syntax None [ code; baseAddress ]
+        syntax None [ code; isa; baseAddress ] ]
 
   let private arg =
     let index =
@@ -742,16 +763,31 @@ module ActionMetadata =
     let after =
       optional "bytes-after" ActionArgumentKind.Integer
         "Context bytes following each match."
-    let signature =
+    let byPattern =
       "grep pattern=<hex> [bytes-before=<n>] [bytes-after=<n>] "
       + "-> BinarySlice collection"
+    let byBytes =
+      "grep [bytes-before=<n>] [bytes-after=<n>] "
+      + "-> BinarySlice collection"
     overloadContract "grep"
-      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+      [ ReplValueKind.Binary
+        ReplValueKind.BinarySlice
+        ReplValueKind.Tuple [ ReplValueKind.Binary; ReplValueKind.ByteArray ]
+        ReplValueKind.Tuple
+          [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ] ]
       (ReplValueKind.Collection ReplValueKind.BinarySlice)
-      ActionRole.Transform 30 signature
+      ActionRole.Transform 30 (byPattern + " | " + byBytes)
       [ "binary |> @grep pattern=7f454c46"
-        "binary |> @grep pattern=7f454c46 bytes-before=4 bytes-after=16" ]
-      [ syntax None [ pattern; before; after ] ]
+        "binary |> @grep pattern=7f454c46 bytes-before=4 bytes-after=16"
+        "(binary, needle) |> @grep bytes-before=4 bytes-after=16" ]
+      [ syntaxFor [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
+          None [ pattern; before; after ]
+        syntaxFor
+          [ ReplValueKind.Tuple
+              [ ReplValueKind.Binary; ReplValueKind.ByteArray ]
+            ReplValueKind.Tuple
+              [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ] ]
+          None [ before; after ] ]
 
   let private hexdump =
     overloadContract "hexdump"
@@ -1003,6 +1039,7 @@ module ActionMetadata =
     [ cfg
       bytes
       asBinary
+      asm
       arg
       batch
       count
@@ -1099,6 +1136,9 @@ module ActionRegistry =
       ReplValueKind.Int
       ReplValueKind.Float
       ReplValueKind.Bool
+      ReplValueKind.Tuple [ ReplValueKind.Binary; ReplValueKind.ByteArray ]
+      ReplValueKind.Tuple
+        [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ]
       ReplValueKind.Tuple [ ReplValueKind.Binary; ReplValueKind.Binary ]
       ReplValueKind.Tuple
         [ ReplValueKind.BinarySlice; ReplValueKind.BinarySlice ]

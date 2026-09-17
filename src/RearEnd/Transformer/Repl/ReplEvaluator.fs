@@ -105,7 +105,7 @@ module TransformerReplEvaluator =
         lines.Add line
       else
         omitted <- omitted + 1
-    if omitted > 0 then lines.Add(omittedLine omitted)
+    if omitted > 0 then lines.Add(omittedLine omitted) else ()
     lines |> Seq.toList
 
   let private ofOption error = function
@@ -234,13 +234,36 @@ module TransformerReplEvaluator =
       |> Array.toList
     header :: clusters
 
+  let private formatRange startAddress endAddress =
+    $"0x{startAddress:x}-0x{endAddress:x} (end exclusive)"
+
+  let private trySectionByAddress (slice: BinarySlice) =
+    let hdl = Binary.Handle slice.Source
+    match BinFileOps.tryFindSectionByAddr hdl.File slice.StartAddress with
+    | Ok section -> Some section
+    | _ -> None
+
+  let private tryFileRange (slice: BinarySlice) =
+    trySectionByAddress slice
+    |> Option.bind (fun section ->
+      section.Offset
+      |> Option.map (fun offset ->
+        let fileStart = offset + slice.StartAddress - section.Address
+        fileStart, fileStart + slice.Size, section.Name))
+
   let private renderSlice slice =
     let slice: BinarySlice = slice
+    let fileRange =
+      match tryFileRange slice with
+      | Some(fileStart, fileEnd, section) ->
+        [ $"  file: {formatRange fileStart fileEnd}"
+          $"  section: {section}" ]
+      | None -> []
     [ slice.ToString()
       $"  source: {slice.Source}"
-      $"  start: 0x{slice.StartAddress:x}"
-      $"  end: 0x{slice.EndAddress:x}"
-      $"  size: {slice.Size} bytes" ]
+      $"  virtual: {formatRange slice.StartAddress slice.EndAddress}" ]
+    @ fileRange
+    @ [ $"  size: {slice.Size} bytes" ]
 
   let private renderSection section =
     let section: SectionInfo = section
@@ -703,7 +726,6 @@ module TransformerReplEvaluator =
     else
       let lhs = token[..index - 1].Trim()
       let rhs = token[index + 1..].Trim()
-      let lhs = bindingText state lhs |> Option.defaultValue lhs
       let rhs = bindingText state rhs |> Option.defaultValue rhs
       lhs + "=" + rhs
 
@@ -724,6 +746,13 @@ module TransformerReplEvaluator =
 
   let private compactBracketArguments args =
     let rec loop output = function
+      | token :: "(" :: rest
+          when token.EndsWith("=", StringComparison.Ordinal) ->
+        match joinBracketValue "(" rest with
+        | Some(value, tail) ->
+          let value = value |> String.concat " "
+          loop ((token + value) :: output) tail
+        | None -> (List.rev output) @ (token :: "(" :: rest)
       | token :: "[" :: rest
           when token.EndsWith("=", StringComparison.Ordinal) ->
         match joinBracketValue "[" rest with
@@ -1331,6 +1360,8 @@ module TransformerReplEvaluator =
                 if value.Kind <> ReplValueKind.Unit then
                   outputKinds.Add value.Kind
                   output.AddRange value.Collection.Values
+                else
+                  ()
                 loop (index + 1)
         loop 0)
 
@@ -1373,6 +1404,37 @@ module TransformerReplEvaluator =
     | token :: body when token = closeToken -> Some(List.rev body)
     | _ -> None
 
+  let private tryAddressLiteral (token: string) =
+    if token.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
+      let text = token[2..]
+      match UInt64.TryParse(text, NumberStyles.HexNumber,
+                            CultureInfo.InvariantCulture) with
+      | true, value -> Some({ Address = value } |> box)
+      | _ -> None
+    else
+      None
+
+  let private tryIntLiteral (token: string) =
+    match Int32.TryParse(token, NumberStyles.Integer,
+                         CultureInfo.InvariantCulture) with
+    | true, value -> Some(value |> box)
+    | _ -> None
+
+  let private tryBoolLiteral (token: string) =
+    match Boolean.TryParse token with
+    | true, value -> Some(value |> box)
+    | _ -> None
+
+  let private tryScalarLiteral tokens =
+    match tokens with
+    | [ token ] ->
+      tryAddressLiteral token
+      |> Option.orElseWith (fun () -> tryIntLiteral token)
+      |> Option.orElseWith (fun () -> tryBoolLiteral token)
+      |> Option.map (fun value ->
+        ReplValue.ofCollection ReplValueKind.Any { Values = [| value |] })
+    | _ -> None
+
   let private validateLiteralSeparators separator tokens =
     let invalid =
       if separator = ";" then "," else ";"
@@ -1411,7 +1473,7 @@ module TransformerReplEvaluator =
         |> Result.map (ReplValue.ofArray >> Some)
       | None -> Ok None
     | _ ->
-      Ok None
+      Ok(tryScalarLiteral tokens)
 
   let private runRemaining registry state initial segments cancellationToken =
     segments
