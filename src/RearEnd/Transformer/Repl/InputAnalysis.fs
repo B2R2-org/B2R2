@@ -45,6 +45,7 @@ type InputContext =
     Expression: string
     Segment: string
     SegmentWords: string list
+    PartialPipeline: ReplPartialPipeline option
     HasBinding: bool
     HasPipeline: bool }
 
@@ -55,7 +56,7 @@ module InputAnalysis =
 
   let tokenizeStrict text = ReplLanguage.tokenizeStrict text
 
-  let splitWords text = ReplLanguage.splitWords text
+  let splitWords text = ReplLanguage.partialWords text
 
   let updateDepth depth token = ReplLanguage.updateDepth depth token
 
@@ -128,10 +129,22 @@ module InputAnalysis =
     let words = splitWords inputBeforeCursor
     let fullExpression = expressionPortion inputBeforeCursor
     let expression = activeExpression fullExpression
-    let lastPipeline = topLevelLastPipeline expression
+    let partialPipeline = ReplLanguage.tryParsePartialPipeline fullExpression
+    let activePipeline = ReplLanguage.tryParsePartialPipeline expression
+    let lastPipeline =
+      activePipeline |> Option.bind _.LastPipelineStart
     let segmentStart =
       lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
-    let segment = expression[segmentStart..]
+    let segment =
+      if segmentStart >= expression.Length then ""
+      else expression[segmentStart..]
+    let segmentWords =
+      activePipeline
+      |> Option.bind (fun pipeline ->
+        if pipeline.HasTrailingPipeline then None
+        else pipeline.Segments |> List.tryLast)
+      |> Option.map _.Tokens
+      |> Option.defaultWith (fun () -> splitWords segment)
     let trimmed = inputBeforeCursor.TrimStart()
     { InputBeforeCursor = inputBeforeCursor
       InputAfterCursor = inputAfterCursor
@@ -145,7 +158,8 @@ module InputAnalysis =
       FullExpression = fullExpression
       Expression = expression
       Segment = segment
-      SegmentWords = splitWords segment
+      SegmentWords = segmentWords
+      PartialPipeline = partialPipeline
       HasBinding =
         ReplLanguage.bindingHeader trimmed |> Option.isSome
       HasPipeline = Option.isSome lastPipeline }

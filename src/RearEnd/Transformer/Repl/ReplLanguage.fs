@@ -31,6 +31,18 @@ type ReplPipelineSegment =
   { Head: string
     Arguments: string list }
 
+/// One segment recovered from an incomplete pipeline expression.
+type ReplPartialSegment =
+  { Start: int
+    End: int
+    Tokens: string list }
+
+/// A tolerant syntax tree used while completing a pipeline expression.
+type ReplPartialPipeline =
+  { Segments: ReplPartialSegment list
+    LastPipelineStart: int option
+    HasTrailingPipeline: bool }
+
 /// A parsed Transformer REPL command.
 type TransformerReplCommand =
   | Evaluate of ReplPipelineSegment list * binding: string option
@@ -780,6 +792,87 @@ module ReplLanguage =
       | Failure(message, _, _) ->
         Result.Error $"Invalid pipeline expression: {message}"
 
+    let partialQuoted delimiter =
+      pchar delimiter >>. manyChars anyChar
+      |>> fun text -> string delimiter + text
+
+    let partialWord =
+      let quoted = attempt (quoted '\'') <|> attempt (quoted '"')
+      let unterminated = partialQuoted '\'' <|> partialQuoted '"'
+      let bare = many1Satisfy bareCharacter |>> string
+      many1 (quoted <|> unterminated <|> bare)
+      |>> String.concat ""
+      .>> spaces
+
+    let partialToken, partialTokenRef =
+      createParserForwardedToRef<string list, unit>()
+
+    let partialDelimitedWithClose opening closing =
+      symbol opening >>. many partialToken .>>. opt (symbol closing)
+      |>> fun (body, close) ->
+        let closing =
+          close |> Option.map List.singleton |> Option.defaultValue []
+        opening :: List.concat body @ closing
+
+    let partialNested =
+      choice
+        [ attempt (partialDelimitedWithClose "[|" "|]")
+          attempt (partialDelimitedWithClose "(" ")")
+          attempt (partialDelimitedWithClose "[" "]")
+          symbol "|>" |>> List.singleton
+          symbol "," |>> List.singleton
+          symbol ";" |>> List.singleton
+          partialWord |>> List.singleton ]
+
+    do partialTokenRef.Value <- partialNested
+
+    let partialTopLevelToken =
+      choice
+        [ attempt (partialDelimitedWithClose "[|" "|]")
+          attempt (partialDelimitedWithClose "(" ")")
+          attempt (partialDelimitedWithClose "[" "]")
+          symbol ")" |>> List.singleton
+          symbol "]" |>> List.singleton
+          symbol "|]" |>> List.singleton
+          symbol "," |>> List.singleton
+          symbol ";" |>> List.singleton
+          partialWord |>> List.singleton ]
+
+    let partialSegment =
+      getPosition .>>. many1 partialTopLevelToken .>>. getPosition
+      |>> fun ((start, tokens), finish) ->
+        { Start = int start.Index
+          End = int finish.Index
+          Tokens = List.concat tokens }
+
+    let partialPipeline =
+      let pipe =
+        getPosition .>> symbol "|>" |>> fun position -> int position.Index
+      let rec parseTail segments lastPipe =
+        (attempt (pipe .>>. partialSegment)
+         >>= fun (position, segment) ->
+           parseTail (segment :: segments) (Some position))
+        <|> (attempt pipe
+             |>> fun position ->
+               List.rev segments, Some position, true)
+        <|> preturn (List.rev segments, lastPipe, false)
+      spaces >>. opt partialSegment
+      >>= function
+        | None -> preturn { Segments = []; LastPipelineStart = None
+                            HasTrailingPipeline = false }
+        | Some segment ->
+          parseTail [ segment ] None
+          |>> fun (segments, lastPipe, hasTrailing) ->
+            { Segments = segments
+              LastPipelineStart = lastPipe
+              HasTrailingPipeline = hasTrailing }
+      .>> eof
+
+    let parsePartial text =
+      match run partialPipeline text with
+      | Success(result, _, _) -> Some result
+      | Failure _ -> None
+
   let parsePipeline text =
     Grammar.parse text
     |> Result.bind (fun segments ->
@@ -790,6 +883,19 @@ module ReplLanguage =
           Result.map (fun value -> value :: values) item) state
       ) (Ok [])
       |> Result.map List.rev)
+
+  let tryParsePartialPipeline text = Grammar.parsePartial text
+
+  let partialWords text =
+    tryParsePartialPipeline text
+    |> Option.map (fun pipeline ->
+      let tokens =
+        List.foldBack (fun segment rest ->
+          match rest with
+          | [] -> segment.Tokens
+          | _ -> segment.Tokens @ ("|>" :: rest)) pipeline.Segments []
+      if pipeline.HasTrailingPipeline then tokens @ [ "|>" ] else tokens)
+    |> Option.defaultWith (fun () -> tokenize text)
 
   let private parseKind token =
     match ReplValueKind.tryParse token with

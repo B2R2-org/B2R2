@@ -60,6 +60,13 @@ type ReplParserTests() =
   let assertArguments expected actual =
     Assert.AreEqual<string list>(expected, actual)
 
+  let parsePartial input =
+    match ReplLanguage.tryParsePartialPipeline input with
+    | Some pipeline -> pipeline
+    | None ->
+      Assert.Fail "Expected incomplete input to produce a partial pipeline."
+      Unchecked.defaultof<ReplPartialPipeline>
+
   [<TestMethod>]
   member _.``Pipeline parser preserves stage and argument boundaries``() =
     let input =
@@ -129,6 +136,34 @@ type ReplParserTests() =
     Assert.AreEqual(false, analysis.HasClosingDelimiter)
 
   [<TestMethod>]
+  member _.``Partial parser retains an incomplete lambda``() =
+    let pipeline =
+      parsePartial "targets |> iter @strings (fun item "
+    Assert.AreEqual(Some 8, pipeline.LastPipelineStart)
+    Assert.AreEqual(false, pipeline.HasTrailingPipeline)
+    Assert.AreEqual<string list list>(
+      [ [ "targets" ]; [ "iter"; "@strings"; "("; "fun"; "item" ] ],
+      pipeline.Segments |> List.map _.Tokens)
+
+  [<TestMethod>]
+  member _.``Partial parser records a trailing pipeline``() =
+    let pipeline = parsePartial "targets |> "
+    Assert.AreEqual(Some 8, pipeline.LastPipelineStart)
+    Assert.AreEqual(true, pipeline.HasTrailingPipeline)
+    Assert.AreEqual<string list list>(
+      [ [ "targets" ] ], pipeline.Segments |> List.map _.Tokens)
+    assertArguments [ "targets"; "|>" ]
+      (ReplLanguage.partialWords "targets |> ")
+
+  [<TestMethod>]
+  member _.``Partial parser retains an unfinished quoted value``() =
+    let pipeline = parsePartial "target |> @asm code=\"cmp dword"
+    Assert.AreEqual(false, pipeline.HasTrailingPipeline)
+    Assert.AreEqual<string list list>(
+      [ [ "target" ]; [ "@asm"; "code=\"cmp dword" ] ],
+      pipeline.Segments |> List.map _.Tokens)
+
+  [<TestMethod>]
   member _.``Completion suggests iterator keywords while editing one``() =
     let candidates =
       candidateTexts ReplValueKind.Binary "targets |> iter"
@@ -140,13 +175,15 @@ type ReplParserTests() =
     let candidates =
       candidateTexts ReplValueKind.Binary
         "targets |> iter @strings (fun item "
-    Assert.AreEqual(true, List.contains "-> " candidates)
+    let detail = String.concat ", " candidates
+    Assert.AreEqual(true, List.contains "-> " candidates, detail)
 
   [<TestMethod>]
   member _.``Completion suggests optional grep parameters in a lambda``() =
     let input =
       "targets |> iter @grep (fun item -> pattern=1234 "
     let candidates = candidateTexts ReplValueKind.BinarySlice input
-    Assert.AreEqual(true, List.contains "context=" candidates)
-    Assert.AreEqual(true, List.contains "before=" candidates)
-    Assert.AreEqual(true, List.contains "after=" candidates)
+    let detail = String.concat ", " candidates
+    Assert.AreEqual(true, List.contains "context=" candidates, detail)
+    Assert.AreEqual(true, List.contains "before=" candidates, detail)
+    Assert.AreEqual(true, List.contains "after=" candidates, detail)

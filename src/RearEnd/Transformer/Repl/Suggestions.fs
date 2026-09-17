@@ -943,15 +943,19 @@ module Suggestions =
     && String.Equals(
       target, actionID context.Prefix, StringComparison.OrdinalIgnoreCase)
 
+  let private fullSegmentWords context =
+    let context: InputContext = context
+    context.PartialPipeline
+    |> Option.bind (fun pipeline ->
+      if pipeline.HasTrailingPipeline then None
+      else pipeline.Segments |> List.tryLast)
+    |> Option.map _.Tokens
+    |> Option.defaultValue context.SegmentWords
+
   let private iterBodyCandidates registry state context =
     let context: InputContext = context
     let fullExpression = context.FullExpression
-    let lastPipeline = InputAnalysis.topLevelLastPipeline fullExpression
-    let segment =
-      lastPipeline
-      |> Option.map (fun index -> fullExpression[index + 2..])
-      |> Option.defaultValue context.Segment
-    let words = InputAnalysis.splitWords segment
+    let words = fullSegmentWords context
     match words with
     | head :: args when isIterHead head ->
       let analysis = ReplLanguage.analyzeIter head args
@@ -1157,9 +1161,13 @@ module Suggestions =
     let endsWithSpace =
       segment.Length > 0 && Char.IsWhiteSpace segment[segment.Length - 1]
     let argumentState =
-      InputAnalysis.splitPipeline expression
-      |> List.tryHead
-      |> Option.bind (InputAnalysis.splitWords >> List.tryHead)
+      context.PartialPipeline
+      |> Option.bind (fun pipeline -> pipeline.Segments |> List.tryHead)
+      |> Option.bind (fun segment -> segment.Tokens |> List.tryHead)
+      |> Option.orElseWith (fun () ->
+        InputAnalysis.splitPipeline expression
+        |> List.tryHead
+        |> Option.bind (InputAnalysis.splitWords >> List.tryHead))
       |> Option.bind (fun name -> TransformerReplState.tryFind name state)
       |> Option.map (fun value -> { state with Current = Some value })
       |> Option.defaultValue state
@@ -1239,15 +1247,27 @@ module Suggestions =
 
   let private expressionContext context (expression, _) =
     let context: InputContext = context
-    let lastPipeline = InputAnalysis.topLevelLastPipeline expression
+    let partialPipeline = ReplLanguage.tryParsePartialPipeline expression
+    let lastPipeline =
+      partialPipeline |> Option.bind _.LastPipelineStart
     let segmentStart =
       lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
-    let segment = expression[segmentStart..]
+    let segment =
+      if segmentStart >= expression.Length then ""
+      else expression[segmentStart..]
+    let segmentWords =
+      partialPipeline
+      |> Option.bind (fun pipeline ->
+        if pipeline.HasTrailingPipeline then None
+        else pipeline.Segments |> List.tryLast)
+      |> Option.map _.Tokens
+      |> Option.defaultWith (fun () -> InputAnalysis.splitWords segment)
     { context with
         FullExpression = expression
         Expression = expression
         Segment = segment
-        SegmentWords = InputAnalysis.splitWords segment
+        SegmentWords = segmentWords
+        PartialPipeline = partialPipeline
         HasBinding = false
         HasPipeline = Option.isSome lastPipeline }
 
@@ -1351,12 +1371,7 @@ module Suggestions =
   let private hintTarget registry state context =
     let context: InputContext = context
     let fullExpression = context.FullExpression
-    let lastPipeline = InputAnalysis.topLevelLastPipeline fullExpression
-    let segment =
-      lastPipeline
-      |> Option.map (fun index -> fullExpression[index + 2..])
-      |> Option.defaultValue context.Segment
-    let words = InputAnalysis.splitWords segment
+    let words = fullSegmentWords context
     match words with
     | head :: _ when isIterHead head ->
       iterHintTarget registry state fullExpression words
