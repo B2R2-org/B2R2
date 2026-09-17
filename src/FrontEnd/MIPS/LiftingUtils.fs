@@ -379,12 +379,22 @@ let advancePC (bld: LowUIRBuilder) insLen =
     (bld :> ILowUIRBuilder).Stream.MarkEnd insLen
   else
     let nPC = regVar bld R.NPC
+    (* A conditional branch that was not taken left this slot's own address
+       behind, because where it continues is the end of the slot and the
+       branch could not see how wide that is. See BranchFallsPastSlot. *)
+    let target =
+      if bld.BranchFallsPastSlot then
+        let pc = regVar bld R.PC
+        AST.ite (nPC == pc) (pc .+ numI32 (int insLen) bld.RegType) nPC
+      else
+        nPC
     if bld.BranchCarriesMode then
-      interJmpByMode bld nPC bld.DelayedBranch
+      interJmpByMode bld target bld.DelayedBranch
     else
-      append bld { AST.interjmp nPC bld.DelayedBranch }
+      append bld { AST.interjmp target bld.DelayedBranch }
     bld.DelayedBranch <- InterJmpKind.NotAJmp
     bld.BranchCarriesMode <- false
+    bld.BranchFallsPastSlot <- false
 
 /// The Release 6 compact branches. A compact branch has no delay slot:
 /// it takes effect at the branch itself, so the not-taken path is the
@@ -392,26 +402,39 @@ let advancePC (bld: LowUIRBuilder) insLen =
 /// nothing left armed for advancePC to consume. That is the whole of the
 /// difference from updatePCCond below, which is why the two share a
 /// shape and not a body.
-let updatePCCondCompact (bld: LowUIRBuilder) offset cond =
+let updatePCCondCompact (ins: Instruction) (bld: LowUIRBuilder) offset cond =
   let pc = regVar bld R.PC
   append bld {
-    AST.intercjmp cond offset (pc .+ numI32 4 bld.RegType)
+    AST.intercjmp cond offset (pc .+ numI32 (int ins.Length) bld.RegType)
   }
 
-let updatePCCond (bld: LowUIRBuilder) offset cond kind =
+/// <summary>
+/// Where a conditional branch that was not taken continues.
+///
+/// In the 32-bit encoding that is a fixed PC+8, every instruction being a
+/// word. In a compressed one it is the end of the delay slot, whose width the
+/// branch cannot see -- so what goes here is the SLOT's own address, which
+/// the slot turns into the address past itself. See BranchFallsPastSlot.
+/// </summary>
+let private notTaken (ins: Instruction) (bld: LowUIRBuilder) =
+  let pc = regVar bld R.PC
+  if ins.ISAMode = MIPSISAMode.MIPS then pc .+ numI32 8 bld.RegType
+  else pc .+ numI32 (int ins.Length) bld.RegType
+
+let updatePCCond (ins: Instruction) (bld: LowUIRBuilder) offset cond kind =
   append bld {
     let lblTrueCase = label bld "TrueCase"
     let lblFalseCase = label bld "FalseCase"
     let lblEnd = label bld "End"
-    let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     bld.DelayedBranch <- kind
+    bld.BranchFallsPastSlot <- ins.ISAMode <> MIPSISAMode.MIPS
     AST.cjmp cond (AST.jmpDest lblTrueCase) (AST.jmpDest lblFalseCase)
     AST.lmark lblTrueCase
     nPC := offset
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblFalseCase
-    nPC := pc .+ numI32 8 bld.RegType
+    nPC := notTaken ins bld
     AST.lmark lblEnd
   }
 
@@ -426,6 +449,13 @@ let updatePCCond (bld: LowUIRBuilder) offset cond kind =
 /// both arms and let the delay slot carry the transfer, because there the slot
 /// runs either way; here it must not.
 ///
+/// And it is why the marker `updatePCCond` uses cannot be used here. That one
+/// works by leaving the answer to the delay slot, which is the only place the
+/// slot's width is known; a nullified slot never runs, so there is nothing to
+/// leave it to and PC+8 is the best this can do. A microMIPS branch-likely
+/// whose slot is a halfword therefore resumes two bytes late. No compiler
+/// writes one -- the family is gone in Release 6 and gcc does not emit it for
+/// microMIPS -- so this is a known gap rather than a reachable defect.
 let updatePCCondLikely (bld: LowUIRBuilder) offset cond kind =
   append bld {
     let lblTrueCase = label bld "TrueCase"
@@ -441,23 +471,6 @@ let updatePCCondLikely (bld: LowUIRBuilder) offset cond kind =
     AST.lmark lblFalseCase
     nPC := pc .+ numI32 8 bld.RegType
     AST.interjmp nPC kind
-    AST.lmark lblEnd
-  }
-
-let updateRAPCCond (bld: LowUIRBuilder) nAddr offset cond kind =
-  append bld {
-    let lblTrueCase = label bld "TrueCase"
-    let lblFalseCase = label bld "FalseCase"
-    let lblEnd = label bld "End"
-    let pc = regVar bld R.PC
-    let nPC = regVar bld R.NPC
-    bld.DelayedBranch <- kind
-    AST.cjmp cond (AST.jmpDest lblTrueCase) (AST.jmpDest lblFalseCase)
-    AST.lmark lblTrueCase
-    nPC := offset
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblFalseCase
-    nPC := nAddr
     AST.lmark lblEnd
   }
 

@@ -297,13 +297,13 @@ let bc1f (ins: Instruction) bld =
     | OneOperand off ->
       let offset = transOpr ins bld off
       let cond = AST.not (fpConditionCode 0 bld)
-      updatePCCond bld offset cond InterJmpKind.Base
+      updatePCCond ins bld offset cond InterJmpKind.Base
     | _ ->
       let cc, offset = getTwoOprs ins
       let offset = transOpr ins bld offset
       let cc = transOprToImmToInt cc
       let cond = AST.not (fpConditionCode cc bld)
-      updatePCCond bld offset cond InterJmpKind.Base
+      updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
 let bc1t (ins: Instruction) bld =
@@ -312,20 +312,20 @@ let bc1t (ins: Instruction) bld =
     | OneOperand off ->
       let offset = transOpr ins bld off
       let cond = fpConditionCode 0 bld
-      updatePCCond bld offset cond InterJmpKind.Base
+      updatePCCond ins bld offset cond InterJmpKind.Base
     | _ ->
       let cc, offset = getTwoOprs ins
       let offset = transOpr ins bld offset
       let cc = transOprToImmToInt cc
       let cond = fpConditionCode cc bld
-      updatePCCond bld offset cond InterJmpKind.Base
+      updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
 let beq ins bld =
   liftTransfer bld ins {
     let rs, rt, offset = transThreeOprs ins bld
     let cond = rs == rt
-    updatePCCond bld offset cond InterJmpKind.Base
+    updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
 /// BEQL and BNEL. See updatePCCondLikely for why the delay slot is skipped
@@ -389,14 +389,14 @@ let blez ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
     let cond = AST.sle rs (AST.num0 bld.RegType)
-    updatePCCond bld offset cond InterJmpKind.Base
+    updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
 let bltz ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
     let cond = AST.slt rs (AST.num0 bld.RegType)
-    updatePCCond bld offset cond InterJmpKind.Base
+    updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
 let bltzal ins bld =
@@ -407,14 +407,14 @@ let bltzal ins bld =
     let cond = AST.slt rs (AST.num0 bld.RegType)
     nAddr := pc .+ numI32 8 bld.RegType
     regVar bld R.R31 := nAddr
-    updateRAPCCond bld nAddr offset cond InterJmpKind.IsCall
+    updatePCCond ins bld offset cond InterJmpKind.IsCall
   }
 
 let bgez ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
     let cond = AST.sge rs (AST.num0 bld.RegType)
-    updatePCCond bld offset cond InterJmpKind.Base
+    updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
 let bgezal ins bld =
@@ -425,21 +425,21 @@ let bgezal ins bld =
     let cond = AST.sge rs (AST.num0 bld.RegType)
     nAddr := pc .+ numI32 8 bld.RegType
     regVar bld R.R31 := nAddr
-    updateRAPCCond bld nAddr offset cond InterJmpKind.IsCall
+    updatePCCond ins bld offset cond InterJmpKind.IsCall
   }
 
 let bgtz ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
     let cond = AST.sgt rs (AST.num0 bld.RegType)
-    updatePCCond bld offset cond InterJmpKind.Base
+    updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
 let bne ins bld =
   liftTransfer bld ins {
     let rs, rt, offset = transThreeOprs ins bld
     let cond = rs != rt
-    updatePCCond bld offset cond InterJmpKind.Base
+    updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
 let setFPConditionCode bld cc tf =
@@ -1515,7 +1515,7 @@ let branchLinkShortSlot ins (bld: LowUIRBuilder) cmp =
     let cond = cmp rs (AST.num0 bld.RegType)
     nAddr := linkFrom ins bld (afterShortSlot ins)
     regVar bld R.R31 := nAddr
-    updateRAPCCond bld nAddr offset cond InterJmpKind.IsCall
+    updatePCCond ins bld offset cond InterJmpKind.IsCall
   }
 
 /// <summary>
@@ -1552,26 +1552,23 @@ let jalrCompact (ins: Instruction) (bld: LowUIRBuilder) =
   }
 
 /// <summary>
-/// JRADDIUSP, which returns and gives the frame back in one instruction.
+/// JRADDIUSP and JRCADDIUSP, which return and give the frame back in one
+/// instruction.
 ///
 /// Neither register is named: the jump is to the return address and the
 /// adjustment is to the stack pointer, and an epilogue never wants any
 /// others. The adjustment is unsigned because a return only ever unwinds.
 ///
+/// NEITHER has a delay slot, despite only one of them saying so in its name.
+/// MD00594 writes JRADDIUSP's operation across I and I+1 the way it writes a
+/// delayed branch, but the halves are the other way round -- the PC
+/// assignment is in I and the stack adjustment in I+1 -- so the notation is
+/// about the order of the two writes and not about a slot. A processor
+/// settles it: an instruction written after one does not execute. Lifting it
+/// as delayed leaves the return armed while the halfword after it runs, and a
+/// compiler puts a branch TARGET there.
 /// </summary>
 let jumpRegAdjust ins (bld: LowUIRBuilder) =
-  liftTransfer bld ins {
-    let nPC = regVar bld R.NPC
-    let sp = regVar bld R.R29
-    let imm = transOneOpr ins bld
-    bld.DelayedBranch <- InterJmpKind.Base
-    bld.BranchCarriesMode <- carriesMode bld
-    sp := sp .+ imm
-    nPC := regVar bld R.R31
-  }
-
-/// JRCADDIUSP, which is JRADDIUSP without the delay slot.
-let jumpRegAdjustCompact ins bld =
   lift bld ins {
     let sp = regVar bld R.R29
     let imm = transOneOpr ins bld
@@ -1720,14 +1717,14 @@ let readHWR ins bld =
 let compactBranchRR ins bld cmp =
   lift bld ins {
     let rs, rt, offset = transThreeOprs ins bld
-    updatePCCondCompact bld offset (cmp rs rt)
+    updatePCCondCompact ins bld offset (cmp rs rt)
   }
 
 /// A compact compare-with-zero branch.
 let compactBranchZ ins bld cmp =
   lift bld ins {
     let r, offset = transTwoOprs ins bld
-    updatePCCondCompact bld offset (cmp r (AST.num0 bld.RegType))
+    updatePCCondCompact ins bld offset (cmp r (AST.num0 bld.RegType))
   }
 
 /// The and-link forms. MD00087 says the return address link is updated
@@ -1738,7 +1735,7 @@ let compactBranchLinkZ ins bld cmp =
     let r, offset = transTwoOprs ins bld
     let cond = cmp r (AST.num0 bld.RegType)
     regVar bld R.R31 := regVar bld R.PC .+ numI32 4 bld.RegType
-    updatePCCondCompact bld offset cond
+    updatePCCondCompact ins bld offset cond
   }
 
 /// BOVC and BNVC branch on whether the 32-bit signed sum of their operands
@@ -1749,7 +1746,7 @@ let branchOverflowCompact ins bld taken =
     let t = tmpVar bld bld.RegType
     t := rs .+ rt
     let ovf = checkOverflowOnAdd rs rt t
-    updatePCCondCompact bld offset (if taken then ovf else AST.not ovf)
+    updatePCCondCompact ins bld offset (if taken then ovf else AST.not ovf)
   }
 
 let bcCompact ins bld =
@@ -2189,7 +2186,7 @@ let bc1z ins bld nonZero =
   lift bld ins {
     let ft, offset = transTwoOprs ins bld
     let bit = AST.xtlo 1<rt> ft
-    updatePCCondCompact bld offset (if nonZero then bit else AST.not bit)
+    updatePCCondCompact ins bld offset (if nonZero then bit else AST.not bit)
   }
 
 /// The Release 6 PC-relative family.

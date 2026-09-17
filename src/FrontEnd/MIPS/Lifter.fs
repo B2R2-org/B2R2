@@ -272,10 +272,8 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     jalrShortSlot ins bld
   | Op.JALRC ->
     jalrCompact ins bld
-  | Op.JRADDIUSP ->
+  | Op.JRADDIUSP | Op.JRCADDIUSP ->
     jumpRegAdjust ins bld
-  | Op.JRCADDIUSP ->
-    jumpRegAdjustCompact ins bld
   | Op.MOVEP ->
     movePair ins bld
   | Op.LWM ->
