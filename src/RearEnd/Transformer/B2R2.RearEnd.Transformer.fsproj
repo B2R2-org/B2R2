@@ -9,11 +9,13 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="IAction.fs" />
+    <Compile Include="PluginLoader.fs" />
     <Compile Include="Repl\ActionMetadata.fs" />
     <Compile Include="ByteArrayAction.fs" />
     <Compile Include="BatchAction.fs" />
     <Compile Include="CFGAction.fs" />
     <Compile Include="ConcExecAction.fs" />
+    <Compile Include="SymbExecAction.fs" />
     <Compile Include="CountAction.fs" />
     <Compile Include="DbscanAction.fs" />
     <Compile Include="DetectAction.fs" />
@@ -59,6 +61,8 @@
     <ProjectReference Include="..\..\MiddleEnd\API\B2R2.MiddleEnd.API.fsproj" />
     <ProjectReference
       Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
+    <ProjectReference
+      Include="..\..\MiddleEnd\SymbEval\B2R2.MiddleEnd.SymbEval.fsproj" />
     <ProjectReference
       Include="..\..\MiddleEnd\LLVM\B2R2.MiddleEnd.LLVM.fsproj" />
   </ItemGroup>

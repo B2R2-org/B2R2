@@ -41,6 +41,9 @@ type ReplValueKind =
   | Fingerprint
   | ClusterResult
   | ConcExecutor
+  | SymbExecutor
+  | SymbSolver
+  | SymbRunResult
   | RegisterView
   | MemoryView
   | ExecutionTrace
@@ -146,6 +149,9 @@ module ReplValueKind =
     | ReplValueKind.Fingerprint -> "Fingerprint"
     | ReplValueKind.ClusterResult -> "ClusterResult"
     | ReplValueKind.ConcExecutor -> "ConcExecutor"
+    | ReplValueKind.SymbExecutor -> "SymbExecutor"
+    | ReplValueKind.SymbSolver -> "SymbSolver"
+    | ReplValueKind.SymbRunResult -> "SymbRunResult"
     | ReplValueKind.RegisterView -> "RegisterView"
     | ReplValueKind.MemoryView -> "MemoryView"
     | ReplValueKind.ExecutionTrace -> "ExecutionTrace"
@@ -175,6 +181,9 @@ module ReplValueKind =
       ReplValueKind.Fingerprint
       ReplValueKind.ClusterResult
       ReplValueKind.ConcExecutor
+      ReplValueKind.SymbExecutor
+      ReplValueKind.SymbSolver
+      ReplValueKind.SymbRunResult
       ReplValueKind.RegisterView
       ReplValueKind.MemoryView
       ReplValueKind.ExecutionTrace
@@ -1066,6 +1075,9 @@ module ActionRegistry =
       ReplValueKind.Fingerprint
       ReplValueKind.ClusterResult
       ReplValueKind.ConcExecutor
+      ReplValueKind.SymbExecutor
+      ReplValueKind.SymbSolver
+      ReplValueKind.SymbRunResult
       ReplValueKind.RegisterView
       ReplValueKind.MemoryView
       ReplValueKind.ExecutionTrace
@@ -1147,11 +1159,8 @@ module ActionRegistry =
     ) registry
 
   let private loadAssembly path registry =
-    if File.Exists path then
-      let assembly = Assembly.LoadFile(Path.GetFullPath path)
-      addTypes registry (assembly.GetExportedTypes())
-    else
-      invalidOp $"File not found: {path}"
+    TransformerPluginLoader.exportedTypes path
+    |> addTypes registry
 
   let create dllPath =
     let initial =
@@ -1162,6 +1171,9 @@ module ActionRegistry =
     assembly.GetExportedTypes()
     |> addTypes initial
     |> fromMap
+
+  let loadPlugin path registry =
+    loadAssembly path (registry: ActionRegistry).Actions |> fromMap
 
   let tryFind (id: string) registry =
     registry.Actions |> Map.tryFind (id.ToLowerInvariant())

@@ -104,6 +104,9 @@ module ReplValue =
     elif typ = typeof<Fingerprint> then ReplValueKind.Fingerprint
     elif typ = typeof<ClusterResult> then ReplValueKind.ClusterResult
     elif typ = typeof<ConcExecutorValue> then ReplValueKind.ConcExecutor
+    elif typ = typeof<SymbExecutorValue> then ReplValueKind.SymbExecutor
+    elif typ = typeof<SymbSolverValue> then ReplValueKind.SymbSolver
+    elif typ = typeof<SymbRunValue> then ReplValueKind.SymbRunResult
     elif typ = typeof<RegisterView> then ReplValueKind.RegisterView
     elif typ = typeof<MemoryView> then ReplValueKind.MemoryView
     elif typ = typeof<ExecutionTrace> then ReplValueKind.ExecutionTrace
@@ -132,6 +135,9 @@ module ReplValue =
     | :? Fingerprint -> ReplValueKind.Fingerprint
     | :? ClusterResult -> ReplValueKind.ClusterResult
     | :? ConcExecutorValue -> ReplValueKind.ConcExecutor
+    | :? SymbExecutorValue -> ReplValueKind.SymbExecutor
+    | :? SymbSolverValue -> ReplValueKind.SymbSolver
+    | :? SymbRunValue -> ReplValueKind.SymbRunResult
     | :? RegisterView -> ReplValueKind.RegisterView
     | :? MemoryView -> ReplValueKind.MemoryView
     | :? ExecutionTrace -> ReplValueKind.ExecutionTrace
@@ -190,6 +196,11 @@ module ReplValue =
       match fallback with
       | ReplValueKind.Collection _ ->
         ReplValueKind.Collection elementKind
+      | ReplValueKind.Any ->
+        elementKind
+      | kind when collection.Values.Length = 1
+                  && elementKind = ReplValueKind.Any ->
+        kind
       | _ when collection.Values.Length > 1 ->
         ReplValueKind.Collection elementKind
       | _ when collection.Values.Length = 0 -> fallback
