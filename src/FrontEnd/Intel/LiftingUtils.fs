@@ -986,10 +986,37 @@ let hasStackPtr (ins: Instruction) =
   | OneOperand(OprMem(_, Some(Register.RSP, _), _, _)) -> true
   | _ -> false
 
+/// Holds a small constant at each width an x86 operand can have. The flag
+/// computations below need these at the operand's width, and written inline
+/// each one costs a BitVector and a Num on every lift, with a fold on top of
+/// that. They belong to the flag's definition rather than to the instruction,
+/// so they are built once.
+type private SizedNum(v: uint32) =
+  let nums =
+    [| numU32 v 8<rt>; numU32 v 16<rt>; numU32 v 32<rt>; numU32 v 64<rt> |]
+
+  /// Returns the constant at the given operand width.
+  member _.At size =
+    match size with
+    | 8<rt> -> nums[0]
+    | 16<rt> -> nums[1]
+    | 32<rt> -> nums[2]
+    | 64<rt> -> nums[3]
+    | _ -> numU32 v size
+
+(* One shifted left by four: the carry out of the low nibble that AF reports. *)
+let private afMask = SizedNum 0x10ul
+
+(* The first two fold amounts of the parity computation. The third is one,
+   which AST.num1 holds already. *)
+let private pfFold4 = SizedNum 4ul
+
+let private pfFold2 = SizedNum 2ul
+
 let buildAF bld e1 e2 r size =
   let t1 = r <+> e1
   let t2 = t1 <+> e2
-  let t3 = (AST.num1 size) << (numU32 4ul size)
+  let t3 = afMask.At size
   let t4 = t2 .& t3
   direct (regVar bld R.AF) := t4 == t3
 
@@ -1006,9 +1033,9 @@ let buildPF bld r size cond =
         AST.num1 1<rt>
       else
         let struct (t1, t2) = tmpVars2 bld size
-        let s2 = r <+> (r >> (AST.zext size (numU32 4ul 8<rt>)))
-        let s4 = t1 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
-        let s5 = t2 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
+        let s2 = r <+> (r >> pfFold4.At size)
+        let s4 = t1 <+> (t1 >> pfFold2.At size)
+        let s5 = t2 <+> (t2 >> AST.num1 size)
         append bld {
           direct t1 := s2
           direct t2 := s4
