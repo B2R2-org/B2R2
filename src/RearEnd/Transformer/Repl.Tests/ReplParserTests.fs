@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.Transformer.Tests
 
+open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.RearEnd.Transformer
 
@@ -146,14 +147,28 @@ type ReplParserTests() =
       pipeline.Segments |> List.map _.Tokens)
 
   [<TestMethod>]
+  member _.``Partial parser identifies the active incomplete scope``() =
+    let input = "targets |> iter @grep (fun item -> pattern=1234 "
+    let scope =
+      parsePartial input
+      |> ReplLanguage.tryPartialScope
+      |> Option.defaultWith (fun () ->
+        Assert.Fail "Expected an incomplete lambda scope."
+        Unchecked.defaultof<ReplPartialScope>)
+    Assert.AreEqual(input.IndexOf("fun", StringComparison.Ordinal), scope.Start)
+    assertArguments
+      [ "fun"; "item"; "->"; "pattern=1234" ] scope.Tokens
+    let context = InputAnalysis.analyze input input.Length
+    Assert.AreEqual(input[scope.Start..], context.Expression)
+    assertArguments scope.Tokens context.SegmentWords
+
+  [<TestMethod>]
   member _.``Partial parser records a trailing pipeline``() =
     let pipeline = parsePartial "targets |> "
     Assert.AreEqual(Some 8, pipeline.LastPipelineStart)
     Assert.AreEqual(true, pipeline.HasTrailingPipeline)
     Assert.AreEqual<string list list>(
       [ [ "targets" ] ], pipeline.Segments |> List.map _.Tokens)
-    assertArguments [ "targets"; "|>" ]
-      (ReplLanguage.partialWords "targets |> ")
 
   [<TestMethod>]
   member _.``Partial parser retains an unfinished quoted value``() =

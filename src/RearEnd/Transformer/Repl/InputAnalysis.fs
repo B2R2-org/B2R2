@@ -56,7 +56,7 @@ module InputAnalysis =
 
   let tokenizeStrict text = ReplLanguage.tokenizeStrict text
 
-  let splitWords text = ReplLanguage.partialWords text
+  let splitWords text = ReplLanguage.splitWords text
 
   let updateDepth depth token = ReplLanguage.updateDepth depth token
 
@@ -128,23 +128,40 @@ module InputAnalysis =
       if cursor = input.Length then "" else input[cursor..]
     let words = splitWords inputBeforeCursor
     let fullExpression = expressionPortion inputBeforeCursor
-    let expression = activeExpression fullExpression
     let partialPipeline = ReplLanguage.tryParsePartialPipeline fullExpression
-    let activePipeline = ReplLanguage.tryParsePartialPipeline expression
-    let lastPipeline =
-      activePipeline |> Option.bind _.LastPipelineStart
-    let segmentStart =
-      lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
-    let segment =
-      if segmentStart >= expression.Length then ""
-      else expression[segmentStart..]
-    let segmentWords =
-      activePipeline
-      |> Option.bind (fun pipeline ->
-        if pipeline.HasTrailingPipeline then None
-        else pipeline.Segments |> List.tryLast)
-      |> Option.map _.Tokens
-      |> Option.defaultWith (fun () -> splitWords segment)
+    let expression, segment, segmentWords, lastPipeline =
+      match partialPipeline with
+      | Some pipeline ->
+        let lastPipeline = pipeline.LastPipelineStart
+        match ReplLanguage.tryPartialScope pipeline with
+        | Some scope ->
+          let segment =
+            if scope.Start >= fullExpression.Length then ""
+            else fullExpression[scope.Start..]
+          segment, segment, scope.Tokens, lastPipeline
+        | None ->
+          let segmentStart =
+            lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
+          let segment =
+            if segmentStart >= fullExpression.Length then ""
+            else fullExpression[segmentStart..]
+          let words =
+            if pipeline.HasTrailingPipeline then []
+            else
+              pipeline.Segments
+              |> List.tryLast
+              |> Option.map _.Tokens
+              |> Option.defaultValue []
+          fullExpression, segment, words, lastPipeline
+      | None ->
+        let expression = activeExpression fullExpression
+        let lastPipeline = topLevelLastPipeline expression
+        let segmentStart =
+          lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
+        let segment =
+          if segmentStart >= expression.Length then ""
+          else expression[segmentStart..]
+        expression, segment, splitWords segment, lastPipeline
     let trimmed = inputBeforeCursor.TrimStart()
     { InputBeforeCursor = inputBeforeCursor
       InputAfterCursor = inputAfterCursor

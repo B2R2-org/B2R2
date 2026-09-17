@@ -921,17 +921,25 @@ module Suggestions =
     else
       []
 
-  let private iterElementKind registry state fullExpression =
-    let lastPipeline = InputAnalysis.topLevelLastPipeline fullExpression
-    let sourceExpression =
-      lastPipeline
-      |> Option.map (fun index -> fullExpression[..index - 1])
-      |> Option.defaultValue fullExpression
-    ReplTypeAnalysis.outputKind registry state sourceExpression
-    |> Option.bind ReplTypeAnalysis.collectionElementKind
+  let private iterElementKind registry state context =
+    let context: InputContext = context
+    match context.PartialPipeline with
+    | Some pipeline ->
+      ReplTypeAnalysis.outputBeforeLastPartial registry state 0
+        context.FullExpression pipeline
+      |> Option.bind ReplTypeAnalysis.collectionElementKind
+    | None ->
+      let lastPipeline =
+        InputAnalysis.topLevelLastPipeline context.FullExpression
+      let sourceExpression =
+        lastPipeline
+        |> Option.map (fun index -> context.FullExpression[..index - 1])
+        |> Option.defaultValue context.FullExpression
+      ReplTypeAnalysis.outputKind registry state sourceExpression
+      |> Option.bind ReplTypeAnalysis.collectionElementKind
 
-  let private iterActionCandidates registry state fullExpression prefix =
-    match iterElementKind registry state fullExpression with
+  let private iterActionCandidates registry state context prefix =
+    match iterElementKind registry state context with
     | Some kind -> actionCandidates registry (Some kind) None prefix
     | None -> []
 
@@ -954,7 +962,6 @@ module Suggestions =
 
   let private iterBodyCandidates registry state context =
     let context: InputContext = context
-    let fullExpression = context.FullExpression
     let words = fullSegmentWords context
     match words with
     | head :: args when isIterHead head ->
@@ -963,22 +970,22 @@ module Suggestions =
       | None when isCurrentIterKeyword head context ->
         None
       | None ->
-        iterActionCandidates registry state fullExpression context.Prefix
+        iterActionCandidates registry state context context.Prefix
         |> Some
       | Some target when isCurrentIterAction target context ->
-        iterActionCandidates registry state fullExpression context.Prefix
+        iterActionCandidates registry state context context.Prefix
         |> Some
       | Some target ->
         match ActionRegistry.tryFind target registry with
         | None ->
           if context.Prefix.StartsWith("@", StringComparison.Ordinal) then
-            iterActionCandidates registry state fullExpression context.Prefix
+            iterActionCandidates registry state context context.Prefix
             |> Some
           else
             None
         | Some registered ->
           let itemKind =
-            iterElementKind registry state fullExpression
+            iterElementKind registry state context
           let lastIndex = context.InputBeforeCursor.Length - 1
           let endsWithSpace =
             context.InputBeforeCursor.Length > 0
@@ -1028,8 +1035,7 @@ module Suggestions =
                 else
                   lambdaSkeletonCandidate |> Some
               elif context.Prefix.StartsWith("@", StringComparison.Ordinal) then
-                iterActionCandidates registry state fullExpression
-                  context.Prefix
+                iterActionCandidates registry state context context.Prefix
                 |> Some
               else
                 None
@@ -1151,7 +1157,7 @@ module Suggestions =
         | _ ->
           metaCommandCandidates prefix
 
-  let private completeExpression registry state context =
+  let private completeExpression registry state context typeAnalysis =
     let context: InputContext = context
     let expected = expectedOutput context.InputBeforeCursor
     let expression = context.Expression
@@ -1178,7 +1184,7 @@ module Suggestions =
           |> List.contains ReplValueKind.Unit ->
         Some ReplValueKind.Unit
       | _ when hasPipeline ->
-        ReplTypeAnalysis.inputKind registry state expression
+        typeAnalysis.CurrentInput
       | _ ->
         state.Current |> Option.map (fun value -> value.Kind)
     let completeArguments head completed argumentIndex =
@@ -1197,7 +1203,7 @@ module Suggestions =
           match words with
           | [] ->
             if hasPipeline then
-              let kind = ReplTypeAnalysis.inputKind registry state expression
+              let kind = typeAnalysis.CurrentInput
               actionCandidates registry kind expected context.Prefix
               @ iterKeywordCandidates kind context.Prefix
             else
@@ -1206,7 +1212,7 @@ module Suggestions =
           | [ head ] when endsWithSpace ->
             completeArguments head [] 0
           | [ _ ] when hasPipeline ->
-            let kind = ReplTypeAnalysis.inputKind registry state expression
+            let kind = typeAnalysis.CurrentInput
             let actions =
               actionCandidates registry kind expected context.Prefix
             let iterations = iterKeywordCandidates kind context.Prefix
@@ -1247,29 +1253,15 @@ module Suggestions =
 
   let private expressionContext context (expression, _) =
     let context: InputContext = context
-    let partialPipeline = ReplLanguage.tryParsePartialPipeline expression
-    let lastPipeline =
-      partialPipeline |> Option.bind _.LastPipelineStart
-    let segmentStart =
-      lastPipeline |> Option.map ((+) 2) |> Option.defaultValue 0
-    let segment =
-      if segmentStart >= expression.Length then ""
-      else expression[segmentStart..]
-    let segmentWords =
-      partialPipeline
-      |> Option.bind (fun pipeline ->
-        if pipeline.HasTrailingPipeline then None
-        else pipeline.Segments |> List.tryLast)
-      |> Option.map _.Tokens
-      |> Option.defaultWith (fun () -> InputAnalysis.splitWords segment)
+    let parsed = InputAnalysis.analyze expression expression.Length
     { context with
-        FullExpression = expression
-        Expression = expression
-        Segment = segment
-        SegmentWords = segmentWords
-        PartialPipeline = partialPipeline
+        FullExpression = parsed.FullExpression
+        Expression = parsed.Expression
+        Segment = parsed.Segment
+        SegmentWords = parsed.SegmentWords
+        PartialPipeline = parsed.PartialPipeline
         HasBinding = false
-        HasPipeline = Option.isSome lastPipeline }
+        HasPipeline = parsed.HasPipeline }
 
   let private expressionCommandInput command (input: string) =
     let trimmed = input.TrimStart()
@@ -1343,7 +1335,7 @@ module Suggestions =
       ActionMetadata.formatArgument argument
       |> fun text -> findRanges text signature)
 
-  let private directHintTarget registry state context head args =
+  let private directHintTarget registry state typeAnalysis context head args =
     ActionRegistry.tryFind (actionID head) registry
     |> Option.map (fun registered ->
       let metadata = registered.Metadata
@@ -1352,37 +1344,36 @@ module Suggestions =
            |> List.contains ReplValueKind.Unit then
           Some ReplValueKind.Unit
         elif context.HasPipeline then
-          ReplTypeAnalysis.inputKind registry state context.Expression
+          typeAnalysis.CurrentInput
         else
           state.Current |> Option.map (fun value -> value.Kind)
       registered, inputKind, args)
 
-  let private iterHintTarget registry state fullExpression words =
+  let private iterHintTarget registry state context words =
     match words with
     | head :: args ->
       let analysis = ReplLanguage.analyzeIter head args
       analysis.ActionID
       |> Option.bind (fun target -> ActionRegistry.tryFind target registry)
       |> Option.map (fun registered ->
-        let inputKind = iterElementKind registry state fullExpression
+        let inputKind = iterElementKind registry state context
         registered, inputKind, analysis.Body)
     | [] -> None
 
-  let private hintTarget registry state context =
+  let private hintTarget registry state typeAnalysis context =
     let context: InputContext = context
-    let fullExpression = context.FullExpression
     let words = fullSegmentWords context
     match words with
     | head :: _ when isIterHead head ->
-      iterHintTarget registry state fullExpression words
+      iterHintTarget registry state context words
     | head :: args ->
-      directHintTarget registry state context head args
+      directHintTarget registry state typeAnalysis context head args
     | [] ->
       None
 
-  let private completionHint registry state context =
+  let private completionHint registry state typeAnalysis context =
     let context: InputContext = context
-    hintTarget registry state context
+    hintTarget registry state typeAnalysis context
     |> Option.map (fun (registered, inputKind, args) ->
       let metadata = registered.Metadata
       let signature =
@@ -1459,9 +1450,14 @@ module Suggestions =
           context.InputBeforeCursor[start..], start
         | _ ->
           context.InputBeforeCursor, 0
-    let diagnostics =
-      ReplTypeAnalysis.analyze registry state expressionStart expression
-      |> fun analysis -> analysis.Diagnostics
+    let typeAnalysis =
+      match expressionContext.PartialPipeline with
+      | Some pipeline ->
+        ReplTypeAnalysis.analyzePartial registry state expressionStart
+          expression pipeline
+      | None ->
+        ReplTypeAnalysis.analyze registry state expressionStart expression
+    let diagnostics = typeAnalysis.Diagnostics
     match typeAnnotationCompletion context.InputBeforeCursor with
     | Some(items, start, length) ->
       { Items = prepareItems context items
@@ -1471,16 +1467,16 @@ module Suggestions =
         HintHighlights = []
         Diagnostics = [] }
     | None ->
-      let hint = completionHint registry state expressionContext
+      let hint = completionHint registry state typeAnalysis expressionContext
       let items =
         if context.InputBeforeCursor.TrimStart().StartsWith ':' then
           match metaExpression with
           | Some _ ->
-            completeExpression registry state expressionContext
+            completeExpression registry state expressionContext typeAnalysis
           | None ->
             completeMeta state context
         else
-          completeExpression registry state expressionContext
+          completeExpression registry state expressionContext typeAnalysis
       { Items =
           prepareItems context items
         Start = context.TokenStart

@@ -43,7 +43,8 @@ module ReplTypeAnalysis =
   type private TextSegment =
     { Text: string
       Start: int
-      Length: int }
+      Length: int
+      Tokens: string list }
 
   type private SegmentResult =
     { Input: ReplValueKind option
@@ -68,7 +69,10 @@ module ReplTypeAnalysis =
     while last > first && Char.IsWhiteSpace text[last - 1] do
       last <- last - 1
     let content = if first = last then "" else text[first..last - 1]
-    { Text = content; Start = first; Length = last - first }
+    { Text = content
+      Start = first
+      Length = last - first
+      Tokens = InputAnalysis.splitWords content }
 
   let private textSegments (text: string) =
     let rec loop start segments = function
@@ -269,7 +273,7 @@ module ReplTypeAnalysis =
 
   let private transformResult registry baseOffset input
                               (segment: TextSegment) =
-    let tokens = InputAnalysis.splitWords segment.Text
+    let tokens = segment.Tokens
     match tokens with
     | head :: _ when isIterHead head ->
       iterResult registry baseOffset input segment tokens
@@ -277,7 +281,7 @@ module ReplTypeAnalysis =
       directResult registry baseOffset input segment tokens
 
   let private firstResult registry state baseOffset (segment: TextSegment) =
-    let tokens = InputAnalysis.splitWords segment.Text
+    let tokens = segment.Tokens
     match literalKind state tokens with
     | Some kind ->
       { Input = None; Output = Some kind; Diagnostics = [] }
@@ -305,8 +309,8 @@ module ReplTypeAnalysis =
                 state.Current |> Option.map (fun value -> value.Kind)
             directResult registry baseOffset input segment tokens
 
-  let analyze registry state baseOffset (expression: string) =
-    match textSegments expression with
+  let private analyzeSegments registry state baseOffset segments =
+    match segments with
     | [] ->
       { CurrentInput = None; Output = None; Diagnostics = [] }
     | first :: rest ->
@@ -321,6 +325,34 @@ module ReplTypeAnalysis =
       { CurrentInput = currentInput
         Output = last.Output
         Diagnostics = results |> List.collect _.Diagnostics }
+
+  let analyze registry state baseOffset (expression: string) =
+    textSegments expression |> analyzeSegments registry state baseOffset
+
+  let analyzePartial registry state baseOffset (expression: string)
+                     (pipeline: ReplPartialPipeline) =
+    pipeline.Segments
+    |> List.map (fun segment ->
+      let text =
+        if segment.Start >= expression.Length then ""
+        else
+          let last = min (expression.Length - 1) (segment.End - 1)
+          expression[segment.Start..last]
+      { Text = text
+        Start = segment.Start
+        Length = segment.End - segment.Start
+        Tokens = segment.Tokens })
+    |> analyzeSegments registry state baseOffset
+
+  let outputBeforeLastPartial registry state baseOffset
+                              (expression: string)
+                              (pipeline: ReplPartialPipeline) =
+    let segments =
+      match List.rev pipeline.Segments with
+      | _ :: rest -> List.rev rest
+      | [] -> []
+    let pipeline = { pipeline with Segments = segments }
+    (analyzePartial registry state baseOffset expression pipeline).Output
 
   let inputKind registry state expression =
     (analyze registry state 0 expression).CurrentInput

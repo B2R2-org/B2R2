@@ -35,6 +35,19 @@ type ReplPipelineSegment =
 type ReplPartialSegment =
   { Start: int
     End: int
+    Nodes: ReplPartialSyntax list
+    Tokens: string list }
+
+/// A node recovered while parsing an incomplete pipeline expression.
+and ReplPartialSyntax =
+  | PartialToken of text: string * start: int * finish: int
+  | PartialDelimited of opening: string * closing: string option * start: int
+                        * finish: int * children: ReplPartialSyntax list
+
+/// The innermost incomplete literal at the current input position.
+type ReplPartialScope =
+  { Start: int
+    End: int
     Tokens: string list }
 
 /// A tolerant syntax tree used while completing a pipeline expression.
@@ -796,54 +809,74 @@ module ReplLanguage =
       pchar delimiter >>. manyChars anyChar
       |>> fun text -> string delimiter + text
 
-    let partialWord =
+    let partialWordText =
       let quoted = attempt (quoted '\'') <|> attempt (quoted '"')
       let unterminated = partialQuoted '\'' <|> partialQuoted '"'
       let bare = many1Satisfy bareCharacter |>> string
       many1 (quoted <|> unterminated <|> bare)
       |>> String.concat ""
-      .>> spaces
 
-    let partialToken, partialTokenRef =
-      createParserForwardedToRef<string list, unit>()
+    let partialSymbol text =
+      (getPosition .>> pstring text .>>. getPosition .>> spaces)
+      |>> fun (start, finish) ->
+        PartialToken(text, int start.Index, int finish.Index)
 
-    let partialDelimitedWithClose opening closing =
-      symbol opening >>. many partialToken .>>. opt (symbol closing)
-      |>> fun (body, close) ->
+    let partialWord =
+      (getPosition .>>. partialWordText .>>. getPosition .>> spaces)
+      |>> fun ((start, text), finish) ->
+        PartialToken(text, int start.Index, int finish.Index)
+
+    let partialNode, partialNodeRef =
+      createParserForwardedToRef<ReplPartialSyntax, unit>()
+
+    let partialDelimited opening closing =
+      pipe4
+        (getPosition .>> pstring opening .>> spaces)
+        (many partialNode)
+        (opt (pstring closing .>> spaces))
+        getPosition
+        (fun start children close finish ->
+          PartialDelimited(opening, close, int start.Index, int finish.Index,
+                           children))
+
+    let rec nodeTokens = function
+      | PartialToken(text, _, _) -> [ text ]
+      | PartialDelimited(opening, closing, _, _, children) ->
         let closing =
-          close |> Option.map List.singleton |> Option.defaultValue []
-        opening :: List.concat body @ closing
+          closing |> Option.map List.singleton |> Option.defaultValue []
+        opening :: (children |> List.collect nodeTokens) @ closing
 
     let partialNested =
       choice
-        [ attempt (partialDelimitedWithClose "[|" "|]")
-          attempt (partialDelimitedWithClose "(" ")")
-          attempt (partialDelimitedWithClose "[" "]")
-          symbol "|>" |>> List.singleton
-          symbol "," |>> List.singleton
-          symbol ";" |>> List.singleton
-          partialWord |>> List.singleton ]
+        [ attempt (partialDelimited "[|" "|]")
+          attempt (partialDelimited "(" ")")
+          attempt (partialDelimited "[" "]")
+          partialSymbol "|>"
+          partialSymbol ","
+          partialSymbol ";"
+          partialWord ]
 
-    do partialTokenRef.Value <- partialNested
+    do partialNodeRef.Value <- partialNested
 
     let partialTopLevelToken =
       choice
-        [ attempt (partialDelimitedWithClose "[|" "|]")
-          attempt (partialDelimitedWithClose "(" ")")
-          attempt (partialDelimitedWithClose "[" "]")
-          symbol ")" |>> List.singleton
-          symbol "]" |>> List.singleton
-          symbol "|]" |>> List.singleton
-          symbol "," |>> List.singleton
-          symbol ";" |>> List.singleton
-          partialWord |>> List.singleton ]
+        [ attempt (partialDelimited "[|" "|]")
+          attempt (partialDelimited "(" ")")
+          attempt (partialDelimited "[" "]")
+          partialSymbol ")"
+          partialSymbol "]"
+          partialSymbol "|]"
+          partialSymbol ","
+          partialSymbol ";"
+          partialWord ]
 
     let partialSegment =
       getPosition .>>. many1 partialTopLevelToken .>>. getPosition
-      |>> fun ((start, tokens), finish) ->
+      |>> fun ((start, nodes), finish) ->
         { Start = int start.Index
           End = int finish.Index
-          Tokens = List.concat tokens }
+          Nodes = nodes
+          Tokens = nodes |> List.collect nodeTokens }
 
     let partialPipeline =
       let pipe =
@@ -886,16 +919,49 @@ module ReplLanguage =
 
   let tryParsePartialPipeline text = Grammar.parsePartial text
 
-  let partialWords text =
-    tryParsePartialPipeline text
-    |> Option.map (fun pipeline ->
-      let tokens =
-        List.foldBack (fun segment rest ->
-          match rest with
-          | [] -> segment.Tokens
-          | _ -> segment.Tokens @ ("|>" :: rest)) pipeline.Segments []
-      if pipeline.HasTrailingPipeline then tokens @ [ "|>" ] else tokens)
-    |> Option.defaultWith (fun () -> tokenize text)
+  let rec private partialSyntaxTokens = function
+    | PartialToken(text, _, _) -> [ text ]
+    | PartialDelimited(opening, closing, _, _, children) ->
+      let closing =
+        closing |> Option.map List.singleton |> Option.defaultValue []
+      opening :: (children |> List.collect partialSyntaxTokens) @ closing
+
+  let private tryUnclosedNode nodes =
+    let rec loop = function
+      | [] -> None
+      | PartialDelimited(opening, closing, start, finish, children) :: rest ->
+        match loop (List.rev children) with
+        | Some node -> Some node
+        | None when Option.isNone closing ->
+          Some(opening, start, finish, children)
+        | None -> loop rest
+      | _ :: rest -> loop rest
+    loop (List.rev nodes)
+
+  let tryPartialScope (pipeline: ReplPartialPipeline) =
+    let scope (opening: string) start finish
+              (children: ReplPartialSyntax list) =
+      let separator =
+        children
+        |> List.mapi (fun index node -> index, node)
+        |> List.choose (fun (index, node) ->
+          match node with
+          | PartialToken(("," | ";"), _, tokenEnd) ->
+            Some(index, tokenEnd)
+          | _ -> None)
+        |> List.tryLast
+      let start, nodes =
+        match separator with
+        | Some(index, tokenEnd) -> tokenEnd, children |> List.skip (index + 1)
+        | None -> start + opening.Length, children
+      { Start = start
+        End = finish
+        Tokens = nodes |> List.collect partialSyntaxTokens }
+    pipeline.Segments
+    |> List.tryLast
+    |> Option.bind (fun segment -> tryUnclosedNode segment.Nodes)
+    |> Option.map (fun (opening, start, finish, children) ->
+      scope opening start finish children)
 
   let private parseKind token =
     match ReplValueKind.tryParse token with
