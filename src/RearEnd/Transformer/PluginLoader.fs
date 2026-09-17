@@ -99,9 +99,13 @@ type private TransformerPluginLoadContext(pluginPath: string) =
   member this.LoadPluginAssembly() =
     this.LoadFromAssemblyPath pluginPath
 
+type private LoadedPlugin =
+  { Context: TransformerPluginLoadContext
+    Types: Type[] }
+
 [<RequireQualifiedAccess>]
 module TransformerPluginLoader =
-  let private cache = ConcurrentDictionary<string, Lazy<Type[]>>()
+  let private cache = ConcurrentDictionary<string, Lazy<LoadedPlugin>>()
 
   let private loaderExceptionText (error: ReflectionTypeLoadException) =
     error.LoaderExceptions
@@ -109,12 +113,13 @@ module TransformerPluginLoader =
       if isNull exn then None else Some exn.Message)
     |> String.concat Environment.NewLine
 
-  let private loadTypes fullPath =
+  let private loadPlugin fullPath =
     lazy
       let context = TransformerPluginLoadContext fullPath
       try
         let assembly = context.LoadPluginAssembly()
-        assembly.GetExportedTypes()
+        { Context = context
+          Types = assembly.GetExportedTypes() }
       with
       | :? ReflectionTypeLoadException as error ->
         context.Unload()
@@ -127,6 +132,6 @@ module TransformerPluginLoader =
   let exportedTypes path =
     if File.Exists path then
       let fullPath = Path.GetFullPath path
-      cache.GetOrAdd(fullPath, loadTypes).Value
+      cache.GetOrAdd(fullPath, loadPlugin).Value.Types
     else
       invalidOp $"File not found: {path}"
