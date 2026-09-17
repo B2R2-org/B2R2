@@ -39,6 +39,8 @@ type LowUIRBuilder(isa: ISA,
 
   let mutable branchCarriesMode = false
 
+  let mutable branchFallsPastSlot = false
+
   /// Remember if a branch is delayed. If delayed, we store its InterJmpKind.
   /// Lifting results may vary depending on this.
   member _.DelayedBranch
@@ -59,6 +61,27 @@ type LowUIRBuilder(isa: ISA,
   member _.BranchCarriesMode
     with get() = branchCarriesMode
      and set v = branchCarriesMode <- v
+
+  /// <summary>
+  /// Whether the delayed branch's not-taken address is the END of the delay
+  /// slot rather than a fixed distance from the branch.
+  ///
+  /// The base architecture has no such distinction: every instruction is a
+  /// word, so the instruction after the slot is always PC+8. microMIPS writes
+  /// instructions of two widths and puts whichever it likes in a slot -- gcc
+  /// fills the slot of a 32-bit BNE with a 16-bit NOP and starts the next
+  /// instruction two bytes later -- so where a not-taken branch continues is
+  /// not known where the branch is written. A processor resumes at the end of
+  /// whatever instruction the slot holds, whichever width that is.
+  ///
+  /// The branch leaves the slot's own address in nPC to say "not taken", and
+  /// the slot -- the one place that knows its width -- turns that into the
+  /// address past itself. Branching INTO a delay slot is UNPREDICTABLE by
+  /// MD00594, so no defined encoding makes that marker ambiguous.
+  /// </summary>
+  member _.BranchFallsPastSlot
+    with get() = branchFallsPastSlot
+     and set v = branchFallsPastSlot <- v
 
   member _.RegType with get() = regType
 
