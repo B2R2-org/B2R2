@@ -48,13 +48,14 @@ let makeByteArraySummary (bs: byte[]) = makeSpanSummary (ReadOnlySpan bs)
 
 let makeMemorySummary (bs: ReadOnlyMemory<byte>) = makeSpanSummary bs.Span
 
+let hashNgram (span: ByteSpan) index size =
+  XxHash32.HashToUInt32(span.Slice(index, size))
+  |> BinaryPrimitives.ReverseEndianness
+  |> int
+
 let buildNgram (ct: CancellationToken) n (span: ByteSpan) =
   let ngrams = Array.zeroCreate (span.Length - n + 1)
   for idx = 0 to ngrams.Length - 1 do
     ct.ThrowIfCancellationRequested()
-    let hash =
-      XxHash32.HashToUInt32(span.Slice(idx, n))
-      |> BinaryPrimitives.ReverseEndianness
-      |> int
-    ngrams[idx] <- hash, idx
+    ngrams[idx] <- hashNgram span idx n, idx
   ngrams
