@@ -33,10 +33,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 [<AutoOpen>]
 module Helper =
   let scanBBLs (bblFactory: BBLFactory) addrs =
-    bblFactory.ScanBBLs addrs
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
-    |> ignore
+    bblFactory.ScanBBLs addrs |> ignore
 
   let extractInsBBLPairs (bblFactory: BBLFactory) ppoint =
     let bbl = bblFactory.Find ppoint

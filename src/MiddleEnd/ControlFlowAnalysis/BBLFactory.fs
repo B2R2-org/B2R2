@@ -28,7 +28,6 @@ open System.Runtime.InteropServices
 open System.Collections.Generic
 open System.Collections.Immutable
 open System.Collections.Concurrent
-open System.Threading.Tasks.Dataflow
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -54,19 +53,19 @@ type BBLFactory(hdl: BinHandle,
     else
       blkOptimizer
 
-  let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader prev =
+  let rec parseBlock (blocks: List<_>) acc insCount addr leader prev =
     match (instrs: InstructionCollection).TryFind addr with
     | Ok ins ->
       let nextAddr = addr + uint64 ins.Length
       if ins.IsTerminator prev || interLeaders.ContainsKey nextAddr then
-        channel.Post(leader, ins :: acc, insCount + 1) |> ignore
+        blocks.Add(leader, ins :: acc, insCount + 1)
         if ins.IsCall then
           Ok [||]
         else
           ins.GetNextInstrAddrs() (* TODO: ARM mode switch *)
           |> Ok
       else
-        parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader ins
+        parseBlock blocks (ins :: acc) (insCount + 1) nextAddr leader ins
     | Error e ->
 #if CFGDEBUG
       dbglog ManagerTid (nameof BBLFactory)
@@ -77,30 +76,30 @@ type BBLFactory(hdl: BinHandle,
   /// Parse from the given address and return reachable addresses. If there
   /// exists a BBL at the given address, then simply return an empty array. When
   /// parsing fails, this function can return an error result.
-  let tryParse channel addr =
+  let tryParse blocks addr =
     if interLeaders.ContainsKey addr then Ok [||]
-    else parseBlock channel [] 0 addr addr null
+    else parseBlock blocks [] 0 addr addr null
 
   let visited = ConcurrentDictionary<Addr, unit>()
 
-  let instrProducer channel addrs =
+  /// Collects every block reachable from the given addresses, and answers
+  /// whether all of them parsed.
+  let parseBlocks blocks addrs =
     let queue = Queue<Addr>(collection = addrs)
-    task {
-      while queue.Count <> 0 do
-        let addr = queue.Dequeue()
-        if visited.ContainsKey addr then
-          ()
-        else
-          visited.TryAdd(addr, ()) |> ignore
-          match tryParse channel addr with
-          | Ok nextAddrs ->
-            nextAddrs |> Array.iter queue.Enqueue
-          | Error _e ->
-            queue.Clear()
-            channel.Post(0UL, [], -1) |> ignore (* post error *)
-            channel.Complete()
-      channel.Complete()
-    }
+    let mutable parsed = true
+    while queue.Count <> 0 do
+      let addr = queue.Dequeue()
+      if visited.ContainsKey addr then
+        ()
+      else
+        visited.TryAdd(addr, ()) |> ignore
+        match tryParse blocks addr with
+        | Ok nextAddrs ->
+          nextAddrs |> Array.iter queue.Enqueue
+        | Error _ ->
+          queue.Clear()
+          parsed <- false
+    parsed
 
 #if DEBUG
   let hasProperISMark (stmts: Stmt[]) =
@@ -248,32 +247,22 @@ type BBLFactory(hdl: BinHandle,
     else
       gatherIntraBBLs arr lblMap 0 0 (Seq.toList intraLeaders)
 
-  let bblLifter (channel: BufferBlock<Addr * IInstruction list * int>) =
-    let liftingUnit = hdl.NewLiftingUnit()
-    let mutable isSuccessful = true
-    let mutable canContinue = true
-    task {
-      while canContinue do
-        let! available = channel.OutputAvailableAsync()
-        if available then
-          match channel.TryReceive() with
-          | true, (_, _, -1) -> (* error case*)
-            isSuccessful <- false; canContinue <- false
-          | true, (leaderAddr, instrs, insCount) ->
-            try
-              liftBlock liftingUnit leaderAddr instrs insCount
-            with e ->
+  let tryLiftBlock lunit (leaderAddr, instrs, insCount) =
+    try
+      liftBlock lunit leaderAddr instrs insCount
+      true
+    with e ->
 #if CFGDEBUG
-              dbglog ManagerTid (nameof BBLFactory)
-              <| $"Failed to lift instruction at {leaderAddr:x} {e}"
+      dbglog ManagerTid (nameof BBLFactory)
+      <| $"Failed to lift instruction at {leaderAddr:x} {e}"
 #endif
-              isSuccessful <- false; canContinue <- false
-          | false, _ ->
-            ()
-        else
-          canContinue <- false
-      return isSuccessful
-    }
+      false
+
+  /// Lifts the collected blocks in order, stopping at the first one the lifter
+  /// cannot take, and answers whether all of them were lifted.
+  let liftBlocks blocks =
+    let liftingUnit = hdl.NewLiftingUnit()
+    Seq.forall (tryLiftBlock liftingUnit) blocks
 
   let getSortedLeaders () =
     interLeaders.Keys
@@ -354,13 +343,20 @@ type BBLFactory(hdl: BinHandle,
   /// for instance.
   member _.ScanBBLs(addrs,
                     [<Optional; DefaultParameterValue(false)>] allowOverlap) =
-    task {
-      let channel = BufferBlock<Addr * IInstruction list * int>()
-      instrProducer channel addrs |> ignore
-      let! isSuccessful = bblLifter channel
-      if isSuccessful then return if allowOverlap then Ok(List()) else commit ()
-      else return Error ErrorCase.ParsingFailure
-    }
+    (* The two passes cannot be interleaved, let alone run at once: parsing
+       decides where a block ends by asking interLeaders, and lifting is what
+       writes interLeaders. So every block is collected before any is lifted,
+       which is what the dataflow channel this used to run through amounted to
+       anyway -- its producer never awaited, so it always ran to completion
+       before its one consumer started, which then paid a lock per block to
+       read a queue that was already complete. *)
+    let blocks = List<Addr * IInstruction list * int>()
+    let parsed = parseBlocks blocks addrs
+    let lifted = liftBlocks blocks
+    if parsed && lifted then
+      if allowOverlap then Ok(List()) else commit ()
+    else
+      Error ErrorCase.ParsingFailure
 
   /// Peek the BBL at the given address without caching it. This function is
   /// useful when we want to check if an arbitrary address contains a meaningful

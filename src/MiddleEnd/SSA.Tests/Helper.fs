@@ -71,10 +71,7 @@ module Helper =
   /// of the lifter from turning into a test of CFG recovery.
   let buildDiamondCFG t =
     let bblFactory = BBLFactory(hdl, instrs)
-    bblFactory.ScanBBLs [| 0x00UL |]
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
-    |> ignore
+    bblFactory.ScanBBLs [| 0x00UL |] |> ignore
     let cfg = LowUIRCFG.create t
     let entry = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x00UL, 0)))
     let thenV = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x0dUL, 0)))

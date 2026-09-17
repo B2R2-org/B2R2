@@ -131,8 +131,6 @@ with
   /// discovering new basic blocks.
   member this.ScanBBLs entryPoints =
     this.BBLFactory.ScanBBLs entryPoints
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
 
   member private _.UpdateDictionary(dict: Dictionary<_, _>, k, v, delta) =
     match dict.TryGetValue k with
