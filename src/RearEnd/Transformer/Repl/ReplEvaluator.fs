@@ -128,12 +128,6 @@ module TransformerReplEvaluator =
     | Some value -> Ok value
     | None -> Error error
 
-  let private firstDescriptionLine (description: string) =
-    description.Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
-    |> Array.tryHead
-    |> Option.defaultValue ""
-    |> fun line -> line.Trim()
-
   let private formatAction registered =
     let metadata = (registered: RegisteredAction).Metadata
     let name = ActionMetadata.actionName metadata.ID
@@ -141,11 +135,7 @@ module TransformerReplEvaluator =
 
   let private actionDetails registered =
     let metadata = (registered: RegisteredAction).Metadata
-    let summary = firstDescriptionLine metadata.Description
-    let role = metadata.Role.ToString().ToLowerInvariant()
-    let examples =
-      metadata.Examples |> List.map (fun example -> $"  e.g. {example}")
-    [ formatAction registered; $"  role: {role}. {summary}" ] @ examples
+    ActionMetadata.documentationLines metadata
 
   let private typeDescription value =
     let kind = formatKind (value: ReplValue).Kind
@@ -1727,7 +1717,7 @@ module TransformerReplEvaluator =
 
   let private showActions registry state =
     ActionRegistry.getAll registry
-    |> List.collect actionDetails
+    |> List.collect (fun action -> actionDetails action @ [ "" ])
     |> continueWith registry state
 
   let private showHistory registry state =
@@ -1934,37 +1924,37 @@ module TransformerReplEvaluator =
     | Exit _ -> Error "A script cannot contain :quit."
 
   let private help =
-    [ "Transformer interactive commands:"
-      "  let <name> = <expression>"
-      "  let <name> = @load path=<path>"
-      "  let <name> : Binary = @load path=<path>"
-      "  let <name> = <value> |> @<action> [argument ...]"
-      "  <expression>          evaluate without binding"
-      "  :inspect [name]       list selectable functions and sections"
-      "  :needs <ctx> [k=v]    list required concrete context"
-      "  :values               list retained value history"
-      "  :restore <id> [as n]  restore a historical value"
-      "  :undo                 undo the last value-producing command"
-      "  :log                  show the detailed execution log"
-      "  :export <name> path=<path>"
-      "                        export a named value"
-      "  :script save path=<path>"
-      "                        save recorded analysis commands"
-      "  :script load path=<path>"
-      "                        reset and replay a script"
-      "  :script record [on|off]"
-      "                        show or set script recording"
-      "  :plugin load path=<dll>"
-      "                        load REPL actions from a plugin DLL"
-      "  # <text>              record a script comment"
-      "  :layout [k=v ...]     resize TUI panes"
-      "  :actions              list available actions"
-      "  :type [name|expression]"
-      "                        show a value or expression type"
-      "  :show [expression]    show a value or expression result"
-      "  :history              show command history"
-      "  :reset                clear analysis values"
-      "  :quit                 leave the REPL" ]
+    [ "REPL COMMANDS"
+      ""
+      "Pipelines"
+      "  let <name> = <expression>       Bind an analysis result"
+      "  <value> |> @<action> [args]      Transform the preceding value"
+      "  <expression>                      Evaluate without binding"
+      ""
+      "Reference"
+      "  :actions                      List actions and usage forms"
+      "  :show [name|expression]       Show a value or expression result"
+      "  :type [name|expression]       Show an inferred value kind"
+      "  :inspect [name]               List functions and sections"
+      "  :needs <ctx> [k=v]            List required concrete context"
+      ""
+      "Session"
+      "  :values                       List retained values"
+      "  :restore <id> [as <name>]     Restore a historical value"
+      "  :history                      List evaluated commands"
+      "  :log                          Show execution history"
+      "  :undo                         Undo the last value change"
+      "  :reset                        Reset analysis values"
+      ""
+      "Scripts and environment"
+      "  :script save path=<path>      Save recorded commands"
+      "  :script load path=<path>      Reset and replay a script"
+      "  :script record [on|off]       Show or set script recording"
+      "  :export <name> path=<path>    Export a named value"
+      "  :plugin load path=<dll>        Load a plugin"
+      "  :layout [k=v ...]             Resize TUI panes"
+      "  # <text>                      Record a script comment"
+      "  :quit                         Leave the REPL" ]
 
   let private addExecutionLog timestamp (stopwatch: Stopwatch)
                               (input: string) evaluation =

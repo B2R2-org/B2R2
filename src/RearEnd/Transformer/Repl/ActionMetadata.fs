@@ -300,10 +300,110 @@ module ActionMetadata =
     let text = $"{argument.Name}:{kind}=<{placeholder}>"
     if argument.IsOptional then $"[{text}]" else text
 
+  let private formatUsageArgument argument =
+    let argument: ActionArgument = argument
+    let placeholder = argumentPlaceholder argument.Kind
+    let text = $"{argument.Name}=<{placeholder}>"
+    if argument.IsOptional then $"[{text}]" else text
+
   let private formatSyntax syntax =
     let trigger = (syntax: ActionSyntax).Trigger |> Option.toList
     let args = syntax.Arguments |> List.map formatArgument
     String.concat " " (trigger @ args)
+
+  let private formatUsage metadata syntax =
+    let metadata: ActionMetadata = metadata
+    let trigger = (syntax: ActionSyntax).Trigger |> Option.toList
+    let args = syntax.Arguments |> List.map formatUsageArgument
+    let syntax = String.concat " " (trigger @ args)
+    if String.IsNullOrWhiteSpace syntax then actionName metadata.ID
+    else actionName metadata.ID + " " + syntax
+
+  let private sameArgument left right =
+    let left: ActionArgument = left
+    let right: ActionArgument = right
+    left.Name = right.Name && left.Kind = right.Kind
+
+  let private syntaxSubsumes candidate syntax =
+    let candidate: ActionSyntax = candidate
+    let syntax: ActionSyntax = syntax
+    let extraArguments =
+      candidate.Arguments
+      |> List.filter (fun candidate ->
+        syntax.Arguments
+        |> List.exists (sameArgument candidate)
+        |> not)
+    candidate.Trigger = syntax.Trigger
+    && syntax.Arguments
+       |> List.forall (fun argument ->
+         candidate.Arguments |> List.exists (sameArgument argument))
+    && not (List.isEmpty extraArguments)
+    && extraArguments |> List.forall _.IsOptional
+
+  let private inputKinds metadata =
+    let metadata: ActionMetadata = metadata
+    metadata.Syntaxes
+    |> List.collect (fun syntax ->
+      let syntax: ActionSyntax = syntax
+      if List.isEmpty syntax.Inputs then acceptedInputs metadata
+      else syntax.Inputs)
+    |> function
+      | [] -> acceptedInputs metadata
+      | inputs -> inputs |> List.distinct
+
+  let private outputKinds metadata =
+    let metadata: ActionMetadata = metadata
+    metadata.Syntaxes
+    |> List.map (fun syntax ->
+      let syntax: ActionSyntax = syntax
+      syntax.Output |> Option.defaultValue metadata.Output)
+    |> function
+      | [] -> [ metadata.Output ]
+      | outputs -> outputs |> List.distinct
+
+  let usageLines metadata =
+    let metadata: ActionMetadata = metadata
+    metadata.Syntaxes
+    |> List.filter (fun syntax ->
+      metadata.Syntaxes
+      |> List.exists (fun candidate -> syntaxSubsumes candidate syntax)
+      |> not)
+    |> List.map (formatUsage metadata)
+    |> List.distinct
+
+  let documentationLines metadata =
+    let metadata: ActionMetadata = metadata
+    let role = metadata.Role.ToString().ToLowerInvariant()
+    let kinds = List.map ReplValueKind.toString >> String.concat ", "
+    let description =
+      metadata.Description.Split(
+        [| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
+      |> Array.tryHead
+      |> Option.defaultValue ""
+      |> fun line -> line.Trim()
+    let details =
+      if String.IsNullOrWhiteSpace description then
+        []
+      else
+        [ "  " + description ]
+    let input =
+      if metadata.Role = ActionRole.Source then []
+      else [ "  input: " + kinds (inputKinds metadata) ]
+    let output = [ "  output: " + kinds (outputKinds metadata) ]
+    let usage =
+      usageLines metadata
+      |> List.map (fun line -> "    " + line)
+      |> function
+        | [] -> []
+        | lines -> "  usage:" :: lines
+    let examples =
+      metadata.Examples
+      |> List.map (fun example -> "    " + example)
+      |> function
+        | [] -> []
+        | lines -> "  examples:" :: lines
+    [ $"{actionName metadata.ID} ({role})" ]
+    @ details @ input @ output @ usage @ examples
 
   let private signatureRows metadata =
     let metadata: ActionMetadata = metadata
