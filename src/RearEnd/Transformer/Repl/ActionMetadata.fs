@@ -738,6 +738,12 @@ module ActionMetadata =
     let bytes =
       required "hex" ActionArgumentKind.HexBytes
         "Replacement bytes as a hexadecimal string."
+    let asm =
+      required "asm" ActionArgumentKind.Text
+        "Replacement instruction assembled at the start address."
+    let isa =
+      optional "isa" ActionArgumentKind.Text
+        "Instruction-set architecture used for assembly."
     let binary = [ ReplValueKind.Binary ]
     let slice = [ ReplValueKind.BinarySlice ]
     let forEditInputs trigger args =
@@ -748,14 +754,17 @@ module ActionMetadata =
         yield! forEditInputs (Some "delete") [ start; finish ]
         yield! forEditInputs (Some "delete") [ start; size ]
         yield! forEditInputs (Some "replace") [ start; finish; bytes ]
-        yield! forEditInputs (Some "replace") [ start; size; bytes ] ]
+        yield! forEditInputs (Some "replace") [ start; size; bytes ]
+        yield! forEditInputs (Some "replace") [ start; asm ]
+        yield! forEditInputs (Some "replace") [ start; asm; isa ] ]
     overloadContract "edit"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.Binary
       ActionRole.Transform 40 "edit <operation> ..."
       [ "binary |> @edit insert start=<addr> hex=<hex>"
         "binary |> @edit delete start=<addr> size=<size>"
-        "binary |> @edit replace start=<addr> size=<size> hex=<hex>" ]
+        "binary |> @edit replace start=<addr> size=<size> hex=<hex>"
+        "binary |> @edit replace start=<addr> asm=<instruction> isa=<isa>" ]
       syntaxes
 
   let private grep =

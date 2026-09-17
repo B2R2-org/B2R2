@@ -28,6 +28,7 @@ open System
 open System.Globalization
 open System.Threading
 open B2R2
+open B2R2.Assembly
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 
@@ -59,6 +60,23 @@ type EditAction() =
       else
         NumberStyles.Integer, value
     UInt64.Parse(value, style, CultureInfo.InvariantCulture)
+
+  let tryParseUInt64 value =
+    try parseUInt64 value |> Some with _ -> None
+
+  let tryParseISA (name: string) =
+    try Some(ISA name) with _ -> None
+
+  let defaultISA = ISA(Architecture.Intel, WordSize.Bit64)
+
+  let assemble code isa baseAddress =
+    let asm = Assembler(isa, baseAddress)
+    match asm.Lower code with
+    | Ok lowered ->
+      lowered
+      |> List.collect (fun (_, bytes) -> bytes |> Array.toList)
+      |> List.toArray
+    | Error error -> invalidArg (nameof code) error
 
   let parseEndAddress startAddress (value: string) =
     if value.StartsWith "+" then
@@ -239,6 +257,11 @@ type EditAction() =
     Array.blit newbs 0 bs soff (eoff - soff)
     makeResult o bin bs id
 
+  let replaceAsm startAddress code isa o =
+    let newbs = assemble code isa startAddress
+    let endAddress = startAddress + uint64 newbs.Length
+    replace startAddress endAddress newbs o
+
   let map cancellationToken operation collection =
     let cancellationToken: CancellationToken = cancellationToken
     collection.Values
@@ -261,14 +284,26 @@ type EditAction() =
         invalidArg (nameof args) "Invalid address range."
     | "replace" :: start :: finish :: hexstr :: [] ->
       let start = parseUInt64 start
-      let finish = parseEndAddress start finish
-      let newbs = ByteArray.ofHexString hexstr
-      let editSize = finish - start
-      if finish > start && editSize = uint64 newbs.Length then
-        let replace = replace start finish newbs
-        { Values = map cancellationToken replace collection }
-      else
-        invalidArg (nameof args) "Invalid address range or hexstring."
+      match tryParseUInt64 finish with
+      | Some _ ->
+        let finish = parseEndAddress start finish
+        let newbs = ByteArray.ofHexString hexstr
+        let editSize = finish - start
+        if finish > start && editSize = uint64 newbs.Length then
+          let replace = replace start finish newbs
+          { Values = map cancellationToken replace collection }
+        else
+          invalidArg (nameof args) "Invalid address range or hexstring."
+      | None ->
+        match tryParseISA hexstr with
+        | Some isa ->
+          { Values = map cancellationToken (replaceAsm start finish isa)
+                       collection }
+        | None -> invalidArg (nameof hexstr) "Invalid ISA."
+    | "replace" :: start :: code :: [] ->
+      let start = parseUInt64 start
+      { Values = map cancellationToken (replaceAsm start code defaultISA)
+                   collection }
     | _ -> invalidArg (nameof args) "Invalid edit action."
 
   interface IAction with
@@ -279,6 +314,7 @@ type EditAction() =
       + "delete start=<addr> size=<n> | "
       + "replace start=<addr> end=<addr> hex=<hex> | "
       + "replace start=<addr> size=<n> hex=<hex> -> Binary; "
+      + "replace start=<addr> asm=<instruction> [isa=<isa>] -> Binary; "
       + "BinarySlice -> edit ... -> BinarySlice"
     member _.Description with get() =
       """
@@ -302,6 +338,10 @@ type EditAction() =
 
       - `replace start=<addr> size=<sz> hex=<hex>`
         Replace sz bytes starting at address addr.
+
+      - `replace start=<addr> asm=<instruction> [isa=<isa>]`
+        Assemble instruction at addr and replace the original bytes with the
+        assembled bytes.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
