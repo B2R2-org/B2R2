@@ -715,7 +715,8 @@ type ConcExecutorValue private(binary: Binary,
                 parseRegionAssignment entry :: regions) nextRegions
             loop stack regs memory nextRegions rest
           | _ ->
-            invalidArg (nameof args) $"Unknown set-context parameter: {key}"
+            invalidArg (nameof args)
+              $"Unknown make-concrete-context parameter: {key}"
     loop None [] [] regions args
 
   let lastRunLines () =
@@ -852,19 +853,6 @@ type ConcExecutorValue private(binary: Binary,
       accessor.SetArgument(index, accessor.WordValue value)
       clearRunState nextState memoryRanges regions
     | _ -> invalidArg (nameof args) "Invalid arg argument layout."
-
-  member _.SetRegister(args: string list) =
-    match args with
-    | [ name; value ] ->
-      match tryGetRegisterID name with
-      | None -> invalidArg (nameof args) $"Unknown register: {name}"
-      | Some rid ->
-        let value = parseUInt64 value
-        let nextState = state.Clone()
-        let accessor = accessorFor nextState
-        accessor.SetRegister(rid, accessor.WordValue value)
-        clearRunState nextState memoryRanges regions
-    | _ -> invalidArg (nameof args) "Invalid set-reg argument layout."
 
   member _.WriteMemory(args: string list) =
     match args with
@@ -1023,32 +1011,6 @@ type ArgAction() =
     member _.Transform(args, collection, cancellationToken) =
       transform cancellationToken args collection
 
-/// Set one concrete register value.
-type SetRegAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
-    { Values =
-        collection.Values
-        |> Array.map (fun input ->
-          cancellationToken.ThrowIfCancellationRequested()
-          match input with
-          | :? ConcExecutorValue as executor ->
-            executor.SetRegister args |> box
-          | _ -> invalidArg (nameof input) "Invalid input type.") }
-
-  interface IAction with
-    member _.ActionID with get() = "set-reg"
-    member _.Signature with get() =
-      "ConcExecutor -> set-reg name=<register> value=<addr> -> ConcExecutor"
-    member _.Description with get() =
-      "Set a concrete register value in the executor context."
-    member _.Transform(args, collection) =
-      transform CancellationToken.None args collection
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
-
 /// Set multiple concrete registers and memory ranges.
 type SetContextAction() =
   let transform cancellationToken args collection =
@@ -1063,13 +1025,14 @@ type SetContextAction() =
           | _ -> invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "set-context"
+    member _.ActionID with get() = "make-concrete-context"
     member _.Signature with get() =
-      "ConcExecutor * [stack=<addr>] [regs=[...]] [mem=[...]]"
+      "ConcExecutor -> make-concrete-context [stack=<addr>] [regs=[...]]"
+      + " [mem=[...]]"
       + " [regions=[...]]"
       + " -> ConcExecutor"
     member _.Description with get() =
-      "Set multiple register and memory values in one concrete context."
+      "Create a concrete execution context with registers and memory."
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
 

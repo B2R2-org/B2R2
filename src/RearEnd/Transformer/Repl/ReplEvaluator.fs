@@ -408,7 +408,7 @@ module TransformerReplEvaluator =
         "required registers:"
         :: (needs.Registers |> Array.toList |> List.map (fun item ->
           $"  {item.Name} read at 0x{item.Address:x}  {item.Disassembly}"
-          + $"  => @set-reg name={item.Name} value=<value>"))
+          + $"  => @make-concrete-context regs=[{item.Name}=<value>]"))
     let memory =
       if Array.isEmpty needs.Memory then
         [ "required memory: none" ]
@@ -1380,7 +1380,7 @@ module TransformerReplEvaluator =
       | _ ->
         Error $"{metadata.ID} expects {expected}, but received {actual}."
     elif
-      metadata.ID = "set-context"
+      metadata.ID = "make-concrete-context"
       || metadata.ID = "make-symbolic-context"
     then
       let args =
@@ -1388,7 +1388,8 @@ module TransformerReplEvaluator =
         |> resolveArgumentBindings state
         |> compactBracketArguments
       let outputKind =
-        if metadata.ID = "set-context" then ReplValueKind.ConcExecutor
+        if metadata.ID = "make-concrete-context" then
+          ReplValueKind.ConcExecutor
         else ReplValueKind.SymbExecutor
       let segment = { segment with Arguments = args }
       try

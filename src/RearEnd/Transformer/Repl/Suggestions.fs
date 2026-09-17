@@ -658,7 +658,7 @@ module Suggestions =
 
   let private isContextAction head =
     let id = actionID head
-    id = "set-context" || id = "make-symbolic-context"
+    id = "make-concrete-context" || id = "make-symbolic-context"
 
   let private setContextListCandidates state (context: InputContext) =
     match context.SegmentWords with
@@ -923,15 +923,22 @@ module Suggestions =
     | None ->
       []
     | Some registered ->
-      if registered.Metadata.ID = "set-reg" && name = "name" then
-        requiredRegisterCandidates "" state prefix
-      elif registered.Metadata.ID = "mem" && name = "addr" then
+      if registered.Metadata.ID = "mem" && name = "addr" then
         requiredMemoryCandidates "" state prefix
-      elif registered.Metadata.ID = "set-context" && name = "regs" then
+      elif
+        registered.Metadata.ID = "make-concrete-context"
+        && name = "regs"
+      then
         requiredRegisterCandidates "=" state prefix
-      elif registered.Metadata.ID = "set-context" && name = "mem" then
+      elif
+        registered.Metadata.ID = "make-concrete-context"
+        && name = "mem"
+      then
         requiredMemoryCandidates "=" state prefix
-      elif registered.Metadata.ID = "set-context" && name = "regions" then
+      elif
+        registered.Metadata.ID = "make-concrete-context"
+        && name = "regions"
+      then
         contextListValueCandidates "regions" prefix
       elif
         registered.Metadata.ID = "make-symbolic-context"

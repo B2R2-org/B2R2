@@ -618,20 +618,7 @@ module ActionMetadata =
       [ "executor |> @arg index=<index> value=<addr>" ]
       [ syntax None [ index; value ] ]
 
-  let private setReg =
-    let name =
-      required "name" ActionArgumentKind.Text "Register name."
-    let value =
-      required "value" ActionArgumentKind.Address
-        "Concrete integer or pointer value."
-    contract "set-reg" ReplValueKind.ConcExecutor
-      ReplValueKind.ConcExecutor
-      ActionRole.Transform 20
-      "set-reg name=<reg> value=<value> -> ConcExecutor"
-      [ "executor |> @set-reg name=<reg> value=<addr>" ]
-      [ syntax None [ name; value ] ]
-
-  let private setContext =
+  let private makeConcreteContext =
     let stack =
       optional "stack" ActionArgumentKind.Address
         "Stack pointer value to set."
@@ -644,14 +631,15 @@ module ActionMetadata =
     let regions =
       optional "regions" ActionArgumentKind.Text
         "Memory regions: [name=<start>..<end>:rw]."
-    contract "set-context" ReplValueKind.ConcExecutor
+    contract "make-concrete-context" ReplValueKind.ConcExecutor
       ReplValueKind.ConcExecutor
       ActionRole.Transform 18
-      ("set-context [stack=<addr>] [regs=[...]] [mem=[...]] "
+      ("make-concrete-context [stack=<addr>] [regs=[...]] [mem=[...]] "
        + "[regions=[...]] -> ConcExecutor")
-      [ "executor |> @set-context regs=[<reg>=<value>; RSP=sp]"
-        "executor |> @set-context mem=[<addr>=<hex>]"
-        "executor |> @set-context regions=[buf=<start>..<end>:rw]" ]
+      [ "executor |> @make-concrete-context regs=[<reg>=<value>; RSP=sp]"
+        "executor |> @make-concrete-context mem=[<addr>=<hex>]"
+        "executor |> @make-concrete-context "
+        + "regions=[buf=<start>..<end>:rw]" ]
       [ syntax None [ stack ]
         syntax None [ regs ]
         syntax None [ mem ]
@@ -1093,8 +1081,7 @@ module ActionMetadata =
       random
       regs
       run
-      setContext
-      setReg
+      makeConcreteContext
       slice
       step
       trace
