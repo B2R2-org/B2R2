@@ -694,6 +694,7 @@ module TransformerReplEvaluator =
       | [| :? AddressValue as value |] -> Some $"0x{value.Address:x}"
       | [| :? int as value |] -> Some(string value)
       | [| :? string as value |] -> Some value
+      | [| :? SymbSolverValue as value |] -> Some("@" + value.ID)
       | _ -> None)
 
   let private resolveAssignmentValue state (token: string) =
@@ -1173,6 +1174,59 @@ module TransformerReplEvaluator =
     cancellationToken.ThrowIfCancellationRequested()
     collection
 
+  let private parameterValue name (token: string) =
+    let index = token.IndexOf '='
+    if index <= 0 then
+      None
+    else
+      let key = token[..index - 1].Trim()
+      let key =
+        let index = key.IndexOf ':'
+        if index <= 0 then key else key[..index - 1]
+      if equalsIgnoreCase key name then
+        Some(token[index + 1..].Trim())
+      else
+        None
+
+  let private registerSymbSolver registry args cancellationToken =
+    match args |> List.tryPick (parameterValue "solver") with
+    | None -> Ok()
+    | Some solverID ->
+      match SymbSolverRegistry.create solverID with
+      | Some _ -> Ok()
+      | None ->
+        match tryFindAction registry solverID with
+        | None -> Error $"Unknown symbolic solver: {solverID}"
+        | Some registered ->
+          let metadata = registered.Metadata
+          let isSource =
+            ActionMetadata.acceptedInputs metadata
+            |> List.contains ReplValueKind.Unit
+          if not isSource
+             || not (ReplValueKind.isCompatible metadata.Output
+                       ReplValueKind.SymbSolver) then
+            Error $"{solverID} is not a symbolic solver action."
+          else
+            try
+              let segment =
+                { Head = ActionMetadata.actionName metadata.ID
+                  Arguments = [] }
+              let collection =
+                transform registered ReplValue.emptyInput segment
+                  cancellationToken
+              match collection.Values with
+              | [| :? SymbSolverValue as solver |] ->
+                let factory =
+                  Func<B2R2.MiddleEnd.SymbEval.ISolver>(fun () ->
+                    solver.Create())
+                SymbSolverRegistry.register solver.ID solver.Description factory
+                Ok()
+              | _ ->
+                Error $"{solverID} did not return a SymbSolver."
+            with
+            | :? OperationCanceledException -> reraise ()
+            | error -> Error error.Message
+
   let rec private invoke registry state (registered: RegisteredAction)
                           (input: ReplValue) (segment: ReplPipelineSegment)
                           cancellationToken =
@@ -1198,15 +1252,18 @@ module TransformerReplEvaluator =
         Error $"{metadata.ID} expects {expected}, but received {actual}."
     elif metadata.ID = "batch" then
       invokeBatch registry state input segment cancellationToken
-    elif metadata.ID = "set-context" then
+    elif metadata.ID = "set-context" || metadata.ID = "symb-context" then
       let args =
         segment.Arguments
         |> resolveArgumentBindings state
         |> compactBracketArguments
+      let outputKind =
+        if metadata.ID = "set-context" then ReplValueKind.ConcExecutor
+        else ReplValueKind.SymbExecutor
       let segment = { segment with Arguments = args }
       try
         transform registered input segment cancellationToken
-        |> ReplValue.ofCollection ReplValueKind.ConcExecutor
+        |> ReplValue.ofCollection outputKind
         |> Ok
       with
       | :? OperationCanceledException -> reraise ()
@@ -1216,7 +1273,13 @@ module TransformerReplEvaluator =
         segment.Arguments
         |> resolveArgumentBindings state
         |> compactBracketArguments
-      validateArguments input metadata args
+      let ready =
+        if metadata.ID = "symb-exec" then
+          registerSymbSolver registry args cancellationToken
+        else
+          Ok()
+      ready
+      |> Result.bind (fun () -> validateArguments input metadata args)
       |> Result.bind (fun normalizedArgs ->
       try
         let rawArgs = args
