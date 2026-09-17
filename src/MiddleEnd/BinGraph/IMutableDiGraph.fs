@@ -94,3 +94,15 @@ type IMutableDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// `VertexNotFoundException` when any of the given vertices is not in the
   /// graph, and leaves the current roots untouched in that case.
   abstract SetRoots: IEnumerable<IVertex<'V>> -> unit
+
+namespace B2R2.MiddleEnd
+
+open B2R2.MiddleEnd.BinGraph
+
+[<AutoOpen>]
+module BinGraphCompatibility =
+
+  type IMutableDiGraph<'V, 'E when 'V: equality and 'E: equality> with
+
+    /// Iterates every vertex of the given graph. The order can be arbitrary.
+    member g.IterVertex fn = Array.iter fn g.Vertices
