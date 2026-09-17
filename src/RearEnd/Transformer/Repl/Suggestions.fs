@@ -747,6 +747,45 @@ module Suggestions =
     | ActionArgumentKind.Text ->
       []
 
+  let private expectedBindingKinds = function
+    | ActionArgumentKind.Text
+    | ActionArgumentKind.Path
+    | ActionArgumentKind.ExistingPath
+    | ActionArgumentKind.OutputPath
+    | ActionArgumentKind.ISA
+    | ActionArgumentKind.HexPattern
+    | ActionArgumentKind.HexBytes
+    | ActionArgumentKind.Section
+    | ActionArgumentKind.Choice ->
+      [ ReplValueKind.Text ]
+    | ActionArgumentKind.Integer
+    | ActionArgumentKind.Size ->
+      [ ReplValueKind.Int ]
+    | ActionArgumentKind.Float ->
+      [ ReplValueKind.Float ]
+    | ActionArgumentKind.Address ->
+      [ ReplValueKind.Address ]
+    | ActionArgumentKind.Action ->
+      [ ReplValueKind.SymbSolver ]
+    | ActionArgumentKind.ParameterFunction ->
+      []
+
+  let private argumentBindingCandidates state argument prefix =
+    let argument: ActionArgument = argument
+    let expected = expectedBindingKinds argument.Kind
+    state.Bindings
+    |> Map.toList
+    |> List.filter (fun (name, value) ->
+      matches prefix name
+      && (expected
+          |> List.exists (ReplValueKind.isCompatible value.Kind))
+      && match value.Collection.Values with
+         | [| item |] ->
+           ReplValue.tryArgumentText item |> Option.isSome
+         | _ ->
+           false)
+    |> List.map bindingItem
+
   let private tryParameterName (token: string) =
     let index = token.IndexOf '='
     if index <= 0 then
@@ -887,53 +926,59 @@ module Suggestions =
     | None ->
       []
     | Some registered ->
-      if registered.Metadata.ID = "mem" && name = "addr" then
-        requiredMemoryCandidates "" state prefix
-      elif
-        registered.Metadata.ID = "make-concrete-context"
-        && name = "regs"
-      then
-        requiredRegisterCandidates "=" state prefix
-      elif
-        registered.Metadata.ID = "make-concrete-context"
-        && name = "mem"
-      then
-        requiredMemoryCandidates "=" state prefix
-      elif
-        registered.Metadata.ID = "make-concrete-context"
-        && name = "regions"
-      then
-        contextListValueCandidates "regions" prefix
-      elif
-        registered.Metadata.ID = "make-symbolic-context"
-        && name = "regs"
-      then
-        requiredRegisterCandidates "=" state prefix
-      elif
-        registered.Metadata.ID = "make-symbolic-context"
-        && name = "mem"
-      then
-        requiredMemoryCandidates "=" state prefix
-      elif
-        registered.Metadata.ID = "make-symbolic-context"
-        && name = "sym-mem"
-      then
-        contextListValueCandidates "sym-mem" prefix
-      elif
-        registered.Metadata.ID = "make-symbolic-context"
-        && name = "regions"
-      then
-        contextListValueCandidates "regions" prefix
-      else
+      let arguments =
         ActionMetadata.matchingSyntaxes registered.Metadata inputKind completed
         |> List.filter (ActionMetadata.syntaxHasParameter name)
         |> List.collect (fun syntax -> syntax.Arguments)
         |> List.distinctBy (fun argument -> argument.Name)
         |> List.filter (matchesArgumentName name)
+      let bindings =
+        arguments
         |> List.collect (fun argument ->
-          semanticCandidates state argument prefix)
-        |> List.distinctBy (fun item -> item.Text)
-        |> List.distinctBy (fun item -> item.Text)
+          argumentBindingCandidates state argument prefix)
+      let semantic =
+        if registered.Metadata.ID = "mem" && name = "addr" then
+          requiredMemoryCandidates "" state prefix
+        elif
+          registered.Metadata.ID = "make-concrete-context"
+          && name = "regs"
+        then
+          requiredRegisterCandidates "=" state prefix
+        elif
+          registered.Metadata.ID = "make-concrete-context"
+          && name = "mem"
+        then
+          requiredMemoryCandidates "=" state prefix
+        elif
+          registered.Metadata.ID = "make-concrete-context"
+          && name = "regions"
+        then
+          contextListValueCandidates "regions" prefix
+        elif
+          registered.Metadata.ID = "make-symbolic-context"
+          && name = "regs"
+        then
+          requiredRegisterCandidates "=" state prefix
+        elif
+          registered.Metadata.ID = "make-symbolic-context"
+          && name = "mem"
+        then
+          requiredMemoryCandidates "=" state prefix
+        elif
+          registered.Metadata.ID = "make-symbolic-context"
+          && name = "sym-mem"
+        then
+          contextListValueCandidates "sym-mem" prefix
+        elif
+          registered.Metadata.ID = "make-symbolic-context"
+          && name = "regions"
+        then
+          contextListValueCandidates "regions" prefix
+        else
+          arguments
+          |> List.collect (fun argument ->
+            semanticCandidates state argument prefix)
+      bindings @ semantic |> List.distinctBy (fun item -> item.Text)
 
   let private splitAtLastSemicolon tokens =
     let rec loop depth current = function

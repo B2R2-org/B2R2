@@ -240,6 +240,41 @@ type ReplParserTests() =
     Assert.AreEqual(true, List.contains "after=" candidates, detail)
 
   [<TestMethod>]
+  member _.``Completion suggests compatible argument bindings``() =
+    let executor = collectionValue ReplValueKind.ConcExecutor
+    let address =
+      { Address = 0x401e08UL }
+      |> box
+      |> fun value -> { Values = [| value |] }
+      |> ReplValue.ofCollection ReplValueKind.Address
+    let limit =
+      100
+      |> box
+      |> fun value -> { Values = [| value |] }
+      |> ReplValue.ofCollection ReplValueKind.Int
+    let state =
+      { TransformerReplState.empty with
+          Bindings =
+            Map.ofList
+              [ "executor", executor
+                "functionEntry", address
+                "failureLimit", limit ] }
+    let entryInput = "executor |> @run-concrete entry=f"
+    let entryCandidates =
+      Suggestions.get registry.Value state entryInput entryInput.Length
+      |> _.Items
+      |> List.map _.Text
+    Assert.Contains("functionEntry", entryCandidates)
+    Assert.DoesNotContain("failureLimit", entryCandidates)
+    let limitInput = "executor |> @run-concrete limit=f"
+    let limitCandidates =
+      Suggestions.get registry.Value state limitInput limitInput.Length
+      |> _.Items
+      |> List.map _.Text
+    Assert.Contains("failureLimit", limitCandidates)
+    Assert.DoesNotContain("functionEntry", limitCandidates)
+
+  [<TestMethod>]
   member _.``Completion hint filters edit operation overloads``() =
     let hint =
       completionHint
