@@ -418,6 +418,13 @@ type ConcExecutorValue private(binary: Binary,
     let result: ConcRunResult = executor.Run(addr, runState, options)
     result, instruction
 
+  let hasAccessViolation (runState: ConcState) =
+    match runState.Memory with
+    | :? TracingMemory as memory ->
+      memory.Accesses
+      |> Array.exists (fun access -> Option.isSome access.Violation)
+    | _ -> false
+
   let rec runSteps stops (start: Addr) count (runState: ConcState) =
     let rec loop addr remaining instructions total
                  (lastResult: ConcRunResult option) =
@@ -433,7 +440,9 @@ type ConcExecutorValue private(binary: Binary,
               InstructionCount = total
               StopReasons = aggregateStopReasons total result.StopReasons }
         let stopped =
-          executed = 0 || hasNonLimitStop result.StopReasons
+          executed = 0
+          || hasNonLimitStop result.StopReasons
+          || hasAccessViolation runState
         if stopped then
           Some result, List.rev instructions
         else
