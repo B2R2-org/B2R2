@@ -1120,17 +1120,6 @@ module ReplLanguage =
     | Some kind -> Ok kind
     | None -> Error $"Unknown type annotation: {token}"
 
-  let private rejectPostfixBinding tokens =
-    match List.rev tokens with
-    | name :: "as" :: _ when isValidName name ->
-      Error "Postfix binding is not supported. Use let <name> = <expression>."
-    | _ ->
-      Ok tokens
-
-  let private parseSegments tokens =
-    rejectPostfixBinding tokens
-    |> Result.bind parsePipelineTokens
-
   let topLevelPipelinePositions (input: string) =
     let rec loop index quote depth positions =
       if index >= input.Length then
@@ -1218,13 +1207,12 @@ module ReplLanguage =
           | Some typ -> parseKind typ |> Result.map Some
         expected
         |> Result.bind (fun expected ->
-          tokenizeStrict expression
-          |> Result.bind (fun tokens ->
-            if List.isEmpty tokens then Error "An expression is required."
-            else
-              parsePipeline expression
-              |> Result.map (fun segments ->
-                Evaluate(segments, Some name, expected))))
+          if String.IsNullOrWhiteSpace expression then
+            Error "An expression is required."
+          else
+            parsePipeline expression
+            |> Result.map (fun segments ->
+              Evaluate(segments, Some name, expected)))
       | Some name, _, _ when not (isValidName name) ->
         Error $"Invalid binding name: {name}"
       | None, _, _ ->
