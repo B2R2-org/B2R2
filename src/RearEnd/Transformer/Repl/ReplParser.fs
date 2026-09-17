@@ -38,15 +38,15 @@ module TransformerReplParser =
   let private parseRestore id name =
     parseInt id |> Result.map (fun id -> Restore(id, name))
 
-  let private parsePluginLoad (value: string) =
+  let private parsePathArgument command (value: string) =
     if value.StartsWith("path=", StringComparison.OrdinalIgnoreCase) then
       let path = value[5..]
       if String.IsNullOrWhiteSpace path then
-        Error ":plugin load path= requires a DLL path."
+        Error $"{command} path= requires a path."
       else
-        Ok(PluginLoad path)
+        Ok path
     else
-      Ok(PluginLoad value)
+      Ok value
 
   let private parseMetaCommand = function
     | [] -> Ok NoInput
@@ -58,7 +58,8 @@ module TransformerReplParser =
     | [ ":undo" ] -> Ok Undo
     | [ ":log" ] -> Ok Log
     | [ ":export"; name; path ] when ReplLanguage.isValidName name ->
-      Ok(ExportValue(name, path))
+      parsePathArgument ":export" path
+      |> Result.map (fun path -> ExportValue(name, path))
     | [ ":inspect" ] -> Ok(Inspect None)
     | [ ":inspect"; name ] -> Ok(Inspect(Some name))
     | ":needs" :: name :: args when ReplLanguage.isValidName name ->
@@ -68,12 +69,15 @@ module TransformerReplParser =
     | [ ":restore"; id ] -> parseRestore id None
     | [ ":restore"; id; "as"; name ] when ReplLanguage.isValidName name ->
       parseRestore id (Some name)
-    | [ ":script"; "save"; path ] -> Ok(SaveScript path)
-    | [ ":script"; "load"; path ] -> Ok(LoadScript path)
+    | [ ":script"; "save"; path ] ->
+      parsePathArgument ":script save" path |> Result.map SaveScript
+    | [ ":script"; "load"; path ] ->
+      parsePathArgument ":script load" path |> Result.map LoadScript
     | [ ":script"; "record" ] -> Ok(ScriptRecord None)
     | [ ":script"; "record"; "on" ] -> Ok(ScriptRecord(Some true))
     | [ ":script"; "record"; "off" ] -> Ok(ScriptRecord(Some false))
-    | [ ":plugin"; "load"; path ] -> parsePluginLoad path
+    | [ ":plugin"; "load"; path ] ->
+      parsePathArgument ":plugin load" path |> Result.map PluginLoad
     | [ ":plugin"; "load" ] -> Error ":plugin load requires a DLL path."
     | [ ":plugin" ] -> Error ":plugin requires an operation: load."
     | ":layout" :: options -> Ok(Layout options)

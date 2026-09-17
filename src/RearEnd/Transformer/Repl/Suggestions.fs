@@ -1044,19 +1044,42 @@ module Suggestions =
     [ "load" ]
     |> valueCandidates SuggestionKind.Argument "plugin operation" prefix
 
-  let private pathParameterCandidates (name: string) (prefix: string) =
+  let private pathArgumentCandidates
+    (name: string) (detail: string) (prefix: string) (args: string list) =
     let key = name + "="
-    if prefix.StartsWith(key, StringComparison.OrdinalIgnoreCase) then
-      let prefix = prefix[key.Length..]
-      pathCandidates prefix
-      |> List.map (fun item ->
-        { item with
-            Text = key + item.Text
-            Label = key + item.Label })
-    elif matches prefix key then
-      [ parameterItem name "plugin DLL path" ]
-    else
-      []
+    let parameter = parameterItem name detail
+    let paths = pathCandidates prefix
+    match List.tryLast args with
+    | Some token when
+        token.StartsWith(key, StringComparison.OrdinalIgnoreCase) ->
+      paths
+    | Some token when token.Contains "=" -> []
+    | Some _ when matches prefix key -> parameter :: paths
+    | Some _ -> paths
+    | None -> [ parameter ]
+
+  let private scriptPathCandidates prefix words =
+    match words with
+    | [ ":script"; ("save" | "load") ] ->
+      pathArgumentCandidates "path" "script path" prefix []
+    | ":script" :: ("save" | "load") :: args ->
+      pathArgumentCandidates "path" "script path" prefix args
+    | _ -> []
+
+  let private pluginPathCandidates prefix words =
+    match words with
+    | [ ":plugin"; "load" ] ->
+      pathArgumentCandidates "path" "plugin DLL path" prefix []
+    | ":plugin" :: "load" :: args ->
+      pathArgumentCandidates "path" "plugin DLL path" prefix args
+    | _ -> []
+
+  let private exportPathCandidates prefix words =
+    match words with
+    | [ ":export"; _ ] -> []
+    | ":export" :: _ :: args ->
+      pathArgumentCandidates "path" "export path" prefix args
+    | _ -> []
 
   let private layoutCandidates prefix =
     [ "sidebar=40"
@@ -1071,13 +1094,13 @@ module Suggestions =
     let input: string = input
     if input.TrimStart().StartsWith(":script save ")
       || input.TrimStart().StartsWith(":script load ") then
-      pathCandidates prefix
+      scriptPathCandidates prefix words
     elif input.TrimStart().StartsWith(":script record ") then
       scriptRecordCandidates prefix
     elif input.TrimStart().StartsWith(":script") then
       scriptOperationCandidates prefix
     elif input.TrimStart().StartsWith(":plugin load ") then
-      pathParameterCandidates "path" prefix
+      pluginPathCandidates prefix words
     elif input.TrimStart().StartsWith(":plugin") then
       pluginOperationCandidates prefix
     elif input.TrimStart().StartsWith(":layout") then
@@ -1085,9 +1108,9 @@ module Suggestions =
     elif input.TrimStart().StartsWith(":export ") then
       match words with
       | [ ":export"; _ ] when input.EndsWith " " ->
-        pathCandidates prefix
+        pathArgumentCandidates "path" "export path" prefix []
       | [ ":export"; _; _ ] ->
-        pathCandidates prefix
+        exportPathCandidates prefix words
       | _ ->
         state.Bindings
         |> Map.toList
