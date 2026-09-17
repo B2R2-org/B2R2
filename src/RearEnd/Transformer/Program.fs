@@ -26,7 +26,6 @@ module B2R2.RearEnd.Transformer.Program
 
 open System
 open System.IO
-open System.Reflection
 open B2R2
 open B2R2.RearEnd.Utils
 
@@ -78,13 +77,9 @@ let inline private filterIActionType types =
     && (t.GetInterface(nameof IAction) |> isNull |> not))
 
 let private loadUserDLL dllPath =
-  if File.Exists dllPath then
-    let dllPath = Path.GetFullPath dllPath
-    let dll = Assembly.LoadFile dllPath
-    dll.GetExportedTypes()
-    |> filterIActionType
-    |> accumulateActions Map.empty
-  else invalidOp $"File not found: {dllPath}"
+  TransformerPluginLoader.exportedTypes dllPath
+  |> filterIActionType
+  |> accumulateActions Map.empty
 
 let private retrieveActionMap map =
   let actionType = typeof<IAction>

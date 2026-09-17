@@ -51,6 +51,7 @@ type TransformerReplCommand =
   | LoadScript of path: string
   | ScriptRecord of enabled: bool option
   | ScriptComment of text: string
+  | PluginLoad of path: string
   | Layout of options: string list
   | Help
   | Reset

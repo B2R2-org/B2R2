@@ -38,6 +38,16 @@ module TransformerReplParser =
   let private parseRestore id name =
     parseInt id |> Result.map (fun id -> Restore(id, name))
 
+  let private parsePluginLoad (value: string) =
+    if value.StartsWith("path=", StringComparison.OrdinalIgnoreCase) then
+      let path = value[5..]
+      if String.IsNullOrWhiteSpace path then
+        Error ":plugin load path= requires a DLL path."
+      else
+        Ok(PluginLoad path)
+    else
+      Ok(PluginLoad value)
+
   let private parseMetaCommand = function
     | [] -> Ok NoInput
     | [ ":quit" ] | [ ":q" ] -> Ok Quit
@@ -63,6 +73,9 @@ module TransformerReplParser =
     | [ ":script"; "record" ] -> Ok(ScriptRecord None)
     | [ ":script"; "record"; "on" ] -> Ok(ScriptRecord(Some true))
     | [ ":script"; "record"; "off" ] -> Ok(ScriptRecord(Some false))
+    | [ ":plugin"; "load"; path ] -> parsePluginLoad path
+    | [ ":plugin"; "load" ] -> Error ":plugin load requires a DLL path."
+    | [ ":plugin" ] -> Error ":plugin requires an operation: load."
     | ":layout" :: options -> Ok(Layout options)
     | "#" :: rest -> Ok(ScriptComment(String.concat " " rest))
     | [ ":reset" ] -> Ok Reset

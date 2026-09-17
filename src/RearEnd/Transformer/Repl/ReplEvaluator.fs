@@ -53,8 +53,8 @@ module ReplOutput =
 
 /// The result of evaluating one interactive command.
 type ReplEvaluation =
-  | Continue of TransformerReplState * output: ReplOutput
-  | Exit of TransformerReplState
+  | Continue of ActionRegistry * TransformerReplState * output: ReplOutput
+  | Exit of ActionRegistry * TransformerReplState
 
 module TransformerReplEvaluator =
   type private RenderMode =
@@ -507,11 +507,11 @@ module TransformerReplEvaluator =
     ReplOutput.ofLazy (renderValue Preview value)
       (lazy (renderValue Full value))
 
-  let private continueWith state lines =
-    Continue(state, outputLines lines)
+  let private continueWith registry state lines =
+    Continue(registry, state, outputLines lines)
 
-  let private continueValue state value =
-    Continue(state, outputValue value)
+  let private continueValue registry state value =
+    Continue(registry, state, outputValue value)
 
   let private describeValue name value =
     let count = value.Collection.Values.Length
@@ -1399,9 +1399,9 @@ module TransformerReplEvaluator =
           | None ->
             Error $"Unknown value or action: {first.Head}"
 
-  let private fail state message =
+  let private fail registry state message =
     let state = TransformerReplState.setError message state
-    continueWith state [ $"Error: {message}" ]
+    continueWith registry state [ $"Error: {message}" ]
 
   let private validateOutput
     (expected: ReplValueKind option)
@@ -1418,11 +1418,11 @@ module TransformerReplEvaluator =
                        expected command cancellationToken =
     match runPipeline registry state segments cancellationToken with
     | Error message ->
-      fail state message
+      fail registry state message
     | Ok value ->
       match validateOutput expected value with
       | Error message ->
-        fail state message
+        fail registry state message
       | Ok value ->
         let state =
           TransformerReplState.setValue binding value state
@@ -1432,41 +1432,41 @@ module TransformerReplEvaluator =
             describeValue binding value :: suggestions registry value.Kind
           else
             [ describeValue binding value ]
-        continueWith state output
+        continueWith registry state output
 
-  let private show state name =
+  let private show registry state name =
     match selectValue name state with
     | Error message ->
-      fail state message
+      fail registry state message
     | Ok(_, value) ->
-      continueValue state value
+      continueValue registry state value
 
   let private showExpression registry state segments cancellationToken =
     match runPipeline registry state segments cancellationToken with
     | Error message ->
-      fail state message
+      fail registry state message
     | Ok value ->
-      continueValue state value
+      continueValue registry state value
 
-  let private showType state name =
+  let private showType registry state name =
     match selectValue name state with
     | Error message ->
-      fail state message
+      fail registry state message
     | Ok(name, value) ->
-      continueWith state [ $"{name}: {typeDescription value}" ]
+      continueWith registry state [ $"{name}: {typeDescription value}" ]
 
   let private showActions registry state =
     ActionRegistry.getAll registry
     |> List.collect actionDetails
-    |> continueWith state
+    |> continueWith registry state
 
-  let private showHistory state =
+  let private showHistory registry state =
     state.CommandHistory
     |> List.rev
     |> List.mapi (fun index command -> $"{index + 1}: {command}")
-    |> continueWith state
+    |> continueWith registry state
 
-  let private showValues state =
+  let private showValues registry state =
     state.ValueHistory
     |> List.rev
     |> List.map (fun entry ->
@@ -1476,18 +1476,18 @@ module TransformerReplEvaluator =
     |> function
       | [] -> [ "No values have been produced." ]
       | output -> output
-    |> continueWith state
+    |> continueWith registry state
 
-  let private inspect state name =
+  let private inspect registry state name =
     match selectValue name state with
     | Error message ->
-      fail state message
+      fail registry state message
     | Ok(_, value) ->
       let items = TransformerReplInspection.inspect value
       if List.isEmpty items then
         let message =
           "The selected value has no inspectable functions or sections."
-        fail state message
+        fail registry state message
       else
         items
         |> List.mapi (fun index item ->
@@ -1496,7 +1496,7 @@ module TransformerReplEvaluator =
             | Some name -> $"{name} |> {item.Command}"
             | None -> item.Command
           $"{index + 1}: {item.Label}  {item.Detail}  => {command}")
-        |> continueWith state
+        |> continueWith registry state
 
   let private normalizeNeedsArguments state args =
     let args = args |> resolveArgumentBindings state |> compactBracketArguments
@@ -1525,45 +1525,46 @@ module TransformerReplEvaluator =
         | Some _, Some _, Some _ ->
           Error ":needs accepts either count= or end=, not both."
 
-  let private needs state name args =
+  let private needs registry state name args =
     match TransformerReplState.tryFind name state with
     | None ->
-      fail state $"Unknown binding: {name}"
+      fail registry state $"Unknown binding: {name}"
     | Some value ->
       match value.Collection.Values with
       | [| :? ConcExecutorValue as executor |] ->
         match normalizeNeedsArguments state args with
-        | Error message -> fail state message
+        | Error message -> fail registry state message
         | Ok args ->
           try
             let requirements = executor.Needs args
             let state = TransformerReplState.setLastNeeds requirements state
-            continueWith state (renderRequirements requirements)
+            continueWith registry state (renderRequirements requirements)
           with error ->
-            fail state error.Message
+            fail registry state error.Message
       | _ ->
-        fail state $":needs expects a ConcExecutor binding: {name}"
+        fail registry state $":needs expects a ConcExecutor binding: {name}"
 
-  let private restore state id name command =
+  let private restore registry state id name command =
     match TransformerReplState.restoreValue id name state with
     | Error message ->
-      fail state message
+      fail registry state message
     | Ok state ->
       let state = TransformerReplState.recordReplayCommand command state
       let value = state.Current |> Option.get
-      continueWith state [ describeValue name value ]
+      continueWith registry state [ describeValue name value ]
 
-  let private undo state =
+  let private undo registry state =
     match TransformerReplState.undo state with
-    | Error message -> fail state message
+    | Error message -> fail registry state message
     | Ok state ->
       let current =
         state.Current
         |> Option.map typeDescription
         |> Option.defaultValue "none"
-      continueWith state [ $"Undid the last value change; current: {current}" ]
+      continueWith registry state
+        [ $"Undid the last value change; current: {current}" ]
 
-  let private showLog state =
+  let private showLog registry state =
     state.ExecutionLog
     |> List.rev
     |> List.map (fun entry ->
@@ -1573,12 +1574,12 @@ module TransformerReplEvaluator =
     |> function
       | [] -> [ "The execution log is empty." ]
       | output -> output
-    |> continueWith state
+    |> continueWith registry state
 
-  let private exportValue state name path =
+  let private exportValue registry state name path =
     match TransformerReplState.tryFind name state with
     | None ->
-      fail state $"Unknown binding: {name}"
+      fail registry state $"Unknown binding: {name}"
     | Some value ->
       try
         let fullPath = Path.GetFullPath path
@@ -1588,11 +1589,12 @@ module TransformerReplEvaluator =
           value.Collection.Values
           |> Array.iteri (fun index item ->
             ReplArtifactWriter.write $"{fullPath}.{index}" item)
-        continueWith state [ $"Exported {name}: {normalizePath fullPath}" ]
+        continueWith registry state
+          [ $"Exported {name}: {normalizePath fullPath}" ]
       with error ->
-        fail state error.Message
+        fail registry state error.Message
 
-  let private saveScript state path =
+  let private saveScript registry state path =
     try
       let header = "# B2R2 Transformer script v1"
       let lines = header :: state.ReplayCommands |> List.toArray
@@ -1600,30 +1602,54 @@ module TransformerReplEvaluator =
       File.WriteAllLines(fullPath, lines)
       let state =
         TransformerReplState.setSessionPath (normalizePath path) state
-      continueWith state [ $"Script saved: {normalizePath fullPath}" ]
-    with error -> fail state error.Message
+      continueWith registry state [ $"Script saved: {normalizePath fullPath}" ]
+    with error -> fail registry state error.Message
 
   let private scriptRecordText = function
     | ReplReplayMode.Reproducible -> "on"
     | ReplReplayMode.Exploratory -> "off"
 
-  let private setScriptRecord state enabled =
+  let private setScriptRecord registry state enabled =
     match enabled with
     | Some true ->
       let state =
         TransformerReplState.setReplayMode ReplReplayMode.Reproducible state
-      continueWith state [ "Script recording: on" ]
+      continueWith registry state [ "Script recording: on" ]
     | Some false ->
       let state =
         TransformerReplState.setReplayMode ReplReplayMode.Exploratory state
-      continueWith state [ "Script recording: off" ]
+      continueWith registry state [ "Script recording: off" ]
     | None ->
       let status = scriptRecordText state.ReplayMode
-      continueWith state [ $"Script recording: {status}" ]
+      continueWith registry state [ $"Script recording: {status}" ]
 
-  let private addScriptComment state text =
+  let private addScriptComment registry state text =
     let state = TransformerReplState.recordReplayComment text state
-    continueWith state [ "Script comment recorded." ]
+    continueWith registry state [ "Script comment recorded." ]
+
+  let private actionIDs registry =
+    (registry: ActionRegistry).Actions |> Map.toSeq |> Seq.map fst |> Set.ofSeq
+
+  let private loadPlugin registry state path command =
+    try
+      let before = actionIDs registry
+      let fullPath = Path.GetFullPath path
+      let registry = ActionRegistry.loadPlugin fullPath registry
+      let added =
+        ActionRegistry.getAll registry
+        |> List.filter (fun action ->
+          Set.contains action.Metadata.ID before |> not)
+        |> List.map (fun action -> ActionMetadata.actionName action.Metadata.ID)
+      let addedText =
+        match added with
+        | [] -> "none"
+        | _ -> String.concat ", " added
+      let state = TransformerReplState.recordReplayCommand command state
+      continueWith registry state
+        [ $"Plugin loaded: {normalizePath fullPath}"
+          $"  actions: {addedText}" ]
+    with error ->
+      fail registry state error.Message
 
   let private scriptCommands path =
     if not (File.Exists path) then
@@ -1634,7 +1660,7 @@ module TransformerReplEvaluator =
       |> InputAnalysis.combineCommandLines
 
   let private resultState = function
-    | Continue(state, output) -> Ok(state, output)
+    | Continue(registry, state, output) -> Ok(registry, state, output)
     | Exit _ -> Error "A script cannot contain :quit."
 
   let private help =
@@ -1655,6 +1681,7 @@ module TransformerReplEvaluator =
       "  :script load <path>   reset and replay a script"
       "  :script record [on|off]"
       "                        show or set script recording"
+      "  :plugin load <dll>    load REPL actions from a plugin DLL"
       "  # <text>              record a script comment"
       "  :layout [k=v ...]     resize TUI panes"
       "  :actions              list available actions"
@@ -1671,7 +1698,7 @@ module TransformerReplEvaluator =
     else
       let status, detail =
         match evaluation with
-        | Continue(_, output) ->
+        | Continue(_, _, output) ->
           output.Lines
           |> List.tryFind (fun line ->
             line.StartsWith("Error:", StringComparison.Ordinal))
@@ -1683,8 +1710,9 @@ module TransformerReplEvaluator =
         TransformerReplState.recordExecution timestamp stopwatch.Elapsed
           status input detail state
       match evaluation with
-      | Continue(state, output) -> Continue(record state, output)
-      | Exit state -> Exit(record state)
+      | Continue(registry, state, output) ->
+        Continue(registry, record state, output)
+      | Exit(registry, state) -> Exit(registry, record state)
 
   let rec private evaluateInput includeSuggestions registry state
                                 (input: string)
@@ -1694,19 +1722,20 @@ module TransformerReplEvaluator =
       let outputs = ResizeArray<string>()
       let folder result command =
         result
-        |> Result.bind (fun current ->
+        |> Result.bind (fun (currentRegistry, currentState) ->
           cancellationToken.ThrowIfCancellationRequested()
-          evaluateInput includeSuggestions registry current command
+          evaluateInput includeSuggestions currentRegistry currentState command
             cancellationToken
           |> resultState
-          |> Result.map (fun (next, output) ->
+          |> Result.map (fun (nextRegistry, nextState, output) ->
             outputs.AddRange output.Lines
-            next))
+            nextRegistry, nextState))
       commands
-      |> List.fold folder (Ok state)
+      |> List.fold folder (Ok(registry, state))
       |> function
-        | Ok state -> continueWith state (Seq.toList outputs)
-        | Error message -> fail state message
+        | Ok(registry, state) ->
+          continueWith registry state (Seq.toList outputs)
+        | Error message -> fail registry state message
     | _ ->
       let timestamp = DateTimeOffset.Now
       let stopwatch = Stopwatch.StartNew()
@@ -1722,50 +1751,52 @@ module TransformerReplEvaluator =
                            cancellationToken =
     match TransformerReplParser.parse input with
     | Error message ->
-      fail state message
+      fail registry state message
     | Ok NoInput ->
-      continueWith state []
+      continueWith registry state []
     | Ok Quit ->
-      Exit state
+      Exit(registry, state)
     | Ok Help ->
-      continueWith state help
+      continueWith registry state help
     | Ok Actions ->
       showActions registry state
     | Ok History ->
-      showHistory state
+      showHistory registry state
     | Ok Values ->
-      showValues state
+      showValues registry state
     | Ok Undo ->
-      undo state
+      undo registry state
     | Ok Log ->
-      showLog state
+      showLog registry state
     | Ok(ExportValue(name, path)) ->
-      exportValue state name path
+      exportValue registry state name path
     | Ok(Inspect name) ->
-      inspect state name
+      inspect registry state name
     | Ok(Needs(name, args)) ->
-      needs state name args
+      needs registry state name args
     | Ok(Restore(id, name)) ->
-      restore state id name input
+      restore registry state id name input
     | Ok(SaveScript path) ->
-      saveScript state path
+      saveScript registry state path
     | Ok(LoadScript path) ->
       loadScript includeSuggestions registry state path cancellationToken
     | Ok(ScriptRecord enabled) ->
-      setScriptRecord state enabled
+      setScriptRecord registry state enabled
     | Ok(ScriptComment text) ->
-      addScriptComment state text
+      addScriptComment registry state text
+    | Ok(PluginLoad path) ->
+      loadPlugin registry state path input
     | Ok(Layout _) ->
-      continueWith state [ ":layout is only available in the TUI." ]
+      continueWith registry state [ ":layout is only available in the TUI." ]
     | Ok Reset ->
-      continueWith (TransformerReplState.reset state)
+      continueWith registry (TransformerReplState.reset state)
         [ "Analysis state reset." ]
     | Ok(Show name) ->
-      show state name
+      show registry state name
     | Ok(ShowExpression segments) ->
       showExpression registry state segments cancellationToken
     | Ok(TypeOf name) ->
-      showType state name
+      showType registry state name
     | Ok(Evaluate(segments, binding, expected)) ->
       evaluate includeSuggestions registry state segments binding expected input
         cancellationToken
@@ -1775,33 +1806,35 @@ module TransformerReplEvaluator =
     let fullPath = Path.GetFullPath path
     match scriptCommands fullPath with
     | Error message ->
-      fail state message
+      fail registry state message
     | Ok commands ->
       let outputs = ResizeArray<string>()
       commands
       |> List.fold (fun result command ->
         result
-        |> Result.bind (fun loaded ->
+        |> Result.bind (fun (loadedRegistry, loadedState) ->
           cancellationToken.ThrowIfCancellationRequested()
-          evaluateInput false registry loaded command cancellationToken
+          evaluateInput false loadedRegistry loadedState command
+            cancellationToken
           |> resultState
-          |> Result.bind (fun (next, output) ->
+          |> Result.bind (fun (nextRegistry, nextState, output) ->
             match output.Lines |> List.tryFind (fun line ->
               line.StartsWith("Error:", StringComparison.Ordinal)) with
             | Some error -> Error error
             | None ->
               outputs.Add $"> {command}"
               outputs.AddRange output.Lines
-              Ok next)))
-        (Ok TransformerReplState.empty)
+              Ok(nextRegistry, nextState))))
+        (Ok(registry, TransformerReplState.empty))
       |> function
-        | Error message -> fail state $"Script replay failed: {message}"
-        | Ok loaded ->
+        | Error message ->
+          fail registry state $"Script replay failed: {message}"
+        | Ok(registry, loaded) ->
           let state = TransformerReplState.replaceAnalysis loaded state
           let state =
             TransformerReplState.setSessionPath (normalizePath path) state
           let header = [ $"Script loaded: {normalizePath fullPath}" ]
-          continueWith state (header @ Seq.toList outputs)
+          continueWith registry state (header @ Seq.toList outputs)
 
   let evaluateLine registry state input =
     evaluateInput true registry state input CancellationToken.None

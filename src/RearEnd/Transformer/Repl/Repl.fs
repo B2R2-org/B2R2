@@ -52,20 +52,20 @@ module TransformerRepl =
   let private runLineMode registry =
     printfn "B2R2 Transformer interactive analysis"
     printfn "Type :help for commands and :actions for available actions."
-    let rec loop state =
+    let rec loop registry state =
       let input = Console.ReadLine()
       if isNull input then
         ()
       elif input.Trim() = ":clear" then
-        loop state
+        loop registry state
       else
         match TransformerReplEvaluator.evaluateLine registry state input with
         | Exit _ ->
           ()
-        | Continue(state, output) ->
+        | Continue(registry, state, output) ->
           printOutput output
-          loop state
-    loop TransformerReplState.empty
+          loop registry state
+    loop registry TransformerReplState.empty
 
   let private scriptLines path =
     if not (System.IO.File.Exists path) then
@@ -81,7 +81,7 @@ module TransformerRepl =
       eprintfn "%s" message
       1
     | Ok lines ->
-      let rec loop state = function
+      let rec loop registry state = function
         | [] -> 0
         | line :: rest ->
           let evaluation =
@@ -90,14 +90,14 @@ module TransformerRepl =
           match evaluation with
           | Exit _ ->
             0
-          | Continue(next, output) ->
+          | Continue(registry, next, output) ->
             printOutput output
             let failed =
               output.Lines
               |> List.exists (fun text ->
                 text.StartsWith("Error:", StringComparison.Ordinal))
-            if failed then 1 else loop next rest
-      loop TransformerReplState.empty lines
+            if failed then 1 else loop registry next rest
+      loop registry TransformerReplState.empty lines
 
   let private hasModifier modifier (key: ConsoleKeyInfo) =
     key.Modifiers &&& modifier = modifier
@@ -219,20 +219,21 @@ module TransformerRepl =
 
   let private finishEvaluation evaluation model =
     match evaluation with
-    | Exit session ->
-      TransformerTuiModel.setSession session model, true
-    | Continue(session, output) ->
+    | Exit(registry, session) ->
+      registry, TransformerTuiModel.setSession session model, true
+    | Continue(registry, session, output) ->
       let hasError =
         output.Lines
         |> List.exists (fun line ->
           line.StartsWith("Error:", StringComparison.Ordinal))
       let status = if hasError then "Command failed" else "Ready"
-      model
-      |> TransformerTuiModel.setSession session
-      |> appendEvaluationOutput output
-      |> TransformerTuiModel.setBusy false
-      |> TransformerTuiModel.setStatus status,
-      false
+      let model =
+        model
+        |> TransformerTuiModel.setSession session
+        |> appendEvaluationOutput output
+        |> TransformerTuiModel.setBusy false
+        |> TransformerTuiModel.setStatus status
+      registry, model, false
 
   let private failEvaluation (error: exn) model =
     let message = error.GetBaseException().Message
@@ -291,8 +292,9 @@ module TransformerRepl =
     |> TransformerTuiModel.setBusy false
     |> TransformerTuiModel.setStatus "Cancelled"
 
-  let private runTui registry =
+  let private runTui initialRegistry =
     let restoreTerminal = TransformerTuiTerminal.enter ()
+    let mutable registry = initialRegistry
     let mutable model = TransformerTuiModel.initial
     let mutable running: RunningEvaluation option = None
     let mutable shouldExit = false
@@ -410,7 +412,10 @@ module TransformerRepl =
               |> TransformerTuiModel.setStatus "Cancelled"
           else
             try
-              let nextModel, exit = finishEvaluation task.Result model
+              let nextRegistry, nextModel, exit =
+                finishEvaluation task.Result model
+              registry <- nextRegistry
+              suggestionCache <- None
               model <- nextModel
               shouldExit <- exit
             with error -> model <- failEvaluation error model
