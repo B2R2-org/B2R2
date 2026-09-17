@@ -87,6 +87,21 @@ type SideEffect =
 module SideEffect =
 
   /// <summary>
+  /// Returns whether the effect can leave a register holding something other
+  /// than what the IR says it holds, which is what stops an analysis from
+  /// carrying what it knows of a register past the effect. Only the effects
+  /// that plainly cannot are named; everything else answers true, so an effect
+  /// added later is taken to clobber until someone has said otherwise.
+  /// </summary>
+  [<CompiledName "MayClobberRegisters">]
+  let mayClobberRegisters sideEffect =
+    match sideEffect with
+    | Fence | Delay | AtomicBegin | AtomicEnd | SaveWindow | FlushWindows ->
+      false
+    | _ ->
+      true
+
+  /// <summary>
   /// Retrieves the LowUIR string representation of the side effect.
   /// </summary>
   [<CompiledName "ToString">]
