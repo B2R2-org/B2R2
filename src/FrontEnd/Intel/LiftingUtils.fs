@@ -144,49 +144,6 @@ let private getMemExpr512 expr =
   | _ ->
     raise InvalidOperandException
 
-let private getMemExprs expr =
-  match expr with
-  | Load(e, 128<rt>, expr, _) ->
-    [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)) ]
-  | Load(e, 256<rt>, expr, _) ->
-    [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr)) ]
-  | Load(e, 512<rt>, expr, _) ->
-    [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 32 (Expr.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 40 (Expr.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 48 (Expr.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 56 (Expr.typeOf expr)) ]
-  | _ ->
-    raise InvalidOperandException
-
-let private pseudoRegVars bld r =
-  match RegisterHelper.getKind r with
-  | RegisterHelper.Kind.XMM ->
-    [ pseudoRegVar bld r 1; pseudoRegVar bld r 2 ]
-  | RegisterHelper.Kind.YMM ->
-    [ pseudoRegVar bld r 1
-      pseudoRegVar bld r 2
-      pseudoRegVar bld r 3
-      pseudoRegVar bld r 4 ]
-  | RegisterHelper.Kind.ZMM ->
-    [ pseudoRegVar bld r 1
-      pseudoRegVar bld r 2
-      pseudoRegVar bld r 3
-      pseudoRegVar bld r 4
-      pseudoRegVar bld r 5
-      pseudoRegVar bld r 6
-      pseudoRegVar bld r 7
-      pseudoRegVar bld r 8 ]
-  | _ ->
-    raise InvalidOperandException
-
 let isSegReg = function
   | Register.CS
   | Register.DS
@@ -314,17 +271,6 @@ let transOpr ins bld useTmpVar = function
     numU64 addr bld.RegType
   | _ ->
     Terminator.impossible ()
-
-let transOprVec ins bld useTmpVar opr =
-  match opr with
-  | OprReg r ->
-    pseudoRegVars bld r
-  | OprMem(b, index, disp, oprSize) ->
-    transMem ins bld useTmpVar b index disp oprSize |> getMemExprs
-  | OprImm(imm, _) ->
-    [ numI64 imm (getOperationSize ins) ]
-  | _ ->
-    raise InvalidOperandException
 
 let transOpr16 ins (bld: ILowUIRBuilder) useTmpVar opr =
   match opr with
