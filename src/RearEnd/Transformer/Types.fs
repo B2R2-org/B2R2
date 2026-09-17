@@ -161,6 +161,86 @@ with
     | Some symbol -> $"function 0x{this.Entry:x} {symbol}"
     | None -> $"function 0x{this.Entry:x}"
 
+/// A concrete register value shown from a concrete execution context.
+type RegisterValue =
+  { Name: string
+    Value: string }
+
+/// A snapshot of concrete register values.
+type RegisterView =
+  { PC: Addr
+    Registers: RegisterValue[] }
+
+/// A byte range read from concrete memory.
+type MemoryView =
+  { Address: Addr
+    Bytes: byte[] }
+
+/// One watched memory range before and after concrete execution.
+type MemoryDiff =
+  { Address: Addr
+    Before: byte[] option
+    After: byte[] option }
+
+/// A concrete memory access observed while executing one instruction.
+[<RequireQualifiedAccess>]
+type MemoryAccessKind =
+  | Read
+  | Write
+
+/// A concrete memory read or write observed during execution.
+type MemoryAccess =
+  { Instruction: Addr
+    Kind: MemoryAccessKind
+    Address: Addr
+    Size: int
+    Before: byte[] option
+    After: byte[] option }
+
+/// One concrete instruction executed by a trace or state-changing run.
+type TraceInstruction =
+  { Address: Addr
+    Disassembly: string }
+
+/// A structured concrete execution trace.
+type ExecutionTrace =
+  { Start: Addr
+    FinalPC: Addr
+    InstructionCount: int
+    Instructions: TraceInstruction[]
+    RegisterDiffs: string[]
+    MemoryAccesses: MemoryAccess[]
+    MemoryDiffs: MemoryDiff[]
+    StopReasons: string[] }
+
+/// A register that must be defined before strict concrete execution.
+type RequiredRegister =
+  { Name: string
+    Address: Addr
+    Disassembly: string }
+
+/// A memory range that must be readable before strict concrete execution.
+type RequiredMemory =
+  { Address: Addr option
+    Size: int
+    At: Addr
+    Reason: string }
+
+/// Context required to concretely execute a code range.
+type ContextRequirements =
+  { Executor: obj
+    Start: Addr
+    EndAddress: Addr option
+    Count: int option
+    Registers: RequiredRegister[]
+    Memory: RequiredMemory[] }
+
+/// A concrete address value produced by helper actions.
+type AddressValue =
+  { Address: Addr }
+with
+  override this.ToString() = $"0x{this.Address:x}"
+
 /// Text with a stable artifact name and file extension.
 type TextArtifact =
   { Name: string

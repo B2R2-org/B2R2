@@ -182,6 +182,13 @@ type DiffAction() =
     |> apply edits 0
     |> OutputColored
 
+  let appendPlainLines title lines =
+    let cs = ColoredString()
+    let lines = lines |> List.toArray
+    (cs |> appendLine NoColor title, lines)
+    ||> Array.fold (fun cs line -> appendLine NoColor line cs)
+    |> OutputColored
+
   let binaryBytes (bin: Binary) =
     let hdl = Binary.Handle bin
     hdl.File.RawBytes.ToArray()
@@ -250,10 +257,12 @@ type DiffAction() =
     | (:? OutString as left), (:? OutString as right) ->
       appendLineDiff "text diff" (splitText (left.ToString()))
         (splitText (right.ToString()))
+    | (:? ConcExecutorValue as left), (:? ConcExecutorValue as right) ->
+      left.DiffLines right |> appendPlainLines "concrete context diff"
     | _ ->
       let message =
-        "diff supports Binary, ByteArray, InstructionArray, CFG, and Text "
-        + "pairs."
+        "diff supports Binary, ByteArray, InstructionArray, CFG, Text, and "
+        + "ConcExecutor pairs."
       invalidArg (nameof DiffAction) message
 
   let transform cancellationToken args collection =
@@ -270,7 +279,8 @@ type DiffAction() =
   interface IAction with
     member _.ActionID with get() = "diff"
     member _.Signature with get() =
-      "Binary|ByteArray|InstructionArray|CFG|Text pair -> OutString"
+      "Binary|ByteArray|InstructionArray|CFG|Text|ConcExecutor pair "
+      + "-> OutString"
     member _.Description with get() =
       """
     Take a tuple of two values of the same supported type and return a diff.
