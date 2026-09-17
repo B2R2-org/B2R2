@@ -208,7 +208,8 @@ type MemoryAccess =
     Address: Addr
     Size: int
     Before: byte[] option
-    After: byte[] option }
+    After: byte[] option
+    Violation: string option }
 
 /// One concrete instruction executed by a trace or state-changing run.
 type TraceInstruction =

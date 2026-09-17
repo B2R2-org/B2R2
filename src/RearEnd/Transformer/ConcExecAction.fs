@@ -39,6 +39,33 @@ open B2R2.MiddleEnd.Executor
 
 type private ConcMemory = IMemory<byte>
 
+type private ConcRegionPermission =
+  { Read: bool
+    Write: bool
+    Execute: bool }
+
+type private ConcMemoryRegion =
+  { Name: string
+    Start: Addr
+    Finish: Addr
+    Permission: ConcRegionPermission }
+
+module private ConcRegionPerm =
+  let format permission =
+    let chars =
+      [ if permission.Read then Some "r" else None
+        if permission.Write then Some "w" else None
+        if permission.Execute then Some "x" else None ]
+      |> List.choose id
+    match chars with
+    | [] -> "-"
+    | chars -> String.concat "" chars
+
+  let allows kind permission =
+    match kind with
+    | MemoryAccessKind.Read -> permission.Read
+    | MemoryAccessKind.Write -> permission.Write
+
 module private ConcActionParsing =
   let parseUInt64 (value: string) =
     let style, value =
@@ -61,9 +88,24 @@ module private ConcActionParsing =
   let alignDown align (value: Addr) =
     if align = 0UL then value else value - (value % align)
 
-type private TracingMemory(inner: ConcMemory) =
+type private TracingMemory(inner: ConcMemory,
+                           regions: ConcMemoryRegion list) =
   let accesses = ResizeArray<MemoryAccess>()
   let mutable instruction = 0UL
+
+  let accessViolation kind addr size =
+    if List.isEmpty regions then
+      None
+    else
+      let finish = addr + uint64 size
+      let contains region =
+        addr >= region.Start && finish <= region.Finish && finish >= addr
+      match regions |> List.tryFind contains with
+      | None -> Some "outside configured regions"
+      | Some region when not (ConcRegionPerm.allows kind region.Permission) ->
+        let permission = ConcRegionPerm.format region.Permission
+        Some $"not permitted by {region.Name}:{permission}"
+      | Some _ -> None
 
   let readBytes addr count =
     let bytes = Array.zeroCreate<byte> count
@@ -85,7 +127,8 @@ type private TracingMemory(inner: ConcMemory) =
         Address = addr
         Size = size
         Before = before
-        After = after }
+        After = after
+        Violation = accessViolation kind addr size }
 
   let appendBytes left right =
     match left, right with
@@ -145,14 +188,16 @@ type private TracingMemory(inner: ConcMemory) =
 
     member _.Clear() = inner.Clear()
 
-    member _.Clone() = TracingMemory(inner.Clone()) :> ConcMemory
+    member _.Clone() =
+      TracingMemory(inner.Clone(), regions) :> ConcMemory
 
 /// Stateful concrete executor used by the Transformer REPL.
-type ConcExecutorValue(binary: Binary,
-                       initialState: ConcState option,
-                       previousResult: ConcRunResult option,
-                       previousTrace: ExecutionTrace option,
-                       memoryRanges: (Addr * int) list) as this =
+type ConcExecutorValue private(binary: Binary,
+                               initialState: ConcState option,
+                               previousResult: ConcRunResult option,
+                               previousTrace: ExecutionTrace option,
+                               memoryRanges: (Addr * int) list,
+                               regions: ConcMemoryRegion list) as this =
   let hdl = Binary.Handle binary
   let executor = ConcExecutor hdl
 
@@ -176,10 +221,11 @@ type ConcExecutorValue(binary: Binary,
 
   let accessorFor state = ConcStateAccessor(hdl, state)
 
-  let withState state result trace ranges =
-    ConcExecutorValue(binary, Some state, result, trace, ranges)
+  let withState state result trace ranges regions =
+    ConcExecutorValue(binary, Some state, result, trace, ranges, regions)
 
-  let clearRunState state ranges = withState state None None ranges
+  let clearRunState state ranges regions =
+    withState state None None ranges regions
 
   let formatStopReason = function
     | ConcStopReason.StoppedAtAddress addr -> $"stopped-at=0x{addr:x}"
@@ -361,24 +407,24 @@ type ConcExecutorValue(binary: Binary,
       .WithMaxInstructions(limit)
       .ZeroCallerContext()
 
-  let runOne (addr: Addr) (runState: ConcState) =
+  let runOne stops (addr: Addr) (runState: ConcState) =
     match runState.Memory with
     | :? TracingMemory as memory -> memory.SetInstruction addr
     | _ -> ()
     let instruction =
       { Address = addr
         Disassembly = instructionAt addr }
-    let options: ConcRunOptions = makeRunOptions [] 1
+    let options: ConcRunOptions = makeRunOptions stops 1
     let result: ConcRunResult = executor.Run(addr, runState, options)
     result, instruction
 
-  let rec runSteps (start: Addr) count (runState: ConcState) =
+  let rec runSteps stops (start: Addr) count (runState: ConcState) =
     let rec loop addr remaining instructions total
                  (lastResult: ConcRunResult option) =
       if remaining <= 0 then
         lastResult, List.rev instructions
       else
-        let result, instruction = runOne addr runState
+        let result, instruction = runOne stops addr runState
         let instructions = instruction :: instructions
         let executed = result.InstructionCount
         let total = total + result.InstructionCount
@@ -415,11 +461,11 @@ type ConcExecutorValue(binary: Binary,
       MemoryDiffs = memoryDiff watch beforeState result.State
       StopReasons = stopReasons result }
 
-  let runWithTrace start count (sourceState: ConcState) watch =
-    let traceMemory = TracingMemory(sourceState.Memory.Clone())
+  let runWithTrace start count (sourceState: ConcState) watch stops =
+    let traceMemory = TracingMemory(sourceState.Memory.Clone(), regions)
     let runState = sourceState.Clone(traceMemory :> ConcMemory)
     let beforeState = runState.Clone()
-    let result, instructions = runSteps start count runState
+    let result, instructions = runSteps stops start count runState
     let trace =
       traceFromResult start beforeState result instructions
         traceMemory.Accesses watch
@@ -573,11 +619,49 @@ type ConcExecutorValue(binary: Binary,
     else
       entry[..index - 1].Trim(), entry[index + 1..].Trim()
 
+  let parseRegionPermission (entry: string) (text: string) =
+    let text = text.Trim().ToLowerInvariant()
+    let valid =
+      text.Length > 0
+      && (text |> Seq.forall (fun ch ->
+        ch = 'r' || ch = 'w' || ch = 'x'))
+    if valid then
+      { Read = text.Contains "r"
+        Write = text.Contains "w"
+        Execute = text.Contains "x" }
+    else
+      invalidArg (nameof entry) $"Invalid region permission: {entry}"
+
+  let parseRegionAssignment (entry: string) =
+    let name, spec = splitContextEntry entry
+    let permIndex = spec.LastIndexOf ':'
+    if permIndex <= 0 then
+      invalidArg (nameof entry) $"Expected region name=start..end:perm: {entry}"
+    else
+      let range = spec[..permIndex - 1].Trim()
+      let permission = parseRegionPermission entry spec[permIndex + 1..]
+      let rangeParts = range.Split([| ".." |], StringSplitOptions.None)
+      if rangeParts.Length <> 2 then
+        invalidArg (nameof entry)
+          $"Expected region range start..end: {entry}"
+      else
+        let startAddress = parseUInt64 (rangeParts[0].Trim())
+        let endAddress = parseUInt64 (rangeParts[1].Trim())
+        if startAddress >= endAddress then
+          invalidArg (nameof entry)
+            $"Region start must be smaller than end: {entry}"
+        else
+          { Name = name
+            Start = startAddress
+            Finish = endAddress
+            Permission = permission }
+
   let parseContextArgs (args: string list) =
     let rec loop (stack: Addr option)
                  (regs: (string * string) list)
-                 (memory: (string * string) list) = function
-      | [] -> stack, List.rev regs, List.rev memory
+                 (memory: (string * string) list)
+                 (nextRegions: ConcMemoryRegion list) = function
+      | [] -> stack, List.rev regs, List.rev memory, List.rev nextRegions
       | (token: string) :: rest ->
         let index = token.IndexOf '='
         if index <= 0 then
@@ -587,22 +671,28 @@ type ConcExecutorValue(binary: Binary,
           let value = token[index + 1..].Trim()
           match key with
           | "stack" ->
-            loop (Some(parseUInt64 value)) regs memory rest
+            loop (Some(parseUInt64 value)) regs memory nextRegions rest
           | "regs" | "registers" ->
             let regs =
               contextEntries value
               |> Array.fold (fun regs entry ->
                 splitContextEntry entry :: regs) regs
-            loop stack regs memory rest
+            loop stack regs memory nextRegions rest
           | "mem" | "memory" ->
             let memory =
               contextEntries value
               |> Array.fold (fun memory entry ->
                 splitContextEntry entry :: memory) memory
-            loop stack regs memory rest
+            loop stack regs memory nextRegions rest
+          | "regions" ->
+            let nextRegions =
+              contextEntries value
+              |> Array.fold (fun regions entry ->
+                parseRegionAssignment entry :: regions) nextRegions
+            loop stack regs memory nextRegions rest
           | _ ->
             invalidArg (nameof args) $"Unknown set-context parameter: {key}"
-    loop None [] [] args
+    loop None [] [] regions args
 
   let lastRunLines () =
     match previousResult with
@@ -624,7 +714,17 @@ type ConcExecutorValue(binary: Binary,
       $"start=0x{trace.Start:x} final-pc=0x{trace.FinalPC:x} "
       + $"instructions={trace.InstructionCount}"
 
-  new(binary) = ConcExecutorValue(binary, None, None, None, [])
+  let regionLines () =
+    match regions with
+    | [] -> [ "  regions: <none>" ]
+    | regions ->
+      "  regions:"
+      :: (regions |> List.map (fun region ->
+        let permission = ConcRegionPerm.format region.Permission
+        $"    {region.Name}=0x{region.Start:x}..0x{region.Finish:x}:"
+        + permission))
+
+  new(binary) = ConcExecutorValue(binary, None, None, None, [], [])
 
   member _.State = state
 
@@ -643,6 +743,7 @@ type ConcExecutorValue(binary: Binary,
       $"  pc: 0x{state.PC:x}"
       $"  stack: {stackText ()}" ]
     @ memoryRangeLines ()
+    @ regionLines ()
     @ lastRunLines ()
 
   member this.Summary = String.concat Environment.NewLine this.SummaryLines
@@ -660,25 +761,21 @@ type ConcExecutorValue(binary: Binary,
       breakpoint
       |> Option.map ConcStopCondition.StopAtAddress
       |> Option.toList
-    let beforeState = state.Clone()
     let runState = state.Clone()
-    let options: ConcRunOptions = makeRunOptions stops limit
-    let result: ConcRunResult = executor.Run(start, runState, options)
-    let instruction =
-      { Address = start
-        Disassembly = instructionAt start }
-    let trace =
-      traceFromResult start beforeState (Some result) [ instruction ] [||] None
-    withState result.State (Some result) (Some trace) memoryRanges
+    let result, trace = runWithTrace start limit runState None stops
+    match result with
+    | Some result ->
+      withState result.State (Some result) (Some trace) memoryRanges regions
+    | None -> withState runState None (Some trace) memoryRanges regions
 
   member _.Step(count: int) =
     let start = defaultStart ()
     let runState = state.Clone()
-    let result, trace = runWithTrace start count runState None
+    let result, trace = runWithTrace start count runState None []
     match result with
     | Some result ->
-      withState result.State (Some result) (Some trace) memoryRanges
-    | None -> withState runState None (Some trace) memoryRanges
+      withState result.State (Some result) (Some trace) memoryRanges regions
+    | None -> withState runState None (Some trace) memoryRanges regions
 
   member _.Trace(args: string list) =
     let count, watch =
@@ -690,7 +787,7 @@ type ConcExecutorValue(binary: Binary,
         parseInt count, Some(parseUInt64 addr, parseInt size)
       | _ -> invalidArg (nameof args) "Invalid trace argument layout."
     let runState = state.Clone()
-    let _, trace = runWithTrace (defaultStart ()) count runState watch
+    let _, trace = runWithTrace (defaultStart ()) count runState watch []
     trace
 
   member _.Needs(args: string list) =
@@ -705,7 +802,7 @@ type ConcExecutorValue(binary: Binary,
       let nextState = state.Clone()
       let accessor = accessorFor nextState
       accessor.SetArgument(index, accessor.WordValue value)
-      clearRunState nextState memoryRanges
+      clearRunState nextState memoryRanges regions
     | _ -> invalidArg (nameof args) "Invalid arg argument layout."
 
   member _.SetRegister(args: string list) =
@@ -718,7 +815,7 @@ type ConcExecutorValue(binary: Binary,
         let nextState = state.Clone()
         let accessor = accessorFor nextState
         accessor.SetRegister(rid, accessor.WordValue value)
-        clearRunState nextState memoryRanges
+        clearRunState nextState memoryRanges regions
     | _ -> invalidArg (nameof args) "Invalid set-reg argument layout."
 
   member _.WriteMemory(args: string list) =
@@ -730,11 +827,11 @@ type ConcExecutorValue(binary: Binary,
       let accessor = accessorFor nextState
       accessor.WriteBytes(addr, bytes)
       let ranges = (addr, bytes.Length) :: memoryRanges
-      clearRunState nextState ranges
+      clearRunState nextState ranges regions
     | _ -> invalidArg (nameof args) "Invalid mem write argument layout."
 
   member _.SetContext(args: string list) =
-    let stack, registers, memory = parseContextArgs args
+    let stack, registers, memory, nextRegions = parseContextArgs args
     let nextState = state.Clone()
     let accessor = accessorFor nextState
     stack |> Option.iter (fun addr ->
@@ -752,7 +849,7 @@ type ConcExecutorValue(binary: Binary,
         let bytes = ByteArray.ofHexString bytes
         accessor.WriteBytes(addr, bytes)
         (addr, bytes.Length) :: ranges) memoryRanges
-    clearRunState nextState ranges
+    clearRunState nextState ranges nextRegions
 
   member _.ReadMemory(args: string list) =
     match args with
@@ -921,6 +1018,7 @@ type SetContextAction() =
     member _.ActionID with get() = "set-context"
     member _.Signature with get() =
       "ConcExecutor * [stack=<addr>] [regs=[...]] [mem=[...]]"
+      + " [regions=[...]]"
       + " -> ConcExecutor"
     member _.Description with get() =
       "Set multiple register and memory values in one concrete context."

@@ -337,14 +337,20 @@ module TransformerReplEvaluator =
         $"  write at 0x{access.Instruction:x}"
     let head =
       head + $" addr=0x{access.Address:x} size={access.Size}"
+    let violation =
+      match access.Violation with
+      | Some message -> [ $"    violation: {message}" ]
+      | None -> []
     match access.Kind with
     | MemoryAccessKind.Read ->
       [ head
         renderAccessBytes "value " access.Address access.After ]
+      @ violation
     | MemoryAccessKind.Write ->
       [ head
         renderAccessBytes "before" access.Address access.Before
         renderAccessBytes "after " access.Address access.After ]
+      @ violation
 
   let private renderTrace trace =
     let trace: ExecutionTrace = trace

@@ -649,6 +649,11 @@ module Suggestions =
         [ "input@0x70000000:16"
           "password@0x70000000:18"
           "buffer@0x70000000:32" ]
+    | "regions" ->
+      valueCandidates SuggestionKind.Argument "memory region" prefix
+        [ "buf=0x70000000..0x70001000:rw"
+          "stack=0x70fff000..0x71000000:rw"
+          "code=0x401000..0x402000:rx" ]
     | _ -> []
 
   let private isContextAction head =
@@ -676,6 +681,8 @@ module Suggestions =
             requiredMemoryCandidates "=" state context.Prefix |> Some
         | Some "sym-mem" ->
           contextListValueCandidates "sym-mem" context.Prefix |> Some
+        | Some "regions" ->
+          contextListValueCandidates "regions" context.Prefix |> Some
         | _ -> None
     | _ -> None
 
@@ -924,6 +931,8 @@ module Suggestions =
         requiredRegisterCandidates "=" state prefix
       elif registered.Metadata.ID = "set-context" && name = "mem" then
         requiredMemoryCandidates "=" state prefix
+      elif registered.Metadata.ID = "set-context" && name = "regions" then
+        contextListValueCandidates "regions" prefix
       elif
         registered.Metadata.ID = "make-symbolic-context"
         && name = "regs"
@@ -939,6 +948,11 @@ module Suggestions =
         && name = "sym-mem"
       then
         contextListValueCandidates "sym-mem" prefix
+      elif
+        registered.Metadata.ID = "make-symbolic-context"
+        && name = "regions"
+      then
+        contextListValueCandidates "regions" prefix
       else
         ActionMetadata.matchingSyntaxes registered.Metadata inputKind completed
         |> List.filter (ActionMetadata.syntaxHasParameter name)

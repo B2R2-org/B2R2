@@ -641,19 +641,26 @@ module ActionMetadata =
     let mem =
       optional "mem" ActionArgumentKind.Text
         "Memory assignments: [<addr>=<hex>]."
+    let regions =
+      optional "regions" ActionArgumentKind.Text
+        "Memory regions: [name=<start>..<end>:rw]."
     contract "set-context" ReplValueKind.ConcExecutor
       ReplValueKind.ConcExecutor
       ActionRole.Transform 18
-      "set-context [stack=<addr>] [regs=[...]] [mem=[...]] -> ConcExecutor"
+      ("set-context [stack=<addr>] [regs=[...]] [mem=[...]] "
+       + "[regions=[...]] -> ConcExecutor")
       [ "executor |> @set-context regs=[<reg>=<value>; RSP=sp]"
-        "executor |> @set-context mem=[<addr>=<hex>]" ]
+        "executor |> @set-context mem=[<addr>=<hex>]"
+        "executor |> @set-context regions=[buf=<start>..<end>:rw]" ]
       [ syntax None [ stack ]
         syntax None [ regs ]
         syntax None [ mem ]
+        syntax None [ regions ]
         syntax None [ stack; regs ]
         syntax None [ stack; mem ]
         syntax None [ regs; mem ]
-        syntax None [ stack; regs; mem ] ]
+        syntax None [ stack; regs; mem ]
+        syntax None [ stack; regs; mem; regions ] ]
 
   let private count =
     contract "count" ReplValueKind.Any ReplValueKind.Int
