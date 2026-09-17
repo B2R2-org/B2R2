@@ -692,7 +692,7 @@ module Suggestions =
     String.Equals(head, "iter", StringComparison.OrdinalIgnoreCase)
     || String.Equals(head, "iteri", StringComparison.OrdinalIgnoreCase)
 
-  let private syntaxArgument metadata inputKind completed argumentIndex =
+  let private syntaxArguments metadata inputKind completed =
     let metadata: ActionMetadata = metadata
     let syntaxes =
       ActionMetadata.matchingSyntaxes metadata inputKind completed
@@ -707,20 +707,13 @@ module Suggestions =
         syntaxes |> List.filter (fun syntax -> syntax.Trigger.IsNone)
       else
         triggered
-    let argumentIndex =
-      if List.isEmpty triggered then argumentIndex else argumentIndex - 1
     let names = completed |> List.choose tryParameterName
-    if List.isEmpty names then
-      syntaxes
-      |> List.choose (fun syntax ->
-        syntax.Arguments |> List.tryItem argumentIndex)
-    else
-      syntaxes
-      |> List.collect (fun syntax -> syntax.Arguments)
-      |> List.filter (fun argument ->
-        names
-        |> List.exists (fun name -> matchesArgumentName name argument)
-        |> not)
+    syntaxes
+    |> List.collect (fun syntax -> syntax.Arguments)
+    |> List.filter (fun argument ->
+      names
+      |> List.exists (fun name -> matchesArgumentName name argument)
+      |> not)
 
   let private triggerCandidates metadata inputKind argumentIndex prefix =
     let metadata: ActionMetadata = metadata
@@ -749,7 +742,7 @@ module Suggestions =
                                      argumentIndex prefix =
     let metadata: ActionMetadata = metadata
     let arguments =
-      syntaxArgument metadata inputKind completed argumentIndex
+      syntaxArguments metadata inputKind completed
       |> List.distinctBy (fun argument -> argument.Name)
       |> List.filter (fun argument ->
         ActionMetadata.argumentKeys argument
@@ -1299,11 +1292,8 @@ module Suggestions =
         let completed =
           if endsWithSpace then args
           else InputAnalysis.allButLast args
-        let argumentIndex =
-          if endsWithSpace then List.length args
-          else max 0 (List.length args - 1)
         let candidates =
-          syntaxArgument metadata inputKind completed argumentIndex
+          syntaxArguments metadata inputKind completed
           |> List.distinctBy (fun argument -> argument.Name)
         match token with
         | Some prefix when not (String.IsNullOrWhiteSpace prefix) ->
@@ -1410,12 +1400,30 @@ module Suggestions =
     isClosingDelimiter item.Text
     && after.StartsWith(item.Text, StringComparison.Ordinal)
 
+  let private needsParameterSeparator context =
+    let context: InputContext = context
+    let last = context.InputBeforeCursor.Length - 1
+    context.CompletionPhase = InputCompletionPhase.StartingToken
+    && context.InputBeforeCursor.Length > 0
+    && not (Char.IsWhiteSpace context.InputBeforeCursor[last])
+
+  let private prependParameterSeparator context item =
+    let item: SuggestionItem = item
+    if needsParameterSeparator context
+       && item.Kind = SuggestionKind.Argument
+       && item.Form = SuggestionForm.Token
+       && item.Text.EndsWith("=", StringComparison.Ordinal) then
+      { item with Text = " " + item.Text }
+    else
+      item
+
   let private prepareItems context items =
     let context: InputContext = context
     let after = context.InputAfterCursor.TrimStart()
     items
     |> List.filter (candidateFitsPhase context)
     |> List.filter (duplicatesClosingDelimiter after >> not)
+    |> List.map (prependParameterSeparator context)
     |> List.distinctBy (fun item -> item.Text)
     |> List.truncate 20
 
