@@ -982,6 +982,36 @@ module TransformerTuiModel =
       |> Option.defaultValue ""
     { Line = line; Column = max 0 (min cursor.Column text.Length) }
 
+  let private moveViewCursorHorizontally pane offset =
+    let cursor = clampViewCursor pane pane.Cursor
+    let direction = sign offset
+    let mutable line = cursor.Line
+    let mutable column = cursor.Column
+    let mutable remaining = abs offset
+    while remaining > 0 do
+      let text =
+        pane.Lines
+        |> Array.tryItem line
+        |> Option.map _.Text
+        |> Option.defaultValue ""
+      if direction > 0 && column < text.Length then
+        column <- column + 1
+        remaining <- remaining - 1
+      elif direction > 0 && line < pane.Lines.Length - 1 then
+        line <- line + 1
+        column <- 0
+        remaining <- remaining - 1
+      elif direction < 0 && column > 0 then
+        column <- column - 1
+        remaining <- remaining - 1
+      elif direction < 0 && line > 0 then
+        line <- line - 1
+        column <- pane.Lines[line].Text.Length
+        remaining <- remaining - 1
+      else
+        remaining <- 0
+    { Line = line; Column = column }
+
   let private updateViewPane updater model =
     match model.ViewPane with
     | Some pane ->
@@ -997,9 +1027,12 @@ module TransformerTuiModel =
         else
           None
       let cursor =
-        { Line = pane.Cursor.Line + lineDelta
-          Column = pane.Cursor.Column + columnDelta }
-        |> clampViewCursor pane
+        if lineDelta = 0 && columnDelta <> 0 then
+          moveViewCursorHorizontally pane columnDelta
+        else
+          { Line = pane.Cursor.Line + lineDelta
+            Column = pane.Cursor.Column + columnDelta }
+          |> clampViewCursor pane
       { pane with Cursor = cursor; Anchor = anchor }
     updateViewPane update model
 
