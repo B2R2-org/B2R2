@@ -1375,9 +1375,15 @@ let j ins (bld: LowUIRBuilder) =
 /// program moves between encodings -- so it is asked of the ISA and not of
 /// the instruction, whose own encoding is whatever the last jump left.
 ///
+/// The test is against the ordinary encoding rather than against MIPS16e
+/// because microMIPS carries the SAME bit in the same place, which is the
+/// half that was missing: MD00594's JALR reads "Set the ISA Mode bit to the
+/// value in GPR rs bit 0. Set bit 0 of the target address to zero", word for
+/// word what MIPS16e says. A jump left unmasked lands one byte inside the
+/// instruction it was aimed at.
 /// </summary>
 let private carriesMode (bld: ILowUIRBuilder) =
-  bld.ISA.MIPSISAMode = MIPSISAMode.MIPS16
+  bld.ISA.MIPSISAMode <> MIPSISAMode.MIPS
 
 /// <summary>
 /// The return address a call leaves behind, which carries the encoding it was
@@ -1387,11 +1393,16 @@ let private carriesMode (bld: ILowUIRBuilder) =
 /// is not part of the address but the mode to come back to, and a JR through
 /// this register reads it there. So a call made from the compressed encoding
 /// leaves an ODD address behind, and the return finds its way back.
+///
+/// Which mode that is belongs to the CALL and not to the processor. A
+/// -mips16 program is 32-bit code with MIPS16e functions in it and both
+/// encodings make calls; a link from the 32-bit side that carried the bit
+/// anyway would send its own return into the halfword decoder.
 /// </summary>
-let private linkFrom (bld: LowUIRBuilder) ahead =
+let private linkFrom (ins: Instruction) (bld: LowUIRBuilder) ahead =
   let pc = regVar bld R.PC
   let raw = pc .+ numI32 ahead bld.RegType
-  if carriesMode bld then raw .| AST.num1 bld.RegType else raw
+  if ins.IsCompressed then raw .| AST.num1 bld.RegType else raw
 
 /// <summary>
 /// How far past a call the instruction it returns to sits.
@@ -1408,13 +1419,24 @@ let private afterSlot (ins: Instruction) =
   let slot = if ins.ISAMode = MIPSISAMode.MIPS16 then 2 else 4
   int ins.Length + slot
 
+/// <summary>
+/// The same for the microMIPS calls that name a halfword slot in the
+/// mnemonic -- JALS, JALRS, BLTZALS and BGEZALS.
+///
+/// microMIPS does not make the slot's width follow the encoding the way
+/// MIPS16e does; it gives the short slot its own instructions, and MD00594
+/// writes their link as <c>PC + 6</c> against JALR's <c>PC + 8</c>.
+/// </summary>
+let private afterShortSlot (ins: Instruction) =
+  int ins.Length + 2
+
 let jal (ins: Instruction) (bld: LowUIRBuilder) =
   liftTransfer bld ins {
     let nPC = regVar bld R.NPC
     let lr = regVar bld R.R31
     let dest = getOneOpr ins |> transOpr ins bld
     bld.DelayedBranch <- InterJmpKind.IsCall
-    lr := linkFrom bld (afterSlot ins)
+    lr := linkFrom ins bld (afterSlot ins)
     nPC := dest
   }
 
@@ -1435,7 +1457,7 @@ let jalx (ins: Instruction) (bld: LowUIRBuilder) =
       if ins.IsCompressed then InterJmpKind.SwitchToMIPS
       else compressedSwitch bld
     bld.DelayedBranch <- InterJmpKind.IsCall ||| toward
-    regVar bld R.R31 := linkFrom bld (afterSlot ins)
+    regVar bld R.R31 := linkFrom ins bld (afterSlot ins)
     nPC := dest
   }
 
@@ -1445,7 +1467,7 @@ let jalr (ins: Instruction) (bld: LowUIRBuilder) =
     let struct (lr, rs) = getJALROprs ins bld
     bld.DelayedBranch <- InterJmpKind.IsCall
     bld.BranchCarriesMode <- carriesMode bld
-    lr := linkFrom bld (afterSlot ins)
+    lr := linkFrom ins bld (afterSlot ins)
     nPC := rs
   }
 
@@ -1480,11 +1502,10 @@ let jumpRegCompact ins (bld: LowUIRBuilder) =
 /// </summary>
 let jalShortSlot ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     let dest = getOneOpr ins |> transOpr ins bld
     bld.DelayedBranch <- InterJmpKind.IsCall
-    regVar bld R.R31 := pc .+ numI32 (int ins.Length + 2) bld.RegType
+    regVar bld R.R31 := linkFrom ins bld (afterShortSlot ins)
     nPC := dest
   }
 
@@ -1495,7 +1516,7 @@ let branchLinkShortSlot ins (bld: LowUIRBuilder) cmp =
     let rs, offset = transTwoOprs ins bld
     let nAddr = tmpVar bld bld.RegType
     let cond = cmp rs (AST.num0 bld.RegType)
-    nAddr := regVar bld R.PC .+ numI32 (int ins.Length + 2) bld.RegType
+    nAddr := linkFrom ins bld (afterShortSlot ins)
     regVar bld R.R31 := nAddr
     updateRAPCCond bld nAddr offset cond InterJmpKind.IsCall
   }
@@ -1504,16 +1525,16 @@ let branchLinkShortSlot ins (bld: LowUIRBuilder) cmp =
 /// JALRS, whose delay slot holds one halfword rather than one word.
 ///
 /// That is the whole of what sets it apart from JALR, and the link is where
-/// it shows: the call returns to the instruction after the slot, which is
-/// two bytes past the end of this one rather than four.
+/// it shows: MD00594 writes it as <c>PC + 6</c> against JALR's <c>PC + 8</c>,
+/// the call returning to the instruction after a slot two bytes long.
 /// </summary>
 let jalrShortSlot ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
-    let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     let struct (lr, rs) = getJALROprs ins bld
     bld.DelayedBranch <- InterJmpKind.IsCall
-    lr := pc .+ numI32 (int ins.Length + 2) bld.RegType
+    bld.BranchCarriesMode <- carriesMode bld
+    lr := linkFrom ins bld (afterShortSlot ins)
     nPC := rs
   }
 
@@ -1528,7 +1549,7 @@ let jalrCompact (ins: Instruction) (bld: LowUIRBuilder) =
     let struct (lr, rs) = getJALROprs ins bld
     let target = tmpVar bld bld.RegType
     target := rs
-    lr := linkFrom bld (int ins.Length)
+    lr := linkFrom ins bld (int ins.Length)
     if carriesMode bld then interJmpByMode bld target InterJmpKind.IsCall
     else append bld { AST.interjmp target InterJmpKind.IsCall }
   }
