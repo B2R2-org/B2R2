@@ -270,11 +270,12 @@ module Suggestions =
         | [] ->
           kind) (firstSegmentKind registry state first)
 
-  let private outputMatches expected registered =
+  let private outputMatches inputKind expected registered =
     let registered: RegisteredAction = registered
     match expected with
     | Some kind ->
-      ReplValueKind.isCompatible registered.Metadata.Output kind
+      ActionMetadata.possibleOutputs registered.Metadata inputKind
+      |> List.exists (fun output -> ReplValueKind.isCompatible output kind)
     | None ->
       true
 
@@ -294,7 +295,7 @@ module Suggestions =
           ActionMetadata.acceptedInputs action.Metadata
           |> List.contains ReplValueKind.Unit)
     actions
-    |> List.filter (outputMatches expected)
+    |> List.filter (outputMatches kind expected)
     |> List.filter (fun action ->
       matches prefix (ActionMetadata.actionName action.Metadata.ID))
     |> List.map actionItem
@@ -429,6 +430,14 @@ module Suggestions =
         | :? Binary as binary -> Some binary
         | _ -> None))
 
+  let private tryCurrentSlice (state: TransformerReplState) =
+    state.Current
+    |> Option.bind (fun value ->
+      value.Collection.Values
+      |> Array.tryPick (function
+        | :? BinarySlice as slice -> Some slice
+        | _ -> None))
+
   let private tryCurrentRequirements (state: TransformerReplState) =
     match state.LastNeeds with
     | Some needs -> Some needs
@@ -442,11 +451,11 @@ module Suggestions =
 
   let private sectionCandidates state prefix =
     try
-      match tryCurrentBinary state with
-      | Some binary ->
+      let sectionItems binary inside =
         let hdl = Binary.Handle binary
         BinFileOps.getSections hdl.File
         |> Array.filter (fun section -> section.FileSize > 0UL)
+        |> Array.filter inside
         |> Array.choose (fun section ->
           if String.IsNullOrWhiteSpace section.Name then None
           else
@@ -458,44 +467,62 @@ module Suggestions =
         |> List.filter (fst >> matches prefix)
         |> List.map (fun (name, detail) ->
           argumentItem SuggestionKind.Argument detail name)
+      match tryCurrentSlice state with
+      | Some slice ->
+        let inside section =
+          let finish = section.Address + section.FileSize
+          section.Address >= slice.StartAddress && finish <= slice.EndAddress
+        sectionItems slice.Source inside
       | None ->
-        []
+        match tryCurrentBinary state with
+        | Some binary ->
+          sectionItems binary (fun _ -> true)
+        | None ->
+          []
     with _ -> []
 
   let private addressCandidates state prefix =
     try
-      match tryCurrentBinary state with
-      | Some binary ->
-        let hdl = Binary.Handle binary
-        let sections = BinFileOps.getSections hdl.File
-        let sectionName address =
-          sections
-          |> Array.tryFind (fun section ->
-            let finish = section.Address + section.FileSize
-            section.FileSize > 0UL
-            && section.Address <= address && address < finish)
-          |> Option.map (fun section ->
-            if String.IsNullOrWhiteSpace section.Name then "<unnamed>"
-            else section.Name)
-          |> Option.defaultValue "<no section>"
-        let entryPoint = hdl.File.EntryPoint |> Option.toList
-        let functions =
-          BinFileOps.getFunctionAddresses hdl.File |> Array.toList
-        let sectionStarts =
-          sections
-          |> Array.map (fun section -> section.Address)
-          |> Array.toList
-        entryPoint @ functions @ sectionStarts
-        |> List.distinct
-        |> List.map (fun address ->
-          let text = $"0x{address:x}"
-          let detail = $"address {sectionName address}"
-          text, detail)
+      match tryCurrentSlice state with
+      | Some slice ->
+        [ $"0x{slice.StartAddress:x}", "slice start"
+          $"0x{slice.EndAddress:x}", "slice end" ]
         |> List.filter (fst >> matches prefix)
         |> List.map (fun (text, detail) ->
           argumentItem SuggestionKind.Argument detail text)
       | None ->
-        []
+        match tryCurrentBinary state with
+        | Some binary ->
+          let hdl = Binary.Handle binary
+          let sections = BinFileOps.getSections hdl.File
+          let sectionName address =
+            sections
+            |> Array.tryFind (fun section ->
+              let finish = section.Address + section.FileSize
+              section.FileSize > 0UL
+              && section.Address <= address && address < finish)
+            |> Option.map (fun section ->
+              if String.IsNullOrWhiteSpace section.Name then "<unnamed>"
+              else section.Name)
+            |> Option.defaultValue "<no section>"
+          let entryPoint = hdl.File.EntryPoint |> Option.toList
+          let functions =
+            BinFileOps.getFunctionAddresses hdl.File |> Array.toList
+          let sectionStarts =
+            sections
+            |> Array.map (fun section -> section.Address)
+            |> Array.toList
+          entryPoint @ functions @ sectionStarts
+          |> List.distinct
+          |> List.map (fun address ->
+            let text = $"0x{address:x}"
+            let detail = $"address {sectionName address}"
+            text, detail)
+          |> List.filter (fst >> matches prefix)
+          |> List.map (fun (text, detail) ->
+            argumentItem SuggestionKind.Argument detail text)
+        | None ->
+          []
     with _ -> []
 
   let private requiredRegisterCandidates suffix state prefix =
