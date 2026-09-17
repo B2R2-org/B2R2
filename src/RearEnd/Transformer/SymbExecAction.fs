@@ -32,7 +32,14 @@ open System.Text.RegularExpressions
 open System.Threading
 open B2R2
 open B2R2.BinIR
+open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
+open B2R2.MiddleEnd.Executor
 open B2R2.MiddleEnd.SymbEval
+
+type LowUIRExpr = B2R2.BinIR.LowUIR.Expr
+
+type LowUIRStmt = B2R2.BinIR.LowUIR.Stmt
 
 type SymbSolverFactory = Func<ISolver>
 
@@ -71,9 +78,45 @@ module SymbSolverRegistry =
 
 type SymbolicInput =
   { Name: string
-    Address: Addr
+    Location: string
     Size: int
-    Buffer: SymbByteBuffer }
+    Query: IQueryExpr }
+
+type SymbSymbolicRegisterAssignment =
+  { Register: string
+    Name: string
+    Size: int }
+
+type SymbRegionPermission =
+  { Read: bool
+    Write: bool
+    Execute: bool }
+
+type SymbMemoryRegion =
+  { Name: string
+    Start: Addr
+    Finish: Addr
+    Permission: SymbRegionPermission }
+
+type SymbMemoryAccessKind =
+  | MemoryRead
+  | MemoryWrite
+
+module private SymbRegionPerm =
+  let format permission =
+    let chars =
+      [ if permission.Read then Some "r" else None
+        if permission.Write then Some "w" else None
+        if permission.Execute then Some "x" else None ]
+      |> List.choose id
+    match chars with
+    | [] -> "-"
+    | chars -> String.concat "" chars
+
+  let allows kind permission =
+    match kind with
+    | MemoryRead -> permission.Read
+    | MemoryWrite -> permission.Write
 
 type SymbMemoryAssignment =
   { Address: Addr
@@ -89,16 +132,39 @@ type SymbContextSpec =
     Stack: Addr option
     Registers: (string * Addr) list
     Memory: SymbMemoryAssignment list
-    SymbolicMemory: SymbSymbolicMemoryAssignment list }
+    SymbolicMemory: SymbSymbolicMemoryAssignment list
+    SymbolicRegisters: SymbSymbolicRegisterAssignment list
+    Regions: SymbMemoryRegion list }
 
 type SymbExecutorValue(binary: Binary,
                        state: SymbState,
                        inputs: SymbolicInput list,
                        avoids: Set<Addr>,
+                       regions: SymbMemoryRegion list,
                        hooks: SymbCallHookRegistry option,
                        hookText: string list,
                        solver: SymbSolverValue option) as this =
   let executor = SymbExecutor(Binary.Handle binary)
+
+  let x64ParentRegister (name: string) =
+    match name.ToUpperInvariant() with
+    | "EAX" -> Some "RAX"
+    | "EBX" -> Some "RBX"
+    | "ECX" -> Some "RCX"
+    | "EDX" -> Some "RDX"
+    | "ESI" -> Some "RSI"
+    | "EDI" -> Some "RDI"
+    | "ESP" -> Some "RSP"
+    | "EBP" -> Some "RBP"
+    | "R8D" -> Some "R8"
+    | "R9D" -> Some "R9"
+    | "R10D" -> Some "R10"
+    | "R11D" -> Some "R11"
+    | "R12D" -> Some "R12"
+    | "R13D" -> Some "R13"
+    | "R14D" -> Some "R14"
+    | "R15D" -> Some "R15"
+    | _ -> None
 
   new(binary: Binary) =
     let executor = SymbExecutor(Binary.Handle binary)
@@ -106,6 +172,7 @@ type SymbExecutorValue(binary: Binary,
                       executor.CreateState(),
                       [],
                       Set.empty,
+                      [],
                       None,
                       [],
                       None)
@@ -118,15 +185,28 @@ type SymbExecutorValue(binary: Binary,
 
   member _.Avoids = avoids
 
+  member _.Regions = regions
+
   member _.Hooks = hooks
 
   member _.Solver = solver
+
+  member _.CallPolicy =
+    match hooks with
+    | Some registry -> CallPolicy.UseCallHooks registry
+    | None -> CallPolicy.FollowDirectInternalCalls
+
+  member _.SolverBackend =
+    solver
+    |> Option.map (fun solver -> CustomSolver(solver.Create()))
+    |> Option.defaultValue NoSolver
 
   member _.WithSolver solverValue =
     SymbExecutorValue(binary,
                       state,
                       inputs,
                       avoids,
+                      regions,
                       hooks,
                       hookText,
                       Some solverValue)
@@ -134,28 +214,56 @@ type SymbExecutorValue(binary: Binary,
   member _.WithPC pc =
     let state = state.Clone()
     state.PC <- pc
-    SymbExecutorValue(binary, state, inputs, avoids, hooks, hookText, solver)
+    SymbExecutorValue(binary,
+                      state,
+                      inputs,
+                      avoids,
+                      regions,
+                      hooks,
+                      hookText,
+                      solver)
 
   member _.WithStack top =
     let state = state.Clone()
     let accessor = SymbStateAccessor(Binary.Handle binary, state)
     match accessor.TrySetStackPointer top with
     | Ok() ->
-      SymbExecutorValue(binary, state, inputs, avoids, hooks, hookText, solver)
+      SymbExecutorValue(binary,
+                        state,
+                        inputs,
+                        avoids,
+                        regions,
+                        hooks,
+                        hookText,
+                        solver)
     | Error error -> invalidOp $"{error}"
 
   member _.WithRegister(name: string, value) =
     let state = state.Clone()
     let accessor = SymbStateAccessor(Binary.Handle binary, state)
     accessor.SetRegister(name, accessor.WordValue value)
-    SymbExecutorValue(binary, state, inputs, avoids, hooks, hookText, solver)
+    SymbExecutorValue(binary,
+                      state,
+                      inputs,
+                      avoids,
+                      regions,
+                      hooks,
+                      hookText,
+                      solver)
 
   member _.WithConcreteMemory(addr, bytes: byte[]) =
     let state = state.Clone()
     bytes |> Array.iteri (fun idx byte ->
       let value = SymbExpr.Const(BitVector(uint64 byte, 8<rt>))
       state.Memory.ByteWrite(addr + uint64 idx, value))
-    SymbExecutorValue(binary, state, inputs, avoids, hooks, hookText, solver)
+    SymbExecutorValue(binary,
+                      state,
+                      inputs,
+                      avoids,
+                      regions,
+                      hooks,
+                      hookText,
+                      solver)
 
   member _.WithSymbolicMemory(addr, name, size) =
     let state = state.Clone()
@@ -163,13 +271,14 @@ type SymbExecutorValue(binary: Binary,
     let buffer = accessor.WriteSymbolicBuffer(name, addr, size)
     let input =
       { Name = name
-        Address = buffer.Address
+        Location = $"mem@0x{buffer.Address:x}"
         Size = size
-        Buffer = buffer }
+        Query = buffer :> IQueryExpr }
     SymbExecutorValue(binary,
                       state,
                       input :: inputs,
                       avoids,
+                      regions,
                       hooks,
                       hookText,
                       solver)
@@ -181,13 +290,68 @@ type SymbExecutorValue(binary: Binary,
     accessor.SetArgumentBuffer(index, buffer)
     let input =
       { Name = name
-        Address = buffer.Address
+        Location = $"arg{index}@0x{buffer.Address:x}"
         Size = size
-        Buffer = buffer }
+        Query = buffer :> IQueryExpr }
     SymbExecutorValue(binary,
                       state,
                       input :: inputs,
                       avoids,
+                      regions,
+                      hooks,
+                      hookText,
+                      solver)
+
+  member _.WithSymbolicRegister(register: string, name: string, size: int) =
+    let state = state.Clone()
+    let hdl = Binary.Handle binary
+    let accessor = SymbStateAccessor(hdl, state)
+    let rid = hdl.RegisterFactory.GetRegisterID(name = register)
+    let registerType = hdl.RegisterFactory.GetRegType rid
+    let bytes = accessor.CreateSymbolicBytes(name, size)
+    let concat (lhs: SymbExpr) (rhs: SymbExpr) =
+      let typ = RegType.fromBitWidth (int lhs.Type + int rhs.Type)
+      SymbExpr.binop BinOpType.CONCAT typ lhs rhs
+    let ordered =
+      match hdl.ISA.Endian with
+      | Endian.Little -> List.rev bytes
+      | _ -> bytes
+    let value =
+      match ordered with
+      | [] -> invalidArg (nameof size) "Symbolic register size must be > 0."
+      | head :: tail -> List.fold concat head tail
+    let value =
+      if value.Type = registerType then value
+      elif value.Type < registerType then
+        SymbExpr.cast CastKind.ZeroExt registerType value
+      else
+        invalidArg (nameof size) "Symbolic register value is too wide."
+    let query =
+      bytes
+      |> List.map (fun byte -> QueryExpr.Value byte :> IQueryExpr)
+      |> QueryExpr.Values
+      :> IQueryExpr
+    accessor.SetRegister(rid, value)
+    if hdl.ISA.WordSize = WordSize.Bit64 then
+      match x64ParentRegister register with
+      | Some parent ->
+        let parentRid = hdl.RegisterFactory.GetRegisterID(name = parent)
+        let parentType = hdl.RegisterFactory.GetRegType parentRid
+        let parentValue = SymbExpr.cast CastKind.ZeroExt parentType value
+        accessor.SetRegister(parentRid, parentValue)
+      | None -> ()
+    else
+      ()
+    let input =
+      { Name = name
+        Location = $"reg:{register}"
+        Size = size
+        Query = query }
+    SymbExecutorValue(binary,
+                      state,
+                      input :: inputs,
+                      avoids,
+                      regions,
                       hooks,
                       hookText,
                       solver)
@@ -197,6 +361,17 @@ type SymbExecutorValue(binary: Binary,
                       state,
                       inputs,
                       Set.add addr avoids,
+                      regions,
+                      hooks,
+                      hookText,
+                      solver)
+
+  member _.WithRegion region =
+    SymbExecutorValue(binary,
+                      state,
+                      inputs,
+                      avoids,
+                      region :: regions,
                       hooks,
                       hookText,
                       solver)
@@ -211,6 +386,7 @@ type SymbExecutorValue(binary: Binary,
                       state,
                       inputs,
                       avoids,
+                      regions,
                       Some registry,
                       hookText,
                       solver)
@@ -234,51 +410,85 @@ type SymbExecutorValue(binary: Binary,
       executor.WithSymbolicMemory(assignment.Address,
                                   assignment.Name,
                                   assignment.Size)
+    let applySymbolicRegister (executor: SymbExecutorValue)
+                              (assignment: SymbSymbolicRegisterAssignment) =
+      executor.WithSymbolicRegister(assignment.Register,
+                                    assignment.Name,
+                                    assignment.Size)
+    let applyRegion (executor: SymbExecutorValue)
+                    (region: SymbMemoryRegion) =
+      executor.WithRegion region
     let executor = applyPC this |> applyStack
     let executor = spec.Registers |> List.fold applyRegister executor
     let executor = spec.Memory |> List.fold applyMemory executor
-    spec.SymbolicMemory |> List.fold applySymbolicMemory executor
-
-  member _.CallPolicy =
-    match hooks with
-    | Some registry -> UseCallHooks registry
-    | None -> FollowDirectInternalCalls
-
-  member _.SolverBackend =
-    solver
-    |> Option.map (fun solver -> CustomSolver(solver.Create()))
-    |> Option.defaultValue NoSolver
+    let executor = spec.SymbolicMemory |> List.fold applySymbolicMemory executor
+    let executor =
+      spec.SymbolicRegisters |> List.fold applySymbolicRegister executor
+    spec.Regions |> List.fold applyRegion executor
 
   member _.RunSatisfy(target, maxDepth, maxStates, loopBound, prune) =
     let query =
-      { Query = SatisfyAddress target
+      { Query = SymbQuery.SatisfyAddress target
         QueryValues =
           inputs
           |> List.rev
-          |> List.map (fun input -> input.Buffer :> IQueryExpr)
+          |> List.map (fun input -> input.Query)
           |> QueryExpr.Values }
     let options =
       { SymbRunOptions.Default(query, this.SolverBackend) with
           Calls = this.CallPolicy
-          Avoid = AvoidAddresses avoids
+          AvoidConditions =
+            avoids
+            |> Seq.map SymbAvoidCondition.AvoidAddress
+            |> Seq.toList
           MaxDepth = maxDepth
           MaxStates = maxStates
           LoopBound = loopBound
           PruneInfeasiblePaths = prune }
     executor.Run(state.PC, state, options)
-    |> fun result -> SymbRunValue(this, "satisfy", target, result)
+    |> fun result -> SymbRunValue(this, "satisfy", Some target, result)
+
+  member _.RunSatisfyCondition(predicate,
+                               maxDepth,
+                               maxStates,
+                               loopBound,
+                               prune) =
+    let query =
+      { Query = SymbQuery.SatisfyWhen predicate
+        QueryValues =
+          inputs
+          |> List.rev
+          |> List.map (fun input -> input.Query)
+          |> QueryExpr.Values }
+    let options =
+      { SymbRunOptions.Default(query, this.SolverBackend) with
+          Calls = this.CallPolicy
+          AvoidConditions =
+            avoids
+            |> Seq.map SymbAvoidCondition.AvoidAddress
+            |> Seq.toList
+          MaxDepth = maxDepth
+          MaxStates = maxStates
+          LoopBound = loopBound
+          PruneInfeasiblePaths = prune }
+    executor.Run(state.PC, state, options)
+    |> fun result -> SymbRunValue(this, "cond", None, result)
 
   member _.RunReach(target, maxDepth, maxStates, loopBound, prune) =
     let options =
-      { SymbRunOptions.Default(ReachAddress target, this.SolverBackend) with
+      { SymbRunOptions.Default(SymbQuery.ReachAddress target,
+                               this.SolverBackend) with
           Calls = this.CallPolicy
-          Avoid = AvoidAddresses avoids
+          AvoidConditions =
+            avoids
+            |> Seq.map SymbAvoidCondition.AvoidAddress
+            |> Seq.toList
           MaxDepth = maxDepth
           MaxStates = maxStates
           LoopBound = loopBound
           PruneInfeasiblePaths = prune }
     executor.Run(state.PC, state, options)
-    |> fun result -> SymbRunValue(this, "reach", target, result)
+    |> fun result -> SymbRunValue(this, "reach", Some target, result)
 
   override _.ToString() =
     let inputText =
@@ -287,7 +497,7 @@ type SymbExecutorValue(binary: Binary,
       | inputs ->
         inputs
         |> List.map (fun input ->
-          $"{input.Name}@0x{input.Address:x}({input.Size} bytes)")
+          $"{input.Name}@{input.Location}({input.Size} bytes)")
         |> String.concat ", "
     let avoidText =
       if Set.isEmpty avoids then
@@ -300,6 +510,15 @@ type SymbExecutorValue(binary: Binary,
       match List.rev hookText with
       | [] -> "none"
       | hooks -> String.concat ", " hooks
+    let regionText =
+      match List.rev regions with
+      | [] -> "none"
+      | regions ->
+        regions
+        |> List.map (fun region ->
+          let perms = SymbRegionPerm.format region.Permission
+          $"{region.Name}=0x{region.Start:x}-0x{region.Finish:x}:{perms}")
+        |> String.concat ", "
     let solverText =
       solver
       |> Option.map (fun solver -> "@" + solver.ID)
@@ -310,11 +529,12 @@ type SymbExecutorValue(binary: Binary,
     + $"{Environment.NewLine}  solver: {solverText}"
     + $"{Environment.NewLine}  symbolic inputs: {inputText}"
     + $"{Environment.NewLine}  avoid: {avoidText}"
+    + $"{Environment.NewLine}  regions: {regionText}"
     + $"{Environment.NewLine}  hooks: {hookText}"
 
 and SymbRunValue(source: SymbExecutorValue,
                  query: string,
-                 target: Addr,
+                 target: Addr option,
                  result: SymbRunResult) =
   let valueText (value: SolverValue) =
     $"  {value.Name}: {value.Value}"
@@ -428,10 +648,14 @@ and SymbRunValue(source: SymbExecutorValue,
     sb.ToString().TrimEnd()
 
   override this.ToString() =
+    let targetText =
+      target
+      |> Option.map (fun target -> $"0x{target:x}")
+      |> Option.defaultValue "condition"
     let header =
       "SymbRunResult"
       + $"{Environment.NewLine}  query: {query}"
-      + $"{Environment.NewLine}  target: 0x{target:x}"
+      + $"{Environment.NewLine}  target: {targetText}"
       + $"{Environment.NewLine}  status: {statusText}"
     let model = this.ModelText()
     if String.IsNullOrWhiteSpace model then header
@@ -470,7 +694,7 @@ module private SymbArgs =
                       NumberStyles.HexNumber,
                       CultureInfo.InvariantCulture) |]
 
-  let private trimBrackets (text: string) =
+  let trimBrackets (text: string) =
     let text = text.Trim()
     if text.StartsWith("[", StringComparison.Ordinal)
        && text.EndsWith("]", StringComparison.Ordinal) then
@@ -478,25 +702,25 @@ module private SymbArgs =
     else
       text
 
-  let private contextEntries text =
+  let contextEntries text =
     let text = trimBrackets text
     text.Split([| ';'; ',' |], StringSplitOptions.RemoveEmptyEntries)
     |> Array.map _.Trim()
     |> Array.filter (String.IsNullOrWhiteSpace >> not)
 
-  let private splitAssignment (entry: string) =
+  let splitAssignment (entry: string) =
     let index = entry.IndexOf '='
     if index <= 0 then
       invalidArg (nameof entry) $"Expected key=value entry: {entry}"
     else
       entry[..index - 1].Trim(), entry[index + 1..].Trim()
 
-  let private parseMemoryAssignment entry =
+  let parseMemoryAssignment entry =
     let addr, hex = splitAssignment entry
     { Address = parseAddr addr
       Bytes = parseHexBytes hex }
 
-  let private parseSymbolicMemoryAssignment (entry: string) =
+  let parseSymbolicMemoryAssignment (entry: string) =
     let nameIndex = entry.IndexOf '@'
     let sizeIndex = entry.LastIndexOf ':'
     if nameIndex <= 0 || sizeIndex <= nameIndex + 1 then
@@ -507,8 +731,57 @@ module private SymbArgs =
         Address = parseAddr (entry[nameIndex + 1..sizeIndex - 1].Trim())
         Size = parseInt (entry[sizeIndex + 1..].Trim()) }
 
+  let parseSymbolicRegisterAssignment (entry: string) =
+    let register, spec = splitAssignment entry
+    let sizeIndex = spec.LastIndexOf ':'
+    if sizeIndex <= 0 then
+      invalidArg (nameof entry)
+        $"Expected symbolic register entry REG=name:size: {entry}"
+    else
+      { Register = register
+        Name = spec[..sizeIndex - 1].Trim()
+        Size = parseInt (spec[sizeIndex + 1..].Trim()) }
+
+  let parseRegionPermission (entry: string) (text: string) =
+    let text = text.Trim().ToLowerInvariant()
+    let valid =
+      text.Length > 0
+      && (text |> Seq.forall (fun ch ->
+        ch = 'r' || ch = 'w' || ch = 'x'))
+    if valid then
+      { Read = text.Contains "r"
+        Write = text.Contains "w"
+        Execute = text.Contains "x" }
+    else
+      invalidArg (nameof entry) $"Invalid region permission: {entry}"
+
+  let parseRegionAssignment (entry: string) =
+    let name, spec = splitAssignment entry
+    let permIndex = spec.LastIndexOf ':'
+    if permIndex <= 0 then
+      invalidArg (nameof entry) $"Expected region name=start..end:perm: {entry}"
+    else
+      let range = spec[..permIndex - 1].Trim()
+      let permission = parseRegionPermission entry spec[permIndex + 1..]
+      let rangeParts =
+        range.Split([| ".." |], StringSplitOptions.None)
+      if rangeParts.Length <> 2 then
+        invalidArg (nameof entry)
+          $"Expected region range start..end: {entry}"
+      else
+        let startAddress = parseAddr (rangeParts[0].Trim())
+        let endAddress = parseAddr (rangeParts[1].Trim())
+        if startAddress >= endAddress then
+          invalidArg (nameof entry)
+            $"Region start must be smaller than end: {entry}"
+        else
+          { Name = name
+            Start = startAddress
+            Finish = endAddress
+            Permission = permission }
+
   let parseContext args =
-    let rec loop spec = function
+    let rec loop (spec: SymbContextSpec) = function
       | [] -> spec
       | (token: string) :: rest ->
         let index = token.IndexOf '='
@@ -543,15 +816,30 @@ module private SymbArgs =
                 |> Array.toList
                 |> List.map parseSymbolicMemoryAssignment
               { spec with SymbolicMemory = spec.SymbolicMemory @ symbolic }
+            | "sym-regs" | "symbolic-registers" ->
+              let symbolic =
+                contextEntries value
+                |> Array.toList
+                |> List.map parseSymbolicRegisterAssignment
+              { spec with
+                  SymbolicRegisters = spec.SymbolicRegisters @ symbolic }
+            | "regions" ->
+              let regions =
+                contextEntries value
+                |> Array.toList
+                |> List.map parseRegionAssignment
+              { spec with Regions = spec.Regions @ regions }
             | _ ->
               invalidArg (nameof args) $"Unknown symb-context parameter: {key}"
           loop spec rest
-    let empty =
+    let empty: SymbContextSpec =
       { PC = None
         Stack = None
         Registers = []
         Memory = []
-        SymbolicMemory = [] }
+        SymbolicMemory = []
+        SymbolicRegisters = []
+        Regions = [] }
     loop empty args
 
   let defaults args =
@@ -564,6 +852,285 @@ module private SymbArgs =
     let prune =
       args |> List.tryItem 3 |> Option.map parseBool |> Option.defaultValue true
     maxDepth, maxStates, loopBound, prune
+
+module private SymbCondition =
+  type Term =
+    | Register of string
+    | Memory of Addr * RegType
+    | WriteAddress
+
+  type Condition =
+    | Compare of Term * RelOpType * Addr
+    | MemoryPolicyViolation of SymbMemoryAccessKind option
+    | And of Condition list
+
+  let norm (text: string) =
+    Regex.Replace(text.Trim(), @"\s+", " ")
+
+  let stripOuterParens (text: string) =
+    let text = text.Trim()
+    if text.StartsWith("(", StringComparison.Ordinal)
+       && text.EndsWith(")", StringComparison.Ordinal) then
+      text[1..text.Length - 2].Trim()
+    else
+      text
+
+  let parseRelOp = function
+    | "=" | "==" -> RelOpType.EQ
+    | "!=" | "<>" -> RelOpType.NEQ
+    | "<" -> RelOpType.LT
+    | "<=" -> RelOpType.LE
+    | ">" -> RelOpType.GT
+    | ">=" -> RelOpType.GE
+    | op -> invalidArg (nameof op) $"Unsupported condition operator: {op}"
+
+  let tryMatch pattern text =
+    let options = RegexOptions.IgnoreCase ||| RegexOptions.CultureInvariant
+    let m = Regex.Match(text, pattern, options)
+    if m.Success then Some m else None
+
+  let parseAtom text =
+    let number = @"(0x[0-9a-f]+|[0-9]+)"
+    let op = @"(==|=|!=|<>|<=|>=|<|>)"
+    let text = norm text
+    if Regex.IsMatch(text, @"^(mem|memory)\.violation\s*\(\s*\)$",
+                     RegexOptions.IgnoreCase) then
+      MemoryPolicyViolation None
+    elif Regex.IsMatch(text, @"^(mem|memory)\.readViolation\s*\(\s*\)$",
+                       RegexOptions.IgnoreCase) then
+      MemoryPolicyViolation(Some MemoryRead)
+    elif Regex.IsMatch(text, @"^(mem|memory)\.writeViolation\s*\(\s*\)$",
+                       RegexOptions.IgnoreCase) then
+      MemoryPolicyViolation(Some MemoryWrite)
+    else
+      let regPattern =
+        @"^pp\.REG\s*\[\s*([A-Za-z0-9_]+)\s*\]\s*"
+        + op + @"\s*" + number + "$"
+      let memPattern =
+        @"^pp\.MEM\s*\[\s*" + number + @"(?::([0-9]+))?\s*\]\s*"
+        + op + @"\s*" + number + "$"
+      let writePattern =
+        @"^pp\.WRITE\s*" + op + @"\s*" + number + "$"
+      match tryMatch regPattern text with
+      | Some m ->
+        let term = Register m.Groups[1].Value
+        let relop = parseRelOp m.Groups[2].Value
+        Compare(term, relop, SymbArgs.parseAddr m.Groups[3].Value)
+      | None ->
+        match tryMatch memPattern text with
+        | Some m ->
+          let size =
+            if m.Groups[2].Success then SymbArgs.parseInt m.Groups[2].Value
+            else 8
+          let term =
+            Memory(SymbArgs.parseAddr m.Groups[1].Value,
+                   RegType.fromByteWidth size)
+          let relop = parseRelOp m.Groups[3].Value
+          Compare(term, relop, SymbArgs.parseAddr m.Groups[4].Value)
+        | None ->
+          match tryMatch writePattern text with
+          | Some m ->
+            let relop = parseRelOp m.Groups[1].Value
+            Compare(WriteAddress, relop, SymbArgs.parseAddr m.Groups[2].Value)
+          | None ->
+            invalidArg (nameof text) $"Invalid pp condition: {text}"
+
+  let parseBody body =
+    Regex.Split(body, @"\s*&&\s*")
+    |> Array.toList
+    |> List.map parseAtom
+    |> function
+      | [ atom ] -> atom
+      | atoms -> And atoms
+
+  let parse text =
+    let text = stripOuterParens text
+    let pattern = @"^fun\s+([A-Za-z_][A-Za-z0-9_]*|_)\s*->\s*(.+)$"
+    match tryMatch pattern text with
+    | Some m -> parseBody m.Groups[2].Value
+    | None ->
+      invalidArg (nameof text)
+        "Expected condition function: fun pp -> <predicate>."
+
+  let constFor (expr: SymbExpr) (value: Addr) =
+    SymbExpr.Const(BitVector(uint64 value, expr.Type))
+
+  let addCondition (state: SymbState) (expr: SymbExpr) =
+    match expr with
+    | SymbExpr.Const bv when bv.IsTrue -> true
+    | SymbExpr.Const bv when bv.IsFalse -> false
+    | _ -> state.AddPathCondition expr; true
+
+  let compareExpr (state: SymbState) lhs relop rhs =
+    SymbExpr.relop relop lhs (constFor lhs rhs) |> addCondition state
+
+  let tryRegister (hdl: BinHandle) (point: StopPoint<SymbState>) name =
+    if String.Equals(name, "PC", StringComparison.OrdinalIgnoreCase) then
+      let wordType = hdl.ISA.WordSize |> WordSize.toRegType
+      SymbExpr.Const(BitVector(uint64 point.Address, wordType)) |> Some
+    else
+      let factory = hdl.RegisterFactory
+      let rid =
+        try
+          factory.GetRegisterID(name = name) |> Some
+        with _ ->
+          try factory.GetRegisterID(name.ToUpperInvariant()) |> Some
+          with _ -> None
+      rid |> Option.bind (fun rid ->
+        match point.State.TryGetReg rid with
+        | Ok expr -> Some expr
+        | Error _ -> None)
+
+  let tryMemory (hdl: BinHandle) (point: StopPoint<SymbState>)
+                (addr: Addr) (typ: RegType) =
+    point.State.Memory.Load(addr, hdl.ISA.Endian, typ)
+    |> function
+      | Ok expr -> Some expr
+      | Error _ -> None
+
+  type MemoryAccess =
+    { Kind: SymbMemoryAccessKind
+      Address: SymbExpr }
+
+  let boolConst (value: bool): SymbExpr =
+    SymbExpr.Const(if value then BitVector.T else BitVector.F)
+
+  let notExpr (expr: SymbExpr) =
+    match expr with
+    | SymbExpr.Const bv when bv.IsTrue -> boolConst false
+    | SymbExpr.Const bv when bv.IsFalse -> boolConst true
+    | expr -> SymbExpr.unop UnOpType.NOT expr
+
+  let orExpr (lhs: SymbExpr) (rhs: SymbExpr) =
+    match lhs, rhs with
+    | SymbExpr.Const bv, _ when bv.IsTrue -> lhs
+    | _, SymbExpr.Const bv when bv.IsTrue -> rhs
+    | SymbExpr.Const bv, expr when bv.IsFalse -> expr
+    | expr, SymbExpr.Const bv when bv.IsFalse -> expr
+    | _ -> SymbExpr.binop BinOpType.OR 1<rt> lhs rhs
+
+  let anyExpr (exprs: SymbExpr list) =
+    exprs |> List.fold orExpr (boolConst false)
+
+  let tryAddress (point: StopPoint<SymbState>) (addr: LowUIRExpr) =
+    match SymbExprTranslator.translate point.State addr with
+    | Ok expr -> Some expr
+    | Error _ -> None
+
+  let rec readAddresses (point: StopPoint<SymbState>) (expr: LowUIRExpr) =
+    match expr with
+    | LowUIRExpr.Load(_, _, addr, _) ->
+      match tryAddress point addr with
+      | Some expr -> [ expr ]
+      | None -> []
+    | LowUIRExpr.ExprList(exprs, _) ->
+      exprs |> List.collect (readAddresses point)
+    | LowUIRExpr.UnOp(_, expr, _)
+    | LowUIRExpr.Cast(_, _, expr, _)
+    | LowUIRExpr.Extract(expr, _, _, _) ->
+      readAddresses point expr
+    | LowUIRExpr.BinOp(_, _, lhs, rhs, _)
+    | LowUIRExpr.RelOp(_, lhs, rhs, _) ->
+      readAddresses point lhs @ readAddresses point rhs
+    | LowUIRExpr.Ite(cond, thenExpr, elseExpr, _) ->
+      readAddresses point cond
+      @ readAddresses point thenExpr
+      @ readAddresses point elseExpr
+    | _ -> []
+
+  let readAccesses point (expr: LowUIRExpr) =
+    readAddresses point expr
+    |> List.map (fun addr -> { Kind = MemoryRead; Address = addr })
+
+  let tryWriteAccess point (addr: LowUIRExpr) =
+    tryAddress point addr
+    |> Option.map (fun addr -> { Kind = MemoryWrite; Address = addr })
+
+  let stmtAccesses point (stmt: LowUIRStmt) =
+    match stmt with
+    | LowUIRStmt.Put(_, rhs, _) -> readAccesses point rhs
+    | LowUIRStmt.Store(_, addr, value, _) ->
+      let reads = readAccesses point addr @ readAccesses point value
+      match tryWriteAccess point addr with
+      | Some write -> write :: reads
+      | None -> reads
+    | LowUIRStmt.Jmp(target, _)
+    | LowUIRStmt.InterJmp(target, _, _) ->
+      readAccesses point target
+    | LowUIRStmt.CJmp(cond, trueTarget, falseTarget, _)
+    | LowUIRStmt.InterCJmp(cond, trueTarget, falseTarget, _) ->
+      readAccesses point cond
+      @ readAccesses point trueTarget
+      @ readAccesses point falseTarget
+    | LowUIRStmt.ExternalCall(expr, _) -> readAccesses point expr
+    | _ -> []
+
+  let memoryAccesses (point: StopPoint<SymbState>) =
+    point.Statements
+    |> Array.toList
+    |> List.collect (stmtAccesses point)
+
+  let inRegionExpr (expr: SymbExpr) (region: SymbMemoryRegion) =
+    match expr with
+    | SymbExpr.Const bv ->
+      let addr = bv.ToUInt64()
+      boolConst (addr >= region.Start && addr < region.Finish)
+    | _ ->
+      let lower = SymbExpr.relop RelOpType.GE expr (constFor expr region.Start)
+      let upper = SymbExpr.relop RelOpType.LT expr (constFor expr region.Finish)
+      SymbExpr.binop BinOpType.AND 1<rt> lower upper
+
+  let allowedRegions kind regions =
+    regions
+    |> List.filter (fun region ->
+      SymbRegionPerm.allows kind region.Permission)
+
+  let allowedExpr regions access =
+    allowedRegions access.Kind regions
+    |> List.map (inRegionExpr access.Address)
+    |> anyExpr
+
+  let violationExpr regions access =
+    allowedExpr regions access |> notExpr
+
+  let testMemoryViolation kind regions point =
+    memoryAccesses point
+    |> List.filter (fun access ->
+      match kind with
+      | Some kind -> access.Kind = kind
+      | None -> true)
+    |> List.exists (fun access ->
+      violationExpr regions access |> addCondition point.State)
+
+  let rec evaluate
+    (hdl: BinHandle) (regions: SymbMemoryRegion list)
+    (condition: Condition) (point: StopPoint<SymbState>) =
+    match condition with
+    | Compare(Register name, relop, value) ->
+      match tryRegister hdl point name with
+      | Some expr -> compareExpr point.State expr relop value
+      | None -> false
+    | Compare(Memory(addr, typ), relop, value) ->
+      match tryMemory hdl point addr typ with
+      | Some expr -> compareExpr point.State expr relop value
+      | None -> false
+    | Compare(WriteAddress, relop, value) ->
+      memoryAccesses point
+      |> List.choose (fun access ->
+        match access.Kind with
+        | MemoryWrite -> Some access.Address
+        | MemoryRead -> None)
+      |> List.exists (fun expr -> compareExpr point.State expr relop value)
+    | MemoryPolicyViolation kind -> testMemoryViolation kind regions point
+    | And conditions ->
+      conditions
+      |> List.forall (fun condition ->
+        evaluate hdl regions condition point)
+
+  let toPredicate hdl regions condition =
+    StopPredicate<SymbState>(fun point ->
+      evaluate hdl regions condition point
+    )
 
 module private SymbMetadata =
   let arg name kind optional description =
@@ -817,10 +1384,18 @@ type SymbContextAction() =
   let symMem =
     SymbMetadata.arg "sym-mem" ActionArgumentKind.Text true
       "Symbolic memory assignments: [password@0x70000000:18]."
+  let symRegs =
+    SymbMetadata.arg "sym-regs" ActionArgumentKind.Text true
+      "Symbolic register assignments: [ESI=idx:4]."
+  let regions =
+    SymbMetadata.arg "regions" ActionArgumentKind.Text true
+      "Memory regions: [track=0x70000000..0x70000400:rw]."
   let signature =
     "SymbExecutor -> @symb-context [pc:Address=<addr>] "
     + "[stack:Address=<addr>] [regs:String=<regs>] "
-    + "[mem:String=<mem>] [sym-mem:String=<sym-mem>] -> SymbExecutor"
+    + "[mem:String=<mem>] [sym-mem:String=<sym-mem>] "
+    + "[sym-regs:String=<regs>] [regions:String=<regions>] "
+    + "-> SymbExecutor"
   let metadata =
     { SymbMetadata.metadata
         "symb-context"
@@ -831,9 +1406,12 @@ type SymbContextAction() =
         "Set symbolic execution PC, stack, registers, and memory at once."
         [ "sx |> @symb-context pc=0x401136 stack=0x7fffffffe000"
           "sx |> @symb-context regs=[RBP=0x1; RDI=0x70000000]"
-          "sx |> @symb-context sym-mem=[password@0x70000000:18]" ] with
+          "sx |> @symb-context sym-regs=[ESI=idx:4]"
+          "sx |> @symb-context regions=[buf=0x70000000..0x70001000:rw]" ]
+        with
         Syntaxes =
-          [ SymbMetadata.syntax None [ pc; stack; regs; mem; symMem ] ] }
+          [ SymbMetadata.syntax None
+              [ pc; stack; regs; mem; symMem; symRegs; regions ] ] }
 
   let transformOne args (value: obj) =
     match value with
@@ -1096,6 +1674,77 @@ type SymbRunAction() =
         | _ -> invalidArg (nameof args) "Unknown symb-run operation."
       | _ -> invalidArg (nameof args) "Invalid symb-run arguments."
     | value -> invalidOp $"symb-run expects SymbExecutor: {value}"
+
+  let transform args (collection: ObjCollection) =
+    collection.Values |> Array.map (transformOne args) |> fun values ->
+      { Values = values }
+
+  interface IAction with
+    member _.ActionID with get() = metadata.ID
+    member _.Signature with get() = metadata.Signature
+    member _.Description with get() = metadata.Description
+    member _.Transform(args, collection) = transform args collection
+
+  interface IActionMetadataProvider with
+    member _.Metadata with get() = metadata
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, _cancellationToken) =
+      transform args collection
+
+type SymbSearchAction() =
+  let cond =
+    SymbMetadata.arg "cond" ActionArgumentKind.ParameterFunction false
+      "Program-point predicate: fun pp -> pp.REG[PC]=0x401000."
+  let maxDepth =
+    SymbMetadata.arg "max-depth" ActionArgumentKind.Integer true
+      "Maximum instructions per path. Default: 512."
+  let maxStates =
+    SymbMetadata.arg "max-states" ActionArgumentKind.Integer true
+      "Maximum states to expand. Default: 2048."
+  let loopBound =
+    SymbMetadata.arg "loop-bound" ActionArgumentKind.Integer true
+      "Maximum visits to the same address. Default: 2."
+  let prune =
+    SymbMetadata.choice "prune" true [ "true"; "false" ]
+      "Use the solver to prune infeasible paths. Default: true."
+  let condArgs = [ cond; maxDepth; maxStates; loopBound; prune ]
+  let signature =
+    "SymbExecutor -> @symb-search cond:ParameterFunction=<fun> "
+    + "[max-depth:Int=<n>] [max-states:Int=<n>] "
+    + "[loop-bound:Int=<n>] [prune:Choice=<true|false>] -> SymbRunResult"
+  let metadata =
+    { SymbMetadata.metadata
+        "symb-search"
+        ReplValueKind.SymbExecutor
+        ReplValueKind.SymbRunResult
+        ActionRole.Transform
+        signature
+        "Search for symbolic inputs satisfying a state condition."
+        [ "sx |> @symb-search cond=(fun pp -> pp.REG[PC]=0x401000)"
+          "sx |> @symb-search cond=(fun _ -> mem.writeViolation())" ]
+        with
+        Syntaxes =
+          [ SymbMetadata.syntax None condArgs ] }
+
+  let transformOne args (value: obj) =
+    match value with
+    | :? SymbExecutorValue as executor ->
+      match args with
+      | cond :: rest ->
+        let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults rest
+        let hdl = Binary.Handle executor.Binary
+        let condition = SymbCondition.parse cond
+        let predicate =
+          SymbCondition.toPredicate hdl executor.Regions condition
+        executor.RunSatisfyCondition(predicate,
+                                     maxDepth,
+                                     maxStates,
+                                     loopBound,
+                                     prune)
+        |> box
+      | _ -> invalidArg (nameof args) "Invalid symb-search arguments."
+    | value -> invalidOp $"symb-search expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->

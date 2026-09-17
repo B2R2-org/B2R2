@@ -48,11 +48,12 @@ module private ConcActionParsing =
   let randomAddress minAddress maxAddress =
     if minAddress >= maxAddress then
       invalidArg (nameof maxAddress) "max must be greater than min."
-    let span = maxAddress - minAddress
-    let bytes = Array.zeroCreate<byte> 8
-    RandomNumberGenerator.Fill bytes
-    let offset = BitConverter.ToUInt64(bytes, 0) % span
-    { Address = minAddress + offset }
+    else
+      let span = maxAddress - minAddress
+      let bytes = Array.zeroCreate<byte> 8
+      RandomNumberGenerator.Fill bytes
+      let offset = BitConverter.ToUInt64(bytes, 0) % span
+      { Address = minAddress + offset }
 
   let alignDown align (value: Addr) =
     if align = 0UL then value else value - (value % align)
@@ -85,9 +86,9 @@ type private TracingMemory(inner: IMemory) =
         Before = before
         After = after }
 
-  member _.SetInstruction addr = instruction <- addr
-
   member _.Accesses = accesses.ToArray()
+
+  member _.SetInstruction addr = instruction <- addr
 
   interface IUndefinedMemory with
 

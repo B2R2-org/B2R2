@@ -233,6 +233,14 @@ type ConcExecutor(hdl: BinHandle) =
     | limit when limit > 0 && n >= limit -> Some limit
     | _ -> None
 
+  let collectUserStopReasons point (opts: ConcRunOptions) =
+    opts.StopConditions
+    |> List.choose (function
+      | ConcStopCondition.StopWhen predicate when predicate.Invoke point ->
+        Some(ConcStopReason.UserStopConditionMet point.Address)
+      | _ ->
+        None)
+
   let collectPreInstrStopReasons point (opts: ConcRunOptions) =
     let addr, n = point.Address, point.InstructionCount
     let reasons =
@@ -240,8 +248,6 @@ type ConcExecutor(hdl: BinHandle) =
       |> List.choose (function
         | ConcStopCondition.StopAtAddress stopAddr when stopAddr = addr ->
           Some(ConcStopReason.StoppedAtAddress addr)
-        | ConcStopCondition.StopWhen predicate when predicate.Invoke point ->
-          Some(ConcStopReason.UserStopConditionMet addr)
         | _ ->
           None)
     match isInstructionLimitReached n opts with
@@ -357,22 +363,31 @@ type ConcExecutor(hdl: BinHandle) =
     let invalidInstr reasons addr n =
       let reason = ConcStopReason.InvalidInstructionAddress addr
       mkResult (reasons @ [ reason ]) addr n st
-    let mkStopPoint addr n ins =
-      { Address = addr; InstructionCount = n; Instruction = ins; State = st }
+    let mkStopPoint addr n ins stmts =
+      { Address = addr
+        InstructionCount = n
+        Instruction = ins
+        Statements = stmts
+        State = st }
     let rec loop n =
       let addr = st.PC
       let parsed = liftCache.TryParse addr
-      let point = mkStopPoint addr n (Result.toOption parsed)
+      let point = mkStopPoint addr n (Result.toOption parsed) [||]
       let reasons = collectPreInstrStopReasons point opts
       match parsed with
       | Result.Error _ ->
+        let reasons = reasons @ collectUserStopReasons point opts
         invalidInstr reasons addr n
       | Ok ins ->
         match liftCache.TryLift addr with
         | Result.Error _ ->
+          let point = mkStopPoint addr n (Some ins) [||]
+          let reasons = reasons @ collectUserStopReasons point opts
           invalidInstr reasons addr n
         | Ok lifted ->
           let stmts = lifted.Stmts
+          let point = mkStopPoint addr n (Some ins) stmts
+          let reasons = reasons @ collectUserStopReasons point opts
           let reasons = reasons @ collectInstrStopReasons opts st addr ins stmts
           let postReasons = collectPostInstrStopReasons opts st addr ins stmts
           if List.isEmpty reasons then

@@ -404,13 +404,17 @@ type SymbExecutor(hdl: BinHandle) =
         QueryUnknown(SymbStopReason.SolverQueryFailed(addr, e))
 
   let makeStopPoint depth (st: SymbState) =
-    let instruction =
-      match liftCache.TryParse st.PC with
-      | Ok ins -> Some ins
-      | Error _ -> None
+    let instruction, statements =
+      match liftCache.TryLift st.PC with
+      | Ok lifted -> Some lifted.Instruction, lifted.Stmts
+      | Error _ ->
+        match liftCache.TryParse st.PC with
+        | Ok ins -> Some ins, [||]
+        | Error _ -> None, [||]
     { Address = st.PC
       InstructionCount = depth
       Instruction = instruction
+      Statements = statements
       State = st }
 
   let tryFindAvoid depth (opts: SymbRunOptions) (st: SymbState) =
