@@ -714,6 +714,26 @@ type ConcExecutorValue private(binary: Binary,
       $"start=0x{trace.Start:x} final-pc=0x{trace.FinalPC:x} "
       + $"instructions={trace.InstructionCount}"
 
+  let lastViolationLines () =
+    match previousTrace with
+    | None -> []
+    | Some trace ->
+      let violations =
+        trace.MemoryAccesses
+        |> Array.choose (fun access ->
+          access.Violation
+          |> Option.map (fun message ->
+            let kind =
+              match access.Kind with
+              | MemoryAccessKind.Read -> "read"
+              | MemoryAccessKind.Write -> "write"
+            $"    {kind} at=0x{access.Instruction:x} "
+            + $"addr=0x{access.Address:x} size={access.Size} {message}"))
+        |> Array.toList
+      match violations with
+      | [] -> []
+      | lines -> "  access-violations:" :: lines
+
   let regionLines () =
     match regions with
     | [] -> [ "  regions: <none>" ]
@@ -745,6 +765,7 @@ type ConcExecutorValue private(binary: Binary,
     @ memoryRangeLines ()
     @ regionLines ()
     @ lastRunLines ()
+    @ lastViolationLines ()
 
   member this.Summary = String.concat Environment.NewLine this.SummaryLines
 
