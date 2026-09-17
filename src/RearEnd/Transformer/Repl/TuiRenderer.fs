@@ -134,13 +134,7 @@ module TransformerTuiRenderer =
         line.Kind, prefix + text)
 
   let private valueTypeDescription value =
-    let kind = ReplValueKind.toString (value: ReplValue).Kind
-    match value.Shape with
-    | ReplValueShape.Tuple -> kind
-    | ReplValueShape.List -> kind
-    | ReplValueShape.Array -> kind
-    | ReplValueShape.Collection -> kind
-    | ReplValueShape.Scalar -> kind
+    ReplValueKind.toString (value: ReplValue).Kind
 
   let private helpLines =
     [ "REPL GUIDE"

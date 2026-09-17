@@ -138,13 +138,7 @@ module TransformerReplEvaluator =
     ActionMetadata.documentationLines metadata
 
   let private typeDescription value =
-    let kind = formatKind (value: ReplValue).Kind
-    match value.Shape with
-    | ReplValueShape.Tuple -> kind
-    | ReplValueShape.List -> kind
-    | ReplValueShape.Array -> kind
-    | ReplValueShape.Collection -> kind
-    | ReplValueShape.Scalar -> kind
+    formatKind (value: ReplValue).Kind
 
   let private tryVertexRange (vertex: IVertex<LowUIRBasicBlock>) =
     try

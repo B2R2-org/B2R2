@@ -35,7 +35,6 @@ type ReplParserTests() =
   let collectionValue kind =
     { Kind = ReplValueKind.List kind
       IsCollection = true
-      Shape = ReplValueShape.List
       Collection = { Values = [||] } }
 
   let stateForCollection kind =

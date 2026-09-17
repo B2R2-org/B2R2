@@ -28,19 +28,10 @@ open System
 open System.Globalization
 open B2R2
 
-[<RequireQualifiedAccess>]
-type ReplValueShape =
-  | Scalar
-  | Collection
-  | List
-  | Array
-  | Tuple
-
 /// A typed value retained by an interactive Transformer session.
 type ReplValue =
   { Kind: ReplValueKind
     IsCollection: bool
-    Shape: ReplValueShape
     Collection: ObjCollection }
 
 /// One result in the persistent value history of a session.
@@ -243,33 +234,26 @@ module ReplValue =
          | _ -> false
     { Kind = kind
       IsCollection = isCollection
-      Shape =
-        if isCollection then ReplValueShape.Collection
-        else ReplValueShape.Scalar
       Collection = collection }
 
   let ofList values =
     { Kind = ReplValueKind.List(elementKind values)
       IsCollection = true
-      Shape = ReplValueShape.List
       Collection = { Values = values } }
 
   let ofArray values =
     { Kind = ReplValueKind.Array(elementKind values)
       IsCollection = true
-      Shape = ReplValueShape.Array
       Collection = { Values = values } }
 
   let ofTuple values =
     { Kind = tupleKind values
       IsCollection = values.Length > 1
-      Shape = ReplValueShape.Tuple
       Collection = { Values = values } }
 
   let emptyInput =
     { Kind = ReplValueKind.Unit
       IsCollection = false
-      Shape = ReplValueShape.Scalar
       Collection = { Values = [||] } }
 
 module TransformerReplState =
