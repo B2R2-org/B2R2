@@ -211,6 +211,9 @@ module TransformerTuiInputController =
   let private isBrowsingHistory model =
     Option.isSome (model: TransformerTuiModel).HistoryIndex
 
+  let private hasMultipleInputLines model =
+    (model: TransformerTuiModel).Input.Contains '\n'
+
   let private insertPipeOperator model =
     let input = (model: TransformerTuiModel).Input
     let cursor = max 0 (min model.Cursor input.Length)
@@ -438,6 +441,14 @@ module TransformerTuiInputController =
         | ConsoleKey.Tab ->
           TransformerTuiModel.applyCompletion completion model
           |> TuiInputResult.Update
+        | ConsoleKey.UpArrow when model.Overlay = TuiOverlay.None
+                                 && model.Focus = TuiFocus.Shell
+                                 && hasMultipleInputLines model ->
+          TransformerTuiModel.moveCursorLine -1 model |> TuiInputResult.Update
+        | ConsoleKey.DownArrow when model.Overlay = TuiOverlay.None
+                                   && model.Focus = TuiFocus.Shell
+                                   && hasMultipleInputLines model ->
+          TransformerTuiModel.moveCursorLine 1 model |> TuiInputResult.Update
         | ConsoleKey.UpArrow when isBrowsingHistory model ->
           TransformerTuiModel.historyPrevious model |> TuiInputResult.Update
         | ConsoleKey.DownArrow when isBrowsingHistory model ->

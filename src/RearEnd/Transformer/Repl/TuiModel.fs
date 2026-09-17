@@ -196,6 +196,7 @@ type TransformerTuiModel =
     LastViewLines: TuiLine list
     Input: string
     Cursor: int
+    PreferredInputColumn: int option
     ScrollOffset: int
     TranscriptViewportStart: int option
     TranscriptCursor: TuiTextCursor
@@ -273,6 +274,7 @@ module TransformerTuiModel =
       LastViewLines = []
       Input = ""
       Cursor = 0
+      PreferredInputColumn = None
       ScrollOffset = 0
       TranscriptViewportStart = None
       TranscriptCursor = { Line = 0; Column = 0 }
@@ -426,6 +428,7 @@ module TransformerTuiModel =
     { model with
         Input = input
         Cursor = max 0 (min cursor input.Length)
+        PreferredInputColumn = None
         Focus = TuiFocus.Shell
         HistoryIndex = None
         SuggestionIndex = 0
@@ -466,12 +469,45 @@ module TransformerTuiModel =
 
   let moveCursor offset (model: TransformerTuiModel) =
     { model with
-        Cursor = max 0 (min (model.Cursor + offset) model.Input.Length) }
+        Cursor = max 0 (min (model.Cursor + offset) model.Input.Length)
+        PreferredInputColumn = None }
 
-  let moveHome (model: TransformerTuiModel) = { model with Cursor = 0 }
+  let moveHome (model: TransformerTuiModel) =
+    { model with Cursor = 0; PreferredInputColumn = None }
 
   let moveEnd (model: TransformerTuiModel) =
-    { model with Cursor = model.Input.Length }
+    { model with
+        Cursor = model.Input.Length
+        PreferredInputColumn = None }
+
+  let moveCursorLine direction (model: TransformerTuiModel) =
+    let input = model.Input
+    let cursor = max 0 (min model.Cursor input.Length)
+    let lineStart = input.LastIndexOf('\n', max 0 (cursor - 1)) + 1
+    let column =
+      model.PreferredInputColumn |> Option.defaultValue (cursor - lineStart)
+    let lineEnd =
+      let index = input.IndexOf('\n', lineStart)
+      if index < 0 then input.Length else index
+    let nextStart, nextEnd =
+      if direction < 0 && lineStart > 0 then
+        let endIndex = lineStart - 1
+        let startIndex = input.LastIndexOf('\n', max 0 (endIndex - 1)) + 1
+        Some startIndex, Some endIndex
+      elif direction > 0 && lineEnd < input.Length then
+        let startIndex = lineEnd + 1
+        let endIndex = input.IndexOf('\n', startIndex)
+        let endIndex = if endIndex < 0 then input.Length else endIndex
+        Some startIndex, Some endIndex
+      else
+        None, None
+    match nextStart, nextEnd with
+    | Some startIndex, Some endIndex ->
+      { model with
+          Cursor = min (startIndex + column) endIndex
+          PreferredInputColumn = Some column }
+    | _ ->
+      model
 
   let deleteToStart model =
     let input = model.Input[model.Cursor..]
