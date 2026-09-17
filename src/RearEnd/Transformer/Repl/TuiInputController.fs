@@ -1,0 +1,452 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+namespace B2R2.RearEnd.Transformer
+
+open System
+
+[<RequireQualifiedAccess>]
+type TuiInputResult =
+  | Update of TransformerTuiModel
+  | Execute of TransformerTuiModel * string
+  | Stop of TransformerTuiModel
+
+module TransformerTuiInputController =
+  let private hasModifier modifier (key: ConsoleKeyInfo) =
+    key.Modifiers &&& modifier = modifier
+
+  let private toggleOverlay overlay model =
+    if model.Overlay = overlay then TransformerTuiModel.closeOverlay model
+    else TransformerTuiModel.setOverlay overlay model
+
+  let private toggleView model =
+    if model.Overlay = TuiOverlay.View then
+      TransformerTuiModel.closeViewPane model
+    else
+      model
+      |> TransformerTuiModel.openSelectedViewPane
+
+  let private scrollPage direction model =
+    match model.Overlay with
+    | TuiOverlay.None -> TransformerTuiModel.scroll (direction) model
+    | _ -> TransformerTuiModel.scroll (-direction) model
+
+  let private pageHeight model =
+    let _, height = TransformerTuiTerminal.dimensions ()
+    let contentHeight = height - 7
+    let defaultBodyHeight = max 1 (contentHeight - model.ShellHeight)
+    match model.TranscriptHeight with
+    | Some requested -> max 1 (min (contentHeight - 1) requested)
+    | None -> defaultBodyHeight
+
+  let private inspectionItems model =
+    model.Session.Current
+    |> Option.map TransformerReplInspection.inspect
+    |> Option.defaultValue []
+
+  let private overlayItemCount model =
+    match model.Overlay with
+    | TuiOverlay.Inspect -> inspectionItems model |> List.length
+    | TuiOverlay.Values -> model.Session.ValueHistory |> List.length
+    | _ -> 0
+
+  let private selectedOverlayCommand model =
+    match model.Overlay with
+    | TuiOverlay.Inspect ->
+      inspectionItems model
+      |> List.tryItem model.OverlaySelection
+      |> Option.map (fun item -> item.Command)
+    | TuiOverlay.Values ->
+      model.Session.ValueHistory
+      |> List.rev
+      |> List.tryItem model.OverlaySelection
+      |> Option.map (fun entry -> $":restore {entry.ID}")
+    | _ ->
+      None
+
+  let private acceptOverlaySelection model =
+    match selectedOverlayCommand model with
+    | Some command ->
+      model
+      |> TransformerTuiModel.setInput command command.Length
+      |> TransformerTuiModel.closeOverlay
+      |> TuiInputResult.Update
+    | None ->
+      TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
+
+  let private normalizeClipboardText (text: string) =
+    text.Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' ')
+
+  let private copyInput model =
+    if String.IsNullOrEmpty model.Input then
+      model
+      |> TransformerTuiModel.setStatus "Input is empty"
+      |> TuiInputResult.Update
+    elif TransformerTuiTerminal.tryWriteClipboard model.Input then
+      model
+      |> TransformerTuiModel.setStatus "Input copied"
+      |> TuiInputResult.Update
+    else
+      model
+      |> TransformerTuiModel.setStatus "Clipboard copy failed"
+      |> TuiInputResult.Update
+
+  let private pasteClipboard model =
+    match TransformerTuiTerminal.tryReadClipboard () with
+    | Some text ->
+      let text = normalizeClipboardText text
+      if String.IsNullOrEmpty text then
+        model
+        |> TransformerTuiModel.setStatus "Clipboard is empty"
+        |> TuiInputResult.Update
+      else
+        model
+        |> TransformerTuiModel.insertText text
+        |> TransformerTuiModel.setStatus "Clipboard pasted"
+        |> TuiInputResult.Update
+    | None ->
+      model
+      |> TransformerTuiModel.setStatus "Clipboard paste failed"
+      |> TuiInputResult.Update
+
+  let private parseInt (value: string) =
+    match Int32.TryParse value with
+    | true, number -> Some number
+    | _ -> None
+
+  let private layoutSummary (model: TransformerTuiModel) =
+    let sidebar =
+      match model.SidebarWidth with
+      | None -> "auto"
+      | Some 0 -> "off"
+      | Some width -> string width
+    let transcript =
+      match model.TranscriptHeight with
+      | None -> "auto"
+      | Some height -> string height
+    $"layout sidebar={sidebar} "
+    + $"transcript={transcript} shell={model.ShellHeight}"
+
+  let private applyLayoutOption (optionText: string) model =
+    let index = optionText.IndexOf '='
+    if index <= 0 then
+      Error $"Invalid layout option: {optionText}"
+    else
+      let key = optionText.Substring(0, index).Trim().ToLowerInvariant()
+      let value =
+        optionText.Substring(index + 1).Trim().ToLowerInvariant()
+      match key, value with
+      | "sidebar", "auto" ->
+        Ok(TransformerTuiModel.setSidebarWidth None model)
+      | "sidebar", "off" ->
+        Ok(TransformerTuiModel.setSidebarWidth (Some 0) model)
+      | "sidebar", _ ->
+        match parseInt value with
+        | Some width ->
+          Ok(TransformerTuiModel.setSidebarWidth (Some width) model)
+        | None ->
+          Error "sidebar must be a number."
+      | "transcript", "auto" ->
+        Ok(TransformerTuiModel.setTranscriptHeight None model)
+      | "transcript", _ ->
+        match parseInt value with
+        | Some height ->
+          Ok(TransformerTuiModel.setTranscriptHeight (Some height) model)
+        | None ->
+          Error "transcript must be a number."
+      | "shell", "auto" ->
+        Ok(TransformerTuiModel.setShellHeight 4 model)
+      | "shell", _ ->
+        match parseInt value with
+        | Some height ->
+          Ok(TransformerTuiModel.setShellHeight height model)
+        | None ->
+          Error "shell must be a number."
+      | _ ->
+        Error $"Unknown layout option: {key}"
+
+  let private applyLayoutCommand command model =
+    let words = InputAnalysis.splitWords command
+    let model =
+      model
+      |> TransformerTuiModel.appendCommand command
+      |> TransformerTuiModel.clearInput
+    let result =
+      match words with
+      | [ ":layout" ] -> Ok model
+      | ":layout" :: options ->
+        let folder result optionText =
+          result |> Result.bind (applyLayoutOption optionText)
+        List.fold folder (Ok model) options
+      | _ -> Error "Invalid layout command."
+    match result with
+    | Ok next ->
+      let summary = layoutSummary next
+      next
+      |> TransformerTuiModel.appendLines TuiLineKind.Output [ summary ]
+      |> TransformerTuiModel.setStatus summary
+      |> TuiInputResult.Update
+    | Error message ->
+      model
+      |> TransformerTuiModel.appendLines TuiLineKind.Error [ message ]
+      |> TransformerTuiModel.setStatus "Layout failed"
+      |> TuiInputResult.Update
+
+  let private isLayoutCommand (input: string) =
+    let input = input.TrimStart()
+    input.Equals(":layout", StringComparison.OrdinalIgnoreCase)
+    || input.StartsWith(":layout ", StringComparison.OrdinalIgnoreCase)
+
+  let private isBrowsingHistory model =
+    Option.isSome (model: TransformerTuiModel).HistoryIndex
+
+  let private handleControlKey completion key model =
+    let completion: SuggestionSet = completion
+    let key: ConsoleKeyInfo = key
+    match key.Key with
+    | ConsoleKey.L ->
+      TransformerTuiModel.clearTranscript model
+    | ConsoleKey.N ->
+      let count = List.length completion.Items
+      TransformerTuiModel.selectSuggestion 1 count model
+    | ConsoleKey.P ->
+      let count = List.length completion.Items
+      TransformerTuiModel.selectSuggestion -1 count model
+    | _ ->
+      model
+
+  let private handleViewFindKey (key: ConsoleKeyInfo)
+                                (model: TransformerTuiModel) =
+    match key.Key with
+    | ConsoleKey.Enter ->
+      TransformerTuiModel.findInView model |> TuiInputResult.Update
+    | ConsoleKey.Escape ->
+      TransformerTuiModel.setViewFind false model |> TuiInputResult.Update
+    | ConsoleKey.Backspace ->
+      TransformerTuiModel.backspaceViewFind model |> TuiInputResult.Update
+    | _ when not (Char.IsControl key.KeyChar) ->
+      TransformerTuiModel.appendViewFind key.KeyChar model
+      |> TuiInputResult.Update
+    | _ ->
+      TuiInputResult.Update model
+
+  let private handleViewKey control shift (key: ConsoleKeyInfo)
+                            (model: TransformerTuiModel) =
+    if control && key.Key = ConsoleKey.F then
+      TransformerTuiModel.setViewFind true model |> TuiInputResult.Update
+    elif control && key.Key = ConsoleKey.Enter then
+      TransformerTuiModel.insertViewSelection model |> TuiInputResult.Update
+    else
+      match key.Key with
+      | ConsoleKey.Escape
+      | ConsoleKey.F4 ->
+        TransformerTuiModel.closeViewPane model |> TuiInputResult.Update
+      | ConsoleKey.PageUp ->
+        TransformerTuiModel.pageViewCursor (-(pageHeight model)) shift model
+        |> TuiInputResult.Update
+      | ConsoleKey.PageDown ->
+        TransformerTuiModel.pageViewCursor (pageHeight model) shift model
+        |> TuiInputResult.Update
+      | ConsoleKey.UpArrow ->
+        TransformerTuiModel.moveViewCursor -1 0 shift model
+        |> TuiInputResult.Update
+      | ConsoleKey.DownArrow ->
+        TransformerTuiModel.moveViewCursor 1 0 shift model
+        |> TuiInputResult.Update
+      | ConsoleKey.LeftArrow ->
+        TransformerTuiModel.moveViewCursor 0 -1 shift model
+        |> TuiInputResult.Update
+      | ConsoleKey.RightArrow ->
+        TransformerTuiModel.moveViewCursor 0 1 shift model
+        |> TuiInputResult.Update
+      | _ ->
+        TuiInputResult.Update model
+
+  let private handleTranscriptKey control (key: ConsoleKeyInfo)
+                                  (model: TransformerTuiModel) =
+    match key.Key with
+    | ConsoleKey.Escape ->
+      TransformerTuiModel.focusShell model |> TuiInputResult.Update
+    | ConsoleKey.Enter
+    | ConsoleKey.F4 ->
+      TransformerTuiModel.openSelectedViewPane model |> TuiInputResult.Update
+    | ConsoleKey.PageUp ->
+      let height = pageHeight model
+      TransformerTuiModel.moveTranscriptCursorInView height (-height) 0 model
+      |> TuiInputResult.Update
+    | ConsoleKey.PageDown ->
+      let height = pageHeight model
+      TransformerTuiModel.moveTranscriptCursorInView height height 0 model
+      |> TuiInputResult.Update
+    | ConsoleKey.UpArrow when control ->
+      TransformerTuiModel.moveTranscriptCommand -1 model
+      |> TuiInputResult.Update
+    | ConsoleKey.DownArrow when control ->
+      TransformerTuiModel.moveTranscriptCommand 1 model
+      |> TuiInputResult.Update
+    | ConsoleKey.UpArrow ->
+      let height = pageHeight model
+      TransformerTuiModel.moveTranscriptCursorInView height -1 0 model
+      |> TuiInputResult.Update
+    | ConsoleKey.DownArrow ->
+      let height = pageHeight model
+      TransformerTuiModel.moveTranscriptCursorInView height 1 0 model
+      |> TuiInputResult.Update
+    | ConsoleKey.LeftArrow ->
+      let height = pageHeight model
+      TransformerTuiModel.moveTranscriptCursorInView height 0 -1 model
+      |> TuiInputResult.Update
+    | ConsoleKey.RightArrow ->
+      let height = pageHeight model
+      TransformerTuiModel.moveTranscriptCursorInView height 0 1 model
+      |> TuiInputResult.Update
+    | _ ->
+      TuiInputResult.Update model
+
+  let handle completion (key: ConsoleKeyInfo) model =
+    let control = hasModifier ConsoleModifiers.Control key
+    let shift = hasModifier ConsoleModifiers.Shift key
+    let alt = hasModifier ConsoleModifiers.Alt key
+    if model.Overlay = TuiOverlay.View
+       && (model.ViewPane |> Option.exists (fun pane -> pane.IsFinding)) then
+      handleViewFindKey key model
+    elif model.Overlay = TuiOverlay.View then
+      handleViewKey control shift key model
+    elif model.Focus = TuiFocus.Transcript
+         && model.Overlay = TuiOverlay.None
+         && not (shift && key.Key = ConsoleKey.DownArrow) then
+      handleTranscriptKey control key model
+    elif control && key.Key = ConsoleKey.C then
+      copyInput model
+    elif control && key.Key = ConsoleKey.V then
+      pasteClipboard model
+    elif control && key.Key = ConsoleKey.D then
+      if String.IsNullOrEmpty model.Input then TuiInputResult.Stop model
+      else TuiInputResult.Update model
+    elif alt && key.Key = ConsoleKey.LeftArrow then
+      let width, _ = TransformerTuiTerminal.dimensions ()
+      let defaultWidth = if width >= 100 then min 34 (width / 3) else 34
+      TransformerTuiModel.adjustSidebarWidth defaultWidth 2 model
+      |> TuiInputResult.Update
+    elif alt && key.Key = ConsoleKey.RightArrow then
+      let width, _ = TransformerTuiTerminal.dimensions ()
+      let defaultWidth = if width >= 100 then min 34 (width / 3) else 34
+      TransformerTuiModel.adjustSidebarWidth defaultWidth -2 model
+      |> TuiInputResult.Update
+    elif alt && key.Key = ConsoleKey.UpArrow then
+      let _, height = TransformerTuiTerminal.dimensions ()
+      let defaultHeight = max 1 (height - 7 - model.ShellHeight)
+      TransformerTuiModel.adjustTranscriptHeight defaultHeight -1 model
+      |> TuiInputResult.Update
+    elif alt && key.Key = ConsoleKey.DownArrow then
+      let _, height = TransformerTuiTerminal.dimensions ()
+      let defaultHeight = max 1 (height - 7 - model.ShellHeight)
+      TransformerTuiModel.adjustTranscriptHeight defaultHeight 1 model
+      |> TuiInputResult.Update
+    elif control then
+      handleControlKey completion key model |> TuiInputResult.Update
+    else
+      match key.Key with
+      | ConsoleKey.F1 ->
+        toggleOverlay TuiOverlay.Help model |> TuiInputResult.Update
+      | ConsoleKey.F4 ->
+        toggleView model |> TuiInputResult.Update
+      | ConsoleKey.Escape when model.Overlay <> TuiOverlay.None ->
+        TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
+      | ConsoleKey.Escape ->
+        TransformerTuiModel.clearInput model |> TuiInputResult.Update
+      | ConsoleKey.Enter when model.Overlay = TuiOverlay.Inspect
+                              || model.Overlay = TuiOverlay.Values ->
+        acceptOverlaySelection model
+      | ConsoleKey.Enter when model.Overlay <> TuiOverlay.None ->
+        TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
+      | ConsoleKey.Enter when alt || shift ->
+        TransformerTuiModel.insertText "\n" model |> TuiInputResult.Update
+      | ConsoleKey.Enter when String.IsNullOrWhiteSpace model.Input ->
+        TuiInputResult.Update model
+      | ConsoleKey.Enter when isLayoutCommand model.Input ->
+        applyLayoutCommand model.Input model
+      | ConsoleKey.Enter when InputAnalysis.isIncomplete model.Input ->
+        TransformerTuiModel.insertText "\n" model |> TuiInputResult.Update
+      | ConsoleKey.Enter ->
+        TuiInputResult.Execute(model, model.Input)
+      | ConsoleKey.PageUp ->
+        scrollPage (pageHeight model) model |> TuiInputResult.Update
+      | ConsoleKey.PageDown ->
+        scrollPage (-(pageHeight model)) model |> TuiInputResult.Update
+      | ConsoleKey.UpArrow when shift && model.Overlay = TuiOverlay.None ->
+        model
+        |> TransformerTuiModel.focusTranscriptAt 0
+        |> TuiInputResult.Update
+      | ConsoleKey.DownArrow when shift && model.Overlay = TuiOverlay.None ->
+        model
+        |> TransformerTuiModel.focusShell
+        |> TuiInputResult.Update
+      | ConsoleKey.UpArrow when model.Overlay = TuiOverlay.Inspect
+                                || model.Overlay = TuiOverlay.Values ->
+        let count = overlayItemCount model
+        TransformerTuiModel.selectOverlay -1 count model
+        |> TuiInputResult.Update
+      | ConsoleKey.DownArrow when model.Overlay = TuiOverlay.Inspect
+                                  || model.Overlay = TuiOverlay.Values ->
+        let count = overlayItemCount model
+        TransformerTuiModel.selectOverlay 1 count model
+        |> TuiInputResult.Update
+      | ConsoleKey.Tab when shift ->
+        TransformerTuiModel.insertText "  " model |> TuiInputResult.Update
+      | ConsoleKey.Tab ->
+        TransformerTuiModel.applyCompletion completion model
+        |> TuiInputResult.Update
+      | ConsoleKey.UpArrow when isBrowsingHistory model ->
+        TransformerTuiModel.historyPrevious model |> TuiInputResult.Update
+      | ConsoleKey.DownArrow when isBrowsingHistory model ->
+        TransformerTuiModel.historyNext model |> TuiInputResult.Update
+      | ConsoleKey.UpArrow when not (String.IsNullOrEmpty model.Input) ->
+        let count = List.length completion.Items
+        TransformerTuiModel.selectSuggestion -1 count model
+        |> TuiInputResult.Update
+      | ConsoleKey.DownArrow when not (String.IsNullOrEmpty model.Input) ->
+        let count = List.length completion.Items
+        TransformerTuiModel.selectSuggestion 1 count model
+        |> TuiInputResult.Update
+      | ConsoleKey.UpArrow ->
+        TransformerTuiModel.historyPrevious model |> TuiInputResult.Update
+      | ConsoleKey.DownArrow ->
+        TransformerTuiModel.historyNext model |> TuiInputResult.Update
+      | ConsoleKey.LeftArrow ->
+        TransformerTuiModel.moveCursor -1 model |> TuiInputResult.Update
+      | ConsoleKey.RightArrow ->
+        TransformerTuiModel.moveCursor 1 model |> TuiInputResult.Update
+      | ConsoleKey.Home ->
+        TransformerTuiModel.moveHome model |> TuiInputResult.Update
+      | ConsoleKey.End ->
+        TransformerTuiModel.moveEnd model |> TuiInputResult.Update
+      | ConsoleKey.Backspace ->
+        TransformerTuiModel.backspace model |> TuiInputResult.Update
+      | ConsoleKey.Delete ->
+        TransformerTuiModel.delete model |> TuiInputResult.Update
+      | _ when not (Char.IsControl key.KeyChar) ->
+        TransformerTuiModel.insert key.KeyChar model |> TuiInputResult.Update
+      | _ ->
+        TuiInputResult.Update model

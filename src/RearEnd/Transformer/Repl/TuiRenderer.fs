@@ -1,0 +1,819 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+namespace B2R2.RearEnd.Transformer
+
+open System
+open System.IO
+open System.Text
+open System.Text.RegularExpressions
+
+/// A fully rendered terminal frame and its input cursor location.
+type TransformerTuiFrame =
+  { Content: string
+    CursorRow: int
+    CursorColumn: int }
+
+module TransformerTuiRenderer =
+  let private reset = "\x1b[0m"
+  let private bold = "\x1b[1m"
+  let private dim = "\x1b[2m"
+  let private red = "\x1b[31m"
+  let private blue = "\x1b[34m"
+  let private cyan = "\x1b[36m"
+  let private reverse = "\x1b[7m"
+  let private clearLine = "\x1b[2K"
+  let private ansiPattern = Regex("\x1B\[[0-?]*[ -/]*[@-~]")
+  let private maxRenderableChars = 4096
+
+  let private paint style text = style + text + reset
+
+  let private displayText (text: string) =
+    if isNull text then
+      ""
+    elif text.Length > maxRenderableChars then
+      text[..maxRenderableChars - 1] + " ... <line truncated>"
+    else
+      text
+
+  let private normalizePath (path: string) =
+    path.Replace('\\', '/')
+
+  let private compactPath (path: string) =
+    let fullPath = Path.GetFullPath path
+    let root = Path.GetPathRoot fullPath |> normalizePath
+    let root = if root.EndsWith "/" then root else root + "/"
+    let current = DirectoryInfo(fullPath).Name
+    if String.IsNullOrEmpty current then root
+    else root + ".../" + current
+
+  let private sanitize (text: string) =
+    let text = displayText text
+    let text = ansiPattern.Replace(text, "")
+    text
+    |> Seq.map (fun chr ->
+      if chr = '\t' then ' '
+      elif Char.IsControl chr then ' '
+      else chr)
+    |> Array.ofSeq
+    |> String
+
+  let private containsAnsi (text: string) =
+    not (isNull text) && ansiPattern.IsMatch text
+
+  let private fitAnsi width (text: string) =
+    let text = displayText text
+    let builder = StringBuilder()
+    let rec loop index visible =
+      if index >= text.Length || visible >= width then
+        visible
+      else
+        let matched = ansiPattern.Match(text, index)
+        if matched.Success && matched.Index = index then
+          builder.Append matched.Value |> ignore
+          loop (index + matched.Length) visible
+        else
+          let chr = text[index]
+          if chr = '\t' then
+            builder.Append ' ' |> ignore
+            loop (index + 1) (visible + 1)
+          elif Char.IsControl chr then
+            loop (index + 1) visible
+          else
+            builder.Append chr |> ignore
+            loop (index + 1) (visible + 1)
+    if width <= 0 then
+      ""
+    else
+      let visible = loop 0 0
+      let padding = String.replicate (max 0 (width - visible)) " "
+      builder.Append padding |> ignore
+      builder.ToString()
+
+  let private fit width (text: string) =
+    if width <= 0 then ""
+    elif containsAnsi text then fitAnsi width text
+    else
+      let text = sanitize text
+      if text.Length > width then text[..width - 1]
+      else text.PadRight width
+
+  let private wrap width text =
+    let text = sanitize text
+    let rec loop lines (text: string) =
+      if text.Length <= width then
+        List.rev (text :: lines)
+      else
+        let candidate = text[..width - 1]
+        let breakAt = candidate.LastIndexOf ' '
+        let breakAt = if breakAt <= 0 then width else breakAt
+        let line = text[..breakAt - 1]
+        let rest = text[breakAt..].TrimStart()
+        loop (line :: lines) rest
+    if width <= 0 then [ "" ]
+    elif String.IsNullOrEmpty text then [ "" ]
+    else loop [] text
+
+  let private lineStyle = function
+    | TuiLineKind.Command -> cyan
+    | TuiLineKind.Output -> ""
+    | TuiLineKind.Error -> red
+    | TuiLineKind.System -> dim
+    | TuiLineKind.Selection -> reverse
+    | TuiLineKind.Cursor -> ""
+
+  let private linePrefix = function
+    | TuiLineKind.Command -> "> "
+    | TuiLineKind.Error -> "! "
+    | TuiLineKind.System -> "* "
+    | TuiLineKind.Output -> "  "
+    | TuiLineKind.Selection -> "> "
+    | TuiLineKind.Cursor -> "  "
+
+  let private wrapLine width (line: TuiLine) =
+    let prefix = linePrefix line.Kind
+    if containsAnsi line.Text then
+      [ line.Kind, prefix + line.Text ]
+    else
+      wrap (max 1 (width - prefix.Length)) line.Text
+      |> List.mapi (fun index text ->
+        let prefix = if index = 0 then prefix else "  "
+        line.Kind, prefix + text)
+
+  let private valueTypeDescription value =
+    let kind = ReplValueKind.toString (value: ReplValue).Kind
+    match value.Shape with
+    | ReplValueShape.Tuple -> kind
+    | ReplValueShape.List -> kind
+    | ReplValueShape.Array -> kind
+    | ReplValueShape.Collection -> kind
+    | ReplValueShape.Scalar -> kind
+
+  let private helpLines =
+    [ "INTERACTIVE GUIDE"
+      ""
+      "Start an analysis"
+      "  let <name> = <expression>"
+      "  let <name> = @load path=<path>"
+      "  let <name> : Binary = @load path=<path>"
+      "  let <name> = <value> |> @<action> [arguments]"
+      "  <expression> evaluates without creating a binding"
+      ""
+      "Inspect the analysis state"
+      "  :show [name]      show a complete value"
+      "  :type [name]      show a value type"
+      "  :history          show evaluated commands"
+      "  :inspect [name]   inspect functions and sections"
+      "  :values           show value history"
+      "  :restore <id>     restore a historical value"
+      "  :undo             undo the last value change"
+      "  :log              show detailed execution history"
+      "  :export           export a named value"
+      "  :script save      save recorded commands"
+      "  :script load      reset and replay a script"
+      "  :script record    show or change recording"
+      "  :layout           resize sidebar, transcript, or shell"
+      "  # <text>          record a script comment"
+      "  :actions          show all actions"
+      "  :reset            reset analysis values"
+      "  :clear            clear the visible transcript"
+      "  :quit             leave the TUI"
+      ""
+      "Editing and navigation"
+      "  Tab               accept the selected completion"
+      "  F1                show this help"
+      "  Ctrl+C / Ctrl+V   copy input / paste clipboard"
+      "  Ctrl+N / Ctrl+P   select next / previous completion"
+      "  Up / Down         browse history or suggestions"
+      "  Shift+Up          focus the transcript pane"
+      "  Shift+Down        return focus to the shell pane"
+      "  Up / Down         move in the focused transcript pane"
+      "  Ctrl+Up/Down      move by command in the transcript pane"
+      "  Enter             open the selected result in the view pane"
+      "  Alt+Left/Right    adjust sidebar width"
+      "  Alt+Up/Down       adjust transcript height"
+      "  PageUp / PageDown scroll a pane"
+      "  Ctrl+F            find text in the view pane"
+      "  Shift+Arrows      select text in the view pane"
+      "  Ctrl+Enter        insert the view selection into the shell"
+      "  Ctrl+L            clear the transcript"
+      "  Esc               close a panel or clear input"
+      "  Ctrl+C            cancel while an action is running"
+      "  Ctrl+D            leave when the input is empty"
+      ""
+      "Selectable panels"
+      "  Up/Down       select an inspector or value item"
+      "  Enter         put the selected operation in the input" ]
+
+  let private firstDescriptionLine (description: string) =
+    description.Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
+    |> Array.tryHead
+    |> Option.defaultValue ""
+    |> fun line -> line.Trim()
+
+  let private actionLines registry =
+    let format registered =
+      let metadata = (registered: RegisteredAction).Metadata
+      let role = metadata.Role.ToString().ToLowerInvariant()
+      let examples =
+        metadata.Examples |> List.map (fun example -> $"  e.g. {example}")
+      [ $"{ActionMetadata.actionName metadata.ID}"
+        $"  {ActionMetadata.typedSignature metadata}"
+        $"  role: {role}. {firstDescriptionLine metadata.Description}" ]
+      @ examples
+    "AVAILABLE ACTIONS" :: "" ::
+      (ActionRegistry.getAll registry |> List.collect format)
+
+  let private bindingLines model =
+    let bindings =
+      model.Session.Bindings
+      |> Map.toList
+      |> List.map (fun (name, value) ->
+        $"{name}  {valueTypeDescription value}")
+    if List.isEmpty bindings then
+      [ "SESSION BINDINGS"; ""; "No named values yet." ]
+    else
+      "SESSION BINDINGS" :: "" :: bindings
+
+  let private selectionLine selected text =
+    { Kind =
+        if selected then TuiLineKind.Selection else TuiLineKind.System
+      Text = text }
+
+  let private inspectionItems model =
+    model.Session.Current
+    |> Option.map TransformerReplInspection.inspect
+    |> Option.defaultValue []
+
+  let private inspectionLines model =
+    let items = inspectionItems model
+    if List.isEmpty items then
+      [ { Kind = TuiLineKind.System
+          Text = "No inspectable Binary is current." } ]
+    else
+      { Kind = TuiLineKind.System
+        Text = "FUNCTIONS AND SECTIONS - Enter inserts an operation" }
+      :: (items
+          |> List.mapi (fun index item ->
+            let text = $"{item.Label}  {item.Detail}"
+            selectionLine (index = model.OverlaySelection) text))
+
+  let private valueLines model =
+    let entries = model.Session.ValueHistory |> List.rev
+    if List.isEmpty entries then
+      [ { Kind = TuiLineKind.System; Text = "No retained values." } ]
+    else
+      { Kind = TuiLineKind.System
+        Text = "VALUE HISTORY - Enter inserts :restore" }
+      :: (entries
+          |> List.mapi (fun index entry ->
+            let kind = valueTypeDescription entry.Value
+            let name = entry.Name |> Option.defaultValue "<unnamed>"
+            let text = $"{entry.ID}: {name}  {kind}"
+            selectionLine (index = model.OverlaySelection) text))
+
+  let private logLines model =
+    let entries = model.Session.ExecutionLog |> List.rev
+    if List.isEmpty entries then
+      [ { Kind = TuiLineKind.System; Text = "The execution log is empty." } ]
+    else
+      entries
+      |> List.map (fun entry ->
+        let status = entry.Status.ToString().ToLowerInvariant()
+        let elapsed = entry.Duration.TotalMilliseconds
+        { Kind = TuiLineKind.System
+          Text = $"{entry.ID}: {status} {elapsed:F1} ms  {entry.Command}" })
+
+  let private overlayLines width registry model =
+    match model.Overlay with
+    | TuiOverlay.View ->
+      let pane = model.ViewPane
+      let lines =
+        pane
+        |> Option.map _.Lines
+        |> Option.defaultValue
+          [ { Kind = TuiLineKind.System; Text = "No result to view." } ]
+      lines |> List.collect (wrapLine width)
+    | TuiOverlay.Inspect ->
+      inspectionLines model |> List.collect (wrapLine width)
+    | TuiOverlay.Values ->
+      valueLines model |> List.collect (wrapLine width)
+    | TuiOverlay.Log ->
+      logLines model |> List.collect (wrapLine width)
+    | overlay ->
+      let lines =
+        match overlay with
+        | TuiOverlay.Help -> helpLines
+        | TuiOverlay.Actions -> actionLines registry
+        | TuiOverlay.Bindings -> bindingLines model
+        | TuiOverlay.None | TuiOverlay.View | TuiOverlay.Inspect
+        | TuiOverlay.Values | TuiOverlay.Log -> []
+      lines
+      |> List.collect (fun text ->
+        wrapLine width { Kind = TuiLineKind.System; Text = text })
+
+  let private selectedTextKind selected kind =
+    if selected then TuiLineKind.Selection else kind
+
+  let private viewSelectionContains pane line =
+    match pane.Anchor with
+    | None -> false
+    | Some anchor ->
+      let first, last =
+        if anchor.Line <= pane.Cursor.Line then anchor, pane.Cursor
+        else pane.Cursor, anchor
+      line >= first.Line && line <= last.Line
+
+  let private orderedViewSelection pane =
+    pane.Anchor
+    |> Option.map (fun anchor ->
+      if anchor.Line < pane.Cursor.Line then anchor, pane.Cursor
+      elif anchor.Line > pane.Cursor.Line then pane.Cursor, anchor
+      elif anchor.Column <= pane.Cursor.Column then anchor, pane.Cursor
+      else pane.Cursor, anchor)
+
+  let private inlineSelection start finish (text: string) =
+    let start = max 0 (min start text.Length)
+    let finish = max start (min finish text.Length)
+    if start = finish then
+      text
+    else
+      let before = if start = 0 then "" else text[..start - 1]
+      let selected = text[start..finish - 1]
+      let after = if finish >= text.Length then "" else text[finish..]
+      before + reverse + selected + reset + after
+
+  let private selectViewText pane index text =
+    match orderedViewSelection pane with
+    | None -> text
+    | Some(first, last) when index < first.Line || index > last.Line ->
+      text
+    | Some(first, last) when first.Line = last.Line ->
+      inlineSelection first.Column last.Column text
+    | Some(first, _) when index = first.Line ->
+      inlineSelection first.Column text.Length text
+    | Some(_, last) when index = last.Line ->
+      inlineSelection 0 last.Column text
+    | Some _ ->
+      inlineSelection 0 text.Length text
+
+  let private viewLine pane index (line: TuiLine) =
+    match pane.Anchor with
+    | Some _ ->
+      let kind =
+        if pane.Cursor.Line = index then TuiLineKind.Cursor else line.Kind
+      { line with Kind = kind; Text = selectViewText pane index line.Text }
+    | None ->
+      let selected =
+        viewSelectionContains pane index || pane.Cursor.Line = index
+      { line with Kind = selectedTextKind selected line.Kind }
+
+  let private takeViewPaneLines width height offset model =
+    let pane = model.ViewPane
+    let cursor =
+      pane
+      |> Option.map _.Cursor
+      |> Option.defaultValue { Line = 0; Column = 0 }
+    let offset =
+      if cursor.Line < offset then cursor.Line
+      elif cursor.Line >= offset + height then cursor.Line - height + 1
+      else offset
+    let lines =
+      model.ViewPane
+      |> Option.map (fun pane ->
+        pane.Lines |> List.mapi (viewLine pane))
+      |> Option.defaultValue
+        [ { Kind = TuiLineKind.System; Text = "No result to view." } ]
+    lines
+    |> List.skip offset
+    |> List.truncate height
+    |> List.collect (wrapLine width)
+    |> List.truncate height
+
+  let private takeLast count offset lines =
+    let length = List.length lines
+    let offset = min offset (max 0 (length - count))
+    let last = max 0 (length - offset)
+    let first = max 0 (last - count)
+    lines |> List.skip first |> List.truncate (last - first)
+
+  let private selectedLineIndex lines =
+    lines
+    |> List.tryFindIndex (fun line -> line.Kind = TuiLineKind.Selection)
+
+  let private latestCommandIndex lines =
+    lines
+    |> List.mapi (fun index line -> index, line)
+    |> List.filter (fun (_, line) -> line.Kind = TuiLineKind.Command)
+    |> List.tryLast
+    |> Option.map fst
+
+  let private transcriptViewportStart count lines =
+    let anchor = latestCommandIndex lines |> Option.defaultValue 0
+    let maximumStart = max 0 (List.length lines - count)
+    let start =
+      match selectedLineIndex lines with
+      | Some selected when selected < anchor ->
+        selected
+      | Some selected when selected >= anchor + count ->
+        selected - count + 1
+      | _ ->
+        anchor
+    max 0 (min maximumStart start)
+
+  let private takeAnchoredLines width count lines =
+    let start = transcriptViewportStart count lines
+    lines
+    |> List.skip start
+    |> List.collect (wrapLine width)
+    |> List.truncate count
+
+  let private takeScrolledLines width count offset lines =
+    let needed = count + offset
+    let rec loop acc lineCount = function
+      | [] ->
+        acc
+      | _ when lineCount >= needed ->
+        acc
+      | line :: rest ->
+        let wrapped = wrapLine width line
+        loop (wrapped @ acc) (lineCount + List.length wrapped) rest
+    lines
+    |> List.rev
+    |> loop [] 0
+    |> takeLast count offset
+
+  let private takeTranscriptLines width count offset lines =
+    if offset = 0 then takeAnchoredLines width count lines
+    else takeScrolledLines width count offset lines
+
+  let private takeBody bodyHeight bodyWidth registry model =
+    match model.Overlay with
+    | TuiOverlay.None ->
+      let lines: TuiLine list =
+        TransformerTuiModel.transcriptDisplayLines bodyHeight model
+        |> List.map (fun (line: TuiTranscriptLine) -> line.Line)
+      takeTranscriptLines bodyWidth bodyHeight model.ScrollOffset
+        lines
+    | _ ->
+      if model.Overlay = TuiOverlay.View then
+        let lineCount =
+          model.ViewPane
+          |> Option.map (fun pane -> List.length pane.Lines)
+          |> Option.defaultValue 0
+        let maximumOffset = max 0 (lineCount - bodyHeight)
+        let offset = min model.ScrollOffset maximumOffset
+        takeViewPaneLines bodyWidth bodyHeight offset model
+      else
+        let lines = overlayLines bodyWidth registry model
+        let maximumOffset = max 0 (List.length lines - bodyHeight)
+        lines
+        |> List.skip (min model.ScrollOffset maximumOffset)
+        |> List.truncate bodyHeight
+
+  let private currentSummary model =
+    match model.Session.Current with
+    | Some value -> valueTypeDescription value
+    | None -> "none"
+
+  let private scriptRecordText = function
+    | ReplReplayMode.Reproducible -> "on"
+    | ReplReplayMode.Exploratory -> "off"
+
+  let private scriptPath model =
+    model.Session.SessionPath |> Option.defaultValue "<none>"
+
+  let private paneStatus model fallback =
+    match model.Overlay, model.ViewPane with
+    | TuiOverlay.View, Some pane ->
+      let count = List.length pane.Lines
+      let line = min (pane.Cursor.Line + 1) (max 1 count)
+      let column = pane.Cursor.Column + 1
+      let find =
+        if pane.IsFinding then $"  find: {pane.FindText}"
+        else ""
+      $"view result #{pane.BlockIndex}  {line}/{count}:{column}{find}"
+    | _ when model.Focus = TuiFocus.Transcript ->
+      fallback
+    | _ ->
+      fallback
+
+  let private selectedBodyIndex body =
+    body
+    |> List.tryFindIndex (fun (kind, _) ->
+      kind = TuiLineKind.Selection || kind = TuiLineKind.Cursor)
+
+  let private viewCursorColumn model =
+    model.ViewPane
+    |> Option.map (fun pane -> pane.Cursor.Column + 3)
+    |> Option.defaultValue 3
+
+  let private transcriptCursorColumn model =
+    model.TranscriptCursor.Column + 3
+
+  let private viewCursorPosition model body =
+    match model.Overlay, model.ViewPane with
+    | TuiOverlay.View, Some _ ->
+      selectedBodyIndex body
+      |> Option.map (fun row -> row, viewCursorColumn model)
+    | _ -> None
+
+  let private transcriptCursorPosition model body =
+    if model.Focus = TuiFocus.Transcript
+       && model.Overlay = TuiOverlay.None then
+      selectedBodyIndex body
+      |> Option.map (fun row -> row, transcriptCursorColumn model)
+    else
+      None
+
+  let private sidebarLines height model =
+    let current = currentSummary model
+    let header =
+      [ bold, "STATE"
+        "", $"current   {current}"
+        "", $"bindings  {Map.count model.Session.Bindings}"
+        "", $"commands  {List.length model.Session.CommandHistory}"
+        "", ""
+        bold, "BINDINGS" ]
+    let bindings =
+      model.Session.Bindings
+      |> Map.toList
+      |> List.map (fun (name, value) ->
+        let kind = valueTypeDescription value
+        "", $"{name}: {kind}")
+    let error =
+      match model.Session.LastError with
+      | Some message -> [ "", ""; red, "LAST ERROR"; red, message ]
+      | None -> []
+    header @ bindings @ error
+    |> List.truncate height
+
+  let private renderBodyRow leftWidth rightWidth left right =
+    let leftKind, leftText = left
+    let left = paint (lineStyle leftKind) (fit leftWidth leftText)
+    if rightWidth = 0 then
+      left
+    else
+      let rightStyle, rightText = right
+      left + paint dim "|" + paint rightStyle (fit rightWidth rightText)
+
+  let private spinner frame =
+    let frames = [| "-"; "\\"; "|"; "/" |]
+    frames[frame % frames.Length]
+
+  let private highlightedHint width text highlight =
+    let text = sanitize text
+    let text =
+      if text.Length > width then text[..width - 1] else text
+    let visible = text.Length
+    let padding = String.replicate (max 0 (width - visible)) " "
+    match highlight with
+    | Some(start, length) when start < visible && length > 0 ->
+      let start = max 0 start
+      let finish = min visible (start + length)
+      let before = if start = 0 then "" else text[..start - 1]
+      let current = text[start..finish - 1]
+      let after =
+        if finish >= visible then "" else text[finish..]
+      paint dim before + paint reverse current + paint dim after + padding
+    | _ ->
+      paint dim (text + padding)
+
+  let private suggestionRows rowCount width completion selected =
+    let rowCount = max 1 rowCount
+    let count = List.length completion.Items
+    let hint =
+      completion.Hint
+      |> Option.map (fun text ->
+        highlightedHint width text completion.HintHighlight)
+    if count = 0 then
+      let first =
+        hint
+        |> Option.defaultValue
+          (paint dim (fit width "Suggestions appear here as you type."))
+      first :: List.replicate (rowCount - 1) (fit width "")
+    else
+      let selected = min selected (count - 1)
+      let itemRows =
+        let hintRows = if hint.IsSome then 1 else 0
+        let visible = max 0 (rowCount - hintRows)
+        let start =
+          if visible <= 0 then
+            0
+          else
+            let pageStart = selected / visible * visible
+            max 0 (min pageStart (count - visible))
+        completion.Items
+        |> List.skip start
+        |> List.truncate visible
+        |> List.mapi (fun offset item ->
+          let index = start + offset
+          let marker = if index = selected then "> " else "  "
+          let text = $"{marker}{item.Label}  {item.Detail}"
+          let style = if index = selected then reverse else dim
+          paint style (fit width text))
+      hint |> Option.toList |> List.append <| itemRows
+      |> fun rows ->
+        rows @ List.replicate (rowCount - List.length rows)
+          (fit width "")
+
+  let private ghostText completion selected model =
+    let completion: SuggestionSet = completion
+    if completion.Start + completion.Length <> model.Cursor then
+      ""
+    else
+      completion.Items
+      |> List.tryItem selected
+      |> Option.bind (fun item ->
+        let prefix =
+          if model.Cursor <= completion.Start then ""
+          else model.Input[completion.Start..model.Cursor - 1]
+        if item.Text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) then
+          let suffix = item.Text[prefix.Length..]
+          let suffix = if item.AppendSpace then suffix + " " else suffix
+          if String.IsNullOrEmpty suffix then None else Some suffix
+        else
+          None)
+      |> Option.defaultValue ""
+
+  let private splitInputLines (input: string) =
+    input.Replace("\r\n", "\n").Replace('\r', '\n').Split '\n'
+    |> Array.toList
+
+  let private cursorInputPosition (input: string) cursor =
+    let before =
+      if cursor = 0 then "" else input[..cursor - 1]
+    let lines = splitInputLines before
+    let line = max 0 (List.length lines - 1)
+    let column = lines |> List.tryLast |> Option.map _.Length
+    line, Option.defaultValue 0 column
+
+  let private inputRow width (prompt: string) (line: string) cursorColumn
+                             (ghost: string) =
+    let available = max 1 (width - prompt.Length)
+    let start =
+      if cursorColumn < available then 0 else cursorColumn - available + 1
+    let input =
+      if start >= line.Length then ""
+      else line[start..]
+    let input =
+      if input.Length > available then input[..available - 1] else input
+    let ghost =
+      let length = max 0 (available - input.Length)
+      if length = 0 then ""
+      elif ghost.Length > length then ghost[..length - 1]
+      else ghost
+    let padding = String.replicate (available - input.Length - ghost.Length) " "
+    let cursor = prompt.Length + cursorColumn - start + 1
+    paint cyan prompt + input + paint dim ghost + padding, cursor
+
+  let private inputView width maxRows (model: TransformerTuiModel)
+                            (completion: SuggestionSet) =
+    let lines = splitInputLines model.Input
+    let cursorLine, cursorColumn =
+      cursorInputPosition model.Input model.Cursor
+    let first =
+      if cursorLine < maxRows then 0 else cursorLine - maxRows + 1
+    let visible = lines |> List.skip first |> List.truncate maxRows
+    let rows, cursor =
+      visible
+      |> List.mapi (fun offset line ->
+        let absolute = first + offset
+        let prompt =
+          if model.IsBusy then "  " elif absolute = 0 then "> " else "  "
+        let isCursorLine = absolute = cursorLine
+        let ghost =
+          if isCursorLine && model.Cursor = model.Input.Length then
+            ghostText completion model.SuggestionIndex model
+          else
+            ""
+        let column = if isCursorLine then cursorColumn else 0
+        inputRow width prompt line column ghost, isCursorLine)
+      |> List.fold (fun (rows, cursor) (row, isCursorLine) ->
+        let cursor =
+          if isCursorLine then Some(List.length rows, row |> snd)
+          else cursor
+        (row |> fst) :: rows, cursor) ([], None)
+    let rows = List.rev rows
+    let cursor = cursor |> Option.defaultValue (0, 1)
+    rows, cursor
+
+  let private contextFooter width model =
+    let cwd = compactPath Environment.CurrentDirectory
+    let script = normalizePath (scriptPath model)
+    let record = scriptRecordText model.Session.ReplayMode
+    let text = $" cwd: {cwd}  script: {script}  record: {record}"
+    paint dim (fit width text)
+
+  let private keyHeader width =
+    " F1 help  F4 view "
+    |> fit width
+    |> paint dim
+
+  let render width height registry model completion =
+    if width < 40 || height < 15 then
+      let message = "Terminal too small. Resize to at least 40 x 15."
+      { Content = "\x1b[H" + clearLine + fit width message
+        CursorRow = 1
+        CursorColumn = 1 }
+    else
+      let contentHeight = height - 7
+      let defaultShellHeight = max 1 model.ShellHeight
+      let defaultBodyHeight = max 1 (contentHeight - defaultShellHeight)
+      let bodyHeight =
+        match model.TranscriptHeight with
+        | Some requested -> max 1 (min (contentHeight - 1) requested)
+        | None -> defaultBodyHeight
+      let shellInputRows = max 1 (model.ShellHeight - 1)
+      let inputRows, inputCursor =
+        inputView width shellInputRows model completion
+      let suggestionCount =
+        max 1 (contentHeight - bodyHeight - List.length inputRows + 1)
+      let defaultRightWidth =
+        if width >= 100 then min 34 (width / 3) else 0
+      let rightWidth =
+        match model.SidebarWidth with
+        | Some requested when requested <= 0 -> 0
+        | Some requested when width >= 60 ->
+          max 20 (min (width - 40) requested)
+        | Some _ -> 0
+        | None -> defaultRightWidth
+      let hasSidebar = rightWidth > 0
+      let leftWidth = width - rightWidth - (if hasSidebar then 1 else 0)
+      let body = takeBody bodyHeight leftWidth registry model
+      let padding =
+        List.replicate (bodyHeight - List.length body)
+          (TuiLineKind.Output, "")
+      let cursorBodyPosition =
+        transcriptCursorPosition model body
+        |> Option.orElse (viewCursorPosition model body)
+      let body = body @ padding
+      let sidebar = sidebarLines bodyHeight model
+      let sidebar = sidebar @ List.replicate (bodyHeight - List.length sidebar)
+                                      ("", "")
+      let bodyRows =
+        List.map2 (renderBodyRow leftWidth rightWidth) body sidebar
+      let busy =
+        if model.IsBusy then $"{spinner model.SpinnerFrame} running"
+        else model.Status
+      let paneStatus = paneStatus model busy
+      let title = paint bold " B2R2 TRANSFORMER "
+      let subtitle = paint dim " Interactive Binary Analysis"
+      let state =
+        $" current: {currentSummary model}  "
+        + $"bindings: {Map.count model.Session.Bindings}  "
+        + $"focus: {model.Focus.ToString().ToLowerInvariant()}  "
+        + paneStatus
+      let divider = paint dim (String.replicate width "-")
+      let suggestions =
+        suggestionRows suggestionCount width completion model.SuggestionIndex
+      let context = contextFooter width model
+      let rows =
+        [ title + subtitle |> fun text -> text + fit (max 0 (width - 47)) ""
+          keyHeader width
+          paint blue (fit width state)
+          divider ]
+        @ bodyRows
+        @ [ divider ]
+        @ suggestions
+        @ inputRows
+        @ [ context ]
+      let content =
+        rows
+        |> List.map (fun row -> clearLine + row + reset)
+        |> String.concat "\n"
+        |> fun frame -> "\x1b[H" + frame
+      { Content = content
+        CursorRow =
+          cursorBodyPosition
+          |> Option.map (fun (row, _) -> 5 + row)
+          |> Option.defaultValue (
+            let row, _ = inputCursor
+            height - List.length inputRows + row)
+        CursorColumn =
+          cursorBodyPosition
+          |> Option.map (fun (_, column) -> min leftWidth column)
+          |> Option.defaultValue (
+            let _, column = inputCursor
+            min width column) }
