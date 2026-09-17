@@ -253,21 +253,44 @@ module ReplLanguage =
     let trimmed = text.TrimEnd()
     loop 0 None 0 || trimmed.EndsWith("->", StringComparison.Ordinal)
 
+  let private needsNextLine (text: string) =
+    let trimmed = text.TrimEnd()
+    trimmed.EndsWith("=", StringComparison.Ordinal)
+    || trimmed.EndsWith("|>", StringComparison.Ordinal)
+    || trimmed.EndsWith("->", StringComparison.Ordinal)
+
+  let private isContinuationLine (line: string) =
+    let trimmed = line.TrimStart()
+    line.Length <> trimmed.Length
+    || trimmed.StartsWith("|>", StringComparison.Ordinal)
+
+  let private continuationDetail (command: string) =
+    let trimmed = command.TrimEnd()
+    if trimmed.EndsWith("->", StringComparison.Ordinal) then
+      "lambda body is missing after '->'."
+    elif trimmed.EndsWith("|>", StringComparison.Ordinal) then
+      "pipeline operator '|>' must be followed by an expression."
+    elif trimmed.EndsWith("=", StringComparison.Ordinal) then
+      "an expression is missing after '='."
+    else
+      match tokenizeStrict command with
+      | Error message -> message
+      | Ok _ -> command
+
   let combineCommandLines lines =
+    let commandText current =
+      current |> List.rev |> String.concat "\n"
+    let pendingNeedsNext current =
+      let command = commandText current
+      isIncomplete command || needsNextLine command
     let rec collect commands current = function
       | [] ->
         match current with
         | [] -> Ok(List.rev commands)
         | _ ->
-          let command = current |> List.rev |> String.concat "\n"
-          if isIncomplete command then
-            let detail =
-              if command.TrimEnd().EndsWith("->", StringComparison.Ordinal) then
-                "lambda body is missing after '->'."
-              else
-                match tokenizeStrict command with
-                | Error message -> message
-                | Ok _ -> command
+          let command = commandText current
+          if isIncomplete command || needsNextLine command then
+            let detail = continuationDetail command
             Error $"Incomplete script command: {detail}"
           else
             Ok(List.rev (command :: commands))
@@ -277,10 +300,13 @@ module ReplLanguage =
         if String.IsNullOrWhiteSpace line || trimmed.StartsWith '#' then
           collect commands current rest
         else
-          let current = line :: current
-          let command = current |> List.rev |> String.concat "\n"
-          if isIncomplete command then collect commands current rest
-          else collect (command :: commands) [] rest
+          match current with
+          | [] -> collect commands [ line ] rest
+          | _ when pendingNeedsNext current || isContinuationLine line ->
+            collect commands (line :: current) rest
+          | _ ->
+            let command = commandText current
+            collect (command :: commands) [ line ] rest
     collect [] [] lines
 
   let private isIdentifierStart chr =
