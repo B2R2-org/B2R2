@@ -217,6 +217,12 @@ type DiffAction() =
     let hdl = Binary.Handle bin
     hdl.File.BaseAddress
 
+  let tryBinaryInput (input: obj) =
+    match input with
+    | :? Binary as bin -> Some(binaryBase bin, binaryBytes bin)
+    | :? BinarySlice as slice -> Some(slice.StartAddress, slice.Bytes)
+    | _ -> None
+
   let diffBinary cancellationToken bin1 bin2 =
     diffBytes cancellationToken "byte diff" (binaryBase bin1)
       (binaryBase bin2) (binaryBytes bin1) (binaryBytes bin2)
@@ -238,32 +244,35 @@ type DiffAction() =
       [| $"error: {error}" |]
 
   let diffValues cancellationToken (left: obj) (right: obj) =
-    match left, right with
-    | (:? Binary as left), (:? Binary as right) ->
-      diffBinary cancellationToken left right
-    | (:? BinaryBytes as left), (:? BinaryBytes as right) ->
-      diffBytes cancellationToken "byte diff" left.BaseAddress
-        right.BaseAddress left.Bytes right.Bytes
-    | (:? (Instruction[]) as left), (:? (Instruction[]) as right) ->
-      appendLineDiff "instruction diff" (instructionLines left)
-        (instructionLines right)
-    | (:? CFG as left), (:? CFG as right) ->
-      appendLineDiff "cfg diff" (cfgLines left) (cfgLines right)
-    | (:? TextArtifact as left), (:? TextArtifact as right) ->
-      appendLineDiff "text artifact diff" (splitText left.Content)
-        (splitText right.Content)
-    | (:? string as left), (:? string as right) ->
-      appendLineDiff "text diff" (splitText left) (splitText right)
-    | (:? OutString as left), (:? OutString as right) ->
-      appendLineDiff "text diff" (splitText (left.ToString()))
-        (splitText (right.ToString()))
-    | (:? ConcExecutorValue as left), (:? ConcExecutorValue as right) ->
-      left.DiffLines right |> appendPlainLines "concrete context diff"
+    match tryBinaryInput left, tryBinaryInput right with
+    | Some(leftBase, leftBytes), Some(rightBase, rightBytes) ->
+      diffBytes cancellationToken "byte diff" leftBase rightBase leftBytes
+        rightBytes
     | _ ->
-      let message =
-        "diff supports Binary, ByteArray, InstructionArray, CFG, Text, and "
-        + "ConcExecutor pairs."
-      invalidArg (nameof DiffAction) message
+      match left, right with
+      | (:? BinaryBytes as left), (:? BinaryBytes as right) ->
+        diffBytes cancellationToken "byte diff" left.BaseAddress
+          right.BaseAddress left.Bytes right.Bytes
+      | (:? (Instruction[]) as left), (:? (Instruction[]) as right) ->
+        appendLineDiff "instruction diff" (instructionLines left)
+          (instructionLines right)
+      | (:? CFG as left), (:? CFG as right) ->
+        appendLineDiff "cfg diff" (cfgLines left) (cfgLines right)
+      | (:? TextArtifact as left), (:? TextArtifact as right) ->
+        appendLineDiff "text artifact diff" (splitText left.Content)
+          (splitText right.Content)
+      | (:? string as left), (:? string as right) ->
+        appendLineDiff "text diff" (splitText left) (splitText right)
+      | (:? OutString as left), (:? OutString as right) ->
+        appendLineDiff "text diff" (splitText (left.ToString()))
+          (splitText (right.ToString()))
+      | (:? ConcExecutorValue as left), (:? ConcExecutorValue as right) ->
+        left.DiffLines right |> appendPlainLines "concrete context diff"
+      | _ ->
+        let message =
+          "diff supports Binary, BinarySlice, ByteArray, InstructionArray, "
+          + "CFG, Text, and ConcExecutor pairs."
+        invalidArg (nameof DiffAction) message
 
   let transform cancellationToken args collection =
     let values = collection.Values
@@ -279,8 +288,8 @@ type DiffAction() =
   interface IAction with
     member _.ActionID with get() = "diff"
     member _.Signature with get() =
-      "Binary|ByteArray|InstructionArray|CFG|Text|ConcExecutor pair "
-      + "-> OutString"
+      "Binary|BinarySlice|ByteArray|InstructionArray|CFG|Text|ConcExecutor "
+      + "pair -> OutString"
     member _.Description with get() =
       """
     Take a tuple of two values of the same supported type and return a diff.

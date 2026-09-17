@@ -40,9 +40,17 @@ type EditAction() =
     let hdl = Binary.Handle bin
     if hdl.File.Format = FileFormat.RawBinary then
       Binary.OfFragment("Editted from ", bin, newbs, hdl.File.BaseAddress)
-      |> box
     else
-      Binary.OfEditedContent("Editted from ", bin, newbs) |> box
+      Binary.OfEditedContent("Editted from ", bin, newbs)
+
+  let makeResult (input: obj) bin newbs newSliceEnd =
+    match input with
+    | :? BinarySlice as slice ->
+      { slice with
+          Source = makeBinary bin newbs
+          EndAddress = newSliceEnd slice.EndAddress }
+      |> box
+    | _ -> makeBinary bin newbs |> box
 
   let parseUInt64 (value: string) =
     let style, value =
@@ -66,6 +74,10 @@ type EditAction() =
     |> Array.filter (fun section ->
       section.FileSize > 0UL && Option.isSome section.Offset)
 
+  let rawRange (hdl: BinHandle) =
+    let startAddress = hdl.File.BaseAddress
+    startAddress, startAddress + uint64 hdl.File.Length
+
   let describeSections sections =
     if Array.isEmpty sections then
       "No file-backed sections are available."
@@ -84,6 +96,19 @@ type EditAction() =
       invalidArg (nameof address) "File offset is too large."
     else
       int fileOffset
+
+  let checkedRawOffset (hdl: BinHandle) address =
+    let startAddress, endAddress = rawRange hdl
+    if address < startAddress || address > endAddress then
+      let range = formatRange startAddress endAddress
+      invalidArg (nameof address)
+        $"Address 0x{address:x} is outside raw binary range: {range}"
+    else
+      let fileOffset = address - startAddress
+      if fileOffset > uint64 Int32.MaxValue then
+        invalidArg (nameof address) "File offset is too large."
+      else
+        int fileOffset
 
   let findSectionForRange hdl startAddress endAddress =
     if startAddress >= endAddress then
@@ -118,17 +143,55 @@ type EditAction() =
 
   let offsetForRange bin startAddress endAddress =
     let hdl = Binary.Handle bin
-    let section = findSectionForRange hdl startAddress endAddress
-    checkedFileOffset section startAddress,
-    checkedFileOffset section endAddress
+    if hdl.File.Format = FileFormat.RawBinary then
+      checkedRawOffset hdl startAddress,
+      checkedRawOffset hdl endAddress
+    else
+      let section = findSectionForRange hdl startAddress endAddress
+      checkedFileOffset section startAddress,
+      checkedFileOffset section endAddress
 
   let offsetForAddress bin address =
     let hdl = Binary.Handle bin
-    findSectionForAddress hdl address |> fun section ->
-      checkedFileOffset section address
+    if hdl.File.Format = FileFormat.RawBinary then
+      checkedRawOffset hdl address
+    else
+      findSectionForAddress hdl address |> fun section ->
+        checkedFileOffset section address
+
+  let binaryForEdit (input: obj) =
+    match input with
+    | :? Binary as bin -> bin
+    | :? BinarySlice as slice -> slice.Source
+    | _ -> invalidArg "input" "Invalid input type."
+
+  let ensureSliceAddress (slice: BinarySlice) address =
+    if address < slice.StartAddress || address > slice.EndAddress then
+      let sliceRange = formatRange slice.StartAddress slice.EndAddress
+      invalidArg (nameof address)
+        $"Edit address 0x{address:x} is outside slice {sliceRange}."
+
+  let ensureSliceRange (slice: BinarySlice) startAddress endAddress =
+    if startAddress < slice.StartAddress || endAddress > slice.EndAddress then
+      let editRange = formatRange startAddress endAddress
+      let sliceRange = formatRange slice.StartAddress slice.EndAddress
+      invalidArg (nameof startAddress)
+        $"Edit range {editRange} is outside slice {sliceRange}."
+
+  let ensureAddressInsideInput (input: obj) address =
+    match input with
+    | :? BinarySlice as slice -> ensureSliceAddress slice address
+    | _ -> ()
+
+  let ensureRangeInsideInput (input: obj) startAddress endAddress =
+    match input with
+    | :? BinarySlice as slice ->
+      ensureSliceRange slice startAddress endAddress
+    | _ -> ()
 
   let insert startAddress (snip: byte[]) o =
-    let bin = unbox<Binary> o
+    ensureAddressInsideInput o startAddress
+    let bin = binaryForEdit o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     let off = offsetForAddress bin startAddress
@@ -141,10 +204,12 @@ type EditAction() =
       Array.blit bs 0 newbs 0 off
       Array.blit snip 0 newbs off snip.Length
       Array.blit bs off newbs (off + snip.Length) (bs.Length - off)
-    makeBinary bin newbs
+    makeResult o bin newbs (fun endAddress ->
+      endAddress + uint64 snip.Length)
 
   let delete startAddress endAddress o =
-    let bin = unbox<Binary> o
+    ensureRangeInsideInput o startAddress endAddress
+    let bin = binaryForEdit o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     let soff, eoff = offsetForRange bin startAddress endAddress
@@ -157,17 +222,18 @@ type EditAction() =
     else
       Array.blit bs 0 newbs 0 soff
       Array.blit bs (soff + rmlen) newbs soff (bs.Length - soff - rmlen)
-    makeBinary bin newbs
+    makeResult o bin newbs (fun endAddress -> endAddress - uint64 rmlen)
 
   (* The edited whole content is bs, into which newbs has just been blitted;
      newbs alone is only the replacement snippet. *)
   let replace startAddress endAddress newbs o =
-    let bin = unbox<Binary> o
+    ensureRangeInsideInput o startAddress endAddress
+    let bin = binaryForEdit o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     let soff, eoff = offsetForRange bin startAddress endAddress
     Array.blit newbs 0 bs soff (eoff - soff)
-    makeBinary bin bs
+    makeResult o bin bs id
 
   let map cancellationToken operation collection =
     let cancellationToken: CancellationToken = cancellationToken
@@ -208,7 +274,8 @@ type EditAction() =
       + "delete start=<addr> end=<addr> | "
       + "delete start=<addr> size=<n> | "
       + "replace start=<addr> end=<addr> hex=<hex> | "
-      + "replace start=<addr> size=<n> hex=<hex> -> Binary"
+      + "replace start=<addr> size=<n> hex=<hex> -> Binary; "
+      + "BinarySlice -> edit ... -> BinarySlice"
     member _.Description with get() =
       """
     Take in a binary as well as edit action as input and return a modified
