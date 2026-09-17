@@ -566,13 +566,21 @@ let private memIdx w width =
 /// The registers a five-bit list field names.
 ///
 /// The low four bits count the callee-saved registers from the lowest, and
-/// the fifth says whether the return address joins them. Checked against
-/// binutils, which encodes the set holding every one of them as 24.
+/// the fifth says whether the return address joins them.
+///
+/// The count runs to NINE and the ninth is not $24. MD00594's reglist table
+/// gives 01001 as "GPR[16] ... GPR[23], GPR[30]": the frame pointer sits at
+/// the end of the run rather than continuing it, because $24 is not
+/// callee-saved and $30 is. Stopping at eight is what refused every prologue
+/// gcc writes for a function that keeps a frame pointer -- the whole of
+/// `swm s0-s7,s8,ra,64(sp)`, which is one instruction and a common one.
 /// </summary>
 let private wideRegList v =
   let n = int (v &&& 0xFu)
-  if n > 8 then raise ParsingFailureException else ()
-  let saved = [ for i in 0 .. n - 1 -> Helper.getRegister (byte (16 + i)) ]
+  if n > 9 then raise ParsingFailureException else ()
+  let run = min n 8
+  let saved = [ for i in 0 .. run - 1 -> Helper.getRegister (byte (16 + i)) ]
+  let saved = if n = 9 then saved @ [ Helper.getRegister 30uy ] else saved
   let regs = if v &&& 0x10u = 0u then saved else saved @ [ R.R31 ]
   if List.isEmpty regs then raise ParsingFailureException else ()
   OpRegList regs

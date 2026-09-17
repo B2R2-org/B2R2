@@ -473,15 +473,23 @@ let private regList regs =
     match List.rev regs with
     | Register.R31 :: rest -> List.rev rest, 0x10u
     | _ -> regs, 0x00u
+  (* MD00594's reglist table ends at 01001, "GPR[16] ... GPR[23], GPR[30]".
+     The frame pointer closes a FULL run of eight rather than continuing it,
+     $24 not being callee-saved, so it is the one register that may follow
+     the run and only behind all eight. *)
+  let saved, withFp =
+    match List.rev saved with
+    | Register.R30 :: rest -> List.rev rest, true
+    | _ -> saved, false
   let count = List.length saved
   let expected =
     [ for i in 0 .. count - 1 ->
         LanguagePrimitives.EnumOfValue<int, Register>(16 + i) ]
-  if count > 8 || saved <> expected then
-    fail "a register list is a run from $16 with the return address last"
+  if count > 8 || saved <> expected || (withFp && count <> 8) then
+    fail "a register list is a run from $16, then $30, then $31"
   else
     ()
-  uint32 count ||| withRa
+  (if withFp then 9u else uint32 count) ||| withRa
 
 /// Encodes <registers>, <offset>(<base>): the loads and stores of a whole
 /// list.

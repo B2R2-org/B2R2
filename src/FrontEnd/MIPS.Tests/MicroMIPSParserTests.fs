@@ -193,6 +193,25 @@ type MicroMIPSParserTests() =
            "5045", (SWM, [ O.List [ R16; R17; R31 ]; sp 0L ]) ]
 
   /// <summary>
+  /// The last row of the 32-bit forms' register list, which is the one that
+  /// does not continue the run.
+  ///
+  /// MD00594 gives 01001 as "GPR[16] ... GPR[23], GPR[30]". The count reaches
+  /// eight and then the FRAME POINTER joins it, $24 not being callee-saved --
+  /// so a decoder that reads the field as a count alone stops one short and
+  /// refuses the prologue of every function that keeps a frame pointer.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] The longest register list decodes``() =
+    let saved = [ R16; R17; R18; R19; R20; R21; R22; R23 ]
+    test [ "3d214050", (LWM, [ O.List(saved @ [ R30 ])
+                               O.Mem(R29, 64L, 32<rt>) ])
+           "3d234050", (LWM, [ O.List(saved @ [ R30; R31 ])
+                               O.Mem(R29, 64L, 32<rt>) ])
+           "3d2340d0", (SWM, [ O.List(saved @ [ R30; R31 ])
+                               O.Mem(R29, 64L, 32<rt>) ]) ]
+
+  /// <summary>
   /// MOVEP, whose three fields are three different register sets: one of
   /// eight destination PAIRS, and two sources out of a set that reaches the
   /// zero register where the ordinary three-bit set reaches $4 to $7.
