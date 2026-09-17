@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
+open System.Threading
 open B2R2
 open B2R2.ABI
 open B2R2.Collections
@@ -359,7 +360,7 @@ type ConcExecutor(hdl: BinHandle) =
     | Some(Result.Error reason) -> EvalStopped reason
     | None -> evalInstr opts st stmts
 
-  let run start (st: ConcState) (opts: ConcRunOptions) =
+  let run (ct: CancellationToken) start (st: ConcState) (opts: ConcRunOptions) =
     let invalidInstr reasons addr n =
       let reason = ConcStopReason.InvalidInstructionAddress addr
       mkResult (reasons @ [ reason ]) addr n st
@@ -370,6 +371,7 @@ type ConcExecutor(hdl: BinHandle) =
         Statements = stmts
         State = st }
     let rec loop n =
+      ct.ThrowIfCancellationRequested()
       let addr = st.PC
       let parsed = liftCache.TryParse addr
       let point = mkStopPoint addr n (Result.toOption parsed) [||]
@@ -421,13 +423,18 @@ type ConcExecutor(hdl: BinHandle) =
   /// stop conditions, a run always ends when an instruction cannot be parsed
   /// or lifted, when statement evaluation fails, or when an undefined value is
   /// observed under StopOnUndefinedValue; the stop reason says which.
-  member _.Run(start, state, options) = run start state options
+  member _.Run(start, state, options) =
+    run CancellationToken.None start state options
+
+  /// Runs concrete execution while observing the given cancellation token.
+  member _.Run(start, state, options, ct) =
+    run ct start state options
 
   /// Runs concrete execution from the given address with the default options
   /// for the given stop condition.
   member _.Run(start, state, stopCondition: ConcStopCondition) =
     ConcRunOptions.Default stopCondition
-    |> run start state
+    |> run CancellationToken.None start state
 
   interface IExecutor<ConcState,
                       IMemory<byte>,

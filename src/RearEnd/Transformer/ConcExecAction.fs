@@ -423,7 +423,7 @@ type ConcExecutorValue private(binary: Binary,
       .WithMaxInstructions(limit)
       .ZeroCallerContext()
 
-  let runOne stops (addr: Addr) (runState: ConcState) =
+  let runOne ct stops (addr: Addr) (runState: ConcState) =
     match runState.Memory with
     | :? TracingMemory as memory -> memory.SetInstruction addr
     | _ -> ()
@@ -431,7 +431,8 @@ type ConcExecutorValue private(binary: Binary,
       { Address = addr
         Disassembly = instructionAt addr }
     let options: ConcRunOptions = makeRunOptions stops 1
-    let result: ConcRunResult = executor.Run(addr, runState, options)
+    let result: ConcRunResult =
+      executor.Run(addr, runState, options, ct)
     result, instruction
 
   let hasAccessViolation (runState: ConcState) =
@@ -440,13 +441,16 @@ type ConcExecutorValue private(binary: Binary,
       hasViolationAccess memory.Accesses
     | _ -> false
 
-  let rec runSteps stops (start: Addr) count (runState: ConcState) =
+  let runSteps (ct: CancellationToken) stops (start: Addr) count
+               (runState: ConcState) =
     let rec loop addr remaining instructions total
                  (lastResult: ConcRunResult option) =
+      ct.ThrowIfCancellationRequested()
       if remaining <= 0 then
         lastResult, List.rev instructions
       else
-        let result, instruction = runOne stops addr runState
+        let result, instruction =
+          runOne ct stops addr runState
         let instructions = instruction :: instructions
         let executed = result.InstructionCount
         let total = total + result.InstructionCount
@@ -485,11 +489,13 @@ type ConcExecutorValue private(binary: Binary,
       MemoryDiffs = memoryDiff watch beforeState result.State
       StopReasons = stopReasonsForTrace result accesses }
 
-  let runWithTrace start count (sourceState: ConcState) watch stops =
+  let runWithTrace ct start count (sourceState: ConcState)
+                   watch stops =
     let traceMemory = TracingMemory(sourceState.Memory.Clone(), regions)
     let runState = sourceState.Clone(traceMemory :> ConcMemory)
     let beforeState = runState.Clone()
-    let result, instructions = runSteps stops start count runState
+    let result, instructions =
+      runSteps ct stops start count runState
     let trace =
       traceFromResult start beforeState result instructions
         traceMemory.Accesses watch
@@ -797,7 +803,7 @@ type ConcExecutorValue private(binary: Binary,
 
   member this.Summary = String.concat Environment.NewLine this.SummaryLines
 
-  member _.Run(args: string list) =
+  member _.Run(args: string list, ct) =
     let start, limit, breakpoint =
       match args with
       | [] -> defaultStart (), 50000, None
@@ -811,22 +817,30 @@ type ConcExecutorValue private(binary: Binary,
       |> Option.map ConcStopCondition.StopAtAddress
       |> Option.toList
     let runState = state.Clone()
-    let result, trace = runWithTrace start limit runState None stops
+    let result, trace =
+      runWithTrace ct start limit runState None stops
     match result with
     | Some result ->
       withState result.State (Some result) (Some trace) memoryRanges regions
     | None -> withState runState None (Some trace) memoryRanges regions
 
-  member _.Step(count: int) =
+  member this.Run(args: string list) =
+    this.Run(args, CancellationToken.None)
+
+  member _.Step(count: int, ct) =
     let start = defaultStart ()
     let runState = state.Clone()
-    let result, trace = runWithTrace start count runState None []
+    let result, trace =
+      runWithTrace ct start count runState None []
     match result with
     | Some result ->
       withState result.State (Some result) (Some trace) memoryRanges regions
     | None -> withState runState None (Some trace) memoryRanges regions
 
-  member _.Trace(args: string list) =
+  member this.Step(count: int) =
+    this.Step(count, CancellationToken.None)
+
+  member _.Trace(args: string list, ct) =
     let count, watch =
       match args with
       | [] -> 1, None
@@ -836,8 +850,12 @@ type ConcExecutorValue private(binary: Binary,
         parseInt count, Some(parseUInt64 addr, parseInt size)
       | _ -> invalidArg (nameof args) "Invalid trace argument layout."
     let runState = state.Clone()
-    let _, trace = runWithTrace (defaultStart ()) count runState watch []
+    let _, trace =
+      runWithTrace ct (defaultStart ()) count runState watch []
     trace
+
+  member this.Trace(args: string list) =
+    this.Trace(args, CancellationToken.None)
 
   member _.Needs(args: string list) =
     let start, count, finish = parseNeedsArgs args
@@ -968,7 +986,8 @@ type RunAction() =
         |> Array.map (fun input ->
           cancellationToken.ThrowIfCancellationRequested()
           match input with
-          | :? ConcExecutorValue as executor -> executor.Run args |> box
+          | :? ConcExecutorValue as executor ->
+            executor.Run(args, cancellationToken) |> box
           | _ -> invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
@@ -1089,7 +1108,8 @@ type StepAction() =
         |> Array.map (fun input ->
           cancellationToken.ThrowIfCancellationRequested()
           match input with
-          | :? ConcExecutorValue as executor -> executor.Step count |> box
+          | :? ConcExecutorValue as executor ->
+            executor.Step(count, cancellationToken) |> box
           | _ -> invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
@@ -1114,7 +1134,8 @@ type TraceAction() =
         |> Array.map (fun input ->
           cancellationToken.ThrowIfCancellationRequested()
           match input with
-          | :? ConcExecutorValue as executor -> executor.Trace args |> box
+          | :? ConcExecutorValue as executor ->
+            executor.Trace(args, cancellationToken) |> box
           | _ -> invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with

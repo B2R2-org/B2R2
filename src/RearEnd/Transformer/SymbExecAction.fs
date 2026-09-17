@@ -450,7 +450,7 @@ type SymbExecutorValue(binary: Binary,
       spec.SymbolicRegisters |> List.fold applySymbolicRegister executor
     spec.Regions |> List.fold applyRegion executor
 
-  member _.RunSatisfy(target, maxDepth, maxStates, loopBound, prune) =
+  member _.RunSatisfy(target, maxDepth, maxStates, loopBound, prune, ct) =
     let query =
       { Query = SymbQuery.SatisfyAddress target
         QueryValues =
@@ -469,14 +469,19 @@ type SymbExecutorValue(binary: Binary,
           MaxStates = maxStates
           LoopBound = loopBound
           PruneInfeasiblePaths = prune }
-    executor.Run(state.PC, state, options)
+    executor.Run(state.PC, state, options, ct)
     |> fun result -> SymbRunValue(this, "satisfy", Some target, result)
+
+  member this.RunSatisfy(target, maxDepth, maxStates, loopBound, prune) =
+    this.RunSatisfy(target, maxDepth, maxStates, loopBound, prune,
+                    CancellationToken.None)
 
   member _.RunSatisfyCondition(predicate,
                                maxDepth,
                                maxStates,
                                loopBound,
-                               prune) =
+                               prune,
+                               ct) =
     let query =
       { Query = SymbQuery.SatisfyWhen predicate
         QueryValues =
@@ -495,10 +500,22 @@ type SymbExecutorValue(binary: Binary,
           MaxStates = maxStates
           LoopBound = loopBound
           PruneInfeasiblePaths = prune }
-    executor.Run(state.PC, state, options)
+    executor.Run(state.PC, state, options, ct)
     |> fun result -> SymbRunValue(this, "cond", None, result)
 
-  member _.RunReach(target, maxDepth, maxStates, loopBound, prune) =
+  member this.RunSatisfyCondition(predicate,
+                                  maxDepth,
+                                  maxStates,
+                                  loopBound,
+                                  prune) =
+    this.RunSatisfyCondition(predicate,
+                             maxDepth,
+                             maxStates,
+                             loopBound,
+                             prune,
+                             CancellationToken.None)
+
+  member _.RunReach(target, maxDepth, maxStates, loopBound, prune, ct) =
     let options =
       { SymbRunOptions.Default(SymbQuery.ReachAddress target,
                                this.SolverBackend) with
@@ -511,8 +528,12 @@ type SymbExecutorValue(binary: Binary,
           MaxStates = maxStates
           LoopBound = loopBound
           PruneInfeasiblePaths = prune }
-    executor.Run(state.PC, state, options)
+    executor.Run(state.PC, state, options, ct)
     |> fun result -> SymbRunValue(this, "reach", Some target, result)
+
+  member this.RunReach(target, maxDepth, maxStates, loopBound, prune) =
+    this.RunReach(target, maxDepth, maxStates, loopBound, prune,
+                  CancellationToken.None)
 
   override _.ToString() =
     let inputText =
@@ -1588,7 +1609,7 @@ type SymbSearchAction() =
       Some candidate, rest
     | args -> None, args
 
-  let transformOne args (value: obj) =
+  let transformOne ct args (value: obj) =
     match value with
     | :? SymbExecutorValue as executor ->
       match args with
@@ -1608,7 +1629,12 @@ type SymbSearchAction() =
         let result =
           match SymbCondition.trySatisfyAddress condition with
           | Some target ->
-            executor.RunSatisfy(target, maxDepth, maxStates, loopBound, prune)
+            executor.RunSatisfy(target,
+                                maxDepth,
+                                maxStates,
+                                loopBound,
+                                prune,
+                                ct)
           | None ->
             let predicate =
               SymbCondition.toPredicate hdl executor.Regions condition
@@ -1616,27 +1642,31 @@ type SymbSearchAction() =
                                          maxDepth,
                                          maxStates,
                                          loopBound,
-                                         prune)
+                                         prune,
+                                         ct)
         result |> box
       | _ -> invalidArg (nameof args) "Invalid run-symbolic arguments."
     | value -> invalidOp $"run-symbolic expects SymbExecutor: {value}"
 
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
+  let transform ct args (collection: ObjCollection) =
+    collection.Values
+    |> Array.map (transformOne ct args)
+    |> fun values ->
       { Values = values }
 
   interface IAction with
     member _.ActionID with get() = metadata.ID
     member _.Signature with get() = metadata.Signature
     member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
+    member _.Transform(args, collection) =
+      transform CancellationToken.None args collection
 
   interface IActionMetadataProvider with
     member _.Metadata with get() = metadata
 
   interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
+    member _.Transform(args, collection, ct) =
+      transform ct args collection
 
 type SymbModelAction() =
   let metadata =

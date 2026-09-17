@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.SymbEval
 
 open System.Collections.Generic
 open System.Diagnostics
+open System.Threading
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -275,14 +276,20 @@ type SymbExecutor(hdl: BinHandle) =
         | SolverStatus.Unknown ->
           Ok { Status = SolverStatus.Unknown; Values = [] }))
 
-  let createSolver (opts: SymbRunOptions) =
+  let runSolver (ct: CancellationToken) operation input =
+    ct.ThrowIfCancellationRequested()
+    let result = operation input
+    ct.ThrowIfCancellationRequested()
+    result
+
+  let createSolver ct (opts: SymbRunOptions) =
     match opts.Solver with
     | NoSolver ->
       None
     | CustomSolver solver ->
       Some
-        { CheckSat = fun pathCond -> checkSmt2 solver pathCond
-          GetModels = fun query -> getModelsSmt2 solver query }
+        { CheckSat = runSolver ct (checkSmt2 solver)
+          GetModels = runSolver ct (getModelsSmt2 solver) }
 
   let isRunTimeoutReached (stopwatch: Stopwatch) (opts: SymbRunOptions) =
     match opts.RunTimeout with
@@ -650,11 +657,13 @@ type SymbExecutor(hdl: BinHandle) =
         successors
         |> List.iter (handleSuccessor kit callerState addr item visits)
 
-  let run start (st: SymbState) (opts: SymbRunOptions) =
+  let run (ct: CancellationToken) start (st: SymbState) (opts: SymbRunOptions) =
+    ct.ThrowIfCancellationRequested()
     liftCache.WarmUp opts.WarmUpRanges
+    ct.ThrowIfCancellationRequested()
     let worklist = Queue<SymbRunWorkItem>()
     let stopwatch = Stopwatch.StartNew()
-    let solver = createSolver opts
+    let solver = createSolver ct opts
     let ctx = SymbRunContext.Init()
     let kit =
       { Solver = solver; Opts = opts; Ctx = ctx; Worklist = worklist }
@@ -666,6 +675,7 @@ type SymbExecutor(hdl: BinHandle) =
     let handleFailure = handleRunFailure ctx.AddStopped ctx.AddPruned ctx.Stop
     enqueueState kit 0 0 Map.empty initialState
     while worklist.Count > 0 && not ctx.StopExploration do
+      ct.ThrowIfCancellationRequested()
       ()
       |> tryStopOnRunTimeout stopwatch opts worklist handleRunTimeout
       |> tryDequeueNextItem worklist
@@ -689,13 +699,18 @@ type SymbExecutor(hdl: BinHandle) =
 
   member _.CreateState options = initializeState 0UL options
 
-  member _.Run(start, state, options) = run start state options
+  member _.Run(start, state, options) =
+    run CancellationToken.None start state options
+
+  /// Runs symbolic execution while observing the given cancellation token.
+  member _.Run(start, state, options, ct) =
+    run ct start state options
 
   member _.Run(start, state, calls, query: SymbQueryRequest, solver) =
     let options =
       { SymbRunOptions.Default(query, solver) with
           Calls = calls }
-    run start state options
+    run CancellationToken.None start state options
 
   interface IExecutor<SymbState,
                       IMemory<SymbExpr>,
