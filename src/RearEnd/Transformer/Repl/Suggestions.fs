@@ -90,7 +90,7 @@ module Suggestions =
       ":restore", "Restore a value-history entry"
       ":script", "Save, load, or configure replay recording"
       ":show", "Show the full current or named value"
-      ":type", "Show the current or named value type"
+      ":type", "Show the current, named, or expression type"
       ":undo", "Undo the most recent value change"
       ":values", "Show retained value history" ]
 
@@ -1258,15 +1258,23 @@ module Suggestions =
         HasBinding = false
         HasPipeline = Option.isSome lastPipeline }
 
-  let private showExpressionInput (input: string) =
+  let private expressionCommandInput command (input: string) =
     let trimmed = input.TrimStart()
-    if trimmed.StartsWith(":show ", StringComparison.Ordinal) then
-      let commandStart =
-        input.IndexOf(":show", StringComparison.Ordinal)
-      let start = commandStart + 5
+    let prefix = command + " "
+    if trimmed.StartsWith(prefix, StringComparison.Ordinal) then
+      let commandStart = input.IndexOf(command, StringComparison.Ordinal)
+      let start = commandStart + prefix.Length
       Some(input[start..], start)
     else
       None
+
+  let private metaExpressionInput input =
+    match expressionCommandInput ":show" input with
+    | Some expression -> Some expression
+    | None ->
+      expressionCommandInput ":type" input
+      |> Option.filter (fun (expression, _) ->
+        InputAnalysis.topLevelLastPipeline expression |> Option.isSome)
 
   let private currentParameters metadata inputKind args endsWithSpace =
     match args with
@@ -1413,13 +1421,13 @@ module Suggestions =
 
   let get registry (state: TransformerReplState) (input: string) cursor =
     let context = InputAnalysis.analyze input cursor
-    let showExpression = showExpressionInput context.InputBeforeCursor
+    let metaExpression = metaExpressionInput context.InputBeforeCursor
     let expressionContext =
-      showExpression
+      metaExpression
       |> Option.map (expressionContext context)
       |> Option.defaultValue context
     let expression, expressionStart =
-      match showExpression with
+      match metaExpression with
       | Some expression -> expression
       | None ->
         match ReplLanguage.bindingHeader context.InputBeforeCursor with
@@ -1443,7 +1451,7 @@ module Suggestions =
       let hint = completionHint registry state expressionContext
       let items =
         if context.InputBeforeCursor.TrimStart().StartsWith ':' then
-          match showExpression with
+          match metaExpression with
           | Some _ ->
             completeExpression registry state expressionContext
           | None ->

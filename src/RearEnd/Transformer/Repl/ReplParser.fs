@@ -88,6 +88,8 @@ module TransformerReplParser =
       ReplLanguage.parsePipelineTokens rest |> Result.map ShowExpression
     | [ ":type" ] -> Ok(TypeOf None)
     | [ ":type"; name ] -> Ok(TypeOf(Some name))
+    | ":type" :: rest ->
+      ReplLanguage.parsePipelineTokens rest |> Result.map TypeOfExpression
     | command :: _ when command.StartsWith ':' ->
       Error $"Unknown REPL command: {command}"
     | tokens ->

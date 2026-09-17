@@ -38,6 +38,7 @@ type TransformerReplCommand =
   | Show of binding: string option
   | ShowExpression of ReplPipelineSegment list
   | TypeOf of binding: string option
+  | TypeOfExpression of ReplPipelineSegment list
   | Inspect of binding: string option
   | Needs of binding: string * arguments: string list
   | Actions

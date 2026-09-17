@@ -1721,6 +1721,23 @@ module TransformerReplEvaluator =
     | Ok(name, value) ->
       continueWith registry state [ $"{name}: {typeDescription value}" ]
 
+  let private pipelineText segments =
+    segments
+    |> List.map (fun segment ->
+      String.concat " " (segment.Head :: segment.Arguments))
+    |> String.concat " |> "
+
+  let private showExpressionType registry state segments =
+    let expression = pipelineText segments
+    let analysis = ReplTypeAnalysis.analyze registry state 0 expression
+    match analysis.Output, analysis.Diagnostics with
+    | Some kind, [] ->
+      continueWith registry state [ $"{expression}: {formatKind kind}" ]
+    | _, diagnostic :: _ ->
+      fail registry state diagnostic.Message
+    | None, [] ->
+      fail registry state $"Could not infer the type of: {expression}"
+
   let private showActions registry state =
     ActionRegistry.getAll registry
     |> List.collect actionDetails
@@ -1955,7 +1972,8 @@ module TransformerReplEvaluator =
       "  # <text>              record a script comment"
       "  :layout [k=v ...]     resize TUI panes"
       "  :actions              list available actions"
-      "  :type [name]          show a value type"
+      "  :type [name|expression]"
+      "                        show a value or expression type"
       "  :show [expression]    show a value or expression result"
       "  :history              show command history"
       "  :reset                clear analysis values"
@@ -2067,6 +2085,8 @@ module TransformerReplEvaluator =
       showExpression registry state segments cancellationToken
     | Ok(TypeOf name) ->
       showType registry state name
+    | Ok(TypeOfExpression segments) ->
+      showExpressionType registry state segments
     | Ok(Evaluate(segments, binding, expected)) ->
       evaluate includeSuggestions registry state segments binding expected input
         cancellationToken
