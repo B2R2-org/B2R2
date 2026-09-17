@@ -627,6 +627,12 @@ and SymbRunValue(source: SymbExecutorValue,
   let appendFailure (sb: StringBuilder) index (failure: SymbRunFailure) =
     sb.AppendLine($"failure #{index}: {failure}") |> ignore
 
+  let indentLines spaces (text: string) =
+    let prefix = String.replicate spaces " "
+    text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n')
+    |> Array.map (fun line -> prefix + line)
+    |> String.concat Environment.NewLine
+
   member _.Source = source
 
   member _.Result = result
@@ -661,8 +667,21 @@ and SymbRunValue(source: SymbExecutorValue,
       + $"{Environment.NewLine}  target: {targetText}"
       + $"{Environment.NewLine}  status: {statusText}"
     let model = this.ModelText()
-    if String.IsNullOrWhiteSpace model then header
-    else header + Environment.NewLine + model
+    let appendSection name =
+      if String.IsNullOrWhiteSpace model then
+        header
+      else
+        header
+        + $"{Environment.NewLine}  {name}:"
+        + Environment.NewLine
+        + indentLines 4 model
+    match result.Answer with
+    | SymbAnswer.Reachable _ | SymbAnswer.Satisfiable _ ->
+      appendSection "answers"
+    | SymbAnswer.Unknown _ ->
+      appendSection "failures"
+    | SymbAnswer.Unreachable | SymbAnswer.Unsatisfiable ->
+      header
 
 module private SymbArgs =
   let parseAddr (text: string) =

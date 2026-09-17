@@ -484,6 +484,8 @@ module TransformerReplEvaluator =
       renderAddressValue value
     | :? ConcExecutorValue as executor ->
       executor.SummaryLines
+    | :? SymbRunValue as result ->
+      splitTextForDisplay mode (result.ToString())
     | :? Array as values ->
       let header = $"{value.GetType().GetElementType().Name} array"
       let header = $"{header} ({values.Length} values)"
