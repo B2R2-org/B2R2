@@ -920,7 +920,7 @@ module private SymbCondition =
     match tryMatch atPattern text with
     | Some m -> At(SymbArgs.parseAddr m.Groups[1].Value)
     | None ->
-      if Regex.IsMatch(text, @"^(mem|memory)\.violation\s*\(\s*\)$",
+      if Regex.IsMatch(text, @"^(mem|memory)\.accessViolation\s*\(\s*\)$",
                        RegexOptions.IgnoreCase) then
         MemoryPolicyViolation None
       elif Regex.IsMatch(text, @"^(mem|memory)\.readViolation\s*\(\s*\)$",
@@ -1754,7 +1754,7 @@ type SymbSearchAction() =
         signature
         "Search for symbolic inputs satisfying a state condition."
         [ "sx |> @symb-search cond=(fun pp -> pp.at(0x401000))"
-          "sx |> @symb-search cond=(fun _ -> mem.writeViolation())" ]
+          "sx |> @symb-search cond=(fun _ -> mem.accessViolation())" ]
         with
         Syntaxes =
           [ SymbMetadata.syntax None condArgs ] }
