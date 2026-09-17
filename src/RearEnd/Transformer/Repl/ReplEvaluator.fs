@@ -1131,60 +1131,6 @@ module TransformerReplEvaluator =
   let private tryFindAction registry head =
     ActionRegistry.tryFind (actionID head) registry
 
-  type private IterSpec =
-    { ActionID: string
-      ItemName: string
-      IndexName: string
-      Body: string list }
-
-  let private isValidLambdaParameter (name: string) =
-    if name = "_" then
-      true
-    elif String.IsNullOrWhiteSpace name then
-      false
-    else
-      let first = Char.IsLetter name[0] || name[0] = '_'
-      first
-      && name
-         |> Seq.skip 1
-         |> Seq.forall (fun chr -> Char.IsLetterOrDigit chr || chr = '_')
-
-  let private tryTakeNamedParameter (names: string list) tokens =
-    let names = names |> List.map (fun name -> name.ToLowerInvariant())
-    let rec loop before = function
-      | [] -> None
-      | token :: rest ->
-        match tryNamedArgument token with
-        | Some(key, _, value) when List.contains key names ->
-          let valueTokens =
-            if String.IsNullOrEmpty value then rest else value :: rest
-          Some(List.rev before, valueTokens)
-        | _ ->
-          loop (token :: before) rest
-    loop [] tokens
-
-  let private parseIterAction keyword tokens =
-    parseArguments tokens
-    |> Result.bind (fun parsed ->
-      let named = Map.tryFind "action" parsed.Named |> Option.map snd
-      match named, parsed.Positional with
-      | Some action, [] -> Ok action
-      | None, [ action ] -> Ok action
-      | None, [] -> Error $"{keyword} requires an action."
-      | Some _, _ ->
-        Error $"{keyword} action must not be mixed with positional arguments."
-      | None, _ ->
-        Error $"{keyword} expects exactly one action before the function.")
-    |> Result.map actionID
-
-  let private trimEnclosed openToken closeToken tokens =
-    match tokens with
-    | first :: rest when first = openToken ->
-      match List.rev rest with
-      | last :: body when last = closeToken -> List.rev body
-      | _ -> tokens
-    | _ -> tokens
-
   let private mergeSeparatedEquals tokens =
     let rec loop output = function
       | key :: "=" :: value :: rest ->
@@ -1194,82 +1140,6 @@ module TransformerReplEvaluator =
       | [] ->
         List.rev output
     loop [] tokens
-
-  let private normalizeIterBody tokens =
-    tokens
-    |> trimEnclosed "{" "}"
-    |> mergeSeparatedEquals
-
-  let private emptyIterSpec =
-    { ItemName = "_"
-      IndexName = "_"
-      Body = []
-      ActionID = "" }
-
-  let private parseIterLambda tokens =
-    let tokens = trimEnclosed "(" ")" tokens
-    match tokens with
-    | [] -> Ok emptyIterSpec
-    | "fun" :: itemName :: "->" :: body
-      when isValidLambdaParameter itemName ->
-      Ok
-        { ItemName = itemName
-          IndexName = "_"
-          Body = normalizeIterBody body
-          ActionID = "" }
-    | "fun" :: itemName :: indexName :: "->" :: body
-      when isValidLambdaParameter itemName
-           && isValidLambdaParameter indexName ->
-      Ok
-        { ItemName = itemName
-          IndexName = indexName
-          Body = normalizeIterBody body
-          ActionID = "" }
-    | "fun" :: _ ->
-      Error "iter function must be: fun item -> <action-parameters>."
-    | _ ->
-      Error "iter expects an action or function: iter @action (fun item -> ...)"
-
-  let private parseIteriLambda tokens =
-    let tokens = trimEnclosed "(" ")" tokens
-    match tokens with
-    | [] ->
-      Error "iteri requires a function: fun index item -> ..."
-    | "fun" :: indexName :: itemName :: "->" :: body
-      when isValidLambdaParameter indexName
-           && isValidLambdaParameter itemName ->
-      Ok
-        { ItemName = itemName
-          IndexName = indexName
-          Body = normalizeIterBody body
-          ActionID = "" }
-    | "fun" :: _ ->
-      Error "iteri function must be: fun index item -> <action-parameters>."
-    | _ ->
-      Error "iteri requires a function: fun index item -> ..."
-
-  let private parseIterSpec keyword args =
-    match tryTakeNamedParameter [ "params" ] args with
-    | Some(actionTokens, parameterTokens) ->
-      parseIterAction keyword actionTokens
-      |> Result.bind (fun action ->
-        let parse =
-          if equalsIgnoreCase keyword "iteri" then parseIteriLambda
-          else parseIterLambda
-        parse parameterTokens
-        |> Result.map (fun spec -> { spec with ActionID = action }))
-    | None ->
-      match args with
-      | action :: parameterTokens ->
-        parseIterAction keyword [ action ]
-        |> Result.bind (fun action ->
-          let parse =
-            if equalsIgnoreCase keyword "iteri" then parseIteriLambda
-            else parseIterLambda
-          parse parameterTokens
-          |> Result.map (fun spec -> { spec with ActionID = action }))
-      | [] ->
-        Error $"{keyword} requires an action."
 
   let private replaceTemplate name replacement (text: string) =
     if name = "_" then
@@ -1313,14 +1183,14 @@ module TransformerReplEvaluator =
         if suffix = name then prefix + value else text
     bindings |> List.fold replaceBinding token
 
-  let private iterArguments (spec: IterSpec) (index: int) (item: obj) =
+  let private iterArguments (spec: ReplIterSpec) (index: int) (item: obj) =
     let unresolvedItem = "\u0000unrepresentable-iter-item\u0000"
     let itemText =
       ReplValue.tryArgumentText item |> Option.defaultValue unresolvedItem
     let indexText = index.ToString(CultureInfo.InvariantCulture)
     let apply token =
       token
-      |> replaceTemplate (spec: IterSpec).ItemName itemText
+      |> replaceTemplate (spec: ReplIterSpec).ItemName itemText
       |> replaceTemplate spec.IndexName indexText
       |> fun text -> text.Replace("{index}", indexText)
     let statements = splitIterStatements spec.Body
@@ -1551,7 +1421,7 @@ module TransformerReplEvaluator =
     if not input.IsCollection then
       Error $"{segment.Head} expects a collection input."
     else
-      parseIterSpec segment.Head segment.Arguments
+      ReplLanguage.parseIter segment.Head segment.Arguments
       |> Result.bind (fun spec ->
         match tryFindAction registry spec.ActionID with
         | None ->

@@ -69,6 +69,22 @@ type ReplBindingHeader =
     ExpressionStart: int option
     SyntaxError: string option }
 
+/// Partial syntax facts for an `iter` or `iteri` expression.
+type ReplIterAnalysis =
+  { ActionID: string option
+    LambdaParameters: string list option
+    ExpectedParameterCount: int
+    HasArrow: bool
+    HasClosingDelimiter: bool
+    Body: string list }
+
+/// A complete, validated `iter` or `iteri` expression.
+type ReplIterSpec =
+  { ActionID: string
+    ItemName: string
+    IndexName: string
+    Body: string list }
+
 module ReplLanguage =
   [<RequireQualifiedAccess>]
   type TokenizeMode =
@@ -324,6 +340,185 @@ module ReplLanguage =
       && name
          |> Seq.skip 1
          |> Seq.forall isIdentifierPart
+
+  let private parameterValue name (token: string) =
+    let index = token.IndexOf '='
+    if index <= 0 then
+      None
+    else
+      let key = token[..index - 1].Trim()
+      let annotation = key.IndexOf ':'
+      let key = if annotation <= 0 then key else key[..annotation - 1]
+      if String.Equals(key, name, StringComparison.OrdinalIgnoreCase) then
+        Some(token[index + 1..])
+      else
+        None
+
+  let private actionID (value: string) =
+    if value.StartsWith("@", StringComparison.Ordinal) then value[1..]
+    else value
+
+  let private takeNamedParameter name tokens =
+    let rec loop before = function
+      | [] -> None
+      | token :: rest ->
+        match parameterValue name token with
+        | Some value ->
+          let values =
+            if String.IsNullOrEmpty value then rest else value :: rest
+          Some(List.rev before, values)
+        | None ->
+          loop (token :: before) rest
+    loop [] tokens
+
+  let private iterParts args =
+    match takeNamedParameter "params" args with
+    | Some(action, lambda) -> action, lambda
+    | None ->
+      match args with
+      | action :: lambda -> [ action ], lambda
+      | [] -> [], []
+
+  let private stripLambdaDelimiters tokens =
+    let rec findClose depth body = function
+      | [] -> None
+      | token :: rest ->
+        let depth = updateDepth depth token
+        if depth = 0 then Some(List.rev body, rest)
+        else findClose depth (token :: body) rest
+    match tokens with
+    | "(" :: rest ->
+      match findClose 1 [] rest with
+      | Some(body, []) -> body, true
+      | _ -> tokens, false
+    | _ -> tokens, false
+
+  let private tryActionID tokens =
+    let named =
+      tokens
+      |> List.choose (parameterValue "action")
+    let positional =
+      tokens |> List.filter (fun token -> not (token.Contains '='))
+    match named, positional with
+    | [ value ], [] when not (String.IsNullOrWhiteSpace value) ->
+      Some(actionID value)
+    | [], [ value ] -> Some(actionID value)
+    | _ -> None
+
+  let private mergeSeparatedEquals tokens =
+    let rec loop output = function
+      | key :: "=" :: value :: rest ->
+        loop ($"{key}={value}" :: output) rest
+      | token :: rest ->
+        loop (token :: output) rest
+      | [] ->
+        List.rev output
+    loop [] tokens
+
+  let private normalizeIterBody tokens =
+    let tokens =
+      match tokens with
+      | "{" :: rest ->
+        match List.rev rest with
+        | "}" :: body -> List.rev body
+        | _ -> tokens
+      | _ -> tokens
+    mergeSeparatedEquals tokens
+
+  let private expectedIterParameterCount keyword =
+    if String.Equals(keyword, "iteri", StringComparison.OrdinalIgnoreCase) then
+      2
+    else
+      1
+
+  let analyzeIter keyword args =
+    let action, lambda = iterParts args
+    let lambda, hasClose = stripLambdaDelimiters lambda
+    let afterFun =
+      match lambda |> List.tryFindIndex ((=) "fun") with
+      | Some index -> Some(List.skip (index + 1) lambda)
+      | None -> None
+    let parameters, hasArrow, body =
+      match afterFun with
+      | Some tokens ->
+        match tokens |> List.tryFindIndex ((=) "->") with
+        | Some index ->
+          Some(List.take index tokens), true,
+          List.skip (index + 1) tokens |> normalizeIterBody
+        | None ->
+          let parameters = tokens |> List.takeWhile ((<>) ")")
+          Some parameters, false, []
+      | None -> None, false, []
+    { ActionID = tryActionID action
+      LambdaParameters = parameters
+      ExpectedParameterCount = expectedIterParameterCount keyword
+      HasArrow = hasArrow
+      HasClosingDelimiter = hasClose
+      Body = body }
+
+  let private parseIterAction keyword tokens =
+    let named = tokens |> List.choose (parameterValue "action")
+    let positional =
+      tokens |> List.filter (fun token -> not (token.Contains '='))
+    match named, positional with
+    | [ action ], [] when not (String.IsNullOrWhiteSpace action) ->
+      Ok(actionID action)
+    | [], [ action ] -> Ok(actionID action)
+    | [], [] -> Error $"{keyword} requires an action."
+    | _ :: _ :: _, _ -> Error "duplicate parameter: action."
+    | _ :: _, _ ->
+      Error $"{keyword} action must not be mixed with positional arguments."
+    | [], _ ->
+      Error $"{keyword} expects exactly one action before the function."
+
+  let private validLambdaParameter name =
+    name = "_" || isValidName name
+
+  let private emptyIterSpec action =
+    { ItemName = "_"; IndexName = "_"; Body = []; ActionID = action }
+
+  let private parseIterLambda (keyword: string) action tokens =
+    let tokens, _ = stripLambdaDelimiters tokens
+    match keyword.ToLowerInvariant(), tokens with
+    | "iter", [] -> Ok(emptyIterSpec action)
+    | "iter", "fun" :: item :: "->" :: body
+      when validLambdaParameter item ->
+      Ok
+        { ItemName = item
+          IndexName = "_"
+          Body = normalizeIterBody body
+          ActionID = action }
+    | "iter", "fun" :: item :: index :: "->" :: body
+      when validLambdaParameter item && validLambdaParameter index ->
+      Ok
+        { ItemName = item
+          IndexName = index
+          Body = normalizeIterBody body
+          ActionID = action }
+    | "iter", "fun" :: _ ->
+      Error "iter function must be: fun item -> <action-parameters>."
+    | "iter", _ ->
+      Error "iter expects an action or function: iter @action (fun item -> ...)"
+    | "iteri", [] ->
+      Error "iteri requires a function: fun index item -> ..."
+    | "iteri", "fun" :: index :: item :: "->" :: body
+      when validLambdaParameter index && validLambdaParameter item ->
+      Ok
+        { ItemName = item
+          IndexName = index
+          Body = normalizeIterBody body
+          ActionID = action }
+    | "iteri", "fun" :: _ ->
+      Error "iteri function must be: fun index item -> <action-parameters>."
+    | "iteri", _ ->
+      Error "iteri requires a function: fun index item -> ..."
+    | _, _ -> Error $"Unknown collection operator: {keyword}."
+
+  let parseIter keyword args =
+    let actionTokens, lambdaTokens = iterParts args
+    parseIterAction keyword actionTokens
+    |> Result.bind (fun action ->
+      parseIterLambda keyword action lambdaTokens)
 
   let private skipSpaces (input: string) index =
     let rec loop index =

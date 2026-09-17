@@ -681,15 +681,6 @@ module Suggestions =
       let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
       Some(key.ToLowerInvariant())
 
-  let private tryParameterValue (token: string) =
-    let index = token.IndexOf '='
-    if index <= 0 then None
-    else
-      let key = token[..index - 1]
-      let typeIndex = key.IndexOf ':'
-      let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
-      Some(key.ToLowerInvariant(), token[index + 1..])
-
   let private isAttachedValuePrefix (segment: string) tokenStart =
     tokenStart > 0 && not (Char.IsWhiteSpace segment[tokenStart - 1])
 
@@ -697,35 +688,9 @@ module Suggestions =
     ActionMetadata.argumentKeys argument
     |> List.contains (name.ToLowerInvariant())
 
-  let private isIterParameterStart token =
-    match tryParameterName token with
-    | Some name -> name = "params"
-    | None -> false
-
   let private isIterHead head =
     String.Equals(head, "iter", StringComparison.OrdinalIgnoreCase)
     || String.Equals(head, "iteri", StringComparison.OrdinalIgnoreCase)
-
-  let private tryIterTargetAction words =
-    let named =
-      words
-      |> List.tryPick (fun token ->
-        match tryParameterValue token with
-        | Some(name, value) when name = "action" -> Some value
-        | _ -> None)
-    match named with
-    | Some action -> Some(actionID action)
-    | None ->
-      let positional =
-        match words with
-        | [] -> []
-        | _ :: rest -> rest
-      positional
-      |> List.takeWhile (fun token ->
-        token <> "(" && not (isIterParameterStart token))
-      |> List.tryFind (fun token ->
-        token.StartsWith("@", StringComparison.Ordinal))
-      |> Option.map actionID
 
   let private syntaxArgument metadata inputKind completed argumentIndex =
     let metadata: ActionMetadata = metadata
@@ -962,24 +927,6 @@ module Suggestions =
     else
       []
 
-  let private expectedLambdaArgumentCount = function
-    | head when
-        String.Equals(head, "iteri", StringComparison.OrdinalIgnoreCase) ->
-      2
-    | _ -> 1
-
-  let private lambdaArgumentsBeforeArrow words =
-    match words |> List.tryFindIndex ((=) "fun") with
-    | None -> None
-    | Some index ->
-      words
-      |> List.skip (index + 1)
-      |> List.takeWhile (fun token -> token <> "->" && token <> ")")
-      |> Some
-
-  let private hasClosedLambda arrow words =
-    words |> List.skip (arrow + 1) |> List.contains ")"
-
   let private iterElementKind registry state context =
     let context: InputContext = context
     let fullExpression = context.Expression
@@ -1014,8 +961,9 @@ module Suggestions =
       |> Option.defaultValue context.Segment
     let words = InputAnalysis.splitWords segment
     match words with
-    | head :: _ when isIterHead head ->
-      match tryIterTargetAction words with
+    | head :: args when isIterHead head ->
+      let analysis = ReplLanguage.analyzeIter head args
+      match analysis.ActionID with
       | None when isCurrentIterKeyword head context ->
         None
       | None ->
@@ -1036,14 +984,12 @@ module Suggestions =
           let endsWithSpace =
             context.InputBeforeCursor.Length > 0
             && Char.IsWhiteSpace context.InputBeforeCursor[lastIndex]
-          match words |> List.tryFindIndex ((=) "->"), itemKind with
-          | Some arrow, _ when hasClosedLambda arrow words ->
+          match analysis.HasArrow, itemKind with
+          | true, _ when analysis.HasClosingDelimiter ->
             Some []
-          | Some arrow, Some kind ->
+          | true, Some kind ->
             let body =
-              words
-              |> List.skip (arrow + 1)
-              |> splitAtLastSemicolon
+              analysis.Body |> splitAtLastSemicolon
             let prefix = context.Prefix
             let current =
               if endsWithSpace then None else body |> List.tryLast
@@ -1072,13 +1018,9 @@ module Suggestions =
               @ noArgumentCandidate registered.Metadata inputKind prefix
               @ candidates
             Some candidates
-          | _, Some kind ->
+          | false, Some kind ->
             let inputKind = Some kind
-            let afterTarget =
-              match words with
-              | _ :: _ :: rest -> rest
-              | _ -> []
-            match lambdaArgumentsBeforeArrow afterTarget with
+            match analysis.LambdaParameters with
             | None ->
               if not (hasNoArgumentSyntax registered.Metadata inputKind) then
                 lambdaSkeletonCandidate |> Some
@@ -1088,7 +1030,7 @@ module Suggestions =
               else
                 None
             | Some args ->
-              let expected = expectedLambdaArgumentCount head
+              let expected = analysis.ExpectedParameterCount
               if List.length args = expected && endsWithSpace then
                 arrowCandidate registered.Metadata inputKind |> Some
               else
@@ -1389,21 +1331,16 @@ module Suggestions =
           state.Current |> Option.map (fun value -> value.Kind)
       registered, inputKind, args)
 
-  let private iterHintArguments words =
-    match words |> List.tryFindIndex ((=) "->") with
-    | Some index ->
-      words
-      |> List.skip (index + 1)
-      |> List.takeWhile ((<>) ")")
-    | None ->
-      []
-
   let private iterHintTarget registry state context words =
-    tryIterTargetAction words
-    |> Option.bind (fun target -> ActionRegistry.tryFind target registry)
-    |> Option.map (fun registered ->
-      let inputKind = iterElementKind registry state context
-      registered, inputKind, iterHintArguments words)
+    match words with
+    | head :: args ->
+      let analysis = ReplLanguage.analyzeIter head args
+      analysis.ActionID
+      |> Option.bind (fun target -> ActionRegistry.tryFind target registry)
+      |> Option.map (fun registered ->
+        let inputKind = iterElementKind registry state context
+        registered, inputKind, analysis.Body)
+    | [] -> None
 
   let private hintTarget registry state context =
     match context.SegmentWords with
