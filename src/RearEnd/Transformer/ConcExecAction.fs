@@ -228,27 +228,28 @@ type ConcExecutorValue private(binary: Binary,
     withState state None None ranges regions
 
   let formatStopReason = function
-    | ConcStopReason.StoppedAtAddress addr -> $"stopped-at=0x{addr:x}"
-    | ConcStopReason.StoppedAfterAddress addr -> $"stopped-after=0x{addr:x}"
-    | ConcStopReason.StoppedAtReturn addr -> $"return-at=0x{addr:x}"
-    | ConcStopReason.StoppedAfterReturn addr -> $"return-after=0x{addr:x}"
+    | ConcStopReason.StoppedAtAddress addr -> $"breakpoint at 0x{addr:x}"
+    | ConcStopReason.StoppedAfterAddress addr ->
+      $"after breakpoint at 0x{addr:x}"
+    | ConcStopReason.StoppedAtReturn addr -> $"return at 0x{addr:x}"
+    | ConcStopReason.StoppedAfterReturn addr -> $"after return at 0x{addr:x}"
     | ConcStopReason.StoppedAtCall(addr, Some target) ->
-      $"call-at=0x{addr:x} target=0x{target:x}"
-    | ConcStopReason.StoppedAtCall(addr, None) -> $"call-at=0x{addr:x}"
+      $"call at 0x{addr:x} target=0x{target:x}"
+    | ConcStopReason.StoppedAtCall(addr, None) -> $"call at 0x{addr:x}"
     | ConcStopReason.StoppedAtSideEffect(addr, effect) ->
-      $"side-effect-at=0x{addr:x} effect={effect}"
-    | ConcStopReason.UndefinedValue addr -> $"undefined-at=0x{addr:x}"
-    | ConcStopReason.InstructionLimitReached(addr, limit) ->
-      $"limit={limit} at=0x{addr:x}"
+      $"side effect at 0x{addr:x}: {effect}"
+    | ConcStopReason.UndefinedValue addr -> $"undefined value at 0x{addr:x}"
+    | ConcStopReason.InstructionLimitReached _ -> "instruction limit"
     | ConcStopReason.EvaluationError(addr, error) ->
-      $"error-at=0x{addr:x} error={error}"
-    | ConcStopReason.UserStopConditionMet addr -> $"user-stop-at=0x{addr:x}"
+      $"evaluation error at 0x{addr:x}: {error}"
+    | ConcStopReason.UserStopConditionMet addr ->
+      $"user condition at 0x{addr:x}"
     | ConcStopReason.InvalidInstructionAddress addr ->
-      $"invalid-address=0x{addr:x}"
+      $"invalid address 0x{addr:x}"
     | ConcStopReason.CallHandlingFailure(addr, Some target, reason) ->
-      $"call-failure-at=0x{addr:x} target=0x{target:x} reason={reason}"
+      $"call handling failure at 0x{addr:x} target=0x{target:x}: {reason}"
     | ConcStopReason.CallHandlingFailure(addr, None, reason) ->
-      $"call-failure-at=0x{addr:x} reason={reason}"
+      $"call handling failure at 0x{addr:x}: {reason}"
 
   let isLimitReason = function
     | ConcStopReason.InstructionLimitReached _ -> true
@@ -393,6 +394,21 @@ type ConcExecutorValue private(binary: Binary,
   let stopReasons result =
     result.StopReasons |> List.map formatStopReason |> List.toArray
 
+  let hasViolationAccess accesses =
+    accesses
+    |> Array.exists (fun access -> Option.isSome access.Violation)
+
+  let stopReasonsForTrace result accesses =
+    if hasViolationAccess accesses then
+      let reasons =
+        result.StopReasons
+        |> List.filter (isLimitReason >> not)
+        |> List.map formatStopReason
+        |> List.toArray
+      Array.append reasons [| "access violation" |]
+    else
+      stopReasons result
+
   let aggregateStopReasons total reasons =
     reasons
     |> List.map (function
@@ -421,8 +437,7 @@ type ConcExecutorValue private(binary: Binary,
   let hasAccessViolation (runState: ConcState) =
     match runState.Memory with
     | :? TracingMemory as memory ->
-      memory.Accesses
-      |> Array.exists (fun access -> Option.isSome access.Violation)
+      hasViolationAccess memory.Accesses
     | _ -> false
 
   let rec runSteps stops (start: Addr) count (runState: ConcState) =
@@ -468,7 +483,7 @@ type ConcExecutorValue private(binary: Binary,
       RegisterDiffs = registerDiffs beforeState result.State |> List.toArray
       MemoryAccesses = accesses
       MemoryDiffs = memoryDiff watch beforeState result.State
-      StopReasons = stopReasons result }
+      StopReasons = stopReasonsForTrace result accesses }
 
   let runWithTrace start count (sourceState: ConcState) watch stops =
     let traceMemory = TracingMemory(sourceState.Memory.Clone(), regions)
@@ -708,13 +723,16 @@ type ConcExecutorValue private(binary: Binary,
     | None -> [ "  last-run: <none>" ]
     | Some result ->
       let reasons =
-        result.StopReasons
-        |> List.map formatStopReason
-        |> String.concat ", "
+        match previousTrace with
+        | Some trace -> String.concat ", " trace.StopReasons
+        | None ->
+          result.StopReasons
+          |> List.map formatStopReason
+          |> String.concat ", "
       [ "  last-run:"
         $"    instructions: {result.InstructionCount}"
         $"    final-pc: 0x{result.FinalAddress:x}"
-        $"    stop: [{reasons}]" ]
+        $"    stopped: {reasons}" ]
 
   let traceSummary (trace: ExecutionTrace option) =
     match trace with
