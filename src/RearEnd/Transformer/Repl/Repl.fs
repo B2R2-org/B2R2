@@ -390,8 +390,6 @@ module TransformerRepl =
           addPending key
           keepReading <- false
       builder.ToString() |> normalizeLineBreaks
-    let samePhysicalKey (left: ConsoleKeyInfo) (right: ConsoleKeyInfo) =
-      left.Key = right.Key && left.Modifiers = right.Modifiers
     let isViewNavigationKey (key: ConsoleKeyInfo) =
       not (hasModifier ConsoleModifiers.Control key)
       && not (hasModifier ConsoleModifiers.Alt key)
@@ -405,6 +403,8 @@ module TransformerRepl =
           | ConsoleKey.PageUp
           | ConsoleKey.PageDown -> true
           | _ -> false)
+    let samePhysicalKey (left: ConsoleKeyInfo) (right: ConsoleKeyInfo) =
+      left.Key = right.Key && left.Modifiers = right.Modifiers
     let repeatedKeyCount first =
       let mutable count = 1
       let mutable keepReading = true
@@ -510,6 +510,9 @@ module TransformerRepl =
             | None when isViewNavigationKey key ->
               let count = repeatedKeyCount key
               model <- applyViewNavigation count key model
+              let scrollOffset =
+                TransformerTuiRenderer.viewScrollOffset width height model
+              model <- { model with ScrollOffset = scrollOffset }
             | None ->
               let completion = currentSuggestions ()
               let input =
@@ -529,8 +532,8 @@ module TransformerRepl =
           ()
         if not shouldExit && dirty then
           let completion = currentSuggestions ()
-          let frame =
-            TransformerTuiRenderer.render width height registry model completion
+          let render = TransformerTuiRenderer.render width height registry model
+          let frame = render completion
           TransformerTuiTerminal.draw model.IsBusy frame
           dirty <- false
         else

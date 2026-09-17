@@ -113,24 +113,19 @@ module TransformerTuiTerminal =
       Console.TreatControlCAsInput <- originalControlC
       Console.OutputEncoding <- originalEncoding
 
-  let private frameLines (content: string) =
-    let home = "\x1b[H"
-    let content =
-      if content.StartsWith home then content[home.Length..] else content
-    content.Split '\n'
-
-  let draw busy frame =
+  let draw busy (frame: TransformerTuiFrame) =
     let visibility = if busy then "\x1b[?25l" else "\x1b[?25h"
     let cursor = $"\x1b[{frame.CursorRow};{frame.CursorColumn}H"
-    let lines = frameLines frame.Content
+    let lines = frame.Lines
     let redrawAll = lines.Length <> previousFrameLines.Length
-    Console.Write "\x1b[?25l"
+    let output = StringBuilder "\x1b[?25l"
     lines
     |> Array.iteri (fun index line ->
       if redrawAll || previousFrameLines[index] <> line then
-        Console.Write($"\x1b[{index + 1};1H{line}")
+        output.Append($"\x1b[{index + 1};1H{line}") |> ignore
       else
         ())
     previousFrameLines <- lines
-    Console.Write(cursor + visibility)
+    output.Append(cursor).Append(visibility) |> ignore
+    Console.Write(output.ToString())
     Console.Out.Flush()

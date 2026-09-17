@@ -30,7 +30,7 @@ open System.Text
 
 /// A fully rendered terminal frame and its input cursor location.
 type TransformerTuiFrame =
-  { Content: string
+  { Lines: string array
     CursorRow: int
     CursorColumn: int }
 
@@ -345,91 +345,157 @@ module TransformerTuiRenderer =
     | None ->
       text
 
-  let private viewLine pane index (line: TuiLine) =
-    match pane.Anchor with
-    | Some _ when viewSelectionContains pane index
-                  || pane.Cursor.Line = index ->
-      let text =
-        if containsAnsi line.Text then sanitize line.Text else line.Text
-      { line with
-          Kind = TuiLineKind.Cursor
-          Text = text }
-    | Some _ ->
-      line
-    | None ->
-      let selected =
-        viewSelectionContains pane index || pane.Cursor.Line = index
-      let text =
-        if selected && containsAnsi line.Text then sanitize line.Text
-        else line.Text
-      { line with
-          Kind = selectedTextKind selected line.Kind
-          Text = text }
-
   type private ViewDisplayRow =
     { SourceLine: int
       Start: int
       Finish: int
+      IsFirst: bool
       Kind: TuiLineKind
+      Length: int
       Text: string }
 
-  let private viewDisplayRows width (pane: TuiViewPane) =
+  type private ViewRows =
+    { Rows: ViewDisplayRow array
+      Ranges: (int * int) array }
+
+  type private PlainViewRowsCache =
+    { Lines: TuiLine array
+      Width: int
+      ViewRows: ViewRows }
+
+  (* View-pane lines are retained without mutation while the pane is open. *)
+  let mutable private plainViewRowsCache: PlainViewRowsCache option = None
+
+  let private viewRowRanges lineCount (rows: ViewDisplayRow array) =
+    let first = Array.create lineCount -1
+    let last = Array.create lineCount -1
+    rows
+    |> Array.iteri (fun index row ->
+      if first[row.SourceLine] = -1 then first[row.SourceLine] <- index
+      last[row.SourceLine] <- index)
+    Array.init lineCount (fun index ->
+      if first[index] = -1 then 0, 0
+      else first[index], last[index])
+
+  let private makeViewRows (lines: TuiLine array) (rows: ViewDisplayRow list) =
+    let rows = rows |> List.toArray
+    { Rows = rows
+      Ranges = viewRowRanges lines.Length rows }
+
+  let private plainViewDisplayRows width (lines: TuiLine array) =
+    lines
+    |> Array.indexed
+    |> Array.toList
+    |> List.collect (fun (index, line) ->
+      let prefix = TransformerTuiText.linePrefix line.Kind
+      let text = displayText line.Text
+      let length = TransformerTuiText.sanitize text |> String.length
+      text
+      |> TransformerTuiText.wrapWithOffsets (max 1 (width - prefix.Length))
+      |> List.mapi (fun row (start, finish, text) ->
+        { SourceLine = index
+          Start = start
+          Finish = finish
+          IsFirst = row = 0
+          Kind = line.Kind
+          Length = length
+          Text = text }))
+    |> makeViewRows lines
+
+  let private dynamicViewDisplayRows width (pane: TuiViewPane) =
     pane.Lines
     |> Array.indexed
     |> Array.toList
     |> List.collect (fun (index, line) ->
-      let line = viewLine pane index line
-      let prefix = TransformerTuiText.linePrefix line.Kind
-      if containsAnsi line.Text then
+      let selected =
+        viewSelectionContains pane index || pane.Cursor.Line = index
+      let kind =
+        match pane.Anchor with
+        | Some _ when selected -> TuiLineKind.Cursor
+        | Some _ -> line.Kind
+        | None -> selectedTextKind selected line.Kind
+      let text =
+        if selected && containsAnsi line.Text then sanitize line.Text
+        else line.Text
+      let prefix = TransformerTuiText.linePrefix kind
+      if containsAnsi text then
         [ { SourceLine = index
             Start = 0
-            Finish = TransformerTuiText.stripAnsi line.Text |> String.length
-            Kind = line.Kind
-            Text = prefix + line.Text } ]
+            Finish = TransformerTuiText.stripAnsi text |> String.length
+            IsFirst = true
+            Kind = kind
+            Length = TransformerTuiText.stripAnsi text |> String.length
+            Text = text } ]
       else
-        let text = displayText line.Text
+        let text = displayText text
         let length = TransformerTuiText.sanitize text |> String.length
         text
         |> TransformerTuiText.wrapWithOffsets (max 1 (width - prefix.Length))
         |> List.mapi (fun row (start, finish, text) ->
-          let prefix = if row = 0 then prefix else "  "
           { SourceLine = index
             Start = start
             Finish = finish
-            Kind = line.Kind
-            Text =
-              prefix + selectViewRow pane index start finish length text }))
+            IsFirst = row = 0
+            Kind = kind
+            Length = length
+            Text = text }))
+    |> makeViewRows pane.Lines
+
+  let private viewRows width (pane: TuiViewPane) =
+    match plainViewRowsCache with
+    | Some cache
+      when cache.Width = width
+           && Object.ReferenceEquals(cache.Lines, pane.Lines) ->
+      cache.ViewRows
+    | _ when pane.Lines |> Array.exists (fun line -> containsAnsi line.Text) ->
+      dynamicViewDisplayRows width pane
+    | _ ->
+      let rows = plainViewDisplayRows width pane.Lines
+      plainViewRowsCache <-
+        Some { Lines = pane.Lines; Width = width; ViewRows = rows }
+      rows
 
   type private ViewPaneLayout =
     { Lines: (TuiLineKind * string) list
+      Offset: int
       CursorPosition: (int * int) option }
 
-  let private rowRange (rows: ViewDisplayRow list) line =
-    rows
-    |> List.indexed
-    |> List.choose (fun (index, row) ->
-      if row.SourceLine = line then Some index else None)
-    |> function
-      | [] -> None
-      | indices -> Some(List.head indices, List.last indices)
-
-  let private cursorRow (rows: ViewDisplayRow list) (pane: TuiViewPane) first =
+  let private viewCursorRow rows pane first last =
+    let rows: ViewDisplayRow array = rows
+    let pane: TuiViewPane = pane
     let column = pane.Cursor.Column
-    rows
-    |> List.indexed
-    |> List.tryFind (fun (_, row) ->
-      row.SourceLine = pane.Cursor.Line
-      && row.Start <= column && column <= row.Finish)
-    |> Option.map fst
-    |> Option.defaultValue first
+    let mutable index = first
+    let mutable cursor = None
+    while cursor.IsNone && index <= last do
+      let row = rows[index]
+      if row.Start <= column && column <= row.Finish then
+        cursor <- Some index
+      else
+        index <- index + 1
+    cursor |> Option.defaultValue first
+
+  let private renderViewRow pane (row: ViewDisplayRow) =
+    let selected =
+      viewSelectionContains pane row.SourceLine
+      || pane.Cursor.Line = row.SourceLine
+    let kind =
+      match pane.Anchor with
+      | Some _ when selected -> TuiLineKind.Cursor
+      | Some _ -> row.Kind
+      | None -> selectedTextKind selected row.Kind
+    let prefix =
+      if row.IsFirst then TransformerTuiText.linePrefix kind else "  "
+    let text =
+      selectViewRow pane row.SourceLine row.Start row.Finish row.Length row.Text
+    kind, prefix + text
 
   let private viewPaneLayout width height offset (model: TransformerTuiModel) =
     match model.ViewPane with
     | Some pane ->
-      let rows = viewDisplayRows width pane
-      let first, last =
-        rowRange rows pane.Cursor.Line |> Option.defaultValue (0, 0)
-      let maximumOffset = max 0 (List.length rows - height)
+      let layoutRows = viewRows width pane
+      let rows = layoutRows.Rows
+      let first, last = layoutRows.Ranges[pane.Cursor.Line]
+      let maximumOffset = max 0 (rows.Length - height)
       let offset = min offset maximumOffset
       let offset =
         if last - first + 1 >= height then
@@ -440,7 +506,7 @@ module TransformerTuiRenderer =
           last - height + 1
         else
           offset
-      let cursorRow = cursorRow rows pane first
+      let cursorRow = viewCursorRow rows pane first last
       let cursor =
         if offset <= cursorRow && cursorRow < offset + height then
           let row = rows[cursorRow]
@@ -449,13 +515,14 @@ module TransformerTuiRenderer =
         else
           None
       { Lines =
-          rows
-          |> List.skip offset
-          |> List.truncate height
-          |> List.map (fun row -> row.Kind, row.Text)
+          Array.sub rows offset (min height (rows.Length - offset))
+          |> Array.map (renderViewRow pane)
+          |> Array.toList
+        Offset = offset
         CursorPosition = cursor }
     | None ->
       { Lines = [ TuiLineKind.System, "No result to view." ]
+        Offset = 0
         CursorPosition = None }
 
   let private takeLast count offset lines =
@@ -812,10 +879,34 @@ module TransformerTuiRenderer =
     |> fit width
     |> paint dim
 
+  let private stateLine width model =
+    let busy =
+      if model.IsBusy then $"{spinner model.SpinnerFrame} running"
+      else model.Status
+    let paneStatus = paneStatus model busy
+    let status =
+      if String.IsNullOrWhiteSpace paneStatus then ""
+      else "  " + paneStatus
+    let state =
+      $" current: {currentSummary model}  "
+      + $"bindings: {Map.count model.Session.Bindings}  "
+      + $"focus: {model.Focus.ToString().ToLowerInvariant()}"
+      + status
+    paint blue (fit width state)
+
+  let viewScrollOffset width height model =
+    if model.Overlay = TuiOverlay.View then
+      let bodyHeight = TransformerTuiModel.transcriptHeight height model
+      let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
+      viewPaneLayout bodyWidth bodyHeight model.ScrollOffset model
+      |> fun layout -> layout.Offset
+    else
+      model.ScrollOffset
+
   let render width height registry model completion =
     if width < 40 || height < 15 then
       let message = "Terminal too small. Resize to at least 40 x 15."
-      { Content = "\x1b[H" + clearLine + fit width message
+      { Lines = [| clearLine + fit width message |]
         CursorRow = 1
         CursorColumn = 1 }
     else
@@ -854,20 +945,9 @@ module TransformerTuiRenderer =
                                       ("", "")
       let bodyRows =
         List.map2 (renderBodyRow leftWidth rightWidth) body sidebar
-      let busy =
-        if model.IsBusy then $"{spinner model.SpinnerFrame} running"
-        else model.Status
-      let paneStatus = paneStatus model busy
-      let status =
-        if String.IsNullOrWhiteSpace paneStatus then ""
-        else "  " + paneStatus
       let title = paint bold " B2R2 TRANSFORMER "
       let subtitle = paint dim " Interactive Binary Analysis"
-      let state =
-        $" current: {currentSummary model}  "
-        + $"bindings: {Map.count model.Session.Bindings}  "
-        + $"focus: {model.Focus.ToString().ToLowerInvariant()}"
-        + status
+      let state = stateLine width model
       let divider = paint dim (String.replicate width "-")
       let suggestions =
         suggestionRows suggestionCount width completion model.SuggestionIndex
@@ -875,19 +955,18 @@ module TransformerTuiRenderer =
       let rows =
         [ title + subtitle |> fun text -> text + fit (max 0 (width - 47)) ""
           keyHeader width
-          paint blue (fit width state)
+          state
           divider ]
         @ bodyRows
         @ [ divider ]
         @ suggestions
         @ inputRows
         @ [ context ]
-      let content =
+      let lines =
         rows
         |> List.map (fun row -> clearLine + row + reset)
-        |> String.concat "\n"
-        |> fun frame -> "\x1b[H" + frame
-      { Content = content
+        |> List.toArray
+      { Lines = lines
         CursorRow =
           cursorBodyPosition
           |> Option.map (fun (row, _) -> 5 + row)
