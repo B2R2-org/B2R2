@@ -129,8 +129,8 @@ type SliceAction() =
     member _.ActionID with get() = "slice"
     member _.Signature with get() =
       "Binary -> slice section=<section> | "
-      + "start=<addr> end=<addr-or-size> | "
-      + "start=<addr> offset=<addr-or-size> -> Binary"
+      + "start=<addr> end=<addr> | "
+      + "start=<addr> offset=<size> -> Binary"
     member _.Description with get() =
       """
     Take in a byte array or a BinHandle and return a byte array of a part of the
@@ -139,8 +139,7 @@ type SliceAction() =
 
       - `section=<section>` returns the section with the given name.
       - `start=<addr> end=<addr>` returns the half-open range [start, end).
-      - `start=<addr> end=+<n>` returns n bytes starting at start.
-      - `start=<addr> offset=+<n>` is accepted as the size form.
+      - `start=<addr> offset=<n>` returns n bytes starting at start.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

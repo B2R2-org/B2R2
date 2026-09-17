@@ -33,6 +33,9 @@ open B2R2.FrontEnd.BinFile
 
 /// The `edit` action.
 type EditAction() =
+  let formatRange startAddress endAddress =
+    $"0x{startAddress:x}-0x{endAddress:x} (end exclusive)"
+
   let makeBinary bin newbs =
     let hdl = Binary.Handle bin
     if hdl.File.Format = FileFormat.RawBinary then
@@ -41,22 +44,94 @@ type EditAction() =
     else
       Binary.OfEditedContent("Editted from ", bin, newbs) |> box
 
-  let parseInt32 (value: string) =
+  let parseUInt64 (value: string) =
     let style, value =
       if value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
         NumberStyles.HexNumber, value[2..]
       else
         NumberStyles.Integer, value
-    Int32.Parse(value, style, CultureInfo.InvariantCulture)
+    UInt64.Parse(value, style, CultureInfo.InvariantCulture)
 
-  let parseEndOffset soff (eoff: string) =
-    if eoff.StartsWith "+" then soff + parseInt32 (eoff[1..])
-    else parseInt32 eoff
+  let parseEndAddress startAddress (value: string) =
+    if value.StartsWith "+" then
+      startAddress + parseUInt64 value[1..]
+    else
+      parseUInt64 value
 
-  let insert off (snip: byte[]) o =
+  let sectionRange (section: BinSection) =
+    section.Address, section.Address + section.FileSize
+
+  let fileBackedSections (hdl: BinHandle) =
+    BinFileOps.getSections hdl.File
+    |> Array.filter (fun section ->
+      section.FileSize > 0UL && Option.isSome section.Offset)
+
+  let describeSections sections =
+    if Array.isEmpty sections then
+      "No file-backed sections are available."
+    else
+      sections
+      |> Array.map (fun section ->
+        let startAddress, endAddress = sectionRange section
+        $"{section.Name} {formatRange startAddress endAddress}")
+      |> String.concat "; "
+
+  let checkedFileOffset section address =
+    let section: BinSection = section
+    let offset = Option.get section.Offset
+    let fileOffset = offset + address - section.Address
+    if fileOffset > uint64 Int32.MaxValue then
+      invalidArg (nameof address) "File offset is too large."
+    else
+      int fileOffset
+
+  let findSectionForRange hdl startAddress endAddress =
+    if startAddress >= endAddress then
+      invalidArg (nameof startAddress) "Invalid address range."
+    else
+      let sections = fileBackedSections hdl
+      let contains section =
+        let sectionStart, sectionEnd = sectionRange section
+        startAddress >= sectionStart && endAddress <= sectionEnd
+      match sections |> Array.tryFind contains with
+      | Some section -> section
+      | None ->
+        let range = formatRange startAddress endAddress
+        let sections = describeSections sections
+        invalidArg (nameof hdl)
+          $"Edit range {range} is outside file-backed sections: {sections}"
+
+  let findSectionForAddress hdl address =
+    let sections = fileBackedSections hdl
+    let contains section =
+      let sectionStart, sectionEnd = sectionRange section
+      address >= sectionStart && address <= sectionEnd
+    match sections |> Array.tryFind contains with
+    | Some section -> section
+    | None ->
+      let sections = describeSections sections
+      let message =
+        $"Edit address 0x{address:x} is outside file-backed sections: "
+        + sections
+      invalidArg (nameof hdl)
+        message
+
+  let offsetForRange bin startAddress endAddress =
+    let hdl = Binary.Handle bin
+    let section = findSectionForRange hdl startAddress endAddress
+    checkedFileOffset section startAddress,
+    checkedFileOffset section endAddress
+
+  let offsetForAddress bin address =
+    let hdl = Binary.Handle bin
+    findSectionForAddress hdl address |> fun section ->
+      checkedFileOffset section address
+
+  let insert startAddress (snip: byte[]) o =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
+    let off = offsetForAddress bin startAddress
     let newbs = Array.zeroCreate (bs.Length + snip.Length)
     if off > bs.Length then invalidArg (nameof off) "Offset is too large."
     elif off = 0 then
@@ -68,10 +143,11 @@ type EditAction() =
       Array.blit bs off newbs (off + snip.Length) (bs.Length - off)
     makeBinary bin newbs
 
-  let delete soff eoff o =
+  let delete startAddress endAddress o =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
+    let soff, eoff = offsetForRange bin startAddress endAddress
     let rmlen = eoff - soff
     let newbs = Array.zeroCreate (bs.Length - rmlen)
     if rmlen > bs.Length || eoff > bs.Length || soff >= bs.Length || soff < 0
@@ -85,10 +161,11 @@ type EditAction() =
 
   (* The edited whole content is bs, into which newbs has just been blitted;
      newbs alone is only the replacement snippet. *)
-  let replace soff eoff newbs o =
+  let replace startAddress endAddress newbs o =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
+    let soff, eoff = offsetForRange bin startAddress endAddress
     Array.blit newbs 0 bs soff (eoff - soff)
     makeBinary bin bs
 
@@ -101,56 +178,59 @@ type EditAction() =
 
   let transform cancellationToken args collection =
     match args with
-    | "insert" :: off :: hexstr :: [] ->
-      let off = parseInt32 off
+    | "insert" :: start :: hexstr :: [] ->
+      let start = parseUInt64 start
       let bs = ByteArray.ofHexString hexstr
-      { Values = map cancellationToken (insert off bs) collection }
-    | "delete" :: soff :: eoff :: [] ->
-      let soff = parseInt32 soff
-      let eoff = parseEndOffset soff eoff
-      if eoff > soff then
-        { Values = map cancellationToken (delete soff eoff) collection }
+      { Values = map cancellationToken (insert start bs) collection }
+    | "delete" :: start :: finish :: [] ->
+      let start = parseUInt64 start
+      let finish = parseEndAddress start finish
+      if finish > start then
+        { Values = map cancellationToken (delete start finish) collection }
       else
-        invalidArg (nameof args) "Invalid offsets."
-    | "replace" :: soff :: eoff :: hexstr :: [] ->
-      let soff = parseInt32 soff
-      let eoff = parseEndOffset soff eoff
+        invalidArg (nameof args) "Invalid address range."
+    | "replace" :: start :: finish :: hexstr :: [] ->
+      let start = parseUInt64 start
+      let finish = parseEndAddress start finish
       let newbs = ByteArray.ofHexString hexstr
-      if eoff > soff && (eoff - soff) = newbs.Length then
-        let replace = replace soff eoff newbs
+      let editSize = finish - start
+      if finish > start && editSize = uint64 newbs.Length then
+        let replace = replace start finish newbs
         { Values = map cancellationToken replace collection }
       else
-        invalidArg (nameof args) "Invalid offsets or hexstring."
+        invalidArg (nameof args) "Invalid address range or hexstring."
     | _ -> invalidArg (nameof args) "Invalid edit action."
 
   interface IAction with
     member _.ActionID with get() = "edit"
     member _.Signature with get() =
-      "Binary -> edit insert offset=<n> hex=<hex> | "
-      + "delete offset=<n> end=<n-or-size> | "
-      + "replace offset=<n> end=<n-or-size> hex=<hex> -> Binary"
+      "Binary -> edit insert start=<addr> hex=<hex> | "
+      + "delete start=<addr> end=<addr> | "
+      + "delete start=<addr> size=<n> | "
+      + "replace start=<addr> end=<addr> hex=<hex> | "
+      + "replace start=<addr> size=<n> hex=<hex> -> Binary"
     member _.Description with get() =
       """
     Take in a binary as well as edit action as input and return a modified
     binary as output. There are following supported edit actions.
 
-      - `insert offset=<n> hex=<hex>`
-        Insert bytes at offset n. This will increase the size of the resulting
-        binary by the size of the given hex bytes.
+      - `insert start=<addr> hex=<hex>`
+        Insert bytes at address addr. This will increase the size of the
+        resulting binary by the size of the given hex bytes.
 
-      - `delete offset=<n> end=<m>`
-        Remove bytes in the half-open range [n, m). The resulting binary will
-        have the size less than the original one.
+      - `delete start=<addr> end=<end>`
+        Remove bytes in the half-open range [addr, end). The resulting binary
+        will have the size less than the original one.
 
-      - `delete offset=<n> end=+<sz>`
-        Remove sz bytes starting at offset n.
+      - `delete start=<addr> size=<sz>`
+        Remove sz bytes starting at address addr.
 
-      - `replace offset=<n> end=<m> hex=<hex>`
-        Replace bytes in the half-open range [n, m). The hex byte length should
-        be equal to m - n.
+      - `replace start=<addr> end=<end> hex=<hex>`
+        Replace bytes in the half-open range [addr, end). The hex byte length
+        should be equal to end - addr.
 
-      - `replace offset=<n> end=+<sz> hex=<hex>`
-        Replace sz bytes starting at offset n.
+      - `replace start=<addr> size=<sz> hex=<hex>`
+        Replace sz bytes starting at address addr.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

@@ -554,28 +554,36 @@ module TransformerReplEvaluator =
     | _ -> None
 
   let private isAddress (value: string) =
-    match tryParseUInt64 value with
-    | Some _ -> true
-    | None -> false
+    if value.StartsWith '+' then
+      false
+    else
+      match tryParseUInt64 value with
+      | Some _ -> true
+      | None -> false
 
-  let private isAddressOrSize (value: string) =
+  let private isSize (value: string) =
     if value.StartsWith "+0x" then isAddress value[1..]
     elif value.StartsWith '+' then
       match tryParseUInt64 value[1..] with
       | Some size -> size > 0UL
       | None -> false
     else
-      isAddress value
+      match tryParseUInt64 value with
+      | Some size -> size > 0UL
+      | None -> false
 
   let private isInteger (value: string) =
-    let style, value =
-      if value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
-        NumberStyles.HexNumber, value[2..]
-      else
-        NumberStyles.Integer, value
-    match Int32.TryParse(value, style, CultureInfo.InvariantCulture) with
-    | true, _ -> true
-    | _ -> false
+    if value.StartsWith '+' then
+      false
+    else
+      let style, value =
+        if value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
+          NumberStyles.HexNumber, value[2..]
+        else
+          NumberStyles.Integer, value
+      match Int32.TryParse(value, style, CultureInfo.InvariantCulture) with
+      | true, _ -> true
+      | _ -> false
 
   let private isFloat (value: string) =
     let style = NumberStyles.Float
@@ -639,9 +647,8 @@ module TransformerReplEvaluator =
         isHexString value, "even-length hexadecimal bytes"
       | ActionArgumentKind.Address ->
         isAddress value, "an address (0x... hex or decimal)"
-      | ActionArgumentKind.AddressOrSize ->
-        isAddressOrSize value,
-        "an address or positive +offset (0x... hex or decimal)"
+      | ActionArgumentKind.Size ->
+        isSize value, "a positive size (0x... hex or decimal)"
       | ActionArgumentKind.Section ->
         sectionExists input value, "a section in the current binary"
       | ActionArgumentKind.Action ->
@@ -731,6 +738,7 @@ module TransformerReplEvaluator =
       | ActionArgumentKind.ParameterFunction
       | ActionArgumentKind.Choice -> [ "String" ]
       | ActionArgumentKind.Integer -> [ "Integer" ]
+      | ActionArgumentKind.Size -> [ "Integer" ]
       | _ -> []
     primary :: aliases
 
@@ -865,6 +873,28 @@ module TransformerReplEvaluator =
     |> List.tryFind Result.isError
     |> Option.defaultValue (Ok())
 
+  let private canonicalArgumentValue argument (value: string) =
+    let argument: ActionArgument = argument
+    match argument.Kind with
+    | ActionArgumentKind.Size
+        when not (value.StartsWith '+') -> "+" + value
+    | _ -> value
+
+  let private canonicalArguments candidate =
+    let candidate: NormalizedSyntax = candidate
+    let rec loop output arguments values =
+      match arguments, values with
+      | argument :: arguments, value :: values ->
+        let value = canonicalArgumentValue argument value
+        loop (value :: output) arguments values
+      | _, [] -> List.rev output
+      | [], values -> List.rev output @ values
+    match candidate.Syntax.Trigger, candidate.Arguments with
+    | Some trigger, actual :: values when equalsIgnoreCase trigger actual ->
+      trigger :: loop [] candidate.Syntax.Arguments values
+    | _ ->
+      loop [] candidate.Syntax.Arguments candidate.Arguments
+
   let private invalidArguments (metadata: ActionMetadata) detail =
     let signature = ActionMetadata.typedSignature metadata
     Error(
@@ -883,7 +913,9 @@ module TransformerReplEvaluator =
         |> List.choose (normalizeSyntax parsed)
       if List.isEmpty matching then
         let operations =
-          metadata.Syntaxes |> List.choose (fun syntax -> syntax.Trigger)
+          metadata.Syntaxes
+          |> List.choose (fun syntax -> syntax.Trigger)
+          |> List.distinct
         let detail =
           match operations with
           | [] -> "the argument layout is invalid."
@@ -906,7 +938,7 @@ module TransformerReplEvaluator =
             |> List.map (function
               | Ok candidate ->
                 validateSyntax input candidate |> Result.map (fun () ->
-                  candidate.Arguments)
+                  canonicalArguments candidate)
               | Error error -> Error error)
           match results |> List.tryFind Result.isOk with
           | Some(Ok normalizedArgs) -> Ok normalizedArgs

@@ -80,7 +80,7 @@ type ActionArgumentKind =
   | HexPattern
   | HexBytes
   | Address
-  | AddressOrSize
+  | Size
   | Section
   | Action
   | ParameterFunction
@@ -258,7 +258,7 @@ module ActionMetadata =
     | ActionArgumentKind.HexPattern -> "HexPattern"
     | ActionArgumentKind.HexBytes -> "HexBytes"
     | ActionArgumentKind.Address -> "Address"
-    | ActionArgumentKind.AddressOrSize -> "AddressOrSize"
+    | ActionArgumentKind.Size -> "Size"
     | ActionArgumentKind.Section -> "Section"
     | ActionArgumentKind.Action -> "Action"
     | ActionArgumentKind.ParameterFunction -> "ParameterFunction"
@@ -275,7 +275,7 @@ module ActionMetadata =
     | ActionArgumentKind.HexPattern -> "hex-pattern"
     | ActionArgumentKind.HexBytes -> "hex"
     | ActionArgumentKind.Address -> "addr"
-    | ActionArgumentKind.AddressOrSize -> "addr-or-size"
+    | ActionArgumentKind.Size -> "size"
     | ActionArgumentKind.Section -> "section"
     | ActionArgumentKind.Action -> "action"
     | ActionArgumentKind.ParameterFunction -> "fun"
@@ -673,23 +673,28 @@ module ActionMetadata =
       [ "graph |> @dot" ] [ syntax None [] ]
 
   let private edit =
-    let offset =
-      required "offset" ActionArgumentKind.Integer "Zero-based file offset."
-    let endOffset =
-      required "end" ActionArgumentKind.AddressOrSize
-        "Exclusive end offset or +size."
+    let start =
+      required "start" ActionArgumentKind.Address "Starting address."
+    let finish =
+      required "end" ActionArgumentKind.Address
+        "Exclusive end address."
+    let size =
+      required "size" ActionArgumentKind.Size
+        "Positive byte count relative to the start address."
     let bytes =
       required "hex" ActionArgumentKind.HexBytes
         "Replacement bytes as a hexadecimal string."
-    let insert = syntax (Some "insert") [ offset; bytes ]
-    let delete = syntax (Some "delete") [ offset; endOffset ]
-    let replace = syntax (Some "replace") [ offset; endOffset; bytes ]
+    let insert = syntax (Some "insert") [ start; bytes ]
+    let deleteEnd = syntax (Some "delete") [ start; finish ]
+    let deleteSize = syntax (Some "delete") [ start; size ]
+    let replaceEnd = syntax (Some "replace") [ start; finish; bytes ]
+    let replaceSize = syntax (Some "replace") [ start; size; bytes ]
     contract "edit" ReplValueKind.Binary ReplValueKind.Binary
       ActionRole.Transform 40 "edit <operation> ... -> Binary"
-      [ "binary |> @edit insert offset=0 hex=90"
-        "binary |> @edit delete offset=0 end=+4"
-        "binary |> @edit replace offset=0 end=+2 hex=9090" ]
-      [ insert; delete; replace ]
+      [ "binary |> @edit insert start=0x401000 hex=90"
+        "binary |> @edit delete start=0x401000 size=4"
+        "binary |> @edit replace start=0x401000 size=2 hex=9090" ]
+      [ insert; deleteEnd; deleteSize; replaceEnd; replaceSize ]
 
   let private grep =
     let pattern =
@@ -851,18 +856,19 @@ module ActionMetadata =
     let start =
       required "start" ActionArgumentKind.Address "Starting address."
     let finish =
-      required "end" ActionArgumentKind.AddressOrSize
+      required "end" ActionArgumentKind.Address
         "Exclusive end address."
     let offset =
-      required "offset" ActionArgumentKind.AddressOrSize
+      required "offset" ActionArgumentKind.Size
         "Positive size relative to the start address."
     let signature =
-      "slice section=<name>|start=<addr> (end=<addr>|offset=+n) -> Binary"
+      "slice section=<section> | start=<addr> end=<addr> | "
+      + "start=<addr> offset=<size> -> Binary"
     contract "slice" ReplValueKind.Binary
       ReplValueKind.Binary
       ActionRole.Transform 10 signature
       [ "binary |> @slice section=.text"
-        "binary |> @slice start=0x401000 offset=+32" ]
+        "binary |> @slice start=0x401000 offset=32" ]
       [ syntax None [ section ]
         syntax None [ start; finish ]
         syntax None [ start; offset ] ]

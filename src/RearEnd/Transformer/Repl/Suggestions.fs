@@ -631,9 +631,8 @@ module Suggestions =
       values argument.Description [ "00"; "90"; "9090" ]
     | ActionArgumentKind.Address ->
       addressCandidates state prefix
-    | ActionArgumentKind.AddressOrSize ->
-      addressCandidates state prefix
-      @ values argument.Description [ "+16"; "+32"; "+0x20" ]
+    | ActionArgumentKind.Size ->
+      values argument.Description [ "64"; "0x40"; "+64" ]
     | ActionArgumentKind.Section ->
       sectionCandidates state prefix
     | ActionArgumentKind.Action
@@ -710,7 +709,7 @@ module Suggestions =
     | ActionArgumentKind.HexPattern -> "7f454c46"
     | ActionArgumentKind.HexBytes -> "90"
     | ActionArgumentKind.Address -> ""
-    | ActionArgumentKind.AddressOrSize -> "+16"
+    | ActionArgumentKind.Size -> "64"
     | ActionArgumentKind.Section -> ""
     | ActionArgumentKind.Choice ->
       argument.Choices |> List.tryHead |> Option.defaultValue ""
