@@ -329,11 +329,7 @@ module TransformerRepl =
           StartedAt = DateTimeOffset.Now }
       model, Some running
 
-  let private cancelEvaluation running (model: TransformerTuiModel) =
-    running.Cancellation.Cancel()
-    running.Task.ContinueWith(fun (_: Task<ReplEvaluation>) ->
-      running.Cancellation.Dispose())
-    |> ignore
+  let private finishCancellation running (model: TransformerTuiModel) =
     let duration = DateTimeOffset.Now - running.StartedAt
     let session =
       model.Session
@@ -343,9 +339,19 @@ module TransformerRepl =
     model
     |> TransformerTuiModel.setSession session
     |> TransformerTuiModel.appendLines TuiLineKind.System
-      [ "Action cancelled; any late result will be discarded." ]
+      [ "Action cancelled." ]
     |> TransformerTuiModel.setBusy false
     |> TransformerTuiModel.setStatus "Cancelled"
+
+  let private requestCancellation running model =
+    if running.Cancellation.IsCancellationRequested then
+      model
+    else
+      running.Cancellation.Cancel()
+      model
+      |> TransformerTuiModel.appendLines TuiLineKind.System
+        [ "Cancellation requested; waiting for the action to stop." ]
+      |> TransformerTuiModel.setStatus "Cancelling action"
 
   let private runTui initialRegistry =
     let restoreTerminal = TransformerTuiTerminal.enter ()
@@ -460,13 +466,8 @@ module TransformerRepl =
         match running with
         | Some runningEvaluation when runningEvaluation.Task.IsCompleted ->
           let task = runningEvaluation.Task
-          if task.IsCanceled then
-            model <-
-              model
-              |> TransformerTuiModel.appendLines TuiLineKind.System
-                [ "Action cancelled." ]
-              |> TransformerTuiModel.setBusy false
-              |> TransformerTuiModel.setStatus "Cancelled"
+          if runningEvaluation.Cancellation.IsCancellationRequested then
+            model <- finishCancellation runningEvaluation model
           else
             try
               let nextRegistry, nextModel, exit =
@@ -494,8 +495,7 @@ module TransformerRepl =
             | Some runningEvaluation
               when hasModifier ConsoleModifiers.Control key
                    && key.Key = ConsoleKey.C ->
-              model <- cancelEvaluation runningEvaluation model
-              running <- None
+              model <- requestCancellation runningEvaluation model
             | Some _ ->
               ()
             | None when isTextKey key
