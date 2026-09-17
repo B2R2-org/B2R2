@@ -114,11 +114,13 @@ module ReplLanguage =
         let chr = text[index]
         match quote with
         | Some delimiter when chr = delimiter ->
+          builder.Append chr |> ignore
           loop (index + 1) None tokens
         | Some _ ->
           builder.Append chr |> ignore
           loop (index + 1) quote tokens
         | None when chr = '\'' || chr = '"' ->
+          builder.Append chr |> ignore
           loop (index + 1) (Some chr) tokens
         | None when Char.IsWhiteSpace chr ->
           let tokens = finishToken builder tokens
@@ -188,6 +190,34 @@ module ReplLanguage =
 
   let tokenizeStrict text =
     tokenizeWith TokenizeMode.Strict text |> Result.bind validateDelimiters
+
+  let tryQuotedString (text: string) =
+    if text.Length >= 2
+       && (text[0] = '\'' || text[0] = '"')
+       && text[text.Length - 1] = text[0] then
+      Some(text[1..text.Length - 2])
+    else
+      None
+
+  let unquote (text: string) =
+    let builder = StringBuilder()
+    let rec loop index quote =
+      if index = text.Length then
+        builder.ToString()
+      else
+        let chr = text[index]
+        match quote with
+        | Some delimiter when chr = delimiter ->
+          loop (index + 1) None
+        | Some _ ->
+          builder.Append chr |> ignore
+          loop (index + 1) quote
+        | None when chr = '\'' || chr = '"' ->
+          loop (index + 1) (Some chr)
+        | None ->
+          builder.Append chr |> ignore
+          loop (index + 1) None
+    loop 0 None
 
   let splitWords text = tokenize text
 

@@ -1389,6 +1389,7 @@ module TransformerReplEvaluator =
       let args =
         segment.Arguments
         |> resolveArgumentBindings state
+        |> List.map ReplLanguage.unquote
         |> compactBracketArguments
       let outputKind =
         if metadata.ID = "make-concrete-context" then
@@ -1406,6 +1407,7 @@ module TransformerReplEvaluator =
       let args =
         segment.Arguments
         |> resolveArgumentBindings state
+        |> List.map ReplLanguage.unquote
         |> compactBracketArguments
       let ready =
         if metadata.ID = "make-symbolic-executor" then
@@ -1539,6 +1541,8 @@ module TransformerReplEvaluator =
       tryAddressLiteral token
       |> Option.orElseWith (fun () -> tryIntLiteral token)
       |> Option.orElseWith (fun () -> tryBoolLiteral token)
+      |> Option.orElseWith (fun () ->
+        ReplLanguage.tryQuotedString token |> Option.map box)
       |> Option.map (fun value ->
         ReplValue.ofCollection ReplValueKind.Any { Values = [| value |] })
     | _ -> None

@@ -103,6 +103,6 @@ module TransformerReplParser =
       |> Result.bind (function
         | [] -> Ok NoInput
         | command :: _ as tokens when command.StartsWith ':' ->
-          parseMetaCommand tokens
+          tokens |> List.map ReplLanguage.unquote |> parseMetaCommand
         | tokens ->
           ReplLanguage.parseEvaluation input tokens)
