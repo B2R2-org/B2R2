@@ -24,41 +24,34 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open System.IO
 open System.Threading
 
-/// The `write` action.
-type WriteAction() =
-  let rec write cancellationToken fname (o: obj) =
+/// The `save` action.
+type SaveAction() =
+  let save cancellationToken fname (input: obj) =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
-    match o with
-    | :? (Instruction[]) as instructions ->
-      let lines = instructions |> Array.map string
-      File.WriteAllLines(fname, lines)
-    | _ ->
-      ReplArtifactWriter.writeText fname o
+    match input with
+    | :? Binary as bin -> ReplArtifactWriter.writeBinary fname bin
+    | _ -> invalidArg (nameof input) "save only supports Binary values."
 
   let transform cancellationToken (args: string list) collection =
-    if args.Length = collection.Values.Length then
-      let args = List.toArray args
-      Array.iter2 (write cancellationToken) args collection.Values
+    match args, collection.Values with
+    | [ fname ], [| value |] ->
+      save cancellationToken fname value
       { Values = [||] }
-    elif args.Length = 1 then
-      let fname = List.head args
-      let fnames = collection.Values |> Array.mapi (fun i _ -> $"{fname}.{i}")
-      Array.iter2 (write cancellationToken) fnames collection.Values
-      { Values = [||] }
-    else
-      invalidArg (nameof args) "Input lengths mismatch."
+    | [ _ ], _ ->
+      invalidArg (nameof collection)
+        "save expects one Binary; use batch to save collection items."
+    | _ ->
+      invalidArg (nameof args) "Expected: save path=<path>."
 
   interface IAction with
-    member _.ActionID with get() = "write"
-    member _.Signature with get() =
-      "Text|InstructionArray * path=<path> -> Unit"
+    member _.ActionID with get() = "save"
+    member _.Signature with get() = "Binary -> save path=<path> -> Unit"
     member _.Description with get() =
       """
-    Take in a text value and write out its content to the <file>.
+    Take in a Binary value and save its raw bytes to the <file>.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

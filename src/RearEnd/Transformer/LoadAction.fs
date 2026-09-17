@@ -25,61 +25,82 @@
 namespace B2R2.RearEnd.Transformer
 
 open System.IO
+open System.Threading
 open B2R2
 open B2R2.FrontEnd
 
 /// The `load` action.
 type LoadAction() =
-  (* Without format parsing the file is taken as a raw image, which is what the
-     "raw" argument asks for; the path is then not carried, as a raw image has
-     no file behind it. *)
-  let loadFile isa parseFileFormat path =
-    if parseFileFormat then BinHandle.LoadFile(path, isa, None)
-    else BinHandle.LoadRawImage(File.ReadAllBytes path, isa)
+  let loadFile isa path =
+    BinHandle.LoadFile(path, isa, None)
 
-  let load isa parseFileFormat s =
-    if File.Exists(path = s) then
-      lazy loadFile isa parseFileFormat s
+  let loadPath cancellationToken isa path =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
+    if File.Exists(path = path) then
+      lazy loadFile isa path
       |> Binary.PlainInit
       |> box
       |> Array.singleton
-    elif Directory.Exists(path = s) then
-      Directory.GetFiles s
+    elif Directory.Exists(path = path) then
+      Directory.GetFiles path
       |> Array.map (fun f ->
-        lazy loadFile isa parseFileFormat f
+        cancellationToken.ThrowIfCancellationRequested()
+        lazy loadFile isa f
         |> Binary.PlainInit |> box)
     else
-      lazy BinHandle.LoadRawImage(ByteArray.ofHexString s, isa)
-      |> Binary.PlainInit
-      |> box
-      |> Array.singleton
+      invalidArg (nameof path) $"File or directory not found: {path}"
+
+  let loadHex isa hex =
+    lazy BinHandle.LoadRawImage(ByteArray.ofHexString hex, isa)
+    |> Binary.PlainInit
+    |> box
+    |> Array.singleton
+
+  let isHexString value =
+    try
+      ByteArray.ofHexString value |> ignore
+      true
+    with _ ->
+      false
+
+  let loadSource (cancellationToken: CancellationToken) (isa: ISA)
+                 (value: string) =
+    if File.Exists(path = value) || Directory.Exists(path = value) then
+      loadPath cancellationToken isa value
+    elif isHexString value then
+      loadHex isa value
+    else
+      let message = $"File, directory, or hex bytes not found: {value}"
+      invalidArg (nameof value) message
+
+  let transform cancellationToken (args: string list) collection =
+    if collection.Values |> Array.forall isNull then ()
+    else invalidArg (nameof collection) "Invalid argument type."
+    match args with
+    | value :: isaName :: [] ->
+      let isa = ISA isaName
+      { Values = loadSource cancellationToken isa value }
+    | value :: [] ->
+      let isa = ISA Architecture.Intel
+      { Values = loadSource cancellationToken isa value }
+    | _ -> invalidArg (nameof args) "Invalid arguments given."
 
   interface IAction with
     member _.ActionID with get() = "load"
-    member _.Signature with get() = "unit * <str> * [isa] : string -> Binary"
+    member _.Signature with get() =
+      "Unit -> load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> -> Binary"
     member _.Description with get() =
       """
-    Take in a string <str> and return a binary object. The given input string
-    can either represent a file path or a hexstring. If the given string
-    represents a valid file path, then the raw file content will be loaded.
-    If the given string is a valid directory path, then every file in the
-    directory will be loaded in bulk. Otherwise, we consider the input string as
-    a hexstring, and return the corresponding binary.
+    Take in a file path and return a binary object. If the given string is a
+    valid directory path, then every file in the directory will be loaded in
+    bulk. Use `hex=<hex> isa=<isa>` to load hexadecimal bytes as a raw image.
 
       - [isa] : parse the binary for the given ISA.
 """
     member _.Transform(args, collection) =
-      if collection.Values |> Array.forall isNull then ()
-      else invalidArg (nameof collection) "Invalid argument type."
-      match args with
-      | s :: isaName :: "raw" :: [] ->
-        let isa = ISA isaName
-        { Values = load isa false s }
-      | s :: isaName :: [] ->
-        let isa = ISA isaName
-        { Values = load isa true s }
-      | s :: [] ->
-        let isa = ISA Architecture.Intel
-        { Values = load isa true s }
-      | _ ->
-        invalidArg (nameof args) "Invalid arguments given."
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection
