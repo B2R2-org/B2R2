@@ -352,11 +352,7 @@ module TransformerRepl =
       count
     let pageHeight model =
       let _, height = TransformerTuiTerminal.dimensions ()
-      let contentHeight = height - 7
-      let defaultBodyHeight = max 1 (contentHeight - model.ShellHeight)
-      match model.TranscriptHeight with
-      | Some requested -> max 1 (min (contentHeight - 1) requested)
-      | None -> defaultBodyHeight
+      TransformerTuiModel.transcriptHeight height model
     let applyViewNavigation count (key: ConsoleKeyInfo) model =
       let shift = hasModifier ConsoleModifiers.Shift key
       match key.Key with

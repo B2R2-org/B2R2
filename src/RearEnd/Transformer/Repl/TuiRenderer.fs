@@ -769,19 +769,13 @@ module TransformerTuiRenderer =
         CursorRow = 1
         CursorColumn = 1 }
     else
-      let completionPaneRows = 9
-      let shellInputRows = max 1 (model.ShellHeight - 1)
+      let shellInputRows = TransformerTuiModel.shellInputCapacity model
       let inputRows, inputCursor =
         inputView width shellInputRows model completion
       let availableBodyAndCompletion =
-        max 2 (height - 6 - List.length inputRows)
-      let defaultBodyHeight =
-        max 1 (availableBodyAndCompletion - completionPaneRows)
+        TransformerTuiModel.availableBodyAndCompletion height model
       let bodyHeight =
-        match model.TranscriptHeight with
-        | Some requested ->
-          max 1 (min (availableBodyAndCompletion - 1) requested)
-        | None -> defaultBodyHeight
+        TransformerTuiModel.transcriptHeight height model
       let suggestionCount =
         max 1 (availableBodyAndCompletion - bodyHeight)
       let defaultRightWidth =

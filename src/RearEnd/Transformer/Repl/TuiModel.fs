@@ -115,7 +115,32 @@ type TransformerTuiModel =
 module TransformerTuiModel =
   let private maximumTranscriptLines = 5000
 
+  let completionPaneRows = 9
+
   let private ansiPattern = Regex("\x1B\[[0-?]*[ -/]*[@-~]")
+
+  let private inputLineCount (input: string) =
+    input.Replace("\r\n", "\n").Replace('\r', '\n').Split '\n'
+    |> Array.length
+
+  let shellInputCapacity model =
+    max 1 ((model: TransformerTuiModel).ShellHeight - 1)
+
+  let visibleShellInputRows model =
+    min (shellInputCapacity model) (inputLineCount model.Input)
+
+  let availableBodyAndCompletion terminalHeight model =
+    max 2 (terminalHeight - 6 - visibleShellInputRows model)
+
+  let defaultTranscriptHeight terminalHeight model =
+    let available = availableBodyAndCompletion terminalHeight model
+    max 1 (available - completionPaneRows)
+
+  let transcriptHeight terminalHeight model =
+    let available = availableBodyAndCompletion terminalHeight model
+    match (model: TransformerTuiModel).TranscriptHeight with
+    | Some requested -> max 1 (min (available - 1) requested)
+    | None -> defaultTranscriptHeight terminalHeight model
 
   let private isCommandLine line =
     line.Kind = TuiLineKind.Command
