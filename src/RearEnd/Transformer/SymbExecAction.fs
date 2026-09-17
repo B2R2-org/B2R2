@@ -861,6 +861,11 @@ module private SymbArgs =
     maxDepth, maxStates, loopBound, prune
 
 module private SymbCondition =
+  type IntegerLiteral =
+    { Value: Addr
+      Type: RegType option
+      IsSigned: bool }
+
   type Term =
     | Register of string
     | Memory of Addr * RegType
@@ -868,7 +873,7 @@ module private SymbCondition =
 
   type Condition =
     | At of Addr
-    | Compare of Term * RelOpType * Addr
+    | Compare of Term * RelOpType * IntegerLiteral
     | MemoryPolicyViolation of SymbMemoryAccessKind option
     | And of Condition list
 
@@ -892,6 +897,25 @@ module private SymbCondition =
     | ">=" -> RelOpType.GE
     | op -> invalidArg (nameof op) $"Unsupported condition operator: {op}"
 
+  let parseIntegerLiteral (m: Match) =
+    let value = SymbArgs.parseAddr m.Groups["value"].Value
+    if m.Groups["sign"].Success then
+      let width = SymbArgs.parseInt m.Groups["width"].Value
+      let typ = RegType.fromBitWidth width
+      let maximum =
+        if width = 64 then UInt64.MaxValue else (1UL <<< width) - 1UL
+      if value > maximum then
+        invalidArg (nameof value) $"Value does not fit in {width} bits."
+      let isSigned =
+        m.Groups["sign"].Value.Equals("i", StringComparison.OrdinalIgnoreCase)
+      { Value = value
+        Type = Some typ
+        IsSigned = isSigned }
+    else
+      { Value = value
+        Type = None
+        IsSigned = false }
+
   let tryMatch pattern text =
     let options = RegexOptions.IgnoreCase ||| RegexOptions.CultureInvariant
     let m = Regex.Match(text, pattern, options)
@@ -906,10 +930,12 @@ module private SymbCondition =
       | atoms -> And atoms
 
   let parseAtom text =
-    let number = @"(0x[0-9a-f]+|[0-9]+)"
+    let address = @"(0x[0-9a-f]+|[0-9]+)"
+    let integer =
+      @"(?<value>0x[0-9a-f]+|[0-9]+)(?::(?<sign>[iu])(?<width>8|16|32|64))?"
     let op = @"(==|=|!=|<>|<=|>=|<|>)"
     let text = norm text
-    let atPattern = @"^pp\.at\s*\(\s*" + number + @"\s*\)$"
+    let atPattern = @"^pp\.at\s*\(\s*" + address + @"\s*\)$"
     match tryMatch atPattern text with
     | Some m -> At(SymbArgs.parseAddr m.Groups[1].Value)
     | None ->
@@ -917,25 +943,25 @@ module private SymbCondition =
                        RegexOptions.IgnoreCase) then
         MemoryPolicyViolation None
       elif Regex.IsMatch(text, @"^(mem|memory)\.readViolation\s*\(\s*\)$",
-                         RegexOptions.IgnoreCase) then
+                          RegexOptions.IgnoreCase) then
         MemoryPolicyViolation(Some MemoryRead)
       elif Regex.IsMatch(text, @"^(mem|memory)\.writeViolation\s*\(\s*\)$",
-                         RegexOptions.IgnoreCase) then
+                          RegexOptions.IgnoreCase) then
         MemoryPolicyViolation(Some MemoryWrite)
       else
         let regPattern =
           @"^pp\.REG\s*\[\s*([A-Za-z0-9_]+)\s*\]\s*"
-          + op + @"\s*" + number + "$"
+          + op + @"\s*" + integer + "$"
         let memPattern =
-          @"^pp\.MEM\s*\[\s*" + number + @"(?::([0-9]+))?\s*\]\s*"
-          + op + @"\s*" + number + "$"
+          @"^pp\.MEM\s*\[\s*" + address + @"(?::([0-9]+))?\s*\]\s*"
+          + op + @"\s*" + integer + "$"
         let writePattern =
-          @"^pp\.WRITE\s*" + op + @"\s*" + number + "$"
+          @"^pp\.WRITE\s*" + op + @"\s*" + integer + "$"
         match tryMatch regPattern text with
         | Some m ->
           let term = Register m.Groups[1].Value
           let relop = parseRelOp m.Groups[2].Value
-          Compare(term, relop, SymbArgs.parseAddr m.Groups[3].Value)
+          Compare(term, relop, parseIntegerLiteral m)
         | None ->
           match tryMatch memPattern text with
           | Some m ->
@@ -946,12 +972,12 @@ module private SymbCondition =
               Memory(SymbArgs.parseAddr m.Groups[1].Value,
                      RegType.fromByteWidth size)
             let relop = parseRelOp m.Groups[3].Value
-            Compare(term, relop, SymbArgs.parseAddr m.Groups[4].Value)
+            Compare(term, relop, parseIntegerLiteral m)
           | None ->
             match tryMatch writePattern text with
             | Some m ->
               let relop = parseRelOp m.Groups[1].Value
-              Compare(WriteAddress, relop, SymbArgs.parseAddr m.Groups[2].Value)
+              Compare(WriteAddress, relop, parseIntegerLiteral m)
             | None ->
               invalidArg (nameof text) $"Invalid pp condition: {text}"
 
@@ -976,19 +1002,21 @@ module private SymbCondition =
       text
 
   let parsePreconditionAtom text =
-    let number = @"(0x[0-9a-f]+|[0-9]+)"
+    let address = @"(0x[0-9a-f]+|[0-9]+)"
+    let integer =
+      @"(?<value>0x[0-9a-f]+|[0-9]+)(?::(?<sign>[iu])(?<width>8|16|32|64))?"
     let op = @"(==|=|!=|<>|<=|>=|<|>)"
     let text = norm text
     let regPattern =
-      @"^([A-Za-z][A-Za-z0-9_]*)\s*" + op + @"\s*" + number + "$"
+      @"^([A-Za-z][A-Za-z0-9_]*)\s*" + op + @"\s*" + integer + "$"
     let memPattern =
-      @"^MEM\s*\[\s*" + number + @"(?::([0-9]+))?\s*\]\s*"
-      + op + @"\s*" + number + "$"
+      @"^MEM\s*\[\s*" + address + @"(?::([0-9]+))?\s*\]\s*"
+      + op + @"\s*" + integer + "$"
     match tryMatch regPattern text with
     | Some m ->
       let term = Register m.Groups[1].Value
       let relop = parseRelOp m.Groups[2].Value
-      Compare(term, relop, SymbArgs.parseAddr m.Groups[3].Value)
+      Compare(term, relop, parseIntegerLiteral m)
     | None ->
       match tryMatch memPattern text with
       | Some m ->
@@ -999,7 +1027,7 @@ module private SymbCondition =
           Memory(SymbArgs.parseAddr m.Groups[1].Value,
                  RegType.fromByteWidth size)
         let relop = parseRelOp m.Groups[3].Value
-        Compare(term, relop, SymbArgs.parseAddr m.Groups[4].Value)
+        Compare(term, relop, parseIntegerLiteral m)
       | None ->
         invalidArg (nameof text) $"Invalid precondition: {text}"
 
@@ -1022,8 +1050,23 @@ module private SymbCondition =
     | SymbExpr.Const bv when bv.IsFalse -> false
     | _ -> state.AddPathCondition expr; true
 
-  let compareExpr (state: SymbState) lhs relop rhs =
-    SymbExpr.relop relop lhs (constFor lhs rhs) |> addCondition state
+  let signedRelOp = function
+    | RelOpType.GT -> RelOpType.SGT
+    | RelOpType.GE -> RelOpType.SGE
+    | RelOpType.LT -> RelOpType.SLT
+    | RelOpType.LE -> RelOpType.SLE
+    | relop -> relop
+
+  let compareExpr (state: SymbState) (lhs: SymbExpr) relop
+                  (literal: IntegerLiteral) =
+    match literal.Type with
+    | Some typ when typ <> lhs.Type ->
+      invalidArg (nameof literal)
+        $"Literal type {int typ} does not match operand width {int lhs.Type}."
+    | _ ->
+      let relop = if literal.IsSigned then signedRelOp relop else relop
+      SymbExpr.relop relop lhs (constFor lhs literal.Value)
+      |> addCondition state
 
   let tryRegister (hdl: BinHandle) (point: StopPoint<SymbState>) name =
     let factory = hdl.RegisterFactory
@@ -1166,21 +1209,21 @@ module private SymbCondition =
     (condition: Condition) (point: StopPoint<SymbState>) =
     match condition with
     | At addr -> point.Address = addr
-    | Compare(Register name, relop, value) ->
+    | Compare(Register name, relop, literal) ->
       match tryRegister hdl point name with
-      | Some expr -> compareExpr point.State expr relop value
+      | Some expr -> compareExpr point.State expr relop literal
       | None -> false
-    | Compare(Memory(addr, typ), relop, value) ->
+    | Compare(Memory(addr, typ), relop, literal) ->
       match tryMemory hdl point addr typ with
-      | Some expr -> compareExpr point.State expr relop value
+      | Some expr -> compareExpr point.State expr relop literal
       | None -> false
-    | Compare(WriteAddress, relop, value) ->
+    | Compare(WriteAddress, relop, literal) ->
       memoryAccesses point
       |> List.choose (fun access ->
         match access.Kind with
         | MemoryWrite -> Some access.Address
         | MemoryRead -> None)
-      |> List.exists (fun expr -> compareExpr point.State expr relop value)
+      |> List.exists (fun expr -> compareExpr point.State expr relop literal)
     | MemoryPolicyViolation kind -> testMemoryViolation kind regions point
     | And conditions ->
       conditions
@@ -1500,7 +1543,7 @@ type SymbSearchAction() =
       "Program-point predicate: fun pp -> pp.at(0x401000)."
   let precond =
     SymbMetadata.arg "precond" ActionArgumentKind.Text true
-      "Initial constraints: ESI>99 or [ESI>99;RDX!=0]."
+      "Initial constraints: ESI>99:u32 or [ESI>99:i32;RDX!=0]."
   let maxDepth =
     SymbMetadata.arg "max-depth" ActionArgumentKind.Integer true
       "Maximum instructions per path. Default: 512."
@@ -1528,7 +1571,7 @@ type SymbSearchAction() =
         signature
         "Search for symbolic inputs satisfying a state condition."
         [ "sx |> @run-symbolic cond=(fun pp -> pp.at(<addr>))"
-          "sx |> @run-symbolic precond=ESI>99 "
+          "sx |> @run-symbolic precond=ESI>99:u32 "
           + "cond=(fun _ -> mem.accessViolation())"
           "sx |> @run-symbolic cond=(fun _ -> mem.accessViolation())" ]
         with
