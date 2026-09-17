@@ -89,9 +89,13 @@ module ReplTypeAnalysis =
     | _ -> None
 
   let private homogeneousKind kinds =
-    kinds
-    |> List.tryFind (fun kind -> kind <> ReplValueKind.Unit)
-    |> Option.defaultValue ReplValueKind.Any
+    let kinds =
+      kinds
+      |> List.filter (fun kind -> kind <> ReplValueKind.Unit)
+      |> List.distinct
+    match kinds with
+    | [ kind ] -> kind
+    | _ -> ReplValueKind.Any
 
   let private literalKind state tokens =
     match tokens, List.rev tokens with

@@ -1653,6 +1653,10 @@ module TransformerReplEvaluator =
     else
       Ok tokens
 
+  let private homogeneousLiteral name makeValue values =
+    ReplValue.validateHomogeneous name values
+    |> Result.map (fun () -> makeValue values |> Some)
+
   let private tryLiteral state eval segment =
     let tokens = segment.Head :: segment.Arguments
     match tokens with
@@ -1672,7 +1676,7 @@ module TransformerReplEvaluator =
         body
         |> validateLiteralSeparators ";"
         |> Result.bind (resolveLiteralElements state eval ";")
-        |> Result.map (ReplValue.ofList >> Some)
+        |> Result.bind (homogeneousLiteral "List" ReplValue.ofList)
       | None -> Ok None
     | "[|" :: rest ->
       match tryTrimmedLiteral "|]" rest with
@@ -1680,7 +1684,7 @@ module TransformerReplEvaluator =
         body
         |> validateLiteralSeparators ";"
         |> Result.bind (resolveLiteralElements state eval ";")
-        |> Result.map (ReplValue.ofArray >> Some)
+        |> Result.bind (homogeneousLiteral "Array" ReplValue.ofArray)
       | None -> Ok None
     | _ ->
       Ok(tryScalarLiteral tokens)

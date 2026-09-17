@@ -162,13 +162,17 @@ module ReplValue =
         elif elementKind <> ReplValueKind.Any then elementKind
         else
           let values = value :?> Array
-          values
-          |> Seq.cast<obj>
-          |> Seq.tryPick (fun item ->
-            let kind = kindOfObject item
-            if kind = ReplValueKind.Any || kind = ReplValueKind.Unit then None
-            else Some kind)
-          |> Option.defaultValue ReplValueKind.Any
+          let kinds =
+            values
+            |> Seq.cast<obj>
+            |> Seq.map kindOfObject
+            |> Seq.filter (fun kind -> kind <> ReplValueKind.Unit)
+            |> Seq.distinct
+            |> Seq.truncate 2
+            |> Seq.toList
+          match kinds with
+          | [ kind ] -> kind
+          | _ -> ReplValueKind.Any
       else
         kindOfType typ
 
@@ -176,22 +180,36 @@ module ReplValue =
     values |> Array.map kindOfObject |> Array.toList |> ReplValueKind.Tuple
 
   let private elementKind values =
-    values
-    |> Array.tryPick (fun value ->
-      let kind = kindOfObject value
-      if kind = ReplValueKind.Unit then None else Some kind)
-    |> Option.defaultValue ReplValueKind.Any
+    let kinds =
+      values
+      |> Array.map kindOfObject
+      |> Array.filter (fun kind -> kind <> ReplValueKind.Unit)
+      |> Array.distinct
+    match kinds with
+    | [| kind |] -> kind
+    | _ -> ReplValueKind.Any
+
+  let validateHomogeneous literalName values =
+    let kinds =
+      values
+      |> Array.map kindOfObject
+      |> Array.filter (fun kind -> kind <> ReplValueKind.Unit)
+      |> Array.distinct
+    if kinds.Length <= 1 then
+      Ok()
+    else
+      let kinds = kinds |> Array.map ReplValueKind.toString
+      let detail = String.concat ", " kinds
+      Error $"{literalName} elements must have one type, but found {detail}."
 
   let ofCollection fallback collection =
     let elementKind =
-      collection.Values
-      |> Array.tryPick (fun value ->
-        let kind = kindOfObject value
-        if kind = ReplValueKind.Unit then None else Some kind)
-      |> Option.defaultValue (
+      if collection.Values.Length = 0 then
         match fallback with
         | ReplValueKind.Collection kind -> kind
-        | kind -> kind)
+        | kind -> kind
+      else
+        elementKind collection.Values
     let kind =
       match fallback with
       | ReplValueKind.Collection _ ->
