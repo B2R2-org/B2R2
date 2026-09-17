@@ -75,7 +75,7 @@ module TransformerReplInspection =
     values
     |> Array.mapi (fun index value ->
       match value with
-      | :? CFG as cfg -> inspectCFG (index + 1) cfg
+      | :? CFG as cfg -> inspectCFG index cfg
       | _ -> None)
     |> Array.choose id
     |> Array.toList

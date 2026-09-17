@@ -936,7 +936,7 @@ module ActionMetadata =
   let private pick =
     let index =
       required "index" ActionArgumentKind.Integer
-        "One-based value index in the current collection."
+        "Zero-based value index in the current collection."
     contract "pick" (ReplValueKind.Collection ReplValueKind.Any)
       ReplValueKind.Any
       ActionRole.Transform 5 "pick index=<n> -> Any"

@@ -35,8 +35,8 @@ type PickAction() =
     match args with
     | [ indexText ] ->
       match Int32.TryParse indexText with
-      | true, index when index >= 1 && index <= collection.Values.Length ->
-        { Values = [| collection.Values[index - 1] |] }
+      | true, index when index >= 0 && index < collection.Values.Length ->
+        { Values = [| collection.Values[index] |] }
       | _ ->
         invalidArg (nameof args) "Index must select an existing value."
     | _ ->
@@ -47,7 +47,7 @@ type PickAction() =
     member _.Signature with get() = "'a collection -> pick index=<n> -> 'a"
     member _.Description with get() =
       """
-    Select one value from the current collection using a 1-based index.
+    Select one value from the current collection using a 0-based index.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

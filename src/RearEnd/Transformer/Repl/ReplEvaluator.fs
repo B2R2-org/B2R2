@@ -279,9 +279,9 @@ module TransformerReplEvaluator =
       |> truncateByMode mode
       |> Seq.mapi (fun index cluster ->
         match mode with
-        | Preview -> [ $"#{index + 1}: {cluster.Length} values" ]
+        | Preview -> [ $"#{index}: {cluster.Length} values" ]
         | Full ->
-          $"#{index + 1} ({cluster.Length} values):"
+          $"#{index} ({cluster.Length} values):"
           :: (cluster |> Array.map (fun item -> "  " + item) |> Array.toList))
       |> Seq.collect id
       |> Seq.toList
@@ -613,8 +613,7 @@ module TransformerReplEvaluator =
         |> Seq.toList
       let lines =
         visible
-        |> Seq.mapi (fun index value ->
-          renderObject mode (Some(index + 1)) value)
+        |> Seq.mapi (fun index value -> renderObject mode (Some index) value)
         |> Seq.collect id
         |> Seq.toList
       let omitted = values.Length - visible.Length
@@ -632,7 +631,7 @@ module TransformerReplEvaluator =
       |> Array.mapi (fun index item ->
         let lines = renderObject mode None item
         if value.IsCollection then
-          $"  value #{index + 1}:" :: indentDisplay 4 lines
+          $"  value #{index}:" :: indentDisplay 4 lines
         else
           lines)
       |> Array.toList
@@ -1318,7 +1317,7 @@ module TransformerReplEvaluator =
     let unresolvedItem = "\u0000unrepresentable-iter-item\u0000"
     let itemText =
       ReplValue.tryArgumentText item |> Option.defaultValue unresolvedItem
-    let indexText = (index + 1).ToString(CultureInfo.InvariantCulture)
+    let indexText = index.ToString(CultureInfo.InvariantCulture)
     let apply token =
       token
       |> replaceTemplate (spec: IterSpec).ItemName itemText
@@ -1569,7 +1568,7 @@ module TransformerReplEvaluator =
               let item = values[index]
               match iterArguments spec index item with
               | Error message ->
-                Error $"{segment.Head} item {index + 1}: {message}"
+                Error $"{segment.Head} item {index}: {message}"
               | Ok arguments ->
                 let segment =
                   { Head = ActionMetadata.actionName registered.Metadata.ID
@@ -1579,7 +1578,7 @@ module TransformerReplEvaluator =
                     cancellationToken
                 with
                 | Error message ->
-                  Error $"{segment.Head} item {index + 1}: {message}"
+                  Error $"{segment.Head} item {index}: {message}"
                 | Ok value ->
                   if value.Kind <> ReplValueKind.Unit then
                     outputKinds.Add value.Kind
@@ -1841,7 +1840,7 @@ module TransformerReplEvaluator =
   let private showHistory registry state =
     state.CommandHistory
     |> List.rev
-    |> List.mapi (fun index command -> $"{index + 1}: {command}")
+    |> List.mapi (fun index command -> $"{index}: {command}")
     |> continueWith registry state
 
   let private showValues registry state =
@@ -1873,7 +1872,7 @@ module TransformerReplEvaluator =
             match name with
             | Some name -> $"{name} |> {item.Command}"
             | None -> item.Command
-          $"{index + 1}: {item.Label}  {item.Detail}  => {command}")
+          $"{index}: {item.Label}  {item.Detail}  => {command}")
         |> continueWith registry state
 
   let private normalizeNeedsArguments state args =
@@ -1966,7 +1965,7 @@ module TransformerReplEvaluator =
         else
           value.Collection.Values
           |> Array.iteri (fun index item ->
-            ReplArtifactWriter.write $"{fullPath}.{index + 1}" item)
+            ReplArtifactWriter.write $"{fullPath}.{index}" item)
         continueWith registry state
           [ $"Exported {name}: {normalizePath fullPath}" ]
       with error ->
