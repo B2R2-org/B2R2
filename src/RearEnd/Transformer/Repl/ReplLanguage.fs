@@ -806,20 +806,28 @@ module ReplLanguage =
         Result.Error $"Invalid pipeline expression: {message}"
 
     let partialQuoted delimiter =
-      pchar delimiter >>. manyChars anyChar
-      |>> fun text -> string delimiter + text
+      pchar delimiter >>. manyChars (satisfy ((<>) delimiter))
+      .>>. opt (pchar delimiter)
+      |>> fun (text, closing) ->
+        let closing = closing |> Option.map string |> Option.defaultValue ""
+        string delimiter + text + closing
 
     let partialWordText =
-      let quoted = attempt (quoted '\'') <|> attempt (quoted '"')
-      let unterminated = partialQuoted '\'' <|> partialQuoted '"'
       let bare = many1Satisfy bareCharacter |>> string
-      many1 (quoted <|> unterminated <|> bare)
+      let part =
+        lookAhead anyChar >>= function
+        | '\'' -> partialQuoted '\''
+        | '"' -> partialQuoted '"'
+        | _ -> bare
+      many1 part
       |>> String.concat ""
 
     let partialSymbol text =
       (getPosition .>> pstring text .>>. getPosition .>> spaces)
       |>> fun (start, finish) ->
         PartialToken(text, int start.Index, int finish.Index)
+
+    let startsWith text parser = lookAhead (pstring text) >>. parser
 
     let partialWord =
       (getPosition .>>. partialWordText .>>. getPosition .>> spaces)
@@ -839,6 +847,10 @@ module ReplLanguage =
           PartialDelimited(opening, close, int start.Index, int finish.Index,
                            children))
 
+    let partialBracket =
+      startsWith "[|" (partialDelimited "[|" "|]")
+      <|> partialDelimited "[" "]"
+
     let rec nodeTokens = function
       | PartialToken(text, _, _) -> [ text ]
       | PartialDelimited(opening, closing, _, _, children) ->
@@ -847,28 +859,26 @@ module ReplLanguage =
         opening :: (children |> List.collect nodeTokens) @ closing
 
     let partialNested =
-      choice
-        [ attempt (partialDelimited "[|" "|]")
-          attempt (partialDelimited "(" ")")
-          attempt (partialDelimited "[" "]")
-          partialSymbol "|>"
-          partialSymbol ","
-          partialSymbol ";"
-          partialWord ]
+      lookAhead anyChar >>= function
+      | '[' -> partialBracket
+      | '(' -> partialDelimited "(" ")"
+      | '|' -> startsWith "|>" (partialSymbol "|>")
+      | ',' -> partialSymbol ","
+      | ';' -> partialSymbol ";"
+      | _ -> partialWord
 
     do partialNodeRef.Value <- partialNested
 
     let partialTopLevelToken =
-      choice
-        [ attempt (partialDelimited "[|" "|]")
-          attempt (partialDelimited "(" ")")
-          attempt (partialDelimited "[" "]")
-          partialSymbol ")"
-          partialSymbol "]"
-          partialSymbol "|]"
-          partialSymbol ","
-          partialSymbol ";"
-          partialWord ]
+      lookAhead anyChar >>= function
+      | '[' -> partialBracket
+      | '(' -> partialDelimited "(" ")"
+      | ')' -> partialSymbol ")"
+      | ']' -> partialSymbol "]"
+      | '|' -> startsWith "|]" (partialSymbol "|]")
+      | ',' -> partialSymbol ","
+      | ';' -> partialSymbol ";"
+      | _ -> partialWord
 
     let partialSegment =
       getPosition .>>. many1 partialTopLevelToken .>>. getPosition
