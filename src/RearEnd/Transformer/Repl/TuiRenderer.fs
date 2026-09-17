@@ -371,28 +371,35 @@ module TransformerTuiRenderer =
           Kind = selectedTextKind selected line.Kind
           Text = text }
 
+  let private viewDisplayRows width pane =
+    pane.Lines
+    |> Array.indexed
+    |> Array.toList
+    |> List.collect (fun (index, line) ->
+      viewLine pane index line
+      |> wrapLine width
+      |> List.map (fun row -> index, row))
+
   let private takeViewPaneLines width height offset model =
-    let pane = model.ViewPane
-    let cursor =
-      pane
-      |> Option.map _.Cursor
-      |> Option.defaultValue { Line = 0; Column = 0 }
-    let offset =
-      if cursor.Line < offset then cursor.Line
-      elif cursor.Line >= offset + height then cursor.Line - height + 1
-      else offset
-    let lines =
-      match model.ViewPane with
-      | Some pane ->
-        let finish = min pane.Lines.Length (offset + height)
-        [ for index in offset .. finish - 1 do
-            viewLine pane index pane.Lines[index] ]
-      | None ->
-        [ { Kind = TuiLineKind.System; Text = "No result to view." } ]
-    lines
-    |> List.truncate height
-    |> List.collect (wrapLine width)
-    |> List.truncate height
+    match model.ViewPane with
+    | Some pane ->
+      let rows = viewDisplayRows width pane
+      let cursorRow =
+        rows
+        |> List.tryFindIndex (fun (index, _) -> index = pane.Cursor.Line)
+        |> Option.defaultValue 0
+      let maximumOffset = max 0 (List.length rows - height)
+      let offset = min offset maximumOffset
+      let offset =
+        if cursorRow < offset then cursorRow
+        elif cursorRow >= offset + height then cursorRow - height + 1
+        else offset
+      rows
+      |> List.skip offset
+      |> List.truncate height
+      |> List.map snd
+    | None ->
+      [ TuiLineKind.System, "No result to view." ]
 
   let private takeLast count offset lines =
     let length = List.length lines
@@ -418,13 +425,7 @@ module TransformerTuiRenderer =
       takeTranscriptRows bodyHeight model.ScrollOffset start lines
     | _ ->
       if model.Overlay = TuiOverlay.View then
-        let lineCount =
-          model.ViewPane
-          |> Option.map (fun pane -> pane.Lines.Length)
-          |> Option.defaultValue 0
-        let maximumOffset = max 0 (lineCount - bodyHeight)
-        let offset = min model.ScrollOffset maximumOffset
-        takeViewPaneLines bodyWidth bodyHeight offset model
+        takeViewPaneLines bodyWidth bodyHeight model.ScrollOffset model
       else
         let lines = overlayLines bodyWidth registry model
         let maximumOffset = max 0 (List.length lines - bodyHeight)
