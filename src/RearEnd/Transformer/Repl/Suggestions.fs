@@ -622,11 +622,20 @@ module Suggestions =
     | "mem" ->
       valueCandidates SuggestionKind.Argument "memory bytes" prefix
         [ "00"; "90"; "0011223344556677" ]
+    | "sym-mem" ->
+      valueCandidates SuggestionKind.Argument "symbolic memory" prefix
+        [ "input@0x70000000:16"
+          "password@0x70000000:18"
+          "buffer@0x70000000:32" ]
     | _ -> []
+
+  let private isContextAction head =
+    let id = actionID head
+    id = "set-context" || id = "symb-context"
 
   let private setContextListCandidates state (context: InputContext) =
     match context.SegmentWords with
-    | head :: _ when actionID head = "set-context" ->
+    | head :: _ when isContextAction head ->
       match innermostOpenBracket context.Segment with
       | None -> None
       | Some openIndex ->
@@ -643,6 +652,8 @@ module Suggestions =
             contextListValueCandidates "mem" context.Prefix |> Some
           else
             requiredMemoryCandidates "=" state context.Prefix |> Some
+        | Some "sym-mem" ->
+          contextListValueCandidates "sym-mem" context.Prefix |> Some
         | _ -> None
     | _ -> None
 
@@ -919,6 +930,12 @@ module Suggestions =
         requiredRegisterCandidates "=" state prefix
       elif registered.Metadata.ID = "set-context" && name = "mem" then
         requiredMemoryCandidates "=" state prefix
+      elif registered.Metadata.ID = "symb-context" && name = "regs" then
+        requiredRegisterCandidates "=" state prefix
+      elif registered.Metadata.ID = "symb-context" && name = "mem" then
+        requiredMemoryCandidates "=" state prefix
+      elif registered.Metadata.ID = "symb-context" && name = "sym-mem" then
+        contextListValueCandidates "sym-mem" prefix
       else
         ActionMetadata.matchingSyntaxes registered.Metadata inputKind completed
         |> List.filter (ActionMetadata.syntaxHasParameter name)
