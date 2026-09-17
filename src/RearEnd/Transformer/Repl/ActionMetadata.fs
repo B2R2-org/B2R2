@@ -293,7 +293,7 @@ module ActionMetadata =
     let args = syntax.Arguments |> List.map formatArgument
     String.concat " " (trigger @ args)
 
-  let typedSignature metadata =
+  let private signatureRows metadata =
     let metadata: ActionMetadata = metadata
     let formatInputs inputs =
       inputs
@@ -313,11 +313,9 @@ module ActionMetadata =
           if String.IsNullOrWhiteSpace syntax then actionName metadata.ID
           else actionName metadata.ID + " " + syntax)
         |> List.distinct
-      let body =
-        match syntaxes with
-        | [] -> actionName metadata.ID
-        | syntaxes -> String.concat " | " syntaxes
-      $"{input} -> {body} -> {output}"
+      match syntaxes with
+      | [] -> [ input, actionName metadata.ID, output ]
+      | syntaxes -> syntaxes |> List.map (fun syntax -> input, syntax, output)
     else
       metadata.Syntaxes
       |> List.map (fun syntax ->
@@ -333,9 +331,40 @@ module ActionMetadata =
         let body =
           if String.IsNullOrWhiteSpace syntaxText then actionName metadata.ID
           else actionName metadata.ID + " " + syntaxText
-        $"{input} -> {body} -> {output}")
+        input, body, output)
       |> List.distinct
-      |> String.concat " | "
+
+  let typedSignature metadata =
+    signatureRows metadata
+    |> List.map (fun (input, body, output) ->
+      $"{input} -> {body} -> {output}")
+    |> String.concat " | "
+
+  let typedSignatureLines metadata =
+    match signatureRows metadata with
+    | [] -> []
+    | [ input, body, output ] -> [ $"{input} -> {body} -> {output}" ]
+    | rows ->
+      let firstInput, _, firstOutput = List.head rows
+      let sameInputOutput =
+        rows
+        |> List.forall (fun (input, _, output) ->
+          input = firstInput && output = firstOutput)
+      if sameInputOutput then
+        let prefix = $"{firstInput} -> "
+        let continuation =
+          String.replicate prefix.Length " " + "| "
+        rows
+        |> List.mapi (fun index (_, body, _) ->
+          let line =
+            if index = 0 then prefix + body else continuation + body
+          if index = List.length rows - 1 then line + $" -> {firstOutput}"
+          else line)
+      else
+        rows
+        |> List.map (fun (input, body, output) ->
+          $"{input} -> {body} -> {output}")
+      |> List.distinct
 
   let argumentKeys (argument: ActionArgument) =
     [ argument.Name.ToLowerInvariant() ]
@@ -483,6 +512,13 @@ module ActionMetadata =
     let syntaxes =
       if List.isEmpty syntaxes then metadata.Syntaxes else syntaxes
     typedSignature { metadata with Syntaxes = syntaxes }
+
+  let typedSignatureForLines metadata inputKind args =
+    let metadata: ActionMetadata = metadata
+    let syntaxes = matchingSyntaxes metadata inputKind args
+    let syntaxes =
+      if List.isEmpty syntaxes then metadata.Syntaxes else syntaxes
+    typedSignatureLines { metadata with Syntaxes = syntaxes }
 
   let private cfg =
     let address =

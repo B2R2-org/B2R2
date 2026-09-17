@@ -568,42 +568,87 @@ module TransformerTuiRenderer =
     let frames = [| "-"; "\\"; "|"; "/" |]
     frames[frame % frames.Length]
 
-  let private highlightedHint width text highlight =
+  let private highlightedHint width text highlights =
     let text = sanitize text
     let text =
       if text.Length > width then text[..width - 1] else text
     let visible = text.Length
     let padding = String.replicate (max 0 (width - visible)) " "
-    match highlight with
-    | Some(start, length) when start < visible && length > 0 ->
-      let start = max 0 start
-      let finish = min visible (start + length)
-      let before = if start = 0 then "" else text[..start - 1]
-      let current = text[start..finish - 1]
-      let after =
-        if finish >= visible then "" else text[finish..]
-      paint dim before + paint reverse current + paint dim after + padding
-    | _ ->
+    let highlights =
+      highlights
+      |> List.choose (fun (start, length) ->
+        let start = max 0 start
+        let finish = min visible (start + length)
+        if start < visible && start < finish then Some(start, finish)
+        else None)
+      |> List.sortBy fst
+    if List.isEmpty highlights then
       paint dim (text + padding)
+    else
+      let rec loop index chunks = function
+        | [] ->
+          if index >= visible then List.rev chunks
+          else
+            let suffix = text[index..]
+            List.rev (paint dim suffix :: chunks)
+        | (start, finish) :: rest ->
+          let chunks =
+            if index < start then
+              let before = text[index..start - 1]
+              paint dim before :: chunks
+            else
+              chunks
+          let current = text[start..finish - 1]
+          loop finish (paint reverse current :: chunks) rest
+      String.concat "" (loop 0 [] highlights) + padding
+
+  let private splitHintText (text: string) : string list =
+    text.Replace("\r\n", "\n").Replace('\r', '\n').Split '\n'
+    |> Array.toList
+
+  let private lineHighlights lineStart lineLength highlights =
+    let lineEnd = lineStart + lineLength
+    highlights
+    |> List.choose (fun (start, length) ->
+      let finish = start + length
+      let start = max start lineStart
+      let finish = min finish lineEnd
+      if start < finish then Some(start - lineStart, finish - start)
+      else None)
+
+  let private hintRows width completion =
+    match completion.Hint with
+    | None -> []
+    | Some text ->
+      let lines = splitHintText text
+      let rec loop offset rows (lines: string list) =
+        match lines with
+        | [] -> List.rev rows
+        | line :: rest ->
+          let highlights =
+            lineHighlights offset line.Length completion.HintHighlights
+          let row = highlightedHint width line highlights
+          loop (offset + line.Length + 1) (row :: rows) rest
+      loop 0 [] lines
 
   let private suggestionRows rowCount width completion selected =
     let rowCount = max 1 rowCount
     let count = List.length completion.Items
-    let hint =
-      completion.Hint
-      |> Option.map (fun text ->
-        highlightedHint width text completion.HintHighlight)
+    let hint = hintRows width completion
     if count = 0 then
-      let first =
-        hint
-        |> Option.defaultValue
-          (paint dim (fit width "Suggestions appear here as you type."))
-      first :: List.replicate (rowCount - 1) (fit width "")
+      let rows =
+        match hint with
+        | first :: rest ->
+          first :: (rest |> List.truncate (rowCount - 1))
+        | [] ->
+          [ paint dim (fit width "Suggestions appear here as you type.") ]
+      rows
+      |> fun rows ->
+        rows @ List.replicate (rowCount - List.length rows) (fit width "")
     else
       let selected = min selected (count - 1)
       let itemRows =
-        let hintRows = if hint.IsSome then 1 else 0
-        let visible = max 0 (rowCount - hintRows)
+        let visible = max 0 (rowCount - List.length hint)
         let start =
           if visible <= 0 then
             0
@@ -619,7 +664,7 @@ module TransformerTuiRenderer =
           let text = $"{marker}{item.Label}  {item.Detail}"
           let style = if index = selected then reverse else dim
           paint style (fit width text))
-      hint |> Option.toList |> List.append <| itemRows
+      hint @ itemRows
       |> fun rows ->
         rows @ List.replicate (rowCount - List.length rows)
           (fit width "")
@@ -724,18 +769,21 @@ module TransformerTuiRenderer =
         CursorRow = 1
         CursorColumn = 1 }
     else
-      let contentHeight = height - 7
-      let defaultShellHeight = max 1 model.ShellHeight
-      let defaultBodyHeight = max 1 (contentHeight - defaultShellHeight)
-      let bodyHeight =
-        match model.TranscriptHeight with
-        | Some requested -> max 1 (min (contentHeight - 1) requested)
-        | None -> defaultBodyHeight
+      let completionPaneRows = 9
       let shellInputRows = max 1 (model.ShellHeight - 1)
       let inputRows, inputCursor =
         inputView width shellInputRows model completion
+      let availableBodyAndCompletion =
+        max 2 (height - 6 - List.length inputRows)
+      let defaultBodyHeight =
+        max 1 (availableBodyAndCompletion - completionPaneRows)
+      let bodyHeight =
+        match model.TranscriptHeight with
+        | Some requested ->
+          max 1 (min (availableBodyAndCompletion - 1) requested)
+        | None -> defaultBodyHeight
       let suggestionCount =
-        max 1 (contentHeight - bodyHeight - List.length inputRows + 1)
+        max 1 (availableBodyAndCompletion - bodyHeight)
       let defaultRightWidth =
         if width >= 100 then min 34 (width / 3) else 0
       let rightWidth =

@@ -51,7 +51,7 @@ type SuggestionSet =
     Start: int
     Length: int
     Hint: string option
-    HintHighlight: (int * int) option }
+    HintHighlights: (int * int) list }
 
 module Suggestions =
   let private metaCommands =
@@ -1104,13 +1104,19 @@ module Suggestions =
             match parameter with
             | Some name ->
               let inputKind = inputKindFor head
-              let completed = beforeWords |> List.tail
+              let completed =
+                match beforeWords with
+                | _ :: completed -> completed
+                | [] -> []
               namedArgumentCandidates registry argumentState head name
                 inputKind completed context.Prefix
             | None ->
               let wordCount = List.length beforeWords
               let argumentIndex = max 0 (wordCount - 1)
-              let completed = beforeWords |> List.tail
+              let completed =
+                match beforeWords with
+                | _ :: completed -> completed
+                | [] -> []
               completeArguments head completed argumentIndex
 
   let private expressionContext context expression =
@@ -1135,11 +1141,11 @@ module Suggestions =
     else
       None
 
-  let private currentParameter metadata inputKind segment =
+  let private currentParameters metadata inputKind segment =
     let segment: string = segment
     let words = InputAnalysis.splitWords segment
     match words with
-    | [] -> None
+    | [] -> []
     | _ :: args ->
       let endsWithSpace =
         segment.Length > 0 && Char.IsWhiteSpace segment[segment.Length - 1]
@@ -1152,10 +1158,12 @@ module Suggestions =
       let findArgument name =
         arguments
         |> List.tryFind (fun argument -> matchesArgumentName name argument)
-      let argument =
-        token |> Option.bind tryParameterName |> Option.bind findArgument
-      match argument with
-      | Some argument -> Some argument
+      let current =
+        token
+        |> Option.bind tryParameterName
+        |> Option.bind findArgument
+      match current with
+      | Some argument -> [ argument ]
       | None ->
         let completed =
           if endsWithSpace then args
@@ -1163,8 +1171,36 @@ module Suggestions =
         let argumentIndex =
           if endsWithSpace then List.length args
           else max 0 (List.length args - 1)
-        syntaxArgument metadata inputKind completed argumentIndex
-        |> List.tryHead
+        let candidates =
+          syntaxArgument metadata inputKind completed argumentIndex
+          |> List.distinctBy (fun argument -> argument.Name)
+        match token with
+        | Some prefix when not (String.IsNullOrWhiteSpace prefix) ->
+          candidates
+          |> List.filter (fun argument ->
+            ActionMetadata.argumentKeys argument
+            |> List.exists (fun key -> matches prefix (key + "=")))
+        | _ ->
+          candidates
+
+  let private findRanges (needle: string) (text: string) =
+    if String.IsNullOrEmpty needle then
+      []
+    else
+      let rec loop start ranges =
+        let index =
+          text.IndexOf(needle, start, StringComparison.OrdinalIgnoreCase)
+        if index < 0 then
+          List.rev ranges
+        else
+          loop (index + needle.Length) ((index, needle.Length) :: ranges)
+      loop 0 []
+
+  let private highlightRanges signature arguments =
+    arguments
+    |> List.collect (fun argument ->
+      ActionMetadata.formatArgument argument
+      |> fun text -> findRanges text signature)
 
   let private completionHint registry state context =
     let context: InputContext = context
@@ -1186,14 +1222,11 @@ module Suggestions =
             match context.SegmentWords with
             | _ :: args -> args
             | [] -> []
-          ActionMetadata.typedSignatureFor metadata inputKind args
+          ActionMetadata.typedSignatureForLines metadata inputKind args
+          |> String.concat "\n"
         let highlight =
-          currentParameter metadata inputKind context.Segment
-          |> Option.bind (fun argument ->
-            let text = ActionMetadata.formatArgument argument
-            let start =
-              signature.IndexOf(text, StringComparison.OrdinalIgnoreCase)
-            if start < 0 then None else Some(start, text.Length))
+          currentParameters metadata inputKind context.Segment
+          |> highlightRanges signature
         signature, highlight)
     | [] ->
       None
@@ -1210,7 +1243,7 @@ module Suggestions =
         Start = start
         Length = length
         Hint = Some "type annotation"
-        HintHighlight = None }
+        HintHighlights = [] }
     | None ->
       let hint = completionHint registry state expressionContext
       let items =
@@ -1230,4 +1263,7 @@ module Suggestions =
         Start = context.TokenStart
         Length = context.TokenLength
         Hint = hint |> Option.map fst
-        HintHighlight = hint |> Option.bind snd }
+        HintHighlights =
+          hint
+          |> Option.map snd
+          |> Option.defaultValue [] }
