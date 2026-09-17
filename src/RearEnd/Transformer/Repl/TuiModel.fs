@@ -1124,7 +1124,7 @@ module TransformerTuiModel =
           Some(sliceText 0 last.Column text)
         else
           Some text)
-      |> String.concat " "
+      |> String.concat "\n"
 
   let insertViewSelection model =
     match model.ViewPane with

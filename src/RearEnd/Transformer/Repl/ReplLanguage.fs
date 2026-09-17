@@ -330,6 +330,34 @@ module ReplLanguage =
     let trimmed = text.TrimEnd()
     loop 0 None 0 || trimmed.EndsWith("->", StringComparison.Ordinal)
 
+  let private hasUnterminatedQuote (text: string) =
+    let rec loop index quote =
+      if index >= text.Length then
+        Option.isSome quote
+      else
+        let chr = text[index]
+        match quote with
+        | Some delimiter when chr = delimiter ->
+          loop (index + 1) None
+        | Some _ ->
+          loop (index + 1) quote
+        | None when chr = '\'' || chr = '"' ->
+          loop (index + 1) (Some chr)
+        | None ->
+          loop (index + 1) None
+    loop 0 None
+
+  let tryTakeInteractivePhrase (text: string) =
+    let trimmed = text.TrimEnd()
+    if not (trimmed.EndsWith(";;", StringComparison.Ordinal)) then
+      None
+    elif hasUnterminatedQuote trimmed then
+      None
+    else
+      let finish = trimmed.Length - 3
+      let phrase = if finish < 0 then "" else trimmed[..finish].TrimEnd()
+      Some phrase
+
   let private needsNextLine (text: string) =
     let trimmed = text.TrimEnd()
     trimmed.EndsWith("=", StringComparison.Ordinal)

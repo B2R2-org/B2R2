@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Collections.Generic
 open System.Text
 open System.Threading
 open System.Threading.Tasks
@@ -150,19 +151,6 @@ module TransformerRepl =
     not (hasModifier ConsoleModifiers.Control key)
     && not (hasModifier ConsoleModifiers.Alt key)
     && not (Char.IsControl key.KeyChar)
-
-  let private isLineBreakKey (key: ConsoleKeyInfo) =
-    not (hasModifier ConsoleModifiers.Control key)
-    && not (hasModifier ConsoleModifiers.Alt key)
-    && (key.Key = ConsoleKey.Enter
-        || key.KeyChar = '\r'
-        || key.KeyChar = '\n')
-
-  let private lineBreakText (key: ConsoleKeyInfo) =
-    if key.KeyChar = char 0 then "\n" else string key.KeyChar
-
-  let private normalizeLineBreaks (text: string) =
-    text.Replace("\r\n", "\n").Replace('\r', '\n')
 
   let private toTuiLine (line: string) =
     let kind =
@@ -363,19 +351,16 @@ module TransformerRepl =
     let mutable shouldExit = false
     let mutable dirty = true
     let mutable suggestionCache: SuggestionCache option = None
-    let mutable pendingKeys: ConsoleKeyInfo list = []
+    let pendingKeys = Queue<ConsoleKeyInfo>()
     let mutable lastWidth, lastHeight = 0, 0
     let mutable lastSpinner = Environment.TickCount64
-    let addPending key =
-      pendingKeys <- pendingKeys @ [ key ]
+    let addPending key = pendingKeys.Enqueue key
     let readKey () =
-      match pendingKeys with
-      | key :: rest ->
-        pendingKeys <- rest
-        Some key
-      | [] when Console.KeyAvailable ->
+      if pendingKeys.Count > 0 then
+        Some(pendingKeys.Dequeue())
+      elif Console.KeyAvailable then
         Some(Console.ReadKey true)
-      | [] ->
+      else
         None
     let readTextBurst first =
       let builder = StringBuilder()
@@ -385,12 +370,10 @@ module TransformerRepl =
         let key = Console.ReadKey true
         if isTextKey key then
           builder.Append(key.KeyChar) |> ignore
-        elif isLineBreakKey key && Console.KeyAvailable then
-          builder.Append(lineBreakText key) |> ignore
         else
           addPending key
           keepReading <- false
-      builder.ToString() |> normalizeLineBreaks
+      builder.ToString()
     let isViewNavigationKey (key: ConsoleKeyInfo) =
       not (hasModifier ConsoleModifiers.Control key)
       && not (hasModifier ConsoleModifiers.Alt key)
@@ -459,6 +442,17 @@ module TransformerRepl =
               Suggestions = suggestions
               Context = context }
         suggestions
+    let applyInputResult input =
+      match input with
+      | TuiInputResult.Stop next ->
+        model <- next
+        shouldExit <- true
+      | TuiInputResult.Update next ->
+        model <- next
+      | TuiInputResult.Execute(next, command) ->
+        let next, task = startEvaluation registry command next
+        model <- next
+        running <- task
     try
       while not shouldExit do
         let width, height = TransformerTuiTerminal.dimensions ()
@@ -507,7 +501,8 @@ module TransformerRepl =
                         && model.Overlay = TuiOverlay.None
                         && model.Focus = TuiFocus.Shell ->
               let text = readTextBurst key
-              model <- TransformerTuiModel.insertText text model
+              TransformerTuiInputController.appendShellText text model
+              |> applyInputResult
             | None when isViewNavigationKey key ->
               let count = repeatedKeyCount key
               model <- applyViewNavigation count key model
@@ -516,18 +511,8 @@ module TransformerRepl =
               model <- { model with ScrollOffset = scrollOffset }
             | None ->
               let completion = currentSuggestions ()
-              let input =
-                TransformerTuiInputController.handle completion key model
-              match input with
-              | TuiInputResult.Stop next ->
-                model <- next
-                shouldExit <- true
-              | TuiInputResult.Update next ->
-                model <- next
-              | TuiInputResult.Execute(next, command) ->
-                let next, task = startEvaluation registry command next
-                model <- next
-                running <- task
+              TransformerTuiInputController.handle completion key model
+              |> applyInputResult
             dirty <- true
         else
           ()

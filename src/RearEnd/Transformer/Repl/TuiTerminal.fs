@@ -25,71 +25,33 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
-open System.Diagnostics
-open System.Runtime.InteropServices
 open System.Text
 
 module TransformerTuiTerminal =
-  let private enterAlternateScreen = "\x1b[?1049h\x1b[?7l\x1b[2J\x1b[H"
-  let private leaveAlternateScreen = "\x1b[?25h\x1b[?7h\x1b[?1049l"
+  module private Ansi =
+    let private csi = "\x1b["
+    let enterAlternateScreen = csi + "?1049h"
+    let leaveAlternateScreen = csi + "?1049l"
+    let disableAutoWrap = csi + "?7l"
+    let enableAutoWrap = csi + "?7h"
+    let hideCursor = csi + "?25l"
+    let showCursor = csi + "?25h"
+    let clearScreen = csi + "2J"
+    let cursorHome = csi + "H"
+    let moveCursor row column = $"{csi}{row};{column}H"
+
+  let private enterTuiScreen =
+    Ansi.enterAlternateScreen
+    + Ansi.disableAutoWrap
+    + Ansi.clearScreen
+    + Ansi.cursorHome
+
+  let private leaveTuiScreen =
+    Ansi.showCursor
+    + Ansi.enableAutoWrap
+    + Ansi.leaveAlternateScreen
+
   let mutable private previousFrameLines: string[] = [||]
-
-  let private runClipboardProcess file arguments (input: string option) =
-    try
-      let startInfo = ProcessStartInfo()
-      startInfo.FileName <- file
-      startInfo.Arguments <- arguments
-      startInfo.CreateNoWindow <- true
-      startInfo.UseShellExecute <- false
-      startInfo.RedirectStandardOutput <- Option.isNone input
-      startInfo.RedirectStandardInput <- Option.isSome input
-      let child = Process.Start startInfo
-      match input with
-      | Some text ->
-        child.StandardInput.Write text
-        child.StandardInput.Close()
-        if child.WaitForExit 1000 && child.ExitCode = 0 then Some ""
-        else None
-      | None ->
-        let output = child.StandardOutput.ReadToEnd()
-        if child.WaitForExit 1000 && child.ExitCode = 0 then Some output
-        else None
-    with _ ->
-      None
-
-  let private windowsClipboardRead () =
-    let arguments = "-NoProfile -Command Get-Clipboard -Raw"
-    runClipboardProcess "powershell.exe" arguments
-      None
-
-  let private windowsClipboardWrite text =
-    let command = "-NoProfile -Command [Console]::In.ReadToEnd()|Set-Clipboard"
-    runClipboardProcess "powershell.exe" command (Some text) |> Option.isSome
-
-  let tryReadClipboard () =
-    if RuntimeInformation.IsOSPlatform OSPlatform.Windows then
-      windowsClipboardRead ()
-    elif RuntimeInformation.IsOSPlatform OSPlatform.OSX then
-      runClipboardProcess "pbpaste" "" None
-    else
-      runClipboardProcess "wl-paste" "--no-newline" None
-      |> Option.orElseWith (fun () ->
-        runClipboardProcess "xclip" "-selection clipboard -o" None)
-      |> Option.orElseWith (fun () ->
-        runClipboardProcess "xsel" "--clipboard --output" None)
-
-  let tryWriteClipboard text =
-    if RuntimeInformation.IsOSPlatform OSPlatform.Windows then
-      windowsClipboardWrite text
-    elif RuntimeInformation.IsOSPlatform OSPlatform.OSX then
-      runClipboardProcess "pbcopy" "" (Some text) |> Option.isSome
-    else
-      runClipboardProcess "wl-copy" "" (Some text)
-      |> Option.orElseWith (fun () ->
-        runClipboardProcess "xclip" "-selection clipboard" (Some text))
-      |> Option.orElseWith (fun () ->
-        runClipboardProcess "xsel" "--clipboard --input" (Some text))
-      |> Option.isSome
 
   let isInteractive () =
     not Console.IsInputRedirected && not Console.IsOutputRedirected
@@ -104,25 +66,25 @@ module TransformerTuiTerminal =
     Console.OutputEncoding <- Encoding.UTF8
     Console.TreatControlCAsInput <- true
     previousFrameLines <- [||]
-    Console.Write enterAlternateScreen
+    Console.Write enterTuiScreen
     Console.Out.Flush()
     fun () ->
       previousFrameLines <- [||]
-      Console.Write leaveAlternateScreen
+      Console.Write leaveTuiScreen
       Console.Out.Flush()
       Console.TreatControlCAsInput <- originalControlC
       Console.OutputEncoding <- originalEncoding
 
   let draw busy (frame: TransformerTuiFrame) =
-    let visibility = if busy then "\x1b[?25l" else "\x1b[?25h"
-    let cursor = $"\x1b[{frame.CursorRow};{frame.CursorColumn}H"
+    let visibility = if busy then Ansi.hideCursor else Ansi.showCursor
+    let cursor = Ansi.moveCursor frame.CursorRow frame.CursorColumn
     let lines = frame.Lines
     let redrawAll = lines.Length <> previousFrameLines.Length
-    let output = StringBuilder "\x1b[?25l"
+    let output = StringBuilder Ansi.hideCursor
     lines
     |> Array.iteri (fun index line ->
       if redrawAll || previousFrameLines[index] <> line then
-        output.Append($"\x1b[{index + 1};1H{line}") |> ignore
+        output.Append(Ansi.moveCursor (index + 1) 1).Append(line) |> ignore
       else
         ())
     previousFrameLines <- lines

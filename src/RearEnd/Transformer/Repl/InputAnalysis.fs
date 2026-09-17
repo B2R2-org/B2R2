@@ -60,6 +60,9 @@ module InputAnalysis =
 
   let updateDepth depth token = ReplLanguage.updateDepth depth token
 
+  let tryTakeInteractivePhrase text =
+    ReplLanguage.tryTakeInteractivePhrase text
+
   let splitPipelineTokens text = ReplLanguage.splitPipelineText text
 
   let splitPipeline text = ReplLanguage.splitPipeline text

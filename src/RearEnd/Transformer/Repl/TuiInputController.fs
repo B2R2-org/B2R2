@@ -96,41 +96,6 @@ module TransformerTuiInputController =
     | None ->
       TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
 
-  let private normalizeClipboardText (text: string) =
-    text.Replace("\r\n", "\n").Replace('\r', '\n')
-
-  let private copyInput model =
-    if String.IsNullOrEmpty model.Input then
-      model
-      |> TransformerTuiModel.setStatus "Input is empty"
-      |> TuiInputResult.Update
-    elif TransformerTuiTerminal.tryWriteClipboard model.Input then
-      model
-      |> TransformerTuiModel.setStatus "Input copied"
-      |> TuiInputResult.Update
-    else
-      model
-      |> TransformerTuiModel.setStatus "Clipboard copy failed"
-      |> TuiInputResult.Update
-
-  let private pasteClipboard model =
-    match TransformerTuiTerminal.tryReadClipboard () with
-    | Some text ->
-      let text = normalizeClipboardText text
-      if String.IsNullOrEmpty text then
-        model
-        |> TransformerTuiModel.setStatus "Clipboard is empty"
-        |> TuiInputResult.Update
-      else
-        model
-        |> TransformerTuiModel.insertText text
-        |> TransformerTuiModel.setStatus "Clipboard pasted"
-        |> TuiInputResult.Update
-    | None ->
-      model
-      |> TransformerTuiModel.setStatus "Clipboard paste failed"
-      |> TuiInputResult.Update
-
   let private parseInt (value: string) =
     match Int32.TryParse value with
     | true, number -> Some number
@@ -218,6 +183,30 @@ module TransformerTuiInputController =
     let input = input.TrimStart()
     input.Equals(":layout", StringComparison.OrdinalIgnoreCase)
     || input.StartsWith(":layout ", StringComparison.OrdinalIgnoreCase)
+
+  let private submitPhrase command model =
+    if isLayoutCommand command then
+      applyLayoutCommand command model
+    else
+      TuiInputResult.Execute(model, command)
+
+  let private trySubmitPhrase model =
+    match InputAnalysis.tryTakeInteractivePhrase model.Input with
+    | Some command ->
+      submitPhrase command model
+    | None ->
+      TuiInputResult.Update model
+
+  let appendShellText text model =
+    TransformerTuiModel.insertText text model |> TuiInputResult.Update
+
+  let private pressShellEnter model =
+    match trySubmitPhrase model with
+    | TuiInputResult.Update _ -> appendShellText "\n" model
+    | result -> result
+
+  let private submitShellInput model =
+    submitPhrase model.Input model
 
   let private isBrowsingHistory model =
     Option.isSome (model: TransformerTuiModel).HistoryIndex
@@ -392,13 +381,13 @@ module TransformerTuiInputController =
            && model.Overlay = TuiOverlay.None
            && not (shift && key.Key = ConsoleKey.DownArrow) then
         handleTranscriptKey control key model
-      elif control && key.Key = ConsoleKey.C then
-        copyInput model
-      elif control && key.Key = ConsoleKey.V then
-        pasteClipboard model
       elif control && key.Key = ConsoleKey.D then
         if String.IsNullOrEmpty model.Input then TuiInputResult.Stop model
         else TuiInputResult.Update model
+      elif control && key.Key = ConsoleKey.Enter
+           && model.Overlay = TuiOverlay.None
+           && model.Focus = TuiFocus.Shell then
+        submitShellInput model
       elif isPipeShortcut control key
            && model.Overlay = TuiOverlay.None
            && model.Focus = TuiFocus.Shell then
@@ -420,14 +409,8 @@ module TransformerTuiInputController =
           acceptOverlaySelection model
         | ConsoleKey.Enter when model.Overlay <> TuiOverlay.None ->
           TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
-        | ConsoleKey.Enter when alt || shift ->
-          TransformerTuiModel.insertText "\n" model |> TuiInputResult.Update
-        | ConsoleKey.Enter when String.IsNullOrWhiteSpace model.Input ->
-          TuiInputResult.Update model
-        | ConsoleKey.Enter when isLayoutCommand model.Input ->
-          applyLayoutCommand model.Input model
         | ConsoleKey.Enter ->
-          TuiInputResult.Execute(model, model.Input)
+          pressShellEnter model
         | ConsoleKey.PageUp ->
           scrollPage (pageHeight model) model |> TuiInputResult.Update
         | ConsoleKey.PageDown ->
@@ -484,7 +467,6 @@ module TransformerTuiInputController =
         | ConsoleKey.Delete ->
           TransformerTuiModel.delete model |> TuiInputResult.Update
         | _ when not (Char.IsControl key.KeyChar) ->
-          TransformerTuiModel.insert key.KeyChar model
-          |> TuiInputResult.Update
+          appendShellText (string key.KeyChar) model
         | _ ->
           TuiInputResult.Update model
