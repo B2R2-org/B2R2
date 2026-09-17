@@ -31,6 +31,7 @@ open System.Text.RegularExpressions
 [<RequireQualifiedAccess>]
 type TuiLineKind =
   | Command
+  | CommandContinuation
   | Output
   | Error
   | System
@@ -157,6 +158,9 @@ module TransformerTuiModel =
   let private isCommandLine line =
     line.Kind = TuiLineKind.Command
 
+  let private isCommandContinuation line =
+    line.Kind = TuiLineKind.CommandContinuation
+
   let initial =
     { Session = TransformerReplState.empty
       Transcript =
@@ -225,9 +229,20 @@ module TransformerTuiModel =
         ScrollOffset = 0
         TranscriptViewportStart = None }
 
+  let private commandLines (command: string) =
+    command.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n')
+    |> Array.toList
+    |> function
+      | [] -> []
+      | first :: rest ->
+        { Kind = TuiLineKind.Command; Text = first }
+        :: (rest
+            |> List.map (fun line ->
+              { Kind = TuiLineKind.CommandContinuation; Text = line }))
+
   let appendCommand command model =
     let index = commandCount model + 1
-    { appendLines TuiLineKind.Command [ command ] model with
+    { appendTuiLines (commandLines command) model with
         FoldTarget = Some index }
 
   let clearTranscript model =
@@ -516,6 +531,7 @@ module TransformerTuiModel =
       transcript
       |> List.skip (start + 1)
       |> List.truncate (max 0 (finish - start - 1))
+      |> List.filter (isCommandContinuation >> not)
     | None ->
       []
 
@@ -551,6 +567,7 @@ module TransformerTuiModel =
 
   let private linePrefix = function
     | TuiLineKind.Command -> "> "
+    | TuiLineKind.CommandContinuation -> "  "
     | TuiLineKind.Error -> "! "
     | TuiLineKind.System -> "* "
     | TuiLineKind.Output -> "  "
@@ -610,10 +627,11 @@ module TransformerTuiModel =
     let maxInline = max 6 (height - 2)
     let keep = max 2 (min 8 ((height - 3) / 2))
     let command, output =
-      match lines with
-      | command :: output when command.Line.Kind = TuiLineKind.Command ->
-        [ markTranscriptCursor model command ], output
-      | _ -> [], lines
+      let isCommandText (line: TuiTranscriptLine) =
+        line.Line.Kind = TuiLineKind.Command
+        || line.Line.Kind = TuiLineKind.CommandContinuation
+      List.takeWhile isCommandText lines, List.skipWhile isCommandText lines
+    let command = command |> List.map (markTranscriptCursor model)
     if Set.contains index model.CollapsedCommands then
       let source = sourceRange output
       let selected = cursorOnSource model source

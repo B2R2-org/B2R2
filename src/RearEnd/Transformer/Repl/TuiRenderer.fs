@@ -137,6 +137,7 @@ module TransformerTuiRenderer =
 
   let private lineStyle = function
     | TuiLineKind.Command -> cyan
+    | TuiLineKind.CommandContinuation -> cyan
     | TuiLineKind.Output -> ""
     | TuiLineKind.Error -> red
     | TuiLineKind.System -> dim
@@ -145,6 +146,7 @@ module TransformerTuiRenderer =
 
   let private linePrefix = function
     | TuiLineKind.Command -> "> "
+    | TuiLineKind.CommandContinuation -> "  "
     | TuiLineKind.Error -> "! "
     | TuiLineKind.System -> "* "
     | TuiLineKind.Output -> "  "
