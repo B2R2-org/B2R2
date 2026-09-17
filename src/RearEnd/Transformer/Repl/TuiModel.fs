@@ -43,6 +43,50 @@ type TuiLine =
   { Kind: TuiLineKind
     Text: string }
 
+[<RequireQualifiedAccess>]
+module TransformerTuiText =
+  let private ansiPattern = Regex("\x1B\[[0-?]*[ -/]*[@-~]")
+
+  let containsAnsi (text: string) =
+    not (isNull text) && ansiPattern.IsMatch text
+
+  let matchAnsi text index = ansiPattern.Match(text, index)
+
+  let stripAnsi (text: string) = ansiPattern.Replace(text, "")
+
+  let sanitize (text: string) =
+    let builder = Text.StringBuilder()
+    for chr in stripAnsi text do
+      if chr = '\t' then builder.Append ' ' |> ignore
+      elif Char.IsControl chr then ()
+      else builder.Append chr |> ignore
+    builder.ToString()
+
+  let wrap width text =
+    let text = sanitize text
+    let rec loop lines (text: string) =
+      if text.Length <= width then
+        List.rev (text :: lines)
+      else
+        let candidate = text[..width - 1]
+        let breakAt = candidate.LastIndexOf ' '
+        let breakAt = if breakAt <= 0 then width else breakAt
+        let line = text[..breakAt - 1]
+        let rest = text[breakAt..].TrimStart()
+        loop (line :: lines) rest
+    if width <= 0 then [ "" ]
+    elif String.IsNullOrEmpty text then [ "" ]
+    else loop [] text
+
+  let linePrefix = function
+    | TuiLineKind.Command -> "> "
+    | TuiLineKind.CommandContinuation -> "  "
+    | TuiLineKind.Error -> "! "
+    | TuiLineKind.System -> "* "
+    | TuiLineKind.Output -> "  "
+    | TuiLineKind.Selection -> "> "
+    | TuiLineKind.Cursor -> "  "
+
 /// Source represented by one rendered transcript row.
 [<RequireQualifiedAccess>]
 type TuiTranscriptSource =
@@ -117,8 +161,6 @@ module TransformerTuiModel =
   let private maximumTranscriptLines = 5000
 
   let completionPaneRows = 9
-
-  let private ansiPattern = Regex("\x1B\[[0-?]*[ -/]*[@-~]")
 
   let private inputLineCount (input: string) =
     input.Replace("\r\n", "\n").Replace('\r', '\n').Split '\n'
@@ -538,49 +580,13 @@ module TransformerTuiModel =
   let private selectedTextKind selected kind =
     if selected then TuiLineKind.Selection else kind
 
-  let private containsAnsi (text: string) =
-    text.Contains("\x1b[", StringComparison.Ordinal)
-
-  let private sanitize (text: string) =
-    let builder = Text.StringBuilder()
-    for chr in text do
-      if chr = '\t' then builder.Append ' ' |> ignore
-      elif Char.IsControl chr then ()
-      else builder.Append chr |> ignore
-    builder.ToString()
-
-  let private wrap width text =
-    let text = sanitize text
-    let rec loop lines (text: string) =
-      if text.Length <= width then
-        List.rev (text :: lines)
-      else
-        let candidate = text[..width - 1]
-        let breakAt = candidate.LastIndexOf ' '
-        let breakAt = if breakAt <= 0 then width else breakAt
-        let line = text[..breakAt - 1]
-        let rest = text[breakAt..].TrimStart()
-        loop (line :: lines) rest
-    if width <= 0 then [ "" ]
-    elif String.IsNullOrEmpty text then [ "" ]
-    else loop [] text
-
-  let private linePrefix = function
-    | TuiLineKind.Command -> "> "
-    | TuiLineKind.CommandContinuation -> "  "
-    | TuiLineKind.Error -> "! "
-    | TuiLineKind.System -> "* "
-    | TuiLineKind.Output -> "  "
-    | TuiLineKind.Selection -> "> "
-    | TuiLineKind.Cursor -> "  "
-
   let private wrapTranscriptLine width (line: TuiTranscriptLine) =
-    let prefix = linePrefix line.Line.Kind
-    if containsAnsi line.Line.Text then
+    let prefix = TransformerTuiText.linePrefix line.Line.Kind
+    if TransformerTuiText.containsAnsi line.Line.Text then
       [ { line with
             Line = { line.Line with Text = prefix + line.Line.Text } } ]
     else
-      wrap (max 1 (width - prefix.Length)) line.Line.Text
+      TransformerTuiText.wrap (max 1 (width - prefix.Length)) line.Line.Text
       |> List.mapi (fun index text ->
         let prefix = if index = 0 then prefix else "  "
         { line with Line = { line.Line with Text = prefix + text } })
@@ -979,7 +985,7 @@ module TransformerTuiModel =
 
   let selectedViewText pane =
     let cleanText (text: string) =
-      let text = ansiPattern.Replace(text, "")
+      let text = TransformerTuiText.stripAnsi text
       text
       |> Seq.map (fun chr ->
         if chr = '\t' then ' '

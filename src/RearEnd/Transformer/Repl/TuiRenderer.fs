@@ -27,7 +27,6 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.IO
 open System.Text
-open System.Text.RegularExpressions
 
 /// A fully rendered terminal frame and its input cursor location.
 type TransformerTuiFrame =
@@ -45,7 +44,6 @@ module TransformerTuiRenderer =
   let private underline = "\x1b[4m"
   let private reverse = "\x1b[7m"
   let private clearLine = "\x1b[2K"
-  let private ansiPattern = Regex("\x1B\[[0-?]*[ -/]*[@-~]")
   let private maxRenderableChars = 4096
 
   let private paint style text = style + text + reset
@@ -71,17 +69,10 @@ module TransformerTuiRenderer =
 
   let private sanitize (text: string) =
     let text = displayText text
-    let text = ansiPattern.Replace(text, "")
-    text
-    |> Seq.map (fun chr ->
-      if chr = '\t' then ' '
-      elif Char.IsControl chr then ' '
-      else chr)
-    |> Array.ofSeq
-    |> String
+    TransformerTuiText.sanitize text
 
   let private containsAnsi (text: string) =
-    not (isNull text) && ansiPattern.IsMatch text
+    TransformerTuiText.containsAnsi text
 
   let private fitAnsi width (text: string) =
     let text = displayText text
@@ -90,7 +81,7 @@ module TransformerTuiRenderer =
       if index >= text.Length || visible >= width then
         visible
       else
-        let matched = ansiPattern.Match(text, index)
+        let matched = TransformerTuiText.matchAnsi text index
         if matched.Success && matched.Index = index then
           builder.Append matched.Value |> ignore
           loop (index + matched.Length) visible
@@ -121,20 +112,7 @@ module TransformerTuiRenderer =
       else text.PadRight width
 
   let private wrap width text =
-    let text = sanitize text
-    let rec loop lines (text: string) =
-      if text.Length <= width then
-        List.rev (text :: lines)
-      else
-        let candidate = text[..width - 1]
-        let breakAt = candidate.LastIndexOf ' '
-        let breakAt = if breakAt <= 0 then width else breakAt
-        let line = text[..breakAt - 1]
-        let rest = text[breakAt..].TrimStart()
-        loop (line :: lines) rest
-    if width <= 0 then [ "" ]
-    elif String.IsNullOrEmpty text then [ "" ]
-    else loop [] text
+    displayText text |> TransformerTuiText.wrap width
 
   let private lineStyle = function
     | TuiLineKind.Command -> cyan
@@ -145,17 +123,8 @@ module TransformerTuiRenderer =
     | TuiLineKind.Selection -> reverse
     | TuiLineKind.Cursor -> ""
 
-  let private linePrefix = function
-    | TuiLineKind.Command -> "> "
-    | TuiLineKind.CommandContinuation -> "  "
-    | TuiLineKind.Error -> "! "
-    | TuiLineKind.System -> "* "
-    | TuiLineKind.Output -> "  "
-    | TuiLineKind.Selection -> "> "
-    | TuiLineKind.Cursor -> "  "
-
   let private wrapLine width (line: TuiLine) =
-    let prefix = linePrefix line.Kind
+    let prefix = TransformerTuiText.linePrefix line.Kind
     if containsAnsi line.Text then
       [ line.Kind, prefix + line.Text ]
     else
