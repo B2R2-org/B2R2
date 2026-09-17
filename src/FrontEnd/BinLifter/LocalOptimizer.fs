@@ -51,21 +51,31 @@ module private Localizer =
 
 /// Represents an intra-block local IR optimizer.
 type LocalOptimizer =
-  /// Remove unnecessary IEMark to ease the analysis.
+  /// Remove unnecessary IEMark to ease the analysis. Anything shorter than a
+  /// mark and the statement it follows is left alone, which is what lets an
+  /// empty array reach the block splitting below rather than fault here.
   static member private TrimIEMark(stmts: Stmt[]) =
-    let last = stmts[stmts.Length - 1]
-    let secondLast = stmts[stmts.Length - 2]
-    match secondLast, last with
-    | InterJmp _, IEMark _
-    | InterCJmp _, IEMark _ -> Array.sub stmts 0 (stmts.Length - 1)
-    | _ -> stmts
+    if stmts.Length < 2 then
+      stmts
+    else
+      let last = stmts[stmts.Length - 1]
+      let secondLast = stmts[stmts.Length - 2]
+      match secondLast, last with
+      | InterJmp _, IEMark _
+      | InterCJmp _, IEMark _ -> Array.sub stmts 0 (stmts.Length - 1)
+      | _ -> stmts
 
   /// Run optimization on a flattened IR statements (an array of IR statements).
   /// This always trims the last IEMark following a jump or a conditional jump.
   static member Optimize(stmts, fnOptimize: Stmt[] -> Stmt[]) =
-    LocalOptimizer.TrimIEMark stmts
-    |> breakIntoBlocks
-    |> Array.collect fnOptimize
+    let blocks = LocalOptimizer.TrimIEMark stmts |> breakIntoBlocks
+    if blocks.Length = 1 then
+      (* The statements hold no label, which is the ordinary case. Array.collect
+         would build a one-element array of arrays here and then copy the block
+         back out of it, to arrive at what the block already is. *)
+      fnOptimize blocks[0]
+    else
+      Array.collect fnOptimize blocks
 
   /// Run optimization on a flattened IR statements (an array of IR statements)
   /// with a default optimization function that performs constant folding and
