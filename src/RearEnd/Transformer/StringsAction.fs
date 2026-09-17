@@ -58,7 +58,8 @@ type StringsAction() =
   let isPrintable byte =
     byte >= 0x20uy && byte <= 0x7euy
 
-  let collectStrings minLength pattern source baseAddress (bytes: byte[]) =
+  let collectStrings minLength pattern source baseAddress
+                     (bytes: ReadOnlySpan<byte>) =
     let builder = StringBuilder()
     let strings = ResizeArray<StringMatch>()
     let flush startIndex =
@@ -87,13 +88,13 @@ type StringsAction() =
 
   let collectFromBinary minLength pattern binary =
     let hdl = Binary.Handle binary
-    let bytes = hdl.File.RawBytes.ToArray()
-    collectStrings minLength pattern binary hdl.File.BaseAddress bytes
+    collectStrings minLength pattern binary hdl.File.BaseAddress
+      hdl.File.RawBytes.Span
 
   let collectFromSlice minLength pattern slice =
     let slice: BinarySlice = slice
     collectStrings minLength pattern slice.Source slice.StartAddress
-      slice.Bytes
+      (ReadOnlySpan slice.Bytes)
 
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
