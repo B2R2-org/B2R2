@@ -660,25 +660,6 @@ module ActionMetadata =
       ActionRole.Reducer 60 "count -> Int"
       [ "matches |> @count" ] [ syntax None [] ]
 
-  let private batch =
-    let action =
-      required "action" ActionArgumentKind.Action
-        "Action to apply to each collection item."
-    let parameters =
-      required "params" ActionArgumentKind.ParameterFunction
-        "Function that returns action parameters for each item."
-    let inputs =
-      [ ReplValueKind.Collection ReplValueKind.Any
-        ReplValueKind.List ReplValueKind.Any
-        ReplValueKind.Array ReplValueKind.Any ]
-    let signature =
-      "'a collection -> batch action=<action> params=<fun> -> 'b collection"
-    overloadContract "batch" inputs (ReplValueKind.Collection ReplValueKind.Any)
-      ActionRole.Transform 80 signature
-      [ "bins |> @batch action=@save params=(fun item i -> path=out/{i}.bin)"
-        "texts |> @batch @write (fun item _ -> path=out.txt)" ]
-      [ syntax None [ action; parameters ] ]
-
   let private concExec =
     overloadContract "conc-exec"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
@@ -1073,7 +1054,6 @@ module ActionMetadata =
       asBinary
       asm
       arg
-      batch
       count
       concExec
       dbscan

@@ -46,7 +46,7 @@ type SaveAction() =
       { Values = [||] }
     | [ _ ], _ ->
       invalidArg (nameof collection)
-        "save expects one Binary; use batch to save collection items."
+        "save expects one Binary; use iteri to save collection items."
     | _ ->
       invalidArg (nameof args) "Expected: save path=<path>."
 

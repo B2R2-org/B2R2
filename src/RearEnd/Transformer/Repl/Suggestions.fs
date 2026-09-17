@@ -309,6 +309,27 @@ module Suggestions =
       matches prefix (ActionMetadata.actionName action.Metadata.ID))
     |> List.map actionItem
 
+  let private isCollectionKind = function
+    | ReplValueKind.Collection _
+    | ReplValueKind.List _
+    | ReplValueKind.Array _ -> true
+    | _ -> false
+
+  let private iterKeywordItem text detail =
+    { Text = text
+      Label = text
+      Detail = detail
+      Kind = SuggestionKind.Action
+      AppendSpace = true }
+
+  let private iterKeywordCandidates kind prefix =
+    match kind with
+    | Some kind when isCollectionKind kind ->
+      [ iterKeywordItem "iter" "apply an action to each item"
+        iterKeywordItem "iteri" "apply an action with item index" ]
+      |> List.filter (fun item -> matches prefix item.Text)
+    | _ -> []
+
   let private initialCandidates registry state prefix includeLet includeCurrent
                                       expected =
     let state: TransformerReplState = state
@@ -326,7 +347,8 @@ module Suggestions =
       if includeCurrent then
         state.Current
         |> Option.map (fun value ->
-          actionCandidates registry (Some value.Kind) expected prefix)
+          actionCandidates registry (Some value.Kind) expected prefix
+          @ iterKeywordCandidates (Some value.Kind) prefix)
         |> Option.defaultValue []
       else
         []
@@ -726,7 +748,11 @@ module Suggestions =
     | Some name -> name = "params"
     | None -> false
 
-  let private tryBatchTargetAction words =
+  let private isIterHead head =
+    String.Equals(head, "iter", StringComparison.OrdinalIgnoreCase)
+    || String.Equals(head, "iteri", StringComparison.OrdinalIgnoreCase)
+
+  let private tryIterTargetAction words =
     let named =
       words
       |> List.tryPick (fun token ->
@@ -850,14 +876,6 @@ module Suggestions =
   let private argumentNameCandidates registry metadata inputKind completed
                                      argumentIndex prefix =
     let metadata: ActionMetadata = metadata
-    let batchActions () =
-      match inputKind with
-      | Some(ReplValueKind.Collection kind)
-      | Some(ReplValueKind.List kind)
-      | Some(ReplValueKind.Array kind) ->
-        actionCandidates registry (Some kind) None prefix
-        |> List.filter (fun item -> item.Text <> "@batch")
-      | _ -> []
     let arguments =
       syntaxArgument metadata inputKind completed argumentIndex
       |> List.distinctBy (fun argument -> argument.Name)
@@ -866,11 +884,7 @@ module Suggestions =
         |> List.exists (fun key -> matches prefix (key + "=")))
       |> List.map argumentNameItem
     let candidates =
-      if metadata.ID = "batch" && argumentIndex = 0
-         && prefix.StartsWith("@", StringComparison.Ordinal) then
-        batchActions ()
-      else
-        triggerCandidates metadata inputKind argumentIndex prefix @ arguments
+      triggerCandidates metadata inputKind argumentIndex prefix @ arguments
     candidates |> List.distinctBy (fun item -> item.Text)
 
   let private argumentCandidates registry state head completed argumentIndex
@@ -902,30 +916,7 @@ module Suggestions =
     | None ->
       []
     | Some registered ->
-      let batchActionCandidates () =
-        match inputKind with
-        | Some(ReplValueKind.Collection kind)
-        | Some(ReplValueKind.List kind)
-        | Some(ReplValueKind.Array kind) ->
-          actionCandidates registry (Some kind) None prefix
-          |> List.filter (fun item -> item.Text <> "@batch")
-        | _ -> []
-      let batchFunctionCandidates () =
-        let inputKind = inputKind |> Option.bind collectionElementKind
-        let words =
-          ActionMetadata.actionName registered.Metadata.ID :: completed
-        match tryBatchTargetAction words, inputKind with
-        | Some target, Some kind ->
-          functionTemplateCandidates registry target (Some kind) prefix
-        | Some target, None ->
-          functionTemplateCandidates registry target None prefix
-        | None, _ ->
-          []
-      if registered.Metadata.ID = "batch" && name = "action" then
-        batchActionCandidates ()
-      elif registered.Metadata.ID = "batch" && name = "params" then
-        batchFunctionCandidates ()
-      elif registered.Metadata.ID = "set-reg" && name = "name" then
+      if registered.Metadata.ID = "set-reg" && name = "name" then
         requiredRegisterCandidates "" state prefix
       elif registered.Metadata.ID = "mem" && name = "addr" then
         requiredMemoryCandidates "" state prefix
@@ -975,7 +966,23 @@ module Suggestions =
     else
       []
 
-  let private batchBodyCandidates registry state context =
+  let private iterActionCandidates registry state context =
+    let context: InputContext = context
+    let fullExpression =
+      ReplLanguage.expressionPortion context.InputBeforeCursor
+    let lastPipeline = InputAnalysis.topLevelLastPipeline fullExpression
+    let sourceExpression =
+      lastPipeline
+      |> Option.map (fun index -> fullExpression[..index - 1])
+      |> Option.defaultValue context.Expression
+    let itemKind =
+      inferInputKind registry state sourceExpression
+      |> Option.bind collectionElementKind
+    match itemKind with
+    | Some kind -> actionCandidates registry (Some kind) None context.Prefix
+    | None -> []
+
+  let private iterBodyCandidates registry state context =
     let context: InputContext = context
     let fullExpression =
       ReplLanguage.expressionPortion context.InputBeforeCursor
@@ -986,12 +993,16 @@ module Suggestions =
       |> Option.defaultValue context.Segment
     let words = InputAnalysis.splitWords segment
     match words with
-    | head :: _ when actionID head = "batch" ->
-      match tryBatchTargetAction words with
-      | None -> None
+    | head :: _ when isIterHead head ->
+      match tryIterTargetAction words with
+      | None -> iterActionCandidates registry state context |> Some
       | Some target ->
         match ActionRegistry.tryFind target registry with
-        | None -> None
+        | None ->
+          if context.Prefix.StartsWith("@", StringComparison.Ordinal) then
+            iterActionCandidates registry state context |> Some
+          else
+            None
         | Some registered ->
           let sourceExpression =
             lastPipeline
@@ -1032,7 +1043,13 @@ module Suggestions =
               noArgumentCandidate registered.Metadata inputKind prefix
               @ candidates
             Some candidates
-          | _ -> None
+          | _ ->
+            match words with
+            | [ _ ] -> iterActionCandidates registry state context |> Some
+            | _ :: _ :: _ when
+                context.Prefix.StartsWith("@", StringComparison.Ordinal) ->
+              iterActionCandidates registry state context |> Some
+            | _ -> None
     | _ -> None
 
   let private scriptOperationCandidates prefix =
@@ -1167,7 +1184,7 @@ module Suggestions =
     match setContextListCandidates argumentState context with
     | Some candidates -> candidates
     | None ->
-      match batchBodyCandidates registry argumentState context with
+      match iterBodyCandidates registry argumentState context with
       | Some candidates -> candidates
       | None ->
         match literalBindingCandidates state expression context.Prefix with
@@ -1178,6 +1195,7 @@ module Suggestions =
             if hasPipeline then
               let kind = inferInputKind registry state expression
               actionCandidates registry kind expected context.Prefix
+              @ iterKeywordCandidates kind context.Prefix
             else
               initialCandidates registry state context.Prefix
                 (not context.HasBinding) (not context.HasBinding) expected
@@ -1186,6 +1204,7 @@ module Suggestions =
           | [ _ ] when hasPipeline ->
             let kind = inferInputKind registry state expression
             actionCandidates registry kind expected context.Prefix
+            @ iterKeywordCandidates kind context.Prefix
           | [ _ ] ->
             initialCandidates registry state context.Prefix
               (not context.HasBinding) (not context.HasBinding) expected

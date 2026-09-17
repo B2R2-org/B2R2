@@ -13,7 +13,6 @@
     <Compile Include="Repl\ActionMetadata.fs" />
     <Compile Include="AsmAction.fs" />
     <Compile Include="ByteArrayAction.fs" />
-    <Compile Include="BatchAction.fs" />
     <Compile Include="CFGAction.fs" />
     <Compile Include="ConcExecAction.fs" />
     <Compile Include="SymbExecAction.fs" />

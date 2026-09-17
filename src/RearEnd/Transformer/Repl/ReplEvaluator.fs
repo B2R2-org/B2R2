@@ -1007,10 +1007,13 @@ module TransformerReplEvaluator =
   let private actionID (head: string) =
     if isActionReference head then head[1..] else head
 
+  let private isIterHead head =
+    equalsIgnoreCase head "iter" || equalsIgnoreCase head "iteri"
+
   let private tryFindAction registry head =
     ActionRegistry.tryFind (actionID head) registry
 
-  type private BatchSpec =
+  type private IterSpec =
     { ActionID: string
       ItemName: string
       IndexName: string
@@ -1042,18 +1045,18 @@ module TransformerReplEvaluator =
           loop (token :: before) rest
     loop [] tokens
 
-  let private parseBatchAction tokens =
+  let private parseIterAction keyword tokens =
     parseArguments tokens
     |> Result.bind (fun parsed ->
       let named = Map.tryFind "action" parsed.Named |> Option.map snd
       match named, parsed.Positional with
       | Some action, [] -> Ok action
       | None, [ action ] -> Ok action
-      | None, [] -> Error "batch requires an action parameter."
+      | None, [] -> Error $"{keyword} requires an action."
       | Some _, _ ->
-        Error "batch action must not be mixed with positional arguments."
+        Error $"{keyword} action must not be mixed with positional arguments."
       | None, _ ->
-        Error "batch expects exactly one action before the params function.")
+        Error $"{keyword} expects exactly one action before the function.")
     |> Result.map actionID
 
   let private trimEnclosed openToken closeToken tokens =
@@ -1074,43 +1077,81 @@ module TransformerReplEvaluator =
         List.rev output
     loop [] tokens
 
-  let private normalizeBatchBody tokens =
+  let private normalizeIterBody tokens =
     tokens
     |> trimEnclosed "{" "}"
     |> mergeSeparatedEquals
 
-  let private parseBatchLambda tokens =
+  let private emptyIterSpec =
+    { ItemName = "_"
+      IndexName = "_"
+      Body = []
+      ActionID = "" }
+
+  let private parseIterLambda tokens =
     let tokens = trimEnclosed "(" ")" tokens
     match tokens with
+    | [] -> Ok emptyIterSpec
+    | "fun" :: itemName :: "->" :: body
+      when isValidLambdaParameter itemName ->
+      Ok
+        { ItemName = itemName
+          IndexName = "_"
+          Body = normalizeIterBody body
+          ActionID = "" }
     | "fun" :: itemName :: indexName :: "->" :: body
       when isValidLambdaParameter itemName
            && isValidLambdaParameter indexName ->
       Ok
         { ItemName = itemName
           IndexName = indexName
-          Body = normalizeBatchBody body
+          Body = normalizeIterBody body
           ActionID = "" }
     | "fun" :: _ ->
-      Error "batch params must be: fun item index -> <action-parameters>."
+      Error "iter function must be: fun item -> <action-parameters>."
     | _ ->
-      Error "batch params must be a function: fun item index -> ..."
+      Error "iter expects an action or function: iter @action (fun item -> ...)"
 
-  let private parseBatchSpec args =
+  let private parseIteriLambda tokens =
+    let tokens = trimEnclosed "(" ")" tokens
+    match tokens with
+    | [] ->
+      Error "iteri requires a function: fun index item -> ..."
+    | "fun" :: indexName :: itemName :: "->" :: body
+      when isValidLambdaParameter indexName
+           && isValidLambdaParameter itemName ->
+      Ok
+        { ItemName = itemName
+          IndexName = indexName
+          Body = normalizeIterBody body
+          ActionID = "" }
+    | "fun" :: _ ->
+      Error "iteri function must be: fun index item -> <action-parameters>."
+    | _ ->
+      Error "iteri requires a function: fun index item -> ..."
+
+  let private parseIterSpec keyword args =
     match tryTakeNamedParameter [ "params" ] args with
     | Some(actionTokens, parameterTokens) ->
-      parseBatchAction actionTokens
+      parseIterAction keyword actionTokens
       |> Result.bind (fun action ->
-        parseBatchLambda parameterTokens
+        let parse =
+          if equalsIgnoreCase keyword "iteri" then parseIteriLambda
+          else parseIterLambda
+        parse parameterTokens
         |> Result.map (fun spec -> { spec with ActionID = action }))
     | None ->
       match args with
       | action :: parameterTokens ->
-        parseBatchAction [ action ]
+        parseIterAction keyword [ action ]
         |> Result.bind (fun action ->
-          parseBatchLambda parameterTokens
+          let parse =
+            if equalsIgnoreCase keyword "iteri" then parseIteriLambda
+            else parseIterLambda
+          parse parameterTokens
           |> Result.map (fun spec -> { spec with ActionID = action }))
       | [] ->
-        Error "batch requires an action and a params function."
+        Error $"{keyword} requires an action."
 
   let private replaceTemplate name replacement (text: string) =
     if name = "_" then
@@ -1118,7 +1159,7 @@ module TransformerReplEvaluator =
     else
       text.Replace("{" + name + "}", replacement)
 
-  let private splitBatchStatements tokens =
+  let private splitIterStatements tokens =
     let rec loop depth current statements = function
       | [] ->
         List.rev (List.rev current :: statements)
@@ -1154,20 +1195,20 @@ module TransformerReplEvaluator =
         if suffix = name then prefix + value else text
     bindings |> List.fold replaceBinding token
 
-  let private batchArguments (spec: BatchSpec) (index: int) (item: obj) =
+  let private iterArguments (spec: IterSpec) (index: int) (item: obj) =
     let itemText = if isNull item then "" else item.ToString()
     let indexText = index.ToString(CultureInfo.InvariantCulture)
     let apply token =
       token
-      |> replaceTemplate (spec: BatchSpec).ItemName itemText
+      |> replaceTemplate (spec: IterSpec).ItemName itemText
       |> replaceTemplate spec.IndexName indexText
       |> fun text -> text.Replace("{index}", indexText)
-    let statements = splitBatchStatements spec.Body
+    let statements = splitIterStatements spec.Body
     let folder result statement =
       result
       |> Result.bind (fun (bindings, body) ->
         if not (List.isEmpty body) then
-          Error "batch params can have only one final parameter expression."
+          Error "iter function can have only one final parameter expression."
         else
           match tryLocalBinding statement with
           | Some(name, valueTokens) ->
@@ -1191,7 +1232,7 @@ module TransformerReplEvaluator =
   let private singletonValue item =
     ReplValue.ofCollection ReplValueKind.Any { Values = [| item |] }
 
-  let private batchOutputKind kinds =
+  let private iterOutputKind kinds =
     let rec elementKind = function
       | ReplValueKind.Collection kind
       | ReplValueKind.List kind
@@ -1286,11 +1327,9 @@ module TransformerReplEvaluator =
       | "save", ReplValueKind.Collection _
       | "save", ReplValueKind.List _
       | "save", ReplValueKind.Array _ ->
-        Error "save expects one Binary; use batch to save collection items."
+        Error "save expects one Binary; use iteri to save collection items."
       | _ ->
         Error $"{metadata.ID} expects {expected}, but received {actual}."
-    elif metadata.ID = "batch" then
-      invokeBatch registry state input segment cancellationToken
     elif metadata.ID = "set-context" || metadata.ID = "symb-context" then
       let args =
         segment.Arguments
@@ -1333,47 +1372,50 @@ module TransformerReplEvaluator =
       | :? OperationCanceledException -> reraise ()
       | error -> Error error.Message)
 
-  and private invokeBatch registry state input segment cancellationToken =
+  and private invokeIter registry state (input: ReplValue)
+                         (segment: ReplPipelineSegment)
+                         (cancellationToken: CancellationToken) =
     let output = ResizeArray<obj>()
     let outputKinds = ResizeArray<ReplValueKind>()
-    parseBatchSpec segment.Arguments
-    |> Result.bind (fun spec ->
-      match tryFindAction registry spec.ActionID with
-      | None ->
-        Error $"Unknown batch action: {spec.ActionID}"
-      | Some registered when registered.Metadata.ID = "batch" ->
-        Error "batch cannot invoke batch recursively."
-      | Some registered ->
-        let values = input.Collection.Values
-        let rec loop index =
-          if index >= values.Length then
-            let kind = outputKinds |> Seq.toList |> batchOutputKind
-            let collection = { Values = output.ToArray() }
-            ReplValue.ofCollection kind collection |> Ok
-          else
-            cancellationToken.ThrowIfCancellationRequested()
-            let item = values[index]
-            match batchArguments spec index item with
-            | Error message ->
-              Error $"batch item {index}: {message}"
-            | Ok arguments ->
-              let segment =
-                { Head = ActionMetadata.actionName registered.Metadata.ID
-                  Arguments = arguments }
-              match
-                invoke registry state registered (singletonValue item) segment
-                  cancellationToken
-              with
+    if not input.IsCollection then
+      Error $"{segment.Head} expects a collection input."
+    else
+      parseIterSpec segment.Head segment.Arguments
+      |> Result.bind (fun spec ->
+        match tryFindAction registry spec.ActionID with
+        | None ->
+          Error $"Unknown iter action: {spec.ActionID}"
+        | Some registered ->
+          let values = input.Collection.Values
+          let rec loop index =
+            if index >= values.Length then
+              let kind = outputKinds |> Seq.toList |> iterOutputKind
+              let collection = { Values = output.ToArray() }
+              ReplValue.ofCollection kind collection |> Ok
+            else
+              cancellationToken.ThrowIfCancellationRequested()
+              let item = values[index]
+              match iterArguments spec index item with
               | Error message ->
-                Error $"batch item {index}: {message}"
-              | Ok value ->
-                if value.Kind <> ReplValueKind.Unit then
-                  outputKinds.Add value.Kind
-                  output.AddRange value.Collection.Values
-                else
-                  ()
-                loop (index + 1)
-        loop 0)
+                Error $"{segment.Head} item {index}: {message}"
+              | Ok arguments ->
+                let segment =
+                  { Head = ActionMetadata.actionName registered.Metadata.ID
+                    Arguments = arguments }
+                match
+                  invoke registry state registered (singletonValue item) segment
+                    cancellationToken
+                with
+                | Error message ->
+                  Error $"{segment.Head} item {index}: {message}"
+                | Ok value ->
+                  if value.Kind <> ReplValueKind.Unit then
+                    outputKinds.Add value.Kind
+                    output.AddRange value.Collection.Values
+                  else
+                    ()
+                  loop (index + 1)
+          loop 0)
 
   let private splitLiteralElements separator tokens =
     ReplLanguage.splitTopLevelStrict separator tokens
@@ -1490,11 +1532,14 @@ module TransformerReplEvaluator =
     |> List.fold (fun result segment ->
       result
       |> Result.bind (fun input ->
-        match tryFindAction registry segment.Head with
-        | Some registered ->
-          invoke registry state registered input segment cancellationToken
-        | None ->
-          Error $"Unknown action: {actionID segment.Head}")) (Ok initial)
+        if isIterHead segment.Head then
+          invokeIter registry state input segment cancellationToken
+        else
+          match tryFindAction registry segment.Head with
+          | Some registered ->
+            invoke registry state registered input segment cancellationToken
+          | None ->
+            Error $"Unknown action: {actionID segment.Head}")) (Ok initial)
 
   let rec private runPipeline registry state segments cancellationToken =
     match segments with
@@ -1516,23 +1561,31 @@ module TransformerReplEvaluator =
         | Some value ->
           runRemaining registry state value rest cancellationToken
         | None ->
-          match tryFindAction registry first.Head with
-          | Some registered ->
-            let input =
-              if ActionMetadata.acceptedInputs registered.Metadata
-                 |> List.contains ReplValueKind.Unit then
-                Ok ReplValue.emptyInput
-              else
-                state.Current
-                |> ofOption
-                  $"{registered.Metadata.ID} requires a current value."
-            input
+          if isIterHead first.Head then
+            state.Current
+            |> ofOption $"{first.Head} requires a current collection."
             |> Result.bind (fun value ->
-              invoke registry state registered value first cancellationToken)
+              invokeIter registry state value first cancellationToken)
             |> Result.bind (fun value ->
               runRemaining registry state value rest cancellationToken)
-          | None ->
-            Error $"Unknown value or action: {first.Head}"
+          else
+            match tryFindAction registry first.Head with
+            | Some registered ->
+              let input =
+                if ActionMetadata.acceptedInputs registered.Metadata
+                   |> List.contains ReplValueKind.Unit then
+                  Ok ReplValue.emptyInput
+                else
+                  state.Current
+                  |> ofOption
+                    $"{registered.Metadata.ID} requires a current value."
+              input
+              |> Result.bind (fun value ->
+                invoke registry state registered value first cancellationToken)
+              |> Result.bind (fun value ->
+                runRemaining registry state value rest cancellationToken)
+            | None ->
+              Error $"Unknown value or action: {first.Head}"
 
   let private fail registry state message =
     let state = TransformerReplState.setError message state
