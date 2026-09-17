@@ -41,6 +41,7 @@
     <Compile Include="Repl\ReplInspection.fs" />
     <Compile Include="Repl\ReplLanguage.fs" />
     <Compile Include="Repl\InputAnalysis.fs" />
+    <Compile Include="Repl\ReplTypeAnalysis.fs" />
     <Compile Include="Repl\ReplParser.fs" />
     <Compile Include="Repl\ReplEvaluator.fs" />
     <Compile Include="Repl\Suggestions.fs" />

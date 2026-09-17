@@ -247,8 +247,6 @@ module ReplValueKind =
          && List.forall2 isCompatible actual expected
        | ReplValueKind.Collection actual, ReplValueKind.Collection expected ->
          isCompatible actual expected
-       | ReplValueKind.Collection actual, expected ->
-         isCompatible actual expected
        | ReplValueKind.List actual, ReplValueKind.List expected
        | ReplValueKind.Array actual, ReplValueKind.Array expected ->
          isCompatible actual expected

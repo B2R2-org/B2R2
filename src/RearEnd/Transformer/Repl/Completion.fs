@@ -24,11 +24,29 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System
+
 /// Applies and cycles already computed interactive suggestions.
 module Completion =
   let select offset count current =
     if count = 0 then 0
     else (current + offset + count) % count
+
+  let private hasInsertionBoundary (after: string) =
+    if String.IsNullOrEmpty after then
+      false
+    else
+      match after[0] with
+      | ')' | ']' | '}' | ',' | ';' -> true
+      | chr ->
+        Char.IsWhiteSpace chr
+        || after.StartsWith("|]", StringComparison.Ordinal)
+
+  let insertionText item after =
+    let item: SuggestionItem = item
+    let suffix =
+      if item.AppendSpace && not (hasInsertionBoundary after) then " " else ""
+    item.Text + suffix
 
   let apply (suggestions: SuggestionSet) selected (input: string) =
     suggestions.Items
@@ -36,8 +54,12 @@ module Completion =
     |> Option.map (fun item ->
       let before = input[..suggestions.Start - 1]
       let after = input[(suggestions.Start + suggestions.Length)..]
-      let suffix = if item.AppendSpace then " " else ""
-      let input = before + item.Text + suffix + after
-      let cursor = before.Length + item.Text.Length + suffix.Length
+      let insert = insertionText item after
+      let offset =
+        item.CursorOffset
+        |> Option.defaultValue insert.Length
+        |> max 0
+        |> min insert.Length
+      let input = before + insert + after
+      let cursor = before.Length + offset
       input, cursor)
-

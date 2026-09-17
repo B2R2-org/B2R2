@@ -507,33 +507,36 @@ module ReplLanguage =
     rejectPostfixBinding tokens
     |> Result.bind parsePipelineTokens
 
-  let topLevelLastPipeline (input: string) =
-    let rec loop index quote depth last =
+  let topLevelPipelinePositions (input: string) =
+    let rec loop index quote depth positions =
       if index >= input.Length then
-        last
+        List.rev positions
       else
         let chr = input[index]
         match quote with
         | Some delimiter when chr = delimiter ->
-          loop (index + 1) None depth last
+          loop (index + 1) None depth positions
         | Some _ ->
-          loop (index + 1) quote depth last
+          loop (index + 1) quote depth positions
         | None when chr = '\'' || chr = '"' ->
-          loop (index + 1) (Some chr) depth last
+          loop (index + 1) (Some chr) depth positions
         | None when chr = '(' || chr = '[' ->
           if chr = '[' && index + 1 < input.Length
              && input[index + 1] = '|' then
-            loop (index + 2) None (depth + 1) last
+            loop (index + 2) None (depth + 1) positions
           else
-            loop (index + 1) None (depth + 1) last
+            loop (index + 1) None (depth + 1) positions
         | None when chr = ')' || chr = ']' ->
-          loop (index + 1) None (max 0 (depth - 1)) last
+          loop (index + 1) None (max 0 (depth - 1)) positions
         | None when chr = '|' && index + 1 < input.Length
           && input[index + 1] = '>' && depth = 0 ->
-          loop (index + 2) None depth (Some index)
+          loop (index + 2) None depth (index :: positions)
         | None ->
-          loop (index + 1) None depth last
-    loop 0 None 0 None
+          loop (index + 1) None depth positions
+    loop 0 None 0 []
+
+  let topLevelLastPipeline input =
+    topLevelPipelinePositions input |> List.tryLast
 
   let activeExpression (input: string) =
     let updateTop separator = function

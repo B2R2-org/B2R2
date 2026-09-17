@@ -26,10 +26,18 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 
+/// Whether completion is editing a token or starting the next syntax slot.
+[<RequireQualifiedAccess>]
+type InputCompletionPhase =
+  | EditingToken
+  | StartingToken
+
 /// Cursor-local syntax facts used by interactive suggestion providers.
 type InputContext =
   { InputBeforeCursor: string
+    InputAfterCursor: string
     Prefix: string
+    CompletionPhase: InputCompletionPhase
     TokenStart: int
     TokenLength: int
     Words: string list
@@ -114,6 +122,8 @@ module InputAnalysis =
       if cursor <= start then "" else input[start..cursor - 1]
     let inputBeforeCursor =
       if cursor = 0 then "" else input[..cursor - 1]
+    let inputAfterCursor =
+      if cursor = input.Length then "" else input[cursor..]
     let words = splitWords inputBeforeCursor
     let expression = expressionPortion inputBeforeCursor
     let expression = activeExpression expression
@@ -123,7 +133,11 @@ module InputAnalysis =
     let segment = expression[segmentStart..]
     let trimmed = inputBeforeCursor.TrimStart()
     { InputBeforeCursor = inputBeforeCursor
+      InputAfterCursor = inputAfterCursor
       Prefix = prefix
+      CompletionPhase =
+        if cursor = start then InputCompletionPhase.StartingToken
+        else InputCompletionPhase.EditingToken
       TokenStart = start
       TokenLength = cursor - start
       Words = words

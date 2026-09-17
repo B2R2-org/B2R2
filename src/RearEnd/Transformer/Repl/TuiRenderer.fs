@@ -42,6 +42,7 @@ module TransformerTuiRenderer =
   let private red = "\x1b[31m"
   let private blue = "\x1b[34m"
   let private cyan = "\x1b[36m"
+  let private underline = "\x1b[4m"
   let private reverse = "\x1b[7m"
   let private clearLine = "\x1b[2K"
   let private ansiPattern = Regex("\x1B\[[0-?]*[ -/]*[@-~]")
@@ -601,6 +602,30 @@ module TransformerTuiRenderer =
       if start < finish then Some(start - lineStart, finish - start)
       else None)
 
+  let private styleDiagnostics (text: string) highlights =
+    let ranges =
+      highlights
+      |> List.choose (fun (start, length) ->
+        let start = max 0 start
+        let finish = min text.Length (start + length)
+        if start < finish then Some(start, finish) else None)
+      |> List.sortBy fst
+    let rec loop index chunks = function
+      | [] ->
+        if index >= text.Length then List.rev chunks
+        else List.rev (text[index..] :: chunks)
+      | (start, finish) :: rest ->
+        let start = max index start
+        if start >= finish then
+          loop index chunks rest
+        else
+          let chunks =
+            if index < start then text[index..start - 1] :: chunks
+            else chunks
+          let marked = paint (red + underline) text[start..finish - 1]
+          loop finish (marked :: chunks) rest
+    String.concat "" (loop 0 [] ranges)
+
   let private hintRows width completion =
     match completion.Hint with
     | None -> []
@@ -665,9 +690,10 @@ module TransformerTuiRenderer =
         let prefix =
           if model.Cursor <= completion.Start then ""
           else model.Input[completion.Start..model.Cursor - 1]
-        if item.Text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) then
-          let suffix = item.Text[prefix.Length..]
-          let suffix = if item.AppendSpace then suffix + " " else suffix
+        let after = model.Input[model.Cursor..]
+        let insert = Completion.insertionText item after
+        if insert.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) then
+          let suffix = insert[prefix.Length..]
           if String.IsNullOrEmpty suffix then None else Some suffix
         else
           None)
@@ -685,28 +711,48 @@ module TransformerTuiRenderer =
     let column = lines |> List.tryLast |> Option.map _.Length
     line, Option.defaultValue 0 column
 
-  let private inputRow width (prompt: string) (line: string) cursorColumn
-                             (ghost: string) =
+  let private inputRow width (prompt: string) (line: string) lineStart
+                             cursorColumn (ghost: string) diagnostics =
     let available = max 1 (width - prompt.Length)
+    let cursorColumn = max 0 (min cursorColumn line.Length)
     let start =
       if cursorColumn < available then 0 else cursorColumn - available + 1
-    let input =
-      if start >= line.Length then ""
-      else line[start..]
-    let input =
-      if input.Length > available then input[..available - 1] else input
+    let before =
+      if cursorColumn <= start then ""
+      else line[start..cursorColumn - 1]
     let ghost =
-      let length = max 0 (available - input.Length)
+      let length = max 0 (available - before.Length)
       if length = 0 then ""
       elif ghost.Length > length then ghost[..length - 1]
       else ghost
-    let padding = String.replicate (available - input.Length - ghost.Length) " "
+    let after =
+      if cursorColumn >= line.Length then "" else line[cursorColumn..]
+    let afterLength = max 0 (available - before.Length - ghost.Length)
+    let after =
+      if afterLength = 0 then ""
+      elif after.Length > afterLength then after[..afterLength - 1]
+      else after
+    let visibleLength = before.Length + ghost.Length + after.Length
+    let beforeHighlights =
+      lineHighlights (lineStart + start) before.Length diagnostics
+    let afterHighlights =
+      lineHighlights (lineStart + cursorColumn) after.Length diagnostics
+    let before = styleDiagnostics before beforeHighlights
+    let after = styleDiagnostics after afterHighlights
+    let padding = String.replicate (available - visibleLength) " "
     let cursor = prompt.Length + cursorColumn - start + 1
-    paint cyan prompt + input + paint dim ghost + padding, cursor
+    paint cyan prompt + before + paint dim ghost + after + padding, cursor
+
+  let private indexedInputLines (input: string) =
+    let rec loop start output = function
+      | [] -> List.rev output
+      | (line: string) :: rest ->
+        loop (start + line.Length + 1) ((start, line) :: output) rest
+    splitInputLines input |> loop 0 []
 
   let private inputView width maxRows (model: TransformerTuiModel)
                             (completion: SuggestionSet) =
-    let lines = splitInputLines model.Input
+    let lines = indexedInputLines model.Input
     let cursorLine, cursorColumn =
       cursorInputPosition model.Input model.Cursor
     let first =
@@ -714,7 +760,7 @@ module TransformerTuiRenderer =
     let visible = lines |> List.skip first |> List.truncate maxRows
     let rows, cursor =
       visible
-      |> List.mapi (fun offset line ->
+      |> List.mapi (fun offset (lineStart, line) ->
         let absolute = first + offset
         let prompt =
           if model.IsBusy then
@@ -725,12 +771,14 @@ module TransformerTuiRenderer =
             "  "
         let isCursorLine = absolute = cursorLine
         let ghost =
-          if isCursorLine && model.Cursor = model.Input.Length then
-            ghostText completion model.SuggestionIndex model
-          else
-            ""
+          if isCursorLine then ghostText completion model.SuggestionIndex model
+          else ""
         let column = if isCursorLine then cursorColumn else 0
-        inputRow width prompt line column ghost, isCursorLine)
+        let diagnostics =
+          completion.Diagnostics
+          |> List.map (fun item -> item.Start, item.Length)
+        inputRow width prompt line lineStart column ghost diagnostics,
+        isCursorLine)
       |> List.fold (fun (rows, cursor) (row, isCursorLine) ->
         let cursor =
           if isCursorLine then Some(List.length rows, row |> snd)

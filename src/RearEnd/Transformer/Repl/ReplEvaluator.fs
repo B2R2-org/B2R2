@@ -1362,11 +1362,7 @@ module TransformerReplEvaluator =
     let metadata = registered.Metadata
     if metadata.ID = "print" then
       Error "The print action is unavailable in the REPL; use :show instead."
-    elif
-      ActionMetadata.acceptedInputs metadata
-      |> List.exists (ReplValueKind.isCompatible input.Kind)
-      |> not
-    then
+    elif not (ReplTypeAnalysis.acceptsInput input.Kind metadata) then
       let actual = formatKind input.Kind
       let expected =
         ActionMetadata.acceptedInputs metadata
