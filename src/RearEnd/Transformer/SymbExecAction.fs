@@ -1330,13 +1330,13 @@ type SymbStackAction() =
       "Concrete stack top address."
   let metadata =
     { SymbMetadata.metadata
-        "symb-stack"
+        "set-stack"
         ReplValueKind.SymbExecutor
         ReplValueKind.SymbExecutor
         ActionRole.Transform
-        "SymbExecutor -> @symb-stack top:Address=<addr> -> SymbExecutor"
+        "SymbExecutor -> @set-stack top:Address=<addr> -> SymbExecutor"
         "Set the symbolic executor stack pointer."
-        [ "sx |> @symb-stack top=0x7fffffffe000" ] with
+        [ "sx |> @set-stack top=<addr>" ] with
         Syntaxes = [ SymbMetadata.syntax None [ top ] ] }
 
   let transformOne args (value: obj) =
@@ -1344,8 +1344,8 @@ type SymbStackAction() =
     | :? SymbExecutorValue as executor ->
       match args with
       | [ top ] -> executor.WithStack(SymbArgs.parseAddr top) |> box
-      | _ -> invalidArg (nameof args) "Invalid symb-stack arguments."
-    | value -> invalidOp $"symb-stack expects SymbExecutor: {value}"
+      | _ -> invalidArg (nameof args) "Invalid set-stack arguments."
+    | value -> invalidOp $"set-stack expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->
@@ -1370,13 +1370,13 @@ type SymbPCAction() =
       "Concrete instruction address."
   let metadata =
     { SymbMetadata.metadata
-        "symb-pc"
+        "set-pc"
         ReplValueKind.SymbExecutor
         ReplValueKind.SymbExecutor
         ActionRole.Transform
-        "SymbExecutor -> @symb-pc addr:Address=<addr> -> SymbExecutor"
+        "SymbExecutor -> @set-pc addr:Address=<addr> -> SymbExecutor"
         "Set the address where the next symbolic run starts."
-        [ "sx |> @symb-pc addr=0x401000" ] with
+        [ "sx |> @set-pc addr=<addr>" ] with
         Syntaxes = [ SymbMetadata.syntax None [ addr ] ] }
 
   let transformOne args (value: obj) =
@@ -1384,8 +1384,8 @@ type SymbPCAction() =
     | :? SymbExecutorValue as executor ->
       match args with
       | [ addr ] -> executor.WithPC(SymbArgs.parseAddr addr) |> box
-      | _ -> invalidArg (nameof args) "Invalid symb-pc arguments."
-    | value -> invalidOp $"symb-pc expects SymbExecutor: {value}"
+      | _ -> invalidArg (nameof args) "Invalid set-pc arguments."
+    | value -> invalidOp $"set-pc expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->
@@ -1418,21 +1418,21 @@ type SymbMemAction() =
     SymbMetadata.arg "size" ActionArgumentKind.Integer false
       "Number of symbolic bytes."
   let writeSignature =
-    "SymbExecutor -> @symb-mem write addr:Address=<addr> "
+    "SymbExecutor -> @set-memory write addr:Address=<addr> "
     + "hex:HexBytes=<hex> -> SymbExecutor"
   let symbolicSignature =
-    "SymbExecutor -> @symb-mem symbolic addr:Address=<addr> "
+    "SymbExecutor -> @set-memory symbolic addr:Address=<addr> "
     + "name:String=<name> size:Int=<n> -> SymbExecutor"
   let metadata =
     { SymbMetadata.metadata
-        "symb-mem"
+        "set-memory"
         ReplValueKind.SymbExecutor
         ReplValueKind.SymbExecutor
         ActionRole.Transform
         (writeSignature + " | " + symbolicSignature)
         "Write concrete or symbolic bytes into executor memory."
-        [ "sx |> @symb-mem write addr=0x70000000 hex=4142"
-          "sx |> @symb-mem symbolic addr=0x70000000 name=input size=2" ]
+        [ "sx |> @set-memory write addr=<addr> hex=<hex>"
+          "sx |> @set-memory symbolic addr=<addr> name=<name> size=<n>" ]
         with
         Syntaxes =
           [ SymbMetadata.syntax (Some "write") [ addr; hex ]
@@ -1451,8 +1451,8 @@ type SymbMemAction() =
                                     name,
                                     SymbArgs.parseInt size)
         |> box
-      | _ -> invalidArg (nameof args) "Invalid symb-mem arguments."
-    | value -> invalidOp $"symb-mem expects SymbExecutor: {value}"
+      | _ -> invalidArg (nameof args) "Invalid set-memory arguments."
+    | value -> invalidOp $"set-memory expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->
@@ -1546,13 +1546,13 @@ type SymbAvoidAction() =
       "Address to discard during symbolic exploration."
   let metadata =
     { SymbMetadata.metadata
-        "symb-avoid"
+        "stop-at"
         ReplValueKind.SymbExecutor
         ReplValueKind.SymbExecutor
         ActionRole.Transform
-        "SymbExecutor -> @symb-avoid addr:Address=<addr> -> SymbExecutor"
-        "Add one avoid address to the symbolic executor."
-        [ "sx |> @symb-avoid addr=0x401050" ] with
+        "SymbExecutor -> @stop-at addr:Address=<addr> -> SymbExecutor"
+        "Stop symbolic exploration when PC reaches an address."
+        [ "sx |> @stop-at addr=<addr>" ] with
         Syntaxes = [ SymbMetadata.syntax None [ addr ] ] }
 
   let transformOne args (value: obj) =
@@ -1560,8 +1560,8 @@ type SymbAvoidAction() =
     | :? SymbExecutorValue as executor ->
       match args with
       | [ addr ] -> executor.WithAvoid(SymbArgs.parseAddr addr) |> box
-      | _ -> invalidArg (nameof args) "Invalid symb-avoid arguments."
-    | value -> invalidOp $"symb-avoid expects SymbExecutor: {value}"
+      | _ -> invalidArg (nameof args) "Invalid stop-at arguments."
+    | value -> invalidOp $"stop-at expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->
@@ -1586,16 +1586,16 @@ type SymbHookAction() =
       "Address of an external call stub to model."
   let metadata =
     let signature =
-      "SymbExecutor -> @symb-hook strlen addr:Address=<addr> "
+      "SymbExecutor -> @hook strlen addr:Address=<addr> "
       + "-> SymbExecutor"
     { SymbMetadata.metadata
-        "symb-hook"
+        "hook"
         ReplValueKind.SymbExecutor
         ReplValueKind.SymbExecutor
         ActionRole.Transform
         signature
         "Attach a built-in symbolic model for an external function."
-        [ "sx |> @symb-hook strlen addr=0x401040" ] with
+        [ "sx |> @hook strlen addr=<addr>" ] with
         Syntaxes = [ SymbMetadata.syntax (Some "strlen") [ addr ] ] }
 
   let transformOne args (value: obj) =
@@ -1603,9 +1603,9 @@ type SymbHookAction() =
     | :? SymbExecutorValue as executor ->
       match args with
       | [ "strlen"; addr ] -> executor.WithStrlenHook(SymbArgs.parseAddr addr)
-      | _ -> invalidArg (nameof args) "Invalid symb-hook arguments."
+      | _ -> invalidArg (nameof args) "Invalid hook arguments."
       |> box
-    | value -> invalidOp $"symb-hook expects SymbExecutor: {value}"
+    | value -> invalidOp $"hook expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->
@@ -1635,17 +1635,17 @@ type SymbArgAction() =
     SymbMetadata.arg "size" ActionArgumentKind.Integer false
       "Number of symbolic bytes."
   let signature =
-    "SymbExecutor -> @symb-arg index:Int=<n> name:String=<name> "
+    "SymbExecutor -> @make-symbolic-arg index:Int=<n> name:String=<name> "
     + "size:Int=<n> -> SymbExecutor"
   let metadata =
     { SymbMetadata.metadata
-        "symb-arg"
+        "make-symbolic-arg"
         ReplValueKind.SymbExecutor
         ReplValueKind.SymbExecutor
         ActionRole.Transform
         signature
         "Allocate a symbolic byte buffer and pass it as an ABI argument."
-        [ "sx |> @symb-arg index=0 name=input size=2" ] with
+        [ "sx |> @make-symbolic-arg index=<n> name=<name> size=<n>" ] with
         Syntaxes = [ SymbMetadata.syntax None [ index; name; size ] ] }
 
   let transformOne args (value: obj) =
@@ -1657,8 +1657,8 @@ type SymbArgAction() =
                                       name,
                                       SymbArgs.parseInt size)
         |> box
-      | _ -> invalidArg (nameof args) "Invalid symb-arg arguments."
-    | value -> invalidOp $"symb-arg expects SymbExecutor: {value}"
+      | _ -> invalidArg (nameof args) "Invalid make-symbolic-arg arguments."
+    | value -> invalidOp $"make-symbolic-arg expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->
@@ -1684,17 +1684,17 @@ type SymbRegAction() =
     SymbMetadata.arg "value" ActionArgumentKind.Address false
       "Concrete register value."
   let signature =
-    "SymbExecutor -> @symb-reg name:String=<reg> "
+    "SymbExecutor -> @set-register name:String=<reg> "
     + "value:Address=<addr> -> SymbExecutor"
   let metadata =
     { SymbMetadata.metadata
-        "symb-reg"
+        "set-register"
         ReplValueKind.SymbExecutor
         ReplValueKind.SymbExecutor
         ActionRole.Transform
         signature
         "Set one concrete register value."
-        [ "sx |> @symb-reg name=RAX value=0x0" ] with
+        [ "sx |> @set-register name=<reg> value=<addr>" ] with
         Syntaxes = [ SymbMetadata.syntax None [ name; value ] ] }
 
   let transformOne args (value: obj) =
@@ -1704,9 +1704,9 @@ type SymbRegAction() =
         match args with
         | [ name; value ] ->
           executor.WithRegister(name, SymbArgs.parseAddr value)
-        | _ -> invalidArg (nameof args) "Invalid symb-reg arguments."
+        | _ -> invalidArg (nameof args) "Invalid set-register arguments."
       next |> box
-    | value -> invalidOp $"symb-reg expects SymbExecutor: {value}"
+    | value -> invalidOp $"set-register expects SymbExecutor: {value}"
 
   let transform args (collection: ObjCollection) =
     collection.Values |> Array.map (transformOne args) |> fun values ->
@@ -1834,19 +1834,19 @@ type SymbSearchAction() =
 type SymbModelAction() =
   let metadata =
     { SymbMetadata.metadata
-        "symb-model"
+        "model"
         ReplValueKind.SymbRunResult
         ReplValueKind.Text
         ActionRole.Transform
-        "SymbRunResult -> @symb-model -> Text"
+        "SymbRunResult -> @model -> Text"
         "Print model assignments from a symbolic execution result."
-        [ "result |> @symb-model" ] with
+        [ "result |> @model" ] with
         Syntaxes = [ SymbMetadata.syntax None [] ] }
 
   let transformOne (value: obj) =
     match value with
     | :? SymbRunValue as result -> result.ModelText() |> box
-    | value -> invalidOp $"symb-model expects SymbRunResult: {value}"
+    | value -> invalidOp $"model expects SymbRunResult: {value}"
 
   let transform (collection: ObjCollection) =
     collection.Values |> Array.map transformOne |> fun values ->
