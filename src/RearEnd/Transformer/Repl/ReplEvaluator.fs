@@ -1268,44 +1268,87 @@ module TransformerReplEvaluator =
       else
         None
 
+  let private pluginSearchRoots () =
+    [ Path.Combine(Directory.GetCurrentDirectory(), "plugins")
+      Path.Combine(AppContext.BaseDirectory, "plugins") ]
+    |> List.distinct
+    |> List.filter Directory.Exists
+
+  let private pluginDlls () =
+    pluginSearchRoots ()
+    |> List.collect (fun root ->
+      Directory.EnumerateFiles(root, "*.dll", SearchOption.AllDirectories)
+      |> Seq.toList)
+
+  let private tryLoadPlugin registry path =
+    try
+      ActionRegistry.loadPlugin path registry |> Some
+    with _ ->
+      None
+
+  let private tryAutoLoadSolverAction registry solverID =
+    let hasSolver registry =
+      Option.isSome (SymbSolverRegistry.create solverID)
+      || Option.isSome (tryFindAction registry solverID)
+    if hasSolver registry then
+      Ok registry
+    else
+      pluginDlls ()
+      |> List.fold (fun result path ->
+        match result with
+        | Ok registry when hasSolver registry -> Ok registry
+        | Ok registry ->
+          match tryLoadPlugin registry path with
+          | Some registry -> Ok registry
+          | None -> Ok registry
+        | Error _ -> result) (Ok registry)
+      |> Result.bind (fun registry ->
+        if hasSolver registry then
+          Ok registry
+        else
+          Error $"Solver plugin not found: {solverID}")
+
   let private registerSymbSolver registry args cancellationToken =
     match args |> List.tryPick (parameterValue "solver") with
-    | None -> Ok()
+    | None -> Ok registry
     | Some solverID ->
       match SymbSolverRegistry.create solverID with
-      | Some _ -> Ok()
+      | Some _ -> Ok registry
       | None ->
-        match tryFindAction registry solverID with
-        | None -> Error $"Unknown symbolic solver: {solverID}"
-        | Some registered ->
-          let metadata = registered.Metadata
-          let isSource =
-            ActionMetadata.acceptedInputs metadata
-            |> List.contains ReplValueKind.Unit
-          if not isSource
-             || not (ReplValueKind.isCompatible metadata.Output
-                       ReplValueKind.SymbSolver) then
-            Error $"{solverID} is not a symbolic solver action."
-          else
-            try
-              let segment =
-                { Head = ActionMetadata.actionName metadata.ID
-                  Arguments = [] }
-              let collection =
-                transform registered ReplValue.emptyInput segment
-                  cancellationToken
-              match collection.Values with
-              | [| :? SymbSolverValue as solver |] ->
-                let factory =
-                  Func<B2R2.MiddleEnd.SymbEval.ISolver>(fun () ->
-                    solver.Create())
-                SymbSolverRegistry.register solver.ID solver.Description factory
-                Ok()
-              | _ ->
-                Error $"{solverID} did not return a SymbSolver."
-            with
-            | :? OperationCanceledException -> reraise ()
-            | error -> Error error.Message
+        tryAutoLoadSolverAction registry solverID
+        |> Result.bind (fun registry ->
+          match tryFindAction registry solverID with
+          | None -> Error $"Unknown symbolic solver: {solverID}"
+          | Some registered ->
+            let metadata = registered.Metadata
+            let isSource =
+              ActionMetadata.acceptedInputs metadata
+              |> List.contains ReplValueKind.Unit
+            if not isSource
+               || not (ReplValueKind.isCompatible metadata.Output
+                         ReplValueKind.SymbSolver) then
+              Error $"{solverID} is not a symbolic solver action."
+            else
+              try
+                let segment =
+                  { Head = ActionMetadata.actionName metadata.ID
+                    Arguments = [] }
+                let collection =
+                  transform registered ReplValue.emptyInput segment
+                    cancellationToken
+                match collection.Values with
+                | [| :? SymbSolverValue as solver |] ->
+                  let factory =
+                    Func<B2R2.MiddleEnd.SymbEval.ISolver>(fun () ->
+                      solver.Create())
+                  SymbSolverRegistry.register solver.ID solver.Description
+                    factory
+                  Ok registry
+                | _ ->
+                  Error $"{solverID} did not return a SymbSolver."
+              with
+              | :? OperationCanceledException -> reraise ()
+              | error -> Error error.Message)
 
   let rec private invoke registry state (registered: RegisteredAction)
                           (input: ReplValue) (segment: ReplPipelineSegment)
@@ -1355,9 +1398,9 @@ module TransformerReplEvaluator =
         if metadata.ID = "symb-exec" then
           registerSymbSolver registry args cancellationToken
         else
-          Ok()
+          Ok registry
       ready
-      |> Result.bind (fun () -> validateArguments input metadata args)
+      |> Result.bind (fun _ -> validateArguments input metadata args)
       |> Result.bind (fun normalizedArgs ->
       try
         let rawArgs = args
