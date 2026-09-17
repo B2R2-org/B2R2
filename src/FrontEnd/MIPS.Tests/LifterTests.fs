@@ -57,6 +57,20 @@ type LifterTests() =
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     ins.Translate builder
 
+  /// The kinds of the jumps a branch and its delay slot lift to, the parser
+  /// reading the encoding a mode names on the processor an ISA names.
+  let jumpKinds (isa: ISA) mode branch slot =
+    let builder = LowUIRBuilder(isa, RegisterFactory isa, LowUIRStream())
+    let parser = MIPSParser(isa, BinReader.Init isa.Endian)
+    parser.ISAMode <- mode
+    let p = parser :> IInstructionParsable
+    let ins = p.Parse(ByteArray.ofHexString branch, 0UL)
+    ins.Translate builder |> ignore
+    (p.Parse(ByteArray.ofHexString slot, uint64 ins.Length)).Translate builder
+    |> Array.choose (function
+      | InterJmp(_, kind) -> Some kind
+      | _ -> None)
+
   let test (isa: ISA) (bytes: byte[], givenStmts) =
     let reader = BinReader.Init isa.Endian
     let regFactory = RegisterFactory isa
@@ -517,3 +531,25 @@ type LifterTests() =
     for isa, hex in cases do
       let stmts = lifted isa hex
       if Array.isEmpty stmts then Assert.Fail hex else ()
+
+  /// <summary>
+  /// A JALX from MIPS32 code crosses into the compressed encoding of the
+  /// processor, and on a MIPS16e processor that is MIPS16e, not microMIPS. No
+  /// processor has both, and nothing at the target says which one the words
+  /// there are in, so the jump has to.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS16e] JALX from MIPS32 crosses into MIPS16e``() =
+    let isa = ISA "mips16el"
+    let kinds = jumpKinds isa MIPSISAMode.MIPS "00000074" "00000000"
+    let call = InterJmpKind.IsCall ||| InterJmpKind.SwitchToMIPS16
+    CollectionAssert.AreEqual([| call |], kinds)
+
+  /// A JR whose target has bit 0 set goes on in the compressed encoding, which
+  /// on a MIPS16e processor is MIPS16e; with bit 0 clear it goes on in MIPS32.
+  [<TestMethod>]
+  member _.``[MIPS16e] JR to an odd address goes on in MIPS16e``() =
+    let isa = ISA "mips16el"
+    let kinds = jumpKinds isa MIPSISAMode.MIPS "0800e003" "00000000"
+    let expected = [| InterJmpKind.SwitchToMIPS16; InterJmpKind.SwitchToMIPS |]
+    CollectionAssert.AreEqual(expected, kinds)

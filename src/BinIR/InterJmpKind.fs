@@ -48,9 +48,12 @@ type InterJmpKind =
   /// A branch instruction that modifies the operation mode from MIPS to
   /// microMIPS.
   | SwitchToMicroMIPS = 64
-  /// A branch instruction that modifies the operation mode from microMIPS to
-  /// MIPS.
+  /// A branch instruction that modifies the operation mode from microMIPS or
+  /// MIPS16e to MIPS.
   | SwitchToMIPS = 128
+  /// A branch instruction that modifies the operation mode from MIPS to
+  /// MIPS16e.
+  | SwitchToMIPS16 = 256
 
 /// <summary>
 /// Provides functions to access <see cref='T:B2R2.BinIR.InterJmpKind'/>.
@@ -72,4 +75,5 @@ module InterJmpKind =
     | InterJmpKind.NotAJmp -> "NotAJmp"
     | InterJmpKind.SwitchToMicroMIPS -> "SwitchToMicroMIPS"
     | InterJmpKind.SwitchToMIPS -> "SwitchToMIPS"
+    | InterJmpKind.SwitchToMIPS16 -> "SwitchToMIPS16"
     | _ -> raise IllegalASTTypeException
