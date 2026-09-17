@@ -27,6 +27,8 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Globalization
 open B2R2
+open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 
 type ContextRegionPermission =
   { Read: bool
@@ -123,3 +125,27 @@ module ContextParsing =
             Start = startAddress
             Finish = endAddress
             Permission = permission }
+
+  let imageRegions (file: IBinFile) =
+    BinFileOps.getSegments file
+    |> Array.mapi (fun index segment ->
+      if segment.Size > UInt64.MaxValue - segment.Address then
+        None
+      else
+        let name =
+          match segment.Name with
+          | Some name when not (String.IsNullOrWhiteSpace name) ->
+            $"image-{index}:{name}"
+          | _ ->
+            $"image-{index}"
+        let permission = segment.Permission
+        Some
+          { Name = name
+            Start = segment.Address
+            Finish = segment.Address + segment.Size
+            Permission =
+              { Read = permission.HasFlag Permission.Readable
+                Write = permission.HasFlag Permission.Writable
+                Execute = permission.HasFlag Permission.Executable } })
+    |> Array.choose id
+    |> Array.toList

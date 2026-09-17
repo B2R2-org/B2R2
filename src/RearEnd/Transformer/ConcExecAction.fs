@@ -686,7 +686,7 @@ type ConcExecutorValue private(binary: Binary,
         | _ ->
           invalidArg (nameof args)
             $"Unknown make-concrete-context parameter: {key}"
-    loop None [] [] regions args
+    loop None [] [] [] args
 
   let lastRunLines () =
     match previousResult with
@@ -741,7 +741,19 @@ type ConcExecutorValue private(binary: Binary,
         $"    {region.Name}=0x{region.Start:x}..0x{region.Finish:x}:"
         + permission))
 
-  new(binary) = ConcExecutorValue(binary, None, None, None, [], [])
+  new(binary) =
+    let hdl = Binary.Handle binary
+    let regions =
+      ContextParsing.imageRegions hdl.File
+      |> List.map (fun region ->
+        { Name = region.Name
+          Start = region.Start
+          Finish = region.Finish
+          Permission =
+            { Read = region.Permission.Read
+              Write = region.Permission.Write
+              Execute = region.Permission.Execute } })
+    ConcExecutorValue(binary, None, None, None, [], regions)
 
   member _.State = state
 
@@ -866,7 +878,7 @@ type ConcExecutorValue private(binary: Binary,
         let bytes = ByteArray.ofHexString bytes
         accessor.WriteBytes(addr, bytes)
         (addr, bytes.Length) :: ranges) memoryRanges
-    clearRunState nextState ranges nextRegions
+    clearRunState nextState ranges (nextRegions @ regions)
 
   member _.ReadMemory(args: string list) =
     match args with
@@ -1011,10 +1023,10 @@ type SetContextAction() =
     member _.Signature with get() =
       "ConcExecutor -> make-concrete-context [stack=<addr>] [regs=[...]]"
       + " [mem=[...]]"
-      + " [regions=[...]]"
+      + " [regions=[additional regions]]"
       + " -> ConcExecutor"
     member _.Description with get() =
-      "Create a concrete execution context with registers and memory."
+      "Create a concrete context with automatic image permissions."
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
 

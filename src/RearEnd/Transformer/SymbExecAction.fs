@@ -169,12 +169,23 @@ type SymbExecutorValue(binary: Binary,
     | _ -> None
 
   new(binary: Binary) =
-    let executor = SymbExecutor(Binary.Handle binary)
+    let hdl = Binary.Handle binary
+    let executor = SymbExecutor hdl
+    let regions =
+      ContextParsing.imageRegions hdl.File
+      |> List.map (fun region ->
+        { Name = region.Name
+          Start = region.Start
+          Finish = region.Finish
+          Permission =
+            { Read = region.Permission.Read
+              Write = region.Permission.Write
+              Execute = region.Permission.Execute } })
     SymbExecutorValue(binary,
                       executor.CreateState(),
                       [],
                       Set.empty,
-                      [],
+                      regions,
                       None,
                       [],
                       None)
@@ -1298,7 +1309,7 @@ type SymbContextAction() =
       "Symbolic register assignments: [ESI=idx:4]."
   let regions =
     SymbMetadata.arg "regions" ActionArgumentKind.Text true
-      "Memory regions: [track=0x70000000..0x70000400:rw]."
+      "Additional regions: [track=0x70000000..0x70000400:rw]."
   let signature =
     "SymbExecutor -> @make-symbolic-context [pc:Address=<addr>] "
     + "[stack:Address=<addr>] [regs:String=<regs>] "
@@ -1312,7 +1323,7 @@ type SymbContextAction() =
         ReplValueKind.SymbExecutor
         ActionRole.Transform
         signature
-        "Set symbolic execution PC, stack, registers, and memory at once."
+        "Set symbolic context; binary image permissions are automatic."
         [ "sx |> @make-symbolic-context pc=<addr> stack=<addr>"
           "sx |> @make-symbolic-context regs=[RBP=<addr>; RDI=<addr>]"
           "sx |> @make-symbolic-context sym-regs=[ESI=idx:4]"
