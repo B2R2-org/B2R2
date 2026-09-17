@@ -46,6 +46,8 @@ let makeSpanSummary (bs: ByteSpan) =
 
 let makeByteArraySummary (bs: byte[]) = makeSpanSummary (ReadOnlySpan bs)
 
+let makeMemorySummary (bs: ReadOnlyMemory<byte>) = makeSpanSummary bs.Span
+
 let rec buildNgram acc n (span: ByteSpan) idx =
   if idx <= span.Length - n then
     let bs = span.Slice(idx, n).ToArray()

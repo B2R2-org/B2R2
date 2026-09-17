@@ -191,6 +191,8 @@ type SymbExecutorValue(binary: Binary,
 
   member _.Hooks = hooks
 
+  member _.HookDescriptions = hookText
+
   member _.Solver = solver
 
   member _.CallPolicy =
