@@ -1036,6 +1036,8 @@ module private SymbCondition =
       readAddresses point cond
       @ readAddresses point thenExpr
       @ readAddresses point elseExpr
+    | LowUIRExpr.RoundCtrl(mode, body, _) ->
+      readAddresses point mode @ readAddresses point body
     | _ -> []
 
   let readAccesses point (expr: LowUIRExpr) =

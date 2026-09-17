@@ -275,6 +275,8 @@ type ConcExecutorValue(binary: Binary,
       collectLoads (collectLoads (collectLoads acc cond) left) right
     | Cast(_, _, expr, _) ->
       collectLoads acc expr
+    | RoundCtrl(mode, body, _) ->
+      collectLoads (collectLoads acc mode) body
     | Extract(expr, _, _, _) ->
       collectLoads acc expr
     | Num _
