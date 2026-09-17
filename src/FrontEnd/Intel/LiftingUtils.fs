@@ -435,105 +435,95 @@ let private broadcastToArr ins bld packSz oprSize elemSz opr =
       raise InvalidOperandSizeException
   Array.create (oprSize / packSz) lane
 
-let transOprToArr ins bld useTmpVars packSz packNum oprSize opr =
+/// Splits each chunk into packSz-wide packs, chunk by chunk, into one array.
+/// The chunks come low first, which is the order the packs go in.
+let private packChunks packSz packNum (chunks: Expr[]) =
   let pos = int packSz
+  let packs = Array.zeroCreate (chunks.Length * packNum)
+  for c in 0 .. chunks.Length - 1 do
+    for i in 0 .. packNum - 1 do
+      packs[c * packNum + i] <- AST.extract chunks[c] packSz (i * pos)
+  packs
+
+/// Reads an operand in memory into one temporary per 64-bit chunk, low chunk
+/// first. A packed operation picks its source apart lane by lane, so the load
+/// has to be settled before the lanes name it.
+let private memChunks ins bld oprSize opr =
+  match oprSize with
+  | 64<rt> ->
+    let opr = transOpr ins bld false opr
+    let mem = tmpVar bld oprSize
+    append bld {
+      direct mem := AST.zext oprSize opr
+    }
+    [| mem |]
+  | 128<rt> ->
+    let struct (oB, oA) = transOpr128 ins bld false opr
+    let struct (mB, mA) = tmpVars2 bld 64<rt>
+    append bld {
+      direct mA := oA
+      direct mB := oB
+    }
+    [| mA; mB |]
+  | 256<rt> ->
+    let struct (oD, oC, oB, oA) = transOpr256 ins bld false opr
+    let struct (mD, mC, mB, mA) = tmpVars4 bld 64<rt>
+    append bld {
+      direct mA := oA
+      direct mB := oB
+      direct mC := oC
+      direct mD := oD
+    }
+    [| mA; mB; mC; mD |]
+  | 512<rt> ->
+    let struct (oH, oG, oF, oE, oD, oC, oB, oA) =
+      transOpr512 ins bld false opr
+    let struct (mD, mC, mB, mA) = tmpVars4 bld 64<rt>
+    let struct (mH, mG, mF, mE) = tmpVars4 bld 64<rt>
+    append bld {
+      direct mA := oA
+      direct mB := oB
+      direct mC := oC
+      direct mD := oD
+      direct mE := oE
+      direct mF := oF
+      direct mG := oG
+      direct mH := oH
+    }
+    [| mA; mB; mC; mD; mE; mF; mG; mH |]
+  | _ ->
+    raise InvalidOperandSizeException
+
+/// Reads an operand that is not in memory as its 64-bit chunks, low chunk
+/// first. A register names its halves already, so nothing has to be settled.
+let private regChunks ins bld oprSize opr =
+  match oprSize with
+  | 64<rt> ->
+    [| transOpr ins bld false opr |]
+  | 128<rt> ->
+    let struct (oB, oA) = transOpr128 ins bld false opr
+    [| oA; oB |]
+  | 256<rt> ->
+    let struct (oD, oC, oB, oA) = transOpr256 ins bld false opr
+    [| oA; oB; oC; oD |]
+  | 512<rt> ->
+    let struct (oH, oG, oF, oE, oD, oC, oB, oA) =
+      transOpr512 ins bld false opr
+    [| oA; oB; oC; oD; oE; oF; oG; oH |]
+  | _ ->
+    raise InvalidOperandSizeException
+
+let transOprToArr ins bld useTmpVars packSz packNum oprSize opr =
   let exprArr =
     match opr, (ins: Instruction).BroadcastElemSize with
     | OprMem _, ValueSome elemSz ->
       broadcastToArr ins bld packSz oprSize elemSz opr
     | OprImm _, _ ->
-      let opr = transOpr ins bld false opr
-      Array.init (oprSize / packSz) (fun i -> AST.extract opr packSz (i * pos))
+      packChunks packSz (oprSize / packSz) [| transOpr ins bld false opr |]
     | OprMem _, _ ->
-      match oprSize with
-      | 64<rt> ->
-        let opr = transOpr ins bld false opr
-        let mem = tmpVar bld oprSize
-        append bld {
-          direct mem := AST.zext oprSize opr
-        }
-        Array.init packNum (fun i -> AST.extract mem packSz (i * pos))
-      | 128<rt> ->
-        let struct (oB, oA) = transOpr128 ins bld false opr
-        let struct (mB, mA) = tmpVars2 bld 64<rt>
-        append bld {
-          direct mA := oA
-          direct mB := oB
-        }
-        let oprA = Array.init packNum (fun i -> AST.extract mA packSz (i * pos))
-        let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
-        Array.append oprA oprB
-      | 256<rt> ->
-        let struct (oD, oC, oB, oA) = transOpr256 ins bld false opr
-        let struct (mD, mC, mB, mA) = tmpVars4 bld 64<rt>
-        append bld {
-          direct mA := oA
-          direct mB := oB
-          direct mC := oC
-          direct mD := oD
-        }
-        let oprA = Array.init packNum (fun i -> AST.extract mA packSz (i * pos))
-        let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
-        let oprC = Array.init packNum (fun i -> AST.extract mC packSz (i * pos))
-        let oprD = Array.init packNum (fun i -> AST.extract mD packSz (i * pos))
-        Array.concat [| oprA; oprB; oprC; oprD |]
-      | 512<rt> ->
-        let struct (oH, oG, oF, oE, oD, oC, oB, oA) =
-          transOpr512 ins bld false opr
-        let struct (mD, mC, mB, mA) = tmpVars4 bld 64<rt>
-        let struct (mH, mG, mF, mE) = tmpVars4 bld 64<rt>
-        append bld {
-          direct mA := oA
-          direct mB := oB
-          direct mC := oC
-          direct mD := oD
-          direct mE := oE
-          direct mF := oF
-          direct mG := oG
-          direct mH := oH
-        }
-        let oprA = Array.init packNum (fun i -> AST.extract mA packSz (i * pos))
-        let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
-        let oprC = Array.init packNum (fun i -> AST.extract mC packSz (i * pos))
-        let oprD = Array.init packNum (fun i -> AST.extract mD packSz (i * pos))
-        let oprE = Array.init packNum (fun i -> AST.extract mE packSz (i * pos))
-        let oprF = Array.init packNum (fun i -> AST.extract mF packSz (i * pos))
-        let oprG = Array.init packNum (fun i -> AST.extract mG packSz (i * pos))
-        let oprH = Array.init packNum (fun i -> AST.extract mH packSz (i * pos))
-        Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
-      | _ ->
-        raise InvalidOperandSizeException
+      packChunks packSz packNum (memChunks ins bld oprSize opr)
     | _, _ ->
-      match oprSize with
-      | 64<rt> ->
-        let opr = transOpr ins bld false opr
-        Array.init packNum (fun i -> AST.extract opr packSz (i * pos))
-      | 128<rt> ->
-        let struct (oB, oA) = transOpr128 ins bld false opr
-        let oprA = Array.init packNum (fun i -> AST.extract oA packSz (i * pos))
-        let oprB = Array.init packNum (fun i -> AST.extract oB packSz (i * pos))
-        Array.append oprA oprB
-      | 256<rt> ->
-        let struct (oD, oC, oB, oA) = transOpr256 ins bld false opr
-        let oprA = Array.init packNum (fun i -> AST.extract oA packSz (i * pos))
-        let oprB = Array.init packNum (fun i -> AST.extract oB packSz (i * pos))
-        let oprC = Array.init packNum (fun i -> AST.extract oC packSz (i * pos))
-        let oprD = Array.init packNum (fun i -> AST.extract oD packSz (i * pos))
-        Array.concat [| oprA; oprB; oprC; oprD |]
-      | 512<rt> ->
-        let struct (oH, oG, oF, oE, oD, oC, oB, oA) =
-          transOpr512 ins bld false opr
-        let oprA = Array.init packNum (fun i -> AST.extract oA packSz (i * pos))
-        let oprB = Array.init packNum (fun i -> AST.extract oB packSz (i * pos))
-        let oprC = Array.init packNum (fun i -> AST.extract oC packSz (i * pos))
-        let oprD = Array.init packNum (fun i -> AST.extract oD packSz (i * pos))
-        let oprE = Array.init packNum (fun i -> AST.extract oE packSz (i * pos))
-        let oprF = Array.init packNum (fun i -> AST.extract oF packSz (i * pos))
-        let oprG = Array.init packNum (fun i -> AST.extract oG packSz (i * pos))
-        let oprH = Array.init packNum (fun i -> AST.extract oH packSz (i * pos))
-        Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
-      | _ ->
-        raise InvalidOperandSizeException
+      packChunks packSz packNum (regChunks ins bld oprSize opr)
   if useTmpVars then
     let tmps = Array.init (oprSize / packSz) (fun _ -> tmpVar bld packSz)
     Array.iter2 (fun e1 e2 -> append bld { direct e1 := e2 }) tmps exprArr
@@ -582,30 +572,30 @@ let assignPackedInstr ins bld useTmpVar packNum oprSize dst result =
   | 128<rt> ->
     let struct (dstB, dstA) = transOpr128 ins bld useTmpVar dst
     append bld {
-      direct dstA := Array.sub result 0 packNum |> AST.revConcat
-      direct dstB := Array.sub result packNum packNum |> AST.revConcat
+      direct dstA := AST.revConcatRange result 0 packNum
+      direct dstB := AST.revConcatRange result packNum packNum
     }
   | 256<rt> ->
     let struct (dstD, dstC, dstB, dstA) =
       transOpr256 ins bld false dst
     append bld {
-      direct dstA := Array.sub result 0 packNum |> AST.revConcat
-      direct dstB := Array.sub result (1 * packNum) packNum |> AST.revConcat
-      direct dstC := Array.sub result (2 * packNum) packNum |> AST.revConcat
-      direct dstD := Array.sub result (3 * packNum) packNum |> AST.revConcat
+      direct dstA := AST.revConcatRange result 0 packNum
+      direct dstB := AST.revConcatRange result (1 * packNum) packNum
+      direct dstC := AST.revConcatRange result (2 * packNum) packNum
+      direct dstD := AST.revConcatRange result (3 * packNum) packNum
     }
   | 512<rt> ->
     let struct (dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA) =
       transOpr512 ins bld false dst
     append bld {
-      direct dstA := Array.sub result 0 packNum |> AST.revConcat
-      direct dstB := Array.sub result (1 * packNum) packNum |> AST.revConcat
-      direct dstC := Array.sub result (2 * packNum) packNum |> AST.revConcat
-      direct dstD := Array.sub result (3 * packNum) packNum |> AST.revConcat
-      direct dstE := Array.sub result (4 * packNum) packNum |> AST.revConcat
-      direct dstF := Array.sub result (5 * packNum) packNum |> AST.revConcat
-      direct dstG := Array.sub result (6 * packNum) packNum |> AST.revConcat
-      direct dstH := Array.sub result (7 * packNum) packNum |> AST.revConcat
+      direct dstA := AST.revConcatRange result 0 packNum
+      direct dstB := AST.revConcatRange result (1 * packNum) packNum
+      direct dstC := AST.revConcatRange result (2 * packNum) packNum
+      direct dstD := AST.revConcatRange result (3 * packNum) packNum
+      direct dstE := AST.revConcatRange result (4 * packNum) packNum
+      direct dstF := AST.revConcatRange result (5 * packNum) packNum
+      direct dstG := AST.revConcatRange result (6 * packNum) packNum
+      direct dstH := AST.revConcatRange result (7 * packNum) packNum
     }
   | _ ->
     raise InvalidOperandSizeException
