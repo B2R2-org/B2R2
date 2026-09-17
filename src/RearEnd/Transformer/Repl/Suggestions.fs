@@ -921,25 +921,12 @@ module Suggestions =
     else
       []
 
-  let private iterElementKind registry state context =
-    let context: InputContext = context
-    match context.PartialPipeline with
-    | Some pipeline ->
-      ReplTypeAnalysis.outputBeforeLastPartial registry state 0
-        context.FullExpression pipeline
-      |> Option.bind ReplTypeAnalysis.collectionElementKind
-    | None ->
-      let lastPipeline =
-        InputAnalysis.topLevelLastPipeline context.FullExpression
-      let sourceExpression =
-        lastPipeline
-        |> Option.map (fun index -> context.FullExpression[..index - 1])
-        |> Option.defaultValue context.FullExpression
-      ReplTypeAnalysis.outputKind registry state sourceExpression
-      |> Option.bind ReplTypeAnalysis.collectionElementKind
+  let private iterElementKind typeAnalysis =
+    typeAnalysis.CurrentInput
+    |> Option.bind ReplTypeAnalysis.collectionElementKind
 
-  let private iterActionCandidates registry state context prefix =
-    match iterElementKind registry state context with
+  let private iterActionCandidates registry typeAnalysis prefix =
+    match iterElementKind typeAnalysis with
     | Some kind -> actionCandidates registry (Some kind) None prefix
     | None -> []
 
@@ -960,7 +947,7 @@ module Suggestions =
     |> Option.map _.Tokens
     |> Option.defaultValue context.SegmentWords
 
-  let private iterBodyCandidates registry state context =
+  let private iterBodyCandidates registry state context typeAnalysis =
     let context: InputContext = context
     let words = fullSegmentWords context
     match words with
@@ -970,22 +957,21 @@ module Suggestions =
       | None when isCurrentIterKeyword head context ->
         None
       | None ->
-        iterActionCandidates registry state context context.Prefix
+        iterActionCandidates registry typeAnalysis context.Prefix
         |> Some
       | Some target when isCurrentIterAction target context ->
-        iterActionCandidates registry state context context.Prefix
+        iterActionCandidates registry typeAnalysis context.Prefix
         |> Some
       | Some target ->
         match ActionRegistry.tryFind target registry with
         | None ->
           if context.Prefix.StartsWith("@", StringComparison.Ordinal) then
-            iterActionCandidates registry state context context.Prefix
+            iterActionCandidates registry typeAnalysis context.Prefix
             |> Some
           else
             None
         | Some registered ->
-          let itemKind =
-            iterElementKind registry state context
+          let itemKind = iterElementKind typeAnalysis
           let lastIndex = context.InputBeforeCursor.Length - 1
           let endsWithSpace =
             context.InputBeforeCursor.Length > 0
@@ -1035,7 +1021,7 @@ module Suggestions =
                 else
                   lambdaSkeletonCandidate |> Some
               elif context.Prefix.StartsWith("@", StringComparison.Ordinal) then
-                iterActionCandidates registry state context context.Prefix
+                iterActionCandidates registry typeAnalysis context.Prefix
                 |> Some
               else
                 None
@@ -1194,7 +1180,7 @@ module Suggestions =
     match setContextListCandidates argumentState context with
     | Some candidates -> candidates
     | None ->
-      match iterBodyCandidates registry argumentState context with
+      match iterBodyCandidates registry argumentState context typeAnalysis with
       | Some candidates -> candidates
       | None ->
         match literalBindingCandidates state expression context.Prefix with
@@ -1250,18 +1236,6 @@ module Suggestions =
                 | _ :: completed -> completed
                 | [] -> []
               completeArguments head completed argumentIndex
-
-  let private expressionContext context (expression, _) =
-    let context: InputContext = context
-    let parsed = InputAnalysis.analyze expression expression.Length
-    { context with
-        FullExpression = parsed.FullExpression
-        Expression = parsed.Expression
-        Segment = parsed.Segment
-        SegmentWords = parsed.SegmentWords
-        PartialPipeline = parsed.PartialPipeline
-        HasBinding = false
-        HasPipeline = parsed.HasPipeline }
 
   let private expressionCommandInput command (input: string) =
     let trimmed = input.TrimStart()
@@ -1349,14 +1323,14 @@ module Suggestions =
           state.Current |> Option.map (fun value -> value.Kind)
       registered, inputKind, args)
 
-  let private iterHintTarget registry state context words =
+  let private iterHintTarget registry typeAnalysis words =
     match words with
     | head :: args ->
       let analysis = ReplLanguage.analyzeIter head args
       analysis.ActionID
       |> Option.bind (fun target -> ActionRegistry.tryFind target registry)
       |> Option.map (fun registered ->
-        let inputKind = iterElementKind registry state context
+        let inputKind = iterElementKind typeAnalysis
         registered, inputKind, analysis.Body)
     | [] -> None
 
@@ -1365,7 +1339,7 @@ module Suggestions =
     let words = fullSegmentWords context
     match words with
     | head :: _ when isIterHead head ->
-      iterHintTarget registry state context words
+      iterHintTarget registry typeAnalysis words
     | head :: args ->
       directHintTarget registry state typeAnalysis context head args
     | [] ->
@@ -1434,12 +1408,17 @@ module Suggestions =
     |> List.truncate 20
 
   let get registry (state: TransformerReplState) (input: string) cursor =
-    let context = InputAnalysis.analyze input cursor
-    let metaExpression = metaExpressionInput context.InputBeforeCursor
-    let expressionContext =
-      metaExpression
-      |> Option.map (expressionContext context)
-      |> Option.defaultValue context
+    let cursor = max 0 (min cursor input.Length)
+    let inputBeforeCursor =
+      if cursor = 0 then "" else input[..cursor - 1]
+    let metaExpression = metaExpressionInput inputBeforeCursor
+    let context =
+      match metaExpression with
+      | Some(expression, _) ->
+        InputAnalysis.analyzeExpression input cursor expression
+      | None ->
+        InputAnalysis.analyze input cursor
+    let expressionContext = context
     let expression, expressionStart =
       match metaExpression with
       | Some expression -> expression

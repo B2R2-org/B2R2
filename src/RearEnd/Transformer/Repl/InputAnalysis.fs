@@ -117,7 +117,7 @@ module InputAnalysis =
 
   let activeExpression input = ReplLanguage.activeExpression input
 
-  let analyze (input: string) cursor =
+  let analyzeExpression (input: string) cursor (fullExpression: string) =
     let cursor = max 0 (min cursor input.Length)
     let start = tokenStart input cursor
     let prefix =
@@ -127,7 +127,6 @@ module InputAnalysis =
     let inputAfterCursor =
       if cursor = input.Length then "" else input[cursor..]
     let words = splitWords inputBeforeCursor
-    let fullExpression = expressionPortion inputBeforeCursor
     let partialPipeline = ReplLanguage.tryParsePartialPipeline fullExpression
     let expression, segment, segmentWords, lastPipeline =
       match partialPipeline with
@@ -180,3 +179,10 @@ module InputAnalysis =
       HasBinding =
         ReplLanguage.bindingHeader trimmed |> Option.isSome
       HasPipeline = Option.isSome lastPipeline }
+
+  let analyze (input: string) cursor =
+    let cursor = max 0 (min cursor input.Length)
+    let inputBeforeCursor =
+      if cursor = 0 then "" else input[..cursor - 1]
+    let fullExpression = expressionPortion inputBeforeCursor
+    analyzeExpression input cursor fullExpression
