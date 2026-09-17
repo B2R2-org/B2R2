@@ -217,6 +217,26 @@ module TransformerTuiInputController =
   let private isBrowsingHistory model =
     Option.isSome (model: TransformerTuiModel).HistoryIndex
 
+  let private insertPipeOperator model =
+    let input = (model: TransformerTuiModel).Input
+    let cursor = max 0 (min model.Cursor input.Length)
+    let before =
+      if cursor = 0 then "" else input[..cursor - 1]
+    let after =
+      if cursor >= input.Length then "" else input[cursor..]
+    let before = before.TrimEnd()
+    let after = after.TrimStart()
+    let input = before + " |> " + after
+    TransformerTuiModel.setInput input (before.Length + 4) model
+
+  let private isPipeShortcut control (key: ConsoleKeyInfo) =
+    if key.Key = ConsoleKey.Spacebar then
+      control || key.KeyChar = char 0
+    elif key.Key = ConsoleKey.NoName then
+      key.KeyChar = char 0
+    else
+      false
+
   let private tryHandleLayoutShortcut (key: ConsoleKeyInfo) model =
     let width, height = TransformerTuiTerminal.dimensions ()
     let defaultWidth = if width >= 100 then min 34 (width / 3) else 34
@@ -372,6 +392,10 @@ module TransformerTuiInputController =
       elif control && key.Key = ConsoleKey.D then
         if String.IsNullOrEmpty model.Input then TuiInputResult.Stop model
         else TuiInputResult.Update model
+      elif isPipeShortcut control key
+           && model.Overlay = TuiOverlay.None
+           && model.Focus = TuiFocus.Shell then
+        insertPipeOperator model |> TuiInputResult.Update
       elif control then
         handleControlKey completion key model |> TuiInputResult.Update
       else
