@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.Transformer
 
 open System.Threading
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.LLVM
 
@@ -35,7 +36,7 @@ type LLVMAction() =
   let printOut cancellationToken hdl (fn: Function) =
     let cancellationToken: CancellationToken = cancellationToken
     let builder = LLVMTranslator.createBuilder hdl fn.EntryPoint
-    fn.CFG.IterVertex(fun bbl ->
+    DiGraph.iterVertex (fun bbl ->
       cancellationToken.ThrowIfCancellationRequested()
       let succs =
         fn.CFG.GetSuccs bbl
@@ -45,7 +46,7 @@ type LLVMAction() =
       bbl.VData.Internals.LiftedInstructions
       |> Array.collect (fun ins -> ins.Stmts)
       |> LLVMTranslator.translate builder bblAddr succs
-    )
+    ) fn.CFG
     builder.ToString()
 
   let translate cancellationToken (o: obj) =
