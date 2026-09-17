@@ -63,6 +63,7 @@ module Suggestions =
       ":layout", "Resize REPL panes"
       ":log", "Show detailed command execution records"
       ":needs", "List missing concrete execution context"
+      ":plugin", "Load REPL actions from a plugin DLL"
       ":quit", "Leave the Transformer TUI"
       ":reset", "Clear values and reset the analysis state"
       ":restore", "Restore a value-history entry"
@@ -114,7 +115,8 @@ module Suggestions =
       AppendSpace =
         command = ":show" || command = ":type" || command = ":inspect"
         || command = ":restore" || command = ":export"
-        || command = ":layout" || command = ":script" }
+        || command = ":layout" || command = ":script"
+        || command = ":plugin" }
 
   let private argumentItem kind detail text =
     { Text = text
@@ -129,6 +131,13 @@ module Suggestions =
       Detail = detail
       Kind = kind
       AppendSpace = appendSpace }
+
+  let private parameterItem (name: string) detail =
+    { Text = name + "="
+      Label = name + "="
+      Detail = detail
+      Kind = SuggestionKind.Argument
+      AppendSpace = false }
 
   let private letItem =
     { Text = "let"
@@ -1014,6 +1023,24 @@ module Suggestions =
     [ "on"; "off" ]
     |> valueCandidates SuggestionKind.Argument "record mode" prefix
 
+  let private pluginOperationCandidates prefix =
+    [ "load" ]
+    |> valueCandidates SuggestionKind.Argument "plugin operation" prefix
+
+  let private pathParameterCandidates (name: string) (prefix: string) =
+    let key = name + "="
+    if prefix.StartsWith(key, StringComparison.OrdinalIgnoreCase) then
+      let prefix = prefix[key.Length..]
+      pathCandidates prefix
+      |> List.map (fun item ->
+        { item with
+            Text = key + item.Text
+            Label = key + item.Label })
+    elif matches prefix key then
+      [ parameterItem name "plugin DLL path" ]
+    else
+      []
+
   let private layoutCandidates prefix =
     [ "sidebar=40"
       "sidebar=off"
@@ -1032,6 +1059,10 @@ module Suggestions =
       scriptRecordCandidates prefix
     elif input.TrimStart().StartsWith(":script") then
       scriptOperationCandidates prefix
+    elif input.TrimStart().StartsWith(":plugin load ") then
+      pathParameterCandidates "path" prefix
+    elif input.TrimStart().StartsWith(":plugin") then
+      pluginOperationCandidates prefix
     elif input.TrimStart().StartsWith(":layout") then
       layoutCandidates prefix
     elif input.TrimStart().StartsWith(":export ") then
