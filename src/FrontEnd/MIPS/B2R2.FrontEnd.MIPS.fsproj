@@ -21,6 +21,7 @@
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="MicroMIPSParser.fs" />
+    <Compile Include="MIPS16Parser.fs" />
     <Compile Include="Parser.fs" />
   </ItemGroup>
 

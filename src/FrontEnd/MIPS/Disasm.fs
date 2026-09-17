@@ -443,6 +443,26 @@ let opCodeToString = function
   | Op.CRC32CH -> "crc32ch"
   | Op.CRC32CW -> "crc32cw"
   | Op.CRC32CD -> "crc32cd"
+  (* MIPS16e. The names are the manuals' own, so that what the disassembler
+     prints is what the MIPS16e assembler reads back. *)
+  | Op.BEQZ -> "beqz"
+  | Op.BNEZ -> "bnez"
+  | Op.BTEQZ -> "bteqz"
+  | Op.BTNEZ -> "btnez"
+  | Op.CMP16 -> "cmp"
+  | Op.CMPI -> "cmpi"
+  | Op.NEG16 -> "neg"
+  | Op.NOT -> "not"
+  | Op.LI -> "li"
+  | Op.MOVE -> "move"
+  | Op.SAVE -> "save"
+  | Op.RESTORE -> "restore"
+  | Op.ZEB -> "zeb"
+  | Op.ZEH -> "zeh"
+  | Op.SEW -> "sew"
+  | Op.ZEW -> "zew"
+  | Op.ASMACRO -> "asmacro"
+  | Op.DADDIUPC -> "daddiupc"
   | _ -> raise InvalidOpcodeException
 
 let inline appendCond (ins: Instruction) opcode =
@@ -497,6 +517,11 @@ let oprToString ins opr delim (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, delim)
     let target = JumpTarget.regionTarget ins.Address ins.WordSize index
     builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 target)
+  | OpRegList [] ->
+    (* A set an instruction names but this one holds nothing in. SAVE has two
+       of them and most encodings of it fill neither, so printing the
+       delimiter alone would put a comma where an operand is not. *)
+    ()
   | OpRegList regs ->
     builder.Accumulate(AsmWordKind.String, delim)
     regs |> List.iteri (fun i r ->

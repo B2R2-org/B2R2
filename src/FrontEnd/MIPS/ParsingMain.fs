@@ -1562,4 +1562,5 @@ let parse lifter span (reader: IBinReader) arch wordSize release addr =
   else
     ()
   let sz = getOperationSize opcode wordSize
-  Instruction(addr, 4u, cond, fmt, opcode, oprs, sz, wordSize, false, lifter)
+  let mode = MIPSISAMode.MIPS
+  Instruction(addr, 4u, cond, fmt, opcode, oprs, sz, wordSize, mode, lifter)

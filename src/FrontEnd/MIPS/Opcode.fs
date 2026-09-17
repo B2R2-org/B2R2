@@ -768,5 +768,68 @@ type Opcode =
   | CRC32D = 372
   /// Generate CRC with reversed polynomial 0x82F63B78, over a doubleword.
   | CRC32CD = 373
+  /// Branch on Equal to Zero (MIPS16e). The base architecture writes this as
+  /// BEQ against the zero register, which a three-bit register field cannot
+  /// name, so it is its own instruction here.
+  | BEQZ = 374
+  /// Branch on Not Equal to Zero (MIPS16e), for the same reason.
+  | BNEZ = 375
+  /// Branch on T Equal to Zero (MIPS16e). T is $24, which the comparisons of
+  /// this encoding write instead of naming a destination.
+  | BTEQZ = 376
+  /// Branch on T Not Equal to Zero (MIPS16e).
+  | BTNEZ = 377
+  /// <summary>
+  /// Compare (MIPS16e): T gets the exclusive-or of two registers.
+  ///
+  /// Not <c>CMP</c>, which is the floating-point compare Release 6 added.
+  /// The two share a name in their manuals and nothing else, and one enum
+  /// holding both would leave the lifter unable to tell which it had.
+  /// </summary>
+  | CMP16 = 378
+  /// Compare Immediate (MIPS16e): T gets the exclusive-or of a register and
+  /// a zero-extended immediate.
+  | CMPI = 379
+  /// Negate (MIPS16e): the integer one, which subtracts from zero. Not
+  /// <c>NEG</c>, which is the floating-point negate, for the reason
+  /// <c>CMP16</c> gives.
+  | NEG16 = 380
+  /// Not (MIPS16e): the one's complement, which the base architecture writes
+  /// as NOR against the zero register.
+  | NOT = 381
+  /// Load Immediate (MIPS16e). The base architecture writes this as ADDIU
+  /// from the zero register, which a three-bit field cannot name.
+  | LI = 382
+  /// <summary>
+  /// Move (MIPS16e), which is the only way this encoding reaches the
+  /// twenty-four registers its three-bit fields cannot name: one side of it
+  /// is a full five-bit register number.
+  /// </summary>
+  | MOVE = 383
+  /// Save registers and set up the stack frame (MIPS16e), which replaced the
+  /// ENTRY of the earlier MIPS16.
+  | SAVE = 384
+  /// Restore registers and tear the frame down (MIPS16e), which replaced
+  /// EXIT.
+  | RESTORE = 385
+  /// Zero-Extend Byte (MIPS16e).
+  | ZEB = 386
+  /// Zero-Extend Halfword (MIPS16e).
+  | ZEH = 387
+  /// Sign-Extend Word (MIPS16e), MIPS64 only.
+  | SEW = 388
+  /// Zero-Extend Word (MIPS16e), MIPS64 only.
+  | ZEW = 389
+  /// <summary>
+  /// The implementation-definable macro instruction (MIPS16e).
+  ///
+  /// What it does is not the architecture's to say -- MD00076 section 3.12
+  /// leaves it to the implementation -- so it decodes to its fields and no
+  /// further, and there is nothing for a lifter to do with it.
+  /// </summary>
+  | ASMACRO = 390
+  /// Doubleword Add Immediate Unsigned relative to the PC (MIPS16e), MIPS64
+  /// only.
+  | DADDIUPC = 391
 
 type internal Op = Opcode

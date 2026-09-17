@@ -322,11 +322,37 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   member _.NewLiftingUnit() =
     let parser = ArchSupport.createParserForFile binFile
     let liftingUnit = LiftingUnit(binFile, regFactory, parser)
-    (* An odd entry point marks a Thumb entry. Setting the mode is inert where
-       there is no Thumb to switch to, so no architecture test is needed. *)
+    (* The entry point's low bit says which encoding to start decoding in:
+       Thumb on ARM, and on MIPS the ISA Mode bit, which the linker sets for a
+       symbol the assembler marked as compressed.
+
+       On MIPS the two flags do not say the same thing, which is what the
+       second arm is for. The microMIPS flag says the image IS microMIPS --
+       the compiler emits that encoding for the whole program -- but MIPS16e
+       is an Application-Specific Extension and its flag says only that the
+       image HOLDS MIPS16e code: a -mips16 program is 32-bit code with
+       MIPS16e functions in it, reached through a jump to an odd address, and
+       its entry point is even. Starting in MIPS16e because the flag was set
+       reads that 32-bit entry as halfwords and faults on the first of them.
+
+       A raw image is exempt from the RESET and not from the rest. What
+       BinFile answers for one is the base address it was loaded at, and an
+       even base says nothing about the encoding -- reading it as one would
+       turn every raw MIPS16e image into a 32-bit one, and the encoding it
+       was opened as is the only thing that named it. A base whose low bit IS
+       set still means what it means: a raw Thumb image is loaded at an odd
+       address to say so, which is what the API test asserts.
+
+       Setting either is inert where there is nothing to switch to, so no
+       architecture test is needed. *)
     match binFile.EntryPoint with
-    | Some addr when addr % 2UL <> 0UL -> liftingUnit.IsThumb <- true
-    | _ -> ()
+    | Some addr when addr % 2UL <> 0UL ->
+      liftingUnit.IsThumb <- true
+    | Some _ when liftingUnit.ISAMode = MIPSISAMode.MIPS16
+                  && binFile.Format <> FileFormat.RawBinary ->
+      liftingUnit.ISAMode <- MIPSISAMode.MIPS
+    | _ ->
+      ()
     liftingUnit
 
   /// <summary>

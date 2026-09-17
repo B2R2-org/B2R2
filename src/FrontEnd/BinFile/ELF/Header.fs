@@ -128,24 +128,41 @@ module internal Header =
   let private getELFFlags span (reader: IBinReader) cls =
     reader.ReadUInt32(span = span, offset = selectByWordSize cls 36 48)
 
-  /// The architecture level in a MIPS image's processor-specific flags,
-  /// which binutils calls EF_MIPS_ARCH. It settles two things, and this used
-  /// to read only the first: how wide a register is, and which RELEASE the
-  /// code belongs to. Release 6 reassigned primary opcodes -- the one ADDI
-  /// had is POP10 there -- so a decoder that is not told cannot be right for
-  /// both. The release was being discarded here, which is why Release 6
-  /// images could not be decoded at all.
-  /// The bit those flags carry when the image holds microMIPS code, which
-  /// binutils calls EF_MIPS_ARCH_ASE_MICROMIPS. It sits apart from the
-  /// architecture level because it is not one: microMIPS is another encoding
-  /// of the same instruction set, and every level has both.
+  /// The bit a MIPS image's processor-specific flags carry when it holds
+  /// microMIPS code, which binutils calls EF_MIPS_ARCH_ASE_MICROMIPS. It sits
+  /// apart from the architecture level because it is not one: microMIPS is
+  /// another encoding of the same instruction set, and every level has both.
   let [<Literal>] private MIPSMicroMIPS = 0x02000000u
 
+  /// <summary>
+  /// The same for MIPS16e, which binutils calls EF_MIPS_ARCH_ASE_M16.
+  ///
+  /// A separate bit rather than another value of the one above, because they
+  /// are separate announcements: an image says which extensions it uses and
+  /// not which one of them it uses. No processor implements both, so an image
+  /// that set both would be for no processor there is, and the microMIPS bit
+  /// is read first.
+  /// </summary>
+  let [<Literal>] private MIPSM16 = 0x04000000u
+
+  /// <summary>
+  /// The ISA of a MIPS image, from the processor-specific flags.
+  ///
+  /// The architecture level -- binutils calls it EF_MIPS_ARCH, and it is the
+  /// top nibble -- settles two things, and this used to read only the first:
+  /// how wide a register is, and which RELEASE the code belongs to. Release 6
+  /// reassigned primary opcodes, the one ADDI had being POP10 there, so a
+  /// decoder that is not told cannot be right for both. The release was being
+  /// discarded here, which is why Release 6 images could not be decoded at
+  /// all. Which ENCODING the code is in is announced separately, by the two
+  /// ASE bits above.
+  /// </summary>
   let private getMIPSISA span (reader: IBinReader) cls =
     let flags = getELFFlags span reader cls
     let mode =
-      if flags &&& MIPSMicroMIPS = 0u then MIPSISAMode.MIPS
-      else MIPSISAMode.MicroMIPS
+      if flags &&& MIPSMicroMIPS <> 0u then MIPSISAMode.MicroMIPS
+      elif flags &&& MIPSM16 <> 0u then MIPSISAMode.MIPS16
+      else MIPSISAMode.MIPS
     let mips ws release =
       ISA(Architecture.MIPS, reader.Endianness, ws, int release ||| int mode)
     match flags &&& 0xf0000000u with
