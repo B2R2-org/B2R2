@@ -836,6 +836,9 @@ module TransformerReplEvaluator =
     |> List.tryPick (fun key ->
       Map.tryFind key named |> Option.map (fun value -> key, value))
 
+  let private defaultArgumentValue = function
+    | ActionArgumentDefault.Zero -> "0"
+
   let rec private fillArguments positional named arguments output assignments =
     match arguments with
     | [] when List.isEmpty positional && Map.isEmpty named ->
@@ -862,7 +865,8 @@ module TransformerReplEvaluator =
             ((argument, value) :: assignments)
         | [] when argument.IsOptional
                  && Option.isSome argument.DefaultValue ->
-          let value = Option.get argument.DefaultValue
+          let value =
+            argument.DefaultValue |> Option.get |> defaultArgumentValue
           fillArguments [] named rest (value :: output) assignments
         | [] when argument.IsOptional ->
           fillArguments [] named rest output assignments

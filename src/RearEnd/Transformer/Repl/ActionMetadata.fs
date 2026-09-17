@@ -89,12 +89,16 @@ type ActionArgumentKind =
   | ParameterFunction
   | Choice
 
+[<RequireQualifiedAccess>]
+type ActionArgumentDefault =
+  | Zero
+
 /// A command-line argument accepted by an action.
 type ActionArgument =
   { Name: string
     Kind: ActionArgumentKind
     IsOptional: bool
-    DefaultValue: string option
+    DefaultValue: ActionArgumentDefault option
     Choices: string list
     Description: string }
 
@@ -561,7 +565,7 @@ module ActionMetadata =
       ActionRole.Transform 20
       "cfg -> CFG collection | cfg entry=<address> -> CFG"
       [ "binary |> @cfg"
-        "binary |> @cfg entry=0x401000"
+        "binary |> @cfg entry=<entry>"
         "function |> @cfg" ]
       [ syntaxForOutput [ ReplValueKind.Binary ] None
           (ReplValueKind.Collection ReplValueKind.CFG) []
@@ -595,8 +599,8 @@ module ActionMetadata =
       ReplValueKind.ByteArray
       ActionRole.Source 5
       "asm code=<text> [isa=<isa>] [base=<addr>] -> ByteArray"
-      [ "@asm code=\"ret\" isa=x86-64"
-        "@asm code=\"cmp dword ptr [rbp - 0xc], 0x63\" isa=x86-64" ]
+      [ "@asm code=<assembly> isa=<isa>"
+        "@asm code=<assembly> isa=<isa> base=<addr>" ]
       [ syntax None [ code ]
         syntax None [ code; isa ]
         syntax None [ code; baseAddress ]
@@ -611,7 +615,7 @@ module ActionMetadata =
         "Concrete integer or pointer value."
     contract "arg" ReplValueKind.ConcExecutor ReplValueKind.ConcExecutor
       ActionRole.Transform 20 "arg index=<n> value=<addr> -> ConcExecutor"
-      [ "executor |> @arg index=0 value=0x70000000" ]
+      [ "executor |> @arg index=<index> value=<addr>" ]
       [ syntax None [ index; value ] ]
 
   let private setReg =
@@ -624,7 +628,7 @@ module ActionMetadata =
       ReplValueKind.ConcExecutor
       ActionRole.Transform 20
       "set-reg name=<reg> value=<value> -> ConcExecutor"
-      [ "executor |> @set-reg name=RDI value=0x70000000" ]
+      [ "executor |> @set-reg name=<reg> value=<addr>" ]
       [ syntax None [ name; value ] ]
 
   let private setContext =
@@ -633,16 +637,16 @@ module ActionMetadata =
         "Stack pointer value to set."
     let regs =
       optional "regs" ActionArgumentKind.Text
-        "Register assignments: [RDI=0x1; RSP=sp]."
+        "Register assignments: [<reg>=<value>; RSP=sp]."
     let mem =
       optional "mem" ActionArgumentKind.Text
-        "Memory assignments: [0x70000000=41424300]."
+        "Memory assignments: [<addr>=<hex>]."
     contract "set-context" ReplValueKind.ConcExecutor
       ReplValueKind.ConcExecutor
       ActionRole.Transform 18
       "set-context [stack=<addr>] [regs=[...]] [mem=[...]] -> ConcExecutor"
-      [ "executor |> @set-context regs=[RDI=0x1; RSP=sp]"
-        "executor |> @set-context mem=[0x70000000=41424300]" ]
+      [ "executor |> @set-context regs=[<reg>=<value>; RSP=sp]"
+        "executor |> @set-context mem=[<addr>=<hex>]" ]
       [ syntax None [ stack ]
         syntax None [ regs ]
         syntax None [ mem ]
@@ -690,7 +694,7 @@ module ActionMetadata =
     contract "dbscan" (ReplValueKind.Collection ReplValueKind.Fingerprint)
       ReplValueKind.ClusterResult ActionRole.Reducer 50
       "dbscan [eps=<n>] [min-points=<n>] -> ClusterResult"
-      [ "fingerprints |> @dbscan eps=0.2 min-points=3" ]
+      [ "fingerprints |> @dbscan eps=<eps> min-points=<minimum>" ]
       [ syntax None [ eps; minPts ] ]
 
   let private detect =
@@ -761,9 +765,9 @@ module ActionMetadata =
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.Binary
       ActionRole.Transform 40 "edit <operation> ..."
-      [ "binary |> @edit insert start=0x401000 hex=90"
-        "binary |> @edit delete start=0x401000 size=4"
-        "binary |> @edit replace start=0x401000 size=2 hex=9090" ]
+      [ "binary |> @edit insert start=<addr> hex=<hex>"
+        "binary |> @edit delete start=<addr> size=<size>"
+        "binary |> @edit replace start=<addr> size=<size> hex=<hex>" ]
       syntaxes
 
   let private grep =
@@ -774,10 +778,12 @@ module ActionMetadata =
       optional "context" ActionArgumentKind.Integer
         "Context bytes on both sides of each match."
     let before =
-      optionalDefault "before" ActionArgumentKind.Integer "0"
+      optionalDefault "before" ActionArgumentKind.Integer
+        ActionArgumentDefault.Zero
         "Context bytes preceding each match."
     let after =
-      optionalDefault "after" ActionArgumentKind.Integer "0"
+      optionalDefault "after" ActionArgumentKind.Integer
+        ActionArgumentDefault.Zero
         "Context bytes following each match."
     let byPattern =
       "grep pattern=<hex> [context=<n>] | "
@@ -794,10 +800,10 @@ module ActionMetadata =
           [ ReplValueKind.BinarySlice; ReplValueKind.ByteArray ] ]
       (ReplValueKind.Collection ReplValueKind.BinarySlice)
       ActionRole.Transform 30 (byPattern + " | " + byBytes)
-      [ "binary |> @grep pattern=7f454c46"
-        "binary |> @grep pattern=7f454c46 context=64"
-        "binary |> @grep pattern=7f454c46 before=4 after=16"
-        "(binary, needle) |> @grep before=4 after=16" ]
+      [ "binary |> @grep pattern=<hex-pattern>"
+        "binary |> @grep pattern=<hex-pattern> context=<size>"
+        "binary |> @grep pattern=<hex-pattern> before=<n> after=<n>"
+        "(binary, needle) |> @grep before=<n> after=<n>" ]
       [ syntaxFor [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
           None [ pattern; context ]
         syntaxFor [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
@@ -828,7 +834,7 @@ module ActionMetadata =
         [ ReplValueKind.Fingerprint; ReplValueKind.Fingerprint ]
     contract "jaccard" input ReplValueKind.Float
       ActionRole.Reducer 60 "Fingerprint * Fingerprint -> @jaccard -> Float"
-      [ "let fingerprints = (fp0, fp1)"
+      [ "let fingerprints = (leftFingerprint, rightFingerprint)"
         "fingerprints |> @jaccard" ] [ syntax None [] ]
 
   let private regs =
@@ -853,8 +859,8 @@ module ActionMetadata =
     contract "run" ReplValueKind.ConcExecutor ReplValueKind.ConcExecutor
       ActionRole.Transform 20
       "run [entry=<addr>] [limit=<n>] [break=<addr>] -> ConcExecutor"
-      [ "executor |> @run entry=0x401000 limit=10"
-        "executor |> @run entry=0x401000 limit=100 break=0x401020" ]
+      [ "executor |> @run entry=<entry> limit=<limit>"
+        "executor |> @run entry=<entry> limit=<limit> break=<addr>" ]
       [ syntax None [ entry; limit; breakpoint ] ]
 
   let private lift =
@@ -896,8 +902,8 @@ module ActionMetadata =
     contract "load" ReplValueKind.Unit ReplValueKind.Binary
       ActionRole.Source 0
       "load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> -> Binary"
-      [ "@load path=temp/bin/base32"
-        "@load hex=9090c3 isa=x86-64" ]
+      [ "@load path=<path>"
+        "@load hex=<hex> isa=<isa>" ]
       [ syntax None [ source; optionalISA ]
         syntax None [ hex; requiredISA ] ]
 
@@ -911,7 +917,7 @@ module ActionMetadata =
     contract "random" ReplValueKind.Unit ReplValueKind.Address
       ActionRole.Source 20
       "random min=<addr> max=<addr> -> Address"
-      [ "let ptr = @random min=0x70000000 max=0x70001000" ]
+      [ "let ptr = @random min=<min> max=<max>" ]
       [ syntax None [ minAddress; maxAddress ] ]
 
   let private userStack =
@@ -936,8 +942,8 @@ module ActionMetadata =
       ReplValueKind.Any
       ActionRole.Transform 20
       signature
-      [ "executor |> @mem read addr=0x70000000 size=16"
-        "executor |> @mem write addr=0x70000000 bytes=41424300" ]
+      [ "executor |> @mem read addr=<addr> size=<size>"
+        "executor |> @mem write addr=<addr> bytes=<hex>" ]
       [ syntaxOutput (Some "read") ReplValueKind.MemoryView [ addr; size ]
         syntaxOutput (Some "write") ReplValueKind.ConcExecutor
           [ addr; bytes ] ]
@@ -945,11 +951,11 @@ module ActionMetadata =
   let private pick =
     let index =
       required "index" ActionArgumentKind.Integer
-        "1-based value index in the current collection."
+        "One-based value index in the current collection."
     contract "pick" (ReplValueKind.Collection ReplValueKind.Any)
       ReplValueKind.Any
       ActionRole.Transform 5 "pick index=<n> -> Any"
-      [ "graphs |> @pick index=1" ] [ syntax None [ index ] ]
+      [ "graphs |> @pick index=<index>" ] [ syntax None [ index ] ]
 
   let private print =
     contract "print" ReplValueKind.Any ReplValueKind.Unit
@@ -974,7 +980,7 @@ module ActionMetadata =
       ReplValueKind.BinarySlice
       ActionRole.Transform 10 signature
       [ "binary |> @slice section=.text"
-        "binary |> @slice start=0x401000 offset=32" ]
+        "binary |> @slice start=<start> offset=<size>" ]
       [ syntax None [ section ]
         syntax None [ start; finish ]
         syntax None [ start; offset ] ]
@@ -982,16 +988,16 @@ module ActionMetadata =
   let private step =
     let count =
       optional "count" ActionArgumentKind.Integer
-        "Number of machine instructions; defaults to 1."
+        "Number of machine instructions; defaults to one."
     contract "step" ReplValueKind.ConcExecutor ReplValueKind.ConcExecutor
       ActionRole.Transform 20 "step [count=<n>] -> ConcExecutor"
-      [ "executor |> @step"; "executor |> @step count=4" ]
+      [ "executor |> @step"; "executor |> @step count=<count>" ]
       [ syntax None [ count ] ]
 
   let private trace =
     let count =
       optional "count" ActionArgumentKind.Integer
-        "Number of machine instructions; defaults to 1."
+        "Number of machine instructions; defaults to one."
     let watch =
       required "watch" ActionArgumentKind.Address
         "Optional memory address for before/after watch output."
@@ -1002,8 +1008,8 @@ module ActionMetadata =
       ActionRole.Transform 20
       "trace [count=<n>] [watch=<addr> size=<n>] -> ExecutionTrace"
       [ "executor |> @trace"
-        "executor |> @trace count=4"
-        "executor |> @trace count=1 watch=0x70000000 size=16" ]
+        "executor |> @trace count=<count>"
+        "executor |> @trace count=<count> watch=<addr> size=<size>" ]
       [ syntax None []
         syntax None [ count ]
         syntax None [ watch; size ]
@@ -1012,7 +1018,7 @@ module ActionMetadata =
   let private strings =
     let minimum =
       optional "min" ActionArgumentKind.Integer
-        "Minimum printable string length; defaults to 4."
+        "Minimum printable string length; defaults to four."
     let pattern =
       optional "pattern" ActionArgumentKind.Text
         "Case-insensitive substring filter."
@@ -1023,7 +1029,7 @@ module ActionMetadata =
       "strings [min=<n>] [pattern=<text>] -> StringMatch collection"
       [ "binary |> @strings"
         "binary |> @strings pattern=ADMIN"
-        "binary |> @strings min=8 pattern=EXPORT" ]
+        "binary |> @strings min=<length> pattern=EXPORT" ]
       [ syntax None [ minimum; pattern ] ]
 
   let private save =
@@ -1038,16 +1044,16 @@ module ActionMetadata =
   let private winnowing =
     let ngram =
       optional "n-gram-size" ActionArgumentKind.Integer
-        "N-gram size; defaults to 4."
+        "N-gram size; defaults to four."
     let window =
       optional "window-size" ActionArgumentKind.Integer
-        "Window size; defaults to 4."
+        "Window size; defaults to four."
     overloadContract "winnowing"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.Fingerprint
       ActionRole.Transform 40
       "winnowing [n-gram-size=<n>] [window-size=<n>] -> Fingerprint"
-      [ "binary |> @winnowing n-gram-size=4 window-size=4" ]
+      [ "binary |> @winnowing n-gram-size=<n> window-size=<n>" ]
       [ syntax None [ ngram; window ] ]
 
   let private write =
