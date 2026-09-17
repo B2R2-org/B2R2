@@ -100,18 +100,18 @@ type LiftingDSLTests() =
         AST.label lbl.Name newId lbl.Address
     let renameDest e =
       match e with
-      | JmpDest(lbl, _) ->
+      | JmpDest(Target = lbl) ->
         AST.jmpDest (renumber lbl)
       | _ ->
         e
     stmts
     |> Array.map (fun stmt ->
       match stmt with
-      | LMark(lbl, _) ->
+      | LMark(Label = lbl) ->
         AST.lmark (renumber lbl)
-      | Jmp(dst, _) ->
+      | Jmp(Target = dst) ->
         AST.jmp (renameDest dst)
-      | CJmp(cond, t, f, _) ->
+      | CJmp(Cond = cond; TrueTarget = t; FalseTarget = f) ->
         AST.cjmp cond (renameDest t) (renameDest f)
       | _ ->
         stmt)

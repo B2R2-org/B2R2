@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 
 let inline (:=) dst src =
   match dst with
-  | Var(_, rid, _, _) when rid = Register.toRegID Register.X0 ->
+  | Var(RegisterID = rid) when rid = Register.toRegID Register.X0 ->
     dst := dst (* Prevent setting x0. Our optimizer will remove this anyways. *)
   | _ ->
     dst := src
@@ -494,12 +494,12 @@ let getNanBoxed e = (numU64 0xFFFFFFFF_00000000uL 64<rt>) .| (AST.zext 64<rt> e)
 
 let getAddrFromMem x =
   match x with
-  | Load(_, _, addr, _) -> addr
+  | Load(Addr = addr) -> addr
   | _ -> raise InvalidExprException
 
 let getAddrFromMemAndSize x =
   match x with
-  | Load(_, rt, addr, _) ->
+  | Load(Type = rt; Addr = addr) ->
     addr, numI32 (RegType.toByteWidth rt) (Expr.typeOf addr)
   | _ ->
     raise InvalidExprException

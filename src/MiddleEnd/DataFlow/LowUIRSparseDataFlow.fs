@@ -159,19 +159,19 @@ type State<'Lattice when 'Lattice: equality>
   /// Translates an IR expression to its SSA expression.
   let rec translateToSSAExpr (pp: ProgramPoint) e =
     match e with
-    | Num(bv, _) ->
+    | Num(Value = bv) ->
       SSA.Num bv
-    | PCVar(rt, _, _) ->
+    | PCVar(Type = rt) ->
       assert (Option.isNone pp.CallSite)
       SSA.Num <| BitVector(pp.Address, rt)
     | Var _ | TempVar _ ->
       let vk = VarKind.ofIRExpr e
       let ssaVar = getSSAVarFromUse pp vk
       SSA.Var ssaVar
-    | ExprList(exprs, _) ->
+    | ExprList(Elements = exprs) ->
       List.map (translateToSSAExpr pp) exprs
       |> SSA.ExprList
-    | Load(_, rt, addr, _) ->
+    | Load(Type = rt; Addr = addr) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let offset = bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
@@ -182,35 +182,35 @@ type State<'Lattice when 'Lattice: equality>
         let emptyMemVar = mkEmptySSAVar (Memory None)
         let e = translateToSSAExpr pp addr
         SSA.Load(emptyMemVar, rt, e)
-    | BinOp(binOpType, rt, e1, e2, _) ->
+    | BinOp(Op = binOpType; Type = rt; Left = e1; Right = e2) ->
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       SSA.BinOp(binOpType, rt, e1, e2)
-    | RelOp(relOpType, e1, e2, _) ->
+    | RelOp(Op = relOpType; Left = e1; Right = e2) ->
       let rt = Expr.typeOf e1
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       SSA.RelOp(relOpType, rt, e1, e2)
-    | Extract(e, rt, startPos, _) ->
+    | Extract(Operand = e; Type = rt; StartPos = startPos) ->
       let e = translateToSSAExpr pp e
       SSA.Extract(e, rt, startPos)
-    | UnOp(unOpType, e, _) ->
+    | UnOp(Op = unOpType; Operand = e) ->
       let rt = Expr.typeOf e
       let e = translateToSSAExpr pp e
       SSA.UnOp(unOpType, rt, e)
-    | Cast(castKind, rt, e, _) ->
+    | Cast(Kind = castKind; Type = rt; Operand = e) ->
       let e = translateToSSAExpr pp e
       SSA.Cast(castKind, rt, e)
-    | RoundCtrl(mode, body, _) ->
+    | RoundCtrl(Mode = mode; Body = body) ->
       let rt = Expr.typeOf body
       let mode = translateToSSAExpr pp mode
       let body = translateToSSAExpr pp body
       SSA.RoundCtrl(mode, rt, body)
-    | FuncName(s, _) ->
+    | FuncName(Name = s) ->
       SSA.FuncName s
-    | Undefined(rt, s, _) ->
+    | Undefined(Type = rt; Reason = s) ->
       SSA.Undefined(rt, s)
-    | Ite(e1, e2, e3, _) ->
+    | Ite(Cond = e1; TrueExpr = e2; FalseExpr = e3) ->
       let rt = Expr.typeOf e2
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
@@ -220,21 +220,21 @@ type State<'Lattice when 'Lattice: equality>
       Terminator.impossible ()
 
   let translateLabel addr = function
-    | JmpDest(lbl, _) -> lbl
-    | Undefined(_, s, _) -> AST.label s -1 addr
+    | JmpDest(Target = lbl) -> lbl
+    | Undefined(Reason = s) -> AST.label s -1 addr
     | _ -> raise InvalidExprException
 
   /// Translates an ordinary IR statement to an SSA statement. It returns a
   /// dummy exception statement if the given IR statement is invalid.
   let translateToSSAStmt pp stmt =
     match stmt with
-    | Put(dst, src, _) ->
+    | Put(Dst = dst; Src = src) ->
       let vk = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = vk }
       let v = getSSAVar vp
       let e = translateToSSAExpr pp src
       SSA.Def(v, e)
-    | Store(_, addr, value, _) ->
+    | Store(Addr = addr; Value = value) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let offset = bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
@@ -251,29 +251,29 @@ type State<'Lattice when 'Lattice: equality>
         let e2 = translateToSSAExpr pp value
         let e = SSA.Store(prevMemVar, rt, e1, e2)
         SSA.Def(newMemVar, e)
-    | Jmp(expr, _) ->
+    | Jmp(Target = expr) ->
       let addr = 0x0UL (* use dummy address for simplicity *)
       let label = translateLabel addr expr
       let e = SSA.IntraJmp label
       SSA.Jmp e
-    | CJmp(expr, label1, label2, _) ->
+    | CJmp(Cond = expr; TrueTarget = label1; FalseTarget = label2) ->
       let addr = 0x0UL (* use dummy address for simplicity *)
       let expr = translateToSSAExpr pp expr
       let label1 = translateLabel addr label1
       let label2 = translateLabel addr label2
       let e = SSA.IntraCJmp(expr, label1, label2)
       SSA.Jmp e
-    | InterJmp(expr, _, _) ->
+    | InterJmp(Target = expr) ->
       let expr = translateToSSAExpr pp expr
       let e = SSA.InterJmp(expr)
       SSA.Jmp e
-    | InterCJmp(expr1, expr2, expr3, _) ->
+    | InterCJmp(Cond = expr1; TrueTarget = expr2; FalseTarget = expr3) ->
       let expr1 = translateToSSAExpr pp expr1
       let expr2 = translateToSSAExpr pp expr2
       let expr3 = translateToSSAExpr pp expr3
       let e = SSA.InterCJmp(expr1, expr2, expr3)
       SSA.Jmp e
-    | SideEffect(sideEff, _) ->
+    | SideEffect(Effect = sideEff) ->
       SSA.SideEffect sideEff
     | _ ->
       SSA.SideEffect UndefinedInstruction
@@ -589,10 +589,10 @@ module internal AnalysisCore = begin
       let varKinds = HashSet()
       for (stmt, pp) in state.GetStmtInfos v do
         match stmt with
-        | Put(dst, _, _) ->
+        | Put(Dst = dst) ->
           let vk = VarKind.ofIRExpr dst
           varKinds.Add vk |> ignore
-        | Store(_, addr, _, _) ->
+        | Store(Addr = addr) ->
           getStackValue state pp addr
           |> Result.iter (fun loc ->
             let offset = LowUIRStackPointer.toFrameOffset loc
@@ -663,15 +663,15 @@ module internal AnalysisCore = begin
     VarKind.iterUses onVarRead tryStackOffset expr
 
   let updateWithJmp state defs pp = function
-    | Jmp(expr, _) ->
+    | Jmp(Target = expr) ->
       updateWithExpr state defs pp expr
-    | CJmp(expr, target1, target2, _) ->
+    | CJmp(Cond = expr; TrueTarget = target1; FalseTarget = target2) ->
       updateWithExpr state defs pp expr
       updateWithExpr state defs pp target1
       updateWithExpr state defs pp target2
-    | InterJmp(expr, _jmpKind, _) ->
+    | InterJmp(Target = expr; Kind = _jmpKind) ->
       updateWithExpr state defs pp expr
-    | InterCJmp(cond, target1, target2, _) ->
+    | InterCJmp(Cond = cond; TrueTarget = target1; FalseTarget = target2) ->
       updateWithExpr state defs pp cond
       updateWithExpr state defs pp target1
       updateWithExpr state defs pp target2
@@ -684,14 +684,14 @@ module internal AnalysisCore = begin
   /// non-temporary variables.
   let updateWithStmt state (outs: byref<_>) (defs: byref<_>) stmt pp =
     match stmt with
-    | Put(dst, src, _) ->
+    | Put(Dst = dst; Src = src) ->
       updateWithExpr state defs pp src
       let kind = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = kind }
       defs <- Map.add kind vp defs
       if not (VarKind.isTemporary kind) then outs <- Map.add kind vp outs
       else ()
-    | Store(_, addr, value, _) ->
+    | Store(Addr = addr; Value = value) ->
       updateWithExpr state defs pp addr
       updateWithExpr state defs pp value
       match getStackValue state pp addr with
@@ -847,7 +847,7 @@ module internal AnalysisCore = begin
 
   let spTransfer (state: State<_>) (stmt, pp) =
     match stmt with
-    | Put(dst, src, _) ->
+    | Put(Dst = dst; Src = src) ->
       let varKind = VarKind.ofIRExpr dst
       let currConst =
         match varKind with
@@ -874,7 +874,7 @@ module internal AnalysisCore = begin
 
   let domainTransfer (state: State<_>) (stmt, pp) =
     match stmt with
-    | Put(dst, src, _) ->
+    | Put(Dst = dst; Src = src) ->
       let varKind = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = varKind }
       let subState = state.DomainSubState
@@ -882,7 +882,7 @@ module internal AnalysisCore = begin
       let curr = state.Scheme.EvalExpr(pp, src)
       let defUseMap = state.DefUseMap
       updateAbsValue subState defUseMap vp prev curr
-    | Store(_, addr, value, _) ->
+    | Store(Addr = addr; Value = value) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let loc = bv.ToUInt64()

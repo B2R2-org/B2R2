@@ -58,15 +58,15 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
 
   let rec evaluateExpr state spp e =
     match e with
-    | PCVar(rt, _, _) ->
+    | PCVar(Type = rt) ->
       let addr = (spp: SensitiveProgramPoint<_>).ProgramPoint.Address
       let bv = BitVector(addr, rt)
       ConstantDomain.Const bv
-    | Num(bv, _) ->
+    | Num(Value = bv) ->
       ConstantDomain.Const bv
     | Var _ | TempVar _ ->
       evaluateVarPoint state spp (VarKind.ofIRExpr e)
-    | Load(_m, rt, addr, _) ->
+    | Load(Endian = _m; Type = rt; Addr = addr) ->
       match state.StackPointerSubState.EvalExpr(spp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let addr = bv.ToUInt64()
@@ -83,31 +83,31 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
         ConstantDomain.NotAConst
       | StackPointerDomain.Undef ->
         ConstantDomain.Undef
-    | UnOp(op, e, _) ->
+    | UnOp(Op = op; Operand = e) ->
       evaluateExpr state spp e
       |> ConstantDomain.evalUnOp op
-    | BinOp(op, _, e1, e2, _) ->
+    | BinOp(Op = op; Left = e1; Right = e2) ->
       let c1 = evaluateExpr state spp e1
       let c2 = evaluateExpr state spp e2
       ConstantDomain.evalBinOp op c1 c2
-    | RelOp(op, e1, e2, _) ->
+    | RelOp(Op = op; Left = e1; Right = e2) ->
       let c1 = evaluateExpr state spp e1
       let c2 = evaluateExpr state spp e2
       ConstantDomain.evalRelOp op c1 c2
-    | Ite(e1, e2, e3, _) ->
+    | Ite(Cond = e1; TrueExpr = e2; FalseExpr = e3) ->
       let c1 = evaluateExpr state spp e1
       let c2 = evaluateExpr state spp e2
       let c3 = evaluateExpr state spp e3
       ConstantDomain.ite c1 c2 c3
-    | Cast(op, rt, e, _) ->
+    | Cast(Kind = op; Type = rt; Operand = e) ->
       let c = evaluateExpr state spp e
       ConstantDomain.evalCast op rt c
-    | Extract(e, rt, pos, _) ->
+    | Extract(Operand = e; Type = rt; StartPos = pos) ->
       let c = evaluateExpr state spp e
       ConstantDomain.extract c rt pos
     (* A direction reaches nothing this domain folds -- it has no
        floating-point arithmetic at all -- so only the body is read. *)
-    | RoundCtrl(_, body, _) ->
+    | RoundCtrl(Body = body) ->
       evaluateExpr state spp body
     | FuncName _ | ExprList _ | Undefined _ ->
       ConstantDomain.NotAConst

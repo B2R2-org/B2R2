@@ -42,37 +42,40 @@ open B2R2.MiddleEnd.Executor
 /// state.
 let rec evalExpr (st: ConcState) e =
   match e with
-  | Num(n, _) ->
+  | Num(Value = n) ->
     n
-  | Var(_, n, _, _) ->
+  | Var(RegisterID = n) ->
     st.GetReg n
-  | PCVar(t, _, _) ->
+  | PCVar(Type = t) ->
     BitVector(st.PC, t)
-  | TempVar(_, n, _) ->
+  | TempVar(Index = n) ->
     st.GetTmp n
-  | UnOp(t, e, _) ->
+  | UnOp(Op = t; Operand = e) ->
     evalUnOp st e t
-  | BinOp(t, _, e1, e2, _) ->
+  | BinOp(Op = t; Left = e1; Right = e2) ->
     evalBinOp st e1 e2 t
-  | RelOp(t, e1, e2, _) ->
+  | RelOp(Op = t; Left = e1; Right = e2) ->
     evalRelOp st e1 e2 t
-  | Load(endian, t, addr, _) ->
+  | Load(Endian = endian; Type = t; Addr = addr) ->
     evalLoad st endian t addr
-  | Ite(cond, e1, e2, _) ->
+  | Ite(Cond = cond; TrueExpr = e1; FalseExpr = e2) ->
     let cond = evalExpr st cond
     if cond = tr then evalExpr st e1 else evalExpr st e2
-  | Cast(kind, t, e, _) ->
+  | Cast(Kind = kind; Type = t; Operand = e) ->
     evalCast st t e kind
   (* A float-to-integer conversion in a direction named outright is the one
      rounding this evaluator can follow: BitVector has a conversion for each of
      the four, where its arithmetic is the host's and takes no direction. Every
      other body is evaluated as though the mode said round-to-nearest, which is
      what this evaluator did before the mode could be expressed at all. *)
-  | RoundCtrl(Num(m, _), Cast(CastKind.FloatToSInt, t, e, _), _) ->
+  | RoundCtrl(Mode = Num(Value = m)
+              Body = Cast(Kind = CastKind.FloatToSInt
+                          Type = t
+                          Operand = e)) ->
     evalFtoI (enum<RoundingMode> (int (m.ToUInt64()))) t (evalExpr st e)
-  | RoundCtrl(_, body, _) ->
+  | RoundCtrl(Body = body) ->
     evalExpr st body
-  | Extract(e, t, p, _) ->
+  | Extract(Operand = e; Type = t; StartPos = p) ->
     BitVector.Extract(evalExpr st e, t, p)
   | Undefined _ ->
     raise UndefinedExprException
@@ -182,8 +185,8 @@ let private evalPut st lhs rhs =
   try
     let v = evalExpr st rhs
     match lhs with
-    | Var(_, n, _, _) -> st.SetReg(n, v)
-    | TempVar(_, n, _) -> st.SetTmp(n, v)
+    | Var(RegisterID = n) -> st.SetReg(n, v)
+    | TempVar(Index = n) -> st.SetTmp(n, v)
     | PCVar _ -> st.PC <- v.ToUInt64()
     | _ -> raise InvalidExprException
   with
@@ -199,7 +202,7 @@ let private evalStore st endian addr v =
 
 let private evalJmp (st: ConcState) target =
   match target with
-  | JmpDest(n, _) -> st.GoToLabel n
+  | JmpDest(Target = n) -> st.GoToLabel n
   | _ -> raise InvalidExprException
 
 let private evalCJmp st cond t f =
@@ -219,7 +222,7 @@ let rec private concretizeArgs st acc = function
 
 let private evalArgs st args =
   match args with
-  | BinOp(BinOpType.APP, _, _, ExprList(args, _), _) ->
+  | BinOp(Op = BinOpType.APP; Right = ExprList(Elements = args)) ->
     args |> concretizeArgs st []
   | _ ->
     Terminator.impossible ()
@@ -228,29 +231,29 @@ let private evalArgs st args =
 /// does not consult IgnoreUndef; a lone statement has nothing to skip.
 let evalStmt (st: ConcState) stmt =
   match stmt with
-  | ISMark(len, _) ->
+  | ISMark(Length = len) ->
     st.CurrentInsLen <- len; st.NextStmt()
-  | IEMark(len, _) ->
+  | IEMark(Length = len) ->
     st.AdvancePC len; st.AbortInstr()
   | LMark _ ->
     st.NextStmt()
-  | Put(lhs, Undefined _, _) ->
+  | Put(Dst = lhs; Src = Undefined _) ->
     markUndefAfterFailure st lhs; st.NextStmt()
-  | Put(lhs, rhs, _) ->
+  | Put(Dst = lhs; Src = rhs) ->
     evalPut st lhs rhs |> st.NextStmt
-  | Store(e, addr, v, _) ->
+  | Store(Endian = e; Addr = addr; Value = v) ->
     evalStore st e addr v |> st.NextStmt
-  | Jmp(target, _) ->
+  | Jmp(Target = target) ->
     evalJmp st target
-  | CJmp(cond, t, f, _) ->
+  | CJmp(Cond = cond; TrueTarget = t; FalseTarget = f) ->
     evalCJmp st cond t f
-  | InterJmp(target, _, _) ->
+  | InterJmp(Target = target) ->
     evalPCUpdate st target |> st.AbortInstr
-  | InterCJmp(c, t, f, _) ->
+  | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
     evalIntCJmp st c t f |> st.AbortInstr
-  | ExternalCall(args, _) ->
+  | ExternalCall(Call = args) ->
     st.OnExternalCall(evalArgs st args, st) |> st.NextStmt
-  | SideEffect(eff, _) ->
+  | SideEffect(Effect = eff) ->
     st.OnSideEffect(eff, st)
     if st.IsInstrTerminated then () else st.AbortInstr true
 

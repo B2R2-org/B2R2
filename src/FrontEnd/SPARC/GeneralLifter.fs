@@ -38,7 +38,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 /// %g0 all rely on.
 let inline (:=) dst src =
   match dst with
-  | Var(_, rid, _, _) when rid = Register.toRegID Register.G0 -> dst := dst
+  | Var(RegisterID = rid) when rid = Register.toRegID Register.G0 -> dst := dst
   | _ -> dst := src
 
 /// Marks the start of an instruction and, when it is the delay slot of an

@@ -483,7 +483,7 @@ let cmppCond bld ins op3 isDbl c expr1 expr2 =
     transOpr ins bld false op3 |> AST.xtlo 8<rt>
     .& numI32 width 8<rt>
   match imm with
-  | Num(bv, _) ->
+  | Num(Value = bv) ->
     let unord = isNan isDbl expr1 .| isNan isDbl expr2
     let eq = AST.feq expr1 expr2
     let cond =
@@ -2534,7 +2534,7 @@ and Return =
 let private getPcmpstrInfo opCode (imm: Expr) =
   let immByte =
     match imm with
-    | Num(n, _) -> n.ToBigInt()
+    | Num(Value = n) -> n.ToBigInt()
     | _ -> raise InvalidExprException
   let agg =
     match (immByte >>> 2) &&& 3I with

@@ -51,10 +51,10 @@ type ReachingDefinitionAnalysis() =
       lifted.Stmts
       |> Array.foldi (fun list idx stmt ->
         match stmt with
-        | LowUIR.Put(LowUIR.TempVar(_, n, _), _, _) ->
+        | LowUIR.Put(Dst = LowUIR.TempVar(Index = n)) ->
           let pp = ProgramPoint(lifted.Original.Address, idx)
           { ProgramPoint = pp; VarKind = Temporary n } :: list
-        | LowUIR.Put(LowUIR.Var(_, id, _, _), _, _) ->
+        | LowUIR.Put(Dst = LowUIR.Var(RegisterID = id)) ->
           let pp = ProgramPoint(lifted.Original.Address, idx)
           { ProgramPoint = pp; VarKind = Regular id } :: list
         | _ ->

@@ -60,6 +60,7 @@ let inline private initExpr e hash =
   | Load(_, _, _, hc)
   | Ite(_, _, _, hc)
   | Cast(_, _, _, hc)
+  | RoundCtrl(_, _, hc)
   | Extract(_, _, _, hc)
   | Undefined(_, _, hc) ->
     hc.ID <- newEID ()
@@ -95,7 +96,7 @@ let inline private internStmt s (_: HashConsingInfo) (hash: int) =
 [<CompiledName("Num")>]
 let num bv =
 #if ! HASHCONS
-  Num(bv, null)
+  Num bv
 #else
   let hc = HashConsingInfo()
   let e = Num(bv, hc)
@@ -106,7 +107,7 @@ let num bv =
 [<CompiledName("Var")>]
 let var t id name =
 #if ! HASHCONS
-  Var(t, id, name, null)
+  Var(t, id, name)
 #else
   let hc = HashConsingInfo()
   let e = Var(t, id, name, hc)
@@ -117,7 +118,7 @@ let var t id name =
 [<CompiledName("PCVar")>]
 let pcvar t name =
 #if ! HASHCONS
-  PCVar(t, name, null)
+  PCVar(t, name)
 #else
   let hc = HashConsingInfo()
   let e = PCVar(t, name, hc)
@@ -128,7 +129,7 @@ let pcvar t name =
 [<CompiledName("TmpVar")>]
 let tmpvar t id =
 #if ! HASHCONS
-  TempVar(t, id, null)
+  TempVar(t, id)
 #else
   let hc = HashConsingInfo()
   let e = TempVar(t, id, hc)
@@ -145,11 +146,11 @@ let unop op e =
   match e with
   (* A rounding-dependent operation is left standing: what it comes to is not
      settled until a direction is, and the folding here has none. *)
-  | Num(n, _) when not (UnOpType.isRoundingDependent op) ->
+  | Num(Value = n) when not (UnOpType.isRoundingDependent op) ->
     ValueOptimizer.unop n op |> num
 #if ! HASHCONS
   | _ ->
-    UnOp(op, e, null)
+    UnOp(op, e)
 #else
   | _ ->
     let hc = HashConsingInfo()
@@ -161,7 +162,7 @@ let unop op e =
 [<CompiledName("JmpDest")>]
 let jmpDest symb =
 #if ! HASHCONS
-  JmpDest(symb, null)
+  JmpDest symb
 #else
   let hc = HashConsingInfo()
   let e = JmpDest(symb, hc)
@@ -170,11 +171,12 @@ let jmpDest symb =
 
 let private binopWithType op t e1 e2 =
   match e1, e2 with
-  | Num(n1, _), Num(n2, _) when not (BinOpType.isRoundingDependent op) ->
+  | Num(Value = n1), Num(Value = n2)
+    when not (BinOpType.isRoundingDependent op) ->
     ValueOptimizer.binop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
-    BinOp(op, t, e1, e2, null)
+    BinOp(op, t, e1, e2)
 #else
   | _ ->
     let hc = HashConsingInfo()
@@ -201,7 +203,7 @@ let binop op e1 e2 =
 [<CompiledName("ExprList")>]
 let exprList lst =
 #if ! HASHCONS
-  ExprList(lst, null)
+  ExprList lst
 #else
   let hc = HashConsingInfo()
   let e = ExprList(lst, hc)
@@ -212,7 +214,7 @@ let exprList lst =
 [<CompiledName("FuncName")>]
 let funcName name =
 #if ! HASHCONS
-  FuncName(name, null)
+  FuncName name
 #else
   let hc = HashConsingInfo()
   let e = FuncName(name, hc)
@@ -226,7 +228,7 @@ let app name args retType =
   exprList args
 #if ! HASHCONS
   |> fun cons ->
-    BinOp(BinOpType.APP, retType, fnName, cons, null)
+    BinOp(BinOpType.APP, retType, fnName, cons)
 #else
   |> fun cons ->
     let hc = HashConsingInfo()
@@ -241,11 +243,11 @@ let relop op e1 e2 =
   TypeCheck.binop e1 e2 |> ignore
 #endif
   match e1, e2 with
-  | Num(n1, _), Num(n2, _) ->
+  | Num(Value = n1), Num(Value = n2) ->
     ValueOptimizer.relop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
-    RelOp(op, e1, e2, null)
+    RelOp(op, e1, e2)
 #else
   | _ ->
     let hc = HashConsingInfo()
@@ -263,7 +265,7 @@ let load endian rt addr =
   | _ ->
 #endif
 #if ! HASHCONS
-    Load(endian, rt, addr, null)
+    Load(endian, rt, addr)
 #else
     let hc = HashConsingInfo()
     let e = Load(endian, rt, addr, hc)
@@ -286,11 +288,11 @@ let ite cond e1 e2 =
   TypeCheck.checkEquivalence (Expr.typeOf e1) (Expr.typeOf e2)
 #endif
   match cond with
-  | Num(n, _) ->
+  | Num(Value = n) ->
     if n.IsZero then e2 else e1
   | _ ->
 #if ! HASHCONS
-    Ite(cond, e1, e2, null)
+    Ite(cond, e1, e2)
 #else
     let hc = HashConsingInfo()
     let e = Ite(cond, e1, e2, hc)
@@ -301,12 +303,12 @@ let ite cond e1 e2 =
 [<CompiledName("Cast")>]
 let cast kind rt e =
   match e with
-  | Num(n, _) when not (CastKind.isRoundingDependent kind) ->
+  | Num(Value = n) when not (CastKind.isRoundingDependent kind) ->
     ValueOptimizer.cast rt n kind |> num
   | _ ->
     if TypeCheck.canCast kind rt e then
 #if ! HASHCONS
-      Cast(kind, rt, e, null)
+      Cast(kind, rt, e)
 #else
       let hc = HashConsingInfo()
       let e = Cast(kind, rt, e, hc)
@@ -344,7 +346,7 @@ let roundCtrl mode body =
     body
   | _ ->
 #if ! HASHCONS
-    RoundCtrl(mode, body, null)
+    RoundCtrl(mode, body)
 #else
     let hc = HashConsingInfo()
     let e = RoundCtrl(mode, body, hc)
@@ -384,12 +386,12 @@ let roundToIntegral mode rt e =
 let extract expr rt pos =
   TypeCheck.extract rt pos (Expr.typeOf expr)
   match expr with
-  | Num(n, _) ->
+  | Num(Value = n) ->
     ValueOptimizer.extract n rt pos |> num
-  | Extract(e, _, p, _) ->
+  | Extract(Operand = e; StartPos = p) ->
     let pos = p + pos
 #if ! HASHCONS
-    Extract(e, rt, pos, null)
+    Extract(e, rt, pos)
 #else
     let hc = HashConsingInfo()
     let e = Extract(e, rt, pos, hc)
@@ -397,7 +399,7 @@ let extract expr rt pos =
 #endif
   | _ ->
 #if ! HASHCONS
-    Extract(expr, rt, pos, null)
+    Extract(expr, rt, pos)
 #else
     let hc = HashConsingInfo()
     let e = Extract(expr, rt, pos, hc)
@@ -408,7 +410,7 @@ let extract expr rt pos =
 [<CompiledName("Undef")>]
 let undef rt s =
 #if ! HASHCONS
-  Undefined(rt, s, null)
+  Undefined(rt, s)
 #else
   let hc = HashConsingInfo()
   let e = Undefined(rt, s, hc)
@@ -497,8 +499,8 @@ let revConcatRange (arr: Expr[]) start len =
 [<CompiledName("Unwrap")>]
 let rec unwrap e =
   match e with
-  | Cast(_, _, e, _)
-  | Extract(e, _, _, _) -> unwrap e
+  | Cast(Operand = e)
+  | Extract(Operand = e) -> unwrap e
   | _ -> e
 
 /// Zero-extend an expression.
@@ -883,7 +885,7 @@ let fatanh e = unop UnOpType.FATANH e
 [<CompiledName("ISMark")>]
 let ismark nBytes =
 #if ! HASHCONS
-  ISMark(nBytes, null)
+  ISMark nBytes
 #else
   let hc = HashConsingInfo()
   let s = ISMark(nBytes, hc)
@@ -894,7 +896,7 @@ let ismark nBytes =
 [<CompiledName("IEMark")>]
 let iemark nBytes =
 #if ! HASHCONS
-  IEMark(nBytes, null)
+  IEMark nBytes
 #else
   let hc = HashConsingInfo()
   let s = IEMark(nBytes, hc)
@@ -905,7 +907,7 @@ let iemark nBytes =
 [<CompiledName("LMark")>]
 let lmark label =
 #if ! HASHCONS
-  LMark(label, null)
+  LMark label
 #else
   let hc = HashConsingInfo()
   let s = LMark(label, hc)
@@ -916,7 +918,7 @@ let lmark label =
 [<CompiledName("Put")>]
 let put dst src =
 #if ! HASHCONS
-  Put(dst, src, null)
+  Put(dst, src)
 #else
   let hc = HashConsingInfo()
   let s = Put(dst, src, hc)
@@ -925,8 +927,8 @@ let put dst src =
 
 let private assignForExtractDst e1 e2 =
   match e1 with
-  | Extract(Var(t, _, _, _) as e1, eTyp, 0, _)
-  | Extract(TempVar(t, _, _) as e1, eTyp, 0, _) ->
+  | Extract(Operand = Var(Type = t) as e1; Type = eTyp; StartPos = 0)
+  | Extract(Operand = TempVar(Type = t) as e1; Type = eTyp; StartPos = 0) ->
     let nMask = RegType.makeMask t - RegType.makeMask eTyp
     let mask = BitVector(nMask, t) |> num
     let src = cast CastKind.ZeroExt t e2
@@ -934,8 +936,8 @@ let private assignForExtractDst e1 e2 =
                           t
                           (binopWithType BinOpType.AND t e1 mask)
                           src)
-  | Extract(Var(t, _, _, _) as e1, eTyp, pos, _)
-  | Extract(TempVar(t, _, _) as e1, eTyp, pos, _) ->
+  | Extract(Operand = Var(Type = t) as e1; Type = eTyp; StartPos = pos)
+  | Extract(Operand = TempVar(Type = t) as e1; Type = eTyp; StartPos = pos) ->
     let nMask = RegType.makeMask t - (RegType.makeMask eTyp <<< pos)
     let mask = BitVector(nMask, t) |> num
     let src = cast CastKind.ZeroExt t e2
@@ -955,7 +957,7 @@ let private assignForExtractDst e1 e2 =
 [<CompiledName("Store")>]
 let store endian addr v =
 #if ! HASHCONS
-  Store(endian, addr, v, null)
+  Store(endian, addr, v)
 #else
   let hc = HashConsingInfo()
   let s = Store(endian, addr, v, hc)
@@ -970,7 +972,7 @@ let assign dst src =
 #endif
   match dst with
   | Var _ | TempVar _ | PCVar _ -> put dst src
-  | Load(endian, _, e, _) -> store endian e src
+  | Load(Endian = endian; Addr = e) -> store endian e src
   | Extract _ -> assignForExtractDst dst src
   | _ -> raise InvalidAssignmentException
 
@@ -978,7 +980,7 @@ let assign dst src =
 [<CompiledName("Jmp")>]
 let jmp target =
 #if ! HASHCONS
-  Jmp(target, null)
+  Jmp target
 #else
   let hc = HashConsingInfo()
   let s = Jmp(target, hc)
@@ -989,7 +991,7 @@ let jmp target =
 [<CompiledName("CJmp")>]
 let cjmp cond dst1 dst2 =
 #if ! HASHCONS
-  CJmp(cond, dst1, dst2, null)
+  CJmp(cond, dst1, dst2)
 #else
   let hc = HashConsingInfo()
   let s = CJmp(cond, dst1, dst2, hc)
@@ -1000,7 +1002,7 @@ let cjmp cond dst1 dst2 =
 [<CompiledName("InterJmp")>]
 let interjmp dst kind =
 #if ! HASHCONS
-  InterJmp(dst, kind, null)
+  InterJmp(dst, kind)
 #else
   let hc = HashConsingInfo()
   let s = InterJmp(dst, kind, hc)
@@ -1011,7 +1013,7 @@ let interjmp dst kind =
 [<CompiledName("InterCJmp")>]
 let intercjmp cond d1 d2 =
 #if ! HASHCONS
-  InterCJmp(cond, d1, d2, null)
+  InterCJmp(cond, d1, d2)
 #else
   let hc = HashConsingInfo()
   let s = InterCJmp(cond, d1, d2, hc)
@@ -1022,7 +1024,7 @@ let intercjmp cond d1 d2 =
 [<CompiledName("ExtCall")>]
 let extCall appExpr =
 #if ! HASHCONS
-  ExternalCall(appExpr, null)
+  ExternalCall appExpr
 #else
   let hc = HashConsingInfo()
   let s = ExternalCall(appExpr, hc)
@@ -1033,7 +1035,7 @@ let extCall appExpr =
 [<CompiledName("SideEffect")>]
 let sideEffect eff =
 #if ! HASHCONS
-  SideEffect(eff, null)
+  SideEffect eff
 #else
   let hc = HashConsingInfo()
   let s = SideEffect(eff, hc)
@@ -1045,32 +1047,32 @@ let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) e =
   match e with
   | Num _ | PCVar _ | JmpDest _ | FuncName _ | Undefined _ ->
     ()
-  | Var(_, rid, _, _) ->
+  | Var(RegisterID = rid) ->
     rset.Add(int rid)
-  | TempVar(_, n, _) ->
+  | TempVar(Index = n) ->
     tset.Add n |> ignore
-  | ExprList(exprs, _) ->
+  | ExprList(Elements = exprs) ->
     for e in exprs do updateAllVarsUses rset tset e done
-  | UnOp(_, e, _) ->
+  | UnOp(Operand = e) ->
     updateAllVarsUses rset tset e
-  | BinOp(_, _, lhs, rhs, _) ->
+  | BinOp(Left = lhs; Right = rhs) ->
     updateAllVarsUses rset tset lhs
     updateAllVarsUses rset tset rhs
-  | RelOp(_, lhs, rhs, _) ->
+  | RelOp(Left = lhs; Right = rhs) ->
     updateAllVarsUses rset tset lhs
     updateAllVarsUses rset tset rhs
-  | Load(_, _, e, _) ->
+  | Load(Addr = e) ->
     updateAllVarsUses rset tset e
-  | Ite(cond, e1, e2, _) ->
+  | Ite(Cond = cond; TrueExpr = e1; FalseExpr = e2) ->
     updateAllVarsUses rset tset cond
     updateAllVarsUses rset tset e1
     updateAllVarsUses rset tset e2
-  | Cast(_, _, e, _) ->
+  | Cast(Operand = e) ->
     updateAllVarsUses rset tset e
-  | RoundCtrl(mode, body, _) ->
+  | RoundCtrl(Mode = mode; Body = body) ->
     updateAllVarsUses rset tset mode
     updateAllVarsUses rset tset body
-  | Extract(e, _, _, _) ->
+  | Extract(Operand = e) ->
     updateAllVarsUses rset tset e
 
 /// Record the use of vars (registers) from the given expression.
@@ -1078,30 +1080,30 @@ let rec updateRegsUses (rset: RegisterSet) e =
   match e with
   | Num _ | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | TempVar _ ->
     ()
-  | Var(_, rid, _, _) ->
+  | Var(RegisterID = rid) ->
     rset.Add(int rid)
-  | ExprList(exprs, _) ->
+  | ExprList(Elements = exprs) ->
     for e in exprs do updateRegsUses rset e done
-  | UnOp(_, e, _) ->
+  | UnOp(Operand = e) ->
     updateRegsUses rset e
-  | BinOp(_, _, lhs, rhs, _) ->
+  | BinOp(Left = lhs; Right = rhs) ->
     updateRegsUses rset lhs
     updateRegsUses rset rhs
-  | RelOp(_, lhs, rhs, _) ->
+  | RelOp(Left = lhs; Right = rhs) ->
     updateRegsUses rset lhs
     updateRegsUses rset rhs
-  | Load(_, _, e, _) ->
+  | Load(Addr = e) ->
     updateRegsUses rset e
-  | Ite(cond, e1, e2, _) ->
+  | Ite(Cond = cond; TrueExpr = e1; FalseExpr = e2) ->
     updateRegsUses rset cond
     updateRegsUses rset e1
     updateRegsUses rset e2
-  | Cast(_, _, e, _) ->
+  | Cast(Operand = e) ->
     updateRegsUses rset e
-  | RoundCtrl(mode, body, _) ->
+  | RoundCtrl(Mode = mode; Body = body) ->
     updateRegsUses rset mode
     updateRegsUses rset body
-  | Extract(e, _, _, _) ->
+  | Extract(Operand = e) ->
     updateRegsUses rset e
 
 /// Record the use of tempvars from the given expression.
@@ -1109,30 +1111,30 @@ let rec updateTempsUses (tset: HashSet<int>) e =
   match e with
   | Num _ | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | Var _ ->
     ()
-  | TempVar(_, n, _) ->
+  | TempVar(Index = n) ->
     tset.Add n |> ignore
-  | ExprList(exprs, _) ->
+  | ExprList(Elements = exprs) ->
     for e in exprs do updateTempsUses tset e done
-  | UnOp(_, e, _) ->
+  | UnOp(Operand = e) ->
     updateTempsUses tset e
-  | BinOp(_, _, lhs, rhs, _) ->
+  | BinOp(Left = lhs; Right = rhs) ->
     updateTempsUses tset lhs
     updateTempsUses tset rhs
-  | RelOp(_, lhs, rhs, _) ->
+  | RelOp(Left = lhs; Right = rhs) ->
     updateTempsUses tset lhs
     updateTempsUses tset rhs
-  | Load(_, _, e, _) ->
+  | Load(Addr = e) ->
     updateTempsUses tset e
-  | Ite(cond, e1, e2, _) ->
+  | Ite(Cond = cond; TrueExpr = e1; FalseExpr = e2) ->
     updateTempsUses tset cond
     updateTempsUses tset e1
     updateTempsUses tset e2
-  | Cast(_, _, e, _) ->
+  | Cast(Operand = e) ->
     updateTempsUses tset e
-  | RoundCtrl(mode, body, _) ->
+  | RoundCtrl(Mode = mode; Body = body) ->
     updateTempsUses tset mode
     updateTempsUses tset body
-  | Extract(e, _, _, _) ->
+  | Extract(Operand = e) ->
     updateTempsUses tset e
 
 /// <summary>

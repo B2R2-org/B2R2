@@ -47,54 +47,93 @@ open B2R2.BinIR
 #endif
 type Expr =
   /// A number. For example, (0x42:I32) is a 32-bit number 0x42
-  | Num of BitVector * HashConsingInfo
+  | Num of Value: BitVector
+#if HASHCONS
+         * HashCons: HashConsingInfo
+#endif
 
   /// A variable that represents a register of a CPU. Var (t, r, n) indicates
   /// a variable of type (t) that has RegisterID r and name (n).
   /// For example, (EAX:I32) represents the EAX register (of type I32).
   /// Note that name (n) is additional information that doesn't be used
   /// internally.
-  | Var of RegType * RegisterID * string * HashConsingInfo
+  | Var of Type: RegType * RegisterID: RegisterID * Name: string
+#if HASHCONS
+         * HashCons: HashConsingInfo
+#endif
 
   /// A variable that represents a Program Counter (PC) of a CPU.
-  | PCVar of RegType * string * HashConsingInfo
+  | PCVar of Type: RegType * Name: string
+#if HASHCONS
+           * HashCons: HashConsingInfo
+#endif
 
   /// A temporary variable represents an internal (imaginary) register. Names
   /// of temporary variables should always be affixed by an underscore (_) and
   /// a number. This is to make sure that any temporary variable is unique in
   /// a CFG. For example, a temporary variable T can be represented as
   /// (T_2:I32), where 2 is a unique number assigned to the variable.
-  | TempVar of RegType * int * HashConsingInfo
+  | TempVar of Type: RegType * Index: int
+#if HASHCONS
+             * HashCons: HashConsingInfo
+#endif
 
   /// List of expressions. We use this to represent function arguments.
-  | ExprList of Expr list * HashConsingInfo
+  | ExprList of Elements: Expr list
+#if HASHCONS
+              * HashCons: HashConsingInfo
+#endif
 
   /// Unary operation such as negation.
-  | UnOp of UnOpType * Expr * HashConsingInfo
+  | UnOp of Op: UnOpType * Operand: Expr
+#if HASHCONS
+          * HashCons: HashConsingInfo
+#endif
 
   /// Jump destination of a Jmp or CJmp statement.
-  | JmpDest of Label * HashConsingInfo
+  | JmpDest of Target: Label
+#if HASHCONS
+             * HashCons: HashConsingInfo
+#endif
 
   /// Name of uninterpreted function.
-  | FuncName of string * HashConsingInfo
+  | FuncName of Name: string
+#if HASHCONS
+              * HashCons: HashConsingInfo
+#endif
 
   /// Binary operation such as add, sub, etc. The second argument is a result
   /// type after applying BinOp.
-  | BinOp of BinOpType * RegType * Expr * Expr * HashConsingInfo
+  | BinOp of Op: BinOpType * Type: RegType * Left: Expr * Right: Expr
+#if HASHCONS
+           * HashCons: HashConsingInfo
+#endif
 
   /// Relative operation such as eq, lt, etc.
-  | RelOp of RelOpType * Expr * Expr * HashConsingInfo
+  | RelOp of Op: RelOpType * Left: Expr * Right: Expr
+#if HASHCONS
+           * HashCons: HashConsingInfo
+#endif
 
   /// Memory loading such as LE:[T_1:I32]
-  | Load of Endian * RegType * Expr * HashConsingInfo
+  | Load of Endian: Endian * Type: RegType * Addr: Expr
+#if HASHCONS
+          * HashCons: HashConsingInfo
+#endif
 
   /// If-then-else expression. The first expression is a condition, and the
   /// second and the third are true and false expression respectively.
-  | Ite of Expr * Expr * Expr * HashConsingInfo
+  | Ite of Cond: Expr * TrueExpr: Expr * FalseExpr: Expr
+#if HASHCONS
+         * HashCons: HashConsingInfo
+#endif
 
   /// Type casting expression. The first argument is a casting type, and the
   /// second argument is a result type.
-  | Cast of CastKind * RegType * Expr * HashConsingInfo
+  | Cast of Kind: CastKind * Type: RegType * Operand: Expr
+#if HASHCONS
+          * HashCons: HashConsingInfo
+#endif
 
   /// <summary>
   /// The body evaluated with the given rounding direction in force.
@@ -120,18 +159,27 @@ type Expr =
   /// register it comes from. A nested RoundCtrl wins over the one enclosing
   /// it.
   /// </remarks>
-  | RoundCtrl of mode: Expr * body: Expr * HashConsingInfo
+  | RoundCtrl of Mode: Expr * Body: Expr
+#if HASHCONS
+               * HashCons: HashConsingInfo
+#endif
 
   /// Extraction expression. The first argument is target expression, and the
   /// second argument is the number of bits for extraction, and the third is
   /// the start position.
-  | Extract of Expr * RegType * startPos: int * HashConsingInfo
+  | Extract of Operand: Expr * Type: RegType * StartPos: int
+#if HASHCONS
+             * HashCons: HashConsingInfo
+#endif
 
   /// Undefined expression. This is rarely used, and it is a fatal error when we
   /// encounter this expression while evaluating a program. Some CPU manuals
   /// explicitly say that a register value is undefined after a certain
   /// operation. We model such cases with this expression.
-  | Undefined of RegType * string * HashConsingInfo
+  | Undefined of Type: RegType * Reason: string
+#if HASHCONS
+               * HashCons: HashConsingInfo
+#endif
 with
 #if HASHCONS
   /// <summary>
@@ -296,44 +344,45 @@ with
 
   static member internal AppendToString(expr, sb: StringBuilder) =
     match expr with
-    | Num(n, _) ->
+    | Num(Value = n) ->
       sb.Append(n.ToString()) |> ignore
-    | Var(_typ, _, n, _) ->
+    | Var(Type = _typ; Name = n) ->
       sb.Append n |> ignore
-    | PCVar(_typ, n, _) ->
+    | PCVar(Type = _typ; Name = n) ->
       sb.Append n |> ignore
-    | TempVar(typ, n, _) ->
+    | TempVar(Type = typ; Index = n) ->
       sb.Append "T_" |> ignore
       sb.Append n |> ignore
       sb.Append ":" |> ignore
       sb.Append(RegType.toString typ) |> ignore
-    | ExprList(exprs, _) ->
+    | ExprList(Elements = exprs) ->
       exprs |> List.iteri (fun i e ->
         if i > 0 then sb.Append ", " |> ignore else ()
         Expr.AppendToString(e, sb))
-    | JmpDest(lbl, _) ->
+    | JmpDest(Target = lbl) ->
       sb.Append lbl.Name |> ignore
-    | FuncName(n, _) ->
+    | FuncName(Name = n) ->
       sb.Append n |> ignore
-    | UnOp(op, e, _) ->
+    | UnOp(Op = op; Operand = e) ->
       sb.Append "(" |> ignore
       sb.Append(UnOpType.toString op) |> ignore
       sb.Append " " |> ignore
       Expr.AppendToString(e, sb)
       sb.Append ")" |> ignore
-    | BinOp(BinOpType.FLOG, _typ, e1, e2, _) -> (* The only prefix operator *)
+    (* The only prefix operator *)
+    | BinOp(Op = BinOpType.FLOG; Left = e1; Right = e2) ->
       sb.Append "(lg (" |> ignore
       Expr.AppendToString(e1, sb)
       sb.Append ", " |> ignore
       Expr.AppendToString(e2, sb)
       sb.Append "))" |> ignore
-    | BinOp(BinOpType.APP, typ, e1, e2, _) ->
+    | BinOp(Op = BinOpType.APP; Type = typ; Left = e1; Right = e2) ->
       Expr.AppendToString(e1, sb)
       sb.Append "(" |> ignore
       Expr.AppendToString(e2, sb)
       sb.Append "):" |> ignore
       sb.Append(RegType.toString typ) |> ignore
-    | BinOp(op, _typ, e1, e2, _) ->
+    | BinOp(Op = op; Type = _typ; Left = e1; Right = e2) ->
       sb.Append "(" |> ignore
       Expr.AppendToString(e1, sb)
       sb.Append " " |> ignore
@@ -341,7 +390,7 @@ with
       sb.Append " " |> ignore
       Expr.AppendToString(e2, sb)
       sb.Append ")" |> ignore
-    | RelOp(op, e1, e2, _) ->
+    | RelOp(Op = op; Left = e1; Right = e2) ->
       sb.Append "(" |> ignore
       Expr.AppendToString(e1, sb)
       sb.Append " " |> ignore
@@ -349,12 +398,12 @@ with
       sb.Append " " |> ignore
       Expr.AppendToString(e2, sb)
       sb.Append ")" |> ignore
-    | Load(_endian, typ, e, _) ->
+    | Load(Endian = _endian; Type = typ; Addr = e) ->
       sb.Append "[" |> ignore
       Expr.AppendToString(e, sb)
       sb.Append "]:" |> ignore
       sb.Append(RegType.toString typ) |> ignore
-    | Ite(cond, e1, e2, _) ->
+    | Ite(Cond = cond; TrueExpr = e1; FalseExpr = e2) ->
       sb.Append "((" |> ignore
       Expr.AppendToString(cond, sb)
       sb.Append ") ? (" |> ignore
@@ -362,27 +411,27 @@ with
       sb.Append ") : (" |> ignore
       Expr.AppendToString(e2, sb)
       sb.Append "))" |> ignore
-    | Cast(cast, typ, e, _) ->
+    | Cast(Kind = cast; Type = typ; Operand = e) ->
       sb.Append(CastKind.toString cast) |> ignore
       sb.Append ":" |> ignore
       sb.Append(RegType.toString typ) |> ignore
       sb.Append "(" |> ignore
       Expr.AppendToString(e, sb)
       sb.Append ")" |> ignore
-    | RoundCtrl(mode, body, _) ->
+    | RoundCtrl(Mode = mode; Body = body) ->
       sb.Append "rnd(" |> ignore
       Expr.AppendToString(mode, sb)
       sb.Append ", " |> ignore
       Expr.AppendToString(body, sb)
       sb.Append ")" |> ignore
-    | Extract(e, typ, p, _) ->
+    | Extract(Operand = e; Type = typ; StartPos = p) ->
       sb.Append "(" |> ignore
       Expr.AppendToString(e, sb)
       sb.Append "[" |> ignore
       sb.Append((int typ + p - 1).ToString() + ":" + p.ToString()) |> ignore
       sb.Append "]" |> ignore
       sb.Append ")" |> ignore
-    | Undefined(_, reason, _) ->
+    | Undefined(Reason = reason) ->
       sb.Append "?? (" |> ignore
       sb.Append(reason) |> ignore
       sb.Append ")" |> ignore
@@ -403,17 +452,17 @@ module Expr =
   [<CompiledName "TypeOf">]
   let rec typeOf expr =
     match expr with
-    | Num(n, _) -> n.Length
-    | Var(t, _, _, _)
-    | PCVar(t, _, _)
-    | TempVar(t, _, _) -> t
-    | UnOp(_, e, _) -> typeOf e
-    | BinOp(_, t, _, _, _) -> t
+    | Num(Value = n) -> n.Length
+    | Var(Type = t)
+    | PCVar(Type = t)
+    | TempVar(Type = t) -> t
+    | UnOp(Operand = e) -> typeOf e
+    | BinOp(Type = t) -> t
     | RelOp _ -> 1<rt>
-    | Load(_, t, _, _) -> t
-    | Ite(_, e1, _, _) -> typeOf e1
-    | Cast(_, t, _, _) -> t
-    | RoundCtrl(_, body, _) -> typeOf body
-    | Extract(_, t, _, _) -> t
-    | Undefined(t, _, _) -> t
+    | Load(Type = t) -> t
+    | Ite(TrueExpr = e1) -> typeOf e1
+    | Cast(Type = t) -> t
+    | RoundCtrl(Body = body) -> typeOf body
+    | Extract(Type = t) -> t
+    | Undefined(Type = t) -> t
     | FuncName _ | JmpDest _ | ExprList _ -> raise InvalidExprException

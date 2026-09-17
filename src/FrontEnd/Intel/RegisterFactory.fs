@@ -4093,9 +4093,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var(_, id, _, _) ->
+      | Var(RegisterID = id) ->
         id
-      | PCVar(regT, _, _) ->
+      | PCVar(Type = regT) ->
         if regT = 32<rt> then Register.toRegID EIP else Register.toRegID RIP
       | _ ->
         raise InvalidRegisterException

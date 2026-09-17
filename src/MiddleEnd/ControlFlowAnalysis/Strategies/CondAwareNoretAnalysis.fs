@@ -236,7 +236,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     let rt = regFactory.GetRegType(rid)
     let rname = regFactory.GetRegisterName(rid)
     match dst with
-    | LowUIR.Var(dstRT, dstId, dstName, _) ->
+    | LowUIR.Var(Type = dstRT; RegisterID = dstId; Name = dstName) ->
       dstRT = rt && dstId = rid && dstName = rname
     | _ ->
       false

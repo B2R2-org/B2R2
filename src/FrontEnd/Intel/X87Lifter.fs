@@ -154,7 +154,7 @@ let private popFPUStack bld =
 
 let inline private getLoadAddressExpr (src: Expr) =
   match src with
-  | Load(_, _, addr, _) -> struct (addr, Expr.typeOf addr)
+  | Load(Addr = addr) -> struct (addr, Expr.typeOf addr)
   | _ -> Terminator.impossible ()
 
 let private castTo80Bit bld tmpB tmpA srcExpr =
@@ -223,13 +223,13 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
     }
   | 80<rt> ->
     match srcExpr with
-    | Load(_, _, addrExpr, _) ->
+    | Load(Addr = addrExpr) ->
       let addrSize = Expr.typeOf addrExpr
       append bld {
         direct tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize)
         direct tmpA := AST.loadLE 64<rt> addrExpr
       }
-    | BinOp(_, _, Var(_, r, _, _), Var _, _) ->
+    | BinOp(Left = Var(RegisterID = r); Right = Var _) ->
       let reg = RegisterHelper.pseudoRegToReg (Register.ofRegID r)
       let struct (srcB, srcA) = getFPUPseudoRegVars bld reg
       append bld {

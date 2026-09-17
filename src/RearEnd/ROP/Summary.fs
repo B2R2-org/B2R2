@@ -55,20 +55,21 @@ module Summary =
   let getInput (state: State) e =
     let rec getInput e =
       match e with
-      | Var(_, _, n, _) ->
+      | Var(Name = n) ->
         (Set.empty.Add(n), Set.empty)
-      | TempVar(_, n, _) ->
+      | TempVar(Index = n) ->
         getInput <| (Map.find n state.TempRegs).GetExpr()
-      | UnOp(_, expr, _) ->
+      | UnOp(Operand = expr) ->
         getInput expr
-      | BinOp(_, _, lExpr, rExpr, _) | RelOp(_, lExpr, rExpr, _) ->
+      | BinOp(Left = lExpr; Right = rExpr)
+      | RelOp(Left = lExpr; Right = rExpr) ->
         mergeInput (getInput lExpr) (getInput rExpr)
-      | Load(_, _, expr, _) ->
+      | Load(Addr = expr) ->
         mergeInput (getInput expr) (Set.empty, Set.empty.Add(Value expr))
-      | Ite(cExpr, tExpr, fExpr, _) ->
+      | Ite(Cond = cExpr; TrueExpr = tExpr; FalseExpr = fExpr) ->
         mergeInput (getInput cExpr) (getInput tExpr)
         |> mergeInput (getInput fExpr)
-      | Cast(_, _, expr, _) | Extract(expr, _, _, _) ->
+      | Cast(Operand = expr) | Extract(Operand = expr) ->
         getInput expr
       | _ ->
         emptyInput (* Num, Name, PCVar *)
@@ -96,17 +97,26 @@ module Summary =
     match e with
     | _ when e = esp ->
       Some 0
-    | BinOp(BinOpType.ADD, 32<rt>, var, Num(n, _), _)
-    | BinOp(BinOpType.ADD, 32<rt>, Num(n, _), var, _) when var = esp ->
+    | BinOp(Op = BinOpType.ADD
+            Type = 32<rt>
+            Left = var
+            Right = Num(Value = n))
+    | BinOp(Op = BinOpType.ADD
+            Type = 32<rt>
+            Left = Num(Value = n)
+            Right = var) when var = esp ->
       calcOffset (n.ToInt32())
-    | BinOp(BinOpType.SUB, 32<rt>, var, Num(n, _), _) when var = esp ->
+    | BinOp(Op = BinOpType.SUB
+            Type = 32<rt>
+            Left = var
+            Right = Num(Value = n)) when var = esp ->
       calcOffset (-n.ToInt32())
     | _ ->
       None
 
   let private getStackOff (v: Value) =
     match v.GetExpr() with
-    | Load(_, 32<rt>, expr, _) -> getEspOff expr
+    | Load(Type = 32<rt>; Addr = expr) -> getEspOff expr
     | _ -> None
 
   let private getRegStackOff reg regs =
@@ -130,13 +140,21 @@ module Summary =
 
   let private isLinearExpr e =
     match e with
-    | Var(32<rt>, _, reg, _) ->
+    | Var(Type = 32<rt>; Name = reg) ->
       Some(reg, 0u)
-    | BinOp(BinOpType.ADD, _, Var(32<rt>, _, reg, _), Num(n, _), _)
-    | BinOp(BinOpType.ADD, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
+    | BinOp(Op = BinOpType.ADD
+            Left = Var(Type = 32<rt>; Name = reg)
+            Right = Num(Value = n))
+    | BinOp(Op = BinOpType.ADD
+            Left = Num(Value = n)
+            Right = Var(Type = 32<rt>; Name = reg)) ->
       Some(reg, n.ToUInt32())
-    | BinOp(BinOpType.SUB, _, Var(32<rt>, _, reg, _), Num(n, _), _)
-    | BinOp(BinOpType.SUB, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
+    | BinOp(Op = BinOpType.SUB
+            Left = Var(Type = 32<rt>; Name = reg)
+            Right = Num(Value = n))
+    | BinOp(Op = BinOpType.SUB
+            Left = Num(Value = n)
+            Right = Var(Type = 32<rt>; Name = reg)) ->
       Some(reg, (BitVector.Neg n).ToUInt32())
     | _ ->
       None
@@ -198,7 +216,7 @@ module Summary =
     match Map.tryFind reg sum.OutRegs with
     | Some value ->
       match value.GetExpr() with
-      | Load(_, _, addr, _) -> isLinearExpr addr
+      | Load(Addr = addr) -> isLinearExpr addr
       | _ -> None
     | _ ->
       None
@@ -264,7 +282,7 @@ module Summary =
 
   let private toBytes (value: Value) =
     match value.GetExpr() with
-    | Num(n, _) -> n.ToBigInt().ToByteArray() |> Some
+    | Num(Value = n) -> n.ToBigInt().ToByteArray() |> Some
     | _ -> None
 
   let private readMemStr (sum: Summary) ptr =

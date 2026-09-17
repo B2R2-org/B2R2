@@ -33,15 +33,15 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type ConstantPropagation(hdl, vs) =
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
-    | PCVar(rt, _, _) ->
+    | PCVar(Type = rt) ->
       let addr = (pp: ProgramPoint).Address
       let bv = BitVector(addr, rt)
       ConstantDomain.Const bv
-    | Num(bv, _) ->
+    | Num(Value = bv) ->
       ConstantDomain.Const bv
     | Var _ | TempVar _ ->
       state.GetAbsValueOfUse(pp, VarKind.ofIRExpr e)
-    | Load(_m, rt, addr, _) ->
+    | Load(Endian = _m; Type = rt; Addr = addr) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let addr = bv.ToUInt64()
@@ -58,29 +58,29 @@ type ConstantPropagation(hdl, vs) =
         ConstantDomain.NotAConst
       | StackPointerDomain.Undef ->
         ConstantDomain.Undef
-    | UnOp(op, e, _) ->
+    | UnOp(Op = op; Operand = e) ->
       evaluateExpr state pp e
       |> ConstantDomain.evalUnOp op
-    | BinOp(op, _, e1, e2, _) ->
+    | BinOp(Op = op; Left = e1; Right = e2) ->
       let c1 = evaluateExpr state pp e1
       let c2 = evaluateExpr state pp e2
       ConstantDomain.evalBinOp op c1 c2
-    | RelOp(op, e1, e2, _) ->
+    | RelOp(Op = op; Left = e1; Right = e2) ->
       let c1 = evaluateExpr state pp e1
       let c2 = evaluateExpr state pp e2
       ConstantDomain.evalRelOp op c1 c2
-    | Ite(e1, e2, e3, _) ->
+    | Ite(Cond = e1; TrueExpr = e2; FalseExpr = e3) ->
       let c1 = evaluateExpr state pp e1
       let c2 = evaluateExpr state pp e2
       let c3 = evaluateExpr state pp e3
       ConstantDomain.ite c1 c2 c3
-    | Cast(op, rt, e, _) ->
+    | Cast(Kind = op; Type = rt; Operand = e) ->
       let c = evaluateExpr state pp e
       ConstantDomain.evalCast op rt c
-    | Extract(e, rt, pos, _) ->
+    | Extract(Operand = e; Type = rt; StartPos = pos) ->
       let c = evaluateExpr state pp e
       ConstantDomain.extract c rt pos
-    | RoundCtrl(_, body, _) ->
+    | RoundCtrl(Body = body) ->
       evaluateExpr state pp body
     | FuncName _ | ExprList _ | Undefined _ ->
       ConstantDomain.NotAConst

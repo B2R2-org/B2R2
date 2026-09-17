@@ -49,13 +49,21 @@ type Value(expr) =
 module Value =
   let toLinear (value: Value) =
     match value.GetExpr() with
-    | Var(32<rt>, _, reg, _) ->
+    | Var(Type = 32<rt>; Name = reg) ->
       Some(reg, 0u)
-    | BinOp(BinOpType.ADD, _, Var(32<rt>, _, reg, _), Num(n, _), _)
-    | BinOp(BinOpType.ADD, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
+    | BinOp(Op = BinOpType.ADD
+            Left = Var(Type = 32<rt>; Name = reg)
+            Right = Num(Value = n))
+    | BinOp(Op = BinOpType.ADD
+            Left = Num(Value = n)
+            Right = Var(Type = 32<rt>; Name = reg)) ->
       Some(reg, n.ToUInt32())
-    | BinOp(BinOpType.SUB, _, Var(32<rt>, _, reg, _), Num(n, _), _)
-    | BinOp(BinOpType.SUB, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
+    | BinOp(Op = BinOpType.SUB
+            Left = Var(Type = 32<rt>; Name = reg)
+            Right = Num(Value = n))
+    | BinOp(Op = BinOpType.SUB
+            Left = Num(Value = n)
+            Right = Var(Type = 32<rt>; Name = reg)) ->
       Some(reg, (BitVector.Neg n).ToUInt32())
     | _ ->
       None
@@ -91,25 +99,25 @@ module State =
 
   let rec evalExpr state e =
     match e with
-    | Var(_, _, name, _) ->
+    | Var(Name = name) ->
       getReg state name e
-    | TempVar(_, name, _) ->
+    | TempVar(Index = name) ->
       getTempReg state name
-    | UnOp(op, expr, _) ->
+    | UnOp(Op = op; Operand = expr) ->
       AST.unop op (getEvalExpr state expr) |> Value
-    | BinOp(op, ty, lExpr, rExpr, _) ->
+    | BinOp(Op = op; Type = ty; Left = lExpr; Right = rExpr) ->
       AST.binop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
-    | RelOp(op, lExpr, rExpr, _) ->
+    | RelOp(Op = op; Left = lExpr; Right = rExpr) ->
       AST.relop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
-    | Load(endian, ty, expr, _) ->
+    | Load(Endian = endian; Type = ty; Addr = expr) ->
       evalLoad state endian ty expr
-    | Ite(cExpr, tExpr, fExpr, _) ->
+    | Ite(Cond = cExpr; TrueExpr = tExpr; FalseExpr = fExpr) ->
       AST.ite (getEvalExpr state cExpr)
               (getEvalExpr state tExpr)
               (getEvalExpr state fExpr) |> Value
-    | Cast(kind, ty, expr, _) ->
+    | Cast(Kind = kind; Type = ty; Operand = expr) ->
       AST.cast kind ty <| getEvalExpr state expr |> Value
-    | RoundCtrl(mode, body, _) ->
+    | RoundCtrl(Mode = mode; Body = body) ->
       AST.roundCtrl (getEvalExpr state mode) (getEvalExpr state body) |> Value
     | _ ->
       Value e // Num, Name, PCVar
@@ -165,11 +173,19 @@ module State =
 
   let evalStmt state stmt =
     match stmt with
-    | ISMark _ | IEMark _ | LMark _ -> state
-    | Put(Var(_, _, reg, _), value, _) -> evalPutVar state reg value
-    | Put(TempVar(_, reg, _), value, _) -> evalPutTemp state reg value
-    | Store(endian, addr, value, _) -> evalStore state endian addr value
-    | CJmp(condE, trueE, falseE, _) -> evalCJmp state condE trueE falseE
-    | InterJmp(value, _, _) -> evalPutVar state "EIP" value
-    | SideEffect(eff, _) -> evalSideEff state eff
-    | e -> failwithf "evalStmt fail %A" e
+    | ISMark _ | IEMark _ | LMark _ ->
+      state
+    | Put(Dst = Var(Name = reg); Src = value) ->
+      evalPutVar state reg value
+    | Put(Dst = TempVar(Index = reg); Src = value) ->
+      evalPutTemp state reg value
+    | Store(Endian = endian; Addr = addr; Value = value) ->
+      evalStore state endian addr value
+    | CJmp(Cond = condE; TrueTarget = trueE; FalseTarget = falseE) ->
+      evalCJmp state condE trueE falseE
+    | InterJmp(Target = value) ->
+      evalPutVar state "EIP" value
+    | SideEffect(Effect = eff) ->
+      evalSideEff state eff
+    | e ->
+      failwithf "evalStmt fail %A" e

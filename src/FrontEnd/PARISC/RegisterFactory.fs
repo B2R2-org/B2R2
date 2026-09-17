@@ -527,7 +527,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterID e =
       match e with
-      | Var(_, id, _, _) -> id
+      | Var(RegisterID = id) -> id
       | PCVar _ -> Register.toRegID CR18
       | _ -> raise InvalidRegisterException
 

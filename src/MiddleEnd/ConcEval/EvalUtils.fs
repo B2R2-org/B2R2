@@ -34,6 +34,6 @@ let tr = BitVector.One 1<rt>
 /// that it reads back as undefined rather than keeping a stale value.
 let markUndefAfterFailure (st: ConcState) lhs =
   match lhs with
-  | Var(_, n, _, _) -> st.UnsetReg n
-  | TempVar(_, n, _) -> st.UnsetTmp n
+  | Var(RegisterID = n) -> st.UnsetReg n
+  | TempVar(Index = n) -> st.UnsetTmp n
   | _ -> ()

@@ -53,7 +53,7 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     match e with
     | Var _ | TempVar _ ->
       state.GetAbsValueOfUse(pp, VarKind.ofIRExpr e)
-    | Load(_, _, addr, _) ->
+    | Load(Addr = addr) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let addr = bv.ToUInt64()
@@ -61,9 +61,9 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
         state.GetAbsValueOfUse(pp, StackLocal offset)
       | _ ->
         UntouchedValueDomain.Touched
-    | Extract(e, _, _, _)
-    | Cast(CastKind.ZeroExt, _, e, _)
-    | Cast(CastKind.SignExt, _, e, _) ->
+    | Extract(Operand = e)
+    | Cast(Kind = CastKind.ZeroExt; Operand = e)
+    | Cast(Kind = CastKind.SignExt; Operand = e) ->
       evaluateExpr state pp e
     | _ ->
       UntouchedValueDomain.Touched

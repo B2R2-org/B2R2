@@ -362,20 +362,20 @@ type ConcExecutorValue private(binary: Binary,
       $"<decode failed: {error}>"
 
   let collectReadRegisters (rset: RegisterSet) = function
-    | Put(_, rhs, _) ->
+    | Put(Src = rhs) ->
       AST.updateRegsUses rset rhs
-    | Store(_, addr, value, _) ->
+    | Store(Addr = addr; Value = value) ->
       AST.updateRegsUses rset addr
       AST.updateRegsUses rset value
-    | CJmp(cond, _, _, _) ->
+    | CJmp(Cond = cond) ->
       AST.updateRegsUses rset cond
-    | InterJmp(target, _, _) ->
+    | InterJmp(Target = target) ->
       AST.updateRegsUses rset target
-    | InterCJmp(cond, target1, target2, _) ->
+    | InterCJmp(Cond = cond; TrueTarget = target1; FalseTarget = target2) ->
       AST.updateRegsUses rset cond
       AST.updateRegsUses rset target1
       AST.updateRegsUses rset target2
-    | ExternalCall(args, _) ->
+    | ExternalCall(Call = args) ->
       AST.updateRegsUses rset args
     | ISMark _
     | IEMark _
@@ -385,23 +385,23 @@ type ConcExecutorValue private(binary: Binary,
       ()
 
   let rec collectLoads acc = function
-    | Load(endian, typ, addr, _) ->
+    | Load(Endian = endian; Type = typ; Addr = addr) ->
       (endian, typ, addr) :: collectLoads acc addr
-    | ExprList(exprs, _) ->
+    | ExprList(Elements = exprs) ->
       List.fold collectLoads acc exprs
-    | UnOp(_, expr, _) ->
+    | UnOp(Operand = expr) ->
       collectLoads acc expr
-    | BinOp(_, _, left, right, _) ->
+    | BinOp(Left = left; Right = right) ->
       collectLoads (collectLoads acc left) right
-    | RelOp(_, left, right, _) ->
+    | RelOp(Left = left; Right = right) ->
       collectLoads (collectLoads acc left) right
-    | Ite(cond, left, right, _) ->
+    | Ite(Cond = cond; TrueExpr = left; FalseExpr = right) ->
       collectLoads (collectLoads (collectLoads acc cond) left) right
-    | Cast(_, _, expr, _) ->
+    | Cast(Operand = expr) ->
       collectLoads acc expr
-    | RoundCtrl(mode, body, _) ->
+    | RoundCtrl(Mode = mode; Body = body) ->
       collectLoads (collectLoads acc mode) body
-    | Extract(expr, _, _, _) ->
+    | Extract(Operand = expr) ->
       collectLoads acc expr
     | Num _
     | Var _
@@ -413,17 +413,17 @@ type ConcExecutorValue private(binary: Binary,
       acc
 
   let collectStmtLoads = function
-    | Put(_, rhs, _) ->
+    | Put(Src = rhs) ->
       collectLoads [] rhs
-    | Store(_, addr, value, _) ->
+    | Store(Addr = addr; Value = value) ->
       collectLoads (collectLoads [] addr) value
-    | CJmp(cond, _, _, _) ->
+    | CJmp(Cond = cond) ->
       collectLoads [] cond
-    | InterJmp(target, _, _) ->
+    | InterJmp(Target = target) ->
       collectLoads [] target
-    | InterCJmp(cond, target1, target2, _) ->
+    | InterCJmp(Cond = cond; TrueTarget = target1; FalseTarget = target2) ->
       collectLoads (collectLoads (collectLoads [] cond) target1) target2
-    | ExternalCall(args, _) ->
+    | ExternalCall(Call = args) ->
       collectLoads [] args
     | ISMark _
     | IEMark _
@@ -655,7 +655,7 @@ type ConcExecutorValue private(binary: Binary,
       | Result.Error _ ->
         derived.Add rid |> ignore
     match stmt with
-    | Put(Var(_, rid, _, _), rhs, _) ->
+    | Put(Dst = Var(RegisterID = rid); Src = rhs) ->
       update (int rid) rhs
     | _ ->
       ()

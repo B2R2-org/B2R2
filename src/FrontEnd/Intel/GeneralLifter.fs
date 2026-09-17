@@ -69,7 +69,7 @@ let private auxPush oprSize bld expr =
   }
 
 let private computePopSize oprSize = function
-  | Var(_, id, _, _) when isSegReg (Register.ofRegID id) -> 16<rt>
+  | Var(RegisterID = id) when isSegReg (Register.ofRegID id) -> 16<rt>
   | _ -> oprSize
 
 let private auxPop oprSize bld dst =
@@ -89,7 +89,7 @@ let private maskOffset offset oprSize =
 
 let rec private isVar = function
   | Var _ | TempVar _ -> true
-  | Extract(e, _, _, _) -> isVar e
+  | Extract(Operand = e) -> isVar e
   | _ -> false
 
 let private calculateOffset offset oprSize =
@@ -679,7 +679,7 @@ let bswap (ins: Instruction) bld =
 
 let private bit ins bitBase bitOffset oprSize =
   match bitBase with
-  | Load(e, t, expr, _) ->
+  | Load(Endian = e; Type = t; Addr = expr) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
@@ -710,7 +710,7 @@ let bt (ins: Instruction) bld =
 
 let private setBit ins bitBase bitOffset oprSize setValue =
   match bitBase with
-  | Load(e, t, expr, _) ->
+  | Load(Endian = e; Type = t; Addr = expr) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
@@ -1079,7 +1079,7 @@ let private saveOprMem (bld: ILowUIRBuilder) expr =
   let sz = bld.RegType
   let t = tmpVar bld sz
   match expr with
-  | Load(e, rt, expr, _) ->
+  | Load(Endian = e; Type = rt; Addr = expr) ->
     append bld {
       direct t := AST.zext sz expr
     }
@@ -1607,7 +1607,7 @@ let inc (ins: Instruction) bld =
 
 let interrupt ins bld =
   match transOneOpr ins bld with
-  | Num(n, _) ->
+  | Num(Value = n) ->
     Interrupt(n.ToInt32())
     |> sideEffects ins bld
   | _ ->
@@ -1813,8 +1813,9 @@ let lahf (ins: Instruction) bld =
   }
 
 let private unwrapLeaSrc = function
-  | Load(_, _, BinOp(BinOpType.ADD, _, e, Num(n, _), _), _) when n.IsZero -> e
-  | Load(_, _, expr, _) -> expr
+  | Load(Addr = BinOp(Op = BinOpType.ADD; Left = e; Right = Num(Value = n)))
+    when n.IsZero -> e
+  | Load(Addr = expr) -> expr
   | _ -> Terminator.impossible ()
 
 let lea (ins: Instruction) bld =
@@ -2252,7 +2253,7 @@ let popf ins bld =
 
 let inline private padPushExpr oprSize opr =
   match opr with
-  | Var(_, s, _, _) ->
+  | Var(RegisterID = s) ->
     if isSegReg <| Register.ofRegID s then AST.zext oprSize opr else opr
   | Num(_) ->
     AST.sext oprSize opr

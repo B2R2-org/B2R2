@@ -128,7 +128,7 @@ let private skipOn cond (ins: Instruction) bld =
 /// how a pointer write-back reaches the registers behind the pair.
 let private ptrHalves ptr =
   match ptr with
-  | BinOp(BinOpType.CONCAT, _, hi, lo, _) -> struct (hi, lo)
+  | BinOp(Op = BinOpType.CONCAT; Left = hi; Right = lo) -> struct (hi, lo)
   | _ -> Terminator.impossible ()
 
 /// Emits the pointer write-back of a post-increment or pre-decrement access.
