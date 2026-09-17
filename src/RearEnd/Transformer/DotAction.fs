@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System.Threading
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
@@ -41,21 +42,41 @@ type DOTAction() =
       |> String.concat "\\l"
     $"[label=\"[{addr:x}]\\l{instrs}\\l\"]"
 
-  let toDOT o =
-    match unbox<CFG> o with
-    | CFG(addr, cfg) ->
-      let name = Addr.toFuncName addr
-      Serializer.ToDOT(cfg, name, vToStr, (fun e -> e.ToString()))
-    | NoCFG e ->
-      $"Failed to construct CFG: {e}"
+  let toDOT cancellationToken o =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
+    let artifact =
+      match unbox<CFG> o with
+      | CFG(addr, cfg, _) ->
+        let name = Addr.toFuncName addr
+        { Name = name
+          Extension = ".dot"
+          Content =
+            Serializer.ToDOT(cfg, name, vToStr, (fun e -> e.ToString())) }
+      | NoCFG e ->
+        { Name = "cfg-error"
+          Extension = ".txt"
+          Content = $"Failed to construct CFG: {e}" }
+    box artifact
+
+  let transform cancellationToken collection =
+    { Values = collection.Values |> Array.map (toDOT cancellationToken) }
 
   interface IAction with
     member _.ActionID with get() = "dot"
-    member _.Signature with get() = "CFG -> string"
+    member _.Signature with get() = "CFG -> TextArtifact"
     member _.Description with get() =
       """
     Take in a CFG as input, and returns a string representation of the CFG in
     DOT format.
 """
-    member _.Transform(_args, collection) =
-      { Values = [| collection.Values |> Array.map toDOT |] }
+    member _.Transform(args, collection) =
+      match args with
+      | [] -> transform CancellationToken.None collection
+      | _ -> invalidArg (nameof args) "Invalid argument."
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      match args with
+      | [] -> transform cancellationToken collection
+      | _ -> invalidArg (nameof args) "Invalid argument."

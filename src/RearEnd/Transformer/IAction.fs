@@ -24,6 +24,8 @@
 
 namespace B2R2.RearEnd.Transformer
 
+open System.Threading
+
 /// The interface for a transforming action.
 type IAction =
   /// Action command ID.
@@ -35,5 +37,10 @@ type IAction =
   /// Description about this action.
   abstract member Description: string
 
-  /// Transform the input object collection to the output object collction.
+  /// Transform the input object collection to the output object collection.
   abstract member Transform: string list * ObjCollection -> ObjCollection
+
+/// Cancellation contract required by interactive Transformer actions.
+type ICancellableAction =
+  abstract member Transform:
+    string list * ObjCollection * CancellationToken -> ObjCollection

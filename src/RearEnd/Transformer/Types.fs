@@ -52,7 +52,8 @@ with
     match bin with
     | Binary(hdl, annot) ->
       let path = hdl.Value.File.Path
-      if String.IsNullOrEmpty path then annot else $"{prefix}{path}"
+      if String.IsNullOrEmpty path then annot
+      else $"{prefix}{path}"
 
   /// <summary>
   /// Derives a Binary holding the whole content of the given one, edited. The
@@ -97,6 +98,108 @@ with
       else
         $"Binary({fmt}{finfo}) | 0x{file.BaseAddress:x8} | {s} | {annot}"
 
+/// Raw binary bytes retained with the information needed to reconstruct an
+/// analyzable Binary value.
+type BinaryBytes =
+  { Bytes: byte[]
+    BaseAddress: Addr
+    ISA: ISA
+    OS: OS
+    Annotation: string }
+with
+  override this.ToString() =
+    let summary = Utils.makeByteArraySummary this.Bytes
+    $"ByteArray | 0x{this.BaseAddress:x8} | {summary}"
+
+/// A concrete address range inside a source binary.
+type BinaryRange =
+  { Source: Binary
+    StartAddress: Addr
+    EndAddress: Addr
+    Label: string option }
+with
+  override this.ToString() =
+    let label = this.Label |> Option.defaultValue "range"
+    $"{label} 0x{this.StartAddress:x}-0x{this.EndAddress:x} (end exclusive)"
+
+/// One printable string found in a binary.
+type StringMatch =
+  { Source: Binary
+    Address: Addr
+    Text: string }
+with
+  override this.ToString() = $"0x{this.Address:x8}  {this.Text}"
+
+/// A section discovered in a binary.
+type SectionInfo =
+  { Source: Binary
+    Name: string
+    Address: Addr
+    Size: uint64
+    FileSize: uint64
+    Kind: string }
+with
+  member this.Range =
+    { Source = this.Source
+      StartAddress = this.Address
+      EndAddress = this.Address + this.FileSize
+      Label = Some this.Name }
+
+  override this.ToString() =
+    let finish =
+      if this.Size = 0UL then this.Address else this.Address + this.Size
+    $"section {this.Name} 0x{this.Address:x}-0x{finish:x} {this.FileSize} bytes"
+
+/// A function entry discovered in a binary.
+type FunctionInfo =
+  { Source: Binary
+    Entry: Addr
+    Symbol: string option }
+with
+  override this.ToString() =
+    match this.Symbol with
+    | Some symbol -> $"function 0x{this.Entry:x} {symbol}"
+    | None -> $"function 0x{this.Entry:x}"
+
+/// Text with a stable artifact name and file extension.
+type TextArtifact =
+  { Name: string
+    Extension: string
+    Content: string }
+with
+  override this.ToString() = this.Content
+
+/// Shared writer used by the REPL and saving actions.
+module ReplArtifactWriter =
+  let rec write fname (o: obj) =
+    match o with
+    | :? Binary as bin -> writeBinary fname bin
+    | :? BinaryBytes as bytes ->
+      System.IO.File.WriteAllBytes(fname, bytes.Bytes)
+    | :? TextArtifact as artifact ->
+      System.IO.File.WriteAllText(fname, artifact.Content)
+    | :? OutString as os -> writeOutString fname os
+    | _ -> System.IO.File.WriteAllText(fname, o.ToString())
+
+  and writeBinary fname bin =
+    let hdl = Binary.Handle bin
+    System.IO.File.WriteAllBytes(fname, hdl.File.RawBytes.ToArray())
+
+  and writeOutString fname (os: OutString) =
+    System.IO.File.WriteAllText(fname, os.ToString())
+
+  and writeText fname (o: obj) =
+    match o with
+    | :? TextArtifact as artifact ->
+      System.IO.File.WriteAllText(fname, artifact.Content)
+    | :? OutString as os ->
+      writeOutString fname os
+    | :? string as text ->
+      System.IO.File.WriteAllText(fname, text)
+    | _ ->
+      invalidArg (nameof o)
+        "write supports text and displayable values; use save for Binary."
+
 /// Instruction tagged with its corresponding bytes.
 type Instruction =
   | ValidInstruction of BinLifter.IInstruction * byte[]
@@ -128,10 +231,12 @@ with
 
 /// CFG of a function.
 type CFG =
-  | CFG of addr: Addr * ir: LowUIRCFG
+  | CFG of addr: Addr * ir: LowUIRCFG * source: Binary option
   | NoCFG of err: string (* Error message describing the reason for failure. *)
 with
-  static member Init(addr, ir) = CFG(addr, ir)
+  static member Init(addr, ir) = CFG(addr, ir, None)
+
+  static member Init(addr, ir, source) = CFG(addr, ir, Some source)
 
 /// Collection of objects.
 type ObjCollection = { Values: obj array }
