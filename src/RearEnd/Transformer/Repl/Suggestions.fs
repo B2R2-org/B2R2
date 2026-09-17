@@ -708,6 +708,9 @@ module Suggestions =
       let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
       Some(key.ToLowerInvariant(), token[index + 1..])
 
+  let private isAttachedValuePrefix (segment: string) tokenStart =
+    tokenStart > 0 && not (Char.IsWhiteSpace segment[tokenStart - 1])
+
   let private matchesArgumentName (name: string) argument =
     ActionMetadata.argumentKeys argument
     |> List.contains (name.ToLowerInvariant())
@@ -1188,16 +1191,17 @@ module Suggestions =
               (not context.HasBinding) (not context.HasBinding) expected
           | head :: _ ->
             let tokenStart = max 0 (segment.Length - context.Prefix.Length)
-            let beforeToken = segment[..tokenStart - 1]
+            let beforeToken =
+              if tokenStart <= 0 then "" else segment[..tokenStart - 1]
             let beforeWords = InputAnalysis.splitWords beforeToken
             let parameter =
-              if endsWithSpace then
-                None
-              else
+              if isAttachedValuePrefix segment tokenStart then
                 beforeWords
                 |> List.rev
                 |> List.tryHead
                 |> Option.bind tryParameterName
+              else
+                None
             match parameter with
             | Some name ->
               let inputKind = inputKindFor head
