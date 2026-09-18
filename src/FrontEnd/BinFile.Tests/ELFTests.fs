@@ -35,6 +35,9 @@ open type FileFormat
 type ELFTests() =
   static let isStripped (file: IBinFile) = file.SymbolTable.Value.IsStripped
 
+  static let tryResolveName (file: ELFBinFile) addr =
+    (file :> IBinFile).NameResolver.Value.TryResolveName addr
+
   static let parseFile fileName =
     let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
     ELFBinFile(fileName, bytes, None, None)
@@ -737,11 +740,83 @@ type ELFTests() =
     Assert.AreEqual<bool>(false, f.IsValidRange invalid)
 
   [<TestMethod>]
+  member _.``[ELF] x64 exec valid range boundary test``() =
+    (* The executable segment spans 0x401000-0x401184, and one past its end
+       falls into the gap before the next segment at 0x402000. *)
+    let f = x64ExecFile :> IBinFile
+    let first: AddrRange = { Min = 0x401000UL; Max = 0x401000UL }
+    let last: AddrRange = { Min = 0x401184UL; Max = 0x401184UL }
+    let past: AddrRange = { Min = 0x401185UL; Max = 0x401185UL }
+    let whole: AddrRange = { Min = 0x401000UL; Max = 0x401184UL }
+    Assert.AreEqual<bool>(true, f.IsValidRange first)
+    Assert.AreEqual<bool>(true, f.IsValidRange last)
+    Assert.AreEqual<bool>(false, f.IsValidRange past)
+    Assert.AreEqual<bool>(true, f.IsValidRange whole)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec valid range across memory gaps test``() =
+    (* Both ends are mapped, but the 0x401185-0x401fff gap in between is not,
+       so checking only the two end addresses would not be enough. *)
+    let f = x64ExecFile :> IBinFile
+    let oneGap: AddrRange = { Min = 0x401050UL; Max = 0x402050UL }
+    let twoGaps: AddrRange = { Min = 0x400100UL; Max = 0x402050UL }
+    Assert.AreEqual<bool>(true, f.IsValidAddr 0x401050UL)
+    Assert.AreEqual<bool>(true, f.IsValidAddr 0x402050UL)
+    Assert.AreEqual<bool>(false, f.IsValidRange oneGap)
+    Assert.AreEqual<bool>(false, f.IsValidRange twoGaps)
+
+  [<TestMethod>]
   member _.``[ELF] x64 exec address mapped to file test``() =
     (* .text is file-backed, but .bss has memsize > filesize, so it is not. *)
     let f = x64ExecFile :> IBinFile
     Assert.AreEqual<bool>(true, f.IsAddrMappedToFile 0x401050UL)
     Assert.AreEqual<bool>(false, f.IsAddrMappedToFile 0x404100UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec range mapped to file test``() =
+    (* The last segment carries file data up to 0x404017, and its .bss tail
+       (0x404018-0x40413f) exists in memory only. *)
+    let f = x64ExecFile :> IBinFile
+    let text: AddrRange = { Min = 0x401050UL; Max = 0x401080UL }
+    let bss: AddrRange = { Min = 0x404100UL; Max = 0x404120UL }
+    let crossing: AddrRange = { Min = 0x404000UL; Max = 0x404100UL }
+    Assert.AreEqual<bool>(true, f.IsRangeMappedToFile text)
+    Assert.AreEqual<bool>(true, f.IsValidRange bss)
+    Assert.AreEqual<bool>(false, f.IsRangeMappedToFile bss)
+    Assert.AreEqual<bool>(true, f.IsValidRange crossing)
+    Assert.AreEqual<bool>(false, f.IsRangeMappedToFile crossing)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec name resolution test``() =
+    let name addr = tryResolveName x64ExecFile addr
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "main", name 0x401050UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "_start", name 0x401080UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "helper", name 0x401170UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "g_buf", name 0x404040UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec name resolution failure test``() =
+    (* An unmapped address, and an address inside a function but not at its
+       entry, both resolve to nothing. *)
+    let name addr = tryResolveName x64ExecFile addr
+    let notFound: Result<string, ErrorCase> = Error ErrorCase.ItemNotFound
+    Assert.AreEqual<Result<string, ErrorCase>>(notFound, name 0x500000UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(notFound, name 0x401051UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec name resolution via PLT parsing test``() =
+    (* The PLT is parsed only after a symbol lookup has missed, and parsing it
+       registers the imported symbol at its trampoline address. The entry's
+       table address is the GOT slot, not the trampoline, so the first lookup
+       still fails while the next one finds the freshly added symbol. This
+       starts from a fresh instance, as a shared one may have forced the PLT
+       already. *)
+    let file = parseFile "elf_x64_exec"
+    let notFound: Result<string, ErrorCase> = Error ErrorCase.ItemNotFound
+    Assert.AreEqual<Result<string, ErrorCase>>(notFound,
+                                               tryResolveName file 0x401040UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "write",
+                                               tryResolveName file 0x401040UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 exec executable address test``() =

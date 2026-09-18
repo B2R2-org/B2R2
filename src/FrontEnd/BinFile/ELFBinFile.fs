@@ -130,12 +130,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let symbolTable = Some symbolTableObj
 
   let nameResolver =
-    let onSymbols = NameResolver.ofSymbolTable symbolTableObj
     Some { new INameResolvable with
       member _.TryResolveName addr =
-        match onSymbols.TryResolveName addr with
-        | Ok name ->
-          Ok name
+        match symbs.Value.TryFindSymbol addr with
+        | Ok sym ->
+          Ok sym.SymName
         | Error e ->
           match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
           | Some entry when entry.TableAddress = addr -> Ok entry.Name
@@ -576,13 +575,13 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
 
     member _.IsValidRange range =
-      IntervalSet.findAll range notInMemRanges.Value |> List.isEmpty
+      IntervalSet.overlapsRange range notInMemRanges.Value |> not
 
     member _.IsAddrMappedToFile addr =
       IntervalSet.containsAddr addr notInFileRanges.Value |> not
 
     member _.IsRangeMappedToFile range =
-      IntervalSet.findAll range notInFileRanges.Value |> List.isEmpty
+      IntervalSet.overlapsRange range notInFileRanges.Value |> not
 
     member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value
