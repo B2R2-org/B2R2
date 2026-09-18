@@ -68,15 +68,26 @@ let readUIntByWordSizeAndOffset span reader wordSize offset32 offset64 =
     wordSize
     (selectByWordSize wordSize offset32 offset64)
 
-let rec private cstrLoop (span: ByteSpan) acc pos =
-  let byte = span[pos]
-  if byte = 0uy then List.rev (0uy :: acc) |> List.toArray
-  else cstrLoop span (byte :: acc) (pos + 1)
+/// Reads a C string from the given byte span starting at the given offset, and
+/// returns the string along with the offset right past its NUL terminator.
+/// Raises IndexOutOfRangeException when the offset is outside the span or when
+/// no terminator follows it, which is how the byte-by-byte read fails.
+let readCStringWithNextOffset (span: ByteSpan) offset =
+  if offset < 0 || offset >= span.Length then
+    raise (IndexOutOfRangeException())
+  else
+    let tail = span.Slice offset
+    let length = tail.IndexOf 0uy
+    if length < 0 then
+      raise (IndexOutOfRangeException())
+    else
+      let str = Text.Encoding.Latin1.GetString(tail.Slice(0, length))
+      struct (str, offset + length + 1)
 
 /// Reads a C string from the given byte span starting at the given offset.
 let readCString (span: ByteSpan) offset =
-  let bs = cstrLoop span [] offset
-  ByteArray.extractCString bs 0
+  let struct (str, _) = readCStringWithNextOffset span offset
+  str
 
 /// Reads a C string from a fixed-width field of the given size, stopping at the
 /// NUL terminator or at the field boundary. Mach-O name fields (sectname,

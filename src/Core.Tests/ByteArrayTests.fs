@@ -24,6 +24,7 @@
 
 namespace B2R2.Core.Tests
 
+open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 
@@ -62,6 +63,39 @@ type ByteArrayTests() =
     let arr = [| 0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy |]
     let str = ByteArray.extractCString arr 0
     Assert.AreEqual<string>("hello", str)
+
+  [<TestMethod>]
+  member _.``CString Extraction from a Non-Zero Offset``() =
+    (* "hi\0bye\0" *)
+    let arr = [| 0x68uy; 0x69uy; 0x00uy; 0x62uy; 0x79uy; 0x65uy; 0x00uy |]
+    Assert.AreEqual<string>("bye", ByteArray.extractCString arr 3)
+    Assert.AreEqual<string>("", ByteArray.extractCString arr 6)
+
+  [<TestMethod>]
+  member _.``CString Extraction at the Boundaries``() =
+    let arr = [| 0x00uy; 0x61uy |]
+    Assert.AreEqual<string>("", ByteArray.extractCString arr 0)
+    Assert.AreEqual<string>("a", ByteArray.extractCString arr 1)
+    Assert.AreEqual<string>("", ByteArray.extractCString arr 2)
+    Assert.AreEqual<string>("", ByteArray.extractCString arr 3)
+    Assert.AreEqual<string>("", ByteArray.extractCString [||] 0)
+
+  [<TestMethod>]
+  member _.``CString Extraction from a Negative Offset``() =
+    let arr = [| 0x61uy; 0x00uy |]
+    Assert.ThrowsExactly<IndexOutOfRangeException>(fun () ->
+      ByteArray.extractCString arr -1 |> ignore) |> ignore
+    Assert.ThrowsExactly<IndexOutOfRangeException>(fun () ->
+      ByteArray.extractCStringFromSpan (ReadOnlySpan arr) -1 |> ignore)
+    |> ignore
+
+  [<TestMethod>]
+  member _.``CString Extraction preserves Character Codes``() =
+    (* Every non-null byte value, followed by a terminator. *)
+    let arr = Array.append (Array.init 0xff (fun i -> byte (i + 1))) [| 0uy |]
+    let expected = String(Array.init 0xff (fun i -> char (i + 1)))
+    Assert.AreEqual<string>(expected, ByteArray.extractCString arr 0)
+    Assert.AreEqual<int>(0xff, (ByteArray.extractCString arr 0).Length)
 
   [<TestMethod>]
   member _.``Pattern Matching Test``() =

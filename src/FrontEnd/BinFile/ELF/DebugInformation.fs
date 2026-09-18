@@ -189,12 +189,9 @@ module internal DebugInformation =
   let readBytes (span: ByteSpan) count offset =
     span.Slice(offset, count).ToArray(), offset + count
 
-  let rec findNull (span: ByteSpan) i =
-    if span[i] = 0uy then i + 1 else findNull span (i + 1)
-
   let readCStringValue (span: ByteSpan) offset =
-    let s = readCString span offset
-    DWString s, findNull span offset
+    let struct (s, nextOffset) = readCStringWithNextOffset span offset
+    DWString s, nextOffset
 
   let readBlock (span: ByteSpan) len offset ctor =
     let bytes, offset = readBytes span len offset

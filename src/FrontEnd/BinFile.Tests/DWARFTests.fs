@@ -67,6 +67,18 @@ type DWARFTests() =
       Assert.Fail $"Unexpected expression: {PrettyPrinter.ToString expr}"
 
   [<TestMethod>]
+  member _.``[DWARF] string value ends past its terminator``() =
+    (* "ab\0cd\0", i.e., an inline string followed by another attribute. *)
+    let bytes = [| 0x61uy; 0x62uy; 0x00uy; 0x63uy; 0x64uy; 0x00uy |]
+    let first, next = DebugInformation.readCStringValue (ReadOnlySpan bytes) 0
+    let span = ReadOnlySpan bytes
+    let second, last = DebugInformation.readCStringValue span next
+    Assert.AreEqual(DWString "ab", first)
+    Assert.AreEqual<int>(3, next)
+    Assert.AreEqual(DWString "cd", second)
+    Assert.AreEqual<int>(6, last)
+
+  [<TestMethod>]
   member _.``[DWARF] expression is read at a non-zero offset``() =
     let bytes = [| 0xaauy; DWOpBreg6; 0x10uy; 0xbbuy |]
     let value, next = readExpr bytes 2 1
