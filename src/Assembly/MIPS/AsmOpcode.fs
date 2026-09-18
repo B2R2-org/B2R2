@@ -129,6 +129,35 @@ let private multiplyAccumulate func ins =
   | TwoOperands(Rg rs, Rg rt) -> word 0b011100u (gpr rs) (gpr rt) 0u 0u func
   | _ -> wrongOperands ins
 
+/// <summary>
+/// The SmartMIPS instructions that take two registers, which are written with
+/// a base instruction's function code and a shift amount of their own.
+///
+/// MD00101 spends no function code on them: MULTP is MULTU's with 10001 in
+/// the field the base architecture holds to zero, and MADDP and PPERM are
+/// MADDU's with 10001 and 10010. That is what makes them the ASE and it is
+/// also what lets an implementation that does not read those bits run one as
+/// the other.
+/// </summary>
+let private polyTwoReg major func sa ins =
+  match ins.Operands with
+  | TwoOperands(Rg rs, Rg rt) -> word major (gpr rs) (gpr rt) 0u sa func
+  | _ -> wrongOperands ins
+
+/// MFLHXU, which names one register and shares MFLO's function code.
+let private extendedRead ins =
+  match ins.Operands with
+  | OneOperand(Rg rd) -> word 0u 0u 0u (gpr rd) 0b00001u 0b010010u
+  | _ -> wrongOperands ins
+
+/// LWXS, the one SmartMIPS instruction with a function code to itself.
+let private loadIndexScaled ins =
+  match ins.Operands with
+  | TwoOperands(Rg rd, MemIdx(baseReg, index)) ->
+    word 0b011100u (gpr baseReg) (gpr index) (gpr rd) 0b00010u 0b001000u
+  | _ ->
+    wrongOperands ins
+
 /// Encodes <rd>, <rs>, <rt>: the multiply that writes one register rather than
 /// two.
 let private multiplyToReg ins =
@@ -283,6 +312,12 @@ let arithmeticEncoders () =
     Opcode.MADDU, multiplyAccumulate 0b000001u
     Opcode.MSUB, multiplyAccumulate 0b000100u
     Opcode.MSUBU, multiplyAccumulate 0b000101u
+    Opcode.MULTP, polyTwoReg 0u 0b011001u 0b10001u
+    Opcode.MADDP, polyTwoReg 0b011100u 0b000001u 0b10001u
+    Opcode.PPERM, polyTwoReg 0b011100u 0b000001u 0b10010u
+    Opcode.MFLHXU, extendedRead
+    Opcode.MTLHX, oneReg 0b00001u 0b010011u
+    Opcode.LWXS, loadIndexScaled
     Opcode.MUL, multiplyToReg
     Opcode.CLZ, countLeadingZeros 0b100000u
     Opcode.CLO, countLeadingZeros 0b100001u

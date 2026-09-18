@@ -110,6 +110,11 @@ type RegisterFactory(isa: ISA) =
   let exMonVal = AST.var rt (Register.toRegID ExMonVal) "ExMonVal"
   let ulr = AST.var rt (Register.toRegID ULR) "ULR"
 
+  (* Eight bits, which is what MD00101 recommends and the least it allows.
+     The width is what PPERM shifts the accumulator through and what MFLHXU
+     zero-extends into HI, so it is part of the answer rather than a detail. *)
+  let acx = AST.var 8<rt> (Register.toRegID ACX) "ACX"
+
   (* The CP0 registers, keyed by the RegisterID CP0.fs derives from the
      (rd, sel) pair. They live in the same flat RegisterID space as everything
      above and start past the highest architectural one, so nothing that walks
@@ -222,6 +227,7 @@ type RegisterFactory(isa: ISA) =
       | R.ExMonAddr -> exMonAddr
       | R.ExMonVal -> exMonVal
       | R.ULR -> ulr
+      | R.ACX -> acx
       | _ -> cp0Var id
 
     member this.GetRegVar name =

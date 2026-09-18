@@ -369,6 +369,8 @@ let getHintMemBaseOff b accLen = TwoOperands(hint b, memBaseOff b num16 accLen)
 
 let getHintMemBaseOff9 b accLen = TwoOperands(hint b, memBaseOff b num9 accLen)
 
+let getRdMemBaseIdx b accLen = TwoOperands(rd b, memBaseIdx b accLen)
+
 let getFdMemBaseIdx b accLen = TwoOperands(fd b, memBaseIdx b accLen)
 
 let getFsMemBaseIdx b accLen = TwoOperands(fs b, memBaseIdx b accLen)

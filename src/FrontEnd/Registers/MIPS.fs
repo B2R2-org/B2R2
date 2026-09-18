@@ -185,6 +185,21 @@ type Register =
   /// thread-local storage pointer set by set_thread_area and read by
   /// "rdhwr rt, $29".
   | ULR = 0x109
+  /// <summary>
+  /// The extended accumulator (SmartMIPS), which is HI and LO's third part.
+  ///
+  /// MD00101: "The minimum architectural size of the ACX register is 8 bits
+  /// ... The currently recommended implementation size of the ACX register is
+  /// 8 bits", which is the size taken here. It holds the bits that carry out
+  /// of HI, so the accumulator PPERM shifts is 72 bits rather than 64.
+  ///
+  /// It is numbered ABOVE the coprocessor 0 registers rather than beside the
+  /// ones here. Those were laid out to run on from ULR at 0x109, and a
+  /// RegisterID is a dense index a bit set is addressed by, so taking 0x10A
+  /// for this one would have meant renumbering all twenty-six of them to gain
+  /// nothing.
+  /// </summary>
+  | ACX = 0x124
 
 /// Provides functions to handle MIPS registers.
 [<RequireQualifiedAccess>]
@@ -275,6 +290,7 @@ module Register =
     | "exmonaddr" -> Register.ExMonAddr
     | "exmonval" -> Register.ExMonVal
     | "ulr" -> Register.ULR
+    | "acx" -> Register.ACX
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a MIPS register.
@@ -361,6 +377,7 @@ module Register =
       | Register.ExMonAddr -> "exmonaddr"
       | Register.ExMonVal -> "exmonval"
       | Register.ULR -> "ulr"
+      | Register.ACX -> "acx"
       | _ -> Terminator.impossible ()
     | WordSize.Bit64 ->
       match reg with
@@ -437,6 +454,7 @@ module Register =
       | Register.ExMonAddr -> "exmonaddr"
       | Register.ExMonVal -> "exmonval"
       | Register.ULR -> "ulr"
+      | Register.ACX -> "acx"
       | _ -> Terminator.impossible ()
     | _ ->
       Terminator.impossible ()

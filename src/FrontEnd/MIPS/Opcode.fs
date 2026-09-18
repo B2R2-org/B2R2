@@ -831,5 +831,30 @@ type Opcode =
   /// Doubleword Add Immediate Unsigned relative to the PC (MIPS16e), MIPS64
   /// only.
   | DADDIUPC = 391
+  /// <summary>
+  /// Multiply Binary Polynomial Basis Word (SmartMIPS).
+  ///
+  /// The same operation as MULTU with the multiplication done over GF(2):
+  /// MD00101 calls both operands "binary polynomial values", so the partial
+  /// products are exclusive-ORed together rather than added. It is written
+  /// with MULTU's function code and tells itself apart by the shift-amount
+  /// field, which the base architecture holds to zero.
+  /// </summary>
+  | MULTP = 392
+  /// Multiply and Add Polynomial Basis Word to HI and LO (SmartMIPS).
+  | MADDP = 393
+  /// <summary>
+  /// Partial Permutation into the ACX-HI-LO accumulator (SmartMIPS).
+  ///
+  /// Six bits of one register chosen by six five-bit fields of another,
+  /// shifted into the bottom of an accumulator that is 72 bits wide. It is
+  /// the instruction the ASE exists for: a substitution box is a permutation
+  /// of bits and this does six of them at a time.
+  /// </summary>
+  | PPERM = 394
+  /// Extract Extended HI/LO State (SmartMIPS).
+  | MFLHXU = 395
+  /// Set Extended HI/LO State (SmartMIPS).
+  | MTLHX = 396
 
 type internal Op = Opcode
