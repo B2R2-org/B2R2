@@ -235,6 +235,12 @@ type ISA(arch, endian, wordSize, flags) =
   /// "x86-64", "aarch64", "mips32le", etc. Raises <see
   /// cref='T:B2R2.InvalidISAException'/> if the string is not recognized.
   new(isaName: string) =
+    (* The three MIPS encodings sit in the same flags word as the release, so
+       a name that says both hands over both. Named here because the arms
+       below are one line each. *)
+    let umips = int MIPSISAMode.MicroMIPS
+    let umips6 = int MIPSRelease.R6 ||| int MIPSISAMode.MicroMIPS
+    let m16 = int MIPSISAMode.MIPS16
     match isaName.ToLowerInvariant() with
     | "x86" | "i386" ->
       ISA(Architecture.Intel, WordSize.Bit32)
@@ -276,6 +282,30 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, int MIPSRelease.R6)
     | "mips64r6be" ->
       ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    | "micromipsel" | "micromips32le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, umips)
+    | "micromips" | "micromips32" | "micromips32be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, umips)
+    | "micromips64el" | "micromips64le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, umips)
+    | "micromips64" | "micromips64be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, umips)
+    | "micromipsr6el" | "micromips32r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, umips6)
+    | "micromips32r6" | "micromips32r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, umips6)
+    | "micromips64r6el" | "micromips64r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, umips6)
+    | "micromips64r6" | "micromips64r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, umips6)
+    | "mips16el" | "mips16le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, m16)
+    | "mips16" | "mips16be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, m16)
+    | "mips16-64el" | "mips16-64le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, m16)
+    | "mips16-64" | "mips16-64be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, m16)
     | "ppc32le" ->
       ISA(Architecture.PPC, Endian.Little, WordSize.Bit32)
     | "ppc32" | "ppc32be" ->
@@ -530,6 +560,27 @@ type ISA(arch, endian, wordSize, flags) =
   override this.ToString() =
     let thumb = this.ARM32Mode = ARM32Mode.Thumb
     let r6 = this.MIPSRelease = MIPSRelease.R6
+    (* Which encoding a MIPS ISA is read in belongs in its name for the same
+       reason the release does: the three have separate opcode maps, so a name
+       that left it out would print an ISA that reads a different instruction
+       set from the one it names.
+       MIPS16e has no Release 6 spelling because Release 6 removed the ASE. *)
+    let mipsName () =
+      let le = endian = Endian.Little
+      let w64 = wordSize = WordSize.Bit64
+      let width = if w64 then "64" else "32"
+      let rel = if r6 then "r6" else ""
+      match this.MIPSISAMode with
+      | MIPSISAMode.MicroMIPS ->
+        "micromips" + width + rel + (if le then "le" else "")
+      | MIPSISAMode.MIPS16 ->
+        (if w64 then "mips16-64" else "mips16") + (if le then "le" else "")
+      | _ ->
+        (* The big-endian 64-bit name carries its "be" where the 32-bit one
+           does not, because "mips64" already names the LITTLE-endian one in
+           the table above: printing a big-endian MIPS64 as "mips64" made it
+           read back as a different ISA. The Release 6 arm never had that. *)
+        "mips" + width + rel + (if le then "le" elif w64 then "be" else "")
     match arch, endian, wordSize with
     | Architecture.Intel, _, WordSize.Bit32 ->
       "x86"
@@ -547,14 +598,9 @@ type ISA(arch, endian, wordSize, flags) =
       "aarch64"
     | Architecture.ARMv8, Endian.Big, WordSize.Bit64 ->
       "aarch64be"
-    | Architecture.MIPS, Endian.Little, WordSize.Bit32 ->
-      if r6 then "mips32r6le" else "mips32le"
-    | Architecture.MIPS, Endian.Big, WordSize.Bit32 ->
-      if r6 then "mips32r6" else "mips32"
-    | Architecture.MIPS, Endian.Little, WordSize.Bit64 ->
-      if r6 then "mips64r6le" else "mips64le"
-    | Architecture.MIPS, Endian.Big, WordSize.Bit64 ->
-      if r6 then "mips64r6be" else "mips64"
+    | Architecture.MIPS, _, WordSize.Bit32
+    | Architecture.MIPS, _, WordSize.Bit64 ->
+      mipsName ()
     | Architecture.PPC, Endian.Little, WordSize.Bit32 ->
       "ppc32le"
     | Architecture.PPC, Endian.Big, WordSize.Bit32 ->

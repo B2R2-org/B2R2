@@ -64,6 +64,25 @@ type ISATests() =
       "mips64r6le", Endian.Little, WordSize.Bit64
       "mips64r6be", Endian.Big, WordSize.Bit64 ]
 
+  /// Every compressed MIPS encoding and the name it goes by. Which encoding a
+  /// MIPS ISA is read in is part of what it is for the same reason the
+  /// release is: the three have separate opcode maps, so a name that does not
+  /// say which one it means names an ISA that reads a different instruction
+  /// set. MIPS16e has no Release 6 spelling because Release 6 removed it.
+  static let mipsCompressed =
+    [ "micromips32le", Endian.Little, WordSize.Bit32, MIPSISAMode.MicroMIPS
+      "micromips32", Endian.Big, WordSize.Bit32, MIPSISAMode.MicroMIPS
+      "micromips64le", Endian.Little, WordSize.Bit64, MIPSISAMode.MicroMIPS
+      "micromips64", Endian.Big, WordSize.Bit64, MIPSISAMode.MicroMIPS
+      "micromips32r6le", Endian.Little, WordSize.Bit32, MIPSISAMode.MicroMIPS
+      "micromips32r6", Endian.Big, WordSize.Bit32, MIPSISAMode.MicroMIPS
+      "micromips64r6le", Endian.Little, WordSize.Bit64, MIPSISAMode.MicroMIPS
+      "micromips64r6", Endian.Big, WordSize.Bit64, MIPSISAMode.MicroMIPS
+      "mips16le", Endian.Little, WordSize.Bit32, MIPSISAMode.MIPS16
+      "mips16", Endian.Big, WordSize.Bit32, MIPSISAMode.MIPS16
+      "mips16-64le", Endian.Little, WordSize.Bit64, MIPSISAMode.MIPS16
+      "mips16-64", Endian.Big, WordSize.Bit64, MIPSISAMode.MIPS16 ]
+
   [<TestMethod>]
   member _.``An ARM32 name says which instruction set it means``() =
     for name, arch, endian, mode in arm32 do
@@ -203,6 +222,73 @@ type ISATests() =
     for name, others in aliases do
       for other in others do
         Assert.AreEqual<string>(name, (ISA other).ToString(), other)
+
+  [<TestMethod>]
+  member _.``A MIPS name says which encoding it means``() =
+    for name, endian, wordSize, mode in mipsCompressed do
+      let isa = ISA name
+      Assert.AreEqual<Architecture>(Architecture.MIPS, isa.Arch, name)
+      Assert.AreEqual<Endian>(endian, isa.Endian, name)
+      Assert.AreEqual<WordSize>(wordSize, isa.WordSize, name)
+      Assert.AreEqual<MIPSISAMode>(mode, isa.MIPSISAMode, name)
+
+  [<TestMethod>]
+  member _.``A compressed ISA prints as the name it is read from``() =
+    for name, _, _, _ in mipsCompressed do
+      Assert.AreEqual<string>(name, (ISA name).ToString(), name)
+
+  /// <summary>
+  /// The encoding and the release are separate fields of the same word, so a
+  /// name that says both has to come back with both.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A compressed name carries the release as well``() =
+    let r6 =
+      [ "micromips32r6le"
+        "micromips32r6"
+        "micromips64r6le"
+        "micromips64r6" ]
+    let preR6 = [ "micromips32le"; "micromips32"; "mips16"; "mips16-64le" ]
+    for name in r6 do
+      Assert.AreEqual<MIPSRelease>(MIPSRelease.R6, (ISA name).MIPSRelease, name)
+    for name in preR6 do
+      let release = (ISA name).MIPSRelease
+      Assert.AreEqual<MIPSRelease>(MIPSRelease.PreR6, release, name)
+
+  /// The names of one compressed ISA all mean it.
+  [<TestMethod>]
+  member _.``The names of one compressed ISA all mean it``() =
+    let aliases =
+      [ "micromips32le", [ "micromipsel" ]
+        "micromips32", [ "micromips"; "micromips32be" ]
+        "micromips64le", [ "micromips64el" ]
+        "micromips64", [ "micromips64be" ]
+        "micromips32r6le", [ "micromipsr6el" ]
+        "micromips32r6", [ "micromips32r6be" ]
+        "micromips64r6le", [ "micromips64r6el" ]
+        "micromips64r6", [ "micromips64r6be" ]
+        "mips16le", [ "mips16el" ]
+        "mips16", [ "mips16be" ]
+        "mips16-64le", [ "mips16-64el" ]
+        "mips16-64", [ "mips16-64be" ] ]
+    for name, others in aliases do
+      for other in others do
+        Assert.AreEqual<string>(name, (ISA other).ToString(), other)
+
+  /// <summary>
+  /// A big-endian MIPS64 prints as a name that means a big-endian MIPS64.
+  ///
+  /// It printed as "mips64", which the table reads as the LITTLE-endian one,
+  /// so the one ISA in this family did not survive being written down and
+  /// read back. The Release 6 arm beside it never had the fault.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A big-endian MIPS64 survives a round trip``() =
+    for name in [ "mips64be"; "mips64"; "mips64le"; "mips32"; "mips32le" ] do
+      let isa = ISA name
+      let back = ISA(isa.ToString())
+      Assert.AreEqual<Endian>(isa.Endian, back.Endian, name)
+      Assert.AreEqual<WordSize>(isa.WordSize, back.WordSize, name)
 
   /// A MIPS name that does not say a release means the releases that
   /// share one encoding space, which is every release up to 5.
