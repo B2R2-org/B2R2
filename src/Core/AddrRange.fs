@@ -36,6 +36,7 @@ exception InvalidAddrRangeException
 /// <c>Min</c> value (inclusive) and are less than or equal to the <c>Max</c>
 /// value (inclusive).
 /// </summary>
+[<Struct>]
 type AddrRange =
   { /// The minimum value (lower bound) of the interval.
     Min: Addr
