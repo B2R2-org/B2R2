@@ -178,6 +178,22 @@ type ELFTests() =
     CollectionAssert.AreEqual([||], file.RunPath)
 
   [<TestMethod>]
+  member _.``[ELF] x64 rpath array is not shared test``() =
+    let file = parseFile "elf_x64_rpath" :> IBinFile
+    let rpath = file.RPath
+    rpath[0] <- "/mutated"
+    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RPath)
+    CollectionAssert.AreEqual([||], file.RunPath)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 runpath array is not shared test``() =
+    let file = parseFile "elf_x64_runpath" :> IBinFile
+    let runpath = file.RunPath
+    runpath[0] <- "/mutated"
+    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RunPath)
+    CollectionAssert.AreEqual([||], file.RPath)
+
+  [<TestMethod>]
   member _.``[ELF] x64 exec base address test``() =
     Assert.AreEqual<uint64>(0UL, (x64ExecFile :> IBinFile).BaseAddress)
 
@@ -373,6 +389,30 @@ type ELFTests() =
     let relocs = (x64RelocFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.SymbolNotFound,
                     relocs.TryGetInternalFunctionAddr 0x404000UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc relocation list test``() =
+    let relocs = (parseFile "elf_x64_reloc" :> IBinFile).Relocations.Value
+    let toTuple (r: BinRelocation) = r.Address, r.SymbolName, r.Addend
+    let expected =
+      [| 0x403fd8UL, Some "__libc_start_main", Some 0L
+         0x403fe0UL, Some "__gmon_start__", Some 0L
+         0x404000UL, Some "write", Some 0L
+         0x404020UL, Some "__environ", Some 0L |]
+    let first = relocs.Relocations
+    let byAddr = first |> Array.map toTuple |> Array.sortBy (fun (a, _, _) -> a)
+    CollectionAssert.AreEqual(expected, byAddr)
+    CollectionAssert.AreEqual(first, relocs.Relocations)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc relocation array is not shared test``() =
+    let relocs = (parseFile "elf_x64_reloc" :> IBinFile).Relocations.Value
+    let entries = relocs.Relocations
+    let expected = Array.copy entries
+    entries[0] <- { Address = 0UL; SymbolName = None; Addend = None }
+    CollectionAssert.AreEqual(expected, relocs.Relocations)
+    Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x404000UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x404000UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 nonx IsNXEnabled test``() =

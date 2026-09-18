@@ -292,15 +292,20 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       member _.FunctionAddresses = functionAddrs.Value
     }
 
+  let binRelocations =
+    lazy
+      relocs.Value.Entries
+      |> Seq.map (fun r ->
+        { Address = r.RelOffset
+          SymbolName = r.RelSymbol |> Option.map (fun s -> s.SymName)
+          Addend = Some(int64 r.RelAddend) })
+      |> Seq.toArray
+
   let relocations =
     Some { new IRelocationTable with
-      member _.Relocations =
-        relocs.Value.Entries
-        |> Seq.map (fun r ->
-          { Address = r.RelOffset
-            SymbolName = r.RelSymbol |> Option.map (fun s -> s.SymName)
-            Addend = Some(int64 r.RelAddend) })
-        |> Seq.toArray
+      (* The cached array is never handed out as is, so callers cannot make
+         their edits visible to the next lookup. *)
+      member _.Relocations = Array.copy binRelocations.Value
 
       member _.IsRelocationAddr addr = relocs.Value.Contains addr
 
@@ -401,6 +406,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       for off in offsets do
         acc.AddRange((readCString span off).Split(':'))
       acc.ToArray() |> Array.filter (fun s -> s <> "")
+
+  (* Kept apart so that asking for one search path does not decode the other. *)
+  let rpath = lazy dynamicPaths DTag.DT_RPATH
+
+  let runpath = lazy dynamicPaths DTag.DT_RUNPATH
 
   let programHeaderTableAddr =
     lazy
@@ -512,9 +522,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.InterpreterPath with get() = interpreterPath.Value
 
-    member _.RPath with get() = dynamicPaths DTag.DT_RPATH
+    member _.RPath with get() = Array.copy rpath.Value
 
-    member _.RunPath with get() = dynamicPaths DTag.DT_RUNPATH
+    member _.RunPath with get() = Array.copy runpath.Value
 
     member _.ProgramHeaderTable with get() = programHeaderTable.Value
 
