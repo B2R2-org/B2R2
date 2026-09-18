@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinFile.Tests
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.DWARF
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat
 
@@ -75,15 +76,20 @@ type ELFTests() =
   /// DT_RUNPATH (emitted with --disable-new-dtags).
   static let x64RPathFile = parseFile "elf_x64_rpath"
 
-  /// A C++ binary with try/catch, so it carries DWARF CFI in .eh_frame and an
-  /// LSDA table in .gcc_except_table. Exception parsing needs a register
-  /// factory.
-  static let x64EhFrameFile =
+  /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
+  /// and an LSDA table in .gcc_except_table. Exception parsing needs a register
+  /// factory. This returns a fresh instance every time, as the laziness tests
+  /// must not observe an instance that another test has already forced.
+  static let parseEhFrameFile () =
     let fileName = "elf_x64_eh_frame"
     let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
     let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
     let regFactory = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
     ELFBinFile(fileName, bytes, None, Some regFactory)
+
+  /// The shared instance of the .eh_frame fixture, for tests that do not care
+  /// about which parts of it have already been evaluated.
+  static let x64EhFrameFile = parseEhFrameFile ()
 
   /// A 32-bit Intel (i386) dynamically-linked executable, exercising the ELF32
   /// header and the R_386_* relocation decoding.
@@ -393,6 +399,80 @@ type ELFTests() =
     Assert.AreEqual<bool>(true, hasHandler)
 
   [<TestMethod>]
+  member _.``[ELF] x64 frame lookup keeps unwinding unevaluated``() =
+    (* An unevaluated FDE also proves that the unified unwinding table stayed
+       unevaluated, as building it forces every FDE of the file. *)
+    let file = parseEhFrameFile ()
+    (file :> IBinFile).ExceptionTable.Value.Frames |> ignore
+    let fdes =
+      file.ExceptionFrame |> List.collect (fun c -> List.ofArray c.FDEs)
+    let forced =
+      file.ExceptionFrame
+      |> List.exists (fun c -> c.CIE.InitialUnwinding.IsValueCreated)
+      || fdes |> List.exists (fun f -> f.UnwindingInfo.IsValueCreated)
+    Assert.AreEqual<bool>(false, forced)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 forcing one FDE leaves the others unevaluated``() =
+    let file = parseEhFrameFile ()
+    let cfi = List.head file.ExceptionFrame
+    let fdes = cfi.FDEs
+    let idx =
+      fdes
+      |> Array.findIndex (fun f -> not (List.isEmpty f.UnwindingInfo.Value))
+    Assert.AreEqual<bool>(true, fdes.Length > idx + 1)
+    Assert.AreEqual<bool>(true, cfi.CIE.InitialUnwinding.IsValueCreated)
+    let untouched =
+      fdes[idx + 1..]
+      |> Array.forall (fun f -> not f.UnwindingInfo.IsValueCreated)
+    Assert.AreEqual<bool>(true, untouched)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 unwinding results are cached``() =
+    let file = parseEhFrameFile ()
+    let fde = (List.head file.ExceptionFrame).FDEs[0]
+    let first = fde.UnwindingInfo.Value
+    let second = fde.UnwindingInfo.Value
+    Assert.AreEqual<bool>(true, obj.ReferenceEquals(first, second))
+    let tbl = file.UnwindingTable
+    Assert.AreEqual<bool>(true, obj.ReferenceEquals(tbl, file.UnwindingTable))
+
+  [<TestMethod>]
+  member _.``[ELF] x64 unwinding table does not depend on the FDE order``() =
+    let file = parseEhFrameFile ()
+    for cfi in file.ExceptionFrame do
+      for fde in Array.rev cfi.FDEs do
+        fde.UnwindingInfo.Value |> ignore
+    let expected = x64EhFrameFile.UnwindingTable
+    Assert.AreEqual<bool>(true, file.UnwindingTable = expected)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 CIE initial unwinding matches the ABI``() =
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let rsp = DWRegister.toRegID isa 7uy
+    let states =
+      x64EhFrameFile.ExceptionFrame
+      |> List.map (fun cfi -> cfi.CIE.InitialUnwinding.Value)
+    Assert.AreEqual<bool>(true, not states.IsEmpty)
+    let sane =
+      states |> List.forall (fun s ->
+        s.CFARegister = 7uy
+        && s.CFA = RegPlusOffset(rsp, 8)
+        && Map.tryFind ReturnAddress s.Rule = Some(Offset -8L))
+    Assert.AreEqual<bool>(true, sane)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 unwinding entries start at the function entry``() =
+    let starts =
+      x64EhFrameFile.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.choose (fun fde ->
+        List.tryHead fde.UnwindingInfo.Value
+        |> Option.map (fun e -> fde.PCBegin, e.Location))
+    Assert.AreEqual<bool>(true, not starts.IsEmpty)
+    Assert.AreEqual<bool>(true, starts |> List.forall (fun (b, l) -> b = l))
+
+  [<TestMethod>]
   member _.``[ELF] arm32 exidx exception table is parsed``() =
     let frames = (arm32ExidxFile :> IBinFile).ExceptionTable.Value.Frames
     Assert.AreEqual<bool>(true, frames.Length > 0)
@@ -411,6 +491,16 @@ type ELFTests() =
       frames |> Array.exists (fun f ->
         f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
     Assert.AreEqual<bool>(true, hasHandler)
+
+  [<TestMethod>]
+  member _.``[ELF] arm32 exidx carries no unwinding entries``() =
+    let fdes =
+      arm32ExidxFile.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+    let empty =
+      fdes |> List.forall (fun f -> List.isEmpty f.UnwindingInfo.Value)
+    Assert.AreEqual<bool>(true, empty)
+    Assert.AreEqual<int>(0, Map.count arm32ExidxFile.UnwindingTable)
 
   [<TestMethod>]
   member _.``[ELF] x86 ISA test``() =
