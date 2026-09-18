@@ -163,6 +163,12 @@ module private SymbolTables =
     | _ ->
       ReadOnlySpan.Empty
 
+  /// Returns the version name table, which is evaluated only when the symbol
+  /// table being parsed carries version information. A static symbol table
+  /// thus never builds the table.
+  let forceVerTbl (verTbl: Lazy<Dictionary<uint16, string>>) hasVerInfo =
+    if hasVerInfo then verTbl.Value else Dictionary()
+
   let getSymbol toolBox shdrs strTbl symbol verInfo txtOffset =
     let cls = toolBox.Header.Class
     let reader = toolBox.Reader
@@ -197,6 +203,7 @@ module private SymbolTables =
     let numEntries = int symTblSec.SecSize / (selectByWordSize cls 16 24)
     let verInfoSpan = sliceVerInfoTbl toolBox verInfoTbl numEntries
     let hasVerInfo = Option.isSome verInfoTbl
+    let verTbl = forceVerTbl verTbl hasVerInfo
     let verCache = Dictionary<uint16, SymVerInfo option>()
     let symbols = Array.zeroCreate numEntries
     for i = 0 to numEntries - 1 do
@@ -208,52 +215,61 @@ module private SymbolTables =
       symbols[i] <- getSymbol toolBox shdrs strTbl entry verInfo txtSec
     symbols
 
-  let parse toolBox shdrs versionTable staticSymbSecs dynamicSymbSecs =
-    let symbolTable = Dictionary<int, Symbol[]>()
-    let verInfoTbl =
-      shdrs |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_versym)
+  /// Registers a lazily parsed symbol table for each of the given sections, so
+  /// that reading one table never parses the others.
+  let register toolBox shdrs verTbl verSec tbls secs =
     let txtSec = getTextSectionOffset shdrs
-    for s in staticSymbSecs do
-      let symbols = parseSymbols toolBox shdrs versionTable None txtSec s
-      symbolTable[s.SecNum] <- symbols
-    for s in dynamicSymbSecs do
-      let symbols = parseSymbols toolBox shdrs versionTable verInfoTbl txtSec s
-      symbolTable[s.SecNum] <- symbols
-    symbolTable
+    for sec in secs do
+      let symbols = lazy (parseSymbols toolBox shdrs verTbl verSec txtSec sec)
+      (tbls: Dictionary<int, Lazy<Symbol[]>>)[sec.SecNum] <- symbols
 
-  let buildSymbolMap (symbolTables: Dictionary<int, Symbol[]>) =
-    let map = Dictionary<Addr, Symbol>()
-    for tbl in symbolTables.Values do
-      for sym in tbl do
-        if sym.Addr > 0UL || sym.SymType = SymbolType.STT_FUNC then
-          map[sym.Addr] <- sym
-        else
-          ()
-    map
+  let addToSymbolMap (map: Dictionary<Addr, Symbol>) (symbols: Symbol[]) =
+    for sym in symbols do
+      if sym.Addr > 0UL || sym.SymType = SymbolType.STT_FUNC then
+        map[sym.Addr] <- sym
+      else
+        ()
 
 /// Represents the main data structure for storing ELF symbol information.
 type internal SymbolStore internal(toolBox, shdrs) =
-  let staticSymbSecs =
+  let staticSecs =
     shdrs |> Array.filter (fun s -> s.SecType = SectionType.SHT_SYMTAB)
 
-  let dynamicSymbSecs =
+  let dynamicSecs =
     shdrs |> Array.filter (fun s -> s.SecType = SectionType.SHT_DYNSYM)
 
   /// IDs to symbol versions required to link.
-  let versionTable = VersionTable.parse toolBox shdrs dynamicSymbSecs
+  let versionTable = lazy VersionTable.parse toolBox shdrs dynamicSecs
 
-  /// A mapping from a section number to the corresponding symbol table.
+  /// A mapping from a section number to the corresponding symbol table, each
+  /// of which is parsed when it is first read.
   let symbolTables =
-    SymbolTables.parse toolBox shdrs versionTable staticSymbSecs dynamicSymbSecs
+    let versymSec =
+      shdrs |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_versym)
+    let tbls = Dictionary<int, Lazy<Symbol[]>>()
+    SymbolTables.register toolBox shdrs versionTable None tbls staticSecs
+    SymbolTables.register toolBox shdrs versionTable versymSec tbls dynamicSecs
+    tbls
 
-  /// Address to symbol mapping.
-  let symbolMap = lazy SymbolTables.buildSymbolMap symbolTables
+  /// Address to symbol mapping. The static tables precede the dynamic ones, so
+  /// the winner of an address is independent of the evaluation order.
+  let symbolMap =
+    lazy
+      let map = Dictionary<Addr, Symbol>()
+      for sec in Array.append staticSecs dynamicSecs do
+        SymbolTables.addToSymbolMap map symbolTables[sec.SecNum].Value
+      map
+
+  /// Symbols added by the other parsers, e.g., the PLT parser. They take
+  /// precedence over the symbols of the symbol tables, so adding one never
+  /// parses a symbol table.
+  let addedSymbols = Dictionary<Addr, Symbol>()
 
   let staticSymbols =
-    lazy (staticSymbSecs |> Array.collect (fun s -> symbolTables[s.SecNum]))
+    lazy (staticSecs |> Array.collect (fun s -> symbolTables[s.SecNum].Value))
 
   let dynamicSymbols =
-    lazy (dynamicSymbSecs |> Array.collect (fun s -> symbolTables[s.SecNum]))
+    lazy (dynamicSecs |> Array.collect (fun s -> symbolTables[s.SecNum].Value))
 
   /// Returns parsed static symbols.
   member _.StaticSymbols with get() = staticSymbols.Value
@@ -263,19 +279,26 @@ type internal SymbolStore internal(toolBox, shdrs) =
 
   /// Adds a symbol to the symbol map. If the address already exists, it will
   /// be overwritten.
-  member _.AddSymbol(addr: Addr, sym: Symbol) = symbolMap.Value[addr] <- sym
+  member _.AddSymbol(addr: Addr, sym: Symbol) = addedSymbols[addr] <- sym
 
   /// Finds a symbol by its address.
-  member _.FindSymbol(addr: Addr) = symbolMap.Value[addr]
+  member _.FindSymbol(addr: Addr) =
+    match addedSymbols.TryGetValue addr with
+    | true, sym -> sym
+    | false, _ -> symbolMap.Value[addr]
 
   /// Tries to find a symbol by its address.
   member _.TryFindSymbol(addr: Addr) =
-    match symbolMap.Value.TryGetValue addr with
-    | true, sym -> Ok sym
-    | false, _ -> Error ErrorCase.ItemNotFound
+    match addedSymbols.TryGetValue addr with
+    | true, sym ->
+      Ok sym
+    | false, _ ->
+      match symbolMap.Value.TryGetValue addr with
+      | true, sym -> Ok sym
+      | false, _ -> Error ErrorCase.ItemNotFound
 
   /// Tries to find a symbol array in ELF by its section number.
   member _.TryFindSymbolTable(secNum: int) =
     match symbolTables.TryGetValue secNum with
-    | true, tbl -> Ok tbl
+    | true, tbl -> Ok tbl.Value
     | false, _ -> Error ErrorCase.ItemNotFound

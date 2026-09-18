@@ -191,6 +191,27 @@ type ELFTests() =
     writeUInt16 bytes off (patch (System.BitConverter.ToUInt16(bytes, off)))
     ELFBinFile("elf_x64_reloc", bytes, None, None)
 
+  /// Parses the given fixture after moving the first section of the given type
+  /// out of the file, so that reading that section fails.
+  static let parseWithBrokenSection fileName typ =
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    let sec = sectionHeaderOfType bytes typ
+    writeUInt64 bytes (sec + 24) 0xffffffffUL (* sh_offset *)
+    ELFBinFile(fileName, bytes, None, None)
+
+  /// Returns the first symbol of the first dynamic symbol table.
+  static let firstDynamicSymbol (file: ELFBinFile) =
+    file.Symbols.DynamicSymbols[0]
+
+  /// Returns the first static symbol that the address map keeps.
+  static let firstMappedSymbol (file: ELFBinFile) =
+    file.Symbols.StaticSymbols |> Array.find (fun s -> s.Addr > 0UL)
+
+  /// Asserts that the symbol found at the given address is the added one.
+  static let assertAddedName (file: ELFBinFile) addr =
+    let name = file.Symbols.TryFindSymbol addr |> Result.map _.SymName
+    Assert.AreEqual(Ok "added", name)
+
   static let glibc225: ELF.SymVerInfo option =
     Some { IsHidden = false; VerName = "GLIBC_2.2.5" }
 
@@ -508,6 +529,89 @@ type ELFTests() =
     writeUInt64 bytes (dynsym + 32) 0UL (* sh_size *)
     let file = ELFBinFile("elf_x64_reloc", bytes, None, None)
     Assert.AreEqual<int>(0, file.Symbols.DynamicSymbols.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] broken symtab keeps dynsym readable test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 2u (* SHT_SYMTAB *)
+    Assert.AreEqual<int>(4, file.Symbols.DynamicSymbols.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] broken dynsym keeps symtab readable test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 11u (* SHT_DYNSYM *)
+    Assert.AreEqual<int>(37, file.Symbols.StaticSymbols.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] unknown symbol table lookup reads nothing test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 2u (* SHT_SYMTAB *)
+    let found = file.Symbols.TryFindSymbolTable 0xffff
+    Assert.AreEqual(Error ErrorCase.ItemNotFound, found)
+
+  [<TestMethod>]
+  member _.``[ELF] symbol map ignores the evaluation order test``() =
+    let resolveAll (file: ELFBinFile) =
+      Array.append file.Symbols.StaticSymbols file.Symbols.DynamicSymbols
+      |> Array.map (fun s -> s.Addr)
+      |> Array.distinct
+      |> Array.map (fun addr ->
+        let name = file.Symbols.TryFindSymbol addr |> Result.map _.SymName
+        addr, name)
+    let staticFirst = parseFile "elf_x64_exec"
+    staticFirst.Symbols.StaticSymbols |> ignore
+    staticFirst.Symbols.DynamicSymbols |> ignore
+    let dynamicFirst = parseFile "elf_x64_exec"
+    dynamicFirst.Symbols.DynamicSymbols |> ignore
+    dynamicFirst.Symbols.StaticSymbols |> ignore
+    CollectionAssert.AreEqual(resolveAll staticFirst, resolveAll dynamicFirst)
+
+  [<TestMethod>]
+  member _.``[ELF] adding a symbol reads no symbol table test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 2u (* SHT_SYMTAB *)
+    let sym = { firstDynamicSymbol file with SymName = "added" }
+    file.Symbols.AddSymbol(0x1234UL, sym)
+    assertAddedName file 0x1234UL
+
+  [<TestMethod>]
+  member _.``[ELF] added symbol wins over the original symbol test``() =
+    let before = parseFile "elf_x64_exec"
+    let orig = firstMappedSymbol before
+    before.Symbols.AddSymbol(orig.Addr, { orig with SymName = "added" })
+    assertAddedName before orig.Addr
+    let after = parseFile "elf_x64_exec"
+    after.Symbols.TryFindSymbol orig.Addr |> ignore (* builds the map *)
+    after.Symbols.AddSymbol(orig.Addr, { orig with SymName = "added" })
+    assertAddedName after orig.Addr
+
+  [<TestMethod>]
+  member _.``[ELF] the last added symbol wins test``() =
+    let file = parseFile "elf_x64_exec"
+    let orig = firstMappedSymbol file
+    file.Symbols.AddSymbol(orig.Addr, { orig with SymName = "first" })
+    file.Symbols.AddSymbol(orig.Addr, { orig with SymName = "added" })
+    assertAddedName file orig.Addr
+
+  [<TestMethod>]
+  member _.``[ELF] added symbol at address zero is kept test``() =
+    let file = parseFile "elf_x64_exec"
+    let orig = firstMappedSymbol file
+    file.Symbols.AddSymbol(0UL, { orig with SymName = "added" })
+    assertAddedName file 0UL
+
+  [<TestMethod>]
+  member _.``[ELF] added symbol stays out of the symbol tables test``() =
+    let file = parseFile "elf_x64_exec"
+    let orig = firstMappedSymbol file
+    file.Symbols.AddSymbol(orig.Addr, { orig with SymName = "added" })
+    let inTables =
+      Array.append file.Symbols.StaticSymbols file.Symbols.DynamicSymbols
+      |> Array.exists (fun s -> s.SymName = "added")
+    Assert.AreEqual<bool>(false, inTables)
+
+  [<TestMethod>]
+  member _.``[ELF] broken symtab keeps the PLT readable test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 2u (* SHT_SYMTAB *)
+    let entries = getLinkageTableEntries (file :> IBinFile)
+    let hasWrite = entries |> Seq.exists (fun i -> i.Name = "write")
+    Assert.AreEqual<bool>(true, hasWrite)
 
   [<TestMethod>]
   member _.``[ELF] x64 obj reloc without a symbol table test``() =
