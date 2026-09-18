@@ -449,7 +449,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   member internal _.LSDATable with get() = exn.Value.LSDATable
 
   /// Unwinding table.
-  member internal _.UnwindingTable with get() = exn.Value.UnwindingTbl
+  member internal _.UnwindingTable with get() = exn.Value.UnwindingTbl.Value
 
   /// ELF symbol information.
   member internal _.Symbols with get() = symbs.Value

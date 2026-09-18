@@ -503,13 +503,14 @@ let ruleToString (hdl: BinHandle) (rule: UnwindingRule) =
         s + "(" + reg + ":" + UnwindingAction.ToString v + ")") ""
 
 let dumpUnwindingInfo hdl fde =
-  if fde.UnwindingInfo.IsEmpty then
+  let entries = fde.UnwindingInfo.Value
+  if List.isEmpty entries then
     printsn <| normalizeEmpty ""
   else
     printDoubleHorizontalRule ()
     printsr [| "Location"; "CFA"; "Rules" |]
     printSingleHorizontalRule ()
-    for info in fde.UnwindingInfo do
+    for info in entries do
       printsr [| HexString.ofUInt64 info.Location
                  cfaToString hdl info.CanonicalFrameAddress
                  ruleToString hdl info.Rule |]

@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile.DWARF
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
@@ -33,7 +34,10 @@ type internal FDE =
   { PCBegin: Addr
     PCEnd: Addr
     LSDAPointer: Addr option
-    UnwindingInfo: UnwindingEntry list }
+    /// Unwinding entries of this FDE, lazily decoded from its call frame
+    /// instructions, as function ranges and LSDA pointers alone do not need
+    /// them.
+    UnwindingInfo: Lazy<UnwindingEntry list> }
 
 /// Resolves the relocation addend to apply at the given (pc-relative-adjusted)
 /// FDE begin address, if a relocation exists there. This is needed for
@@ -76,25 +80,30 @@ module internal FDE =
       ExceptionHeaderValue.read cls span reader aug.ValueEncoding offset
     Some(adjustAddr aug.ApplicationEncoding myAddr addr), offset
 
-  let parseCallFrameInstrs cie isa registerFactory span offset nextOffset loc =
-    let span = (span: ByteSpan).Slice(offset, nextOffset - offset)
-    let insarr = span.ToArray()
-    if Array.forall (fun b -> b = 0uy) insarr then
-      []
-    else
-      let cf = cie.CodeAlignmentFactor
-      let df = cie.DataAlignmentFactor
-      let rr = cie.ReturnAddressRegister
-      let ir = cie.InitialCFARegister
-      let r = cie.InitialRule
-      let cfa = cie.InitialCFA
-      let info, _, _ =
-        CIE.getUnwind [] cfa r [] r isa registerFactory ir cf df rr span 0 loc
-      info
+  /// Defers the interpretation of the given call frame instructions. An empty
+  /// or all-zero instruction area unwinds to nothing, and such an FDE never
+  /// forces the initial state of its CIE.
+  let parseCallFrameInstrs cie isa regs instrs loc =
+    lazy
+      let span = (instrs: ReadOnlyMemory<byte>).Span
+      if span.IndexOfAnyExcept(0uy) < 0 then
+        []
+      else
+        let initial = cie.InitialUnwinding.Value
+        let cf = cie.CodeAlignmentFactor
+        let df = cie.DataAlignmentFactor
+        let rr = cie.ReturnAddressRegister
+        let ir = initial.CFARegister
+        let r = initial.Rule
+        let cfa = initial.CFA
+        let info, _, _ =
+          CIE.getUnwind [] cfa r [] r isa regs ir cf df rr span 0 loc
+        info
 
-  let parse cls isa regs span reader sAddr offset nextOffset resolveReloc cie =
+  let parse cls isa regs mem reader sAddr offset nextOffset resolveReloc cie =
     match cie with
     | Some cie ->
+      let span = (mem: ReadOnlyMemory<byte>).Span
       let venc, aenc =
         match tryFindAugmentation cie 'R' with
         | Some aug ->
@@ -109,7 +118,8 @@ module internal FDE =
         match tryFindAugmentation cie 'L' with
         | Some aug -> parseLSDA cls span reader sAddr aug offset
         | None -> None, offset
-      let info = parseCallFrameInstrs cie isa regs span offset nextOffset b
+      let instrs = mem.Slice(offset, nextOffset - offset)
+      let info = parseCallFrameInstrs cie isa regs instrs b
       { PCBegin = b
         PCEnd = e
         LSDAPointer = lsdaPointer

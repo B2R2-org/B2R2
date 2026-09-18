@@ -115,7 +115,7 @@ let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
           { PCBegin = entry.FuncAddr
             PCEnd = pcEnd
             LSDAPointer = Some lsdaAddr
-            UnwindingInfo = [] }
+            UnwindingInfo = lazy [] }
         let acc = (fde :: fdes, Map.add lsdaAddr lsda lsdas)
         readExnTableEntry acc reader cls span sAddr tl
       | None ->
@@ -135,9 +135,7 @@ let private parseExnTable toolBox cls exnTblSection entries =
       CodeAlignmentFactor = 0UL
       DataAlignmentFactor = 0L
       ReturnAddressRegister = 0uy
-      InitialRule = Map.empty
-      InitialCFARegister = 0uy
-      InitialCFA = UnknownCFA
+      InitialUnwinding = CIE.emptyInitialUnwinding 0uy
       Augmentations = [] }
   let fdes, lsdas =
     readExnTableEntry ([], Map.empty) toolBox.Reader cls span secAddr entries

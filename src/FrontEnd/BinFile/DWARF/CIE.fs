@@ -24,12 +24,23 @@
 
 namespace B2R2.FrontEnd.BinFile.DWARF
 
+open System
 open System.Runtime.InteropServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
+/// Represents the unwinding state that a CIE establishes for its FDEs, i.e.,
+/// the state obtained by running the CIE's initial call frame instructions.
+type internal InitialUnwindingState =
+  { /// Initial set of unwinding rules.
+    Rule: UnwindingRule
+    /// Initial CFA register.
+    CFARegister: byte
+    /// Initial Canonical Frame Address (CFA).
+    CFA: CanonicalFrameAddress }
+
 /// Represents the Common Information Entry (CIE).
-type internal CIE =
+and internal CIE =
   { /// Version assigned to the call frame information structure.
     Version: uint8
     /// This value is a NUL terminated string that identifies the augmentation
@@ -43,12 +54,10 @@ type internal CIE =
     DataAlignmentFactor: int64
     /// Register that holds the return address.
     ReturnAddressRegister: byte
-    /// Initial set of unwinding actions (i.e., call frame instructions).
-    InitialRule: UnwindingRule
-    /// Initial CFA register.
-    InitialCFARegister: byte
-    /// Initial Canonical Frame Address (CFA).
-    InitialCFA: CanonicalFrameAddress
+    /// Initial set of unwinding actions (i.e., call frame instructions). This
+    /// is lazily computed, as the initial instructions need not be interpreted
+    /// unless an actual unwinding result is requested.
+    InitialUnwinding: Lazy<InitialUnwindingState>
     /// Augmentation data.
     Augmentations: Augmentation list }
 
@@ -300,12 +309,33 @@ module internal CIE =
       | op ->
         printfn "%A" op; Terminator.futureFeature ()
 
-  let extractRule unwindingInfo =
+  let extractRule (unwindingInfo: UnwindingEntry list) =
     match unwindingInfo with
     | [ row ] -> row.Rule
     | _ -> Map.empty
 
-  let parse reader (secChunk: ByteSpan) cls isa regs offset nextOffset =
+  /// Returns the initial unwinding state of a CIE that has no initial call
+  /// frame instructions, which leaves every rule and the CFA unknown.
+  let emptyInitialUnwinding rr =
+    lazy { Rule = Map.empty; CFARegister = rr; CFA = UnknownCFA }
+
+  /// Defers the interpretation of the CIE's initial call frame instructions
+  /// until an FDE of this CIE actually needs the resulting state.
+  let private parseInitialState isa regs rr cf df mem offset nextOffset =
+    let instrLen = nextOffset - offset
+    if instrLen > 0 then
+      let instrs = (mem: ReadOnlyMemory<byte>).Slice(offset, instrLen)
+      lazy
+        let span = instrs.Span
+        let rule = Map.empty
+        let info, cfa, reg =
+          getUnwind [] UnknownCFA rule [] rule isa regs rr cf df rr span 0 0UL
+        { Rule = extractRule info; CFARegister = reg; CFA = cfa }
+    else
+      emptyInitialUnwinding rr
+
+  let parse reader (mem: ReadOnlyMemory<byte>) cls isa regs offset nextOffset =
+    let secChunk = mem.Span
     let version = secChunk[offset]
     let offset = offset + 1
     if version = 1uy || version = 3uy then
@@ -320,24 +350,13 @@ module internal CIE =
       let rr, offset = parseReturnRegister reader secChunk version offset
       let augs, offset =
         parseAugmentationData reader secChunk offset addrSize augstr
-      let instrLen = nextOffset - offset
-      let infos =
-        if instrLen > 0 then
-          let span = secChunk.Slice(offset, instrLen)
-          let rule = Map.empty
-          getUnwind [] UnknownCFA rule [] rule isa regs rr cf df rr span 0 0UL
-        else
-          [], UnknownCFA, rr
-      infos
-      |> fun (info, cfa, reg) ->
-        { Version = version
-          AugmentationString = augstr
-          CodeAlignmentFactor = cf
-          DataAlignmentFactor = df
-          ReturnAddressRegister = byte rr
-          InitialRule = extractRule info
-          InitialCFARegister = reg
-          InitialCFA = cfa
-          Augmentations = augs }
+      let initial = parseInitialState isa regs rr cf df mem offset nextOffset
+      { Version = version
+        AugmentationString = augstr
+        CodeAlignmentFactor = cf
+        DataAlignmentFactor = df
+        ReturnAddressRegister = byte rr
+        InitialUnwinding = initial
+        Augmentations = augs }
     else
       Terminator.futureFeature ()

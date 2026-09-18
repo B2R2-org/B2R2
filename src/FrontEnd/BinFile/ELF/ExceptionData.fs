@@ -34,8 +34,8 @@ type internal ExceptionData =
     ExceptionFrame: ExceptionFrame
     /// LSDA (Language Specific Data Area) table is a collection of LSDAs.
     LSDATable: LSDATable
-    /// Unwinding info table.
-    UnwindingTbl: Map<Addr, UnwindingEntry> }
+    /// Unwinding info table, lazily merged from the FDEs' unwinding entries.
+    UnwindingTbl: Lazy<Map<Addr, UnwindingEntry>> }
 
 module internal ExceptionData =
   let [<Literal>] private EHFrameSection = ".eh_frame"
@@ -46,7 +46,7 @@ module internal ExceptionData =
     exns
     |> List.fold (fun tbl (f: CFI) ->
       f.FDEs |> Array.fold (fun tbl fde ->
-        fde.UnwindingInfo |> List.fold (fun tbl i ->
+        fde.UnwindingInfo.Value |> List.fold (fun tbl i ->
           Map.add i.Location i tbl) tbl
         ) tbl) Map.empty
 
@@ -94,8 +94,11 @@ module internal ExceptionData =
     match exns with
     | [] when isa.Arch = Architecture.ARMv7 ->
       let struct (exns, lsdas) = ARMExceptionData.parse toolBox cls shdrs
-      { ExceptionFrame = exns; LSDATable = lsdas; UnwindingTbl = Map.empty }
+      { ExceptionFrame = exns
+        LSDATable = lsdas
+        UnwindingTbl = lazy Map.empty }
     | _ ->
-      let unwinds = computeUnwindingTable exns
-      { ExceptionFrame = exns; LSDATable = lsdas; UnwindingTbl = unwinds }
+      { ExceptionFrame = exns
+        LSDATable = lsdas
+        UnwindingTbl = lazy (computeUnwindingTable exns) }
 
