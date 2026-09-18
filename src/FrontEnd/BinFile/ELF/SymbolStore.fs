@@ -122,26 +122,29 @@ module private SymbolTables =
     else
       ARMLinkerSymbol.None
 
-  let parseVersData (reader: IBinReader) symIdx verInfoTbl =
-    let pos = symIdx * 2
-    let versData = reader.ReadUInt16(span = verInfoTbl, offset = pos)
-    if versData > 1us then Some versData else None
-
   let retrieveVer (verTbl: Dictionary<_, _>) verData =
     let isHidden = verData &&& 0x8000us <> 0us
     match verTbl.TryGetValue(verData &&& 0x7fffus) with
     | true, verStr -> Some { IsHidden = isHidden; VerName = verStr }
     | false, _ -> None
 
-  let getVerInfo toolBox verTbl verInfoTblOpt symIdx =
-    match verInfoTblOpt with
-    | Some verInfoTbl ->
-      let offset, size = int verInfoTbl.SecOffset, int verInfoTbl.SecSize
-      let span = ReadOnlySpan(toolBox.Bytes, offset, size)
-      parseVersData toolBox.Reader symIdx span
-      |> Option.bind (retrieveVer verTbl)
-    | None ->
-      None
+  /// Returns the version info for the given raw version value, reusing the
+  /// result computed for the same raw value in this symbol table. The whole
+  /// 16-bit value is the key, so a hidden version is not confused with the
+  /// visible version of the same index.
+  let resolveVer verTbl (cache: Dictionary<uint16, _>) verData =
+    match cache.TryGetValue verData with
+    | true, verInfo ->
+      verInfo
+    | false, _ ->
+      let verInfo = retrieveVer verTbl verData
+      cache[verData] <- verInfo
+      verInfo
+
+  let getVerInfo toolBox verTbl cache (verInfoTbl: ByteSpan) symIdx =
+    let reader = toolBox.Reader
+    let verData = reader.ReadUInt16(span = verInfoTbl, offset = symIdx * 2)
+    if verData > 1us then resolveVer verTbl cache verData else None
 
   /// For STT_SECTION symbols, the symbol name is actually the section name.
   /// This function adjusts the symbol name for such symbols.
@@ -150,7 +153,17 @@ module private SymbolTables =
     | SymbolType.STT_SECTION, Some sec -> sec.SecName
     | _ -> symName
 
-  let getSymbol toolBox shdrs strTbl verTbl symbol verInfoTbl txtOffset symIdx =
+  /// Returns the span of the symbol version section, or an empty span when
+  /// there is no such section. The section is left untouched when the symbol
+  /// table is empty, as no version value is read then.
+  let sliceVerInfoTbl toolBox verInfoTbl numEntries =
+    match verInfoTbl with
+    | Some sec when numEntries > 0 ->
+      ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
+    | _ ->
+      ReadOnlySpan.Empty
+
+  let getSymbol toolBox shdrs strTbl symbol verInfo txtOffset =
     let cls = toolBox.Header.Class
     let reader = toolBox.Reader
     let nameIdx = reader.ReadUInt32(span = symbol, offset = 0)
@@ -161,7 +174,6 @@ module private SymbolTables =
     let ndx = reader.ReadUInt16(symbol, selectByWordSize cls 14 6) |> int
     let parent = Array.tryItem ndx shdrs
     let secIdx = SectionHeaderIdx.IndexFromInt ndx
-    let verInfo = getVerInfo toolBox verTbl verInfoTbl symIdx
     { Addr = readSymAddr toolBox.BaseAddress symbol reader cls parent txtOffset
       SymName = adjustSymbolName sname symType parent
       Size = readUIntByWordSize symbol reader cls (selectByWordSize cls 8 16)
@@ -183,12 +195,17 @@ module private SymbolTables =
     let size = Convert.ToInt32 symTblSec.SecSize
     let symTbl = ReadOnlySpan(toolBox.Bytes, offset, size)
     let numEntries = int symTblSec.SecSize / (selectByWordSize cls 16 24)
+    let verInfoSpan = sliceVerInfoTbl toolBox verInfoTbl numEntries
+    let hasVerInfo = Option.isSome verInfoTbl
+    let verCache = Dictionary<uint16, SymVerInfo option>()
     let symbols = Array.zeroCreate numEntries
     for i = 0 to numEntries - 1 do
       let offset = i * (selectByWordSize cls 16 24)
       let entry = symTbl.Slice offset
-      let sym = getSymbol toolBox shdrs strTbl verTbl entry verInfoTbl txtSec i
-      symbols[i] <- sym
+      let verInfo =
+        if hasVerInfo then getVerInfo toolBox verTbl verCache verInfoSpan i
+        else None
+      symbols[i] <- getSymbol toolBox shdrs strTbl entry verInfo txtSec
     symbols
 
   let parse toolBox shdrs versionTable staticSymbSecs dynamicSymbSecs =

@@ -125,29 +125,74 @@ type ELFTests() =
   /// A 64-bit big-endian MIPS executable, exercising MIPS/Bit64 decoding.
   static let mips64File = parseFile "elf_mips64"
 
-  /// Returns the header offsets of every REL/RELA section of a 64-bit
-  /// little-endian ELF image.
-  static let relocSectionHeaders (bytes: byte[]) =
+  /// Returns the header offsets of every section of a 64-bit little-endian ELF
+  /// image.
+  static let sectionHeaderOffsets (bytes: byte[]) =
     let shoff = int (System.BitConverter.ToUInt64(bytes, 0x28))
     let shentsize = int (System.BitConverter.ToUInt16(bytes, 0x3a))
     let shnum = int (System.BitConverter.ToUInt16(bytes, 0x3c))
-    [| for i in 0 .. shnum - 1 do
-         let hdr = shoff + i * shentsize
-         match System.BitConverter.ToUInt32(bytes, hdr + 4) with
-         | 4u (* SHT_RELA *) | 9u (* SHT_REL *) -> yield hdr
-         | _ -> () |]
+    Array.init shnum (fun i -> shoff + i * shentsize)
+
+  /// Returns the type of the section at the given header offset.
+  static let sectionType (bytes: byte[]) hdr =
+    System.BitConverter.ToUInt32(bytes, hdr + 4)
+
+  /// Returns the header offsets of every REL/RELA section of a 64-bit
+  /// little-endian ELF image.
+  static let relocSectionHeaders bytes =
+    let isReloc hdr =
+      sectionType bytes hdr = 4u (* SHT_RELA *)
+      || sectionType bytes hdr = 9u (* SHT_REL *)
+    sectionHeaderOffsets bytes |> Array.filter isReloc
+
+  /// Returns the header offset of the first section of the given type.
+  static let sectionHeaderOfType bytes typ =
+    let hasType hdr = sectionType bytes hdr = typ
+    sectionHeaderOffsets bytes |> Array.find hasType
 
   /// Returns the entry size of the REL/RELA section at the given header.
-  static let relocEntrySize (bytes: byte[]) hdr =
-    if System.BitConverter.ToUInt32(bytes, hdr + 4) = 4u then 24 else 16
+  static let relocEntrySize bytes hdr =
+    if sectionType bytes hdr = 4u then 24 else 16
+
+  static let writeUInt16 (bytes: byte[]) offset (v: uint16) =
+    Array.blit (System.BitConverter.GetBytes v) 0 bytes offset 2
 
   static let writeUInt32 (bytes: byte[]) offset (v: uint32) =
     Array.blit (System.BitConverter.GetBytes v) 0 bytes offset 4
+
+  static let writeUInt64 (bytes: byte[]) offset (v: uint64) =
+    Array.blit (System.BitConverter.GetBytes v) 0 bytes offset 8
 
   static let parsePatchedObjFile patch =
     let bytes = ZIPReader.readBytes ELFBinary "elf_x64_obj.zip" "elf_x64_obj"
     for hdr in relocSectionHeaders bytes do patch bytes hdr
     ELFBinFile("elf_x64_obj", bytes, None, None)
+
+  static let relocFileBytes () =
+    ZIPReader.readBytes ELFBinary "elf_x64_reloc.zip" "elf_x64_reloc"
+
+  /// Returns the version info of the dynamic symbol of the given name.
+  static let verInfoOf (file: ELFBinFile) name =
+    let hasName (s: ELF.Symbol) = s.SymName = name
+    (file.Symbols.DynamicSymbols |> Array.find hasName).VerInfo
+
+  /// Returns the index of the dynamic symbol of the given name, which is also
+  /// the index of its entry in the symbol version section.
+  static let dynamicSymbolIndex (file: ELFBinFile) name =
+    let hasName (s: ELF.Symbol) = s.SymName = name
+    file.Symbols.DynamicSymbols |> Array.findIndex hasName
+
+  /// Parses elf_x64_reloc after rewriting the raw version value of the
+  /// dynamic symbol at the given index.
+  static let parseWithPatchedVersion idx patch =
+    let bytes = relocFileBytes ()
+    let versym = sectionHeaderOfType bytes 0x6fffffffu (* SHT_GNU_versym *)
+    let off = int (System.BitConverter.ToUInt64(bytes, versym + 24)) + idx * 2
+    writeUInt16 bytes off (patch (System.BitConverter.ToUInt16(bytes, off)))
+    ELFBinFile("elf_x64_reloc", bytes, None, None)
+
+  static let glibc225: ELF.SymVerInfo option =
+    Some { IsHidden = false; VerName = "GLIBC_2.2.5" }
 
   let assertExistenceOfReloc (file: ELFBinFile) offset symbolName =
     file.RelocationInfo.Entries
@@ -391,6 +436,78 @@ type ELFTests() =
   member _.``[ELF] x64 reloc entries test``() =
     assertExistenceOfReloc x64RelocFile 0x404000UL "write"
     assertExistenceOfReloc x64RelocFile 0x404020UL "__environ"
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc symbol versions test``() =
+    (* write, environ and __environ share one version index. *)
+    Assert.AreEqual(glibc225, verInfoOf x64RelocFile "write")
+    Assert.AreEqual(glibc225, verInfoOf x64RelocFile "environ")
+    Assert.AreEqual(glibc225, verInfoOf x64RelocFile "__environ")
+    let glibc234: ELF.SymVerInfo option =
+      Some { IsHidden = false; VerName = "GLIBC_2.34" }
+    Assert.AreEqual(glibc234, verInfoOf x64RelocFile "__libc_start_main")
+    let gmon = verInfoOf x64RelocFile "__gmon_start__"
+    Assert.AreEqual<ELF.SymVerInfo option>(None, gmon)
+    Assert.AreEqual<ELF.SymVerInfo option>(None, verInfoOf x64RelocFile "")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc hidden symbol version test``() =
+    (* The hidden flag is part of the version value, so hiding one symbol's
+       version leaves the other symbols of the same index visible. *)
+    let idx = dynamicSymbolIndex x64RelocFile "write"
+    let file = parseWithPatchedVersion idx (fun v -> v ||| 0x8000us)
+    let hidden: ELF.SymVerInfo option =
+      Some { IsHidden = true; VerName = "GLIBC_2.2.5" }
+    Assert.AreEqual(hidden, verInfoOf file "write")
+    Assert.AreEqual(glibc225, verInfoOf file "environ")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc unnamed symbol version test``() =
+    let idx = dynamicSymbolIndex x64RelocFile "write"
+    let file = parseWithPatchedVersion idx (fun _ -> 0x7ffeus)
+    Assert.AreEqual<ELF.SymVerInfo option>(None, verInfoOf file "write")
+    Assert.AreEqual(glibc225, verInfoOf file "environ")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc reserved symbol versions test``() =
+    (* 0 (local) and 1 (global) carry no version. 0x8000 and 0x8001 are not
+       excluded by that rule, but their index names no version either. *)
+    let idx = dynamicSymbolIndex x64RelocFile "write"
+    for raw in [| 0us; 1us; 0x8000us; 0x8001us |] do
+      let file = parseWithPatchedVersion idx (fun _ -> raw)
+      Assert.AreEqual<ELF.SymVerInfo option>(None, verInfoOf file "write")
+      Assert.AreEqual(glibc225, verInfoOf file "environ")
+
+  [<TestMethod>]
+  member _.``[ELF] symbol version names are per file test``() =
+    (* The same version index names a different version in each file. *)
+    Assert.AreEqual(glibc225, verInfoOf x64ExecFile "write")
+    let glibc20: ELF.SymVerInfo option =
+      Some { IsHidden = false; VerName = "GLIBC_2.0" }
+    Assert.AreEqual(glibc20, verInfoOf x86File "write")
+    let glibc217: ELF.SymVerInfo option =
+      Some { IsHidden = false; VerName = "GLIBC_2.17" }
+    Assert.AreEqual(glibc217, verInfoOf aarch64File "write")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj symbols have no version test``() =
+    let versioned =
+      x64ObjFile.Symbols.StaticSymbols
+      |> Array.exists (fun s -> s.VerInfo.IsSome)
+    Assert.AreEqual<bool>(false, versioned)
+    Assert.AreEqual<int>(0, x64ObjFile.Symbols.DynamicSymbols.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] empty symbol table reads no version test``() =
+    (* With no symbol to read a version for, the version section is never
+       touched, even when its header points outside the file. *)
+    let bytes = relocFileBytes ()
+    let versym = sectionHeaderOfType bytes 0x6fffffffu (* SHT_GNU_versym *)
+    let dynsym = sectionHeaderOfType bytes 11u (* SHT_DYNSYM *)
+    writeUInt64 bytes (versym + 24) 0xffffffffUL (* sh_offset *)
+    writeUInt64 bytes (dynsym + 32) 0UL (* sh_size *)
+    let file = ELFBinFile("elf_x64_reloc", bytes, None, None)
+    Assert.AreEqual<int>(0, file.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] x64 obj reloc without a symbol table test``() =
