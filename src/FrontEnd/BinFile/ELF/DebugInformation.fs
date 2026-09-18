@@ -201,11 +201,11 @@ module internal DebugInformation =
     ctor bytes, offset
 
   let readExpr (span: ByteSpan) (regFactory: IRegisterFactory) len offset =
-    let bytes, offset = readBytes span len offset
-    let span = ReadOnlySpan bytes
+    let exprSpan = span.Slice(offset, len)
     let isa = regFactory.ISA
-    let expr = DWExpression.parse isa regFactory [] span 0 span.Length
-    DWExprLoc expr, offset
+    let expr =
+      DWExpression.parse isa regFactory [] exprSpan 0 exprSpan.Length
+    DWExprLoc expr, offset + len
 
   let readOffsetValue reader span offsetSize offset ctor =
     ctor (readUIntBySize reader span offsetSize offset), offset + offsetSize

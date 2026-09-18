@@ -125,6 +125,30 @@ type ELFTests() =
   /// A 64-bit big-endian MIPS executable, exercising MIPS/Bit64 decoding.
   static let mips64File = parseFile "elf_mips64"
 
+  /// Returns the header offsets of every REL/RELA section of a 64-bit
+  /// little-endian ELF image.
+  static let relocSectionHeaders (bytes: byte[]) =
+    let shoff = int (System.BitConverter.ToUInt64(bytes, 0x28))
+    let shentsize = int (System.BitConverter.ToUInt16(bytes, 0x3a))
+    let shnum = int (System.BitConverter.ToUInt16(bytes, 0x3c))
+    [| for i in 0 .. shnum - 1 do
+         let hdr = shoff + i * shentsize
+         match System.BitConverter.ToUInt32(bytes, hdr + 4) with
+         | 4u (* SHT_RELA *) | 9u (* SHT_REL *) -> yield hdr
+         | _ -> () |]
+
+  /// Returns the entry size of the REL/RELA section at the given header.
+  static let relocEntrySize (bytes: byte[]) hdr =
+    if System.BitConverter.ToUInt32(bytes, hdr + 4) = 4u then 24 else 16
+
+  static let writeUInt32 (bytes: byte[]) offset (v: uint32) =
+    Array.blit (System.BitConverter.GetBytes v) 0 bytes offset 4
+
+  static let parsePatchedObjFile patch =
+    let bytes = ZIPReader.readBytes ELFBinary "elf_x64_obj.zip" "elf_x64_obj"
+    for hdr in relocSectionHeaders bytes do patch bytes hdr
+    ELFBinFile("elf_x64_obj", bytes, None, None)
+
   let assertExistenceOfReloc (file: ELFBinFile) offset symbolName =
     file.RelocationInfo.Entries
     |> Seq.map (fun reloc -> reloc.RelOffset, reloc.RelSymbol.Value.SymName)
@@ -367,6 +391,31 @@ type ELFTests() =
   member _.``[ELF] x64 reloc entries test``() =
     assertExistenceOfReloc x64RelocFile 0x404000UL "write"
     assertExistenceOfReloc x64RelocFile 0x404020UL "__environ"
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj reloc without a symbol table test``() =
+    (* sh_link now names SHT_NULL, so the section has no symbol table. *)
+    let patch bytes hdr = writeUInt32 bytes (hdr + 40) 0u
+    let file = parsePatchedObjFile patch
+    let entries = file.RelocationInfo.Entries |> Seq.toArray
+    Assert.AreEqual<bool>(true, entries.Length > 0)
+    let unresolved = entries |> Array.forall (fun r -> r.RelSymbol.IsNone)
+    Assert.AreEqual<bool>(true, unresolved)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj reloc with an out-of-range symbol test``() =
+    (* The symbol index sits in the upper half of r_info on 64-bit ELF. *)
+    let patch bytes hdr =
+      let secOff = int (System.BitConverter.ToUInt64(bytes, hdr + 24))
+      let secSize = int (System.BitConverter.ToUInt64(bytes, hdr + 32))
+      let entSize = relocEntrySize bytes hdr
+      for i in 0 .. secSize / entSize - 1 do
+        writeUInt32 bytes (secOff + i * entSize + 12) 0xffffffu
+    let file = parsePatchedObjFile patch
+    let entries = file.RelocationInfo.Entries |> Seq.toArray
+    Assert.AreEqual<bool>(true, entries.Length > 0)
+    let unresolved = entries |> Array.forall (fun r -> r.RelSymbol.IsNone)
+    Assert.AreEqual<bool>(true, unresolved)
 
   [<TestMethod>]
   member _.``[ELF] x64 reloc IsRelocationAddr test``() =

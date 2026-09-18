@@ -79,8 +79,8 @@ module private RelocMap =
       if hasAddend then (uint64 <| WordSize.toByteWidth hdr.Class * 3)
       else (uint64 <| WordSize.toByteWidth hdr.Class * 2)
     let numEntries = int (sec.SecSize / entrySize)
+    let symTbl = tryFindSymbTable (int sec.SecLink) symbs
     for i = 0 to (numEntries - 1) do
-      let symTbl = tryFindSymbTable (int sec.SecLink) symbs
       let offset = i * int entrySize
       getRelocEntry toolBox hasAddend typMask symTbl (span.Slice offset) sec
       |> accumulateRelocInfo relocMap
