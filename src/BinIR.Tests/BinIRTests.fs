@@ -26,6 +26,7 @@ namespace B2R2.BinIR.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 [<TestClass>]
@@ -66,3 +67,21 @@ type BinIRTests() =
     Assert.AreEqual(e1, e2)
     Assert.AreEqual<int>(e1.GetHashCode(), e2.GetHashCode())
 #endif
+
+  [<TestMethod>]
+  member _.``Side Effect Register Clobbering Test``() =
+    let check expected eff =
+      let msg = SideEffect.toString eff
+      Assert.AreEqual<bool>(expected, SideEffect.mayClobberRegisters eff, msg)
+    [ Fence; Delay; AtomicBegin; AtomicEnd; SaveWindow; FlushWindows ]
+    |> List.iter (check false)
+    [ SysCall
+      Interrupt 0x80
+      RestoreWindow
+      ProcessorInfoRead
+      Breakpoint
+      ClockCounterRead None
+      UndefinedInstruction
+      UnsupportedInstruction
+      Terminate ]
+    |> List.iter (check true)

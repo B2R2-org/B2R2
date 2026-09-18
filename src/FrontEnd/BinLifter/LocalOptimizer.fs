@@ -43,11 +43,13 @@ module private Localizer =
   let breakIntoBlocks (stmts: Stmt[]) =
     if Array.isEmpty stmts then [| stmts |] else breakByMark [] stmts 1
 
-  /// Constant folding followed by dead code elimination, which is what a
-  /// caller that names no optimization of its own gets. Composed here so that
-  /// asking for it does not build the composition again.
+  /// Constant folding, then copy propagation, then dead code elimination,
+  /// which is what a caller that names no optimization of its own gets.
+  /// Composed here so that asking for it does not build the composition again.
   let defaultOptimize =
-    ConstantFolding.optimize >> DeadCodeElimination.optimize
+    ConstantFolding.optimize
+    >> CopyPropagation.optimize
+    >> DeadCodeElimination.optimize
 
 /// Represents an intra-block local IR optimizer.
 type LocalOptimizer =
@@ -78,7 +80,7 @@ type LocalOptimizer =
       Array.collect fnOptimize blocks
 
   /// Run optimization on a flattened IR statements (an array of IR statements)
-  /// with a default optimization function that performs constant folding and
-  /// dead code elimination.
+  /// with a default optimization function that performs constant folding,
+  /// copy propagation and dead code elimination.
   static member Optimize stmts =
     LocalOptimizer.Optimize(stmts, defaultOptimize)

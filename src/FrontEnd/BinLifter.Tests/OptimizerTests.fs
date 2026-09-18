@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 
@@ -135,6 +136,116 @@ type OptimizerTests() =
        varB := num 1u
        AST.lmark lblEnd ])
     |> test ConstantFolding.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Plain copy replacement test``() =
+    ([ t32 1 := varB
+       varA := varB ],
+     [ t32 1 := varB
+       varA := t32 1 ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Copy chain replacement test``() =
+    ([ t32 1 := varB
+       t32 2 := varB
+       varA := varB ],
+     [ t32 1 := varB
+       t32 2 := t32 1
+       varA := t32 2 ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Redefined source kill test``() =
+    ([ t32 1 := varB
+       varB := varC
+       varA := t32 1 ],
+     [ t32 1 := varB
+       varB := varC
+       varA := t32 1 ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Redefined destination kill test``() =
+    ([ t32 1 := varB
+       t32 1 := varC
+       varA := varC ],
+     [ t32 1 := varB
+       t32 1 := varC
+       varA := t32 1 ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Self-referencing definition test``() =
+    ([ varA := varA .+ num 1u
+       varB := varA ],
+     [ varA := varA .+ num 1u
+       varB := varA ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Memory load is not propagated test``() =
+    ([ t32 1 := AST.loadLE 32<rt> varB
+       varA := t32 1 ],
+     [ t32 1 := AST.loadLE 32<rt> varB
+       varA := t32 1 ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Small expression replacement test``() =
+    ([ t32 1 := varB .+ num 8u
+       varA := varB .+ num 8u ],
+     [ t32 1 := varB .+ num 8u
+       varA := t32 1 ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Two-variable expression is kept test``() =
+    ([ t32 1 := varB .+ varC
+       varA := t32 1 ],
+     [ t32 1 := varB .+ varC
+       varA := t32 1 ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] External call clears the map test``() =
+    ([ t32 1 := varB
+       AST.extCall (AST.app "f" [] 32<rt>)
+       varA := t32 1 ],
+     [ t32 1 := varB
+       AST.extCall (AST.app "f" [] 32<rt>)
+       varA := t32 1 ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Clobbering side effect clears the map test``() =
+    ([ t32 1 := varB
+       AST.sideEffect SysCall
+       varA := t32 1 ],
+     [ t32 1 := varB
+       AST.sideEffect SysCall
+       varA := t32 1 ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Marker side effect keeps the map test``() =
+    ([ t32 1 := varB
+       AST.sideEffect AtomicBegin
+       varA := varB
+       AST.sideEffect AtomicEnd ],
+     [ t32 1 := varB
+       AST.sideEffect AtomicBegin
+       varA := t32 1
+       AST.sideEffect AtomicEnd ])
+    |> test CopyPropagation.optimize
+
+  [<TestMethod>]
+  member _.``[CopyPropagation] Dead copy removal test``() =
+    ([ varA := varB ],
+     [ t32 1 := varB
+       varA := t32 1 ])
+    |> test (fun stmts ->
+               CopyPropagation.optimize stmts |> DeadCodeElimination.optimize)
 
   [<TestMethod>]
   member _.``[DeadCodeElimination] Dead code removal test (1)``() =
