@@ -1704,6 +1704,174 @@ let loadUnsigned (ins: Instruction) bld =
 /// select beside the register. Which register is read is the same question
 /// either way, so the select is read past rather than required.
 /// </summary>
+/// <summary>
+/// The carry-less product of two words, built out of shifts and exclusive-ORs
+/// because that is what it is.
+///
+/// MD00101 calls both operands "binary polynomial values": each set bit of one
+/// selects a shifted copy of the other and the copies are exclusive-ORed
+/// rather than added, so nothing ever carries and the 64-bit result is exact.
+/// The CRC family is unrolled the same way and for the same reason -- LowUIR
+/// has every operation this needs, and a named call would put the answer
+/// somewhere an evaluator has to be taught before it can run one.
+/// </summary>
+let private polyMult (bld: LowUIRBuilder) x y =
+  let wide = tmpVar bld 64<rt>
+  let acc = tmpVar bld 64<rt>
+  append bld {
+    wide := AST.zext 64<rt> x
+    acc := AST.num0 64<rt>
+    for i in 0 .. 31 do
+      let bit = AST.xtlo 1<rt> (y >> numI32 i 32<rt>)
+      acc :=
+        acc <+> AST.ite bit (wide << numI32 i 64<rt>) (AST.num0 64<rt>)
+  }
+  acc
+
+/// <summary>
+/// The two halves of a 64-bit accumulator result, written the way every
+/// multiply in this file writes them.
+///
+/// A 32-bit machine keeps the halves as they are; a 64-bit one sign-extends
+/// each into its wider register, which is what MD00087 asks of every
+/// instruction that is MIPS32's and runs there.
+/// </summary>
+let private putHiLo (bld: LowUIRBuilder) (result: Expr) =
+  let hi = regVar bld R.HI
+  let lo = regVar bld R.LO
+  if is32Bit bld then
+    append bld {
+      hi := AST.xthi 32<rt> result
+      lo := AST.xtlo 32<rt> result
+    }
+  else
+    append bld {
+      hi := signExtHi64 result
+      lo := signExtLo64 result
+    }
+
+/// <summary>
+/// MULTP, which is MULTU done over GF(2).
+///
+/// The accumulator's third part is cleared, which MD00101 requires of MULTU
+/// as well -- "The special register ACX, if implemented, is cleared" -- and
+/// which nothing but MFLHXU can see.
+/// </summary>
+let multPoly ins bld =
+  lift bld ins {
+    let rs, rt = transTwoOprs ins bld
+    let result = tmpVar bld 64<rt>
+    result := polyMult bld (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> rt)
+    putHiLo bld result
+    regVar bld R.ACX := AST.num0 8<rt>
+  }
+
+/// <summary>
+/// MADDP, which accumulates the polynomial product into HI and LO.
+///
+/// The accumulation is the polynomial sum, which is exclusive-OR, so this is
+/// not MADDU with a different multiply: nothing carries out of LO into HI and
+/// nothing carries out of HI at all. MD00101 says so of ACX in as many words
+/// -- "its value can never be changed by the operation, nor can its input
+/// value affect the result" -- which is why this one leaves it alone where
+/// MULTP clears it.
+/// </summary>
+let mAddPoly ins bld =
+  lift bld ins {
+    let rs, rt = transTwoOprs ins bld
+    let hi = AST.xtlo 32<rt> (regVar bld R.HI)
+    let lo = AST.xtlo 32<rt> (regVar bld R.LO)
+    let result = tmpVar bld 64<rt>
+    result :=
+      AST.concat hi lo
+      <+> polyMult bld (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> rt)
+    putHiLo bld result
+  }
+
+/// <summary>
+/// PPERM, which shifts six chosen bits into the bottom of the accumulator.
+///
+/// The accumulator is ACX, HI and LO together -- 72 bits here, ACX being
+/// eight -- and it moves left by six as a whole, so the bits leaving HI enter
+/// ACX and the bits leaving LO enter HI. The six that arrive are bits of rs,
+/// and which ones is rt's to say: six five-bit fields from the bottom up, the
+/// lowest naming the bit that lands lowest.
+/// </summary>
+let partialPermute ins bld =
+  lift bld ins {
+    let rs, rt = transTwoOprs ins bld
+    let acx = regVar bld R.ACX
+    let src = tmpVar bld bld.RegType
+    let sel = tmpVar bld bld.RegType
+    let chosen = tmpVar bld 32<rt>
+    let oldHi = tmpVar bld 32<rt>
+    let oldLo = tmpVar bld 32<rt>
+    src := rs
+    sel := rt
+    oldHi := AST.xtlo 32<rt> (regVar bld R.HI)
+    oldLo := AST.xtlo 32<rt> (regVar bld R.LO)
+    (* Bit k of the answer is the bit of rs the k-th five-bit field of rt
+       names, which is a shift down by that field and a keep of one. *)
+    chosen := AST.num0 32<rt>
+    for k in 0 .. 5 do
+      let field =
+        (sel >> numI32 (k * 5) bld.RegType) .& numI32 0x1f bld.RegType
+      let bit = AST.zext 32<rt> (AST.xtlo 1<rt> (src >> field))
+      chosen := chosen .| (bit << numI32 k 32<rt>)
+    (* Every part moves by six and takes the bits the part above it loses. The
+       old values are read into temporaries first, so the three writes below
+       do not depend on the order they are made in. *)
+    acx :=
+      (acx << numI32 6 8<rt>)
+      .| AST.xtlo 8<rt> (oldHi >> numI32 26 32<rt>)
+    putHiLo bld (AST.concat ((oldHi << numI32 6 32<rt>)
+                             .| (oldLo >> numI32 26 32<rt>))
+                            ((oldLo << numI32 6 32<rt>) .| chosen))
+  }
+
+/// <summary>
+/// MFLHXU, which shifts the accumulator down a part and hands back the one
+/// that falls off.
+///
+/// MD00101: "GPR[rd] &lt;- LO; LO &lt;- HI; HI &lt;- ACX; ACX &lt;- 0". It is
+/// how the bits PPERM shifted up are read back out, a word at a time, and the
+/// clear is what makes a second one read the next word rather than the same
+/// one.
+/// </summary>
+let moveFromExtended ins bld =
+  lift bld ins {
+    let rd = transOneOpr ins bld
+    let acx = regVar bld R.ACX
+    let oldLo = tmpVar bld bld.RegType
+    let oldHi = tmpVar bld bld.RegType
+    oldLo := regVar bld R.LO
+    oldHi := regVar bld R.HI
+    rd := oldLo
+    regVar bld R.LO := oldHi
+    regVar bld R.HI := AST.zext bld.RegType acx
+    acx := AST.num0 8<rt>
+  }
+
+/// <summary>
+/// MTLHX, which is MFLHXU run backwards.
+///
+/// MD00101: "ACX &lt;- HI; HI &lt;- LO; LO &lt;- GPR[rs]", and the move into
+/// ACX keeps only as many bits as ACX has -- "If the HI register contains
+/// more significant bits than the number of implemented ACX bits, that
+/// information is discarded without raising an exception".
+/// </summary>
+let moveToExtended ins bld =
+  lift bld ins {
+    let rs = transOneOpr ins bld
+    let oldHi = tmpVar bld bld.RegType
+    let oldLo = tmpVar bld bld.RegType
+    oldHi := regVar bld R.HI
+    oldLo := regVar bld R.LO
+    regVar bld R.ACX := AST.xtlo 8<rt> oldHi
+    regVar bld R.HI := oldLo
+    regVar bld R.LO := rs
+  }
+
 let readHWR (ins: Instruction) bld =
   lift bld ins {
     let rtOpr, rdOpr =
@@ -2607,6 +2775,21 @@ let mAddSub (ins: Instruction) bld opFn =
       fd := result
   }
 
+/// <summary>
+/// MADDU and MSUBU, of which only the first carries into the ACX register.
+///
+/// MD00101 changes MADDU's semantics where the ASE is implemented: the
+/// accumulator it adds into is "the 72-or-more-bit concatenated value of ACX,
+/// HI and LO", so what falls out of HI lands there rather than nowhere. HI
+/// and LO come out the same either way -- the low sixty-four bits of a sum do
+/// not depend on the bits above them -- so this is visible only to MFLHXU.
+///
+/// MSUBU is left alone. MD00101 4.4 puts it among the instructions whose
+/// effect on ACX is not settled: "Code written to the SmartMIPS ASE should
+/// make no assumptions about the behavior of the ACX bits during the
+/// execution of any of these instructions". Only MULTU's clear and MADDU's
+/// carry are mandatory, and only those two are here.
+/// </summary>
 let mAdduSubu ins bld opFn =
   lift bld ins {
     let rs, rt = transTwoOprs ins bld
@@ -2615,10 +2798,19 @@ let mAdduSubu ins bld opFn =
     let lo = regVar bld R.LO
     let op = if opFn then AST.add else AST.sub
     if is32Bit bld then
-      result :=
-        op (AST.concat hi lo) (AST.zext 64<rt> rs .* AST.zext 64<rt> rt)
+      let before = tmpVar bld 64<rt>
+      before := AST.concat hi lo
+      result := op before (AST.zext 64<rt> rs .* AST.zext 64<rt> rt)
       hi := AST.xthi 32<rt> result
       lo := AST.xtlo 32<rt> result
+      (* The carry out of the sixty-four bits, which is the one bit an
+         unsigned add can produce and the answer landing below where it
+         started is the only sign of. MSUBU takes neither arm. *)
+      if opFn then
+        let acx = regVar bld R.ACX
+        acx := acx .+ AST.zext 8<rt> (result .< before)
+      else
+        ()
     else
       let hilo = AST.concat (AST.xtlo 32<rt> hi) (AST.xtlo 32<rt> lo)
       let rs = AST.zext 64<rt> (AST.xtlo 32<rt> rs)
@@ -2859,6 +3051,13 @@ let mult ins bld =
     hi := high
   }
 
+/// <summary>
+/// MULTU, which clears the extended accumulator as well as writing HI and LO.
+///
+/// MD00101 says so of this one and of MULTP: "The special register ACX, if
+/// implemented, is cleared". It matters because MFLHXU reads ACX, so a stale
+/// value there would come back out of a multiply that never wrote it.
+/// </summary>
 let multu ins bld =
   lift bld ins {
     let rs, rt = getTwoOprs ins
@@ -2882,6 +3081,7 @@ let multu ins bld =
         signExtLo64 result, signExtHi64 result
     lo := low
     hi := high
+    regVar bld R.ACX := AST.num0 8<rt>
   }
 
 let neg ins bld =

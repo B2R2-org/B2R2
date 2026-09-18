@@ -543,3 +543,66 @@ type MIPS32ParserTests() =
     "4500001a"
     ++ BC1F ** [ O.Addr(Relative 108L) ]
     ||> test32R2NoCondNofmt
+
+  /// <summary>
+  /// The SmartMIPS ASE, whose words are three of the base architecture's with
+  /// the shift-amount field carrying a number.
+  ///
+  /// MD00101 spends no function code on MULTP, MADDP or PPERM: each is
+  /// MULTU's or MADDU's word with five bits the base architecture holds to
+  /// zero set to 10001 or 10010. So these rows are as much a test of the
+  /// rejection as of the decode -- the same words with a zero there are the
+  /// base instructions, which the tests above already assert.
+  ///
+  /// Every word is what binutils assembles the mnemonic to under
+  /// -msmartmips; optest-mips/smartmips/encodings.sh is the measurement.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[SmartMIPS] The cryptographic instructions Parse Test``() =
+    "00430459"
+    ++ MULTP ** [ O.Reg R2; O.Reg R3 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member _.``[SmartMIPS] The accumulating multiply Parse Test``() =
+    "70430441"
+    ++ MADDP ** [ O.Reg R2; O.Reg R3 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member _.``[SmartMIPS] The partial permutation Parse Test``() =
+    "70430481"
+    ++ PPERM ** [ O.Reg R2; O.Reg R3 ]
+    ||> test32R2NoCondNofmt
+
+  /// <summary>
+  /// The two that move the extended accumulator, which share MFLO's and
+  /// MTLO's function codes with Release 6's DCLZ and DCLO.
+  ///
+  /// Nothing in either word tells the two apart, so the release does: the ASE
+  /// extends MIPS32 before Release 6, and Release 6 is where DCLZ and DCLO
+  /// moved into SPECIAL. These are read as the ASE's because the ISA under
+  /// test is not Release 6.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[SmartMIPS] The extended accumulator moves Parse Test``() =
+    "00001052"
+    ++ MFLHXU ** [ O.Reg R2 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member _.``[SmartMIPS] The extended accumulator load Parse Test``() =
+    "00400053"
+    ++ MTLHX ** [ O.Reg R2 ]
+    ||> test32R2NoCondNofmt
+
+  /// <summary>
+  /// LWXS, the one with a function code of its own and the one microMIPS took
+  /// into its base encoding. The index counts words, so the operand printed
+  /// inside the parentheses is the base and the one outside is the index.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[SmartMIPS] The scaled indexed load Parse Test``() =
+    "70831088"
+    ++ LWXS ** [ O.Reg R2; O.Mem(R.R4, R.R3, 32<rt>) ]
+    ||> test32R2NoCondNofmt

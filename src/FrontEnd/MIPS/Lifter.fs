@@ -380,6 +380,16 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     mult ins bld
   | Op.MULTU ->
     multu ins bld
+  | Op.MULTP ->
+    multPoly ins bld
+  | Op.MADDP ->
+    mAddPoly ins bld
+  | Op.PPERM ->
+    partialPermute ins bld
+  | Op.MFLHXU ->
+    moveFromExtended ins bld
+  | Op.MTLHX ->
+    moveToExtended ins bld
   | Op.NEG ->
     neg ins bld
   | Op.NMADD ->

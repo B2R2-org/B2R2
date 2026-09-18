@@ -112,10 +112,21 @@ let private parseR6DCLO binary =
   | 0u -> Op.DCLO, None, None, getRdRs binary
   | _ -> raise ParsingFailureException
 
-let private parseMFLO binary =
+/// <summary>
+/// The shift-amount field of MFLO, which three instructions share.
+///
+/// Zero is MFLO itself. One is Release 6's DCLZ, which moved into SPECIAL,
+/// and it is also SmartMIPS's MFLHXU -- two instructions with the same
+/// twenty-six bits and nothing in the word to tell them apart. They cannot
+/// both be read, and which one a word means follows from the release: the
+/// ASE is an extension of MIPS32 before Release 6, and Release 6 is where
+/// DCLZ arrived.
+/// </summary>
+let private parseMFLO release binary =
   match Bits.extract binary 25u 16u, Bits.extract binary 10u 6u with
   | 0u, 0u -> Op.MFLO, None, None, getRd binary
-  | _, 1u -> parseR6DCLZ binary
+  | _, 1u when release = MIPSRelease.R6 -> parseR6DCLZ binary
+  | 0u, 1u -> Op.MFLHXU, None, None, getRd binary
   | _ -> raise ParsingFailureException
 
 /// Table A.3 MIPS64 SEPCIAL Opcode Encoding of Function Field
@@ -183,11 +194,20 @@ let private parseSPECIAL release bin =
     elif Bits.extract bin 10u 6u = 1u then parseR6CLO bin
     else raise ParsingFailureException
   | 0b010010u ->
-    parseMFLO bin
+    parseMFLO release bin
   | 0b010011u ->
-    if b20to6 = 0u then Op.MTLO, None, None, getRs bin
-    elif Bits.extract bin 10u 6u = 1u then parseR6DCLO bin
-    else raise ParsingFailureException
+    (* MTLHX shares this field with Release 6's DCLO the way MFLHXU shares
+       MFLO's with DCLZ, and is told apart the same way. *)
+    if b20to6 = 0u then
+      Op.MTLO, None, None, getRs bin
+    elif Bits.extract bin 10u 6u <> 1u then
+      raise ParsingFailureException
+    elif release = MIPSRelease.R6 then
+      parseR6DCLO bin
+    elif Bits.extract bin 20u 11u = 0u then
+      Op.MTLHX, None, None, getRs bin
+    else
+      raise ParsingFailureException
   | 0b010100u ->
     if b10to6 = 0u then Op.DSLLV, None, None, getRdRtRs bin
     else raise ParsingFailureException
@@ -241,6 +261,12 @@ let private parseSPECIAL release bin =
         raise ParsingFailureException
     elif b15to6 = 0u then
       Op.MULTU, None, None, getRsRt bin
+    (* MULTP is MULTU with the shift-amount field carrying a number instead of
+       the zero the base architecture requires. Nothing else separates them,
+       which is why an implementation that does not read those five bits runs
+       one as the other and answers a plausible wrong number. *)
+    elif Bits.extract bin 15u 11u = 0u && b10to6 = 0b10001u then
+      Op.MULTP, None, None, getRsRt bin
     else
       raise ParsingFailureException
   | 0b011010u ->
@@ -467,11 +493,24 @@ let private parseSPECIAL2 bin =
     if b15to6 = 0u then Op.MADD, None, None, getRsRt bin
     else raise ParsingFailureException
   | 0b000001u ->
+    (* MADDU's function code holds two of the SmartMIPS instructions as well,
+       separated from it and from each other by the shift-amount field. *)
     if b15to6 = 0u then Op.MADDU, None, None, getRsRt bin
+    elif Bits.extract bin 15u 11u <> 0u then raise ParsingFailureException
+    elif b10to6 = 0b10001u then Op.MADDP, None, None, getRsRt bin
+    elif b10to6 = 0b10010u then Op.PPERM, None, None, getRsRt bin
     else raise ParsingFailureException
   | 0b000010u ->
     if b10to6 = 0u then Op.MUL, None, None, getRdRsRt bin
     else raise ParsingFailureException
+  (* LWXS is the one SmartMIPS instruction with a function code of its own,
+     so nothing of the base architecture sits under it. It is also the one
+     microMIPS took into its base encoding. *)
+  | 0b001000u ->
+    if b10to6 = 0b00010u then
+      Op.LWXS, None, None, getRdMemBaseIdx bin 32<rt>
+    else
+      raise ParsingFailureException
   | 0b000100u ->
     if b15to6 = 0u then Op.MSUB, None, None, getRsRt bin
     else raise ParsingFailureException
