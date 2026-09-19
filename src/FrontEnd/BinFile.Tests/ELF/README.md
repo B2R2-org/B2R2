@@ -283,3 +283,36 @@ table:
 | 6..0xff00 | `.pad` | nothing |
 | 0xff01 | `.text.high` | the same two instructions, which `high_fn` names |
 
+
+## The core dump fixture
+
+Notes reach a reader two ways, and only a core dump takes the second one on
+its own. A linked binary describes each note twice, once in a `PT_NOTE`
+segment and once in an `SHT_NOTE` section, and a relocatable object describes
+them in sections alone, having no segments. A core dump is the opposite case:
+the section headers it carries name none of its notes, so the segment is the
+only route to them. It is also the only file that carries the `CORE` notes
+themselves, `NT_PRSTATUS` for each thread and `NT_FILE` for the mappings.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_core` | An `ET_CORE` dump stopped by SIGILL: 8 notes from 3 vendors, 15 mapped-file entries |
+
+The dumped program is one line, `int main(void) { __builtin_trap(); }`, and
+gdb runs it so that the trap leaves a process to dump. Clearing
+`coredump_filter` first is what keeps the result small: gdb honours it, and
+without it the anonymous pages make a 642 KB dump where this one is 26 KB.
+
+```
+gcc -O2 -o corevictim c.c
+gdb ./corevictim -batch -ex run \
+    -ex 'shell echo 0 > /proc/$(pgrep -n corevictim)/coredump_filter' \
+    -ex 'generate-core-file elf_x64_core'
+```
+
+The paths in `NT_FILE` are those of the machine that dumped it, so the fixture
+names `/home/sangkilc/Develop/B2R2/corevictim` alongside the system libc and
+loader. The other GNU notes are covered by fixtures that already exist:
+`elf_x64_exec` carries a `.note.gnu.property` with the x86 IBT and SHSTK bits,
+`elf_x64_nosec` carries a build ID reachable through its segment alone, and
+`elf_x64_obj` carries a property note in a section alone.

@@ -61,6 +61,9 @@
     <Compile Include="ELF\SectionHeader.fs" />
     <Compile Include="ELF\ProgramHeaderType.fs" />
     <Compile Include="ELF\ProgramHeader.fs" />
+    <Compile Include="ELF\Note.fs" />
+    <Compile Include="ELF\GNUProperty.fs" />
+    <Compile Include="ELF\CoreNote.fs" />
     <Compile Include="ELF\DynamicArray.fs" />
     <Compile Include="ELF\DynamicTables.fs" />
     <Compile Include="ELF\SymbolType.fs" />

@@ -46,6 +46,16 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let loadables = lazy ProgramHeaders.filterLoadables phdrs.Value
 
+  let notes = lazy Notes.parse toolBox shdrs.Value phdrs.Value
+
+  let buildId = lazy Notes.findBuildId notes.Value
+
+  let gnuProperties = lazy GNUProperties.parse toolBox notes.Value
+
+  let coreMappings = lazy CoreNotes.parseMappings toolBox notes.Value
+
+  let processStatuses = lazy CoreNotes.parseStatuses toolBox notes.Value
+
   let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value phdrs.Value
 
   let dynTables =
@@ -495,6 +505,20 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   /// Debug information.
   member internal _.DebugInfo with get() = dbginfo.Value
 
+  /// ELF notes, in the order the file lays them out.
+  member internal _.Notes with get() = notes.Value
+
+  /// GNU program properties, which the NT_GNU_PROPERTY_TYPE_0 note carries.
+  member internal _.GNUProperties with get() = gnuProperties.Value
+
+  /// File-backed memory mappings that a core dump records in its NT_FILE
+  /// note. Empty for every file that is not a core dump.
+  member internal _.CoreMappings with get() = coreMappings.Value
+
+  /// Thread states that a core dump records in its NT_PRSTATUS notes, one per
+  /// thread. Empty for every file that is not a core dump.
+  member internal _.ProcessStatuses with get() = processStatuses.Value
+
   /// Returns Global Pointer (GP) value when it is known. This is only available
   /// in MIPS binaries.
   member internal _.GlobalPointer with get() =
@@ -554,6 +578,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.DependencyNames with get() = Array.copy dependencies.Value
 
     member _.SharedObjectName with get() = soname.Value
+
+    member _.BuildId with get() = Array.copy buildId.Value
 
     member _.ProgramHeaderTable with get() = programHeaderTable.Value
 

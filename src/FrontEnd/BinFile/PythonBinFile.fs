@@ -150,6 +150,8 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
 
     member _.SharedObjectName with get() = None
 
+    member _.BuildId with get() = [||]
+
     member _.ProgramHeaderTable with get() = None
 
     member _.IsNXEnabled with get() = false

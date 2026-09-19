@@ -253,6 +253,11 @@ type ELFTests() =
   /// A 64-bit big-endian MIPS executable, exercising MIPS/Bit64 decoding.
   static let mips64File = parseFile "elf_mips64"
 
+  /// A core dump of a tiny x86-64 program that ran itself into SIGILL. Its
+  /// notes are the only ones reachable through a PT_NOTE segment alone, since
+  /// the section headers a core dump carries name none of them.
+  static let x64CoreFile = parseFile "elf_x64_core"
+
   /// Returns the header offsets of every section of a 64-bit little-endian ELF
   /// image.
   static let sectionHeaderOffsets (bytes: byte[]) =
@@ -484,6 +489,122 @@ type ELFTests() =
     for i in 0x3c .. 0x3f do bytes[i] <- 0uy (* e_shnum, e_shstrndx = 0 *)
     let file = ELFBinFile(fileName, bytes, None, None) :> IBinFile
     CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RPath)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec notes test``() =
+    (* Both a PT_NOTE segment and an SHT_NOTE section name each of these, so
+       reading the two without care would report every note twice. *)
+    let owners = x64ExecFile.Notes |> Array.map _.NoteOwner
+    let types = x64ExecFile.Notes |> Array.map _.NoteType
+    CollectionAssert.AreEqual([| "GNU"; "GNU"; "GNU" |], owners)
+    CollectionAssert.AreEqual([| 5u; 3u; 1u |], types)
+
+  [<TestMethod>]
+  member _.``[ELF] note segment padding test``() =
+    (* Alignment can leave zeros between two notes, and a whole note header
+       of them reads as a note that names nothing. The second PT_NOTE of the
+       fixture is grown by twelve zeroed bytes to put one there. *)
+    let fileName = "elf_x64_exec"
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    for i in 0x3ac .. 0x3b7 do bytes[i] <- 0uy
+    bytes[0x220] <- 0x50uy (* p_filesz of the second PT_NOTE: 0x44 -> 0x50 *)
+    let file = ELFBinFile(fileName, bytes, None, None)
+    let types = file.Notes |> Array.map _.NoteType
+    CollectionAssert.AreEqual([| 5u; 3u; 1u |], types)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec build ID test``() =
+    let hex = "d231f2fa07d818f5cac8f0ee509cbe73dba57e63"
+    let expected = ByteArray.ofHexString hex
+    CollectionAssert.AreEqual(expected, (x64ExecFile :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[ELF] aarch64 build ID test``() =
+    let hex = "76cb2d19459e0634717883574e4fe8aa76ecfaa7"
+    let expected = ByteArray.ofHexString hex
+    CollectionAssert.AreEqual(expected, (aarch64File :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec build ID test``() =
+    (* A file whose section headers are gone still carries its notes in a
+       PT_NOTE segment, which is the route a core dump leaves too. *)
+    let hex = "b46382ea0a3a829917d626a31d0ce072d0c36d74"
+    let expected = ByteArray.ofHexString hex
+    CollectionAssert.AreEqual(expected, (x64NoSecFile :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj notes test``() =
+    (* A relocatable object has no program headers at all, so its one note is
+       reachable only through the SHT_NOTE section that holds it. *)
+    let types = x64ObjFile.Notes |> Array.map _.NoteType
+    CollectionAssert.AreEqual([| 5u |], types)
+    CollectionAssert.AreEqual([||], (x64ObjFile :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[ELF] build ID array is not shared test``() =
+    let file = parseFile "elf_x64_exec" :> IBinFile
+    let buildId = file.BuildId
+    buildId[0] <- 0uy
+    Assert.AreEqual<byte>(0xd2uy, file.BuildId[0])
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec GNU property test``() =
+    (* The property note records two properties: the x86 feature word, whose
+       IBT and SHSTK bits are both set, and the ISA the binary needs. *)
+    let props = x64ExecFile.GNUProperties
+    let types = props |> Array.map _.PropertyType
+    CollectionAssert.AreEqual([| 0xc0000002u; 0xc0008002u |], types)
+    Assert.AreEqual<bool>(true, ELF.GNUProperties.hasIBT props)
+    Assert.AreEqual<bool>(true, ELF.GNUProperties.hasShadowStack props)
+    Assert.AreEqual<bool>(false, ELF.GNUProperties.hasBTI props)
+    Assert.AreEqual<bool>(false, ELF.GNUProperties.hasPointerAuth props)
+
+  [<TestMethod>]
+  member _.``[ELF] aarch64 has no GNU property test``() =
+    let props = aarch64File.GNUProperties
+    CollectionAssert.AreEqual([||], props)
+    Assert.AreEqual<bool>(false, ELF.GNUProperties.hasBTI props)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 core kind test``() =
+    Assert.AreEqual<BinFileKind>(Core, (x64CoreFile :> IBinFile).Kind)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 core notes test``() =
+    (* The dump carries eight notes from three vendors, and the two of them
+       that no vendor numbers alike are told apart by their owner. *)
+    let owners = x64CoreFile.Notes |> Array.map _.NoteOwner |> Array.distinct
+    Assert.AreEqual<int>(8, x64CoreFile.Notes.Length)
+    CollectionAssert.AreEqual([| "CORE"; "LINUX"; "GDB" |], owners)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 core process status test``() =
+    match x64CoreFile.ProcessStatuses with
+    | [| status |] ->
+      Assert.AreEqual<int>(4, status.CurrentSignal) (* SIGILL *)
+      Assert.AreEqual<int>(3405619, status.ProcessID)
+      Assert.AreEqual<int>(224, status.RegisterBlock.Length)
+    | statuses ->
+      Assert.Fail $"Expected one thread state, got {statuses.Length}."
+
+  [<TestMethod>]
+  member _.``[ELF] x64 core mappings test``() =
+    let mappings = x64CoreFile.CoreMappings
+    let paths = mappings |> Array.map _.MappingPath |> Array.distinct
+    let expected =
+      [| "/home/sangkilc/Develop/B2R2/corevictim"
+         "/usr/lib/x86_64-linux-gnu/libc.so.6"
+         "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" |]
+    Assert.AreEqual<int>(15, mappings.Length)
+    CollectionAssert.AreEqual(expected, paths)
+    Assert.AreEqual<Addr>(0x555555554000UL, mappings[0].MappingStart)
+    Assert.AreEqual<Addr>(0x555555555000UL, mappings[0].MappingEnd)
+    Assert.AreEqual<uint64>(0x1000UL, mappings[1].MappingFileOffset)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec has no core notes test``() =
+    CollectionAssert.AreEqual([||], x64ExecFile.CoreMappings)
+    CollectionAssert.AreEqual([||], x64ExecFile.ProcessStatuses)
 
   [<TestMethod>]
   member _.``[ELF] x64 exec base address test``() =

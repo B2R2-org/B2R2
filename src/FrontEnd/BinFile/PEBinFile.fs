@@ -350,6 +350,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.SharedObjectName with get() = exportName.Value
 
+    member _.BuildId with get() = [||]
+
     member _.ProgramHeaderTable with get() = None
 
     member _.IsNXEnabled with get() = isNXEnabled pe

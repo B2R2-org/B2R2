@@ -551,7 +551,107 @@ let dumpGccExceptTable _hdl (elf: ELFBinFile) =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpNotes _hdl (_file: ELFBinFile) = Terminator.futureFeature ()
+/// Returns the name that the owner of the note gives its kind, or the raw
+/// number when its owner numbers nothing by it.
+let private noteKindToString (note: Note) =
+  let kind = note.NoteType
+  match note.NoteOwner with
+  | Notes.CoreOwner when Enum.IsDefined(typeof<CoreNoteType>, kind) ->
+    (LanguagePrimitives.EnumOfValue kind: CoreNoteType).ToString()
+  | Notes.GNUOwner when Enum.IsDefined(typeof<GNUNoteType>, kind) ->
+    (LanguagePrimitives.EnumOfValue kind: GNUNoteType).ToString()
+  | _ ->
+    HexString.ofUInt32 kind
+
+let private dumpNoteTable (file: ELFBinFile) =
+  setTableColumnFormats [| LeftAligned 8; LeftAligned 32; LeftAligned 8 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Owner"; "Kind"; "Size" |]
+  printSingleHorizontalRule ()
+  for note in file.Notes do
+    printsr [| note.NoteOwner
+               noteKindToString note
+               note.NoteDesc.Length.ToString() |]
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let private toHexString (bytes: byte[]) =
+  bytes |> Array.map (fun b -> b.ToString "x2") |> String.concat ""
+
+let private dumpBuildId (elf: ELFBinFile) =
+  let buildId = (elf :> IBinFile).BuildId
+  if not (Array.isEmpty buildId) then
+    printSubsectionTitle "Build ID"
+    printsn (toHexString buildId)
+    printsn ""
+  else
+    ()
+
+/// Returns the name of the property kind, or the raw number when it names
+/// none that this reader knows.
+let private propertyKindToString (prop: GNUProperty) =
+  let kind = prop.PropertyType
+  if Enum.IsDefined(typeof<GNUPropertyType>, kind) then
+    (LanguagePrimitives.EnumOfValue kind: GNUPropertyType).ToString()
+  else
+    HexString.ofUInt32 kind
+
+let private dumpProperties (file: ELFBinFile) =
+  let properties = file.GNUProperties
+  if not (Array.isEmpty properties) then
+    printSubsectionTitle "GNU properties"
+    setTableColumnFormats [| LeftAligned 36; LeftAligned 12 |]
+    for prop in properties do
+      printsr [| propertyKindToString prop
+                 HexString.ofUInt32 prop.PropertyValue |]
+    printsn ""
+  else
+    ()
+
+let private dumpProcessStatuses (file: ELFBinFile) =
+  let statuses = file.ProcessStatuses
+  if not (Array.isEmpty statuses) then
+    printSubsectionTitle "Thread states"
+    setTableColumnFormats [| LeftAligned 10; LeftAligned 10; LeftAligned 10 |]
+    printDoubleHorizontalRule ()
+    printsr [| "PID"; "PPID"; "Signal" |]
+    printSingleHorizontalRule ()
+    for status in statuses do
+      printsr [| status.ProcessID.ToString()
+                 status.ParentProcessID.ToString()
+                 status.CurrentSignal.ToString() |]
+    printDoubleHorizontalRule ()
+    printsn ""
+  else
+    ()
+
+let private dumpCoreMappings (elf: ELFBinFile) =
+  let mappings = elf.CoreMappings
+  if not (Array.isEmpty mappings) then
+    let wordSize = (elf :> IBinFile).ISA.WordSize
+    let addrColumn = columnWidthOfAddr elf |> LeftAligned
+    printSubsectionTitle "Mapped files"
+    setTableColumnFormats
+      [| addrColumn; addrColumn; LeftAligned 12; LeftAligned 50 |]
+    printDoubleHorizontalRule ()
+    printsr [| "Start"; "End"; "Offset"; "Path" |]
+    printSingleHorizontalRule ()
+    for mapping in mappings do
+      printsr [| Addr.toString wordSize mapping.MappingStart
+                 Addr.toString wordSize mapping.MappingEnd
+                 HexString.ofUInt64 mapping.MappingFileOffset
+                 mapping.MappingPath |]
+    printDoubleHorizontalRule ()
+    printsn ""
+  else
+    ()
+
+let dumpNotes _hdl (file: ELFBinFile) =
+  dumpNoteTable file
+  dumpBuildId file
+  dumpProperties file
+  dumpProcessStatuses file
+  dumpCoreMappings file
 
 let dumpDebugInfo _hdl (file: ELFBinFile) =
   for die in file.DebugInfo do

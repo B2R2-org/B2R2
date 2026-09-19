@@ -456,6 +456,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
     member _.SharedObjectName with get() = installName.Value
 
+    member _.BuildId with get() = [||]
+
     member _.ProgramHeaderTable with get() = None
 
     member _.IsNXEnabled with get() = isNXEnabled toolBox.Header

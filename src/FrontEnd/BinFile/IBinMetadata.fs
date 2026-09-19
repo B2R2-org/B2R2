@@ -92,6 +92,15 @@ type IBinMetadata =
   /// </summary>
   abstract SharedObjectName: string option
 
+  /// <summary>
+  /// The build ID that names this particular build of the binary, taken from
+  /// the ELF <c>NT_GNU_BUILD_ID</c> note. Returns an empty array for a binary
+  /// that carries none, and for the formats whose own counterparts (the
+  /// Mach-O <c>LC_UUID</c> load command, the PE CodeView debug directory) are
+  /// not read yet.
+  /// </summary>
+  abstract BuildId: byte[]
+
   /// Program header table information for SysV-style process initialization.
   /// ELF exposes this through its program header table; formats without an
   /// equivalent runtime contract (e.g., PE, Mach-O, Wasm) return None.
