@@ -1109,6 +1109,29 @@ type PARISCParser(shdrs, relocInfo: RelocationInfo, symbs) =
       | None ->
         NoOverlapIntervalMap.empty
 
+/// SPARC PLT parser. A SPARC PLT entry is patched where it stands rather than
+/// through a slot of its own, so the offset each JMP_SLOT relocates is the
+/// entry itself and the table needs no walking to find them.
+type SPARCParser(relocInfo: RelocationInfo, symbs, entrySize) =
+  let relocs =
+    let rKind = RelocationKind.Create RelocationSPARC.R_SPARC_JMP_SLOT
+    relocInfo.Entries
+    |> Seq.filter (fun r -> r.RelKind = rKind)
+    |> Seq.toArray
+
+  let addEntry map (r: RelocationEntry) =
+    let addr = r.RelOffset
+    let ar = AddrRange.create addr (addr + entrySize - 1UL)
+    NoOverlapIntervalMap.add ar (makePLTEntry symbs addr addr r) map
+
+  interface IPLTParsable with
+    member _.ParseEntry(_, _, _, _, _, _) = Terminator.impossible ()
+
+    member _.ParseSection(_, _, _) = Terminator.impossible ()
+
+    member _.Parse _ =
+      Array.fold addEntry NoOverlapIntervalMap.empty relocs
+
 /// This will simply return an empty map.
 type NullParser() =
   interface IPLTParsable with
@@ -1135,6 +1158,13 @@ let private initIPLTParsable hdr shdrs relocInfo symbs =
     PPC64Parser(shdrs, relocInfo, symbs) :> IPLTParsable
   | MachineType.EM_PARISC ->
     PARISCParser(shdrs, relocInfo, symbs) :> IPLTParsable
+  (* A 32-bit SPARC PLT entry is three instructions, where the 64-bit one is
+     eight, the extra room being what a far entry needs to reach its target. *)
+  | MachineType.EM_SPARC
+  | MachineType.EM_SPARC32PLUS ->
+    SPARCParser(relocInfo, symbs, 12UL) :> IPLTParsable
+  | MachineType.EM_SPARCV9 ->
+    SPARCParser(relocInfo, symbs, 32UL) :> IPLTParsable
   | MachineType.EM_RISCV ->
     let rKind = RelocationKind.Create RelocationRISCV.R_RISCV_JUMP_SLOT
     GeneralParser(shdrs, relocInfo, symbs, 32UL, rKind) :> IPLTParsable

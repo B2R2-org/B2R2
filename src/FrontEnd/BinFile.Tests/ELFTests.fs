@@ -1262,6 +1262,36 @@ type ELFTests() =
                     relocs.TryGetRelocatedAddr 0x1f14UL)
 
   [<TestMethod>]
+  member _.``[ELF] sparc64 imports test``() =
+    (* A SPARC PLT entry is relocated where it stands, so the address a call
+       reaches and the one the relocation names are the same. *)
+    let expected =
+      [ "ext", Some 0x4180UL
+        "__cxa_finalize", Some 0x41a0UL
+        "__gmon_start__", Some 0x41c0UL ]
+    let entries =
+      getLinkageTableEntries sparc64SoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+    let slots =
+      getLinkageTableEntries sparc64SoFile
+      |> Seq.map _.TableAddress
+      |> Seq.toList
+    Assert.AreEqual<Addr list>([ 0x4180UL; 0x41a0UL; 0x41c0UL ], slots)
+
+  [<TestMethod>]
+  member _.``[ELF] sparc32 imports test``() =
+    (* The 32-bit PLT is laid out the same way, only with shorter entries, and
+       this one was linked without a libc so it holds the one import. *)
+    let entries =
+      getLinkageTableEntries sparc32SoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>([ "ext", Some 0x20034UL ],
+                                                 entries)
+
+  [<TestMethod>]
   member _.``[ELF] aliased machine types name one kind test``() =
     (* This header says EM_SPARC32PLUS where elf_sparc64_so says EM_SPARCV9,
        and the two share one set of relocation kinds. Naming every kind by a
