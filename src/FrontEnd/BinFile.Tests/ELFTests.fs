@@ -1000,6 +1000,16 @@ type ELFTests() =
                     relocs.TryGetInternalFunctionAddr 0x1fc8UL)
 
   [<TestMethod>]
+  member _.``[ELF] riscv64 ifunc takes a PLT entry of its own test``() =
+    (* The PLT has an entry per entry of .rela.plt, the ifunc among them, and
+       the import table is how the middle end reaches the resolver behind it.
+       Naming no symbol, that entry carries an empty name. *)
+    let imports = getLinkageTableEntries riscv64IfuncFile
+    let names = imports |> Seq.map _.Name |> Seq.toList
+    Assert.AreEqual<string list>([ "__libc_start_main"; "" ], names)
+    Assert.AreEqual<uint64>(0x1fd0UL, (Seq.item 1 imports).TableAddress)
+
+  [<TestMethod>]
   member _.``[ELF] ARM ifunc kinds name a resolver test``() =
     (* No ARM cross-toolchain builds these fixtures, so what can be checked is
        the classification the resolver lookup turns on. *)

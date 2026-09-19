@@ -197,15 +197,29 @@ let rec private parseSections p toolBox map = function
 /// parser, but it is rather slow compared to platform-specific parsers. RISCV
 /// relies on this.
 type GeneralParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
+  let relPLTSection =
+    match Array.tryFind (fun s -> s.SecName = Section.RelPLT) shdrs with
+    | Some _ as sec -> sec
+    | None -> Array.tryFind (fun s -> s.SecName = Section.RelaPLT) shdrs
+
+  (* One PLT entry stands for one entry of the PLT relocation section, whatever
+     kind that entry is: an ifunc slot sits among the jump slots and takes an
+     entry of its own. Only a file without such a section leaves the kind as
+     the sole thing to go on. *)
   let relocs =
-    (relocInfo: RelocationInfo).Entries
-    |> Seq.filter (fun r -> r.RelKind = relKind)
-    |> Seq.toArray
+    let entries = (relocInfo: RelocationInfo).Entries
+    let belongsToPLT (r: RelocationEntry) =
+      match relPLTSection with
+      | Some rsec -> r.RelSecNumber = rsec.SecNum
+      | None -> r.RelKind = relKind
+    entries |> Seq.filter belongsToPLT |> Seq.toArray
 
   let createGeneralPLTDescriptor rsec sec =
     let count = rsec.SecSize / rsec.SecEntrySize (* number of PLT entries *)
     let pltEntrySize = (* sometimes, plt section contains dummy data *)
-      if relocs.Length >= 2 && relocs[0].RelSymbol.IsSome then
+      if relocs.Length >= 2
+         && relocs[0].RelSymbol.IsSome
+         && relocs[1].RelSymbol.IsSome then
         relocs[1].RelSymbol.Value.Addr - relocs[0].RelSymbol.Value.Addr
       else
         (sec.SecSize - pltHdrSize) / count
@@ -214,13 +228,9 @@ type GeneralParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
     newPLT DontCare AnyBinding false pltEntrySize 0UL addr
 
   let findGeneralPLTType sec =
-    match Array.tryFind (fun s -> s.SecName = Section.RelPLT) shdrs with
-    | Some rsec ->
-      createGeneralPLTDescriptor rsec sec
-    | None ->
-      match Array.tryFind (fun s -> s.SecName = Section.RelaPLT) shdrs with
-      | Some rsec -> createGeneralPLTDescriptor rsec sec
-      | None -> UnknownPLT
+    match relPLTSection with
+    | Some rsec -> createGeneralPLTDescriptor rsec sec
+    | None -> UnknownPLT
 
   interface IPLTParsable with
     member _.ParseEntry(addr, idx, _sec, desc, _rdr, _span) =
