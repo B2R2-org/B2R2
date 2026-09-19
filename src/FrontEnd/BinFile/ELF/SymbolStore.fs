@@ -75,14 +75,10 @@ module private VersionTable =
       let span = ReadOnlySpan(toolBox.Bytes, int offset, int size)
       parseDefinedVerFromSec span toolBox.Reader verTbl strTbl 0
 
-  let parse toolBox shdrs (dynamicSections: SectionHeader[]) =
+  let parse toolBox verNeedSec verDefSec (layouts: SymbolTableLayout[]) =
     let verTbl = Dictionary()
-    let verNeedSec =
-      shdrs |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_verneed)
-    let verDefSec =
-      shdrs |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_verdef)
-    for symSection in dynamicSections do
-      let strSection = shdrs[Convert.ToInt32 symSection.SecLink]
+    for layout in layouts do
+      let strSection = layout.Strings
       let size = Convert.ToInt32 strSection.SecSize
       let strTbl = ReadOnlySpan(toolBox.Bytes, int strSection.SecOffset, size)
       parseNeededVersionTable toolBox verTbl strTbl verNeedSec
@@ -191,16 +187,18 @@ module private SymbolTables =
       VerInfo = verInfo
       ARMLinkerSymbol = computeLinkerSymbolKind toolBox.Header sname }
 
-  let parseSymbols toolBox (shdrs: _[]) verTbl verInfoTbl txtSec symTblSec =
+  let parseSymbols toolBox (shdrs: _[]) verTbl txtSec layout =
     let cls = toolBox.Header.Class
-    let ssec = shdrs[Convert.ToInt32 symTblSec.SecLink] (* Get string sect. *)
+    let ssec = layout.Strings
     let offset = int ssec.SecOffset
     let size = Convert.ToInt32 ssec.SecSize
     let strTbl = ReadOnlySpan(toolBox.Bytes, offset, size)
+    let symTblSec = layout.Symbols
     let offset = int symTblSec.SecOffset
     let size = Convert.ToInt32 symTblSec.SecSize
     let symTbl = ReadOnlySpan(toolBox.Bytes, offset, size)
     let numEntries = int symTblSec.SecSize / (selectByWordSize cls 16 24)
+    let verInfoTbl = layout.Versions
     let verInfoSpan = sliceVerInfoTbl toolBox verInfoTbl numEntries
     let hasVerInfo = Option.isSome verInfoTbl
     let verTbl = forceVerTbl verTbl hasVerInfo
@@ -217,11 +215,11 @@ module private SymbolTables =
 
   /// Registers a lazily parsed symbol table for each of the given sections, so
   /// that reading one table never parses the others.
-  let register toolBox shdrs verTbl verSec tbls secs =
+  let register toolBox shdrs verTbl tbls layouts =
     let txtSec = getTextSectionOffset shdrs
-    for sec in secs do
-      let symbols = lazy (parseSymbols toolBox shdrs verTbl verSec txtSec sec)
-      (tbls: Dictionary<int, Lazy<Symbol[]>>)[sec.SecNum] <- symbols
+    for layout in layouts do
+      let symbols = lazy (parseSymbols toolBox shdrs verTbl txtSec layout)
+      (tbls: Dictionary<int, Lazy<Symbol[]>>)[layout.Symbols.SecNum] <- symbols
 
   let addToSymbolMap (map: Dictionary<Addr, Symbol>) (symbols: Symbol[]) =
     for sym in symbols do
@@ -231,24 +229,53 @@ module private SymbolTables =
         ()
 
 /// Represents the main data structure for storing ELF symbol information.
-type internal SymbolStore internal(toolBox, shdrs) =
-  let staticSecs =
-    shdrs |> Array.filter (fun s -> s.SecType = SectionType.SHT_SYMTAB)
+type internal SymbolStore internal(toolBox, shdrs, dynTables: DynamicTables) =
+  let sectionsOfType t = shdrs |> Array.filter (fun s -> s.SecType = t)
 
-  let dynamicSecs =
-    shdrs |> Array.filter (fun s -> s.SecType = SectionType.SHT_DYNSYM)
+  let tryFindSectionOfType t = shdrs |> Array.tryFind (fun s -> s.SecType = t)
+
+  /// Pairs a symbol table section with the string table its sh_link names.
+  let layoutOf versions sec =
+    { Symbols = sec
+      Strings = shdrs[Convert.ToInt32 (sec: SectionHeader).SecLink]
+      Versions = versions }
+
+  let staticLayouts =
+    sectionsOfType SectionType.SHT_SYMTAB |> Array.map (layoutOf None)
+
+  /// The dynamic symbol tables, taken from the section headers when they name
+  /// any, and from what the dynamic array names when they are gone.
+  let dynamicLayouts =
+    match sectionsOfType SectionType.SHT_DYNSYM with
+    | [||] ->
+      match dynTables.Symbols, dynTables.Strings with
+      | Some symbols, Some strings ->
+        [| { Symbols = symbols
+             Strings = strings
+             Versions = dynTables.SymbolVersions } |]
+      | _ ->
+        [||]
+    | secs ->
+      let versions = tryFindSectionOfType SectionType.SHT_GNU_versym
+      secs |> Array.map (layoutOf versions)
 
   /// IDs to symbol versions required to link.
-  let versionTable = lazy VersionTable.parse toolBox shdrs dynamicSecs
+  let versionTable =
+    lazy
+      let needs =
+        tryFindSectionOfType SectionType.SHT_GNU_verneed
+        |> Option.orElse dynTables.VersionNeeds
+      let defs =
+        tryFindSectionOfType SectionType.SHT_GNU_verdef
+        |> Option.orElse dynTables.VersionDefs
+      VersionTable.parse toolBox needs defs dynamicLayouts
 
   /// A mapping from a section number to the corresponding symbol table, each
   /// of which is parsed when it is first read.
   let symbolTables =
-    let versymSec =
-      shdrs |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_versym)
     let tbls = Dictionary<int, Lazy<Symbol[]>>()
-    SymbolTables.register toolBox shdrs versionTable None tbls staticSecs
-    SymbolTables.register toolBox shdrs versionTable versymSec tbls dynamicSecs
+    SymbolTables.register toolBox shdrs versionTable tbls staticLayouts
+    SymbolTables.register toolBox shdrs versionTable tbls dynamicLayouts
     tbls
 
   /// Address to symbol mapping. The static tables precede the dynamic ones, so
@@ -256,8 +283,9 @@ type internal SymbolStore internal(toolBox, shdrs) =
   let symbolMap =
     lazy
       let map = Dictionary<Addr, Symbol>()
-      for sec in Array.append staticSecs dynamicSecs do
-        SymbolTables.addToSymbolMap map symbolTables[sec.SecNum].Value
+      for layout in Array.append staticLayouts dynamicLayouts do
+        let tbl = symbolTables[layout.Symbols.SecNum]
+        SymbolTables.addToSymbolMap map tbl.Value
       map
 
   /// Symbols added by the other parsers, e.g., the PLT parser. They take
@@ -265,11 +293,12 @@ type internal SymbolStore internal(toolBox, shdrs) =
   /// parses a symbol table.
   let addedSymbols = Dictionary<Addr, Symbol>()
 
-  let staticSymbols =
-    lazy (staticSecs |> Array.collect (fun s -> symbolTables[s.SecNum].Value))
+  let collect (layouts: SymbolTableLayout[]) =
+    layouts |> Array.collect (fun l -> symbolTables[l.Symbols.SecNum].Value)
 
-  let dynamicSymbols =
-    lazy (dynamicSecs |> Array.collect (fun s -> symbolTables[s.SecNum].Value))
+  let staticSymbols = lazy collect staticLayouts
+
+  let dynamicSymbols = lazy collect dynamicLayouts
 
   /// Returns parsed static symbols.
   member _.StaticSymbols with get() = staticSymbols.Value

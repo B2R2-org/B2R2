@@ -46,14 +46,19 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let loadables = lazy ProgramHeaders.filterLoadables phdrs.Value
 
-  let symbs = lazy SymbolStore(toolBox, shdrs.Value)
-
   let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value phdrs.Value
+
+  let dynTables =
+    lazy
+      DynamicTables.reconstruct
+        toolBox shdrs.Value phdrs.Value dynamicArray.Value
+
+  let symbs = lazy SymbolStore(toolBox, shdrs.Value, dynTables.Value)
 
   let relocs =
     lazy
       RelocationInfo(
-        toolBox, shdrs.Value, phdrs.Value, dynamicArray.Value, symbs.Value
+        toolBox, shdrs.Value, phdrs.Value, dynTables.Value, symbs.Value
       )
 
   let plt = lazy PLT.parse toolBox shdrs.Value symbs.Value relocs.Value

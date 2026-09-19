@@ -59,38 +59,12 @@ module private RelocMap =
     | MachineType.EM_MIPS, WordSize.Bit64 -> 0xFFUL
     | _ -> selectByWordSize hdr.Class 0xFFUL 0xFFFFFFFFUL
 
-  /// Checks whether the section holds the given stretch of addresses as file
-  /// content, which is what lets it answer for the bytes stored there.
-  let isContentSection addr width s =
-    s.SecFlags.HasFlag SectionFlags.SHF_ALLOC
-    && s.SecType <> SectionType.SHT_NOBITS
-    && addr >= s.SecAddr && addr + width <= s.SecAddr + s.SecSize
-
-  /// Checks the same of a loadable segment. Whatever a segment maps past its
-  /// file size is zero-filled at load time, so it backs no content.
-  let isContentSegment addr width ph =
-    ph.PHType = ProgramHeaderType.PT_LOAD
-    && addr >= ph.PHAddr && addr + width <= ph.PHAddr + ph.PHFileSize
-
-  /// Returns a function mapping an address and a width to the file offset the
-  /// bytes are stored at, or None when nothing in the file backs them. The
-  /// section headers answer precisely; the loadable segments cover binaries
-  /// that no longer have any.
-  let makeContentLocator (shdrs: SectionHeader[]) (phdrs: ProgramHeader[]) =
-    fun addr width ->
-      let fromSegments () =
-        Array.tryFind (isContentSegment addr width) phdrs
-        |> Option.map (fun ph -> ph.PHOffset + (addr - ph.PHAddr))
-      Array.tryFind (isContentSection addr width) shdrs
-      |> Option.map (fun s -> s.SecOffset + (addr - s.SecAddr))
-      |> Option.orElseWith fromSegments
-
   /// Reads the addend a REL-format entry leaves in the slot it relocates.
   let readImplicitAddend toolBox locate addr =
     let cls = toolBox.Header.Class
     let width = uint64 (WordSize.toByteWidth cls)
     match locate addr width with
-    | Some offset ->
+    | Some(offset, _) ->
       let span = ReadOnlySpan(toolBox.Bytes, int offset, int width)
       readUIntByWordSize span toolBox.Reader cls 0
     | None ->
@@ -125,14 +99,13 @@ module private RelocMap =
   let inline accumulateRelocInfo (relocMap: Dictionary<_, _>) rel =
     relocMap[rel.RelOffset] <- rel
 
-  let parseRelocSection toolBox locate symbs relocMap sec =
+  let parseRelocSection toolBox locate symTbl relocMap sec =
     let hdr = toolBox.Header
     let hasAddend = sec.SecType = SectionType.SHT_RELA
     let entrySize =
       if hasAddend then (uint64 <| WordSize.toByteWidth hdr.Class * 3)
       else (uint64 <| WordSize.toByteWidth hdr.Class * 2)
     let numEntries = int (sec.SecSize / entrySize)
-    let symTbl = tryFindSymbTable (int sec.SecLink) symbs
     let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
     for i = 0 to (numEntries - 1) do
       let offset = i * int entrySize
@@ -189,70 +162,26 @@ module private RelocMap =
     | SectionType.SHT_RELR -> true
     | _ -> false
 
-  /// Returns the value the dynamic array gives the tag, if it carries it.
-  let tryFindDynValue (dynEntries: DynamicArrayEntry[]) tag =
-    Array.tryFind (fun e -> e.DTag = tag) dynEntries |> Option.map _.DVal
+  /// Returns the symbol table a relocation table names. A table the dynamic
+  /// array located links to no section, so it takes the sole dynamic table.
+  let getSymbolTable (symbs: SymbolStore) sec =
+    if sec.SecNum < 0 then symbs.DynamicSymbols
+    else tryFindSymbTable (int sec.SecLink) symbs
 
-  /// Locates the table a pair of dynamic tags describes, returning its address
-  /// along with the file offset and the size of its bytes.
-  let tryFindDynTable toolBox locate dynEntries addrTag sizeTag =
-    let sizeOpt = tryFindDynValue dynEntries sizeTag
-    match tryFindDynValue dynEntries addrTag, sizeOpt with
-    | Some addr, Some size ->
-      let addr = addr + toolBox.BaseAddress
-      locate addr size |> Option.map (fun ofs -> addr, int ofs, int size)
-    | _ ->
-      None
-
-  /// Describes a table the dynamic array points to as a section header would,
-  /// so that it reaches the parsers by the one path they already take.
-  let toDynSection secType addr offset size =
-    { SecNum = -1
-      SecName = ""
-      SecType = secType
-      SecFlags = SectionFlags.SHF_ALLOC
-      SecAddr = addr
-      SecOffset = uint64 offset
-      SecSize = uint64 size
-      SecLink = 0u
-      SecInfo = 0u
-      SecAlignment = 0UL
-      SecEntrySize = 0UL }
-
-  /// Returns whether DT_JMPREL points at a REL or a RELA table, which is what
-  /// DT_PLTREL says and nothing else in the file does.
-  let getPLTRelocType dynEntries =
-    match tryFindDynValue dynEntries DTag.DT_PLTREL with
-    | Some v when v = uint64 DTag.DT_REL -> SectionType.SHT_REL
-    | _ -> SectionType.SHT_RELA
-
-  /// Returns the relocation tables the dynamic array points to. PT_DYNAMIC
-  /// names every one of them, so a binary keeps them all after its section
-  /// headers are stripped.
-  let getDynRelocTables toolBox locate dynEntries =
-    let tableOf secType addrTag sizeTag =
-      tryFindDynTable toolBox locate dynEntries addrTag sizeTag
-      |> Option.map (fun (addr, ofs, sz) -> toDynSection secType addr ofs sz)
-      |> Option.toArray
-    let jmpType = getPLTRelocType dynEntries
-    [| yield! tableOf SectionType.SHT_RELA DTag.DT_RELA DTag.DT_RELASZ
-       yield! tableOf SectionType.SHT_REL DTag.DT_REL DTag.DT_RELSZ
-       yield! tableOf SectionType.SHT_RELR DTag.DT_RELR DTag.DT_RELRSZ
-       yield! tableOf jmpType DTag.DT_JMPREL DTag.DT_PLTRELSZ |]
-
-  let parse toolBox shdrs phdrs dynEntries symbs =
+  let parse toolBox shdrs phdrs dynTables symbs =
     let relocMap = Dictionary()
-    let locate = makeContentLocator shdrs phdrs
+    let locate = DynamicTables.makeContentLocator shdrs phdrs
     let relative = RelocationKind.TryCreateRelative toolBox.Header.MachineType
     let tables =
       match Array.filter isRelocSection shdrs with
-      | [||] -> getDynRelocTables toolBox locate dynEntries
+      | [||] -> (dynTables: DynamicTables).Relocations
       | sections -> sections
     for sec in tables do
       match sec.SecType, relative with
       | SectionType.SHT_REL, _
       | SectionType.SHT_RELA, _ when sec.SecSize > 0UL ->
-        parseRelocSection toolBox locate symbs relocMap sec
+        let symTbl = getSymbolTable symbs sec
+        parseRelocSection toolBox locate symTbl relocMap sec
       | SectionType.SHT_RELR, ValueSome kind when sec.SecSize > 0UL ->
         parseRelrSection toolBox locate relocMap sec kind
       | _ ->

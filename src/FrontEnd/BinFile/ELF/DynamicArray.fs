@@ -120,6 +120,8 @@ and internal DTag =
   | DT_FLAGS_1 = 0x6ffffffbUL
   | DT_RELACOUNT = 0x6ffffff9UL
   | DT_VERSYM = 0x6ffffff0UL
+  | DT_VERDEF = 0x6ffffffcUL
+  | DT_VERDEFNUM = 0x6ffffffdUL
   | DT_VERNEED = 0x6ffffffeUL
   | DT_VERNEEDNUM = 0x6fffffffUL
   | DT_VALRNGLO = 0x6ffffd00UL
@@ -244,3 +246,7 @@ module internal DynamicArray =
     match tryFindRange shdrs phdrs with
     | Some(offset, size) -> parseEntries toolBox offset size
     | None -> [||]
+
+  /// Returns the value the dynamic array gives the tag, if it carries it.
+  let tryFindValue (entries: DynamicArrayEntry[]) tag =
+    Array.tryFind (fun e -> e.DTag = tag) entries |> Option.map _.DVal

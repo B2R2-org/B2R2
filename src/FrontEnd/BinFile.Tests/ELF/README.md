@@ -104,6 +104,7 @@ bpf-gcc -c so.c -o elf_bpf_obj
 | `elf_x64_reloc` | Mixed dynamic relocations (JUMP_SLOT/GLOB_DAT/COPY) for the relocation API. |
 | `elf_x64_relr` | PIE linked with `-z pack-relative-relocs`: every relative relocation packed into a `.relr.dyn` bitmap, none left in `.rela.dyn`. |
 | `elf_x64_nosec` | `elf_x64_relr` with its section header table removed, so PT_DYNAMIC and PT_LOAD are the only routes to its relocations. |
+| `elf_x64_sysvhash` | Section-header stripped and linked `--hash-style=sysv`, so DT_HASH rather than the string table gives the dynamic symbol count. |
 | `elf_x64_nonx` | Executable stack (`GNU_STACK = RWX`): `IsNXEnabled = false`. |
 | `elf_x64_eh_frame` | C++ try/catch: DWARF CFI in `.eh_frame` and an LSDA in `.gcc_except_table`. |
 | `elf_x64_runpath` | Colon-separated `DT_RUNPATH` (`--enable-new-dtags`): `RunPath`. |
@@ -123,4 +124,15 @@ fallback exists for. It still runs.
 
 ```
 llvm-objcopy --strip-sections elf_x64_relr elf_x64_nosec
+```
+
+`elf_x64_sysvhash` is the same source linked with the old hash table instead of
+the GNU one, then stripped the same way. It exists because the two hash styles
+lead to different ways of sizing the dynamic symbol table: DT_HASH states the
+count, while a GNU-hashed binary leaves it to be inferred from where the string
+table starts.
+
+```
+gcc relr.c -o sysv_hash -Wl,--hash-style=sysv
+llvm-objcopy --strip-sections sysv_hash elf_x64_sysvhash
 ```

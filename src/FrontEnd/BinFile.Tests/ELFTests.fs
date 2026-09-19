@@ -93,6 +93,11 @@ type ELFTests() =
   /// to the bytes they relocate.
   static let x64NoSecFile = parseFile "elf_x64_nosec"
 
+  /// A section-header-stripped binary linked with --hash-style=sysv, so it
+  /// carries DT_HASH rather than DT_GNU_HASH and its nchain word is what
+  /// gives the size of the dynamic symbol table.
+  static let x64SysvHashFile = parseFile "elf_x64_sysvhash"
+
   /// An x86-64 executable built with an executable stack (GNU_STACK = RWX), so
   /// NX is reported as disabled.
   static let x64NonXFile = parseFile "elf_x64_nonx"
@@ -695,13 +700,42 @@ type ELFTests() =
     Assert.AreEqual(Ok x64JumpSlot, kindAt 0x3fb8UL)
 
   [<TestMethod>]
-  member _.``[ELF] x64 nosec relocations name no symbol test``() =
-    (* The dynamic symbol table is reached through the section headers alone,
-       so nothing is left to name the symbol a relocation refers to. *)
-    let named =
-      x64NoSecFile.RelocationInfo.Entries
-      |> Seq.filter (fun r -> r.RelSymbol.IsSome)
-    Assert.AreEqual<int>(0, Seq.length named)
+  member _.``[ELF] x64 nosec dynamic symbols test``() =
+    (* DT_SYMTAB and DT_STRTAB name the tables, and the distance between them
+       is what bounds the symbol table, as no tag gives its size. *)
+    let names = x64NoSecFile.Symbols.DynamicSymbols |> Array.map _.SymName
+    let kept = x64RelrFile.Symbols.DynamicSymbols |> Array.map _.SymName
+    Assert.AreEqual<int>(7, kept.Length)
+    CollectionAssert.AreEqual(kept, names)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec relocation symbols test``() =
+    let nameAt addr =
+      x64NoSecFile.RelocationInfo.TryFind addr
+      |> Result.map (fun r -> r.RelSymbol |> Option.map _.SymName)
+    Assert.AreEqual(Ok(Some "printf"), nameAt 0x3fb8UL)
+    Assert.AreEqual(Ok(Some "__libc_start_main"), nameAt 0x3fc0UL)
+    (* A relative relocation names no symbol whichever way it was found. *)
+    Assert.AreEqual(Ok None, nameAt 0x3c50UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec symbol versions test``() =
+    (* The version indices come from DT_VERSYM and the names they stand for
+       from DT_VERNEED, neither of which a section header has to name. *)
+    Assert.AreEqual(glibc225, verInfoOf x64NoSecFile "printf")
+    let glibc234: ELF.SymVerInfo option =
+      Some { IsHidden = false; VerName = "GLIBC_2.34" }
+    Assert.AreEqual(glibc234, verInfoOf x64NoSecFile "__libc_start_main")
+    let gmon = verInfoOf x64NoSecFile "__gmon_start__"
+    Assert.AreEqual<ELF.SymVerInfo option>(None, gmon)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 sysvhash dynamic symbols test``() =
+    (* With no DT_GNU_HASH, DT_HASH gives the count in its nchain word. *)
+    let symbols = x64SysvHashFile.Symbols.DynamicSymbols
+    Assert.AreEqual<int>(7, symbols.Length)
+    let names = symbols |> Array.map _.SymName
+    Assert.AreEqual<bool>(true, Array.contains "printf" names)
 
   [<TestMethod>]
   member _.``[ELF] symbol version names are per file test``() =
