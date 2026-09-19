@@ -994,6 +994,19 @@ type ELFTests() =
     Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fb8UL)
 
   [<TestMethod>]
+  member _.``[ELF] riscv64 imports test``() =
+    (* .plt is 0x50 from 0x600, a 32-byte header and three 16-byte stubs. *)
+    let expected =
+      [ "__libc_start_main", Some 0x620UL
+        "abort", Some 0x630UL
+        "write", Some 0x640UL ]
+    let entries =
+      getLinkageTableEntries riscv64File
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
   member _.``[ELF] riscv64 ifunc resolves to its resolver test``() =
     (* resolve_f sits at 0x686, and that is the addend of the IRELATIVE entry
        the loader fills 0x1fd0 with. *)

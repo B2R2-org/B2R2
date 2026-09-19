@@ -214,15 +214,23 @@ type GeneralParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
       | None -> r.RelKind = relKind
     entries |> Seq.filter belongsToPLT |> Seq.toArray
 
+  (* Where a target gives an imported function the address of its own PLT stub,
+     the gap between two such symbols is the entry size. That is worth having,
+     because a .plt padded with dummy data does not divide evenly. A target
+     that leaves those symbols undefined, and so at zero, says nothing. *)
+  let entrySizeFromSymbols =
+    match relocs |> Array.truncate 2 |> Array.choose _.RelSymbol with
+    | [| first; second |] when first.Addr > 0UL && second.Addr > first.Addr ->
+      Some(second.Addr - first.Addr)
+    | _ ->
+      None
+
   let createGeneralPLTDescriptor rsec sec =
     let count = rsec.SecSize / rsec.SecEntrySize (* number of PLT entries *)
-    let pltEntrySize = (* sometimes, plt section contains dummy data *)
-      if relocs.Length >= 2
-         && relocs[0].RelSymbol.IsSome
-         && relocs[1].RelSymbol.IsSome then
-        relocs[1].RelSymbol.Value.Addr - relocs[0].RelSymbol.Value.Addr
-      else
-        (sec.SecSize - pltHdrSize) / count
+    let pltEntrySize =
+      match entrySizeFromSymbols with
+      | Some size -> size
+      | None -> (sec.SecSize - pltHdrSize) / count
     let addr = sec.SecAddr + pltHdrSize
     assert (relocs.Length = int count)
     newPLT DontCare AnyBinding false pltEntrySize 0UL addr
