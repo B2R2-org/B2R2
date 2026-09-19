@@ -43,6 +43,14 @@ type ELFTests() =
   static let tryResolveName (file: ELFBinFile) addr =
     (file :> IBinFile).NameResolver.Value.TryResolveName addr
 
+  static let coreLayoutOf machine cls flags =
+    ELF.CoreRegisters.tryFindLayout machine cls flags
+
+  static let coreLayout machine cls =
+    match coreLayoutOf machine cls 0u with
+    | Some layout -> layout
+    | None -> Assert.Fail $"No core register layout for {machine}."; [||]
+
   static let parseFile fileName =
     let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
     ELFBinFile(fileName, bytes, None, None)
@@ -586,6 +594,177 @@ type ELFTests() =
       Assert.AreEqual<int>(224, status.RegisterBlock.Length)
     | statuses ->
       Assert.Fail $"Expected one thread state, got {statuses.Length}."
+
+  [<TestMethod>]
+  member _.``[ELF] x64 core registers test``() =
+    (* Every value here is what gdb reads out of the very same dump, so the
+       slot order of the x86-64 layout is checked against a second reader
+       rather than against itself. *)
+    let status = x64CoreFile.ProcessStatuses[0]
+    let regs = status.GeneralRegisters |> Map.ofArray
+    Assert.AreEqual<int>(27, status.GeneralRegisters.Length)
+    Assert.AreEqual<uint64>(0x555555555044UL, regs["RIP"])
+    Assert.AreEqual<uint64>(0x7fffffffd378UL, regs["RSP"])
+    Assert.AreEqual<uint64>(0x7fffffffd410UL, regs["RBP"])
+    Assert.AreEqual<uint64>(0x555555555040UL, regs["RAX"])
+    Assert.AreEqual<uint64>(1UL, regs["RDI"])
+    Assert.AreEqual<uint64>(0x203UL, regs["R11"])
+    Assert.AreEqual<uint64>(0x33UL, regs["CS"])
+    Assert.AreEqual<uint64>(0x2bUL, regs["SS"])
+    Assert.AreEqual<uint64>(0x10246UL, regs["EFLAGS"])
+
+  [<TestMethod>]
+  member _.``[ELF] core register layout shapes test``() =
+    (* One slot count and the program counter of each architecture, taken
+       from a dump of that machine that gdb read the same registers out of,
+       so that an edit to a table cannot quietly shift a whole machine. *)
+    let x86 = coreLayout ELF.MachineType.EM_386 WordSize.Bit32
+    let aarch64 = coreLayout ELF.MachineType.EM_AARCH64 WordSize.Bit64
+    let arm32 = coreLayout ELF.MachineType.EM_ARM WordSize.Bit32
+    let riscv64 = coreLayout ELF.MachineType.EM_RISCV WordSize.Bit64
+    Assert.AreEqual<int * string>((17, "EIP"), (x86.Length, fst x86[12]))
+    Assert.AreEqual<int * string>((34, "pc"), (aarch64.Length, fst aarch64[32]))
+    Assert.AreEqual<int * string>((18, "pc"), (arm32.Length, fst arm32[15]))
+    Assert.AreEqual<int * string>((32, "pc"), (riscv64.Length, fst riscv64[0]))
+
+  [<TestMethod>]
+  member _.``[ELF] PowerPC core register layout test``() =
+    (* Both classes lay the same slots out, the width of a word apart: the
+       thirty-two general registers, then pt_regs with the instruction
+       address first, then four slots of padding. *)
+    let ppc32 = coreLayout ELF.MachineType.EM_PPC WordSize.Bit32
+    let ppc64 = coreLayout ELF.MachineType.EM_PPC64 WordSize.Bit64
+    Assert.AreEqual<int * string>((48, "iar"), (ppc32.Length, fst ppc32[32]))
+    Assert.AreEqual<string>("lr", fst ppc32[36])
+    CollectionAssert.AreEqual(Array.map fst ppc32, Array.map fst ppc64)
+    Assert.AreEqual<int>(4, snd ppc32[0])
+    Assert.AreEqual<int>(8, snd ppc64[0])
+
+  [<TestMethod>]
+  member _.``[ELF] s390x core register layout test``() =
+    (* The one layout whose slots differ in width: the PSW and the general
+       registers are words, the access registers half that. *)
+    let s390x = coreLayout ELF.MachineType.EM_S390 WordSize.Bit64
+    Assert.AreEqual<int>(35, s390x.Length)
+    Assert.AreEqual<string * int>(("PSWAddr", 8), s390x[1])
+    Assert.AreEqual<string * int>(("R0", 8), s390x[2])
+    Assert.AreEqual<string * int>(("ACR0", 4), s390x[18])
+    Assert.AreEqual<string * int>(("OrigR2", 8), s390x[34])
+
+  [<TestMethod>]
+  member _.``[ELF] MIPS core register layout test``() =
+    (* o32 opens its block with six slots the kernel never sets, so the
+       general registers start at six there and at zero under n64. Both
+       blocks hold forty-five slots all the same. *)
+    let mips32 = coreLayout ELF.MachineType.EM_MIPS WordSize.Bit32
+    let mips64 = coreLayout ELF.MachineType.EM_MIPS WordSize.Bit64
+    Assert.AreEqual<int * int>((45, 45), (mips32.Length, mips64.Length))
+    Assert.AreEqual<string>("", fst mips32[5])
+    let starts = fst mips32[6], fst mips64[0]
+    let pcs = fst mips32[40], fst mips64[34]
+    Assert.AreEqual<string * string>(("r0", "r0"), starts)
+    Assert.AreEqual<string * string>(("pc", "pc"), pcs)
+
+  [<TestMethod>]
+  member _.``[ELF] SuperH and PA-RISC core register layouts test``() =
+    let sh4 = coreLayout ELF.MachineType.EM_SH WordSize.Bit32
+    let hppa = coreLayout ELF.MachineType.EM_PARISC WordSize.Bit32
+    Assert.AreEqual<int * string>((23, "pc"), (sh4.Length, fst sh4[16]))
+    Assert.AreEqual<string>("tra", fst sh4[22])
+    Assert.AreEqual<int * string>((80, "flags"), (hppa.Length, fst hppa[0]))
+    let spaces = fst hppa[32], fst hppa[40]
+    Assert.AreEqual<string * string>(("sr0", "iaoq0"), spaces)
+
+  [<TestMethod>]
+  member _.``[ELF] m68k core register layout test``() =
+    (* Its data registers open the block with d0 held back to the middle of
+       it, and two of the twenty slots are each shared by a pair of
+       half-width fields, which is what makes twenty-two entries of eighty
+       bytes. *)
+    let m68k = coreLayout ELF.MachineType.EM_68K WordSize.Bit32
+    let width = m68k |> Array.sumBy snd
+    Assert.AreEqual<int * int>((22, 80), (m68k.Length, width))
+    Assert.AreEqual<string * int>(("d1", 4), m68k[0])
+    Assert.AreEqual<string * int>(("d0", 4), m68k[14])
+    Assert.AreEqual<string * int>(("sr", 2), m68k[18])
+    Assert.AreEqual<string * int>(("pc", 4), m68k[19])
+
+  [<TestMethod>]
+  member _.``[ELF] core register layout widths test``() =
+    (* Every layout has to be exactly as wide as the elf_gregset_t of its
+       machine, which is what the kernel writes. The sizes here were taken
+       from the cross-toolchain headers of each machine, by compiling
+       sizeof(elf_gregset_t) rather than by reading a dump. *)
+    let widthOf machine cls = coreLayout machine cls |> Array.sumBy snd
+    let expected =
+      [| ELF.MachineType.EM_X86_64, WordSize.Bit64, 216
+         ELF.MachineType.EM_386, WordSize.Bit32, 68
+         ELF.MachineType.EM_AARCH64, WordSize.Bit64, 272
+         ELF.MachineType.EM_ARM, WordSize.Bit32, 72
+         ELF.MachineType.EM_RISCV, WordSize.Bit64, 256
+         ELF.MachineType.EM_PPC, WordSize.Bit32, 192
+         ELF.MachineType.EM_PPC64, WordSize.Bit64, 384
+         ELF.MachineType.EM_S390, WordSize.Bit64, 216
+         ELF.MachineType.EM_MIPS, WordSize.Bit32, 180
+         ELF.MachineType.EM_MIPS, WordSize.Bit64, 360
+         ELF.MachineType.EM_SH, WordSize.Bit32, 92
+         ELF.MachineType.EM_PARISC, WordSize.Bit32, 320
+         ELF.MachineType.EM_68K, WordSize.Bit32, 80
+         ELF.MachineType.EM_ALPHA, WordSize.Bit64, 264
+         ELF.MachineType.EM_SPARCV9, WordSize.Bit64, 288 |]
+    for machine, cls, width in expected do
+      let actual = widthOf machine cls
+      Assert.AreEqual<int>(width, actual, $"{machine} gregset width")
+
+  [<TestMethod>]
+  member _.``[ELF] Alpha and SPARC core register layouts test``() =
+    (* Neither follows the pt_regs order that its ptrace header gives. Alpha
+       is rearranged into the numbering order of the ISA before it is
+       written, and SPARC writes the four register windows of the trap
+       before the trap state. gdb reads both the same way. *)
+    let alpha = coreLayout ELF.MachineType.EM_ALPHA WordSize.Bit64
+    let sparc = coreLayout ELF.MachineType.EM_SPARCV9 WordSize.Bit64
+    let generals = fst alpha[0], fst alpha[30]
+    let tail = fst alpha[31], fst alpha[32]
+    let globals = fst sparc[0], fst sparc[8]
+    let windows = fst sparc[16], fst sparc[24]
+    Assert.AreEqual<int>(33, alpha.Length)
+    Assert.AreEqual<string * string>(("r0", "r30"), generals)
+    Assert.AreEqual<string * string>(("pc", "uniq"), tail)
+    Assert.AreEqual<int>(36, sparc.Length)
+    Assert.AreEqual<string * string>(("%g0", "%o0"), globals)
+    Assert.AreEqual<string * string>(("%l0", "%i0"), windows)
+    Assert.AreEqual<string>("pc", fst sparc[33])
+
+  [<TestMethod>]
+  member _.``[ELF] prstatus prefix shape test``() =
+    (* The fixed prefix of a prstatus note is 112 bytes wide on an ELF64
+       machine and 72 on an ELF32 one, except on m68k, which aligns to two
+       bytes and so pads none of the fields that the others pad. *)
+    let shape machine cls =
+      let struct (prefix, pid) = ELF.CoreNotes.prstatusShape machine cls
+      prefix, pid
+    let x64 = shape ELF.MachineType.EM_X86_64 WordSize.Bit64
+    let arm = shape ELF.MachineType.EM_ARM WordSize.Bit32
+    let m68k = shape ELF.MachineType.EM_68K WordSize.Bit32
+    Assert.AreEqual<int * int>((112, 32), x64)
+    Assert.AreEqual<int * int>((72, 24), arm)
+    Assert.AreEqual<int * int>((70, 22), m68k)
+
+  [<TestMethod>]
+  member _.``[ELF] core register layout is machine specific test``() =
+    (* The class has to agree with the machine, an x32 dump being an ELF32
+       file of x86-64 registers, and so does the ABI, MIPS n32 putting n64
+       registers in an ELF32 file. A machine no layout is known for, 32-bit
+       SPARC among them, leaves the raw block as the only record. *)
+    let x64 = coreLayoutOf ELF.MachineType.EM_X86_64
+    Assert.AreEqual<bool>(true, (x64 WordSize.Bit64 0u).IsSome)
+    Assert.AreEqual<bool>(false, (x64 WordSize.Bit32 0u).IsSome)
+    let mips = coreLayoutOf ELF.MachineType.EM_MIPS
+    Assert.AreEqual<bool>(true, (mips WordSize.Bit32 0u).IsSome)
+    Assert.AreEqual<bool>(false, (mips WordSize.Bit32 0x20u).IsSome)
+    let sparc32 = coreLayoutOf ELF.MachineType.EM_SPARC
+    Assert.AreEqual<bool>(false, (sparc32 WordSize.Bit32 0u).IsSome)
 
   [<TestMethod>]
   member _.``[ELF] x64 core mappings test``() =
@@ -2077,6 +2256,16 @@ type ELFTests() =
     let p = f.GetBoundedPointer 0x401050UL
     Assert.AreEqual<bool>(false, p.IsNull)
     Assert.AreEqual<bool>(true, p.CanReadFileBytes)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 core reads dumped memory test``() =
+    (* A core dump maps its memory through PT_LOAD like any other file, so
+       what it captured is readable by address. The vDSO is the one mapping
+       the dump keeps whole, being anonymous rather than file-backed. *)
+    let f = x64CoreFile :> IBinFile
+    let magic = f.Slice(0x7ffff7fc3000UL, 4).ToArray()
+    CollectionAssert.AreEqual([| 0x7fuy; 0x45uy; 0x4cuy; 0x46uy |], magic)
+    Assert.AreEqual<bool>(true, f.IsValidAddr 0x7ffff7fc3000UL)
 
   [<TestMethod>]
   member _.``[ELF] format detector identifies ELF test``() =

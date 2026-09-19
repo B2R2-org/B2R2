@@ -46,6 +46,9 @@ type internal LoadCommand =
   | DyLinker of cmd: CmdType * size: uint32 * path: string
   /// Runpath command (LC_RPATH), carrying a runtime library search path.
   | Rpath of cmd: CmdType * size: uint32 * path: string
+  /// Universally unique identifier command (LC_UUID), carrying the sixteen
+  /// bytes that name this particular build of the binary.
+  | Uuid of cmd: CmdType * size: uint32 * uuid: byte[]
   /// Dynamic linker information command (LC_DYLD_INFO or LC_DYLD_INFO_ONLY).
   | DyLdInfo of cmd: CmdType * size: uint32 * DyLdInfoCmd
   /// Function starts command (LC_FUNCTION_STARTS).

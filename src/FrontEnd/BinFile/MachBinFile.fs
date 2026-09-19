@@ -110,6 +110,13 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
             | DyLibId(_, _, c) -> Some c.DyLibName
             | _ -> None))
 
+  let buildId =
+    lazy (cmds.Value
+          |> Array.tryPick (function
+            | Uuid(_, _, uuid) -> Some uuid
+            | _ -> None)
+          |> Option.defaultValue [||])
+
   let machSymKind secText (s: Symbol) =
     if Symbol.IsFunc(secText, s) then FunctionSymbol
     elif Symbol.IsSection s then DataSymbol
@@ -456,7 +463,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
     member _.SharedObjectName with get() = installName.Value
 
-    member _.BuildId with get() = [||]
+    member _.BuildId with get() = Array.copy buildId.Value
 
     member _.ProgramHeaderTable with get() = None
 

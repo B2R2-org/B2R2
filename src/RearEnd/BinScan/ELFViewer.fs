@@ -608,6 +608,16 @@ let private dumpProperties (file: ELFBinFile) =
   else
     ()
 
+let private dumpRegisters (status: ProcessStatus) =
+  if not (Array.isEmpty status.GeneralRegisters) then
+    printSubsubsectionTitle $"Registers of thread {status.ProcessID}"
+    setTableColumnFormats [| LeftAligned 12; LeftAligned 20 |]
+    for name, value in status.GeneralRegisters do
+      printsr [| name; HexString.ofUInt64 value |]
+    printsn ""
+  else
+    ()
+
 let private dumpProcessStatuses (file: ELFBinFile) =
   let statuses = file.ProcessStatuses
   if not (Array.isEmpty statuses) then
@@ -622,6 +632,7 @@ let private dumpProcessStatuses (file: ELFBinFile) =
                  status.CurrentSignal.ToString() |]
     printDoubleHorizontalRule ()
     printsn ""
+    for status in statuses do dumpRegisters status
   else
     ()
 

@@ -50,11 +50,13 @@ and internal ProcessStatus =
     ProcessID: int
     /// ID of the parent process.
     ParentProcessID: int
+    /// General registers of the thread, each paired with the name of the slot
+    /// it sits in. Empty for a machine whose register layout this reader does
+    /// not know, where RegisterBlock is all that can be had.
+    GeneralRegisters: (string * uint64)[]
     /// Everything the note holds past its fixed prefix: the block of general
     /// registers, then the flag that says whether floating-point registers
     /// follow, then the padding that the alignment of the structure adds.
-    /// Splitting it further takes the register layout of the architecture,
-    /// which every ABI lays out its own way.
     RegisterBlock: byte[] }
 
 [<RequireQualifiedAccess>]
@@ -118,30 +120,47 @@ module internal CoreNotes =
     | Some note -> readMappings toolBox note.NoteDesc
     | None -> [||]
 
-  /// Returns how wide the fixed prefix of a prstatus note is, which is what
-  /// comes before the registers: the signal information, the two signal
-  /// masks, the four process IDs, and the four CPU times.
-  let private prefixSize cls = selectByWordSize cls 72 112
+  /// Returns how wide the fixed prefix of a prstatus note is and where the
+  /// process IDs sit inside it. The prefix holds the signal information, the
+  /// two signal masks, the four process IDs and the four CPU times, and the
+  /// alignment of the machine is what sets it out: m68k aligns to two bytes
+  /// and so pads none of it, where every other machine pads to four and ends
+  /// up two bytes wider.
+  let prstatusShape machine cls =
+    if machine = MachineType.EM_68K then struct (70, 22)
+    else struct (selectByWordSize cls 72 112, selectByWordSize cls 24 32)
 
   let private isStatusNote prefix note =
     note.NoteOwner = Notes.CoreOwner
     && note.NoteType = uint32 CoreNoteType.NT_PRSTATUS
     && note.NoteDesc.Length >= prefix
 
+  /// Reads the general registers of a thread, which sit right past the fixed
+  /// prefix of its prstatus note.
+  let private readRegisters toolBox (block: byte[]) =
+    let hdr = toolBox.Header
+    let machine, cls, flags = hdr.MachineType, hdr.Class, hdr.ELFFlags
+    match CoreRegisters.tryFindLayout machine cls flags with
+    | Some layout -> CoreRegisters.read toolBox.Reader layout block
+    | None -> [||]
+
   let private readStatus toolBox (desc: byte[]) =
-    let reader, cls = toolBox.Reader, toolBox.Header.Class
+    let reader, hdr = toolBox.Reader, toolBox.Header
+    let struct (prefix, pidOffset) = prstatusShape hdr.MachineType hdr.Class
     let span = ReadOnlySpan desc
-    let pidOffset = selectByWordSize cls 24 32
+    let block = desc[prefix..]
     { CurrentSignal = int (reader.ReadUInt16(span, 12))
       ProcessID = reader.ReadInt32(span, pidOffset)
       ParentProcessID = reader.ReadInt32(span, pidOffset + 4)
-      RegisterBlock = desc[prefixSize cls..] }
+      GeneralRegisters = readRegisters toolBox block
+      RegisterBlock = block }
 
   /// Reads the thread states that the NT_PRSTATUS notes of a core dump
   /// record. A note too short to hold the fixed prefix records no state that
   /// can be read, so it is left out.
   let parseStatuses toolBox notes =
-    let prefix = prefixSize toolBox.Header.Class
+    let hdr = toolBox.Header
+    let struct (prefix, _) = prstatusShape hdr.MachineType hdr.Class
     notes
     |> Array.filter (isStatusNote prefix)
     |> Array.map (fun note -> readStatus toolBox note.NoteDesc)

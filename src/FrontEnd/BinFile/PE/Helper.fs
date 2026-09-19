@@ -63,6 +63,67 @@ type internal PE =
 
 let [<Literal>] SecText = Section.Text
 
+/// Represents the debug directory entry kind that names a PDB, which the
+/// specification calls DEBUG_TYPE_CODEVIEW.
+let private codeViewType = 2u
+
+/// Represents the signature of the CodeView record form that carries a
+/// GUID, which reads as "RSDS".
+let private codeViewSignature = 0x53445352u
+
+/// Returns where the debug directory sits in the file and how many entries it
+/// holds, or none for a file that carries none. An object file has no
+/// optional header for the directory to be named in.
+let private tryFindDebugDirectory pe =
+  if pe.PEHeaders.IsCoffOnly then
+    None
+  else
+    let dir = pe.PEHeaders.PEHeader.DebugTableDirectory
+    match pe.PEHeaders.TryGetDirectoryOffset dir with
+    | true, offset when dir.Size >= 28 -> Some(offset, dir.Size / 28)
+    | _ -> None
+
+/// Reads the GUID out of the CodeView record at the given file offset. Only
+/// the RSDS form carries one, and it is what every toolchain since VC7
+/// writes; the older NB10 form names its PDB by a timestamp instead.
+let private readCodeViewGuid (bytes: byte[]) (reader: IBinReader) offset =
+  if offset < 0 || offset + 20 > bytes.Length then
+    [||]
+  else
+    let span = System.ReadOnlySpan(bytes, offset, 20)
+    if reader.ReadUInt32(span, 0) = codeViewSignature then
+      span.Slice(4, 16).ToArray()
+    else
+      [||]
+
+/// Reads the GUID of one debug directory entry, which only a CodeView entry
+/// carries. The entry names its record twice, by address and by file offset,
+/// and the offset is what a reader of the file on disk can follow.
+let private readEntryGuid bytes (reader: IBinReader) (span: ByteSpan) =
+  if reader.ReadUInt32(span, 12) = codeViewType then
+    readCodeViewGuid bytes reader (reader.ReadInt32(span, 24))
+  else
+    [||]
+
+let rec private findCodeViewGuid (bytes: byte[]) reader offset count =
+  if count = 0 || offset + 28 > bytes.Length then
+    [||]
+  else
+    let span = System.ReadOnlySpan(bytes, offset, 28)
+    let guid = readEntryGuid bytes reader span
+    if Array.isEmpty guid then
+      findCodeViewGuid bytes reader (offset + 28) (count - 1)
+    else
+      guid
+
+/// Returns the build ID of the binary, which is the GUID that the CodeView
+/// entry of its debug directory carries. It names the PDB built beside the
+/// binary, and a build made without one carries no such entry.
+let getBuildId bytes pe =
+  match tryFindDebugDirectory pe with
+  | Some(offset, count) -> findCodeViewGuid bytes pe.BinReader offset count
+  | None -> [||]
+
 let isNXEnabled pe =
   let hdrs = pe.PEHeaders
   if hdrs.IsCoffOnly then false

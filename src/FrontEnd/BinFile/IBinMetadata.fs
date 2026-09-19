@@ -94,10 +94,10 @@ type IBinMetadata =
 
   /// <summary>
   /// The build ID that names this particular build of the binary, taken from
-  /// the ELF <c>NT_GNU_BUILD_ID</c> note. Returns an empty array for a binary
-  /// that carries none, and for the formats whose own counterparts (the
-  /// Mach-O <c>LC_UUID</c> load command, the PE CodeView debug directory) are
-  /// not read yet.
+  /// the ELF <c>NT_GNU_BUILD_ID</c> note, the Mach-O <c>LC_UUID</c> load
+  /// command, and the GUID that the CodeView entry of the PE debug directory
+  /// carries. Returns an empty array for a binary that carries none and for
+  /// formats that have no such notion (e.g., Wasm).
   /// </summary>
   abstract BuildId: byte[]
 

@@ -442,6 +442,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
     | Mach.DyLibId(cmd, size, dylib) -> dumpDyLibCmd cmd size dylib i
     | Mach.DyLinker(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.Rpath(cmd, size, _) -> dumpUnhandledCmd cmd size i
+    | Mach.Uuid(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.DyLdInfo(cmd, size, ldinfo) -> dumpDyLdInfoCmd cmd size ldinfo i
     | Mach.FuncStarts(_, _, fnstart) -> dumpFuncStartsCmd fnstart i
     | Mach.ChainedFixups(cmd, size, _) -> dumpUnhandledCmd cmd size i

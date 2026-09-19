@@ -114,6 +114,25 @@ type PETests() =
     |> assertExistenceOfPair (pageRVA, blockSize)
 
   [<TestMethod>]
+  member _.``[PE] X64 PDB build ID test``() =
+    (* PE names a build by the GUID of the PDB it was built with, which the
+       CodeView entry of its debug directory carries. *)
+    let hex = "590d440e92d5dc4294c27ae9b2c70ae2"
+    let expected = ByteArray.ofHexString hex
+    CollectionAssert.AreEqual(expected, (x64PdbFile :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[PE] X64 without CodeView has no build ID test``() =
+    (* The debug directory of this one holds only a POGO entry, which names
+       no PDB and so names no build. *)
+    CollectionAssert.AreEqual([||], (x64File :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[PE] X64 object file has no build ID test``() =
+    (* An object file has no optional header, so no debug directory either. *)
+    CollectionAssert.AreEqual([||], (x64ObjFile :> IBinFile).BuildId)
+
+  [<TestMethod>]
   member _.``[PE] x64 ISA test``() =
     let isa = (x64File :> IBinFile).ISA
     Assert.AreEqual(Architecture.Intel, isa.Arch)

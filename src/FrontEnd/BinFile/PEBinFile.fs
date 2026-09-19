@@ -240,6 +240,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       | "" -> None
       | name -> Some name
 
+  let buildId = lazy getBuildId bytes pe
+
   let importTable =
     Some { new IImportTable with
       member _.Imports = importEntries.Value
@@ -350,7 +352,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.SharedObjectName with get() = exportName.Value
 
-    member _.BuildId with get() = [||]
+    member _.BuildId with get() = Array.copy buildId.Value
 
     member _.ProgramHeaderTable with get() = None
 
