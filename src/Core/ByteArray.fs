@@ -61,26 +61,26 @@ module ByteArray =
     with :? ArgumentOutOfRangeException ->
       Error ErrorCase.InvalidMemoryRead
 
-  let rec private extractCStringFromSpanAux span (acc: StringBuilder) offset =
-    if offset >= (span: ReadOnlySpan<byte>).Length then
-      acc.ToString()
+  /// Extracts a C-string (string that ends with a NULL char) from a
+  /// ReadOnlySpan. The string ends at the NULL char, or at the end of the span
+  /// when there is none. Each byte is taken as a character code, which is what
+  /// Latin-1 decoding does.
+  [<CompiledName "ExtractCStringFromSpan">]
+  let extractCStringFromSpan (span: ReadOnlySpan<byte>) offset =
+    if offset < 0 then
+      raise (IndexOutOfRangeException())
+    elif span.Length <= offset then
+      ""
     else
-      match span[offset] with
-      | 0uy -> acc.ToString()
-      | b -> extractCStringFromSpanAux span (char b |> acc.Append) (offset + 1)
+      let tail = span.Slice offset
+      let nul = tail.IndexOf 0uy
+      let length = if nul < 0 then tail.Length else nul
+      Encoding.Latin1.GetString(tail.Slice(0, length))
 
   /// Extracts a C-string (string that ends with a NULL char) from a byte array.
   [<CompiledName "ExtractCString">]
   let extractCString (bytes: ByteArray) offset =
-    if bytes.Length <= offset then ""
-    else extractCStringFromSpanAux (ReadOnlySpan bytes) (StringBuilder()) offset
-
-  /// Extracts a C-string (string that ends with a NULL char) from a
-  /// ReadOnlySpan.
-  [<CompiledName "ExtractCStringFromSpan">]
-  let extractCStringFromSpan (span: ReadOnlySpan<byte>) offset =
-    if span.Length <= offset then ""
-    else extractCStringFromSpanAux span (StringBuilder()) offset
+    extractCStringFromSpan (ReadOnlySpan bytes) offset
 
   let private makeDelta1 pattern patlen =
     let delta1 = Array.create 256 patlen

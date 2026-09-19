@@ -51,16 +51,45 @@ module private RelocMap =
   let inline getRelocSIdx hdr (i: uint64) =
     if hdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
 
-  let getRelocEntry toolBox hasAddend typMask symTbl span sec =
+  /// Returns the mask selecting the relocation type out of r_info. ELF64 gives
+  /// the type 32 bits, except under the MIPS n64 ABI, which packs three 8-bit
+  /// types there and puts the primary one first.
+  let getRelocTypeMask hdr =
+    match hdr.MachineType, hdr.Class with
+    | MachineType.EM_MIPS, WordSize.Bit64 -> 0xFFUL
+    | _ -> selectByWordSize hdr.Class 0xFFUL 0xFFFFFFFFUL
+
+  /// Reads the addend a REL-format entry leaves in the slot it relocates.
+  let readImplicitAddend toolBox locate addr =
+    let cls = toolBox.Header.Class
+    let width = uint64 (WordSize.toByteWidth cls)
+    match locate addr width with
+    | Some(offset, _) ->
+      let span = ReadOnlySpan(toolBox.Bytes, int offset, int width)
+      readUIntByWordSize span toolBox.Reader cls 0
+    | None ->
+      0UL
+
+  let getRelocAddend toolBox locate span sec addr =
+    let cls = toolBox.Header.Class
+    if sec.SecType = SectionType.SHT_RELA then
+      readUIntByWordSizeAndOffset span toolBox.Reader cls 8 16
+    else
+      readImplicitAddend toolBox locate addr
+
+  let getRelocEntry toolBox locate symTbl span sec =
     let hdr = toolBox.Header
-    let reader = toolBox.Reader
-    let info = readInfoWithArch toolBox span
     let cls = hdr.Class
-    { RelOffset = readUIntByWordSize span reader cls 0 + toolBox.BaseAddress
-      RelKind = RelocationKind(hdr.MachineType, typMask &&& info)
-      RelSymbol = Array.tryItem (getRelocSIdx hdr info |> int) symTbl
-      RelAddend = if not hasAddend then 0UL
-                  else readUIntByWordSizeAndOffset span reader cls 8 16
+    let info = readInfoWithArch toolBox span
+    let reader = toolBox.Reader
+    let addr = readUIntByWordSize span reader cls 0 + toolBox.BaseAddress
+    let idx = getRelocSIdx hdr info |> int
+    { RelOffset = addr
+      RelKind =
+        RelocationKind.Create(hdr.MachineType, getRelocTypeMask hdr &&& info)
+      (* Index 0 is the reserved STN_UNDEF entry, so it names no symbol. *)
+      RelSymbol = if idx = 0 then None else Array.tryItem idx symTbl
+      RelAddend = getRelocAddend toolBox locate span sec addr
       RelSecNumber = sec.SecNum }
 
   let tryFindSymbTable idx (symbs: SymbolStore) =
@@ -71,40 +100,99 @@ module private RelocMap =
   let inline accumulateRelocInfo (relocMap: Dictionary<_, _>) rel =
     relocMap[rel.RelOffset] <- rel
 
-  let parseRelocSection toolBox symbs relocMap sec (span: ByteSpan) =
+  let parseRelocSection toolBox locate symTbl relocMap sec =
     let hdr = toolBox.Header
     let hasAddend = sec.SecType = SectionType.SHT_RELA
-    let typMask = selectByWordSize hdr.Class 0xFFUL 0xFFFFFFFFUL
     let entrySize =
       if hasAddend then (uint64 <| WordSize.toByteWidth hdr.Class * 3)
       else (uint64 <| WordSize.toByteWidth hdr.Class * 2)
     let numEntries = int (sec.SecSize / entrySize)
+    let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
     for i = 0 to (numEntries - 1) do
-      let symTbl = tryFindSymbTable (int sec.SecLink) symbs
       let offset = i * int entrySize
-      getRelocEntry toolBox hasAddend typMask symTbl (span.Slice offset) sec
+      getRelocEntry toolBox locate symTbl (span.Slice offset) sec
       |> accumulateRelocInfo relocMap
 
-  let parse toolBox shdrs symbs =
+  /// Applies f to every address a RELR bitmap marks. Bit 0 is the tag that
+  /// makes the entry a bitmap, so bit i + 1 marks the i-th word from cursor.
+  let applyRelrBitmap (width: uint64) (cursor: uint64) bitmap f =
+    let mutable bits = bitmap >>> 1
+    let mutable addr = cursor
+    while bits <> 0UL do
+      if bits &&& 1UL <> 0UL then f addr else ()
+      bits <- bits >>> 1
+      addr <- addr + width
+
+  /// Walks a RELR table, applying f to each link-time address it relocates.
+  /// Entries are word-sized. An even one is an address: it relocates that one
+  /// word and leaves the cursor right past it. An odd one is a bitmap over the
+  /// words from the cursor, which afterwards skips every bit the entry can
+  /// hold: one fewer than the word has bits, as the lowest one is the tag.
+  let iterRelrTable cls reader (span: ByteSpan) f =
+    let width = uint64 (WordSize.toByteWidth cls)
+    let stride = (width * 8UL - 1UL) * width
+    let mutable cursor = 0UL
+    for i = 0 to span.Length / int width - 1 do
+      let entry = readUIntByWordSize span reader cls (i * int width)
+      if entry &&& 1UL = 0UL then
+        f entry
+        cursor <- entry + width
+      else
+        applyRelrBitmap width cursor entry f
+        cursor <- cursor + stride
+
+  let parseRelrSection toolBox locate relocMap sec kind =
+    let cls = toolBox.Header.Class
+    let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
+    let accumulate offset =
+      let addr = offset + toolBox.BaseAddress
+      { RelOffset = addr
+        RelKind = kind
+        (* RELR only ever packs relative relocations, which name no symbol and
+           take as their addend whatever the slot already holds. *)
+        RelSymbol = None
+        RelAddend = readImplicitAddend toolBox locate addr
+        RelSecNumber = sec.SecNum }
+      |> accumulateRelocInfo relocMap
+    iterRelrTable cls toolBox.Reader span accumulate
+
+  let isRelocSection s =
+    match s.SecType with
+    | SectionType.SHT_REL
+    | SectionType.SHT_RELA
+    | SectionType.SHT_RELR -> true
+    | _ -> false
+
+  /// Returns the symbol table a relocation table names. A table the dynamic
+  /// array located links to no section, so it takes the sole dynamic table.
+  let getSymbolTable (symbs: SymbolStore) sec =
+    if sec.SecNum < 0 then symbs.DynamicSymbols
+    else tryFindSymbTable (int sec.SecLink) symbs
+
+  let parse toolBox shdrs phdrs dynTables symbs =
     let relocMap = Dictionary()
-    for sec in shdrs do
-      match sec.SecType with
-      | SectionType.SHT_REL
-      | SectionType.SHT_RELA ->
-        if sec.SecSize = 0UL then
-          ()
-        else
-          let offset, size = int sec.SecOffset, int sec.SecSize
-          let span = ReadOnlySpan(toolBox.Bytes, offset, size)
-          parseRelocSection toolBox symbs relocMap sec span
+    let locate = DynamicTables.makeContentLocator shdrs phdrs
+    let relative = RelocationKind.TryCreateRelative toolBox.Header.MachineType
+    let tables =
+      match Array.filter isRelocSection shdrs with
+      | [||] -> (dynTables: DynamicTables).Relocations
+      | sections -> sections
+    for sec in tables do
+      match sec.SecType, relative with
+      | SectionType.SHT_REL, _
+      | SectionType.SHT_RELA, _ when sec.SecSize > 0UL ->
+        let symTbl = getSymbolTable symbs sec
+        parseRelocSection toolBox locate symTbl relocMap sec
+      | SectionType.SHT_RELR, ValueSome kind when sec.SecSize > 0UL ->
+        parseRelrSection toolBox locate relocMap sec kind
       | _ ->
         ()
     relocMap
 
 /// Represents relocation information, which internally stores a collection of
 /// relocation entries indexed by their addresses.
-type internal RelocationInfo internal(toolBox, shdrs, symbs) =
-  let relocMap = RelocMap.parse toolBox shdrs symbs
+type internal RelocationInfo internal(toolBox, shdrs, phdrs, dyn, symbs) =
+  let relocMap = RelocMap.parse toolBox shdrs phdrs dyn symbs
 
   /// Returns all relocation entries.
   member _.Entries with get() = relocMap.Values

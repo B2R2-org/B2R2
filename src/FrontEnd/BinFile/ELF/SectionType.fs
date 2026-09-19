@@ -63,6 +63,9 @@ type internal SectionType =
   | SHT_GROUP = 0x11u
   /// This section holds section indexes.
   | SHT_SYMTAB_SHNDX = 0x12u
+  /// This section holds relative relocations packed as a bitmap, carrying no
+  /// symbol and no explicit addend.
+  | SHT_RELR = 0x13u
   (* The start of processor-specific section type = 0x70000000u *)
   /// ARM unwind section.
   | SHT_ARM_EXIDX = 0x70000001u
@@ -126,6 +129,7 @@ module internal SectionType =
     | SectionType.SHT_PREINIT_ARRAY -> "PREINIT_ARRAY"
     | SectionType.SHT_GROUP -> "GROUP"
     | SectionType.SHT_SYMTAB_SHNDX -> "SYMTAB_SHNDX"
+    | SectionType.SHT_RELR -> "RELR"
     | SectionType.SHT_ARM_EXIDX -> "ARM_EXIDX"
     | SectionType.SHT_ARM_PREEMPTMAP -> "ARM_PREEMPTMAP"
     | SectionType.SHT_ARM_ATTRIBUTES -> "ARM_ATTRIBUTES"

@@ -69,9 +69,78 @@ with
   static member Create(reloc: RelocationPPC32) =
     RelocationKind(MachineType.EM_PPC, uint64 reloc)
 
+  /// Creates a generic RelocationKind from a relocation kind of PowerPC64
+  static member Create(reloc: RelocationPPC64) =
+    RelocationKind(MachineType.EM_PPC64, uint64 reloc)
+
   /// Creates a generic RelocationKind from a relocation kind of PARISC
   static member Create(reloc: RelocationPARISC) =
     RelocationKind(MachineType.EM_PARISC, uint64 reloc)
+
+  /// Creates a generic RelocationKind from a relocation kind of SPARC
+  static member Create(reloc: RelocationSPARC) =
+    RelocationKind(MachineType.EM_SPARCV9, uint64 reloc)
+
+  /// Creates a generic RelocationKind from a relocation kind of Alpha
+  static member Create(reloc: RelocationAlpha) =
+    RelocationKind(MachineType.EM_ALPHA, uint64 reloc)
+
+  /// Creates a generic RelocationKind from a relocation kind of AVR
+  static member Create(reloc: RelocationAVR) =
+    RelocationKind(MachineType.EM_AVR, uint64 reloc)
+
+  /// Creates a generic RelocationKind from a relocation kind of BPF
+  static member Create(reloc: RelocationBPF) =
+    RelocationKind(MachineType.EM_BPF, uint64 reloc)
+
+  /// Creates a generic RelocationKind from the machine type of a file and the
+  /// raw value one of its entries carries. Where several machine types share
+  /// one set of relocation kinds, every kind is named by a single one of them,
+  /// so that comparing two kinds never has to know which alias a file used.
+  static member Create(arch: MachineType, relocValue: uint64) =
+    let arch =
+      match arch with
+      | MachineType.EM_SPARC
+      | MachineType.EM_SPARC32PLUS -> MachineType.EM_SPARCV9
+      | MachineType.EM_MIPS_RS3_LE -> MachineType.EM_MIPS
+      | MachineType.EM_OLD_ALPHA -> MachineType.EM_ALPHA
+      | _ -> arch
+    RelocationKind(arch, relocValue)
+
+  /// Returns the relative relocation kind of the given architecture, which is
+  /// the only kind a RELR table can hold. ValueNone when the architecture
+  /// defines no such kind.
+  static member TryCreateRelative(arch: MachineType) =
+    match arch with
+    | MachineType.EM_386 ->
+      ValueSome(RelocationKind.Create RelocationX86.R_386_RELATIVE)
+    | MachineType.EM_X86_64 ->
+      ValueSome(RelocationKind.Create RelocationX64.R_X86_64_RELATIVE)
+    | MachineType.EM_ARM ->
+      ValueSome(RelocationKind.Create RelocationARMv7.R_ARM_RELATIVE)
+    | MachineType.EM_AARCH64 ->
+      ValueSome(RelocationKind.Create RelocationARMv8.R_AARCH64_RELATIVE)
+    | MachineType.EM_68K ->
+      ValueSome(RelocationKind.Create RelocationM68K.R_68K_RELATIVE)
+    | MachineType.EM_S390 ->
+      ValueSome(RelocationKind.Create RelocationS390.R_390_RELATIVE)
+    | MachineType.EM_SH ->
+      ValueSome(RelocationKind.Create RelocationSH4.R_SH_RELATIVE)
+    | MachineType.EM_RISCV ->
+      ValueSome(RelocationKind.Create RelocationRISCV.R_RISCV_RELATIVE)
+    | MachineType.EM_PPC ->
+      ValueSome(RelocationKind.Create RelocationPPC32.R_PPC_RELATIVE)
+    | MachineType.EM_PPC64 ->
+      ValueSome(RelocationKind.Create RelocationPPC64.R_PPC64_RELATIVE)
+    | MachineType.EM_SPARC
+    | MachineType.EM_SPARC32PLUS
+    | MachineType.EM_SPARCV9 ->
+      ValueSome(RelocationKind.Create RelocationSPARC.R_SPARC_RELATIVE)
+    | MachineType.EM_ALPHA
+    | MachineType.EM_OLD_ALPHA ->
+      ValueSome(RelocationKind.Create RelocationAlpha.R_ALPHA_RELATIVE)
+    | _ ->
+      ValueNone
 
   /// Converts a relocation kind to a string representation.
   static member ToString(RelocationKind(arch, relocValue)) =
@@ -107,11 +176,90 @@ with
     | MachineType.EM_PPC ->
       let kind: RelocationPPC32 = LanguagePrimitives.EnumOfValue relocValue
       kind.ToString()
+    | MachineType.EM_PPC64 ->
+      let kind: RelocationPPC64 = LanguagePrimitives.EnumOfValue relocValue
+      kind.ToString()
     | MachineType.EM_PARISC ->
       let kind: RelocationPARISC = LanguagePrimitives.EnumOfValue relocValue
       kind.ToString()
+    | MachineType.EM_SPARC
+    | MachineType.EM_SPARC32PLUS
+    | MachineType.EM_SPARCV9 ->
+      let kind: RelocationSPARC = LanguagePrimitives.EnumOfValue relocValue
+      kind.ToString()
+    | MachineType.EM_ALPHA
+    | MachineType.EM_OLD_ALPHA ->
+      let kind: RelocationAlpha = LanguagePrimitives.EnumOfValue relocValue
+      kind.ToString()
+    | MachineType.EM_AVR ->
+      let kind: RelocationAVR = LanguagePrimitives.EnumOfValue relocValue
+      kind.ToString()
+    | MachineType.EM_BPF ->
+      let kind: RelocationBPF = LanguagePrimitives.EnumOfValue relocValue
+      kind.ToString()
     | _ ->
-      invalidArg (nameof arch) "Unsupported architecture for relocation."
+      (* The entry itself parsed; only the name for it is missing, which is no
+         reason to fail the whole file. *)
+      $"RELOC_0x%x{relocValue}"
+
+  /// Returns what the given relocation computes, or ValueNone when the kind is
+  /// not one that resolves to an address.
+  static member GetSemantics(RelocationKind(arch, relocValue)) =
+    match arch with
+    | MachineType.EM_386 ->
+      let kind: RelocationX86 = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfX86 kind
+    | MachineType.EM_X86_64 ->
+      let kind: RelocationX64 = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfX64 kind
+    | MachineType.EM_ARM ->
+      let kind: RelocationARMv7 = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfARMv7 kind
+    | MachineType.EM_AARCH64 ->
+      let kind: RelocationARMv8 = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfARMv8 kind
+    | MachineType.EM_MIPS
+    | MachineType.EM_MIPS_RS3_LE ->
+      let kind: RelocationMIPS = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfMIPS kind
+    | MachineType.EM_68K ->
+      let kind: RelocationM68K = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfM68K kind
+    | MachineType.EM_S390 ->
+      let kind: RelocationS390 = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfS390 kind
+    | MachineType.EM_SH ->
+      let kind: RelocationSH4 = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfSH4 kind
+    | MachineType.EM_RISCV ->
+      let kind: RelocationRISCV = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfRISCV kind
+    | MachineType.EM_PPC ->
+      let kind: RelocationPPC32 = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfPPC32 kind
+    | MachineType.EM_PPC64 ->
+      let kind: RelocationPPC64 = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfPPC64 kind
+    | MachineType.EM_PARISC ->
+      let kind: RelocationPARISC = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfPARISC kind
+    | MachineType.EM_SPARC
+    | MachineType.EM_SPARC32PLUS
+    | MachineType.EM_SPARCV9 ->
+      let kind: RelocationSPARC = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfSPARC kind
+    | MachineType.EM_ALPHA
+    | MachineType.EM_OLD_ALPHA ->
+      let kind: RelocationAlpha = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfAlpha kind
+    | MachineType.EM_AVR ->
+      let kind: RelocationAVR = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfAVR kind
+    | MachineType.EM_BPF ->
+      let kind: RelocationBPF = LanguagePrimitives.EnumOfValue relocValue
+      RelocationSemantics.OfBPF kind
+    | _ ->
+      ValueNone
 
 /// Represents a relocation type for x86.
 and internal RelocationX86 =
@@ -275,6 +423,8 @@ and internal RelocationARMv7 =
   | R_ARM_GOT_BREL = 26UL
   /// 32-bit PLT address.
   | R_ARM_PLT32 = 27UL
+  /// Adjust indirectly by program base.
+  | R_ARM_IRELATIVE = 160UL
 
 /// Represents a relocation type for ARMv8.
 and internal RelocationARMv8 =
@@ -304,6 +454,8 @@ and internal RelocationARMv8 =
   | R_AARCH64_JUMP_SLOT = 1026UL
   /// Delta(S) + A.
   | R_AARCH64_RELATIVE = 1027UL
+  /// Indirect(Delta(S) + A).
+  | R_AARCH64_IRELATIVE = 1032UL
 
 /// Represents a relocation type for MIPS.
 and internal RelocationMIPS =
@@ -514,6 +666,10 @@ and internal RelocationS390 =
   | R_390_PC16 = 16UL
   | R_390_PC16DBL = 17UL
   | R_390_PLT16DBL = 18UL
+  /// Direct 64-bit (S + A).
+  | R_390_64 = 22UL
+  /// STT_GNU_IFUNC relocation (B + A).
+  | R_390_IRELATIVE = 61UL
 
 /// Represents a relocation type for SH4.
 and internal RelocationSH4 =
@@ -636,6 +792,8 @@ and internal RelocationRISCV =
   | R_RISCV_RELATIVE = 3UL
   | R_RISCV_COPY = 4UL
   | R_RISCV_JUMP_SLOT = 5UL
+  /// STT_GNU_IFUNC relocation (B + A).
+  | R_RISCV_IRELATIVE = 58UL
   | R_RISCV_TLS_DTPMOD32 = 6UL
   | R_RISCV_TLS_DTPMOD64 = 7UL
   | R_RISCV_TLS_DTPREL32 = 8UL
@@ -784,6 +942,29 @@ and internal RelocationPPC32 =
   | R_PPC_TOC16 = 255UL
 
 /// Represents a relocation type for PARISC.
+/// Represents a relocation type for PowerPC64. The ELFv2 ABI reuses the PowerPC
+/// numbering for everything it inherits, and adds the doubleword-wide kinds on
+/// top; only the kinds a dynamic linker acts on are listed here.
+and internal RelocationPPC64 =
+  /// No relocation.
+  | R_PPC64_NONE = 0UL
+  /// Direct 32-bit (S + A).
+  | R_PPC64_ADDR32 = 1UL
+  /// Copy symbol at runtime.
+  | R_PPC64_COPY = 19UL
+  /// Create GOT entry (S).
+  | R_PPC64_GLOB_DAT = 20UL
+  /// Create PLT entry (S).
+  | R_PPC64_JMP_SLOT = 21UL
+  /// Adjust by program base (B + A).
+  | R_PPC64_RELATIVE = 22UL
+  /// Direct 64-bit (S + A).
+  | R_PPC64_ADDR64 = 38UL
+  /// Doubleword holding the TOC pointer.
+  | R_PPC64_TOC = 51UL
+  /// STT_GNU_IFUNC relocation (B + A).
+  | R_PPC64_IRELATIVE = 248UL
+
 and internal RelocationPARISC =
   | R_PARISC_NONE = 0UL
   | R_PARISC_DIR32 = 1UL
@@ -830,8 +1011,453 @@ and internal RelocationPARISC =
   | R_PARISC_BASEREL14DR = 108UL
   | R_PARISC_PLTOFF14WR = 115UL
   | R_PARISC_PLTOFF14DR = 116UL
-  | R_PARISC_LORESERVE = 128UL
-  | R_PARISC_HIRESERVE = 255UL
+  /// 64 bits of effective address (S + A).
+  | R_PARISC_DIR64 = 80UL
+  /// Copy symbol at runtime.
+  | R_PARISC_COPY = 128UL
+  /// Dynamic relocation for an imported PLT entry (S + A).
+  | R_PARISC_IPLT = 129UL
+  /// Dynamic relocation for an exported PLT entry (S + A).
+  | R_PARISC_EPLT = 130UL
+
+/// Represents a relocation type for SPARC. The 32-bit and 64-bit variants
+/// of the architecture share one numbering.
+and internal RelocationSPARC =
+  /// No relocation.
+  | R_SPARC_NONE = 0UL
+  /// Direct 8-bit (S + A).
+  | R_SPARC_8 = 1UL
+  /// Direct 16-bit (S + A).
+  | R_SPARC_16 = 2UL
+  /// Direct 32-bit (S + A).
+  | R_SPARC_32 = 3UL
+  /// PC-relative 8-bit.
+  | R_SPARC_DISP8 = 4UL
+  /// PC-relative 16-bit.
+  | R_SPARC_DISP16 = 5UL
+  /// PC-relative 32-bit.
+  | R_SPARC_DISP32 = 6UL
+  /// PC-relative 30-bit shifted.
+  | R_SPARC_WDISP30 = 7UL
+  /// PC-relative 22-bit shifted.
+  | R_SPARC_WDISP22 = 8UL
+  /// High 22 bits.
+  | R_SPARC_HI22 = 9UL
+  /// Direct 22-bit.
+  | R_SPARC_22 = 10UL
+  /// Direct 13-bit.
+  | R_SPARC_13 = 11UL
+  /// Low 10 bits.
+  | R_SPARC_LO10 = 12UL
+  /// Low 10 bits of a GOT entry.
+  | R_SPARC_GOT10 = 13UL
+  /// 13-bit GOT entry.
+  | R_SPARC_GOT13 = 14UL
+  /// High 22 bits of a GOT entry.
+  | R_SPARC_GOT22 = 15UL
+  /// PC-relative low 10 bits.
+  | R_SPARC_PC10 = 16UL
+  /// PC-relative high 22 bits.
+  | R_SPARC_PC22 = 17UL
+  /// PC-relative PLT entry.
+  | R_SPARC_WPLT30 = 18UL
+  /// Copy symbol at runtime.
+  | R_SPARC_COPY = 19UL
+  /// Create GOT entry (S).
+  | R_SPARC_GLOB_DAT = 20UL
+  /// Create PLT entry (S).
+  | R_SPARC_JMP_SLOT = 21UL
+  /// Adjust by program base (B + A).
+  | R_SPARC_RELATIVE = 22UL
+  /// Direct unaligned 32-bit (S + A).
+  | R_SPARC_UA32 = 23UL
+  /// Direct 32-bit PLT entry.
+  | R_SPARC_PLT32 = 24UL
+  /// Direct 10-bit.
+  | R_SPARC_10 = 30UL
+  /// Direct 11-bit.
+  | R_SPARC_11 = 31UL
+  /// Direct 64-bit (S + A).
+  | R_SPARC_64 = 32UL
+  /// Highest 22 bits.
+  | R_SPARC_HH22 = 34UL
+  /// High middle 10 bits.
+  | R_SPARC_HM10 = 35UL
+  /// Low middle 22 bits.
+  | R_SPARC_LM22 = 36UL
+  /// PC-relative 16-bit shifted.
+  | R_SPARC_WDISP16 = 40UL
+  /// PC-relative 19-bit shifted.
+  | R_SPARC_WDISP19 = 41UL
+  /// Direct 7-bit.
+  | R_SPARC_7 = 43UL
+  /// Direct 5-bit.
+  | R_SPARC_5 = 44UL
+  /// Direct 6-bit.
+  | R_SPARC_6 = 45UL
+  /// PC-relative 64-bit.
+  | R_SPARC_DISP64 = 46UL
+  /// Direct 64-bit PLT entry.
+  | R_SPARC_PLT64 = 47UL
+  /// High 22 bits, xor-ed.
+  | R_SPARC_HIX22 = 48UL
+  /// Low 10 bits, xor-ed.
+  | R_SPARC_LOX10 = 49UL
+  /// Top 22 bits of a 44-bit address.
+  | R_SPARC_H44 = 50UL
+  /// Middle 10 bits of a 44-bit address.
+  | R_SPARC_M44 = 51UL
+  /// Low 12 bits of a 44-bit address.
+  | R_SPARC_L44 = 52UL
+  /// Global register usage.
+  | R_SPARC_REGISTER = 53UL
+  /// Direct unaligned 64-bit (S + A).
+  | R_SPARC_UA64 = 54UL
+  /// Direct unaligned 16-bit (S + A).
+  | R_SPARC_UA16 = 55UL
+  /// STT_GNU_IFUNC relocation (B + A).
+  | R_SPARC_IRELATIVE = 249UL
+
+/// Represents a relocation type for Alpha.
+and internal RelocationAlpha =
+  /// No relocation.
+  | R_ALPHA_NONE = 0UL
+  /// Direct 32-bit (S + A).
+  | R_ALPHA_REFLONG = 1UL
+  /// Direct 64-bit (S + A).
+  | R_ALPHA_REFQUAD = 2UL
+  /// GP-relative 32-bit.
+  | R_ALPHA_GPREL32 = 3UL
+  /// Reference to a literal in the GOT.
+  | R_ALPHA_LITERAL = 4UL
+  /// Use of a literal.
+  | R_ALPHA_LITUSE = 5UL
+  /// Displacement that loads GP.
+  | R_ALPHA_GPDISP = 6UL
+  /// PC+4 relative 23-bit shifted.
+  | R_ALPHA_BRADDR = 7UL
+  /// Branch prediction hint.
+  | R_ALPHA_HINT = 8UL
+  /// PC-relative 16-bit.
+  | R_ALPHA_SREL16 = 9UL
+  /// PC-relative 32-bit.
+  | R_ALPHA_SREL32 = 10UL
+  /// PC-relative 64-bit.
+  | R_ALPHA_SREL64 = 11UL
+  /// High 16 bits of a GP-relative address.
+  | R_ALPHA_GPRELHIGH = 17UL
+  /// Low 16 bits of a GP-relative address.
+  | R_ALPHA_GPRELLOW = 18UL
+  /// GP-relative 16-bit.
+  | R_ALPHA_GPREL16 = 19UL
+  /// Copy symbol at runtime.
+  | R_ALPHA_COPY = 24UL
+  /// Create GOT entry (S).
+  | R_ALPHA_GLOB_DAT = 25UL
+  /// Create PLT entry (S).
+  | R_ALPHA_JMP_SLOT = 26UL
+  /// Adjust by program base (B + A).
+  | R_ALPHA_RELATIVE = 27UL
+  /// High bits of a general-dynamic TLS offset.
+  | R_ALPHA_TLS_GD_HI = 28UL
+  /// General-dynamic TLS.
+  | R_ALPHA_TLSGD = 29UL
+  /// Local-dynamic TLS.
+  | R_ALPHA_TLS_LDM = 30UL
+  /// TLS module ID.
+  | R_ALPHA_DTPMOD64 = 31UL
+  /// GOT entry for a TLS offset.
+  | R_ALPHA_GOTDTPREL = 32UL
+  /// Offset within a TLS block.
+  | R_ALPHA_DTPREL64 = 33UL
+  /// High bits of a TLS block offset.
+  | R_ALPHA_DTPRELHI = 34UL
+  /// Low bits of a TLS block offset.
+  | R_ALPHA_DTPRELLO = 35UL
+  /// 16-bit TLS block offset.
+  | R_ALPHA_DTPREL16 = 36UL
+  /// GOT entry for an initial-exec TLS offset.
+  | R_ALPHA_GOTTPREL = 37UL
+  /// Thread-pointer-relative 64-bit.
+  | R_ALPHA_TPREL64 = 38UL
+  /// High bits of a thread-pointer-relative offset.
+  | R_ALPHA_TPRELHI = 39UL
+  /// Low bits of a thread-pointer-relative offset.
+  | R_ALPHA_TPRELLO = 40UL
+  /// Thread-pointer-relative 16-bit.
+  | R_ALPHA_TPREL16 = 41UL
+
+/// Represents a relocation type for AVR. Most kinds name a field inside an
+/// instruction rather than a whole address, AVR having no room for one.
+and internal RelocationAVR =
+  /// No relocation.
+  | R_AVR_NONE = 0UL
+  /// Direct 32-bit (S + A).
+  | R_AVR_32 = 1UL
+  /// PC-relative 7-bit.
+  | R_AVR_7_PCREL = 2UL
+  /// PC-relative 13-bit.
+  | R_AVR_13_PCREL = 3UL
+  /// Direct 16-bit (S + A).
+  | R_AVR_16 = 4UL
+  /// Direct 16-bit program-memory word.
+  | R_AVR_16_PM = 5UL
+  /// Low byte, for LDI.
+  | R_AVR_LO8_LDI = 6UL
+  /// High byte, for LDI.
+  | R_AVR_HI8_LDI = 7UL
+  /// Higher byte, for LDI.
+  | R_AVR_HH8_LDI = 8UL
+  /// Low byte negated, for LDI.
+  | R_AVR_LO8_LDI_NEG = 9UL
+  /// High byte negated, for LDI.
+  | R_AVR_HI8_LDI_NEG = 10UL
+  /// Higher byte negated, for LDI.
+  | R_AVR_HH8_LDI_NEG = 11UL
+  /// Low byte of a program-memory word, for LDI.
+  | R_AVR_LO8_LDI_PM = 12UL
+  /// High byte of a program-memory word, for LDI.
+  | R_AVR_HI8_LDI_PM = 13UL
+  /// Higher byte of a program-memory word, for LDI.
+  | R_AVR_HH8_LDI_PM = 14UL
+  /// Low byte of a negated program-memory word.
+  | R_AVR_LO8_LDI_PM_NEG = 15UL
+  /// High byte of a negated program-memory word.
+  | R_AVR_HI8_LDI_PM_NEG = 16UL
+  /// Higher byte of a negated program-memory word.
+  | R_AVR_HH8_LDI_PM_NEG = 17UL
+  /// Program-memory address of a CALL or JMP.
+  | R_AVR_CALL = 18UL
+  /// Direct 16-bit, for LDI.
+  | R_AVR_LDI = 19UL
+  /// Direct 6-bit.
+  | R_AVR_6 = 20UL
+  /// Direct 6-bit, for ADIW and SBIW.
+  | R_AVR_6_ADIW = 21UL
+  /// Most significant byte, for LDI.
+  | R_AVR_MS8_LDI = 22UL
+  /// Most significant byte negated, for LDI.
+  | R_AVR_MS8_LDI_NEG = 23UL
+  /// Low byte of a function descriptor, for LDI.
+  | R_AVR_LO8_LDI_GS = 24UL
+  /// High byte of a function descriptor, for LDI.
+  | R_AVR_HI8_LDI_GS = 25UL
+  /// Direct 8-bit (S + A).
+  | R_AVR_8 = 26UL
+  /// Low byte of a direct 8-bit.
+  | R_AVR_8_LO8 = 27UL
+  /// High byte of a direct 8-bit.
+  | R_AVR_8_HI8 = 28UL
+  /// Higher byte of a direct 8-bit.
+  | R_AVR_8_HLO8 = 29UL
+  /// 8-bit difference between two symbols.
+  | R_AVR_DIFF8 = 30UL
+  /// 16-bit difference between two symbols.
+  | R_AVR_DIFF16 = 31UL
+  /// 32-bit difference between two symbols.
+  | R_AVR_DIFF32 = 32UL
+  /// Direct 7-bit, for LDS and STS.
+  | R_AVR_LDS_STS_16 = 33UL
+  /// Direct 6-bit port address.
+  | R_AVR_PORT6 = 34UL
+  /// Direct 5-bit port address.
+  | R_AVR_PORT5 = 35UL
+
+/// Represents a relocation type for BPF.
+and internal RelocationBPF =
+  /// No relocation.
+  | R_BPF_NONE = 0UL
+  /// Symbol address split across a wide instruction.
+  | R_BPF_64_64 = 1UL
+  /// Direct 64-bit (S + A).
+  | R_BPF_64_ABS64 = 2UL
+  /// Direct 32-bit (S + A).
+  | R_BPF_64_ABS32 = 3UL
+  /// Direct 32-bit that the loader leaves alone.
+  | R_BPF_64_NODYLD32 = 4UL
+  /// Symbol address in the immediate field of a call.
+  | R_BPF_64_32 = 10UL
+
+/// Represents what a relocation computes, regardless of the architecture that
+/// defines it. Only the kinds resolving to an address are classified; S is the
+/// address of the symbol, A the addend, and B the base address of the image.
+and internal RelocationSemantics =
+  /// S + A. An entry naming no symbol takes S as zero, so it resolves against
+  /// the base alone, which is what a local relocation in a PIC image wants.
+  | SymbolPlusAddend
+  /// S.
+  | SymbolOnly
+  /// B + A.
+  | BasePlusAddend
+  /// B + A, where what the sum names is an ifunc resolver: a function the
+  /// loader calls to learn the address, rather than that address itself.
+  | IFuncResolver
+with
+  /// Classifies a relocation kind of x86.
+  static member OfX86(reloc: RelocationX86) =
+    match reloc with
+    | RelocationX86.R_386_32 -> ValueSome SymbolPlusAddend
+    | RelocationX86.R_386_GLOB_DATA
+    | RelocationX86.R_386_JUMP_SLOT -> ValueSome SymbolOnly
+    | RelocationX86.R_386_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationX86.R_386_IRELATIVE -> ValueSome IFuncResolver
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of x86-64.
+  static member OfX64(reloc: RelocationX64) =
+    match reloc with
+    | RelocationX64.R_X86_64_64 -> ValueSome SymbolPlusAddend
+    | RelocationX64.R_X86_64_GLOB_DATA
+    | RelocationX64.R_X86_64_JUMP_SLOT -> ValueSome SymbolOnly
+    | RelocationX64.R_X86_64_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationX64.R_X86_64_IRELATIVE -> ValueSome IFuncResolver
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of ARMv7.
+  static member OfARMv7(reloc: RelocationARMv7) =
+    match reloc with
+    | RelocationARMv7.R_ARM_ABS32 -> ValueSome SymbolPlusAddend
+    | RelocationARMv7.R_ARM_GLOB_DATA
+    | RelocationARMv7.R_ARM_JUMP_SLOT -> ValueSome SymbolOnly
+    | RelocationARMv7.R_ARM_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationARMv7.R_ARM_IRELATIVE -> ValueSome IFuncResolver
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of ARMv8.
+  static member OfARMv8(reloc: RelocationARMv8) =
+    match reloc with
+    | RelocationARMv8.R_AARCH64_ABS64 -> ValueSome SymbolPlusAddend
+    | RelocationARMv8.R_AARCH64_GLOB_DATA
+    | RelocationARMv8.R_AARCH64_JUMP_SLOT -> ValueSome SymbolOnly
+    | RelocationARMv8.R_AARCH64_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationARMv8.R_AARCH64_IRELATIVE -> ValueSome IFuncResolver
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of MIPS.
+  static member OfMIPS(reloc: RelocationMIPS) =
+    match reloc with
+    | RelocationMIPS.R_MIPS_32
+    | RelocationMIPS.R_MIPS_64
+    | RelocationMIPS.R_MIPS_REL32 -> ValueSome SymbolPlusAddend
+    | RelocationMIPS.R_MIPS_GLOB_DAT
+    | RelocationMIPS.R_MIPS_JUMP_SLOT -> ValueSome SymbolOnly
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of m68k.
+  static member OfM68K(reloc: RelocationM68K) =
+    match reloc with
+    | RelocationM68K.R_68K_32 -> ValueSome SymbolPlusAddend
+    | RelocationM68K.R_68K_GLOB_DAT
+    | RelocationM68K.R_68K_JMP_SLOT -> ValueSome SymbolOnly
+    | RelocationM68K.R_68K_RELATIVE -> ValueSome BasePlusAddend
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of S390.
+  static member OfS390(reloc: RelocationS390) =
+    match reloc with
+    | RelocationS390.R_390_32
+    | RelocationS390.R_390_64 -> ValueSome SymbolPlusAddend
+    | RelocationS390.R_390_GLOB_DAT
+    | RelocationS390.R_390_JMP_SLOT -> ValueSome SymbolOnly
+    | RelocationS390.R_390_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationS390.R_390_IRELATIVE -> ValueSome IFuncResolver
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of SH4.
+  static member OfSH4(reloc: RelocationSH4) =
+    match reloc with
+    | RelocationSH4.R_SH_DIR32 -> ValueSome SymbolPlusAddend
+    | RelocationSH4.R_SH_GLOB_DAT
+    | RelocationSH4.R_SH_JMP_SLOT -> ValueSome SymbolOnly
+    | RelocationSH4.R_SH_RELATIVE -> ValueSome BasePlusAddend
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of RISCV.
+  static member OfRISCV(reloc: RelocationRISCV) =
+    match reloc with
+    | RelocationRISCV.R_RISCV_32
+    | RelocationRISCV.R_RISCV_64 -> ValueSome SymbolPlusAddend
+    | RelocationRISCV.R_RISCV_JUMP_SLOT -> ValueSome SymbolOnly
+    | RelocationRISCV.R_RISCV_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationRISCV.R_RISCV_IRELATIVE -> ValueSome IFuncResolver
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of PowerPC.
+  static member OfPPC32(reloc: RelocationPPC32) =
+    match reloc with
+    | RelocationPPC32.R_PPC_ADDR32 -> ValueSome SymbolPlusAddend
+    | RelocationPPC32.R_PPC_GLOB_DAT
+    | RelocationPPC32.R_PPC_JMP_SLOT -> ValueSome SymbolOnly
+    | RelocationPPC32.R_PPC_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationPPC32.R_PPC_IRELATIVE -> ValueSome IFuncResolver
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of PowerPC64.
+  static member OfPPC64(reloc: RelocationPPC64) =
+    match reloc with
+    | RelocationPPC64.R_PPC64_ADDR32
+    | RelocationPPC64.R_PPC64_ADDR64 -> ValueSome SymbolPlusAddend
+    | RelocationPPC64.R_PPC64_GLOB_DAT
+    | RelocationPPC64.R_PPC64_JMP_SLOT -> ValueSome SymbolOnly
+    | RelocationPPC64.R_PPC64_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationPPC64.R_PPC64_IRELATIVE -> ValueSome IFuncResolver
+    | _ -> ValueNone
+
+  (* R_PARISC_PLABEL32 is deliberately absent: it yields the address of a
+     function descriptor rather than that of the symbol itself. *)
+  /// Classifies a relocation kind of PARISC.
+  static member OfPARISC(reloc: RelocationPARISC) =
+    match reloc with
+    | RelocationPARISC.R_PARISC_DIR32
+    | RelocationPARISC.R_PARISC_DIR64
+    | RelocationPARISC.R_PARISC_IPLT
+    | RelocationPARISC.R_PARISC_EPLT -> ValueSome SymbolPlusAddend
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of SPARC.
+  static member OfSPARC(reloc: RelocationSPARC) =
+    match reloc with
+    | RelocationSPARC.R_SPARC_8
+    | RelocationSPARC.R_SPARC_16
+    | RelocationSPARC.R_SPARC_32
+    | RelocationSPARC.R_SPARC_64
+    | RelocationSPARC.R_SPARC_UA16
+    | RelocationSPARC.R_SPARC_UA32
+    | RelocationSPARC.R_SPARC_UA64 -> ValueSome SymbolPlusAddend
+    | RelocationSPARC.R_SPARC_GLOB_DAT
+    | RelocationSPARC.R_SPARC_JMP_SLOT -> ValueSome SymbolOnly
+    | RelocationSPARC.R_SPARC_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationSPARC.R_SPARC_IRELATIVE -> ValueSome IFuncResolver
+    | _ -> ValueNone
+
+  /// Classifies a relocation kind of Alpha.
+  static member OfAlpha(reloc: RelocationAlpha) =
+    match reloc with
+    | RelocationAlpha.R_ALPHA_REFLONG
+    | RelocationAlpha.R_ALPHA_REFQUAD -> ValueSome SymbolPlusAddend
+    | RelocationAlpha.R_ALPHA_GLOB_DAT
+    | RelocationAlpha.R_ALPHA_JMP_SLOT -> ValueSome SymbolOnly
+    | RelocationAlpha.R_ALPHA_RELATIVE -> ValueSome BasePlusAddend
+    | _ -> ValueNone
+
+  (* The LDI, PM and CALL kinds are left out: each names a byte or a word of an
+     address inside an instruction, not a slot holding the address itself. *)
+  /// Classifies a relocation kind of AVR.
+  static member OfAVR(reloc: RelocationAVR) =
+    match reloc with
+    | RelocationAVR.R_AVR_8
+    | RelocationAVR.R_AVR_16
+    | RelocationAVR.R_AVR_32 -> ValueSome SymbolPlusAddend
+    | _ -> ValueNone
+
+  (* R_BPF_64_64 and R_BPF_64_32 are left out, both naming an immediate field
+     inside an instruction rather than a slot holding an address. *)
+  /// Classifies a relocation kind of BPF.
+  static member OfBPF(reloc: RelocationBPF) =
+    match reloc with
+    | RelocationBPF.R_BPF_64_ABS32
+    | RelocationBPF.R_BPF_64_ABS64 -> ValueSome SymbolPlusAddend
+    | _ -> ValueNone
 
 /// Provides active patterns for matching against architecture-specific
 /// relocation kinds.
@@ -928,10 +1554,58 @@ module internal RelocationKind =
       ValueNone
 
   [<return: Struct>]
+  let (|RelocationKindPPC64|_|) (RelocationKind(arch, relocValue)) =
+    match arch with
+    | MachineType.EM_PPC64 ->
+      let reloc: RelocationPPC64 = LanguagePrimitives.EnumOfValue relocValue
+      ValueSome reloc
+    | _ ->
+      ValueNone
+
+  [<return: Struct>]
   let (|RelocationKindPARISC|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_PARISC ->
       let reloc: RelocationPARISC = LanguagePrimitives.EnumOfValue relocValue
+      ValueSome reloc
+    | _ ->
+      ValueNone
+
+  [<return: Struct>]
+  let (|RelocationKindSPARC|_|) (RelocationKind(arch, relocValue)) =
+    match arch with
+    | MachineType.EM_SPARC
+    | MachineType.EM_SPARC32PLUS
+    | MachineType.EM_SPARCV9 ->
+      let reloc: RelocationSPARC = LanguagePrimitives.EnumOfValue relocValue
+      ValueSome reloc
+    | _ ->
+      ValueNone
+
+  [<return: Struct>]
+  let (|RelocationKindAlpha|_|) (RelocationKind(arch, relocValue)) =
+    match arch with
+    | MachineType.EM_ALPHA
+    | MachineType.EM_OLD_ALPHA ->
+      let reloc: RelocationAlpha = LanguagePrimitives.EnumOfValue relocValue
+      ValueSome reloc
+    | _ ->
+      ValueNone
+
+  [<return: Struct>]
+  let (|RelocationKindAVR|_|) (RelocationKind(arch, relocValue)) =
+    match arch with
+    | MachineType.EM_AVR ->
+      let reloc: RelocationAVR = LanguagePrimitives.EnumOfValue relocValue
+      ValueSome reloc
+    | _ ->
+      ValueNone
+
+  [<return: Struct>]
+  let (|RelocationKindBPF|_|) (RelocationKind(arch, relocValue)) =
+    match arch with
+    | MachineType.EM_BPF ->
+      let reloc: RelocationBPF = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
     | _ ->
       ValueNone

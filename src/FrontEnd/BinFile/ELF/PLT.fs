@@ -102,6 +102,10 @@ let [<Literal>] private SecGOTPLT = ".got.plt"
 
 let [<Literal>] private SecMIPSStubs = ".MIPS.stubs"
 
+/// How far past DT_PPC64_GLINK the first glink stub sits, which both PowerPC64
+/// ABIs fix at eight instructions.
+let [<Literal>] private GLinkStubOffset = 32UL
+
 let inline private newDesc kind lm hasSecondary entSize relocOff extra =
   { CodeKind = kind
     LinkMethod = lm
@@ -197,30 +201,48 @@ let rec private parseSections p toolBox map = function
 /// parser, but it is rather slow compared to platform-specific parsers. RISCV
 /// relies on this.
 type GeneralParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
+  let relPLTSection =
+    match Array.tryFind (fun s -> s.SecName = Section.RelPLT) shdrs with
+    | Some _ as sec -> sec
+    | None -> Array.tryFind (fun s -> s.SecName = Section.RelaPLT) shdrs
+
+  (* One PLT entry stands for one entry of the PLT relocation section, whatever
+     kind that entry is: an ifunc slot sits among the jump slots and takes an
+     entry of its own. Only a file without such a section leaves the kind as
+     the sole thing to go on. *)
   let relocs =
-    (relocInfo: RelocationInfo).Entries
-    |> Seq.filter (fun r -> r.RelKind = relKind)
-    |> Seq.toArray
+    let entries = (relocInfo: RelocationInfo).Entries
+    let belongsToPLT (r: RelocationEntry) =
+      match relPLTSection with
+      | Some rsec -> r.RelSecNumber = rsec.SecNum
+      | None -> r.RelKind = relKind
+    entries |> Seq.filter belongsToPLT |> Seq.toArray
+
+  (* Where a target gives an imported function the address of its own PLT stub,
+     the gap between two such symbols is the entry size. That is worth having,
+     because a .plt padded with dummy data does not divide evenly. A target
+     that leaves those symbols undefined, and so at zero, says nothing. *)
+  let entrySizeFromSymbols =
+    match relocs |> Array.truncate 2 |> Array.choose _.RelSymbol with
+    | [| first; second |] when first.Addr > 0UL && second.Addr > first.Addr ->
+      Some(second.Addr - first.Addr)
+    | _ ->
+      None
 
   let createGeneralPLTDescriptor rsec sec =
     let count = rsec.SecSize / rsec.SecEntrySize (* number of PLT entries *)
-    let pltEntrySize = (* sometimes, plt section contains dummy data *)
-      if relocs.Length >= 2 && relocs[0].RelSymbol.IsSome then
-        relocs[1].RelSymbol.Value.Addr - relocs[0].RelSymbol.Value.Addr
-      else
-        (sec.SecSize - pltHdrSize) / count
+    let pltEntrySize =
+      match entrySizeFromSymbols with
+      | Some size -> size
+      | None -> (sec.SecSize - pltHdrSize) / count
     let addr = sec.SecAddr + pltHdrSize
     assert (relocs.Length = int count)
     newPLT DontCare AnyBinding false pltEntrySize 0UL addr
 
   let findGeneralPLTType sec =
-    match Array.tryFind (fun s -> s.SecName = Section.RelPLT) shdrs with
-    | Some rsec ->
-      createGeneralPLTDescriptor rsec sec
-    | None ->
-      match Array.tryFind (fun s -> s.SecName = Section.RelaPLT) shdrs with
-      | Some rsec -> createGeneralPLTDescriptor rsec sec
-      | None -> UnknownPLT
+    match relPLTSection with
+    | Some rsec -> createGeneralPLTDescriptor rsec sec
+    | None -> UnknownPLT
 
   interface IPLTParsable with
     member _.ParseEntry(addr, idx, _sec, desc, _rdr, _span) =
@@ -730,7 +752,9 @@ type MIPSParser(shdrs, relocInfo, symbs: SymbolStore) =
     match Array.tryFind (fun s -> s.SecName = SecMIPSStubs) shdrs with
     | Some sec ->
       let bytes, reader = toolBox.Bytes, toolBox.Reader
-      let entries = DynamicArray.parse toolBox shdrs
+      (* Reaching here already took the section headers, so the PT_DYNAMIC
+         fallback would have nothing left to add. *)
+      let entries = DynamicArray.parse toolBox shdrs Array.empty
       let offset = 0
       let maxOffset = int sec.SecSize
       let span = ReadOnlySpan(bytes, int sec.SecOffset, int sec.SecSize)
@@ -787,7 +811,7 @@ type MIPSParser(shdrs, relocInfo, symbs: SymbolStore) =
 /// PPC PLT parser.
 type PPCParser(shdrs, relocInfo: RelocationInfo, symbs) =
   let computeGLinkAddrWithGOT toolBox =
-    let tags = DynamicArray.parse toolBox shdrs
+    let tags = DynamicArray.parse toolBox shdrs Array.empty
     match Array.tryFind (fun t -> t.DTag = DTag.DT_PPC_GOT) tags with
     | Some tag ->
       let gotAddr = tag.DVal
@@ -896,6 +920,218 @@ type PPCParser(shdrs, relocInfo: RelocationInfo, symbs) =
       | _ ->
         parseWithGLink toolBox
 
+/// PowerPC64 PLT parser. Its .plt holds no code at all, being NOBITS under
+/// both ABIs; what a call site reaches is a glink stub the linker lays down
+/// one per PLT entry, and DT_PPC64_GLINK names the address 32 bytes ahead of
+/// the first of them.
+type PPC64Parser(shdrs, relocInfo: RelocationInfo, symbs) =
+  let relocs =
+    let rKind = RelocationKind.Create RelocationPPC64.R_PPC64_JMP_SLOT
+    relocInfo.Entries
+    |> Seq.filter (fun r -> r.RelKind = rKind)
+    |> Seq.toArray
+
+  (* DT_PPC64_GLINK shares its value with DT_PPC_GOT, the two being the first
+     processor-specific tag of one architecture each, so reading it is only
+     right because this parser is reached for EM_PPC64 alone. *)
+  let tryFindFirstStubAddr toolBox =
+    DynamicArray.parse toolBox shdrs Array.empty
+    |> Array.tryFind (fun t -> t.DTag = DTag.DT_PPC64_GLINK)
+    |> Option.map (fun t -> t.DVal + GLinkStubOffset)
+
+  (* An ELFv1 stub loads the PLT index into r0 and then branches; an ELFv2 one
+     is the branch alone, its resolver working the index out from the address
+     it was reached by. Reading the stub rather than the ABI version of the
+     header keeps the two apart, and stops on anything else: a PLT of more than
+     0x8000 entries, whose stubs build the index with a pair of instructions,
+     is left unparsed rather than misread. *)
+  let tryReadStub (span: ByteSpan) (reader: IBinReader) offset idx =
+    let isBranch word = word >>> 26 = 18u && word &&& 3u = 0u
+    let len = span.Length
+    if offset < 0 || offset + 4 > len then
+      None
+    else
+      let word = reader.ReadUInt32(span, offset)
+      if isBranch word then
+        Some(idx, 4UL)
+      elif word &&& 0xffff0000u = 0x38000000u (* li r0, idx *)
+           && offset + 8 <= len
+           && isBranch (reader.ReadUInt32(span, offset + 4)) then
+        Some(int (word &&& 0xffffu), 8UL)
+      else
+        None
+
+  let rec readStubLoop span reader secAddr map idx addr =
+    if idx >= relocs.Length then
+      map
+    else
+      match tryReadStub span reader (int (addr - secAddr)) idx with
+      | Some(relocIdx, size) when relocIdx < relocs.Length ->
+        let reloc = relocs[relocIdx]
+        let ar = AddrRange.create addr (addr + size - 1UL)
+        let entry = makePLTEntry symbs addr reloc.RelOffset reloc
+        let map = NoOverlapIntervalMap.add ar entry map
+        readStubLoop span reader secAddr map (idx + 1) (addr + size)
+      | _ ->
+        map
+
+  let readStubs toolBox stubAddr =
+    let containsStub s =
+      s.SecAddr <= stubAddr && stubAddr < s.SecAddr + s.SecSize
+    match Array.tryFind containsStub shdrs with
+    | Some sec ->
+      let bytes, reader = toolBox.Bytes, toolBox.Reader
+      let span = ReadOnlySpan(bytes, int sec.SecOffset, int sec.SecSize)
+      readStubLoop span reader sec.SecAddr NoOverlapIntervalMap.empty 0 stubAddr
+    | None ->
+      NoOverlapIntervalMap.empty
+
+  interface IPLTParsable with
+    member _.ParseEntry(_, _, _, _, _, _) = Terminator.impossible ()
+
+    member _.ParseSection(_, _, _) = Terminator.impossible ()
+
+    member _.Parse toolBox =
+      match tryFindFirstStubAddr toolBox with
+      | Some stubAddr -> readStubs toolBox stubAddr
+      | None -> NoOverlapIntervalMap.empty
+
+/// PA-RISC PLT parser. Its .plt holds eight-byte function descriptors rather
+/// than code, so what a call site reaches is a 20-byte import stub the linker
+/// leaves among the executable sections. Each stub names the descriptor it
+/// goes through as an offset from the GP, which DT_PLTGOT gives.
+type PARISCParser(shdrs, relocInfo: RelocationInfo, symbs) =
+  let ipltKind = RelocationKind.Create RelocationPARISC.R_PARISC_IPLT
+
+  (* The last three words of a stub take nothing from the symbol it stands for,
+     so every stub spells them the same: load the descriptor's entry point,
+     branch to it, and take its GP in the delay slot. *)
+  let stubLdwEntry, stubBranch, stubLdwGP =
+    0x0ec01095u, 0xeaa0c000u, 0x0ec81093u
+
+  let stubSize = 20
+
+  /// Sign-extends the given value from the given width.
+  let signExtend bits (v: uint32) =
+    let m = 1u <<< (bits - 1)
+    int ((v ^^^ m) - m)
+
+  /// Reads the 21-bit immediate of an addil, which PA-RISC scatters across the
+  /// word in five pieces, and returns it shifted into place.
+  let decodeAddilImm (word: uint32) =
+    let f = word &&& 0x1fffffu
+    let v = f &&& 1u
+    let v = (v <<< 11) ||| ((f >>> 1) &&& 0x7ffu)
+    let v = (v <<< 2) ||| ((f >>> 14) &&& 3u)
+    let v = (v <<< 5) ||| ((f >>> 16) &&& 0x1fu)
+    let v = (v <<< 2) ||| ((f >>> 12) &&& 3u)
+    signExtend 21 v <<< 11
+
+  /// Reads the 14-bit displacement of an ldo, whose sign bit PA-RISC keeps in
+  /// the low bit of the field rather than the high one.
+  let decodeLdoImm (word: uint32) =
+    let f = word &&& 0x3fffu
+    signExtend 14 (((f >>> 1) ||| ((f &&& 1u) <<< 13)) &&& 0x3fffu)
+
+  /// Checks that the two words compute a GP-relative address into r22, r27
+  /// being the GP of a plain image and r19 that of a position-independent one.
+  let isStubHead (addil: uint32) (ldo: uint32) =
+    let gpReg = (addil >>> 21) &&& 0x1fu
+    addil >>> 26 = 10u
+    && (gpReg = 19u || gpReg = 27u)
+    && ldo >>> 26 = 13u
+    && (ldo >>> 21) &&& 0x1fu = 1u
+    && (ldo >>> 16) &&& 0x1fu = 22u
+
+  let tryReadStub (span: ByteSpan) (reader: IBinReader) offset gp =
+    if reader.ReadUInt32(span, offset + 8) = stubLdwEntry
+       && reader.ReadUInt32(span, offset + 12) = stubBranch
+       && reader.ReadUInt32(span, offset + 16) = stubLdwGP then
+      let addil = reader.ReadUInt32(span, offset)
+      let ldo = reader.ReadUInt32(span, offset + 4)
+      if isStubHead addil ldo then
+        let delta = decodeAddilImm addil + decodeLdoImm ldo
+        Some(gp + uint64 (int64 delta))
+      else
+        None
+    else
+      None
+
+  let tryMakeEntry span reader secAddr gp offset =
+    match tryReadStub span reader offset gp with
+    | Some descAddr ->
+      match relocInfo.TryFind descAddr with
+      | Ok reloc when reloc.RelKind = ipltKind ->
+        let addr = secAddr + uint64 offset
+        let ar = AddrRange.create addr (addr + uint64 stubSize - 1UL)
+        Some(ar, makePLTEntry symbs addr reloc.RelOffset reloc)
+      | _ ->
+        None
+    | None ->
+      None
+
+  (* A stub can sit anywhere a call to it can reach, so the whole of every
+     executable section is walked a word at a time. The loop is written out
+     rather than recursive because how far it runs is the size of the section,
+     not the number of entries. *)
+  let scanForStubs toolBox gp map sec =
+    let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
+    let reader = toolBox.Reader
+    let mutable map = map
+    let mutable offset = 0
+    while offset + stubSize <= span.Length do
+      match tryMakeEntry span reader sec.SecAddr gp offset with
+      | Some(ar, entry) -> map <- NoOverlapIntervalMap.add ar entry map
+      | None -> ()
+      offset <- offset + 4
+    map
+
+  let tryFindGP toolBox =
+    DynamicArray.parse toolBox shdrs Array.empty
+    |> Array.tryFind (fun t -> t.DTag = DTag.DT_PLTGOT)
+    |> Option.map _.DVal
+
+  let holdsCode s =
+    s.SecType = SectionType.SHT_PROGBITS
+    && s.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
+
+  interface IPLTParsable with
+    member _.ParseEntry(_, _, _, _, _, _) = Terminator.impossible ()
+
+    member _.ParseSection(_, _, _) = Terminator.impossible ()
+
+    member _.Parse toolBox =
+      match tryFindGP toolBox with
+      | Some gp ->
+        shdrs
+        |> Array.filter holdsCode
+        |> Array.fold (scanForStubs toolBox gp) NoOverlapIntervalMap.empty
+      | None ->
+        NoOverlapIntervalMap.empty
+
+/// SPARC PLT parser. A SPARC PLT entry is patched where it stands rather than
+/// through a slot of its own, so the offset each JMP_SLOT relocates is the
+/// entry itself and the table needs no walking to find them.
+type SPARCParser(relocInfo: RelocationInfo, symbs, entrySize) =
+  let relocs =
+    let rKind = RelocationKind.Create RelocationSPARC.R_SPARC_JMP_SLOT
+    relocInfo.Entries
+    |> Seq.filter (fun r -> r.RelKind = rKind)
+    |> Seq.toArray
+
+  let addEntry map (r: RelocationEntry) =
+    let addr = r.RelOffset
+    let ar = AddrRange.create addr (addr + entrySize - 1UL)
+    NoOverlapIntervalMap.add ar (makePLTEntry symbs addr addr r) map
+
+  interface IPLTParsable with
+    member _.ParseEntry(_, _, _, _, _, _) = Terminator.impossible ()
+
+    member _.ParseSection(_, _, _) = Terminator.impossible ()
+
+    member _.Parse _ =
+      Array.fold addEntry NoOverlapIntervalMap.empty relocs
+
 /// This will simply return an empty map.
 type NullParser() =
   interface IPLTParsable with
@@ -918,12 +1154,29 @@ let private initIPLTParsable hdr shdrs relocInfo symbs =
     MIPSParser(shdrs, relocInfo, symbs) :> IPLTParsable
   | MachineType.EM_PPC ->
     PPCParser(shdrs, relocInfo, symbs) :> IPLTParsable
+  | MachineType.EM_PPC64 ->
+    PPC64Parser(shdrs, relocInfo, symbs) :> IPLTParsable
+  | MachineType.EM_PARISC ->
+    PARISCParser(shdrs, relocInfo, symbs) :> IPLTParsable
+  (* A 32-bit SPARC PLT entry is three instructions, where the 64-bit one is
+     eight, the extra room being what a far entry needs to reach its target. *)
+  | MachineType.EM_SPARC
+  | MachineType.EM_SPARC32PLUS ->
+    SPARCParser(relocInfo, symbs, 12UL) :> IPLTParsable
+  | MachineType.EM_SPARCV9 ->
+    SPARCParser(relocInfo, symbs, 32UL) :> IPLTParsable
   | MachineType.EM_RISCV ->
     let rKind = RelocationKind.Create RelocationRISCV.R_RISCV_JUMP_SLOT
     GeneralParser(shdrs, relocInfo, symbs, 32UL, rKind) :> IPLTParsable
   | MachineType.EM_SH ->
     let rKind = RelocationKind.Create RelocationSH4.R_SH_JMP_SLOT
     GeneralParser(shdrs, relocInfo, symbs, 28UL, rKind) :> IPLTParsable
+  | MachineType.EM_S390 ->
+    let rKind = RelocationKind.Create RelocationS390.R_390_JMP_SLOT
+    GeneralParser(shdrs, relocInfo, symbs, 32UL, rKind) :> IPLTParsable
+  | MachineType.EM_68K ->
+    let rKind = RelocationKind.Create RelocationM68K.R_68K_JMP_SLOT
+    GeneralParser(shdrs, relocInfo, symbs, 20UL, rKind) :> IPLTParsable
   | _ ->
     NullParser() :> IPLTParsable
 

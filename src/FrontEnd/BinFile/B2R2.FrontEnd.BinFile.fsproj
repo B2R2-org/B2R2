@@ -59,13 +59,15 @@
     <Compile Include="ELF\SectionType.fs" />
     <Compile Include="ELF\SectionFlags.fs" />
     <Compile Include="ELF\SectionHeader.fs" />
-    <Compile Include="ELF\DynamicArray.fs" />
     <Compile Include="ELF\ProgramHeaderType.fs" />
     <Compile Include="ELF\ProgramHeader.fs" />
+    <Compile Include="ELF\DynamicArray.fs" />
+    <Compile Include="ELF\DynamicTables.fs" />
     <Compile Include="ELF\SymbolType.fs" />
     <Compile Include="ELF\SymbolBind.fs" />
     <Compile Include="ELF\SymbolVisibility.fs" />
     <Compile Include="ELF\Symbol.fs" />
+    <Compile Include="ELF\SymbolTableLayout.fs" />
     <Compile Include="ELF\SymbolStore.fs" />
     <Compile Include="ELF\RelocationKind.fs" />
     <Compile Include="ELF\RelocationEntry.fs" />

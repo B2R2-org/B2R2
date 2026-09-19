@@ -178,6 +178,11 @@ module internal Header =
       ISA(Architecture.PPC, reader.Endianness, WordSize.Bit64)
     | MachineType.EM_RISCV ->
       ISA(Architecture.RISCV, reader.Endianness, cls)
+    (* V8+ is the 32-bit ISA with the V9 registers made visible to it, so it
+       decodes as V9 does and differs only in the width of a word. *)
+    | MachineType.EM_SPARC
+    | MachineType.EM_SPARC32PLUS ->
+      ISA(Architecture.SPARC, reader.Endianness, WordSize.Bit32)
     | MachineType.EM_SPARCV9 ->
       ISA(Architecture.SPARC, reader.Endianness, WordSize.Bit64)
     | MachineType.EM_S390 ->
@@ -196,6 +201,10 @@ module internal Header =
       ISA Architecture.Alpha
     | MachineType.EM_AVR ->
       getAVRISA span reader cls
+    (* Every member of the family shares one instruction set, so the header
+       naming the family is all there is to go on. *)
+    | MachineType.EM_TI_C6000 ->
+      ISA Architecture.TMS320C6000
     (* A program is stored in the order the machine running it stores a word,
        and the header says which that was; nothing else about the ISA is left
        to say, every eBPF register being a quadword whatever the host is. *)

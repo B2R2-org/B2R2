@@ -31,9 +31,17 @@ open B2R2.FrontEnd.BinFile.DWARF
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat
 
+/// Names the relocation-kind type, which the ELF prefix alone cannot reach:
+/// an auto-opened module of active patterns shares the name and shadows the
+/// type wherever that namespace is not open.
+type internal RelocKind = ELF.RelocationKind
+
 [<TestClass>]
 type ELFTests() =
   static let isStripped (file: IBinFile) = file.SymbolTable.Value.IsStripped
+
+  static let tryResolveName (file: ELFBinFile) addr =
+    (file :> IBinFile).NameResolver.Value.TryResolveName addr
 
   static let parseFile fileName =
     let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
@@ -47,6 +55,13 @@ type ELFTests() =
   /// A position-independent x86-64 executable (ET_DYN carrying DT_DEBUG), the
   /// counterpart to the fixed-base elf_x64_exec.
   static let x64PieFile = parseFile "elf_x64_pie"
+
+  /// elf_x64_pie loaded at an explicit base address, so that base-relative
+  /// relocations must account for the load base rather than assume zero.
+  static let x64PieRebasedFile =
+    let fileName = "elf_x64_pie"
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    ELFBinFile(fileName, bytes, Some 0x400000UL, None)
 
   /// An x86-64 shared library (ET_DYN without DT_DEBUG and without a
   /// PT_INTERP), exporting a single defined function symbol.
@@ -63,6 +78,30 @@ type ELFTests() =
   /// A non-PIE x86-64 executable carrying a variety of dynamic relocations: a
   /// JUMP_SLOT (write), GLOB_DAT entries, and a COPY (__environ).
   static let x64RelocFile = parseFile "elf_x64_reloc"
+
+  /// A PIE x86-64 executable linked with -z pack-relative-relocs, so every
+  /// relative relocation is packed into a .relr.dyn bitmap and .rela.dyn holds
+  /// none. Its three RELR entries cover all the encodings: a leading address,
+  /// a bitmap, and a second bitmap reached only after the cursor skips a full
+  /// word of bits.
+  static let x64RelrFile = parseFile "elf_x64_relr"
+
+  /// elf_x64_relr loaded at an explicit base address, so that the addends RELR
+  /// leaves in the slots it relocates must be taken relative to the load base.
+  static let x64RelrRebasedFile =
+    let fileName = "elf_x64_relr"
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    ELFBinFile(fileName, bytes, Some 0x400000UL, None)
+
+  /// elf_x64_relr with its section header table removed, leaving PT_DYNAMIC
+  /// as the only route to the relocation tables and PT_LOAD as the only route
+  /// to the bytes they relocate.
+  static let x64NoSecFile = parseFile "elf_x64_nosec"
+
+  /// A section-header-stripped binary linked with --hash-style=sysv, so it
+  /// carries DT_HASH rather than DT_GNU_HASH and its nchain word is what
+  /// gives the size of the dynamic symbol table.
+  static let x64SysvHashFile = parseFile "elf_x64_sysvhash"
 
   /// An x86-64 executable built with an executable stack (GNU_STACK = RWX), so
   /// NX is reported as disabled.
@@ -119,8 +158,204 @@ type ELFTests() =
   /// little-endian decoding of the same machine type.
   static let mips32leFile = parseFile "elf_mips32_le"
 
+  /// A MIPS32 executable built for the MIPS PLT ABI (-mno-shared -mplt), so it
+  /// carries a real .rel.plt with JUMP_SLOT entries instead of the classic
+  /// .MIPS.stubs and GOT scheme that the other MIPS fixtures use.
+  static let mips32PltFile = parseFile "elf_mips32_plt"
+
+  /// A MIPS32 shared library, whose .rel.dyn holds local R_MIPS_REL32 entries.
+  /// Being REL rather than RELA, each addend lives in the slot it relocates.
+  static let mips32SoFile = parseFile "elf_mips32_so"
+
+  /// The MIPS64 counterpart of elf_mips32_so. Its n64 r_info packs three
+  /// relocation types, R_MIPS_REL32 first, so the primary type is 8 bits wide
+  /// rather than the 32 bits an ELF64 file would otherwise use.
+  static let mips64SoFile = parseFile "elf_mips64_so"
+
+  /// A RISCV64 PIE, carrying all three dynamic relocation families at once:
+  /// RELATIVE, the 64-bit absolute kind, and JUMP_SLOT.
+  static let riscv64File = parseFile "elf_riscv64"
+
+  /// A RISCV64 PIE built around an ifunc, so its .rela.plt carries an
+  /// R_RISCV_IRELATIVE next to the ordinary JUMP_SLOT. It is the only fixture
+  /// whose relocation names a resolver rather than a symbol or a datum.
+  static let riscv64IfuncFile = parseFile "elf_riscv64_ifunc"
+
+  /// A PowerPC (32-bit) shared library: RELATIVE, ADDR32, GLOB_DAT, JMP_SLOT.
+  static let ppc32SoFile = parseFile "elf_ppc32_so"
+
+  /// A PowerPC64 shared library. EM_PPC64 numbers the kinds it inherits as
+  /// PowerPC does, and adds the doubleword ADDR64 on top.
+  static let ppc64SoFile = parseFile "elf_ppc64_so"
+
+  /// The ppc64le counterpart of elf_ppc64_so, built for ELFv2. It has no .opd,
+  /// and its glink stubs are the branch alone, where the ELFv1 ones above
+  /// carry the PLT index with them.
+  static let ppc64leSoFile = parseFile "elf_ppc64le_so"
+
+  /// An SH4 shared library: RELATIVE, GLOB_DAT, JMP_SLOT.
+  static let sh4SoFile = parseFile "elf_sh4_so"
+
+  /// An S390x PIE: RELATIVE, GLOB_DAT, JMP_SLOT.
+  static let s390xFile = parseFile "elf_s390x"
+
+  /// An m68k shared library: RELATIVE, GLOB_DAT, JMP_SLOT.
+  static let m68kSoFile = parseFile "elf_m68k_so"
+
+  /// A PA-RISC executable, whose PLT entries are function descriptors filled
+  /// by R_PARISC_IPLT rather than by the JUMP_SLOT other targets use.
+  static let pariscFile = parseFile "elf_parisc"
+
+  /// A PA-RISC shared library, holding the one relocation across every fixture
+  /// whose symbol and addend are both non-zero, plus the PLABEL32 kind that
+  /// names a function descriptor instead of the function.
+  static let pariscSoFile = parseFile "elf_parisc_so"
+
+  /// A SPARC V9 shared library: RELATIVE, GLOB_DAT, JMP_SLOT. Linked with a
+  /// smaller max-page-size, the default one padding it out to a megabyte.
+  static let sparc64SoFile = parseFile "elf_sparc64_so"
+
+  /// A 32-bit SPARC shared library, whose machine type is EM_SPARC32PLUS: the
+  /// V9 instruction set addressing a 32-bit word. Built without libc, so `ext`
+  /// is the whole of its PLT.
+  static let sparc32SoFile = parseFile "elf_sparc32_so"
+
+  /// An Alpha shared library: RELATIVE, GLOB_DAT, JMP_SLOT.
+  static let alphaSoFile = parseFile "elf_alpha_so"
+
+  /// An AVR relocatable object. AVR is linked statically into firmware, so an
+  /// object file is the only place its relocations survive.
+  static let avrObjFile = parseFile "elf_avr_obj"
+
+  /// A BPF relocatable object, for the same reason as the AVR one.
+  static let bpfObjFile = parseFile "elf_bpf_obj"
+
   /// A 64-bit big-endian MIPS executable, exercising MIPS/Bit64 decoding.
   static let mips64File = parseFile "elf_mips64"
+
+  /// Returns the header offsets of every section of a 64-bit little-endian ELF
+  /// image.
+  static let sectionHeaderOffsets (bytes: byte[]) =
+    let shoff = int (System.BitConverter.ToUInt64(bytes, 0x28))
+    let shentsize = int (System.BitConverter.ToUInt16(bytes, 0x3a))
+    let shnum = int (System.BitConverter.ToUInt16(bytes, 0x3c))
+    Array.init shnum (fun i -> shoff + i * shentsize)
+
+  /// Returns the type of the section at the given header offset.
+  static let sectionType (bytes: byte[]) hdr =
+    System.BitConverter.ToUInt32(bytes, hdr + 4)
+
+  /// Returns the header offsets of every REL/RELA section of a 64-bit
+  /// little-endian ELF image.
+  static let relocSectionHeaders bytes =
+    let isReloc hdr =
+      sectionType bytes hdr = 4u (* SHT_RELA *)
+      || sectionType bytes hdr = 9u (* SHT_REL *)
+    sectionHeaderOffsets bytes |> Array.filter isReloc
+
+  /// Returns the header offset of the first section of the given type.
+  static let sectionHeaderOfType bytes typ =
+    let hasType hdr = sectionType bytes hdr = typ
+    sectionHeaderOffsets bytes |> Array.find hasType
+
+  /// Returns the entry size of the REL/RELA section at the given header.
+  static let relocEntrySize bytes hdr =
+    if sectionType bytes hdr = 4u then 24 else 16
+
+  static let writeUInt16 (bytes: byte[]) offset (v: uint16) =
+    Array.blit (System.BitConverter.GetBytes v) 0 bytes offset 2
+
+  static let writeUInt32 (bytes: byte[]) offset (v: uint32) =
+    Array.blit (System.BitConverter.GetBytes v) 0 bytes offset 4
+
+  static let writeUInt64 (bytes: byte[]) offset (v: uint64) =
+    Array.blit (System.BitConverter.GetBytes v) 0 bytes offset 8
+
+  static let parsePatchedObjFile patch =
+    let bytes = ZIPReader.readBytes ELFBinary "elf_x64_obj.zip" "elf_x64_obj"
+    for hdr in relocSectionHeaders bytes do patch bytes hdr
+    ELFBinFile("elf_x64_obj", bytes, None, None)
+
+  static let relocFileBytes () =
+    ZIPReader.readBytes ELFBinary "elf_x64_reloc.zip" "elf_x64_reloc"
+
+  /// Returns the version info of the dynamic symbol of the given name.
+  static let verInfoOf (file: ELFBinFile) name =
+    let hasName (s: ELF.Symbol) = s.SymName = name
+    (file.Symbols.DynamicSymbols |> Array.find hasName).VerInfo
+
+  /// Returns the index of the dynamic symbol of the given name, which is also
+  /// the index of its entry in the symbol version section.
+  static let dynamicSymbolIndex (file: ELFBinFile) name =
+    let hasName (s: ELF.Symbol) = s.SymName = name
+    file.Symbols.DynamicSymbols |> Array.findIndex hasName
+
+  /// Parses elf_x64_reloc after rewriting the raw version value of the
+  /// dynamic symbol at the given index.
+  static let parseWithPatchedVersion idx patch =
+    let bytes = relocFileBytes ()
+    let versym = sectionHeaderOfType bytes 0x6fffffffu (* SHT_GNU_versym *)
+    let off = int (System.BitConverter.ToUInt64(bytes, versym + 24)) + idx * 2
+    writeUInt16 bytes off (patch (System.BitConverter.ToUInt16(bytes, off)))
+    ELFBinFile("elf_x64_reloc", bytes, None, None)
+
+  /// Parses the given fixture after moving the first section of the given type
+  /// out of the file, so that reading that section fails.
+  static let parseWithBrokenSection fileName typ =
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    let sec = sectionHeaderOfType bytes typ
+    writeUInt64 bytes (sec + 24) 0xffffffffUL (* sh_offset *)
+    ELFBinFile(fileName, bytes, None, None)
+
+  /// Returns the first symbol of the first dynamic symbol table.
+  static let firstDynamicSymbol (file: ELFBinFile) =
+    file.Symbols.DynamicSymbols[0]
+
+  /// Returns the first static symbol that the address map keeps.
+  static let firstMappedSymbol (file: ELFBinFile) =
+    file.Symbols.StaticSymbols |> Array.find (fun s -> s.Addr > 0UL)
+
+  /// Asserts that the symbol found at the given address is the added one.
+  static let assertAddedName (file: ELFBinFile) addr =
+    let name = file.Symbols.TryFindSymbol addr |> Result.map _.SymName
+    Assert.AreEqual(Ok "added", name)
+
+  static let glibc225: ELF.SymVerInfo option =
+    Some { IsHidden = false; VerName = "GLIBC_2.2.5" }
+
+  /// The one kind a RELR table can hold on x86-64.
+  static let x64Relative =
+    let value = uint64 ELF.RelocationX64.R_X86_64_RELATIVE
+    ELF.RelocationKind(ELF.MachineType.EM_X86_64, value)
+
+  static let x64GlobDat =
+    let value = uint64 ELF.RelocationX64.R_X86_64_GLOB_DATA
+    ELF.RelocationKind(ELF.MachineType.EM_X86_64, value)
+
+  static let x64JumpSlot =
+    let value = uint64 ELF.RelocationX64.R_X86_64_JUMP_SLOT
+    ELF.RelocationKind(ELF.MachineType.EM_X86_64, value)
+
+  /// Assembles the ELF32 header of an image of the given machine type, which
+  /// is the whole of what the ISA is read from. It stands in wherever no
+  /// toolchain to hand builds the machine type in question.
+  static let elf32Header endian (machineType: uint16) =
+    let bytes = Array.zeroCreate<byte> 0x34
+    let isLittle = endian = Endian.Little
+    Array.blit [| 0x7fuy; byte 'E'; byte 'L'; byte 'F' |] 0 bytes 0 4
+    bytes[4] <- 1uy (* ELFCLASS32 *)
+    bytes[5] <- if isLittle then 1uy else 2uy
+    bytes[18] <- if isLittle then byte machineType else byte (machineType >>> 8)
+    bytes[19] <- if isLittle then byte (machineType >>> 8) else byte machineType
+    bytes
+
+  /// No TI toolchain comes with the cross-compilers the fixtures are built
+  /// with, so EM_TI_C6000 has to be stated rather than built.
+  static let tic6xHeader = elf32Header Endian.Little 0x8cus
+
+  /// A toolchain asked for 32-bit SPARC emits EM_SPARC32PLUS, which the
+  /// fixture below carries, so the plain EM_SPARC is stated the same way.
+  static let sparcV8Header = elf32Header Endian.Big 0x02us
 
   let assertExistenceOfReloc (file: ELFBinFile) offset symbolName =
     file.RelocationInfo.Entries
@@ -176,6 +411,22 @@ type ELFTests() =
     let file = x64RPathFile :> IBinFile
     CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RPath)
     CollectionAssert.AreEqual([||], file.RunPath)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 rpath array is not shared test``() =
+    let file = parseFile "elf_x64_rpath" :> IBinFile
+    let rpath = file.RPath
+    rpath[0] <- "/mutated"
+    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RPath)
+    CollectionAssert.AreEqual([||], file.RunPath)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 runpath array is not shared test``() =
+    let file = parseFile "elf_x64_runpath" :> IBinFile
+    let runpath = file.RunPath
+    runpath[0] <- "/mutated"
+    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RunPath)
+    CollectionAssert.AreEqual([||], file.RPath)
 
   [<TestMethod>]
   member _.``[ELF] x64 exec base address test``() =
@@ -350,6 +601,323 @@ type ELFTests() =
     assertExistenceOfReloc x64RelocFile 0x404020UL "__environ"
 
   [<TestMethod>]
+  member _.``[ELF] x64 reloc symbol versions test``() =
+    (* write, environ and __environ share one version index. *)
+    Assert.AreEqual(glibc225, verInfoOf x64RelocFile "write")
+    Assert.AreEqual(glibc225, verInfoOf x64RelocFile "environ")
+    Assert.AreEqual(glibc225, verInfoOf x64RelocFile "__environ")
+    let glibc234: ELF.SymVerInfo option =
+      Some { IsHidden = false; VerName = "GLIBC_2.34" }
+    Assert.AreEqual(glibc234, verInfoOf x64RelocFile "__libc_start_main")
+    let gmon = verInfoOf x64RelocFile "__gmon_start__"
+    Assert.AreEqual<ELF.SymVerInfo option>(None, gmon)
+    Assert.AreEqual<ELF.SymVerInfo option>(None, verInfoOf x64RelocFile "")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc hidden symbol version test``() =
+    (* The hidden flag is part of the version value, so hiding one symbol's
+       version leaves the other symbols of the same index visible. *)
+    let idx = dynamicSymbolIndex x64RelocFile "write"
+    let file = parseWithPatchedVersion idx (fun v -> v ||| 0x8000us)
+    let hidden: ELF.SymVerInfo option =
+      Some { IsHidden = true; VerName = "GLIBC_2.2.5" }
+    Assert.AreEqual(hidden, verInfoOf file "write")
+    Assert.AreEqual(glibc225, verInfoOf file "environ")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc unnamed symbol version test``() =
+    let idx = dynamicSymbolIndex x64RelocFile "write"
+    let file = parseWithPatchedVersion idx (fun _ -> 0x7ffeus)
+    Assert.AreEqual<ELF.SymVerInfo option>(None, verInfoOf file "write")
+    Assert.AreEqual(glibc225, verInfoOf file "environ")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc reserved symbol versions test``() =
+    (* 0 (local) and 1 (global) carry no version. 0x8000 and 0x8001 are not
+       excluded by that rule, but their index names no version either. *)
+    let idx = dynamicSymbolIndex x64RelocFile "write"
+    for raw in [| 0us; 1us; 0x8000us; 0x8001us |] do
+      let file = parseWithPatchedVersion idx (fun _ -> raw)
+      Assert.AreEqual<ELF.SymVerInfo option>(None, verInfoOf file "write")
+      Assert.AreEqual(glibc225, verInfoOf file "environ")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr section type test``() =
+    let isRelr (s: ELF.SectionHeader) =
+      s.SecType = ELF.SectionType.SHT_RELR
+    let sec = x64RelrFile.SectionHeaders |> Array.find isRelr
+    Assert.AreEqual<string>(".relr.dyn", sec.SecName)
+    Assert.AreEqual<string>("RELR", ELF.SectionType.toString sec.SecType)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr dynamic tags test``() =
+    let valueOf tag =
+      x64RelrFile.DynamicArrayEntries
+      |> Array.tryFind (fun e -> e.DTag = tag)
+      |> Option.map _.DVal
+    Assert.AreEqual(Some 0x600UL, valueOf ELF.DTag.DT_RELR)
+    Assert.AreEqual(Some 24UL, valueOf ELF.DTag.DT_RELRSZ)
+    Assert.AreEqual(Some 8UL, valueOf ELF.DTag.DT_RELRENT)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr entries test``() =
+    (* Packing moves every relative relocation out of .rela.dyn, so all 39 of
+       them can only come from the .relr.dyn bitmap. None names a symbol. *)
+    let entries = x64RelrFile.RelocationInfo.Entries |> Seq.toArray
+    let relatives = entries |> Array.filter (fun r -> r.RelKind = x64Relative)
+    Assert.AreEqual<int>(39, relatives.Length)
+    let anonymous = relatives |> Array.forall (fun r -> r.RelSymbol.IsNone)
+    Assert.AreEqual<bool>(true, anonymous)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr implicit addend test``() =
+    (* RELR has no addend field: the link-time address already in the slot is
+       the addend. These three sites come from the leading address entry, from
+       the first bitmap, and from the second bitmap, which the cursor reaches
+       only after skipping a whole word of bits. *)
+    let addendAt addr =
+      x64RelrFile.RelocationInfo.TryFind addr |> Result.map _.RelAddend
+    Assert.AreEqual(Ok 0x1140UL, addendAt 0x3c50UL)
+    Assert.AreEqual(Ok 0x2012UL, addendAt 0x3d78UL)
+    Assert.AreEqual(Ok 0x4008UL, addendAt 0x4008UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr relocated addr test``() =
+    let relocs = (x64RelrFile :> IBinFile).Relocations.Value
+    Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x3c50UL)
+    (* A bitmap marks whole words, so the middle of one is not a site. *)
+    Assert.AreEqual<bool>(false, relocs.IsRelocationAddr 0x3c54UL)
+    Assert.AreEqual(Ok 0x1140UL, relocs.TryGetRelocatedAddr 0x3c50UL)
+    Assert.AreEqual(Ok 0x4008UL, relocs.TryGetRelocatedAddr 0x4008UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr rebased test``() =
+    (* Both the site and the value it resolves to shift with the load base. *)
+    let relocs = (x64RelrRebasedFile :> IBinFile).Relocations.Value
+    Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x403c50UL)
+    Assert.AreEqual(Ok 0x401140UL, relocs.TryGetRelocatedAddr 0x403c50UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec has no section headers test``() =
+    Assert.AreEqual<int>(0, x64NoSecFile.SectionHeaders.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec dynamic array test``() =
+    (* The .dynamic section is gone, so these come from PT_DYNAMIC. *)
+    let entries = x64NoSecFile.DynamicArrayEntries
+    let valueOf tag =
+      entries |> Array.tryFind (fun e -> e.DTag = tag) |> Option.map _.DVal
+    Assert.AreEqual(Some 0x600UL, valueOf ELF.DTag.DT_RELR)
+    Assert.AreEqual(Some 0x570UL, valueOf ELF.DTag.DT_RELA)
+    Assert.AreEqual(Some 0x5e8UL, valueOf ELF.DTag.DT_JMPREL)
+    Assert.AreEqual(Some 24UL, valueOf ELF.DTag.DT_PLTRELSZ)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec relocation entries test``() =
+    (* DT_RELA, DT_JMPREL and DT_RELR between them name every table the
+       section headers named, so stripping them loses no entry. *)
+    let stripped = x64NoSecFile.RelocationInfo.Entries |> Seq.length
+    let kept = x64RelrFile.RelocationInfo.Entries |> Seq.length
+    Assert.AreEqual<int>(45, kept)
+    Assert.AreEqual<int>(kept, stripped)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec implicit addend test``() =
+    (* Without section headers the slot a RELR entry relocates can only be
+       found through the loadable segments. *)
+    let addendAt addr =
+      x64NoSecFile.RelocationInfo.TryFind addr |> Result.map _.RelAddend
+    Assert.AreEqual(Ok 0x1140UL, addendAt 0x3c50UL)
+    Assert.AreEqual(Ok 0x2012UL, addendAt 0x3d78UL)
+    Assert.AreEqual(Ok 0x4008UL, addendAt 0x4008UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec explicit addend test``() =
+    (* DT_PLTREL says whether DT_JMPREL is REL or RELA, and this one is RELA,
+       so the JUMP_SLOT below carries its addend in the entry itself. *)
+    let kindAt addr =
+      x64NoSecFile.RelocationInfo.TryFind addr |> Result.map _.RelKind
+    Assert.AreEqual(Ok x64GlobDat, kindAt 0x3fc0UL)
+    Assert.AreEqual(Ok x64JumpSlot, kindAt 0x3fb8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec dynamic symbols test``() =
+    (* DT_SYMTAB and DT_STRTAB name the tables, and the distance between them
+       is what bounds the symbol table, as no tag gives its size. *)
+    let names = x64NoSecFile.Symbols.DynamicSymbols |> Array.map _.SymName
+    let kept = x64RelrFile.Symbols.DynamicSymbols |> Array.map _.SymName
+    Assert.AreEqual<int>(7, kept.Length)
+    CollectionAssert.AreEqual(kept, names)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec relocation symbols test``() =
+    let nameAt addr =
+      x64NoSecFile.RelocationInfo.TryFind addr
+      |> Result.map (fun r -> r.RelSymbol |> Option.map _.SymName)
+    Assert.AreEqual(Ok(Some "printf"), nameAt 0x3fb8UL)
+    Assert.AreEqual(Ok(Some "__libc_start_main"), nameAt 0x3fc0UL)
+    (* A relative relocation names no symbol whichever way it was found. *)
+    Assert.AreEqual(Ok None, nameAt 0x3c50UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec symbol versions test``() =
+    (* The version indices come from DT_VERSYM and the names they stand for
+       from DT_VERNEED, neither of which a section header has to name. *)
+    Assert.AreEqual(glibc225, verInfoOf x64NoSecFile "printf")
+    let glibc234: ELF.SymVerInfo option =
+      Some { IsHidden = false; VerName = "GLIBC_2.34" }
+    Assert.AreEqual(glibc234, verInfoOf x64NoSecFile "__libc_start_main")
+    let gmon = verInfoOf x64NoSecFile "__gmon_start__"
+    Assert.AreEqual<ELF.SymVerInfo option>(None, gmon)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 sysvhash dynamic symbols test``() =
+    (* With no DT_GNU_HASH, DT_HASH gives the count in its nchain word. *)
+    let symbols = x64SysvHashFile.Symbols.DynamicSymbols
+    Assert.AreEqual<int>(7, symbols.Length)
+    let names = symbols |> Array.map _.SymName
+    Assert.AreEqual<bool>(true, Array.contains "printf" names)
+
+  [<TestMethod>]
+  member _.``[ELF] symbol version names are per file test``() =
+    (* The same version index names a different version in each file. *)
+    Assert.AreEqual(glibc225, verInfoOf x64ExecFile "write")
+    let glibc20: ELF.SymVerInfo option =
+      Some { IsHidden = false; VerName = "GLIBC_2.0" }
+    Assert.AreEqual(glibc20, verInfoOf x86File "write")
+    let glibc217: ELF.SymVerInfo option =
+      Some { IsHidden = false; VerName = "GLIBC_2.17" }
+    Assert.AreEqual(glibc217, verInfoOf aarch64File "write")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj symbols have no version test``() =
+    let versioned =
+      x64ObjFile.Symbols.StaticSymbols
+      |> Array.exists (fun s -> s.VerInfo.IsSome)
+    Assert.AreEqual<bool>(false, versioned)
+    Assert.AreEqual<int>(0, x64ObjFile.Symbols.DynamicSymbols.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] empty symbol table reads no version test``() =
+    (* With no symbol to read a version for, the version section is never
+       touched, even when its header points outside the file. *)
+    let bytes = relocFileBytes ()
+    let versym = sectionHeaderOfType bytes 0x6fffffffu (* SHT_GNU_versym *)
+    let dynsym = sectionHeaderOfType bytes 11u (* SHT_DYNSYM *)
+    writeUInt64 bytes (versym + 24) 0xffffffffUL (* sh_offset *)
+    writeUInt64 bytes (dynsym + 32) 0UL (* sh_size *)
+    let file = ELFBinFile("elf_x64_reloc", bytes, None, None)
+    Assert.AreEqual<int>(0, file.Symbols.DynamicSymbols.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] broken symtab keeps dynsym readable test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 2u (* SHT_SYMTAB *)
+    Assert.AreEqual<int>(4, file.Symbols.DynamicSymbols.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] broken dynsym keeps symtab readable test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 11u (* SHT_DYNSYM *)
+    Assert.AreEqual<int>(37, file.Symbols.StaticSymbols.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] unknown symbol table lookup reads nothing test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 2u (* SHT_SYMTAB *)
+    let found = file.Symbols.TryFindSymbolTable 0xffff
+    Assert.AreEqual(Error ErrorCase.ItemNotFound, found)
+
+  [<TestMethod>]
+  member _.``[ELF] symbol map ignores the evaluation order test``() =
+    let resolveAll (file: ELFBinFile) =
+      Array.append file.Symbols.StaticSymbols file.Symbols.DynamicSymbols
+      |> Array.map (fun s -> s.Addr)
+      |> Array.distinct
+      |> Array.map (fun addr ->
+        let name = file.Symbols.TryFindSymbol addr |> Result.map _.SymName
+        addr, name)
+    let staticFirst = parseFile "elf_x64_exec"
+    staticFirst.Symbols.StaticSymbols |> ignore
+    staticFirst.Symbols.DynamicSymbols |> ignore
+    let dynamicFirst = parseFile "elf_x64_exec"
+    dynamicFirst.Symbols.DynamicSymbols |> ignore
+    dynamicFirst.Symbols.StaticSymbols |> ignore
+    CollectionAssert.AreEqual(resolveAll staticFirst, resolveAll dynamicFirst)
+
+  [<TestMethod>]
+  member _.``[ELF] adding a symbol reads no symbol table test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 2u (* SHT_SYMTAB *)
+    let sym = { firstDynamicSymbol file with SymName = "added" }
+    file.Symbols.AddSymbol(0x1234UL, sym)
+    assertAddedName file 0x1234UL
+
+  [<TestMethod>]
+  member _.``[ELF] added symbol wins over the original symbol test``() =
+    let before = parseFile "elf_x64_exec"
+    let orig = firstMappedSymbol before
+    before.Symbols.AddSymbol(orig.Addr, { orig with SymName = "added" })
+    assertAddedName before orig.Addr
+    let after = parseFile "elf_x64_exec"
+    after.Symbols.TryFindSymbol orig.Addr |> ignore (* builds the map *)
+    after.Symbols.AddSymbol(orig.Addr, { orig with SymName = "added" })
+    assertAddedName after orig.Addr
+
+  [<TestMethod>]
+  member _.``[ELF] the last added symbol wins test``() =
+    let file = parseFile "elf_x64_exec"
+    let orig = firstMappedSymbol file
+    file.Symbols.AddSymbol(orig.Addr, { orig with SymName = "first" })
+    file.Symbols.AddSymbol(orig.Addr, { orig with SymName = "added" })
+    assertAddedName file orig.Addr
+
+  [<TestMethod>]
+  member _.``[ELF] added symbol at address zero is kept test``() =
+    let file = parseFile "elf_x64_exec"
+    let orig = firstMappedSymbol file
+    file.Symbols.AddSymbol(0UL, { orig with SymName = "added" })
+    assertAddedName file 0UL
+
+  [<TestMethod>]
+  member _.``[ELF] added symbol stays out of the symbol tables test``() =
+    let file = parseFile "elf_x64_exec"
+    let orig = firstMappedSymbol file
+    file.Symbols.AddSymbol(orig.Addr, { orig with SymName = "added" })
+    let inTables =
+      Array.append file.Symbols.StaticSymbols file.Symbols.DynamicSymbols
+      |> Array.exists (fun s -> s.SymName = "added")
+    Assert.AreEqual<bool>(false, inTables)
+
+  [<TestMethod>]
+  member _.``[ELF] broken symtab keeps the PLT readable test``() =
+    let file = parseWithBrokenSection "elf_x64_exec" 2u (* SHT_SYMTAB *)
+    let entries = getLinkageTableEntries (file :> IBinFile)
+    let hasWrite = entries |> Seq.exists (fun i -> i.Name = "write")
+    Assert.AreEqual<bool>(true, hasWrite)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj reloc without a symbol table test``() =
+    (* sh_link now names SHT_NULL, so the section has no symbol table. *)
+    let patch bytes hdr = writeUInt32 bytes (hdr + 40) 0u
+    let file = parsePatchedObjFile patch
+    let entries = file.RelocationInfo.Entries |> Seq.toArray
+    Assert.AreEqual<bool>(true, entries.Length > 0)
+    let unresolved = entries |> Array.forall (fun r -> r.RelSymbol.IsNone)
+    Assert.AreEqual<bool>(true, unresolved)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj reloc with an out-of-range symbol test``() =
+    (* The symbol index sits in the upper half of r_info on 64-bit ELF. *)
+    let patch bytes hdr =
+      let secOff = int (System.BitConverter.ToUInt64(bytes, hdr + 24))
+      let secSize = int (System.BitConverter.ToUInt64(bytes, hdr + 32))
+      let entSize = relocEntrySize bytes hdr
+      for i in 0 .. secSize / entSize - 1 do
+        writeUInt32 bytes (secOff + i * entSize + 12) 0xffffffu
+    let file = parsePatchedObjFile patch
+    let entries = file.RelocationInfo.Entries |> Seq.toArray
+    Assert.AreEqual<bool>(true, entries.Length > 0)
+    let unresolved = entries |> Array.forall (fun r -> r.RelSymbol.IsNone)
+    Assert.AreEqual<bool>(true, unresolved)
+
+  [<TestMethod>]
   member _.``[ELF] x64 reloc IsRelocationAddr test``() =
     let relocs = (x64RelocFile :> IBinFile).Relocations.Value
     Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x404000UL)
@@ -363,16 +931,467 @@ type ELFTests() =
     Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x404000UL)
 
   [<TestMethod>]
-  member _.``[ELF] x64 reloc GLOB_DAT is unhandled test``() =
+  member _.``[ELF] x64 reloc GLOB_DAT resolves to symbol address test``() =
+    (* __libc_start_main is an undefined import, so it resolves to 0. *)
     let relocs = (x64RelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x403fd8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 pie RELATIVE resolves to base plus addend test``() =
+    let relocs = (x64PieFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x1170UL, relocs.TryGetRelocatedAddr 0x3db8UL)
+    Assert.AreEqual(Ok 0x1130UL, relocs.TryGetRelocatedAddr 0x3dc0UL)
+    Assert.AreEqual(Ok 0x4008UL, relocs.TryGetRelocatedAddr 0x4008UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 pie RELATIVE honors the load base test``() =
+    (* The addend is a link-time address, so a non-zero load base must shift
+       the resolved target along with it. *)
+    let relocs = (x64PieRebasedFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x401170UL, relocs.TryGetRelocatedAddr 0x403db8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] aarch64 JUMP_SLOT and GLOB_DAT resolve test``() =
+    let relocs = (aarch64File :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x420010UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x41ffd0UL)
+
+  [<TestMethod>]
+  member _.``[ELF] mips32 JUMP_SLOT resolves to symbol address test``() =
+    (* write and abort are undefined imports, so they resolve to 0. *)
+    let relocs = (mips32PltFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x420008UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x42000cUL)
+
+  [<TestMethod>]
+  member _.``[ELF] mips32 COPY is not an address relocation test``() =
+    let relocs = (mips32PltFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x403fd8UL)
+                    relocs.TryGetRelocatedAddr 0x420050UL)
+
+  [<TestMethod>]
+  member _.``[ELF] mips32 local REL32 resolves to base plus addend test``() =
+    (* A local REL32 names no symbol, so it resolves against the load base,
+       taking its addend from the slot it relocates. *)
+    let relocs = (mips32SoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x510UL, relocs.TryGetRelocatedAddr 0x1fff0UL)
+    Assert.AreEqual(Ok 0x4a4UL, relocs.TryGetRelocatedAddr 0x1fff4UL)
+    Assert.AreEqual(Ok 0x20000UL, relocs.TryGetRelocatedAddr 0x1fff8UL)
+    Assert.AreEqual(Ok 0x20004UL, relocs.TryGetRelocatedAddr 0x1fffcUL)
+    Assert.AreEqual(Ok 0x20044UL, relocs.TryGetRelocatedAddr 0x20044UL)
+
+  [<TestMethod>]
+  member _.``[ELF] mips32 REL entries expose the implicit addend test``() =
+    let relocs = (mips32SoFile :> IBinFile).Relocations.Value
+    let addends =
+      relocs.Relocations
+      |> Array.filter (fun r -> r.Address = 0x1fff0UL || r.Address = 0x1fff4UL)
+      |> Array.sortBy (fun r -> r.Address)
+      |> Array.map (fun r -> r.Addend)
+    CollectionAssert.AreEqual([| Some 0x510L; Some 0x4a4L |], addends)
+
+  [<TestMethod>]
+  member _.``[ELF] mips64 n64 packed REL32 resolves test``() =
+    (* The n64 r_info carries R_MIPS_REL32 alongside R_MIPS_64; reading the
+       whole 32-bit type field of a generic ELF64 file would yield neither. *)
+    let relocs = (mips64SoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x7d8UL, relocs.TryGetRelocatedAddr 0x1ffe0UL)
+    Assert.AreEqual(Ok 0x768UL, relocs.TryGetRelocatedAddr 0x1ffe8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] mips32 REL32 honors the load base test``() =
+    let fileName = "elf_mips32_so"
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    let file = ELFBinFile(fileName, bytes, Some 0x400000UL, None)
+    let relocs = (file :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x400510UL, relocs.TryGetRelocatedAddr 0x41fff0UL)
+
+  [<TestMethod>]
+  member _.``[ELF] riscv64 resolves every relocation family test``() =
+    let relocs = (riscv64File :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x672UL, relocs.TryGetRelocatedAddr 0x1da0UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fd8UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fb8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] riscv64 imports test``() =
+    (* .plt is 0x50 from 0x600, a 32-byte header and three 16-byte stubs. *)
+    let expected =
+      [ "__libc_start_main", Some 0x620UL
+        "abort", Some 0x630UL
+        "write", Some 0x640UL ]
+    let entries =
+      getLinkageTableEntries riscv64File
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] s390x imports test``() =
+    (* .plt is 0xa0 from 0x638, a 32-byte header and four 32-byte stubs. *)
+    let expected =
+      [ "__cxa_finalize", Some 0x658UL
+        "__libc_start_main", Some 0x678UL
+        "write", Some 0x698UL
+        "abort", Some 0x6b8UL ]
+    let entries =
+      getLinkageTableEntries s390xFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] m68k imports test``() =
+    (* .plt is 0x50 from 0x384, a 20-byte header and three 20-byte stubs. *)
+    let expected =
+      [ "ext", Some 0x398UL
+        "__cxa_finalize", Some 0x3acUL
+        "__gmon_start__", Some 0x3c0UL ]
+    let entries =
+      getLinkageTableEntries m68kSoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] riscv64 ifunc resolves to its resolver test``() =
+    (* resolve_f sits at 0x686, and that is the addend of the IRELATIVE entry
+       the loader fills 0x1fd0 with. *)
+    let relocs = (riscv64IfuncFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x686UL, relocs.TryGetRelocatedAddr 0x1fd0UL)
+
+  [<TestMethod>]
+  member _.``[ELF] riscv64 ifunc is an internal function test``() =
+    (* An ifunc names no symbol, so the resolver it points at is reachable
+       only through the kind of the relocation itself. *)
+    let relocs = (riscv64IfuncFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x686UL, relocs.TryGetInternalFunctionAddr 0x1fd0UL)
+
+  [<TestMethod>]
+  member _.``[ELF] riscv64 imported function is not internal test``() =
+    (* The JUMP_SLOT beside it names __libc_start_main, which this file does
+       not define. *)
+    let relocs = (riscv64IfuncFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Error ErrorCase.SymbolNotFound,
+                    relocs.TryGetInternalFunctionAddr 0x1fc8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] riscv64 ifunc takes a PLT entry of its own test``() =
+    (* The PLT has an entry per entry of .rela.plt, the ifunc among them, and
+       the import table is how the middle end reaches the resolver behind it.
+       Naming no symbol, that entry carries an empty name. *)
+    let imports = getLinkageTableEntries riscv64IfuncFile
+    let names = imports |> Seq.map _.Name |> Seq.toList
+    Assert.AreEqual<string list>([ "__libc_start_main"; "" ], names)
+    Assert.AreEqual<uint64>(0x1fd0UL, (Seq.item 1 imports).TableAddress)
+
+  [<TestMethod>]
+  member _.``[ELF] ARM ifunc kinds name a resolver test``() =
+    (* No ARM cross-toolchain builds these fixtures, so what can be checked is
+       the classification the resolver lookup turns on. *)
+    let resolver = ValueSome ELF.RelocationSemantics.IFuncResolver
+    let ofARMv7 = ELF.RelocationSemantics.OfARMv7
+    let ofARMv8 = ELF.RelocationSemantics.OfARMv8
+    Assert.AreEqual(resolver, ofARMv7 ELF.RelocationARMv7.R_ARM_IRELATIVE)
+    Assert.AreEqual(resolver, ofARMv8 ELF.RelocationARMv8.R_AARCH64_IRELATIVE)
+
+  [<TestMethod>]
+  member _.``[ELF] unsupported relocation arch still names its kind test``() =
+    (* The entry parsed; only the name for it is missing, which is no reason
+       to fail the file. *)
+    let kind = ELF.RelocationKind(ELF.MachineType.EM_TI_C6000, 4UL)
+    Assert.AreEqual<string>("RELOC_0x4", RelocKind.ToString kind)
+
+  [<TestMethod>]
+  member _.``[ELF] TI C6000 ISA test``() =
+    match ELF.Header.getISA tic6xHeader with
+    | Ok isa ->
+      Assert.AreEqual(Architecture.TMS320C6000, isa.Arch)
+      Assert.AreEqual(WordSize.Bit32, isa.WordSize)
+    | Error _ ->
+      Assert.Fail()
+
+  [<TestMethod>]
+  member _.``[ELF] ppc32 resolves every relocation family test``() =
+    let relocs = (ppc32SoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x4d0UL, relocs.TryGetRelocatedAddr 0x1fefcUL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1ff08UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fff0UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20000UL)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64 resolves RELATIVE and ADDR64 test``() =
+    let relocs = (ppc64SoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x1fed0UL, relocs.TryGetRelocatedAddr 0x1fca8UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1ff08UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20018UL)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64 ELFv1 imports test``() =
+    (* .plt is NOBITS, so the stubs are the glink ones at DT_PPC64_GLINK + 32,
+       eight bytes apart: an index into r0 and a branch to the resolver. *)
+    let expected =
+      [ "ext", Some 0x85cUL
+        "__cxa_finalize", Some 0x864UL
+        "__gmon_start__", Some 0x86cUL ]
+    let entries =
+      getLinkageTableEntries ppc64SoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64 ELFv2 imports test``() =
+    (* The same layout, but each stub is the branch alone, so they sit four
+       bytes apart and the resolver works the index out for itself. *)
+    let expected =
+      [ "ext", Some 0x6ccUL
+        "__cxa_finalize", Some 0x6d0UL
+        "__gmon_start__", Some 0x6d4UL ]
+    let entries =
+      getLinkageTableEntries ppc64leSoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64 imports name their PLT slots test``() =
+    (* The slot an import resolves through is the one its JMP_SLOT relocates,
+       which under ELFv1 is 24 bytes wide and under ELFv2 only 8. *)
+    let slotsOf f =
+      getLinkageTableEntries f |> Seq.map _.TableAddress |> Seq.toList
+    Assert.AreEqual<Addr list>([ 0x20018UL; 0x20030UL; 0x20048UL ],
+                               slotsOf ppc64SoFile)
+    Assert.AreEqual<Addr list>([ 0x20010UL; 0x20018UL; 0x20020UL ],
+                               slotsOf ppc64leSoFile)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64le ISA test``() =
+    let isa = (ppc64leSoFile :> IBinFile).ISA
+    Assert.AreEqual(Architecture.PPC, isa.Arch)
+    Assert.AreEqual(WordSize.Bit64, isa.WordSize)
+    Assert.AreEqual(Endian.Little, isa.Endian)
+
+  [<TestMethod>]
+  member _.``[ELF] sh4 resolves every relocation family test``() =
+    let relocs = (sh4SoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x490UL, relocs.TryGetRelocatedAddr 0x1ff28UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20024UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20018UL)
+
+  [<TestMethod>]
+  member _.``[ELF] s390x resolves every relocation family test``() =
+    let relocs = (s390xFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x800UL, relocs.TryGetRelocatedAddr 0x1d98UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fd0UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fb0UL)
+
+  [<TestMethod>]
+  member _.``[ELF] m68k resolves every relocation family test``() =
+    let relocs = (m68kSoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x494UL, relocs.TryGetRelocatedAddr 0x3f28UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x4018UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x400cUL)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc IPLT resolves and COPY does not test``() =
+    let relocs = (pariscFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x12028UL)
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    relocs.TryGetRelocatedAddr 0x12088UL)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc imports test``() =
+    (* The stubs sit ahead of _start in .text, and they are in no particular
+       order: each names its own descriptor as a GP-relative offset, and only
+       the imports that are actually called get one, three of the six here. *)
+    let expected =
+      [ "abort", Some 0x103e8UL
+        "__libc_start_main", Some 0x103fcUL
+        "write", Some 0x10410UL ]
+    let entries =
+      getLinkageTableEntries pariscFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc imports name their descriptors test``() =
+    (* The slot an import goes through is the one its IPLT relocates, which on
+       PA-RISC is an eight-byte descriptor rather than a stub of its own. *)
+    let slots =
+      getLinkageTableEntries pariscFile |> Seq.map _.TableAddress |> Seq.toList
+    Assert.AreEqual<Addr list>([ 0x12050UL; 0x12028UL; 0x12040UL ], slots)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc so imports test``() =
+    (* A position-independent image reaches its GP through r19 rather than the
+       r27 of the plain one above, so the stub head reads differently. *)
+    let expected =
+      [ "__cxa_finalize", Some 0x438UL
+        "ext", Some 0x44cUL ]
+    let entries =
+      getLinkageTableEntries pariscSoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc local descriptors are not imports test``() =
+    (* Three of the eight IPLT entries name local functions, which are called
+       directly and so have no stub for the scan to find. *)
+    let names = getLinkageTableEntries pariscSoFile |> Seq.map _.Name
+    Assert.AreEqual<bool>(false, Seq.contains "" names)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc DIR32 adds the symbol and the addend test``() =
+    (* .init sits at 0x41c and the addend is 0x1be8, so this is the one case
+       across the fixtures where both halves of S + A are non-zero. *)
+    let relocs = (pariscSoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x2004UL, relocs.TryGetRelocatedAddr 0x1f20UL)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc local DIR32 falls back to the base test``() =
+    let relocs = (pariscSoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x1f28UL, relocs.TryGetRelocatedAddr 0x2074UL)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc PLABEL32 is not an address relocation test``() =
+    let relocs = (pariscSoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    relocs.TryGetRelocatedAddr 0x1f14UL)
+
+  [<TestMethod>]
+  member _.``[ELF] sparc64 imports test``() =
+    (* A SPARC PLT entry is relocated where it stands, so the address a call
+       reaches and the one the relocation names are the same. *)
+    let expected =
+      [ "ext", Some 0x4180UL
+        "__cxa_finalize", Some 0x41a0UL
+        "__gmon_start__", Some 0x41c0UL ]
+    let entries =
+      getLinkageTableEntries sparc64SoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+    let slots =
+      getLinkageTableEntries sparc64SoFile
+      |> Seq.map _.TableAddress
+      |> Seq.toList
+    Assert.AreEqual<Addr list>([ 0x4180UL; 0x41a0UL; 0x41c0UL ], slots)
+
+  [<TestMethod>]
+  member _.``[ELF] sparc32 imports test``() =
+    (* The 32-bit PLT is laid out the same way, only with shorter entries, and
+       this one was linked without a libc so it holds the one import. *)
+    let entries =
+      getLinkageTableEntries sparc32SoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>([ "ext", Some 0x20034UL ],
+                                                 entries)
+
+  [<TestMethod>]
+  member _.``[ELF] aliased machine types name one kind test``() =
+    (* This header says EM_SPARC32PLUS where elf_sparc64_so says EM_SPARCV9,
+       and the two share one set of relocation kinds. Naming every kind by a
+       single machine type is what lets one be compared against another. *)
+    let jmpSlot = RelocKind.Create ELF.RelocationSPARC.R_SPARC_JMP_SLOT
+    let kindsOf (f: ELFBinFile) = f.RelocationInfo.Entries |> Seq.map _.RelKind
+    Assert.AreEqual<bool>(true, Seq.contains jmpSlot (kindsOf sparc32SoFile))
+    Assert.AreEqual<bool>(true, Seq.contains jmpSlot (kindsOf sparc64SoFile))
+
+  [<TestMethod>]
+  member _.``[ELF] sparc32 ISA test``() =
+    let isa = (sparc32SoFile :> IBinFile).ISA
+    Assert.AreEqual(Architecture.SPARC, isa.Arch)
+    Assert.AreEqual(WordSize.Bit32, isa.WordSize)
+    Assert.AreEqual(Endian.Big, isa.Endian)
+
+  [<TestMethod>]
+  member _.``[ELF] sparc v8 machine type is 32-bit test``() =
+    match ELF.Header.getISA sparcV8Header with
+    | Ok isa ->
+      Assert.AreEqual(Architecture.SPARC, isa.Arch)
+      Assert.AreEqual(WordSize.Bit32, isa.WordSize)
+    | Error _ ->
+      Assert.Fail()
+
+  [<TestMethod>]
+  member _.``[ELF] sparc64 resolves every relocation family test``() =
+    let relocs = (sparc64SoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x69cUL, relocs.TryGetRelocatedAddr 0x3e30UL)
+    Assert.AreEqual(Ok 0x41e8UL, relocs.TryGetRelocatedAddr 0x3e40UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x4010UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x4180UL)
+
+  [<TestMethod>]
+  member _.``[ELF] alpha resolves every relocation family test``() =
+    let relocs = (alphaSoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x5e0UL, relocs.TryGetRelocatedAddr 0x1fe60UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20018UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20010UL)
+
+  [<TestMethod>]
+  member _.``[ELF] avr resolves the direct kinds only test``() =
+    (* Both entries target the .data section symbol, two bytes apart, so the
+       gap between the two results is the addend being added to it. *)
+    let relocs = (avrObjFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x38UL, relocs.TryGetRelocatedAddr 0x0UL)
+    Assert.AreEqual(Ok 0x3aUL, relocs.TryGetRelocatedAddr 0x2UL)
+
+  [<TestMethod>]
+  member _.``[ELF] avr instruction field kinds are unresolved test``() =
+    let relocs = (avrObjFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    relocs.TryGetRelocatedAddr 0xcUL)
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    relocs.TryGetRelocatedAddr 0x26UL)
+
+  [<TestMethod>]
+  member _.``[ELF] bpf resolves ABS64 only test``() =
+    let relocs = (bpfObjFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0xc0UL, relocs.TryGetRelocatedAddr 0x8UL)
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    relocs.TryGetRelocatedAddr 0x30UL)
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    relocs.TryGetRelocatedAddr 0x78UL)
+
+  [<TestMethod>]
+  member _.``[ELF] arm32 JUMP_SLOT and GLOB_DAT resolve test``() =
+    let relocs = (arm32File :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x12014UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1201cUL)
 
   [<TestMethod>]
   member _.``[ELF] x64 reloc undefined internal function test``() =
     let relocs = (x64RelocFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.SymbolNotFound,
                     relocs.TryGetInternalFunctionAddr 0x404000UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc relocation list test``() =
+    let relocs = (parseFile "elf_x64_reloc" :> IBinFile).Relocations.Value
+    let toTuple (r: BinRelocation) = r.Address, r.SymbolName, r.Addend
+    let expected =
+      [| 0x403fd8UL, Some "__libc_start_main", Some 0L
+         0x403fe0UL, Some "__gmon_start__", Some 0L
+         0x404000UL, Some "write", Some 0L
+         0x404020UL, Some "__environ", Some 0L |]
+    let first = relocs.Relocations
+    let byAddr = first |> Array.map toTuple |> Array.sortBy (fun (a, _, _) -> a)
+    CollectionAssert.AreEqual(expected, byAddr)
+    CollectionAssert.AreEqual(first, relocs.Relocations)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc relocation array is not shared test``() =
+    let relocs = (parseFile "elf_x64_reloc" :> IBinFile).Relocations.Value
+    let entries = relocs.Relocations
+    let expected = Array.copy entries
+    entries[0] <- { Address = 0UL; SymbolName = None; Addend = None }
+    CollectionAssert.AreEqual(expected, relocs.Relocations)
+    Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x404000UL)
+    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x404000UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 nonx IsNXEnabled test``() =
@@ -697,11 +1716,83 @@ type ELFTests() =
     Assert.AreEqual<bool>(false, f.IsValidRange invalid)
 
   [<TestMethod>]
+  member _.``[ELF] x64 exec valid range boundary test``() =
+    (* The executable segment spans 0x401000-0x401184, and one past its end
+       falls into the gap before the next segment at 0x402000. *)
+    let f = x64ExecFile :> IBinFile
+    let first: AddrRange = { Min = 0x401000UL; Max = 0x401000UL }
+    let last: AddrRange = { Min = 0x401184UL; Max = 0x401184UL }
+    let past: AddrRange = { Min = 0x401185UL; Max = 0x401185UL }
+    let whole: AddrRange = { Min = 0x401000UL; Max = 0x401184UL }
+    Assert.AreEqual<bool>(true, f.IsValidRange first)
+    Assert.AreEqual<bool>(true, f.IsValidRange last)
+    Assert.AreEqual<bool>(false, f.IsValidRange past)
+    Assert.AreEqual<bool>(true, f.IsValidRange whole)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec valid range across memory gaps test``() =
+    (* Both ends are mapped, but the 0x401185-0x401fff gap in between is not,
+       so checking only the two end addresses would not be enough. *)
+    let f = x64ExecFile :> IBinFile
+    let oneGap: AddrRange = { Min = 0x401050UL; Max = 0x402050UL }
+    let twoGaps: AddrRange = { Min = 0x400100UL; Max = 0x402050UL }
+    Assert.AreEqual<bool>(true, f.IsValidAddr 0x401050UL)
+    Assert.AreEqual<bool>(true, f.IsValidAddr 0x402050UL)
+    Assert.AreEqual<bool>(false, f.IsValidRange oneGap)
+    Assert.AreEqual<bool>(false, f.IsValidRange twoGaps)
+
+  [<TestMethod>]
   member _.``[ELF] x64 exec address mapped to file test``() =
     (* .text is file-backed, but .bss has memsize > filesize, so it is not. *)
     let f = x64ExecFile :> IBinFile
     Assert.AreEqual<bool>(true, f.IsAddrMappedToFile 0x401050UL)
     Assert.AreEqual<bool>(false, f.IsAddrMappedToFile 0x404100UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec range mapped to file test``() =
+    (* The last segment carries file data up to 0x404017, and its .bss tail
+       (0x404018-0x40413f) exists in memory only. *)
+    let f = x64ExecFile :> IBinFile
+    let text: AddrRange = { Min = 0x401050UL; Max = 0x401080UL }
+    let bss: AddrRange = { Min = 0x404100UL; Max = 0x404120UL }
+    let crossing: AddrRange = { Min = 0x404000UL; Max = 0x404100UL }
+    Assert.AreEqual<bool>(true, f.IsRangeMappedToFile text)
+    Assert.AreEqual<bool>(true, f.IsValidRange bss)
+    Assert.AreEqual<bool>(false, f.IsRangeMappedToFile bss)
+    Assert.AreEqual<bool>(true, f.IsValidRange crossing)
+    Assert.AreEqual<bool>(false, f.IsRangeMappedToFile crossing)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec name resolution test``() =
+    let name addr = tryResolveName x64ExecFile addr
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "main", name 0x401050UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "_start", name 0x401080UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "helper", name 0x401170UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "g_buf", name 0x404040UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec name resolution failure test``() =
+    (* An unmapped address, and an address inside a function but not at its
+       entry, both resolve to nothing. *)
+    let name addr = tryResolveName x64ExecFile addr
+    let notFound: Result<string, ErrorCase> = Error ErrorCase.ItemNotFound
+    Assert.AreEqual<Result<string, ErrorCase>>(notFound, name 0x500000UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(notFound, name 0x401051UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec name resolution via PLT parsing test``() =
+    (* The PLT is parsed only after a symbol lookup has missed, and parsing it
+       registers the imported symbol at its trampoline address. The entry's
+       table address is the GOT slot, not the trampoline, so the first lookup
+       still fails while the next one finds the freshly added symbol. This
+       starts from a fresh instance, as a shared one may have forced the PLT
+       already. *)
+    let file = parseFile "elf_x64_exec"
+    let notFound: Result<string, ErrorCase> = Error ErrorCase.ItemNotFound
+    Assert.AreEqual<Result<string, ErrorCase>>(notFound,
+                                               tryResolveName file 0x401040UL)
+    Assert.AreEqual<Result<string, ErrorCase>>(Ok "write",
+                                               tryResolveName file 0x401040UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 exec executable address test``() =
