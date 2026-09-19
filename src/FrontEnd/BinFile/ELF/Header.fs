@@ -196,6 +196,10 @@ module internal Header =
       ISA Architecture.Alpha
     | MachineType.EM_AVR ->
       getAVRISA span reader cls
+    (* Every member of the family shares one instruction set, so the header
+       naming the family is all there is to go on. *)
+    | MachineType.EM_TI_C6000 ->
+      ISA Architecture.TMS320C6000
     (* A program is stored in the order the machine running it stores a word,
        and the header says which that was; nothing else about the ISA is left
        to say, every eBPF register being a quadword whatever the host is. *)

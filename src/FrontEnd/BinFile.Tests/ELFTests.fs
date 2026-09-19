@@ -326,6 +326,17 @@ type ELFTests() =
     let value = uint64 ELF.RelocationX64.R_X86_64_JUMP_SLOT
     ELF.RelocationKind(ELF.MachineType.EM_X86_64, value)
 
+  /// The ELF32 header of a TI C6000 image, assembled by hand because no TI
+  /// toolchain comes with the cross-compilers the fixtures are built with.
+  /// The machine type is the whole of what the ISA is read from.
+  static let tic6xHeader =
+    let bytes = Array.zeroCreate<byte> 0x34
+    Array.blit [| 0x7fuy; byte 'E'; byte 'L'; byte 'F' |] 0 bytes 0 4
+    bytes[4] <- 1uy (* ELFCLASS32 *)
+    bytes[5] <- 1uy (* ELFDATA2LSB *)
+    bytes[18] <- 0x8cuy (* EM_TI_C6000 *)
+    bytes
+
   let assertExistenceOfReloc (file: ELFBinFile) offset symbolName =
     file.RelocationInfo.Entries
     |> Seq.map (fun reloc -> reloc.RelOffset, reloc.RelSymbol.Value.SymName)
@@ -1030,6 +1041,15 @@ type ELFTests() =
        to fail the file. *)
     let kind = ELF.RelocationKind(ELF.MachineType.EM_TI_C6000, 4UL)
     Assert.AreEqual<string>("RELOC_0x4", RelocKind.ToString kind)
+
+  [<TestMethod>]
+  member _.``[ELF] TI C6000 ISA test``() =
+    match ELF.Header.getISA tic6xHeader with
+    | Ok isa ->
+      Assert.AreEqual(Architecture.TMS320C6000, isa.Arch)
+      Assert.AreEqual(WordSize.Bit32, isa.WordSize)
+    | Error _ ->
+      Assert.Fail()
 
   [<TestMethod>]
   member _.``[ELF] ppc32 resolves every relocation family test``() =
