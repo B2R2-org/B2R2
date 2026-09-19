@@ -240,3 +240,36 @@ struct.pack_into('<H', b, 0x3e, 0xffff)  # e_shstrndx = SHN_XINDEX
 struct.pack_into('<H', b, 0x38, 0xffff)  # e_phnum = PN_XNUM
 open('elf_x64_xindex', 'wb').write(bytes(b))
 ```
+
+## The extended symbol index fixture
+
+`st_shndx` is sixteen bits wide, and the values from `SHN_LORESERVE` (0xff00)
+up are reserved, so a symbol defined in a section numbered above that cannot
+say which. It carries `SHN_XINDEX` there instead, and the number itself waits
+at the symbol's own index of a `SHT_SYMTAB_SHNDX` table whose `sh_link` names
+the symbol table. The section count is then past what `e_shnum` holds too, so
+such a file uses the extended numbering as well.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_x64_shndx` | A relocatable object of 65282 sections whose `high_fn` is defined in the last of them |
+
+A real one is easy to compile and far too large to keep: 65400 one-line
+functions built with `-ffunction-sections` give a 13 MB object that still
+zips to 1.4 MB, where this hand-built one zips to 12 KB. The saving is in the
+filler: sections 6 through 0xff00 are empty `SHT_PROGBITS` headers that all
+share one name, `.pad`, `sh_name` being an offset that nothing requires to
+differ. What surrounds them is the smallest object that can carry a symbol
+table:
+
+| Index | Section | What it holds |
+| --- | --- | --- |
+| 0 | — | `sh_size` = 65282 and `sh_link` = 2, the extended count and name index |
+| 1 | `.text` | `mov eax, 42; ret`, which `low_fn` names by an ordinary index |
+| 2 | `.shstrtab` | the seven section names |
+| 3 | `.strtab` | `low_fn` and `high_fn` |
+| 4 | `.symtab` | three entries, the third with `st_shndx` = `SHN_XINDEX` |
+| 5 | `.symtab_shndx` | three words, the third being 0xff01 |
+| 6..0xff00 | `.pad` | nothing |
+| 0xff01 | `.text.high` | the same two instructions, which `high_fn` names |
+

@@ -159,13 +159,45 @@ module private SymbolTables =
     | _ ->
       ReadOnlySpan.Empty
 
+  /// Returns the span of the extended section index table, or an empty span
+  /// when no such table sits beside the symbol table being parsed.
+  let sliceExtIdxTbl toolBox extIdxTbl =
+    match extIdxTbl with
+    | Some sec ->
+      ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
+    | None ->
+      ReadOnlySpan.Empty
+
   /// Returns the version name table, which is evaluated only when the symbol
   /// table being parsed carries version information. A static symbol table
   /// thus never builds the table.
   let forceVerTbl (verTbl: Lazy<Dictionary<uint16, string>>) hasVerInfo =
     if hasVerInfo then verTbl.Value else Dictionary()
 
-  let getSymbol toolBox shdrs strTbl symbol verInfo txtOffset =
+  /// Returns the section header index the given symbol names. A symbol of a
+  /// section numbered past what st_shndx can hold carries SHN_XINDEX there
+  /// instead, and leaves the number itself at the symbol's own index of the
+  /// extended table. Without that table the escape is all there is to report.
+  let getSecHeaderIdx toolBox (extIdxTbl: ByteSpan) (symbol: ByteSpan) symIdx =
+    let reader = toolBox.Reader
+    let cls = toolBox.Header.Class
+    let ndx = reader.ReadUInt16(symbol, selectByWordSize cls 14 6) |> int
+    match SectionHeaderIdx.IndexFromInt ndx with
+    | SHN_XINDEX when extIdxTbl.Length >= (symIdx + 1) * 4 ->
+      reader.ReadUInt32(extIdxTbl, symIdx * 4)
+      |> int
+      |> SectionHeaderIdx.IndexFromInt
+    | idx ->
+      idx
+
+  /// Returns the section defining the symbol, which is the one its index names
+  /// where that index names a section of the table at all.
+  let getParentSection shdrs secIdx =
+    match secIdx with
+    | SectionIndex n -> Array.tryItem n shdrs
+    | _ -> None
+
+  let getSymbol toolBox shdrs strTbl symbol verInfo txtOffset secIdx =
     let cls = toolBox.Header.Class
     let reader = toolBox.Reader
     let nameIdx = reader.ReadUInt32(span = symbol, offset = 0)
@@ -173,9 +205,7 @@ module private SymbolTables =
     let info = symbol[selectByWordSize cls 12 4]
     let symType: SymbolType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
     let other = symbol[selectByWordSize cls 13 5]
-    let ndx = reader.ReadUInt16(symbol, selectByWordSize cls 14 6) |> int
-    let parent = Array.tryItem ndx shdrs
-    let secIdx = SectionHeaderIdx.IndexFromInt ndx
+    let parent = getParentSection shdrs secIdx
     { Addr = readSymAddr toolBox.BaseAddress symbol reader cls parent txtOffset
       SymName = adjustSymbolName sname symType parent
       Size = readUIntByWordSize symbol reader cls (selectByWordSize cls 8 16)
@@ -199,6 +229,7 @@ module private SymbolTables =
     let symTbl = ReadOnlySpan(toolBox.Bytes, offset, size)
     let numEntries = int symTblSec.SecSize / (selectByWordSize cls 16 24)
     let verInfoTbl = layout.Versions
+    let extIdxSpan = sliceExtIdxTbl toolBox layout.ExtendedIndices
     let verInfoSpan = sliceVerInfoTbl toolBox verInfoTbl numEntries
     let hasVerInfo = Option.isSome verInfoTbl
     let verTbl = forceVerTbl verTbl hasVerInfo
@@ -210,7 +241,8 @@ module private SymbolTables =
       let verInfo =
         if hasVerInfo then getVerInfo toolBox verTbl verCache verInfoSpan i
         else None
-      symbols[i] <- getSymbol toolBox shdrs strTbl entry verInfo txtSec
+      let secIdx = getSecHeaderIdx toolBox extIdxSpan entry i
+      symbols[i] <- getSymbol toolBox shdrs strTbl entry verInfo txtSec secIdx
     symbols
 
   /// Registers a lazily parsed symbol table for each of the given sections, so
@@ -234,11 +266,15 @@ type internal SymbolStore internal(toolBox, shdrs, dynTables: DynamicTables) =
 
   let tryFindSectionOfType t = shdrs |> Array.tryFind (fun s -> s.SecType = t)
 
-  /// Pairs a symbol table section with the string table its sh_link names.
-  let layoutOf versions sec =
+  /// Pairs a symbol table section with the string table its sh_link names, and
+  /// with the extended index table whose sh_link names it back.
+  let layoutOf versions (sec: SectionHeader) =
+    let extends s =
+      s.SecType = SectionType.SHT_SYMTAB_SHNDX && int s.SecLink = sec.SecNum
     { Symbols = sec
-      Strings = shdrs[Convert.ToInt32 (sec: SectionHeader).SecLink]
-      Versions = versions }
+      Strings = shdrs[Convert.ToInt32 sec.SecLink]
+      Versions = versions
+      ExtendedIndices = Array.tryFind extends shdrs }
 
   let staticLayouts =
     sectionsOfType SectionType.SHT_SYMTAB |> Array.map (layoutOf None)
@@ -252,7 +288,8 @@ type internal SymbolStore internal(toolBox, shdrs, dynTables: DynamicTables) =
       | Some symbols, Some strings ->
         [| { Symbols = symbols
              Strings = strings
-             Versions = dynTables.SymbolVersions } |]
+             Versions = dynTables.SymbolVersions
+             ExtendedIndices = None } |]
       | _ ->
         [||]
     | secs ->

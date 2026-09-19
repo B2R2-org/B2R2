@@ -117,6 +117,11 @@ type ELFTests() =
   /// header holds the real ones in sh_size, sh_link and sh_info.
   static let x64XIndexFile = parseFile "elf_x64_xindex"
 
+  /// A relocatable object of 65282 sections, one more than st_shndx can name.
+  /// Its high_fn is defined in the last of them, so its symbol carries
+  /// SHN_XINDEX and a .symtab_shndx entry holds the number itself.
+  static let x64ShndxFile = parseFile "elf_x64_shndx"
+
   /// An x86-64 executable carrying a colon-separated DT_RUNPATH (the modern
   /// runtime search-path tag, emitted with --enable-new-dtags).
   static let x64RunPathFile = parseFile "elf_x64_runpath"
@@ -611,6 +616,26 @@ type ELFTests() =
     bytes[0x39] <- 0xffuy
     let file = ELFBinFile(fileName, bytes, None, None)
     Assert.AreEqual<int>(0, file.ProgramHeaders.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 extended symbol index test``() =
+    (* st_shndx is sixteen bits wide, so a symbol of a section numbered past
+       SHN_LORESERVE carries SHN_XINDEX there and leaves the number itself to
+       the extended table. A symbol of any other section is unaffected. *)
+    let symbols = x64ShndxFile.Symbols.StaticSymbols
+    let indexOf name =
+      symbols |> Array.find (fun s -> s.SymName = name) |> _.SecHeaderIndex
+    Assert.AreEqual(ELF.SectionIndex 0xff01, indexOf "high_fn")
+    Assert.AreEqual(ELF.SectionIndex 1, indexOf "low_fn")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 extended symbol index names its section test``() =
+    (* That index is also what pairs a symbol with the section defining it,
+       which is where a relocatable object gets its addresses from. *)
+    let symbols = x64ShndxFile.Symbols.StaticSymbols
+    let high = symbols |> Array.find (fun s -> s.SymName = "high_fn")
+    let name = high.ParentSection |> Option.map _.SecName
+    Assert.AreEqual<string option>(Some ".text.high", name)
 
   [<TestMethod>]
   member _.``[ELF] x64 obj relocation test``() =

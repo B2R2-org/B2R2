@@ -34,4 +34,7 @@ type internal SymbolTableLayout =
     /// The string table its names come from.
     Strings: SectionHeader
     /// The version index table, when the symbols carry version indices.
-    Versions: SectionHeader option }
+    Versions: SectionHeader option
+    /// The extended section index table, when the symbols name sections too
+    /// numerous for st_shndx to hold the numbers of.
+    ExtendedIndices: SectionHeader option }

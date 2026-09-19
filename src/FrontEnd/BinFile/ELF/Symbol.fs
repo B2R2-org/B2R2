@@ -88,6 +88,7 @@ with
     | 0x00 -> SHN_UNDEF
     | 0xfff1 -> SHN_ABS
     | 0xfff2 -> SHN_COMMON
+    | 0xffff -> SHN_XINDEX
     | n -> SectionIndex n
 
   /// Converts the section header index to a string.
