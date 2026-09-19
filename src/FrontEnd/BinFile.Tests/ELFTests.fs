@@ -1186,6 +1186,49 @@ type ELFTests() =
                     relocs.TryGetRelocatedAddr 0x12088UL)
 
   [<TestMethod>]
+  member _.``[ELF] parisc imports test``() =
+    (* The stubs sit ahead of _start in .text, and they are in no particular
+       order: each names its own descriptor as a GP-relative offset, and only
+       the imports that are actually called get one, three of the six here. *)
+    let expected =
+      [ "abort", Some 0x103e8UL
+        "__libc_start_main", Some 0x103fcUL
+        "write", Some 0x10410UL ]
+    let entries =
+      getLinkageTableEntries pariscFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc imports name their descriptors test``() =
+    (* The slot an import goes through is the one its IPLT relocates, which on
+       PA-RISC is an eight-byte descriptor rather than a stub of its own. *)
+    let slots =
+      getLinkageTableEntries pariscFile |> Seq.map _.TableAddress |> Seq.toList
+    Assert.AreEqual<Addr list>([ 0x12050UL; 0x12028UL; 0x12040UL ], slots)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc so imports test``() =
+    (* A position-independent image reaches its GP through r19 rather than the
+       r27 of the plain one above, so the stub head reads differently. *)
+    let expected =
+      [ "__cxa_finalize", Some 0x438UL
+        "ext", Some 0x44cUL ]
+    let entries =
+      getLinkageTableEntries pariscSoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] parisc local descriptors are not imports test``() =
+    (* Three of the eight IPLT entries name local functions, which are called
+       directly and so have no stub for the scan to find. *)
+    let names = getLinkageTableEntries pariscSoFile |> Seq.map _.Name
+    Assert.AreEqual<bool>(false, Seq.contains "" names)
+
+  [<TestMethod>]
   member _.``[ELF] parisc DIR32 adds the symbol and the addend test``() =
     (* .init sits at 0x41c and the addend is 0x1be8, so this is the one case
        across the fixtures where both halves of S + A are non-zero. *)

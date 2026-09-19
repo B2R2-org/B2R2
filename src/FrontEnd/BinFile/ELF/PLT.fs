@@ -996,6 +996,119 @@ type PPC64Parser(shdrs, relocInfo: RelocationInfo, symbs) =
       | Some stubAddr -> readStubs toolBox stubAddr
       | None -> NoOverlapIntervalMap.empty
 
+/// PA-RISC PLT parser. Its .plt holds eight-byte function descriptors rather
+/// than code, so what a call site reaches is a 20-byte import stub the linker
+/// leaves among the executable sections. Each stub names the descriptor it
+/// goes through as an offset from the GP, which DT_PLTGOT gives.
+type PARISCParser(shdrs, relocInfo: RelocationInfo, symbs) =
+  let ipltKind = RelocationKind.Create RelocationPARISC.R_PARISC_IPLT
+
+  (* The last three words of a stub take nothing from the symbol it stands for,
+     so every stub spells them the same: load the descriptor's entry point,
+     branch to it, and take its GP in the delay slot. *)
+  let stubLdwEntry, stubBranch, stubLdwGP =
+    0x0ec01095u, 0xeaa0c000u, 0x0ec81093u
+
+  let stubSize = 20
+
+  /// Sign-extends the given value from the given width.
+  let signExtend bits (v: uint32) =
+    let m = 1u <<< (bits - 1)
+    int ((v ^^^ m) - m)
+
+  /// Reads the 21-bit immediate of an addil, which PA-RISC scatters across the
+  /// word in five pieces, and returns it shifted into place.
+  let decodeAddilImm (word: uint32) =
+    let f = word &&& 0x1fffffu
+    let v = f &&& 1u
+    let v = (v <<< 11) ||| ((f >>> 1) &&& 0x7ffu)
+    let v = (v <<< 2) ||| ((f >>> 14) &&& 3u)
+    let v = (v <<< 5) ||| ((f >>> 16) &&& 0x1fu)
+    let v = (v <<< 2) ||| ((f >>> 12) &&& 3u)
+    signExtend 21 v <<< 11
+
+  /// Reads the 14-bit displacement of an ldo, whose sign bit PA-RISC keeps in
+  /// the low bit of the field rather than the high one.
+  let decodeLdoImm (word: uint32) =
+    let f = word &&& 0x3fffu
+    signExtend 14 (((f >>> 1) ||| ((f &&& 1u) <<< 13)) &&& 0x3fffu)
+
+  /// Checks that the two words compute a GP-relative address into r22, r27
+  /// being the GP of a plain image and r19 that of a position-independent one.
+  let isStubHead (addil: uint32) (ldo: uint32) =
+    let gpReg = (addil >>> 21) &&& 0x1fu
+    addil >>> 26 = 10u
+    && (gpReg = 19u || gpReg = 27u)
+    && ldo >>> 26 = 13u
+    && (ldo >>> 21) &&& 0x1fu = 1u
+    && (ldo >>> 16) &&& 0x1fu = 22u
+
+  let tryReadStub (span: ByteSpan) (reader: IBinReader) offset gp =
+    if reader.ReadUInt32(span, offset + 8) = stubLdwEntry
+       && reader.ReadUInt32(span, offset + 12) = stubBranch
+       && reader.ReadUInt32(span, offset + 16) = stubLdwGP then
+      let addil = reader.ReadUInt32(span, offset)
+      let ldo = reader.ReadUInt32(span, offset + 4)
+      if isStubHead addil ldo then
+        let delta = decodeAddilImm addil + decodeLdoImm ldo
+        Some(gp + uint64 (int64 delta))
+      else
+        None
+    else
+      None
+
+  let tryMakeEntry span reader secAddr gp offset =
+    match tryReadStub span reader offset gp with
+    | Some descAddr ->
+      match relocInfo.TryFind descAddr with
+      | Ok reloc when reloc.RelKind = ipltKind ->
+        let addr = secAddr + uint64 offset
+        let ar = AddrRange.create addr (addr + uint64 stubSize - 1UL)
+        Some(ar, makePLTEntry symbs addr reloc.RelOffset reloc)
+      | _ ->
+        None
+    | None ->
+      None
+
+  (* A stub can sit anywhere a call to it can reach, so the whole of every
+     executable section is walked a word at a time. The loop is written out
+     rather than recursive because how far it runs is the size of the section,
+     not the number of entries. *)
+  let scanForStubs toolBox gp map sec =
+    let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
+    let reader = toolBox.Reader
+    let mutable map = map
+    let mutable offset = 0
+    while offset + stubSize <= span.Length do
+      match tryMakeEntry span reader sec.SecAddr gp offset with
+      | Some(ar, entry) -> map <- NoOverlapIntervalMap.add ar entry map
+      | None -> ()
+      offset <- offset + 4
+    map
+
+  let tryFindGP toolBox =
+    DynamicArray.parse toolBox shdrs Array.empty
+    |> Array.tryFind (fun t -> t.DTag = DTag.DT_PLTGOT)
+    |> Option.map _.DVal
+
+  let holdsCode s =
+    s.SecType = SectionType.SHT_PROGBITS
+    && s.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
+
+  interface IPLTParsable with
+    member _.ParseEntry(_, _, _, _, _, _) = Terminator.impossible ()
+
+    member _.ParseSection(_, _, _) = Terminator.impossible ()
+
+    member _.Parse toolBox =
+      match tryFindGP toolBox with
+      | Some gp ->
+        shdrs
+        |> Array.filter holdsCode
+        |> Array.fold (scanForStubs toolBox gp) NoOverlapIntervalMap.empty
+      | None ->
+        NoOverlapIntervalMap.empty
+
 /// This will simply return an empty map.
 type NullParser() =
   interface IPLTParsable with
@@ -1020,6 +1133,8 @@ let private initIPLTParsable hdr shdrs relocInfo symbs =
     PPCParser(shdrs, relocInfo, symbs) :> IPLTParsable
   | MachineType.EM_PPC64 ->
     PPC64Parser(shdrs, relocInfo, symbs) :> IPLTParsable
+  | MachineType.EM_PARISC ->
+    PARISCParser(shdrs, relocInfo, symbs) :> IPLTParsable
   | MachineType.EM_RISCV ->
     let rKind = RelocationKind.Create RelocationRISCV.R_RISCV_JUMP_SLOT
     GeneralParser(shdrs, relocInfo, symbs, 32UL, rKind) :> IPLTParsable
