@@ -88,6 +88,11 @@ type ELFTests() =
     let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
     ELFBinFile(fileName, bytes, Some 0x400000UL, None)
 
+  /// elf_x64_relr with its section header table removed, leaving PT_DYNAMIC
+  /// as the only route to the relocation tables and PT_LOAD as the only route
+  /// to the bytes they relocate.
+  static let x64NoSecFile = parseFile "elf_x64_nosec"
+
   /// An x86-64 executable built with an executable stack (GNU_STACK = RWX), so
   /// NX is reported as disabled.
   static let x64NonXFile = parseFile "elf_x64_nonx"
@@ -296,6 +301,14 @@ type ELFTests() =
   /// The one kind a RELR table can hold on x86-64.
   static let x64Relative =
     let value = uint64 ELF.RelocationX64.R_X86_64_RELATIVE
+    ELF.RelocationKind(ELF.MachineType.EM_X86_64, value)
+
+  static let x64GlobDat =
+    let value = uint64 ELF.RelocationX64.R_X86_64_GLOB_DATA
+    ELF.RelocationKind(ELF.MachineType.EM_X86_64, value)
+
+  static let x64JumpSlot =
+    let value = uint64 ELF.RelocationX64.R_X86_64_JUMP_SLOT
     ELF.RelocationKind(ELF.MachineType.EM_X86_64, value)
 
   let assertExistenceOfReloc (file: ELFBinFile) offset symbolName =
@@ -637,6 +650,58 @@ type ELFTests() =
     let relocs = (x64RelrRebasedFile :> IBinFile).Relocations.Value
     Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x403c50UL)
     Assert.AreEqual(Ok 0x401140UL, relocs.TryGetRelocatedAddr 0x403c50UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec has no section headers test``() =
+    Assert.AreEqual<int>(0, x64NoSecFile.SectionHeaders.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec dynamic array test``() =
+    (* The .dynamic section is gone, so these come from PT_DYNAMIC. *)
+    let entries = x64NoSecFile.DynamicArrayEntries
+    let valueOf tag =
+      entries |> Array.tryFind (fun e -> e.DTag = tag) |> Option.map _.DVal
+    Assert.AreEqual(Some 0x600UL, valueOf ELF.DTag.DT_RELR)
+    Assert.AreEqual(Some 0x570UL, valueOf ELF.DTag.DT_RELA)
+    Assert.AreEqual(Some 0x5e8UL, valueOf ELF.DTag.DT_JMPREL)
+    Assert.AreEqual(Some 24UL, valueOf ELF.DTag.DT_PLTRELSZ)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec relocation entries test``() =
+    (* DT_RELA, DT_JMPREL and DT_RELR between them name every table the
+       section headers named, so stripping them loses no entry. *)
+    let stripped = x64NoSecFile.RelocationInfo.Entries |> Seq.length
+    let kept = x64RelrFile.RelocationInfo.Entries |> Seq.length
+    Assert.AreEqual<int>(45, kept)
+    Assert.AreEqual<int>(kept, stripped)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec implicit addend test``() =
+    (* Without section headers the slot a RELR entry relocates can only be
+       found through the loadable segments. *)
+    let addendAt addr =
+      x64NoSecFile.RelocationInfo.TryFind addr |> Result.map _.RelAddend
+    Assert.AreEqual(Ok 0x1140UL, addendAt 0x3c50UL)
+    Assert.AreEqual(Ok 0x2012UL, addendAt 0x3d78UL)
+    Assert.AreEqual(Ok 0x4008UL, addendAt 0x4008UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec explicit addend test``() =
+    (* DT_PLTREL says whether DT_JMPREL is REL or RELA, and this one is RELA,
+       so the JUMP_SLOT below carries its addend in the entry itself. *)
+    let kindAt addr =
+      x64NoSecFile.RelocationInfo.TryFind addr |> Result.map _.RelKind
+    Assert.AreEqual(Ok x64GlobDat, kindAt 0x3fc0UL)
+    Assert.AreEqual(Ok x64JumpSlot, kindAt 0x3fb8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec relocations name no symbol test``() =
+    (* The dynamic symbol table is reached through the section headers alone,
+       so nothing is left to name the symbol a relocation refers to. *)
+    let named =
+      x64NoSecFile.RelocationInfo.Entries
+      |> Seq.filter (fun r -> r.RelSymbol.IsSome)
+    Assert.AreEqual<int>(0, Seq.length named)
 
   [<TestMethod>]
   member _.``[ELF] symbol version names are per file test``() =

@@ -48,7 +48,13 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let symbs = lazy SymbolStore(toolBox, shdrs.Value)
 
-  let relocs = lazy RelocationInfo(toolBox, shdrs.Value, symbs.Value)
+  let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value phdrs.Value
+
+  let relocs =
+    lazy
+      RelocationInfo(
+        toolBox, shdrs.Value, phdrs.Value, dynamicArray.Value, symbs.Value
+      )
 
   let plt = lazy PLT.parse toolBox shdrs.Value symbs.Value relocs.Value
 
@@ -61,8 +67,6 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
 
   let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
-
-  let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value
 
   let symKindOf (s: Symbol) =
     match s.SymType with

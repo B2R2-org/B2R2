@@ -730,7 +730,9 @@ type MIPSParser(shdrs, relocInfo, symbs: SymbolStore) =
     match Array.tryFind (fun s -> s.SecName = SecMIPSStubs) shdrs with
     | Some sec ->
       let bytes, reader = toolBox.Bytes, toolBox.Reader
-      let entries = DynamicArray.parse toolBox shdrs
+      (* Reaching here already took the section headers, so the PT_DYNAMIC
+         fallback would have nothing left to add. *)
+      let entries = DynamicArray.parse toolBox shdrs Array.empty
       let offset = 0
       let maxOffset = int sec.SecSize
       let span = ReadOnlySpan(bytes, int sec.SecOffset, int sec.SecSize)
@@ -787,7 +789,7 @@ type MIPSParser(shdrs, relocInfo, symbs: SymbolStore) =
 /// PPC PLT parser.
 type PPCParser(shdrs, relocInfo: RelocationInfo, symbs) =
   let computeGLinkAddrWithGOT toolBox =
-    let tags = DynamicArray.parse toolBox shdrs
+    let tags = DynamicArray.parse toolBox shdrs Array.empty
     match Array.tryFind (fun t -> t.DTag = DTag.DT_PPC_GOT) tags with
     | Some tag ->
       let gotAddr = tag.DVal

@@ -103,6 +103,7 @@ bpf-gcc -c so.c -o elf_bpf_obj
 | `elf_x64_stripped` | `elf_x64_exec` with `.symtab` stripped; imports survive. |
 | `elf_x64_reloc` | Mixed dynamic relocations (JUMP_SLOT/GLOB_DAT/COPY) for the relocation API. |
 | `elf_x64_relr` | PIE linked with `-z pack-relative-relocs`: every relative relocation packed into a `.relr.dyn` bitmap, none left in `.rela.dyn`. |
+| `elf_x64_nosec` | `elf_x64_relr` with its section header table removed, so PT_DYNAMIC and PT_LOAD are the only routes to its relocations. |
 | `elf_x64_nonx` | Executable stack (`GNU_STACK = RWX`): `IsNXEnabled = false`. |
 | `elf_x64_eh_frame` | C++ try/catch: DWARF CFI in `.eh_frame` and an LSDA in `.gcc_except_table`. |
 | `elf_x64_runpath` | Colon-separated `DT_RUNPATH` (`--enable-new-dtags`): `RunPath`. |
@@ -114,4 +115,12 @@ cursor reaches only after skipping a whole word of bits.
 
 ```
 gcc relr.c -o elf_x64_relr -fPIE -pie -Wl,-z,pack-relative-relocs
+```
+
+`elf_x64_nosec` is that same binary with its section header table removed,
+which is what a `sstrip`-style tool leaves behind and what the PT_DYNAMIC
+fallback exists for. It still runs.
+
+```
+llvm-objcopy --strip-sections elf_x64_relr elf_x64_nosec
 ```
