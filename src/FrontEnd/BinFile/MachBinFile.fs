@@ -98,6 +98,18 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
             | Rpath(_, _, path) -> Some path
             | _ -> None))
 
+  let dependencies =
+    lazy (cmds.Value
+          |> Array.choose (function
+            | DyLib(_, _, c) -> Some c.DyLibName
+            | _ -> None))
+
+  let installName =
+    lazy (cmds.Value
+          |> Array.tryPick (function
+            | DyLibId(_, _, c) -> Some c.DyLibName
+            | _ -> None))
+
   let machSymKind secText (s: Symbol) =
     if Symbol.IsFunc(secText, s) then FunctionSymbol
     elif Symbol.IsSection s then DataSymbol
@@ -439,6 +451,10 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
     member _.RPath with get() = [||]
 
     member _.RunPath with get() = rpaths.Value
+
+    member _.DependencyNames with get() = Array.copy dependencies.Value
+
+    member _.SharedObjectName with get() = installName.Value
 
     member _.ProgramHeaderTable with get() = None
 

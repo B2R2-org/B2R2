@@ -132,6 +132,8 @@ module internal LoadCommands =
         Main(cmdType, uint32 cmdSize, parseMainCmd toolBox span)
       | CmdType.LC_LOAD_DYLIB ->
         DyLib(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
+      | CmdType.LC_ID_DYLIB ->
+        DyLibId(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
       | CmdType.LC_LOAD_DYLINKER ->
         DyLinker(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span)
       | CmdType.LC_RPATH ->

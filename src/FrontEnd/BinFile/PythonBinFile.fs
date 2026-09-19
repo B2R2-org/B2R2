@@ -146,6 +146,10 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
 
     member _.RunPath with get() = [||]
 
+    member _.DependencyNames with get() = [||]
+
+    member _.SharedObjectName with get() = None
+
     member _.ProgramHeaderTable with get() = None
 
     member _.IsNXEnabled with get() = false

@@ -102,6 +102,15 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
 
   let importEntries = lazy getImports wm
 
+  (* Every import names the module it comes from, and those names made
+     distinct are the modules this one needs instantiated alongside it. *)
+  let dependencies =
+    lazy
+      importEntries.Value
+      |> Array.map _.LibraryName
+      |> Array.filter (fun name -> name <> "")
+      |> Array.distinct
+
   let symbolMap = lazy getFunctionNameMap wm
 
   let toFunctionBody importedCount index (code: Code) =
@@ -237,6 +246,10 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
     member _.RPath with get() = [||]
 
     member _.RunPath with get() = [||]
+
+    member _.DependencyNames with get() = Array.copy dependencies.Value
+
+    member _.SharedObjectName with get() = None
 
     member _.ProgramHeaderTable with get() = None
 

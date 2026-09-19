@@ -75,6 +75,23 @@ type IBinMetadata =
   /// </summary>
   abstract RunPath: string[]
 
+  /// <summary>
+  /// The names of the libraries this binary needs loaded alongside it, taken
+  /// from the ELF <c>DT_NEEDED</c> dynamic entries, the Mach-O
+  /// <c>LC_LOAD_DYLIB</c> load commands, the PE import directory, and the
+  /// module names of Wasm imports. Returns an empty array for a binary that
+  /// needs none and for formats that have no such notion.
+  /// </summary>
+  abstract DependencyNames: string[]
+
+  /// <summary>
+  /// The name this binary announces for itself to whatever links against it,
+  /// taken from the ELF <c>DT_SONAME</c> dynamic entry, the Mach-O
+  /// <c>LC_ID_DYLIB</c> load command, and the name in the PE export
+  /// directory. None for a binary that announces none.
+  /// </summary>
+  abstract SharedObjectName: string option
+
   /// Program header table information for SysV-style process initialization.
   /// ELF exposes this through its program header table; formats without an
   /// equivalent runtime contract (e.g., PE, Mach-O, Wasm) return None.

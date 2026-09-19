@@ -131,6 +131,28 @@ type PETests() =
       (true, x64File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
+  member _.``[PE] x64 dependencies test``() =
+    (* The import directory names one entry per DLL, and an image with no
+       export directory announces no name of its own. *)
+    let file = x64File :> IBinFile
+    let expected =
+      [| "KERNEL32.dll"
+         "VCRUNTIME140.dll"
+         "api-ms-win-crt-heap-l1-1-0.dll"
+         "api-ms-win-crt-locale-l1-1-0.dll"
+         "api-ms-win-crt-math-l1-1-0.dll"
+         "api-ms-win-crt-runtime-l1-1-0.dll"
+         "api-ms-win-crt-stdio-l1-1-0.dll" |]
+    CollectionAssert.AreEqual(expected, Array.sort file.DependencyNames)
+    Assert.AreEqual<string option>(None, file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll announces its own name test``() =
+    let file = x64DllFile :> IBinFile
+    let expected = Some "pe_x64_dll.dll"
+    Assert.AreEqual<string option>(expected, file.SharedObjectName)
+
+  [<TestMethod>]
   member _.``[PE] x64 kind test``() =
     Assert.AreEqual<BinFileKind>(Executable, (x64File :> IBinFile).Kind)
 

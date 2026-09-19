@@ -144,6 +144,23 @@ type MachTests() =
     CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RunPath)
 
   [<TestMethod>]
+  member _.``[Mach] X64 dependencies test``() =
+    (* LC_LOAD_DYLIB names what the image needs, and LC_ID_DYLIB the name it
+       answers to; an executable carries only the former. *)
+    let file = x64File :> IBinFile
+    let expected = [| "/usr/lib/libSystem.B.dylib" |]
+    CollectionAssert.AreEqual(expected, file.DependencyNames)
+    Assert.AreEqual<string option>(None, file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 two-level install name test``() =
+    let file = x64TwoLevelFile :> IBinFile
+    let expected = [| "/usr/lib/libfoo.dylib" |]
+    CollectionAssert.AreEqual(expected, file.DependencyNames)
+    let name = Some "mach_x64_twoleve"
+    Assert.AreEqual<string option>(name, file.SharedObjectName)
+
+  [<TestMethod>]
   member _.``[Mach] X64 base address test``() =
     Assert.AreEqual<uint64>(0UL, (x64File :> IBinFile).BaseAddress)
 

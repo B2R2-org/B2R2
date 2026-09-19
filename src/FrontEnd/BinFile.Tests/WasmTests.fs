@@ -133,6 +133,13 @@ type WasmTests() =
     Assert.AreEqual<bool>(true, hasMain)
 
   [<TestMethod>]
+  member _.``[Wasm] dependencies are the import module names``() =
+    (* Every import names the module it comes from, and a module announces no
+       name of its own. *)
+    CollectionAssert.AreEqual([| "env" |], file.DependencyNames)
+    Assert.AreEqual<string option>(None, file.SharedObjectName)
+
+  [<TestMethod>]
   member _.``[Wasm] valid address test``() =
     Assert.AreEqual<bool>(true, file.IsValidAddr 0x49UL)
     Assert.AreEqual<bool>(false, file.IsValidAddr 0x100000UL)

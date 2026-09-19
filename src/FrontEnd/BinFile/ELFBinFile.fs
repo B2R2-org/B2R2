@@ -398,27 +398,44 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Option.map (fun ph ->
         readCString (System.ReadOnlySpan bytes) (int ph.PHOffset))
 
-  let dynamicPaths tag =
-    let isDyn s = s.SecType = SectionType.SHT_DYNAMIC
-    match Array.tryFind isDyn shdrs.Value with
+  /// Returns where in the dynamic string table every entry of the given tag
+  /// points. That table is the one DT_STRTAB names, which a file whose
+  /// section headers are gone still says the whereabouts of.
+  let dynamicStrOffsets tag =
+    match dynTables.Value.Strings with
     | None ->
       [||]
     | Some sec ->
-      let strOff = int shdrs.Value[int sec.SecLink].SecOffset
-      let span = System.ReadOnlySpan bytes
-      let offsets =
-        dynamicArray.Value
-        |> Array.choose (fun e ->
-          if e.DTag = tag then Some(strOff + int e.DVal) else None)
-      let acc = ResizeArray()
-      for off in offsets do
-        acc.AddRange((readCString span off).Split(':'))
-      acc.ToArray() |> Array.filter (fun s -> s <> "")
+      let strOff = int sec.SecOffset
+      dynamicArray.Value
+      |> Array.choose (fun e ->
+        if e.DTag = tag then Some(strOff + int e.DVal) else None)
+
+  /// Returns the strings the given dynamic tag names.
+  let dynamicStrings tag =
+    let offsets = dynamicStrOffsets tag
+    let span = System.ReadOnlySpan bytes
+    let strs = Array.zeroCreate offsets.Length
+    for i = 0 to offsets.Length - 1 do
+      strs[i] <- readCString span offsets[i]
+    strs
+
+  /// Returns the search paths the given dynamic tag names. One entry holds a
+  /// whole list of them, colon separated the way a shell path is.
+  let dynamicPaths tag =
+    let acc = ResizeArray()
+    for str in dynamicStrings tag do
+      acc.AddRange(str.Split ':')
+    acc.ToArray() |> Array.filter (fun s -> s <> "")
 
   (* Kept apart so that asking for one search path does not decode the other. *)
   let rpath = lazy dynamicPaths DTag.DT_RPATH
 
   let runpath = lazy dynamicPaths DTag.DT_RUNPATH
+
+  let dependencies = lazy dynamicStrings DTag.DT_NEEDED
+
+  let soname = lazy (dynamicStrings DTag.DT_SONAME |> Array.tryHead)
 
   let programHeaderTableAddr =
     lazy
@@ -533,6 +550,10 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.RPath with get() = Array.copy rpath.Value
 
     member _.RunPath with get() = Array.copy runpath.Value
+
+    member _.DependencyNames with get() = Array.copy dependencies.Value
+
+    member _.SharedObjectName with get() = soname.Value
 
     member _.ProgramHeaderTable with get() = programHeaderTable.Value
 

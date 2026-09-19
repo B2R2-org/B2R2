@@ -130,6 +130,11 @@ type ELFTests() =
   /// DT_RUNPATH (emitted with --disable-new-dtags).
   static let x64RPathFile = parseFile "elf_x64_rpath"
 
+  /// An x86-64 shared library carrying a DT_SONAME, the name it announces to
+  /// whatever links against it, beside the DT_NEEDED naming the one library
+  /// it needs of its own.
+  static let x64SonameFile = parseFile "elf_x64_soname"
+
   /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
   /// and an LSDA table in .gcc_except_table. Exception parsing needs a register
   /// factory. This returns a fresh instance every time, as the laziness tests
@@ -442,6 +447,43 @@ type ELFTests() =
     runpath[0] <- "/mutated"
     CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RunPath)
     CollectionAssert.AreEqual([||], file.RPath)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 soname test``() =
+    let file = x64SonameFile :> IBinFile
+    CollectionAssert.AreEqual([| "libc.so.6" |], file.DependencyNames)
+    Assert.AreEqual<string option>(Some "libfoo.so.1", file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec announces no soname test``() =
+    let file = x64ExecFile :> IBinFile
+    CollectionAssert.AreEqual([| "libc.so.6" |], file.DependencyNames)
+    Assert.AreEqual<string option>(None, file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 dependency array is not shared test``() =
+    let file = parseFile "elf_x64_soname" :> IBinFile
+    let deps = file.DependencyNames
+    deps[0] <- "/mutated"
+    CollectionAssert.AreEqual([| "libc.so.6" |], file.DependencyNames)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 nosec dependencies test``() =
+    (* The dynamic string table is the one DT_STRTAB points at, and a file
+       whose section headers are gone still says where that is. *)
+    let file = x64NoSecFile :> IBinFile
+    CollectionAssert.AreEqual([| "libc.so.6" |], file.DependencyNames)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 rpath without section headers test``() =
+    (* The same route is what the search paths were read by all along, and
+       through the section headers they were lost with them. *)
+    let fileName = "elf_x64_rpath"
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    for i in 0x28 .. 0x2f do bytes[i] <- 0uy (* e_shoff = 0 *)
+    for i in 0x3c .. 0x3f do bytes[i] <- 0uy (* e_shnum, e_shstrndx = 0 *)
+    let file = ELFBinFile(fileName, bytes, None, None) :> IBinFile
+    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RPath)
 
   [<TestMethod>]
   member _.``[ELF] x64 exec base address test``() =

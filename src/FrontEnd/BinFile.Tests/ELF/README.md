@@ -193,6 +193,7 @@ void _start(void) { f(); g(); }
 | `elf_x64_eh_frame` | C++ try/catch: DWARF CFI in `.eh_frame` and an LSDA in `.gcc_except_table`. |
 | `elf_x64_runpath` | Colon-separated `DT_RUNPATH` (`--enable-new-dtags`): `RunPath`. |
 | `elf_x64_rpath` | Colon-separated legacy `DT_RPATH` (`--disable-new-dtags`): `RPath`. |
+| `elf_x64_soname` | A shared library announcing a `DT_SONAME` of its own, beside the `DT_NEEDED` it carries: `SharedObjectName` and `DependencyNames`. |
 | `elf_x64_xindex` | `elf_x64_exec` rewritten to use the extended numbering, so `e_shnum`, `e_phnum` and `e_shstrndx` all carry their escape value. |
 
 The RELR fixture was built so that its three entries cover every encoding the
@@ -220,6 +221,15 @@ table starts.
 ```
 gcc relr.c -o sysv_hash -Wl,--hash-style=sysv
 llvm-objcopy --strip-sections sysv_hash elf_x64_sysvhash
+```
+
+`elf_x64_soname` is the one fixture whose `DT_SONAME` differs from its file
+name, so that the name a library announces cannot be confused with the name it
+is stored under. It calls a libc function, which is what gives it the
+`DT_NEEDED` beside it.
+
+```
+gcc -shared -fPIC so.c -o elf_x64_soname -Wl,-soname,libfoo.so.1
 ```
 
 `elf_x64_xindex` is `elf_x64_exec` with the three header fields that can
