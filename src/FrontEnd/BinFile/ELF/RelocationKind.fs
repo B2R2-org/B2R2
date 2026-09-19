@@ -93,6 +93,20 @@ with
   static member Create(reloc: RelocationBPF) =
     RelocationKind(MachineType.EM_BPF, uint64 reloc)
 
+  /// Creates a generic RelocationKind from the machine type of a file and the
+  /// raw value one of its entries carries. Where several machine types share
+  /// one set of relocation kinds, every kind is named by a single one of them,
+  /// so that comparing two kinds never has to know which alias a file used.
+  static member Create(arch: MachineType, relocValue: uint64) =
+    let arch =
+      match arch with
+      | MachineType.EM_SPARC
+      | MachineType.EM_SPARC32PLUS -> MachineType.EM_SPARCV9
+      | MachineType.EM_MIPS_RS3_LE -> MachineType.EM_MIPS
+      | MachineType.EM_OLD_ALPHA -> MachineType.EM_ALPHA
+      | _ -> arch
+    RelocationKind(arch, relocValue)
+
   /// Returns the relative relocation kind of the given architecture, which is
   /// the only kind a RELR table can hold. ValueNone when the architecture
   /// defines no such kind.

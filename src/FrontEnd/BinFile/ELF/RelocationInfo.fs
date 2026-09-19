@@ -85,7 +85,8 @@ module private RelocMap =
     let addr = readUIntByWordSize span reader cls 0 + toolBox.BaseAddress
     let idx = getRelocSIdx hdr info |> int
     { RelOffset = addr
-      RelKind = RelocationKind(hdr.MachineType, getRelocTypeMask hdr &&& info)
+      RelKind =
+        RelocationKind.Create(hdr.MachineType, getRelocTypeMask hdr &&& info)
       (* Index 0 is the reserved STN_UNDEF entry, so it names no symbol. *)
       RelSymbol = if idx = 0 then None else Array.tryItem idx symTbl
       RelAddend = getRelocAddend toolBox locate span sec addr

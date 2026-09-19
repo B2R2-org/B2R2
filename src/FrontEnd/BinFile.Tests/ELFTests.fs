@@ -1262,6 +1262,16 @@ type ELFTests() =
                     relocs.TryGetRelocatedAddr 0x1f14UL)
 
   [<TestMethod>]
+  member _.``[ELF] aliased machine types name one kind test``() =
+    (* This header says EM_SPARC32PLUS where elf_sparc64_so says EM_SPARCV9,
+       and the two share one set of relocation kinds. Naming every kind by a
+       single machine type is what lets one be compared against another. *)
+    let jmpSlot = RelocKind.Create ELF.RelocationSPARC.R_SPARC_JMP_SLOT
+    let kindsOf (f: ELFBinFile) = f.RelocationInfo.Entries |> Seq.map _.RelKind
+    Assert.AreEqual<bool>(true, Seq.contains jmpSlot (kindsOf sparc32SoFile))
+    Assert.AreEqual<bool>(true, Seq.contains jmpSlot (kindsOf sparc64SoFile))
+
+  [<TestMethod>]
   member _.``[ELF] sparc32 ISA test``() =
     let isa = (sparc32SoFile :> IBinFile).ISA
     Assert.AreEqual(Architecture.SPARC, isa.Arch)
