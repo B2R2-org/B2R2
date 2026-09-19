@@ -944,6 +944,12 @@ let private initIPLTParsable hdr shdrs relocInfo symbs =
   | MachineType.EM_SH ->
     let rKind = RelocationKind.Create RelocationSH4.R_SH_JMP_SLOT
     GeneralParser(shdrs, relocInfo, symbs, 28UL, rKind) :> IPLTParsable
+  | MachineType.EM_S390 ->
+    let rKind = RelocationKind.Create RelocationS390.R_390_JMP_SLOT
+    GeneralParser(shdrs, relocInfo, symbs, 32UL, rKind) :> IPLTParsable
+  | MachineType.EM_68K ->
+    let rKind = RelocationKind.Create RelocationM68K.R_68K_JMP_SLOT
+    GeneralParser(shdrs, relocInfo, symbs, 20UL, rKind) :> IPLTParsable
   | _ ->
     NullParser() :> IPLTParsable
 

@@ -1007,6 +1007,33 @@ type ELFTests() =
     Assert.AreEqual<(string * Addr option) list>(expected, entries)
 
   [<TestMethod>]
+  member _.``[ELF] s390x imports test``() =
+    (* .plt is 0xa0 from 0x638, a 32-byte header and four 32-byte stubs. *)
+    let expected =
+      [ "__cxa_finalize", Some 0x658UL
+        "__libc_start_main", Some 0x678UL
+        "write", Some 0x698UL
+        "abort", Some 0x6b8UL ]
+    let entries =
+      getLinkageTableEntries s390xFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] m68k imports test``() =
+    (* .plt is 0x50 from 0x384, a 20-byte header and three 20-byte stubs. *)
+    let expected =
+      [ "ext", Some 0x398UL
+        "__cxa_finalize", Some 0x3acUL
+        "__gmon_start__", Some 0x3c0UL ]
+    let entries =
+      getLinkageTableEntries m68kSoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
   member _.``[ELF] riscv64 ifunc resolves to its resolver test``() =
     (* resolve_f sits at 0x686, and that is the addend of the IRELATIVE entry
        the loader fills 0x1fd0 with. *)
