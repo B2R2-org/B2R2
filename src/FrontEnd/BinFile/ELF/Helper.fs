@@ -56,29 +56,24 @@ let getBoundedPtrBySections (shdrs: SectionHeader[]) addr =
       None)
   |> Option.defaultValue BinFilePointer.Null
 
-let getRelocatedAddr (relocInfo: RelocationInfo) relocAddr =
+let getRelocatedAddr toolBox (relocInfo: RelocationInfo) relocAddr =
   match relocInfo.TryFind relocAddr with
   | Ok rel ->
-    match rel.RelKind with
-    | RelocationKindX86 RelocationX86.R_386_32
-    | RelocationKindX64 RelocationX64.R_X86_64_64 ->
-      match rel.RelSymbol with
-      | Some sym -> sym.Addr + rel.RelAddend |> Ok
-      | _ -> Error ErrorCase.ItemNotFound
-    | RelocationKindX86 RelocationX86.R_386_JUMP_SLOT
-    | RelocationKindX64 RelocationX64.R_X86_64_JUMP_SLOT ->
-      match rel.RelSymbol with
-      | Some sym -> sym.Addr |> Ok
-      | _ -> Error ErrorCase.ItemNotFound
-    | RelocationKindX86 RelocationX86.R_386_IRELATIVE
-    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE ->
-      Ok rel.RelAddend
+    match RelocationKind.GetSemantics rel.RelKind, rel.RelSymbol with
+    | ValueSome SymbolPlusAddend, Some sym ->
+      Ok(sym.Addr + rel.RelAddend)
+    | ValueSome SymbolOnly, Some sym ->
+      Ok sym.Addr
+    | ValueSome BasePlusAddend, _
+    | ValueSome SymbolPlusAddend, None ->
+      (* The addend is a link-time address, so it shifts with the load base. *)
+      Ok(toolBox.BaseAddress + rel.RelAddend)
     | _ ->
       Error ErrorCase.ItemNotFound
   | _ ->
     Error ErrorCase.ItemNotFound
 
-let tryGetInternalFuncAddr (reloc: RelocationEntry) =
+let tryGetInternalFuncAddr toolBox (reloc: RelocationEntry) =
   match reloc.RelSymbol with
   | Some relSym ->
     if relSym.SymType = SymbolType.STT_FUNC then
@@ -92,8 +87,10 @@ let tryGetInternalFuncAddr (reloc: RelocationEntry) =
       Error ErrorCase.SymbolNotFound
   | None ->
     match reloc.RelKind with
-    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE -> Ok reloc.RelAddend
-    | _ -> Error ErrorCase.SymbolNotFound
+    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE ->
+      Ok(toolBox.BaseAddress + reloc.RelAddend)
+    | _ ->
+      Error ErrorCase.SymbolNotFound
 
 let getFuncAddrsFromLibcArr span toolBox relocInfo section =
   let readType = toolBox.Header.Class
@@ -105,7 +102,7 @@ let getFuncAddrsFromLibcArr span toolBox relocInfo section =
     readUIntByWordSize span toolBox.Reader readType ofs
     |> (fun fnAddr ->
       if fnAddr = 0UL then
-        match getRelocatedAddr relocInfo (addr + uint64 ofs) with
+        match getRelocatedAddr toolBox relocInfo (addr + uint64 ofs) with
         | Ok relocatedAddr -> lst.Add relocatedAddr
         | Error _ -> ()
       else

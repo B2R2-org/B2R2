@@ -51,16 +51,50 @@ module private RelocMap =
   let inline getRelocSIdx hdr (i: uint64) =
     if hdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
 
-  let getRelocEntry toolBox hasAddend typMask symTbl span sec =
+  /// Returns the mask selecting the relocation type out of r_info. ELF64 gives
+  /// the type 32 bits, except under the MIPS n64 ABI, which packs three 8-bit
+  /// types there and puts the primary one first.
+  let getRelocTypeMask hdr =
+    match hdr.MachineType, hdr.Class with
+    | MachineType.EM_MIPS, WordSize.Bit64 -> 0xFFUL
+    | _ -> selectByWordSize hdr.Class 0xFFUL 0xFFFFFFFFUL
+
+  /// Reads the addend a REL-format entry leaves in the slot it relocates. Only
+  /// allocated sections carrying file content can hold one.
+  let readImplicitAddend toolBox (shdrs: SectionHeader[]) addr =
+    let cls = toolBox.Header.Class
+    let width = uint64 (WordSize.toByteWidth cls)
+    let isHost s =
+      s.SecFlags.HasFlag SectionFlags.SHF_ALLOC
+      && s.SecType <> SectionType.SHT_NOBITS
+      && addr >= s.SecAddr && addr + width <= s.SecAddr + s.SecSize
+    match Array.tryFind isHost shdrs with
+    | Some s ->
+      let offset = int (s.SecOffset + (addr - s.SecAddr))
+      let span = ReadOnlySpan(toolBox.Bytes, offset, int width)
+      readUIntByWordSize span toolBox.Reader cls 0
+    | None ->
+      0UL
+
+  let getRelocAddend toolBox shdrs span sec addr =
+    let cls = toolBox.Header.Class
+    if sec.SecType = SectionType.SHT_RELA then
+      readUIntByWordSizeAndOffset span toolBox.Reader cls 8 16
+    else
+      readImplicitAddend toolBox shdrs addr
+
+  let getRelocEntry toolBox shdrs symTbl span sec =
     let hdr = toolBox.Header
-    let reader = toolBox.Reader
-    let info = readInfoWithArch toolBox span
     let cls = hdr.Class
-    { RelOffset = readUIntByWordSize span reader cls 0 + toolBox.BaseAddress
-      RelKind = RelocationKind(hdr.MachineType, typMask &&& info)
-      RelSymbol = Array.tryItem (getRelocSIdx hdr info |> int) symTbl
-      RelAddend = if not hasAddend then 0UL
-                  else readUIntByWordSizeAndOffset span reader cls 8 16
+    let info = readInfoWithArch toolBox span
+    let reader = toolBox.Reader
+    let addr = readUIntByWordSize span reader cls 0 + toolBox.BaseAddress
+    let idx = getRelocSIdx hdr info |> int
+    { RelOffset = addr
+      RelKind = RelocationKind(hdr.MachineType, getRelocTypeMask hdr &&& info)
+      (* Index 0 is the reserved STN_UNDEF entry, so it names no symbol. *)
+      RelSymbol = if idx = 0 then None else Array.tryItem idx symTbl
+      RelAddend = getRelocAddend toolBox shdrs span sec addr
       RelSecNumber = sec.SecNum }
 
   let tryFindSymbTable idx (symbs: SymbolStore) =
@@ -71,10 +105,9 @@ module private RelocMap =
   let inline accumulateRelocInfo (relocMap: Dictionary<_, _>) rel =
     relocMap[rel.RelOffset] <- rel
 
-  let parseRelocSection toolBox symbs relocMap sec (span: ByteSpan) =
+  let parseRelocSection toolBox shdrs symbs relocMap sec (span: ByteSpan) =
     let hdr = toolBox.Header
     let hasAddend = sec.SecType = SectionType.SHT_RELA
-    let typMask = selectByWordSize hdr.Class 0xFFUL 0xFFFFFFFFUL
     let entrySize =
       if hasAddend then (uint64 <| WordSize.toByteWidth hdr.Class * 3)
       else (uint64 <| WordSize.toByteWidth hdr.Class * 2)
@@ -82,7 +115,7 @@ module private RelocMap =
     let symTbl = tryFindSymbTable (int sec.SecLink) symbs
     for i = 0 to (numEntries - 1) do
       let offset = i * int entrySize
-      getRelocEntry toolBox hasAddend typMask symTbl (span.Slice offset) sec
+      getRelocEntry toolBox shdrs symTbl (span.Slice offset) sec
       |> accumulateRelocInfo relocMap
 
   let parse toolBox shdrs symbs =
@@ -96,7 +129,7 @@ module private RelocMap =
         else
           let offset, size = int sec.SecOffset, int sec.SecSize
           let span = ReadOnlySpan(toolBox.Bytes, offset, size)
-          parseRelocSection toolBox symbs relocMap sec span
+          parseRelocSection toolBox shdrs symbs relocMap sec span
       | _ ->
         ()
     relocMap

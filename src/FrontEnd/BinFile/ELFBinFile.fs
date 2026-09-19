@@ -309,11 +309,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       member _.IsRelocationAddr addr = relocs.Value.Contains addr
 
       member _.TryGetRelocatedAddr relocAddr =
-        getRelocatedAddr relocs.Value relocAddr
+        getRelocatedAddr toolBox relocs.Value relocAddr
 
       member _.TryGetInternalFunctionAddr relocAddr =
         match relocs.Value.TryFind relocAddr with
-        | Ok reloc -> tryGetInternalFuncAddr reloc
+        | Ok reloc -> tryGetInternalFuncAddr toolBox reloc
         | Error e -> Error e
     }
 
