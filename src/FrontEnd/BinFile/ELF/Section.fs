@@ -46,6 +46,10 @@ let [<Literal>] BSS = ".bss"
 let [<Literal>] ROData = ".rodata"
 
 /// Represents the name of the section that contains function addresses that are
+/// executed before any other initialization code: ".preinit_array".
+let [<Literal>] PreinitArray = ".preinit_array"
+
+/// Represents the name of the section that contains function addresses that are
 /// executed when a program starts: ".init_array".
 let [<Literal>] InitArray = ".init_array"
 

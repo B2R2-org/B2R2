@@ -112,23 +112,17 @@ let getFuncAddrsFromLibcArr span toolBox relocInfo section =
         lst.Add fnAddr)
   lst.ToArray()
 
-let getAddrsFromInitArray toolBox shdrs relocInfo =
-  match Array.tryFind (fun s -> s.SecName = Section.InitArray) shdrs with
+/// Returns the function addresses the named array section holds. The three
+/// libc constructor tables are laid out alike, each an array of pointers.
+let private getAddrsFromFuncArray toolBox shdrs relocInfo secName =
+  match Array.tryFind (fun s -> s.SecName = secName) shdrs with
   | Some s ->
     let span = ReadOnlySpan(toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox relocInfo s
   | None ->
     [||]
 
-let getAddrsFromFiniArray toolBox shdrs relocInfo =
-  match Array.tryFind (fun s -> s.SecName = Section.FiniArray) shdrs with
-  | Some s ->
-    let span = ReadOnlySpan(toolBox.Bytes, int s.SecOffset, int s.SecSize)
-    getFuncAddrsFromLibcArr span toolBox relocInfo s
-  | None ->
-    [||]
-
-let getAddrsFromSpecialSections shdrs =
+let private getAddrsFromSpecialSections shdrs =
   [| Section.Init; Section.Fini |]
   |> Array.choose (fun secName ->
     match Array.tryFind (fun s -> s.SecName = secName) shdrs with
@@ -136,8 +130,10 @@ let getAddrsFromSpecialSections shdrs =
     | None -> None)
 
 let findExtraFnAddrs toolBox shdrs relocInfo =
-  [ getAddrsFromInitArray toolBox shdrs relocInfo
-    getAddrsFromFiniArray toolBox shdrs relocInfo
+  let fromArray = getAddrsFromFuncArray toolBox shdrs relocInfo
+  [ fromArray Section.PreinitArray
+    fromArray Section.InitArray
+    fromArray Section.FiniArray
     getAddrsFromSpecialSections shdrs ]
   |> Array.concat
 

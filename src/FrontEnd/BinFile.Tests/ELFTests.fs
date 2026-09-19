@@ -1014,6 +1014,13 @@ type ELFTests() =
     Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fb8UL)
 
   [<TestMethod>]
+  member _.``[ELF] riscv64 preinit_array names a function test``() =
+    (* .preinit_array holds one relocated pointer, to load_gp, which the symbol
+       table marks NOTYPE and so reaches the function list by no other path. *)
+    let addrs = (riscv64File :> IBinFile).Structure.Value.FunctionAddresses
+    Assert.AreEqual(true, Array.contains 0x672UL addrs)
+
+  [<TestMethod>]
   member _.``[ELF] riscv64 imports test``() =
     (* .plt is 0x50 from 0x600, a 32-byte header and three 16-byte stubs. *)
     let expected =
