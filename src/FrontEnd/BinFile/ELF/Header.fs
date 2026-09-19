@@ -128,6 +128,9 @@ module internal Header =
   let private getELFFlags span (reader: IBinReader) cls =
     reader.ReadUInt32(span = span, offset = selectByWordSize cls 36 48)
 
+  /// Returns the MIPS ISA the processor-specific flags name. EF_MIPS_ARCH sits
+  /// in the top nibble, and it rather than the ELF class is what tells a
+  /// 64-bit architecture from a 32-bit one, n32 being 64-bit in a 32-bit file.
   let private getMIPSISA span reader cls =
     match getELFFlags span reader cls &&& 0xf0000000u with
     | 0x00000000u
@@ -141,7 +144,7 @@ module internal Header =
     | 0x60000000u
     | 0x80000000u
     | 0xa0000000u -> ISA(Architecture.MIPS, reader.Endianness, WordSize.Bit64)
-    | c -> failwithf "invalid MIPS arch (%02x)" c
+    | _ -> raise InvalidISAException
 
   /// The part of an AVR image's processor-specific flags naming its core,
   /// which binutils calls EF_AVR_MACH.

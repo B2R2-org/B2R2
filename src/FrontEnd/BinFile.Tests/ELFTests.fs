@@ -1646,6 +1646,16 @@ type ELFTests() =
     Assert.AreEqual(Endian.Big, isa.Endian)
 
   [<TestMethod>]
+  member _.``[ELF] mips32 unknown ISA flags test``() =
+    (* EF_MIPS_ARCH names no architecture above MIPS64R6, and a file claiming
+       one is refused the way an unknown machine type is. *)
+    let fileName = "elf_mips32"
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    bytes[0x24] <- 0xb0uy (* the top nibble of e_flags, which is big endian *)
+    Assert.ThrowsExactly<InvalidISAException>(fun () ->
+      ELFBinFile(fileName, bytes, None, None) |> ignore) |> ignore
+
+  [<TestMethod>]
   member _.``[ELF] mips32 entry point test``() =
     Assert.AreEqual(Some 0x400560UL, (mips32File :> IBinFile).EntryPoint)
 
