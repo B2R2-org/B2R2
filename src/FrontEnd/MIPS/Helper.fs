@@ -116,7 +116,11 @@ let getCondition = function
   | 0xFu -> Condition.NGT
   | _ -> raise ParsingFailureException
 
-let num9 b = Bits.extract b 15u 7u
+/// The nine-bit offset a SPECIAL3 load or store holds, which the manual reads
+/// as SIGNED. It is widened to sixteen here rather than left to memBaseOff,
+/// which widens what it is given from sixteen and would therefore read every
+/// negative offset as a large positive one.
+let num9 b = Bits.extract b 15u 7u |> uint64 |> Bits.signExtend 9 16 |> uint32
 
 let num16 b = Bits.extract b 15u 0u
 
@@ -170,12 +174,25 @@ let hint b = Bits.extract b 20u 16u |> uint64 |> OpImm
 (* FIXME: sel on page 432 *)
 let sel b = Bits.extract b 8u 6u |> uint64 |> OpImm
 
+/// The CP0 select field, which is at the BOTTOM of the word rather than where
+/// RDHWR's is. A CP0 register is named by a (rd, sel) pair, so decoding the
+/// wrong three bits here produces a plausible instruction naming the wrong
+/// register.
+let sel0 b = Bits.extract b 2u 0u |> uint64 |> OpImm
+
+/// GINVT's type field, which says what kind of translation to invalidate.
+let ginvType b = Bits.extract b 9u 8u |> uint64 |> OpImm
+
 let rel16 b =
   let off = num16 b |> uint64 <<< 2 |> Bits.signExtend 18 64 |> int64
   off + 4L |> Relative |> OpAddr
 
+/// The instruction index of a J or JAL, shifted into place. It is not the
+/// target: the architecture forms that by concatenating the upper bits of the
+/// program counter with this field, so the address has to be known before it
+/// can be resolved. See regionTarget.
 let region b =
-  num26 b <<< 2 |> uint64 |> OpImm (* FIXME: PC-region on page 268 *)
+  num26 b <<< 2 |> uint64 |> Region |> OpAddr
 
 let stype b =
   Bits.extract b 10u 6u |> uint64 |> OpImm (* FIXME: SType Field on page 533 *)
@@ -222,9 +239,44 @@ let posSize6 b =
   let lsbminus32 = Bits.extract b 10u 6u
   lsbminus32 + 32u |> uint64 |> OpImm, msbd + 1u |> uint64 |> OpImm
 
+/// A Release 6 compact branch takes its offset relative to the
+/// instruction that FOLLOWS it -- `PC+4 + sign_extend(offset << 2)` --
+/// which is the same base a delayed branch uses, so the `+ 4L` here means
+/// what it means in rel16. What differs between the two is the delay slot,
+/// and that belongs to the lifter, not to the operand.
+let rel21 b =
+  let off =
+    Bits.extract b 20u 0u |> uint64 <<< 2 |> Bits.signExtend 23 64 |> int64
+  off + 4L |> Relative |> OpAddr
+
+let rel26 b =
+  let off = num26 b |> uint64 <<< 2 |> Bits.signExtend 28 64 |> int64
+  off + 4L |> Relative |> OpAddr
+
 let getRel16 b = OneOperand(rel16 b)
 
+let getRel26 b = OneOperand(rel26 b)
+
+let getRsRel21 b = TwoOperands(rs b, rel21 b)
+
+let getRtRel16 b = TwoOperands(rt b, rel16 b)
+
+let getRtRtRel16 b = ThreeOperands(rt b, rt b, rel16 b)
+
+/// JIC and JIALC jump to GPR[rt] plus a signed 16-bit offset, so the
+/// offset is an immediate rather than an address: nothing about it is
+/// relative to the program counter.
+let getRtOff16 b = TwoOperands(rt b, imm16SignExt b)
+
 let getRs b = OneOperand(rs b)
+
+/// SIGRIE names a sixteen-bit code and nothing else.
+let getImm16 b = OneOperand(imm16 b)
+
+/// SDBBP names a twenty-bit one, which is every bit above its function
+/// field.
+let getCode20 b =
+  OneOperand(Bits.extract b 25u 6u |> uint64 |> OpImm)
 
 let getRd b = OneOperand(rd b)
 
@@ -244,17 +296,68 @@ let getRdRt b = TwoOperands(rd b, rt b)
 
 let getRtRdSel b = ThreeOperands(rt b, rd b, sel b)
 
+/// <summary>
+/// Encodes the CP0 moves: rt, and the (rd, sel) pair naming a CP0 register.
+///
+/// The pair is written as two numbers rather than as a register name, because
+/// what it names is not a general register and the two fields are separate in
+/// the encoding.
+/// </summary>
+let getRtRdSel0 b =
+  let rd = Bits.extract b 15u 11u |> uint64 |> OpImm
+  ThreeOperands(rt b, rd, sel0 b)
+
+/// DI, EI, DVP and EVP hand back what the register they change held, so the
+/// one operand is a destination rather than a source.
+let getRt b = OneOperand(rt b)
+
+/// GINVT names what to invalidate as well as where.
+let getRsType b = TwoOperands(rs b, ginvType b)
+
 let getRsRtRel16 b = ThreeOperands(rs b, rt b, rel16 b) (* rs, rt, offset *)
 
 let getRsRel16 b = TwoOperands(rs b, rel16 b)
 
 let getRsImm16s b = TwoOperands(rs b, imm16SignExt b)
 
+/// DAUI takes its immediate unshifted -- the << 16 belongs to the
+/// operation, and DAHI and DATI shift the same field by 32 and 48.
+let getRtRsImm16u b =
+  ThreeOperands(rt b, rs b, num16 b |> uint64 |> OpImm)
+
+let getRsImm16u b = TwoOperands(rs b, num16 b |> uint64 |> OpImm)
+
+/// The PC-relative family's offsets are relative to the address of
+/// the instruction ITSELF, not to the one after it -- there is no
+/// delay slot in Release 6 for the `+ 4` of rel16 to account for.
+let private relPC width shift b =
+  let off =
+    Bits.extract b (width - 1u) 0u |> uint64 <<< shift
+    |> Bits.signExtend (int width + shift) 64 |> int64
+  off |> Relative |> OpAddr
+
+/// BC1EQZ and BC1NEZ test bit 0 of an FPR, so their first operand is a
+/// float register where every older MIPS branch takes a general one.
+/// The paired load-linked forms name two registers and a base with
+/// no offset: the pair is at the base and nowhere else.
+let getRtRdBase b accLength =
+  ThreeOperands(rt b, rd b, OpMem(getRegFrom2521 b, Imm 0L, accLength))
+
+let getFtRel16 b = TwoOperands(ft b, rel16 b)
+
+let getRsOff19 b = TwoOperands(rs b, relPC 19u 2 b)
+
+let getRsOff18 b = TwoOperands(rs b, relPC 18u 3 b)
+
 let getRtImm16 b = TwoOperands(rt b, imm16 b)
 
 let getRtRsImm16s b = ThreeOperands(rt b, rs b, imm16SignExt b)
 
 let getRtRsImm16 b = ThreeOperands(rt b, rs b, imm16 b)
+
+/// <rt>, <rs>, <rt>: the running value of a CRC is an input as well as the
+/// destination, so the register holding it is named twice.
+let getRtRsRt b = ThreeOperands(rt b, rs b, rt b)
 
 let getRtMemBaseOff b accLen = TwoOperands(rt b, memBaseOff b num16 accLen)
 
@@ -266,6 +369,8 @@ let getHintMemBaseOff b accLen = TwoOperands(hint b, memBaseOff b num16 accLen)
 
 let getHintMemBaseOff9 b accLen = TwoOperands(hint b, memBaseOff b num9 accLen)
 
+let getRdMemBaseIdx b accLen = TwoOperands(rd b, memBaseIdx b accLen)
+
 let getFdMemBaseIdx b accLen = TwoOperands(fd b, memBaseIdx b accLen)
 
 let getFsMemBaseIdx b accLen = TwoOperands(fs b, memBaseIdx b accLen)
@@ -273,6 +378,12 @@ let getFsMemBaseIdx b accLen = TwoOperands(fs b, memBaseIdx b accLen)
 let getHintMemBaseIdx b accLen = TwoOperands(hint b, memBaseIdx b accLen)
 
 let getRdRtSa b = ThreeOperands(rd b, rt b, sa b)
+
+/// LSA and DLSA take a two-bit scale in bits 7..6. The operation shifts by
+/// sa2 + 1, and the +1 belongs to the lifter, so what is handed over here is
+/// the field as encoded.
+let getRdRsRtSa2 b =
+  FourOperands(rd b, rs b, rt b, Bits.extract b 7u 6u |> uint64 |> OpImm)
 
 let getRdRsCc b = ThreeOperands(rd b, rs b, cc20 b)
 
@@ -310,5 +421,11 @@ let getFdFsCc b = ThreeOperands(fd b, fs b, cc20 b)
 let getCcFsFt b = ThreeOperands(cc10 b, fs b, ft b)
 
 let getFdFsFt b = ThreeOperands(fd b, fs b, ft b)
+
+/// ALNV.PS names a general-purpose register last: the alignment it applies is
+/// the low three bits of that register rather than an encoded constant, which
+/// is what lets one instruction serve every offset an unaligned array of
+/// pairs can have.
+let getFdFsFtRs b = FourOperands(fd b, fs b, ft b, rs b)
 
 let getFdFrFsFt b = FourOperands(fd b, fr b, fs b, ft b)

@@ -37,6 +37,7 @@ type Instruction
            opr,
            oprSize,
            wordSize,
+           isaMode,
            lifter: ILiftable) =
 
   let hasConcJmpTarget () =
@@ -70,6 +71,26 @@ type Instruction
 
   /// Word Size.
   member _.WordSize with get() = wordSize
+
+  /// <summary>
+  /// Which encoding this instruction was read from.
+  ///
+  /// They all stand for the same instruction set, so this says nothing about
+  /// what the instruction does -- except for JALX, whose whole effect is to
+  /// cross from one to another, and which therefore has to know which side it
+  /// is starting on.
+  /// </summary>
+  member _.ISAMode with get(): MIPSISAMode = isaMode
+
+  /// Whether this instruction was read from the microMIPS encoding.
+  member _.IsMicroMIPS with get(): bool = isaMode = MIPSISAMode.MicroMIPS
+
+  /// <summary>
+  /// Whether it was read from one of the COMPRESSED encodings, which is what
+  /// JALX asks: the crossing is between the 32-bit encoding and whichever of
+  /// the two a processor has, and no processor has both.
+  /// </summary>
+  member _.IsCompressed with get(): bool = isaMode <> MIPSISAMode.MIPS
 
   interface IInstruction with
 
@@ -154,6 +175,9 @@ type Instruction
           true
         | ThreeOperands(_, _, OpAddr(Relative offset)) ->
           addr <- (int64 this.Address + offset) |> uint64
+          true
+        | OneOperand(OpAddr(Region index)) ->
+          addr <- JumpTarget.regionTarget this.Address wordSize index
           true
         | OneOperand(OpImm(imm)) ->
           addr <- imm

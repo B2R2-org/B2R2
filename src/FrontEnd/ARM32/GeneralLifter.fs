@@ -178,6 +178,43 @@ let unsupported ins bld = sideEffects ins bld UnsupportedInstruction
 /// reserved, so faulting is what the instruction means.
 let undefined ins bld = sideEffects ins bld UndefinedInstruction
 
+/// Whether a field specifier names the flag field. That is the only part of
+/// CPSR this models: in user mode N, Z, C, V and Q are the whole of what a
+/// program owns of it, and the control, extension and status bytes select mode
+/// and interrupt state the model does not carry. A write naming only those is
+/// therefore still left undefined rather than silently dropped -- reporting
+/// "not modelled" is honest, and quietly ignoring a write to the mode bits
+/// would not be.
+let private namesFlagField = function
+  | PSRf | PSRfc | PSRfx | PSRfxc
+  | PSRfs | PSRfsc | PSRfsx | PSRfsxc
+  | PSRnzcv | PSRnzcvq | PSRnzcvqg -> true
+  | _ -> false
+
+/// MRS Rd, <psr>. The whole register is read; what a caller may rely on is the
+/// flag field, and the rest is mode state two implementations need not agree
+/// about.
+let mrs ins bld =
+  lift bld ins {
+    let struct (dst, _) = transTwoOprs ins bld
+    dst := regVar bld R.CPSR
+  }
+
+/// MSR <psr>_<fields>, Rn or #imm. The named fields are written and every
+/// other bit of CPSR is preserved -- which is the point of the field
+/// specifier, and why this is a read-modify-write rather than an assignment.
+let msr (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(OprSpecReg(_, Some flag), src) when namesFlagField flag ->
+    lift bld ins {
+      let src = transOpr ins bld src
+      let cpsr = regVar bld R.CPSR
+      let mask = maskPSRForCondbits .| maskPSRForQbit
+      cpsr := (cpsr .& AST.not mask) .| (src .& mask)
+    }
+  | _ ->
+    undefined ins bld
+
 let nop (ins: Instruction) bld =
   lift bld ins {
   }
@@ -369,12 +406,12 @@ let pushLoop bld numOfReg addr =
       }
       if count = 13 && count <> lowestSetBit numOfReg 32 then
         append bld {
-          AST.loadLE 32<rt> t := (AST.undef 32<rt> "UNKNOWN")
+          loadNative bld 32<rt> t := (AST.undef 32<rt> "UNKNOWN")
         }
       else
         let reg = count |> uint32 |> OperandHelper.getRegister
         append bld {
-          AST.loadLE 32<rt> t := regVar bld reg
+          loadNative bld 32<rt> t := regVar bld reg
         }
       t .+ (numI32 4 32<rt>)
     else
@@ -393,7 +430,7 @@ let push ins bld =
     t0 := addr
     let addr = pushLoop bld numOfReg t0
     if (numOfReg >>> 15 &&& 1u) = 1u then
-      AST.loadLE 32<rt> addr := pcStoreValue bld
+      loadNative bld 32<rt> addr := pcStoreValue bld
     else
       ()
     sp := t0
@@ -401,23 +438,34 @@ let push ins bld =
   }
 
 /// shared/functions/vector/SignedSatQ, on page Armv8 Pseudocode-7927
-let sSatQ bld i n =
-  let n1 = AST.num1 n
-  let cond = n1 << (numI32 (RegType.toBitWidth n) n .- n1)
-  let struct (t1, t2) = tmpVars2 bld n
+///
+/// `oprSz` is the width the incoming value is held at and `n` the width to
+/// saturate to, and oprSz has to be the WIDER of the two. The definition is
+/// "if the value falls outside the n-bit signed range, clamp it to the nearer
+/// end", and a value already narrowed to n bits cannot fall outside it -- it
+/// has wrapped instead, and the information the saturation exists to catch is
+/// gone before it is asked. So every caller computes at a wider width and
+/// passes that width in.
+///
+/// Both comparisons are signed. An unsigned one reads every negative value as
+/// larger than the positive limit and clamps it to the top of the range, which
+/// turned a QSAX lane of -3704 into 32767.
+let sSatQ bld i oprSz n =
+  let shift = RegType.toBitWidth n - 1
+  let maxV = numI64 ((1L <<< shift) - 1L) oprSz
+  let minV = numI64 (-(1L <<< shift)) oprSz
+  let t = tmpVar bld oprSz
   append bld {
-    t1 := i
-    t2 := cond
+    t := i
   }
-  let cond1 = t1 .> (t2 .- n1)
-  let cond2 = t1 .< AST.not t2
-  let r = (AST.ite cond1 (t2 .- n1) (AST.ite cond2 (AST.not t2) t1))
-  let r = AST.xtlo n r
-  let sat = AST.ite cond1 AST.b1 (AST.ite cond2 AST.b1 (AST.num0 1<rt>))
+  let tooHigh = t ?> maxV
+  let tooLow = t ?< minV
+  let r = AST.xtlo n (AST.ite tooHigh maxV (AST.ite tooLow minV t))
+  let sat = AST.ite tooHigh AST.b1 (AST.ite tooLow AST.b1 (AST.num0 1<rt>))
   struct (r, sat)
 
-let sSat bld i n =
-  let struct (r, _) = sSatQ bld i n
+let sSat bld i oprSz n =
+  let struct (r, _) = sSatQ bld i oprSz n
   r
 
 let qdadd (ins: Instruction) bld =
@@ -426,10 +474,15 @@ let qdadd (ins: Instruction) bld =
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
     let struct (sat1, sat2) = tmpVars2 bld 1<rt>
+    (* Both saturations are to 32 bits, so both operations are done at 64:
+       2 * Rm overflows a 32-bit register for half of all inputs, and that
+       overflow is exactly what the first SignedSat is there to catch. *)
+    let wide e = AST.sext 64<rt> e
     let struct (dou, sat) =
-      sSatQ bld (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
+      sSatQ bld (numI32 2 64<rt> .* wide src2) 64<rt> 32<rt>
     sat1 := sat
-    let struct (r, sat) = sSatQ bld (src1 .+ dou) (RegType.fromBitWidth 32)
+    let struct (r, sat) =
+      sSatQ bld (wide src1 .+ wide dou) 64<rt> 32<rt>
     dst := r
     sat2 := sat
     let cpsr = regVar bld R.CPSR
@@ -443,10 +496,15 @@ let qdsub (ins: Instruction) bld =
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
     let struct (sat1, sat2) = tmpVars2 bld 1<rt>
+    (* Both saturations are to 32 bits, so both operations are done at 64:
+       2 * Rm overflows a 32-bit register for half of all inputs, and that
+       overflow is exactly what the first SignedSat is there to catch. *)
+    let wide e = AST.sext 64<rt> e
     let struct (dou, sat) =
-      sSatQ bld (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
+      sSatQ bld (numI32 2 64<rt> .* wide src2) 64<rt> 32<rt>
     sat1 := sat
-    let struct (r, sat) = sSatQ bld (src1 .- dou) (RegType.fromBitWidth 32)
+    let struct (r, sat) =
+      sSatQ bld (wide src1 .- wide dou) 64<rt> 32<rt>
     dst := r
     sat2 := sat
     let cpsr = regVar bld R.CPSR
@@ -459,14 +517,18 @@ let qsax (ins: Instruction) bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
-    let struct (sum, diff) = tmpVars2 bld 16<rt>
-    let xtlo src = AST.xtlo 16<rt> src
-    let xthi src = AST.xthi 16<rt> src
+    let struct (sum, diff) = tmpVars2 bld 32<rt>
+    let struct (satSum, satDiff) = tmpVars2 bld 16<rt>
+    (* The lanes are sign-extended into 32 bits before the arithmetic: a lane
+       computed at its final 16 bits has already wrapped, and there is nothing
+       left for SignedSat to clamp. *)
+    let xtlo src = AST.sext 32<rt> (AST.xtlo 16<rt> src)
+    let xthi src = AST.sext 32<rt> (AST.xthi 16<rt> src)
     sum := xtlo src1 .+ xthi src2
     diff := xthi src1 .- xtlo src2
-    sum := sSat bld sum (RegType.fromBitWidth 16)
-    diff := sSat bld diff (RegType.fromBitWidth 16)
-    dst := AST.concat diff sum
+    satSum := sSat bld sum 32<rt> 16<rt>
+    satDiff := sSat bld diff 32<rt> 16<rt>
+    dst := AST.concat satDiff satSum
     putEndLabel bld lblIgnore
   }
 
@@ -475,14 +537,15 @@ let qsub16 (ins: Instruction) bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
-    let struct (diff1, diff2) = tmpVars2 bld 16<rt>
-    let xtlo src = AST.xtlo 16<rt> src
-    let xthi src = AST.xthi 16<rt> src
+    let struct (diff1, diff2) = tmpVars2 bld 32<rt>
+    let struct (sat1, sat2) = tmpVars2 bld 16<rt>
+    let xtlo src = AST.sext 32<rt> (AST.xtlo 16<rt> src)
+    let xthi src = AST.sext 32<rt> (AST.xthi 16<rt> src)
     diff1 := xtlo src1 .- xtlo src2
     diff2 := xthi src1 .- xthi src2
-    diff1 := sSat bld diff1 (RegType.fromBitWidth 16)
-    diff2 := sSat bld diff2 (RegType.fromBitWidth 16)
-    dst := AST.concat diff2 diff1
+    sat1 := sSat bld diff1 32<rt> 16<rt>
+    sat2 := sSat bld diff2 32<rt> 16<rt>
+    dst := AST.concat sat2 sat1
     putEndLabel bld lblIgnore
   }
 
@@ -1472,9 +1535,9 @@ let smulhalf ins bld s1top s2top =
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    if s1top then append bld { t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt> }
+    if s1top then append bld { t1 := AST.xthi 16<rt> rn |> AST.sext 32<rt> }
     else append bld { t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt> }
-    if s2top then append bld { t2 := AST.xthi 16<rt> rm |> AST.zext 32<rt> }
+    if s2top then append bld { t2 := AST.xthi 16<rt> rm |> AST.sext 32<rt> }
     else append bld { t2 := AST.xtlo 16<rt> rm |> AST.sext 32<rt> }
     rd := t1 .* t2
     putEndLabel bld lblIgnore
@@ -1576,9 +1639,9 @@ let smulacchalf ins bld s1top s2top =
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    if s1top then append bld { t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt> }
+    if s1top then append bld { t1 := AST.xthi 16<rt> rn |> AST.sext 32<rt> }
     else append bld { t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt> }
-    if s2top then append bld { t2 := AST.xthi 16<rt> rm |> AST.zext 32<rt> }
+    if s2top then append bld { t2 := AST.xthi 16<rt> rm |> AST.sext 32<rt> }
     else append bld { t2 := AST.xtlo 16<rt> rm |> AST.sext 32<rt> }
     rd := (t1 .* t2) .+ AST.sext 32<rt> ra
     putEndLabel bld lblIgnore
@@ -1672,7 +1735,7 @@ let popLoop bld numOfReg addr =
     if (numOfReg >>> count) &&& 1u = 1u then
       let reg = count |> uint32 |> OperandHelper.getRegister
       append bld {
-        regVar bld reg := AST.loadLE 32<rt> addr
+        regVar bld reg := loadNative bld 32<rt> addr
       }
       (addr .+ (numI32 4 32<rt>))
     else
@@ -1695,7 +1758,7 @@ let pop ins bld =
     else
       sp := (AST.undef 32<rt> "UNKNOWN")
     if (numOfReg >>> 15 &&& 1u) = 1u then
-      AST.loadLE 32<rt> addr |> loadWritePC bld isUnconditional
+      loadNative bld 32<rt> addr |> loadWritePC bld isUnconditional
     else
       ()
     putEndLabelForBranch bld lblIgnore ins
@@ -1736,7 +1799,7 @@ let ldm opcode ins bld wbackop =
     else
       ()
     if (numOfReg >>> 15 &&& 1u) = 1u then
-      AST.loadLE 32<rt> addr |> loadWritePC bld isUnconditional
+      loadNative bld 32<rt> addr |> loadWritePC bld isUnconditional
     else
       ()
     putEndLabel bld lblIgnore
@@ -1813,15 +1876,15 @@ let ldr ins bld size ext =
       let struct (taddr, twriteback) = tmpVars2 bld 32<rt>
       taddr := addr
       twriteback := newoffset
-      data := AST.loadLE size taddr |> ext 32<rt>
+      data := loadNative bld size taddr |> ext 32<rt>
       basereg := twriteback
     | Some(basereg, None) ->
       let taddr = tmpVar bld 32<rt>
       taddr := addr
-      data := AST.loadLE size taddr |> ext 32<rt>
+      data := loadNative bld size taddr |> ext 32<rt>
       basereg := taddr
     | None ->
-      data := AST.loadLE size addr |> ext 32<rt>
+      data := loadNative bld size addr |> ext 32<rt>
     if rt = getPC bld then loadWritePC bld isUnconditional data
     else append bld { rt := data }
     putEndLabel bld lblIgnore
@@ -1859,18 +1922,18 @@ let ldrd ins bld =
       let twriteback = tmpVar bld 32<rt>
       taddr := addr
       twriteback := newoffset
-      rt := AST.loadLE 32<rt> taddr
-      rt2 := AST.loadLE 32<rt> (taddr .+ n4)
+      rt := loadNative bld 32<rt> taddr
+      rt2 := loadNative bld 32<rt> (taddr .+ n4)
       basereg := twriteback
     | Some(basereg, None) ->
       taddr := addr
-      rt := AST.loadLE 32<rt> taddr
-      rt2 := AST.loadLE 32<rt> (taddr .+ n4)
+      rt := loadNative bld 32<rt> taddr
+      rt2 := loadNative bld 32<rt> (taddr .+ n4)
       basereg := taddr
     | None ->
       taddr := addr
-      rt := AST.loadLE 32<rt> taddr
-      rt2 := AST.loadLE 32<rt> (taddr .+ n4)
+      rt := loadNative bld 32<rt> taddr
+      rt2 := loadNative bld 32<rt> (taddr .+ n4)
     putEndLabel bld lblIgnore
   }
 
@@ -1993,8 +2056,8 @@ let rfedb (ins: Instruction) bld =
     let wback = ins.WriteBack
     let struct (addr, newPcValue, spsr) = tmpVars3 bld 32<rt>
     addr := dst .- numI32 8 32<rt>
-    newPcValue := AST.loadLE 32<rt> addr
-    spsr := AST.loadLE 32<rt> (addr .+ numI32 4 32<rt>)
+    newPcValue := loadNative bld 32<rt> addr
+    spsr := loadNative bld 32<rt> (addr .+ numI32 4 32<rt>)
     match wback with
     | true -> append bld { dst := dst .- numI32 8 32<rt> }
     | _ -> append bld { dst := dst }
@@ -2008,11 +2071,11 @@ let str ins bld size =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     if rt = getPC bld then
-      append bld { AST.loadLE 32<rt> addr := pcStoreValue bld }
+      append bld { loadNative bld 32<rt> addr := pcStoreValue bld }
     elif size = 32<rt> then
-      append bld { AST.loadLE 32<rt> addr := rt }
+      append bld { loadNative bld 32<rt> addr := rt }
     else
-      append bld { AST.loadLE size addr := AST.xtlo size rt }
+      append bld { loadNative bld size addr := AST.xtlo size rt }
     match writeback with
     | Some(basereg, Some newoffset) -> append bld { basereg := newoffset }
     | Some(basereg, None) -> append bld { basereg := addr }
@@ -2033,7 +2096,7 @@ let ldrex ins bld size =
     let taddr = tmpVar bld 32<rt>
     let raw = tmpVar bld size
     taddr := addr
-    raw := AST.loadLE size taddr
+    raw := loadNative bld size taddr
     regVar bld R.ExMonAddr := taddr
     regVar bld R.ExMonVal := AST.zext 32<rt> raw
     rt := AST.zext 32<rt> raw
@@ -2051,8 +2114,8 @@ let ldrexd ins bld =
     let lo = tmpVar bld 32<rt>
     let hi = tmpVar bld 32<rt>
     taddr := addr
-    lo := AST.loadLE 32<rt> taddr
-    hi := AST.loadLE 32<rt> (taddr .+ numI32 4 32<rt>)
+    lo := loadNative bld 32<rt> taddr
+    hi := loadNative bld 32<rt> (taddr .+ numI32 4 32<rt>)
     regVar bld R.ExMonAddr := taddr
     regVar bld R.ExMonVal := lo
     rt := lo
@@ -2074,10 +2137,10 @@ let strex ins bld size =
     let cur = tmpVar bld size
     let matched = tmpVar bld 1<rt>
     taddr := addr
-    cur := AST.loadLE size taddr
+    cur := loadNative bld size taddr
     matched := (taddr == regVar bld R.ExMonAddr)
                .& (cur == AST.xtlo size (regVar bld R.ExMonVal))
-    AST.loadLE size taddr := AST.ite matched (AST.xtlo size rt) cur
+    loadNative bld size taddr := AST.ite matched (AST.xtlo size rt) cur
     rd := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>)
     putEndLabel bld lblIgnore
   }
@@ -2101,12 +2164,12 @@ let strexd ins bld =
     let cur = tmpVar bld 32<rt>
     let matched = tmpVar bld 1<rt>
     taddr := addr
-    cur := AST.loadLE 32<rt> taddr
+    cur := loadNative bld 32<rt> taddr
     matched := (taddr == regVar bld R.ExMonAddr)
                .& (cur == regVar bld R.ExMonVal)
-    AST.loadLE 32<rt> taddr := AST.ite matched rt cur
-    AST.loadLE 32<rt> (taddr .+ numI32 4 32<rt>) :=
-      AST.ite matched rt2 (AST.loadLE 32<rt> (taddr .+ numI32 4 32<rt>))
+    loadNative bld 32<rt> taddr := AST.ite matched rt cur
+    loadNative bld 32<rt> (taddr .+ numI32 4 32<rt>) :=
+      AST.ite matched rt2 (loadNative bld 32<rt> (taddr .+ numI32 4 32<rt>))
     rd := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>)
     putEndLabel bld lblIgnore
   }
@@ -2116,8 +2179,8 @@ let strd ins bld =
     let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    AST.loadLE 32<rt> addr := rt
-    AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2
+    loadNative bld 32<rt> addr := rt
+    loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2
     match writeback with
     | Some(basereg, Some newoffset) -> append bld { basereg := newoffset }
     | Some(basereg, None) -> append bld { basereg := addr }
@@ -2145,11 +2208,11 @@ let stmLoop bld regs wback rn addr =
       let ri = count |> uint32 |> OperandHelper.getRegister |> regVar bld
       if ri = rn && wback && count <> lowestSetBit regs 32 then
         append bld {
-          AST.loadLE 32<rt> addr := (AST.undef 32<rt> "UNKNOWN")
+          loadNative bld 32<rt> addr := (AST.undef 32<rt> "UNKNOWN")
         }
       else
         append bld {
-          AST.loadLE 32<rt> addr := ri
+          loadNative bld 32<rt> addr := ri
         }
       addr .+ (numI32 4 32<rt>)
     else
@@ -2168,7 +2231,7 @@ let stm opcode ins bld wbop =
     taddr := addr
     let addr = stmLoop bld regs wback rn taddr
     if (regs >>> 15 &&& 1u) = 1u then
-      AST.loadLE 32<rt> addr := pcStoreValue bld
+      loadNative bld 32<rt> addr := pcStoreValue bld
     else
       ()
     if wback then append bld { rn := wbop rn msize } else ()
@@ -2210,7 +2273,7 @@ let parseOprOfTableBranch (ins: Instruction) bld =
     let rn = regVar bld rn |> convertPCOpr ins bld
     let rm = regVar bld rm |> convertPCOpr ins bld
     let addr = rn .+ rm
-    AST.loadLE 8<rt> addr |> AST.zext 32<rt>
+    loadNative bld 8<rt> addr |> AST.zext 32<rt>
   | OneOperand(OprMemory(OffsetMode(RegOffset(rn,
                                               None,
                                               rm,
@@ -2218,7 +2281,7 @@ let parseOprOfTableBranch (ins: Instruction) bld =
     let rn = regVar bld rn |> convertPCOpr ins bld
     let rm = regVar bld rm |> convertPCOpr ins bld
     let addr = rn .+ (shiftLSL rm 32<rt> i)
-    AST.loadLE 16<rt> addr |> AST.zext 32<rt>
+    loadNative bld 16<rt> addr |> AST.zext 32<rt>
   | _ ->
     raise InvalidOperandException
 

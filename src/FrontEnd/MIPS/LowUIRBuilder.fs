@@ -37,11 +37,51 @@ type LowUIRBuilder(isa: ISA,
   let endian = isa.Endian
   let mutable delayedBranch = InterJmpKind.NotAJmp
 
+  let mutable branchCarriesMode = false
+
+  let mutable branchFallsPastSlot = false
+
   /// Remember if a branch is delayed. If delayed, we store its InterJmpKind.
   /// Lifting results may vary depending on this.
   member _.DelayedBranch
     with get() = delayedBranch
      and set v = delayedBranch <- v
+
+  /// <summary>
+  /// Whether the delayed branch takes its ENCODING from the address it jumps
+  /// to, which a jump through a register does on a processor with one of the
+  /// compressed encodings.
+  ///
+  /// MD00076 3.8: "JR and JALR instructions load the ISA Mode bit from bit 0
+  /// of the source register. Bit 0 of PC is loaded with a 0". The branch is
+  /// delayed, so which encoding it lands in is not settled where the jump is
+  /// written but where the delay slot ends -- which is the one place that can
+  /// emit it, and this is how it is told.
+  /// </summary>
+  member _.BranchCarriesMode
+    with get() = branchCarriesMode
+     and set v = branchCarriesMode <- v
+
+  /// <summary>
+  /// Whether the delayed branch's not-taken address is the END of the delay
+  /// slot rather than a fixed distance from the branch.
+  ///
+  /// The base architecture has no such distinction: every instruction is a
+  /// word, so the instruction after the slot is always PC+8. microMIPS writes
+  /// instructions of two widths and puts whichever it likes in a slot -- gcc
+  /// fills the slot of a 32-bit BNE with a 16-bit NOP and starts the next
+  /// instruction two bytes later -- so where a not-taken branch continues is
+  /// not known where the branch is written. A processor resumes at the end of
+  /// whatever instruction the slot holds, whichever width that is.
+  ///
+  /// The branch leaves the slot's own address in nPC to say "not taken", and
+  /// the slot -- the one place that knows its width -- turns that into the
+  /// address past itself. Branching INTO a delay slot is UNPREDICTABLE by
+  /// MD00594, so no defined encoding makes that marker ambiguous.
+  /// </summary>
+  member _.BranchFallsPastSlot
+    with get() = branchFallsPastSlot
+     and set v = branchFallsPastSlot <- v
 
   member _.RegType with get() = regType
 

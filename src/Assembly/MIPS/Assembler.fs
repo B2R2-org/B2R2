@@ -52,9 +52,35 @@ open B2R2.Assembly.MIPS.AsmMain
 /// </summary>
 type Assembler(isa: ISA, baseAddr: Addr) =
 
+  /// Which encoding the source is written in, which is the same text over a
+  /// different word in all three cases.
+  let mode = isa.MIPSISAMode
+
   /// The table-driven encoders, built here so that they are collected with the
   /// assembler instead of living for as long as the process does.
-  let encoders = lazy (buildEncoderTable ())
+  let encoders =
+    lazy (match mode with
+          | MIPSISAMode.MicroMIPS ->
+            AsmMicroMIPS.buildEncoderTable isa.MIPSRelease
+          | MIPSISAMode.MIPS16 ->
+            AsmMIPS16.buildEncoderTable isa.MIPSRelease
+          | _ ->
+            buildEncoderTable isa.MIPSRelease)
+
+  /// How many bytes an instruction takes, which is what the addresses of
+  /// everything after it are counted with.
+  let sizeOf ins =
+    match mode with
+    | MIPSISAMode.MicroMIPS -> AsmMicroMIPS.size ins
+    | MIPSISAMode.MIPS16 -> AsmMIPS16.size ins
+    | _ -> 4
+
+  /// How an encoded instruction is stored.
+  let writeBytes =
+    match mode with
+    | MIPSISAMode.MicroMIPS -> AsmMicroMIPS.toBytes
+    | MIPSISAMode.MIPS16 -> AsmMIPS16.toBytes
+    | _ -> toBytes
 
   let addLabeldef lbl =
     updateUserState (fun us ->
@@ -64,9 +90,15 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         { us with LabelMap = Map.add lbl us.CurIndex us.LabelMap })
     >>. preturn ()
 
-  let incrementIndex =
-    updateUserState (fun us -> { us with CurIndex = us.CurIndex + 1 })
-    >>. preturn ()
+  /// Moves past the instruction just read. Its address is what the operand
+  /// naming a place was read against, so the move happens after the operands
+  /// and needs to know which instruction it was.
+  let advance info =
+    updateUserState (fun us ->
+      { us with
+          CurIndex = us.CurIndex + 1
+          CurAddr = us.CurAddr + uint64 (sizeOf info) })
+    >>. preturn info
 
   let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
 
@@ -172,14 +204,33 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     if registerNaming opcode isa.WordSize = WordSize.Bit64 then registers64
     else registers32
 
+  /// The operands of an instruction that names a whole list of registers,
+  /// which is written as the registers one after another and then the memory
+  /// they are read from or written to.
+  let pRegListOperands names opcode =
+    many1 (attempt (pRegisterIn names .>>? operandSeps))
+    .>>. pOprMemory names opcode
+    |>> fun (regs, mem) -> [ OpRegList regs; mem ]
+
+  /// The operands of SAVE and RESTORE: a frame size, and then the set of
+  /// registers to keep in the frame. The set may be empty, so the registers
+  /// are read with `many` rather than `many1`.
+  let pFrameListOperands names opcode =
+    pOperand names opcode
+    .>>. many (attempt (operandSeps >>? pRegisterIn names))
+    |>> fun (frame, regs) -> [ frame; OpRegList regs ]
+
   /// Reads the operands of an already-parsed mnemonic. Which operands an
   /// instruction takes depends on which one it is, so the opcode has to be
   /// known before they can be read.
   let pOperands (opcode, cond, fmt) =
-    sepBy (pOperand (namesFor opcode) opcode) operandSeps
+    let names = namesFor opcode
+    (if takesRegList opcode then pRegListOperands names opcode
+     elif takesFrameList opcode then pFrameListOperands names opcode
+     else sepBy (pOperand names opcode) operandSeps)
     .>>. getUserState
     |>> (fun (operands, us) ->
-      let pc = baseAddr + uint64 (us.CurIndex * 4)
+      let pc = us.CurAddr
       markPlace opcode pc operands
       |> extractOperands
       |> newInfo opcode cond fmt)
@@ -195,7 +246,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | None -> fail $"'{token}' is not an instruction"
 
   let pInstructionLine =
-    pMnemonic >>= pOperands .>> incrementIndex |>> InstructionLine
+    pMnemonic >>= pOperands >>= advance |>> InstructionLine
 
   /// A line holds a label definition, an instruction, both, or neither. A
   /// label takes the index the next instruction will get, so that one written
@@ -212,11 +263,11 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   interface ILowerable with
     override _.Lower assembly =
-      let st = { LabelMap = Map.empty; CurIndex = 0 }
+      let st = { LabelMap = Map.empty; CurIndex = 0; CurAddr = baseAddr }
       match runParserOnString statements st "" assembly with
       | Success(result, us, _) ->
         filterInstructionLines result
-        |> assemble encoders us isa.Endian baseAddr
+        |> assemble encoders us isa.Endian baseAddr sizeOf writeBytes
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
       | Failure(str, _, _) ->

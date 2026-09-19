@@ -39,14 +39,19 @@ open B2R2.Assembly.MIPS.AsmField
 /// The five bits above the registers, which say the format the operands of an
 /// instruction of the first space are read in.
 ///
-/// Only the two kinds of floating-point number are named here: a fixed-point
-/// one is something the unit converts to and from rather than works on, so
-/// every instruction but a conversion leaves those two out.
+/// Only the kinds of floating-point number are named here: a fixed-point one
+/// is something the unit converts to and from rather than works on, so every
+/// instruction but a conversion leaves those out.
+///
+/// The paired single is a third kind. It is two single-precision numbers in
+/// one register, and the instructions that read it are the ones whose
+/// function field it shares with S and D.
 /// </summary>
 let private floatFormat ins =
   match ins.Fmt with
   | Some FPRFormat.S -> 0b10000u
   | Some FPRFormat.D -> 0b10001u
+  | Some FPRFormat.PS -> 0b10110u
   | Some fmt -> fail $"{ins.Opcode} is not read in the {fmt} format"
   | None -> fail $"{ins.Opcode} is written with the format it reads"
 
@@ -203,6 +208,101 @@ let private multiplyAdd func ins =
   | _ ->
     wrongOperands ins
 
+/// The field that names the paired-single format, which every instruction
+/// below writes into rather than reading off the mnemonic: the format is part
+/// of each name here, so none of them carries a suffix to read it from.
+let [<Literal>] private PairedFormat = 0b10110u
+
+/// Encodes <fd>, <fs>, <ft>: building a pair out of two singles, which is
+/// read in the S format because its SOURCES are singles.
+let private buildPaired ins =
+  match ins.Operands with
+  | ThreeOperands(Rg fd, Rg fs, Rg ft) ->
+    word 0b010001u 0b10000u (fpr ft) (fpr fs) (fpr fd) 0b100110u
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <fd>, <fs>: taking one half of a pair back out as a single.
+let private extractPaired func ins =
+  match ins.Operands with
+  | TwoOperands(Rg fd, Rg fs) ->
+    word 0b010001u PairedFormat 0u (fpr fs) (fpr fd) func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <fd>, <fs>, <ft>: the four ways two pairs can be re-paired.
+let private shufflePaired func ins =
+  match ins.Operands with
+  | ThreeOperands(Rg fd, Rg fs, Rg ft) ->
+    word 0b010001u PairedFormat (fpr ft) (fpr fs) (fpr fd) func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <fd>, <fs>, <ft>, <rs>: the splice of two pairs by a byte count
+/// that a general register holds, which is the one instruction of this format
+/// to name such a register.
+let private alignPaired ins =
+  match ins.Operands with
+  | FourOperands(Rg fd, Rg fs, Rg ft, Rg rs) ->
+    word 0b010011u (gpr rs) (fpr ft) (fpr fs) (fpr fd) 0b011110u
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <fd>, <fs>, <ft>: the Release 6 operations on three registers.
+let private r6Float func ins =
+  match ins.Operands with
+  | ThreeOperands(Rg fd, Rg fs, Rg ft) ->
+    word 0b010001u (floatFormat ins) (fpr ft) (fpr fs) (fpr fd) func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <fd>, <fs>: the two Release 6 operations on one register.
+let private r6FloatUnary func ins =
+  match ins.Operands with
+  | TwoOperands(Rg fd, Rg fs) ->
+    word 0b010001u (floatFormat ins) 0u (fpr fs) (fpr fd) func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes CMP.cond.fmt, whose condition is the low bits of the function
+/// field and whose format sits in the rs field rather than where every other
+/// float instruction keeps it.
+let private r6Compare ins =
+  match ins.Operands, ins.Condition with
+  | ThreeOperands(Rg fd, Rg fs, Rg ft), Some cond ->
+    let rs =
+      if ins.Fmt = Some FPRFormat.S then 0b10100u else 0b10101u
+    word 0b010001u rs (fpr ft) (fpr fs) (fpr fd) (uint32 (int cond))
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <ft>, <place>: the branches that test bit 0 of a float register,
+/// which is where Release 6 leaves the answer a comparison used to put in a
+/// condition code.
+let private branchOnFPReg rs ins =
+  match ins.Operands with
+  | TwoOperands(Rg ft, Place distance) ->
+    immWord 0b010001u rs (fpr ft) (branchOffset distance)
+  | _ ->
+    wrongOperands ins
+
+/// The Release 6 rows of the unit.
+let internal release6FloatEncoders () =
+  [ Opcode.SEL, r6Float 0b010000u
+    Opcode.SELEQZ, r6Float 0b010100u
+    Opcode.SELNEQZ, r6Float 0b010111u
+    Opcode.MADDF, r6Float 0b011000u
+    Opcode.MSUBF, r6Float 0b011001u
+    Opcode.RINT, r6FloatUnary 0b011010u
+    Opcode.CLASS, r6FloatUnary 0b011011u
+    Opcode.MIN, r6Float 0b011100u
+    Opcode.MINA, r6Float 0b011101u
+    Opcode.MAX, r6Float 0b011110u
+    Opcode.MAXA, r6Float 0b011111u
+    Opcode.CMP, r6Compare
+    Opcode.BC1EQZ, branchOnFPReg 0b01001u
+    Opcode.BC1NEZ, branchOnFPReg 0b01101u ]
+
 let floatEncoders () =
   [ Opcode.ADD, arith3 0b000000u
     Opcode.SUB, arith3 0b000001u
@@ -212,8 +312,16 @@ let floatEncoders () =
     Opcode.ABS, arith2 0b000101u
     Opcode.MOV, arith2 0b000110u
     Opcode.NEG, arith2 0b000111u
+    Opcode.ROUNDL, arith2 0b001000u
     Opcode.TRUNCL, arith2 0b001001u
+    Opcode.CEILL, arith2 0b001010u
+    Opcode.FLOORL, arith2 0b001011u
+    Opcode.ROUNDW, arith2 0b001100u
     Opcode.TRUNCW, arith2 0b001101u
+    Opcode.CEILW, arith2 0b001110u
+    Opcode.FLOORW, arith2 0b001111u
+    Opcode.CVTW, arith2 0b100100u
+    Opcode.CVTL, arith2 0b100101u
     Opcode.RECIP, arith2 0b010101u
     Opcode.RSQRT, arith2 0b010110u
     Opcode.CVTS, convert 0b10000u 0b100000u
@@ -231,13 +339,29 @@ let floatEncoders () =
     Opcode.DMTC1, moveBetween 0b00101u
     Opcode.CTC1, moveBetween 0b00110u
     Opcode.MTHC1, moveBetween 0b00111u
+    (* The two bits below the condition code are nd and tf: nd nullifies
+       the delay slot on the not-taken path, which is the whole of what
+       the likely forms add. *)
     Opcode.BC1F, branchOnFP 0u
     Opcode.BC1T, branchOnFP 1u
+    Opcode.BC1FL, branchOnFP 2u
+    Opcode.BC1TL, branchOnFP 3u
     Opcode.LWXC1, loadIndexed 0b000000u
     Opcode.LDXC1, loadIndexed 0b000001u
+    Opcode.LUXC1, loadIndexed 0b000101u
     Opcode.SWXC1, storeIndexed 0b001000u
     Opcode.SDXC1, storeIndexed 0b001001u
+    Opcode.SUXC1, storeIndexed 0b001101u
+    Opcode.CVTPSS, buildPaired
+    Opcode.CVTSPU, extractPaired 0b100000u
+    Opcode.CVTSPL, extractPaired 0b101000u
+    Opcode.PLLPS, shufflePaired 0b101100u
+    Opcode.PLUPS, shufflePaired 0b101101u
+    Opcode.PULPS, shufflePaired 0b101110u
+    Opcode.PUUPS, shufflePaired 0b101111u
+    Opcode.ALNVPS, alignPaired
     Opcode.PREFX, prefetchIndexed
     Opcode.MADD, multiplyAdd 0b100000u
     Opcode.MSUB, multiplyAdd 0b101000u
-    Opcode.NMADD, multiplyAdd 0b110000u ]
+    Opcode.NMADD, multiplyAdd 0b110000u
+    Opcode.NMSUB, multiplyAdd 0b111000u ]

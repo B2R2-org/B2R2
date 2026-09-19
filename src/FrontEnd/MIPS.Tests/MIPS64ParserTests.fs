@@ -77,6 +77,61 @@ type MIPS64ParserTests() =
 
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
+  /// <summary>
+  /// The privileged encodings, which the parser refused wholesale until the
+  /// COP0 major opcode was decoded.
+  ///
+  /// What this pins is the field splits a round-trip cannot see. ERET and
+  /// ERETNC share a function field and differ in bit 6 alone; DI and EI share
+  /// theirs and differ in bit 5; the two of those and DVP and EVP are one
+  /// encoding told apart by the rd field as well. An encoder and a decoder
+  /// that made the same mistake about any of them would still round-trip.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] The privileged encodings parse``() =
+    let words =
+      [ "40086000", MFC0
+        "40286000", DMFC0
+        "40486000", MFHC0
+        "40886000", MTC0
+        "40a86000", DMTC0
+        "40c86000", MTHC0
+        "41494000", RDPGPR
+        "41c94000", WRPGPR
+        "41686000", DI
+        "41686020", EI
+        "42000018", ERET
+        "42000058", ERETNC
+        "4200001f", DERET
+        "42000020", WAIT
+        "42000001", TLBR
+        "42000002", TLBWI
+        "42000003", TLBINV
+        "42000004", TLBINVF
+        "42000006", TLBWR
+        "42000008", TLBP
+        "bcb00004", CACHE
+        "7ca8022c", LBE
+        "7ca8021f", SWE ]
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let parser = MIPSParser(isa, BinReader.Init Endian.Big)
+    let parser = parser :> IInstructionParsable
+    for hex, opcode in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
+
+  /// <summary>
+  /// The nine-bit offset a SPECIAL3 load or store holds is SIGNED, and
+  /// widening it from the wrong place reads every negative offset as a large
+  /// positive one. 0x1fc is -4 in nine bits and 508 in nine unsigned ones.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] A nine-bit SPECIAL3 offset is signed``() =
+    "7ca8fe2c"
+    ++ LBE ** [ O.Reg R8; O.Mem(R5, -4L, 8<rt>) ]
+    ||> test64R2
+
   [<TestMethod>]
   member _.``[MIPS64] Arithmetic operations Parse Test (1)``() =
     "02bd782d"
@@ -190,3 +245,36 @@ type MIPS64ParserTests() =
     "b4cb8715"
       ++ SDR ** [ O.Reg R11; O.Mem(R6, -0x78ebL, 64<rt>) ]
       ||> test64R2
+
+  /// <summary>
+  /// The CRC family, whose encoding nothing in this tree could check against
+  /// a running processor: no CPU model QEMU offers has the ASE. What it is
+  /// checked against instead is binutils, which encodes
+  /// <c>crc32b $10, $9, $10</c> as 0x7D2A000F and walks the two fields from
+  /// there -- the element size at 7..6 and the polynomial at 10..8.
+  ///
+  /// The third operand is the first one again: the running value is an input
+  /// as well as the destination, which is how the manual writes them.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] The CRC family parses``() =
+    let words =
+      [ "7d2a000f", CRC32B
+        "7d2a004f", CRC32H
+        "7d2a008f", CRC32W
+        "7d2a00cf", CRC32D
+        "7d2a010f", CRC32CB
+        "7d2a014f", CRC32CH
+        "7d2a018f", CRC32CW
+        "7d2a01cf", CRC32CD ]
+    let isa =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let parser = MIPSParser(isa, BinReader.Init Endian.Big)
+                 :> IInstructionParsable
+    let expected = ThreeOperands(OpReg R10, OpReg R9, OpReg R10)
+    for hex, opcode in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
+      Assert.AreEqual<Operands>(expected, ins.Operands, hex)
+

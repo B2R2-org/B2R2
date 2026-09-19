@@ -819,10 +819,14 @@ let sbfx ins bld =
 let sdiv ins bld =
   lift bld ins {
     let dst, src1, src2 = transThreeOprs ins bld
-    let num0 = AST.num0 ins.OprSize
-    let cond1 = AST.eq src2 num0
-    let divSrc = src1 ?/ src2
-    let result = AST.ite cond1 num0 divSrc
+    let intMin =
+      numI64 (1L <<< (RegType.toBitWidth ins.OprSize - 1)) ins.OprSize
+    let isZero = AST.eq src2 (AST.num0 ins.OprSize)
+    let isOverflow =
+      (AST.eq src1 intMin) .& (AST.eq src2 (numI64 -1L ins.OprSize))
+    let result =
+      AST.ite isZero (AST.num0 ins.OprSize)
+                     (AST.ite isOverflow intMin (src1 ?/ src2))
     sized ins.OprSize dst := result
   }
 

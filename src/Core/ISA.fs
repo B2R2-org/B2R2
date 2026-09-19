@@ -235,6 +235,12 @@ type ISA(arch, endian, wordSize, flags) =
   /// "x86-64", "aarch64", "mips32le", etc. Raises <see
   /// cref='T:B2R2.InvalidISAException'/> if the string is not recognized.
   new(isaName: string) =
+    (* The three MIPS encodings sit in the same flags word as the release, so
+       a name that says both hands over both. Named here because the arms
+       below are one line each. *)
+    let umips = int MIPSISAMode.MicroMIPS
+    let umips6 = int MIPSRelease.R6 ||| int MIPSISAMode.MicroMIPS
+    let m16 = int MIPSISAMode.MIPS16
     match isaName.ToLowerInvariant() with
     | "x86" | "i386" ->
       ISA(Architecture.Intel, WordSize.Bit32)
@@ -268,6 +274,38 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64)
     | "mips64be" ->
       ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    | "mipsr6el" | "mips32r6el" | "mips32r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, int MIPSRelease.R6)
+    | "mips32r6" | "mips32r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, int MIPSRelease.R6)
+    | "mips64r6el" | "mips64r6" | "mips64r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, int MIPSRelease.R6)
+    | "mips64r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    | "micromipsel" | "micromips32le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, umips)
+    | "micromips" | "micromips32" | "micromips32be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, umips)
+    | "micromips64el" | "micromips64le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, umips)
+    | "micromips64" | "micromips64be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, umips)
+    | "micromipsr6el" | "micromips32r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, umips6)
+    | "micromips32r6" | "micromips32r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, umips6)
+    | "micromips64r6el" | "micromips64r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, umips6)
+    | "micromips64r6" | "micromips64r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, umips6)
+    | "mips16el" | "mips16le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, m16)
+    | "mips16" | "mips16be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, m16)
+    | "mips16-64el" | "mips16-64le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, m16)
+    | "mips16-64" | "mips16-64be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, m16)
     | "ppc32le" ->
       ISA(Architecture.PPC, Endian.Little, WordSize.Bit32)
     | "ppc32" | "ppc32be" ->
@@ -384,6 +422,30 @@ type ISA(arch, endian, wordSize, flags) =
   member _.ARM32Mode with get(): ARM32Mode =
     LanguagePrimitives.EnumOfValue flags
 
+  /// Which release of the MIPS architecture a MIPS ISA means, which is one
+  /// of Release 1 to 5 unless the flags say otherwise. Release 6 is not a
+  /// superset: it reassigned primary opcodes that earlier releases had given
+  /// to ADDI and DADDI, and replaced the multiply and divide families with
+  /// instructions that write a general register instead of HI and LO. So a
+  /// word of MIPS code cannot be decoded without knowing which release it
+  /// belongs to, and an ELF image says so in its processor-specific flags.
+  member _.MIPSRelease with get(): MIPSRelease =
+    LanguagePrimitives.EnumOfValue(flags &&& 1)
+
+  /// <summary>
+  /// Which of the MIPS encodings a MIPS ISA begins in.
+  ///
+  /// Neither microMIPS nor MIPS16e is an extension: each is the same
+  /// instruction set written another way, with its own opcode map and
+  /// instructions one halfword or two where the older encoding always takes a
+  /// word. Which one a processor reads is a bit of its own that code flips as
+  /// it runs, so this says where decoding starts and no more. An ELF image
+  /// says so in the part of its processor-specific flags that names the
+  /// extensions it uses.
+  /// </summary>
+  member _.MIPSISAMode with get(): MIPSISAMode =
+    LanguagePrimitives.EnumOfValue(flags &&& 6)
+
   /// The member of the 68000 family an m68k ISA means, which is the 68020
   /// unless the flags say otherwise. The family shares one encoding space and a
   /// later model reads encodings an earlier one rejects, so nothing but this
@@ -497,6 +559,28 @@ type ISA(arch, endian, wordSize, flags) =
 
   override this.ToString() =
     let thumb = this.ARM32Mode = ARM32Mode.Thumb
+    let r6 = this.MIPSRelease = MIPSRelease.R6
+    (* Which encoding a MIPS ISA is read in belongs in its name for the same
+       reason the release does: the three have separate opcode maps, so a name
+       that left it out would print an ISA that reads a different instruction
+       set from the one it names.
+       MIPS16e has no Release 6 spelling because Release 6 removed the ASE. *)
+    let mipsName () =
+      let le = endian = Endian.Little
+      let w64 = wordSize = WordSize.Bit64
+      let width = if w64 then "64" else "32"
+      let rel = if r6 then "r6" else ""
+      match this.MIPSISAMode with
+      | MIPSISAMode.MicroMIPS ->
+        "micromips" + width + rel + (if le then "le" else "")
+      | MIPSISAMode.MIPS16 ->
+        (if w64 then "mips16-64" else "mips16") + (if le then "le" else "")
+      | _ ->
+        (* The big-endian 64-bit name carries its "be" where the 32-bit one
+           does not, because "mips64" already names the LITTLE-endian one in
+           the table above: printing a big-endian MIPS64 as "mips64" made it
+           read back as a different ISA. The Release 6 arm never had that. *)
+        "mips" + width + rel + (if le then "le" elif w64 then "be" else "")
     match arch, endian, wordSize with
     | Architecture.Intel, _, WordSize.Bit32 ->
       "x86"
@@ -514,14 +598,9 @@ type ISA(arch, endian, wordSize, flags) =
       "aarch64"
     | Architecture.ARMv8, Endian.Big, WordSize.Bit64 ->
       "aarch64be"
-    | Architecture.MIPS, Endian.Little, WordSize.Bit32 ->
-      "mips32le"
-    | Architecture.MIPS, Endian.Big, WordSize.Bit32 ->
-      "mips32"
-    | Architecture.MIPS, Endian.Little, WordSize.Bit64 ->
-      "mips64le"
-    | Architecture.MIPS, Endian.Big, WordSize.Bit64 ->
-      "mips64"
+    | Architecture.MIPS, _, WordSize.Bit32
+    | Architecture.MIPS, _, WordSize.Bit64 ->
+      mipsName ()
     | Architecture.PPC, Endian.Little, WordSize.Bit32 ->
       "ppc32le"
     | Architecture.PPC, Endian.Big, WordSize.Bit32 ->
@@ -603,6 +682,43 @@ and ARM32Mode =
   | ARM = 0
   /// The T32 instruction set, whose instructions are one or two halfwords.
   | Thumb = 1
+
+/// Represents which release of the MIPS architecture a MIPS ISA means.
+/// Release 6 is a different encoding space, not an extension of the earlier
+/// ones, so nothing but this says what a word of MIPS code belongs to.
+and MIPSRelease =
+  /// Release 1 through 5, which share one encoding space.
+  | PreR6 = 0
+  /// Release 6.
+  | R6 = 1
+
+/// <summary>
+/// Represents which encoding of the MIPS instruction set a MIPS ISA means.
+///
+/// All three stand for the same instructions and a processor reads whichever
+/// its ISA Mode bit names, so nothing but that bit says what a halfword of
+/// MIPS code belongs to. They sit beside the release in the same flags word,
+/// which is why this counts from the second bit.
+///
+/// The bit is ONE bit on the processor: MD00076 gives it as "0: the
+/// processor is executing 32-bit MIPS instructions, 1: the processor is
+/// executing MIPS16e or microMIPS instructions". Which of the two compressed
+/// encodings a 1 means is a property of the processor rather than of the
+/// code, and no implementation has both -- so the two occupy separate values
+/// here, where what is being said is which decoder to use.
+/// </summary>
+and MIPSISAMode =
+  /// The MIPS32 and MIPS64 encoding, whose instructions are one word each.
+  | MIPS = 0
+  /// The microMIPS encoding, whose instructions are one halfword or two.
+  | MicroMIPS = 2
+  /// <summary>
+  /// The MIPS16e encoding, whose instructions are one halfword, or two where
+  /// an EXTEND prefix widens the immediate. It is an Application-Specific
+  /// Extension rather than a base encoding -- MD00076 and MD00077, Volume
+  /// IV-a of each architecture -- and Release 6 removes it.
+  /// </summary>
+  | MIPS16 = 4
 
 /// Represents which member of the 68000 family an m68k ISA means. The family
 /// shares one encoding space, and a later model reads encodings an earlier one

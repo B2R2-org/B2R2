@@ -87,6 +87,67 @@ type MIPS32ParserTests() =
 
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
+  /// MD00087 gives each instruction's availability to the right of its
+  /// Format line, and for the whole doubleword family the field reads
+  /// MIPS64. MIPS32 has no such instruction, so a word holding one of
+  /// those encodings is a Reserved Instruction there and the parser has
+  /// to refuse it. The same bytes ARE an instruction at the 64-bit word
+  /// size, which is what makes this a property of the ISA rather than of
+  /// the encoding.
+  [<TestMethod>]
+  member _.``[MIPS32] A MIPS64 instruction is not one at this width``() =
+    let words =
+      [ "012a402c", DADD
+        "012a402d", DADDU
+        "012a402e", DSUB
+        "012a402f", DSUBU
+        "000a4038", DSLL
+        "7c0a4024", DBITSWAP
+        "dd290000", LD
+        "fd290000", SD
+        "9d290000", LWU ]
+    let parserAt wordSize =
+      let isa = ISA(Architecture.MIPS, Endian.Big, wordSize)
+      MIPSParser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    let parser32 = parserAt WordSize.Bit32
+    let parser64 = parserAt WordSize.Bit64
+    for hex, opcode in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser64.Parse(System.ReadOnlySpan bytes, 0UL)
+      Assert.AreEqual<Opcode>(opcode, (ins :?> Instruction).Opcode, hex)
+      Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+        parser32.Parse(System.ReadOnlySpan bytes, 0UL) |> ignore) |> ignore
+
+  /// The same field, read for the paired-single format and for the two
+  /// unaligned moves that serve it, reads "MIPS64, MIPS32 Release 2". So
+  /// these are instructions at this width and the parser has to read them,
+  /// which it did not: they had been listed with the doubleword family on
+  /// the grounds that a pair is sixty-four bits wide. That is a statement
+  /// about FR, which says whether the RESULT is predictable, and not about
+  /// whether the encoding names an instruction. LDXC1 beside them moves a
+  /// doubleword as well and was always read here.
+  [<TestMethod>]
+  member _.``[MIPS32] The paired-single family is one at this width``() =
+    let words =
+      [ "4d2a0005", LUXC1
+        "4d2a100d", SUXC1
+        "4d24101e", ALNVPS
+        "46041026", CVTPSS
+        "46c01028", CVTSPL
+        "46c01020", CVTSPU
+        "46c4102c", PLLPS
+        "46c4102d", PLUPS
+        "46c4102e", PULPS
+        "46c4102f", PUUPS
+        "4d2a0001", LDXC1 ]
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let parser = MIPSParser(isa, BinReader.Init Endian.Big)
+                 :> IInstructionParsable
+    for hex, opcode in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL)
+      Assert.AreEqual<Opcode>(opcode, (ins :?> Instruction).Opcode, hex)
+
   [<TestMethod>]
   member _.``[MIPS32] Arithmetic Operations Parse Test (1)``() =
     "279c85bc"
@@ -481,4 +542,67 @@ type MIPS32ParserTests() =
   member _.``[MIPS32] ETC Operations Parse Test (3)``() =
     "4500001a"
     ++ BC1F ** [ O.Addr(Relative 108L) ]
+    ||> test32R2NoCondNofmt
+
+  /// <summary>
+  /// The SmartMIPS ASE, whose words are three of the base architecture's with
+  /// the shift-amount field carrying a number.
+  ///
+  /// MD00101 spends no function code on MULTP, MADDP or PPERM: each is
+  /// MULTU's or MADDU's word with five bits the base architecture holds to
+  /// zero set to 10001 or 10010. So these rows are as much a test of the
+  /// rejection as of the decode -- the same words with a zero there are the
+  /// base instructions, which the tests above already assert.
+  ///
+  /// Every word is what binutils assembles the mnemonic to under
+  /// -msmartmips; optest-mips/smartmips/encodings.sh is the measurement.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[SmartMIPS] The cryptographic instructions Parse Test``() =
+    "00430459"
+    ++ MULTP ** [ O.Reg R2; O.Reg R3 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member _.``[SmartMIPS] The accumulating multiply Parse Test``() =
+    "70430441"
+    ++ MADDP ** [ O.Reg R2; O.Reg R3 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member _.``[SmartMIPS] The partial permutation Parse Test``() =
+    "70430481"
+    ++ PPERM ** [ O.Reg R2; O.Reg R3 ]
+    ||> test32R2NoCondNofmt
+
+  /// <summary>
+  /// The two that move the extended accumulator, which share MFLO's and
+  /// MTLO's function codes with Release 6's DCLZ and DCLO.
+  ///
+  /// Nothing in either word tells the two apart, so the release does: the ASE
+  /// extends MIPS32 before Release 6, and Release 6 is where DCLZ and DCLO
+  /// moved into SPECIAL. These are read as the ASE's because the ISA under
+  /// test is not Release 6.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[SmartMIPS] The extended accumulator moves Parse Test``() =
+    "00001052"
+    ++ MFLHXU ** [ O.Reg R2 ]
+    ||> test32R2NoCondNofmt
+
+  [<TestMethod>]
+  member _.``[SmartMIPS] The extended accumulator load Parse Test``() =
+    "00400053"
+    ++ MTLHX ** [ O.Reg R2 ]
+    ||> test32R2NoCondNofmt
+
+  /// <summary>
+  /// LWXS, the one with a function code of its own and the one microMIPS took
+  /// into its base encoding. The index counts words, so the operand printed
+  /// inside the parentheses is the base and the one outside is the index.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[SmartMIPS] The scaled indexed load Parse Test``() =
+    "70831088"
+    ++ LWXS ** [ O.Reg R2; O.Mem(R.R4, R.R3, 32<rt>) ]
     ||> test32R2NoCondNofmt

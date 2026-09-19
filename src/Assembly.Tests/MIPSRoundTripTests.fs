@@ -73,7 +73,81 @@ type MIPSRoundTripTests() =
 
   static let assembler32 = Assembler(isa32, 0UL) :> ILowerable
 
+  /// The Release 6 pair. A sweep at one release has to be encoded and
+  /// decoded at that release: the same text means different words on either
+  /// side of the boundary.
+  static let isaR6 =
+    ISA(
+      Architecture.MIPS,
+      Endian.Little,
+      WordSize.Bit64,
+      int MIPSRelease.R6
+    )
+
+  static let assemblerR6 = Assembler(isaR6, 0UL) :> ILowerable
+
+  static let parserR6 =
+    MIPSParser(isaR6, BinReader.Init Endian.Little) :> IInstructionParsable
+
   static let assembler64 = Assembler(isa64, 0UL) :> ILowerable
+
+  /// The second encoding of the same instruction set. It is the same text
+  /// over a different word, so everything above the encoder is shared and
+  /// what a sweep of it adds is the word underneath.
+  static let isaMicro =
+    ISA(
+      Architecture.MIPS,
+      Endian.Little,
+      WordSize.Bit64,
+      int MIPSISAMode.MicroMIPS
+    )
+
+  static let assemblerMicro = Assembler(isaMicro, 0UL) :> ILowerable
+
+  static let parserMicro =
+    MIPSParser(isaMicro, BinReader.Init Endian.Little)
+    :> IInstructionParsable
+
+  static let isaMicroR6 =
+    ISA(
+      Architecture.MIPS,
+      Endian.Little,
+      WordSize.Bit64,
+      int MIPSISAMode.MicroMIPS ||| int MIPSRelease.R6
+    )
+
+  static let assemblerMicroR6 = Assembler(isaMicroR6, 0UL) :> ILowerable
+
+  static let parserMicroR6 =
+    MIPSParser(isaMicroR6, BinReader.Init Endian.Little)
+    :> IInstructionParsable
+
+  /// MIPS16e, which has no Release 6 form: the release removed the ASE.
+  static let isa16 =
+    ISA(
+      Architecture.MIPS,
+      Endian.Little,
+      WordSize.Bit32,
+      int MIPSISAMode.MIPS16
+    )
+
+  static let assembler16 = Assembler(isa16, 0UL) :> ILowerable
+
+  static let parser16 =
+    MIPSParser(isa16, BinReader.Init Endian.Little) :> IInstructionParsable
+
+  static let isa1664 =
+    ISA(
+      Architecture.MIPS,
+      Endian.Little,
+      WordSize.Bit64,
+      int MIPSISAMode.MIPS16
+    )
+
+  static let assembler1664 = Assembler(isa1664, 0UL) :> ILowerable
+
+  static let parser1664 =
+    MIPSParser(isa1664, BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let disasm (parser: IInstructionParsable) (bytes: byte[]) =
     (parser.Parse(bytes, 0UL)).Disasm()
@@ -94,6 +168,7 @@ type MIPSRoundTripTests() =
       if actual = source then MIPSPreserved else MIPSAltered actual
 
   /// Describes a source that does not encode to a word meaning the same.
+
   static let brokenSource assembler parser source =
     match roundTrip assembler parser source with
     | MIPSPreserved -> None
@@ -104,6 +179,20 @@ type MIPSRoundTripTests() =
   /// file, so it runs once for the class rather than once for each test that
   /// reads it.
   static let sweepProbes = lazy (MIPSSweep.probes ())
+
+  /// The same sweep over the Release 6 encoding space.
+  static let sweepProbesR6 = lazy (MIPSSweep.probesR6 ())
+
+  /// The same again over the microMIPS encoding space, at both releases.
+  static let sweepProbesMicro = lazy (MicroMIPSSweep.probes ())
+
+  static let sweepProbesMicroR6 = lazy (MicroMIPSSweep.probesR6 ())
+
+  /// The same again over MIPS16e, which is the third encoding and the one
+  /// whose space is small enough to walk whole.
+  static let sweepProbes16 = lazy (MIPS16Sweep.probes ())
+
+  static let sweepProbes1664 = lazy (MIPS16Sweep.probes64 ())
 
   /// What the decoder of the other word size makes of a probe, which differs
   /// from what the sweep recorded only in how the registers are named.
@@ -189,13 +278,47 @@ type MIPSRoundTripTests() =
       "c.eq.s $f4, $f2", "c.eq.s f4, f2"
       "sync", "sync 0x0" ]
 
+  /// <summary>
+  /// The same rule over Release 6, which is a separate encoding space and
+  /// so a separate obligation: an instruction the Release 6 decoder reads
+  /// is one the assembler has to be able to write.
+  /// </summary>
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every Release 6 instruction the decoder decodes encodes``() =
+    let probes = sweepProbesR6.Force()
+    (* One line per MNEMONIC rather than per probe. The sweep produces
+       thousands of probes and a message naming each one is long enough
+       for the runner to truncate it, which hides everything after the
+       first entry -- a list of dozens read as a single failure. *)
+    let broken =
+      probes
+      |> List.choose (fun probe ->
+        brokenSource assemblerR6 parserR6 probe.Text
+        |> Option.map (fun _ -> probe.Text.Split(' ')[0]))
+      |> List.distinct
+      |> List.sort
+    (* The assertion message is truncated by the runner once it grows past
+       a few hundred characters, which is how a list of dozens came to read
+       as a single failure. Console output is not truncated. *)
+    let names = String.concat " " broken
+    let swept, bad = List.length probes, List.length broken
+    printfn "R6-SWEPT(%d) UNENCODABLE(%d): %s" swept bad names
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      $"These Release 6 instructions decode but do not encode "
+      + $"(of {List.length probes} probes swept)."
+    )
+
   [<TestMethod>]
   [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       sweepProbes.Force()
       |> List.choose (fun probe ->
-        brokenSource assembler32 parser32 probe.Text)
+        textAt parser32 probe.Word
+        |> Option.bind (brokenSource assembler32 parser32))
       |> List.distinct
       |> List.sort
     Assert.AreEqual<string>(
@@ -360,5 +483,90 @@ type MIPSRoundTripTests() =
       match assembler32.Lower "  nop\n  addiu v0, v1, 0x1" with
       | Ok [ _; _ ] -> ()
       | Ok _ | Error _ -> Assert.Fail $"'{bad}' left the assembler unusable"
+
+  /// <summary>
+  /// The same rule over the second encoding: anything the microMIPS decoder
+  /// decodes, the assembler encodes to a word meaning the same.
+  /// </summary>
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every microMIPS instruction the decoder decodes encodes``() =
+    let probes = sweepProbesMicro.Force()
+    let broken =
+      probes
+      |> List.choose (fun probe ->
+        brokenSource assemblerMicro parserMicro probe.Text)
+      |> List.distinct
+      |> List.sort
+    printfn "MICROMIPS-SWEPT(%d) UNENCODABLE(%d):\n%s"
+      (List.length probes) (List.length broken) (String.concat "\n" broken)
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      "These microMIPS instructions do not encode, or mean something else."
+    )
+
+  /// The same over the Release 6 microMIPS encoding space, which is a
+  /// different space rather than an extension of this one.
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every Release 6 microMIPS instruction encodes``() =
+    let probes = sweepProbesMicroR6.Force()
+    let broken =
+      probes
+      |> List.choose (fun probe ->
+        brokenSource assemblerMicroR6 parserMicroR6 probe.Text)
+      |> List.distinct
+      |> List.sort
+    printfn "MICROMIPS-R6-SWEPT(%d) UNENCODABLE(%d):\n%s"
+      (List.length probes) (List.length broken) (String.concat "\n" broken)
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      "These Release 6 microMIPS instructions do not encode, or differ."
+    )
+
+  /// <summary>
+  /// The same rule over the third encoding: anything the MIPS16e decoder
+  /// decodes, the assembler encodes to a halfword pair meaning the same.
+  /// </summary>
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every MIPS16e instruction the decoder decodes encodes``() =
+    let probes = sweepProbes16.Force()
+    let broken =
+      probes
+      |> List.choose (fun probe ->
+        brokenSource assembler16 parser16 probe.Text)
+      |> List.distinct
+      |> List.sort
+    printfn "MIPS16E-SWEPT(%d) UNENCODABLE(%d):\n%s"
+      (List.length probes) (List.length broken) (String.concat "\n" broken)
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      "These MIPS16e instructions do not encode, or mean something else."
+    )
+
+  /// The same with the doubleword instructions, which only MIPS64 has and
+  /// which no reference executes -- so this is the whole of what is claimed
+  /// for them.
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every 64-bit MIPS16e instruction encodes``() =
+    let probes = sweepProbes1664.Force()
+    let broken =
+      probes
+      |> List.choose (fun probe ->
+        brokenSource assembler1664 parser1664 probe.Text)
+      |> List.distinct
+      |> List.sort
+    printfn "MIPS16E-64-SWEPT(%d) UNENCODABLE(%d):\n%s"
+      (List.length probes) (List.length broken) (String.concat "\n" broken)
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      "These 64-bit MIPS16e instructions do not encode, or differ."
+    )
 
 // vim: set tw=80 sts=2 sw=2:

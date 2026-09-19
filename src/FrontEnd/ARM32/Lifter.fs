@@ -165,8 +165,10 @@ let translate (ins: Instruction) bld =
     movs true ins bld
   | Op.MOVT ->
     movt ins bld
-  | Op.MSR | Op.MRS ->
-    undefined ins bld
+  | Op.MRS ->
+    mrs ins bld
+  | Op.MSR ->
+    msr ins bld
   | Op.MRC ->
     mrc ins bld
   | Op.MUL ->
@@ -408,14 +410,17 @@ let translate (ins: Instruction) bld =
     unsupported ins bld
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR ->
     unsupported ins bld
+  (* The four fused forms, which differ only in which of the product and the
+     accumulator they negate. Each negation is a flag rather than a sign flip
+     on the operand, so that a NaN reaches the operation as it was written. *)
   | Op.VFMA ->
-    vfpMulAcc ins bld (fun _ d p -> AST.fadd d p)
+    vfpFusedMulAcc ins bld false false
   | Op.VFMS ->
-    vfpMulAcc ins bld (fun _ d p -> AST.fsub d p)
+    vfpFusedMulAcc ins bld true false
   | Op.VFNMA ->
-    vfpMulAcc ins bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
+    vfpFusedMulAcc ins bld true true
   | Op.VFNMS ->
-    vfpMulAcc ins bld (fun _ d p -> AST.fsub p d)
+    vfpFusedMulAcc ins bld false true
   | Op.VNMUL ->
     vfpMulAcc ins bld (fun sz _ p -> fpNegBits sz p)
   | Op.VNMLA ->

@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="CP0.fs" />
     <Compile Include="RegisterHelper.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="LowUIRBuilder.fs" />
@@ -19,6 +20,8 @@
     <Compile Include="GeneralLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingMain.fs" />
+    <Compile Include="MicroMIPSParser.fs" />
+    <Compile Include="MIPS16Parser.fs" />
     <Compile Include="Parser.fs" />
   </ItemGroup>
 
