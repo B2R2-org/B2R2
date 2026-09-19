@@ -526,6 +526,12 @@ module TransformerRepl =
               when hasModifier ConsoleModifiers.Control key
                    && key.Key = ConsoleKey.C ->
               model <- requestCancellation runningEvaluation model
+            | Some _ when isTextKey key
+                          && model.Overlay = TuiOverlay.None
+                          && model.Focus = TuiFocus.Shell ->
+              let text = readTextBurst key
+              TransformerTuiInputController.appendShellText text model
+              |> applyInputResult
             | Some _ ->
               ()
             | None when isTextKey key

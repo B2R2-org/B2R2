@@ -776,6 +776,10 @@ module TransformerTuiRenderer =
           loop (offset + line.Length + 1) (row :: rows) rest
       loop 0 [] lines
 
+  let private fitSuggestionRows rowCount width rows =
+    let rows = List.truncate rowCount rows
+    rows @ List.replicate (rowCount - List.length rows) (fit width "")
+
   let private suggestionRows rowCount width completion selected =
     let rowCount = max 1 rowCount
     let count = List.length completion.Items
@@ -787,9 +791,7 @@ module TransformerTuiRenderer =
           first :: (rest |> List.truncate (rowCount - 1))
         | [] ->
           [ paint dim (fit width "Suggestions appear here as you type.") ]
-      rows
-      |> fun rows ->
-        rows @ List.replicate (rowCount - List.length rows) (fit width "")
+      fitSuggestionRows rowCount width rows
     else
       let selected = min selected (count - 1)
       let itemRows =
@@ -809,10 +811,7 @@ module TransformerTuiRenderer =
           let text = $"{marker}{item.Label}  {item.Detail}"
           let style = if index = selected then reverse else dim
           paint style (fit width text))
-      hint @ itemRows
-      |> fun rows ->
-        rows @ List.replicate (rowCount - List.length rows)
-          (fit width "")
+      hint @ itemRows |> fitSuggestionRows rowCount width
 
   let private ghostText completion selected model =
     let completion: SuggestionSet = completion

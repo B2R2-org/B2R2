@@ -156,7 +156,8 @@ module TransformerTuiInputController =
         | None ->
           Error "transcript must be a number."
       | "shell", "auto" ->
-        Ok(TransformerTuiModel.setShellHeight 4 model)
+        let height = TransformerTuiModel.defaultShellHeight
+        Ok(TransformerTuiModel.setShellHeight height model)
       | "shell", _ ->
         match parseInt value with
         | Some height ->

@@ -233,7 +233,9 @@ type TransformerTuiModel =
 module TransformerTuiModel =
   let private maximumTranscriptLines = 5000
 
-  let completionPaneRows = 9
+  let completionPaneRows = 7
+
+  let defaultShellHeight = 6
 
   let private inputLineCount (input: string) =
     input.Replace("\r\n", "\n").Replace('\r', '\n').Split '\n'
@@ -308,7 +310,7 @@ module TransformerTuiModel =
       CollapsedCommands = Set.empty
       SidebarWidth = None
       TranscriptHeight = None
-      ShellHeight = 4
+      ShellHeight = defaultShellHeight
       Status = "Ready"
       IsBusy = false
       SpinnerFrame = 0 }
