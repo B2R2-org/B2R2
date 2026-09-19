@@ -110,6 +110,12 @@ and internal DTag =
   | DT_PREINIT_ARRAY = 32UL
   | DT_PRE_INIT_ARRAYSZ = 33UL
   | DT_MAXPOSTAGS = 34UL
+  /// Holds the size of the DT_RELR relocation table.
+  | DT_RELRSZ = 35UL
+  /// Holds the address of the table of packed relative relocations.
+  | DT_RELR = 36UL
+  /// Holds the size of a single entry in the DT_RELR table.
+  | DT_RELRENT = 37UL
   | DT_FLAGS_1 = 0x6ffffffbUL
   | DT_RELACOUNT = 0x6ffffff9UL
   | DT_VERSYM = 0x6ffffff0UL

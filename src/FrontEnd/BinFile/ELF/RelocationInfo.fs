@@ -105,7 +105,7 @@ module private RelocMap =
   let inline accumulateRelocInfo (relocMap: Dictionary<_, _>) rel =
     relocMap[rel.RelOffset] <- rel
 
-  let parseRelocSection toolBox shdrs symbs relocMap sec (span: ByteSpan) =
+  let parseRelocSection toolBox shdrs symbs relocMap sec =
     let hdr = toolBox.Header
     let hasAddend = sec.SecType = SectionType.SHT_RELA
     let entrySize =
@@ -113,23 +113,65 @@ module private RelocMap =
       else (uint64 <| WordSize.toByteWidth hdr.Class * 2)
     let numEntries = int (sec.SecSize / entrySize)
     let symTbl = tryFindSymbTable (int sec.SecLink) symbs
+    let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
     for i = 0 to (numEntries - 1) do
       let offset = i * int entrySize
       getRelocEntry toolBox shdrs symTbl (span.Slice offset) sec
       |> accumulateRelocInfo relocMap
 
+  /// Applies f to every address a RELR bitmap marks. Bit 0 is the tag that
+  /// makes the entry a bitmap, so bit i + 1 marks the i-th word from cursor.
+  let applyRelrBitmap (width: uint64) (cursor: uint64) bitmap f =
+    let mutable bits = bitmap >>> 1
+    let mutable addr = cursor
+    while bits <> 0UL do
+      if bits &&& 1UL <> 0UL then f addr else ()
+      bits <- bits >>> 1
+      addr <- addr + width
+
+  /// Walks a RELR table, applying f to each link-time address it relocates.
+  /// Entries are word-sized. An even one is an address: it relocates that one
+  /// word and leaves the cursor right past it. An odd one is a bitmap over the
+  /// words from the cursor, which afterwards skips every bit the entry can
+  /// hold: one fewer than the word has bits, as the lowest one is the tag.
+  let iterRelrTable cls reader (span: ByteSpan) f =
+    let width = uint64 (WordSize.toByteWidth cls)
+    let stride = (width * 8UL - 1UL) * width
+    let mutable cursor = 0UL
+    for i = 0 to span.Length / int width - 1 do
+      let entry = readUIntByWordSize span reader cls (i * int width)
+      if entry &&& 1UL = 0UL then
+        f entry
+        cursor <- entry + width
+      else
+        applyRelrBitmap width cursor entry f
+        cursor <- cursor + stride
+
+  let parseRelrSection toolBox shdrs relocMap sec kind =
+    let cls = toolBox.Header.Class
+    let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
+    let accumulate offset =
+      let addr = offset + toolBox.BaseAddress
+      { RelOffset = addr
+        RelKind = kind
+        (* RELR only ever packs relative relocations, which name no symbol and
+           take as their addend whatever the slot already holds. *)
+        RelSymbol = None
+        RelAddend = readImplicitAddend toolBox shdrs addr
+        RelSecNumber = sec.SecNum }
+      |> accumulateRelocInfo relocMap
+    iterRelrTable cls toolBox.Reader span accumulate
+
   let parse toolBox shdrs symbs =
     let relocMap = Dictionary()
+    let relative = RelocationKind.TryCreateRelative toolBox.Header.MachineType
     for sec in shdrs do
-      match sec.SecType with
-      | SectionType.SHT_REL
-      | SectionType.SHT_RELA ->
-        if sec.SecSize = 0UL then
-          ()
-        else
-          let offset, size = int sec.SecOffset, int sec.SecSize
-          let span = ReadOnlySpan(toolBox.Bytes, offset, size)
-          parseRelocSection toolBox shdrs symbs relocMap sec span
+      match sec.SecType, relative with
+      | SectionType.SHT_REL, _
+      | SectionType.SHT_RELA, _ when sec.SecSize > 0UL ->
+        parseRelocSection toolBox shdrs symbs relocMap sec
+      | SectionType.SHT_RELR, ValueSome kind when sec.SecSize > 0UL ->
+        parseRelrSection toolBox shdrs relocMap sec kind
       | _ ->
         ()
     relocMap

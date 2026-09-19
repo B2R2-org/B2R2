@@ -102,7 +102,16 @@ bpf-gcc -c so.c -o elf_bpf_obj
 | `elf_x64_obj` | Relocatable object `ET_REL`: no program headers, relocation to an external symbol. |
 | `elf_x64_stripped` | `elf_x64_exec` with `.symtab` stripped; imports survive. |
 | `elf_x64_reloc` | Mixed dynamic relocations (JUMP_SLOT/GLOB_DAT/COPY) for the relocation API. |
+| `elf_x64_relr` | PIE linked with `-z pack-relative-relocs`: every relative relocation packed into a `.relr.dyn` bitmap, none left in `.rela.dyn`. |
 | `elf_x64_nonx` | Executable stack (`GNU_STACK = RWX`): `IsNXEnabled = false`. |
 | `elf_x64_eh_frame` | C++ try/catch: DWARF CFI in `.eh_frame` and an LSDA in `.gcc_except_table`. |
 | `elf_x64_runpath` | Colon-separated `DT_RUNPATH` (`--enable-new-dtags`): `RunPath`. |
 | `elf_x64_rpath` | Colon-separated legacy `DT_RPATH` (`--disable-new-dtags`): `RPath`. |
+
+The RELR fixture was built so that its three entries cover every encoding the
+format has: a leading address entry, a bitmap, and a second bitmap that the
+cursor reaches only after skipping a whole word of bits.
+
+```
+gcc relr.c -o elf_x64_relr -fPIE -pie -Wl,-z,pack-relative-relocs
+```

@@ -93,6 +93,41 @@ with
   static member Create(reloc: RelocationBPF) =
     RelocationKind(MachineType.EM_BPF, uint64 reloc)
 
+  /// Returns the relative relocation kind of the given architecture, which is
+  /// the only kind a RELR table can hold. ValueNone when the architecture
+  /// defines no such kind.
+  static member TryCreateRelative(arch: MachineType) =
+    match arch with
+    | MachineType.EM_386 ->
+      ValueSome(RelocationKind.Create RelocationX86.R_386_RELATIVE)
+    | MachineType.EM_X86_64 ->
+      ValueSome(RelocationKind.Create RelocationX64.R_X86_64_RELATIVE)
+    | MachineType.EM_ARM ->
+      ValueSome(RelocationKind.Create RelocationARMv7.R_ARM_RELATIVE)
+    | MachineType.EM_AARCH64 ->
+      ValueSome(RelocationKind.Create RelocationARMv8.R_AARCH64_RELATIVE)
+    | MachineType.EM_68K ->
+      ValueSome(RelocationKind.Create RelocationM68K.R_68K_RELATIVE)
+    | MachineType.EM_S390 ->
+      ValueSome(RelocationKind.Create RelocationS390.R_390_RELATIVE)
+    | MachineType.EM_SH ->
+      ValueSome(RelocationKind.Create RelocationSH4.R_SH_RELATIVE)
+    | MachineType.EM_RISCV ->
+      ValueSome(RelocationKind.Create RelocationRISCV.R_RISCV_RELATIVE)
+    | MachineType.EM_PPC ->
+      ValueSome(RelocationKind.Create RelocationPPC32.R_PPC_RELATIVE)
+    | MachineType.EM_PPC64 ->
+      ValueSome(RelocationKind.Create RelocationPPC64.R_PPC64_RELATIVE)
+    | MachineType.EM_SPARC
+    | MachineType.EM_SPARC32PLUS
+    | MachineType.EM_SPARCV9 ->
+      ValueSome(RelocationKind.Create RelocationSPARC.R_SPARC_RELATIVE)
+    | MachineType.EM_ALPHA
+    | MachineType.EM_OLD_ALPHA ->
+      ValueSome(RelocationKind.Create RelocationAlpha.R_ALPHA_RELATIVE)
+    | _ ->
+      ValueNone
+
   /// Converts a relocation kind to a string representation.
   static member ToString(RelocationKind(arch, relocValue)) =
     match arch with

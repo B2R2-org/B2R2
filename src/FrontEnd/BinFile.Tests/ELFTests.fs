@@ -74,6 +74,20 @@ type ELFTests() =
   /// JUMP_SLOT (write), GLOB_DAT entries, and a COPY (__environ).
   static let x64RelocFile = parseFile "elf_x64_reloc"
 
+  /// A PIE x86-64 executable linked with -z pack-relative-relocs, so every
+  /// relative relocation is packed into a .relr.dyn bitmap and .rela.dyn holds
+  /// none. Its three RELR entries cover all the encodings: a leading address,
+  /// a bitmap, and a second bitmap reached only after the cursor skips a full
+  /// word of bits.
+  static let x64RelrFile = parseFile "elf_x64_relr"
+
+  /// elf_x64_relr loaded at an explicit base address, so that the addends RELR
+  /// leaves in the slots it relocates must be taken relative to the load base.
+  static let x64RelrRebasedFile =
+    let fileName = "elf_x64_relr"
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    ELFBinFile(fileName, bytes, Some 0x400000UL, None)
+
   /// An x86-64 executable built with an executable stack (GNU_STACK = RWX), so
   /// NX is reported as disabled.
   static let x64NonXFile = parseFile "elf_x64_nonx"
@@ -278,6 +292,11 @@ type ELFTests() =
 
   static let glibc225: ELF.SymVerInfo option =
     Some { IsHidden = false; VerName = "GLIBC_2.2.5" }
+
+  /// The one kind a RELR table can hold on x86-64.
+  static let x64Relative =
+    let value = uint64 ELF.RelocationX64.R_X86_64_RELATIVE
+    ELF.RelocationKind(ELF.MachineType.EM_X86_64, value)
 
   let assertExistenceOfReloc (file: ELFBinFile) offset symbolName =
     file.RelocationInfo.Entries
@@ -562,6 +581,62 @@ type ELFTests() =
       let file = parseWithPatchedVersion idx (fun _ -> raw)
       Assert.AreEqual<ELF.SymVerInfo option>(None, verInfoOf file "write")
       Assert.AreEqual(glibc225, verInfoOf file "environ")
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr section type test``() =
+    let isRelr (s: ELF.SectionHeader) =
+      s.SecType = ELF.SectionType.SHT_RELR
+    let sec = x64RelrFile.SectionHeaders |> Array.find isRelr
+    Assert.AreEqual<string>(".relr.dyn", sec.SecName)
+    Assert.AreEqual<string>("RELR", ELF.SectionType.toString sec.SecType)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr dynamic tags test``() =
+    let valueOf tag =
+      x64RelrFile.DynamicArrayEntries
+      |> Array.tryFind (fun e -> e.DTag = tag)
+      |> Option.map _.DVal
+    Assert.AreEqual(Some 0x600UL, valueOf ELF.DTag.DT_RELR)
+    Assert.AreEqual(Some 24UL, valueOf ELF.DTag.DT_RELRSZ)
+    Assert.AreEqual(Some 8UL, valueOf ELF.DTag.DT_RELRENT)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr entries test``() =
+    (* Packing moves every relative relocation out of .rela.dyn, so all 39 of
+       them can only come from the .relr.dyn bitmap. None names a symbol. *)
+    let entries = x64RelrFile.RelocationInfo.Entries |> Seq.toArray
+    let relatives = entries |> Array.filter (fun r -> r.RelKind = x64Relative)
+    Assert.AreEqual<int>(39, relatives.Length)
+    let anonymous = relatives |> Array.forall (fun r -> r.RelSymbol.IsNone)
+    Assert.AreEqual<bool>(true, anonymous)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr implicit addend test``() =
+    (* RELR has no addend field: the link-time address already in the slot is
+       the addend. These three sites come from the leading address entry, from
+       the first bitmap, and from the second bitmap, which the cursor reaches
+       only after skipping a whole word of bits. *)
+    let addendAt addr =
+      x64RelrFile.RelocationInfo.TryFind addr |> Result.map _.RelAddend
+    Assert.AreEqual(Ok 0x1140UL, addendAt 0x3c50UL)
+    Assert.AreEqual(Ok 0x2012UL, addendAt 0x3d78UL)
+    Assert.AreEqual(Ok 0x4008UL, addendAt 0x4008UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr relocated addr test``() =
+    let relocs = (x64RelrFile :> IBinFile).Relocations.Value
+    Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x3c50UL)
+    (* A bitmap marks whole words, so the middle of one is not a site. *)
+    Assert.AreEqual<bool>(false, relocs.IsRelocationAddr 0x3c54UL)
+    Assert.AreEqual(Ok 0x1140UL, relocs.TryGetRelocatedAddr 0x3c50UL)
+    Assert.AreEqual(Ok 0x4008UL, relocs.TryGetRelocatedAddr 0x4008UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 relr rebased test``() =
+    (* Both the site and the value it resolves to shift with the load base. *)
+    let relocs = (x64RelrRebasedFile :> IBinFile).Relocations.Value
+    Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x403c50UL)
+    Assert.AreEqual(Ok 0x401140UL, relocs.TryGetRelocatedAddr 0x403c50UL)
 
   [<TestMethod>]
   member _.``[ELF] symbol version names are per file test``() =
