@@ -76,7 +76,8 @@ module internal ProgramHeaders =
   /// Parse program headers and returns them as an array.
   let parse ({ Bytes = bytes; Header = hdr } as toolBox) =
     let entrySize = selectByWordSize hdr.Class 32 56
-    let numEntries = int hdr.PHdrNum
+    let tblOffset = hdr.PHdrTblOffset
+    let numEntries = countTableEntries bytes tblOffset entrySize hdr.PHdrNum
     let progHeaders = Array.zeroCreate numEntries
     for i = 0 to numEntries - 1 do
       let offset = int hdr.PHdrTblOffset + i * entrySize

@@ -108,6 +108,15 @@ let readSLEB128 (span: ByteSpan) offset =
   let v, cnt = LEB128.decodeSInt64 (span.Slice offset)
   v, offset + cnt
 
+/// Returns how many entries of a table of the given shape the file holds. A
+/// header can count more entries than its file has room for, whether because
+/// the file was truncated or because the count means something other than
+/// itself; none of such a table can be trusted, so it is counted as empty
+/// rather than read in part.
+let countTableEntries (bytes: byte[]) (offset: uint64) entrySize count =
+  let room = int64 bytes.Length - int64 offset
+  if room >= int64 entrySize * int64 count then count else 0
+
 /// Slices the given byte array into a read-only span of the specified length
 /// starting at the given (already address-translated) file offset. Raises
 /// InvalidAddrReadException when the requested region falls outside the array,

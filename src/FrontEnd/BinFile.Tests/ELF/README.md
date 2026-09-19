@@ -193,6 +193,7 @@ void _start(void) { f(); g(); }
 | `elf_x64_eh_frame` | C++ try/catch: DWARF CFI in `.eh_frame` and an LSDA in `.gcc_except_table`. |
 | `elf_x64_runpath` | Colon-separated `DT_RUNPATH` (`--enable-new-dtags`): `RunPath`. |
 | `elf_x64_rpath` | Colon-separated legacy `DT_RPATH` (`--disable-new-dtags`): `RPath`. |
+| `elf_x64_xindex` | `elf_x64_exec` rewritten to use the extended numbering, so `e_shnum`, `e_phnum` and `e_shstrndx` all carry their escape value. |
 
 The RELR fixture was built so that its three entries cover every encoding the
 format has: a leading address entry, a bitmap, and a second bitmap that the
@@ -219,4 +220,23 @@ table starts.
 ```
 gcc relr.c -o sysv_hash -Wl,--hash-style=sysv
 llvm-objcopy --strip-sections sysv_hash elf_x64_sysvhash
+```
+
+`elf_x64_xindex` is `elf_x64_exec` with the three header fields that can
+overflow sixteen bits set to the escape the ELF specification gives them, and
+the real values moved into `sh_size`, `sh_link` and `sh_info` of the initial
+section header, where a reader is meant to find them. A file with more than
+0xff00 sections is what forces this in practice, and one of those is far too
+large to keep here; readelf reads the rewritten file as it reads the original.
+
+```python
+b = bytearray(open('elf_x64_exec', 'rb').read())
+shoff = struct.unpack_from('<Q', b, 0x28)[0]
+struct.pack_into('<Q', b, shoff + 0x20, struct.unpack_from('<H', b, 0x3c)[0])
+struct.pack_into('<I', b, shoff + 0x28, struct.unpack_from('<H', b, 0x3e)[0])
+struct.pack_into('<I', b, shoff + 0x2c, struct.unpack_from('<H', b, 0x38)[0])
+struct.pack_into('<H', b, 0x3c, 0)       # e_shnum, the count moving to sh_size
+struct.pack_into('<H', b, 0x3e, 0xffff)  # e_shstrndx = SHN_XINDEX
+struct.pack_into('<H', b, 0x38, 0xffff)  # e_phnum = PN_XNUM
+open('elf_x64_xindex', 'wb').write(bytes(b))
 ```

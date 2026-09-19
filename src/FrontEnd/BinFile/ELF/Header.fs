@@ -59,14 +59,17 @@ type internal Header =
     HeaderSize: uint16
     /// Size of a program header table entry (e_phentsize).
     PHdrEntrySize: uint16
-    /// Number of entries in the program header table (e_phnum).
-    PHdrNum: uint16
+    /// Number of entries in the program header table (e_phnum), resolved
+    /// through PN_XNUM where the field carries that escape.
+    PHdrNum: int
     /// Size of a section header table entry (e_shentsize).
     SHdrEntrySize: uint16
-    /// Number of entries in the section header table (e_shnum).
-    SHdrNum: uint16
-    /// Section header string table index (e_shstrndx).
-    SHdrStrIdx: uint16 }
+    /// Number of entries in the section header table (e_shnum), resolved
+    /// through the zero that stands in for the extended count.
+    SHdrNum: int
+    /// Section header string table index (e_shstrndx), resolved through
+    /// SHN_XINDEX where the field carries that escape.
+    SHdrStrIdx: int }
 
 [<RequireQualifiedAccess>]
 module internal Header =
@@ -101,6 +104,10 @@ module internal Header =
     reader.ReadInt16(span, 18)
     |> LanguagePrimitives.EnumOfValue: MachineType
 
+  /// Reads a half-word header field as the count or index it holds.
+  let private readHalf (span: ByteSpan) (reader: IBinReader) cls off32 off64 =
+    reader.ReadUInt16(span, selectByWordSize cls off32 off64) |> int
+
   let private parseFromSpan span (reader: IBinReader) endian baseAddrOpt =
     let cls = getClass span
     let etype = getELFType span reader
@@ -119,11 +126,45 @@ module internal Header =
         ELFFlags = reader.ReadUInt32(span, selectByWordSize cls 36 48)
         HeaderSize = reader.ReadUInt16(span, selectByWordSize cls 40 52)
         PHdrEntrySize = reader.ReadUInt16(span, selectByWordSize cls 42 54)
-        PHdrNum = reader.ReadUInt16(span, selectByWordSize cls 44 56)
+        PHdrNum = readHalf span reader cls 44 56
         SHdrEntrySize = reader.ReadUInt16(span, selectByWordSize cls 46 58)
-        SHdrNum = reader.ReadUInt16(span, selectByWordSize cls 48 60)
-        SHdrStrIdx = reader.ReadUInt16(span, selectByWordSize cls 50 62) }
+        SHdrNum = readHalf span reader cls 48 60
+        SHdrStrIdx = readHalf span reader cls 50 62 }
     struct (hdr, baseAddr)
+
+  /// The value e_shstrndx and e_phnum carry where what they index or count is
+  /// too large for the sixteen bits they have, which is what sends a reader to
+  /// the initial section header for it.
+  let [<Literal>] private ExtendedNum = 0xffff
+
+  /// Returns the three fields of the initial section header that the extended
+  /// numbering hides the real values in: sh_size stands in for e_shnum,
+  /// sh_link for e_shstrndx, and sh_info for e_phnum.
+  let private readExtendedNums (span: ByteSpan) (reader: IBinReader) cls =
+    let shnum = readUIntByWordSizeAndOffset span reader cls 20 32
+    let strIdx = reader.ReadUInt32(span, selectByWordSize cls 24 40)
+    let phnum = reader.ReadUInt32(span, selectByWordSize cls 28 44)
+    int shnum, int strIdx, int phnum
+
+  /// Returns the field as it stands where it holds a value of its own, and
+  /// what the initial section header holds where it carries the escape.
+  let private orExtended escape extended value =
+    if value = escape then extended else value
+
+  /// Returns the header with every field of the extended numbering resolved.
+  /// A file whose section header table is gone has nowhere to have hidden one,
+  /// and its fields stand as they are.
+  let private resolveExtendedNums bytes reader hdr =
+    let offset, entSize = hdr.SHdrTblOffset, int hdr.SHdrEntrySize
+    if offset = 0UL || countTableEntries bytes offset entSize 1 = 0 then
+      hdr
+    else
+      let span = ReadOnlySpan(bytes, int offset, entSize)
+      let shnum, strIdx, phnum = readExtendedNums span reader hdr.Class
+      { hdr with
+          SHdrNum = orExtended 0 shnum hdr.SHdrNum
+          SHdrStrIdx = orExtended ExtendedNum strIdx hdr.SHdrStrIdx
+          PHdrNum = orExtended ExtendedNum phnum hdr.PHdrNum }
 
   let private getELFFlags span (reader: IBinReader) cls =
     reader.ReadUInt32(span = span, offset = selectByWordSize cls 36 48)
@@ -227,6 +268,7 @@ module internal Header =
       let endian = getEndianness span
       let reader = BinReader.Init endian
       let struct (hdr, baseAddr) = parseFromSpan span reader endian baseAddrOpt
+      let hdr = resolveExtendedNums bytes reader hdr
       let isa = toISA span reader hdr.Class hdr.MachineType
       struct (hdr, reader, baseAddr, isa)
 

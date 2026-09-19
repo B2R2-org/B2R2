@@ -439,14 +439,14 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let programHeaderTable =
     lazy
-      if hdr.PHdrNum = 0us then
+      if hdr.PHdrNum = 0 then
         None
       else
         programHeaderTableAddr.Value
         |> Option.map (fun addr ->
           { Address = addr
             EntrySize = int hdr.PHdrEntrySize
-            Count = int hdr.PHdrNum })
+            Count = hdr.PHdrNum })
 
   /// ELF Header information.
   member internal _.Header with get() = hdr

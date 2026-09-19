@@ -112,6 +112,11 @@ type ELFTests() =
   /// live in .rela.dyn, there being no .rela.plt without a dynamic linker.
   static let x64IpltFile = parseFile "elf_x64_iplt"
 
+  /// elf_x64_exec rewritten to use the extended numbering: e_shnum, e_phnum
+  /// and e_shstrndx all carry their escape value, and the initial section
+  /// header holds the real ones in sh_size, sh_link and sh_info.
+  static let x64XIndexFile = parseFile "elf_x64_xindex"
+
   /// An x86-64 executable carrying a colon-separated DT_RUNPATH (the modern
   /// runtime search-path tag, emitted with --enable-new-dtags).
   static let x64RunPathFile = parseFile "elf_x64_runpath"
@@ -576,6 +581,36 @@ type ELFTests() =
       |> Array.length
     let actual = (x64ExecFile :> IBinFile).MemoryLayout.Value.Segments.Length
     Assert.AreEqual<int>(expected, actual)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 extended numbering counts its tables test``() =
+    (* Both counts escape into the initial section header, which is the only
+       place the file states them. *)
+    let sections = x64ExecFile.SectionHeaders.Length
+    let segments = x64ExecFile.ProgramHeaders.Length
+    Assert.AreEqual<int>(sections, x64XIndexFile.SectionHeaders.Length)
+    Assert.AreEqual<int>(segments, x64XIndexFile.ProgramHeaders.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 extended numbering names its sections test``() =
+    (* e_shstrndx escapes as well, so the name table is reachable only through
+       sh_link of that same header. *)
+    let names = x64XIndexFile.SectionHeaders |> Array.map _.SecName
+    Assert.AreEqual(true, Array.contains ELF.Section.Text names)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 segment count past the file end test``() =
+    (* PN_XNUM says the real count sits in the initial section header, and a
+       file with no section header table has none to hold it. What is left is
+       a count the file has no room for, and no table to be read from. *)
+    let fileName = "elf_x64_exec"
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    for i in 0x28 .. 0x2f do bytes[i] <- 0uy (* e_shoff = 0 *)
+    for i in 0x3c .. 0x3f do bytes[i] <- 0uy (* e_shnum, e_shstrndx = 0 *)
+    bytes[0x38] <- 0xffuy (* e_phnum = PN_XNUM *)
+    bytes[0x39] <- 0xffuy
+    let file = ELFBinFile(fileName, bytes, None, None)
+    Assert.AreEqual<int>(0, file.ProgramHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] x64 obj relocation test``() =
