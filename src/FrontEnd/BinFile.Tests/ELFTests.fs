@@ -107,6 +107,11 @@ type ELFTests() =
   /// NX is reported as disabled.
   static let x64NonXFile = parseFile "elf_x64_nonx"
 
+  /// A statically linked x86-64 executable built around two ifuncs, whose PLT
+  /// entries lld puts in .iplt rather than in .plt. Its IRELATIVE relocations
+  /// live in .rela.dyn, there being no .rela.plt without a dynamic linker.
+  static let x64IpltFile = parseFile "elf_x64_iplt"
+
   /// An x86-64 executable carrying a colon-separated DT_RUNPATH (the modern
   /// runtime search-path tag, emitted with --enable-new-dtags).
   static let x64RunPathFile = parseFile "elf_x64_runpath"
@@ -1091,6 +1096,25 @@ type ELFTests() =
     let names = imports |> Seq.map _.Name |> Seq.toList
     Assert.AreEqual<string list>([ "__libc_start_main"; "" ], names)
     Assert.AreEqual<uint64>(0x1fd0UL, (Seq.item 1 imports).TableAddress)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 iplt entries are imports test``() =
+    (* A static ifunc takes its PLT entry in .iplt, which is a PLT section by
+       another name, and the slot it relocates is what identifies it. *)
+    let expected = [ 0x201340UL, 0x202360UL; 0x201350UL, 0x202368UL ]
+    let entries =
+      getLinkageTableEntries x64IpltFile
+      |> Seq.map (fun i -> Option.get i.TrampolineAddress, i.TableAddress)
+      |> Seq.toList
+    Assert.AreEqual<(Addr * Addr) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 iplt entry spans the whole stub test``() =
+    (* An .iplt stub is the 16-byte lazy form, a jump through the slot with a
+       push and a branch behind it, and carries no PLT0 header to say so. *)
+    let linkage = (x64IpltFile :> IBinFile).ImportTable.Value
+    Assert.AreEqual(true, linkage.IsInImportTable 0x20134fUL)
+    Assert.AreEqual(false, linkage.IsInImportTable 0x201360UL)
 
   [<TestMethod>]
   member _.``[ELF] ARM ifunc kinds name a resolver test``() =

@@ -98,6 +98,10 @@ let [<Literal>] private SecPLTGOT = ".plt.got"
 
 let [<Literal>] private SecPLTBnd = ".plt.bnd"
 
+/// The section an ifunc takes its PLT entry in where no dynamic linker fills
+/// a lazy .plt, which is how a statically linked image reaches its resolvers.
+let [<Literal>] private SecIPLT = ".iplt"
+
 let [<Literal>] private SecGOTPLT = ".got.plt"
 
 let [<Literal>] private SecMIPSStubs = ".MIPS.stubs"
@@ -150,7 +154,8 @@ let private tryFindFirstEntryAddrWithRelocation (reloc: RelocationInfo) =
   |> fun addr -> if addr = UInt64.MaxValue then None else Some addr
 
 let isPLTSectionName name =
-  name = Section.PLT || name = SecPLTSnd || name = SecPLTGOT || name = SecPLTBnd
+  name = Section.PLT || name = SecPLTSnd || name = SecPLTGOT
+  || name = SecPLTBnd || name = SecIPLT
 
 let private findPLTSections shdrs =
   shdrs
@@ -501,6 +506,24 @@ type X64Parser(shdrs, relocInfo, symbs) =
        AnyByte
        AnyByte |]
 
+  let lazyEntry = (* jmp [got+n]; push imm; jmp rel; *)
+    [| OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0x68uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0xe9uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
+
   let nonLazyEntry = (* jmp [got+16]; *)
     [| OneByte 0xffuy
        OneByte 0x25uy
@@ -565,6 +588,10 @@ type X64Parser(shdrs, relocInfo, symbs) =
         if BytePattern.isMatchSpan lazyIbtEntry (plt.Slice 16) then 7UL, 11UL
         else 3UL, 7UL (* bnd *)
       newPLT DontCare LazyBinding true 16UL off inssz
+    (* A lazy PLT with no PLT0 in front of it, which is what .iplt is: the
+       jump alone would pass for the eager form, so this comes first. *)
+    elif BytePattern.isMatchSpan lazyEntry plt then
+      newPLT DontCare LazyBinding false 16UL 2UL 6UL
     elif BytePattern.isMatchSpan nonLazyEntry plt then
       newPLT DontCare EagerBinding false 8UL 2UL 6UL
     elif BytePattern.isMatchSpan eagerBndEntry plt then

@@ -149,6 +149,33 @@ int f(void) __attribute__((ifunc("resolve_f")));
 int main(void) { return f(); }
 ```
 
+Linked statically there is no dynamic linker to fill a lazy `.plt`, and lld
+puts the ifunc stubs in a section of their own instead, `.iplt`, with their
+relocations in `.rela.dyn`. Each stub keeps the 16-byte lazy shape even so, a
+jump through the slot with a push and a branch behind it, yet carries no PLT0
+header to announce it. GNU ld names that section `.plt` on x86-64, so lld is
+what this fixture needs.
+
+| Fixture | Kinds it carries |
+| --- | --- |
+| `elf_x64_iplt` | Two `R_X86_64_IRELATIVE` in `.rela.dyn`, their stubs in `.iplt` |
+
+```
+clang -fuse-ld=lld -static -nostdlib iplt.c -o elf_x64_iplt
+```
+
+```c
+static int real_f(void) { return 42; }
+static void *resolve_f(void) { return (void *)real_f; }
+int f(void) __attribute__((ifunc("resolve_f")));
+
+static int real_g(void) { return 43; }
+static void *resolve_g(void) { return (void *)real_g; }
+int g(void) __attribute__((ifunc("resolve_g")));
+
+void _start(void) { f(); g(); }
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |
