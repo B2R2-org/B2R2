@@ -65,6 +65,7 @@ let getRelocatedAddr toolBox (relocInfo: RelocationInfo) relocAddr =
     | ValueSome SymbolOnly, Some sym ->
       Ok sym.Addr
     | ValueSome BasePlusAddend, _
+    | ValueSome IFuncResolver, _
     | ValueSome SymbolPlusAddend, None ->
       (* The addend is a link-time address, so it shifts with the load base. *)
       Ok(toolBox.BaseAddress + rel.RelAddend)
@@ -86,8 +87,10 @@ let tryGetInternalFuncAddr toolBox (reloc: RelocationEntry) =
     else
       Error ErrorCase.SymbolNotFound
   | None ->
-    match reloc.RelKind with
-    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE ->
+    (* An ifunc slot names no symbol: what it holds is a resolver defined in
+       this very file, so the address it computes is an internal one. *)
+    match RelocationKind.GetSemantics reloc.RelKind with
+    | ValueSome IFuncResolver ->
       Ok(toolBox.BaseAddress + reloc.RelAddend)
     | _ ->
       Error ErrorCase.SymbolNotFound

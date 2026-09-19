@@ -92,6 +92,28 @@ avr-gcc -c so.c -o elf_avr_obj -mmcu=atmega128
 bpf-gcc -c so.c -o elf_bpf_obj
 ```
 
+## The ifunc fixture
+
+An ifunc is the one relocation that names neither a symbol nor a datum: the
+slot holds a resolver the loader calls to learn the address. None of the
+fixtures above carries one, and a resolver defined in the file itself is what
+tells an internal function apart from an imported one.
+
+| Fixture | Kinds it carries |
+| --- | --- |
+| `elf_riscv64_ifunc` | `R_RISCV_IRELATIVE` in `.rela.plt`, beside an ordinary `R_RISCV_JUMP_SLOT` |
+
+```
+riscv64-linux-gnu-gcc ifunc.c -o elf_riscv64_ifunc
+```
+
+```c
+static int real_f(void) { return 42; }
+static void *resolve_f(void) { return (void *)real_f; }
+int f(void) __attribute__((ifunc("resolve_f")));
+int main(void) { return f(); }
+```
+
 ## x86-64 feature fixtures
 
 | Fixture | Purpose |

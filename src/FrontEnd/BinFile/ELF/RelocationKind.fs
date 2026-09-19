@@ -407,6 +407,8 @@ and internal RelocationARMv7 =
   | R_ARM_GOT_BREL = 26UL
   /// 32-bit PLT address.
   | R_ARM_PLT32 = 27UL
+  /// Adjust indirectly by program base.
+  | R_ARM_IRELATIVE = 160UL
 
 /// Represents a relocation type for ARMv8.
 and internal RelocationARMv8 =
@@ -436,6 +438,8 @@ and internal RelocationARMv8 =
   | R_AARCH64_JUMP_SLOT = 1026UL
   /// Delta(S) + A.
   | R_AARCH64_RELATIVE = 1027UL
+  /// Indirect(Delta(S) + A).
+  | R_AARCH64_IRELATIVE = 1032UL
 
 /// Represents a relocation type for MIPS.
 and internal RelocationMIPS =
@@ -1269,6 +1273,9 @@ and internal RelocationSemantics =
   | SymbolOnly
   /// B + A.
   | BasePlusAddend
+  /// B + A, where what the sum names is an ifunc resolver: a function the
+  /// loader calls to learn the address, rather than that address itself.
+  | IFuncResolver
 with
   /// Classifies a relocation kind of x86.
   static member OfX86(reloc: RelocationX86) =
@@ -1276,8 +1283,8 @@ with
     | RelocationX86.R_386_32 -> ValueSome SymbolPlusAddend
     | RelocationX86.R_386_GLOB_DATA
     | RelocationX86.R_386_JUMP_SLOT -> ValueSome SymbolOnly
-    | RelocationX86.R_386_RELATIVE
-    | RelocationX86.R_386_IRELATIVE -> ValueSome BasePlusAddend
+    | RelocationX86.R_386_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationX86.R_386_IRELATIVE -> ValueSome IFuncResolver
     | _ -> ValueNone
 
   /// Classifies a relocation kind of x86-64.
@@ -1286,8 +1293,8 @@ with
     | RelocationX64.R_X86_64_64 -> ValueSome SymbolPlusAddend
     | RelocationX64.R_X86_64_GLOB_DATA
     | RelocationX64.R_X86_64_JUMP_SLOT -> ValueSome SymbolOnly
-    | RelocationX64.R_X86_64_RELATIVE
-    | RelocationX64.R_X86_64_IRELATIVE -> ValueSome BasePlusAddend
+    | RelocationX64.R_X86_64_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationX64.R_X86_64_IRELATIVE -> ValueSome IFuncResolver
     | _ -> ValueNone
 
   /// Classifies a relocation kind of ARMv7.
@@ -1297,6 +1304,7 @@ with
     | RelocationARMv7.R_ARM_GLOB_DATA
     | RelocationARMv7.R_ARM_JUMP_SLOT -> ValueSome SymbolOnly
     | RelocationARMv7.R_ARM_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationARMv7.R_ARM_IRELATIVE -> ValueSome IFuncResolver
     | _ -> ValueNone
 
   /// Classifies a relocation kind of ARMv8.
@@ -1306,6 +1314,7 @@ with
     | RelocationARMv8.R_AARCH64_GLOB_DATA
     | RelocationARMv8.R_AARCH64_JUMP_SLOT -> ValueSome SymbolOnly
     | RelocationARMv8.R_AARCH64_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationARMv8.R_AARCH64_IRELATIVE -> ValueSome IFuncResolver
     | _ -> ValueNone
 
   /// Classifies a relocation kind of MIPS.
@@ -1334,8 +1343,8 @@ with
     | RelocationS390.R_390_64 -> ValueSome SymbolPlusAddend
     | RelocationS390.R_390_GLOB_DAT
     | RelocationS390.R_390_JMP_SLOT -> ValueSome SymbolOnly
-    | RelocationS390.R_390_RELATIVE
-    | RelocationS390.R_390_IRELATIVE -> ValueSome BasePlusAddend
+    | RelocationS390.R_390_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationS390.R_390_IRELATIVE -> ValueSome IFuncResolver
     | _ -> ValueNone
 
   /// Classifies a relocation kind of SH4.
@@ -1353,8 +1362,8 @@ with
     | RelocationRISCV.R_RISCV_32
     | RelocationRISCV.R_RISCV_64 -> ValueSome SymbolPlusAddend
     | RelocationRISCV.R_RISCV_JUMP_SLOT -> ValueSome SymbolOnly
-    | RelocationRISCV.R_RISCV_RELATIVE
-    | RelocationRISCV.R_RISCV_IRELATIVE -> ValueSome BasePlusAddend
+    | RelocationRISCV.R_RISCV_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationRISCV.R_RISCV_IRELATIVE -> ValueSome IFuncResolver
     | _ -> ValueNone
 
   /// Classifies a relocation kind of PowerPC.
@@ -1363,8 +1372,8 @@ with
     | RelocationPPC32.R_PPC_ADDR32 -> ValueSome SymbolPlusAddend
     | RelocationPPC32.R_PPC_GLOB_DAT
     | RelocationPPC32.R_PPC_JMP_SLOT -> ValueSome SymbolOnly
-    | RelocationPPC32.R_PPC_RELATIVE
-    | RelocationPPC32.R_PPC_IRELATIVE -> ValueSome BasePlusAddend
+    | RelocationPPC32.R_PPC_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationPPC32.R_PPC_IRELATIVE -> ValueSome IFuncResolver
     | _ -> ValueNone
 
   /// Classifies a relocation kind of PowerPC64.
@@ -1374,8 +1383,8 @@ with
     | RelocationPPC64.R_PPC64_ADDR64 -> ValueSome SymbolPlusAddend
     | RelocationPPC64.R_PPC64_GLOB_DAT
     | RelocationPPC64.R_PPC64_JMP_SLOT -> ValueSome SymbolOnly
-    | RelocationPPC64.R_PPC64_RELATIVE
-    | RelocationPPC64.R_PPC64_IRELATIVE -> ValueSome BasePlusAddend
+    | RelocationPPC64.R_PPC64_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationPPC64.R_PPC64_IRELATIVE -> ValueSome IFuncResolver
     | _ -> ValueNone
 
   (* R_PARISC_PLABEL32 is deliberately absent: it yields the address of a
@@ -1401,8 +1410,8 @@ with
     | RelocationSPARC.R_SPARC_UA64 -> ValueSome SymbolPlusAddend
     | RelocationSPARC.R_SPARC_GLOB_DAT
     | RelocationSPARC.R_SPARC_JMP_SLOT -> ValueSome SymbolOnly
-    | RelocationSPARC.R_SPARC_RELATIVE
-    | RelocationSPARC.R_SPARC_IRELATIVE -> ValueSome BasePlusAddend
+    | RelocationSPARC.R_SPARC_RELATIVE -> ValueSome BasePlusAddend
+    | RelocationSPARC.R_SPARC_IRELATIVE -> ValueSome IFuncResolver
     | _ -> ValueNone
 
   /// Classifies a relocation kind of Alpha.

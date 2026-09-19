@@ -171,6 +171,11 @@ type ELFTests() =
   /// RELATIVE, the 64-bit absolute kind, and JUMP_SLOT.
   static let riscv64File = parseFile "elf_riscv64"
 
+  /// A RISCV64 PIE built around an ifunc, so its .rela.plt carries an
+  /// R_RISCV_IRELATIVE next to the ordinary JUMP_SLOT. It is the only fixture
+  /// whose relocation names a resolver rather than a symbol or a datum.
+  static let riscv64IfuncFile = parseFile "elf_riscv64_ifunc"
+
   /// A PowerPC (32-bit) shared library: RELATIVE, ADDR32, GLOB_DAT, JMP_SLOT.
   static let ppc32SoFile = parseFile "elf_ppc32_so"
 
@@ -971,6 +976,38 @@ type ELFTests() =
     Assert.AreEqual(Ok 0x672UL, relocs.TryGetRelocatedAddr 0x1da0UL)
     Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fd8UL)
     Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1fb8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] riscv64 ifunc resolves to its resolver test``() =
+    (* resolve_f sits at 0x686, and that is the addend of the IRELATIVE entry
+       the loader fills 0x1fd0 with. *)
+    let relocs = (riscv64IfuncFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x686UL, relocs.TryGetRelocatedAddr 0x1fd0UL)
+
+  [<TestMethod>]
+  member _.``[ELF] riscv64 ifunc is an internal function test``() =
+    (* An ifunc names no symbol, so the resolver it points at is reachable
+       only through the kind of the relocation itself. *)
+    let relocs = (riscv64IfuncFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x686UL, relocs.TryGetInternalFunctionAddr 0x1fd0UL)
+
+  [<TestMethod>]
+  member _.``[ELF] riscv64 imported function is not internal test``() =
+    (* The JUMP_SLOT beside it names __libc_start_main, which this file does
+       not define. *)
+    let relocs = (riscv64IfuncFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Error ErrorCase.SymbolNotFound,
+                    relocs.TryGetInternalFunctionAddr 0x1fc8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] ARM ifunc kinds name a resolver test``() =
+    (* No ARM cross-toolchain builds these fixtures, so what can be checked is
+       the classification the resolver lookup turns on. *)
+    let resolver = ValueSome ELF.RelocationSemantics.IFuncResolver
+    let ofARMv7 = ELF.RelocationSemantics.OfARMv7
+    let ofARMv8 = ELF.RelocationSemantics.OfARMv8
+    Assert.AreEqual(resolver, ofARMv7 ELF.RelocationARMv7.R_ARM_IRELATIVE)
+    Assert.AreEqual(resolver, ofARMv8 ELF.RelocationARMv8.R_AARCH64_IRELATIVE)
 
   [<TestMethod>]
   member _.``[ELF] ppc32 resolves every relocation family test``() =
