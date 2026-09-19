@@ -92,6 +92,22 @@ avr-gcc -c so.c -o elf_avr_obj -mmcu=atmega128
 bpf-gcc -c so.c -o elf_bpf_obj
 ```
 
+## The PowerPC64 glink fixtures
+
+Neither PowerPC64 ABI puts code in `.plt`, which is NOBITS in both: a call site
+reaches a glink stub instead, one per PLT entry, starting 32 bytes past
+`DT_PPC64_GLINK`. The two ABIs write that stub differently, so one fixture each
+is needed. `elf_ppc64_so` above is the ELFv1 half of the pair.
+
+| Fixture | What its glink stubs look like |
+| --- | --- |
+| `elf_ppc64_so` | ELFv1: `li r0, <index>` then a branch, 8 bytes apart, and a `.opd` of function descriptors |
+| `elf_ppc64le_so` | ELFv2: the branch alone, 4 bytes apart, no `.opd` |
+
+```
+powerpc64le-linux-gnu-gcc so.c -o elf_ppc64le_so -shared -fPIC
+```
+
 ## The ifunc fixture
 
 An ifunc is the one relocation that names neither a symbol nor a datum: the

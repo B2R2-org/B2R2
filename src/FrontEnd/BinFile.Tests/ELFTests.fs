@@ -188,6 +188,11 @@ type ELFTests() =
   /// PowerPC does, and adds the doubleword ADDR64 on top.
   static let ppc64SoFile = parseFile "elf_ppc64_so"
 
+  /// The ppc64le counterpart of elf_ppc64_so, built for ELFv2. It has no .opd,
+  /// and its glink stubs are the branch alone, where the ELFv1 ones above
+  /// carry the PLT index with them.
+  static let ppc64leSoFile = parseFile "elf_ppc64le_so"
+
   /// An SH4 shared library: RELATIVE, GLOB_DAT, JMP_SLOT.
   static let sh4SoFile = parseFile "elf_sh4_so"
 
@@ -1105,6 +1110,52 @@ type ELFTests() =
     Assert.AreEqual(Ok 0x1fed0UL, relocs.TryGetRelocatedAddr 0x1fca8UL)
     Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1ff08UL)
     Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x20018UL)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64 ELFv1 imports test``() =
+    (* .plt is NOBITS, so the stubs are the glink ones at DT_PPC64_GLINK + 32,
+       eight bytes apart: an index into r0 and a branch to the resolver. *)
+    let expected =
+      [ "ext", Some 0x85cUL
+        "__cxa_finalize", Some 0x864UL
+        "__gmon_start__", Some 0x86cUL ]
+    let entries =
+      getLinkageTableEntries ppc64SoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64 ELFv2 imports test``() =
+    (* The same layout, but each stub is the branch alone, so they sit four
+       bytes apart and the resolver works the index out for itself. *)
+    let expected =
+      [ "ext", Some 0x6ccUL
+        "__cxa_finalize", Some 0x6d0UL
+        "__gmon_start__", Some 0x6d4UL ]
+    let entries =
+      getLinkageTableEntries ppc64leSoFile
+      |> Seq.map (fun i -> i.Name, i.TrampolineAddress)
+      |> Seq.toList
+    Assert.AreEqual<(string * Addr option) list>(expected, entries)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64 imports name their PLT slots test``() =
+    (* The slot an import resolves through is the one its JMP_SLOT relocates,
+       which under ELFv1 is 24 bytes wide and under ELFv2 only 8. *)
+    let slotsOf f =
+      getLinkageTableEntries f |> Seq.map _.TableAddress |> Seq.toList
+    Assert.AreEqual<Addr list>([ 0x20018UL; 0x20030UL; 0x20048UL ],
+                               slotsOf ppc64SoFile)
+    Assert.AreEqual<Addr list>([ 0x20010UL; 0x20018UL; 0x20020UL ],
+                               slotsOf ppc64leSoFile)
+
+  [<TestMethod>]
+  member _.``[ELF] ppc64le ISA test``() =
+    let isa = (ppc64leSoFile :> IBinFile).ISA
+    Assert.AreEqual(Architecture.PPC, isa.Arch)
+    Assert.AreEqual(WordSize.Bit64, isa.WordSize)
+    Assert.AreEqual(Endian.Little, isa.Endian)
 
   [<TestMethod>]
   member _.``[ELF] sh4 resolves every relocation family test``() =
