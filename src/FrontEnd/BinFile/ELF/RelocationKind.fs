@@ -184,7 +184,9 @@ with
       let kind: RelocationBPF = LanguagePrimitives.EnumOfValue relocValue
       kind.ToString()
     | _ ->
-      invalidArg (nameof arch) "Unsupported architecture for relocation."
+      (* The entry itself parsed; only the name for it is missing, which is no
+         reason to fail the whole file. *)
+      $"RELOC_0x%x{relocValue}"
 
   /// Returns what the given relocation computes, or ValueNone when the kind is
   /// not one that resolves to an address.

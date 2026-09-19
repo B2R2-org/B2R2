@@ -31,6 +31,11 @@ open B2R2.FrontEnd.BinFile.DWARF
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat
 
+/// Names the relocation-kind type, which the ELF prefix alone cannot reach:
+/// an auto-opened module of active patterns shares the name and shadows the
+/// type wherever that namespace is not open.
+type internal RelocKind = ELF.RelocationKind
+
 [<TestClass>]
 type ELFTests() =
   static let isStripped (file: IBinFile) = file.SymbolTable.Value.IsStripped
@@ -1018,6 +1023,13 @@ type ELFTests() =
     let ofARMv8 = ELF.RelocationSemantics.OfARMv8
     Assert.AreEqual(resolver, ofARMv7 ELF.RelocationARMv7.R_ARM_IRELATIVE)
     Assert.AreEqual(resolver, ofARMv8 ELF.RelocationARMv8.R_AARCH64_IRELATIVE)
+
+  [<TestMethod>]
+  member _.``[ELF] unsupported relocation arch still names its kind test``() =
+    (* The entry parsed; only the name for it is missing, which is no reason
+       to fail the file. *)
+    let kind = ELF.RelocationKind(ELF.MachineType.EM_TI_C6000, 4UL)
+    Assert.AreEqual<string>("RELOC_0x4", RelocKind.ToString kind)
 
   [<TestMethod>]
   member _.``[ELF] ppc32 resolves every relocation family test``() =
