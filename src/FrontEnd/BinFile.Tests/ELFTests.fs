@@ -40,6 +40,12 @@ type internal RelocKind = ELF.RelocationKind
 type ELFTests() =
   static let isStripped (file: IBinFile) = file.SymbolTable.Value.IsStripped
 
+  /// The code mode markers of the given file, keyed by the address each marks.
+  static let markersOf (file: ELFBinFile) =
+    (file :> IBinFile).SymbolTable.Value.CodeModeMarkers
+    |> Array.map (fun m -> m.Address, m.Mode)
+    |> Map.ofArray
+
   static let tryResolveName (file: ELFBinFile) addr =
     (file :> IBinFile).NameResolver.Value.TryResolveName addr
 
@@ -1248,6 +1254,32 @@ type ELFTests() =
     dynamicFirst.Symbols.DynamicSymbols |> ignore
     dynamicFirst.Symbols.StaticSymbols |> ignore
     CollectionAssert.AreEqual(resolveAll staticFirst, resolveAll dynamicFirst)
+
+  [<TestMethod>]
+  member _.``[ELF] arm32 mapping symbols mark the encoding test``() =
+    let markers = markersOf arm32File
+    Assert.AreEqual(Some ArmMode, Map.tryFind 0x10388UL markers)
+    Assert.AreEqual(Some ThumbMode, Map.tryFind 0x10354UL markers)
+    Assert.AreEqual(Some DataMode, Map.tryFind 0x10194UL markers)
+
+  [<TestMethod>]
+  member _.``[ELF] aarch64 mapping symbols mark the encoding test``() =
+    let markers = markersOf aarch64File
+    Assert.AreEqual(Some A64Mode, Map.tryFind 0x4005c0UL markers)
+    Assert.AreEqual(Some DataMode, Map.tryFind 0x400278UL markers)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 carries no mapping symbols test``() =
+    Assert.AreEqual<int>(0, (markersOf x64ExecFile).Count)
+
+  [<TestMethod>]
+  member _.``[ELF] suffixed mapping symbols are read test``() =
+    (* A producer may name each region distinctly, as LLVM does. *)
+    let parse = ELF.MappingSymbol.parse ELF.MachineType.EM_AARCH64
+    Assert.AreEqual(ELF.MappingSymbol.A64, parse "$x.2")
+    Assert.AreEqual(ELF.MappingSymbol.Data, parse "$d.realdata")
+    Assert.AreEqual(ELF.MappingSymbol.None, parse "$data")
+    Assert.AreEqual(ELF.MappingSymbol.None, parse "$t")
 
   [<TestMethod>]
   member _.``[ELF] adding a symbol reads no symbol table test``() =

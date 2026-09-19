@@ -109,9 +109,10 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     let bytes = hdl.ReadBytes(ptr = ptr, nBytes = int ins.Length)
     printColorDisasm words ptr.Addr bytes
 
-  (* Only ARM32 binaries carry mode markers, so an empty table means there is
+  (* Only ARM binaries carry mode markers, so an empty table means there is
      nothing to look up per instruction. Testing the table rather than the
-     architecture keeps AArch32 covered, which an ARMv7 test missed. *)
+     architecture keeps AArch32 covered, which an ARMv7 test missed. AArch64
+     markers reach the table too, but none of them switches the encoding. *)
   let checkAndUpdateArchMode =
     if archmodes.Count = 0 then
       fun _addr -> ()

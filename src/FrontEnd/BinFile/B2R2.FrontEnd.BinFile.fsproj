@@ -70,6 +70,7 @@
     <Compile Include="ELF\SymbolType.fs" />
     <Compile Include="ELF\SymbolBind.fs" />
     <Compile Include="ELF\SymbolVisibility.fs" />
+    <Compile Include="ELF\MappingSymbol.fs" />
     <Compile Include="ELF\Symbol.fs" />
     <Compile Include="ELF\SymbolTableLayout.fs" />
     <Compile Include="ELF\SymbolStore.fs" />

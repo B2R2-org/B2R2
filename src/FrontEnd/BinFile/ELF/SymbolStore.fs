@@ -109,15 +109,6 @@ module private SymbolTables =
         symAddr
     |> adjustSymAddr baseAddr
 
-  let computeLinkerSymbolKind hdr symbolName =
-    if hdr.MachineType = MachineType.EM_ARM then
-      if symbolName = "$a" then ARMLinkerSymbol.ARM
-      elif symbolName = "$t" then ARMLinkerSymbol.Thumb
-      elif symbolName = "$d" then ARMLinkerSymbol.Data
-      else ARMLinkerSymbol.None
-    else
-      ARMLinkerSymbol.None
-
   let retrieveVer (verTbl: Dictionary<_, _>) verData =
     let isHidden = verData &&& 0x8000us <> 0us
     match verTbl.TryGetValue(verData &&& 0x7fffus) with
@@ -215,7 +206,7 @@ module private SymbolTables =
       SecHeaderIndex = secIdx
       ParentSection = parent
       VerInfo = verInfo
-      ARMLinkerSymbol = computeLinkerSymbolKind toolBox.Header sname }
+      MappingSymbol = MappingSymbol.parse toolBox.Header.MachineType sname }
 
   let parseSymbols toolBox (shdrs: _[]) verTbl txtSec layout =
     let cls = toolBox.Header.Class

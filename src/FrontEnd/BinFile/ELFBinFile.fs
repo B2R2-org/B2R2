@@ -123,10 +123,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     lazy
       symbs.Value.StaticSymbols
       |> Array.choose (fun s ->
-        match s.ARMLinkerSymbol with
-        | ARMLinkerSymbol.ARM -> Some { Address = s.Addr; Mode = ArmMode }
-        | ARMLinkerSymbol.Thumb -> Some { Address = s.Addr; Mode = ThumbMode }
-        | ARMLinkerSymbol.Data -> Some { Address = s.Addr; Mode = DataMode }
+        match s.MappingSymbol with
+        | MappingSymbol.ARM -> Some { Address = s.Addr; Mode = ArmMode }
+        | MappingSymbol.Thumb -> Some { Address = s.Addr; Mode = ThumbMode }
+        | MappingSymbol.A64 -> Some { Address = s.Addr; Mode = A64Mode }
+        | MappingSymbol.Data -> Some { Address = s.Addr; Mode = DataMode }
         | _ -> None)
 
   let binSymbols =
