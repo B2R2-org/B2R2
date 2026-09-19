@@ -178,6 +178,11 @@ module internal Header =
       ISA(Architecture.PPC, reader.Endianness, WordSize.Bit64)
     | MachineType.EM_RISCV ->
       ISA(Architecture.RISCV, reader.Endianness, cls)
+    (* V8+ is the 32-bit ISA with the V9 registers made visible to it, so it
+       decodes as V9 does and differs only in the width of a word. *)
+    | MachineType.EM_SPARC
+    | MachineType.EM_SPARC32PLUS ->
+      ISA(Architecture.SPARC, reader.Endianness, WordSize.Bit32)
     | MachineType.EM_SPARCV9 ->
       ISA(Architecture.SPARC, reader.Endianness, WordSize.Bit64)
     | MachineType.EM_S390 ->

@@ -92,6 +92,25 @@ avr-gcc -c so.c -o elf_avr_obj -mmcu=atmega128
 bpf-gcc -c so.c -o elf_bpf_obj
 ```
 
+## The 32-bit SPARC fixture
+
+SPARC has three machine types and only one instruction set: `EM_SPARCV9` is the
+64-bit one, while `EM_SPARC` and `EM_SPARC32PLUS` are 32-bit, the latter being
+V9 with its wider registers made visible to a 32-bit word. A toolchain asked
+for `-m32` emits `EM_SPARC32PLUS`, so that is what this fixture carries; plain
+`EM_SPARC` is easier to state as a bare header in the tests than to build.
+
+| Fixture | Purpose |
+| --- | --- |
+| `elf_sparc32_so` | ELF32 big-endian `EM_SPARC32PLUS`, with an `R_SPARC_JMP_SLOT` and the PLT entry it relocates in place |
+
+There is no 32-bit libc for the sparc64 cross-toolchain, so it is linked
+without one, which leaves `ext` as the whole of its PLT.
+
+```
+sparc64-linux-gnu-gcc -m32 so.c -o elf_sparc32_so -shared -fPIC -nostdlib
+```
+
 ## The PowerPC64 glink fixtures
 
 Neither PowerPC64 ABI puts code in `.plt`, which is NOBITS in both: a call site

@@ -215,6 +215,11 @@ type ELFTests() =
   /// smaller max-page-size, the default one padding it out to a megabyte.
   static let sparc64SoFile = parseFile "elf_sparc64_so"
 
+  /// A 32-bit SPARC shared library, whose machine type is EM_SPARC32PLUS: the
+  /// V9 instruction set addressing a 32-bit word. Built without libc, so `ext`
+  /// is the whole of its PLT.
+  static let sparc32SoFile = parseFile "elf_sparc32_so"
+
   /// An Alpha shared library: RELATIVE, GLOB_DAT, JMP_SLOT.
   static let alphaSoFile = parseFile "elf_alpha_so"
 
@@ -331,16 +336,26 @@ type ELFTests() =
     let value = uint64 ELF.RelocationX64.R_X86_64_JUMP_SLOT
     ELF.RelocationKind(ELF.MachineType.EM_X86_64, value)
 
-  /// The ELF32 header of a TI C6000 image, assembled by hand because no TI
-  /// toolchain comes with the cross-compilers the fixtures are built with.
-  /// The machine type is the whole of what the ISA is read from.
-  static let tic6xHeader =
+  /// Assembles the ELF32 header of an image of the given machine type, which
+  /// is the whole of what the ISA is read from. It stands in wherever no
+  /// toolchain to hand builds the machine type in question.
+  static let elf32Header endian (machineType: uint16) =
     let bytes = Array.zeroCreate<byte> 0x34
+    let isLittle = endian = Endian.Little
     Array.blit [| 0x7fuy; byte 'E'; byte 'L'; byte 'F' |] 0 bytes 0 4
     bytes[4] <- 1uy (* ELFCLASS32 *)
-    bytes[5] <- 1uy (* ELFDATA2LSB *)
-    bytes[18] <- 0x8cuy (* EM_TI_C6000 *)
+    bytes[5] <- if isLittle then 1uy else 2uy
+    bytes[18] <- if isLittle then byte machineType else byte (machineType >>> 8)
+    bytes[19] <- if isLittle then byte (machineType >>> 8) else byte machineType
     bytes
+
+  /// No TI toolchain comes with the cross-compilers the fixtures are built
+  /// with, so EM_TI_C6000 has to be stated rather than built.
+  static let tic6xHeader = elf32Header Endian.Little 0x8cus
+
+  /// A toolchain asked for 32-bit SPARC emits EM_SPARC32PLUS, which the
+  /// fixture below carries, so the plain EM_SPARC is stated the same way.
+  static let sparcV8Header = elf32Header Endian.Big 0x02us
 
   let assertExistenceOfReloc (file: ELFBinFile) offset symbolName =
     file.RelocationInfo.Entries
@@ -1245,6 +1260,22 @@ type ELFTests() =
     let relocs = (pariscSoFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
                     relocs.TryGetRelocatedAddr 0x1f14UL)
+
+  [<TestMethod>]
+  member _.``[ELF] sparc32 ISA test``() =
+    let isa = (sparc32SoFile :> IBinFile).ISA
+    Assert.AreEqual(Architecture.SPARC, isa.Arch)
+    Assert.AreEqual(WordSize.Bit32, isa.WordSize)
+    Assert.AreEqual(Endian.Big, isa.Endian)
+
+  [<TestMethod>]
+  member _.``[ELF] sparc v8 machine type is 32-bit test``() =
+    match ELF.Header.getISA sparcV8Header with
+    | Ok isa ->
+      Assert.AreEqual(Architecture.SPARC, isa.Arch)
+      Assert.AreEqual(WordSize.Bit32, isa.WordSize)
+    | Error _ ->
+      Assert.Fail()
 
   [<TestMethod>]
   member _.``[ELF] sparc64 resolves every relocation family test``() =
