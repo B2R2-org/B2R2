@@ -166,6 +166,11 @@ type MachTests() =
   static let x64InitChainFile =
     parseFile "mach_x64_initchain" Architecture.Intel WordSize.Bit64
 
+  /// A dylib carrying an ad-hoc code signature: a hand-written superblob with
+  /// a code directory, an entitlements plist and a CMS blob.
+  static let x64CodeSignFile =
+    parseFile "mach_x64_codesign" Architecture.Intel WordSize.Bit64
+
   /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
   /// LSDA table in __gcc_except_tab. Exception parsing needs a register
   /// factory.
@@ -274,6 +279,45 @@ type MachTests() =
     let addrs = (x64File :> IBinFile).Structure.Value.FunctionAddresses
     Assert.AreEqual<int>(Array.length (Array.distinct addrs), addrs.Length)
     CollectionAssert.AreEqual(Array.sort addrs, addrs)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 code signature test``() =
+    (* Everything a code signing structure holds is big-endian, whichever way
+       round the Mach-O around it is, so a signature read with the file's own
+       reader would come out byte-swapped throughout. *)
+    let sign = x64CodeSignFile.CodeSignature.Value
+    Assert.AreEqual<int>(0x1000, sign.SignOffset)
+    Assert.AreEqual<uint32>(337u, sign.SignSize)
+    let dir = sign.CodeDirectory
+    Assert.AreEqual<string>("com.example.signed", dir.Identifier)
+    Assert.AreEqual<string>("ABCDE12345", dir.TeamIdentifier)
+    Assert.AreEqual<CodeHashType>(CodeHashType.SHA256, dir.HashType)
+    Assert.AreEqual<uint64>(0x1000UL, dir.CodeLimit)
+    Assert.AreEqual<int>(4096, dir.PageSize)
+    Assert.AreEqual<bool>(true, dir.SignFlags.HasFlag CodeSignFlag.CS_ADHOC)
+    let linkerSigned = CodeSignFlag.CS_LINKER_SIGNED
+    Assert.AreEqual<bool>(true, dir.SignFlags.HasFlag linkerSigned)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 code directory hash test``() =
+    (* A cdhash is the code directory hashed whole by the algorithm it names
+       and cut to twenty bytes, which is what every tool prints one at. *)
+    let dir = x64CodeSignFile.CodeSignature.Value.CodeDirectory
+    let hex = "b41ae28e90e9e76123f77eb021f4a535e5a5d15c"
+    CollectionAssert.AreEqual(ByteArray.ofHexString hex, dir.CDHash)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 entitlements test``() =
+    (* The entitlements slot carries the plist as it stands, after the magic
+       and the length that every blob of a superblob begins with. *)
+    let ents = x64CodeSignFile.CodeSignature.Value.Entitlements
+    Assert.AreEqual<int>(131, ents.Length)
+    let head = System.Text.Encoding.ASCII.GetString(ents, 0, 5)
+    Assert.AreEqual<string>("<?xml", head)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 has no code signature test``() =
+    Assert.AreEqual<bool>(true, x64File.CodeSignature.IsNone)
 
   [<TestMethod>]
   member _.``[Mach] X64 linker option dependencies test``() =

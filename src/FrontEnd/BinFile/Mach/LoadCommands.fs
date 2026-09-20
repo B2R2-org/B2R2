@@ -198,6 +198,11 @@ module internal LoadCommands =
     { TrieOffset = reader.ReadInt32(span, 8)
       TrieSize = reader.ReadUInt32(span, 12) }
 
+  let parseCodeSign toolBox (span: ByteSpan) =
+    let reader = toolBox.Reader
+    { BlobOffset = reader.ReadInt32(span, 8)
+      BlobSize = reader.ReadUInt32(span, 12) }
+
   let parseDataInCode toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
     { TableOffset = reader.ReadInt32(span, 8)
@@ -277,6 +282,8 @@ module internal LoadCommands =
         ChainedFixups(cmdType, uint32 cmdSize, parseChainedFixups toolBox span)
       | CmdType.LC_DYLD_EXPORTS_TRIE ->
         ExportsTrie(cmdType, uint32 cmdSize, parseExportsTrie toolBox span)
+      | CmdType.LC_CODE_SIGNATURE ->
+        CodeSign(cmdType, uint32 cmdSize, parseCodeSign toolBox span)
       | CmdType.LC_DATA_IN_CODE ->
         DataInCode(cmdType, uint32 cmdSize, parseDataInCode toolBox span)
       | CmdType.LC_FILESET_ENTRY ->

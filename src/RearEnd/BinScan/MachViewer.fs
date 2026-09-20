@@ -486,6 +486,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
     | Mach.ChainedFixups(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.ExportsTrie(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.DataInCode(cmd, size, _) -> dumpUnhandledCmd cmd size i
+    | Mach.CodeSign(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.EncryptionInfo(cmd, size, enc) -> dumpEncInfoCmd cmd size enc i
     | Mach.FilesetEntry(cmd, size, e) -> dumpFilesetEntryCmd cmd size e i
     | Mach.Main(cmd, size, main) -> dumpMainCmd cmd size main i

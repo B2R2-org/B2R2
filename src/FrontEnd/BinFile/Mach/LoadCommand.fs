@@ -67,6 +67,10 @@ type internal LoadCommand =
   /// Exports trie command (LC_DYLD_EXPORTS_TRIE), which carries the export
   /// trie that LC_DYLD_INFO used to embed.
   | ExportsTrie of cmd: CmdType * size: uint32 * ExportsTrieCmd
+  /// Code signature command (LC_CODE_SIGNATURE), which points at the
+  /// superblob in __LINKEDIT that names the code, hashes it page by page and
+  /// carries whatever entitlements and signer go with it.
+  | CodeSign of cmd: CmdType * size: uint32 * CodeSignCmd
   /// Data-in-code command (LC_DATA_IN_CODE), which lists the ranges of a text
   /// section that hold data rather than instructions.
   | DataInCode of cmd: CmdType * size: uint32 * DataInCodeCmd
@@ -228,6 +232,15 @@ and internal ExportsTrieCmd =
     TrieOffset: int
     /// Size of the export trie.
     TrieSize: uint32 }
+
+/// Represents a code signature command (LC_CODE_SIGNATURE). It points to the
+/// CS_SuperBlob in the __LINKEDIT segment, which sits at the very end of a
+/// signed image because everything before it is what the signature covers.
+and internal CodeSignCmd =
+  { /// File offset to the superblob.
+    BlobOffset: int
+    /// Size of the superblob.
+    BlobSize: uint32 }
 
 /// Represents a data-in-code command (LC_DATA_IN_CODE). It points to a table
 /// of data_in_code_entry records in the __LINKEDIT segment, each of which
