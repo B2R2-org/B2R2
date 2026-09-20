@@ -28,8 +28,9 @@ open B2R2
 
 /// Represents a marker indicating the instruction-set encoding (or data) that
 /// takes effect at a given address, for architectures that interleave
-/// encodings within a section (notably ARM and Thumb, marked by the ELF
-/// $a/$t/$d mapping symbols).
+/// encodings with each other or with data within a section (notably ARM and
+/// Thumb, marked by the ELF $a/$t/$d mapping symbols, and AArch64, marked by
+/// $x/$d).
 type BinCodeModeMarker =
   { /// Address at which the marked region begins.
     Address: Addr
@@ -43,5 +44,7 @@ and BinCodeMode =
   | ArmMode
   /// Thumb (T32) instruction encoding.
   | ThumbMode
+  /// AArch64 (A64) instruction encoding.
+  | A64Mode
   /// A data region embedded in code (not to be disassembled).
   | DataMode

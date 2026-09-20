@@ -46,8 +46,8 @@ type internal Symbol =
     ParentSection: SectionHeader option
     /// Version information.
     VerInfo: SymVerInfo option
-    /// ARM32-specific linker symbol type.
-    ARMLinkerSymbol: ARMLinkerSymbol }
+    /// The mapping symbol this symbol is, if it is one.
+    MappingSymbol: MappingSymbol }
 with
   /// Checks if the given symbol is a function symbol.
   static member inline IsFunction(s: Symbol) =
@@ -88,6 +88,7 @@ with
     | 0x00 -> SHN_UNDEF
     | 0xfff1 -> SHN_ABS
     | 0xfff2 -> SHN_COMMON
+    | 0xffff -> SHN_XINDEX
     | n -> SectionIndex n
 
   /// Converts the section header index to a string.
@@ -106,12 +107,3 @@ and internal SymVerInfo =
     IsHidden: bool
     /// Version string.
     VerName: string }
-
-/// Represents an ARM-specific symbol type for ELF binaries, which are used to
-/// distinguish between ARM and Thumb instructions. For other CPU architectures,
-/// this will be set to None.
-and internal ARMLinkerSymbol =
-  | ARM = 1
-  | Thumb = 2
-  | None = 3
-  | Data = 4

@@ -189,23 +189,20 @@ module internal DebugInformation =
   let readBytes (span: ByteSpan) count offset =
     span.Slice(offset, count).ToArray(), offset + count
 
-  let rec findNull (span: ByteSpan) i =
-    if span[i] = 0uy then i + 1 else findNull span (i + 1)
-
   let readCStringValue (span: ByteSpan) offset =
-    let s = readCString span offset
-    DWString s, findNull span offset
+    let struct (s, nextOffset) = readCStringWithNextOffset span offset
+    DWString s, nextOffset
 
   let readBlock (span: ByteSpan) len offset ctor =
     let bytes, offset = readBytes span len offset
     ctor bytes, offset
 
   let readExpr (span: ByteSpan) (regFactory: IRegisterFactory) len offset =
-    let bytes, offset = readBytes span len offset
-    let span = ReadOnlySpan bytes
+    let exprSpan = span.Slice(offset, len)
     let isa = regFactory.ISA
-    let expr = DWExpression.parse isa regFactory [] span 0 span.Length
-    DWExprLoc expr, offset
+    let expr =
+      DWExpression.parse isa regFactory [] exprSpan 0 exprSpan.Length
+    DWExprLoc expr, offset + len
 
   let readOffsetValue reader span offsetSize offset ctor =
     ctor (readUIntBySize reader span offsetSize offset), offset + offsetSize

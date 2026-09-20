@@ -144,6 +144,44 @@ type MachTests() =
     CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RunPath)
 
   [<TestMethod>]
+  member _.``[Mach] X64 dependencies test``() =
+    (* LC_LOAD_DYLIB names what the image needs, and LC_ID_DYLIB the name it
+       answers to; an executable carries only the former. *)
+    let file = x64File :> IBinFile
+    let expected = [| "/usr/lib/libSystem.B.dylib" |]
+    CollectionAssert.AreEqual(expected, file.DependencyNames)
+    Assert.AreEqual<string option>(None, file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 two-level install name test``() =
+    let file = x64TwoLevelFile :> IBinFile
+    let expected = [| "/usr/lib/libfoo.dylib" |]
+    CollectionAssert.AreEqual(expected, file.DependencyNames)
+    let name = Some "mach_x64_twoleve"
+    Assert.AreEqual<string option>(name, file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 build ID test``() =
+    (* LC_UUID is what Mach-O names a build by, the counterpart of the GNU
+       build-ID note of ELF. *)
+    let hex = "4345cc36ef4d304b831aa9b624070e20"
+    let expected = ByteArray.ofHexString hex
+    CollectionAssert.AreEqual(expected, (x64File :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 build ID test``() =
+    let hex = "1411857880883b2199a52b90d50d8635"
+    let expected = ByteArray.ofHexString hex
+    CollectionAssert.AreEqual(expected, (arm64File :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[Mach] build ID array is not shared test``() =
+    let file = x64File :> IBinFile
+    let buildId = file.BuildId
+    buildId[0] <- 0uy
+    Assert.AreEqual<byte>(0x43uy, file.BuildId[0])
+
+  [<TestMethod>]
   member _.``[Mach] X64 base address test``() =
     Assert.AreEqual<uint64>(0UL, (x64File :> IBinFile).BaseAddress)
 

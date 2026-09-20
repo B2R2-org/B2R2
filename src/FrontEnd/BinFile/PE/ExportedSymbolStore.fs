@@ -125,23 +125,29 @@ module private ExportedSymbolStore =
   let parse baseAddr bytes reader (headers: PEHeaders) secs =
     match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
     | 0 ->
-      Map.empty, Map.empty
+      "", Map.empty, Map.empty
     | rva ->
       let size = headers.PEHeader.ExportTableDirectory.Size
       let range = (rva, rva + size)
       let offset = getRawOffset secs rva
       let tbl = ReadOnlySpan(bytes, offset, size)
-      readExportDirectoryTable bytes reader tbl secs
-      |> buildExportTable bytes reader baseAddr secs range
+      let edt = readExportDirectoryTable bytes reader tbl secs
+      let build = buildExportTable bytes reader baseAddr secs range
+      let exports, forwards = build edt
+      edt.ExportDLLName, exports, forwards
 
 /// Represents the exported symbols in a PE file.
-type internal ExportedSymbolStore private(exportMap, forwardMap) =
+type internal ExportedSymbolStore private(dllName, exportMap, forwardMap) =
 
-  new() = ExportedSymbolStore(Map.empty, Map.empty)
+  new() = ExportedSymbolStore("", Map.empty, Map.empty)
 
   new(baseAddr, bytes, reader, hdrs, secs) =
-    let exportMap, forwardMap = parse baseAddr bytes reader hdrs secs
-    ExportedSymbolStore(exportMap, forwardMap)
+    let dllName, exports, forwards = parse baseAddr bytes reader hdrs secs
+    ExportedSymbolStore(dllName, exports, forwards)
+
+  /// Returns the name the export directory gives this image, which is what an
+  /// import of it names, or an empty string where it exports nothing.
+  member _.DLLName with get(): string = dllName
 
   /// Returns the addresses of all exported symbols.
   member _.Addresses with get() = exportMap.Keys

@@ -46,9 +46,30 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let loadables = lazy ProgramHeaders.filterLoadables phdrs.Value
 
-  let symbs = lazy SymbolStore(toolBox, shdrs.Value)
+  let notes = lazy Notes.parse toolBox shdrs.Value phdrs.Value
 
-  let relocs = lazy RelocationInfo(toolBox, shdrs.Value, symbs.Value)
+  let buildId = lazy Notes.findBuildId notes.Value
+
+  let gnuProperties = lazy GNUProperties.parse toolBox notes.Value
+
+  let coreMappings = lazy CoreNotes.parseMappings toolBox notes.Value
+
+  let processStatuses = lazy CoreNotes.parseStatuses toolBox notes.Value
+
+  let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value phdrs.Value
+
+  let dynTables =
+    lazy
+      DynamicTables.reconstruct
+        toolBox shdrs.Value phdrs.Value dynamicArray.Value
+
+  let symbs = lazy SymbolStore(toolBox, shdrs.Value, dynTables.Value)
+
+  let relocs =
+    lazy
+      RelocationInfo(
+        toolBox, shdrs.Value, phdrs.Value, dynTables.Value, symbs.Value
+      )
 
   let plt = lazy PLT.parse toolBox shdrs.Value symbs.Value relocs.Value
 
@@ -61,8 +82,6 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
 
   let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
-
-  let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value
 
   let symKindOf (s: Symbol) =
     match s.SymType with
@@ -104,10 +123,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     lazy
       symbs.Value.StaticSymbols
       |> Array.choose (fun s ->
-        match s.ARMLinkerSymbol with
-        | ARMLinkerSymbol.ARM -> Some { Address = s.Addr; Mode = ArmMode }
-        | ARMLinkerSymbol.Thumb -> Some { Address = s.Addr; Mode = ThumbMode }
-        | ARMLinkerSymbol.Data -> Some { Address = s.Addr; Mode = DataMode }
+        match s.MappingSymbol with
+        | MappingSymbol.ARM -> Some { Address = s.Addr; Mode = ArmMode }
+        | MappingSymbol.Thumb -> Some { Address = s.Addr; Mode = ThumbMode }
+        | MappingSymbol.A64 -> Some { Address = s.Addr; Mode = A64Mode }
+        | MappingSymbol.Data -> Some { Address = s.Addr; Mode = DataMode }
         | _ -> None)
 
   let binSymbols =
@@ -130,12 +150,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let symbolTable = Some symbolTableObj
 
   let nameResolver =
-    let onSymbols = NameResolver.ofSymbolTable symbolTableObj
     Some { new INameResolvable with
       member _.TryResolveName addr =
-        match onSymbols.TryResolveName addr with
-        | Ok name ->
-          Ok name
+        match symbs.Value.TryFindSymbol addr with
+        | Ok sym ->
+          Ok sym.SymName
         | Error e ->
           match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
           | Some entry when entry.TableAddress = addr -> Ok entry.Name
@@ -292,24 +311,29 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       member _.FunctionAddresses = functionAddrs.Value
     }
 
+  let binRelocations =
+    lazy
+      relocs.Value.Entries
+      |> Seq.map (fun r ->
+        { Address = r.RelOffset
+          SymbolName = r.RelSymbol |> Option.map (fun s -> s.SymName)
+          Addend = Some(int64 r.RelAddend) })
+      |> Seq.toArray
+
   let relocations =
     Some { new IRelocationTable with
-      member _.Relocations =
-        relocs.Value.Entries
-        |> Seq.map (fun r ->
-          { Address = r.RelOffset
-            SymbolName = r.RelSymbol |> Option.map (fun s -> s.SymName)
-            Addend = Some(int64 r.RelAddend) })
-        |> Seq.toArray
+      (* The cached array is never handed out as is, so callers cannot make
+         their edits visible to the next lookup. *)
+      member _.Relocations = Array.copy binRelocations.Value
 
       member _.IsRelocationAddr addr = relocs.Value.Contains addr
 
       member _.TryGetRelocatedAddr relocAddr =
-        getRelocatedAddr relocs.Value relocAddr
+        getRelocatedAddr toolBox relocs.Value relocAddr
 
       member _.TryGetInternalFunctionAddr relocAddr =
         match relocs.Value.TryFind relocAddr with
-        | Ok reloc -> tryGetInternalFuncAddr reloc
+        | Ok reloc -> tryGetInternalFuncAddr toolBox reloc
         | Error e -> Error e
     }
 
@@ -385,22 +409,44 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Option.map (fun ph ->
         readCString (System.ReadOnlySpan bytes) (int ph.PHOffset))
 
-  let dynamicPaths tag =
-    let isDyn s = s.SecType = SectionType.SHT_DYNAMIC
-    match Array.tryFind isDyn shdrs.Value with
+  /// Returns where in the dynamic string table every entry of the given tag
+  /// points. That table is the one DT_STRTAB names, which a file whose
+  /// section headers are gone still says the whereabouts of.
+  let dynamicStrOffsets tag =
+    match dynTables.Value.Strings with
     | None ->
       [||]
     | Some sec ->
-      let strOff = int shdrs.Value[int sec.SecLink].SecOffset
-      let span = System.ReadOnlySpan bytes
-      let offsets =
-        dynamicArray.Value
-        |> Array.choose (fun e ->
-          if e.DTag = tag then Some(strOff + int e.DVal) else None)
-      let acc = ResizeArray()
-      for off in offsets do
-        acc.AddRange((readCString span off).Split(':'))
-      acc.ToArray() |> Array.filter (fun s -> s <> "")
+      let strOff = int sec.SecOffset
+      dynamicArray.Value
+      |> Array.choose (fun e ->
+        if e.DTag = tag then Some(strOff + int e.DVal) else None)
+
+  /// Returns the strings the given dynamic tag names.
+  let dynamicStrings tag =
+    let offsets = dynamicStrOffsets tag
+    let span = System.ReadOnlySpan bytes
+    let strs = Array.zeroCreate offsets.Length
+    for i = 0 to offsets.Length - 1 do
+      strs[i] <- readCString span offsets[i]
+    strs
+
+  /// Returns the search paths the given dynamic tag names. One entry holds a
+  /// whole list of them, colon separated the way a shell path is.
+  let dynamicPaths tag =
+    let acc = ResizeArray()
+    for str in dynamicStrings tag do
+      acc.AddRange(str.Split ':')
+    acc.ToArray() |> Array.filter (fun s -> s <> "")
+
+  (* Kept apart so that asking for one search path does not decode the other. *)
+  let rpath = lazy dynamicPaths DTag.DT_RPATH
+
+  let runpath = lazy dynamicPaths DTag.DT_RUNPATH
+
+  let dependencies = lazy dynamicStrings DTag.DT_NEEDED
+
+  let soname = lazy (dynamicStrings DTag.DT_SONAME |> Array.tryHead)
 
   let programHeaderTableAddr =
     lazy
@@ -421,14 +467,14 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let programHeaderTable =
     lazy
-      if hdr.PHdrNum = 0us then
+      if hdr.PHdrNum = 0 then
         None
       else
         programHeaderTableAddr.Value
         |> Option.map (fun addr ->
           { Address = addr
             EntrySize = int hdr.PHdrEntrySize
-            Count = int hdr.PHdrNum })
+            Count = hdr.PHdrNum })
 
   /// ELF Header information.
   member internal _.Header with get() = hdr
@@ -459,6 +505,20 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// Debug information.
   member internal _.DebugInfo with get() = dbginfo.Value
+
+  /// ELF notes, in the order the file lays them out.
+  member internal _.Notes with get() = notes.Value
+
+  /// GNU program properties, which the NT_GNU_PROPERTY_TYPE_0 note carries.
+  member internal _.GNUProperties with get() = gnuProperties.Value
+
+  /// File-backed memory mappings that a core dump records in its NT_FILE
+  /// note. Empty for every file that is not a core dump.
+  member internal _.CoreMappings with get() = coreMappings.Value
+
+  /// Thread states that a core dump records in its NT_PRSTATUS notes, one per
+  /// thread. Empty for every file that is not a core dump.
+  member internal _.ProcessStatuses with get() = processStatuses.Value
 
   /// Returns Global Pointer (GP) value when it is known. This is only available
   /// in MIPS binaries.
@@ -512,9 +572,15 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.InterpreterPath with get() = interpreterPath.Value
 
-    member _.RPath with get() = dynamicPaths DTag.DT_RPATH
+    member _.RPath with get() = Array.copy rpath.Value
 
-    member _.RunPath with get() = dynamicPaths DTag.DT_RUNPATH
+    member _.RunPath with get() = Array.copy runpath.Value
+
+    member _.DependencyNames with get() = Array.copy dependencies.Value
+
+    member _.SharedObjectName with get() = soname.Value
+
+    member _.BuildId with get() = Array.copy buildId.Value
 
     member _.ProgramHeaderTable with get() = programHeaderTable.Value
 
@@ -566,13 +632,13 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
 
     member _.IsValidRange range =
-      IntervalSet.findAll range notInMemRanges.Value |> List.isEmpty
+      IntervalSet.overlapsRange range notInMemRanges.Value |> not
 
     member _.IsAddrMappedToFile addr =
       IntervalSet.containsAddr addr notInFileRanges.Value |> not
 
     member _.IsRangeMappedToFile range =
-      IntervalSet.findAll range notInFileRanges.Value |> List.isEmpty
+      IntervalSet.overlapsRange range notInFileRanges.Value |> not
 
     member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value

@@ -8,7 +8,9 @@
     <Compile Include="ZIPReader.fs" />
     <Compile Include="Helper.fs" />
     <Compile Include="BinFilePointerTests.fs" />
+    <Compile Include="FileHelperTests.fs" />
     <Compile Include="ELFTests.fs" />
+    <Compile Include="DWARFTests.fs" />
     <Compile Include="PETests.fs" />
     <Compile Include="MachTests.fs" />
     <Compile Include="WasmTests.fs" />

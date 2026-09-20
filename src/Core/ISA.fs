@@ -280,6 +280,8 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.RISCV, Endian.Little, WordSize.Bit32)
     | "riscv64" | "riscv" ->
       ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
+    | "sparc32" | "sparcv8" ->
+      ISA(Architecture.SPARC, Endian.Big, WordSize.Bit32)
     | "sparc" | "sparc64" ->
       ISA(Architecture.SPARC, Endian.Big)
     | "s390" ->
@@ -534,6 +536,8 @@ type ISA(arch, endian, wordSize, flags) =
       "riscv32"
     | Architecture.RISCV, Endian.Little, WordSize.Bit64 ->
       "riscv64"
+    | Architecture.SPARC, Endian.Big, WordSize.Bit32 ->
+      "sparc32"
     | Architecture.SPARC, Endian.Big, WordSize.Bit64 ->
       "sparc64"
     | Architecture.S390, Endian.Big, WordSize.Bit32 ->

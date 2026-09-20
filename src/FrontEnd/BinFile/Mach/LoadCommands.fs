@@ -78,6 +78,11 @@ module internal LoadCommands =
       StackSize = reader.ReadUInt64(span, 16) }
 
   /// Read lc_str string.
+  /// Reads the sixteen bytes that an LC_UUID command carries after its kind
+  /// and its size. A command too short to hold them names nothing.
+  let readUuid (span: ByteSpan) =
+    if span.Length < 24 then [||] else span.Slice(8, 16).ToArray()
+
   let readLCStr toolBox cmdSize (span: ByteSpan) =
     let strOffset = toolBox.Reader.ReadInt32(span, 8)
     let strLen = cmdSize - strOffset
@@ -132,10 +137,14 @@ module internal LoadCommands =
         Main(cmdType, uint32 cmdSize, parseMainCmd toolBox span)
       | CmdType.LC_LOAD_DYLIB ->
         DyLib(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
+      | CmdType.LC_ID_DYLIB ->
+        DyLibId(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
       | CmdType.LC_LOAD_DYLINKER ->
         DyLinker(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span)
       | CmdType.LC_RPATH ->
         Rpath(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span)
+      | CmdType.LC_UUID ->
+        Uuid(cmdType, uint32 cmdSize, readUuid span)
       | CmdType.LC_DYLD_INFO
       | CmdType.LC_DYLD_INFO_ONLY ->
         DyLdInfo(cmdType, uint32 cmdSize, parseDyLdInfo toolBox span)

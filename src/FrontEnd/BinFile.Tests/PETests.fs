@@ -114,6 +114,25 @@ type PETests() =
     |> assertExistenceOfPair (pageRVA, blockSize)
 
   [<TestMethod>]
+  member _.``[PE] X64 PDB build ID test``() =
+    (* PE names a build by the GUID of the PDB it was built with, which the
+       CodeView entry of its debug directory carries. *)
+    let hex = "590d440e92d5dc4294c27ae9b2c70ae2"
+    let expected = ByteArray.ofHexString hex
+    CollectionAssert.AreEqual(expected, (x64PdbFile :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[PE] X64 without CodeView has no build ID test``() =
+    (* The debug directory of this one holds only a POGO entry, which names
+       no PDB and so names no build. *)
+    CollectionAssert.AreEqual([||], (x64File :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[PE] X64 object file has no build ID test``() =
+    (* An object file has no optional header, so no debug directory either. *)
+    CollectionAssert.AreEqual([||], (x64ObjFile :> IBinFile).BuildId)
+
+  [<TestMethod>]
   member _.``[PE] x64 ISA test``() =
     let isa = (x64File :> IBinFile).ISA
     Assert.AreEqual(Architecture.Intel, isa.Arch)
@@ -129,6 +148,28 @@ type PETests() =
     let flg = Characteristics.ExecutableImage
     Assert.AreEqual
       (true, x64File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
+
+  [<TestMethod>]
+  member _.``[PE] x64 dependencies test``() =
+    (* The import directory names one entry per DLL, and an image with no
+       export directory announces no name of its own. *)
+    let file = x64File :> IBinFile
+    let expected =
+      [| "KERNEL32.dll"
+         "VCRUNTIME140.dll"
+         "api-ms-win-crt-heap-l1-1-0.dll"
+         "api-ms-win-crt-locale-l1-1-0.dll"
+         "api-ms-win-crt-math-l1-1-0.dll"
+         "api-ms-win-crt-runtime-l1-1-0.dll"
+         "api-ms-win-crt-stdio-l1-1-0.dll" |]
+    CollectionAssert.AreEqual(expected, Array.sort file.DependencyNames)
+    Assert.AreEqual<string option>(None, file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll announces its own name test``() =
+    let file = x64DllFile :> IBinFile
+    let expected = Some "pe_x64_dll.dll"
+    Assert.AreEqual<string option>(expected, file.SharedObjectName)
 
   [<TestMethod>]
   member _.``[PE] x64 kind test``() =

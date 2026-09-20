@@ -81,6 +81,12 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.RunPath with get() = [||]
 
+    member _.DependencyNames with get() = [||]
+
+    member _.SharedObjectName with get() = None
+
+    member _.BuildId with get() = [||]
+
     member _.ProgramHeaderTable with get() = None
 
     member _.IsNXEnabled with get() = false

@@ -65,20 +65,26 @@ module internal SectionHeaders =
   /// Return the section file offset and size, which represents the section
   /// names separated by null character.
   let private parseSectionNameTableInfo hdr ({ Reader = reader } as toolBox) =
-    let secPtr = hdr.SHdrTblOffset + uint64 (hdr.SHdrStrIdx * hdr.SHdrEntrySize)
     let cls = hdr.Class
     let ptrSize = WordSize.toByteWidth cls
+    let entSize = int hdr.SHdrEntrySize
+    let secPtr = hdr.SHdrTblOffset + uint64 (hdr.SHdrStrIdx * entSize)
     let shAddrOffset = 8UL + uint64 (ptrSize * 2)
     let shAddrPtr = secPtr + shAddrOffset (* pointer to sh_offset *)
     let shAddrSize = ptrSize * 2 (* sh_offset, sh_size *)
-    try
-      let span = ReadOnlySpan(toolBox.Bytes, int shAddrPtr, shAddrSize)
-      let offset = readUIntByWordSize span reader cls 0
-      let size = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
-      ReadOnlySpan(toolBox.Bytes, int offset, int size)
-    with _ ->
-      eprintfn $"Warning: Failed to parse section name table."
+    (* SHN_UNDEF says the file names no section, and an index past the table
+       names one it does not have. *)
+    if hdr.SHdrStrIdx <= 0 || hdr.SHdrStrIdx >= hdr.SHdrNum then
       ReadOnlySpan<byte>()
+    else
+      try
+        let span = ReadOnlySpan(toolBox.Bytes, int shAddrPtr, shAddrSize)
+        let offset = readUIntByWordSize span reader cls 0
+        let size = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
+        ReadOnlySpan(toolBox.Bytes, int offset, int size)
+      with _ ->
+        eprintfn $"Warning: Failed to parse section name table."
+        ReadOnlySpan<byte>()
 
   let private peekSecType (span: ByteSpan) (reader: IBinReader) =
     reader.ReadUInt32(span, 4)
@@ -109,9 +115,11 @@ module internal SectionHeaders =
     let hdr = toolBox.Header
     let nameTbl = parseSectionNameTableInfo hdr toolBox
     let secHdrEntrySize = int hdr.SHdrEntrySize
-    let secHdrCount = int hdr.SHdrNum
+    let tblOffset = hdr.SHdrTblOffset
+    let secHdrCount =
+      countTableEntries bytes tblOffset secHdrEntrySize hdr.SHdrNum
     let secHeaders = Array.zeroCreate secHdrCount
-    let mutable offset = int hdr.SHdrTblOffset
+    let mutable offset = int tblOffset
     for i = 0 to secHdrCount - 1 do
       let span = ReadOnlySpan(bytes, offset, secHdrEntrySize)
       let hdr = parseSectionHdr toolBox i nameTbl span

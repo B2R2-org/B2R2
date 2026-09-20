@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
+open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a dynamic array entry in the .dynamic section of ELF binaries.
@@ -110,9 +111,17 @@ and internal DTag =
   | DT_PREINIT_ARRAY = 32UL
   | DT_PRE_INIT_ARRAYSZ = 33UL
   | DT_MAXPOSTAGS = 34UL
+  /// Holds the size of the DT_RELR relocation table.
+  | DT_RELRSZ = 35UL
+  /// Holds the address of the table of packed relative relocations.
+  | DT_RELR = 36UL
+  /// Holds the size of a single entry in the DT_RELR table.
+  | DT_RELRENT = 37UL
   | DT_FLAGS_1 = 0x6ffffffbUL
   | DT_RELACOUNT = 0x6ffffff9UL
   | DT_VERSYM = 0x6ffffff0UL
+  | DT_VERDEF = 0x6ffffffcUL
+  | DT_VERDEFNUM = 0x6ffffffdUL
   | DT_VERNEED = 0x6ffffffeUL
   | DT_VERNEEDNUM = 0x6fffffffUL
   | DT_VALRNGLO = 0x6ffffd00UL
@@ -201,25 +210,43 @@ module internal DynamicArray =
     let dval = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
     { DTag = LanguagePrimitives.EnumOfValue dtag; DVal = dval }
 
-  let private parseDynamicSection ({ Bytes = bytes } as toolBox) sec =
+  /// Reads the dynamic array laid out at the given file offset, stopping at
+  /// whichever comes first, the DT_NULL terminator or the end of the array.
+  let private parseEntries ({ Bytes = bytes } as toolBox) offset size =
     let reader = toolBox.Reader
     let cls = toolBox.Header.Class
-    let numEntries = int sec.SecSize / int sec.SecEntrySize
+    let entrySize = WordSize.toByteWidth cls * 2
+    let numEntries = size / entrySize
     let entries = Array.zeroCreate numEntries
     let rec parseLoop n offset =
       if n = numEntries then
         entries
       else
-        let span = ReadOnlySpan(bytes, offset, int sec.SecEntrySize)
+        let span = ReadOnlySpan(bytes, offset, entrySize)
         let ent = readDynamicEntry reader cls span
         entries[n] <- ent
         if ent.DTag = DTag.DT_NULL && ent.DVal = 0UL then entries[0..n]
-        else parseLoop (n + 1) (offset + int sec.SecEntrySize)
-    parseLoop 0 (int sec.SecOffset)
+        else parseLoop (n + 1) (offset + entrySize)
+    parseLoop 0 offset
 
-  let parse toolBox secHeaders =
-    let dynamicSection =
-      secHeaders |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_DYNAMIC)
-    match dynamicSection with
-    | Some sec -> parseDynamicSection toolBox sec
+  /// Returns where the dynamic array sits in the file. The .dynamic section
+  /// names it, and the PT_DYNAMIC segment names the same bytes for binaries
+  /// whose section headers have been stripped.
+  let private tryFindRange shdrs phdrs =
+    let isDynSection s = s.SecType = SectionType.SHT_DYNAMIC
+    let isDynSegment ph = ph.PHType = ProgramHeaderType.PT_DYNAMIC
+    match Array.tryFind isDynSection shdrs with
+    | Some sec ->
+      Some(int sec.SecOffset, int sec.SecSize)
+    | None ->
+      Array.tryFind isDynSegment phdrs
+      |> Option.map (fun ph -> int ph.PHOffset, int ph.PHFileSize)
+
+  let parse toolBox shdrs phdrs =
+    match tryFindRange shdrs phdrs with
+    | Some(offset, size) -> parseEntries toolBox offset size
     | None -> [||]
+
+  /// Returns the value the dynamic array gives the tag, if it carries it.
+  let tryFindValue (entries: DynamicArrayEntry[]) tag =
+    Array.tryFind (fun e -> e.DTag = tag) entries |> Option.map _.DVal

@@ -225,6 +225,23 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let importEntries = lazy getImportTable pe
 
+  (* One entry of the import directory per library, which is what every import
+     of it names, so the names of the libraries are its names made distinct. *)
+  let dependencies =
+    lazy
+      importEntries.Value
+      |> Array.map _.LibraryName
+      |> Array.filter (fun name -> name <> "")
+      |> Array.distinct
+
+  let exportName =
+    lazy
+      match pe.ExportedSymbols.DLLName with
+      | "" -> None
+      | name -> Some name
+
+  let buildId = lazy getBuildId bytes pe
+
   let importTable =
     Some { new IImportTable with
       member _.Imports = importEntries.Value
@@ -330,6 +347,12 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     member _.RPath with get() = [||]
 
     member _.RunPath with get() = [||]
+
+    member _.DependencyNames with get() = Array.copy dependencies.Value
+
+    member _.SharedObjectName with get() = exportName.Value
+
+    member _.BuildId with get() = Array.copy buildId.Value
 
     member _.ProgramHeaderTable with get() = None
 
