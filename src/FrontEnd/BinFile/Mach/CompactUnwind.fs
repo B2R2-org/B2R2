@@ -25,8 +25,8 @@
 /// Parses the Apple-specific compact unwind table (`__TEXT,__unwind_info`),
 /// which replaces DWARF `__eh_frame` on modern macOS (especially arm64). We
 /// only recover what the format-agnostic exception model needs: per-function
-/// address ranges and their LSDA pointers. The compact register-restore
-/// encodings are intentionally ignored.
+/// address ranges, their LSDA pointers and their personality routines. The
+/// compact register-restore encodings are intentionally ignored.
 module internal B2R2.FrontEnd.BinFile.Mach.CompactUnwind
 
 open System
@@ -38,6 +38,21 @@ let [<Literal>] private CompressedPage = 3u
 
 let [<Literal>] private FuncOffsetMask = 0x00FFFFFFu
 
+let [<Literal>] private PersonalityMask = 0x30000000u
+
+let [<Literal>] private PersonalityShift = 28
+
+/// Section offsets and counts from the `__unwind_info` header, which the entry
+/// encodings index into.
+[<Struct>]
+type private Header =
+  { CommonEncodingsOffset: uint32
+    CommonEncodingsCount: uint32
+    PersonalityOffset: uint32
+    PersonalityCount: uint32
+    IndexOffset: uint32
+    IndexCount: uint32 }
+
 /// First-level index entry: the function offset it starts at, the section
 /// offset of its second-level page, and the section offset of its LSDA index
 /// array. The last entry is a sentinel whose function offset marks the end of
@@ -47,6 +62,24 @@ type private IndexEntry =
   { FuncOffset: uint32
     PageOffset: uint32
     LSDAOffset: uint32 }
+
+/// Second-level page entry, pairing a function with its compact encoding. The
+/// field is named apart from IndexEntry.FuncOffset, as an untyped record field
+/// otherwise resolves to whichever type declares it last.
+[<Struct>]
+type private Entry =
+  { /// Image-relative offset the function starts at.
+    Start: uint32
+    /// Compact encoding that describes how to unwind the function.
+    Encoding: uint32 }
+
+let private readHeader (span: ByteSpan) (reader: IBinReader) =
+  { CommonEncodingsOffset = reader.ReadUInt32(span, 4)
+    CommonEncodingsCount = reader.ReadUInt32(span, 8)
+    PersonalityOffset = reader.ReadUInt32(span, 12)
+    PersonalityCount = reader.ReadUInt32(span, 16)
+    IndexOffset = reader.ReadUInt32(span, 20)
+    IndexCount = reader.ReadUInt32(span, 24) }
 
 let private readIndex (span: ByteSpan) (reader: IBinReader) off count =
   let entries = Array.zeroCreate count
@@ -73,10 +106,38 @@ let private readLSDAMap (span: ByteSpan) (reader: IBinReader) (index: _[]) =
     i <- i + 1
   map
 
-/// Collects every function start offset (image-relative) from the second-level
-/// pages, in ascending order.
-let private collectFuncOffsets span (reader: IBinReader) (index: _[]) =
-  let offs = Collections.Generic.List<uint32>()
+/// Reads the personality array, whose entries are image-relative offsets to
+/// the pointer-sized slots that hold the personality routines.
+let private readPersonalities span (reader: IBinReader) hdr imageBase =
+  let count = int hdr.PersonalityCount
+  let slots = Array.zeroCreate count
+  let mutable i = 0
+  while i < count do
+    let off = int hdr.PersonalityOffset + i * 4
+    let slot = reader.ReadUInt32(span = span, offset = off)
+    slots[i] <- imageBase + uint64 slot
+    i <- i + 1
+  slots
+
+/// Reads the encoding a compressed-page entry names, which indexes the
+/// section-wide common encodings array or, past its end, the page's own one.
+let private readEncoding span (reader: IBinReader) hdr pageOff idx =
+  if idx < hdr.CommonEncodingsCount then
+    let off = int hdr.CommonEncodingsOffset + int idx * 4
+    reader.ReadUInt32(span = span, offset = off)
+  else
+    let localOff = pageOff + int (reader.ReadUInt16(span, pageOff + 8))
+    let localCount = uint32 (reader.ReadUInt16(span, pageOff + 10))
+    let localIdx = idx - hdr.CommonEncodingsCount
+    if localIdx < localCount then
+      reader.ReadUInt32(span, localOff + int localIdx * 4)
+    else
+      0u
+
+/// Collects every function of the second-level pages, in ascending order of
+/// their image-relative start offsets.
+let private collectEntries span (reader: IBinReader) hdr (index: _[]) =
+  let entries = Collections.Generic.List<Entry>()
   let mutable i = 0
   while i < index.Length - 1 do
     let pageOff = int index[i].PageOffset
@@ -87,42 +148,58 @@ let private collectFuncOffsets span (reader: IBinReader) (index: _[]) =
       let mutable e = 0
       if kind = RegularPage then
         while e < entryCount do
-          offs.Add(reader.ReadUInt32(span, entryStart + e * 8))
+          let b = entryStart + e * 8
+          let enc = reader.ReadUInt32(span, b + 4)
+          entries.Add { Start = reader.ReadUInt32(span, b); Encoding = enc }
           e <- e + 1
       elif kind = CompressedPage then
         let funcBase = index[i].FuncOffset
         while e < entryCount do
           let v = reader.ReadUInt32(span, entryStart + e * 4)
-          offs.Add(funcBase + (v &&& FuncOffsetMask))
+          let enc = readEncoding span reader hdr pageOff (v >>> 24)
+          entries.Add { Start = funcBase + (v &&& FuncOffsetMask)
+                        Encoding = enc }
           e <- e + 1
       else
         ()
     else
       ()
     i <- i + 1
-  offs
+  entries
 
-/// Parses `__unwind_info`, returning per-function (start, end, LSDA address)
-/// tuples with addresses resolved against the image base (the __TEXT vmaddr).
+/// Returns the slot holding the personality routine that the given compact
+/// encoding names, or None when it names none (a personality index of zero).
+let private toPersonality (slots: _[]) enc =
+  let idx = int ((enc &&& PersonalityMask) >>> PersonalityShift)
+  if idx = 0 || idx > slots.Length then None
+  else Some slots[idx - 1]
+
+/// Parses `__unwind_info`, returning per-function (start, end, LSDA address,
+/// personality slot address) tuples with addresses resolved against the image
+/// base (the __TEXT vmaddr).
 let parse (bytes: byte[]) (reader: IBinReader) secOffset secSize imageBase =
   let span = ReadOnlySpan(bytes, secOffset, secSize)
   if secSize < 28 || reader.ReadUInt32(span, 0) <> 1u then
     []
   else
-    let indexOff = int (reader.ReadUInt32(span, 20))
-    let indexCount = int (reader.ReadUInt32(span, 24))
+    let hdr = readHeader span reader
+    let indexCount = int hdr.IndexCount
     if indexCount < 2 then
       []
     else
-      let index = readIndex span reader indexOff indexCount
+      let index = readIndex span reader (int hdr.IndexOffset) indexCount
       let lsdaMap = readLSDAMap span reader index
-      let funcs = collectFuncOffsets span reader index
+      let slots = readPersonalities span reader hdr imageBase
+      let entries = collectEntries span reader hdr index
       let lastEnd = index[indexCount - 1].FuncOffset
-      [ for j in 0 .. funcs.Count - 1 do
-          let fo = funcs[j]
-          let fend = if j < funcs.Count - 1 then funcs[j + 1] else lastEnd
+      [ for j in 0 .. entries.Count - 1 do
+          let entry = entries[j]
+          let fend =
+            if j < entries.Count - 1 then entries[j + 1].Start else lastEnd
           let lsda =
-            match lsdaMap.TryGetValue fo with
+            match lsdaMap.TryGetValue entry.Start with
             | true, lo -> Some(imageBase + uint64 lo)
             | _ -> None
-          imageBase + uint64 fo, imageBase + uint64 fend, lsda ]
+          let funcStart = imageBase + uint64 entry.Start
+          let funcEnd = imageBase + uint64 fend
+          funcStart, funcEnd, lsda, toPersonality slots entry.Encoding ]

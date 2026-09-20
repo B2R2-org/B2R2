@@ -37,10 +37,11 @@ type internal FrameInfo =
     FuncEnd: Addr
     /// Address of the LSDA governing this frame, if any.
     LSDAPointer: Addr option
-    /// Address the DWARF CIE's 'P' augmentation encodes for this frame, if
-    /// any. Always None for a compact-unwind frame, which names its
-    /// personality by an index into the `__unwind_info` personality array
-    /// rather than by an address.
+    /// Address at which this frame's personality routine is recorded: the 'P'
+    /// augmentation of its DWARF CIE, or the `__unwind_info` personality array
+    /// entry its compact encoding indexes. Either way this normally gives the
+    /// slot holding the routine rather than the routine itself. None when the
+    /// frame names no personality.
     PersonalityRoutine: Addr option }
 
 /// Represents Mach-O exception information: per-function frames plus the LSDA
@@ -101,11 +102,11 @@ module internal ExceptionData =
         (int sec.SecOffset)
         (int sec.SecSize)
         imageBase
-      |> List.map (fun (s, e, l) ->
+      |> List.map (fun (s, e, l, p) ->
         { FuncStart = s
           FuncEnd = e
           LSDAPointer = l
-          PersonalityRoutine = None })
+          PersonalityRoutine = p })
     | None ->
       []
 
