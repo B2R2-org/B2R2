@@ -29,27 +29,56 @@ module internal B2R2.FrontEnd.BinFile.Mach.Fat
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile
+
+/// Size of a fat_arch entry.
+let [<Literal>] private ArchSize = 20
+
+/// Size of a fat_arch_64 entry, which widens the offset and the size.
+let [<Literal>] private ArchSize64 = 32
 
 let private readFatArch (span: ByteSpan) (reader: IBinReader) offset =
-  let cpuType = reader.ReadInt32(span, offset)
-  let cpuSubType = reader.ReadInt32(span, offset + 4)
-  { CPUType = cpuType |> LanguagePrimitives.EnumOfValue
-    CPUSubType = cpuSubType |> LanguagePrimitives.EnumOfValue
-    Offset = reader.ReadInt32(span, offset + 8)
-    Size = reader.ReadInt32(span, offset + 12)
+  { CPUType = reader.ReadInt32(span, offset) |> LanguagePrimitives.EnumOfValue
+    CPUSubType =
+      reader.ReadInt32(span, offset + 4) |> LanguagePrimitives.EnumOfValue
+    Offset = reader.ReadUInt32(span, offset + 8) |> uint64
+    Size = reader.ReadUInt32(span, offset + 12) |> uint64
     Align = reader.ReadInt32(span, offset + 16) }
+
+let private readFatArch64 (span: ByteSpan) (reader: IBinReader) offset =
+  { CPUType = reader.ReadInt32(span, offset) |> LanguagePrimitives.EnumOfValue
+    CPUSubType =
+      reader.ReadInt32(span, offset + 4) |> LanguagePrimitives.EnumOfValue
+    Offset = reader.ReadUInt64(span, offset + 8)
+    Size = reader.ReadUInt64(span, offset + 16)
+    Align = reader.ReadInt32(span, offset + 24) }
+
+/// Returns the size of one entry of the architecture table, which the magic
+/// tells apart. A FAT header is always big-endian, whichever host wrote it.
+let private archSizeOf (bytes: byte[]) (reader: IBinReader) =
+  let magic: Magic =
+    reader.ReadUInt32(bytes, 0) |> LanguagePrimitives.EnumOfValue
+  match magic with
+  | Magic.FAT_MAGIC -> ArchSize
+  | Magic.FAT_MAGIC_64 -> ArchSize64
+  | _ -> raise InvalidFileFormatException
 
 /// Parses the FAT binary header and returns an array of `FatArch` records.
 let parseArchs (bytes: byte[]) =
   let reader = BinReader.Init Endian.Big
-  let magic = reader.ReadUInt32(bytes, 0)
+  let entrySize = archSizeOf bytes reader
   let nArch = reader.ReadInt32(bytes, 4)
-  assert (LanguagePrimitives.EnumOfValue magic = Magic.FAT_MAGIC)
-  let span = ReadOnlySpan(bytes, 8, 20 * nArch)
-  let archs = Array.zeroCreate nArch
-  for i = 0 to nArch - 1 do
-    archs[i] <- readFatArch span reader (i * 20)
-  archs
+  if nArch < 0 || 8 + entrySize * nArch > bytes.Length then
+    raise InvalidFileFormatException
+  else
+    let span = ReadOnlySpan(bytes, 8, entrySize * nArch)
+    let archs = Array.zeroCreate nArch
+    for i = 0 to nArch - 1 do
+      let offset = i * entrySize
+      archs[i] <-
+        if entrySize = ArchSize64 then readFatArch64 span reader offset
+        else readFatArch span reader offset
+    archs
 
 let private matchingISA (isa: ISA) fatArch =
   let arch, wordSize =

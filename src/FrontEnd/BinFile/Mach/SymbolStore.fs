@@ -80,10 +80,14 @@ module internal SymbolStore =
   let private countSymbols symtabs =
     symtabs |> Array.fold (fun cnt symtab -> int symtab.NumOfSym + cnt) 0
 
-  let private getLibraryVerInfo (flags: MachFlag) libs nDesc =
+  /// Resolves the library a two-level namespace symbol is bound to. The
+  /// ordinal is a 1-based index into the dylibs the file loads; the values
+  /// outside that range are the special lookups (self, flat, dynamic, or the
+  /// executable), which name no library of their own.
+  let private getLibraryVerInfo (flags: MachFlag) (libs: _[]) nDesc =
     if flags.HasFlag MachFlag.MH_TWOLEVEL then
       let ord = nDesc >>> 8 &&& 0xffs |> int
-      if ord = 0 || ord = 254 then None else Some <| Array.get libs (ord - 1)
+      if ord >= 1 && ord <= libs.Length then Some libs[ord - 1] else None
     else
       None
 

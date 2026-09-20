@@ -35,7 +35,11 @@ type internal LoadCommand =
   | SymTab of cmd: CmdType * size: uint32 * SymTabCmd
   /// Dynamic symbol table command (LC_DYSYMTAB).
   | DySymTab of cmd: CmdType * size: uint32 * DySymTabCmd
-  /// Dynamic shared library command (LC_LOAD_DYLIB).
+  /// Dynamic shared library command: LC_LOAD_DYLIB, or one of the variants
+  /// that load a library on their own terms (LC_LOAD_WEAK_DYLIB,
+  /// LC_REEXPORT_DYLIB, LC_LOAD_UPWARD_DYLIB, LC_LAZY_LOAD_DYLIB). They share
+  /// this case because a dylib ordinal counts every one of them, in the order
+  /// they appear, so leaving any out would shift the rest.
   | DyLib of cmd: CmdType * size: uint32 * DyLibCmd
   /// Dynamic shared library identification command (LC_ID_DYLIB), carrying
   /// the name this library announces for itself. Kept apart from DyLib so

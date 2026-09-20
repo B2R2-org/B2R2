@@ -140,7 +140,11 @@ module internal LoadCommands =
         DySymTab(cmdType, uint32 cmdSize, parseDySymCmd toolBox span)
       | CmdType.LC_MAIN ->
         Main(cmdType, uint32 cmdSize, parseMainCmd toolBox span)
-      | CmdType.LC_LOAD_DYLIB ->
+      | CmdType.LC_LOAD_DYLIB
+      | CmdType.LC_LOAD_WEAK_DYLIB
+      | CmdType.LC_REEXPORT_DYLIB
+      | CmdType.LC_LOAD_UPWARD_DYLIB
+      | CmdType.LC_LAZY_LOAD_DYLIB ->
         DyLib(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
       | CmdType.LC_ID_DYLIB ->
         DyLibId(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)

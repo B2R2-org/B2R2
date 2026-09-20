@@ -48,6 +48,12 @@ type internal Magic =
   /// The file is intended for use on multiple architectures (FAT binary). This
   /// value is used on a little-endian host.
   | FAT_CIGAM = 0xBEBAFECAu
+  /// A FAT binary whose table of architectures uses 64-bit offsets and sizes.
+  /// This value is used on a big-endian host.
+  | FAT_MAGIC_64 = 0xCAFEBABFu
+  /// A FAT binary whose table of architectures uses 64-bit offsets and sizes.
+  /// This value is used on a little-endian host.
+  | FAT_CIGAM_64 = 0xBFBAFECAu
 
 module internal Magic =
   let read (span: ByteSpan) (reader: IBinReader) =
