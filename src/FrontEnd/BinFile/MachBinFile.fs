@@ -64,7 +64,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   let exports =
     lazy ExportedSymbols.parse toolBox cmds.Value segCmds.Value
 
-  let relocs = lazy Reloc.parse toolBox secs.Value
+  let relocs =
+    lazy Reloc.parse toolBox segCmds.Value secs.Value cmds.Value
 
   let relocMap = lazy Reloc.buildMap relocs.Value
 

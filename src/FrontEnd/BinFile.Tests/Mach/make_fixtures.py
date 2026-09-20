@@ -18,7 +18,9 @@ MH_OBJECT, MH_EXECUTE, MH_DYLIB = 1, 2, 6
 CPU_I386, CPU_ARM, CPU_ARM64, CPU_X64 = 7, 12, 0x0100000C, 0x01000007
 LC_SEGMENT, LC_SEGMENT_64, LC_SYMTAB = 0x1, 0x19, 0x2
 LC_UNIXTHREAD, LC_ID_DYLIB, LC_DATA_IN_CODE = 0x5, 0xD, 0x29
-LC_DYLD_INFO_ONLY = 0x80000022
+LC_DYLD_INFO_ONLY, LC_DYSYMTAB = 0x80000022, 0xB
+LC_DYLD_CHAINED_FIXUPS = 0x80000034
+PTR_START_MULTI, PTR_START_LAST, PTR_START_NONE = 0x8000, 0x8000, 0xFFFF
 N_SECT_EXT, N_ABS_EXT, N_UNDF_EXT = 0x0F, 0x03, 0x01
 N_ARM_THUMB_DEF, MH_PIE, SUBSECTIONS_VIA_SYMBOLS = 0x8, 0x200000, 0x2000
 
@@ -157,6 +159,13 @@ def i386_dyldinfo():
     return bytes(out)
 
 
+def dysymtab(extreloff, nextrel, locreloff, nlocrel):
+    fields = [0] * 18
+    fields[14], fields[15] = extreloff, nextrel
+    fields[16], fields[17] = locreloff, nlocrel
+    return struct.pack('<2I18I', LC_DYSYMTAB, 80, *fields)
+
+
 def plain_reloc(addr, symnum, pcrel, length, ext, rtype):
     word = (symnum & 0xFFFFFF) | (pcrel << 24) | (length << 25) \
         | (ext << 27) | (rtype << 28)
@@ -225,12 +234,92 @@ def arm32_thumb():
             + text + nlists + strtab + dice)
 
 
+def x64_extreloc():
+    """A non-PIE dylib whose relocations live in the external and local tables
+    of LC_DYSYMTAB rather than hanging off its sections. Only an image built
+    without PIE, chained fixups and dyld info carries them, which no current
+    linker will produce. Their r_address counts from the image base, here the
+    __TEXT vmaddr, not from any section."""
+    page, textvm = 0x1000, 0x1000
+    datavm, linkvm = 0x2000, 0x3000
+    # 0x2000 takes the external entry, whose addend is 0x10; 0x2008 takes the
+    # local one, holding the unslid address 0x2000.
+    data = struct.pack('<2Q', 0x10, datavm)
+    strtab = b'\0_data_base\0_ext_sym\0'
+    nlists = (nlist64(1, N_SECT_EXT, 2, 0, datavm)
+              + nlist64(12, N_UNDF_EXT, 0, 0, 0))
+    extrel = plain_reloc(datavm - textvm, 0, 0, 3, 1, 0)
+    locrel = plain_reloc(datavm + 8 - textvm, 2, 0, 3, 0, 0)
+    install = b'/usr/lib/libextreloc.dylib\0'
+    pad = b'\0' * (-len(install) % 8)
+    idcmd = struct.pack('<6I', LC_ID_DYLIB, 24 + len(install) + len(pad),
+                        24, 0, 0x10000, 0x10000) + install + pad
+    symoff = linkvm
+    stroff = symoff + len(nlists)
+    reloff = stroff + len(strtab)
+    linksize = len(nlists) + len(strtab) + len(extrel) + len(locrel)
+    cmds = (seg64('__TEXT', textvm, page, 0, page, 5,
+                  [('__text', textvm + 0x200, 0, 0x200, 4, 0x80000400)])
+            + seg64('__DATA', datavm, page, page, page, 3,
+                    [('__data', datavm, len(data), page, 3, 0)])
+            + seg64('__LINKEDIT', linkvm, page, linkvm, linksize, 1, [])
+            + idcmd
+            + symtab(symoff, 2, stroff, len(strtab))
+            + dysymtab(reloff, 1, reloff + len(extrel), 1))
+    out = bytearray(linkvm + linksize)
+    out[0:32] = header64(CPU_X64, 3, MH_DYLIB, 6, len(cmds), 0x100085)
+    out[32:32 + len(cmds)] = cmds
+    out[page:page + len(data)] = data
+    out[symoff:symoff + len(nlists)] = nlists
+    out[stroff:stroff + len(strtab)] = strtab
+    out[reloff:reloff + len(extrel)] = extrel
+    out[reloff + len(extrel):] = locrel
+    return bytes(out)
+
+
+def x64_multichain():
+    """A dylib whose one fixup page holds two chains, so its page_start is an
+    index into the overflow list rather than an offset into the page. Only the
+    32-bit pointer formats make dyld emit that, and this parser does not read
+    those, so the payload pairs it with DYLD_CHAINED_PTR_64: the overflow walk
+    it exercises is the same one either way."""
+    page = 0x1000
+    datavm, linkvm = 0x1000, 0x2000
+    # Two one-entry chains on the same page, at 0x1000 and 0x1010, each with a
+    # next of zero. Their targets, 0x1008 and 0x1018, follow them.
+    data = struct.pack('<4Q', 0x1008, 0, 0x1018, 0)
+    starts_in_image = struct.pack('<4I', 3, 0, 16, 0)
+    page_start = struct.pack('<3H', PTR_START_MULTI | 1, 0x0000,
+                             PTR_START_LAST | 0x10)
+    in_segment = struct.pack('<IHHQIH', 22 + len(page_start), page, 2,
+                             datavm, 0, 1) + page_start
+    starts = starts_in_image + in_segment
+    header = struct.pack('<7I', 0, 32, 32 + len(starts), 32 + len(starts),
+                         0, 1, 0)
+    payload = header + b'\0' * (32 - len(header)) + starts + b'\0'
+    cmds = (seg64('__TEXT', 0, page, 0, page, 5,
+                  [('__text', 0x200, 0, 0x200, 4, 0x80000400)])
+            + seg64('__DATA', datavm, page, page, page, 3,
+                    [('__data', datavm, len(data), page, 3, 0)])
+            + seg64('__LINKEDIT', linkvm, page, linkvm, len(payload), 1, [])
+            + struct.pack('<4I', LC_DYLD_CHAINED_FIXUPS, 16, linkvm,
+                          len(payload)))
+    out = bytearray(linkvm + len(payload))
+    out[0:32] = header64(CPU_X64, 3, MH_DYLIB, 4, len(cmds), 0x100085)
+    out[32:32 + len(cmds)] = cmds
+    out[page:page + len(data)] = data
+    out[linkvm:] = payload
+    return bytes(out)
+
+
 FIXTURES = {'mach_x64_notext': notext,
             'mach_x64_unixthread': lambda: unixthread('x64'),
             'mach_arm64_unixthread': lambda: unixthread('arm64'),
             'mach_i386_dyldinfo': i386_dyldinfo,
             'mach_i386_reloc': i386_reloc,
-            'mach_arm32_thumb': arm32_thumb}
+            'mach_arm32_thumb': arm32_thumb,
+            'mach_x64_extreloc': x64_extreloc,
+            'mach_x64_multichain': x64_multichain}
 
 
 def main(check):
