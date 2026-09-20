@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Provides a general classification for the associated entity.
-type internal SymbolType =
+type SymbolType =
   /// Symbol's type is not specified.
   | STT_NOTYPE = 0uy
   /// This symbol is associated with a data object, such as variable and an

@@ -50,3 +50,9 @@ let readBytes fileFormat zipFileName inZipFileName =
   stream.CopyTo(ms)
   ms.ToArray()
 
+/// Returns the name of every fixture the given format has, which is both the
+/// name of the archive holding it and the name of the sole entry inside.
+let listFixtureNames fileFormat =
+  Directory.GetFiles(zipFileSrcDir + getFileDir fileFormat, "*.zip")
+  |> Array.map Path.GetFileNameWithoutExtension
+  |> Array.sort
