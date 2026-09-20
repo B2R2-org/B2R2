@@ -438,10 +438,16 @@ type MachTests() =
     CollectionAssert.AreEqual([| 0x100001000UL |], personalities)
 
   [<TestMethod>]
-  member _.``[Mach] ARM64 compact unwind carries no personality routine``() =
+  member _.``[Mach] ARM64 compact unwind personality routine is resolved``() =
+    (* Only the frame with a landing pad names a personality, by an index into
+       the __unwind_info personality array, whose entry points at the
+       __DATA_CONST,__got slot binding ___gxx_personality_v0. *)
     let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
-    let none = frames |> Array.forall (fun f -> f.PersonalityRoutine.IsNone)
-    Assert.AreEqual<bool>(true, none)
+    let named =
+      frames
+      |> Array.choose (fun f ->
+        f.PersonalityRoutine |> Option.map (fun p -> f.FunctionStart, p))
+    CollectionAssert.AreEqual([| 0x100000608UL, 0x100004028UL |], named)
 
   [<TestMethod>]
   member _.``[Mach] ARM64 compact unwind table is parsed``() =
