@@ -110,6 +110,38 @@ let executableRanges segCmds =
     IntervalSet.add (AddrRange.create s.VMAddr (s.VMAddr + s.VMSize - 1UL)) set
     ) IntervalSet.empty
 
+/// Returns the segment that holds the given file offset, which is how an
+/// offset a load command names is turned into the address it is mapped at.
+/// __PAGEZERO and the like occupy no file bytes, so they hold nothing.
+let private tryFindSegmentOfOffset segCmds offset =
+  segCmds
+  |> Array.tryFind (fun s ->
+    offset >= s.FileOff && offset < s.FileOff + s.FileSize)
+
+/// Returns the address range an encryption info command covers. The command
+/// gives a file offset, so a range the segments do not map is one that names
+/// no address at all.
+let private toEncryptedRange segCmds cmd =
+  let offset = uint64 cmd.CryptOffset
+  match tryFindSegmentOfOffset segCmds offset with
+  | Some seg ->
+    let saddr = seg.VMAddr + offset - seg.FileOff
+    Some(AddrRange.create saddr (saddr + uint64 cmd.CryptSize - 1UL))
+  | None ->
+    None
+
+/// Returns the ranges of the image that ship encrypted, whose bytes decode to
+/// nothing meaningful until a loader has decrypted them. A zero cryptid is
+/// what a linker writes for a range that nobody has encrypted yet, so it
+/// names no such range.
+let encryptedRanges segCmds cmds =
+  cmds
+  |> Array.choose (function
+    | EncryptionInfo(_, _, c) when c.CryptId <> 0u && c.CryptSize > 0u ->
+      toEncryptedRange segCmds c
+    | _ ->
+      None)
+
 let getPLT symInfo =
   symInfo.Imports
   |> Array.sortBy (fun entry -> entry.TrampolineAddress)

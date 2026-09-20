@@ -415,6 +415,16 @@ let dumpFuncStartsCmd (fnstart: Mach.FuncStartsCmd) idx =
   printsr [| "DataSize:"; fnstart.DataSize.ToString() |]
   printsn ""
 
+let dumpEncInfoCmd cmd size (enc: Mach.EncryptionInfoCmd) idx =
+  printSubsectionTitle <| "Load command " + idx.ToString()
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "CryptOffset:"; enc.CryptOffset.ToString() |]
+  printsr [| "CryptSize:"; enc.CryptSize.ToString() |]
+  printsr [| "CryptId:"; enc.CryptId.ToString() |]
+  printsn ""
+
 let dumpMainCmd cmd size (main: Mach.MainCmd) idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
   resetToDefaultTwoColumnConfig ()
@@ -447,6 +457,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
     | Mach.ChainedFixups(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.ExportsTrie(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.DataInCode(cmd, size, _) -> dumpUnhandledCmd cmd size i
+    | Mach.EncryptionInfo(cmd, size, enc) -> dumpEncInfoCmd cmd size enc i
     | Mach.Main(cmd, size, main) -> dumpMainCmd cmd size main i
     | Mach.Thread(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.Unhandled(cmd, size) -> dumpUnhandledCmd cmd size i

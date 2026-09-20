@@ -97,6 +97,8 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.Relro with get() = None
 
+    member _.EncryptedRanges with get() = [||]
+
     member _.NameResolver with get() = None
 
     member _.SymbolTable with get() = None

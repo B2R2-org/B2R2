@@ -24,6 +24,8 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open B2R2
+
 /// <summary>
 /// Represents an interface for accessing the basic properties of a binary file.
 /// </summary>
@@ -52,3 +54,12 @@ type IBinProperty =
   /// Mach-O).
   /// </summary>
   abstract Relro: Relro option
+
+  /// <summary>
+  /// Returns the address ranges of this binary that ship encrypted, and whose
+  /// bytes therefore decode to nothing meaningful until a loader has
+  /// decrypted them. Mach-O names them through <c>LC_ENCRYPTION_INFO</c> and
+  /// <c>LC_ENCRYPTION_INFO_64</c>; formats that have no such notion return an
+  /// empty array, as does a binary that ships none.
+  /// </summary>
+  abstract EncryptedRanges: AddrRange[]

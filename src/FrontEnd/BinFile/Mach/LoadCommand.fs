@@ -65,6 +65,10 @@ type internal LoadCommand =
   /// Data-in-code command (LC_DATA_IN_CODE), which lists the ranges of a text
   /// section that hold data rather than instructions.
   | DataInCode of cmd: CmdType * size: uint32 * DataInCodeCmd
+  /// Encryption information command (LC_ENCRYPTION_INFO or
+  /// LC_ENCRYPTION_INFO_64), which names the part of the image that ships
+  /// encrypted, as the App Store leaves a text segment.
+  | EncryptionInfo of cmd: CmdType * size: uint32 * EncryptionInfoCmd
   /// Main command (LC_MAIN).
   | Main of cmd: CmdType * size: uint32 * MainCmd
   /// Thread state command (LC_THREAD or LC_UNIXTHREAD), which is how a binary
@@ -220,6 +224,18 @@ and internal DataInCodeCmd =
     TableOffset: int
     /// Size of the table.
     TableSize: uint32 }
+
+/// Represents an encryption information command (LC_ENCRYPTION_INFO and
+/// LC_ENCRYPTION_INFO_64). The 64-bit form only pads the 32-bit one out, so
+/// the three fields read here sit at the same offsets in both.
+and internal EncryptionInfoCmd =
+  { /// File offset of the encrypted range, from the start of the image.
+    CryptOffset: int
+    /// The number of bytes that are encrypted.
+    CryptSize: uint32
+    /// The encryption system in use. Zero means the range is not encrypted
+    /// yet, which is what a linker writes and only a re-signer replaces.
+    CryptId: uint32 }
 
 /// Represents a main command.
 and internal MainCmd =

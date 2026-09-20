@@ -614,6 +614,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       else
         Some NoRelro
 
+    member _.EncryptedRanges with get() = [||]
+
     member _.NameResolver with get() = nameResolver
 
     member _.SymbolTable with get() = symbolTable

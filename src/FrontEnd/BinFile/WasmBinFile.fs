@@ -263,6 +263,8 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.Relro with get() = None
 
+    member _.EncryptedRanges with get() = [||]
+
     member _.NameResolver with get() = nameResolver
 
     member _.SymbolTable with get() = None
