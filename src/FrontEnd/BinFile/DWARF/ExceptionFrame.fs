@@ -79,6 +79,7 @@ module internal ExceptionFrame =
   /// other files).
   let parseFromSection (reader: IBinReader) cls isa regs reloc sec =
     let mem = ReadOnlyMemory<byte>(sec.Image, sec.Offset, sec.Size)
+    let sAddr = sec.Address
     let rec parseLoop cie cies fdes offset cfis =
       let span = mem.Span
       if offset >= span.Length then
@@ -94,13 +95,12 @@ module internal ExceptionFrame =
           let id, offset = reader.ReadInt32(span, offset), offset + 4
           if id = 0 then
             let cfis = accumulateCFIs cfis cie fdes
-            let cie = CIE.parse reader mem cls isa regs offset nextOfs
+            let cie = CIE.parse reader mem cls isa regs sAddr offset nextOfs
             let cies = Map.add originalOffset cie cies
             let cie = Some cie
             parseLoop cie cies [] nextOfs cfis
           else
             let cieOffset = mybase - id (* id = a CIE pointer, when id <> 0 *)
-            let sAddr = sec.Address
             let pcie = Map.tryFind cieOffset cies
             let fde =
               FDE.parse cls isa regs mem reader sAddr offset nextOfs reloc pcie

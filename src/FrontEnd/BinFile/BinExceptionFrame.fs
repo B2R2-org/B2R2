@@ -34,8 +34,10 @@ type BinExceptionFrame =
     /// End address of the function (inclusive).
     FunctionEnd: Addr
     /// Address of the personality/handler routine that governs this frame, if
-    /// any (e.g., an ELF CIE personality or a PE UNWIND_INFO handler). None
-    /// when the format records no such routine.
+    /// any (e.g., a DWARF CIE personality or a PE UNWIND_INFO handler). A CIE
+    /// that encodes its personality indirectly gives the address of the slot
+    /// holding the routine, as that is all the file records. None when the
+    /// format records no such routine.
     PersonalityRoutine: Addr option
     /// Guarded regions within this frame, with their handlers resolved.
     Handlers: BinExceptionHandler[] }

@@ -403,7 +403,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       [| for frame in exn.Value.Frames do
            { FunctionStart = frame.FuncStart
              FunctionEnd = frame.FuncEnd - 1UL
-             PersonalityRoutine = None
+             PersonalityRoutine = frame.PersonalityRoutine
              Handlers = toExceptionHandlers frame } |]
 
   let exceptionTable =

@@ -358,10 +358,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let exceptionFrames =
     lazy
       [| for cfi in exn.Value.ExceptionFrame do
+           let personality = CIE.personalityRoutine cfi.CIE
            for fde in cfi.FDEs do
              { FunctionStart = fde.PCBegin
                FunctionEnd = fde.PCEnd - 1UL
-               PersonalityRoutine = None
+               PersonalityRoutine = personality
                Handlers = toExceptionHandlers fde } |]
 
   let exceptionTable =

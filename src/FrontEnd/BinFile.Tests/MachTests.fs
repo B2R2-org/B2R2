@@ -426,6 +426,24 @@ type MachTests() =
     Assert.AreEqual<bool>(true, hasHandler)
 
   [<TestMethod>]
+  member _.``[Mach] X64 exception frame personality routine is resolved``() =
+    (* The zPLR CIE encodes its personality pointer as indirect|pcrel|sdata4,
+       so it resolves to the __DATA_CONST,__got slot that binds
+       ___gxx_personality_v0, not to the routine itself. *)
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let personalities =
+      frames
+      |> Array.choose (fun f -> f.PersonalityRoutine)
+      |> Array.distinct
+    CollectionAssert.AreEqual([| 0x100001000UL |], personalities)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 compact unwind carries no personality routine``() =
+    let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let none = frames |> Array.forall (fun f -> f.PersonalityRoutine.IsNone)
+    Assert.AreEqual<bool>(true, none)
+
+  [<TestMethod>]
   member _.``[Mach] ARM64 compact unwind table is parsed``() =
     let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     Assert.AreEqual<bool>(true, frames.Length > 0)

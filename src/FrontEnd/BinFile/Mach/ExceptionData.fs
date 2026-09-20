@@ -36,7 +36,12 @@ type internal FrameInfo =
     /// End address of the function (exclusive).
     FuncEnd: Addr
     /// Address of the LSDA governing this frame, if any.
-    LSDAPointer: Addr option }
+    LSDAPointer: Addr option
+    /// Address the DWARF CIE's 'P' augmentation encodes for this frame, if
+    /// any. Always None for a compact-unwind frame, which names its
+    /// personality by an index into the `__unwind_info` personality array
+    /// rather than by an address.
+    PersonalityRoutine: Addr option }
 
 /// Represents Mach-O exception information: per-function frames plus the LSDA
 /// table (in `__TEXT,__gcc_except_tab`) that resolves their handlers.
@@ -75,10 +80,12 @@ module internal ExceptionData =
           Address = sec.SecAddr }
       ExceptionFrame.parseFromSection toolBox.Reader cls isa rf noReloc dwSec
       |> List.collect (fun cfi ->
+        let personality = CIE.personalityRoutine cfi.CIE
         [ for fde in cfi.FDEs ->
             { FuncStart = fde.PCBegin
               FuncEnd = fde.PCEnd
-              LSDAPointer = fde.LSDAPointer } ])
+              LSDAPointer = fde.LSDAPointer
+              PersonalityRoutine = personality } ])
     | _ ->
       []
 
@@ -95,7 +102,10 @@ module internal ExceptionData =
         (int sec.SecSize)
         imageBase
       |> List.map (fun (s, e, l) ->
-        { FuncStart = s; FuncEnd = e; LSDAPointer = l })
+        { FuncStart = s
+          FuncEnd = e
+          LSDAPointer = l
+          PersonalityRoutine = None })
     | None ->
       []
 

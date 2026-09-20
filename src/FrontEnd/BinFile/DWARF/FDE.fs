@@ -53,18 +53,13 @@ module internal FDE =
   let tryFindAugmentation cie format =
     cie.Augmentations |> List.tryFind (fun aug -> aug.Format = format)
 
-  let adjustAddr app myAddr addr =
-    match app with
-    | ExceptionHeaderApplication.DW_EH_PE_pcrel -> addr + myAddr
-    | _ -> addr
-
   let parsePCInfo cls span reader sAddr resolveReloc venc aenc offset =
     let myAddr = sAddr + uint64 offset
     let struct (addr, offset) =
       ExceptionHeaderValue.read cls span reader venc offset
     let struct (range, offset) =
       ExceptionHeaderValue.read cls span reader venc offset
-    let beginAddr = adjustAddr aenc myAddr addr
+    let beginAddr = ExceptionHeader.adjustAddr aenc myAddr addr
     let endAddr = beginAddr + range
     match (resolveReloc: RelocationResolver) beginAddr with
     | Some addend ->
@@ -78,7 +73,8 @@ module internal FDE =
     let myAddr = sAddr + uint64 offset
     let struct (addr, offset) =
       ExceptionHeaderValue.read cls span reader aug.ValueEncoding offset
-    Some(adjustAddr aug.ApplicationEncoding myAddr addr), offset
+    let app = aug.ApplicationEncoding
+    Some(ExceptionHeader.adjustAddr app myAddr addr), offset
 
   /// Defers the interpretation of the given call frame instructions. An empty
   /// or all-zero instruction area unwinds to nothing, and such an FDE never
