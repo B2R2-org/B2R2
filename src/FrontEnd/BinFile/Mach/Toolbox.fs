@@ -44,10 +44,12 @@ type internal Toolbox =
     /// ISA.
     ISA: ISA }
 with
-  /// Initializes a toolbox for Mach-O files.
-  static member Init(bytes, struct (hdr, reader, baseAddr, machOffset, isa)) =
-    let count = Array.length bytes - int machOffset
-    { Bytes = Array.sub bytes (int machOffset) count
+  /// Initializes a toolbox for Mach-O files. The bytes it keeps are the ones
+  /// of the image alone, so a universal binary is narrowed to the one slice
+  /// that was picked and every file offset stays relative to it.
+  static member Init(bytes, struct (hdr, reader, baseAddr, bounds, isa)) =
+    let struct (machOffset, machSize): struct (uint64 * uint64) = bounds
+    { Bytes = Array.sub bytes (int machOffset) (int machSize)
       Reader = reader
       BaseAddress = baseAddr
       Header = hdr

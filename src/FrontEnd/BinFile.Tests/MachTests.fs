@@ -85,6 +85,34 @@ type MachTests() =
   static let arm64eChainedFile =
     parseFile "mach_arm64e_chained" Architecture.ARMv8 WordSize.Bit64
 
+  /// A dylib exporting _foo, _foobar and _foobarbaz, so its export trie has
+  /// nodes that are terminal and a parent at once.
+  static let x64TriePrefixFile =
+    parseFile "mach_x64_trie_prefix" Architecture.Intel WordSize.Bit64
+
+  /// An executable that loads liba weakly before it loads libb normally, so a
+  /// dylib ordinal only lands on the right library when the weak load counts.
+  static let x64WeakDyLibFile =
+    parseFile "mach_x64_weakdylib" Architecture.Intel WordSize.Bit64
+
+  /// A universal binary holding an x86-64 slice and an arm64 one, parsed as
+  /// each of the two.
+  static let fatX64File =
+    parseFile "mach_fat_x64_arm64" Architecture.Intel WordSize.Bit64
+
+  static let fatArm64File =
+    parseFile "mach_fat_x64_arm64" Architecture.ARMv8 WordSize.Bit64
+
+  /// The same two slices behind a 64-bit FAT header (FAT_MAGIC_64), whose
+  /// architecture table uses 64-bit offsets and sizes.
+  static let fat64X64File =
+    parseFile "mach_fat64_x64_arm64" Architecture.Intel WordSize.Bit64
+
+  /// A relocatable object holding only a __DATA,__data section, so the file
+  /// has no __text section for the parser to key on.
+  static let x64NoTextFile =
+    parseFile "mach_x64_notext" Architecture.Intel WordSize.Bit64
+
   /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
   /// LSDA table in __gcc_except_tab. Exception parsing needs a register
   /// factory.
@@ -328,6 +356,18 @@ type MachTests() =
     CollectionAssert.AreEqual(expected, exports)
 
   [<TestMethod>]
+  member _.``[Mach] X64 exports trie with shared prefixes test``() =
+    (* _foo is terminal and still the parent of _foobar, which is in turn the
+       parent of _foobarbaz, so a terminal node has to be descended into. *)
+    let exports =
+      x64TriePrefixFile.ExportedSymbols
+      |> Array.map (fun e -> e.ExportSymName, e.ExportAddr)
+      |> Array.sortBy fst
+    let expected =
+      [| "_foo", 0x300UL; "_foobar", 0x310UL; "_foobarbaz", 0x320UL |]
+    CollectionAssert.AreEqual(expected, exports)
+
+  [<TestMethod>]
   member _.``[Mach] X64 undefined external symbol is not defined test``() =
     (* An undefined import has N_EXT set alongside N_UNDF, so only the N_TYPE
        field of n_type tells the two apart. *)
@@ -451,6 +491,110 @@ type MachTests() =
     Assert.AreEqual(Ok 0x100004048UL, reloc.TryGetRelocatedAddr 0x100004040UL)
     Assert.AreEqual(Ok 0x80000001000007e0UL,
                     reloc.TryGetRelocatedAddr 0x100004050UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 weak dylib counts toward library ordinals test``() =
+    (* LC_LOAD_WEAK_DYLIB takes an ordinal just as LC_LOAD_DYLIB does, so the
+       weakly loaded liba is ordinal 1 and libb is ordinal 2. *)
+    let linkage = (x64WeakDyLibFile :> IBinFile).ImportTable.Value
+    let entries =
+      linkage.Imports
+      |> Array.map (fun e -> e.Name, e.LibraryName)
+      |> Array.sortBy fst
+    let expected =
+      [| "_a_sym", "/usr/lib/liba.dylib"
+         "_b_sym", "/usr/lib/libb.dylib" |]
+    CollectionAssert.AreEqual(expected, entries)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 weak dylib is a dependency test``() =
+    let deps = (x64WeakDyLibFile :> IBinFile).DependencyNames |> Array.sort
+    let expected =
+      [| "/usr/lib/liba.dylib"
+         "/usr/lib/libSystem.B.dylib"
+         "/usr/lib/libb.dylib" |] |> Array.sort
+    CollectionAssert.AreEqual(expected, deps)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 symbol library name follows the ordinal test``() =
+    let symbols = (x64WeakDyLibFile :> IBinFile).SymbolTable.Value.Symbols
+    let libOf name =
+      symbols
+      |> Array.tryFind (fun s -> s.Name = name)
+      |> Option.bind (fun s -> s.LibraryName)
+    Assert.AreEqual(Some "/usr/lib/liba.dylib", libOf "_a_sym")
+    Assert.AreEqual(Some "/usr/lib/libb.dylib", libOf "_b_sym")
+
+  [<TestMethod>]
+  member _.``[Mach] FAT binary selects the slice matching the ISA test``() =
+    let x64 = (fatX64File :> IBinFile).ISA
+    let arm64 = (fatArm64File :> IBinFile).ISA
+    Assert.AreEqual(Architecture.Intel, x64.Arch)
+    Assert.AreEqual(Architecture.ARMv8, arm64.Arch)
+
+  [<TestMethod>]
+  member _.``[Mach] FAT binary length is the slice length test``() =
+    (* The image ends where its slice does, not where the whole file does. *)
+    let f = fatX64File :> IBinFile
+    let arch =
+      fatX64File.FatArchs
+      |> Array.find (fun a -> a.CPUType = CPUType.X64)
+    Assert.AreEqual<int>(int arch.Size, f.Length)
+
+  [<TestMethod>]
+  member _.``[Mach] FAT binary file offsets are slice-relative test``() =
+    (* A section offset counts from the Mach-O header, which in a universal
+       binary sits at the slice offset rather than at the start of the file.
+       The whole archive is read again here so that the expected bytes do not
+       come back through the same address space under test. *)
+    let name = "mach_fat_x64_arm64"
+    let whole = ZIPReader.readBytes MachBinary (name + ".zip") name
+    let arch =
+      fatX64File.FatArchs |> Array.find (fun a -> a.CPUType = CPUType.X64)
+    let f = fatX64File :> IBinFile
+    let text = f.Structure.Value.CodeSectionPointer
+    let start = int arch.Offset + text.Offset
+    let expected = whole[start..start + 7]
+    CollectionAssert.AreEqual(expected, f.Slice(text.Addr, 8).ToArray())
+
+  [<TestMethod>]
+  member _.``[Mach] FAT binary entry point is in the slice test``() =
+    let entry = (fatX64File :> IBinFile).EntryPoint
+    Assert.AreEqual<bool>(true, Option.isSome entry)
+    let f = fatX64File :> IBinFile
+    Assert.AreEqual<bool>(true, f.IsExecutableAddr entry.Value)
+
+  [<TestMethod>]
+  member _.``[Mach] FAT64 binary is recognized test``() =
+    (* FAT_MAGIC_64 widens the architecture table to 64-bit offsets. *)
+    let f = fat64X64File :> IBinFile
+    Assert.AreEqual(Architecture.Intel, f.ISA.Arch)
+    Assert.AreEqual<int>(2, fat64X64File.FatArchs.Length)
+
+  [<TestMethod>]
+  member _.``[Mach] FAT64 binary matches the FAT32 slice test``() =
+    (* lipo wrote the same two slices either way, so the images agree. *)
+    let fat = (fatX64File :> IBinFile).RawBytes.ToArray()
+    let fat64 = (fat64X64File :> IBinFile).RawBytes.ToArray()
+    CollectionAssert.AreEqual(fat, fat64)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 file without a text section parses test``() =
+    let f = x64NoTextFile :> IBinFile
+    Assert.AreEqual<BinFileKind>(Object, f.Kind)
+    let names = f.Structure.Value.Sections |> Array.map (fun s -> s.Name)
+    CollectionAssert.AreEqual([| "__data" |], names)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 file without a text section has symbols test``() =
+    let symbols = (x64NoTextFile :> IBinFile).SymbolTable.Value.Symbols
+    let names = symbols |> Array.map (fun s -> s.Name)
+    CollectionAssert.AreEqual([| "_g_table" |], names)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 file without a text section has no code test``() =
+    let ptr = (x64NoTextFile :> IBinFile).Structure.Value.CodeSectionPointer
+    Assert.AreEqual<bool>(true, ptr.IsNull)
 
   [<TestMethod>]
   member _.``[Mach] X64 exception table is parsed``() =

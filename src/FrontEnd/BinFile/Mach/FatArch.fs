@@ -32,8 +32,8 @@ type internal FatArch =
     /// Specific CPU module.
     CPUSubType: CPUSubType
     /// Offset to the beginning of the data for this architecture.
-    Offset: int
+    Offset: uint64
     /// Size of the object file in bytes.
-    Size: int
+    Size: uint64
     /// Alignment of the object file in bytes.
     Align: int }

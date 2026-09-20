@@ -110,5 +110,11 @@ module Section =
         idx <- idx + 1
     sections
 
+  /// Returns the index of the __text section, or -1 when the file carries
+  /// none, as a data-only object or a companion debug file does. No section
+  /// number ever matches -1, so the callers that ask whether a symbol lives in
+  /// __text simply get no for every symbol.
   let internal getTextSectionIndex secs =
-    secs |> Array.findIndex (fun s -> s.SecName = Text)
+    secs
+    |> Array.tryFindIndex (fun s -> s.SecName = Text)
+    |> Option.defaultValue -1

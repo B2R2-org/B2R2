@@ -281,9 +281,8 @@ let dumpArchiveHeader (_: BinScanOpts) (_: MachBinFile) =
   Terminator.futureFeature ()
 
 let dumpUniversalHeader (_opts: BinScanOpts) (mach: MachBinFile) =
-  let bytes = (mach :> IBinFile).RawBytes.ToArray()
-  if Mach.Header.IsFat bytes then
-    let archs = Mach.Fat.parseArchs bytes
+  let archs = mach.FatArchs
+  if not (Array.isEmpty archs) then
     for i in 0 .. archs.Length - 1 do
       let arch = archs[i]
       let cpusub = arch.CPUSubType

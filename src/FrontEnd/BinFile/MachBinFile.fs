@@ -34,9 +34,17 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 
 /// Represents a Mach-O binary file.
 type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
-  let rawBytes = System.ReadOnlyMemory bytes
-
   let toolBox = Toolbox.Init(bytes, Header.parse bytes baseAddrOpt isa)
+
+  (* Every file offset a Mach-O records is relative to its own header, which in
+     a universal binary is not where the file begins, so the image bytes are
+     the slice the toolbox narrowed down to, not the bytes handed in. *)
+  let image = toolBox.Bytes
+
+  let rawBytes = System.ReadOnlyMemory image
+
+  let fatArchs =
+    lazy (if Header.IsFat bytes then Fat.parseArchs bytes else [||])
 
   let cmds = lazy LoadCommands.parse toolBox
 
@@ -240,13 +248,16 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       member _.Sections with get() = secs.Value |> Array.map toBinSection
 
       member _.CodeSectionPointer =
-        let sec = secs.Value[secText.Value]
-        BinFilePointer.CreateFileBacked(
-          sec.SecAddr,
-          sec.SecAddr + sec.SecSize - 1UL,
-          int sec.SecOffset,
-          int sec.SecOffset + int sec.SecSize - 1
-        )
+        if secText.Value < 0 then
+          BinFilePointer.Null
+        else
+          let sec = secs.Value[secText.Value]
+          BinFilePointer.CreateFileBacked(
+            sec.SecAddr,
+            sec.SecAddr + sec.SecSize - 1UL,
+            int sec.SecOffset,
+            int sec.SecOffset + int sec.SecSize - 1
+          )
 
       member _.GetSectionPointer name =
         secs.Value
@@ -414,6 +425,11 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   member internal _.Header with get() = toolBox.Header
 
+  /// The architectures a universal binary offers, or an empty array when the
+  /// file is not one. They are read from the whole file rather than from the
+  /// slice this instance was narrowed to.
+  member internal _.FatArchs with get() = fatArchs.Value
+
   member internal _.Commands with get() = cmds.Value
 
   member internal _.Sections with get() = secs.Value
@@ -433,7 +449,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
     member _.RawBytes with get() = rawBytes
 
-    member _.Length with get() = bytes.Length
+    member _.Length with get() = image.Length
 
     member _.Path with get() = path
 
@@ -495,7 +511,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
     member this.Slice(addr, len) =
       let ptr = (this :> IAddressSpace).GetBoundedPointer addr
-      sliceByPointer bytes ptr len
+      sliceByPointer image ptr len
 
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not

@@ -54,7 +54,8 @@ with
   static member IsFat(bytes: byte[]) =
     let reader = BinReader.Init Endian.Little
     match Magic.read (ReadOnlySpan bytes) reader with
-    | Magic.FAT_CIGAM | Magic.FAT_MAGIC -> true
+    | Magic.FAT_CIGAM | Magic.FAT_MAGIC
+    | Magic.FAT_CIGAM_64 | Magic.FAT_MAGIC_64 -> true
     | _ -> false
 
 [<RequireQualifiedAccess>]
@@ -69,7 +70,8 @@ module internal Header =
     match Magic.read span reader with
     | Magic.MH_CIGAM | Magic.MH_CIGAM_64
     | Magic.MH_MAGIC | Magic.MH_MAGIC_64
-    | Magic.FAT_CIGAM | Magic.FAT_MAGIC -> true
+    | Magic.FAT_CIGAM | Magic.FAT_MAGIC
+    | Magic.FAT_CIGAM_64 | Magic.FAT_MAGIC_64 -> true
     | _ -> false
 
   let inline private readCPUType (span: ByteSpan) (reader: IBinReader) =
@@ -117,12 +119,19 @@ module internal Header =
       SizeOfCmds = reader.ReadUInt32(headerSpan, 20)
       Flags = readFlags headerSpan reader }
 
-  let private computeMachOffset bytes isa =
+  /// Returns where the Mach-O image starts within the given bytes and how far
+  /// it runs. A universal binary holds several, so the one matching the ISA is
+  /// picked out; anything else is the whole file.
+  let private computeMachBounds (bytes: byte[]) isa =
+    let length = uint64 bytes.Length
     if Header.IsFat bytes then
       let fatArch = Fat.parseArch bytes isa
-      uint64 fatArch.Offset
+      if fatArch.Offset > length then
+        raise InvalidFileFormatException
+      else
+        struct (fatArch.Offset, min fatArch.Size (length - fatArch.Offset))
     else
-      0UL
+      struct (0UL, length)
 
   let private computeBaseAddr machHdr baseAddr =
     if machHdr.Flags.HasFlag MachFlag.MH_PIE then defaultArg baseAddr 0UL
@@ -137,20 +146,20 @@ module internal Header =
 
   /// Parse the Mach-O file format header, and return a Toolbox.
   let parse bytes baseAddrOpt isa =
-    let offset = computeMachOffset bytes isa
+    let struct (offset, _) as bounds = computeMachBounds bytes isa
     if isMach bytes offset then
       let hdr = parseHeader bytes offset
       let baseAddr = computeBaseAddr hdr baseAddrOpt
       let reader = BinReader.Init(magicToEndian hdr.Magic)
       let isa = toISA hdr
-      struct (hdr, reader, baseAddr, offset, isa)
+      struct (hdr, reader, baseAddr, bounds, isa)
     else
       raise InvalidFileFormatException
 
   /// Checks if the file has a valid Mach-O header and returns the ISA if it
   /// does.
   let getISA bytes isa =
-    let offset = computeMachOffset bytes isa
+    let struct (offset, _) = computeMachBounds bytes isa
     if isMach bytes offset then
       let hdr = parseHeader bytes offset
       Ok(toISA hdr)
