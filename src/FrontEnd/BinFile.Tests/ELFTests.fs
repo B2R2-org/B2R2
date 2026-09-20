@@ -85,6 +85,16 @@ type ELFTests() =
   /// relocation against the external symbol is still present.
   static let x64ObjFile = parseFile "elf_x64_obj"
 
+  /// elf_x64_obj parsed with a register factory, which is what makes its CFI
+  /// readable. Being a relocatable object, the begin address of each of its
+  /// FDEs comes from a relocation rather than from the section bytes.
+  static let x64ObjCFIFile =
+    let fileName = "elf_x64_obj"
+    let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let regFactory = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
+    ELFBinFile(fileName, bytes, None, Some regFactory)
+
   /// elf_x64_exec with its .symtab stripped: the .dynsym (imports) survives but
   /// static symbols are gone.
   static let x64StrippedFile = parseFile "elf_x64_stripped"
@@ -988,6 +998,46 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] x64 obj relocation test``() =
     assertExistenceOfReloc x64ObjFile 0x6UL "ext"
+
+  [<TestMethod>]
+  member _.``[ELF] bpf obj keeps relocations of equal offset test``() =
+    (* .rel.text and .rel.rodata each relocate their own offset zero, which an
+       index by offset alone collapses into one entry. *)
+    let entries = bpfObjFile.RelocationInfo.Entries
+    let atZero =
+      entries
+      |> Seq.filter (fun r -> r.RelOffset = 0UL)
+      |> Seq.map _.RelTargetSecNumber
+      |> Seq.toArray
+      |> Array.sort
+    Assert.AreEqual<int>(5, Seq.length entries)
+    CollectionAssert.AreEqual([| 1; 5 |], atZero)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj relocation lookup is section scoped test``() =
+    let secNumOf name =
+      x64ObjFile.SectionHeaders
+      |> Array.find (fun s -> s.SecName = name)
+      |> _.SecNum
+    let reloc = x64ObjFile.RelocationInfo
+    let ehFrame, text = secNumOf ".eh_frame", secNumOf ".text"
+    let notFound = Error ErrorCase.ItemNotFound
+    let found secNum offset =
+      reloc.TryFindInSection(secNum, offset)
+      |> Result.map (fun r -> r.RelTargetSecNumber)
+    Assert.AreEqual(Ok ehFrame, found ehFrame 0x20UL)
+    Assert.AreEqual(Ok text, found text 0x6UL)
+    (* The .text entry sits at an offset the frame section has no entry at. *)
+    Assert.AreEqual(notFound, found ehFrame 0x6UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj FDE begins where its relocation says test``() =
+    (* .rela.eh_frame relocates the begin address of the sole FDE to .text + 0,
+       so leaving it unresolved would leave the offset of the FDE itself. *)
+    let fdes =
+      x64ObjCFIFile.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+    Assert.AreEqual<Addr list>([ 0UL ], fdes |> List.map _.PCBegin)
 
   [<TestMethod>]
   member _.``[ELF] x64 stripped IsStripped test``() =

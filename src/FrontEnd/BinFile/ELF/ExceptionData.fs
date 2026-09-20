@@ -50,18 +50,22 @@ module internal ExceptionData =
           Map.add i.Location i tbl) tbl
         ) tbl) Map.empty
 
-  /// Builds a relocation resolver for FDE begin addresses. Only relocatable
-  /// objects (ET_REL) carry such relocations; other files resolve to None.
-  let private makeResolver hdr (reloc: RelocationInfo) =
+  /// Builds a relocation resolver for the FDE begin addresses of the given
+  /// frame section. Only relocatable objects (ET_REL) carry such relocations;
+  /// other files resolve to None. An FDE of such an object gives its begin
+  /// address as an offset into the frame section, which is also how the
+  /// relocation that fills it names the slot, so the lookup is scoped to that
+  /// section rather than done by address.
+  let private makeResolver hdr (reloc: RelocationInfo) sec =
     if hdr.ELFType = ELFType.ET_REL then
-      fun addr ->
-        match reloc.TryFind addr with
+      fun offset ->
+        match reloc.TryFindInSection(sec.SecNum, offset) with
         | Ok rentry -> Some rentry.RelAddend
         | Error _ -> None
     else
       fun _ -> None
 
-  let private parseFrames toolBox cls isa shdrs regFactory resolveReloc =
+  let private parseFrames toolBox cls isa shdrs regFactory reloc =
     match Array.tryFind (fun s -> s.SecName = EHFrameSection) shdrs,
           regFactory with
     | Some sec, Some rf ->
@@ -70,6 +74,7 @@ module internal ExceptionData =
           Offset = int sec.SecOffset
           Size = int sec.SecSize
           Address = sec.SecAddr }
+      let resolveReloc = makeResolver toolBox.Header reloc sec
       ExceptionFrame.parseFromSection
         toolBox.Reader cls isa rf resolveReloc dwSec
     | _ ->
@@ -88,8 +93,7 @@ module internal ExceptionData =
     let hdr = toolBox.Header
     let cls = hdr.Class
     let isa = toolBox.ISA
-    let resolveReloc = makeResolver hdr reloc
-    let exns = parseFrames toolBox cls isa shdrs regFactory resolveReloc
+    let exns = parseFrames toolBox cls isa shdrs regFactory reloc
     let lsdas = parseLSDAs toolBox cls shdrs
     match exns with
     | [] when isa.Arch = Architecture.ARMv7 ->

@@ -90,15 +90,16 @@ module private RelocMap =
       (* Index 0 is the reserved STN_UNDEF entry, so it names no symbol. *)
       RelSymbol = if idx = 0 then None else Array.tryItem idx symTbl
       RelAddend = getRelocAddend toolBox locate span sec addr
-      RelSecNumber = sec.SecNum }
+      RelSecNumber = sec.SecNum
+      RelTargetSecNumber = int sec.SecInfo }
 
   let tryFindSymbTable idx (symbs: SymbolStore) =
     match symbs.TryFindSymbolTable idx with
     | Ok tbl -> tbl
     | Error _ -> [||]
 
-  let inline accumulateRelocInfo (relocMap: Dictionary<_, _>) rel =
-    relocMap[rel.RelOffset] <- rel
+  let inline accumulateRelocInfo (entries: ResizeArray<_>) rel =
+    entries.Add rel
 
   let parseRelocSection toolBox locate symTbl relocMap sec =
     let hdr = toolBox.Header
@@ -152,7 +153,8 @@ module private RelocMap =
            take as their addend whatever the slot already holds. *)
         RelSymbol = None
         RelAddend = readImplicitAddend toolBox locate addr
-        RelSecNumber = sec.SecNum }
+        RelSecNumber = sec.SecNum
+        RelTargetSecNumber = int sec.SecInfo }
       |> accumulateRelocInfo relocMap
     iterRelrTable cls toolBox.Reader span accumulate
 
@@ -170,7 +172,7 @@ module private RelocMap =
     else tryFindSymbTable (int sec.SecLink) symbs
 
   let parse toolBox shdrs phdrs dynTables symbs =
-    let relocMap = Dictionary()
+    let relocMap = ResizeArray()
     let locate = DynamicTables.makeContentLocator shdrs phdrs
     let relative = RelocationKind.TryCreateRelative toolBox.Header.MachineType
     let tables =
@@ -190,12 +192,29 @@ module private RelocMap =
     relocMap
 
 /// Represents relocation information, which internally stores a collection of
-/// relocation entries indexed by their addresses.
+/// relocation entries, indexed both by the slot each one relocates and by the
+/// address it applies to.
 type internal RelocationInfo internal(toolBox, shdrs, phdrs, dyn, symbs) =
-  let relocMap = RelocMap.parse toolBox shdrs phdrs dyn symbs
+  let entries = RelocMap.parse toolBox shdrs phdrs dyn symbs
+
+  /// The entries indexed by the slot each relocates, which is what the section
+  /// and the offset name together. Indexing by the offset alone would let the
+  /// sections of a relocatable object, each of which counts its offsets from
+  /// zero, overwrite one another's entries.
+  let slotMap =
+    let map = Dictionary()
+    for e in entries do map[struct(e.RelTargetSecNumber, e.RelOffset)] <- e
+    map
+
+  /// The entries indexed by address, which names an entry in every file but a
+  /// relocatable object, where the offsets are section-relative instead.
+  let relocMap =
+    let map = Dictionary()
+    for e in entries do map[e.RelOffset] <- e
+    map
 
   /// Returns all relocation entries.
-  member _.Entries with get() = relocMap.Values
+  member _.Entries with get() = slotMap.Values
 
   /// Checks if there exists a relocation entry at the given address.
   member _.Contains addr = relocMap.ContainsKey addr
@@ -206,5 +225,14 @@ type internal RelocationInfo internal(toolBox, shdrs, phdrs, dyn, symbs) =
   /// Tries to find a relocation entry at the given address.
   member _.TryFind addr =
     match relocMap.TryGetValue addr with
+    | true, v -> Ok v
+    | _ -> Error ErrorCase.ItemNotFound
+
+  /// Tries to find the relocation entry that applies at the given offset of
+  /// the section numbered secNum. This is how a relocatable object names one,
+  /// as its offsets run from the start of each section rather than from the
+  /// start of the image.
+  member _.TryFindInSection(secNum, offset) =
+    match slotMap.TryGetValue(struct(secNum, offset)) with
     | true, v -> Ok v
     | _ -> Error ErrorCase.ItemNotFound
