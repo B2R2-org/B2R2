@@ -117,14 +117,21 @@ module internal LoadCommands =
   let readUuid (span: ByteSpan) =
     if span.Length < 24 then [||] else span.Slice(8, 16).ToArray()
 
-  let readLCStr toolBox cmdSize (span: ByteSpan) =
-    let strOffset = toolBox.Reader.ReadInt32(span, 8)
-    let strLen = cmdSize - strOffset
-    ByteArray.extractCStringFromSpan (span.Slice(strOffset, strLen)) 0
+  /// Reads an lc_str, whose field at the given offset holds where the string
+  /// starts within the command. A file is free to write an offset the command
+  /// does not reach, which makes the command malformed rather than a slice to
+  /// be attempted.
+  let readLCStr toolBox cmdSize (span: ByteSpan) fieldOffset =
+    let strOffset = toolBox.Reader.ReadInt32(span, fieldOffset)
+    if strOffset < 0 || strOffset >= cmdSize then
+      raise InvalidFileFormatException
+    else
+      let strLen = cmdSize - strOffset
+      ByteArray.extractCStringFromSpan (span.Slice(strOffset, strLen)) 0
 
   let parseDyLibCmd toolBox cmdSize (span: ByteSpan) =
     let reader = toolBox.Reader
-    { DyLibName = readLCStr toolBox cmdSize span
+    { DyLibName = readLCStr toolBox cmdSize span 8
       DyLibTimeStamp = reader.ReadUInt32(span, 12)
       DyLibCurVer = reader.ReadUInt32(span, 16)
       DyLibCmpVer = reader.ReadUInt32(span, 20) }
@@ -161,6 +168,12 @@ module internal LoadCommands =
     let reader = toolBox.Reader
     { TableOffset = reader.ReadInt32(span, 8)
       TableSize = reader.ReadUInt32(span, 12) }
+
+  let parseFilesetEntry toolBox cmdSize (span: ByteSpan) =
+    let reader = toolBox.Reader
+    { EntryVMAddr = reader.ReadUInt64(span, 8) + toolBox.BaseAddress
+      EntryFileOffset = reader.ReadUInt64(span, 16)
+      EntryName = readLCStr toolBox cmdSize span 24 }
 
   let parseEncryptionInfo toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
@@ -210,9 +223,9 @@ module internal LoadCommands =
       | CmdType.LC_ID_DYLIB ->
         DyLibId(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
       | CmdType.LC_LOAD_DYLINKER ->
-        DyLinker(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span)
+        DyLinker(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span 8)
       | CmdType.LC_RPATH ->
-        Rpath(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span)
+        Rpath(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span 8)
       | CmdType.LC_UUID ->
         Uuid(cmdType, uint32 cmdSize, readUuid span)
       | CmdType.LC_DYLD_INFO
@@ -226,6 +239,9 @@ module internal LoadCommands =
         ExportsTrie(cmdType, uint32 cmdSize, parseExportsTrie toolBox span)
       | CmdType.LC_DATA_IN_CODE ->
         DataInCode(cmdType, uint32 cmdSize, parseDataInCode toolBox span)
+      | CmdType.LC_FILESET_ENTRY ->
+        let entry = parseFilesetEntry toolBox cmdSize span
+        FilesetEntry(cmdType, uint32 cmdSize, entry)
       | CmdType.LC_ENCRYPTION_INFO
       | CmdType.LC_ENCRYPTION_INFO_64 ->
         let info = parseEncryptionInfo toolBox span
@@ -234,8 +250,12 @@ module internal LoadCommands =
         Unhandled(cmdType, uint32 cmdSize)
     struct (command, uint64 cmdSize)
 
+  /// Parses the load command table, which follows the header wherever that
+  /// sits: at the start of the image for an ordinary file or a universal
+  /// binary's slice, and deep inside the container for a fileset entry.
   let parse ({ Header = hdr } as toolBox) =
-    let mutable cmdOffset = selectByWordSize hdr.Class 28UL 32UL
+    let tableOffset = selectByWordSize hdr.Class 28UL 32UL
+    let mutable cmdOffset = toolBox.HeaderOffset + tableOffset
     let numCmds = Convert.ToInt32 hdr.NumCmds
     let cmds = Array.zeroCreate numCmds
     for i = 0 to numCmds - 1 do

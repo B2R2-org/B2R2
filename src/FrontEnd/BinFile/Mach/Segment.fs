@@ -32,8 +32,12 @@ let private chooser = function
 
 let extract cmds = Array.choose chooser cmds
 
+/// Builds a map from the address range of each segment to the segment itself.
+/// A segment that occupies no virtual memory names no range, and a kernel
+/// image carries several of those, so they go in nowhere.
 let buildMap segs =
   segs
+  |> Array.filter (fun s -> s.VMSize > 0UL)
   |> Array.fold (fun map s ->
     NoOverlapIntervalMap.addByBounds s.VMAddr (s.VMAddr + s.VMSize - 1UL) s map
   ) NoOverlapIntervalMap.empty

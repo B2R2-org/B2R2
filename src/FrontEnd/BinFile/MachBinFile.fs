@@ -33,9 +33,7 @@ open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
 
 /// Represents a Mach-O binary file.
-type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
-  let toolBox = Toolbox.Init(bytes, Header.parse bytes baseAddrOpt isa)
-
+type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
   (* Every file offset a Mach-O records is relative to its own header, which in
      a universal binary is not where the file begins, so the image bytes are
      the slice the toolbox narrowed down to, not the bytes handed in. *)
@@ -82,6 +80,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
 
   let executableRanges = lazy executableRanges segCmds.Value
+
+  let filesetEntries = lazy filesetEntries cmds.Value
 
   let encryptedRanges = lazy encryptedRanges segCmds.Value cmds.Value
 
@@ -435,6 +435,12 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       member _.Frames = exceptionFrames.Value
     }
 
+  /// Initializes a Mach-O binary file. A universal binary is narrowed to the
+  /// slice matching the given ISA.
+  new(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
+    let toolBox = Toolbox.Init(bytes, Header.parse bytes baseAddrOpt isa)
+    MachBinFile(path, bytes, toolBox, regFactoryOpt)
+
   member internal _.Header with get() = toolBox.Header
 
   /// The architectures a universal binary offers, or an empty array when the
@@ -443,6 +449,11 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   member internal _.FatArchs with get() = fatArchs.Value
 
   member internal _.Commands with get() = cmds.Value
+
+  /// The images this file holds when it is a fileset container, such as the
+  /// kernel and the kexts of a kernel collection, or an empty array when it
+  /// holds none.
+  member internal _.FilesetEntries with get() = filesetEntries.Value
 
   member internal _.Sections with get() = secs.Value
 
@@ -455,6 +466,16 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   member internal _.ExportedSymbols with get() = exports.Value
 
   member internal _.Relocations with get() = relocs.Value
+
+  /// Opens the image a fileset container holds under the given name, reading
+  /// it in place: its load commands point into the container, so it is read
+  /// against the same bytes rather than against a copy cut out of them.
+  member _.TryOpenFilesetEntry(name) =
+    filesetEntries.Value
+    |> Array.tryFind (fun entry -> entry.EntryName = name)
+    |> Option.map (fun entry ->
+      let toolBox = Toolbox.InitFilesetEntry(toolBox, entry.EntryFileOffset)
+      MachBinFile(path, bytes, toolBox, regFactoryOpt))
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
@@ -472,8 +493,10 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       | FileType.MH_OBJECT -> BinFileKind.Object
       | FileType.MH_EXECUTE | FileType.MH_PRELOAD -> BinFileKind.Executable
       | FileType.MH_DYLIB | FileType.MH_FVMLIB
-      | FileType.MH_BUNDLE | FileType.MH_DYLIB_STUB -> BinFileKind.SharedLibrary
+      | FileType.MH_BUNDLE | FileType.MH_DYLIB_STUB
+      | FileType.MH_KEXT_BUNDLE -> BinFileKind.SharedLibrary
       | FileType.MH_CORE -> BinFileKind.Core
+      | FileType.MH_FILESET -> BinFileKind.Executable
       | _ -> BinFileKind.Unknown
 
     member _.ISA with get() = toolBox.ISA

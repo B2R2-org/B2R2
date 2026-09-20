@@ -156,6 +156,16 @@ module internal Header =
     else
       raise InvalidFileFormatException
 
+  /// Parses the header of one image held inside a fileset container, which
+  /// sits at the offset the container names rather than at the start of the
+  /// file.
+  let parseFilesetEntry bytes offset =
+    if isMach bytes offset then
+      let hdr = parseHeader bytes offset
+      struct (hdr, BinReader.Init(magicToEndian hdr.Magic), toISA hdr)
+    else
+      raise InvalidFileFormatException
+
   /// Checks if the file has a valid Mach-O header and returns the ISA if it
   /// does.
   let getISA bytes isa =

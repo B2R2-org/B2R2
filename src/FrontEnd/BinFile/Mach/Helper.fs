@@ -142,6 +142,14 @@ let encryptedRanges segCmds cmds =
     | _ ->
       None)
 
+/// Returns the images a fileset container holds, in the order it names them.
+/// Every other kind of Mach-O file holds none.
+let filesetEntries cmds =
+  cmds
+  |> Array.choose (function
+    | FilesetEntry(_, _, e) -> Some e
+    | _ -> None)
+
 let getPLT symInfo =
   symInfo.Imports
   |> Array.sortBy (fun entry -> entry.TrampolineAddress)

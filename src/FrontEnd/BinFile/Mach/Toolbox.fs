@@ -38,9 +38,10 @@ type internal Toolbox =
     BaseAddress: Addr
     /// Mach-O header.
     Header: Header
-    /// Offset from the start of the file to the Mach-O file format header. This
-    /// is only meaningful for universal binaries.
-    MachOffset: uint64
+    /// Offset of the Mach-O header within Bytes. It is zero for an image that
+    /// begins where its bytes do, and only a fileset entry, whose bytes are
+    /// the whole container, puts its header anywhere else.
+    HeaderOffset: uint64
     /// ISA.
     ISA: ISA }
 with
@@ -53,5 +54,18 @@ with
       Reader = reader
       BaseAddress = baseAddr
       Header = hdr
-      MachOffset = machOffset
+      HeaderOffset = 0UL
       ISA = isa }
+
+  /// Initializes a toolbox for one image held inside a fileset container. The
+  /// load commands of such an image give offsets into the container, not into
+  /// the image - its __LINKEDIT and string table are the container's own - so
+  /// the bytes stay whole and only the header moves.
+  static member InitFilesetEntry(container, offset) =
+    let struct (hdr, reader, isa) =
+      Header.parseFilesetEntry container.Bytes offset
+    { container with
+        Header = hdr
+        Reader = reader
+        HeaderOffset = offset
+        ISA = isa }

@@ -146,6 +146,11 @@ type MachTests() =
   static let x64MultiChainFile =
     parseFile "mach_x64_multichain" Architecture.Intel WordSize.Bit64
 
+  /// An MH_FILESET container holding two images, the way a kernel collection
+  /// holds the kernel and its kexts. Both share one __LINKEDIT.
+  static let x64FilesetFile =
+    parseFile "mach_x64_fileset" Architecture.Intel WordSize.Bit64
+
   /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
   /// LSDA table in __gcc_except_tab. Exception parsing needs a register
   /// factory.
@@ -900,6 +905,45 @@ type MachTests() =
     let p = f.GetBoundedPointer 0x100000470UL
     Assert.AreEqual<bool>(false, p.IsNull)
     Assert.AreEqual<bool>(true, p.CanReadFileBytes)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 holds no fileset entries test``() =
+    CollectionAssert.AreEqual([||], x64File.FilesetEntries)
+
+  [<TestMethod>]
+  member _.``[Mach] fileset entries test``() =
+    let file = x64FilesetFile :> IBinFile
+    Assert.AreEqual<BinFileKind>(BinFileKind.Executable, file.Kind)
+    let entries = x64FilesetFile.FilesetEntries
+    let names = entries |> Array.map (fun e -> e.EntryName)
+    let expected = [| "com.example.kext.a"; "com.example.kext.b" |]
+    CollectionAssert.AreEqual(expected, names)
+    Assert.AreEqual<Addr>(0x100001000UL, entries[0].EntryVMAddr)
+    Assert.AreEqual<uint64>(0x1000UL, entries[0].EntryFileOffset)
+    Assert.AreEqual<Addr>(0x100002000UL, entries[1].EntryVMAddr)
+    Assert.AreEqual<uint64>(0x2000UL, entries[1].EntryFileOffset)
+
+  [<TestMethod>]
+  member _.``[Mach] fileset entry opening test``() =
+    (* Each image is read in place: its __LINKEDIT and symbol table are the
+       container's, so the second image's symbol sits past the end of its own
+       page and only whole-container bytes reach it. *)
+    let entry = (x64FilesetFile.TryOpenFilesetEntry "com.example.kext.b").Value
+    let file = entry :> IBinFile
+    Assert.AreEqual<BinFileKind>(BinFileKind.SharedLibrary, file.Kind)
+    let symbols = file.SymbolTable.Value.Symbols
+    Assert.AreEqual<int>(1, symbols.Length)
+    Assert.AreEqual<string>("_b_func", symbols[0].Name)
+    Assert.AreEqual<Addr>(0x100002800UL, symbols[0].Address)
+    let ptr = BinFileOps.getCodeSectionPointer file
+    Assert.AreEqual<Addr>(0x100002800UL, ptr.Addr)
+    Assert.AreEqual<int>(0x2800, ptr.Offset)
+    Assert.AreEqual<byte>(0xC3uy, (file.Slice(ptr.Addr, 1)).ToArray()[0])
+
+  [<TestMethod>]
+  member _.``[Mach] fileset unknown entry test``() =
+    let opened = x64FilesetFile.TryOpenFilesetEntry "nosuch"
+    Assert.AreEqual<bool>(true, opened.IsNone)
 
   [<TestMethod>]
   member _.``[Mach] format detector identifies Mach test``() =
