@@ -22,34 +22,28 @@ and the feature fixtures are hand-crafted to isolate one parser capability.
 | `mach_fat_x64_arm64` | Universal binary (`FAT_MAGIC`) with an x86-64 slice and an arm64 one. |
 | `mach_fat64_x64_arm64` | The same two slices behind a `FAT_MAGIC_64` header, whose table uses 64-bit offsets. |
 | `mach_x64_notext` | A data-only relocatable object with no `__text` section. |
+| `mach_x64_unixthread` | `LC_UNIXTHREAD` entry point (x86-64 thread state). |
+| `mach_arm64_unixthread` | `LC_UNIXTHREAD` entry point (arm64 thread state). |
+| `mach_i386_dyldinfo` | 32-bit `LC_DYLD_INFO_ONLY`: rebase and bind over four-byte pointers. |
+| `mach_i386_reloc` | 32-bit relocations x86-64 never produces: scattered, PC-relative, plain external. |
+| `mach_arm32_thumb` | ARMv7 mixing A32 and T32, with `LC_DATA_IN_CODE` and an absolute symbol. |
 
 The exception fixtures exercise the two Mach-O unwinding schemes: `__eh_frame`
 DWARF CFI (x64, needs a register factory) and Apple compact unwind (arm64).
 
 ## The fixtures that clang cannot build
 
-`mach_x64_notext` is written out by hand. An assembler always emits `__text` as
-its initial section, and ld64 keeps the empty section in whatever it links, so
-no compiler invocation produces a Mach-O without one; the file below is the
-smallest object that has a `__DATA,__data` section and nothing else.
+Six fixtures are written out by [`make_fixtures.py`](make_fixtures.py), because
+no current toolchain produces them. An assembler always lays down `__text` even
+when nothing goes in it and ld64 keeps the empty section, so a data-only object
+cannot be compiled; ld64 stopped emitting `LC_UNIXTHREAD` long ago; and no SDK
+targets i386 or armv7 any more, which rules out 32-bit dyld info, scattered
+relocations, and Thumb marking. Each function in the script says what its
+fixture is for.
 
-```python
-import struct
-name16 = lambda s: s.encode() + b'\0' * (16 - len(s))
-data, strtab = struct.pack('<4I', 1, 2, 3, 4), b'\0_g_table\0'
-sizeofcmds = 72 + 80 + 24
-dataoff = 32 + sizeofcmds
-symoff, stroff = dataoff + len(data), dataoff + len(data) + 16
-open('mach_x64_notext', 'wb').write(
-    struct.pack('<I2i5I', 0xFEEDFACF, 0x01000007, 3, 1, 2, sizeofcmds,
-                0x2000, 0)
-    + struct.pack('<2I', 0x19, 152) + name16('')
-    + struct.pack('<4Q2i2I', 0, 16, dataoff, 16, 7, 7, 1, 0)
-    + name16('__data') + name16('__DATA')
-    + struct.pack('<2Q8I', 0, 16, dataoff, 3, 0, 0, 0, 0, 0, 0)
-    + struct.pack('<2I', 0x2, 24)
-    + struct.pack('<4I', symoff, 1, stroff, len(strtab))
-    + data + struct.pack('<IBBhQ', 1, 0x0F, 1, 0, 0) + strtab)
+```bash
+python3 make_fixtures.py           # rewrite the six archives
+python3 make_fixtures.py --check   # confirm the archives match the script
 ```
 
 The rest are built with `clang` and `lipo`:

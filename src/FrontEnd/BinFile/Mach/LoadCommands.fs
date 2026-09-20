@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinFile.Mach
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
 module internal LoadCommands =
@@ -34,7 +35,7 @@ module internal LoadCommands =
     let reader = toolBox.Reader
     let cls = toolBox.Header.Class
     { SecOff = cmdOffset + selectByWordSize cls 56 72
-      SegCmdName = readCString span 8
+      SegCmdName = readCStringOfSize span 8 16
       VMAddr = readUIntByWordSize span reader cls 24 + toolBox.BaseAddress
       VMSize = readUIntByWordSizeAndOffset span reader cls 28 32
       FileOff = readUIntByWordSizeAndOffset span reader cls 32 40
@@ -72,9 +73,42 @@ module internal LoadCommands =
       LocalRelOff = reader.ReadUInt32(span, 72)
       NumLocalRel = reader.ReadUInt32(span, 76) }
 
+  /// Returns where the program counter sits within a thread state of the given
+  /// flavor, in bytes, for the flavors that carry the general registers. The
+  /// other flavors (floating point, debug, exception) name no entry point.
+  let private pcOffsetOfFlavor cpuType flavor =
+    match cpuType, flavor with
+    | CPUType.I386, 1u -> Some 40 (* x86_THREAD_STATE32.eip *)
+    | CPUType.X64, 4u -> Some 128 (* x86_THREAD_STATE64.rip *)
+    | CPUType.ARM, 1u -> Some 60 (* ARM_THREAD_STATE.pc *)
+    | CPUType.ARM64, 6u -> Some 256 (* ARM_THREAD_STATE64.pc *)
+    | _ -> None
+
+  /// Reads the initial program counter out of a thread state command, whose
+  /// payload is a run of (flavor, count, state) triples that the count of each
+  /// steps over. The count is in 32-bit words, as the kernel structures are.
+  let rec private readThreadPC toolBox (span: ByteSpan) offset cmdSize =
+    let reader = toolBox.Reader
+    if offset + 8 > cmdSize then
+      None
+    else
+      let flavor = reader.ReadUInt32(span, offset)
+      let count = int (reader.ReadUInt32(span, offset + 4))
+      let stateOff = offset + 8
+      let next = stateOff + count * 4
+      if count < 0 || next > cmdSize then
+        None
+      else
+        match pcOffsetOfFlavor toolBox.Header.CPUType flavor with
+        | Some pcOff when stateOff + pcOff < next ->
+          let cls = toolBox.Header.Class
+          Some(readUIntByWordSize span reader cls (stateOff + pcOff))
+        | _ ->
+          readThreadPC toolBox span next cmdSize
+
   let parseMainCmd toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
-    { EntryOff = reader.ReadUInt64(span, 8) + toolBox.BaseAddress
+    { EntryOff = reader.ReadUInt64(span, 8)
       StackSize = reader.ReadUInt64(span, 16) }
 
   /// Read lc_str string.
@@ -123,12 +157,29 @@ module internal LoadCommands =
     { TrieOffset = reader.ReadInt32(span, 8)
       TrieSize = reader.ReadUInt32(span, 12) }
 
+  let parseDataInCode toolBox (span: ByteSpan) =
+    let reader = toolBox.Reader
+    { TableOffset = reader.ReadInt32(span, 8)
+      TableSize = reader.ReadUInt32(span, 12) }
+
+  /// Checks that a command at the given offset both fits in the file and is
+  /// long enough to hold what is being read out of it, so a truncated or
+  /// corrupt table is reported as a bad file rather than as a span that could
+  /// not be cut.
+  let private checkCmdBounds (bytes: byte[]) offset size =
+    if offset < 0 || size < 8 || offset + size > bytes.Length then
+      raise InvalidFileFormatException
+    else
+      ()
+
   let parseCmd ({ Bytes = bytes; Reader = reader } as toolBox) offset =
-    let cmdHdr = ReadOnlySpan(bytes, int offset, 8)
+    let cmdOffset = int offset
+    checkCmdBounds bytes cmdOffset 8
+    let cmdHdr = ReadOnlySpan(bytes, cmdOffset, 8)
     let cmdType = reader.ReadInt32(cmdHdr, 0) |> LanguagePrimitives.EnumOfValue
     let cmdSize = reader.ReadInt32(cmdHdr, 4)
-    let cmdOffset = int offset
-    let span = ReadOnlySpan(bytes, int offset, cmdSize)
+    checkCmdBounds bytes cmdOffset cmdSize
+    let span = ReadOnlySpan(bytes, cmdOffset, cmdSize)
     let command =
       match cmdType with
       | CmdType.LC_SEGMENT
@@ -140,6 +191,10 @@ module internal LoadCommands =
         DySymTab(cmdType, uint32 cmdSize, parseDySymCmd toolBox span)
       | CmdType.LC_MAIN ->
         Main(cmdType, uint32 cmdSize, parseMainCmd toolBox span)
+      | CmdType.LC_THREAD
+      | CmdType.LC_UNIXTHREAD ->
+        let pc = readThreadPC toolBox span 8 cmdSize
+        Thread(cmdType, uint32 cmdSize, pc)
       | CmdType.LC_LOAD_DYLIB
       | CmdType.LC_LOAD_WEAK_DYLIB
       | CmdType.LC_REEXPORT_DYLIB
@@ -163,6 +218,8 @@ module internal LoadCommands =
         ChainedFixups(cmdType, uint32 cmdSize, parseChainedFixups toolBox span)
       | CmdType.LC_DYLD_EXPORTS_TRIE ->
         ExportsTrie(cmdType, uint32 cmdSize, parseExportsTrie toolBox span)
+      | CmdType.LC_DATA_IN_CODE ->
+        DataInCode(cmdType, uint32 cmdSize, parseDataInCode toolBox span)
       | _ ->
         Unhandled(cmdType, uint32 cmdSize)
     struct (command, uint64 cmdSize)

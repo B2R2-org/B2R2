@@ -110,6 +110,7 @@
     <Compile Include="Mach\SectionAttribute.fs" />
     <Compile Include="Mach\Section.fs" />
     <Compile Include="Mach\Symbol.fs" />
+    <Compile Include="Mach\CodeMode.fs" />
     <Compile Include="Mach\SymbolStore.fs" />
     <Compile Include="Mach\ExportedSymbols.fs" />
     <Compile Include="Mach\Reloc.fs" />

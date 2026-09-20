@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""Writes out the Mach-O fixtures that no toolchain can build.
+
+Some of what the parser has to handle cannot be produced by a current SDK: an
+assembler always emits __text even when nothing goes in it, ld64 keeps the
+empty section, no SDK targets i386 or armv7 any more, and ld64 stopped emitting
+LC_UNIXTHREAD long ago. Those fixtures are written here instead. Run this from
+the directory it lives in; it rewrites each file and its archive in place.
+
+The fixtures clang and lipo can build are listed in README.md instead.
+"""
+import struct
+import sys
+import zipfile
+
+MH_MAGIC, MH_MAGIC_64 = 0xFEEDFACE, 0xFEEDFACF
+MH_OBJECT, MH_EXECUTE, MH_DYLIB = 1, 2, 6
+CPU_I386, CPU_ARM, CPU_ARM64, CPU_X64 = 7, 12, 0x0100000C, 0x01000007
+LC_SEGMENT, LC_SEGMENT_64, LC_SYMTAB = 0x1, 0x19, 0x2
+LC_UNIXTHREAD, LC_ID_DYLIB, LC_DATA_IN_CODE = 0x5, 0xD, 0x29
+LC_DYLD_INFO_ONLY = 0x80000022
+N_SECT_EXT, N_ABS_EXT, N_UNDF_EXT = 0x0F, 0x03, 0x01
+N_ARM_THUMB_DEF, MH_PIE, SUBSECTIONS_VIA_SYMBOLS = 0x8, 0x200000, 0x2000
+
+
+def name16(s):
+    return s.encode() + b'\0' * (16 - len(s))
+
+
+def header32(cputype, cpusub, filetype, ncmds, sizeofcmds, flags):
+    return struct.pack('<I2i4I', MH_MAGIC, cputype, cpusub, filetype,
+                       ncmds, sizeofcmds, flags)
+
+
+def header64(cputype, cpusub, filetype, ncmds, sizeofcmds, flags):
+    return struct.pack('<I2i5I', MH_MAGIC_64, cputype, cpusub, filetype,
+                       ncmds, sizeofcmds, flags, 0)
+
+
+def seg32(name, vmaddr, vmsize, fileoff, filesize, prot, sects,
+          secseg=None):
+    cmd = struct.pack('<2I', LC_SEGMENT, 56 + 68 * len(sects)) + name16(name) \
+        + struct.pack('<4I2i2I', vmaddr, vmsize, fileoff, filesize,
+                      prot, prot, len(sects), 0)
+    for sn, addr, size, off, align, reloff, nreloc, flags in sects:
+        cmd += name16(sn) + name16(secseg or name) \
+            + struct.pack('<9I', addr, size, off, align, reloff, nreloc,
+                          flags, 0, 0)
+    return cmd
+
+
+def seg64(name, vmaddr, vmsize, fileoff, filesize, prot, sects,
+          secseg=None):
+    cmd = struct.pack('<2I', LC_SEGMENT_64, 72 + 80 * len(sects)) \
+        + name16(name) \
+        + struct.pack('<4Q2i2I', vmaddr, vmsize, fileoff, filesize,
+                      prot, prot, len(sects), 0)
+    for sn, addr, size, off, align, flags in sects:
+        cmd += name16(sn) + name16(secseg or name) \
+            + struct.pack('<2Q8I', addr, size, off, align, 0, 0, flags,
+                          0, 0, 0)
+    return cmd
+
+
+def symtab(symoff, nsyms, stroff, strsize):
+    return struct.pack('<6I', LC_SYMTAB, 24, symoff, nsyms, stroff, strsize)
+
+
+def nlist32(strx, ntype, nsect, ndesc, value):
+    return struct.pack('<IBBhI', strx, ntype, nsect, ndesc, value)
+
+
+def nlist64(strx, ntype, nsect, ndesc, value):
+    return struct.pack('<IBBhQ', strx, ntype, nsect, ndesc, value)
+
+
+def notext():
+    """A data-only object, which an assembler cannot emit: it always lays down
+    __text first, and ld64 keeps the empty section in whatever it links."""
+    data = struct.pack('<4I', 1, 2, 3, 4)
+    strtab = b'\0_g_table\0'
+    sizeofcmds = 72 + 80 + 24
+    dataoff = 32 + sizeofcmds
+    symoff = dataoff + len(data)
+    stroff = symoff + 16
+    return (header64(CPU_X64, 3, MH_OBJECT, 2, sizeofcmds,
+                     SUBSECTIONS_VIA_SYMBOLS)
+            + seg64('', 0, len(data), dataoff, len(data), 7,
+                    [('__data', 0, len(data), dataoff, 3, 0)], '__DATA')
+            + symtab(symoff, 1, stroff, len(strtab))
+            + data + nlist64(1, N_SECT_EXT, 1, 0, 0) + strtab)
+
+
+# (cputype, cpusubtype, thread flavor, uint32 count, pc slot)
+THREADS = {'x64': (CPU_X64, 3, 4, 42, 16), 'arm64': (CPU_ARM64, 0, 6, 68, 32)}
+
+
+def unixthread(kind):
+    """An executable naming its entry point through LC_UNIXTHREAD, the way
+    binaries older than LC_MAIN and kernel images do. ld64 no longer emits
+    the command at all."""
+    cputype, cpusub, flavor, count, pcslot = THREADS[kind]
+    thrsz = 16 + count * 4
+    sizeofcmds = 72 + 80 + thrsz
+    textoff = 32 + sizeofcmds
+    text = b'\xc3' * 16
+    vmaddr = 0x100000000
+    filesize = textoff + len(text)
+    state = bytearray(count * 4)
+    struct.pack_into('<Q', state, pcslot * 8, vmaddr + textoff)
+    return (header64(cputype, cpusub, MH_EXECUTE, 2, sizeofcmds, 0)
+            + seg64('__TEXT', vmaddr, 0x1000, 0, filesize, 5,
+                    [('__text', vmaddr + textoff, len(text), textoff, 4,
+                      0x80000400)])
+            + struct.pack('<4I', LC_UNIXTHREAD, thrsz, flavor, count)
+            + bytes(state) + text)
+
+
+def i386_dyldinfo():
+    """A 32-bit dylib carrying LC_DYLD_INFO_ONLY, the counterpart of
+    mach_x64_dyldinfo. The word behind the rebase slot is deliberately
+    non-zero, so reading the slot eight bytes wide instead of four yields a
+    visibly wrong target."""
+    page = 0x1000
+    data = struct.pack('<3I', 0, 0x1008, 0xAABBCCDD)
+    rebase = bytes([0x11,           # SET_TYPE_IMM, pointer
+                    0x21, 0x04,     # SET_SEGMENT_AND_OFFSET_ULEB seg 1, off 4
+                    0x51,           # DO_REBASE_IMM_TIMES x1
+                    0x00])          # DONE
+    bind = bytes([0x40]) + b'_ext_symbol\0' \
+        + bytes([0x51,              # SET_TYPE_IMM, pointer
+                 0x3e,              # SET_DYLIB_SPECIAL_IMM, flat lookup
+                 0x71, 0x00,        # SET_SEGMENT_AND_OFFSET_ULEB seg 1, off 0
+                 0x90,              # DO_BIND
+                 0x00])             # DONE
+    install = b'/usr/lib/libi386.dylib\0'
+    pad = b'\0' * (-len(install) % 4)
+    idcmd = struct.pack('<6I', LC_ID_DYLIB, 24 + len(install) + len(pad),
+                        24, 0, 0x10000, 0x10000) + install + pad
+    link = page * 2
+    dyldcmd = struct.pack('<2I', LC_DYLD_INFO_ONLY, 48) \
+        + struct.pack('<10I', link, len(rebase), link + len(rebase),
+                      len(bind), 0, 0, 0, 0, 0, 0)
+    cmds = seg32('__TEXT', 0, page, 0, page, 5,
+                 [('__text', 0x200, 0, 0x200, 2, 0, 0, 0x80000400)]) \
+        + seg32('__DATA', page, page, page, page, 3,
+                [('__data', page, len(data), page, 2, 0, 0, 0)]) \
+        + seg32('__LINKEDIT', link, page, link, len(rebase) + len(bind), 1,
+                []) \
+        + idcmd + dyldcmd
+    out = bytearray(link + len(rebase) + len(bind))
+    out[0:28] = header32(CPU_I386, 3, MH_DYLIB, 5, len(cmds), 0x100085)
+    out[28:28 + len(cmds)] = cmds
+    out[page:page + len(data)] = data
+    out[link:link + len(rebase)] = rebase
+    out[link + len(rebase):] = bind
+    return bytes(out)
+
+
+def plain_reloc(addr, symnum, pcrel, length, ext, rtype):
+    word = (symnum & 0xFFFFFF) | (pcrel << 24) | (length << 25) \
+        | (ext << 27) | (rtype << 28)
+    return struct.pack('<II', addr, word)
+
+
+def scattered_reloc(addr, value, pcrel, length, rtype):
+    word = (1 << 31) | (pcrel << 30) | (length << 28) | (rtype << 24) \
+        | (addr & 0xFFFFFF)
+    return struct.pack('<II', word, value)
+
+
+def i386_reloc():
+    """A 32-bit object carrying the relocation shapes x86-64 never produces: a
+    scattered entry, a PC-relative one, and a plain external one. The scattered
+    field holds 0x2010 while the entry measures it from 0x2000, which is the
+    whole reason a scattered entry exists."""
+    text = struct.pack('<3i', 0x2010, -4, 0x30)
+    relocs = (scattered_reloc(0x0, 0x2000, 0, 2, 2)
+              + plain_reloc(0x4, 0, 1, 2, 1, 0)
+              + plain_reloc(0x8, 1, 0, 2, 1, 0))
+    strtab = b'\0_pcrel_target\0_plain_target\0'
+    nlists = nlist32(1, N_UNDF_EXT, 0, 0, 0) + nlist32(15, N_UNDF_EXT, 0, 0, 0)
+    sizeofcmds = 56 + 68 + 24
+    textoff = 28 + sizeofcmds
+    reloff = textoff + len(text)
+    symoff = reloff + len(relocs)
+    stroff = symoff + len(nlists)
+    return (header32(CPU_I386, 3, MH_OBJECT, 2, sizeofcmds,
+                     SUBSECTIONS_VIA_SYMBOLS)
+            + seg32('', 0, len(text), textoff, len(text), 7,
+                    [('__text', 0, len(text), textoff, 2, reloff, 3,
+                      0x80000400)], '__TEXT')
+            + symtab(symoff, 2, stroff, len(strtab))
+            + text + relocs + nlists + strtab)
+
+
+def arm32_thumb():
+    """An ARMv7 executable mixing A32 and T32 code, with a data range embedded
+    in __text. N_ARM_THUMB_DEF marks the Thumb function and LC_DATA_IN_CODE
+    marks the data. It is MH_PIE and carries an absolute symbol too, so a load
+    address can be seen to move the section-defined symbols and to leave the
+    absolute one where it is."""
+    vmaddr, absval = 0x1000, 0x1234
+    text = b'\x00' * 0x40
+    strtab = b'\0_arm_fn\0_thumb_fn\0_abs_sym\0'
+    sizeofcmds = 56 + 68 + 24 + 16
+    textoff = 28 + sizeofcmds
+    textaddr = vmaddr + textoff
+    armfn, thumbfn = textaddr, textaddr + 0x20
+    datastart, datalen = textaddr + 0x10, 8
+    nlists = (nlist32(1, N_SECT_EXT, 1, 0, armfn)
+              + nlist32(9, N_SECT_EXT, 1, N_ARM_THUMB_DEF, thumbfn)
+              + nlist32(19, N_ABS_EXT, 0, 0, absval))
+    # A data_in_code_entry counts its start from the Mach-O header.
+    dice = struct.pack('<IHH', datastart - vmaddr, datalen, 1)
+    symoff = textoff + len(text)
+    stroff = symoff + len(nlists)
+    diceoff = stroff + len(strtab)
+    return (header32(CPU_ARM, 9, MH_EXECUTE, 3, sizeofcmds, MH_PIE)
+            + seg32('__TEXT', vmaddr, 0x1000, 0, diceoff + len(dice), 5,
+                    [('__text', textaddr, len(text), textoff, 2, 0, 0,
+                      0x80000400)])
+            + symtab(symoff, 3, stroff, len(strtab))
+            + struct.pack('<4I', LC_DATA_IN_CODE, 16, diceoff, len(dice))
+            + text + nlists + strtab + dice)
+
+
+FIXTURES = {'mach_x64_notext': notext,
+            'mach_x64_unixthread': lambda: unixthread('x64'),
+            'mach_arm64_unixthread': lambda: unixthread('arm64'),
+            'mach_i386_dyldinfo': i386_dyldinfo,
+            'mach_i386_reloc': i386_reloc,
+            'mach_arm32_thumb': arm32_thumb}
+
+
+def main(check):
+    failed = False
+    for name, build in sorted(FIXTURES.items()):
+        data = build()
+        archive = name + '.zip'
+        if check:
+            with zipfile.ZipFile(archive) as z:
+                same = z.read(name) == data
+            print('%-24s %s' % (name, 'matches' if same else 'DIFFERS'))
+            failed = failed or not same
+        else:
+            with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
+                z.writestr(name, data)
+            print('%-24s %d bytes' % (name, len(data)))
+    return 1 if failed else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main('--check' in sys.argv))

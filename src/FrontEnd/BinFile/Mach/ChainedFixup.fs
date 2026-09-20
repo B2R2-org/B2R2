@@ -54,6 +54,11 @@ module internal ChainedFixup =
   /// page_start value marking a page with no fixups.
   let [<Literal>] private PageStartNone = 0xFFFFus
 
+  /// DYLD_CHAINED_PTR_START_MULTI: the page_start value is an index into a
+  /// chain_starts array rather than an offset into the page, which is how a
+  /// page holding several chains is described.
+  let [<Literal>] private PageStartMulti = 0x8000us
+
   let private chooser = function
     | ChainedFixups(_, _, c) -> Some c
     | _ -> None
@@ -167,9 +172,12 @@ module internal ChainedFixup =
       let mutable acc = acc
       for p = 0 to pageCount - 1 do
         let pageOff = p * pageSize
-        let start = int (reader.ReadUInt16(bytes, infoOff + 22 + p * 2))
-        if start <> int PageStartNone then
-          acc <- walkChain toolBox seg pageOff start decode nextOf stride acc
+        let start = reader.ReadUInt16(bytes, infoOff + 22 + p * 2)
+        (* A page holding several chains is left alone rather than guessed at:
+           reading its index as an offset would invent fixups. *)
+        if start <> PageStartNone && start &&& PageStartMulti = 0us then
+          let at = int start
+          acc <- walkChain toolBox seg pageOff at decode nextOf stride acc
         else
           ()
       acc

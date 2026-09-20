@@ -62,8 +62,16 @@ type internal LoadCommand =
   /// Exports trie command (LC_DYLD_EXPORTS_TRIE), which carries the export
   /// trie that LC_DYLD_INFO used to embed.
   | ExportsTrie of cmd: CmdType * size: uint32 * ExportsTrieCmd
+  /// Data-in-code command (LC_DATA_IN_CODE), which lists the ranges of a text
+  /// section that hold data rather than instructions.
+  | DataInCode of cmd: CmdType * size: uint32 * DataInCodeCmd
   /// Main command (LC_MAIN).
   | Main of cmd: CmdType * size: uint32 * MainCmd
+  /// Thread state command (LC_THREAD or LC_UNIXTHREAD), which is how a binary
+  /// older than LC_MAIN names its entry point: as the program counter of the
+  /// initial thread rather than as an offset. None when the command carries no
+  /// state this parser knows the layout of.
+  | Thread of cmd: CmdType * size: uint32 * pc: Addr option
   /// Unhandled command.
   | Unhandled of cmd: CmdType * size: uint32
 
@@ -204,10 +212,20 @@ and internal ExportsTrieCmd =
     /// Size of the export trie.
     TrieSize: uint32 }
 
+/// Represents a data-in-code command (LC_DATA_IN_CODE). It points to a table
+/// of data_in_code_entry records in the __LINKEDIT segment, each of which
+/// gives an image-relative start, a length, and the kind of data.
+and internal DataInCodeCmd =
+  { /// File offset to the table.
+    TableOffset: int
+    /// Size of the table.
+    TableSize: uint32 }
+
 /// Represents a main command.
 and internal MainCmd =
-  { /// Offset of main().
-    EntryOff: Addr
+  { /// Offset of main() from the start of the Mach-O header, which is where
+    /// the image begins, so it is a file offset rather than an address.
+    EntryOff: uint64
     /// Initial stack size, if not zero.
     StackSize: uint64 }
 

@@ -55,9 +55,22 @@ let getTextSegOffset segs =
   | Some vmAddr -> vmAddr
   | None -> raise InvalidFileFormatException
 
-let computeEntryPoint segs cmds =
-  let mainOffset = getMainOffset cmds
-  if mainOffset = 0UL then None else Some(mainOffset + getTextSegOffset segs)
+let getThreadEntry cmds =
+  cmds
+  |> Array.tryPick (function
+    | Thread(_, _, pc) -> pc
+    | _ -> None)
+
+/// Returns the entry point of the image. LC_MAIN names a file offset from the
+/// Mach-O header, so it is taken from the image base, whereas the older thread
+/// state commands spell out an unslid address that only the load slide moves.
+let computeEntryPoint toolBox segs cmds =
+  match getThreadEntry cmds with
+  | Some pc ->
+    Some(pc + toolBox.BaseAddress)
+  | None ->
+    let mainOffset = getMainOffset cmds
+    if mainOffset = 0UL then None else Some(mainOffset + getTextSegOffset segs)
 
 let isNXEnabled hdr =
   not (hdr.Flags.HasFlag MachFlag.MH_ALLOW_STACK_EXECUTION)
