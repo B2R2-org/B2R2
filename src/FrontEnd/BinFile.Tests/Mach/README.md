@@ -29,20 +29,23 @@ and the feature fixtures are hand-crafted to isolate one parser capability.
 | `mach_arm32_thumb` | ARMv7 mixing A32 and T32, with `LC_DATA_IN_CODE` and an absolute symbol. |
 | `mach_x64_extreloc` | A non-PIE dylib relocated through the `LC_DYSYMTAB` external and local tables. |
 | `mach_x64_multichain` | A fixup page holding two chains, reached through `DYLD_CHAINED_PTR_START_MULTI`. |
+| `mach_x64_fileset` | An `MH_FILESET` container, as a kernel collection is: two images named by `LC_FILESET_ENTRY`, sharing one `__LINKEDIT`, plus a segment occupying no virtual memory. |
 
 The exception fixtures exercise the two Mach-O unwinding schemes: `__eh_frame`
 DWARF CFI (x64, needs a register factory) and Apple compact unwind (arm64).
 
 ## The fixtures that clang cannot build
 
-Eight fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
+Nine fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
 because no current toolchain produces them. An assembler always lays down
 `__text` even when nothing goes in it and ld64 keeps the empty section, so a
 data-only object cannot be compiled; ld64 stopped emitting `LC_UNIXTHREAD` long
 ago; no SDK targets i386 or armv7 any more, which rules out 32-bit dyld info,
 scattered relocations and Thumb marking; and a linker reaches for the
 `LC_DYSYMTAB` relocation tables or a multi-chain fixup page only in
-combinations it no longer emits. Each function in the script says what its
+combinations it no longer emits. A fileset is built by `kmutil` out of a whole
+kernel and its kexts, which no build of this repository has to hand, and the
+real ones run to tens of megabytes. Each function in the script says what its
 fixture is for.
 
 ```bash

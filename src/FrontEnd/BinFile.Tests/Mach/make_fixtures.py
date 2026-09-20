@@ -20,6 +20,8 @@ LC_SEGMENT, LC_SEGMENT_64, LC_SYMTAB = 0x1, 0x19, 0x2
 LC_UNIXTHREAD, LC_ID_DYLIB, LC_DATA_IN_CODE = 0x5, 0xD, 0x29
 LC_DYLD_INFO_ONLY, LC_DYSYMTAB = 0x80000022, 0xB
 LC_DYLD_CHAINED_FIXUPS = 0x80000034
+LC_FILESET_ENTRY = 0x80000035
+MH_KEXT_BUNDLE, MH_FILESET = 0xB, 0xC
 PTR_START_MULTI, PTR_START_LAST, PTR_START_NONE = 0x8000, 0x8000, 0xFFFF
 N_SECT_EXT, N_ABS_EXT, N_UNDF_EXT = 0x0F, 0x03, 0x01
 N_ARM_THUMB_DEF, MH_PIE, SUBSECTIONS_VIA_SYMBOLS = 0x8, 0x200000, 0x2000
@@ -312,6 +314,59 @@ def x64_multichain():
     return bytes(out)
 
 
+def fileset_entry(vmaddr, fileoff, name):
+    """One LC_FILESET_ENTRY. Its lc_str offset is at 24, not at 8 the way
+    every other string-carrying command puts it."""
+    payload = name.encode() + b'\0'
+    size = (32 + len(payload) + 7) & ~7
+    return struct.pack('<2I2Q2I', LC_FILESET_ENTRY, size, vmaddr, fileoff,
+                       32, 0) + payload.ljust(size - 32, b'\0')
+
+
+VM = 0x100000000
+LINK = 0x3000
+
+
+def kext(fileoff, strx, name):
+    """One image held inside the fileset. Every offset it names is into the
+    container: its __TEXT sits at its own page, but its __LINKEDIT and its
+    symbol table are the container's, far outside the page. An image read
+    against a copy cut out of the container would read those at the wrong
+    place, which is what tells a fileset apart from a universal binary."""
+    text = fileoff + 0x800
+    cmds = (seg64('__TEXT', VM + fileoff, 0x1000, fileoff, 0x1000, 5,
+                  [('__text', VM + text, 1, text, 4, 0x80000400)])
+            + seg64('__LINKEDIT', VM + LINK, 0x1000, LINK, 0x30, 1, [])
+            + symtab(LINK + strx * 16, 1, LINK + 32, 17))
+    return header64(CPU_X64, 3, MH_KEXT_BUNDLE, 3, len(cmds), 0) + cmds
+
+
+def fileset():
+    """A fileset container, as a kernel collection is: two images named by
+    LC_FILESET_ENTRY, sharing one __LINKEDIT. __PRELINK_TEXT occupies no
+    virtual memory, which a kernel image carries several of, so a segment map
+    that does not drop it builds an inverted address range."""
+    entries = [('com.example.kext.a', 0x1000, 0),
+               ('com.example.kext.b', 0x2000, 1)]
+    cmds = (seg64('__TEXT_EXEC', VM + 0x1000, 0x2000, 0x1000, 0x2000, 5, [])
+            + seg64('__PRELINK_TEXT', VM + LINK, 0, LINK, 0, 1, [])
+            + seg64('__LINKEDIT', VM + LINK, 0x1000, LINK, 0x30, 1, [])
+            + symtab(LINK, 2, LINK + 32, 17))
+    for name, fileoff, _ in entries:
+        cmds += fileset_entry(VM + fileoff, fileoff, name)
+    out = bytearray(LINK + 0x30)
+    out[0:32] = header64(CPU_X64, 3, MH_FILESET, 4 + len(entries), len(cmds), 0)
+    out[32:32 + len(cmds)] = cmds
+    for _, fileoff, strx in entries:
+        sub = kext(fileoff, strx, None)
+        out[fileoff:fileoff + len(sub)] = sub
+        out[fileoff + 0x800] = 0xC3  # ret
+    out[LINK:LINK + 16] = nlist64(1, N_SECT_EXT, 1, 0, VM + 0x1800)
+    out[LINK + 16:LINK + 32] = nlist64(9, N_SECT_EXT, 1, 0, VM + 0x2800)
+    out[LINK + 32:] = b'\0_a_func\0_b_func\0'
+    return bytes(out)
+
+
 FIXTURES = {'mach_x64_notext': notext,
             'mach_x64_unixthread': lambda: unixthread('x64'),
             'mach_arm64_unixthread': lambda: unixthread('arm64'),
@@ -319,7 +374,8 @@ FIXTURES = {'mach_x64_notext': notext,
             'mach_i386_reloc': i386_reloc,
             'mach_arm32_thumb': arm32_thumb,
             'mach_x64_extreloc': x64_extreloc,
-            'mach_x64_multichain': x64_multichain}
+            'mach_x64_multichain': x64_multichain,
+            'mach_x64_fileset': fileset}
 
 
 def main(check):

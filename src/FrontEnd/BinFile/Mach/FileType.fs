@@ -48,3 +48,6 @@ type internal FileType =
   | MH_DSYM = 0xa
   /// x86_64 kexts.
   | MH_KEXT_BUNDLE = 0xb
+  /// A container that holds several Mach-O images, as a kernel collection
+  /// holds the kernel and the kexts booted with it.
+  | MH_FILESET = 0xc

@@ -69,6 +69,9 @@ type internal LoadCommand =
   /// LC_ENCRYPTION_INFO_64), which names the part of the image that ships
   /// encrypted, as the App Store leaves a text segment.
   | EncryptionInfo of cmd: CmdType * size: uint32 * EncryptionInfoCmd
+  /// Fileset entry command (LC_FILESET_ENTRY), which names one of the images
+  /// a container holds, as a kernel collection names each of its kexts.
+  | FilesetEntry of cmd: CmdType * size: uint32 * FilesetEntryCmd
   /// Main command (LC_MAIN).
   | Main of cmd: CmdType * size: uint32 * MainCmd
   /// Thread state command (LC_THREAD or LC_UNIXTHREAD), which is how a binary
@@ -236,6 +239,17 @@ and internal EncryptionInfoCmd =
     /// The encryption system in use. Zero means the range is not encrypted
     /// yet, which is what a linker writes and only a re-signer replaces.
     CryptId: uint32 }
+
+/// Represents a fileset entry command (LC_FILESET_ENTRY). The load commands
+/// of the image it names give offsets into the container rather than into the
+/// image, which is what tells a fileset apart from a universal binary.
+and internal FilesetEntryCmd =
+  { /// The address the image is mapped at.
+    EntryVMAddr: Addr
+    /// The offset of the image within the container file.
+    EntryFileOffset: uint64
+    /// What the container calls the image, e.g., com.apple.kernel.
+    EntryName: string }
 
 /// Represents a main command.
 and internal MainCmd =

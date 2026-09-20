@@ -425,6 +425,17 @@ let dumpEncInfoCmd cmd size (enc: Mach.EncryptionInfoCmd) idx =
   printsr [| "CryptId:"; enc.CryptId.ToString() |]
   printsn ""
 
+let dumpFilesetEntryCmd cmd size (entry: Mach.FilesetEntryCmd) idx =
+  printSubsectionTitle <| "Load command " + idx.ToString()
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "EntryName:"; entry.EntryName |]
+  printsr [| "EntryVMAddr:"; "0x" + entry.EntryVMAddr.ToString("x") |]
+  printsr [| "EntryFileOffset:"
+             "0x" + entry.EntryFileOffset.ToString("x") |]
+  printsn ""
+
 let dumpMainCmd cmd size (main: Mach.MainCmd) idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
   resetToDefaultTwoColumnConfig ()
@@ -458,6 +469,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
     | Mach.ExportsTrie(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.DataInCode(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.EncryptionInfo(cmd, size, enc) -> dumpEncInfoCmd cmd size enc i
+    | Mach.FilesetEntry(cmd, size, e) -> dumpFilesetEntryCmd cmd size e i
     | Mach.Main(cmd, size, main) -> dumpMainCmd cmd size main i
     | Mach.Thread(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.Unhandled(cmd, size) -> dumpUnhandledCmd cmd size i
