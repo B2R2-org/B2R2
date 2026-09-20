@@ -106,6 +106,15 @@ module internal LoadCommands =
         | _ ->
           readThreadPC toolBox span next cmdSize
 
+  /// Parses an image routines command, whose init_address sits at offset 8
+  /// in both forms, as a word of the file's own size. It is an unslid
+  /// address, as the thread state program counter is. A zero is what a
+  /// library carrying the command but no routine writes.
+  let parseRoutines toolBox (span: ByteSpan) =
+    let cls = toolBox.Header.Class
+    let addr = readUIntByWordSize span toolBox.Reader cls 8
+    if addr = 0UL then None else Some(addr + toolBox.BaseAddress)
+
   let parseMainCmd toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
     { EntryOff = reader.ReadUInt64(span, 8)
@@ -239,6 +248,9 @@ module internal LoadCommands =
       | CmdType.LC_UNIXTHREAD ->
         let pc = readThreadPC toolBox span 8 cmdSize
         Thread(cmdType, uint32 cmdSize, pc)
+      | CmdType.LC_ROUTINES
+      | CmdType.LC_ROUTINES64 ->
+        Routines(cmdType, uint32 cmdSize, parseRoutines toolBox span)
       | CmdType.LC_LOAD_DYLIB
       | CmdType.LC_LOAD_WEAK_DYLIB
       | CmdType.LC_REEXPORT_DYLIB

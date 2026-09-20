@@ -150,6 +150,56 @@ let filesetEntries cmds =
     | FilesetEntry(_, _, e) -> Some e
     | _ -> None)
 
+/// Returns the initialization routines LC_ROUTINES names, which a library
+/// built before the pointer arrays took the job over carries in place of
+/// one. No toolchain has emitted the command in a long while.
+let initRoutines cmds =
+  cmds
+  |> Array.choose (function
+    | Routines(_, _, addr) -> addr
+    | _ -> None)
+
+/// The section types holding an array of pointers to the functions an image
+/// runs on its way up and down, which is where the constructors and the
+/// destructors of a C++ translation unit are registered.
+let private funcPointerTypes =
+  [| SectionType.S_MOD_INIT_FUNC_POINTERS
+     SectionType.S_MOD_TERM_FUNC_POINTERS |]
+
+/// Returns how many pointers the given section holds, counting only the ones
+/// the file has the bytes for, so a section naming more than the file
+/// carries is read as far as it goes rather than past the end of it.
+let private countFuncPointers (bytes: byte[]) sec entrySize =
+  let avail = bytes.Length - int sec.SecOffset
+  if avail <= 0 then 0 else min (int sec.SecSize) avail / entrySize
+
+/// Returns the functions one array of pointers names. dyld, not the linker,
+/// is what writes such a pointer in an image it fixes up: the slot holds a
+/// chain entry there, or is left to a rebase opcode, so the fixup names the
+/// function where the bytes on disk do not.
+let private readFuncPointers toolBox resolve sec =
+  let cls = toolBox.Header.Class
+  let entrySize = selectByWordSize cls 4 8
+  let count = countFuncPointers toolBox.Bytes sec entrySize
+  let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, count * entrySize)
+  let addrs = ResizeArray()
+  for i = 0 to count - 1 do
+    match resolve (sec.SecAddr + uint64 (i * entrySize)) with
+    | Some target ->
+      addrs.Add target
+    | None ->
+      let raw = readUIntByWordSize span toolBox.Reader cls (i * entrySize)
+      if raw <> 0UL then addrs.Add(raw + toolBox.BaseAddress) else ()
+  addrs.ToArray()
+
+/// Returns the functions the initializer and terminator pointer arrays of an
+/// image name, which is where every toolchain of the last twenty years puts
+/// what LC_ROUTINES once named.
+let funcPointerAddrs toolBox secs resolve =
+  secs
+  |> Array.filter (fun sec -> Array.contains sec.SecType funcPointerTypes)
+  |> Array.collect (readFuncPointers toolBox resolve)
+
 /// The linker option forms that join the library name to the flag itself, as
 /// autolinking writes -lfoo.
 let private joinedLibFlags = [| "-l"; "-weak-l"; "-needed-l"; "-hidden-l" |]
