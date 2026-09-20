@@ -56,6 +56,42 @@ let getBoundedPtrBySections (shdrs: SectionHeader[]) addr =
       None)
   |> Option.defaultValue BinFilePointer.Null
 
+/// Returns a bounded pointer for the given address using the segments the
+/// file loads. An address past what a segment keeps in the file is still its
+/// own, the rest of that segment being zero at run time and nowhere on disk,
+/// and the pointer it gets is virtual rather than file-backed.
+let getBoundedPtrBySegments (phdrs: ProgramHeader[]) addr =
+  let mutable found = false
+  let mutable idx = 0
+  let mutable maxAddr = 0UL
+  let mutable offset = 0
+  let mutable maxOffset = 0
+  while not found && idx < phdrs.Length do
+    let ph = phdrs[idx]
+    if addr >= ph.PHAddr && addr < ph.PHAddr + ph.PHMemSize then
+      found <- true
+      maxOffset <- int ph.PHOffset + int ph.PHFileSize - 1
+      if addr < ph.PHAddr + ph.PHFileSize then
+        offset <- int ph.PHOffset + int (addr - ph.PHAddr)
+        maxAddr <- ph.PHAddr + ph.PHFileSize - 1UL
+      else
+        offset <- maxOffset + 1
+        maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
+    else
+      idx <- idx + 1
+  if not found then
+    BinFilePointer.Null
+  elif offset > maxOffset then
+    BinFilePointer.CreateVirtual(addr, maxAddr)
+  else
+    BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
+
+/// Returns a bounded pointer for the given address, found through the segments
+/// the file loads, or through its sections where it loads none.
+let getBoundedPtr shdrs phdrs loadables addr =
+  if Array.isEmpty loadables then getBoundedPtrBySections shdrs addr
+  else getBoundedPtrBySegments phdrs addr
+
 let getRelocatedAddr toolBox (relocInfo: RelocationInfo) relocAddr =
   match relocInfo.TryFind relocAddr with
   | Ok rel ->

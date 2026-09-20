@@ -28,7 +28,7 @@ open System
 
 /// Represents miscellaneous attributes of a section.
 [<FlagsAttribute>]
-type internal SectionFlags =
+type SectionFlags =
   /// This section contains data that should be writable during process
   /// execution.
   | SHF_WRITE = 0x1UL

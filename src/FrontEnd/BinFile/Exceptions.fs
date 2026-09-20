@@ -47,3 +47,10 @@ exception InvalidFileFormatException
 
 /// Raised when a section is not found.
 exception SectionNotFoundException
+
+/// Raised when writing to a part of a binary file that it does not have.
+exception InvalidAddrWriteException
+
+/// Raised when an edit is one that writing the file back out cannot carry out,
+/// which the message names.
+exception UnsupportedEditException of string

@@ -476,6 +476,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
             EntrySize = int hdr.PHdrEntrySize
             Count = hdr.PHdrNum })
 
+  /// The bytes this file was parsed from.
+  member internal _.Bytes with get() = bytes
+
   /// ELF Header information.
   member internal _.Header with get() = hdr
 
@@ -644,30 +647,4 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       IntervalSet.containsAddr addr executableRanges.Value
 
     member _.GetBoundedPointer addr =
-      if Array.isEmpty loadables.Value then
-        getBoundedPtrBySections shdrs.Value addr
-      else
-        let phdrs = phdrs.Value
-        let mutable found = false
-        let mutable idx = 0
-        let mutable maxAddr = 0UL
-        let mutable offset = 0
-        let mutable maxOffset = 0
-        while not found && idx < phdrs.Length do
-          let ph = phdrs[idx]
-          if addr >= ph.PHAddr && addr < ph.PHAddr + ph.PHMemSize then
-            found <- true
-            maxOffset <- int ph.PHOffset + int ph.PHFileSize - 1
-            if addr < ph.PHAddr + ph.PHFileSize then
-              offset <- int ph.PHOffset + int (addr - ph.PHAddr)
-              maxAddr <- ph.PHAddr + ph.PHFileSize - 1UL
-            else
-              offset <- maxOffset + 1
-              maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
-          else
-            idx <- idx + 1
-        if found then
-          if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
-          else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
-        else
-          BinFilePointer.Null
+      getBoundedPtr shdrs.Value phdrs.Value loadables.Value addr

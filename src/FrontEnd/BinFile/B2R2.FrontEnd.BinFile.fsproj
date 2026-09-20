@@ -28,9 +28,11 @@
     <Compile Include="IRelocationTable.fs" />
     <Compile Include="IExceptionTable.fs" />
     <Compile Include="IBinFile.fs" />
+    <Compile Include="IBinWriter.fs" />
     <Compile Include="BinFileOps.fs" />
     <Compile Include="NameResolver.fs" />
     <Compile Include="FileHelper.fs" />
+    <Compile Include="ByteWriter.fs" />
     <Compile Include="DWARF\ExceptionHeaderValue.fs" />
     <Compile Include="DWARF\ExceptionHeader.fs" />
     <Compile Include="DWARF\CFAInstruction.fs" />
@@ -87,6 +89,9 @@
     <Compile Include="ELF\DIE.fs" />
     <Compile Include="ELF\DebugInformation.fs" />
     <Compile Include="ELF\Helper.fs" />
+    <Compile Include="ELF\Image.fs" />
+    <Compile Include="ELF\Layout.fs" />
+    <Compile Include="ELF\Emitter.fs" />
     <Compile Include="Mach\Magic.fs" />
     <Compile Include="Mach\CPUSubType.fs" />
     <Compile Include="Mach\CPUType.fs" />
@@ -139,6 +144,7 @@
     <Compile Include="RawBinFile.fs" />
     <Compile Include="WasmBinFile.fs" />
     <Compile Include="ELFBinFile.fs" />
+    <Compile Include="ELFWriter.fs" />
     <Compile Include="MachBinFile.fs" />
     <Compile Include="PythonBinFile.fs" />
     <Compile Include="PEBinFile.fs" />
