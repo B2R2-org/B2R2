@@ -45,6 +45,11 @@ type internal LoadCommand =
   /// the name this library announces for itself. Kept apart from DyLib so
   /// that it takes no library ordinal, which only a loaded one has.
   | DyLibId of cmd: CmdType * size: uint32 * DyLibCmd
+  /// Linker option command (LC_LINKER_OPTION), carrying the arguments an
+  /// object file asks the linker for, as clang's autolinking writes -lfoo
+  /// and -framework Bar. Only an MH_OBJECT holds them; by the time it is
+  /// linked, what it needed is named by LC_LOAD_DYLIB instead.
+  | LinkerOption of cmd: CmdType * size: uint32 * options: string[]
   /// Dynamic linker command (LC_LOAD_DYLINKER), carrying the path to the
   /// dynamic linker requested by this binary.
   | DyLinker of cmd: CmdType * size: uint32 * path: string
