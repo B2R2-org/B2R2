@@ -118,6 +118,11 @@ module internal LoadCommands =
     { FixupsDataOffset = reader.ReadInt32(span, 8)
       FixupsDataSize = reader.ReadUInt32(span, 12) }
 
+  let parseExportsTrie toolBox (span: ByteSpan) =
+    let reader = toolBox.Reader
+    { TrieOffset = reader.ReadInt32(span, 8)
+      TrieSize = reader.ReadUInt32(span, 12) }
+
   let parseCmd ({ Bytes = bytes; Reader = reader } as toolBox) offset =
     let cmdHdr = ReadOnlySpan(bytes, int offset, 8)
     let cmdType = reader.ReadInt32(cmdHdr, 0) |> LanguagePrimitives.EnumOfValue
@@ -152,6 +157,8 @@ module internal LoadCommands =
         FuncStarts(cmdType, uint32 cmdSize, parseFuncStarts toolBox span)
       | CmdType.LC_DYLD_CHAINED_FIXUPS ->
         ChainedFixups(cmdType, uint32 cmdSize, parseChainedFixups toolBox span)
+      | CmdType.LC_DYLD_EXPORTS_TRIE ->
+        ExportsTrie(cmdType, uint32 cmdSize, parseExportsTrie toolBox span)
       | _ ->
         Unhandled(cmdType, uint32 cmdSize)
     struct (command, uint64 cmdSize)

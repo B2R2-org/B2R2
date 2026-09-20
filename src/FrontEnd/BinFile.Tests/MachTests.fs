@@ -304,6 +304,42 @@ type MachTests() =
                     reloc.TryGetRelocatedAddr 0x4UL)
 
   [<TestMethod>]
+  member _.``[Mach] X64 exports trie test``() =
+    (* A modern binary carries its export trie in LC_DYLD_EXPORTS_TRIE, and the
+       addresses in it are relative to the image base. *)
+    let exports =
+      x64File.ExportedSymbols
+      |> Array.map (fun e -> e.ExportSymName, e.ExportAddr)
+      |> Array.sortBy fst
+    let expected =
+      [| "__mh_execute_header", 0x100000000UL
+         "_helper", 0x100000470UL
+         "_main", 0x100000480UL |]
+    CollectionAssert.AreEqual(expected, exports)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 legacy dyld info exports trie test``() =
+    (* An older binary embeds the same trie in LC_DYLD_INFO instead. *)
+    let exports =
+      x64DyldInfoFile.ExportedSymbols
+      |> Array.map (fun e -> e.ExportSymName, e.ExportAddr)
+      |> Array.sortBy fst
+    let expected = [| "_p_bind", 0x1000UL; "_p_rebase", 0x1010UL |]
+    CollectionAssert.AreEqual(expected, exports)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 undefined external symbol is not defined test``() =
+    (* An undefined import has N_EXT set alongside N_UNDF, so only the N_TYPE
+       field of n_type tells the two apart. *)
+    let symbols = (x64File :> IBinFile).SymbolTable.Value.Symbols
+    let isDefined name =
+      symbols
+      |> Array.tryFind (fun s -> s.Name = name)
+      |> Option.map (fun s -> s.IsDefined)
+    Assert.AreEqual(Some false, isDefined "_write")
+    Assert.AreEqual(Some true, isDefined "_main")
+
+  [<TestMethod>]
   member _.``[Mach] X64 chained fixups IsRelocationAddr test``() =
     let reloc = (x64ChainedFile :> IBinFile).Relocations.Value
     Assert.AreEqual(true, reloc.IsRelocationAddr 0x1000UL)
@@ -404,6 +440,17 @@ type MachTests() =
     Assert.AreEqual(0x4000UL, entries[0].TableAddress)
     Assert.AreEqual<string>("_ext_data", entries[1].Name)
     Assert.AreEqual(0x4008UL, entries[1].TableAddress)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 chained fixups image-relative rebase test``() =
+    (* DYLD_CHAINED_PTR_64_OFFSET names its rebase target as an offset from the
+       image base rather than as an unslid address, so the __TEXT vmaddr has to
+       be added back. The second entry also sets high8, which the ARM64 C++ ABI
+       uses to mark a unique type_info name. *)
+    let reloc = (arm64ExcFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x100004048UL, reloc.TryGetRelocatedAddr 0x100004040UL)
+    Assert.AreEqual(Ok 0x80000001000007e0UL,
+                    reloc.TryGetRelocatedAddr 0x100004050UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 exception table is parsed``() =

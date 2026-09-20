@@ -30,7 +30,9 @@ open B2R2
 type internal Symbol =
   { /// Symbol name.
     SymName: string
-    /// Symbol type (N_TYPE field of n_type).
+    /// The whole n_type byte, which carries the N_STAB, N_PEXT, N_TYPE and
+    /// N_EXT fields, so a comparison against a plain N_TYPE value has to mask
+    /// it first.
     SymType: SymbolType
     /// Is this an external symbol?
     IsExternal: bool
@@ -48,6 +50,14 @@ with
   static member IsSection s =
     int s.SymType &&& 0xe0 = 0
     && int s.SymType &&& 0x0e = int SymbolType.N_SECT
+
+  /// Checks if this symbol is defined in this file. Only the N_TYPE field of
+  /// n_type decides this, so the external bit that an undefined import also
+  /// carries does not make it look defined. A STAB entry is debugging
+  /// information rather than a link-time reference, and counts as defined.
+  static member IsDefined s =
+    int s.SymType &&& 0xe0 <> 0
+    || int s.SymType &&& 0x0e <> int SymbolType.N_UNDF
 
   /// Checks if this symbol is a function symbol.
   static member IsFunc(secText, s) =

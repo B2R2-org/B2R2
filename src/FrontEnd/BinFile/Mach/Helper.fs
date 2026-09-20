@@ -51,10 +51,9 @@ let getMainOffset cmds =
   | _ -> 0UL
 
 let getTextSegOffset segs =
-  let isTextSegment s = s.SegCmdName = Segment.Text
-  match segs |> Array.tryFind isTextSegment with
-  | Some s -> s.VMAddr
-  | _ -> raise InvalidFileFormatException
+  match Segment.tryGetImageBase segs with
+  | Some vmAddr -> vmAddr
+  | None -> raise InvalidFileFormatException
 
 let computeEntryPoint segs cmds =
   let mainOffset = getMainOffset cmds
