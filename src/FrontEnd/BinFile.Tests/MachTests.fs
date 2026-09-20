@@ -136,6 +136,16 @@ type MachTests() =
   static let arm32ThumbFile =
     parseFile "mach_arm32_thumb" Architecture.ARMv7 WordSize.Bit32
 
+  /// A non-PIE dylib whose relocations live in the external and local tables
+  /// of LC_DYSYMTAB rather than hanging off its sections.
+  static let x64ExtRelocFile =
+    parseFile "mach_x64_extreloc" Architecture.Intel WordSize.Bit64
+
+  /// A dylib whose one fixup page holds two chains, so its page_start indexes
+  /// an overflow list rather than naming an offset into the page.
+  static let x64MultiChainFile =
+    parseFile "mach_x64_multichain" Architecture.Intel WordSize.Bit64
+
   /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
   /// LSDA table in __gcc_except_tab. Exception parsing needs a register
   /// factory.
@@ -741,6 +751,49 @@ type MachTests() =
     let f = MachBinFile("truncated", truncated, isa, None, None)
     Assert.ThrowsExactly<InvalidFileFormatException>(fun () ->
       (f :> IBinFile).EntryPoint |> ignore) |> ignore
+
+  [<TestMethod>]
+  member _.``[Mach] X64 external relocation table test``() =
+    (* The r_address of an image relocation counts from the image base, here
+       the __TEXT vmaddr of 0x1000, so the entry at 0x1000 relocates 0x2000.
+       It names _data_base, at 0x2000, and its field holds an addend of 0x10. *)
+    let reloc = (x64ExtRelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x2010UL, reloc.TryGetRelocatedAddr 0x2000UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 local relocation table test``() =
+    (* A local entry keeps its unslid target in place. *)
+    let reloc = (x64ExtRelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x2000UL, reloc.TryGetRelocatedAddr 0x2008UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 image relocation addresses test``() =
+    let reloc = (x64ExtRelocFile :> IBinFile).Relocations.Value
+    let named =
+      reloc.Relocations
+      |> Array.map (fun r -> r.Address, r.SymbolName)
+      |> Array.sortBy fst
+    let expected = [| 0x2000UL, Some "_data_base"; 0x2008UL, None |]
+    CollectionAssert.AreEqual(expected, named)
+    Assert.AreEqual<bool>(true, reloc.IsRelocationAddr 0x2000UL)
+    Assert.AreEqual<bool>(false, reloc.IsRelocationAddr 0x2004UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 multi-chain fixup page test``() =
+    (* DYLD_CHAINED_PTR_START_MULTI turns page_start into an index into the
+       overflow list that follows the array, whose entries start one chain
+       each up to the one marked last. Reading the index as an offset would
+       find neither chain. *)
+    let reloc = (x64MultiChainFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x1008UL, reloc.TryGetRelocatedAddr 0x1000UL)
+    Assert.AreEqual(Ok 0x1018UL, reloc.TryGetRelocatedAddr 0x1010UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 multi-chain page marks both chains test``() =
+    let reloc = (x64MultiChainFile :> IBinFile).Relocations.Value
+    Assert.AreEqual<bool>(true, reloc.IsRelocationAddr 0x1000UL)
+    Assert.AreEqual<bool>(true, reloc.IsRelocationAddr 0x1010UL)
+    Assert.AreEqual<bool>(false, reloc.IsRelocationAddr 0x1008UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 exception table is parsed``() =

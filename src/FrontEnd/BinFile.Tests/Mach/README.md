@@ -27,22 +27,26 @@ and the feature fixtures are hand-crafted to isolate one parser capability.
 | `mach_i386_dyldinfo` | 32-bit `LC_DYLD_INFO_ONLY`: rebase and bind over four-byte pointers. |
 | `mach_i386_reloc` | 32-bit relocations x86-64 never produces: scattered, PC-relative, plain external. |
 | `mach_arm32_thumb` | ARMv7 mixing A32 and T32, with `LC_DATA_IN_CODE` and an absolute symbol. |
+| `mach_x64_extreloc` | A non-PIE dylib relocated through the `LC_DYSYMTAB` external and local tables. |
+| `mach_x64_multichain` | A fixup page holding two chains, reached through `DYLD_CHAINED_PTR_START_MULTI`. |
 
 The exception fixtures exercise the two Mach-O unwinding schemes: `__eh_frame`
 DWARF CFI (x64, needs a register factory) and Apple compact unwind (arm64).
 
 ## The fixtures that clang cannot build
 
-Six fixtures are written out by [`make_fixtures.py`](make_fixtures.py), because
-no current toolchain produces them. An assembler always lays down `__text` even
-when nothing goes in it and ld64 keeps the empty section, so a data-only object
-cannot be compiled; ld64 stopped emitting `LC_UNIXTHREAD` long ago; and no SDK
-targets i386 or armv7 any more, which rules out 32-bit dyld info, scattered
-relocations, and Thumb marking. Each function in the script says what its
+Eight fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
+because no current toolchain produces them. An assembler always lays down
+`__text` even when nothing goes in it and ld64 keeps the empty section, so a
+data-only object cannot be compiled; ld64 stopped emitting `LC_UNIXTHREAD` long
+ago; no SDK targets i386 or armv7 any more, which rules out 32-bit dyld info,
+scattered relocations and Thumb marking; and a linker reaches for the
+`LC_DYSYMTAB` relocation tables or a multi-chain fixup page only in
+combinations it no longer emits. Each function in the script says what its
 fixture is for.
 
 ```bash
-python3 make_fixtures.py           # rewrite the six archives
+python3 make_fixtures.py           # rewrite the eight archives
 python3 make_fixtures.py --check   # confirm the archives match the script
 ```
 

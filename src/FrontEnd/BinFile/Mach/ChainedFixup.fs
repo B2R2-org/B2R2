@@ -54,10 +54,15 @@ module internal ChainedFixup =
   /// page_start value marking a page with no fixups.
   let [<Literal>] private PageStartNone = 0xFFFFus
 
-  /// DYLD_CHAINED_PTR_START_MULTI: the page_start value is an index into a
-  /// chain_starts array rather than an offset into the page, which is how a
-  /// page holding several chains is described.
+  /// DYLD_CHAINED_PTR_START_MULTI: the page_start value is an index into the
+  /// overflow list that follows the page_start array, rather than an offset
+  /// into the page. A page holding several chains is described that way.
   let [<Literal>] private PageStartMulti = 0x8000us
+
+  /// DYLD_CHAINED_PTR_START_LAST: marks the final entry of one page's overflow
+  /// list. It is the same bit that PageStartMulti is, reused in a place where
+  /// only the one meaning can apply.
+  let [<Literal>] private PageStartLast = 0x8000us
 
   let private chooser = function
     | ChainedFixups(_, _, c) -> Some c
@@ -145,8 +150,9 @@ module internal ChainedFixup =
       None
 
   /// Walks a single page chain, accumulating fixups until next is zero.
-  let private walkChain toolBox seg pageOff start decode nextOf stride acc =
+  let private walkChain toolBox seg pageOff start walker acc =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
+    let decode, nextOf, stride = walker
     let mutable off = start
     let mutable go = true
     let mutable acc = acc
@@ -158,6 +164,19 @@ module internal ChainedFixup =
       if next = 0 then go <- false else off <- off + next * stride
     acc
 
+  /// Walks every chain of a page that holds more than one. Its page_start
+  /// value indexes an overflow list that follows the page_start array, each
+  /// entry of which starts one chain, up to the entry marked as the last.
+  let rec private walkMulti toolBox seg startsAt idx pageOff walker acc =
+    let bytes, reader = toolBox.Bytes, toolBox.Reader
+    let entry = reader.ReadUInt16(bytes, startsAt + idx * 2)
+    let start = int (entry &&& ~~~PageStartLast)
+    let acc = walkChain toolBox seg pageOff start walker acc
+    if entry &&& PageStartLast <> 0us then
+      acc
+    else
+      walkMulti toolBox seg startsAt (idx + 1) pageOff walker acc
+
   /// Parses the dyld_chained_starts_in_segment and walks each page chain.
   let private parseSegment toolBox bases imports seg infoOff acc =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
@@ -166,20 +185,21 @@ module internal ChainedFixup =
     match selectDecoder slide imgBase imports ptrFormat with
     | None ->
       acc
-    | Some(decode, nextOf, stride) ->
+    | Some walker ->
       let pageSize = int (reader.ReadUInt16(bytes, infoOff + 4))
       let pageCount = int (reader.ReadUInt16(bytes, infoOff + 20))
+      let startsAt = infoOff + 22
       let mutable acc = acc
       for p = 0 to pageCount - 1 do
         let pageOff = p * pageSize
-        let start = reader.ReadUInt16(bytes, infoOff + 22 + p * 2)
-        (* A page holding several chains is left alone rather than guessed at:
-           reading its index as an offset would invent fixups. *)
-        if start <> PageStartNone && start &&& PageStartMulti = 0us then
-          let at = int start
-          acc <- walkChain toolBox seg pageOff at decode nextOf stride acc
-        else
+        let start = reader.ReadUInt16(bytes, startsAt + p * 2)
+        if start = PageStartNone then
           ()
+        elif start &&& PageStartMulti <> 0us then
+          let idx = int (start &&& ~~~PageStartMulti)
+          acc <- walkMulti toolBox seg startsAt idx pageOff walker acc
+        else
+          acc <- walkChain toolBox seg pageOff (int start) walker acc
       acc
 
   let parse toolBox cmds (segCmds: SegCmd[]) =

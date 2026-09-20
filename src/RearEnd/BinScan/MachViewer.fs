@@ -244,9 +244,9 @@ let dumpRelocs _ (mach: MachBinFile) =
     printsn <| normalizeEmpty ""
   else
     for reloc in mach.Relocations do
-      let addr = reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
+      let addr = reloc.RelocAddr
       let name = reloc.GetName(mach.Symbols.SymbolArray, mach.Sections)
-      let len = reloc.RelocAddr
+      let len = reloc.RelocLength
       printsr [| Addr.toString (mach :> IBinFile).ISA.WordSize addr
                  name
                  $"{len}" |]
