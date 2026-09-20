@@ -91,8 +91,12 @@ module internal SymbolStore =
     else
       None
 
-  let private adjustSymVal toolBox addr = (* TODO: needs to consider n_type *)
-    if addr = 0UL then 0UL else toolBox.BaseAddress + uint64 addr
+  /// Places a symbol's value in the address space. An absolute symbol names a
+  /// value rather than a location, so the load address never moves it, and an
+  /// undefined symbol has no value to move.
+  let private adjustSymVal toolBox nType addr =
+    if addr = 0UL || nType &&& 0x0e = int SymbolType.N_ABS then addr
+    else toolBox.BaseAddress + addr
 
   let private parseNList toolBox libs strTab symTab offset =
     let reader = toolBox.Reader
@@ -107,7 +111,7 @@ module internal SymbolStore =
       SymDesc = nDesc
       VerInfo = getLibraryVerInfo header.Flags libs nDesc
       SymAddr = readUIntByWordSize symTab reader header.Class (offset + 8)
-                |> adjustSymVal toolBox }
+                |> adjustSymVal toolBox nType }
 
   let private parseSymTable ({ Bytes = bytes } as toolBox) libs symTabCmds =
     let numSymbols = countSymbols symTabCmds
@@ -166,23 +170,32 @@ module internal SymbolStore =
   let private isUndefinedEntry entry =
     entry = IndirectSymbolLocal || entry = IndirectSymbolABS
 
+  /// Adds the symbol that the indirect table names for one slot. The map is
+  /// left alone where the entry is a local or absolute placeholder, and where
+  /// either table is shorter than the section claims it to be.
+  let private addSymbStub map (symbols: _[]) (dynsymtbl: _[]) sec idx len =
+    let at = sec.SecReserved1 + idx
+    if at < 0 || at >= dynsymtbl.Length then
+      map
+    else
+      let entry = dynsymtbl[at]
+      if isUndefinedEntry entry || entry < 0 || entry >= symbols.Length then
+        map
+      else
+        Map.add (sec.SecAddr + uint64 (idx * len)) symbols[entry] map
+
   let rec private parseSymbStub map symbols dynsymtbl sec idx len cnt =
     if cnt = 0UL then
       map
     else
-      let entry = Array.get dynsymtbl (sec.SecReserved1 + idx)
-      if isUndefinedEntry entry then
-        parseSymbStub map symbols dynsymtbl sec (idx + 1) len (cnt - 1UL)
-      else
-        let symbol = Array.get symbols entry
-        let map' = Map.add (sec.SecAddr + uint64 (idx * len)) symbol map
-        parseSymbStub map' symbols dynsymtbl sec (idx + 1) len (cnt - 1UL)
+      let map' = addSymbStub map symbols dynsymtbl sec idx len
+      parseSymbStub map' symbols dynsymtbl sec (idx + 1) len (cnt - 1UL)
 
   /// __stubs section is similar to PLT in ELF.
   let private parseSymbolStubs secs symbols dynsymtbl =
     let folder acc sec =
       match sec.SecType with
-      | SectionType.S_SYMBOL_STUBS ->
+      | SectionType.S_SYMBOL_STUBS when sec.SecReserved2 > 0 ->
         let entryLen = sec.SecReserved2
         let entryCnt = sec.SecSize / uint64 entryLen
         parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt

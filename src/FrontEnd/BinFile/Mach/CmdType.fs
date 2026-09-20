@@ -129,7 +129,14 @@ type internal CmdType =
   | LC_VERSION_MIN_TVOS = 0x2F
   /// Build for Watch min OS version
   | LC_VERSION_MIN_WATCHOS = 0x30
+  /// Arbitrary data included within a Mach-O file.
+  | LC_NOTE = 0x31
+  /// The platform and the minimum OS version the binary was built for, which
+  /// replaces the several LC_VERSION_MIN_* commands.
+  | LC_BUILD_VERSION = 0x32
   /// Used with linkedit_data_command, payload is a trie of exported symbols.
   | LC_DYLD_EXPORTS_TRIE = 0x80000033
   /// Used with linkedit_data_command, payload is dyld chained fixups.
   | LC_DYLD_CHAINED_FIXUPS = 0x80000034
+  /// An entry of a fileset, which names a Mach-O held within this one.
+  | LC_FILESET_ENTRY = 0x80000035

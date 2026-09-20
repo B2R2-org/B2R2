@@ -113,6 +113,29 @@ type MachTests() =
   static let x64NoTextFile =
     parseFile "mach_x64_notext" Architecture.Intel WordSize.Bit64
 
+  /// Executables naming their entry point through LC_UNIXTHREAD, as binaries
+  /// older than LC_MAIN and kernel images do.
+  static let x64UnixThreadFile =
+    parseFile "mach_x64_unixthread" Architecture.Intel WordSize.Bit64
+
+  static let arm64UnixThreadFile =
+    parseFile "mach_arm64_unixthread" Architecture.ARMv8 WordSize.Bit64
+
+  /// A 32-bit i386 dylib carrying LC_DYLD_INFO_ONLY, where every pointer the
+  /// opcode streams touch is four bytes wide rather than eight.
+  static let i386DyldInfoFile =
+    parseFile "mach_i386_dyldinfo" Architecture.Intel WordSize.Bit32
+
+  /// A 32-bit i386 object carrying the relocation shapes x86-64 never
+  /// produces: a scattered entry, a PC-relative one, and a plain external one.
+  static let i386RelocFile =
+    parseFile "mach_i386_reloc" Architecture.Intel WordSize.Bit32
+
+  /// An ARMv7 executable mixing A32 and T32 code, with a data range embedded
+  /// in __text that LC_DATA_IN_CODE names.
+  static let arm32ThumbFile =
+    parseFile "mach_arm32_thumb" Architecture.ARMv7 WordSize.Bit32
+
   /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
   /// LSDA table in __gcc_except_tab. Exception parsing needs a register
   /// factory.
@@ -138,6 +161,16 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64 EntryPoint test``() =
     Assert.AreEqual(Some 0x100000480UL, (x64File :> IBinFile).EntryPoint)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 entry point follows the base address test``() =
+    (* LC_MAIN names an offset from the Mach-O header, and the __TEXT vmaddr it
+       is added to already carries the load address, so a slid image moves its
+       entry point exactly once. *)
+    let bytes = ZIPReader.readBytes MachBinary "mach_x64.zip" "mach_x64"
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let f = MachBinFile("mach_x64", bytes, isa, Some 0x200000000UL, None)
+    Assert.AreEqual(Some 0x300000480UL, (f :> IBinFile).EntryPoint)
 
   [<TestMethod>]
   member _.``[Mach] X64 file type test``() =
@@ -595,6 +628,119 @@ type MachTests() =
   member _.``[Mach] X64 file without a text section has no code test``() =
     let ptr = (x64NoTextFile :> IBinFile).Structure.Value.CodeSectionPointer
     Assert.AreEqual<bool>(true, ptr.IsNull)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 LC_UNIXTHREAD entry point test``() =
+    (* The thread state spells out an unslid address, not an offset. *)
+    let entry = (x64UnixThreadFile :> IBinFile).EntryPoint
+    Assert.AreEqual(Some 0x100000170UL, entry)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 LC_UNIXTHREAD entry point test``() =
+    let entry = (arm64UnixThreadFile :> IBinFile).EntryPoint
+    Assert.AreEqual(Some 0x1000001d8UL, entry)
+
+  [<TestMethod>]
+  member _.``[Mach] I386 dyld info rebase reads a 32-bit pointer test``() =
+    (* The slot at 0x1004 holds 0x1008, and the word behind it is non-zero, so
+       reading the slot eight bytes wide would drag that word into the
+       target. *)
+    let reloc = (i386DyldInfoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x1008UL, reloc.TryGetRelocatedAddr 0x1004UL)
+
+  [<TestMethod>]
+  member _.``[Mach] I386 dyld info bind linkage test``() =
+    let linkage = (i386DyldInfoFile :> IBinFile).ImportTable.Value
+    let entries = linkage.Imports
+    Assert.AreEqual<int>(1, entries.Length)
+    Assert.AreEqual<string>("_ext_symbol", entries[0].Name)
+    Assert.AreEqual(0x1000UL, entries[0].TableAddress)
+
+  [<TestMethod>]
+  member _.``[Mach] I386 word size test``() =
+    let isa = (i386DyldInfoFile :> IBinFile).ISA
+    Assert.AreEqual(WordSize.Bit32, isa.WordSize)
+    Assert.AreEqual(Architecture.Intel, isa.Arch)
+
+  [<TestMethod>]
+  member _.``[Mach] I386 scattered relocation test``() =
+    (* A scattered entry packs every field into its first word, so reading it
+       as the ordinary two-word layout lands on a nonsense section ordinal.
+       Its field holds the absolute target, 0x10 past the 0x2000 the entry
+       measures from. *)
+    let reloc = (i386RelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x2010UL, reloc.TryGetRelocatedAddr 0x0UL)
+
+  [<TestMethod>]
+  member _.``[Mach] I386 PC-relative relocation has no target test``() =
+    (* The field is measured from the end of the instruction it sits in, and
+       the entry records neither that length nor where the instruction starts,
+       so no absolute target can be named. *)
+    let reloc = (i386RelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    reloc.TryGetRelocatedAddr 0x4UL)
+
+  [<TestMethod>]
+  member _.``[Mach] I386 external relocation addend test``() =
+    let reloc = (i386RelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x30UL, reloc.TryGetRelocatedAddr 0x8UL)
+
+  [<TestMethod>]
+  member _.``[Mach] I386 relocation symbol names test``() =
+    (* A scattered entry names an address rather than a symbol. *)
+    let relocs = (i386RelocFile :> IBinFile).Relocations.Value.Relocations
+    let named =
+      relocs |> Array.map (fun r -> r.Address, r.SymbolName) |> Array.sortBy fst
+    let expected =
+      [| 0x0UL, None
+         0x4UL, Some "_pcrel_target"
+         0x8UL, Some "_plain_target" |]
+    CollectionAssert.AreEqual(expected, named)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM32 code mode markers test``() =
+    (* N_ARM_THUMB_DEF marks the T32 function, and the LC_DATA_IN_CODE range
+       interrupts the A32 one, which resumes where the range ends. *)
+    let markers = (arm32ThumbFile :> IBinFile).SymbolTable.Value.CodeModeMarkers
+    let actual = markers |> Array.map (fun m -> m.Address, m.Mode)
+    let expected =
+      [| 0x10c0UL, ArmMode
+         0x10d0UL, DataMode
+         0x10d8UL, ArmMode
+         0x10e0UL, ThumbMode |]
+    CollectionAssert.AreEqual(expected, actual)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 has no code mode markers test``() =
+    (* x86 has one encoding and no value in the model to name it with, so a
+       data range there could be opened but never closed. *)
+    let markers = (x64File :> IBinFile).SymbolTable.Value.CodeModeMarkers
+    Assert.AreEqual<int>(0, markers.Length)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM32 absolute symbol ignores the base address test``() =
+    (* An absolute symbol names a value rather than a location, so the load
+       address moves the section-defined symbols around it but not it. *)
+    let name = "mach_arm32_thumb"
+    let bytes = ZIPReader.readBytes MachBinary (name + ".zip") name
+    let isa = ISA(Architecture.ARMv7, Endian.Little, WordSize.Bit32)
+    let f = MachBinFile(name, bytes, isa, Some 0x10000UL, None)
+    let symbols = (f :> IBinFile).SymbolTable.Value.Symbols
+    let addrOf n =
+      symbols |> Array.tryFind (fun s -> s.Name = n) |> Option.map _.Address
+    Assert.AreEqual(Some 0x1234UL, addrOf "_abs_sym")
+    Assert.AreEqual(Some 0x110c0UL, addrOf "_arm_fn")
+
+  [<TestMethod>]
+  member _.``[Mach] truncated load commands are rejected test``() =
+    (* A command running past the end of the file is a bad file, not a span
+       that could not be cut. *)
+    let bytes = ZIPReader.readBytes MachBinary "mach_x64.zip" "mach_x64"
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let truncated = Array.sub bytes 0 64
+    let f = MachBinFile("truncated", truncated, isa, None, None)
+    Assert.ThrowsExactly<InvalidFileFormatException>(fun () ->
+      (f :> IBinFile).EntryPoint |> ignore) |> ignore
 
   [<TestMethod>]
   member _.``[Mach] X64 exception table is parsed``() =

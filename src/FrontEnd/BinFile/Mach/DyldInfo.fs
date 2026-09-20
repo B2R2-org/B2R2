@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
 open B2R2
+open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents an opcode in the LC_DYLD_INFO rebase opcode stream. The high
 /// nibble selects the operation; the low nibble carries an immediate operand.
@@ -91,11 +92,10 @@ type internal BindOpcode =
 /// Parses the LC_DYLD_INFO rebase and bind opcode streams into fixups. The
 /// regular, weak, and lazy bind streams all share the same opcode encoding, so
 /// the same VM decodes them. The opcodes drive a tiny VM that walks (segment,
-/// offset) cursors and emits a fixup at each DO_REBASE / DO_BIND. Pointer size
-/// is assumed to be 8 bytes.
+/// offset) cursors and emits a fixup at each DO_REBASE / DO_BIND. Every stride
+/// the opcodes scale, and the width of the pointer a rebase reads in place,
+/// follow the word size of the image.
 module internal DyldInfo =
-  let [<Literal>] private PtrSize = 8
-
   let private chooser = function
     | DyLdInfo(_, _, c) -> Some c
     | _ -> None
@@ -107,6 +107,8 @@ module internal DyldInfo =
   let private parseRebase toolBox (segCmds: _[]) off size acc =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
     let baseAddr = toolBox.BaseAddress
+    let cls = toolBox.Header.Class
+    let ptrSize = WordSize.toByteWidth cls
     let endOff = off + size
     let mutable cur = off
     let mutable segIdx = 0
@@ -114,11 +116,12 @@ module internal DyldInfo =
     let emit count =
       for _ = 1 to count do
         let seg = segCmds[segIdx]
-        let value = reader.ReadUInt64(bytes, int seg.FileOff + int segOff)
+        let at = int seg.FileOff + int segOff
+        let value = readUIntByWordSize (ReadOnlySpan bytes) reader cls at
         { FixupAddr = seg.VMAddr + segOff
           FixupTarget = Rebase(baseAddr + value) }
         |> appendToList acc
-        segOff <- segOff + uint64 PtrSize
+        segOff <- segOff + uint64 ptrSize
     while cur < endOff do
       let opcode = int bytes[cur] &&& 0xF0
       let imm = int bytes[cur] &&& 0x0F
@@ -134,7 +137,7 @@ module internal DyldInfo =
         segOff <- segOff + v
         cur <- cur + n
       | RebaseOpcode.ADD_ADDR_IMM_SCALED ->
-        segOff <- segOff + uint64 (imm * PtrSize)
+        segOff <- segOff + uint64 (imm * ptrSize)
       | RebaseOpcode.DO_REBASE_IMM_TIMES ->
         emit imm
       | RebaseOpcode.DO_REBASE_ULEB_TIMES ->
@@ -153,11 +156,12 @@ module internal DyldInfo =
         cur <- cur + n2
         for _ = 1 to int count do
           let seg = segCmds[segIdx]
-          let value = reader.ReadUInt64(bytes, int seg.FileOff + int segOff)
+          let at = int seg.FileOff + int segOff
+          let value = readUIntByWordSize (ReadOnlySpan bytes) reader cls at
           { FixupAddr = seg.VMAddr + segOff
             FixupTarget = Rebase(baseAddr + value) }
           |> appendToList acc
-          segOff <- segOff + uint64 PtrSize + skip
+          segOff <- segOff + uint64 ptrSize + skip
       | _ ->
         () (* DONE, SET_TYPE_IMM, or unknown: no effect *)
 
@@ -165,6 +169,7 @@ module internal DyldInfo =
   /// consumed but not retained.
   let private parseBind toolBox (segCmds: _[]) dylibs off (size: uint32) acc =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
+    let ptrSize = WordSize.toByteWidth toolBox.Header.Class
     let size = int size
     let endOff = off + size
     let mutable cur = off
@@ -178,7 +183,7 @@ module internal DyldInfo =
       { FixupAddr = seg.VMAddr + segOff
         FixupTarget = Bind(name, Fixup.resolveLibrary dylibs libOrd, addend) }
       |> appendToList acc
-      segOff <- segOff + uint64 PtrSize
+      segOff <- segOff + uint64 ptrSize
     while cur < endOff do
       let opcode = int bytes[cur] &&& 0xF0
       let imm = int bytes[cur] &&& 0x0F
@@ -218,7 +223,7 @@ module internal DyldInfo =
         cur <- cur + n
       | BindOpcode.DO_BIND_ADD_ADDR_IMM_SCALED ->
         emit ()
-        segOff <- segOff + uint64 (imm * PtrSize)
+        segOff <- segOff + uint64 (imm * ptrSize)
       | BindOpcode.DO_BIND_ULEB_TIMES_SKIPPING_ULEB ->
         let count, n1 = reader.ReadUInt64LEB128(bytes, cur)
         cur <- cur + n1
@@ -230,7 +235,7 @@ module internal DyldInfo =
             FixupTarget =
               Bind(name, Fixup.resolveLibrary dylibs libOrd, addend) }
           |> appendToList acc
-          segOff <- segOff + uint64 PtrSize + skip
+          segOff <- segOff + uint64 ptrSize + skip
       | _ ->
         () (* DONE and IMM-only setters need no operand handling *)
 

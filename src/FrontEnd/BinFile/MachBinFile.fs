@@ -56,6 +56,9 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let secText = lazy (Section.getTextSectionIndex secs.Value)
 
+  let imageBase =
+    lazy (Segment.tryGetImageBase segCmds.Value |> Option.defaultValue 0UL)
+
   let syms = lazy SymbolStore.parse toolBox cmds.Value secs.Value
 
   let exports =
@@ -93,7 +96,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           |> Array.exists (fun s -> Symbol.IsFunc(secText.Value, s))
           |> not)
 
-  let entryPoint = lazy computeEntryPoint segCmds.Value cmds.Value
+  let entryPoint =
+    lazy computeEntryPoint toolBox segCmds.Value cmds.Value
 
   let interpreterPath =
     lazy (cmds.Value
@@ -148,6 +152,11 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   let binSymbols =
     lazy (syms.Value.SymbolArray |> Array.map (toBinSymbol secText.Value))
 
+  let codeModeMarkers =
+    lazy
+      let symbols = syms.Value.SymbolArray
+      CodeMode.compute toolBox cmds.Value imageBase.Value secText.Value symbols
+
   let symbolTableObj =
     { new ISymbolTable with
         member _.IsStripped with get() = stripped.Value
@@ -159,7 +168,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           | true, s -> Ok(toBinSymbol secText.Value s)
           | false, _ -> Error ErrorCase.SymbolNotFound
 
-        member _.CodeModeMarkers = [||] }
+        member _.CodeModeMarkers = codeModeMarkers.Value }
 
   let symbolTable = Some symbolTableObj
 
