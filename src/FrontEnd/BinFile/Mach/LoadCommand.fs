@@ -55,6 +55,9 @@ type internal LoadCommand =
   | FuncStarts of cmd: CmdType * size: uint32 * FuncStartsCmd
   /// Chained fixups command (LC_DYLD_CHAINED_FIXUPS).
   | ChainedFixups of cmd: CmdType * size: uint32 * ChainedFixupsCmd
+  /// Exports trie command (LC_DYLD_EXPORTS_TRIE), which carries the export
+  /// trie that LC_DYLD_INFO used to embed.
+  | ExportsTrie of cmd: CmdType * size: uint32 * ExportsTrieCmd
   /// Main command (LC_MAIN).
   | Main of cmd: CmdType * size: uint32 * MainCmd
   /// Unhandled command.
@@ -188,6 +191,14 @@ and internal ChainedFixupsCmd =
     FixupsDataOffset: int
     /// Size of the chained fixups data.
     FixupsDataSize: uint32 }
+
+/// Represents an exports trie command (LC_DYLD_EXPORTS_TRIE). It points to the
+/// export trie in the __LINKEDIT segment.
+and internal ExportsTrieCmd =
+  { /// File offset to the export trie.
+    TrieOffset: int
+    /// Size of the export trie.
+    TrieSize: uint32 }
 
 /// Represents a main command.
 and internal MainCmd =

@@ -446,6 +446,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
     | Mach.DyLdInfo(cmd, size, ldinfo) -> dumpDyLdInfoCmd cmd size ldinfo i
     | Mach.FuncStarts(_, _, fnstart) -> dumpFuncStartsCmd fnstart i
     | Mach.ChainedFixups(cmd, size, _) -> dumpUnhandledCmd cmd size i
+    | Mach.ExportsTrie(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.Main(cmd, size, main) -> dumpMainCmd cmd size main i
     | Mach.Unhandled(cmd, size) -> dumpUnhandledCmd cmd size i
 

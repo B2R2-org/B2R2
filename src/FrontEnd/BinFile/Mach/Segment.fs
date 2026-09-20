@@ -39,3 +39,11 @@ let buildMap segs =
   ) NoOverlapIntervalMap.empty
 
 let [<Literal>] Text = "__TEXT"
+
+/// Returns the virtual address the image is loaded at, which is the vmaddr of
+/// its __TEXT segment. A relocatable object has no such segment, so the answer
+/// is optional; the callers that can carry on without one use zero.
+let tryGetImageBase segs =
+  segs
+  |> Array.tryFind (fun s -> s.SegCmdName = Text)
+  |> Option.map (fun s -> s.VMAddr)

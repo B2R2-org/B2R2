@@ -31,6 +31,10 @@ open B2R2
 /// DYLD_CHAINED_PTR_64_OFFSET (x86_64 / plain arm64) formats are handled, as
 /// are the arm64e formats; pointer-authentication bits in arm64e entries are
 /// discarded, keeping only the target/ordinal. Unknown formats are skipped.
+/// A rebase entry names its target either as an unslid virtual address or as
+/// an offset from the image base, depending on the format and, for arm64e, on
+/// whether the entry is authenticated, so each decoder is told which base to
+/// add.
 module internal ChainedFixup =
   /// DYLD_CHAINED_PTR_64: absolute target in the rebase entry.
   let [<Literal>] private PtrFormat64 = 2us
@@ -70,8 +74,10 @@ module internal ChainedFixup =
       imports[i] <- name, Fixup.resolveLibrary dylibs libOrd
     imports
 
-  /// Decodes a DYLD_CHAINED_PTR_64 entry into a fixup.
-  let private decodePtr64 baseAddr (imports: _[]) slotAddr entry =
+  /// Decodes a DYLD_CHAINED_PTR_64 entry into a fixup. Its rebase target is an
+  /// unslid virtual address under the plain format and an image-relative
+  /// offset under the _OFFSET one, which is what rebaseBase tells apart.
+  let private decodePtr64 rebaseBase (imports: _[]) slotAddr entry =
     if (entry >>> 63) &&& 1UL = 1UL then
       let ordinal = int (entry &&& 0xFFFFFFUL)
       let addend = int64 ((entry >>> 24) &&& 0xFFUL)
@@ -81,15 +87,17 @@ module internal ChainedFixup =
     else
       let low36 = entry &&& 0xFFFFFFFFFUL
       let high8 = (entry >>> 36) &&& 0xFFUL
-      let target = baseAddr + ((high8 <<< 56) ||| low36)
+      let target = rebaseBase + ((high8 <<< 56) ||| low36)
       { FixupAddr = slotAddr; FixupTarget = Rebase target }
 
   /// next field of a DYLD_CHAINED_PTR_64 entry (12 bits; 4-byte stride).
   let private nextPtr64 entry = int ((entry >>> 51) &&& 0xFFFUL)
 
   /// Decodes an arm64e entry into a fixup. The bind ordinal width depends on
-  /// the format (ordinalMask); pointer-authentication bits are discarded.
-  let private decodeArm64e baseAddr (imports: _[]) ordinalMask slotAddr entry =
+  /// the format (ordinalMask); pointer-authentication bits are discarded. An
+  /// authenticated rebase always names an image-relative offset, while a plain
+  /// one names whatever the format says, so the two carry their own base.
+  let private decodeArm64e bases (imports: _[]) ordinalMask slotAddr entry =
     let bind = (entry >>> 62) &&& 1UL = 1UL
     let auth = (entry >>> 63) &&& 1UL = 1UL
     if bind then
@@ -99,27 +107,35 @@ module internal ChainedFixup =
         if ordinal < imports.Length then imports[ordinal] else ("", "")
       { FixupAddr = slotAddr; FixupTarget = Bind(name, lib, addend) }
     else
+      let authBase, plainBase = bases
       let target =
         if auth then
-          entry &&& 0xFFFFFFFFUL
+          authBase + (entry &&& 0xFFFFFFFFUL)
         else
           let low43 = entry &&& 0x7FFFFFFFFFFUL
           let high8 = (entry >>> 43) &&& 0xFFUL
-          (high8 <<< 56) ||| low43
-      { FixupAddr = slotAddr; FixupTarget = Rebase(baseAddr + target) }
+          plainBase + ((high8 <<< 56) ||| low43)
+      { FixupAddr = slotAddr; FixupTarget = Rebase target }
 
   /// next field of an arm64e entry (11 bits; 8-byte stride).
   let private nextArm64e entry = int ((entry >>> 51) &&& 0x7FFUL)
 
-  /// Selects the (decoder, next-extractor, stride) for a pointer format.
-  let private selectDecoder baseAddr imports ptrFormat =
+  /// Selects the (decoder, next-extractor, stride) for a pointer format. An
+  /// unslid target is placed by the load address (slide) alone, whereas an
+  /// image-relative one is placed by the image base, which already includes
+  /// that slide.
+  let private selectDecoder slide imgBase imports ptrFormat =
     match ptrFormat with
-    | PtrFormat64 | PtrFormat64Offset ->
-      Some(decodePtr64 baseAddr imports, nextPtr64, 4)
-    | PtrFormatArm64e | PtrFormatArm64eUserland ->
-      Some(decodeArm64e baseAddr imports 0xFFFFUL, nextArm64e, 8)
+    | PtrFormat64 ->
+      Some(decodePtr64 slide imports, nextPtr64, 4)
+    | PtrFormat64Offset ->
+      Some(decodePtr64 imgBase imports, nextPtr64, 4)
+    | PtrFormatArm64e ->
+      Some(decodeArm64e (imgBase, slide) imports 0xFFFFUL, nextArm64e, 8)
+    | PtrFormatArm64eUserland ->
+      Some(decodeArm64e (imgBase, imgBase) imports 0xFFFFUL, nextArm64e, 8)
     | PtrFormatArm64eUserland24 ->
-      Some(decodeArm64e baseAddr imports 0xFFFFFFUL, nextArm64e, 8)
+      Some(decodeArm64e (imgBase, imgBase) imports 0xFFFFFFUL, nextArm64e, 8)
     | _ ->
       None
 
@@ -138,10 +154,11 @@ module internal ChainedFixup =
     acc
 
   /// Parses the dyld_chained_starts_in_segment and walks each page chain.
-  let private parseSegment toolBox baseAddr imports seg infoOff acc =
+  let private parseSegment toolBox bases imports seg infoOff acc =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
+    let slide, imgBase = bases
     let ptrFormat = reader.ReadUInt16(bytes, infoOff + 6)
-    match selectDecoder baseAddr imports ptrFormat with
+    match selectDecoder slide imgBase imports ptrFormat with
     | None ->
       acc
     | Some(decode, nextOf, stride) ->
@@ -171,13 +188,15 @@ module internal ChainedFixup =
       let dylibs = Fixup.dylibNames cmds
       let imports = parseImports toolBox dylibs importsOff symbolsOff count
       let segCount = int (reader.ReadUInt32(bytes, startsOff))
-      let baseAddr = toolBox.BaseAddress
+      let imgBase =
+        Segment.tryGetImageBase segCmds |> Option.defaultValue 0UL
+      let bases = toolBox.BaseAddress, imgBase
       let mutable acc = []
       for i = 0 to segCount - 1 do
         let segInfoOff = reader.ReadUInt32(bytes, startsOff + 4 + i * 4)
         if segInfoOff <> 0u && i < segCmds.Length then
           let offset = startsOff + int segInfoOff
-          acc <- parseSegment toolBox baseAddr imports segCmds[i] offset acc
+          acc <- parseSegment toolBox bases imports segCmds[i] offset acc
         else
           ()
       acc |> List.rev |> List.toArray

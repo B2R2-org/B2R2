@@ -50,7 +50,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let syms = lazy SymbolStore.parse toolBox cmds.Value secs.Value
 
-  let exports = lazy ExportedSymbols.parse toolBox cmds.Value
+  let exports =
+    lazy ExportedSymbols.parse toolBox cmds.Value segCmds.Value
 
   let relocs = lazy Reloc.parse toolBox secs.Value
 
@@ -132,7 +133,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       Address = s.SymAddr
       Kind = machSymKind secText s
       Binding = machBinding s
-      IsDefined = s.SymType <> SymbolType.N_UNDF
+      IsDefined = Symbol.IsDefined s
       Size = None
       LibraryName = s.VerInfo |> Option.map (fun d -> d.DyLibName) }
 

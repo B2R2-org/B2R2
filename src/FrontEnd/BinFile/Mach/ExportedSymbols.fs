@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinFile.Mach
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents an array of exported symbols.
 type internal ExportedSymbols = ExportedSymbol[]
@@ -39,56 +40,65 @@ and internal ExportedSymbol =
     ExportAddr: Addr }
 
 module internal ExportedSymbols =
-  let private chooseDyLdInfo = function
-    | DyLdInfo(_, _, c) -> Some c
+  /// EXPORT_SYMBOL_FLAGS_REEXPORT: the name belongs to another image.
+  let [<Literal>] private ReexportFlag = 0x08UL
+
+  /// Picks the export trie, which a modern binary carries in its own load
+  /// command and an older one embeds in LC_DYLD_INFO.
+  let private chooseTrie = function
+    | ExportsTrie(_, _, c) -> Some(c.TrieOffset, c.TrieSize)
+    | DyLdInfo(_, _, c) -> Some(c.ExportOff, c.ExportSize)
     | _ -> None
 
-  let rec private readStr (span: ByteSpan) pos acc =
-    match span[pos] with
-    | 0uy ->
-      List.rev acc |> List.toArray |> Text.Encoding.ASCII.GetString, pos + 1
-    | b ->
-      readStr span (pos + 1) (b :: acc)
+  /// Reads the image-relative address a terminal node exports. A re-export
+  /// names a symbol of another image and so has no address of its own. Every
+  /// other kind leads with an address, which for a stub-and-resolver export is
+  /// the stub this image calls rather than the resolver behind it.
+  let private readTerminalAddr (reader: IBinReader) (span: ByteSpan) offset =
+    let flags, n = reader.ReadUInt64LEB128(span, offset)
+    if flags &&& ReexportFlag <> 0UL then
+      None
+    else
+      let addr, _ = reader.ReadUInt64LEB128(span, offset + n)
+      Some addr
 
-  let private buildExportEntry name addr =
-    { ExportSymName = name; ExportAddr = addr }
-
-  let rec private parseTrie toolBox (span: ByteSpan) offset str acc =
+  /// Walks one trie node, whose terminal payload, when it has one, names an
+  /// export and whose children extend the accumulated prefix. A node is both
+  /// terminal and a parent whenever one exported name prefixes another, so the
+  /// children are walked either way.
+  let rec private parseNode toolBox (span: ByteSpan) offset str acc =
     let reader = toolBox.Reader
-    if span[offset] = 0uy then (* non-terminal *)
-      let nChilds, len = reader.ReadUInt64LEB128(span, offset + 1)
-      parseChildren toolBox span (offset + 1 + len) nChilds str acc
+    let termSize, n = reader.ReadUInt64LEB128(span, offset)
+    if termSize > 0UL then
+      readTerminalAddr reader span (offset + n)
+      |> Option.iter (fun addr -> (acc: ResizeArray<_>).Add(str, addr))
     else
-      let _, shift = reader.ReadUInt64LEB128(span, offset)
-      let flagOffset = offset + shift
-      let _flag = span[flagOffset]
-      let symbOffset, _ = reader.ReadUInt64LEB128(span, flagOffset + 1)
-      buildExportEntry str (symbOffset + toolBox.BaseAddress) :: acc
+      ()
+    let childOff = offset + n + int termSize
+    let count = int span[childOff]
+    parseChildren toolBox span (childOff + 1) count str acc
 
-  and private parseChildren toolBox span offset nChilds str acc =
-    if nChilds = 0UL then
+  and private parseChildren toolBox (span: ByteSpan) offset count str acc =
+    if count = 0 then
+      ()
+    else
+      let struct (pref, nextOffset) = readCStringWithNextOffset span offset
+      let node, n = toolBox.Reader.ReadUInt64LEB128(span, nextOffset)
+      parseNode toolBox span (int node) (str + pref) acc
+      parseChildren toolBox span (nextOffset + n) (count - 1) str acc
+
+  /// The symbols a Mach-O image exports are encoded in a trie whose addresses
+  /// are relative to the image base.
+  let parse toolBox cmds segCmds =
+    match Array.tryPick chooseTrie cmds with
+    | Some(offset, size) when size > 0u ->
+      let imageBase =
+        Segment.tryGetImageBase segCmds |> Option.defaultValue 0UL
+      let acc = ResizeArray()
+      parseNode toolBox (ReadOnlySpan(toolBox.Bytes, offset, int size)) 0 "" acc
       acc
-    else
-      let pref, nextOffset = readStr span offset []
-      let reader = toolBox.Reader
-      let nextNode, len = reader.ReadUInt64LEB128(span, nextOffset)
-      let acc = parseTrie toolBox span (int nextNode) (str + pref) acc
-      parseChildren toolBox span (nextOffset + len) (nChilds - 1UL) str acc
-
-  /// The symbols exported by a dylib are encoded in a trie.
-  let private parseExportTrieHead toolBox exportSpan =
-    parseTrie toolBox exportSpan 0 "" []
-
-  let private parseExports toolBox dyldinfo =
-    match Array.tryHead dyldinfo with
-    | None ->
+      |> Seq.map (fun (name, addr) ->
+        { ExportSymName = name; ExportAddr = imageBase + addr })
+      |> Seq.toArray
+    | _ ->
       [||]
-    | Some info ->
-      let exportSize = int info.ExportSize
-      let exportSpan = ReadOnlySpan(toolBox.Bytes, info.ExportOff, exportSize)
-      parseExportTrieHead toolBox exportSpan
-      |> List.toArray
-
-  let parse toolBox cmds =
-    let dyldinfo = Array.choose chooseDyLdInfo cmds
-    parseExports toolBox dyldinfo
