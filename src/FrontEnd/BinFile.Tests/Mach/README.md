@@ -29,6 +29,7 @@ and the feature fixtures are hand-crafted to isolate one parser capability.
 | `mach_arm32_thumb` | ARMv7 mixing A32 and T32, with `LC_DATA_IN_CODE` and an absolute symbol. |
 | `mach_x64_extreloc` | A non-PIE dylib relocated through the `LC_DYSYMTAB` external and local tables. |
 | `mach_x64_multichain` | A fixup page holding two chains, reached through `DYLD_CHAINED_PTR_START_MULTI`. |
+| `mach_x64_codesign` | A dylib carrying an ad-hoc code signature: a superblob with a code directory, an entitlements plist and a CMS blob. |
 | `mach_x64_initfunc` | A non-PIE dylib naming its initializers with `__mod_init_func`, its terminators with `__mod_term_func` and one more routine with `LC_ROUTINES64`. |
 | `mach_x64_initchain` | A PIE dylib whose `__mod_init_func` slots hold a chain of rebase entries rather than the addresses of the initializers themselves. |
 | `mach_x64_linkeropt` | An `MH_OBJECT` naming what it needs linked with `LC_LINKER_OPTION`, the way clang's autolinking writes it, rather than with `LC_LOAD_DYLIB`. |
@@ -39,7 +40,7 @@ DWARF CFI (x64, needs a register factory) and Apple compact unwind (arm64).
 
 ## The fixtures that clang cannot build
 
-Twelve fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
+Thirteen fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
 because no current toolchain produces them. An assembler always lays down
 `__text` even when nothing goes in it and ld64 keeps the empty section, so a
 data-only object cannot be compiled; ld64 stopped emitting `LC_UNIXTHREAD` long
@@ -53,11 +54,13 @@ for the frameworks and libraries a module map names, so pinning down every
 form it can take takes a hand-written object rather than a compiled one. And
 ld64 stopped emitting `LC_ROUTINES` long before it started linking everything
 PIE, so no one binary it builds today both names a routine that way and leaves
-its initializer pointers where the file can be read for them. Each function in the script says what its
+its initializer pointers where the file can be read for them. A real signed
+binary, finally, drags a whole certificate chain in with it, which is far too
+much to keep as a fixture and names a signer that expires. Each function in the script says what its
 fixture is for.
 
 ```bash
-python3 make_fixtures.py           # rewrite the twelve archives
+python3 make_fixtures.py           # rewrite the 13 archives
 python3 make_fixtures.py --check   # confirm the archives match the script
 ```
 

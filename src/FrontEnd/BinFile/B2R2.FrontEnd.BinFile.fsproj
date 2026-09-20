@@ -117,6 +117,7 @@
     <Compile Include="Mach\Fixup.fs" />
     <Compile Include="Mach\ChainedFixup.fs" />
     <Compile Include="Mach\DyldInfo.fs" />
+    <Compile Include="Mach\CodeSignature.fs" />
     <Compile Include="Mach\Helper.fs" />
     <Compile Include="Mach\CompactUnwind.fs" />
     <Compile Include="Mach\ExceptionData.fs" />

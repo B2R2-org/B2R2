@@ -85,6 +85,8 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
 
   let encryptedRanges = lazy encryptedRanges segCmds.Value cmds.Value
 
+  let codeSignature = lazy CodeSignature.parse toolBox cmds.Value
+
   let enumSymbols =
     lazy (syms.Value.SymbolArray
           |> Array.filter (fun s -> s.SymType <> SymbolType.N_OPT))
@@ -487,6 +489,11 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
   /// order the file names them, or an empty array when it carries none. Only
   /// an object file does.
   member internal _.LinkerOptions with get() = linkerOptions.Value
+
+  /// The code signature this file carries, or None when it carries none.
+  /// An unsigned file, and one signed by a scheme this parser does not read,
+  /// both name none.
+  member internal _.CodeSignature with get() = codeSignature.Value
 
   member internal _.Sections with get() = secs.Value
 

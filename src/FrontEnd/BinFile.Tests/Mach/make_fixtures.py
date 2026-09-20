@@ -22,12 +22,15 @@ LC_DYLD_INFO_ONLY, LC_DYSYMTAB = 0x80000022, 0xB
 LC_DYLD_CHAINED_FIXUPS = 0x80000034
 LC_LINKER_OPTION = 0x2D
 LC_ROUTINES_64 = 0x1A
+LC_CODE_SIGNATURE = 0x1D
 LC_FILESET_ENTRY = 0x80000035
 MH_KEXT_BUNDLE, MH_FILESET = 0xB, 0xC
 PTR_START_MULTI, PTR_START_LAST, PTR_START_NONE = 0x8000, 0x8000, 0xFFFF
 N_SECT_EXT, N_ABS_EXT, N_UNDF_EXT = 0x0F, 0x03, 0x01
 N_ARM_THUMB_DEF, MH_PIE, SUBSECTIONS_VIA_SYMBOLS = 0x8, 0x200000, 0x2000
 S_MOD_INIT_FUNC_POINTERS, S_MOD_TERM_FUNC_POINTERS = 0x9, 0xA
+CSMAGIC_EMBEDDED_SIGNATURE, CSMAGIC_CODEDIRECTORY = 0xFADE0CC0, 0xFADE0C02
+CSMAGIC_EMBEDDED_ENTITLEMENTS, CSMAGIC_BLOBWRAPPER = 0xFADE7171, 0xFADE0B01
 
 
 def name16(s):
@@ -489,6 +492,68 @@ def initchain():
     return bytes(out)
 
 
+def code_directory():
+    """One CS_CodeDirectory, at the version that carries a team identifier
+    and an exec segment. Everything a code signing structure holds is
+    big-endian, whichever way round the Mach-O around it is. The header runs
+    to 88 bytes, and the identifier, the team and the one code slot hash
+    follow it in that order."""
+    ident = b'com.example.signed\0'
+    team = b'ABCDE12345\0'
+    ident_off = 88
+    team_off = ident_off + len(ident)
+    hash_off = team_off + len(team)
+    return (struct.pack('>6I', CSMAGIC_CODEDIRECTORY, hash_off + 32, 0x20400,
+                        0x20002, hash_off, ident_off)
+            + struct.pack('>3I', 0, 1, 0x1000)
+            + struct.pack('>4B', 32, 2, 0, 12)
+            + struct.pack('>4I', 0, 0, team_off, 0)
+            + struct.pack('>Q', 0)
+            + struct.pack('>3Q', 0, 0x1000, 0)
+            + ident + team + bytes(range(32)))
+
+
+def codesign_blob():
+    """The CS_SuperBlob an LC_CODE_SIGNATURE points at: a code directory, an
+    entitlements plist, and the CMS blob holding the signer, which this
+    parser steps over rather than reading."""
+    cd = code_directory()
+    plist = (b'<?xml version="1.0" encoding="UTF-8"?>\n'
+             b'<plist version="1.0"><dict>'
+             b'<key>com.apple.security.cs.allow-jit</key><true/>'
+             b'</dict></plist>\n')
+    ent = struct.pack('>2I', CSMAGIC_EMBEDDED_ENTITLEMENTS,
+                      8 + len(plist)) + plist
+    cms = struct.pack('>2I', CSMAGIC_BLOBWRAPPER, 12) + b'\0' * 4
+    cd_off = 12 + 3 * 8
+    ent_off = cd_off + len(cd)
+    cms_off = ent_off + len(ent)
+    return (struct.pack('>3I', CSMAGIC_EMBEDDED_SIGNATURE,
+                        cms_off + len(cms), 3)
+            + struct.pack('>2I', 0, cd_off)
+            + struct.pack('>2I', 5, ent_off)
+            + struct.pack('>2I', 0x10000, cms_off)
+            + cd + ent + cms)
+
+
+def codesign():
+    """A dylib carrying an ad-hoc code signature. A real signed binary drags
+    a whole certificate chain in with it, which is far too much to keep as a
+    fixture and names a signer that expires, so the superblob here is written
+    out by hand instead."""
+    page, linkvm = 0x1000, 0x1000
+    sig = codesign_blob()
+    cmds = (seg64('__TEXT', 0, page, 0, page, 5,
+                  [('__text', 0x800, 0x100, 0x800, 4, 0x80000400)])
+            + seg64('__LINKEDIT', linkvm, page, linkvm, len(sig), 1, [])
+            + struct.pack('<4I', LC_CODE_SIGNATURE, 16, linkvm, len(sig)))
+    out = bytearray(linkvm + len(sig))
+    out[0:32] = header64(CPU_X64, 3, MH_DYLIB, 3, len(cmds), MH_PIE | 0x85)
+    out[32:32 + len(cmds)] = cmds
+    out[linkvm:] = sig
+    return bytes(out)
+
+
 FIXTURES = {'mach_x64_notext': notext,
             'mach_x64_unixthread': lambda: unixthread('x64'),
             'mach_arm64_unixthread': lambda: unixthread('arm64'),
@@ -500,7 +565,8 @@ FIXTURES = {'mach_x64_notext': notext,
             'mach_x64_fileset': fileset,
             'mach_x64_linkeropt': linkeropt,
             'mach_x64_initfunc': initfunc,
-            'mach_x64_initchain': initchain}
+            'mach_x64_initchain': initchain,
+            'mach_x64_codesign': codesign}
 
 
 def main(check):
