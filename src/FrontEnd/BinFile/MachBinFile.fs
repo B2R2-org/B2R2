@@ -83,6 +83,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let executableRanges = lazy executableRanges segCmds.Value
 
+  let encryptedRanges = lazy encryptedRanges segCmds.Value cmds.Value
+
   let enumSymbols =
     lazy (syms.Value.SymbolArray
           |> Array.filter (fun s -> s.SymType <> SymbolType.N_OPT))
@@ -504,6 +506,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       || hdr.FileType <> FileType.MH_EXECUTE
 
     member _.Relro with get() = None
+
+    member _.EncryptedRanges with get() = encryptedRanges.Value
 
     member _.NameResolver with get() = nameResolver
 

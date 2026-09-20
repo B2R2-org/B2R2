@@ -162,6 +162,12 @@ module internal LoadCommands =
     { TableOffset = reader.ReadInt32(span, 8)
       TableSize = reader.ReadUInt32(span, 12) }
 
+  let parseEncryptionInfo toolBox (span: ByteSpan) =
+    let reader = toolBox.Reader
+    { CryptOffset = reader.ReadInt32(span, 8)
+      CryptSize = reader.ReadUInt32(span, 12)
+      CryptId = reader.ReadUInt32(span, 16) }
+
   /// Checks that a command at the given offset both fits in the file and is
   /// long enough to hold what is being read out of it, so a truncated or
   /// corrupt table is reported as a bad file rather than as a span that could
@@ -220,6 +226,10 @@ module internal LoadCommands =
         ExportsTrie(cmdType, uint32 cmdSize, parseExportsTrie toolBox span)
       | CmdType.LC_DATA_IN_CODE ->
         DataInCode(cmdType, uint32 cmdSize, parseDataInCode toolBox span)
+      | CmdType.LC_ENCRYPTION_INFO
+      | CmdType.LC_ENCRYPTION_INFO_64 ->
+        let info = parseEncryptionInfo toolBox span
+        EncryptionInfo(cmdType, uint32 cmdSize, info)
       | _ ->
         Unhandled(cmdType, uint32 cmdSize)
     struct (command, uint64 cmdSize)

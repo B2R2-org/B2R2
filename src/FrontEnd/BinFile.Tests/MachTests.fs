@@ -203,6 +203,13 @@ type MachTests() =
     Assert.AreEqual<Relro option>(None, (x64File :> IBinFile).Relro)
 
   [<TestMethod>]
+  member _.``[Mach] X64 has no encrypted range test``() =
+    (* Only a re-signed image carries LC_ENCRYPTION_INFO with a cryptid set;
+       what a linker builds names no encrypted range. *)
+    let file = x64File :> IBinFile
+    CollectionAssert.AreEqual([||], file.EncryptedRanges)
+
+  [<TestMethod>]
   member _.``[Mach] X64 has no rpath test``() =
     let file = x64File :> IBinFile
     CollectionAssert.AreEqual([||], file.RPath)
