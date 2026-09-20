@@ -66,7 +66,12 @@ and internal Augmentation =
   { Format: char
     ValueEncoding: ExceptionHeaderValue
     ApplicationEncoding: ExceptionHeaderApplication
-    PersonalityRoutionPointer: byte[] }
+    /// Address that the 'P' augmentation encodes, i.e., the personality
+    /// routine governing the frames of this CIE. An indirect encoding
+    /// (DW_EH_PE_indirect) makes this the address of the slot that holds the
+    /// routine's address, which is all the file statically records. None for
+    /// every other augmentation format.
+    PersonalityRoutine: Addr option }
 
 [<RequireQualifiedAccess>]
 module internal CIE =
@@ -77,51 +82,72 @@ module internal CIE =
       let r, cnt = reader.ReadUInt64LEB128(span, offset)
       byte r, offset + cnt
 
-  let personalityRoutinePointerSize addrSize = function
-    | 2uy -> 2
-    | 3uy -> 4
-    | 4uy -> 8
-    | _ -> addrSize
+  (* DW_EH_PE_indirect (0x80) only says that the pointer is indirect; the value
+     and application encodings live in the low seven bits. *)
+  let private personalityEncoding b =
+    if b = 0xFFuy then ExceptionHeader.parseEncoding b
+    else ExceptionHeader.parseEncoding (b &&& 0x7Fuy)
 
-  let obtainAugData addrSize (arr: byte[]) data offset = function
+  /// Parses the 'P' augmentation, whose encoding byte is followed by the
+  /// pointer to the personality routine. augAddr is the address the
+  /// augmentation data starts at, which a pc-relative pointer is relative to.
+  let private parsePersonality reader cls augAddr (arr: byte[]) offset =
+    let struct (v, app) = personalityEncoding arr[offset]
+    if v = ExceptionHeaderValue.DW_EH_PE_omit then
+      { Format = 'P'
+        ValueEncoding = v
+        ApplicationEncoding = app
+        PersonalityRoutine = None }, offset + 1
+    else
+      let myAddr = augAddr + uint64 offset + 1UL
+      let struct (addr, nextOffset) =
+        ExceptionHeaderValue.read cls (ReadOnlySpan arr) reader v (offset + 1)
+      let routine = ExceptionHeader.adjustAddr app myAddr addr
+      { Format = 'P'
+        ValueEncoding = v
+        ApplicationEncoding = app
+        PersonalityRoutine = Some routine }, nextOffset
+
+  let obtainAugData reader cls augAddr (arr: byte[]) data offset = function
     | 'L' ->
       let struct (v, app) = ExceptionHeader.parseEncoding arr[offset]
       { Format = 'L'
         ValueEncoding = v
         ApplicationEncoding = app
-        PersonalityRoutionPointer = [||] } :: data, offset + 1
+        PersonalityRoutine = None } :: data, offset + 1
     | 'P' ->
-      let struct (v, app) = ExceptionHeader.parseEncoding arr[offset]
-      let psz = arr[offset] &&& 7uy |> personalityRoutinePointerSize addrSize
-      let prp = arr[offset + 1..offset + psz]
-      { Format = 'P'
-        ValueEncoding = v
-        ApplicationEncoding = app
-        PersonalityRoutionPointer = prp } :: data, offset + psz + 1
+      let aug, nextOffset = parsePersonality reader cls augAddr arr offset
+      aug :: data, nextOffset
     | 'R' ->
       let struct (v, app) = ExceptionHeader.parseEncoding arr[offset]
       { Format = 'R'
         ValueEncoding = v
         ApplicationEncoding = app
-        PersonalityRoutionPointer = [||] } :: data, offset + 1
+        PersonalityRoutine = None } :: data, offset + 1
     | 'S' ->
       data, offset (* This is a signal frame. *)
     | _ ->
       Terminator.futureFeature ()
 
-  let parseAugmentationData (reader: IBinReader) span offset addrSize augstr =
+  let parseAugmentationData (reader: IBinReader) span offset sAddr cls augstr =
     if (augstr: string).StartsWith('z') then
       let len, cnt = reader.ReadUInt64LEB128(span = span, offset = offset)
       let offset = offset + cnt
       let span = span.Slice(offset, int len)
       let arr = span.ToArray()
+      let augAddr = sAddr + uint64 offset
       augstr[1..]
       |> Seq.fold (fun (data, idx) ch ->
-        obtainAugData addrSize arr data idx ch) ([], 0)
+        obtainAugData reader cls augAddr arr data idx ch) ([], 0)
       |> fst
       |> List.rev, offset + int len
     else
       [], offset
+
+  /// Returns the personality routine that the CIE's 'P' augmentation encodes,
+  /// or None when the CIE carries no such augmentation.
+  let personalityRoutine cie =
+    cie.Augmentations |> List.tryPick (fun aug -> aug.PersonalityRoutine)
 
   let extractOldOffset = function
     | RegPlusOffset(_, o) -> o
@@ -334,8 +360,8 @@ module internal CIE =
     else
       emptyInitialUnwinding rr
 
-  let parse reader (mem: ReadOnlyMemory<byte>) cls isa regs offset nextOffset =
-    let secChunk = mem.Span
+  let parse reader mem cls isa regs sAddr offset nextOffset =
+    let secChunk = (mem: ReadOnlyMemory<byte>).Span
     let version = secChunk[offset]
     let offset = offset + 1
     if version = 1uy || version = 3uy then
@@ -349,7 +375,7 @@ module internal CIE =
       let offset = offset + cnt
       let rr, offset = parseReturnRegister reader secChunk version offset
       let augs, offset =
-        parseAugmentationData reader secChunk offset addrSize augstr
+        parseAugmentationData reader secChunk offset sAddr cls augstr
       let initial = parseInitialState isa regs rr cf df mem offset nextOffset
       { Version = version
         AugmentationString = augstr

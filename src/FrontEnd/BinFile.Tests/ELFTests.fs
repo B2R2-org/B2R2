@@ -1933,6 +1933,18 @@ type ELFTests() =
     Assert.AreEqual<bool>(true, hasHandler)
 
   [<TestMethod>]
+  member _.``[ELF] x64 exception frame personality routine is resolved``() =
+    (* The zPLR CIE encodes its personality pointer as indirect|pcrel|sdata4,
+       so it resolves to the slot that R_X86_64_64 binds to
+       __gxx_personality_v0, not to the routine itself. *)
+    let frames = (x64EhFrameFile :> IBinFile).ExceptionTable.Value.Frames
+    let personalities =
+      frames
+      |> Array.choose (fun f -> f.PersonalityRoutine)
+      |> Array.distinct
+    CollectionAssert.AreEqual([| 0x4018UL |], personalities)
+
+  [<TestMethod>]
   member _.``[ELF] x64 frame lookup keeps unwinding unevaluated``() =
     (* An unevaluated FDE also proves that the unified unwinding table stayed
        unevaluated, as building it forces every FDE of the file. *)

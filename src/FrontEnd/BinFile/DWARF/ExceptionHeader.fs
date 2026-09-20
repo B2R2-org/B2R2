@@ -54,3 +54,10 @@ module internal ExceptionHeader =
       let app = int (b &&& 0xF0uy)
                 |> EnumOfValue<int, ExceptionHeaderApplication>
       struct (v, app)
+
+  /// Turns a value read at the given address into an absolute address by
+  /// applying its application encoding.
+  let adjustAddr app (myAddr: uint64) addr =
+    match app with
+    | ExceptionHeaderApplication.DW_EH_PE_pcrel -> addr + myAddr
+    | _ -> addr
