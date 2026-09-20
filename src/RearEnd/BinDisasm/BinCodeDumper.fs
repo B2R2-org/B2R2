@@ -24,7 +24,6 @@
 
 namespace B2R2.RearEnd.BinDisasm
 
-open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
@@ -36,15 +35,20 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
 
   let [<Literal>] IllegalStr = "(illegal)"
 
+  let [<Literal>] DataStr = "(data)"
+
+  /// How many bytes of a data region to print on one line, which is a word on
+  /// every architecture that marks its data regions.
+  let [<Literal>] DataChunkSize = 4
+
   let wordSize = (hdl: BinHandle).ISA.WordSize
 
   let liftingUnit = hdl.NewLiftingUnit()
 
-  let archmodes =
-    let modes = Dictionary() (* Addr to BinCodeMode *)
-    for m in BinFileOps.getCodeModeMarkers hdl.File do
-      modes[m.Address] <- m.Mode
-    modes
+  let archmodes = BinCodeModeTable(BinFileOps.getCodeModeMarkers hdl.File)
+
+  /// Whether the bytes at hand are a data region that a $d marker started.
+  let mutable inData = false
 
   let fnSymbols =
     if isTable then FunctionSymbols.ofLinkageTable hdl
@@ -111,17 +115,27 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
 
   (* Only ARM binaries carry mode markers, so an empty table means there is
      nothing to look up per instruction. Testing the table rather than the
-     architecture keeps AArch32 covered, which an ARMv7 test missed. AArch64
-     markers reach the table too, but none of them switches the encoding. *)
+     architecture keeps AArch32 covered, which an ARMv7 test missed. A code
+     marker of either ARM ABI ends a data region, which is what AArch64 needs
+     one for, having no second encoding to switch to. *)
   let checkAndUpdateArchMode =
-    if archmodes.Count = 0 then
+    if archmodes.IsEmpty then
       fun _addr -> ()
     else
       fun addr ->
-        match archmodes.TryGetValue addr with
-        | true, ArmMode -> liftingUnit.IsThumb <- false
-        | true, ThumbMode -> liftingUnit.IsThumb <- true
-        | _ -> ()
+        match archmodes.TryFindMode addr with
+        | Some ArmMode ->
+          liftingUnit.IsThumb <- false
+          inData <- false
+        | Some ThumbMode ->
+          liftingUnit.IsThumb <- true
+          inData <- false
+        | Some A64Mode ->
+          inData <- false
+        | Some DataMode ->
+          inData <- true
+        | _ ->
+          ()
 
   let printFuncSymbol isFirst addr =
     match fnSymbols.TryGetValue addr with
@@ -154,18 +168,34 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     else printRegularDisasm IllegalStr ptr.Addr bytes
     ptr.Advance align
 
+  (* A $d marker says that what follows is data rather than instructions, so
+     decoding it would print noise. Print its bytes a word at a time instead,
+     never past the marker that ends the region, whose address is where the
+     next encoding takes over. *)
+  let handleDataRegion (ptr: BinFilePointer) =
+    let bound =
+      match archmodes.TryFindRegionEnd ptr.Addr with
+      | Some regionEnd -> int (regionEnd - ptr.Addr)
+      | None -> ptr.ReadableAmount
+    let len = min DataChunkSize (min bound ptr.ReadableAmount)
+    let bytes = hdl.ReadBytes(ptr = ptr, nBytes = len)
+    if dumpMode.IsLowUIR then printLowUIR DataStr bytes
+    else printRegularDisasm DataStr ptr.Addr bytes
+    ptr.Advance len
+
   let rec binDump isFirst (ptr: BinFilePointer) =
     if ptr.CanReadFileBytes then
       printFuncSymbol isFirst ptr.Addr
       checkAndUpdateArchMode ptr.Addr
-      match liftingUnit.TryParseInstruction(ptr = ptr) with
-      | Ok(ins) ->
-        printInstr ptr ins
-        let ptr' = ptr.Advance(ins.Length)
-        binDump false ptr'
-      | Error _ ->
-        let ptr' = handleInvalidIns ptr
-        binDump false ptr'
+      if inData then
+        binDump false (handleDataRegion ptr)
+      else
+        match liftingUnit.TryParseInstruction(ptr = ptr) with
+        | Ok(ins) ->
+          printInstr ptr ins
+          binDump false (ptr.Advance ins.Length)
+        | Error _ ->
+          binDump false (handleInvalidIns ptr)
     else
       ()
 
@@ -174,4 +204,7 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
       with get() = liftingUnit.IsThumb
       and set v = liftingUnit.IsThumb <- v
 
-    member _.Dump ptr = binDump true ptr
+    member _.Dump ptr =
+      (* Each dumped region starts as code: a data region never spans one. *)
+      inData <- false
+      binDump true ptr

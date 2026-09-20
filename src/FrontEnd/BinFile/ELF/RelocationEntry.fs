@@ -36,4 +36,8 @@ type internal RelocationEntry =
     /// relocatable field.
     RelAddend: uint64
     /// The number of the section that defines this relocation.
-    RelSecNumber: int }
+    RelSecNumber: int
+    /// The number of the section this relocation applies to, which is what
+    /// sh_info names. A relocatable object counts RelOffset from the start of
+    /// that section, so only the two together name the slot to relocate.
+    RelTargetSecNumber: int }

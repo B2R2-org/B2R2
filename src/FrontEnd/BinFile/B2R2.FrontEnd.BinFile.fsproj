@@ -16,6 +16,7 @@
     <Compile Include="BinRelocation.fs" />
     <Compile Include="BinSymbol.fs" />
     <Compile Include="BinCodeModeMarker.fs" />
+    <Compile Include="BinCodeModeTable.fs" />
     <Compile Include="BinExceptionFrame.fs" />
     <Compile Include="BinProgramHeaderTable.fs" />
     <Compile Include="IBinMetadata.fs" />
