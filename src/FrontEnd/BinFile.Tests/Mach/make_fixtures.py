@@ -21,11 +21,13 @@ LC_UNIXTHREAD, LC_ID_DYLIB, LC_DATA_IN_CODE = 0x5, 0xD, 0x29
 LC_DYLD_INFO_ONLY, LC_DYSYMTAB = 0x80000022, 0xB
 LC_DYLD_CHAINED_FIXUPS = 0x80000034
 LC_LINKER_OPTION = 0x2D
+LC_ROUTINES_64 = 0x1A
 LC_FILESET_ENTRY = 0x80000035
 MH_KEXT_BUNDLE, MH_FILESET = 0xB, 0xC
 PTR_START_MULTI, PTR_START_LAST, PTR_START_NONE = 0x8000, 0x8000, 0xFFFF
 N_SECT_EXT, N_ABS_EXT, N_UNDF_EXT = 0x0F, 0x03, 0x01
 N_ARM_THUMB_DEF, MH_PIE, SUBSECTIONS_VIA_SYMBOLS = 0x8, 0x200000, 0x2000
+S_MOD_INIT_FUNC_POINTERS, S_MOD_TERM_FUNC_POINTERS = 0x9, 0xA
 
 
 def name16(s):
@@ -410,6 +412,83 @@ def linkeropt():
             + opts + text + nlist64(1, N_SECT_EXT, 1, 0, 0) + strtab)
 
 
+def routines64(init_address):
+    """One LC_ROUTINES64. Its init_address sits where the 32-bit form puts a
+    four-byte one, and six reserved words pad the rest out."""
+    return struct.pack('<2I8Q', LC_ROUTINES_64, 72, init_address, 0,
+                       0, 0, 0, 0, 0, 0)
+
+
+def initfunc():
+    """A non-PIE dylib naming its initializers with __mod_init_func, its
+    terminators with __mod_term_func and one more routine with
+    LC_ROUTINES64. Neither half can be compiled any more: ld64 stopped
+    emitting LC_ROUTINES long ago, and a dylib linked today is PIE, which
+    leaves its pointers to dyld rather than laying them down in the file."""
+    page = 0x1000
+    datavm, linkvm = 0x1000, 0x2000
+    # Two constructors and one destructor, named by the pointer arrays, plus
+    # the routine LC_ROUTINES64 names and a plain function symbol.
+    init = struct.pack('<2Q', 0x800, 0x810)
+    term = struct.pack('<Q', 0x820)
+    strtab = b'\0_plain\0'
+    nlists = nlist64(1, N_SECT_EXT, 1, 0, 0x700)
+    symoff = linkvm
+    stroff = symoff + len(nlists)
+    linksize = len(nlists) + len(strtab)
+    cmds = (seg64('__TEXT', 0, page, 0, page, 5,
+                  [('__text', 0x700, 0x300, 0x700, 4, 0x80000400)])
+            + seg64('__DATA', datavm, page, page, page, 3,
+                    [('__mod_init_func', datavm, len(init), page, 3,
+                      S_MOD_INIT_FUNC_POINTERS),
+                     ('__mod_term_func', datavm + len(init), len(term),
+                      page + len(init), 3, S_MOD_TERM_FUNC_POINTERS)])
+            + seg64('__LINKEDIT', linkvm, page, linkvm, linksize, 1, [])
+            + routines64(0x900)
+            + symtab(symoff, 1, stroff, len(strtab)))
+    out = bytearray(linkvm + linksize)
+    out[0:32] = header64(CPU_X64, 3, MH_DYLIB, 5, len(cmds), 0x85)
+    out[32:32 + len(cmds)] = cmds
+    out[page:page + len(init) + len(term)] = init + term
+    out[symoff:symoff + len(nlists)] = nlists
+    out[stroff:] = strtab
+    return bytes(out)
+
+
+def initchain():
+    """A PIE dylib whose __mod_init_func slots are written by dyld: they hold
+    a chain of DYLD_CHAINED_PTR_64 rebase entries rather than the addresses
+    themselves, so an initializer taken from the file bytes would be read as
+    the chain entry instead of as the function it names."""
+    page = 0x1000
+    datavm, linkvm = 0x1000, 0x2000
+    # A two-entry chain starting at 0x1000, whose next steps four-byte units
+    # on to the slot at 0x1008. Both target a constructor in __text.
+    data = struct.pack('<2Q', 0x800 | (2 << 51), 0x810)
+    starts_in_image = struct.pack('<4I', 3, 0, 16, 0)
+    page_start = struct.pack('<H', 0)
+    in_segment = struct.pack('<IHHQIH', 22 + len(page_start), page, 2,
+                             datavm, 0, 1) + page_start
+    starts = starts_in_image + in_segment
+    header = struct.pack('<7I', 0, 32, 32 + len(starts), 32 + len(starts),
+                         0, 1, 0)
+    payload = header + b'\0' * (32 - len(header)) + starts + b'\0'
+    cmds = (seg64('__TEXT', 0, page, 0, page, 5,
+                  [('__text', 0x800, 0x100, 0x800, 4, 0x80000400)])
+            + seg64('__DATA', datavm, page, page, page, 3,
+                    [('__mod_init_func', datavm, len(data), page, 3,
+                      S_MOD_INIT_FUNC_POINTERS)])
+            + seg64('__LINKEDIT', linkvm, page, linkvm, len(payload), 1, [])
+            + struct.pack('<4I', LC_DYLD_CHAINED_FIXUPS, 16, linkvm,
+                          len(payload)))
+    out = bytearray(linkvm + len(payload))
+    out[0:32] = header64(CPU_X64, 3, MH_DYLIB, 4, len(cmds), MH_PIE | 0x85)
+    out[32:32 + len(cmds)] = cmds
+    out[page:page + len(data)] = data
+    out[linkvm:] = payload
+    return bytes(out)
+
+
 FIXTURES = {'mach_x64_notext': notext,
             'mach_x64_unixthread': lambda: unixthread('x64'),
             'mach_arm64_unixthread': lambda: unixthread('arm64'),
@@ -419,7 +498,9 @@ FIXTURES = {'mach_x64_notext': notext,
             'mach_x64_extreloc': x64_extreloc,
             'mach_x64_multichain': x64_multichain,
             'mach_x64_fileset': fileset,
-            'mach_x64_linkeropt': linkeropt}
+            'mach_x64_linkeropt': linkeropt,
+            'mach_x64_initfunc': initfunc,
+            'mach_x64_initchain': initchain}
 
 
 def main(check):

@@ -84,6 +84,11 @@ type internal LoadCommand =
   /// initial thread rather than as an offset. None when the command carries no
   /// state this parser knows the layout of.
   | Thread of cmd: CmdType * size: uint32 * pc: Addr option
+  /// Image routines command (LC_ROUTINES or LC_ROUTINES64), which names the
+  /// initialization routine of a library built before the __mod_init_func
+  /// pointer array took the job over. None when the command names none,
+  /// which is what a zero init_address says.
+  | Routines of cmd: CmdType * size: uint32 * initAddr: Addr option
   /// Unhandled command.
   | Unhandled of cmd: CmdType * size: uint32
 

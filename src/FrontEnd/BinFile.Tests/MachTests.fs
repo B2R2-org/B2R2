@@ -156,6 +156,16 @@ type MachTests() =
   static let x64LinkerOptFile =
     parseFile "mach_x64_linkeropt" Architecture.Intel WordSize.Bit64
 
+  /// A non-PIE dylib naming its initializers with __mod_init_func, its
+  /// terminators with __mod_term_func and one more routine with LC_ROUTINES64.
+  static let x64InitFuncFile =
+    parseFile "mach_x64_initfunc" Architecture.Intel WordSize.Bit64
+
+  /// A PIE dylib whose __mod_init_func slots hold a chain of rebase entries
+  /// rather than the addresses of the initializers themselves.
+  static let x64InitChainFile =
+    parseFile "mach_x64_initchain" Architecture.Intel WordSize.Bit64
+
   /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
   /// LSDA table in __gcc_except_tab. Exception parsing needs a register
   /// factory.
@@ -239,6 +249,31 @@ type MachTests() =
     let expected = [| "/usr/lib/libSystem.B.dylib" |]
     CollectionAssert.AreEqual(expected, file.DependencyNames)
     Assert.AreEqual<string option>(None, file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 initializer function test``() =
+    (* The pointer arrays and LC_ROUTINES name functions the symbol table
+       does not, and they join the symbols in one sorted list. *)
+    let file = x64InitFuncFile :> IBinFile
+    let addrs = file.Structure.Value.FunctionAddresses
+    let expected = [| 0x700UL; 0x800UL; 0x810UL; 0x820UL; 0x900UL |]
+    CollectionAssert.AreEqual(expected, addrs)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 chained initializer function test``() =
+    (* dyld writes what a chained slot holds, so the initializer is named by
+       the rebase fixup; the file bytes hold the chain entry instead. *)
+    let file = x64InitChainFile :> IBinFile
+    let addrs = file.Structure.Value.FunctionAddresses
+    CollectionAssert.AreEqual([| 0x800UL; 0x810UL |], addrs)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 has no initializer function test``() =
+    (* A binary carrying neither the pointer arrays nor LC_ROUTINES names its
+       functions by symbol alone, and names each of them once. *)
+    let addrs = (x64File :> IBinFile).Structure.Value.FunctionAddresses
+    Assert.AreEqual<int>(Array.length (Array.distinct addrs), addrs.Length)
+    CollectionAssert.AreEqual(Array.sort addrs, addrs)
 
   [<TestMethod>]
   member _.``[Mach] X64 linker option dependencies test``() =

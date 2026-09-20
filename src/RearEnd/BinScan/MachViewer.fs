@@ -453,6 +453,15 @@ let dumpMainCmd cmd size (main: Mach.MainCmd) idx =
   printsr [| "StackSize:"; main.StackSize.ToString() |]
   printsn ""
 
+let dumpRoutinesCmd cmd size initAddr idx =
+  printSubsectionTitle <| "Load command " + idx.ToString()
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  let addr = Option.defaultValue 0UL initAddr
+  printsr [| "InitAddress:"; HexString.ofUInt64 addr |]
+  printsn ""
+
 let dumpUnhandledCmd cmd size idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
   resetToDefaultTwoColumnConfig ()
@@ -481,6 +490,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
     | Mach.FilesetEntry(cmd, size, e) -> dumpFilesetEntryCmd cmd size e i
     | Mach.Main(cmd, size, main) -> dumpMainCmd cmd size main i
     | Mach.Thread(cmd, size, _) -> dumpUnhandledCmd cmd size i
+    | Mach.Routines(cmd, size, a) -> dumpRoutinesCmd cmd size a i
     | Mach.Unhandled(cmd, size) -> dumpUnhandledCmd cmd size i
 
 let dumpSharedLibs _ (file: MachBinFile) =

@@ -187,11 +187,29 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
 
   let nameResolver = Some(NameResolver.ofSymbolTable symbolTableObj)
 
-  let functionAddrs =
+  (* An initializer pointer is written by dyld rather than by the linker: a
+     chained image leaves a chain entry in the slot and a dyld info one a
+     rebase opcode, so the fixup names the function where the bytes on disk
+     do not. A slot nothing fixes up holds the address itself. *)
+  let resolveFuncPointer addr =
+    match Map.tryFind addr fixupMap.Value with
+    | Some { FixupTarget = Rebase target } -> Some target
+    | _ -> None
+
+  let symbolFuncAddrs =
     lazy
       [| for s in syms.Value.SymbolArray do
            if Symbol.IsFunc(secText.Value, s) && s.SymAddr > 0UL then s.SymAddr
            else () |]
+
+  let functionAddrs =
+    lazy
+      [| symbolFuncAddrs.Value
+         funcPointerAddrs toolBox secs.Value resolveFuncPointer
+         initRoutines cmds.Value |]
+      |> Array.concat
+      |> Array.distinct
+      |> Array.sort
 
   let isZeroFillSection (sec: Section) =
     sec.SecType = SectionType.S_ZEROFILL
