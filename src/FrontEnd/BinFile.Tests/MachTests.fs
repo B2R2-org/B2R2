@@ -151,6 +151,11 @@ type MachTests() =
   static let x64FilesetFile =
     parseFile "mach_x64_fileset" Architecture.Intel WordSize.Bit64
 
+  /// An MH_OBJECT naming what it needs linked with LC_LINKER_OPTION, the way
+  /// clang's autolinking writes it, rather than with LC_LOAD_DYLIB.
+  static let x64LinkerOptFile =
+    parseFile "mach_x64_linkeropt" Architecture.Intel WordSize.Bit64
+
   /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
   /// LSDA table in __gcc_except_tab. Exception parsing needs a register
   /// factory.
@@ -234,6 +239,35 @@ type MachTests() =
     let expected = [| "/usr/lib/libSystem.B.dylib" |]
     CollectionAssert.AreEqual(expected, file.DependencyNames)
     Assert.AreEqual<string option>(None, file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 linker option dependencies test``() =
+    (* An object file carries no LC_LOAD_DYLIB, so its LC_LINKER_OPTION
+       commands are what name the libraries it needs linked. Every form that
+       names one is read, a directive repeated for each translation unit
+       names its library once, and an option naming none is dropped. *)
+    let file = x64LinkerOptFile :> IBinFile
+    Assert.AreEqual<BinFileKind>(BinFileKind.Object, file.Kind)
+    let expected =
+      [| "foo"; "Bar"; "baz"; "Qux"; "quux"; "corge"; "Grault" |]
+    CollectionAssert.AreEqual(expected, file.DependencyNames)
+    Assert.AreEqual<string option>(None, file.SharedObjectName)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 raw linker option test``() =
+    let opts = x64LinkerOptFile.LinkerOptions
+    Assert.AreEqual<int>(9, opts.Length)
+    CollectionAssert.AreEqual([| "-lfoo" |], opts[0])
+    CollectionAssert.AreEqual([| "-framework"; "Bar" |], opts[1])
+    CollectionAssert.AreEqual([| "-random_flag" |], opts[8])
+    CollectionAssert.AreEqual([||], x64File.LinkerOptions)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 object without linker option test``() =
+    (* An object file that names no library keeps an empty dependency list;
+       reading the linker options is not a fallback onto anything else. *)
+    let file = x64NoTextFile :> IBinFile
+    CollectionAssert.AreEqual([||], file.DependencyNames)
 
   [<TestMethod>]
   member _.``[Mach] X64 two-level install name test``() =

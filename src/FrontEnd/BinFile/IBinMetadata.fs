@@ -79,8 +79,12 @@ type IBinMetadata =
   /// The names of the libraries this binary needs loaded alongside it, taken
   /// from the ELF <c>DT_NEEDED</c> dynamic entries, the Mach-O
   /// <c>LC_LOAD_DYLIB</c> load commands, the PE import directory, and the
-  /// module names of Wasm imports. Returns an empty array for a binary that
-  /// needs none and for formats that have no such notion.
+  /// module names of Wasm imports. A Mach-O object file carries no
+  /// <c>LC_LOAD_DYLIB</c>, so its <c>LC_LINKER_OPTION</c> commands are read
+  /// instead, which name a library the way the linker flag does (<c>foo</c>
+  /// for <c>-lfoo</c>, <c>Bar</c> for <c>-framework Bar</c>) rather than by
+  /// an install path. Returns an empty array for a binary that needs none
+  /// and for formats that have no such notion.
   /// </summary>
   abstract DependencyNames: string[]
 

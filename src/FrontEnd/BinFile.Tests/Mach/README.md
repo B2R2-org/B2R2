@@ -29,6 +29,7 @@ and the feature fixtures are hand-crafted to isolate one parser capability.
 | `mach_arm32_thumb` | ARMv7 mixing A32 and T32, with `LC_DATA_IN_CODE` and an absolute symbol. |
 | `mach_x64_extreloc` | A non-PIE dylib relocated through the `LC_DYSYMTAB` external and local tables. |
 | `mach_x64_multichain` | A fixup page holding two chains, reached through `DYLD_CHAINED_PTR_START_MULTI`. |
+| `mach_x64_linkeropt` | An `MH_OBJECT` naming what it needs linked with `LC_LINKER_OPTION`, the way clang's autolinking writes it, rather than with `LC_LOAD_DYLIB`. |
 | `mach_x64_fileset` | An `MH_FILESET` container, as a kernel collection is: two images named by `LC_FILESET_ENTRY`, sharing one `__LINKEDIT`, plus a segment occupying no virtual memory. |
 
 The exception fixtures exercise the two Mach-O unwinding schemes: `__eh_frame`
@@ -36,7 +37,7 @@ DWARF CFI (x64, needs a register factory) and Apple compact unwind (arm64).
 
 ## The fixtures that clang cannot build
 
-Nine fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
+Ten fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
 because no current toolchain produces them. An assembler always lays down
 `__text` even when nothing goes in it and ld64 keeps the empty section, so a
 data-only object cannot be compiled; ld64 stopped emitting `LC_UNIXTHREAD` long
@@ -45,11 +46,13 @@ scattered relocations and Thumb marking; and a linker reaches for the
 `LC_DYSYMTAB` relocation tables or a multi-chain fixup page only in
 combinations it no longer emits. A fileset is built by `kmutil` out of a whole
 kernel and its kexts, which no build of this repository has to hand, and the
-real ones run to tens of megabytes. Each function in the script says what its
+real ones run to tens of megabytes. Autolinking writes `LC_LINKER_OPTION` only
+for the frameworks and libraries a module map names, so pinning down every
+form it can take takes a hand-written object rather than a compiled one. Each function in the script says what its
 fixture is for.
 
 ```bash
-python3 make_fixtures.py           # rewrite the eight archives
+python3 make_fixtures.py           # rewrite the ten archives
 python3 make_fixtures.py --check   # confirm the archives match the script
 ```
 

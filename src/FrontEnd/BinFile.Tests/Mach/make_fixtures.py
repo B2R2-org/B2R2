@@ -20,6 +20,7 @@ LC_SEGMENT, LC_SEGMENT_64, LC_SYMTAB = 0x1, 0x19, 0x2
 LC_UNIXTHREAD, LC_ID_DYLIB, LC_DATA_IN_CODE = 0x5, 0xD, 0x29
 LC_DYLD_INFO_ONLY, LC_DYSYMTAB = 0x80000022, 0xB
 LC_DYLD_CHAINED_FIXUPS = 0x80000034
+LC_LINKER_OPTION = 0x2D
 LC_FILESET_ENTRY = 0x80000035
 MH_KEXT_BUNDLE, MH_FILESET = 0xB, 0xC
 PTR_START_MULTI, PTR_START_LAST, PTR_START_NONE = 0x8000, 0x8000, 0xFFFF
@@ -367,6 +368,48 @@ def fileset():
     return bytes(out)
 
 
+def linker_option(*opts):
+    """One LC_LINKER_OPTION. Its strings follow the count one after another,
+    each NUL-terminated, and the last is padded out to the alignment a 64-bit
+    load command keeps."""
+    payload = b''.join(o.encode() + b'\0' for o in opts)
+    size = (12 + len(payload) + 7) & ~7
+    return struct.pack('<3I', LC_LINKER_OPTION, size, len(opts)) \
+        + payload.ljust(size - 12, b'\0')
+
+
+def linkeropt():
+    """An object file that names what it needs linked with LC_LINKER_OPTION,
+    the way clang's autolinking writes it, rather than with LC_LOAD_DYLIB,
+    which no object file carries. Every form that names a library is here:
+    the four that join the name to the flag and the three that put it in the
+    string after. -lfoo is named twice, as autolinking repeats a directive
+    for every translation unit carrying it, and -random_flag names no library
+    at all."""
+    text = b'\xc3' + b'\0' * 7
+    strtab = b'\0_f\0'
+    opts = (linker_option('-lfoo')
+            + linker_option('-framework', 'Bar')
+            + linker_option('-weak-lbaz')
+            + linker_option('-weak_framework', 'Qux')
+            + linker_option('-needed-lquux')
+            + linker_option('-hidden-lcorge')
+            + linker_option('-needed_framework', 'Grault')
+            + linker_option('-lfoo')
+            + linker_option('-random_flag'))
+    sizeofcmds = 72 + 80 + 24 + len(opts)
+    textoff = 32 + sizeofcmds
+    symoff = textoff + len(text)
+    stroff = symoff + 16
+    return (header64(CPU_X64, 3, MH_OBJECT, 11, sizeofcmds,
+                     SUBSECTIONS_VIA_SYMBOLS)
+            + seg64('', 0, len(text), textoff, len(text), 7,
+                    [('__text', 0, len(text), textoff, 4, 0x80000400)],
+                    '__TEXT')
+            + symtab(symoff, 1, stroff, len(strtab))
+            + opts + text + nlist64(1, N_SECT_EXT, 1, 0, 0) + strtab)
+
+
 FIXTURES = {'mach_x64_notext': notext,
             'mach_x64_unixthread': lambda: unixthread('x64'),
             'mach_arm64_unixthread': lambda: unixthread('arm64'),
@@ -375,7 +418,8 @@ FIXTURES = {'mach_x64_notext': notext,
             'mach_arm32_thumb': arm32_thumb,
             'mach_x64_extreloc': x64_extreloc,
             'mach_x64_multichain': x64_multichain,
-            'mach_x64_fileset': fileset}
+            'mach_x64_fileset': fileset,
+            'mach_x64_linkeropt': linkeropt}
 
 
 def main(check):

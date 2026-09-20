@@ -114,11 +114,21 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
             | Rpath(_, _, path) -> Some path
             | _ -> None))
 
+  let linkerOptions = lazy linkerOptions cmds.Value
+
+  (* An object file carries no LC_LOAD_DYLIB: what it needs linked sits in its
+     LC_LINKER_OPTION commands instead, named as a linker flag names it rather
+     than by an install path. Only an object file is read that way, so the two
+     forms never land in one array. *)
   let dependencies =
-    lazy (cmds.Value
-          |> Array.choose (function
-            | DyLib(_, _, c) -> Some c.DyLibName
-            | _ -> None))
+    lazy
+      if toolBox.Header.FileType = FileType.MH_OBJECT then
+        autolinkedLibraries cmds.Value
+      else
+        cmds.Value
+        |> Array.choose (function
+          | DyLib(_, _, c) -> Some c.DyLibName
+          | _ -> None)
 
   let installName =
     lazy (cmds.Value
@@ -454,6 +464,11 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
   /// kernel and the kexts of a kernel collection, or an empty array when it
   /// holds none.
   member internal _.FilesetEntries with get() = filesetEntries.Value
+
+  /// The options each LC_LINKER_OPTION command of this file carries, in the
+  /// order the file names them, or an empty array when it carries none. Only
+  /// an object file does.
+  member internal _.LinkerOptions with get() = linkerOptions.Value
 
   member internal _.Sections with get() = secs.Value
 

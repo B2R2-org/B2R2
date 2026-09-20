@@ -136,6 +136,31 @@ module internal LoadCommands =
       DyLibCurVer = reader.ReadUInt32(span, 16)
       DyLibCmpVer = reader.ReadUInt32(span, 20) }
 
+  /// Reads the run of NUL-terminated strings that a linker option command
+  /// holds, from the given offset onwards. A command whose last string is
+  /// left unterminated names an option running past its own end, which makes
+  /// the command malformed rather than a string to read to the end of it.
+  let rec private readOptionStrings (span: ByteSpan) count offset acc =
+    if count = 0 then
+      List.rev acc |> List.toArray
+    else
+      let nul = span.Slice(offset).IndexOf 0uy
+      if nul < 0 then
+        raise InvalidFileFormatException
+      else
+        let str = ByteArray.extractCStringFromSpan span offset
+        readOptionStrings span (count - 1) (offset + nul + 1) (str :: acc)
+
+  /// Parses a linker option command, whose count is followed by that many
+  /// strings from offset 12 on. Each of them takes a byte at the very least,
+  /// so a count the command cannot hold is one to reject before reading.
+  let parseLinkerOption toolBox cmdSize (span: ByteSpan) =
+    let count = toolBox.Reader.ReadInt32(span, 8)
+    if count < 0 || 12 + count > cmdSize then
+      raise InvalidFileFormatException
+    else
+      readOptionStrings span count 12 []
+
   let parseDyLdInfo toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
     { RebaseOff = reader.ReadInt32(span, 8)
@@ -222,6 +247,9 @@ module internal LoadCommands =
         DyLib(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
       | CmdType.LC_ID_DYLIB ->
         DyLibId(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
+      | CmdType.LC_LINKER_OPTION ->
+        let opts = parseLinkerOption toolBox cmdSize span
+        LinkerOption(cmdType, uint32 cmdSize, opts)
       | CmdType.LC_LOAD_DYLINKER ->
         DyLinker(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span 8)
       | CmdType.LC_RPATH ->

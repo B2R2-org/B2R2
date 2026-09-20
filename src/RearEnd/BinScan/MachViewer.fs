@@ -391,6 +391,14 @@ let dumpDyLibCmd cmd size (dylib: Mach.DyLibCmd) idx =
   printsr [| "DyLibCmpVer:"; toVersionString dylib.DyLibCmpVer |]
   printsn ""
 
+let dumpLinkerOptionCmd cmd size (opts: string[]) idx =
+  printSubsectionTitle <| "Load command " + idx.ToString()
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "Options:"; String.concat " " opts |]
+  printsn ""
+
 let dumpDyLdInfoCmd cmd size (ldinfo: Mach.DyLdInfoCmd) idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
   resetToDefaultTwoColumnConfig ()
@@ -460,6 +468,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
     | Mach.DySymTab(cmd, size, dysym) -> dumpDySymTabCmd cmd size dysym i
     | Mach.DyLib(cmd, size, dylib) -> dumpDyLibCmd cmd size dylib i
     | Mach.DyLibId(cmd, size, dylib) -> dumpDyLibCmd cmd size dylib i
+    | Mach.LinkerOption(cmd, size, o) -> dumpLinkerOptionCmd cmd size o i
     | Mach.DyLinker(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.Rpath(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.Uuid(cmd, size, _) -> dumpUnhandledCmd cmd size i

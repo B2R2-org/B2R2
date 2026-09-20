@@ -150,6 +150,60 @@ let filesetEntries cmds =
     | FilesetEntry(_, _, e) -> Some e
     | _ -> None)
 
+/// The linker option forms that join the library name to the flag itself, as
+/// autolinking writes -lfoo.
+let private joinedLibFlags = [| "-l"; "-weak-l"; "-needed-l"; "-hidden-l" |]
+
+/// The linker option forms that leave the library name to the string that
+/// comes after, as autolinking writes -framework Bar.
+let private splitLibFlags =
+  [| "-framework"; "-weak_framework"; "-needed_framework" |]
+
+/// Returns the library the given option names when the name is joined to the
+/// flag. A flag carrying nothing after it names none.
+let private tryJoinedLibName (opt: string) =
+  joinedLibFlags
+  |> Array.tryPick (fun flag ->
+    if opt.StartsWith flag && opt.Length > flag.Length then
+      Some opt[flag.Length..]
+    else
+      None)
+
+/// Returns the libraries the given run of linker option strings names, in the
+/// order they appear. An option asking the linker for anything else, and a
+/// framework flag with no name after it, names none.
+let rec private collectLibNames opts acc =
+  match opts with
+  | [] ->
+    List.rev acc
+  | opt :: name :: rest when Array.contains opt splitLibFlags ->
+    collectLibNames rest (name :: acc)
+  | opt :: rest ->
+    match tryJoinedLibName opt with
+    | Some name -> collectLibNames rest (name :: acc)
+    | None -> collectLibNames rest acc
+
+/// Returns the libraries one linker option command names.
+let private libNamesOf (opts: string[]) =
+  collectLibNames (List.ofArray opts) [] |> List.toArray
+
+/// Returns the options each LC_LINKER_OPTION command carries, in the order
+/// the file names them. Only an object file carries any.
+let linkerOptions cmds =
+  cmds
+  |> Array.choose (function
+    | LinkerOption(_, _, opts) -> Some opts
+    | _ -> None)
+
+/// Returns the libraries an object file asks to be linked against, named the
+/// way the linker flag names them rather than by the install path that only a
+/// linked image knows. Autolinking repeats a directive for every translation
+/// unit carrying it, so a library is named once however many commands name it.
+let autolinkedLibraries cmds =
+  linkerOptions cmds
+  |> Array.collect libNamesOf
+  |> Array.distinct
+
 let getPLT symInfo =
   symInfo.Imports
   |> Array.sortBy (fun entry -> entry.TrampolineAddress)
