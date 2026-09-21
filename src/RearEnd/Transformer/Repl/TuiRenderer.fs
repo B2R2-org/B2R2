@@ -1000,10 +1000,13 @@ module TransformerTuiRenderer =
     let text = $" cwd: {cwd}  script: {script}  record: {record}"
     paint dim (fit width text)
 
-  let private keyHeader width =
-    " F1 help  F4 view "
-    |> fit width
-    |> paint dim
+  let private keyButton active label =
+    if active then paint reverse $" {label} " else paint dim $" {label} "
+
+  let private keyHeader width model =
+    let f1 = keyButton (model.Overlay = TuiOverlay.Help) "F1 help"
+    let f4 = keyButton (model.Overlay = TuiOverlay.View) "F4 view"
+    fit width (" " + f1 + "  " + f4 + " ")
 
   let viewScrollOffset width height model =
     if model.Overlay = TuiOverlay.View then
@@ -1074,7 +1077,7 @@ module TransformerTuiRenderer =
       let context = contextFooter width model
       let rows =
         [ title + subtitle |> fun text -> text + fit (max 0 (width - 47)) ""
-          keyHeader width
+          keyHeader width model
           boxTopRow ]
         @ bodyRows
         @ [ boxBottomRow ]
