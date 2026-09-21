@@ -237,6 +237,10 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.ISA with get() = isa
 
+    (* Wasm names the host it expects nowhere: a module runs under
+       whatever embeds it. *)
+    member _.OS with get() = OS.UnknownOS
+
     member _.EntryPoint with get() = entryPointOf wm
 
     member _.BaseAddress with get() = baseAddr

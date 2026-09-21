@@ -80,6 +80,10 @@ type WasmTests() =
     Assert.AreEqual(Architecture.WASM, file.ISA.Arch)
 
   [<TestMethod>]
+  member _.``[Wasm] OS test``() =
+    Assert.AreEqual<OS>(OS.UnknownOS, file.OS)
+
+  [<TestMethod>]
   member _.``[Wasm] kind test``() =
     Assert.AreEqual<BinFileKind>(Unknown, file.Kind)
 

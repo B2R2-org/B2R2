@@ -419,6 +419,19 @@ type ELFTests() =
     Assert.AreEqual(Endian.Little, isa.Endian)
 
   [<TestMethod>]
+  member _.``[ELF] OS test``() =
+    (* The OS/ABI byte of the identification is what names the OS, and every
+       System V derivative it can name follows the ABI that Linux stands for
+       here. An embedded image names the bare machine instead, which no fixture
+       is, so one is made by rewriting that byte alone. *)
+    Assert.AreEqual<OS>(OS.Linux, (x64ExecFile :> IBinFile).OS)
+    let name = "elf_x64_exec"
+    let bytes = ZIPReader.readBytes ELFBinary (name + ".zip") name
+    bytes[7] <- byte ELF.OSABI.ELFOSABI_STANDALONE
+    let standalone = ELFBinFile(name, bytes, None, None) :> IBinFile
+    Assert.AreEqual<OS>(OS.BareMetal, standalone.OS)
+
+  [<TestMethod>]
   member _.``[ELF] x64 exec entry point test``() =
     Assert.AreEqual(Some 0x401080UL, (x64ExecFile :> IBinFile).EntryPoint)
 

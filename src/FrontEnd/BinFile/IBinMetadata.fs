@@ -44,6 +44,19 @@ type IBinMetadata =
   /// The ISA that this file expects to run on.
   abstract ISA: ISA
 
+  /// <summary>
+  /// The OS that this file is built to run on. ELF names it in the OS/ABI byte
+  /// of its identification, Mach-O in the platform of its
+  /// <c>LC_BUILD_VERSION</c> (or of the <c>LC_VERSION_MIN_*</c> command that
+  /// preceded it), and PE by being a PE at all. An image that names no system
+  /// at all, as firmware and an embedded ELF do, answers <see
+  /// cref='F:B2R2.OS.BareMetal'/>, which is something the file says rather
+  /// than something that could not be read. <see
+  /// cref='F:B2R2.OS.UnknownOS'/> is the latter: a format that names no OS
+  /// (e.g., Wasm, Python) and a raw image, which carries nothing to read.
+  /// </summary>
+  abstract OS: OS
+
   /// The entry point of this binary (the start address that this binary runs
   /// at). Note that some binaries (e.g., PE DLL files) do not have a specific
   /// entry point, and EntryPoint will return None in such a case.

@@ -570,6 +570,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.ISA with get() = toolBox.ISA
 
+    member _.OS with get() = OSABI.toOS toolBox.Header.OSABI
+
     member _.EntryPoint with get() = Some hdr.EntryPoint
 
     member _.BaseAddress with get() = toolBox.BaseAddress

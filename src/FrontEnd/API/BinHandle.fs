@@ -45,15 +45,13 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
 
   let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
 
-  (* A recognized file format decides the OS on its own, so an injected one only
-     has a say for a raw image, which is the only case that carries no format to
-     infer from. *)
+  (* A file that names the OS it was built for is believed, and naming the bare
+     machine counts as naming one. Only an image saying nothing at all, which is
+     what a raw one is, leaves the injected OS a say. *)
   let os =
-    match binFile.Format with
-    | FileFormat.ELFBinary -> OS.Linux
-    | FileFormat.PEBinary -> OS.Windows
-    | FileFormat.MachBinary -> OS.MacOSX
-    | _ -> defaultArg osOpt OS.UnknownOS
+    match binFile.OS with
+    | OS.UnknownOS -> defaultArg osOpt OS.UnknownOS
+    | os -> os
 
   let conv = Conventions.create os binFile.ISA
 
@@ -174,9 +172,11 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Gets the register factory.
   member _.RegisterFactory with get() = regFactory
 
-  /// Gets the target OS. For a recognized file format the OS is inferred from
-  /// the format; for a raw image it is the OS injected at construction (or
-  /// UnknownOS if none was given).
+  /// Gets the target OS, which the file names itself whenever its format
+  /// records one. An image whose format records none, as a raw one does, takes
+  /// the OS injected at construction, or UnknownOS if none was given. An image
+  /// running on the bare machine names BareMetal, which is an answer of its
+  /// own and so is never replaced by an injected one.
   member _.OS with get() = os
 
   /// <summary>

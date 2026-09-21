@@ -220,6 +220,41 @@ module internal LoadCommands =
       CryptSize = reader.ReadUInt32(span, 12)
       CryptId = reader.ReadUInt32(span, 16) }
 
+  /// Reads the tool table of a build version command, whose entries follow
+  /// the count at offset 20, two words each. Every entry takes eight bytes,
+  /// so a count the command cannot hold is one to reject before reading
+  /// rather than a table to cut short.
+  let private parseBuildTools toolBox cmdSize (span: ByteSpan) =
+    let reader = toolBox.Reader
+    let count = reader.ReadInt32(span, 20)
+    if count < 0 || 24 + count * 8 > cmdSize then
+      raise InvalidFileFormatException
+    else
+      let tools = Array.zeroCreate count
+      for i = 0 to count - 1 do
+        let kind = reader.ReadInt32(span, 24 + i * 8)
+        tools[i] <- { Tool = LanguagePrimitives.EnumOfValue kind
+                      ToolVersion = reader.ReadUInt32(span, 28 + i * 8) }
+      tools
+
+  /// Parses a build version command, whose platform sits in a field of its
+  /// own ahead of the two versions. An LC_VERSION_MIN_* command is the same
+  /// command without that field and without a tool table: it names its
+  /// platform by being the command it is, and its two versions sit where the
+  /// newer command puts the platform and the minimum one.
+  let parseBuildVersion toolBox cmdType cmdSize (span: ByteSpan) =
+    let reader = toolBox.Reader
+    if cmdType = CmdType.LC_BUILD_VERSION then
+      { Platform = reader.ReadInt32(span, 8) |> LanguagePrimitives.EnumOfValue
+        MinOSVersion = reader.ReadUInt32(span, 12)
+        SDKVersion = reader.ReadUInt32(span, 16)
+        BuildTools = parseBuildTools toolBox cmdSize span }
+    else
+      { Platform = Platform.ofCmdType cmdType
+        MinOSVersion = reader.ReadUInt32(span, 8)
+        SDKVersion = reader.ReadUInt32(span, 12)
+        BuildTools = [||] }
+
   /// Checks that a command at the given offset both fits in the file and is
   /// long enough to hold what is being read out of it, so a truncated or
   /// corrupt table is reported as a bad file rather than as a span that could
@@ -293,6 +328,13 @@ module internal LoadCommands =
       | CmdType.LC_ENCRYPTION_INFO_64 ->
         let info = parseEncryptionInfo toolBox span
         EncryptionInfo(cmdType, uint32 cmdSize, info)
+      | CmdType.LC_BUILD_VERSION
+      | CmdType.LC_VERSION_MIN_MACOSX
+      | CmdType.LC_VERSION_MIN_IPHONEOS
+      | CmdType.LC_VERSION_MIN_TVOS
+      | CmdType.LC_VERSION_MIN_WATCHOS ->
+        let ver = parseBuildVersion toolBox cmdType cmdSize span
+        BuildVersion(cmdType, uint32 cmdSize, ver)
       | _ ->
         Unhandled(cmdType, uint32 cmdSize)
     struct (command, uint64 cmdSize)

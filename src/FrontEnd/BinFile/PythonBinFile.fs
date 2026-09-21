@@ -136,6 +136,10 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
 
     member _.ISA with get() = ISA(Architecture.Python, Endian.Little)
 
+    (* A code object runs wherever an interpreter reads it, so it names no
+       operating system. *)
+    member _.OS with get() = OS.UnknownOS
+
     member _.EntryPoint with get() = Some 0UL
 
     member _.BaseAddress with get() = 0UL

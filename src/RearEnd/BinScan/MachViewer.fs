@@ -462,6 +462,24 @@ let dumpRoutinesCmd cmd size initAddr idx =
   printsr [| "InitAddress:"; HexString.ofUInt64 addr |]
   printsn ""
 
+/// Renders a packed platform version the way every Apple tool prints one: the
+/// major version out of the upper sixteen bits, then the minor and the patch
+/// version out of a byte each below it.
+let versionToString (v: uint32) =
+  sprintf "%d.%d.%d" (v >>> 16) ((v >>> 8) &&& 0xffu) (v &&& 0xffu)
+
+let dumpBuildVersionCmd cmd size (ver: Mach.BuildVersionCmd) idx =
+  printSubsectionTitle <| "Load command " + idx.ToString()
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "Platform:"; ver.Platform.ToString() |]
+  printsr [| "MinOSVersion:"; versionToString ver.MinOSVersion |]
+  printsr [| "SDKVersion:"; versionToString ver.SDKVersion |]
+  for tool in ver.BuildTools do
+    printsr [| tool.Tool.ToString() + ":"; versionToString tool.ToolVersion |]
+  printsn ""
+
 let dumpUnhandledCmd cmd size idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
   resetToDefaultTwoColumnConfig ()
@@ -492,6 +510,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
     | Mach.Main(cmd, size, main) -> dumpMainCmd cmd size main i
     | Mach.Thread(cmd, size, _) -> dumpUnhandledCmd cmd size i
     | Mach.Routines(cmd, size, a) -> dumpRoutinesCmd cmd size a i
+    | Mach.BuildVersion(cmd, size, v) -> dumpBuildVersionCmd cmd size v i
     | Mach.Unhandled(cmd, size) -> dumpUnhandledCmd cmd size i
 
 let dumpSharedLibs _ (file: MachBinFile) =

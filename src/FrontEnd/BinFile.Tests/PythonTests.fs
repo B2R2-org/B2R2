@@ -49,6 +49,10 @@ type PythonTests() =
     Assert.AreEqual(Architecture.Python, (file :> IBinFile).ISA.Arch)
 
   [<TestMethod>]
+  member _.``[Python] OS test``() =
+    Assert.AreEqual<OS>(OS.UnknownOS, (file :> IBinFile).OS)
+
+  [<TestMethod>]
   member _.``[Python] kind test``() =
     Assert.AreEqual<BinFileKind>(Unknown, (file :> IBinFile).Kind)
 

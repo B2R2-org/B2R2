@@ -55,6 +55,12 @@ type RawTests() =
     Assert.AreEqual(WordSize.Bit64, rawFile.ISA.WordSize)
 
   [<TestMethod>]
+  member _.``[Raw] OS test``() =
+    (* A raw image carries no format to read an OS out of, so only whoever
+       loads it knows one. *)
+    Assert.AreEqual<OS>(OS.UnknownOS, rawFile.OS)
+
+  [<TestMethod>]
   member _.``[Raw] entry point and base address test``() =
     Assert.AreEqual(Some 0UL, rawFile.EntryPoint)
     Assert.AreEqual<uint64>(0UL, rawFile.BaseAddress)
