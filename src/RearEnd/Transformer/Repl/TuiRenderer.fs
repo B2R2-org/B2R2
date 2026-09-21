@@ -673,15 +673,15 @@ module TransformerTuiRenderer =
         model.Status
     let extra = paneStatus model busy
     let status = if String.IsNullOrWhiteSpace extra then busy else extra
+    let bindingCount = Map.count model.Session.Bindings
     let state =
       [ "", $"current   {current}"
-        "", $"bindings  {Map.count model.Session.Bindings}"
         "", $"commands  {List.length model.Session.CommandHistory}"
         "", $"focus     {focus}"
         "", $"status    {status}" ]
     let boundary =
       [ rawBoxRow, boxBottom border rightWidth
-        rawBoxRow, boxTop border rightWidth "Bindings" ]
+        rawBoxRow, boxTop border rightWidth $"Bindings ({bindingCount})" ]
     let bindings =
       model.Session.Bindings
       |> Map.toList
