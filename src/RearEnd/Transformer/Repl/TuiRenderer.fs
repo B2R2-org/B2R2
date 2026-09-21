@@ -816,6 +816,26 @@ module TransformerTuiRenderer =
     let rows = List.truncate rowCount rows
     rows @ List.replicate (rowCount - List.length rows) (fit width "")
 
+  let private slicePart (text: string) startAt endAt =
+    let startAt = max 0 (min text.Length startAt)
+    let endAt = max startAt (min text.Length endAt)
+    text.Substring(startAt, endAt - startAt)
+
+  let private suggestionItemLine innerWidth selected index item =
+    let marker = if index = selected then "> " else "  "
+    let markerStyle = if index = selected then reverse else ""
+    let labelStyle = if index = selected then reverse + bold else bold
+    let detailStyle = if index = selected then reverse + dim else dim
+    let label: string = item.Label
+    let padded = fit innerWidth $"{marker}{label}  {item.Detail}"
+    let labelEnd = marker.Length + label.Length
+    let markerPart = slicePart padded 0 marker.Length
+    let labelPart = slicePart padded marker.Length labelEnd
+    let restPart = slicePart padded labelEnd padded.Length
+    paint markerStyle markerPart
+    + paint labelStyle labelPart
+    + paint detailStyle restPart
+
   let private suggestionRows rowCount width completion selected =
     let rowCount = max 1 rowCount
     let count = List.length completion.Items
@@ -846,10 +866,7 @@ module TransformerTuiRenderer =
           |> List.truncate visible
           |> List.mapi (fun offset item ->
             let index = start + offset
-            let marker = if index = selected then "> " else "  "
-            let text = $"{marker}{item.Label}  {item.Detail}"
-            let style = if index = selected then reverse else dim
-            paint style (fit innerWidth text))
+            suggestionItemLine innerWidth selected index item)
         hint @ itemRows
     if boxed then
       [ boxTop cyan width "Suggestions" ]
