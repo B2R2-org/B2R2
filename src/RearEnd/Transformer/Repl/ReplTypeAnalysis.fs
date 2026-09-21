@@ -163,12 +163,7 @@ module ReplTypeAnalysis =
     |> List.exists (ReplValueKind.isCompatible kind)
 
   let private actionOutput (metadata: ActionMetadata) inputKind args =
-    if metadata.ID = "pick" then
-      inputKind
-      |> Option.bind collectionElementKind
-      |> Option.defaultValue metadata.Output
-    else
-      ActionMetadata.outputForArguments metadata inputKind args
+    ActionMetadata.outputForArguments metadata inputKind args
 
   let private headDiagnostic
     baseOffset

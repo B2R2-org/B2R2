@@ -32,6 +32,7 @@
     <Compile Include="ListAction.fs" />
     <Compile Include="LLVMAction.fs" />
     <Compile Include="LoadAction.fs" />
+    <Compile Include="OneAction.fs" />
     <Compile Include="PickAction.fs" />
     <Compile Include="PrintAction.fs" />
     <Compile Include="SliceAction.fs" />

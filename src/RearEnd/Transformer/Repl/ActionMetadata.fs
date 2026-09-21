@@ -70,6 +70,13 @@ type ActionRole =
   | Reducer
   | Sink
 
+/// How an action derives its output kind from the input kind.
+[<RequireQualifiedAccess>]
+type ActionOutputRelation =
+  | Fixed
+  | CollectionElement
+  | PreservedCollection
+
 /// The semantic category of one action argument.
 [<RequireQualifiedAccess>]
 type ActionArgumentKind =
@@ -115,6 +122,7 @@ type ActionMetadata =
     Input: ReplValueKind
     AlternativeInputs: ReplValueKind list
     Output: ReplValueKind
+    OutputRelation: ActionOutputRelation
     Role: ActionRole
     Syntaxes: ActionSyntax list
     Signature: string
@@ -637,6 +645,7 @@ module ActionMetadata =
         Input = input
         AlternativeInputs = []
         Output = output
+        OutputRelation = ActionOutputRelation.Fixed
         Role = role
         Syntaxes = syntaxes
         Signature = signature
@@ -657,6 +666,7 @@ module ActionMetadata =
         Input = primary
         AlternativeInputs = alternatives
         Output = output
+        OutputRelation = ActionOutputRelation.Fixed
         Role = role
         Syntaxes = syntaxes
         Signature = signature
@@ -676,52 +686,13 @@ module ActionMetadata =
       syntax.Inputs
       |> List.exists (fun expected -> ReplValueKind.isCompatible kind expected)
 
-  let outputForArguments metadata inputKind args =
-    let metadata: ActionMetadata = metadata
-    let tokenParameterName (token: string) =
-      let index = token.IndexOf '='
-      if index <= 0 then
-        None
-      else
-        let key = token[..index - 1]
-        let typeIndex = key.IndexOf ':'
-        let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
-        Some(key.ToLowerInvariant())
-    let matchesParameters syntax =
-      let names = args |> List.choose tokenParameterName
-      if List.isEmpty args || List.isEmpty names then
-        true
-      else
-        names
-        |> List.forall (fun name ->
-          (syntax: ActionSyntax).Arguments
-          |> List.exists (fun argument ->
-            argumentKeys argument |> List.contains name))
-    let matchesTrigger syntax =
-      match (syntax: ActionSyntax).Trigger, args with
-      | None, _ ->
-        true
-      | Some trigger, actual :: _ ->
-        String.Equals(trigger, actual, StringComparison.OrdinalIgnoreCase)
-      | Some _, [] ->
-        false
-    metadata.Syntaxes
-    |> List.filter (syntaxAccepts inputKind)
-    |> List.tryPick (fun syntax ->
-      if matchesTrigger syntax && matchesParameters syntax then
-        syntax.Output
-      else
-        None)
-    |> Option.defaultValue metadata.Output
-
-  let possibleOutputs metadata inputKind =
-    let metadata: ActionMetadata = metadata
-    let outputs =
-      metadata.Syntaxes
-      |> List.filter (syntaxAccepts inputKind)
-      |> List.choose (fun syntax -> syntax.Output)
-      |> List.distinct
-    if List.isEmpty outputs then [ metadata.Output ] else outputs
+  let private collectionElementKind = function
+    | ReplValueKind.Collection kind
+    | ReplValueKind.List kind
+    | ReplValueKind.Array kind ->
+      Some kind
+    | _ ->
+      None
 
   let private tokenParameterName (token: string) =
     let index = token.IndexOf '='
@@ -732,6 +703,64 @@ module ActionMetadata =
       let typeIndex = key.IndexOf ':'
       let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
       Some(key.ToLowerInvariant())
+
+  let private syntaxMatchesOutputArguments args syntax =
+    let names = args |> List.choose tokenParameterName
+    if List.isEmpty args || List.isEmpty names then
+      true
+    else
+      names
+      |> List.forall (fun name ->
+        (syntax: ActionSyntax).Arguments
+        |> List.exists (fun argument ->
+          argumentKeys argument |> List.contains name))
+
+  let private syntaxMatchesOutputTrigger args syntax =
+    match (syntax: ActionSyntax).Trigger, args with
+    | None, _ ->
+      true
+    | Some trigger, actual :: _ ->
+      String.Equals(trigger, actual, StringComparison.OrdinalIgnoreCase)
+    | Some _, [] ->
+      false
+
+  let private outputForSyntaxes metadata inputKind args =
+    let metadata: ActionMetadata = metadata
+    metadata.Syntaxes
+    |> List.filter (syntaxAccepts inputKind)
+    |> List.tryPick (fun syntax ->
+      if syntaxMatchesOutputTrigger args syntax
+         && syntaxMatchesOutputArguments args syntax then
+        syntax.Output
+      else
+        None)
+    |> Option.defaultValue metadata.Output
+
+  let private applyOutputRelation relation inputKind output =
+    match relation, inputKind with
+    | ActionOutputRelation.CollectionElement, Some input ->
+      collectionElementKind input |> Option.defaultValue output
+    | ActionOutputRelation.PreservedCollection, Some input ->
+      collectionElementKind input
+      |> Option.map ReplValueKind.Collection
+      |> Option.defaultValue output
+    | _ ->
+      output
+
+  let outputForArguments metadata inputKind args =
+    let metadata: ActionMetadata = metadata
+    let output =
+      outputForSyntaxes metadata inputKind args
+    applyOutputRelation metadata.OutputRelation inputKind output
+
+  let possibleOutputs metadata inputKind =
+    let metadata: ActionMetadata = metadata
+    let outputs =
+      metadata.Syntaxes
+      |> List.filter (syntaxAccepts inputKind)
+      |> List.choose (fun syntax -> syntax.Output)
+      |> List.distinct
+    if List.isEmpty outputs then [ metadata.Output ] else outputs
 
   let syntaxHasParameter (name: string) syntax =
     (syntax: ActionSyntax).Arguments
@@ -1309,15 +1338,30 @@ module ActionMetadata =
     let index =
       required "index" ActionArgumentKind.Integer
         "Zero-based value index in the current collection."
-    contract
-      "pick"
-      (ReplValueKind.Collection ReplValueKind.Any)
-      ReplValueKind.Any
-      ActionRole.Transform
-      5
-      "pick index=<n> -> Any"
-      [ "graphs |> @pick index=<index>" ]
-      [ syntax None [ index ] ]
+    { contract
+        "pick"
+        (ReplValueKind.Collection ReplValueKind.Any)
+        ReplValueKind.Any
+        ActionRole.Transform
+        5
+        "pick index=<n> -> Any"
+        [ "graphs |> @pick index=<index>" ]
+        [ syntax None [ index ] ] with
+        OutputRelation = ActionOutputRelation.CollectionElement }
+
+  let private one =
+    { overloadContract
+        "one"
+        [ ReplValueKind.Collection ReplValueKind.Any
+          ReplValueKind.List ReplValueKind.Any
+          ReplValueKind.Array ReplValueKind.Any ]
+        ReplValueKind.Any
+        ActionRole.Reducer
+        5
+        "one -> Any"
+        [ "items |> @one" ]
+        [ syntax None [] ] with
+        OutputRelation = ActionOutputRelation.CollectionElement }
 
   let private print =
     contract
@@ -1479,6 +1523,7 @@ module ActionMetadata =
       llvm
       load
       mem
+      one
       pick
       print
       random

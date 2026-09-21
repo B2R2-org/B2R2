@@ -1490,6 +1490,7 @@ module private SymbMetadata =
       Input = input
       AlternativeInputs = []
       Output = output
+      OutputRelation = ActionOutputRelation.Fixed
       Role = role
       Syntaxes = []
       Signature = signature
