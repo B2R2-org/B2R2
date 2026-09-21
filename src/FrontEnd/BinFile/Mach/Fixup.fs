@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile.Mach
 
+open System.Collections.Generic
 open B2R2
 
 /// Represents the target of a dyld fixup, produced either by chained fixups
@@ -42,15 +43,23 @@ type internal Fixup =
     /// What the slot is fixed up to.
     FixupTarget: FixupTarget }
 
+/// Represents a map from a fixed-up virtual address to the fixup sitting
+/// there. An image fixes up as many slots as it holds pointers, so the lookup
+/// is a hashed one rather than a tree walk.
+and internal FixupMap = Dictionary<Addr, Fixup>
+
 module internal Fixup =
   /// Builds a map from a fixed-up virtual address to its fixup.
   let buildMap (fixups: Fixup[]) =
-    fixups |> Array.fold (fun map f -> Map.add f.FixupAddr f map) Map.empty
+    let map = FixupMap()
+    for f in fixups do
+      map[f.FixupAddr] <- f
+    map
 
   /// Checks whether the given address holds a bind (import) fixup.
-  let isBindAt map addr =
-    match Map.tryFind addr map with
-    | Some { FixupTarget = Bind _ } -> true
+  let isBindAt (map: FixupMap) addr =
+    match map.TryGetValue addr with
+    | true, { FixupTarget = Bind _ } -> true
     | _ -> false
 
   /// Collects the names of the loaded dylibs in load-command order, so a bind

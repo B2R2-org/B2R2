@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -67,6 +68,11 @@ with
       sections[n - 1].SecName
     | _ ->
       ""
+
+/// Represents a map from a relocated virtual address to the entry that
+/// relocates it. A linked image records one per pointer it fixes up, so the
+/// lookup is a hashed one rather than a tree walk.
+and internal RelocationMap = Dictionary<Addr, RelocationInfo>
 
 module internal Reloc =
   /// Size of one relocation_info entry, scattered or not.
@@ -170,8 +176,10 @@ module internal Reloc =
 
   /// Builds a map from a relocated virtual address to its relocation entry.
   let buildMap (relocs: RelocationInfo[]) =
-    relocs
-    |> Array.fold (fun map reloc -> Map.add reloc.RelocAddr reloc map) Map.empty
+    let map = RelocationMap()
+    for reloc in relocs do
+      map[reloc.RelocAddr] <- reloc
+    map
 
   /// Reads the signed in-place addend stored at the relocation site. Mach-O,
   /// unlike ELF RELA, keeps the addend inside the relocated field itself.
@@ -202,10 +210,10 @@ module internal Reloc =
   /// the load address moves it. A PC-relative entry says nothing here, because
   /// its field is measured from the end of the instruction it sits in and the
   /// entry records neither that instruction's length nor where it starts.
-  let getRelocatedAddr toolBox relocMap (symbolStore: SymbolStore) relocAddr =
-    let symbols = symbolStore.SymbolArray
-    match Map.tryFind relocAddr relocMap with
-    | Some reloc when not reloc.IsPCRel ->
+  let getRelocatedAddr toolBox (relocMap: RelocationMap) store relocAddr =
+    let symbols = (store: SymbolStore).SymbolArray
+    match relocMap.TryGetValue relocAddr with
+    | true, reloc when not reloc.IsPCRel ->
       let addend = readAddend toolBox.Bytes toolBox.Reader reloc
       match reloc.RelocSymbol with
       | SymIndex n when n < symbols.Length ->

@@ -207,8 +207,8 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
      rebase opcode, so the fixup names the function where the bytes on disk
      do not. A slot nothing fixes up holds the address itself. *)
   let resolveFuncPointer addr =
-    match Map.tryFind addr fixupMap.Value with
-    | Some { FixupTarget = Rebase target } -> Some target
+    match fixupMap.Value.TryGetValue addr with
+    | true, { FixupTarget = Rebase target } -> Some target
     | _ -> None
 
   let symbolFuncAddrs =
@@ -364,32 +364,33 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
     Some { new IRelocationTable with
       member _.Relocations =
         let classic =
-          relocMap.Value
-          |> Map.toArray
-          |> Array.map (fun (_, reloc) ->
-            Reloc.toBinRelocation toolBox syms.Value.SymbolArray reloc)
+          relocMap.Value.Values
+          |> Seq.sortBy (fun reloc -> reloc.RelocAddr)
+          |> Seq.map (Reloc.toBinRelocation toolBox syms.Value.SymbolArray)
+          |> Seq.toArray
         let fixupRelocs =
-          fixupMap.Value
-          |> Map.toArray
-          |> Array.map (fun (addr, fixup) ->
+          fixupMap.Value.Values
+          |> Seq.sortBy (fun fixup -> fixup.FixupAddr)
+          |> Seq.map (fun fixup ->
+            let addr = fixup.FixupAddr
             match fixup.FixupTarget with
             | Rebase _ ->
               { Address = addr; SymbolName = None; Addend = None }
             | Bind(sym, _, addend) ->
               { Address = addr; SymbolName = Some sym; Addend = Some addend })
+          |> Seq.toArray
         Array.append classic fixupRelocs
 
       member _.IsRelocationAddr addr =
-        Map.containsKey addr relocMap.Value
-        || Map.containsKey addr fixupMap.Value
+        relocMap.Value.ContainsKey addr || fixupMap.Value.ContainsKey addr
 
       member _.TryGetRelocatedAddr relocAddr =
-        match Map.tryFind relocAddr fixupMap.Value with
-        | Some fixup ->
+        match fixupMap.Value.TryGetValue relocAddr with
+        | true, fixup ->
           match fixup.FixupTarget with
           | Rebase target -> Ok target
           | Bind _ -> Error ErrorCase.ItemNotFound
-        | None ->
+        | false, _ ->
           Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
 
       member _.TryGetInternalFunctionAddr _relocAddr =
