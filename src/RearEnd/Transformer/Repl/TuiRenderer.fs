@@ -50,6 +50,10 @@ module TransformerTuiRenderer =
   let private bannerBg = "\x1b[104m"
   /// Bright white foreground used for the top title banner.
   let private bannerFg = "\x1b[97m"
+  /// Bright yellow background used for the notice dialog.
+  let private noticeBg = "\x1b[103m"
+  /// Black foreground used for text on the notice dialog.
+  let private noticeFg = "\x1b[30m"
   let private maxRenderableChars = 4096
 
   let private paint style text = style + text + reset
@@ -301,7 +305,7 @@ module TransformerTuiRenderer =
         | TuiOverlay.Bindings ->
           bindingLines model
         | TuiOverlay.None | TuiOverlay.View | TuiOverlay.Inspect
-        | TuiOverlay.Values | TuiOverlay.Log ->
+        | TuiOverlay.Values | TuiOverlay.Log | TuiOverlay.Message ->
           []
       lines
       |> List.collect (fun text ->
@@ -581,7 +585,7 @@ module TransformerTuiRenderer =
 
   let private takeBody bodyHeight bodyWidth registry model =
     match model.Overlay with
-    | TuiOverlay.None ->
+    | TuiOverlay.None | TuiOverlay.Message ->
       let lines: (TuiLineKind * string) list =
         TransformerTuiModel.transcriptDisplayRows bodyWidth bodyHeight model
         |> List.map (fun (line: TuiTranscriptLine) ->
@@ -673,6 +677,8 @@ module TransformerTuiRenderer =
     let busy =
       if model.IsBusy then
         $"{spinner model.SpinnerFrame} running"
+      elif model.Overlay = TuiOverlay.Message then
+        "Ready"
       else
         model.Status
     let extra = paneStatus model busy
@@ -1029,6 +1035,57 @@ module TransformerTuiRenderer =
     let f4 = keyButton (model.Overlay = TuiOverlay.View) "F4 view"
     fit width (" " + f1 + "  " + f4 + " ")
 
+  let private centerPad width (text: string) =
+    let text = if text.Length > width then text[.. width - 1] else text
+    let extra = width - text.Length
+    let left = extra / 2
+    String.replicate left " " + text + String.replicate (extra - left) " "
+
+  let private messageBoxRows boxWidth (message: string) =
+    let wrapped =
+      TransformerTuiText.wrapWithOffsets boxWidth message
+      |> List.map (fun (_, _, line) -> line)
+    let blank = paint noticeBg (centerPad boxWidth "")
+    let dismiss =
+      paint (noticeBg + noticeFg)
+        (centerPad boxWidth "Press Enter (or Esc) to dismiss.")
+    [ blank ]
+    @ (wrapped
+       |> List.map (fun line ->
+         paint (noticeBg + noticeFg + bold) (centerPad boxWidth line)))
+    @ [ blank; dismiss ]
+
+  /// Paints `boxContent` over `line`, starting at the visible column
+  /// `startCol`; `boxContent` must already be exactly `boxWidth` visible
+  /// columns wide. Text outside the box keeps its position but loses its
+  /// original color, since the box opaquely covers whatever was behind it.
+  let private overwriteColumns startCol boxWidth (boxContent: string) line =
+    let plain = TransformerTuiText.stripAnsi line
+    let plain =
+      if plain.Length < startCol + boxWidth then
+        plain.PadRight(startCol + boxWidth)
+      else
+        plain
+    let left = plain[.. startCol - 1]
+    let right = plain[startCol + boxWidth ..]
+    clearLine + left + boxContent + right + reset
+
+  let private overlayMessageBox width height (model: TransformerTuiModel) lines =
+    if model.Overlay <> TuiOverlay.Message then
+      lines
+    else
+      let boxWidth = max 30 (min 60 (width - 8))
+      let boxRows = messageBoxRows boxWidth model.Status
+      let boxHeight = List.length boxRows
+      let startCol = max 0 ((width - boxWidth) / 2)
+      let startRow = max 0 ((height - boxHeight) / 2)
+      boxRows
+      |> List.iteri (fun offset boxRow ->
+        let row = startRow + offset
+        if row < Array.length lines then
+          lines[row] <- overwriteColumns startCol boxWidth boxRow lines[row])
+      lines
+
   let viewScrollOffset width height model =
     if model.Overlay = TuiOverlay.View then
       let bodyHeight = TransformerTuiModel.transcriptHeight height model
@@ -1110,6 +1167,7 @@ module TransformerTuiRenderer =
         rows
         |> List.map (fun row -> clearLine + row + reset)
         |> List.toArray
+        |> overlayMessageBox width height model
       { Lines = lines
         CursorRow =
           cursorBodyPosition

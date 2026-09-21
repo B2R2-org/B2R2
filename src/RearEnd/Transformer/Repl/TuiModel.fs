@@ -133,6 +133,7 @@ type TuiOverlay =
   | Inspect
   | Values
   | Log
+  | Message
 
 /// Which pane receives Up/Down when no overlay is open.
 [<RequireQualifiedAccess>]
@@ -1062,7 +1063,9 @@ module TransformerTuiModel =
     | Some index ->
       openViewPane index model
     | None ->
-      { model with Status = "There is no command result to view" }
+      { model with
+          Status = "There is no command result to view"
+          Overlay = TuiOverlay.Message }
 
   let private clampViewCursor pane cursor =
     let lineCount = pane.Lines.Length
