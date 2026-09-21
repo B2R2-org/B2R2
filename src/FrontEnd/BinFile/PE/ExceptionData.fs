@@ -385,14 +385,15 @@ let private parseHandlerInfo ctx (span: ByteSpan) unwindRva beginRva endRva =
 /// entries it holds, or none where the file names no such table or names one
 /// that lands nowhere. An object file has no optional header to name one in.
 let private tryFindFunctionTable ctx (pe: PE) =
-  if pe.PEHeaders.IsCoffOnly then
+  match pe.Header.OptionalHeader with
+  | None ->
     None
-  else
-    let dir = pe.PEHeaders.PEHeader.ExceptionTableDirectory
-    if dir.Size = 0 || not (isValidRva ctx dir.RelativeVirtualAddress) then
+  | Some hdr ->
+    let dir = hdr.Directory DirectoryKind.ExceptionTable
+    if dir.Size = 0 || not (isValidRva ctx dir.RVA) then
       None
     else
-      Some(getRawOffset ctx.Secs dir.RelativeVirtualAddress, dir.Size / 12)
+      Some(getRawOffset ctx.Secs dir.RVA, dir.Size / 12)
 
 /// Returns whether the UNWIND_INFO at the given RVA chains to another one.
 /// A range whose entry chains carries a function on from where its previous

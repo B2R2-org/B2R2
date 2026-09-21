@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
@@ -37,7 +36,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let pe = Parser.parse path bytes baseAddrOpt rawpdb
 
-  let isa = peHeadersToISA pe.PEHeaders
+  let isa = headerToISA pe.Header
 
   let nameResolver =
     Some { new INameResolvable with
@@ -344,7 +343,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   member internal _.BaseAddress with get() = pe.BaseAddr
 
   /// Returns the PEHeaders.
-  member internal _.PEHeaders with get() = pe.PEHeaders
+  member internal _.Header with get() = pe.Header
 
   /// Returns the section headers.
   member internal _.SectionHeaders with get() = pe.SectionHeaders
@@ -378,7 +377,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     member _.Format with get() = FileFormat.PEBinary
 
     member _.Kind with get() =
-      let chr = pe.PEHeaders.CoffHeader.Characteristics
+      let chr = pe.Header.CoffHeader.Characteristics
       if chr.HasFlag Characteristics.Dll then
         BinFileKind.SharedLibrary
       elif chr.HasFlag Characteristics.ExecutableImage then

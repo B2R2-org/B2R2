@@ -26,9 +26,10 @@ namespace B2R2.FrontEnd.BinFile.Tests
 
 open System
 open System.IO
-open System.Reflection.PortableExecutable
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.PE
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat
 
@@ -69,10 +70,8 @@ type PETests() =
   /// header, so that one assembly can stand for every combination of them.
   static let withCorFlags (flags: CorFlags) =
     let bytes = Array.copy managedBytes
-    use stream = new MemoryStream(bytes)
-    use reader = new PEReader(stream, PEStreamOptions.Default)
-    let offset = reader.PEHeaders.CorHeaderStartOffset + 16
-    BitConverter.GetBytes(int flags).CopyTo(bytes, offset)
+    let hdr = Header.parse bytes (BinReader.Init Endian.Little)
+    BitConverter.GetBytes(int flags).CopyTo(bytes, hdr.CorHeaderOffset + 16)
     bytes
 
   /// Reads back the ISA of this assembly rewritten to carry the given flags.
@@ -121,23 +120,19 @@ type PETests() =
   /// follow the optional header, whose PE32+ form runs 112 bytes.
   static let withDirectoryRVA index rva (bytes: byte[]) =
     let bytes = Array.copy bytes
-    use stream = new MemoryStream(bytes)
-    use reader = new PEReader(stream, PEStreamOptions.Default)
-    let offset = reader.PEHeaders.PEHeaderStartOffset + 112 + index * 8
+    let hdr = Header.parse bytes (BinReader.Init Endian.Little)
+    let offset = hdr.OptionalHeaderOffset + 112 + index * 8
     BitConverter.GetBytes(rva: int).CopyTo(bytes, offset)
     bytes
 
   /// Renames every section whose name starts with ".text", leaving an object
   /// that names no code section at all, which is what a data-only object and
-  /// an LTCG one are. A COFF header runs 20 bytes, a section header 40.
+  /// an LTCG one are. A section header runs 40 bytes.
   static let withoutTextSections (bytes: byte[]) =
     let bytes = Array.copy bytes
-    use stream = new MemoryStream(bytes)
-    use reader = new PEReader(stream, PEStreamOptions.Default)
-    let hdrs = reader.PEHeaders
-    let optSize = int hdrs.CoffHeader.SizeOfOptionalHeader
-    let table = hdrs.CoffHeaderStartOffset + 20 + optSize
-    let secs = Seq.toArray hdrs.SectionHeaders
+    let hdrs = Header.parse bytes (BinReader.Init Endian.Little)
+    let table = hdrs.SectionHeaderTblOffset
+    let secs = hdrs.SectionHeaders
     for i in 0 .. secs.Length - 1 do
       if secs[i].Name.StartsWith ".text" then
         ".zzzz"B.CopyTo(bytes, table + i * 40)
@@ -150,20 +145,32 @@ type PETests() =
   /// to part a library name from a function name.
   static let withDotlessForwarder (bytes: byte[]) =
     let bytes = Array.copy bytes
-    use stream = new MemoryStream(bytes)
-    use reader = new PEReader(stream, PEStreamOptions.Default)
-    let hdrs = reader.PEHeaders
-    let secs = Seq.toArray hdrs.SectionHeaders
+    let hdrs = Header.parse bytes (BinReader.Init Endian.Little)
+    let secs = hdrs.SectionHeaders
     let toOffset rva =
-      let sec = secs[hdrs.GetContainingSectionIndex rva]
+      let sec = secs[PEUtils.findContainingSectionIndex secs rva]
       rva - sec.VirtualAddress + sec.PointerToRawData
-    let dir = hdrs.PEHeader.ExportTableDirectory
-    let _, dirOffset = hdrs.TryGetDirectoryOffset dir
+    let opt = Option.get hdrs.OptionalHeader
+    let dir = opt.Directory DirectoryKind.ExportTable
+    let dirOffset = PEUtils.tryGetDirectoryOffset secs dir |> Option.get
     let eatRVA = BitConverter.ToInt32(bytes, dirOffset + 28)
     let enptRVA = BitConverter.ToInt32(bytes, dirOffset + 32)
     let nameRVA = BitConverter.ToInt32(bytes, toOffset enptRVA)
     BitConverter.GetBytes(nameRVA).CopyTo(bytes, toOffset eatRVA)
     bytes
+
+  /// Every fixture of a format other than PE, read out of its archive. The
+  /// entry inside is named after the archive itself, but for the two formats
+  /// that give it an extension of its own.
+  static let otherFormatBytes =
+    let extensionOf = function
+      | FileFormat.WasmBinary -> ".wasm"
+      | FileFormat.PythonBinary -> ".pyc"
+      | _ -> ""
+    [| for fmt in [| ELFBinary; MachBinary; WasmBinary; PythonBinary |] do
+         for name in ZIPReader.listFixtureNames fmt do
+           let entry = name + extensionOf fmt
+           name, ZIPReader.readBytes fmt (name + ".zip") entry |]
 
   let assertExistenceOfRelocBlock (file: PEBinFile) pageRVA blockSize =
     file.RelocBlocks
@@ -208,7 +215,7 @@ type PETests() =
   member _.``[PE] x64 file type test``() =
     let flg = Characteristics.ExecutableImage
     Assert.AreEqual
-      (true, x64File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
+      (true, x64File.Header.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
   member _.``[PE] x64 dependencies test``() =
@@ -331,7 +338,7 @@ type PETests() =
   member _.``[PE] x86 file type test``() =
     let flg = Characteristics.ExecutableImage
     Assert.AreEqual
-      (true, x86File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
+      (true, x86File.Header.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
   member _.``[PE] x86 text section address test``() =
@@ -513,6 +520,17 @@ type PETests() =
     let p = f.GetBoundedPointer 0x140001000UL
     Assert.AreEqual<bool>(false, p.IsNull)
     Assert.AreEqual<bool>(true, p.CanReadFileBytes)
+
+  [<TestMethod>]
+  member _.``[PE] no file of another format is identified as PE``() =
+    (* PE is tried before Mach, Wasm and Python, and an object file carries no
+       signature to know it by, so what keeps a file of another format out is
+       the machine its COFF header would be read as naming. *)
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    Assert.AreNotEqual<int>(0, otherFormatBytes.Length, "No fixture swept.")
+    for name, bytes in otherFormatBytes do
+      let struct (fmt, _) = FormatDetector.identify bytes isa
+      Assert.AreNotEqual<FileFormat>(PEBinary, fmt, name)
 
   [<TestMethod>]
   member _.``[PE] format detector identifies PE test``() =

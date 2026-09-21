@@ -18,6 +18,7 @@ only `pe_x64_pdb` bundles a (tiny, CRT-free) PDB to exercise the PDB path.
 | `pe_x64_exc_fh3` | `.exe` | Same source built with `/d2FH4-` so the C++ catch uses the classic FH3 format. |
 | `pe_x64_guardcf` | `.exe` | Control Flow Guard function table in the load configuration: the call targets the loader vouches for. |
 | `pe_x64_tls` | `.exe` | Thread-local storage directory with two callbacks, which nothing else in the image names. |
+| `pe_x64_signed` | `.exe` | Authenticode signature: the attribute certificate table, which names a file offset where every other directory names an address, and the one fixture carrying a checksum that is right. |
 
 Build notes: most fixtures are built with `cl /O2`; `pe_x64_pdb` uses
 `cl /Zi /Od /GS- /c` + `link /DEBUG /NODEFAULTLIB /ENTRY:main`; the exception
@@ -27,3 +28,10 @@ fixtures use `cl /EHsc /O1 /MD` (the `/MD` dynamic CRT keeps them tiny);
 `.CRT$XLB`. Neither of those two can drop the CRT: the guard table rides on
 `_load_config_used` and the callback array on `_tls_used`, and the CRT is
 what supplies both.
+
+`pe_x64_signed` is not built at all: it is `pe_x64` with a self-signed
+certificate appended by `Set-AuthenticodeSignature -HashAlgorithm SHA256`,
+left untimestamped so that making it needs no network and nothing here
+expires. The two files differ in the first 9728 bytes only by the certificate
+directory and the checksum, which signing recomputed; `pe_x64` carries zero
+there, as a file nothing ever checked does.

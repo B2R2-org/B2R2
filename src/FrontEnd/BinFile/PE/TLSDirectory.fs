@@ -41,11 +41,12 @@ let [<Literal>] private MaxCallbacks = 4096
 /// Returns where the thread-local storage directory sits in the file, or
 /// none where the file names none or names one landing nowhere.
 let private tryFindDirectory pe =
-  if pe.PEHeaders.IsCoffOnly then
+  match pe.Header.OptionalHeader with
+  | None ->
     None
-  else
-    let dir = pe.PEHeaders.PEHeader.ThreadLocalStorageTableDirectory
-    let rva = dir.RelativeVirtualAddress
+  | Some hdr ->
+    let dir = hdr.Directory DirectoryKind.ThreadLocalStorageTable
+    let rva = dir.RVA
     if dir.Size = 0 || findMappedSectionIndex pe.SectionHeaders rva = -1 then
       None
     else
@@ -55,7 +56,7 @@ let private tryFindDirectory pe =
 /// They are addresses the image would load at, so it is the preferred base
 /// that turns one back into an RVA, not the base the file was opened with.
 let private readCallbacks (bytes: byte[]) pe arrayVA =
-  let imageBase = pe.PEHeaders.PEHeader.ImageBase
+  let imageBase = getImageBase pe
   let secs = pe.SectionHeaders
   if arrayVA <= imageBase then
     [||]
@@ -91,5 +92,3 @@ let getCallbackAddresses (bytes: byte[]) pe =
     let at = offset + callbackArrayOffset pe.WordSize
     let arrayVA = readUIntByWordSize span pe.BinReader pe.WordSize at
     readCallbacks bytes pe arrayVA
-
-// vim: set tw=80 sts=2 sw=2:

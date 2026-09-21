@@ -42,11 +42,12 @@ let private offsets64 = 0x60, 0x68, 0x80, 0x88, 0x90
 /// The structure carries its own size, which is what says which of its
 /// fields a given build actually wrote.
 let private tryFindLoadConfig pe =
-  if pe.PEHeaders.IsCoffOnly then
+  match pe.Header.OptionalHeader with
+  | None ->
     None
-  else
-    let dir = pe.PEHeaders.PEHeader.LoadConfigTableDirectory
-    let rva = dir.RelativeVirtualAddress
+  | Some hdr ->
+    let dir = hdr.Directory DirectoryKind.LoadConfigTable
+    let rva = dir.RVA
     if dir.Size = 0 || findMappedSectionIndex pe.SectionHeaders rva = -1 then
       None
     else
@@ -59,7 +60,7 @@ let private tryFindLoadConfig pe =
 /// is the preferred base that turns it back into an RVA, not the base the
 /// file was opened with.
 let private readFunctionTable (bytes: byte[]) pe tableVA count stride =
-  let imageBase = pe.PEHeaders.PEHeader.ImageBase
+  let imageBase = getImageBase pe
   let secs = pe.SectionHeaders
   if tableVA <= imageBase || count <= 0UL || count > 0x100000UL then
     [||]
@@ -110,5 +111,3 @@ let getFunctionAddresses bytes pe =
         let count = readPtr bytes pe (offset + guardCnt)
         readFunctionTable bytes pe table count stride
     Array.append handlers guarded
-
-// vim: set tw=80 sts=2 sw=2:

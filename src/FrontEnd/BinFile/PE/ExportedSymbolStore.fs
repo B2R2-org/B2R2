@@ -40,7 +40,6 @@ type private EATEntry =
 [<AutoOpen>]
 module private ExportedSymbolStore =
   open System
-  open System.Reflection.PortableExecutable
   open B2R2.Collections
   open B2R2.FrontEnd.BinLifter
   open B2R2.FrontEnd.BinFile.PE.PEUtils
@@ -126,12 +125,13 @@ module private ExportedSymbolStore =
         | None -> expMap, forwMap
     Array.foldi folder (Map.empty, Map.empty) addrTbl
 
-  let parse baseAddr bytes reader (headers: PEHeaders) secs =
-    match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
+  let parse baseAddr bytes reader (hdr: OptionalHeader) secs =
+    let dir = hdr.Directory DirectoryKind.ExportTable
+    match dir.RVA with
     | 0 ->
       "", Map.empty, Map.empty
     | rva ->
-      let size = headers.PEHeader.ExportTableDirectory.Size
+      let size = dir.Size
       let range = (rva, rva + size)
       let offset = getRawOffset secs rva
       let tbl = ReadOnlySpan(bytes, offset, size)
@@ -145,8 +145,8 @@ type internal ExportedSymbolStore private(dllName, exportMap, forwardMap) =
 
   new() = ExportedSymbolStore("", Map.empty, Map.empty)
 
-  new(baseAddr, bytes, reader, hdrs, secs) =
-    let dllName, exports, forwards = parse baseAddr bytes reader hdrs secs
+  new(baseAddr, bytes, reader, hdr, secs) =
+    let dllName, exports, forwards = parse baseAddr bytes reader hdr secs
     ExportedSymbolStore(dllName, exports, forwards)
 
   /// Returns the name the export directory gives this image, which is what an

@@ -25,7 +25,6 @@
 [<RequireQualifiedAccess>]
 module internal B2R2.FrontEnd.BinFile.PE.BaseRelocationTable
 
-open System.Reflection.PortableExecutable
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.PE.PEUtils
 
@@ -44,14 +43,14 @@ let private buildRelocBlock (bytes: byte[]) (reader: IBinReader) headerOffset =
     BlockSize = blockSize
     Entries = parseBlock (headerOffset + 8) List.empty }
 
-let parse bytes (reader: IBinReader) (headers: PEHeaders) secs =
-  let peHdr = headers.PEHeader
-  match peHdr.BaseRelocationTableDirectory.RelativeVirtualAddress with
+let parse bytes (reader: IBinReader) (hdr: OptionalHeader) secs =
+  let dir = hdr.Directory DirectoryKind.BaseRelocationTable
+  match dir.RVA with
   | 0 ->
     List.empty
   | rva ->
     let hdrOffset = getRawOffset secs rva
-    let upperBound = hdrOffset + peHdr.BaseRelocationTableDirectory.Size
+    let upperBound = hdrOffset + dir.Size
     let rec parseRelocDirectory offset blks =
       if offset < upperBound then
         let relocBlk = buildRelocBlock bytes reader offset
