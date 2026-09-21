@@ -243,6 +243,36 @@ def arm32_thumb():
             + text + nlists + strtab + dice)
 
 
+def arm32_datamix():
+    """An ARMv7 executable whose LC_DATA_IN_CODE ranges sit either side of the
+    symbols naming the encoding around them: one ahead of every symbol, one
+    starting exactly where a symbol does, one between two symbols and one past
+    the last. A range resumes in the encoding the nearest symbol at or before
+    it names, so each of those is a boundary of that search."""
+    vmaddr = 0x1000
+    text = b'\x00' * 0x80
+    strtab = b'\0_a_one\0_t_two\0_a_three\0'
+    sizeofcmds = 56 + 68 + 24 + 16
+    textoff = 28 + sizeofcmds
+    textaddr = vmaddr + textoff
+    one, two, three = textaddr + 0x10, textaddr + 0x30, textaddr + 0x50
+    nlists = (nlist32(1, N_SECT_EXT, 1, 0, one)
+              + nlist32(8, N_SECT_EXT, 1, N_ARM_THUMB_DEF, two)
+              + nlist32(15, N_SECT_EXT, 1, 0, three))
+    starts = [textaddr, two, textaddr + 0x40, textaddr + 0x60]
+    dice = b''.join(struct.pack('<IHH', s - vmaddr, 4, 1) for s in starts)
+    symoff = textoff + len(text)
+    stroff = symoff + len(nlists)
+    diceoff = stroff + len(strtab)
+    return (header32(CPU_ARM, 9, MH_EXECUTE, 3, sizeofcmds, MH_PIE)
+            + seg32('__TEXT', vmaddr, 0x1000, 0, diceoff + len(dice), 5,
+                    [('__text', textaddr, len(text), textoff, 2, 0, 0,
+                      0x80000400)])
+            + symtab(symoff, 3, stroff, len(strtab))
+            + struct.pack('<4I', LC_DATA_IN_CODE, 16, diceoff, len(dice))
+            + text + nlists + strtab + dice)
+
+
 def x64_extreloc():
     """A non-PIE dylib whose relocations live in the external and local tables
     of LC_DYSYMTAB rather than hanging off its sections. Only an image built
@@ -580,6 +610,7 @@ FIXTURES = {'mach_x64_notext': notext,
             'mach_i386_dyldinfo': i386_dyldinfo,
             'mach_i386_reloc': i386_reloc,
             'mach_arm32_thumb': arm32_thumb,
+            'mach_arm32_datamix': arm32_datamix,
             'mach_x64_extreloc': x64_extreloc,
             'mach_x64_multichain': x64_multichain,
             'mach_x64_fileset': fileset,

@@ -75,19 +75,31 @@ let private dataRanges toolBox imageBase cmds =
          let len = uint64 (reader.ReadUInt16(bytes, at + 4))
          start, start + len |]
 
+/// Returns the encoding in force at the given address, which is the one the
+/// last marker at or before it names, and the fallback where no marker
+/// precedes it. The markers are in address order, so the one to read is found
+/// by halving the run rather than by walking it, which an image naming a
+/// symbol and a data range apiece would otherwise pay for once per range.
+let private modeAt (marks: BinCodeModeMarker[]) fallback addr =
+  let mutable lo = 0
+  let mutable hi = marks.Length - 1
+  let mutable at = -1
+  while lo <= hi do
+    let mid = lo + (hi - lo) / 2
+    if marks[mid].Address <= addr then
+      at <- mid
+      lo <- mid + 1
+    else
+      hi <- mid - 1
+  if at < 0 then fallback else marks[at].Mode
+
 /// Marks each data range, and puts the encoding that the range interrupted
 /// back where it ends, so the code after it is read the way the code before it
-/// was. The fallback applies where no symbol covers the range.
+/// was.
 let private dataMarkers toolBox imageBase cmds fallback marks =
-  let modeAt addr =
-    marks
-    |> Array.filter (fun (m: BinCodeModeMarker) -> m.Address <= addr)
-    |> Array.tryLast
-    |> Option.map (fun m -> m.Mode)
-    |> Option.defaultValue fallback
   [| for start, endAddr in dataRanges toolBox imageBase cmds do
        marker start DataMode
-       marker endAddr (modeAt start) |]
+       marker endAddr (modeAt marks fallback start) |]
 
 /// Returns every encoding change across the image, in address order.
 let compute toolBox cmds imageBase secText symbols =
