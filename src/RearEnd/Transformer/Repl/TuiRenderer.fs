@@ -617,24 +617,6 @@ module TransformerTuiRenderer =
   let private scriptPath model =
     model.Session.SessionPath |> Option.defaultValue "<none>"
 
-  let private paneStatus model fallback =
-    match model.Overlay, model.ViewPane with
-    | TuiOverlay.View, Some pane ->
-      let count = pane.Lines.Length
-      let line = min (pane.Cursor.Line + 1) (max 1 count)
-      let column = pane.Cursor.Column + 1
-      let find =
-        if pane.IsFinding then
-          $"  find: {pane.FindText}"
-        else
-          ""
-      $"view result #{pane.BlockIndex}  {line}/{count}:{column}{find}"
-    | _ when model.Focus = TuiFocus.Transcript
-             && fallback = "Transcript focused" ->
-      ""
-    | _ ->
-      fallback
-
   let private selectedBodyIndex body =
     body
     |> List.tryFindIndex (fun (kind, _) ->
@@ -650,10 +632,6 @@ module TransformerTuiRenderer =
       |> Option.map (fun row -> row, transcriptCursorColumn model)
     else
       None
-
-  let private spinner frame =
-    let frames = [| "-"; "\\"; "|"; "/" |]
-    frames[frame % frames.Length]
 
   let private boxTop color width title =
     let inner = max 0 (width - 2)
@@ -674,21 +652,11 @@ module TransformerTuiRenderer =
   let private sidebarLines rightWidth height model =
     let current = currentSummary model
     let focus = model.Focus.ToString().ToLowerInvariant()
-    let busy =
-      if model.IsBusy then
-        $"{spinner model.SpinnerFrame} running"
-      elif model.Overlay = TuiOverlay.Message then
-        "Ready"
-      else
-        model.Status
-    let extra = paneStatus model busy
-    let status = if String.IsNullOrWhiteSpace extra then busy else extra
     let bindingCount = Map.count model.Session.Bindings
     let state =
       [ "", $"current   {current}"
         "", $"commands  {List.length model.Session.CommandHistory}"
-        "", $"focus     {focus}"
-        "", $"status    {status}" ]
+        "", $"focus     {focus}" ]
     let boundary =
       [ rawBoxRow, boxBottom border rightWidth
         rawBoxRow, boxTop border rightWidth $"Bindings ({bindingCount})" ]
