@@ -139,6 +139,49 @@ let buildSymbolMap arr =
   for symb in arr do byAddr[symb.Address] <- symb
   byAddr
 
+/// Returns the name of every slot of the COFF symbol table, indexed the way
+/// the table indexes them, which is what a relocation names its symbol by. An
+/// auxiliary record takes a slot of its own and names nothing, so its slot is
+/// left empty; no relocation points at one.
+let getSymbolNames (bytes: byte[]) (reader: IBinReader) (coff: CoffHeader) =
+  let count = coff.NumberOfSymbols
+  let tblOff = coff.PointerToSymbolTable
+  let strOff = tblOff + count * 18
+  let names = Array.create (max count 0) ""
+  let span = ReadOnlySpan bytes
+  let mutable auxcnt = 0
+  let mutable i = if tblOff = 0 then count else 0
+  while i < count do
+    if auxcnt > 0 then
+      auxcnt <- auxcnt - 1
+    else
+      let offset = tblOff + i * 18
+      names[i] <- parseSymbName span offset strOff
+      auxcnt <- span[offset + 17] |> int
+    i <- i + 1
+  names
+
+let private symbolNameAt (names: string[]) idx =
+  match Array.tryItem idx names with
+  | Some "" | None -> None
+  | Some name -> Some name
+
+let private toRelocation addr name: FrontEnd.BinFile.BinRelocation =
+  { Address = addr; SymbolName = name; Addend = None }
+
+/// Reads the relocations an object keeps for each of its sections. An image
+/// carries none of these: its linker has applied them already, leaving only
+/// the base relocations that move the whole of it at once.
+let getRelocations bytes (reader: IBinReader) secs names baseAddr =
+  [| for sec: SectionHeader in secs do
+       let tbl = sec.PointerToRelocations
+       for i in 0 .. int sec.NumberOfRelocations - 1 do
+         let offset = tbl + i * 10
+         let rva = reader.ReadInt32(bs = bytes, offset = offset)
+         let symIdx = reader.ReadInt32(bs = bytes, offset = offset + 4)
+         let addr = baseAddr + uint64 sec.VirtualAddress + uint64 rva
+         toRelocation addr (symbolNameAt names symIdx) |]
+
 let getSymbols (bytes: byte[]) reader (coff: CoffHeader) =
   let maxCnt = coff.NumberOfSymbols - 1
   let tblOff = coff.PointerToSymbolTable

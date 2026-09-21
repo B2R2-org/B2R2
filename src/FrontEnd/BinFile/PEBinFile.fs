@@ -48,7 +48,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
           tryFindSymbolFromPDB pe addr
     }
 
-  let isExportedFunction addr =
+  let isExecutableAddress addr =
     let idx = pe.FindSectionIdxFromRVA(int (addr - pe.BaseAddr))
     idx <> -1 && isSectionExecutableByIndex pe idx
 
@@ -64,7 +64,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   let toExportedSymbol addr name =
     { Name = name
       Address = addr
-      Kind = if isExportedFunction addr then FunctionSymbol else DataSymbol
+      Kind = if isExecutableAddress addr then FunctionSymbol else DataSymbol
       Binding = GlobalBinding
       IsDefined = true
       Size = None
@@ -115,13 +115,20 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
              if s.IsFunction then s.Address else () |]
       let dynamicAddrs =
         [| for addr in pe.ExportedSymbols.Addresses do
-             if isExportedFunction addr then addr else () |]
+             if isExecutableAddress addr then addr else () |]
       (* Every range .pdata unwinds opens a function, barring one that chains
          back to the range before it and so only carries that one on. *)
       let unwindAddrs =
         [| for f in unwindFrames.Value do
              if f.IsChained then () else f.FuncStart |]
-      Array.concat [| staticAddrs; dynamicAddrs; unwindAddrs |]
+      (* What the loader is handed as a function is one, so long as it lands
+         where the file keeps code. *)
+      let vouchedAddrs =
+        [| yield! LoadConfig.getFunctionAddresses bytes pe
+           yield! TLSDirectory.getCallbackAddresses bytes pe |]
+        |> Array.filter isExecutableAddress
+      Array.concat
+        [| staticAddrs; dynamicAddrs; unwindAddrs; vouchedAddrs |]
       |> Array.distinct
       |> Array.sort
 
@@ -248,14 +255,19 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       member _.FunctionAddresses = functionAddrs.Value
     }
 
+  let relocIndex = lazy (Relocation.build bytes pe)
+
   let relocations =
     Some { new IRelocationTable with
-      member _.Relocations = Relocation.getRelocations pe
+      (* The cached array is never handed out as is, so callers cannot make
+         their edits visible to the next lookup. *)
+      member _.Relocations = Array.copy relocIndex.Value.Relocations
 
-      member _.IsRelocationAddr addr = Relocation.contains pe addr
+      member _.IsRelocationAddr addr =
+        relocIndex.Value.Addresses.Contains addr
 
       member _.TryGetRelocatedAddr relocAddr =
-        Relocation.tryGetRelocatedAddr bytes pe relocAddr
+        Relocation.tryGetRelocatedAddr bytes pe relocIndex.Value relocAddr
 
       member _.TryGetInternalFunctionAddr _relocAddr =
         Error ErrorCase.SymbolNotFound
