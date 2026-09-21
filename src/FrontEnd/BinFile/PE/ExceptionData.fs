@@ -74,7 +74,10 @@ type internal FrameInfo =
     /// the UNWIND_INFO declares one.
     Personality: Addr option
     /// Guarded regions and their handlers (populated by later phases).
-    Handlers: (Addr * Addr * Addr option) list }
+    Handlers: (Addr * Addr * Addr option) list
+    /// Whether the entry chains to another, which is what marks its range as
+    /// the carrying on of a function rather than a function of its own.
+    IsChained: bool }
 
 /// Resolves the file offset of the handler data area (the ExceptionHandler RVA
 /// followed by handler-specific data) for the UNWIND_INFO at the given RVA,
@@ -391,6 +394,16 @@ let private tryFindFunctionTable ctx (pe: PE) =
     else
       Some(getRawOffset ctx.Secs dir.RelativeVirtualAddress, dir.Size / 12)
 
+/// Returns whether the UNWIND_INFO at the given RVA chains to another one.
+/// A range whose entry chains carries a function on from where its previous
+/// range left off, and so is the start of nothing.
+let private isChainedEntry ctx (span: ByteSpan) unwindRva =
+  if not (isValidRva ctx unwindRva) then
+    false
+  else
+    let flags = span[getRawOffset ctx.Secs unwindRva] >>> 3
+    (flags &&& ChainInfo) <> 0uy
+
 let parse (pe: PE) (bytes: byte[]) =
   let frames = ResizeArray<FrameInfo>()
   let ctx =
@@ -415,7 +428,8 @@ let parse (pe: PE) (bytes: byte[]) =
           { FuncStart = addrFromRVA ctx.BaseAddr beginRva
             FuncEnd = addrFromRVA ctx.BaseAddr endRva
             Personality = personality
-            Handlers = handlers }
+            Handlers = handlers
+            IsChained = isChainedEntry ctx span unwindRva }
       else
         ()
       i <- i + 1

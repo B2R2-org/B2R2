@@ -408,4 +408,37 @@ let dumpDependencies _ (file: IBinFile) =
   |> Set.iter (fun s -> printsn $"- {s}")
   printsn ""
 
-let dumpExceptionTable _ _ = Terminator.futureFeature ()
+let private toAddrOrNA wordSize = function
+  | Some addr -> Addr.toString wordSize addr
+  | None -> normalizeEmpty ""
+
+/// Prints one guarded region of a frame, which the columns of the frame it
+/// belongs to are left blank for.
+let private dumpExceptionHandler wordSize (h: BinExceptionHandler) =
+  let blockStart = Addr.toString wordSize h.BlockStart
+  let blockEnd = Addr.toString wordSize h.BlockEnd
+  let handler = toAddrOrNA wordSize h.Handler
+  printsr [| ""; ""; ""; $"{blockStart}-{blockEnd} -> {handler}" |]
+
+let private dumpExceptionFrame wordSize (f: BinExceptionFrame) =
+  printsr [| Addr.toString wordSize f.FunctionStart
+             Addr.toString wordSize f.FunctionEnd
+             toAddrOrNA wordSize f.PersonalityRoutine
+             "" |]
+  for h in f.Handlers do dumpExceptionHandler wordSize h
+
+let dumpExceptionTable _ (pe: PEBinFile) =
+  let wordSize = (pe :> IBinFile).ISA.WordSize
+  let addrColumn = columnWidthOfAddr pe |> LeftAligned
+  setTableColumnFormats
+    [| addrColumn; addrColumn; addrColumn; LeftAligned 40 |]
+  printDoubleHorizontalRule ()
+  printsr [| "FuncStart"; "FuncEnd"; "Personality"; "Guarded Block" |]
+  printSingleHorizontalRule ()
+  let frames = BinFileOps.getExceptionFrames pe
+  if Array.isEmpty frames then
+    printsn "n/a"
+  else
+    for f in frames do dumpExceptionFrame wordSize f
+  printDoubleHorizontalRule ()
+  printsn ""
