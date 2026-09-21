@@ -298,9 +298,13 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       && uint64 offset >= secOffset
       && uint64 offset < secOffset + fileSize)
 
+  let binSections = lazy (secs.Value |> Array.map toBinSection)
+
   let structure =
     Some { new IBinStructure with
-      member _.Sections with get() = secs.Value |> Array.map toBinSection
+      (* The cached array is never handed out as is, so a caller cannot make
+         its edits visible to the next reader. *)
+      member _.Sections with get() = Array.copy binSections.Value
 
       member _.CodeSectionPointer =
         if secText.Value < 0 then
@@ -360,26 +364,33 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       member _.FunctionAddresses = functionAddrs.Value
     }
 
+  (* A classic entry is read back out of the file for its addend, so the whole
+     table is built once and kept rather than on every reader's behalf. *)
+  let binRelocations =
+    lazy
+      let classic =
+        relocMap.Value.Values
+        |> Seq.sortBy (fun reloc -> reloc.RelocAddr)
+        |> Seq.map (Reloc.toBinRelocation toolBox syms.Value.SymbolArray)
+        |> Seq.toArray
+      let fixupRelocs =
+        fixupMap.Value.Values
+        |> Seq.sortBy (fun fixup -> fixup.FixupAddr)
+        |> Seq.map (fun fixup ->
+          let addr = fixup.FixupAddr
+          match fixup.FixupTarget with
+          | Rebase _ ->
+            { Address = addr; SymbolName = None; Addend = None }
+          | Bind(sym, _, addend) ->
+            { Address = addr; SymbolName = Some sym; Addend = Some addend })
+        |> Seq.toArray
+      Array.append classic fixupRelocs
+
   let relocations =
     Some { new IRelocationTable with
-      member _.Relocations =
-        let classic =
-          relocMap.Value.Values
-          |> Seq.sortBy (fun reloc -> reloc.RelocAddr)
-          |> Seq.map (Reloc.toBinRelocation toolBox syms.Value.SymbolArray)
-          |> Seq.toArray
-        let fixupRelocs =
-          fixupMap.Value.Values
-          |> Seq.sortBy (fun fixup -> fixup.FixupAddr)
-          |> Seq.map (fun fixup ->
-            let addr = fixup.FixupAddr
-            match fixup.FixupTarget with
-            | Rebase _ ->
-              { Address = addr; SymbolName = None; Addend = None }
-            | Bind(sym, _, addend) ->
-              { Address = addr; SymbolName = Some sym; Addend = Some addend })
-          |> Seq.toArray
-        Array.append classic fixupRelocs
+      (* The cached array is never handed out as is, so a caller cannot make
+         its edits visible to the next lookup. *)
+      member _.Relocations = Array.copy binRelocations.Value
 
       member _.IsRelocationAddr addr =
         relocMap.Value.ContainsKey addr || fixupMap.Value.ContainsKey addr
