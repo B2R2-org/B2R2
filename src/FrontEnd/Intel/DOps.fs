@@ -151,7 +151,10 @@ let inline private regsOf (b: Register) = uint32 (int b) ||| 0xFFFF0000u
 let inline private regsOf2 (b: Register) (i: Register) =
   uint32 (int b) ||| (uint32 (int i) <<< 16)
 
-let private noRegs = 0xFFFFFFFFu
+/// The register bits of a memory operand with no base and no index. Not
+/// private: moffs is inline and reads it, and an inline function may not
+/// reach a private value.
+let noRegs = 0xFFFFFFFFu
 
 /// A memory operand from its register bits, its index scale (as a power of
 /// two), the displacement size to read and the access size.
