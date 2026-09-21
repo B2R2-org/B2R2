@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
 open B2R2
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents an opcode in the LC_DYLD_INFO rebase opcode stream. The high
@@ -199,8 +200,12 @@ module internal DyldInfo =
         libOrd <- if imm = 0 then 0 else imm - 16
       | BindOpcode.SET_SYMBOL_TRAILING_FLAGS_IMM ->
         let span = ReadOnlySpan(bytes, cur, endOff - cur)
-        name <- ByteArray.extractCStringFromSpan span 0
-        cur <- cur + name.Length + 1
+        let nul = span.IndexOf 0uy
+        if nul < 0 then
+          raise InvalidFileFormatException
+        else
+          name <- ByteArray.extractCStringFromSpan span 0
+          cur <- cur + nul + 1
       | BindOpcode.SET_ADDEND_SLEB ->
         let v, n = reader.ReadInt64LEB128(bytes, cur)
         addend <- v
