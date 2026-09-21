@@ -150,19 +150,17 @@ module internal ChainedFixup =
       None
 
   /// Walks a single page chain, accumulating fixups until next is zero.
-  let private walkChain toolBox seg pageOff start walker acc =
+  let private walkChain toolBox seg pageOff start walker (acc: ResizeArray<_>) =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
     let decode, nextOf, stride = walker
     let mutable off = start
     let mutable go = true
-    let mutable acc = acc
     while go do
       let slotAddr = seg.VMAddr + uint64 (pageOff + off)
       let entry = reader.ReadUInt64(bytes, int seg.FileOff + pageOff + off)
-      acc <- decode slotAddr entry :: acc
+      acc.Add(decode slotAddr entry)
       let next = nextOf entry
       if next = 0 then go <- false else off <- off + next * stride
-    acc
 
   /// Walks every chain of a page that holds more than one. Its page_start
   /// value indexes an overflow list that follows the page_start array, each
@@ -171,9 +169,9 @@ module internal ChainedFixup =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
     let entry = reader.ReadUInt16(bytes, startsAt + idx * 2)
     let start = int (entry &&& ~~~PageStartLast)
-    let acc = walkChain toolBox seg pageOff start walker acc
+    walkChain toolBox seg pageOff start walker acc
     if entry &&& PageStartLast <> 0us then
-      acc
+      ()
     else
       walkMulti toolBox seg startsAt (idx + 1) pageOff walker acc
 
@@ -184,12 +182,11 @@ module internal ChainedFixup =
     let ptrFormat = reader.ReadUInt16(bytes, infoOff + 6)
     match selectDecoder slide imgBase imports ptrFormat with
     | None ->
-      acc
+      ()
     | Some walker ->
       let pageSize = int (reader.ReadUInt16(bytes, infoOff + 4))
       let pageCount = int (reader.ReadUInt16(bytes, infoOff + 20))
       let startsAt = infoOff + 22
-      let mutable acc = acc
       for p = 0 to pageCount - 1 do
         let pageOff = p * pageSize
         let start = reader.ReadUInt16(bytes, startsAt + p * 2)
@@ -197,10 +194,9 @@ module internal ChainedFixup =
           ()
         elif start &&& PageStartMulti <> 0us then
           let idx = int (start &&& ~~~PageStartMulti)
-          acc <- walkMulti toolBox seg startsAt idx pageOff walker acc
+          walkMulti toolBox seg startsAt idx pageOff walker acc
         else
-          acc <- walkChain toolBox seg pageOff (int start) walker acc
-      acc
+          walkChain toolBox seg pageOff (int start) walker acc
 
   let parse toolBox cmds (segCmds: SegCmd[]) =
     match Array.tryPick chooser cmds with
@@ -219,12 +215,12 @@ module internal ChainedFixup =
       let imgBase =
         Segment.tryGetImageBase segCmds |> Option.defaultValue 0UL
       let bases = toolBox.BaseAddress, imgBase
-      let mutable acc = []
+      let acc = ResizeArray()
       for i = 0 to segCount - 1 do
         let segInfoOff = reader.ReadUInt32(bytes, startsOff + 4 + i * 4)
         if segInfoOff <> 0u && i < segCmds.Length then
           let offset = startsOff + int segInfoOff
-          acc <- parseSegment toolBox bases imports segCmds[i] offset acc
+          parseSegment toolBox bases imports segCmds[i] offset acc
         else
           ()
-      acc |> List.rev |> List.toArray
+      acc.ToArray()
