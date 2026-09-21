@@ -69,3 +69,24 @@ type TuiRendererTests() =
       |> Array.exists (fun line ->
         line.Contains "Suggestions appear here as you type.")
     Assert.AreEqual(true, hasPlaceholder)
+
+  [<TestMethod>]
+  member _.``view find renders an input row with its cursor``() =
+    let pane =
+      { BlockIndex = 1
+        Lines = [| { Kind = TuiLineKind.Output; Text = "needle" } |]
+        Cursor = { Line = 0; Column = 0 }
+        Anchor = None
+        FindText = "needle"
+        IsFinding = true }
+    let model =
+      { TransformerTuiModel.initial with
+          Overlay = TuiOverlay.View
+          ViewPane = Some pane }
+    let frame =
+      TransformerTuiRenderer.render 80 30 registry.Value model emptyCompletion
+    let hasFindInput =
+      frame.Lines |> Array.exists (fun line -> line.Contains " find: needle")
+    Assert.AreEqual(true, hasFindInput)
+    Assert.AreEqual(30, frame.CursorRow)
+    Assert.AreEqual(14, frame.CursorColumn)

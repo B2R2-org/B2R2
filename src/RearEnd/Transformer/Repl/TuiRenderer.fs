@@ -988,6 +988,20 @@ module TransformerTuiRenderer =
     let text = $" cwd: {cwd}  script: {script}  record: {record}"
     paint dim (fit width text)
 
+  let private viewFindFooter width model =
+    match model.ViewPane with
+    | Some pane when model.Overlay = TuiOverlay.View && pane.IsFinding ->
+      let prompt = " find: "
+      let inputWidth = max 0 (width - prompt.Length)
+      let start = max 0 (pane.FindText.Length - inputWidth)
+      let input =
+        if start < pane.FindText.Length then pane.FindText[start..] else ""
+      let padding = String.replicate (inputWidth - input.Length) " "
+      let row = paint (paletteInputBg + paletteFg) (prompt + input + padding)
+      row, Some(prompt.Length + input.Length + 1)
+    | _ ->
+      contextFooter width model, None
+
   let private keyButton active label =
     if active then paint reverse $" {label} " else paint dim $" {label} "
 
@@ -1195,7 +1209,7 @@ module TransformerTuiRenderer =
           boxBottom border leftWidth
       let suggestions =
         suggestionRows suggestionCount width completion model.SuggestionIndex
-      let context = contextFooter width model
+      let context, viewFindCursor = viewFindFooter width model
       let rows =
         [ titleBar
           keyHeader width model
@@ -1216,6 +1230,7 @@ module TransformerTuiRenderer =
         CursorRow =
           paletteCursor
           |> Option.map fst
+          |> Option.orElse (viewFindCursor |> Option.map (fun _ -> height))
           |> Option.orElseWith (fun () ->
             cursorBodyPosition
             |> Option.map (fun (row, _) -> 4 + row))
@@ -1225,6 +1240,7 @@ module TransformerTuiRenderer =
         CursorColumn =
           paletteCursor
           |> Option.map snd
+          |> Option.orElse viewFindCursor
           |> Option.orElseWith (fun () ->
             cursorBodyPosition
             |> Option.map (fun (_, column) -> min (leftWidth - 1) (column + 1)))
