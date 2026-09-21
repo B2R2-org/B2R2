@@ -135,6 +135,20 @@ module internal Operands =
     | _ ->
       TwoOperands(o1, o2)
 
+  /// The operands value holding the two given registers, in that order.
+  /// Callers that already hold registers use this rather than twoOperands:
+  /// telling two register operands apart from the rest costs a type test and
+  /// a cast apiece, and a register pair is what most two-operand
+  /// instructions in compiled code carry.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+  let twoRegs (a: Register) (b: Register) =
+    if int a < 64 && int b < 64 then twoGprOperands[(int a <<< 6) ||| int b]
+    else TwoOperands(oprRegs[int a], oprRegs[int b])
+
+  /// The operands value holding the given register alone.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+  let oneReg (r: Register) = oneRegOperands[int r]
+
   /// The immediate operands a byte can hold, read signed or unsigned, at each
   /// general-purpose width, made once: most immediates in compiled code fit
   /// in a byte, and each one allocated was a value out of these 1,536.

@@ -25,14 +25,17 @@
 namespace B2R2.FrontEnd.Intel
 
 open System
-open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel.ParsingFunctions
 open LanguagePrimitives
 
-/// Represents a parser for Intel (x86 or x86-64) instructions.
-type IntelParser(wordSz, reader) =
+/// Represents a parser for Intel (x86 or x86-64) instructions. The prefixes,
+/// the REX byte and the VEX or EVEX prefix are read here; the opcode maps are
+/// the generated straight-line code of DLegacy and DVex, which
+/// IntelParserGen writes from InstructionTable, so that nothing about an
+/// instruction is looked up at parse time.
+type IntelParser(wordSz, reader: IBinReader) =
   /// Split a byte value into two fileds (high 3 bits; low 5 bits), and
   /// categorize prefix values into 8 groups based on the high 3 bits (= 2^3).
   /// The below array is a collection of bitmaps that maps the low 5-bit value
@@ -50,16 +53,6 @@ type IntelParser(wordSz, reader) =
 
   let is64 = wordSz = WordSize.Bit64
 
-  /// The legacy opcode maps end to end, in the order ParseVEX numbers them,
-  /// as ordered for this parser's mode.
-  let legacyMaps =
-    if is64 then InstructionTable.legacy64.Value
-    else InstructionTable.legacy32.Value
-
-  /// The VEX and EVEX maps for this parser's mode, each built when the first
-  /// VEX prefix selecting it shows up.
-  let vexMaps = if is64 then InstructionTable.vex64 else InstructionTable.vex32
-
   let mutable disasm = Disasm.Delegate Disasm.IntelSyntax.disasm
 
   let lifter =
@@ -67,663 +60,7 @@ type IntelParser(wordSz, reader) =
         member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = disasm.Invoke(builder, ins); builder }
 
-  let phlp = ParsingHelper(reader, wordSz, lifter)
-
-  /// Returns true when EVEX.b on a register form spends L'L. It does so under
-  /// either reading: {er} puts the rounding mode there, and {sae} leaves it
-  /// holding nothing -- the assembler will not encode a {sae} form at any
-  /// length but 512, and reads L'L back as none of the length. So only a
-  /// variant offering one of the two can match. See Intel SDM Vol. 2A,
-  /// Sections 2.6.7 and 2.6.8.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let usesStaticRounding (phlp: ParsingHelper) modRM (row: Row) =
-    match phlp.VEXInfo with
-    | Some { EVEXPrx = Some evex } when evex.B = 1uy ->
-      Operands.modIsReg modRM && row.SlotDeclaresRC
-    | _ ->
-      false
-
-  /// Returns true when the VEX/EVEX vector length satisfies the row's
-  /// vector-length constraint, which the caller has found it declares.
-  let matchDeclaredVectorLength (vex: VEXInfo option) (row: Row) =
-    match vex with
-    | Some v ->
-      match v.VectorLength with
-      | 128<rt> -> row.VectorLength = VectorLength.V128
-      | 256<rt> -> row.VectorLength = VectorLength.V256
-      | 512<rt> -> row.VectorLength = VectorLength.V512
-      | _ -> false
-    | _ ->
-      true
-
-  /// Returns true when the VEX/EVEX vector length satisfies the row's
-  /// vector-length constraint (or the constraint is absent). With EVEX.b
-  /// spending L'L that question is asked first: the length is no longer
-  /// encoded there, so the row offering {er} or {sae} answers whether or not
-  /// the row constrains the length.
-  let matchVectorLength isRounding vex (row: Row) =
-    if isRounding then
-      row.RCDecor <> NoRounding
-    else
-      row.VectorLength = VectorLength.None
-      || matchDeclaredVectorLength vex row
-
-  /// The match context of the instruction at hand (see MatchContext): which
-  /// REX state, whether a VEX prefix is present, and which of 66h, F3h and F2h
-  /// are set. A VEX prefix carries its own copy of the three, which then
-  /// speaks for them.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let matchContext (phlp: ParsingHelper) =
-    let rex = phlp.REXPrefix
-    let rexState =
-      if rex = REXPrefix.NOREX then 0
-      elif REXPrefix.hasW rex then 2
-      else 1
-    match phlp.VEXInfo with
-    | Some v ->
-      MatchContext.index rexState 1 (MatchContext.prefState v.VPrefixes)
-    | None ->
-      MatchContext.index rexState 0 (MatchContext.prefState phlp.Prefixes)
-
-  /// Returns true when the row answers the REX and mandatory prefix state of
-  /// the instruction at hand; the row already carries the mask of the CPU
-  /// mode at hand.
-  let matchREXAndPrefix ctxBit (row: Row) = row.Accept &&& ctxBit <> 0UL
-
-  /// Returns true for the one opcode that deviates from the standard
-  /// mandatory-prefix rules: F3 90 is PAUSE, a separate instruction the F3
-  /// prefix names.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let isPause (phlp: ParsingHelper) (row: Row) =
-    row.IsNopOrPause && phlp.VEXInfo.IsNone && Prefix.hasREPZ phlp.Prefixes
-
-  /// The prefixes to drop after parsing. A VEX prefix carries its own copy of
-  /// all three, so none of the legacy set outlives it.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let consumedPrefixes (phlp: ParsingHelper) (row: Row) =
-    if phlp.VEXInfo.IsSome then Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ
-    elif isPause phlp row then Prefix.REPZ
-    else row.SelectorPrefixes
-
-  /// Returns true when the current prefix is compatible with the operand size
-  /// implied by the instruction's descriptors. REX.W settles the operand size
-  /// by itself and outranks 66h, so the row only 66h can select is not the
-  /// one an encoding carrying both asked for. SDM Vol. 2A, 2.2.1.2. The
-  /// accept mask settles this wherever there is no VEX prefix; with one, the
-  /// 66h asked about is the legacy prefix in front of it, which only the
-  /// parsing state knows.
-  let matchOperandSize (phlp: ParsingHelper) (row: Row) =
-    not row.Requires66h
-    || (Prefix.hasOprSz phlp.Prefixes && not (REXPrefix.hasW phlp.REXPrefix))
-
-  /// Returns true when the ModRM byte satisfies the row's constraint: fixed,
-  /// ST(i), group digit, reg/mem form, or none. A plain /r carries a reg-or-mem
-  /// constraint too: the mod field is what separates MOVHLPS (register only)
-  /// from MOVLPS (memory only), which share opcode 0F 12.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let matchModRM modRM (row: Row) =
-    let w = row.MatchWord
-    (w &&& MatchWord.Any) <> 0UL
-    || ((uint64 modRM &&& w &&& 0xFFUL) = ((w >>> 8) &&& 0xFFUL)
-        && not ((w &&& MatchWord.NotReg) <> 0UL && Operands.modIsReg modRM))
-
-  /// JCXZ/JECXZ/JRCXZ share opcode 0xE3 and are selected by the effective
-  /// address size determined by the current mode and the 67h prefix:
-  /// 32-bit mode  -> JECXZ, 67h -> JCXZ
-  /// 64-bit mode  -> JRCXZ, 67h -> JECXZ
-  /// Only the one-byte map is concerned, which is the only one whose E3h row
-  /// answers here: 0xE3 is PAVGW, VPAVGW or CMPccXADD in the escape and VEX
-  /// maps.
-  let matchJcxzAddrSize (phlp: ParsingHelper) (row: Row) =
-    match ParsingHelper.GetEffAddrSize phlp, row.Opcode with
-    | 16<rt>, Opcode.JCXZ
-    | 32<rt>, Opcode.JECXZ
-    | 64<rt>, Opcode.JRCXZ -> true
-    | _ -> false
-
-  /// Returns true unless the row is the one-byte NOP answering an encoding
-  /// that sets REX.B. NOP at 90h is, in the manual's own words, an alias
-  /// mnemonic for the XCHG (E)AX, (E)AX instruction, and REX.B moves the
-  /// second register to r8, so those bytes exchange rather than do nothing.
-  /// The multi-byte NOP carries a ModRM byte, where REX.B extends the r/m
-  /// register as it does anywhere else, and PAUSE shares the opcode byte but
-  /// is a separate instruction the F3 prefix names, so REX.B is inert there.
-  let matchNopAlias (phlp: ParsingHelper) (row: Row) =
-    not row.IsPlainNop
-    || (phlp.REXPrefix &&& REXPrefix.REXB) <> REXPrefix.REXB
-
-  /// Returns true unless the row is an EVEX gather or scatter answering an
-  /// encoding whose opmask is k0. Those instructions take the mask as a
-  /// completion record, writing an element only where its bit is set and
-  /// clearing the bit as they go, so k0 cannot serve: it reads as all ones and
-  /// has nowhere to record progress. Every one of their pages gives #UD for
-  /// EVEX.aaa = 0, and the hardware raises it. The VEX forms at the same
-  /// opcodes take a vector register as the mask instead and are left alone.
-  let matchGatherMask (vex: VEXInfo option) (row: Row) =
-    match vex with
-    | Some { EVEXPrx = Some evex } when evex.AAA = 0uy -> not row.UsesVSIB
-    | _ -> true
-
-  /// Returns true when the destination this encoding actually names is one a
-  /// masked write zeroes. The manual gives #UD for EVEX.z on a store, on a
-  /// gather or a scatter, and where the destination is a mask register (Vol.
-  /// 2A, Table 2-42): a store leaves the memory it skips alone, a gather
-  /// records its progress in the mask rather than in the destination, and a
-  /// mask register is merged into. Whether a store is what was written takes
-  /// ModRM as well as the row -- VMOVDQU32's store reads xmm2/m128, and its
-  /// register form zeroes like any other. Zeroing with no mask at all is
-  /// turned away earlier, where the prefix is read.
-  let matchZeroing (vex: VEXInfo option) modRM (row: Row) =
-    match vex with
-    | Some { EVEXPrx = Some evex } when evex.Z = Zeroing ->
-      not row.UsesVSIB
-      && not row.DestIsMaskReg
-      && not (row.HasMemoryDest && Operands.modIsMemory modRM)
-    | _ ->
-      true
-
-  /// Returns true unless EVEX.aaa names a mask over a destination that cannot
-  /// carry one. A general-purpose destination has no lanes for a mask to name,
-  /// which is the part of the manual's rule the table can answer; see
-  /// InstructionTable.destRegCanBeMasked for the part it cannot. A memory
-  /// destination says nothing either way and is left alone.
-  let matchMaskableDest (vex: VEXInfo option) modRM (row: Row) =
-    match vex with
-    | Some { EVEXPrx = Some evex } when evex.AAA <> 0uy ->
-      (row.HasMemoryDest && Operands.modIsMemory modRM)
-      || row.DestRegCanBeMasked
-    | _ ->
-      true
-
-  /// Returns true unless a LOCK prefix sits where it cannot: on an
-  /// instruction outside the list, or on a form whose destination is a
-  /// register rather than memory.
-  let matchLock (phlp: ParsingHelper) modRM (row: Row) =
-    not (Prefix.hasLock phlp.Prefixes)
-    || (row.LockableDest && Operands.modIsMemory modRM)
-
-  /// Returns true when the constraints the accept mask leaves for parse time
-  /// hold: the legacy 66h under a VEX prefix, the vector length, JCXZ's
-  /// address size, NOP's REX.B, the opmask fields and LOCK's destination.
-  /// Together they turn away under two percent of the candidates that reach
-  /// them; JCXZ's address size rejected two in 385,588 instructions.
-  let matchRareConstraints (phlp: ParsingHelper) isRounding modRM (row: Row) =
-    (phlp.VEXInfo.IsNone || matchOperandSize phlp row)
-    && matchVectorLength isRounding phlp.VEXInfo row
-    && (not row.IsE3 || matchJcxzAddrSize phlp row)
-    && matchNopAlias phlp row
-    && (phlp.VEXInfo.IsNone || matchGatherMask phlp.VEXInfo row)
-    && (phlp.VEXInfo.IsNone || matchZeroing phlp.VEXInfo modRM row)
-    && (phlp.VEXInfo.IsNone || matchMaskableDest phlp.VEXInfo modRM row)
-    && matchLock phlp modRM row
-
-  /// Returns true when every constraint the row declares holds for the bytes
-  /// at hand. Ordered by what each test costs against how much it turns away,
-  /// measured over real binaries in both modes. The ModRM byte leads because
-  /// it is the cheapest question here - one masked compare - and still
-  /// rejects about a quarter of the candidates that reach it. The accept mask
-  /// then answers for the REX prefix, the mandatory prefix, the operand size
-  /// and the CPU mode at once. A plain row under a simple state, one with no
-  /// LOCK and no VEX prefix, has nothing left to be asked; the rest go through
-  /// the remaining constraints one by one.
-  let matchesRow phlp ctxBit isRounding simple modRM (row: Row) =
-    matchModRM modRM row
-    && matchREXAndPrefix ctxBit row
-    && ((simple && (row.MatchWord &&& MatchWord.Plain) <> 0UL)
-        || matchRareConstraints phlp isRounding modRM row)
-
-#if TRACE_MATCH
-  /// Reports each constraint's verdict on one entry. The candidate loop stops
-  /// at the first failure, so this runs them all again to show which ones
-  /// rejected an entry, or which entry won and why. Compiled in only under
-  /// TRACE_MATCH (dotnet build -p:DefineConstants=TRACE_MATCH): a line per
-  /// candidate per instruction is far too much for an ordinary debug build.
-  let traceInstrCore (phlp: ParsingHelper) ctxBit isRounding modRM row =
-    printfn
-      "%A rex+pref+size+mode=%b modrm=%b rare=%b"
-      (row: Row).Opcode
-      (matchREXAndPrefix ctxBit row)
-      (matchModRM modRM row)
-      (matchRareConstraints phlp isRounding modRM row)
-#endif
-
-  /// Returns the first row of the chain that satisfies all matching
-  /// constraints; raises if no variant matches. modRM is the byte after the
-  /// opcode, or 0 where the bytes end there: a row that needs one then fails
-  /// to read it whichever row is picked, as it did when the byte was read
-  /// here. Inlined into Parse: the JIT leaves a method with a loop alone, and
-  /// the frame it cost was paid by every instruction.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let selectInstrVariant (phlp: ParsingHelper) modRM (head: Row) =
-    if isNull (box head) then
-      failwith "Error: Instruction core array is empty."
-    else
-      let ctxBit = 1UL <<< matchContext phlp
-      let isRounding = usesStaticRounding phlp modRM head
-      let simple = phlp.VEXInfo.IsNone && not (Prefix.hasLock phlp.Prefixes)
-      let mutable row = head
-      let mutable found = Unchecked.defaultof<Row>
-      while isNull (box found) && not (isNull (box row)) do
-#if TRACE_MATCH
-        traceInstrCore phlp ctxBit isRounding modRM row
-#endif
-        if matchesRow phlp ctxBit isRounding simple modRM row then
-          found <- row
-        else
-          row <- row.Next
-#if TRACE_MATCH
-      printfn "pref: %A, rex: %A, vex: %A -> selected %b"
-        phlp.Prefixes phlp.REXPrefix phlp.VEXInfo (not (isNull (box found)))
-#endif
-      if isNull (box found) then failwith "No matching instruction format."
-      else found
-
-  /// Writes regSz and memSz into the parsing-helper context for use by
-  /// subsequent operand parsers. The address size was settled once for the
-  /// whole instruction before any operand was read, and the operation size is
-  /// settled once after every operand has been.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let setupOprContext (phlp: ParsingHelper) regSz memSz =
-    phlp.MemEffOprSize <- memSz
-    phlp.RegSize <- regSz
-
-  /// Sizes an operand that carries no width of its own from the prefixes and
-  /// the CPU mode, under the given size condition.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let setupOprContextFromPrefixes (phlp: ParsingHelper) szCond =
-    let effOprSz = ParsingHelper.GetEffOprSize(phlp, szCond)
-    setupOprContext phlp effOprSz effOprSz
-
-  /// The register index a mask or MMX operand names. These registers have no
-  /// extension bit, so the raw three-bit field is the whole index.
-  let shortRegIndex (phlp: ParsingHelper) modRM = function
-    | RegBit ->
-      Operands.getReg modRM
-    | RMBit ->
-      Operands.getRM modRM
-    | VVVV ->
-      match phlp.VEXInfo with
-      | Some v -> int v.VVVV
-      | None -> failwith "VEXInfo is required to get VVVV bits."
-    | ort ->
-      failwithf "Invalid OprRegType for a short register: %A" ort
-
-  /// Parses an operand that names an opmask register. In 64-bit mode a prefix
-  /// bit that would carry the field past the eight registers that exist makes
-  /// the encoding #UD rather than naming a ninth: the manual says so for the
-  /// two bits that extend ModRM.reg (Vol. 2A, Table 2-41) and for a vvvv that
-  /// reaches one (Table 2-42). Outside 64-bit mode the same bits are ignored
-  /// rather than invalid, and the bits that extend r/m are ignored in either
-  /// mode, so neither can name a register that is not there.
-  let parseOpMaskOperand (phlp: ParsingHelper) modRM field =
-    let rex = phlp.REXPrefix
-    let extendsReg = REXPrefix.hasR rex || REXPrefix.hasEVEXR rex
-    if not (ParsingHelper.Is64bit phlp) then
-      shortRegIndex phlp modRM field &&& 0b111
-      |> OperandParsers.parseOpMaskReg
-    elif field = RegBit && extendsReg then
-      raise ParsingFailureException
-    else
-      shortRegIndex phlp modRM field |> OperandParsers.parseOpMaskReg
-
-  /// Parses one register operand named by the given field.
-  let parseRegOperand span (phlp: ParsingHelper) modRM opByte sz =
-    function
-    | OprRegType.OpRd -> (* Opcode[2:0] holds the register. *)
-      OperandParsers.getOprFromRegGrpREX (Operands.getRM opByte) phlp
-    | OprRegType.VVVV ->
-      (* BMI/CMPccXADD encode a GPR in vvvv, not a vector register. *)
-      if sz <= 64<rt> then OperandParsers.parseVEXtoGPR phlp
-      else OperandParsers.parseVVVVReg phlp
-    | OprRegType.RMBit ->
-      OperandParsers.findRegRM modRM phlp |> Operands.oprReg
-    | OprRegType.RegBit ->
-      OperandParsers.findRegReg sz modRM phlp |> Operands.oprReg
-    | OprRegType.IS4 -> (* imm8[7:4] holds the register. *)
-      let regBit = phlp.ReadByte span >>> 4 &&& 0b1111uy |> int
-      OperandParsers.findRegIS4 phlp.WordSize sz regBit |> Operands.oprReg
-    | OprRegType.Unused ->
-      failwith "Unused OprRegType." (* FixedReg *)
-
-  /// Parses a VSIB memory operand. A gathered element occupies max(index,
-  /// data) bits, so the vector length says how many of them there are. The
-  /// index register then holds that many indices, never narrower than an XMM,
-  /// and the memory access covers that many data elements. See Intel SDM Vol.
-  /// 2C, the vm32x/vm32y/vm32z and vm64x/vm64y/vm64z operand tables.
-  let parseVSIBOperand span (phlp: ParsingHelper) modRM elemSz =
-    let vl = phlp.VEXInfo.Value.VectorLength
-    let dataSz = if REXPrefix.hasW phlp.REXPrefix then 64<rt> else 32<rt>
-    let count = vl / max elemSz dataSz
-    let idxVl = max 128<rt> (count * elemSz)
-    let memSz = count * dataSz
-    (* A vector index lives in the SIB byte, and only r/m = 100b brings one.
-       Any other r/m is #UD; reading a SIB that is not there invented an
-       index and swallowed the byte after the instruction. *)
-    if Operands.getRM modRM <> 0b100 then failwith "VSIB without a SIB byte."
-    else ()
-    setupOprContext phlp memSz memSz
-    let modVal = modRM &&& 0b11000000uy
-    OperandParsers.parseOprMemVSIB span phlp modVal idxVl
-
-  /// Parses a far pointer. sz is the offset width; a far pointer also carries
-  /// a 16-bit segment selector, so the whole thing is 16 bits wider.
-  /// OperationSize holds that whole width rather than the register width.
-  let parseFarOperand span (phlp: ParsingHelper) modRM hasModRM sz =
-    let oprSz = sz + 16<rt>
-    setupOprContext phlp sz oprSz
-    phlp.OperationSize <- oprSz
-    phlp.IsFar <- true
-    if not hasModRM then
-      (* ptr16:16 or ptr16:32, spelled out in the instruction (9A, EA). *)
-      let addrValue =
-        OperandParsers.parseUnsignedImm span phlp (RegType.toByteWidth sz)
-      let selector = phlp.ReadInt16 span
-      OprDirAddr(Absolute(selector, addrValue, sz))
-    else
-      (* m16:16, m16:32 or m16:64, read through ModRM (FF /3, FF /5). *)
-      OperandParsers.parseMemory modRM span phlp
-
-  /// Parses the register the address-size-dependent operand names.
-  let parseRegAddrOperand (phlp: ParsingHelper) (row: Row) modRM =
-    let sz = phlp.MemEffAddrSize
-    setupOprContext phlp sz sz
-    if row.IsGroupExtension then
-      let rm = Operands.getRM modRM
-      OperandParsers.findRegRmAndSIBBase sz phlp.REXPrefix rm |> Operands.oprReg
-    else
-      let reg = Operands.getReg modRM
-      OperandParsers.findRegRBits sz phlp.REXPrefix reg |> Operands.oprReg
-
-  /// Parses one operand descriptor into a concrete Operand value and updates
-  /// the context so subsequent operands derive the correct width.
-  let parseOperand span (phlp: ParsingHelper) (row: Row) modRM (o: OprSpec) =
-    match o.Kind with
-    | OprKind.RM ->
-      setupOprContext phlp o.Size o.Size
-      OperandParsers.parseMemOrReg modRM span phlp
-    | OprKind.RMTwoWidths ->
-      setupOprContext phlp o.Size o.MemSize
-      OperandParsers.parseMemOrReg modRM span phlp
-    | OprKind.RMBroadcast ->
-      setupOprContext phlp o.Size o.MemSize
-      (* Only the memory form broadcasts. The register form of the same
-         descriptor reads a whole vector, and there EVEX.b names a rounding
-         mode instead, so recording a width for it would claim a broadcast the
-         encoding does not have. *)
-      if Operands.modIsMemory modRM then phlp.BroadcastSize <- o.BcstSize
-      else ()
-      OperandParsers.parseMemOrReg modRM span phlp
-    | OprKind.MemVSIB ->
-      parseVSIBOperand span phlp modRM o.Size
-    | OprKind.Reg ->
-      setupOprContext phlp o.Size o.Size
-      parseRegOperand span phlp modRM row.OpcodeByte o.Size o.Field
-    | OprKind.Mem ->
-      setupOprContext phlp o.Size o.Size
-      OperandParsers.parseMemory modRM span phlp
-    | OprKind.MemFromPrefixes ->
-      setupOprContextFromPrefixes phlp row.SzCond
-      OperandParsers.parseMemory modRM span phlp
-    | OprKind.Imm ->
-      setupOprContextFromPrefixes phlp row.SzCond
-      if row.SignExtendsImm then OperandParsers.parseOprSImm span phlp o.Size
-      else OperandParsers.parseOprImm span phlp o.Size
-    | OprKind.Rel ->
-      setupOprContextFromPrefixes phlp row.SzCond
-      OperandParsers.parseOprForRelJmp span phlp o.Size
-    | OprKind.FixedReg ->
-      setupOprContext phlp o.Size o.Size
-      Operands.oprReg (EnumOfValue o.Value)
-    | OprKind.FixedRegModeWidth ->
-      let reg: Register = EnumOfValue o.Value
-      let sz = RegisterHelper.toRegType phlp.WordSize reg
-      setupOprContext phlp sz sz
-      Operands.oprReg reg
-    | OprKind.STRegRM ->
-      Operands.getRM modRM |> Operands.getSTReg
-    | OprKind.STRegFixed ->
-      Operands.oprReg (EnumOfValue o.Value)
-    | OprKind.BM ->
-      if Operands.modIsReg modRM then
-        OperandParsers.parseBoundRegister (Operands.getRM modRM)
-      else
-        setupOprContext phlp o.Size o.Size
-        OperandParsers.parseMemory modRM span phlp
-    | OprKind.BndReg ->
-      OperandParsers.parseBoundRegister (Operands.getReg modRM)
-    | OprKind.OpMaskReg ->
-      parseOpMaskOperand phlp modRM o.Field
-    | OprKind.KM ->
-      setupOprContext phlp o.Size o.Size
-      if Operands.modIsReg modRM then
-        OperandParsers.parseOpMaskReg (Operands.getRM modRM)
-      else
-        OperandParsers.parseMemory modRM span phlp
-    | OprKind.MMXReg ->
-      shortRegIndex phlp modRM o.Field |> OperandParsers.parseMMXReg
-    | OprKind.MM ->
-      if Operands.modIsReg modRM then
-        OperandParsers.parseMMXReg (Operands.getRM modRM)
-      else
-        setupOprContext phlp o.Size o.Size
-        OperandParsers.parseMemory modRM span phlp
-    | OprKind.FixedImm ->
-      Operands.oprImm (int64 o.Value) row.FixedImmSize
-    | OprKind.Moffs ->
-      setupOprContext phlp o.Size o.Size
-      OperandParsers.parseOprOnlyDisp span phlp
-    | OprKind.CtrlReg ->
-      OperandParsers.sysRegIndex modRM phlp.REXPrefix
-      |> OperandParsers.parseControlReg
-    | OprKind.DebugReg ->
-      OperandParsers.sysRegIndex modRM phlp.REXPrefix
-      |> OperandParsers.parseDebugReg
-    | OprKind.RegAddr ->
-      parseRegAddrOperand phlp row modRM
-    | OprKind.Sreg ->
-      OperandParsers.parseSegReg (Operands.getReg modRM)
-    | OprKind.Far ->
-      parseFarOperand span phlp modRM row.HasModRM o.Size
-    | _ ->
-      failwithf "Unsupported operand type: %A" o.Kind
-
-  /// Reads the ModRM byte where one follows the opcode. The table is the only
-  /// authority on whether it does: reading one that is not there overstates
-  /// the length and swallows the instruction after it, as GETSEC showed.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let readModRM span (phlp: ParsingHelper) (row: Row) =
-    if row.HasModRM then phlp.ReadByte span else 0uy
-
-  /// The width the whole operation runs at. The table settled it wherever it
-  /// could; the rest depends on the ModRM byte, the prefixes or the mode.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let operationSize (phlp: ParsingHelper) modRM (row: Row) =
-    match row.OpWidthKind with
-    | OpWidthKind.Fixed ->
-      row.OpWidth
-    | OpWidthKind.ByModRMForm ->
-      if Operands.modIsReg modRM then row.OpWidth else row.OpWidthMem
-    | OpWidthKind.FixedRegister ->
-      RegisterHelper.toRegType phlp.WordSize row.OpWidthReg
-    | OpWidthKind.EffectiveAddress ->
-      phlp.MemEffAddrSize
-    | _ (* OpWidthKind.FromPrefixes *) ->
-      ParsingHelper.GetEffOprSize(phlp, row.EffSzCond)
-
-  /// Parses a register named by ModRM.reg followed by a register-or-memory
-  /// operand, the way parseOperand would read the two descriptors, without
-  /// asking either descriptor what it is.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let parseRegThenRM span (phlp: ParsingHelper) modRM (row: Row) =
-    let regSz = row.Size0
-    setupOprContext phlp regSz regSz
-    let reg = OperandParsers.findRegReg regSz modRM phlp |> Operands.oprReg
-    let rmSz = row.Size1
-    setupOprContext phlp rmSz rmSz
-    let rm = OperandParsers.parseMemOrReg modRM span phlp
-    Operands.twoOperands reg rm
-
-  /// Parses a register-or-memory operand followed by a register named by
-  /// ModRM.reg, the same way.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let parseRMThenReg span (phlp: ParsingHelper) modRM (row: Row) =
-    let rmSz = row.Size0
-    setupOprContext phlp rmSz rmSz
-    let rm = OperandParsers.parseMemOrReg modRM span phlp
-    let regSz = row.Size1
-    setupOprContext phlp regSz regSz
-    let reg = OperandParsers.findRegReg regSz modRM phlp |> Operands.oprReg
-    Operands.twoOperands rm reg
-
-  /// Parses a register-or-memory operand followed by an immediate, the way
-  /// parseOperand would read the two descriptors.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let parseRMThenImm span (phlp: ParsingHelper) modRM (row: Row) =
-    let rmSz = row.Size0
-    setupOprContext phlp rmSz rmSz
-    let rm = OperandParsers.parseMemOrReg modRM span phlp
-    setupOprContextFromPrefixes phlp row.SzCond
-    let imm =
-      if row.SignExtendsImm then OperandParsers.parseOprSImm span phlp row.Size1
-      else OperandParsers.parseOprImm span phlp row.Size1
-    Operands.twoOperands rm imm
-
-  /// Parses the one operand of a row whose shape is read by code of its own,
-  /// the way parseOperand would read its descriptor.
-  let parseSingleOperand span (phlp: ParsingHelper) modRM (row: Row) =
-    match row.Shape with
-    | OprShape.RMOnly ->
-      let sz = row.Size0
-      setupOprContext phlp sz sz
-      OperandParsers.parseMemOrReg modRM span phlp
-    | OprShape.RelOnly ->
-      setupOprContextFromPrefixes phlp row.SzCond
-      OperandParsers.parseOprForRelJmp span phlp row.Size0
-    | OprShape.RegOpRdOnly ->
-      let sz = row.Size0
-      setupOprContext phlp sz sz
-      OperandParsers.getOprFromRegGrpREX (Operands.getRM row.OpcodeByte) phlp
-    | _ ->
-      parseOperand span phlp row modRM row.OprSpecs[0]
-
-  /// Parses every operand descriptor of the row in order and assembles the
-  /// Operands value. Each parse reads its own bytes and leaves the width the
-  /// next one starts from, so every operand is bound where it is read rather
-  /// than handed to a constructor that says nothing about the order.
-  let parseOperands span phlp (row: Row) modRM =
-    match row.OperandCount with
-    | 2 ->
-      match row.Shape with
-      | OprShape.RegThenRM ->
-        parseRegThenRM span phlp modRM row
-      | OprShape.RMThenReg ->
-        parseRMThenReg span phlp modRM row
-      | OprShape.RMThenImm ->
-        parseRMThenImm span phlp modRM row
-      | _ ->
-        let operandTypes = row.OprSpecs
-        let op1 = parseOperand span phlp row modRM operandTypes[0]
-        let op2 = parseOperand span phlp row modRM operandTypes[1]
-        Operands.twoOperands op1 op2
-    | 1 ->
-      Operands.oneOperand (parseSingleOperand span phlp modRM row)
-    | 3 ->
-      let operandTypes = row.OprSpecs
-      let op1 = parseOperand span phlp row modRM operandTypes[0]
-      let op2 = parseOperand span phlp row modRM operandTypes[1]
-      let op3 = parseOperand span phlp row modRM operandTypes[2]
-      Operands.ThreeOperands(op1, op2, op3)
-    | 4 ->
-      let operandTypes = row.OprSpecs
-      let op1 = parseOperand span phlp row modRM operandTypes[0]
-      let op2 = parseOperand span phlp row modRM operandTypes[1]
-      let op3 = parseOperand span phlp row modRM operandTypes[2]
-      let op4 = parseOperand span phlp row modRM operandTypes[3]
-      Operands.FourOperands(op1, op2, op3, op4)
-    | 0 ->
-      Operands.NoOperand
-    | _ ->
-      failwith "Invalid number of operands."
-
-  /// Carries the broadcast width the operands declared into the EVEX prefix,
-  /// where the lifter and the disassembler can reach it. The prefix bytes are
-  /// read before the operands are, so the field cannot be filled in where the
-  /// rest of the prefix is; nothing but the operand knows how wide one
-  /// broadcast element is. Instructions that broadcast nothing keep the prefix
-  /// they were parsed with.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let recordBroadcastWidth (phlp: ParsingHelper) =
-    if phlp.BroadcastSize = 0<rt> then
-      ()
-    else
-      match phlp.VEXInfo with
-      | Some({ EVEXPrx = Some ePrx } as vInfo) ->
-        let ePrx = { ePrx with BcstElemSize = phlp.BroadcastSize }
-        phlp.VEXInfo <- Some { vInfo with EVEXPrx = Some ePrx }
-      | _ ->
-        ()
-
-  /// Carries which reading EVEX.b took into the EVEX prefix, for the same
-  /// reason the broadcast width goes there: the bit is shared, and only the
-  /// row the matcher settled on says whether it named a rounding mode, an
-  /// exception suppression, or a broadcast. Left alone unless the bit is set
-  /// on a register form, which is the only place the first two can occur.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let recordRoundingDecor (phlp: ParsingHelper) modRM (row: Row) =
-    match phlp.VEXInfo with
-    | Some({ EVEXPrx = Some ePrx } as vInfo) when
-        ePrx.B = 1uy && Operands.modIsReg modRM ->
-      let ePrx = { ePrx with RCDecor = row.RCDecor }
-      phlp.VEXInfo <- Some { vInfo with EVEXPrx = Some ePrx }
-    | _ ->
-      ()
-
-  /// Reads the ModRM byte if required, then parses all operand descriptors
-  /// and returns the assembled Operands value.
-  let parseAllOperands span (phlp: ParsingHelper) (row: Row) =
-    let modRM = readModRM span phlp row
-    phlp.MemEffAddrSize <- ParsingHelper.GetEffAddrSize phlp
-    (* Cleared once here: only a memory operand reads a broadcast width, an
-       instruction has at most one, and the RMBroadcast case sets it. *)
-    phlp.BroadcastSize <- 0<rt>
-    if row.IsFarRet then phlp.IsFar <- true else ()
-    if row.OperandCount = 0 then
-      (* Nothing else sizes an operand-less instruction, yet the lifter still
-         reads OperationSize: auxPop needs it for RET and LEAVE. *)
-      setupOprContextFromPrefixes phlp row.EffSzCond
-      phlp.OperationSize <-
-        if row.IsByteString then 8<rt> else phlp.MemEffOprSize
-      Operands.NoOperand
-    else
-      let operands = parseOperands span phlp row modRM
-      phlp.OperationSize <- operationSize phlp modRM row
-      recordBroadcastWidth phlp
-      recordRoundingDecor phlp modRM row
-      operands
-
-  /// Removes the prefixes the matched instruction consumed as opcode
-  /// selectors, leaving the ones that kept their ordinary meaning.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  let consumePrefixIfNeeded (phlp: ParsingHelper) row =
-    let consumed = consumedPrefixes phlp row
-    phlp.Prefixes <- phlp.Prefixes &&& ~~~consumed
-
-  /// The opcode map a VEX or EVEX prefix selects.
-  let vexMap (vInfo: VEXInfo) =
-    if vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX then
-      match vInfo.VEXType &&& (~~~VEXType.EVEX) with
-      | VEXType.TwoByteOp -> vexMaps[3].Value
-      | VEXType.ThreeByteOpOne -> vexMaps[4].Value
-      | VEXType.ThreeByteOpTwo -> vexMaps[5].Value
-      | VEXType.Map5 -> vexMaps[6].Value
-      | VEXType.Map6 -> vexMaps[7].Value
-      | _ -> raise ParsingFailureException
-    else
-      match vInfo.VEXType with
-      | VEXType.TwoByteOp -> vexMaps[0].Value
-      | VEXType.ThreeByteOpOne -> vexMaps[1].Value
-      | VEXType.ThreeByteOpTwo -> vexMaps[2].Value
-      | _ -> raise ParsingFailureException
+  do ignore reader
 
   member _.SetDisassemblySyntax syntax =
     match syntax with
@@ -738,9 +75,12 @@ type IntelParser(wordSz, reader) =
   member inline private _.IsREXByte(b: byte) =
     is64 && (int b &&& 0b11110000) = 0b01000000
 
-  member inline private this.ParsePrefix(span: ByteSpan, startPos, startPref) =
+  /// Reads the legacy prefixes from startPos on, folding them into pref, and
+  /// returns the position of the first byte that is not one.
+  member inline private this.ParsePrefix(span: ByteSpan,
+                                         startPos,
+                                         pref: Prefix byref) =
     let mutable pos = startPos
-    let mutable pref = startPref
     let mutable b = span[pos]
     while this.IsPrefixByte b do
       match b with
@@ -758,7 +98,6 @@ type IntelParser(wordSz, reader) =
       | _ -> pos <- pos - 1
       pos <- pos + 1
       b <- span[pos]
-    phlp.Prefixes <- pref
     pos
 
   member inline private _.ParseREX(bs: ByteSpan, pos, rex: REXPrefix byref) =
@@ -773,7 +112,7 @@ type IntelParser(wordSz, reader) =
         pos
 
   /// Reads a VEX or EVEX prefix where one sits, or else the escape bytes that
-  /// select a legacy map, whose index into legacyMaps is left in map.
+  /// select a legacy map, whose number is left in map.
   member inline private _.ParseVEX(bs: ByteSpan,
                                    pos,
                                    rex: REXPrefix byref,
@@ -805,6 +144,103 @@ type IntelParser(wordSz, reader) =
     | _ ->
       pos
 
+  /// The REX state the accept masks and the generated code number: none,
+  /// present without W, present with W.
+  member inline private _.REXState(rex: REXPrefix) =
+    if rex = REXPrefix.NOREX then 0
+    elif REXPrefix.hasW rex then 2
+    else 1
+
+  member inline private _.AddrSize(pref: Prefix) =
+    if is64 then (if Prefix.hasAddrSz pref then 32<rt> else 64<rt>)
+    else (if Prefix.hasAddrSz pref then 16<rt> else 32<rt>)
+
+  /// The generated map a VEX or EVEX prefix selects: the VEX maps first, in
+  /// the order VEXType numbers them, then the EVEX ones.
+  member private _.VexMapIndex(vInfo: VEXInfo) =
+    let evex = vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX
+    match vInfo.VEXType &&& (~~~VEXType.EVEX), evex with
+    | VEXType.TwoByteOp, false -> 0
+    | VEXType.ThreeByteOpOne, false -> 1
+    | VEXType.ThreeByteOpTwo, false -> 2
+    | VEXType.TwoByteOp, true -> 3
+    | VEXType.ThreeByteOpOne, true -> 4
+    | VEXType.ThreeByteOpTwo, true -> 5
+    | VEXType.Map5, true -> 6
+    | VEXType.Map6, true -> 7
+    | _ -> raise ParsingFailureException
+
+#if NoDParser
+  (* Built without the generated maps, for the generator that writes them. *)
+  member private _.ParseLegacy(_: ByteSpan,
+                               _: Addr,
+                               _: Prefix,
+                               _: REXPrefix,
+                               _: int,
+                               _: int): IInstruction =
+    raise ParsingFailureException
+
+  member private _.ParseVex(_: ByteSpan,
+                            _: Addr,
+                            _: Prefix,
+                            _: REXPrefix,
+                            _: VEXInfo,
+                            _: VEXInfo option,
+                            _: int): IInstruction =
+    raise ParsingFailureException
+#else
+  /// Parses a legacy (non-VEX) instruction with the generated straight-line
+  /// code (DLegacy), the per-instruction state living on this stack frame.
+  member private this.ParseLegacy(span: ByteSpan, addr, pref, rex, map, pos) =
+    (* The state is zeroed by the frame; only what a legacy instruction reads
+       is written, and the VEX fields stay at their zero. *)
+    let mutable st = Unchecked.defaultof<DOps.DState>
+    st.Pos <- pos + 1
+    st.Pref <- pref
+    st.REX <- rex
+    st.Ctx <- this.REXState rex * 8 + MatchContext.prefState pref
+              + (if is64 then 24 else 0)
+    st.AddrSz <- this.AddrSize pref
+    st.Is64 <- is64
+    st.NoLock <- not (Prefix.hasLock pref)
+    st.Addr <- addr
+    st.Lifter <- lifter
+    DLegacy.parse span &st map (int span[pos]) :> IInstruction
+
+  /// Parses a VEX or EVEX instruction with the generated code (DVex).
+  member private this.ParseVex(span: ByteSpan,
+                               addr,
+                               pref,
+                               rex,
+                               vInfo: VEXInfo,
+                               vex,
+                               pos) =
+    let evexB, aaa, zeroing =
+      match vInfo.EVEXPrx with
+      | Some e -> e.B = 1uy, int e.AAA, e.Z = Zeroing
+      | None -> false, 0, false
+    let mutable st: DOps.DState =
+      { Pos = pos + 1
+        Pref = pref
+        REX = rex
+        Ctx = this.REXState rex * 8 + MatchContext.prefState vInfo.VPrefixes
+              + (if is64 then 24 else 0)
+        AddrSz = this.AddrSize pref
+        Is64 = is64
+        NoLock = not (Prefix.hasLock pref)
+        Addr = addr
+        Lifter = lifter
+        Vex = vex
+        VL = vInfo.VectorLength
+        VVVV = int vInfo.VVVV
+        IsEVEX = vInfo.EVEXPrx.IsSome
+        EvexB = evexB
+        AAA = aaa
+        Zeroing = zeroing }
+    let map = this.VexMapIndex vInfo
+    DVex.parse span &st map (int span[pos]) :> IInstruction
+#endif
+
   interface IInstructionParsable with
     member _.MaxInstructionSize = 15
 
@@ -815,10 +251,11 @@ type IntelParser(wordSz, reader) =
 
     member this.Parse(span: ByteSpan, addr) =
       try
+        let mutable pref = Prefix.None
         let mutable rex = REXPrefix.NOREX
         let mutable vex = None
         let mutable map = 0
-        let mutable prefEndPos = this.ParsePrefix(span, 0, Prefix.None)
+        let mutable prefEndPos = this.ParsePrefix(span, 0, &pref)
         let mutable rexEndPos = this.ParseREX(span, prefEndPos, &rex)
         (* SDM Vol 2A 2.2.1: a REX prefix has to sit immediately before the
            opcode, so one that another prefix follows is ignored and the scan
@@ -828,35 +265,12 @@ type IntelParser(wordSz, reader) =
               && (this.IsPrefixByte(span[rexEndPos])
                   || this.IsREXByte(span[rexEndPos])) do
           rex <- REXPrefix.NOREX
-          prefEndPos <- this.ParsePrefix(span, rexEndPos, phlp.Prefixes)
+          prefEndPos <- this.ParsePrefix(span, rexEndPos, &pref)
           rexEndPos <- this.ParseREX(span, prefEndPos, &rex)
-        let nextPos = this.ParseVEX(span, rexEndPos, &rex, &vex, &map)
-        phlp.IsFar <- false
-        phlp.InsAddr <- addr
-        phlp.REXPrefix <- rex
-        (* A reference store costs a GC write barrier; None over None does
-           not have to be stored, and that is nearly every instruction. *)
-        if vex.IsSome || phlp.VEXInfo.IsSome then phlp.VEXInfo <- vex else ()
-        phlp.CurrPos <- nextPos
-#if LCACHE
-        phlp.MarkPrefixEnd(prefEndPos)
-#endif
-        let b = int (phlp.ReadByte span)
-        (* The ModRM byte, where the bytes reach that far: the digit it
-           carries picks the rows in play, and the rows then test it. *)
-        let modRM =
-          if phlp.CurrPos < span.Length then span[phlp.CurrPos] else 0uy
-        let digit = Operands.getReg modRM
-        let head =
-          match vex with
-          | Some vInfo -> (vexMap vInfo)[(b <<< 3) ||| digit]
-          | None -> legacyMaps[(map <<< 11) ||| (b <<< 3) ||| digit]
-        let row = selectInstrVariant phlp modRM head
-        (* Only an EVEX displacement reads the tuple type. *)
-        if vex.IsSome then phlp.TupleType <- row.TupleType else ()
-        let operands = parseAllOperands span phlp row
-        consumePrefixIfNeeded phlp row
-        newInstruction phlp row.Opcode operands :> IInstruction
+        let pos = this.ParseVEX(span, rexEndPos, &rex, &vex, &map)
+        match vex with
+        | None -> this.ParseLegacy(span, addr, pref, rex, map, pos)
+        | Some vInfo -> this.ParseVex(span, addr, pref, rex, vInfo, vex, pos)
       with e when not (Terminator.isCritical e) ->
         raise ParsingFailureException
 

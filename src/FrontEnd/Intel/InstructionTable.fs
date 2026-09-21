@@ -1146,40 +1146,85 @@ module internal InstructionTable =
   let private evexMap6Rows =
     lazy (buildTable (OpcodeClass.EVEX MAP6) InstructionArrays.evexMap6)
 
+  /// Returns true when the two rows put the same questions to an encoding
+  /// beyond its REX and mandatory-prefix state: the same ModRM constraint and
+  /// the same rare constraints (see Parser.matchRareConstraints). Of two such
+  /// rows, the one the parser reaches first answers every encoding whose
+  /// state both accept, so the later one is never picked for those states.
+  let private asksTheSame vexPresent (a: Row) (b: Row) =
+    a.MatchWord = b.MatchWord
+    && a.VectorLength = b.VectorLength
+    && a.RCDecor = b.RCDecor
+    && a.IsE3 = b.IsE3
+    && (not a.IsE3 || a.Opcode = b.Opcode)
+    && a.IsPlainNop = b.IsPlainNop
+    && a.UsesVSIB = b.UsesVSIB
+    && a.LockableDest = b.LockableDest
+    && a.HasMemoryDest = b.HasMemoryDest
+    && a.DestIsMaskReg = b.DestIsMaskReg
+    && a.DestRegCanBeMasked = b.DestRegCanBeMasked
+    (* The legacy 66h ahead of a VEX prefix is asked about under VEX alone. *)
+    && (vexPresent = 0 || a.Requires66h = b.Requires66h)
+    && a.SlotDeclaresRC = b.SlotDeclaresRC
+
+  /// The accept masks of the rows in the given mode, each stripped of the
+  /// states an earlier row that asks the same questions already claims. The
+  /// table lists the 16-bit MOV ahead of the 32-bit one and gives the 32-bit
+  /// row every state, so that 66h picks the 16-bit row by order alone; taking
+  /// the 16-bit row's states out of the 32-bit row's mask changes no answer
+  /// and leaves the two rows free to change places, which orderForMode then
+  /// does. Without this, in 32-bit code nearly every instruction found its
+  /// row second.
+  let private claimedAccepts is64 vexPresent (rows: Row[]) =
+    let accepts =
+      rows |> Array.map (fun r -> if is64 then r.Accept64 else r.Accept32)
+    for j in 1 .. rows.Length - 1 do
+      for i in 0 .. j - 1 do
+        if asksTheSame vexPresent rows[i] rows[j] then
+          accepts[j] <- accepts[j] &&& ~~~accepts[i]
+        else
+          ()
+    accepts
+
   /// Returns true when some encoding could match both rows in the given mode,
   /// which is when their accept masks intersect. Two rows that no encoding
   /// matches both of may change places without changing which row answers
   /// any instruction.
-  let private mayShareEncoding is64 (a: Row) (b: Row) =
-    if is64 then a.Accept64 &&& b.Accept64 <> 0UL
-    else a.Accept32 &&& b.Accept32 <> 0UL
+  let private mayShareEncoding (accepts: uint64[]) i j =
+    accepts[i] &&& accepts[j] <> 0UL
 
-  /// The rows in an order that puts those answering the plainest state, no
-  /// REX, no VEX and none of 66h, F3h and F2h, ahead of those that do not,
-  /// moving a row only past rows it shares no encoding with. The first row the
-  /// parser tries is then the one most instructions want, while the table's
-  /// order still decides wherever it could matter: the 16-bit form of MOV
-  /// sits ahead of the 32-bit one in the table, and every 32-bit MOV had to
-  /// be refused it first.
-  let private orderForMode is64 (rows: Row[]) =
-    let plainBit = 1UL <<< MatchContext.index 0 0 0
-    let answersPlain (r: Row) =
-      (if is64 then r.Accept64 else r.Accept32) &&& plainBit <> 0UL
-    let rows = Array.copy rows
+  /// How early the parser should try a row: those answering the plainest
+  /// state, no REX and none of 66h, F3h and F2h, come first; those answering
+  /// a REX.W with no other prefix, which is most of the rest of 64-bit code,
+  /// come next; the others follow.
+  let private rank vexPresent (accepts: uint64[]) i =
+    let plain = 1UL <<< MatchContext.index 0 vexPresent 0
+    let rexW = 1UL <<< MatchContext.index 2 vexPresent 0
+    if accepts[i] &&& plain <> 0UL then 0
+    elif accepts[i] &&& rexW <> 0UL then 1
+    else 2
+
+  /// The rows in an order that puts those the parser should try early (see
+  /// rank) ahead of those it should not, moving a row only past rows it
+  /// shares no encoding with. The first row the parser tries is then the one
+  /// most instructions want, while the table's order still decides wherever
+  /// it could matter. The rows and their accept masks move together.
+  let private orderForMode vexPresent (rows: Row[]) (accepts: uint64[]) =
     let mutable swapped = true
     while swapped do
       swapped <- false
       for i in 0 .. rows.Length - 2 do
-        if not (answersPlain rows[i])
-           && answersPlain rows[i + 1]
-           && not (mayShareEncoding is64 rows[i] rows[i + 1]) then
+        if rank vexPresent accepts i > rank vexPresent accepts (i + 1)
+           && not (mayShareEncoding accepts i (i + 1)) then
           let row = rows[i]
           rows[i] <- rows[i + 1]
           rows[i + 1] <- row
+          let accept = accepts[i]
+          accepts[i] <- accepts[i + 1]
+          accepts[i + 1] <- accept
           swapped <- true
         else
           ()
-    rows
 
   /// The rows of one list, copied and chained through Next in the order the
   /// given mode reads them, or null for an empty list. A row sits in up to
@@ -1187,28 +1232,28 @@ module internal InstructionTable =
   /// copies of its own; copies of a row are the same row for every purpose
   /// but their place in a chain and the mode's accept mask they carry. Lists
   /// that are the same array are chained once and shared.
-  let private chain is64 (shared: Dictionary<Row[], Row>) (rows: Row[]) =
+  let private chain is64 vexPresent (shared: Dictionary<Row[], Row>) rows =
     match shared.TryGetValue rows with
     | true, head ->
       head
     | _ ->
-      let ordered = orderForMode is64 rows
+      let ordered: Row[] = Array.copy rows
+      let accepts = claimedAccepts is64 vexPresent rows
+      orderForMode vexPresent ordered accepts
       let mutable next = Unchecked.defaultof<Row>
       for i = ordered.Length - 1 downto 0 do
-        let row = ordered[i]
-        let accept = if is64 then row.Accept64 else row.Accept32
-        next <- { row with Accept = accept; Next = next }
+        next <- { ordered[i] with Accept = accepts[i]; Next = next }
       shared[rows] <- next
       next
 
   /// One opcode map as the parser reads it: the first row in play for each
   /// opcode byte and ModRM.reg digit, the rest chained behind it.
-  let private chains is64 (tables: Row[][][]) =
+  let private chains is64 vexPresent (tables: Row[][][]) =
     let shared = Dictionary<Row[], Row>(HashIdentity.Reference)
     let result = Array.zeroCreate (tables.Length * 2048)
     for t in 0 .. tables.Length - 1 do
       for i in 0 .. 2047 do
-        result[t * 2048 + i] <- chain is64 shared (tables[t][i])
+        result[t * 2048 + i] <- chain is64 vexPresent shared (tables[t][i])
     result
 
   /// The four legacy maps end to end, so that the parser reaches a slot of
@@ -1216,8 +1261,9 @@ module internal InstructionTable =
   /// above the opcode byte and the digit. One copy per mode, each ordered
   /// for it.
   let private legacy is64 =
-    chains is64
+    let maps =
       [| norOne.Value; norTwo.Value; norThree38.Value; norThree3A.Value |]
+    chains is64 0 maps
 
   /// The legacy maps as a 32-bit parser reads them.
   let legacy32 = lazy (legacy false)
@@ -1231,14 +1277,14 @@ module internal InstructionTable =
   /// built the first time a prefix selects it: a process rarely meets more
   /// than two of the eight.
   let private vex is64 =
-    [| lazy (chains is64 [| vexTwoRows.Value |])
-       lazy (chains is64 [| vexThree38Rows.Value |])
-       lazy (chains is64 [| vexThree3ARows.Value |])
-       lazy (chains is64 [| evexTwoRows.Value |])
-       lazy (chains is64 [| evexThree38Rows.Value |])
-       lazy (chains is64 [| evexThree3ARows.Value |])
-       lazy (chains is64 [| evexMap5Rows.Value |])
-       lazy (chains is64 [| evexMap6Rows.Value |]) |]
+    [| lazy (chains is64 1 [| vexTwoRows.Value |])
+       lazy (chains is64 1 [| vexThree38Rows.Value |])
+       lazy (chains is64 1 [| vexThree3ARows.Value |])
+       lazy (chains is64 1 [| evexTwoRows.Value |])
+       lazy (chains is64 1 [| evexThree38Rows.Value |])
+       lazy (chains is64 1 [| evexThree3ARows.Value |])
+       lazy (chains is64 1 [| evexMap5Rows.Value |])
+       lazy (chains is64 1 [| evexMap6Rows.Value |]) |]
 
   /// The VEX and EVEX maps as a 32-bit parser reads them, each built when
   /// first asked for.

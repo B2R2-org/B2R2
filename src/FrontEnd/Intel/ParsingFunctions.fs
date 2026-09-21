@@ -134,22 +134,4 @@ let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
     VPrefixes = getVPrefs b2
     EVEXPrx = e }
 
-let inline newInstruction (phlp: ParsingHelper) opcode oprs =
-  let packed =
-    Instruction.Pack(uint32 (phlp.ParsedLen()),
-                     phlp.WordSize,
-                     phlp.Prefixes,
-                     phlp.REXPrefix,
-                     opcode,
-                     phlp.OperationSize,
-                     phlp.MemEffAddrSize,
-                     phlp.IsFar)
-  Instruction(phlp.InsAddr, packed, phlp.VEXInfo, oprs, phlp.Lifter)
-
-/// Some instructions use 66/F2/F3 prefix as a mandatory prefix. When both
-/// VEX.pp and old-style prefix are used, the VEX.pp is used to select the
-/// opcodes. But if VEX.pp does not exist, then we have to use the old-style
-/// prefix, and we have to filter out the prefixes because they are not going
-/// to be used as a normal prefixes. They will only be used as a mandatory
-/// prefix to decide the opcode.
-let inline filterPrefs (prefix: Prefix) = prefix &&& Prefix.ClearVEXPrefMask
+// vim: set tw=80 sts=2 sw=2:
