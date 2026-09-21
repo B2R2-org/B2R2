@@ -27,6 +27,7 @@ and the feature fixtures are hand-crafted to isolate one parser capability.
 | `mach_i386_dyldinfo` | 32-bit `LC_DYLD_INFO_ONLY`: rebase and bind over four-byte pointers. |
 | `mach_i386_reloc` | 32-bit relocations x86-64 never produces: scattered, PC-relative, plain external. |
 | `mach_arm32_thumb` | ARMv7 mixing A32 and T32, with `LC_DATA_IN_CODE` and an absolute symbol. |
+| `mach_arm32_datamix` | ARMv7 whose `LC_DATA_IN_CODE` ranges sit ahead of every symbol, exactly on one, between two and past the last. |
 | `mach_x64_extreloc` | A non-PIE dylib relocated through the `LC_DYSYMTAB` external and local tables. |
 | `mach_x64_multichain` | A fixup page holding two chains, reached through `DYLD_CHAINED_PTR_START_MULTI`. |
 | `mach_x64_codesign` | A dylib carrying an ad-hoc code signature: a superblob with a code directory, an entitlements plist and a CMS blob. |
@@ -41,7 +42,7 @@ DWARF CFI (x64, needs a register factory) and Apple compact unwind (arm64).
 
 ## The fixtures that clang cannot build
 
-Fourteen fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
+Fifteen fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
 because no current toolchain produces them. An assembler always lays down
 `__text` even when nothing goes in it and ld64 keeps the empty section, so a
 data-only object cannot be compiled; ld64 stopped emitting `LC_UNIXTHREAD` long
@@ -63,7 +64,7 @@ which is far too much to keep as a fixture and names a signer that expires.
 Each function in the script says what its fixture is for.
 
 ```bash
-python3 make_fixtures.py           # rewrite the 14 archives
+python3 make_fixtures.py           # rewrite the 15 archives
 python3 make_fixtures.py --check   # confirm the archives match the script
 ```
 

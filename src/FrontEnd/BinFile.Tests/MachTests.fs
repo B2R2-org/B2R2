@@ -136,6 +136,11 @@ type MachTests() =
   static let arm32ThumbFile =
     parseFile "mach_arm32_thumb" Architecture.ARMv7 WordSize.Bit32
 
+  /// An ARMv7 executable whose LC_DATA_IN_CODE ranges sit either side of the
+  /// symbols naming the encoding around them.
+  static let arm32DataMixFile =
+    parseFile "mach_arm32_datamix" Architecture.ARMv7 WordSize.Bit32
+
   /// A non-PIE dylib whose relocations live in the external and local tables
   /// of LC_DYSYMTAB rather than hanging off its sections.
   static let x64ExtRelocFile =
@@ -894,6 +899,29 @@ type MachTests() =
          0x10d0UL, DataMode
          0x10d8UL, ArmMode
          0x10e0UL, ThumbMode |]
+    CollectionAssert.AreEqual(expected, actual)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM32 data range resumes the enclosing mode test``() =
+    (* A data range resumes in the encoding the nearest symbol at or before it
+       names, and in the fallback where no symbol precedes it at all. A range
+       opening exactly where a symbol does takes that symbol's encoding, which
+       is marked ahead of the range itself. *)
+    let markers =
+      (arm32DataMixFile :> IBinFile).SymbolTable.Value.CodeModeMarkers
+    let actual = markers |> Array.map (fun m -> m.Address, m.Mode)
+    let expected =
+      [| 0x10c0UL, DataMode
+         0x10c4UL, ArmMode
+         0x10d0UL, ArmMode
+         0x10f0UL, ThumbMode
+         0x10f0UL, DataMode
+         0x10f4UL, ThumbMode
+         0x1100UL, DataMode
+         0x1104UL, ThumbMode
+         0x1110UL, ArmMode
+         0x1120UL, DataMode
+         0x1124UL, ArmMode |]
     CollectionAssert.AreEqual(expected, actual)
 
   [<TestMethod>]
