@@ -35,9 +35,15 @@ type internal SymbolStore =
   { /// All symbols in symbol-table order (indexable by relocation symbolnum).
     SymbolArray: Symbol[]
     /// Address to symbol mapping.
-    SymbolMap: Dictionary<Addr, Symbol>
+    SymbolMap: SlotMap
     /// Imported symbols.
     Imports: BinImport[] }
+
+/// Represents a map from the address of a slot to the symbol that slot names,
+/// which is how the stub and the pointer tables of an image are read. A large
+/// image fills thousands of such slots, so the lookup is a hashed one rather
+/// than a tree walk.
+and internal SlotMap = Dictionary<Addr, Symbol>
 
 module internal SymbolStore =
   let [<Literal>] private IndirectSymbolLocal = 0x80000000
@@ -170,74 +176,94 @@ module internal SymbolStore =
   let private isUndefinedEntry entry =
     entry = IndirectSymbolLocal || entry = IndirectSymbolABS
 
-  /// Adds the symbol that the indirect table names for one slot. The map is
-  /// left alone where the entry is a local or absolute placeholder, and where
+  /// Returns the symbol that the indirect table names at the given index, or
+  /// None where the entry is a local or absolute placeholder, and where
   /// either table is shorter than the section claims it to be.
-  let private addSymbStub map (symbols: _[]) (dynsymtbl: _[]) sec idx len =
-    let at = sec.SecReserved1 + idx
+  let private tryGetSlotSymbol (symbols: _[]) (dynsymtbl: _[]) at =
     if at < 0 || at >= dynsymtbl.Length then
-      map
+      ValueNone
     else
       let entry = dynsymtbl[at]
       if isUndefinedEntry entry || entry < 0 || entry >= symbols.Length then
-        map
+        ValueNone
       else
-        Map.add (sec.SecAddr + uint64 (idx * len)) symbols[entry] map
+        ValueSome symbols[entry]
 
-  let rec private parseSymbStub map symbols dynsymtbl sec idx len cnt =
-    if cnt = 0UL then
-      map
-    else
-      let map' = addSymbStub map symbols dynsymtbl sec idx len
-      parseSymbStub map' symbols dynsymtbl sec (idx + 1) len (cnt - 1UL)
+  /// Adds every slot of one indirect section to the map, at the address the
+  /// slot sits at.
+  let private addSlots (map: SlotMap) symbols dynsymtbl sec len cnt =
+    for idx = 0 to cnt - 1 do
+      match tryGetSlotSymbol symbols dynsymtbl (sec.SecReserved1 + idx) with
+      | ValueSome symbol -> map[sec.SecAddr + uint64 (idx * len)] <- symbol
+      | ValueNone -> ()
 
   /// __stubs section is similar to PLT in ELF.
   let private parseSymbolStubs secs symbols dynsymtbl =
-    let folder acc sec =
+    let map = SlotMap()
+    for sec in secs do
       match sec.SecType with
       | SectionType.S_SYMBOL_STUBS when sec.SecReserved2 > 0 ->
         let entryLen = sec.SecReserved2
-        let entryCnt = sec.SecSize / uint64 entryLen
-        parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
+        let entryCnt = int (sec.SecSize / uint64 entryLen)
+        addSlots map symbols dynsymtbl sec entryLen entryCnt
       | _ ->
-        acc
-    secs |> Array.fold folder Map.empty
+        ()
+    map
 
   /// Symbol pointers are similar to GOT in ELF.
   let private parseSymbolPtrs macHdr secs symbols dynsymtbl =
-    let folder acc sec =
+    let map = SlotMap()
+    let entryLen = WordSize.toByteWidth macHdr.Class
+    for sec in secs do
       match sec.SecType with
       | SectionType.S_LAZY_SYMBOL_POINTERS
       | SectionType.S_NON_LAZY_SYMBOL_POINTERS ->
-        let entryLen = WordSize.toByteWidth macHdr.Class
-        let entryCnt = sec.SecSize / uint64 entryLen
-        parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
+        let entryCnt = int (sec.SecSize / uint64 entryLen)
+        addSlots map symbols dynsymtbl sec entryLen entryCnt
       | _ ->
-        acc
-    secs |> Array.fold folder Map.empty
+        ()
+    map
 
   let getSymbolLibName symbol =
     match symbol.VerInfo with
     | None -> ""
     | Some v -> v.DyLibName
 
+  /// Maps each symbol name to the stub that calls it. A name reached by more
+  /// than one stub keeps the one at the highest address.
+  let private buildStubNameMap (stubs: SlotMap) =
+    let nameMap = Dictionary<string, Addr>()
+    for KeyValue(addr, symbol) in stubs do
+      match nameMap.TryGetValue symbol.SymName with
+      | true, prev when prev > addr -> ()
+      | _ -> nameMap[symbol.SymName] <- addr
+    nameMap
+
+  /// Returns the entries of a slot map in address order, which is the order a
+  /// reader expects the tables of an image to be listed in.
+  let private inAddrOrder (map: SlotMap) =
+    map |> Seq.sortBy (fun (KeyValue(addr, _)) -> addr)
+
   let private createImports stubs ptrtbls =
-    let nameMap = Map.fold (fun m a s -> Map.add s.SymName a m) Map.empty stubs
-    [| for KeyValue(addr, symbol) in ptrtbls do
-         match Map.tryFind symbol.SymName nameMap with
-         | Some stubAddr ->
+    let nameMap = buildStubNameMap stubs
+    [| for KeyValue(addr, symbol) in inAddrOrder ptrtbls do
+         match nameMap.TryGetValue symbol.SymName with
+         | true, stubAddr ->
            { Name = symbol.SymName
              LibraryName = getSymbolLibName symbol
              TrampolineAddress = Some stubAddr
              TableAddress = addr }
-         | None ->
+         | false, _ ->
            () |]
 
-  let private buildSymbolMap stubs ptrtbls staticsymbs =
-    let dict = Dictionary<Addr, Symbol>()
-    Map.iter (fun k v -> dict[k] <- v) stubs
-    Map.iter (fun k v -> dict[k] <- v) ptrtbls
-    Array.iter (fun s -> dict[s.SymAddr] <- s) staticsymbs
+  let private buildSymbolMap (stubs: SlotMap) (ptrtbls: SlotMap) staticsymbs =
+    let dict = SlotMap()
+    for KeyValue(addr, symbol) in stubs do
+      dict[addr] <- symbol
+    for KeyValue(addr, symbol) in ptrtbls do
+      dict[addr] <- symbol
+    for symbol in staticsymbs do
+      dict[symbol.SymAddr] <- symbol
     dict
 
   let parse toolBox cmds secs =
