@@ -1327,7 +1327,7 @@ module ActionMetadata =
       ActionRole.Sink
       100
       "print -> Unit"
-      []
+      [ "value |> @print" ]
       [ syntax None [] ]
 
   let private slice =
@@ -1583,10 +1583,8 @@ module ActionRegistry =
   let private applicableActions kind actions =
     actions
     |> List.filter (fun registered ->
-      registered.Metadata.ID <> "print"
-      && (ActionMetadata.acceptedInputs registered.Metadata
-          |> List.exists (fun input ->
-            ReplValueKind.isCompatible kind input)))
+      ActionMetadata.acceptedInputs registered.Metadata
+      |> List.exists (fun input -> ReplValueKind.isCompatible kind input))
 
   let private fromMap actions =
     let all = sortActions actions

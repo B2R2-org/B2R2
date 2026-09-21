@@ -98,6 +98,15 @@ type ReplParserTests() =
       Assert.Fail "Expected command evaluation to continue."
       registry, state
 
+  let evaluateOutput registry state input =
+    match TransformerReplEvaluator.evaluateCommand
+            registry state input CancellationToken.None with
+    | Continue(registry, state, output) ->
+      registry, state, output
+    | Exit _ ->
+      Assert.Fail "Expected command evaluation to continue."
+      registry, state, ReplOutput.ofLines []
+
   [<TestMethod>]
   member _.``Pipeline parser preserves stage and argument boundaries``() =
     let input =
@@ -301,6 +310,23 @@ type ReplParserTests() =
         "target |> @mem read addr="
     StringAssert.Contains(hint, "@mem read")
     assertDoesNotContain "@mem write" hint
+
+  [<TestMethod>]
+  member _.``Print action renders a pipeline result``() =
+    let registry, state =
+      evaluate
+        registry.Value
+        TransformerReplState.empty
+        "let target = @load hex=90c3 isa=x86-64"
+    let _, _, shown =
+      evaluateOutput registry state ":show target |> @disasm"
+    let _, _, printed =
+      evaluateOutput registry state "target |> @disasm |> @print"
+    Assert.AreEqual<string list>(shown.Lines, printed.Lines)
+    Assert.AreEqual<string list>(
+      shown.FullLines.Force(),
+      printed.FullLines.Force()
+    )
 
   [<TestMethod>]
   member _.``Completion suggests observed addresses with latest sources``() =

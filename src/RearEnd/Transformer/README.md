@@ -68,7 +68,7 @@ let matches =
   target
   |> @slice section=.text
   |> @grep pattern=837d..63 before=0 after=50
-:show matches
+matches |> @print
 ```
 
 Names refer to previously retained values.  Arguments have the form
@@ -81,7 +81,7 @@ name in a final parameter expression.  `iteri` additionally supplies a
 zero-based index.
 
 ```
-:show matches |> iter @disasm
+matches |> iter @disasm |> @print
 matches |> iter @strings (fun item -> min=4)
 ```
 
@@ -96,7 +96,6 @@ REPL commands
 | Command | Purpose |
 | --- | --- |
 | `:actions` | List registered actions and their usage forms. |
-| `:show [name or expression]` | Display a retained value or evaluate and display an expression. |
 | `:type [name or expression]` | Display an inferred REPL value kind. |
 | `:inspect [name]` | List functions and sections of a binary value. |
 | `:needs <context> [k=v]` | Show the concrete context required for execution. |
@@ -147,7 +146,7 @@ source action.
 | `@dot` | none | Render one control-flow graph as DOT text. |
 | `@count` | none | Count collection elements. |
 | `@pick` | `index=<n>` | Select a zero-based collection element. |
-| `@print` | none | Print a value. |
+| `@print` | none | Display the value received from a pipeline. |
 | `@write` | `path=<path>` | Write text, text artifacts, or instructions to a file. |
 
 ### Comparison and fingerprints

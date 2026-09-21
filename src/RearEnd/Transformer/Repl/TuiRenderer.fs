@@ -1004,7 +1004,7 @@ module TransformerTuiRenderer =
     fit width (" " + f1 + "  " + f4 + " ")
 
   let private centerPad width (text: string) =
-    let text = if text.Length > width then text[.. width - 1] else text
+    let text = if text.Length > width then text[..width - 1] else text
     let extra = width - text.Length
     let left = extra / 2
     String.replicate left " " + text + String.replicate (extra - left) " "
@@ -1034,11 +1034,11 @@ module TransformerTuiRenderer =
         plain.PadRight(startCol + boxWidth)
       else
         plain
-    let left = plain[.. startCol - 1]
-    let right = plain[startCol + boxWidth ..]
+    let left = plain[..startCol - 1]
+    let right = plain[startCol + boxWidth..]
     clearLine + left + boxContent + right + reset
 
-  let private overlayMessageBox width height (model: TransformerTuiModel) lines =
+  let private overlayMessageBox width height model lines =
     if model.Overlay <> TuiOverlay.Message then
       lines
     else
@@ -1051,7 +1051,9 @@ module TransformerTuiRenderer =
       |> List.iteri (fun offset boxRow ->
         let row = startRow + offset
         if row < Array.length lines then
-          lines[row] <- overwriteColumns startCol boxWidth boxRow lines[row])
+          lines[row] <- overwriteColumns startCol boxWidth boxRow lines[row]
+        else
+          ())
       lines
 
   let viewScrollOffset width height model =

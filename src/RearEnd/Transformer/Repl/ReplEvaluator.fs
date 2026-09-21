@@ -70,6 +70,9 @@ module TransformerReplEvaluator =
       Arguments: string list
       Assignments: (ActionArgument * string) list option }
 
+  type private PrintedValue =
+    { Values: ReplValue list }
+
   let private formatKind kind = ReplValueKind.toString kind
 
   let private normalizePath (path: string) =
@@ -684,6 +687,34 @@ module TransformerReplEvaluator =
         body
     lines |> List.collect (normalizeDisplayLine mode)
 
+  let private renderPrintedValue mode value =
+    let value: ReplValue = value
+    let values = value.Collection.Values
+    let visible = values |> truncateByMode mode |> Seq.toArray
+    let body =
+      visible
+      |> Array.mapi (fun index item ->
+        let lines = renderObject mode None item
+        if value.IsCollection then
+          $"  value #{index}:" :: indentDisplay 4 lines
+        else
+          lines)
+      |> Array.toList
+      |> List.collect id
+    let omitted = values.Length - visible.Length
+    let body =
+      if omitted > 0 then body @ [ omittedLine omitted ] else body
+    let lines =
+      if value.IsCollection then
+        $"{typeDescription value} ({values.Length} values)" :: body
+      else
+        body
+    lines |> List.collect (normalizeDisplayLine mode)
+
+  let private renderPrintResult mode result =
+    let result: PrintedValue = result
+    result.Values |> List.collect (renderPrintedValue mode)
+
   let private outputLines lines =
     ReplOutput.ofLines lines
 
@@ -691,11 +722,21 @@ module TransformerReplEvaluator =
     ReplOutput.ofLazy (renderValue Preview value)
       (lazy (renderValue Full value))
 
+  let private outputPrintResult result =
+    ReplOutput.ofLazy (renderPrintResult Preview result)
+      (lazy (renderPrintResult Full result))
+
+  let private continueOutput registry state output =
+    Continue(registry, state, output)
+
   let private continueWith registry state lines =
-    Continue(registry, state, outputLines lines)
+    continueOutput registry state (outputLines lines)
 
   let private continueValue registry state value =
-    Continue(registry, state, outputValue value)
+    continueOutput registry state (outputValue value)
+
+  let private continuePrintResult registry state result =
+    continueOutput registry state (outputPrintResult result)
 
   let private describeValue name value =
     let count = value.Collection.Values.Length
@@ -1546,6 +1587,48 @@ module TransformerReplEvaluator =
     | error ->
       Error error.Message
 
+  let private printedResult values =
+    let printed: PrintedValue = { Values = values }
+    { Kind = ReplValueKind.Unit
+      IsCollection = false
+      Collection = { Values = [| box printed |] } }
+
+  let private tryGetPrintedValue (value: ReplValue) =
+    match value.Kind, value.Collection.Values with
+    | ReplValueKind.Unit, [| :? PrintedValue as printed |] ->
+      Some printed
+    | _ ->
+      None
+
+  let private combinePrintedValues
+    (outputKinds: ResizeArray<ReplValueKind>)
+    (outputValues: obj[]) =
+    let arePrintedValues =
+      outputValues.Length > 0
+      && (outputValues |> Array.forall (fun value -> value :? PrintedValue))
+    if outputKinds.Count = 0 && arePrintedValues then
+      outputValues
+      |> Array.collect (fun value ->
+        let printed = unbox<PrintedValue> value
+        printed.Values |> List.toArray)
+      |> Array.toList
+      |> printedResult
+      |> Some
+    else
+      None
+
+  let private completeIter
+    (output: ResizeArray<obj>)
+    (outputKinds: ResizeArray<ReplValueKind>) =
+    let outputValues = output.ToArray()
+    match combinePrintedValues outputKinds outputValues with
+    | Some value ->
+      value
+    | None ->
+      let kind = outputKinds |> Seq.toList |> iterOutputKind
+      let collection: ObjCollection = { Values = outputValues }
+      ReplValue.ofCollection kind collection
+
   let rec private invoke
     registry
     state
@@ -1555,7 +1638,11 @@ module TransformerReplEvaluator =
     cancellationToken =
     let metadata = registered.Metadata
     if metadata.ID = "print" then
-      Error "The print action is unavailable in the REPL; use :show instead."
+      match segment.Arguments with
+      | [] ->
+        printedResult [ input ] |> Ok
+      | _ ->
+        Error "print does not accept arguments."
     elif not (ReplTypeAnalysis.acceptsInput input.Kind metadata) then
       actionInputError input metadata |> Error
     else
@@ -1585,10 +1672,13 @@ module TransformerReplEvaluator =
     (output: ResizeArray<obj>)
     (outputKinds: ResizeArray<ReplValueKind>)
     (value: ReplValue) =
-    if value.Kind <> ReplValueKind.Unit then
+    match tryGetPrintedValue value with
+    | Some printed ->
+      output.Add(box printed)
+    | None when value.Kind <> ReplValueKind.Unit ->
       outputKinds.Add value.Kind
       output.AddRange value.Collection.Values
-    else
+    | None ->
       ()
 
   and private invokeIterItem
@@ -1639,9 +1729,7 @@ module TransformerReplEvaluator =
           let values = input.Collection.Values
           let rec loop index =
             if index >= values.Length then
-              let kind = outputKinds |> Seq.toList |> iterOutputKind
-              let collection = { Values = output.ToArray() }
-              ReplValue.ofCollection kind collection |> Ok
+              completeIter output outputKinds |> Ok
             else
               cancellationToken.ThrowIfCancellationRequested()
               let item = values[index]
@@ -1946,19 +2034,27 @@ module TransformerReplEvaluator =
           TransformerReplState.setValue binding value state
           |> observePipelineValue registry segments value
           |> TransformerReplState.recordReplayCommand command
-        let output =
-          if includeSuggestions then
-            describeValue binding value :: suggestions registry value.Kind
-          else
-            [ describeValue binding value ]
-        continueWith registry state output
+        match tryGetPrintedValue value with
+        | Some printed ->
+          continuePrintResult registry state printed
+        | None ->
+          let output =
+            if includeSuggestions then
+              describeValue binding value :: suggestions registry value.Kind
+            else
+              [ describeValue binding value ]
+          continueWith registry state output
 
   let private show registry state name =
     match selectValue name state with
     | Error message ->
       fail registry state message
     | Ok(_, value) ->
-      continueValue registry state value
+      match tryGetPrintedValue value with
+      | Some printed ->
+        continuePrintResult registry state printed
+      | None ->
+        continueValue registry state value
 
   let private showExpression registry state segments cancellationToken =
     match runPipeline registry state segments cancellationToken with
@@ -1966,7 +2062,11 @@ module TransformerReplEvaluator =
       fail registry state message
     | Ok value ->
       let state = observePipelineValue registry segments value state
-      continueValue registry state value
+      match tryGetPrintedValue value with
+      | Some printed ->
+        continuePrintResult registry state printed
+      | None ->
+        continueValue registry state value
 
   let private showType registry state name =
     match selectValue name state with

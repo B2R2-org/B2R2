@@ -84,7 +84,7 @@ type PrintAction() =
     member _.Signature with get() = "'a -> unit"
     member _.Description with get() =
       """
-    Take in an input object and print out its value.
+    Display the value received from a pipeline.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
