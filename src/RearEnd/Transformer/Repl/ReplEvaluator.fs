@@ -2006,14 +2006,35 @@ module TransformerReplEvaluator =
     else
       None
 
+  let private printInputAction registry segments =
+    match List.rev segments with
+    | _ :: input :: _ ->
+      sourceActionLabel registry input
+    | _ ->
+      None
+
+  let private observePrintedPipelineValue registry segments printed state =
+    match printInputAction registry segments with
+    | Some action ->
+      printed.Values
+      |> List.fold (fun state value ->
+        TransformerReplState.observeValue
+          state.NextLogID action value state) state
+    | None ->
+      state
+
   let private observePipelineValue registry segments value state =
-    segments
-    |> List.tryLast
-    |> Option.bind (sourceActionLabel registry)
-    |> Option.map (fun action ->
-      TransformerReplState.observeValue
-        state.NextLogID action value state)
-    |> Option.defaultValue state
+    match tryGetPrintedValue value with
+    | Some printed ->
+      observePrintedPipelineValue registry segments printed state
+    | None ->
+      segments
+      |> List.tryLast
+      |> Option.bind (sourceActionLabel registry)
+      |> Option.map (fun action ->
+        TransformerReplState.observeValue
+          state.NextLogID action value state)
+      |> Option.defaultValue state
 
   let private evaluate
     includeSuggestions
@@ -2061,29 +2082,6 @@ module TransformerReplEvaluator =
             else
               [ describeValue binding value ]
           continueWith registry state output
-
-  let private show registry state name =
-    match selectValue name state with
-    | Error message ->
-      fail registry state message
-    | Ok(_, value) ->
-      match tryGetPrintedValue value with
-      | Some printed ->
-        continuePrintResult registry state printed
-      | None ->
-        continueValue registry state value
-
-  let private showExpression registry state segments cancellationToken =
-    match runPipeline registry state segments cancellationToken with
-    | Error message ->
-      fail registry state message
-    | Ok value ->
-      let state = observePipelineValue registry segments value state
-      match tryGetPrintedValue value with
-      | Some printed ->
-        continuePrintResult registry state printed
-      | None ->
-        continueValue registry state value
 
   let private showType registry state name =
     match selectValue name state with
@@ -2352,30 +2350,13 @@ module TransformerReplEvaluator =
       "  <value> |> @<action> [args]      Transform the preceding value"
       "  <expression>                      Evaluate without binding"
       ""
-      "Reference"
-      "  :actions                      List actions and usage forms"
-      "  :show [name|expression]       Show a value or expression result"
-      "  :type [name|expression]       Show an inferred value kind"
-      "  :inspect [name]               List functions and sections"
-      "  :needs <ctx> [k=v]            List required concrete context"
-      ""
-      "Session"
-      "  :values                       List retained values"
-      "  :restore <id> [as <name>]     Restore a historical value"
-      "  :history                      List evaluated commands"
-      "  :log                          Show execution history"
-      "  :undo                         Undo the last value change"
-      "  :reset                        Reset analysis values"
-      ""
-      "Scripts and environment"
-      "  :script save path=<path>      Save recorded commands"
-      "  :script load path=<path>      Reset and replay a script"
-      "  :script record [on|off]       Show or set script recording"
-      "  :export <name> path=<path>    Export a named value"
-      "  :plugin load path=<dll>        Load a plugin"
-      "  :layout [k=v ...]             Resize TUI panes"
-      "  # <text>                      Record a script comment"
-      "  :quit                         Leave the REPL" ]
+      "Controls are available from the F2 command prompt."
+      "  actions                        List actions and usage forms"
+      "  values                         List retained values"
+      "  history                        List evaluated commands"
+      "  script save|load|record ...    Manage replay scripts"
+      "  plugin load path=<dll>         Load a plugin"
+      "  quit                           Leave the REPL" ]
 
   let private addExecutionLog
     timestamp
@@ -2461,7 +2442,35 @@ module TransformerReplEvaluator =
     state
     input
     cancellationToken =
-    match TransformerReplParser.parse input with
+    evaluateParsed
+      includeSuggestions
+      registry
+      state
+      input
+      cancellationToken
+      (TransformerReplParser.parse input)
+
+  and private evaluateControlCore
+    includeSuggestions
+    registry
+    state
+    input
+    cancellationToken =
+    evaluateParsed
+      includeSuggestions
+      registry
+      state
+      input
+      cancellationToken
+      (TransformerReplParser.parseControl input)
+
+  and private evaluateParsed
+    includeSuggestions
+    registry
+    state
+    input
+    cancellationToken =
+    function
     | Error message ->
       fail registry state message
     | Ok NoInput ->
@@ -2505,10 +2514,6 @@ module TransformerReplEvaluator =
         registry
         (TransformerReplState.reset state)
         [ "Analysis state reset." ]
-    | Ok(Show name) ->
-      show registry state name
-    | Ok(ShowExpression segments) ->
-      showExpression registry state segments cancellationToken
     | Ok(TypeOf name) ->
       showType registry state name
     | Ok(TypeOfExpression segments) ->
@@ -2570,3 +2575,12 @@ module TransformerReplEvaluator =
 
   let evaluateCommand registry state input cancellationToken =
     evaluateInput false registry state input cancellationToken
+
+  let evaluateControlCommand registry state input cancellationToken =
+    let timestamp = DateTimeOffset.Now
+    let stopwatch = Stopwatch.StartNew()
+    let state = TransformerReplState.recordCommand input state
+    let evaluation =
+      evaluateControlCore false registry state input cancellationToken
+    stopwatch.Stop()
+    addExecutionLog timestamp stopwatch input evaluation

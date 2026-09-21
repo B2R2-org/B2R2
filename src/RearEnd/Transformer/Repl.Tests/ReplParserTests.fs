@@ -107,6 +107,15 @@ type ReplParserTests() =
       Assert.Fail "Expected command evaluation to continue."
       registry, state, ReplOutput.ofLines []
 
+  let evaluateControlOutput registry state input =
+    match TransformerReplEvaluator.evaluateControlCommand
+            registry state input CancellationToken.None with
+    | Continue(registry, state, output) ->
+      registry, state, output
+    | Exit _ ->
+      Assert.Fail "Expected command evaluation to continue."
+      registry, state, ReplOutput.ofLines []
+
   [<TestMethod>]
   member _.``Pipeline parser preserves stage and argument boundaries``() =
     let input =
@@ -312,20 +321,27 @@ type ReplParserTests() =
     assertDoesNotContain "@mem write" hint
 
   [<TestMethod>]
-  member _.``Print action renders a pipeline result``() =
-    let registry, state =
-      evaluate
-        registry.Value
-        TransformerReplState.empty
-        "let target = @load hex=90c3 isa=x86-64"
-    let _, _, shown =
-      evaluateOutput registry state ":show target |> @disasm"
-    let _, _, printed =
-      evaluateOutput registry state "target |> @disasm |> @print"
-    Assert.AreEqual<string list>(shown.Lines, printed.Lines)
+  member _.``Colon-prefixed shell input is not a control command``() =
+    let _, _, output =
+      evaluateOutput registry.Value TransformerReplState.empty ":help"
     Assert.AreEqual<string list>(
-      shown.FullLines.Force(),
-      printed.FullLines.Force()
+      [ "Error: Unknown value or action: :help" ],
+      output.Lines
+    )
+
+  [<TestMethod>]
+  member _.``Colon-prefixed shell input has no completion``() =
+    let suggestions =
+      Suggestions.get registry.Value TransformerReplState.empty ":help" 5
+    Assert.IsEmpty suggestions.Items
+
+  [<TestMethod>]
+  member _.``Control prompt does not recognize show``() =
+    let _, _, output =
+      evaluateControlOutput registry.Value TransformerReplState.empty ":show"
+    Assert.AreEqual<string list>(
+      [ "Error: Unknown REPL command: :show" ],
+      output.Lines
     )
 
   [<TestMethod>]
@@ -338,7 +354,7 @@ type ReplParserTests() =
     let registry, state =
       evaluate registry state "let targets = [target; target]"
     let registry, state =
-      evaluate registry state ":show targets |> iter @disasm"
+      evaluate registry state "targets |> iter @disasm |> @print"
     let source = Unchecked.defaultof<Binary>
     let functionValue =
       { Source = source; Entry = 0UL; Symbol = None }
