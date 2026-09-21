@@ -81,7 +81,7 @@ type internal FrameInfo =
 /// following CHAININFO chains up to a small depth bound. Returns None when no
 /// handler is present.
 let rec private resolveHandlerData ctx (span: ByteSpan) unwindRva depth =
-  if depth > 8 || unwindRva = 0 then
+  if depth > 8 || not (isValidRva ctx unwindRva) then
     None
   else
     let off = getRawOffset ctx.Secs unwindRva
@@ -378,20 +378,30 @@ let private parseHandlerInfo ctx (span: ByteSpan) unwindRva beginRva endRva =
   | None ->
     None, []
 
+/// Returns where the RUNTIME_FUNCTION array sits in the file and how many
+/// entries it holds, or none where the file names no such table or names one
+/// that lands nowhere. An object file has no optional header to name one in.
+let private tryFindFunctionTable ctx (pe: PE) =
+  if pe.PEHeaders.IsCoffOnly then
+    None
+  else
+    let dir = pe.PEHeaders.PEHeader.ExceptionTableDirectory
+    if dir.Size = 0 || not (isValidRva ctx dir.RelativeVirtualAddress) then
+      None
+    else
+      Some(getRawOffset ctx.Secs dir.RelativeVirtualAddress, dir.Size / 12)
+
 let parse (pe: PE) (bytes: byte[]) =
   let frames = ResizeArray<FrameInfo>()
-  let hdrs = pe.PEHeaders
-  if hdrs.IsCoffOnly || hdrs.PEHeader.ExceptionTableDirectory.Size = 0 then
+  let ctx =
+    { Reader = pe.BinReader
+      Secs = pe.SectionHeaders
+      BaseAddr = pe.BaseAddr }
+  match tryFindFunctionTable ctx pe with
+  | None ->
     frames
-  else
-    let dir = hdrs.PEHeader.ExceptionTableDirectory
-    let ctx =
-      { Reader = pe.BinReader
-        Secs = pe.SectionHeaders
-        BaseAddr = pe.BaseAddr }
+  | Some(pdataOff, count) ->
     let span = ReadOnlySpan bytes
-    let pdataOff = getRawOffset ctx.Secs dir.RelativeVirtualAddress
-    let count = dir.Size / 12
     let mutable i = 0
     while i < count do
       let entryOff = pdataOff + i * 12

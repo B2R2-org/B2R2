@@ -108,6 +108,55 @@ type PETests() =
   /// (FH3) FuncInfo format instead of the compressed FH4 one.
   static let x64ExcFh3File = parseFile "pe_x64_exc_fh3"
 
+  /// Rewrites the RVA of one data directory, which is how a file naming a
+  /// directory that lands nowhere is made out of a sound one. The directories
+  /// follow the optional header, whose PE32+ form runs 112 bytes.
+  static let withDirectoryRVA index rva (bytes: byte[]) =
+    let bytes = Array.copy bytes
+    use stream = new MemoryStream(bytes)
+    use reader = new PEReader(stream, PEStreamOptions.Default)
+    let offset = reader.PEHeaders.PEHeaderStartOffset + 112 + index * 8
+    BitConverter.GetBytes(rva: int).CopyTo(bytes, offset)
+    bytes
+
+  /// Renames every section whose name starts with ".text", leaving an object
+  /// that names no code section at all, which is what a data-only object and
+  /// an LTCG one are. A COFF header runs 20 bytes, a section header 40.
+  static let withoutTextSections (bytes: byte[]) =
+    let bytes = Array.copy bytes
+    use stream = new MemoryStream(bytes)
+    use reader = new PEReader(stream, PEStreamOptions.Default)
+    let hdrs = reader.PEHeaders
+    let optSize = int hdrs.CoffHeader.SizeOfOptionalHeader
+    let table = hdrs.CoffHeaderStartOffset + 20 + optSize
+    let secs = Seq.toArray hdrs.SectionHeaders
+    for i in 0 .. secs.Length - 1 do
+      if secs[i].Name.StartsWith ".text" then
+        ".zzzz"B.CopyTo(bytes, table + i * 40)
+      else
+        ()
+    bytes
+
+  /// Points the sole export at the string naming it, which sits inside the
+  /// export directory and so reads as a forwarder, and which carries no dot
+  /// to part a library name from a function name.
+  static let withDotlessForwarder (bytes: byte[]) =
+    let bytes = Array.copy bytes
+    use stream = new MemoryStream(bytes)
+    use reader = new PEReader(stream, PEStreamOptions.Default)
+    let hdrs = reader.PEHeaders
+    let secs = Seq.toArray hdrs.SectionHeaders
+    let toOffset rva =
+      let sec = secs[hdrs.GetContainingSectionIndex rva]
+      rva - sec.VirtualAddress + sec.PointerToRawData
+    let dir = hdrs.PEHeader.ExportTableDirectory
+    let _, dirOffset = hdrs.TryGetDirectoryOffset dir
+    let eatRVA = BitConverter.ToInt32(bytes, dirOffset + 28)
+    let enptRVA = BitConverter.ToInt32(bytes, dirOffset + 32)
+    let nameRVA = BitConverter.ToInt32(bytes, toOffset enptRVA)
+    BitConverter.GetBytes(nameRVA).CopyTo(bytes, toOffset eatRVA)
+    bytes
+
   let assertExistenceOfRelocBlock (file: PEBinFile) pageRVA blockSize =
     file.RelocBlocks
     |> List.map (fun b -> b.PageRVA, b.BlockSize)
@@ -469,3 +518,34 @@ type PETests() =
     let bytes = ZIPReader.readBytes PEBinary "pe_x64.zip" "pe_x64.exe"
     let f = FileFactory.loadPE "" bytes None [||] :> IBinFile
     Assert.AreEqual(PEBinary, f.Format)
+
+  [<TestMethod>]
+  member _.``[PE] an import directory landing nowhere is a format error``() =
+    (* An RVA no section maps names no byte of the file, which is a fact about
+       the file rather than an index to read on with. *)
+    let bytes =
+      ZIPReader.readBytes PEBinary "pe_x64.zip" "pe_x64.exe"
+      |> withDirectoryRVA 1 0x7f000000
+    Assert.ThrowsExactly<InvalidFileFormatException>(fun () ->
+      PEBinFile("pe_x64.exe", bytes, None, [||]) |> ignore)
+    |> ignore
+
+  [<TestMethod>]
+  member _.``[PE] an object naming no code section still loads``() =
+    (* A data-only object, and one built with LTCG, carries no .text at all. *)
+    let bytes =
+      ZIPReader.readBytes PEBinary "pe_x64_obj.zip" "pe_x64_obj.obj"
+      |> withoutTextSections
+    let file = PEBinFile("pe_x64_obj.obj", bytes, None, [||]) :> IBinFile
+    Assert.AreEqual<BinFileKind>(Object, file.Kind)
+
+  [<TestMethod>]
+  member _.``[PE] a forwarder naming no library is passed over``() =
+    (* A forwarder reads "LIB.func"; one with no dot names no library, so it
+       forwards nowhere and is no export of this file either. *)
+    let bytes =
+      ZIPReader.readBytes PEBinary "pe_x64_dll.zip" "pe_x64_dll.dll"
+      |> withDotlessForwarder
+    let file = PEBinFile("pe_x64_dll.dll", bytes, None, [||]) :> IBinFile
+    Assert.AreEqual<BinFileKind>(SharedLibrary, file.Kind)
+    Assert.AreEqual<int>(0, file.Structure.Value.FunctionAddresses.Length)
