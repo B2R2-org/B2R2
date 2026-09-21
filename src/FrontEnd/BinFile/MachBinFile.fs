@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Generic
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
@@ -429,12 +430,23 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       let classic = getPLT syms.Value
       if Array.isEmpty classic then fixupImports.Value else classic
 
+  (* Only the stub addresses are ever asked for by address, so they are kept
+     on their own rather than looked for among the entries each time. *)
+  let trampolineAddrs =
+    lazy
+      let addrs = HashSet<Addr>()
+      for entry in syms.Value.Imports do
+        match entry.TrampolineAddress with
+        | Some addr -> addrs.Add addr |> ignore
+        | None -> ()
+      addrs
+
   let importTable =
     Some { new IImportTable with
       member _.Imports = importEntries.Value
 
       member _.IsInImportTable addr =
-        isPLT syms.Value addr
+        trampolineAddrs.Value.Contains addr
         || (Array.isEmpty syms.Value.Imports
             && Fixup.isBindAt fixupMap.Value addr)
     }

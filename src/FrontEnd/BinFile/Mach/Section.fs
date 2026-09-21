@@ -98,9 +98,9 @@ module Section =
   let internal parse ({ Bytes = bytes; Header = hdr } as toolBox) segCmds =
     let numSections = countSections segCmds
     let sections = Array.zeroCreate numSections
+    let entrySize = selectByWordSize hdr.Class 68 80
     let mutable idx = 0
     for seg in segCmds do
-      let entrySize = selectByWordSize hdr.Class 68 80
       let sectionSize = entrySize * int seg.NumSecs
       let sectionOffset = seg.SecOff
       let sectionSpan = ReadOnlySpan(bytes, sectionOffset, sectionSize)

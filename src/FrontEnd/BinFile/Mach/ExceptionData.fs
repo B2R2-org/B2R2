@@ -28,25 +28,9 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile.DWARF
 
-/// Represents a per-function exception frame descriptor, independent of whether
-/// it came from DWARF CFI (`__eh_frame`) or compact unwind (`__unwind_info`).
-type internal FrameInfo =
-  { /// Start address of the function (inclusive).
-    FuncStart: Addr
-    /// End address of the function (exclusive).
-    FuncEnd: Addr
-    /// Address of the LSDA governing this frame, if any.
-    LSDAPointer: Addr option
-    /// Address at which this frame's personality routine is recorded: the 'P'
-    /// augmentation of its DWARF CIE, or the `__unwind_info` personality array
-    /// entry its compact encoding indexes. Either way this normally gives the
-    /// slot holding the routine rather than the routine itself. None when the
-    /// frame names no personality.
-    PersonalityRoutine: Addr option }
-
 /// Represents Mach-O exception information: per-function frames plus the LSDA
 /// table (in `__TEXT,__gcc_except_tab`) that resolves their handlers.
-and internal ExceptionData =
+type internal ExceptionData =
   { Frames: FrameInfo list
     LSDATable: LSDATable }
 
@@ -102,11 +86,6 @@ module internal ExceptionData =
         (int sec.SecOffset)
         (int sec.SecSize)
         imageBase
-      |> List.map (fun (s, e, l, p) ->
-        { FuncStart = s
-          FuncEnd = e
-          LSDAPointer = l
-          PersonalityRoutine = p })
     | None ->
       []
 

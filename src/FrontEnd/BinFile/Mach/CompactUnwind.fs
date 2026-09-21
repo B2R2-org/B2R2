@@ -174,9 +174,8 @@ let private toPersonality (slots: _[]) enc =
   if idx = 0 || idx > slots.Length then None
   else Some slots[idx - 1]
 
-/// Parses `__unwind_info`, returning per-function (start, end, LSDA address,
-/// personality slot address) tuples with addresses resolved against the image
-/// base (the __TEXT vmaddr).
+/// Parses `__unwind_info`, returning a frame per function with its addresses
+/// resolved against the image base (the __TEXT vmaddr).
 let parse (bytes: byte[]) (reader: IBinReader) secOffset secSize imageBase =
   let span = ReadOnlySpan(bytes, secOffset, secSize)
   if secSize < 28 || reader.ReadUInt32(span, 0) <> 1u then
@@ -200,6 +199,7 @@ let parse (bytes: byte[]) (reader: IBinReader) secOffset secSize imageBase =
             match lsdaMap.TryGetValue entry.Start with
             | true, lo -> Some(imageBase + uint64 lo)
             | _ -> None
-          let funcStart = imageBase + uint64 entry.Start
-          let funcEnd = imageBase + uint64 fend
-          funcStart, funcEnd, lsda, toPersonality slots entry.Encoding ]
+          { FuncStart = imageBase + uint64 entry.Start
+            FuncEnd = imageBase + uint64 fend
+            LSDAPointer = lsda
+            PersonalityRoutine = toPersonality slots entry.Encoding } ]

@@ -121,6 +121,7 @@
     <Compile Include="Mach\DyldInfo.fs" />
     <Compile Include="Mach\CodeSignature.fs" />
     <Compile Include="Mach\Helper.fs" />
+    <Compile Include="Mach\FrameInfo.fs" />
     <Compile Include="Mach\CompactUnwind.fs" />
     <Compile Include="Mach\ExceptionData.fs" />
     <Compile Include="Python\Types.fs" />
