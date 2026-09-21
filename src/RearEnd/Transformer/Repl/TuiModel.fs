@@ -142,6 +142,12 @@ type TuiFocus =
   | Shell
   | Transcript
 
+/// Relative placement of the shell input and completion panes.
+[<RequireQualifiedAccess>]
+type TuiBottomPaneOrder =
+  | ShellAboveSuggestions
+  | SuggestionsAboveShell
+
 /// Cursor location inside a text pane.
 type TuiTextCursor =
   { Line: int
@@ -232,8 +238,8 @@ type TransformerTuiModel =
     FoldTarget: int option
     CollapsedCommands: Set<int>
     SidebarWidth: int option
-    TranscriptHeight: int option
-    ShellHeight: int
+    SuggestionHeight: int
+    BottomPaneOrder: TuiBottomPaneOrder
     Status: string
     IsBusy: bool
     SpinnerFrame: int }
@@ -241,34 +247,32 @@ type TransformerTuiModel =
 module TransformerTuiModel =
   let private maximumTranscriptLines = 5000
 
-  let completionPaneRows = 7
+  let defaultSuggestionHeight = 7
 
-  let defaultShellHeight = 6
+  let private fixedFrameRows = 5
 
   let private inputLineCount (input: string) =
     input.Replace("\r\n", "\n").Replace('\r', '\n').Split '\n'
     |> Array.length
 
-  let shellInputCapacity model =
-    max 1 ((model: TransformerTuiModel).ShellHeight - 1)
+  let private maximumSuggestionHeight terminalHeight =
+    max 1 (terminalHeight - fixedFrameRows - 2)
 
-  let visibleShellInputRows model =
-    min (shellInputCapacity model) (inputLineCount model.Input)
+  let suggestionHeight terminalHeight (model: TransformerTuiModel) =
+    let maximum = maximumSuggestionHeight terminalHeight
+    max 1 (min maximum model.SuggestionHeight)
 
-  let availableBodyAndCompletion terminalHeight model =
-    max 2 (terminalHeight - 5 - visibleShellInputRows model)
+  let shellInputCapacity terminalHeight model =
+    let suggestions = suggestionHeight terminalHeight model
+    max 1 (terminalHeight - fixedFrameRows - suggestions - 1)
 
-  let defaultTranscriptHeight terminalHeight model =
-    let available = availableBodyAndCompletion terminalHeight model
-    max 1 (available - completionPaneRows)
+  let visibleShellInputRows terminalHeight model =
+    min (shellInputCapacity terminalHeight model) (inputLineCount model.Input)
 
   let transcriptHeight terminalHeight model =
-    let available = availableBodyAndCompletion terminalHeight model
-    match (model: TransformerTuiModel).TranscriptHeight with
-    | Some requested ->
-      max 1 (min (available - 1) requested)
-    | None ->
-      defaultTranscriptHeight terminalHeight model
+    let suggestions = suggestionHeight terminalHeight model
+    let inputRows = visibleShellInputRows terminalHeight model
+    max 1 (terminalHeight - fixedFrameRows - suggestions - inputRows)
 
   let transcriptBodyWidth terminalWidth model =
     let defaultRightWidth =
@@ -323,8 +327,8 @@ module TransformerTuiModel =
       FoldTarget = None
       CollapsedCommands = Set.empty
       SidebarWidth = None
-      TranscriptHeight = None
-      ShellHeight = defaultShellHeight
+      SuggestionHeight = defaultSuggestionHeight
+      BottomPaneOrder = TuiBottomPaneOrder.ShellAboveSuggestions
       Status = "Ready"
       IsBusy = false
       SpinnerFrame = 0 }
@@ -693,11 +697,25 @@ module TransformerTuiModel =
   let setSidebarWidth width model =
     { model with SidebarWidth = width }
 
-  let setTranscriptHeight height model =
-    { model with TranscriptHeight = height }
+  let setSuggestionHeight height model =
+    { model with SuggestionHeight = max 1 height }
 
-  let setShellHeight height model =
-    { model with ShellHeight = max 1 height }
+  let bottomPaneOrderName model =
+    match model.BottomPaneOrder with
+    | TuiBottomPaneOrder.ShellAboveSuggestions ->
+      "shell-first"
+    | TuiBottomPaneOrder.SuggestionsAboveShell ->
+      "suggestions-first"
+
+  let setBottomPaneOrder order model =
+    { model with BottomPaneOrder = order }
+
+  let toggleBottomPaneOrder model =
+    match model.BottomPaneOrder with
+    | TuiBottomPaneOrder.ShellAboveSuggestions ->
+      setBottomPaneOrder TuiBottomPaneOrder.SuggestionsAboveShell model
+    | TuiBottomPaneOrder.SuggestionsAboveShell ->
+      setBottomPaneOrder TuiBottomPaneOrder.ShellAboveSuggestions model
 
   let adjustSidebarWidth defaultWidth delta model =
     let width = model.SidebarWidth |> Option.defaultValue defaultWidth
@@ -706,12 +724,13 @@ module TransformerTuiModel =
         SidebarWidth = Some width
         Status = $"Sidebar width: {width}" }
 
-  let adjustTranscriptHeight defaultHeight delta model =
-    let height = model.TranscriptHeight |> Option.defaultValue defaultHeight
-    let height = max 1 (height + delta)
+  let adjustSuggestionHeight terminalHeight delta model =
+    let maximum = maximumSuggestionHeight terminalHeight
+    let height = suggestionHeight terminalHeight model
+    let height = max 1 (min maximum (height + delta))
     { model with
-        TranscriptHeight = Some height
-        Status = $"Transcript height: {height}" }
+        SuggestionHeight = height
+        Status = $"Suggestion height: {height}" }
 
   let applyCompletion completion model =
     match Completion.apply completion model.SuggestionIndex model.Input with

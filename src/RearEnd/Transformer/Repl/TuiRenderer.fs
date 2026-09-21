@@ -179,6 +179,7 @@ module TransformerTuiRenderer =
       "  actions                        List actions and usage forms"
       "  values                         List retained values"
       "  history                        List evaluated commands"
+      "  layout order=toggle            Swap shell and suggestions"
       "  script save|load|record ...    Manage replay scripts"
       "  plugin load path=<dll>         Load a plugin"
       "  quit                           Leave the TUI"
@@ -202,7 +203,7 @@ module TransformerTuiRenderer =
       "  F3                             Find text in transcript or view"
       "  Ctrl+F                         Find text in view"
       "  Ctrl+Enter                     Insert view selection into input"
-      "  Alt+Arrows                     Resize sidebar or transcript"
+      "  Alt+Arrows                     Resize sidebar or suggestions"
       "  Esc                            Close a panel or clear input" ]
 
   let private actionLines registry =
@@ -1169,15 +1170,14 @@ module TransformerTuiRenderer =
         CursorRow = 1
         CursorColumn = 1 }
     else
-      let shellInputRows = TransformerTuiModel.shellInputCapacity model
+      let shellInputRows =
+        TransformerTuiModel.shellInputCapacity height model
       let inputRows, inputCursor =
         inputView width shellInputRows model completion
-      let availableBodyAndCompletion =
-        TransformerTuiModel.availableBodyAndCompletion height model
       let bodyHeight =
         TransformerTuiModel.transcriptHeight height model
       let suggestionCount =
-        max 1 (availableBodyAndCompletion - bodyHeight)
+        TransformerTuiModel.suggestionHeight height model
       let leftWidth = TransformerTuiModel.transcriptBodyWidth width model
       let rightWidth =
         if leftWidth < width then width - leftWidth - 1 else 0
@@ -1221,14 +1221,26 @@ module TransformerTuiRenderer =
       let suggestions =
         suggestionRows suggestionCount width completion model.SuggestionIndex
       let context, findCursor = findFooter width model
+      let bottomRows =
+        match model.BottomPaneOrder with
+        | TuiBottomPaneOrder.ShellAboveSuggestions ->
+          inputRows @ suggestions
+        | TuiBottomPaneOrder.SuggestionsAboveShell ->
+          suggestions @ inputRows
+      let inputStartRow =
+        let afterBody = 5 + bodyHeight
+        match model.BottomPaneOrder with
+        | TuiBottomPaneOrder.ShellAboveSuggestions ->
+          afterBody
+        | TuiBottomPaneOrder.SuggestionsAboveShell ->
+          afterBody + List.length suggestions
       let rows =
         [ titleBar
           keyHeader width model
           boxTopRow ]
         @ bodyRows
         @ [ boxBottomRow ]
-        @ suggestions
-        @ inputRows
+        @ bottomRows
         @ [ context ]
       let lines =
         rows
@@ -1247,7 +1259,7 @@ module TransformerTuiRenderer =
             |> Option.map (fun (row, _) -> 4 + row))
           |> Option.defaultValue (
             let row, _ = inputCursor
-            height - List.length inputRows + row)
+            inputStartRow + row)
         CursorColumn =
           paletteCursor
           |> Option.map snd
