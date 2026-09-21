@@ -100,6 +100,20 @@ type internal LoadCommand =
   | BuildVersion of cmd: CmdType * size: uint32 * BuildVersionCmd
   /// Unhandled command.
   | Unhandled of cmd: CmdType * size: uint32
+with
+  /// How many bytes the command takes up, as its own header says, which is
+  /// what steps from one command of the table to the next.
+  member this.CmdSize with get() =
+    match this with
+    | Segment(_, size, _) | SymTab(_, size, _) | DySymTab(_, size, _)
+    | DyLib(_, size, _) | DyLibId(_, size, _) | LinkerOption(_, size, _)
+    | DyLinker(_, size, _) | Rpath(_, size, _) | Uuid(_, size, _)
+    | DyLdInfo(_, size, _) | FuncStarts(_, size, _)
+    | ChainedFixups(_, size, _) | ExportsTrie(_, size, _)
+    | CodeSign(_, size, _) | DataInCode(_, size, _)
+    | EncryptionInfo(_, size, _) | FilesetEntry(_, size, _)
+    | Main(_, size, _) | Thread(_, size, _) | Routines(_, size, _)
+    | BuildVersion(_, size, _) | Unhandled(_, size) -> size
 
 /// Represents a segment command.
 and internal SegCmd =

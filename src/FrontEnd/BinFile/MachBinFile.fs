@@ -510,6 +510,15 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
 
   member internal _.Header with get() = toolBox.Header
 
+  /// The bytes of the image itself, which for a universal binary are the
+  /// slice that was picked rather than the whole of the file handed in.
+  member internal _.Bytes with get() = image
+
+  /// Where the header of this image sits within the bytes it was parsed
+  /// against. Only an image opened out of a fileset container, whose load
+  /// commands point into that container, has one that is not zero.
+  member internal _.HeaderOffset with get() = toolBox.HeaderOffset
+
   /// The architectures a universal binary offers, or an empty array when the
   /// file is not one. They are read from the whole file rather than from the
   /// slice this instance was narrowed to.
@@ -650,28 +659,4 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
     member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value
 
-    member _.GetBoundedPointer addr =
-      let segCmds = segCmds.Value
-      let mutable found = false
-      let mutable idx = 0
-      let mutable maxAddr = 0UL
-      let mutable offset = 0
-      let mutable maxOffset = 0
-      while not found && idx < segCmds.Length do
-        let seg = segCmds[idx]
-        if addr >= seg.VMAddr && addr < seg.VMAddr + seg.VMSize then
-          found <- true
-          maxOffset <- int seg.FileOff + int seg.FileSize - 1
-          if addr < seg.VMAddr + seg.FileSize then
-            offset <- int seg.FileOff + int (addr - seg.VMAddr)
-            maxAddr <- seg.VMAddr + seg.FileSize - 1UL
-          else
-            offset <- maxOffset + 1
-            maxAddr <- seg.VMAddr + seg.VMSize - 1UL
-        else
-          idx <- idx + 1
-      if found then
-        if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
-        else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
-      else
-        BinFilePointer.Null
+    member _.GetBoundedPointer addr = boundedPointerOf segCmds.Value addr

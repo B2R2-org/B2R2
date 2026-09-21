@@ -124,6 +124,10 @@
     <Compile Include="Mach\FrameInfo.fs" />
     <Compile Include="Mach\CompactUnwind.fs" />
     <Compile Include="Mach\ExceptionData.fs" />
+    <Compile Include="Mach\LinkEdit.fs" />
+    <Compile Include="Mach\Image.fs" />
+    <Compile Include="Mach\Layout.fs" />
+    <Compile Include="Mach\Emitter.fs" />
     <Compile Include="Python\Types.fs" />
     <Compile Include="Python\PyExceptionEntry.fs" />
     <Compile Include="Python\PyExceptionTable.fs" />
@@ -152,6 +156,7 @@
     <Compile Include="ELFBinFile.fs" />
     <Compile Include="ELFWriter.fs" />
     <Compile Include="MachBinFile.fs" />
+    <Compile Include="MachWriter.fs" />
     <Compile Include="PythonBinFile.fs" />
     <Compile Include="PEBinFile.fs" />
     <Compile Include="FormatDetector.fs" />

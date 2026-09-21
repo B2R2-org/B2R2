@@ -15,6 +15,7 @@
     <Compile Include="DWARFTests.fs" />
     <Compile Include="PETests.fs" />
     <Compile Include="MachTests.fs" />
+    <Compile Include="MachEmitterTests.fs" />
     <Compile Include="WasmTests.fs" />
     <Compile Include="RawTests.fs" />
     <Compile Include="PythonTests.fs" />
