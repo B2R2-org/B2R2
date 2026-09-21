@@ -538,6 +538,7 @@ module TransformerRepl =
               model <- requestCancellation runningEvaluation model
             | Some _ when isTextKey key
                           && model.Overlay = TuiOverlay.None
+                          && not model.IsFindingTranscript
                           && model.Focus = TuiFocus.Shell ->
               let text = readTextBurst key
               TransformerTuiInputController.appendShellText text model
@@ -546,6 +547,7 @@ module TransformerRepl =
               ()
             | None when isTextKey key
                         && model.Overlay = TuiOverlay.None
+                        && not model.IsFindingTranscript
                         && model.Focus = TuiFocus.Shell ->
               let text = readTextBurst key
               TransformerTuiInputController.appendShellText text model

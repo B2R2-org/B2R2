@@ -315,6 +315,22 @@ module TransformerTuiInputController =
     | _ ->
       TuiInputResult.Update model
 
+  let private handleTranscriptFindKey (key: ConsoleKeyInfo) model =
+    match key.Key with
+    | ConsoleKey.Enter ->
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.findInTranscript width height model
+      |> TuiInputResult.Update
+    | ConsoleKey.Escape ->
+      TransformerTuiModel.setTranscriptFind false model |> TuiInputResult.Update
+    | ConsoleKey.Backspace ->
+      TransformerTuiModel.backspaceTranscriptFind model |> TuiInputResult.Update
+    | _ when not (Char.IsControl key.KeyChar) ->
+      TransformerTuiModel.appendTranscriptFind key.KeyChar model
+      |> TuiInputResult.Update
+    | _ ->
+      TuiInputResult.Update model
+
   let private handleViewKey
     control
     shift
@@ -454,11 +470,18 @@ module TransformerTuiInputController =
         toggleCommandPalette model |> TuiInputResult.Update
       elif model.Overlay = TuiOverlay.CommandPalette then
         handleCommandPaletteKey key model
+      elif model.Overlay = TuiOverlay.View && key.Key = ConsoleKey.F3 then
+        TransformerTuiModel.setViewFind true model |> TuiInputResult.Update
       elif model.Overlay = TuiOverlay.View
          && (model.ViewPane |> Option.exists (fun pane -> pane.IsFinding)) then
         handleViewFindKey key model
+      elif model.IsFindingTranscript then
+        handleTranscriptFindKey key model
       elif model.Overlay = TuiOverlay.View then
         handleViewKey control shift key model
+      elif model.Overlay = TuiOverlay.None && key.Key = ConsoleKey.F3 then
+        TransformerTuiModel.setTranscriptFind true model
+        |> TuiInputResult.Update
       elif model.Focus = TuiFocus.Transcript
            && model.Overlay = TuiOverlay.None
            && not (shift && key.Key = ConsoleKey.DownArrow) then

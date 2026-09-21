@@ -199,6 +199,7 @@ module TransformerTuiRenderer =
       "  PageUp / PageDown              Scroll the active pane"
       "  Ctrl+Up / Ctrl+Down            Move by command in transcript"
       "  Shift+Arrows                   Select text in view"
+      "  F3                             Find text in transcript or view"
       "  Ctrl+F                         Find text in view"
       "  Ctrl+Enter                     Insert view selection into input"
       "  Alt+Arrows                     Resize sidebar or transcript"
@@ -988,14 +989,23 @@ module TransformerTuiRenderer =
     let text = $" cwd: {cwd}  script: {script}  record: {record}"
     paint dim (fit width text)
 
-  let private viewFindFooter width model =
+  let private activeFindText model =
     match model.ViewPane with
     | Some pane when model.Overlay = TuiOverlay.View && pane.IsFinding ->
+      Some pane.FindText
+    | _ when model.IsFindingTranscript ->
+      Some model.TranscriptFindText
+    | _ ->
+      None
+
+  let private findFooter width model =
+    match activeFindText model with
+    | Some findText ->
       let prompt = " find: "
       let inputWidth = max 0 (width - prompt.Length)
-      let start = max 0 (pane.FindText.Length - inputWidth)
+      let start = max 0 (findText.Length - inputWidth)
       let input =
-        if start < pane.FindText.Length then pane.FindText[start..] else ""
+        if start < findText.Length then findText[start..] else ""
       let padding = String.replicate (inputWidth - input.Length) " "
       let row = paint (paletteInputBg + paletteFg) (prompt + input + padding)
       row, Some(prompt.Length + input.Length + 1)
@@ -1008,8 +1018,9 @@ module TransformerTuiRenderer =
   let private keyHeader width model =
     let f1 = keyButton (model.Overlay = TuiOverlay.Help) "F1 help"
     let f2 = keyButton (model.Overlay = TuiOverlay.CommandPalette) "F2 command"
+    let f3 = keyButton (activeFindText model |> Option.isSome) "F3 find"
     let f4 = keyButton (model.Overlay = TuiOverlay.View) "F4 view"
-    fit width (" " + f1 + "  " + f2 + "  " + f4 + " ")
+    fit width (" " + f1 + "  " + f2 + "  " + f3 + "  " + f4 + " ")
 
   let private centerPad width (text: string) =
     let text = if text.Length > width then text[..width - 1] else text
@@ -1209,7 +1220,7 @@ module TransformerTuiRenderer =
           boxBottom border leftWidth
       let suggestions =
         suggestionRows suggestionCount width completion model.SuggestionIndex
-      let context, viewFindCursor = viewFindFooter width model
+      let context, findCursor = findFooter width model
       let rows =
         [ titleBar
           keyHeader width model
@@ -1230,7 +1241,7 @@ module TransformerTuiRenderer =
         CursorRow =
           paletteCursor
           |> Option.map fst
-          |> Option.orElse (viewFindCursor |> Option.map (fun _ -> height))
+          |> Option.orElse (findCursor |> Option.map (fun _ -> height))
           |> Option.orElseWith (fun () ->
             cursorBodyPosition
             |> Option.map (fun (row, _) -> 4 + row))
@@ -1240,7 +1251,7 @@ module TransformerTuiRenderer =
         CursorColumn =
           paletteCursor
           |> Option.map snd
-          |> Option.orElse viewFindCursor
+          |> Option.orElse findCursor
           |> Option.orElseWith (fun () ->
             cursorBodyPosition
             |> Option.map (fun (_, column) -> min (leftWidth - 1) (column + 1)))

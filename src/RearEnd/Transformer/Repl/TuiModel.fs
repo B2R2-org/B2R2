@@ -221,6 +221,8 @@ type TransformerTuiModel =
     ScrollOffset: int
     TranscriptViewportStart: int option
     TranscriptCursor: TuiTextCursor
+    TranscriptFindText: string
+    IsFindingTranscript: bool
     ViewPane: TuiViewPane option
     HistoryIndex: int option
     SuggestionIndex: int
@@ -310,6 +312,8 @@ module TransformerTuiModel =
       ScrollOffset = 0
       TranscriptViewportStart = None
       TranscriptCursor = { Line = 0; Column = 0 }
+      TranscriptFindText = ""
+      IsFindingTranscript = false
       ViewPane = None
       HistoryIndex = None
       SuggestionIndex = 0
@@ -395,6 +399,8 @@ module TransformerTuiModel =
         ResultBlocks = Map.empty
         LastViewLines = []
         TranscriptCursor = { Line = 0; Column = 0 }
+        TranscriptFindText = ""
+        IsFindingTranscript = false
         ViewPane = None
         CollapsedCommands = Set.empty
         FoldTarget = None
@@ -1102,6 +1108,85 @@ module TransformerTuiModel =
         cursorIndex - (height / 2)
         |> clampViewportStart height (List.length lines)
       { next with TranscriptViewportStart = Some start }
+
+  let setTranscriptFind active model =
+    { model with IsFindingTranscript = active; TranscriptFindText = "" }
+
+  let appendTranscriptFind chr model =
+    { model with TranscriptFindText = model.TranscriptFindText + string chr }
+
+  let backspaceTranscriptFind model =
+    if String.IsNullOrEmpty model.TranscriptFindText then
+      model
+    else
+      { model with
+          TranscriptFindText =
+            model.TranscriptFindText[..model.TranscriptFindText.Length - 2] }
+
+  let private transcriptLineContains
+    (needle: string)
+    (line: TuiTranscriptLine) =
+    line.Line.Text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0
+
+  let private transcriptFindCandidates width height model =
+    let lines = transcriptDisplayRows width height model |> List.toArray
+    let cursor =
+      if model.Focus = TuiFocus.Transcript then
+        transcriptDisplayCursorIndex 1 width height model
+        |> Option.defaultValue -1
+      else
+        transcriptViewportStart width height model - 1
+    let start = max 0 (min lines.Length (cursor + 1))
+    let indexed = lines |> Array.mapi (fun index line -> index, line)
+    Array.append (indexed |> Array.skip start) (indexed |> Array.truncate start)
+
+  let private transcriptFindCursor model (line: TuiTranscriptLine) =
+    let transcript = transcriptLines model
+    match line.Source with
+    | TuiTranscriptSource.Line index ->
+      let text =
+        transcript
+        |> List.tryItem index
+        |> Option.map (fun (line: TuiLine) -> line.Text)
+        |> Option.defaultValue ""
+      let column =
+        text.IndexOf(model.TranscriptFindText,
+                     StringComparison.OrdinalIgnoreCase)
+      { Line = index; Column = max 0 column }
+    | source ->
+      let line =
+        transcriptLineOfSource 0 model source
+        |> Option.defaultValue model.TranscriptCursor.Line
+      { Line = line; Column = 0 }
+    |> clampCursor transcript
+
+  /// Searches only rows kept in the compact transcript, never expanded output.
+  let findInTranscript width height model =
+    if String.IsNullOrEmpty model.TranscriptFindText then
+      model
+    else
+      let candidates = transcriptFindCandidates width height model
+      let contains =
+        snd >> transcriptLineContains model.TranscriptFindText
+      match candidates |> Array.tryFind contains with
+      | Some(index, line) ->
+        let transcript = transcriptLines model
+        let cursor = transcriptFindCursor model line
+        let next =
+          { model with
+              Focus = TuiFocus.Transcript
+              TranscriptCursor = cursor
+              IsFindingTranscript = false
+              FoldTarget = blockAtLine cursor.Line transcript
+              ScrollOffset = 0
+              Status =
+                $"Found '{model.TranscriptFindText}' at "
+                + $"{cursor.Line + 1}:{cursor.Column + 1}" }
+        let lineCount = transcriptDisplayRows width height next |> List.length
+        let start = clampViewportStart height lineCount (index - (height / 2))
+        { next with TranscriptViewportStart = Some start }
+      | None ->
+        { model with Status = $"Not found: {model.TranscriptFindText}" }
 
   let openViewPane blockIndex model =
     let lines =
