@@ -28,6 +28,8 @@ open System
 open B2R2
 open B2R2.Assembly.BinLowerer
 open B2R2.FrontEnd.Intel
+open type B2R2.FrontEnd.Intel.Operand
+open type B2R2.FrontEnd.Intel.Operands
 open B2R2.Assembly.Intel.ParserHelper
 open B2R2.Assembly.Intel.AsmPrefix
 open B2R2.Assembly.Intel.AsmOpcode
@@ -78,8 +80,8 @@ let private checkAddressingMode wordSz (ins: AsmInsInfo) =
   let isAddressable16 reg = isReg16 wordSz reg
   let uses16BitAddress = function
     | OprMem(baseReg, scaledIdx, _, _) ->
-      Option.exists isAddressable16 baseReg
-      || Option.exists (fst >> isAddressable16) scaledIdx
+      ValueOption.exists isAddressable16 baseReg
+      || ValueOption.exists (fun (struct (r, _)) -> isAddressable16 r) scaledIdx
     | _ ->
       false
   if getOperandsAsList ins.Operands |> List.exists uses16BitAddress then

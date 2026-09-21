@@ -1922,12 +1922,12 @@ let vcvtps2pd ins bld = cvtWidening ins bld (AST.cast CastKind.FloatCast)
 let vsibBaseDisp bld addrSz baseReg disp =
   let baseExpr =
     match baseReg with
-    | Some r -> regVar bld r
-    | None -> AST.num0 addrSz
+    | ValueSome r -> regVar bld r
+    | ValueNone -> AST.num0 addrSz
   let dispExpr =
     match disp with
-    | Some d -> numI64 d addrSz
-    | None -> AST.num0 addrSz
+    | ValueSome d -> numI64 d addrSz
+    | ValueNone -> AST.num0 addrSz
   struct (baseExpr, dispExpr)
 
 /// Loads the elements a gather covers: one per index the mask selects, and
@@ -1970,10 +1970,10 @@ let private gather (ins: Instruction) bld idxSz dataSz =
     let dstSize = getOperationSize ins
     let dataNum = 64<rt> / dataSz
     match vsib with
-    | OprMem(baseReg, Some(idxReg, scale), disp, _) ->
+    | OprMem(baseReg, ValueSome(idxReg, scale), disp, _) ->
       let addrSz = bld.RegType
       let struct (baseExpr, dispExpr) = vsibBaseDisp bld addrSz baseReg disp
-      let idxOpr = OprReg idxReg
+      let idxOpr = Operand.OprReg idxReg
       let idxWidth = operandWidth bld idxOpr
       let indices =
         transOprToArr ins bld true idxSz (64<rt> / idxSz) idxWidth idxOpr
@@ -2968,7 +2968,7 @@ let vfmsubadd231ph ins bld =
 let regQuadruple = function
   | OprReg r ->
     let at i: Register = LanguagePrimitives.EnumOfValue(int r + i)
-    Array.init 4 (fun i -> OprReg(at i))
+    Array.init 4 (fun i -> Operand.OprReg(at i))
   | _ ->
     raise InvalidOperandException
 

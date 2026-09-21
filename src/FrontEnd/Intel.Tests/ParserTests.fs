@@ -29,6 +29,8 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
 open type Opcode
+open type Operand
+open type Operands
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
@@ -36,19 +38,20 @@ module private Shortcut =
   type O =
     static member Reg(r) = OprReg r
 
-    static member Mem(bReg, rt) = OprMem(Some bReg, None, None, rt)
+    static member Mem(bReg, rt) =
+      OprMem(ValueSome bReg, ValueNone, ValueNone, rt)
 
     static member Mem(bReg, disp: Displacement, rt) =
-      OprMem(Some bReg, None, Some disp, rt)
+      OprMem(ValueSome bReg, ValueNone, ValueSome disp, rt)
 
     static member Mem(bReg, idx, scale, rt) =
-      OprMem(Some bReg, Some(idx, scale), None, rt)
+      OprMem(ValueSome bReg, ValueSome(struct (idx, scale)), ValueNone, rt)
 
     static member Mem(bReg, idx, scale, disp, rt) =
-      OprMem(Some bReg, Some(idx, scale), Some disp, rt)
+      OprMem(ValueSome bReg, ValueSome(struct (idx, scale)), ValueSome disp, rt)
 
     static member Mem(disp: Displacement, rt) =
-      OprMem(None, None, Some disp, rt)
+      OprMem(ValueNone, ValueNone, ValueSome disp, rt)
 
     static member Imm(v, rt) = OprImm(v, rt)
 
@@ -2184,7 +2187,10 @@ type ParserTests() =
     "c4e26990041d11223344"
     ++ VPGATHERDD **
       [ O.Reg R.XMM0
-        OprMem(None, Some(R.XMM3, Scale.X1), Some 0x44332211L, 128<rt>)
+        OprMem(ValueNone,
+               ValueSome(struct (R.XMM3, Scale.X1)),
+               ValueSome 0x44332211L,
+               128<rt>)
         O.Reg R.XMM2 ]
     ||> testX64NoPrefixNoSeg
 

@@ -26,6 +26,8 @@ module internal B2R2.Assembly.Intel.ParserHelper
 
 open B2R2
 open B2R2.FrontEnd.Intel
+open type B2R2.FrontEnd.Intel.Operand
+open type B2R2.FrontEnd.Intel.Operands
 
 type AsmInsInfo =
   { Prefixes: Prefix
@@ -65,6 +67,7 @@ let getOperandsAsList operands =
   | TwoOperands(op1, op2) -> [ op1; op2 ]
   | ThreeOperands(op1, op2, op3) -> [ op1; op2; op3 ]
   | FourOperands(op1, op2, op3, op4) -> [ op1; op2; op3; op4 ]
+  | _ -> Terminator.impossible ()
 
 /// Maps a size directive to the width it stands for. The names accepted here
 /// are the ones B2R2's disassembler emits (see Disasm.ptrDirectiveString), so

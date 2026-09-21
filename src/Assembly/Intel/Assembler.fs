@@ -26,6 +26,8 @@ namespace B2R2.Assembly.Intel
 
 open B2R2
 open B2R2.FrontEnd.Intel
+open type B2R2.FrontEnd.Intel.Operand
+open type B2R2.FrontEnd.Intel.Operands
 open B2R2.Assembly.BinLowerer
 open B2R2.Assembly.Intel.ParserHelper
 open B2R2.Assembly.Intel.AsmMain
@@ -189,14 +191,17 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   let pScaledIndexReg =
     opt (pchar '+') >>. pReg .>> spaces .>>. pScale
-    |>> (fun (reg, scale) -> ScaledIndex(reg, scale))
+    |>> (fun (reg, scale) -> struct (reg, scale): ScaledIndex)
   let pDisp = pImm
 
   let pMemOpr sz =
     let sz = Option.defaultValue 0<rt> sz
     opt (attempt updatePrefix) >>. spaces >>. opt (attempt pMemBaseReg)
     .>> spaces .>>. opt (attempt pScaledIndexReg) .>> spaces .>>. opt pDisp
-    |>> fun ((bReg, scaledInd), disp) -> OprMem(bReg, scaledInd, disp, sz)
+    |>> (fun ((bReg, scaledInd), disp) ->
+      let b = ValueOption.ofOption bReg
+      let si = ValueOption.ofOption scaledInd
+      OprMem(b, si, ValueOption.ofOption disp, sz))
     |> betweenSquareBraces
 
   (* The disassembler writes a far target as selector:offset; the semicolon is
@@ -208,11 +213,12 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   let pJumpTarget = attempt pAbsoluteAddress <|> (pImm |>> Relative)
 
-  let pOprReg = pReg |>> OprReg
+  let pOprReg = pReg |>> (fun r -> OprReg r)
 
   let pOprMem = opt (pMemOprSize .>> spaces) >>= pMemOpr
 
-  let pOprDirAddr opc = check opc Opcode.isBranch >>. pJumpTarget |>> OprDirAddr
+  let pOprDirAddr opc =
+    check opc Opcode.isBranch >>. pJumpTarget |>> (fun t -> OprDirAddr t)
 
   (* We just put dummy regsize here, as immediates will be replaced according to
      the decoding rules anyways. *)

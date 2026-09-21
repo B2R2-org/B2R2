@@ -7,6 +7,8 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
 open B2R2.FrontEnd.Intel.DOps
+open type B2R2.FrontEnd.Intel.Operand
+open type B2R2.FrontEnd.Intel.Operands
 
 let private v0x10 (span: ByteSpan) (st: byref<DState>) =
   let m = peek span &st

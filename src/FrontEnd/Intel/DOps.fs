@@ -142,49 +142,59 @@ let inline rel (span: ByteSpan) (st: byref<DState>) (sz: RegType) =
 let inline farPtr (span: ByteSpan) (st: byref<DState>) (sz: RegType) =
   let addrValue = readUnsigned span &st (int sz >>> 3)
   let selector = int16 (readSigned span &st 2)
-  OprDirAddr(Absolute(selector, addrValue, sz))
+  Operand.OprDirAddr(Absolute(selector, addrValue, sz))
 
-let inline private oprMem span (st: byref<DState>) b s dispSz memSz =
+/// The register bits of a memory operand: base in the low half, index in the
+/// high half, Operand.NoReg where absent.
+let inline private regsOf (b: Register) = uint32 (int b) ||| 0xFFFF0000u
+
+let inline private regsOf2 (b: Register) (i: Register) =
+  uint32 (int b) ||| (uint32 (int i) <<< 16)
+
+let private noRegs = 0xFFFFFFFFu
+
+/// A memory operand from its register bits, its index scale (as a power of
+/// two), the displacement size to read and the access size.
+let inline private oprMem span (st: byref<DState>) regs sc dispSz memSz =
   if dispSz = 0 then
-    OprMem(b, s, None, memSz)
+    Operand(OperandKind.Mem, 0L, regs, uint16 (int memSz), sc)
   else
     let disp = readSigned span &st dispSz
-    OprMem(b, s, OperandParsers.someDisp disp, memSz)
+    Operand(OperandKind.Mem, disp, regs, uint16 (int memSz), sc ||| 4uy)
 
 /// A memory operand named by a displacement alone (moffs).
 let inline moffs (span: ByteSpan) (st: byref<DState>) (memSz: RegType) =
-  oprMem span &st None None (int st.AddrSz >>> 3) memSz
+  oprMem span &st noRegs 0uy (int st.AddrSz >>> 3) memSz
 
 let private mem16 span (st: byref<DState>) (m: byte) memSz =
-  let bx, bp = OperandParsers.someReg R.BX, OperandParsers.someReg R.BP
-  let si, di = OperandParsers.someReg R.SI, OperandParsers.someReg R.DI
-  let si1 = OperandParsers.someScaledIndex R.SI 0
-  let di1 = OperandParsers.someScaledIndex R.DI 0
+  let bxsi, bxdi = regsOf2 R.BX R.SI, regsOf2 R.BX R.DI
+  let bpsi, bpdi = regsOf2 R.BP R.SI, regsOf2 R.BP R.DI
+  let si, di, bp, bx = regsOf R.SI, regsOf R.DI, regsOf R.BP, regsOf R.BX
   match int (m >>> 3) &&& 0b11000 ||| rm m with
-  | 0 -> oprMem span &st bx si1 0 memSz
-  | 1 -> oprMem span &st bx di1 0 memSz
-  | 2 -> oprMem span &st bp si1 0 memSz
-  | 3 -> oprMem span &st bp di1 0 memSz
-  | 4 -> oprMem span &st si None 0 memSz
-  | 5 -> oprMem span &st di None 0 memSz
-  | 6 -> oprMem span &st None None 2 memSz
-  | 7 -> oprMem span &st bx None 0 memSz
-  | 8 -> oprMem span &st bx si1 1 memSz
-  | 9 -> oprMem span &st bx di1 1 memSz
-  | 10 -> oprMem span &st bp si1 1 memSz
-  | 11 -> oprMem span &st bp di1 1 memSz
-  | 12 -> oprMem span &st si None 1 memSz
-  | 13 -> oprMem span &st di None 1 memSz
-  | 14 -> oprMem span &st bp None 1 memSz
-  | 15 -> oprMem span &st bx None 1 memSz
-  | 16 -> oprMem span &st bx si1 2 memSz
-  | 17 -> oprMem span &st bx di1 2 memSz
-  | 18 -> oprMem span &st bp si1 2 memSz
-  | 19 -> oprMem span &st bp di1 2 memSz
-  | 20 -> oprMem span &st si None 2 memSz
-  | 21 -> oprMem span &st di None 2 memSz
-  | 22 -> oprMem span &st bp None 2 memSz
-  | 23 -> oprMem span &st bx None 2 memSz
+  | 0 -> oprMem span &st bxsi 0uy 0 memSz
+  | 1 -> oprMem span &st bxdi 0uy 0 memSz
+  | 2 -> oprMem span &st bpsi 0uy 0 memSz
+  | 3 -> oprMem span &st bpdi 0uy 0 memSz
+  | 4 -> oprMem span &st si 0uy 0 memSz
+  | 5 -> oprMem span &st di 0uy 0 memSz
+  | 6 -> oprMem span &st noRegs 0uy 2 memSz
+  | 7 -> oprMem span &st bx 0uy 0 memSz
+  | 8 -> oprMem span &st bxsi 0uy 1 memSz
+  | 9 -> oprMem span &st bxdi 0uy 1 memSz
+  | 10 -> oprMem span &st bpsi 0uy 1 memSz
+  | 11 -> oprMem span &st bpdi 0uy 1 memSz
+  | 12 -> oprMem span &st si 0uy 1 memSz
+  | 13 -> oprMem span &st di 0uy 1 memSz
+  | 14 -> oprMem span &st bp 0uy 1 memSz
+  | 15 -> oprMem span &st bx 0uy 1 memSz
+  | 16 -> oprMem span &st bxsi 0uy 2 memSz
+  | 17 -> oprMem span &st bxdi 0uy 2 memSz
+  | 18 -> oprMem span &st bpsi 0uy 2 memSz
+  | 19 -> oprMem span &st bpdi 0uy 2 memSz
+  | 20 -> oprMem span &st si 0uy 2 memSz
+  | 21 -> oprMem span &st di 0uy 2 memSz
+  | 22 -> oprMem span &st bp 0uy 2 memSz
+  | 23 -> oprMem span &st bx 0uy 2 memSz
   | _ -> raise ParsingFailureException
 
 let private memSIB span (st: byref<DState>) (m: byte) dispSz memSz =
@@ -193,21 +203,21 @@ let private memSIB span (st: byref<DState>) (m: byte) dispSz memSz =
   let i = (sib >>> 3) &&& 0b111
   let b = sib &&& 0b111
   let rex = st.REX
-  let idxReg = OperandParsers.findRegSIBIdx st.AddrSz rex i
-  let index =
-    if i = 0b100 && not (REXPrefix.hasX rex) then None
-    else OperandParsers.someScaledIndex idxReg s
+  let noIdx = i = 0b100 && not (REXPrefix.hasX rex)
+  let idxBits =
+    if noIdx then 0xFFFF0000u
+    else uint32 (int (OperandParsers.findRegSIBIdx st.AddrSz rex i)) <<< 16
+  let sc = if noIdx then 0uy else byte s
   let modVal = m &&& 0b11000000uy
-  let bReg = OperandParsers.findRegRmAndSIBBase st.AddrSz rex b
-  let baseReg =
-    if b = 0b101 && modVal = 0uy then None
-    else OperandParsers.someReg bReg
+  let baseBits =
+    if b = 0b101 && modVal = 0uy then 0xFFFFu
+    else uint32 (int (OperandParsers.findRegRmAndSIBBase st.AddrSz rex b))
   let dispSz =
     if dispSz > 0 then dispSz
     elif (modVal = 0uy || modVal = 0b10000000uy) && b = 0b101 then 4
     elif modVal = 0b01000000uy && b = 0b101 then 1
     else 0
-  oprMem span &st baseReg index dispSz memSz
+  oprMem span &st (baseBits ||| idxBits) sc dispSz memSz
 
 let private mem32 span (st: byref<DState>) (m: byte) memSz =
   let md = int m >>> 6
@@ -218,14 +228,12 @@ let private mem32 span (st: byref<DState>) (m: byte) memSz =
   elif md = 0 && r = 0b101 then
     if st.Is64 then
       let b = if Prefix.hasAddrSz st.Pref then R.EIP else R.RIP
-      oprMem span &st (OperandParsers.someReg b) None 4 memSz
+      oprMem span &st (regsOf b) 0uy 4 memSz
     else
-      oprMem span &st None None 4 memSz
+      oprMem span &st noRegs 0uy 4 memSz
   else
-    let b =
-      OperandParsers.findRegRmAndSIBBase st.AddrSz st.REX r
-      |> OperandParsers.someReg
-    oprMem span &st b None dispSz memSz
+    let b = OperandParsers.findRegRmAndSIBBase st.AddrSz st.REX r
+    oprMem span &st (regsOf b) 0uy dispSz memSz
 
 /// The memory operand ModRM names, of the given width.
 let mem (span: ByteSpan) (st: byref<DState>) (m: byte) (memSz: RegType) =
@@ -378,51 +386,52 @@ let private uncompressed (st: byref<DState>) (tt: TupleType) bcst memSz disp =
 
 /// A memory operand under an EVEX prefix: the displacement is compressed and
 /// a broadcast narrows the width to one element.
-let private oprMemE span (st: byref<DState>) b s dispSz memSz tt bcst =
+let private oprMemE span (st: byref<DState>) regs sc dispSz memSz tt bcst =
+  let inline make disp (sz: RegType) flags =
+    Operand(OperandKind.Mem, disp, regs, uint16 (int sz), flags)
   if dispSz = 0 then
-    if st.EvexB then OprMem(b, s, None, bcstElemSz &st bcst)
-    else OprMem(b, s, None, memSz)
+    if st.EvexB then make 0L (bcstElemSz &st bcst) sc
+    else make 0L memSz sc
   elif dispSz = 1 then
     let disp = readSigned span &st 1
     let struct (disp, memSz) = uncompressed &st tt bcst memSz disp
-    OprMem(b, s, OperandParsers.someDisp disp, memSz)
+    make disp memSz (sc ||| 4uy)
   elif dispSz = 4 && st.EvexB then
     let disp = readSigned span &st 4
-    OprMem(b, s, OperandParsers.someDisp disp, bcstElemSz &st bcst)
+    make disp (bcstElemSz &st bcst) (sc ||| 4uy)
   else
     let disp = readSigned span &st dispSz
-    OprMem(b, s, OperandParsers.someDisp disp, memSz)
+    make disp memSz (sc ||| 4uy)
 
 let private mem16E span (st: byref<DState>) (m: byte) memSz tt bcst =
-  let bx, bp = OperandParsers.someReg R.BX, OperandParsers.someReg R.BP
-  let si, di = OperandParsers.someReg R.SI, OperandParsers.someReg R.DI
-  let si1 = OperandParsers.someScaledIndex R.SI 0
-  let di1 = OperandParsers.someScaledIndex R.DI 0
+  let bxsi, bxdi = regsOf2 R.BX R.SI, regsOf2 R.BX R.DI
+  let bpsi, bpdi = regsOf2 R.BP R.SI, regsOf2 R.BP R.DI
+  let si, di, bp, bx = regsOf R.SI, regsOf R.DI, regsOf R.BP, regsOf R.BX
   match int (m >>> 3) &&& 0b11000 ||| rm m with
-  | 0 -> oprMemE span &st bx si1 0 memSz tt bcst
-  | 1 -> oprMemE span &st bx di1 0 memSz tt bcst
-  | 2 -> oprMemE span &st bp si1 0 memSz tt bcst
-  | 3 -> oprMemE span &st bp di1 0 memSz tt bcst
-  | 4 -> oprMemE span &st si None 0 memSz tt bcst
-  | 5 -> oprMemE span &st di None 0 memSz tt bcst
-  | 6 -> oprMemE span &st None None 2 memSz tt bcst
-  | 7 -> oprMemE span &st bx None 0 memSz tt bcst
-  | 8 -> oprMemE span &st bx si1 1 memSz tt bcst
-  | 9 -> oprMemE span &st bx di1 1 memSz tt bcst
-  | 10 -> oprMemE span &st bp si1 1 memSz tt bcst
-  | 11 -> oprMemE span &st bp di1 1 memSz tt bcst
-  | 12 -> oprMemE span &st si None 1 memSz tt bcst
-  | 13 -> oprMemE span &st di None 1 memSz tt bcst
-  | 14 -> oprMemE span &st bp None 1 memSz tt bcst
-  | 15 -> oprMemE span &st bx None 1 memSz tt bcst
-  | 16 -> oprMemE span &st bx si1 2 memSz tt bcst
-  | 17 -> oprMemE span &st bx di1 2 memSz tt bcst
-  | 18 -> oprMemE span &st bp si1 2 memSz tt bcst
-  | 19 -> oprMemE span &st bp di1 2 memSz tt bcst
-  | 20 -> oprMemE span &st si None 2 memSz tt bcst
-  | 21 -> oprMemE span &st di None 2 memSz tt bcst
-  | 22 -> oprMemE span &st bp None 2 memSz tt bcst
-  | 23 -> oprMemE span &st bx None 2 memSz tt bcst
+  | 0 -> oprMemE span &st bxsi 0uy 0 memSz tt bcst
+  | 1 -> oprMemE span &st bxdi 0uy 0 memSz tt bcst
+  | 2 -> oprMemE span &st bpsi 0uy 0 memSz tt bcst
+  | 3 -> oprMemE span &st bpdi 0uy 0 memSz tt bcst
+  | 4 -> oprMemE span &st si 0uy 0 memSz tt bcst
+  | 5 -> oprMemE span &st di 0uy 0 memSz tt bcst
+  | 6 -> oprMemE span &st noRegs 0uy 2 memSz tt bcst
+  | 7 -> oprMemE span &st bx 0uy 0 memSz tt bcst
+  | 8 -> oprMemE span &st bxsi 0uy 1 memSz tt bcst
+  | 9 -> oprMemE span &st bxdi 0uy 1 memSz tt bcst
+  | 10 -> oprMemE span &st bpsi 0uy 1 memSz tt bcst
+  | 11 -> oprMemE span &st bpdi 0uy 1 memSz tt bcst
+  | 12 -> oprMemE span &st si 0uy 1 memSz tt bcst
+  | 13 -> oprMemE span &st di 0uy 1 memSz tt bcst
+  | 14 -> oprMemE span &st bp 0uy 1 memSz tt bcst
+  | 15 -> oprMemE span &st bx 0uy 1 memSz tt bcst
+  | 16 -> oprMemE span &st bxsi 0uy 2 memSz tt bcst
+  | 17 -> oprMemE span &st bxdi 0uy 2 memSz tt bcst
+  | 18 -> oprMemE span &st bpsi 0uy 2 memSz tt bcst
+  | 19 -> oprMemE span &st bpdi 0uy 2 memSz tt bcst
+  | 20 -> oprMemE span &st si 0uy 2 memSz tt bcst
+  | 21 -> oprMemE span &st di 0uy 2 memSz tt bcst
+  | 22 -> oprMemE span &st bp 0uy 2 memSz tt bcst
+  | 23 -> oprMemE span &st bx 0uy 2 memSz tt bcst
   | _ -> raise ParsingFailureException
 
 let private memSIBE span (st: byref<DState>) (m: byte) dispSz memSz tt bcst =
@@ -431,21 +440,21 @@ let private memSIBE span (st: byref<DState>) (m: byte) dispSz memSz tt bcst =
   let i = (sib >>> 3) &&& 0b111
   let b = sib &&& 0b111
   let rex = st.REX
-  let idxReg = OperandParsers.findRegSIBIdx st.AddrSz rex i
-  let index =
-    if i = 0b100 && not (REXPrefix.hasX rex) then None
-    else OperandParsers.someScaledIndex idxReg s
+  let noIdx = i = 0b100 && not (REXPrefix.hasX rex)
+  let idxBits =
+    if noIdx then 0xFFFF0000u
+    else uint32 (int (OperandParsers.findRegSIBIdx st.AddrSz rex i)) <<< 16
+  let sc = if noIdx then 0uy else byte s
   let modVal = m &&& 0b11000000uy
-  let bReg = OperandParsers.findRegRmAndSIBBase st.AddrSz rex b
-  let baseReg =
-    if b = 0b101 && modVal = 0uy then None
-    else OperandParsers.someReg bReg
+  let baseBits =
+    if b = 0b101 && modVal = 0uy then 0xFFFFu
+    else uint32 (int (OperandParsers.findRegRmAndSIBBase st.AddrSz rex b))
   let dispSz =
     if dispSz > 0 then dispSz
     elif (modVal = 0uy || modVal = 0b10000000uy) && b = 0b101 then 4
     elif modVal = 0b01000000uy && b = 0b101 then 1
     else 0
-  oprMemE span &st baseReg index dispSz memSz tt bcst
+  oprMemE span &st (baseBits ||| idxBits) sc dispSz memSz tt bcst
 
 let private mem32E span (st: byref<DState>) (m: byte) memSz tt bcst =
   let md = int m >>> 6
@@ -456,14 +465,12 @@ let private mem32E span (st: byref<DState>) (m: byte) memSz tt bcst =
   elif md = 0 && r = 0b101 then
     if st.Is64 then
       let b = if Prefix.hasAddrSz st.Pref then R.EIP else R.RIP
-      oprMemE span &st (OperandParsers.someReg b) None 4 memSz tt bcst
+      oprMemE span &st (regsOf b) 0uy 4 memSz tt bcst
     else
-      oprMemE span &st None None 4 memSz tt bcst
+      oprMemE span &st noRegs 0uy 4 memSz tt bcst
   else
-    let b =
-      OperandParsers.findRegRmAndSIBBase st.AddrSz st.REX r
-      |> OperandParsers.someReg
-    oprMemE span &st b None dispSz memSz tt bcst
+    let b = OperandParsers.findRegRmAndSIBBase st.AddrSz st.REX r
+    oprMemE span &st (regsOf b) 0uy dispSz memSz tt bcst
 
 /// The memory operand ModRM names under a VEX or EVEX prefix. tt is the
 /// row's tuple type and bcst the element width the operand broadcasts, or
@@ -494,21 +501,20 @@ let memVSIB (span: ByteSpan) (st: byref<DState>) (m: byte) elemSz tt =
   let i = ((sib >>> 3) &&& 0b111) + hi16 (REXPrefix.hasEVEXV st.REX)
   let b = sib &&& 0b111
   let rex = st.REX
-  let idxReg = OperandParsers.findRegSIBIdx idxVl rex i
-  let index = OperandParsers.someScaledIndex idxReg s
+  let idxBits = uint32 (int (OperandParsers.findRegSIBIdx idxVl rex i)) <<< 16
   let modVal = m &&& 0b11000000uy
-  let bReg = OperandParsers.findRegRmAndSIBBase st.AddrSz rex b
-  let baseReg =
-    if b = 0b101 && modVal = 0uy then None
-    else OperandParsers.someReg bReg
+  let baseBits =
+    if b = 0b101 && modVal = 0uy then 0xFFFFu
+    else uint32 (int (OperandParsers.findRegRmAndSIBBase st.AddrSz rex b))
+  let regs = baseBits ||| idxBits
   let dispSz =
     match modVal with
     | 0uy -> if b = 0b101 then 4 else 0
     | 0b01000000uy -> 1
     | 0b10000000uy -> 4
     | _ -> raise ParsingFailureException
-  if st.IsEVEX then oprMemE span &st baseReg index dispSz memSz tt 0<rt>
-  else oprMem span &st baseReg index dispSz memSz
+  if st.IsEVEX then oprMemE span &st regs (byte s) dispSz memSz tt 0<rt>
+  else oprMem span &st regs (byte s) dispSz memSz
 
 /// The instruction under a VEX or EVEX prefix. A broadcast width the memory
 /// form declared, or the reading EVEX.b took on a register form, is carried

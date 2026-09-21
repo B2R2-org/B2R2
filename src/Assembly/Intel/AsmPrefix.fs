@@ -133,9 +133,9 @@ let private isHalfSplit (wordSz: WordSize) reg =
   | _ -> false
 
 let private isAddrSize wordSz = function
-  | OneOperand(OprMem(Some bReg, _, _, _))
-  | TwoOperands(_, OprMem(Some bReg, _, _, _))
-  | TwoOperands(OprMem(Some bReg, _, _, _), _) -> isHalfSplit wordSz bReg
+  | OneOperand(OprMem(ValueSome bReg, _, _, _))
+  | TwoOperands(_, OprMem(ValueSome bReg, _, _, _))
+  | TwoOperands(OprMem(ValueSome bReg, _, _, _), _) -> isHalfSplit wordSz bReg
   | _ -> false
 
 (* Matching on Prefix rather than on its numeric value is deliberate: these
@@ -267,14 +267,14 @@ let encodeVEXRexRXB wordSz reg rmOrSBase sIdx =
   if wordSz = WordSize.Bit32 then
     0b111uy
   else
-    match rmOrSBase, sIdx with
-    | Some r1, Some(r2, _) ->
+    match (rmOrSBase: Register voption), (sIdx: ScaledIndex voption) with
+    | ValueSome r1, ValueSome(r2, _) ->
       convVEXRexByte (encodeRexR reg ||| encodeRexX r2 ||| encodeRexB r1)
-    | Some r1, None ->
+    | ValueSome r1, ValueNone ->
       convVEXRexByte (encodeRexR reg ||| encodeRexB r1)
-    | None, Some(r2, _) ->
+    | ValueNone, ValueSome(r2, _) ->
       convVEXRexByte (encodeRexR reg ||| encodeRexX r2)
-    | None, None ->
+    | ValueNone, ValueNone ->
       convVEXRexByte (encodeRexR reg)
 
 let encodeRexRR wordSz isMR r1 r2 =
@@ -287,26 +287,30 @@ let encodeRexRR wordSz isMR r1 r2 =
 
 let encodeRexRM wordSz r b s =
   let rex = if isReg8 wordSz r then encodeRex r else 0uy
-  match b, s with
-  | Some b, Some(s, _) -> rex ||| encodeRexR r ||| encodeRexX s ||| encodeRexB b
-  | Some b, None -> rex ||| encodeRexR r ||| encodeRexB b
-  | None, Some(s, _) -> rex ||| encodeRexR r ||| encodeRexX s
-  | None, None -> rex ||| encodeRexR r
+  match (b: Register voption), (s: ScaledIndex voption) with
+  | ValueSome b, ValueSome(s, _) ->
+    rex ||| encodeRexR r ||| encodeRexX s ||| encodeRexB b
+  | ValueSome b, ValueNone ->
+    rex ||| encodeRexR r ||| encodeRexB b
+  | ValueNone, ValueSome(s, _) ->
+    rex ||| encodeRexR r ||| encodeRexX s
+  | ValueNone, ValueNone ->
+    rex ||| encodeRexR r
 
 let encodeRexRXB wordSz isMR = function
   | NoOperand
   | OneOperand(Label _) | OneOperand(OprDirAddr _)
   | OneOperand(OprImm _)
-  | TwoOperands(OprMem(None, None, Some _, _), OprImm _)
+  | TwoOperands(OprMem(ValueNone, ValueNone, ValueSome _, _), OprImm _)
   | TwoOperands(Label _, OprImm _) ->
     0uy
   | OneOperand(OprReg r) ->
     if isReg8 wordSz r then encodeRex r ||| encodeRexB r else encodeRexB r
-  | OneOperand(OprMem(Some bReg, Some(s, _), _, _)) ->
+  | OneOperand(OprMem(ValueSome bReg, ValueSome(s, _), _, _)) ->
     encodeRexX s ||| encodeRexB bReg
-  | OneOperand(OprMem(Some bReg, None, _, _)) ->
+  | OneOperand(OprMem(ValueSome bReg, ValueNone, _, _)) ->
     encodeRexB bReg
-  | OneOperand(OprMem(None, Some(s, _), _, _)) ->
+  | OneOperand(OprMem(ValueNone, ValueSome(s, _), _, _)) ->
     encodeRexX s
   | TwoOperands(OprReg r1, OprReg r2) ->
     encodeRexRR wordSz isMR r1 r2
@@ -322,9 +326,9 @@ let encodeRexRXB wordSz isMR = function
      REX bit. *)
   | TwoOperands(OprImm _, OprImm _) ->
     0uy
-  | TwoOperands(OprMem(Some bReg, None, _, _), OprImm _) ->
+  | TwoOperands(OprMem(ValueSome bReg, ValueNone, _, _), OprImm _) ->
     encodeRexB bReg
-  | TwoOperands(OprMem(Some bReg, Some(s, _), _, _), OprImm _) ->
+  | TwoOperands(OprMem(ValueSome bReg, ValueSome(s, _), _, _), OprImm _) ->
     encodeRexX s ||| encodeRexB bReg
   | TwoOperands(OprReg r, Label _) | TwoOperands(Label _, OprReg r) ->
     encodeRexR r
@@ -339,11 +343,15 @@ let encodeRexRXB wordSz isMR = function
   | ThreeOperands(OprMem(b, s, _, _), OprReg r, OprImm _)
   | ThreeOperands(OprMem(b, s, _, _), OprReg r, OprReg _) ->
     encodeRexRM wordSz r b s
-  | ThreeOperands(OprReg r, OprMem(Some bReg, Some(s, _), _, _), OprImm _) ->
+  | ThreeOperands(OprReg r,
+                  OprMem(ValueSome bReg, ValueSome(s, _), _, _),
+                  OprImm _) ->
     encodeRexR r ||| encodeRexX s ||| encodeRexB bReg
-  | ThreeOperands(OprReg r, OprMem(Some bReg, None, _, _), OprImm _) ->
+  | ThreeOperands(OprReg r,
+                  OprMem(ValueSome bReg, ValueNone, _, _),
+                  OprImm _) ->
     encodeRexR r ||| encodeRexB bReg
-  | ThreeOperands(OprReg r, OprMem(None, None, _, _), OprImm _) ->
+  | ThreeOperands(OprReg r, OprMem(ValueNone, ValueNone, _, _), OprImm _) ->
     encodeRexR r
   | ThreeOperands(OprReg r, Label _, OprImm _) ->
     encodeRexR r

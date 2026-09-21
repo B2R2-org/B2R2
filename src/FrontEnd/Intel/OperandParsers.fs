@@ -22,8 +22,8 @@
   SOFTWARE.
 *)
 
-/// The register lookups and the shared operand cells the generated opcode
-/// code (DLegacy, DVex) and its runtime (DOps) read.
+/// The register lookups the generated opcode code (DLegacy, DVex) and its
+/// runtime (DOps) read.
 [<RequireQualifiedAccess>]
 module internal B2R2.FrontEnd.Intel.OperandParsers
 
@@ -79,35 +79,6 @@ let findRegRBits sz rex (n: int): Register = findReg sz rex 4 n
 let findRegIS4 wordSize sz (n: int) =
   if wordSize = WordSize.Bit32 then regOfIndex sz (n &&& 0b0111)
   else regOfIndex sz n
-
-/// Some r for every register, made once. A memory operand names its base
-/// register through an option, and a fresh one for every operand was a heap
-/// allocation for a value that never changes.
-let someRegs =
-  let regs = Enum.GetValues typeof<Register> :?> Register[]
-  Array.init ((regs |> Array.map int |> Array.max) + 1) (fun i ->
-    Some(LanguagePrimitives.EnumOfValue<int, Register> i))
-
-let inline someReg (r: Register) = someRegs[int r]
-
-/// Some (r, scale) for every register and scale, made once for the same
-/// reason. Indexed by the two-bit SIB.scale field, then by the register.
-let someScaledIndexes =
-  Array.init 4 (fun s ->
-    someRegs
-    |> Array.mapi (fun i _ ->
-      let r: Register = LanguagePrimitives.EnumOfValue i
-      Some(r, LanguagePrimitives.EnumOfValue<int, Scale>(1 <<< s))))
-
-let inline someScaledIndex (r: Register) s = someScaledIndexes[s][int r]
-
-/// Some d for every displacement a byte can hold, made once. Most memory
-/// operands carry one, and a fresh option per operand was an allocation for
-/// one of 256 values.
-let someDisp8 = Array.init 256 (fun i -> Some(int64 (i - 128)))
-
-let inline someDisp (d: int64) =
-  if d >= -128L && d <= 127L then someDisp8[int d + 128] else Some d
 
 let parseMMXReg n = RegisterHelper.mm n |> Operands.oprReg
 

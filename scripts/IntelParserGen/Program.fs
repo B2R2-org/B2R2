@@ -567,6 +567,8 @@ let private header (em: Emitter) (moduleName: string) (what: string) =
   em.Line "open B2R2.FrontEnd.BinLifter"
   em.Line "open B2R2.FrontEnd.Intel"
   em.Line "open B2R2.FrontEnd.Intel.DOps"
+  em.Line "open type B2R2.FrontEnd.Intel.Operand"
+  em.Line "open type B2R2.FrontEnd.Intel.Operands"
   em.Line ""
 
 /// Emits the maps whose heads sit end to end in heads32/heads64, 2048 per map.
