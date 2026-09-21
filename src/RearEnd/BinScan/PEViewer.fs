@@ -186,17 +186,35 @@ let dumpSymbols _ (pe: PEBinFile) =
   printDoubleHorizontalRule ()
   printsn ""
 
+/// Prints the base relocations of an image, which name the kind of slot each
+/// one moves rather than a symbol, the linker having resolved those already.
+let private dumpBaseRelocs (pe: PEBinFile) =
+  let wordSize = (pe :> IBinFile).ISA.WordSize
+  for block in pe.RelocBlocks do
+    for entry in block.Entries do
+      let addr = uint64 block.PageRVA + uint64 entry.Offset
+      printsr [| Addr.toString wordSize addr; $"{entry.Type}" |]
+
+/// Prints the relocations an object keeps per section, which name the symbol
+/// the linker is to resolve at each of them.
+let private dumpSectionRelocs (pe: PEBinFile) =
+  let wordSize = (pe :> IBinFile).ISA.WordSize
+  for reloc in BinFileOps.getRelocations pe do
+    let name = defaultArg reloc.SymbolName ""
+    printsr [| Addr.toString wordSize reloc.Address; normalizeEmpty name |]
+
 let dumpRelocs _ (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
   setTableColumnFormats [| addrColumn; LeftAligned 50 |]
   printDoubleHorizontalRule ()
-  printsr [| "Address"; "Relocation Type" |]
-  printSingleHorizontalRule ()
-  for block in pe.RelocBlocks do
-    for entry in block.Entries do
-      let addr = uint64 block.PageRVA + uint64 entry.Offset
-      printsr [| Addr.toString (pe :> IBinFile).ISA.WordSize addr
-                 $"{entry.Type}" |]
+  if pe.PEHeaders.IsCoffOnly then
+    printsr [| "Address"; "Symbol" |]
+    printSingleHorizontalRule ()
+    dumpSectionRelocs pe
+  else
+    printsr [| "Address"; "Relocation Type" |]
+    printSingleHorizontalRule ()
+    dumpBaseRelocs pe
   printDoubleHorizontalRule ()
   printsn ""
 

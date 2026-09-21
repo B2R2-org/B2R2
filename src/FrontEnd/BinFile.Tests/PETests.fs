@@ -108,6 +108,14 @@ type PETests() =
   /// (FH3) FuncInfo format instead of the compressed FH4 one.
   static let x64ExcFh3File = parseFile "pe_x64_exc_fh3"
 
+  /// A /guard:cf build, whose load configuration lists every function the
+  /// loader will let an indirect call reach.
+  static let x64GuardCFFile = parseFile "pe_x64_guardcf"
+
+  /// A build with two TLS callbacks, which the loader runs as a thread
+  /// starts and ends and which nothing else in the image names.
+  static let x64TLSFile = parseFile "pe_x64_tls"
+
   /// Rewrites the RVA of one data directory, which is how a file naming a
   /// directory that lands nowhere is made out of a sound one. The directories
   /// follow the optional header, whose PE32+ form runs 112 bytes.
@@ -585,3 +593,55 @@ type PETests() =
       Assert.AreEqual<BinSymbolKind>(FunctionSymbol, s.Kind)
     | Error _ ->
       Assert.Fail()
+
+  [<TestMethod>]
+  member _.``[PE] x64 every relocation is a relocation address``() =
+    (* What the table lists and what a lookup in it answers are one thing,
+       which is what indexing the lookup has to leave true. *)
+    let relocs = (x64File :> IBinFile).Relocations.Value
+    let all = relocs.Relocations
+    Assert.AreEqual<bool>(true, all.Length > 0)
+    let found = all |> Array.forall (fun r -> relocs.IsRelocationAddr r.Address)
+    Assert.AreEqual<bool>(true, found)
+
+  [<TestMethod>]
+  member _.``[PE] x64 obj section relocations name their symbols``() =
+    let relocs = (x64ObjFile :> IBinFile).Relocations.Value.Relocations
+    let names = relocs |> Array.choose (fun r -> r.SymbolName) |> Set.ofArray
+    Assert.AreEqual<bool>(true, names.Contains "puts")
+    Assert.AreEqual<bool>(true, names.Contains "msg")
+    Assert.AreEqual<bool>(true, names.Contains "g_buf")
+
+  [<TestMethod>]
+  member _.``[PE] x64 obj relocation count``() =
+    (* Three in .text$mn and three in .pdata, which is every one the object
+       carries. *)
+    let relocs = (x64ObjFile :> IBinFile).Relocations.Value.Relocations
+    Assert.AreEqual<int>(6, relocs.Length)
+
+  [<TestMethod>]
+  member _.``[PE] x86 SafeSEH handlers are functions``() =
+    (* The load configuration of the x86 fixture names one exception handler,
+       and a handler is a function nothing else in the file names. *)
+    let addrs = (x86File :> IBinFile).Structure.Value.FunctionAddresses
+    Assert.AreEqual<bool>(true, Array.contains 0x4018f0UL addrs)
+
+  [<TestMethod>]
+  member _.``[PE] x64 guard CF table entries are functions``() =
+    (* Of the eleven the table lists, these are three no .pdata range opens
+       at, so only the table names them. They are its first entry, one in
+       the middle and its last, which no reading of it at the wrong stride
+       or for the wrong count gets all three of. *)
+    let addrs = (x64GuardCFFile :> IBinFile).Structure.Value.FunctionAddresses
+    Assert.AreEqual<bool>(true, Array.contains 0x140001000UL addrs)
+    Assert.AreEqual<bool>(true, Array.contains 0x140001040UL addrs)
+    Assert.AreEqual<bool>(true, Array.contains 0x140001bc0UL addrs)
+
+  [<TestMethod>]
+  member _.``[PE] x64 TLS callbacks are functions``() =
+    (* Neither opens a .pdata range, and this image lists no guard function
+       table, so the callback array is the only thing naming them. Taking
+       both tells reading it through from stopping at its first entry. *)
+    let addrs = (x64TLSFile :> IBinFile).Structure.Value.FunctionAddresses
+    Assert.AreEqual<bool>(true, Array.contains 0x140001000UL addrs)
+    Assert.AreEqual<bool>(true, Array.contains 0x140001010UL addrs)
