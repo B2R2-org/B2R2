@@ -1363,6 +1363,23 @@ module ActionMetadata =
         [ syntax None [] ] with
         OutputRelation = ActionOutputRelation.CollectionElement }
 
+  let private find =
+    let symbol =
+      required "symbol" ActionArgumentKind.Text "Function symbol name."
+    let entry =
+      required "entry" ActionArgumentKind.Address "Function entry address."
+    { contract
+        "find"
+        (ReplValueKind.Collection ReplValueKind.FunctionInfo)
+        (ReplValueKind.Collection ReplValueKind.FunctionInfo)
+        ActionRole.Transform
+        5
+        "find symbol=<name>|entry=<addr> -> FunctionInfo collection"
+        [ "functions |> @find symbol=<name>"
+          "functions |> @find entry=<addr>" ]
+        [ syntax None [ symbol ]; syntax None [ entry ] ] with
+        OutputRelation = ActionOutputRelation.PreservedCollection }
+
   let private print =
     contract
       "print"
@@ -1515,6 +1532,7 @@ module ActionMetadata =
       disasm
       dot
       edit
+      find
       grep
       hexdump
       jaccard

@@ -13,6 +13,7 @@
     <Compile Include="IAction.fs" />
     <Compile Include="PluginLoader.fs" />
     <Compile Include="Repl\ActionMetadata.fs" />
+    <Compile Include="Repl\QueryCapabilities.fs" />
     <Compile Include="AsmAction.fs" />
     <Compile Include="ByteArrayAction.fs" />
     <Compile Include="CFGAction.fs" />
@@ -25,6 +26,7 @@
     <Compile Include="DisasmAction.fs" />
     <Compile Include="DotAction.fs" />
     <Compile Include="EditAction.fs" />
+    <Compile Include="FindAction.fs" />
     <Compile Include="GrepAction.fs" />
     <Compile Include="HexdumpAction.fs" />
     <Compile Include="JaccardAction.fs" />
