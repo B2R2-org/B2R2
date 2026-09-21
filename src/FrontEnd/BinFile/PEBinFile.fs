@@ -48,6 +48,10 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
           tryFindSymbolFromPDB pe addr
     }
 
+  let isExportedFunction addr =
+    let idx = pe.FindSectionIdxFromRVA(int (addr - pe.BaseAddr))
+    idx <> -1 && isSectionExecutableByIndex pe idx
+
   let toBinSymbol (s: Symbol) =
     { Name = s.Name
       Address = s.Address
@@ -57,7 +61,34 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       Size = None
       LibraryName = None }
 
-  let binSymbols = lazy (pe.Symbols.SymbolArray |> Array.map toBinSymbol)
+  let toExportedSymbol addr name =
+    { Name = name
+      Address = addr
+      Kind = if isExportedFunction addr then FunctionSymbol else DataSymbol
+      Binding = GlobalBinding
+      IsDefined = true
+      Size = None
+      LibraryName = None }
+
+  (* An image keeps no symbol table of its own, so what it exports is the only
+     name it gives an address inside it. These are names a linker reads rather
+     than ones a debugger does, which is why an image holding nothing besides
+     them is stripped all the same. *)
+  let exportedSymbols =
+    lazy
+      [| for KeyValue(addr, names) in pe.ExportedSymbols.Exports do
+           for name in names -> toExportedSymbol addr name |]
+
+  let binSymbols =
+    lazy
+      Array.append
+        (pe.Symbols.SymbolArray |> Array.map toBinSymbol)
+        exportedSymbols.Value
+
+  let tryFindExportedSymbol addr =
+    match pe.ExportedSymbols.TryFind addr with
+    | Some(name :: _) -> Ok(toExportedSymbol addr name)
+    | _ -> Error ErrorCase.SymbolNotFound
 
   let symbolTable =
     Some { new ISymbolTable with
@@ -67,11 +98,15 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
       member _.TryFindSymbolByAddr addr =
         match pe.Symbols.SymbolByAddr.TryGetValue addr with
-        | true, s -> Ok(toBinSymbol s)
-        | false, _ -> Error ErrorCase.SymbolNotFound
+        | true, s ->
+          Ok(toBinSymbol s)
+        | false, _ ->
+          tryFindExportedSymbol addr
 
       member _.CodeModeMarkers = [||]
     }
+
+  let unwindFrames = lazy (ExceptionData.parse pe bytes)
 
   let functionAddrs =
     lazy
@@ -80,10 +115,13 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
              if s.IsFunction then s.Address else () |]
       let dynamicAddrs =
         [| for addr in pe.ExportedSymbols.Addresses do
-             let idx = pe.FindSectionIdxFromRVA(int (addr - pe.BaseAddr))
-             if idx <> -1 && isSectionExecutableByIndex pe idx then addr
-             else () |]
-      Array.concat [| staticAddrs; dynamicAddrs |]
+             if isExportedFunction addr then addr else () |]
+      (* Every range .pdata unwinds opens a function, barring one that chains
+         back to the range before it and so only carries that one on. *)
+      let unwindAddrs =
+        [| for f in unwindFrames.Value do
+             if f.IsChained then () else f.FuncStart |]
+      Array.concat [| staticAddrs; dynamicAddrs; unwindAddrs |]
       |> Array.distinct
       |> Array.sort
 
@@ -271,7 +309,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let exceptionFrames =
     lazy
-      [| for f in ExceptionData.parse pe bytes do
+      [| for f in unwindFrames.Value do
            { FunctionStart = f.FuncStart
              FunctionEnd = f.FuncEnd - 1UL
              PersonalityRoutine = f.Personality

@@ -548,4 +548,40 @@ type PETests() =
       |> withDotlessForwarder
     let file = PEBinFile("pe_x64_dll.dll", bytes, None, [||]) :> IBinFile
     Assert.AreEqual<BinFileKind>(SharedLibrary, file.Kind)
-    Assert.AreEqual<int>(0, file.Structure.Value.FunctionAddresses.Length)
+    let names =
+      file.SymbolTable.Value.Symbols |> Array.map (fun s -> s.Name)
+    Assert.AreEqual<bool>(false, Array.contains "exported_func" names)
+
+  [<TestMethod>]
+  member _.``[PE] x64 function addresses include .pdata starts``() =
+    (* An image carrying neither a PDB nor exports names its functions
+       nowhere but in the table it unwinds them by. *)
+    let addrs = (x64File :> IBinFile).Structure.Value.FunctionAddresses
+    Assert.AreEqual<bool>(true, Array.contains 0x140001840UL addrs)
+    Assert.AreEqual<bool>(true, Array.contains 0x140001000UL addrs)
+
+  [<TestMethod>]
+  member _.``[PE] x64 a chained .pdata range is no function``() =
+    (* 0x14000184b carries on the range 0x140001840 opens, which is what its
+       UNWIND_INFO chaining back to that one says, so it starts nothing. *)
+    let addrs = (x64File :> IBinFile).Structure.Value.FunctionAddresses
+    Assert.AreEqual<bool>(false, Array.contains 0x14000184bUL addrs)
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll exports are symbols``() =
+    (* An image keeps no symbol table of its own, so what it exports is the
+       only name it gives an address inside it. *)
+    let names =
+      (x64DllFile :> IBinFile).SymbolTable.Value.Symbols
+      |> Array.map (fun s -> s.Name)
+    Assert.AreEqual<bool>(true, Array.contains "exported_func" names)
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll export is found by address``() =
+    let tbl = (x64DllFile :> IBinFile).SymbolTable.Value
+    match tbl.TryFindSymbolByAddr 0x180001000UL with
+    | Ok s ->
+      Assert.AreEqual<string>("exported_func", s.Name)
+      Assert.AreEqual<BinSymbolKind>(FunctionSymbol, s.Kind)
+    | Error _ ->
+      Assert.Fail()
