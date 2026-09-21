@@ -34,13 +34,14 @@ and the feature fixtures are hand-crafted to isolate one parser capability.
 | `mach_x64_initchain` | A PIE dylib whose `__mod_init_func` slots hold a chain of rebase entries rather than the addresses of the initializers themselves. |
 | `mach_x64_linkeropt` | An `MH_OBJECT` naming what it needs linked with `LC_LINKER_OPTION`, the way clang's autolinking writes it, rather than with `LC_LOAD_DYLIB`. |
 | `mach_x64_fileset` | An `MH_FILESET` container, as a kernel collection is: two images named by `LC_FILESET_ENTRY`, sharing one `__LINKEDIT`, plus a segment occupying no virtual memory. |
+| `mach_arm64_versionmin` | An arm64 executable naming its platform with `LC_VERSION_MIN_IPHONEOS` rather than with `LC_BUILD_VERSION`. |
 
 The exception fixtures exercise the two Mach-O unwinding schemes: `__eh_frame`
 DWARF CFI (x64, needs a register factory) and Apple compact unwind (arm64).
 
 ## The fixtures that clang cannot build
 
-Thirteen fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
+Fourteen fixtures are written out by [`make_fixtures.py`](make_fixtures.py),
 because no current toolchain produces them. An assembler always lays down
 `__text` even when nothing goes in it and ld64 keeps the empty section, so a
 data-only object cannot be compiled; ld64 stopped emitting `LC_UNIXTHREAD` long
@@ -54,13 +55,15 @@ for the frameworks and libraries a module map names, so pinning down every
 form it can take takes a hand-written object rather than a compiled one. And
 ld64 stopped emitting `LC_ROUTINES` long before it started linking everything
 PIE, so no one binary it builds today both names a routine that way and leaves
-its initializer pointers where the file can be read for them. A real signed
-binary, finally, drags a whole certificate chain in with it, which is far too
-much to keep as a fixture and names a signer that expires. Each function in the script says what its
-fixture is for.
+its initializer pointers where the file can be read for them. A build today
+names its platform with `LC_BUILD_VERSION` whichever platform that is, which
+leaves the four `LC_VERSION_MIN_*` commands it replaced uncompilable as well.
+A real signed binary, finally, drags a whole certificate chain in with it,
+which is far too much to keep as a fixture and names a signer that expires.
+Each function in the script says what its fixture is for.
 
 ```bash
-python3 make_fixtures.py           # rewrite the 13 archives
+python3 make_fixtures.py           # rewrite the 14 archives
 python3 make_fixtures.py --check   # confirm the archives match the script
 ```
 

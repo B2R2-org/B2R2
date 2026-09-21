@@ -48,10 +48,10 @@ module StackConvention =
   let private make alignment redZone shadow =
     { Alignment = alignment; RedZoneSize = redZone; ShadowSpaceSize = shadow }
 
-  /// Builds the stack-frame convention for the given OS and ISA. macOS and any
-  /// unknown OS share the System V geometry; only Windows and the per-ISA
-  /// alignments differ. Unmodeled ISAs fall back to System V x64, so this never
-  /// throws.
+  /// Builds the stack-frame convention for the given OS and ISA. macOS, the
+  /// bare machine and any unknown OS share the System V geometry; only Windows
+  /// and the per-ISA alignments differ. Unmodeled ISAs fall back to System V
+  /// x64, so this never throws.
   [<CompiledName "Create">]
   let create os isa =
     match os, isa with

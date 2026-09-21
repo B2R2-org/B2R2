@@ -171,6 +171,11 @@ type MachTests() =
   static let x64CodeSignFile =
     parseFile "mach_x64_codesign" Architecture.Intel WordSize.Bit64
 
+  /// An arm64 executable naming its platform with LC_VERSION_MIN_IPHONEOS,
+  /// the way everything built before LC_BUILD_VERSION took the job over does.
+  static let arm64VersionMinFile =
+    parseFile "mach_arm64_versionmin" Architecture.ARMv8 WordSize.Bit64
+
   /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
   /// LSDA table in __gcc_except_tab. Exception parsing needs a register
   /// factory.
@@ -318,6 +323,52 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64 has no code signature test``() =
     Assert.AreEqual<bool>(true, x64File.CodeSignature.IsNone)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 build version test``() =
+    (* A version is packed with its major part in the upper sixteen bits and
+       its minor and patch parts in a byte each below that, which is how every
+       version a Mach-O records reads. *)
+    let ver = x64File.BuildVersion.Value
+    Assert.AreEqual<Platform>(Platform.MACOS, ver.Platform)
+    Assert.AreEqual<uint32>(0x1a0000u, ver.MinOSVersion)
+    Assert.AreEqual<uint32>(0x1a0500u, ver.SDKVersion)
+    Assert.AreEqual<int>(1, ver.BuildTools.Length)
+    let tool = ver.BuildTools[0]
+    Assert.AreEqual<BuildToolKind>(BuildToolKind.TOOL_LD, tool.Tool)
+    Assert.AreEqual<uint32>(0x4f30000u, tool.ToolVersion)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 version min test``() =
+    (* An LC_VERSION_MIN_* command names its platform by being the command it
+       is, and names no tool at all, so the two versions are all it carries. *)
+    let ver = arm64VersionMinFile.BuildVersion.Value
+    Assert.AreEqual<Platform>(Platform.IOS, ver.Platform)
+    Assert.AreEqual<uint32>(0xc0100u, ver.MinOSVersion)
+    Assert.AreEqual<uint32>(0xc0300u, ver.SDKVersion)
+    CollectionAssert.AreEqual([||], ver.BuildTools)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 without build version test``() =
+    Assert.AreEqual<bool>(true, x64CodeSignFile.BuildVersion.IsNone)
+
+  [<TestMethod>]
+  member _.``[Mach] OS test``() =
+    (* Every Apple platform shares the ABI that macOS stands for here, and a
+       Mach-O naming no platform is one built for macOS before any command
+       said so. *)
+    Assert.AreEqual<OS>(OS.MacOSX, (x64File :> IBinFile).OS)
+    Assert.AreEqual<OS>(OS.MacOSX, (arm64VersionMinFile :> IBinFile).OS)
+    Assert.AreEqual<OS>(OS.MacOSX, (x64CodeSignFile :> IBinFile).OS)
+
+  [<TestMethod>]
+  member _.``[Mach] bare metal platform test``() =
+    (* Firmware and the Secure Enclave run under no system, which is a thing
+       the image says rather than a thing this parser could not read. No
+       toolchain here builds one, so the mapping alone is what pins it. *)
+    Assert.AreEqual<OS>(OS.BareMetal, Platform.toOS Platform.FIRMWARE)
+    Assert.AreEqual<OS>(OS.BareMetal, Platform.toOS Platform.SEPOS)
+    Assert.AreEqual<OS>(OS.MacOSX, Platform.toOS Platform.IOSSIMULATOR)
 
   [<TestMethod>]
   member _.``[Mach] X64 linker option dependencies test``() =

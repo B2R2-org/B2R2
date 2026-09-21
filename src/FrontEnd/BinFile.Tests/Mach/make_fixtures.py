@@ -24,6 +24,7 @@ LC_LINKER_OPTION = 0x2D
 LC_ROUTINES_64 = 0x1A
 LC_CODE_SIGNATURE = 0x1D
 LC_FILESET_ENTRY = 0x80000035
+LC_VERSION_MIN_IPHONEOS, LC_MAIN = 0x25, 0x80000028
 MH_KEXT_BUNDLE, MH_FILESET = 0xB, 0xC
 PTR_START_MULTI, PTR_START_LAST, PTR_START_NONE = 0x8000, 0x8000, 0xFFFF
 N_SECT_EXT, N_ABS_EXT, N_UNDF_EXT = 0x0F, 0x03, 0x01
@@ -554,6 +555,25 @@ def codesign():
     return bytes(out)
 
 
+def versionmin():
+    """An executable naming its platform with LC_VERSION_MIN_IPHONEOS, the way
+    everything built before Xcode 10 did. No SDK emits any of the four
+    LC_VERSION_MIN_* commands any more: ld64 writes LC_BUILD_VERSION for every
+    platform it links for, whichever one that is."""
+    text = b'\xc0\x03\x5f\xd6' * 4
+    sizeofcmds = 72 + 80 + 16 + 24
+    textoff = 32 + sizeofcmds
+    vmaddr = 0x100000000
+    return (header64(CPU_ARM64, 0, MH_EXECUTE, 3, sizeofcmds, MH_PIE)
+            + seg64('__TEXT', vmaddr, 0x4000, 0, textoff + len(text), 5,
+                    [('__text', vmaddr + textoff, len(text), textoff, 2,
+                      0x80000400)])
+            + struct.pack('<4I', LC_VERSION_MIN_IPHONEOS, 16,
+                          0x000C0100, 0x000C0300)
+            + struct.pack('<2I2Q', LC_MAIN, 24, textoff, 0)
+            + text)
+
+
 FIXTURES = {'mach_x64_notext': notext,
             'mach_x64_unixthread': lambda: unixthread('x64'),
             'mach_arm64_unixthread': lambda: unixthread('arm64'),
@@ -566,7 +586,8 @@ FIXTURES = {'mach_x64_notext': notext,
             'mach_x64_linkeropt': linkeropt,
             'mach_x64_initfunc': initfunc,
             'mach_x64_initchain': initchain,
-            'mach_x64_codesign': codesign}
+            'mach_x64_codesign': codesign,
+            'mach_arm64_versionmin': versionmin}
 
 
 def main(check):

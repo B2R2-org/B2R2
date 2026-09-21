@@ -35,8 +35,12 @@ type OS =
   | Linux = 2
   /// MacOSX.
   | MacOSX = 3
+  /// No operating system at all: firmware, a boot ROM, or an embedded image
+  /// that runs on the bare machine. Apart from naming no system calls, such an
+  /// image follows the same conventions a compiler builds for anywhere else.
+  | BareMetal = 4
   /// Unknown
-  | UnknownOS = 4
+  | UnknownOS = 5
 
 /// Provides functions to work with OS types.
 [<RequireQualifiedAccess>]
@@ -67,7 +71,8 @@ module OS =
 
   /// <summary>
   /// Gets an <see cref='T:B2R2.OS'/> value from a string. Accepts "windows" or
-  /// "win", "linux", "macos"/"macosx"/"mac"/"osx", or "unknown"
+  /// "win", "linux", "macos"/"macosx"/"mac"/"osx",
+  /// "baremetal"/"bare-metal"/"bare"/"firmware", or "unknown"
   /// (case-insensitive). Raises <see cref='T:B2R2.UnknownOSException'/> if the
   /// string is not recognized.
   /// </summary>
@@ -81,6 +86,7 @@ module OS =
     | "windows" | "win" -> OS.Windows
     | "linux" -> OS.Linux
     | "macos" | "macosx" | "mac" | "osx" -> OS.MacOSX
+    | "baremetal" | "bare-metal" | "bare" | "firmware" -> OS.BareMetal
     | "unknown" -> OS.UnknownOS
     | _ -> raise UnknownOSException
 
@@ -90,7 +96,7 @@ module OS =
   /// </summary>
   /// <param name="os">The OS value to convert.</param>
   /// <returns>
-  /// "Windows", "Linux", "Mac", or "UnknownOS".
+  /// "Windows", "Linux", "Mac", "BareMetal", or "UnknownOS".
   /// </returns>
   [<CompiledName "ToString">]
   let toString os =
@@ -98,5 +104,6 @@ module OS =
     | OS.Windows -> "Windows"
     | OS.Linux -> "Linux"
     | OS.MacOSX -> "Mac"
+    | OS.BareMetal -> "BareMetal"
     | OS.UnknownOS -> "UnknownOS"
     | _ -> raise UnknownOSException

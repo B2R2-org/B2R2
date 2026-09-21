@@ -71,6 +71,10 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.ISA with get() = isa
 
+    (* A raw image carries no format to read an OS out of, so only whoever
+       loads it knows one. *)
+    member _.OS with get() = OS.UnknownOS
+
     member _.EntryPoint with get() = Some baseAddr
 
     member _.BaseAddress with get() = baseAddr

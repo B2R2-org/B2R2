@@ -338,6 +338,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.ISA with get() = isa
 
+    member _.OS with get() = OS.Windows
+
     member _.EntryPoint with get() = getEntryPoint pe
 
     member _.BaseAddress with get() = pe.BaseAddr

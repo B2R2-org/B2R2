@@ -140,6 +140,10 @@ type PETests() =
     Assert.AreEqual(Endian.Little, isa.Endian)
 
   [<TestMethod>]
+  member _.``[PE] OS test``() =
+    Assert.AreEqual<OS>(OS.Windows, (x64File :> IBinFile).OS)
+
+  [<TestMethod>]
   member _.``[PE] x64 entry point test``() =
     Assert.AreEqual(Some 0x140001290UL, (x64File :> IBinFile).EntryPoint)
 

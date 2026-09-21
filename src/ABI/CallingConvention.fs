@@ -757,9 +757,9 @@ module CallingConvention =
 
   /// Builds the function-call calling convention for the given OS and ISA.
   /// Only Windows diverges from the System V / AAPCS conventions; every other
-  /// OS (Linux, macOS, or an unknown OS such as a raw image) shares them. ISAs
-  /// we do not model fall back to the System V x64 convention, so this never
-  /// throws.
+  /// OS (Linux, macOS, the bare machine, or an unknown OS such as a raw image)
+  /// shares them. ISAs we do not model fall back to the System V x64
+  /// convention, so this never throws.
   [<CompiledName "Create">]
   let create os isa =
     match os, isa with

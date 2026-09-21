@@ -103,6 +103,8 @@
     <Compile Include="Mach\Header.fs" />
     <Compile Include="Mach\Toolbox.fs" />
     <Compile Include="Mach\CmdType.fs" />
+    <Compile Include="Mach\Platform.fs" />
+    <Compile Include="Mach\BuildToolKind.fs" />
     <Compile Include="Mach\LoadCommand.fs" />
     <Compile Include="Mach\LoadCommands.fs" />
     <Compile Include="Mach\Segment.fs" />

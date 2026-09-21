@@ -326,7 +326,8 @@ module SyscallConvention =
   /// Builds the system-call convention for the given OS and ISA.
   /// Combinations we do not model (including an unknown OS, e.g. a raw
   /// shellcode image) fall back to the Linux x64 syscall convention, so this
-  /// never throws.
+  /// never throws. A bare-metal image makes no system calls at all, which
+  /// this type cannot say, so what it falls back to means nothing for one.
   [<CompiledName "Create">]
   let create os isa =
     match os, isa with

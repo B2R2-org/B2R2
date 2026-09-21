@@ -93,6 +93,11 @@ type internal LoadCommand =
   /// pointer array took the job over. None when the command names none,
   /// which is what a zero init_address says.
   | Routines of cmd: CmdType * size: uint32 * initAddr: Addr option
+  /// Build version command: LC_BUILD_VERSION, or one of the LC_VERSION_MIN_*
+  /// commands it replaced. An older one names its platform by which of the
+  /// four commands it is rather than by a field, and carries no tool table,
+  /// so both forms are read into the one record.
+  | BuildVersion of cmd: CmdType * size: uint32 * BuildVersionCmd
   /// Unhandled command.
   | Unhandled of cmd: CmdType * size: uint32
 
@@ -293,3 +298,28 @@ and internal DyLibCmd =
     DyLibCurVer: uint32
     /// Library's compatibility vers number.
     DyLibCmpVer: uint32 }
+
+/// Represents a build version command (LC_BUILD_VERSION), which names what the
+/// image was built for and with. The LC_VERSION_MIN_* commands it replaced
+/// name the same thing in less detail, and are read into this too: one of them
+/// names its platform by being the command it is, and names no tool at all.
+and internal BuildVersionCmd =
+  { /// The platform the image is built to run on.
+    Platform: Platform
+    /// The oldest version of that platform the image runs on, packed with the
+    /// major version in the upper sixteen bits and the minor and the patch
+    /// version in a byte each below it.
+    MinOSVersion: uint32
+    /// The version of the SDK the image was built against, packed the same
+    /// way. Zero when the image names none.
+    SDKVersion: uint32
+    /// The tools that built the image, in the order the command names them.
+    /// Empty for an LC_VERSION_MIN_* command, which carries no tool table.
+    BuildTools: BuildTool[] }
+
+/// Represents one entry of the tool table that an LC_BUILD_VERSION carries.
+and internal BuildTool =
+  { /// The tool that took part in building the image.
+    Tool: BuildToolKind
+    /// The tool's version, packed the way a platform version is.
+    ToolVersion: uint32 }

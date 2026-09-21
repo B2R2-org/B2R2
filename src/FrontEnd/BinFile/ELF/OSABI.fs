@@ -24,6 +24,8 @@
 
 namespace B2R2.FrontEnd.BinFile.ELF
 
+open B2R2
+
 /// Represents the operating system or ABI used by the ELF file.
 type internal OSABI =
   /// UNIX System V ABI.
@@ -83,3 +85,18 @@ module internal OSABI =
     | OSABI.ELFOSABI_ARM -> "ARM"
     | OSABI.ELFOSABI_STANDALONE -> "Standalone"
     | _ -> "Unknown"
+
+  /// <summary>
+  /// Returns the <see cref='T:B2R2.OS'/> that the given OS/ABI belongs to.
+  /// What an OS tells apart is which ABI a binary follows, and every System V
+  /// derivative named here follows the one Linux stands for, so they share it.
+  /// The rest run on the bare machine: an embedded image says so outright, and
+  /// the two that name the ARM EABI instead of a system are what an ARM
+  /// toolchain marks an image it builds for no system with.
+  /// </summary>
+  [<CompiledName "ToOS">]
+  let toOS = function
+    | OSABI.ELFOSABI_ARM_AEABI
+    | OSABI.ELFOSABI_ARM
+    | OSABI.ELFOSABI_STANDALONE -> OS.BareMetal
+    | _ -> OS.Linux

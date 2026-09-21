@@ -138,6 +138,19 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
             | DyLibId(_, _, c) -> Some c.DyLibName
             | _ -> None))
 
+  let buildVersion =
+    lazy (cmds.Value
+          |> Array.tryPick (function
+            | BuildVersion(_, _, c) -> Some c
+            | _ -> None))
+
+  (* Being a Mach-O is itself what names macOS, so an image carrying no
+     version command is built for it all the same. *)
+  let os =
+    lazy (match buildVersion.Value with
+          | Some cmd -> Platform.toOS cmd.Platform
+          | None -> OS.MacOSX)
+
   let buildId =
     lazy (cmds.Value
           |> Array.tryPick (function
@@ -490,6 +503,12 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
   /// an object file does.
   member internal _.LinkerOptions with get() = linkerOptions.Value
 
+  /// The platform this file is built to run on, the oldest version of it the
+  /// file runs on and the SDK it was built against, as its LC_BUILD_VERSION
+  /// names them or as the LC_VERSION_MIN_* command that preceded it does.
+  /// None when the file carries neither command.
+  member internal _.BuildVersion with get() = buildVersion.Value
+
   /// The code signature this file carries, or None when it carries none.
   /// An unsigned file, and one signed by a scheme this parser does not read,
   /// both name none.
@@ -540,6 +559,8 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       | _ -> BinFileKind.Unknown
 
     member _.ISA with get() = toolBox.ISA
+
+    member _.OS with get() = os.Value
 
     member _.EntryPoint with get() = entryPoint.Value
 
