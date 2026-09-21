@@ -53,6 +53,7 @@ type ReplValueKind =
   | StringMatch
   | SectionInfo
   | FunctionInfo
+  | CFGNodeInfo
   | Int
   | Float
   | Bool
@@ -198,6 +199,8 @@ module ReplValueKind =
       "SectionInfo"
     | ReplValueKind.FunctionInfo ->
       "FunctionInfo"
+    | ReplValueKind.CFGNodeInfo ->
+      "CFGNodeInfo"
     | ReplValueKind.Int ->
       "Int"
     | ReplValueKind.Float ->
@@ -237,6 +240,7 @@ module ReplValueKind =
       ReplValueKind.StringMatch
       ReplValueKind.SectionInfo
       ReplValueKind.FunctionInfo
+      ReplValueKind.CFGNodeInfo
       ReplValueKind.Int
       ReplValueKind.Float
       ReplValueKind.Bool ]
@@ -1220,29 +1224,43 @@ module ActionMetadata =
 
   let private list =
     let sections =
-      syntaxOutput (Some "sections")
+      syntaxForOutput
+        [ ReplValueKind.Binary ]
+        (Some "sections")
         (ReplValueKind.Collection ReplValueKind.SectionInfo)
         []
     let functions =
-      syntaxOutput (Some "functions")
+      syntaxForOutput
+        [ ReplValueKind.Binary ]
+        (Some "functions")
         (ReplValueKind.Collection ReplValueKind.FunctionInfo)
         []
     let knownFunctions =
-      syntaxOutput (Some "known-functions")
+      syntaxForOutput
+        [ ReplValueKind.Binary ]
+        (Some "known-functions")
         (ReplValueKind.Collection ReplValueKind.FunctionInfo)
         []
-    contract
+    let nodes =
+      syntaxForOutput
+        [ ReplValueKind.CFG ]
+        (Some "nodes")
+        (ReplValueKind.Collection ReplValueKind.CFGNodeInfo)
+        []
+    overloadContract
       "list"
-      ReplValueKind.Binary
+      [ ReplValueKind.Binary; ReplValueKind.CFG ]
       ReplValueKind.Any
       ActionRole.Transform
       10
       ("list <sections|functions|known-functions> -> "
-       + "SectionInfo|FunctionInfo collection")
+       + "SectionInfo|FunctionInfo collection | "
+       + "list nodes -> CFGNodeInfo collection")
       [ "binary |> @list sections"
         "binary |> @list functions"
-        "binary |> @list known-functions" ]
-      [ sections; functions; knownFunctions ]
+        "binary |> @list known-functions"
+        "cfg |> @list nodes" ]
+      [ sections; functions; knownFunctions; nodes ]
 
   let private llvm =
     contract
@@ -1368,16 +1386,39 @@ module ActionMetadata =
       required "symbol" ActionArgumentKind.Text "Function symbol name."
     let entry =
       required "entry" ActionArgumentKind.Address "Function entry address."
-    { contract
+    let mnemonic =
+      required "mnemonic" ActionArgumentKind.Text "Basic-block mnemonic."
+    let address =
+      required "address" ActionArgumentKind.Address "Basic-block address."
+    { overloadContract
         "find"
-        (ReplValueKind.Collection ReplValueKind.FunctionInfo)
-        (ReplValueKind.Collection ReplValueKind.FunctionInfo)
+        [ ReplValueKind.Collection ReplValueKind.FunctionInfo
+          ReplValueKind.Collection ReplValueKind.CFGNodeInfo ]
+        ReplValueKind.Any
         ActionRole.Transform
         5
-        "find symbol=<name>|entry=<addr> -> FunctionInfo collection"
+        ("find symbol=<name>|entry=<addr> -> FunctionInfo collection | "
+         + "find mnemonic=<name>|address=<addr> -> CFGNodeInfo collection")
         [ "functions |> @find symbol=<name>"
-          "functions |> @find entry=<addr>" ]
-        [ syntax None [ symbol ]; syntax None [ entry ] ] with
+          "functions |> @find entry=<addr>"
+          "nodes |> @find mnemonic=<name>"
+          "nodes |> @find address=<addr>" ]
+        [ syntaxFor
+            [ ReplValueKind.Collection ReplValueKind.FunctionInfo ]
+            None
+            [ symbol ]
+          syntaxFor
+            [ ReplValueKind.Collection ReplValueKind.FunctionInfo ]
+            None
+            [ entry ]
+          syntaxFor
+            [ ReplValueKind.Collection ReplValueKind.CFGNodeInfo ]
+            None
+            [ mnemonic ]
+          syntaxFor
+            [ ReplValueKind.Collection ReplValueKind.CFGNodeInfo ]
+            None
+            [ address ] ] with
         OutputRelation = ActionOutputRelation.PreservedCollection }
 
   let private print =
@@ -1608,10 +1649,12 @@ module ActionRegistry =
       ReplValueKind.StringMatch
       ReplValueKind.SectionInfo
       ReplValueKind.FunctionInfo
+      ReplValueKind.CFGNodeInfo
       ReplValueKind.Collection ReplValueKind.CFG
       ReplValueKind.Collection ReplValueKind.Fingerprint
       ReplValueKind.Collection ReplValueKind.SectionInfo
       ReplValueKind.Collection ReplValueKind.FunctionInfo
+      ReplValueKind.Collection ReplValueKind.CFGNodeInfo
       ReplValueKind.Collection ReplValueKind.StringMatch
       ReplValueKind.Collection ReplValueKind.BinarySlice
       ReplValueKind.Collection ReplValueKind.Any

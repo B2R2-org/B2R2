@@ -1200,6 +1200,14 @@ module TransformerReplEvaluator =
     | _ ->
       loop [] candidate.Syntax.Arguments candidate.Arguments
 
+  let private canonicalAssignments candidate =
+    let candidate: NormalizedSyntax = candidate
+    candidate.Assignments
+    |> Option.map (fun assignments ->
+      assignments
+      |> List.map (fun (argument, value) ->
+        argument.Name, canonicalArgumentValue argument value))
+
   let private invalidArguments
     (input: ReplValue)
     (metadata: ActionMetadata)
@@ -1254,7 +1262,7 @@ module TransformerReplEvaluator =
             |> List.map (function
               | Ok candidate ->
                 validateSyntax input candidate |> Result.map (fun () ->
-                  canonicalArguments candidate)
+                  canonicalArguments candidate, canonicalAssignments candidate)
               | Error error ->
                 Error error)
           match results |> List.tryFind Result.isOk with
@@ -1574,11 +1582,20 @@ module TransformerReplEvaluator =
     (segment: ReplPipelineSegment)
     (cancellationToken: CancellationToken)
     (outputKind: ReplValueKind)
-    (args: string list) =
+    (args: string list)
+    assignments =
     let segment: ReplPipelineSegment =
       { segment with Arguments = args }
     try
-      transform registered input segment cancellationToken
+      let collection =
+        match assignments, registered.Action with
+        | Some arguments,
+          (:? ICancellableNamedArgumentsAction as namedAction) ->
+          let collection = input.Collection
+          namedAction.TransformNamed(arguments, collection, cancellationToken)
+        | _ ->
+          transform registered input segment cancellationToken
+      collection
       |> ReplValue.ofCollection outputKind
       |> Ok
     with
@@ -1654,7 +1671,7 @@ module TransformerReplEvaluator =
       let transformWith =
         transformWith registered input segment cancellationToken
       if isContextAction metadata then
-        transformWith (contextOutputKind metadata) args
+        transformWith (contextOutputKind metadata) args None
       else
         let ready =
           if metadata.ID = "make-symbolic-executor" then
@@ -1663,10 +1680,10 @@ module TransformerReplEvaluator =
             Ok registry
         ready
         |> Result.bind (fun _ -> validateArguments input metadata args)
-        |> Result.bind (fun normalizedArgs ->
+        |> Result.bind (fun (normalizedArgs, assignments) ->
           let outputKind =
             ActionMetadata.outputForArguments metadata (Some input.Kind) args
-          transformWith outputKind normalizedArgs)
+          transformWith outputKind normalizedArgs assignments)
 
   and private appendIterValue
     (output: ResizeArray<obj>)

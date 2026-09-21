@@ -44,3 +44,14 @@ type IAction =
 type ICancellableAction =
   abstract member Transform:
     string list * ObjCollection * CancellationToken -> ObjCollection
+
+/// Optional contract for actions whose argument names are semantically
+/// significant.
+type INamedArgumentsAction =
+  abstract member TransformNamed:
+    (string * string) list * ObjCollection -> ObjCollection
+
+/// Cancellation contract for actions receiving named arguments.
+type ICancellableNamedArgumentsAction =
+  abstract member TransformNamed:
+    (string * string) list * ObjCollection * CancellationToken -> ObjCollection

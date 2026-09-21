@@ -347,6 +347,20 @@ with
 
   static member Init(addr, ir, source) = CFG(addr, ir, Some source)
 
+/// One basic-block node in a recovered CFG.
+type CFGNodeInfo =
+  { Source: CFG
+    Address: Addr
+    Mnemonics: string[]
+    Disassemblies: string[] }
+with
+  override this.ToString() =
+    let instructions = String.concat "; " this.Disassemblies
+    if String.IsNullOrWhiteSpace instructions then
+      $"node 0x{this.Address:x}"
+    else
+      $"node 0x{this.Address:x} {instructions}"
+
 /// Collection of objects.
 type ObjCollection = { Values: obj array }
 

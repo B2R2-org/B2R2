@@ -136,6 +136,7 @@ module ReplValue =
       typeof<StringMatch>, ReplValueKind.StringMatch
       typeof<SectionInfo>, ReplValueKind.SectionInfo
       typeof<FunctionInfo>, ReplValueKind.FunctionInfo
+      typeof<CFGNodeInfo>, ReplValueKind.CFGNodeInfo
       typeof<string>, ReplValueKind.Text
       typeof<int>, ReplValueKind.Int
       typeof<float>, ReplValueKind.Float
@@ -197,6 +198,8 @@ module ReplValue =
       ReplValueKind.SectionInfo
     | :? FunctionInfo ->
       ReplValueKind.FunctionInfo
+    | :? CFGNodeInfo ->
+      ReplValueKind.CFGNodeInfo
     | :? string ->
       ReplValueKind.Text
     | :? OutString ->

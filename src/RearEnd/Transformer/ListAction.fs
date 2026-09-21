@@ -29,6 +29,8 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The `list` action.
 type ListAction() =
@@ -80,6 +82,30 @@ type ListAction() =
     |> Seq.map (functionInfo bin hdl)
     |> Seq.toArray
 
+  let mnemonic (disassembly: string) =
+    let options = System.StringSplitOptions.RemoveEmptyEntries
+    disassembly.Split([| ' '; '\t' |], options)
+    |> Array.tryHead
+
+  let nodeInfo cfg (vertex: IVertex<LowUIRBasicBlock>) =
+    let block = vertex.VData.Internals
+    let disassemblies = block.Disassemblies
+    { Source = cfg
+      Address = block.BlockAddress
+      Mnemonics = disassemblies |> Array.choose mnemonic
+      Disassemblies = disassemblies }
+    |> box
+
+  let listNodes (cancellationToken: CancellationToken) (input: obj) =
+    match unbox<CFG> input with
+    | CFG(_, ir, _) as cfg ->
+      ir.Vertices
+      |> Array.map (fun vertex ->
+        cancellationToken.ThrowIfCancellationRequested()
+        nodeInfo cfg vertex)
+    | NoCFG _ ->
+      [||]
+
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
     let collect operation =
@@ -96,13 +122,16 @@ type ListAction() =
           |> Array.collect (listFunctions cancellationToken) }
     | [ "known-functions" ] ->
       { Values = collect listKnownFunctions }
+    | [ "nodes" ] ->
+      { Values = collect (listNodes cancellationToken) }
     | _ ->
       invalidArg (nameof args) "Invalid argument."
 
   interface IAction with
     member _.ActionID with get() = "list"
     member _.Signature with get() =
-      "Binary * <sections|functions|known-functions> -> typed collection"
+      "Binary * <sections|functions|known-functions> -> typed collection | "
+      + "CFG * nodes -> CFGNodeInfo collection"
     member _.Description with get() =
       """
     Take in a parsed binary and return a list of elements. The output type is
@@ -111,6 +140,7 @@ type ListAction() =
       - `sections`: returns a list of sections.
       - `functions`: recovers function entry addresses through analysis.
       - `known-functions`: returns function entries known from binary metadata.
+      - `nodes`: returns basic-block nodes in a CFG.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

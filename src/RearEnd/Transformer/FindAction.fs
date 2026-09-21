@@ -40,20 +40,26 @@ type FindAction() =
     | _ ->
       invalidArg "args" "Expected exactly one property=value argument."
 
+  let filter cancellationToken property expected (collection: ObjCollection) =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
+    ReplQueryCapabilities.tryFilterValues property expected collection.Values
+    |> Result.map (fun values -> { Values = values })
+    |> Result.defaultWith invalidOp
+
   let transform
     cancellationToken
     (args: string list)
     (collection: ObjCollection) =
-    let cancellationToken: CancellationToken = cancellationToken
-    cancellationToken.ThrowIfCancellationRequested()
     let property, expected = parseArgument args
-    ReplQueryCapabilities.tryFilter
-      ReplValueKind.FunctionInfo
-      property
-      expected
-      collection.Values
-    |> Result.map (fun values -> { Values = values })
-    |> Result.defaultWith invalidOp
+    filter cancellationToken property expected collection
+
+  let transformNamed cancellationToken arguments collection =
+    match arguments with
+    | [ property, expected ] ->
+      filter cancellationToken property expected collection
+    | _ ->
+      invalidArg "arguments" "Expected exactly one named query argument."
 
   interface IAction with
     member _.ActionID with get() = "find"
@@ -69,3 +75,11 @@ type FindAction() =
   interface ICancellableAction with
     member _.Transform(args, collection, cancellationToken) =
       transform cancellationToken args collection
+
+  interface INamedArgumentsAction with
+    member _.TransformNamed(arguments, collection) =
+      transformNamed CancellationToken.None arguments collection
+
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(arguments, collection, cancellationToken) =
+      transformNamed cancellationToken arguments collection

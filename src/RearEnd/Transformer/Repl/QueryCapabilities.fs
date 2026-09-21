@@ -70,9 +70,34 @@ module ReplQueryCapabilities =
         | _ ->
           false }
 
+  let private mnemonicProperty =
+    { Name = "mnemonic"
+      Description = "Basic-block instruction mnemonic."
+      Matches = fun expected value ->
+        let comparison = StringComparison.OrdinalIgnoreCase
+        match value with
+        | :? CFGNodeInfo as node ->
+          node.Mnemonics
+          |> Array.exists (fun mnemonic ->
+            String.Equals(expected, mnemonic, comparison))
+        | _ ->
+          false }
+
+  let private addressProperty =
+    { Name = "address"
+      Description = "Basic-block address."
+      Matches = fun expected value ->
+        match parseAddress expected, value with
+        | (true, address), (:? CFGNodeInfo as node) ->
+          node.Address = address
+        | _ ->
+          false }
+
   let private providers =
     [ { ValueKind = ReplValueKind.FunctionInfo
         Properties = [ symbolProperty; entryProperty ] } ]
+    @ [ { ValueKind = ReplValueKind.CFGNodeInfo
+          Properties = [ mnemonicProperty; addressProperty ] } ]
 
   let propertiesFor (kind: ReplValueKind) =
     providers
@@ -96,3 +121,19 @@ module ReplQueryCapabilities =
     | None ->
       let kindName = ReplValueKind.toString kind
       Error $"{propertyName} is not searchable on {kindName}."
+
+  let tryFilterValues propertyName expected (values: obj[]) =
+    let kind =
+      values
+      |> Array.tryPick (function
+        | :? FunctionInfo ->
+          Some ReplValueKind.FunctionInfo
+        | :? CFGNodeInfo ->
+          Some ReplValueKind.CFGNodeInfo
+        | _ ->
+          None)
+    match kind with
+    | Some kind ->
+      tryFilter kind propertyName expected values
+    | None ->
+      Ok values
