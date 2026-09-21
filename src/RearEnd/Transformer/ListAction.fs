@@ -70,8 +70,8 @@ type ListAction() =
   let listFunctions (cancellationToken: CancellationToken) (input: obj) =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
-    let brew = BinaryBrew hdl
-    brew.Functions.Sequence
+    BinaryAnalysis.recoveredFunctions bin
+    |> fun functions -> functions.Sequence
     |> Seq.map (fun fn ->
       cancellationToken.ThrowIfCancellationRequested()
       fn.EntryPoint)

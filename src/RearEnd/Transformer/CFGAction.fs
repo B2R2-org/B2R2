@@ -52,32 +52,25 @@ type CFGAction() =
     with e ->
       NoCFG e.Message
 
-  let findFunction address (brew: BinaryBrew) =
-    brew.Functions.Sequence
-    |> Seq.tryFind (fun fn -> fn.EntryPoint = address)
-
-  let getAllCFGs cancellationToken source (brew: BinaryBrew) =
-    brew.Functions.Sequence
+  let getAllCFGs cancellationToken source =
+    BinaryAnalysis.recoveredFunctions source
+    |> fun functions -> functions.Sequence
     |> Seq.map (tryGetFunctionCFG cancellationToken source)
     |> Seq.map box
     |> Seq.toArray
 
   let getOneCFG cancellationToken args (bin: Binary) =
     let cancellationToken: CancellationToken = cancellationToken
-    let hdl = Binary.Handle bin
-    let brew = BinaryBrew hdl
     cancellationToken.ThrowIfCancellationRequested()
     let address = parseAddress args
-    match findFunction address brew with
+    match BinaryAnalysis.tryFindFunction bin address with
     | Some fn ->
       [| tryGetFunctionCFG cancellationToken bin fn |> box |]
     | None ->
       [| NoCFG $"Function not found: {address:x}" |> box |]
 
   let getFunctionCFG cancellationToken (fn: FunctionInfo) =
-    let hdl = Binary.Handle fn.Source
-    let brew = BinaryBrew hdl
-    match findFunction fn.Entry brew with
+    match BinaryAnalysis.tryFindFunction fn.Source fn.Entry with
     | Some func ->
       [| tryGetFunctionCFG cancellationToken fn.Source func |> box |]
     | None ->
@@ -89,12 +82,10 @@ type CFGAction() =
     match input with
     | :? Binary as bin ->
       try
-        let hdl = Binary.Handle bin
-        let brew = BinaryBrew hdl
         cancellationToken.ThrowIfCancellationRequested()
         match args with
         | [] ->
-          getAllCFGs cancellationToken bin brew
+          getAllCFGs cancellationToken bin
         | _ ->
           getOneCFG cancellationToken args bin
       with e ->
