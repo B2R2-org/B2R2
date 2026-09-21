@@ -39,11 +39,13 @@ module TransformerTuiRenderer =
   let private bold = "\x1b[1m"
   let private dim = "\x1b[2m"
   let private red = "\x1b[31m"
-  let private blue = "\x1b[34m"
+  let private green = "\x1b[32m"
   let private cyan = "\x1b[36m"
   let private underline = "\x1b[4m"
   let private reverse = "\x1b[7m"
   let private clearLine = "\x1b[2K"
+  /// Bright blue used for generic panel borders and dividers.
+  let private border = "\x1b[94m"
   let private maxRenderableChars = 4096
 
   let private paint style text = style + text + reset
@@ -641,15 +643,45 @@ module TransformerTuiRenderer =
     else
       None
 
-  let private sidebarLines height model =
+  let private spinner frame =
+    let frames = [| "-"; "\\"; "|"; "/" |]
+    frames[frame % frames.Length]
+
+  let private boxTop color width title =
+    let inner = max 0 (width - 2)
+    let dashes = max 0 (inner - String.length title - 2)
+    paint color ("+-" + title + " " + String.replicate dashes "-" + "+")
+
+  let private boxBottom color width =
+    let inner = max 0 (width - 2)
+    paint color ("+" + String.replicate inner "-" + "+")
+
+  let private boxSide color (content: string) =
+    paint color "|" + content + paint color "|"
+
+  /// Style marker for a sidebar row that is already a full-width, rendered
+  /// box border line, so `renderBodyRow` must not wrap it in "|...|" again.
+  let private rawBoxRow = "\x00raw\x00"
+
+  let private sidebarLines rightWidth height model =
     let current = currentSummary model
-    let header =
-      [ bold, "STATE"
-        "", $"current   {current}"
+    let focus = model.Focus.ToString().ToLowerInvariant()
+    let busy =
+      if model.IsBusy then
+        $"{spinner model.SpinnerFrame} running"
+      else
+        model.Status
+    let extra = paneStatus model busy
+    let status = if String.IsNullOrWhiteSpace extra then busy else extra
+    let state =
+      [ "", $"current   {current}"
         "", $"bindings  {Map.count model.Session.Bindings}"
         "", $"commands  {List.length model.Session.CommandHistory}"
-        "", ""
-        bold, "BINDINGS" ]
+        "", $"focus     {focus}"
+        "", $"status    {status}" ]
+    let boundary =
+      [ rawBoxRow, boxBottom border rightWidth
+        rawBoxRow, boxTop border rightWidth "Bindings" ]
     let bindings =
       model.Session.Bindings
       |> Map.toList
@@ -662,21 +694,25 @@ module TransformerTuiRenderer =
         [ "", ""; red, "LAST ERROR"; red, message ]
       | None ->
         []
-    header @ bindings @ error
+    state @ boundary @ bindings @ error
     |> List.truncate height
 
   let private renderBodyRow leftWidth rightWidth left right =
     let leftKind, leftText = left
-    let left = paint (lineStyle leftKind) (fit leftWidth leftText)
+    let leftInner = max 0 (leftWidth - 2)
+    let left =
+      boxSide border (paint (lineStyle leftKind) (fit leftInner leftText))
     if rightWidth = 0 then
       left
     else
       let rightStyle, rightText = right
-      left + paint dim "|" + paint rightStyle (fit rightWidth rightText)
-
-  let private spinner frame =
-    let frames = [| "-"; "\\"; "|"; "/" |]
-    frames[frame % frames.Length]
+      let right =
+        if rightStyle = rawBoxRow then
+          fit rightWidth rightText
+        else
+          let rightInner = max 0 (rightWidth - 2)
+          boxSide border (paint rightStyle (fit rightInner rightText))
+      left + " " + right
 
   let private highlightedHint width text highlights =
     let text = sanitize text
@@ -783,35 +819,45 @@ module TransformerTuiRenderer =
   let private suggestionRows rowCount width completion selected =
     let rowCount = max 1 rowCount
     let count = List.length completion.Items
-    let hint = hintRows width completion
-    if count = 0 then
-      let rows =
+    let boxed = rowCount > 2
+    let innerWidth = if boxed then max 1 (width - 2) else width
+    let hint = hintRows innerWidth completion
+    let contentRows =
+      if count = 0 then
         match hint with
         | first :: rest ->
           first :: (rest |> List.truncate (rowCount - 1))
         | [] ->
-          [ paint dim (fit width "Suggestions appear here as you type.") ]
-      fitSuggestionRows rowCount width rows
-    else
-      let selected = min selected (count - 1)
-      let itemRows =
-        let visible = max 0 (rowCount - List.length hint)
+          [ paint dim (fit innerWidth
+                        "Suggestions appear here as you type.") ]
+      else
+        let selected = min selected (count - 1)
+        let visible =
+          max 0 ((if boxed then rowCount - 2 else rowCount) - List.length hint)
         let start =
           if visible <= 0 then
             0
           else
             let pageStart = selected / visible * visible
             max 0 (min pageStart (count - visible))
-        completion.Items
-        |> List.skip start
-        |> List.truncate visible
-        |> List.mapi (fun offset item ->
-          let index = start + offset
-          let marker = if index = selected then "> " else "  "
-          let text = $"{marker}{item.Label}  {item.Detail}"
-          let style = if index = selected then reverse else dim
-          paint style (fit width text))
-      hint @ itemRows |> fitSuggestionRows rowCount width
+        let itemRows =
+          completion.Items
+          |> List.skip start
+          |> List.truncate visible
+          |> List.mapi (fun offset item ->
+            let index = start + offset
+            let marker = if index = selected then "> " else "  "
+            let text = $"{marker}{item.Label}  {item.Detail}"
+            let style = if index = selected then reverse else dim
+            paint style (fit innerWidth text))
+        hint @ itemRows
+    if boxed then
+      [ boxTop cyan width "Suggestions" ]
+      @ (contentRows |> List.map (boxSide cyan))
+      @ [ boxBottom cyan width ]
+      |> fitSuggestionRows rowCount width
+    else
+      contentRows |> fitSuggestionRows rowCount width
 
   let private ghostText completion selected model =
     let completion: SuggestionSet = completion
@@ -891,7 +937,7 @@ module TransformerTuiRenderer =
     let after = styleDiagnostics after afterHighlights
     let padding = String.replicate (available - visibleLength) " "
     let cursor = prompt.Length + cursorColumn - start + 1
-    paint cyan prompt + before + paint dim ghost + after + padding, cursor
+    paint green prompt + before + paint dim ghost + after + padding, cursor
 
   let private indexedInputLines (input: string) =
     let rec loop start output = function
@@ -959,25 +1005,6 @@ module TransformerTuiRenderer =
     |> fit width
     |> paint dim
 
-  let private stateLine width model =
-    let busy =
-      if model.IsBusy then
-        $"{spinner model.SpinnerFrame} running"
-      else
-        model.Status
-    let paneStatus = paneStatus model busy
-    let status =
-      if String.IsNullOrWhiteSpace paneStatus then
-        ""
-      else
-        "  " + paneStatus
-    let state =
-      $" current: {currentSummary model}  "
-      + $"bindings: {Map.count model.Session.Bindings}  "
-      + $"focus: {model.Focus.ToString().ToLowerInvariant()}"
-      + status
-    paint blue (fit width state)
-
   let viewScrollOffset width height model =
     if model.Overlay = TuiOverlay.View then
       let bodyHeight = TransformerTuiModel.transcriptHeight height model
@@ -1024,25 +1051,33 @@ module TransformerTuiRenderer =
         transcriptCursorPosition model body
         |> Option.orElse (viewLayout |> Option.bind _.CursorPosition)
       let body = body @ padding
-      let sidebar = sidebarLines bodyHeight model
+      let sidebar = sidebarLines rightWidth bodyHeight model
       let sidebar = sidebar @ List.replicate (bodyHeight - List.length sidebar)
                                       ("", "")
       let bodyRows =
         List.map2 (renderBodyRow leftWidth rightWidth) body sidebar
       let title = paint bold " B2R2 TRANSFORMER "
       let subtitle = paint dim " Interactive Binary Analysis"
-      let state = stateLine width model
-      let divider = paint dim (String.replicate width "-")
+      let boxTopRow =
+        if hasSidebar then
+          boxTop border leftWidth "Main Window"
+          + " " + boxTop border rightWidth "State"
+        else
+          boxTop border leftWidth "Main Window"
+      let boxBottomRow =
+        if hasSidebar then
+          boxBottom border leftWidth + " " + boxBottom border rightWidth
+        else
+          boxBottom border leftWidth
       let suggestions =
         suggestionRows suggestionCount width completion model.SuggestionIndex
       let context = contextFooter width model
       let rows =
         [ title + subtitle |> fun text -> text + fit (max 0 (width - 47)) ""
           keyHeader width
-          state
-          divider ]
+          boxTopRow ]
         @ bodyRows
-        @ [ divider ]
+        @ [ boxBottomRow ]
         @ suggestions
         @ inputRows
         @ [ context ]
@@ -1053,13 +1088,13 @@ module TransformerTuiRenderer =
       { Lines = lines
         CursorRow =
           cursorBodyPosition
-          |> Option.map (fun (row, _) -> 5 + row)
+          |> Option.map (fun (row, _) -> 4 + row)
           |> Option.defaultValue (
             let row, _ = inputCursor
             height - List.length inputRows + row)
         CursorColumn =
           cursorBodyPosition
-          |> Option.map (fun (_, column) -> min leftWidth column)
+          |> Option.map (fun (_, column) -> min (leftWidth - 1) (column + 1))
           |> Option.defaultValue (
             let _, column = inputCursor
             min width column) }

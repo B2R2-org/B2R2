@@ -248,7 +248,7 @@ module TransformerTuiModel =
     min (shellInputCapacity model) (inputLineCount model.Input)
 
   let availableBodyAndCompletion terminalHeight model =
-    max 2 (terminalHeight - 6 - visibleShellInputRows model)
+    max 2 (terminalHeight - 5 - visibleShellInputRows model)
 
   let defaultTranscriptHeight terminalHeight model =
     let available = availableBodyAndCompletion terminalHeight model
