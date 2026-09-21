@@ -30,6 +30,7 @@ open System
 type TuiInputResult =
   | Update of TransformerTuiModel
   | Execute of TransformerTuiModel * string
+  | ExecuteCommand of TransformerTuiModel * string
   | Stop of TransformerTuiModel
 
 module TransformerTuiInputController =
@@ -48,6 +49,12 @@ module TransformerTuiInputController =
     else
       model
       |> TransformerTuiModel.openSelectedViewPane
+
+  let private toggleCommandPalette model =
+    if model.Overlay = TuiOverlay.CommandPalette then
+      TransformerTuiModel.closeOverlay model
+    else
+      TransformerTuiModel.openCommandPalette model
 
   let private scrollPage direction model =
     match model.Overlay with
@@ -390,6 +397,49 @@ module TransformerTuiInputController =
     | _ ->
       TuiInputResult.Update model
 
+  let private submitCommandPalette model =
+    let command = model.PaletteInput.Trim()
+    let model = TransformerTuiModel.closeOverlay model
+    if String.IsNullOrEmpty command then
+      TuiInputResult.Update model
+    else
+      TuiInputResult.ExecuteCommand(model, command)
+
+  let private handleCommandPaletteKey (key: ConsoleKeyInfo) model =
+    let candidates = Suggestions.commandPaletteCandidates model.PaletteFilter
+    match key.Key with
+    | ConsoleKey.Escape
+    | ConsoleKey.F2 ->
+      TransformerTuiModel.closeOverlay model |> TuiInputResult.Update
+    | ConsoleKey.Enter ->
+      submitCommandPalette model
+    | ConsoleKey.Tab ->
+      TransformerTuiModel.applyPaletteSuggestion candidates model
+      |> TuiInputResult.Update
+    | ConsoleKey.UpArrow ->
+      TransformerTuiModel.selectPaletteSuggestion -1 candidates model
+      |> TuiInputResult.Update
+    | ConsoleKey.DownArrow ->
+      TransformerTuiModel.selectPaletteSuggestion 1 candidates model
+      |> TuiInputResult.Update
+    | ConsoleKey.LeftArrow ->
+      TransformerTuiModel.movePaletteCursor -1 model |> TuiInputResult.Update
+    | ConsoleKey.RightArrow ->
+      TransformerTuiModel.movePaletteCursor 1 model |> TuiInputResult.Update
+    | ConsoleKey.Home ->
+      TransformerTuiModel.movePaletteHome model |> TuiInputResult.Update
+    | ConsoleKey.End ->
+      TransformerTuiModel.movePaletteEnd model |> TuiInputResult.Update
+    | ConsoleKey.Backspace ->
+      TransformerTuiModel.backspacePalette model |> TuiInputResult.Update
+    | ConsoleKey.Delete ->
+      TransformerTuiModel.deletePalette model |> TuiInputResult.Update
+    | _ when not (Char.IsControl key.KeyChar) ->
+      TransformerTuiModel.insertPaletteText (string key.KeyChar) model
+      |> TuiInputResult.Update
+    | _ ->
+      TuiInputResult.Update model
+
   let handle completion (key: ConsoleKeyInfo) model =
     let control = hasModifier ConsoleModifiers.Control key
     let shift = hasModifier ConsoleModifiers.Shift key
@@ -400,7 +450,11 @@ module TransformerTuiInputController =
     | Some result ->
       result
     | None ->
-      if model.Overlay = TuiOverlay.View
+      if key.Key = ConsoleKey.F2 then
+        toggleCommandPalette model |> TuiInputResult.Update
+      elif model.Overlay = TuiOverlay.CommandPalette then
+        handleCommandPaletteKey key model
+      elif model.Overlay = TuiOverlay.View
          && (model.ViewPane |> Option.exists (fun pane -> pane.IsFinding)) then
         handleViewFindKey key model
       elif model.Overlay = TuiOverlay.View then

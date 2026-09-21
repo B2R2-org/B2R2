@@ -337,6 +337,12 @@ module TransformerRepl =
           StartedAt = DateTimeOffset.Now }
       model, Some running
 
+  let private startCommandEvaluation registry (command: string) model =
+    let command = command.Trim()
+    let command =
+      if command.StartsWith(':') then command else ":" + command
+    startEvaluation registry command model
+
   let private finishCancellation running (model: TransformerTuiModel) =
     let duration = DateTimeOffset.Now - running.StartedAt
     let session =
@@ -481,6 +487,10 @@ module TransformerRepl =
         model <- next
       | TuiInputResult.Execute(next, command) ->
         let next, task = startEvaluation registry command next
+        model <- next
+        running <- task
+      | TuiInputResult.ExecuteCommand(next, command) ->
+        let next, task = startCommandEvaluation registry command next
         model <- next
         running <- task
     try

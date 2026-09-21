@@ -94,6 +94,19 @@ module Suggestions =
       ":undo", "Undo the most recent value change"
       ":values", "Show retained value history" ]
 
+  let commandPaletteCandidates (input: string) =
+    let input = input.TrimStart()
+    let input =
+      if input.StartsWith ':' then input[1..] else input
+    if input.IndexOfAny [| ' '; '\t' |] >= 0 then
+      []
+    else
+      metaCommands
+      |> List.map (fun (command, detail) -> command[1..], detail)
+      |> List.filter (fun (command, _) ->
+        command.StartsWith(input, StringComparison.OrdinalIgnoreCase))
+      |> List.truncate 5
+
   let private matches prefix (candidate: string) =
     candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
 

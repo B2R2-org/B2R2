@@ -134,6 +134,7 @@ type TuiOverlay =
   | Values
   | Log
   | Message
+  | CommandPalette
 
 /// Which pane receives Up/Down when no overlay is open.
 [<RequireQualifiedAccess>]
@@ -212,6 +213,10 @@ type TransformerTuiModel =
     LastViewLines: TuiLine list
     Input: string
     Cursor: int
+    PaletteInput: string
+    PaletteCursor: int
+    PaletteFilter: string
+    PaletteSuggestionIndex: int
     PreferredInputColumn: int option
     ScrollOffset: int
     TranscriptViewportStart: int option
@@ -297,6 +302,10 @@ module TransformerTuiModel =
       LastViewLines = []
       Input = ""
       Cursor = 0
+      PaletteInput = ""
+      PaletteCursor = 0
+      PaletteFilter = ""
+      PaletteSuggestionIndex = 0
       PreferredInputColumn = None
       ScrollOffset = 0
       TranscriptViewportStart = None
@@ -425,6 +434,13 @@ module TransformerTuiModel =
   let closeOverlay model =
     { setOverlay TuiOverlay.None model with ViewPane = None }
 
+  let openCommandPalette model =
+    { setOverlay TuiOverlay.CommandPalette model with
+        PaletteInput = ""
+        PaletteCursor = 0
+        PaletteFilter = ""
+        PaletteSuggestionIndex = 0 }
+
   let closeViewPane model =
     { model with
         Overlay = TuiOverlay.None
@@ -465,6 +481,70 @@ module TransformerTuiModel =
     |> clearTranscriptFocusStatus
 
   let clearInput model = setInput "" 0 model
+
+  let private setPaletteInput input cursor model =
+    { model with
+        PaletteInput = input
+        PaletteCursor = max 0 (min cursor input.Length)
+        PaletteFilter = input
+        PaletteSuggestionIndex = 0 }
+
+  let insertPaletteText text model =
+    if String.IsNullOrEmpty text then
+      model
+    else
+      let before = model.PaletteInput[..model.PaletteCursor - 1]
+      let after = model.PaletteInput[model.PaletteCursor..]
+      setPaletteInput
+        (before + text + after)
+        (model.PaletteCursor + text.Length)
+        model
+
+  let backspacePalette model =
+    if model.PaletteCursor = 0 then
+      model
+    else
+      let before = model.PaletteInput[..model.PaletteCursor - 2]
+      let after = model.PaletteInput[model.PaletteCursor..]
+      setPaletteInput (before + after) (model.PaletteCursor - 1) model
+
+  let deletePalette model =
+    if model.PaletteCursor >= model.PaletteInput.Length then
+      model
+    else
+      let before = model.PaletteInput[..model.PaletteCursor - 1]
+      let after = model.PaletteInput[(model.PaletteCursor + 1)..]
+      setPaletteInput (before + after) model.PaletteCursor model
+
+  let movePaletteCursor offset model =
+    setPaletteInput model.PaletteInput (model.PaletteCursor + offset) model
+
+  let movePaletteHome model = setPaletteInput model.PaletteInput 0 model
+
+  let movePaletteEnd model =
+    setPaletteInput model.PaletteInput model.PaletteInput.Length model
+
+  let selectPaletteSuggestion offset candidates model =
+    match candidates with
+    | [] ->
+      { model with PaletteSuggestionIndex = 0 }
+    | _ ->
+      let count = List.length candidates
+      let index = model.PaletteSuggestionIndex + offset
+      let index = (index % count + count) % count
+      let command, _ = List.item index candidates
+      { model with
+          PaletteInput = command
+          PaletteCursor = command.Length
+          PaletteSuggestionIndex = index }
+
+  let applyPaletteSuggestion candidates model =
+    candidates
+    |> List.tryItem model.PaletteSuggestionIndex
+    |> Option.map fst
+    |> Option.map (fun command ->
+      { model with PaletteInput = command; PaletteCursor = command.Length })
+    |> Option.defaultValue model
 
   let insert character model =
     let before = model.Input[..model.Cursor - 1]

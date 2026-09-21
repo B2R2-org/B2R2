@@ -54,6 +54,12 @@ module TransformerTuiRenderer =
   let private noticeBg = "\x1b[103m"
   /// Black foreground used for text on the notice dialog.
   let private noticeFg = "\x1b[30m"
+  /// Gray background used for the command palette input.
+  let private paletteInputBg = "\x1b[100m"
+  /// Bright white foreground used for the command palette.
+  let private paletteFg = "\x1b[97m"
+  /// Light gray foreground used for the command palette completion preview.
+  let private paletteGhostFg = "\x1b[38;2;184;184;184m"
   let private maxRenderableChars = 4096
 
   let private paint style text = style + text + reset
@@ -305,7 +311,8 @@ module TransformerTuiRenderer =
         | TuiOverlay.Bindings ->
           bindingLines model
         | TuiOverlay.None | TuiOverlay.View | TuiOverlay.Inspect
-        | TuiOverlay.Values | TuiOverlay.Log | TuiOverlay.Message ->
+        | TuiOverlay.Values | TuiOverlay.Log | TuiOverlay.Message
+        | TuiOverlay.CommandPalette ->
           []
       lines
       |> List.collect (fun text ->
@@ -585,7 +592,7 @@ module TransformerTuiRenderer =
 
   let private takeBody bodyHeight bodyWidth registry model =
     match model.Overlay with
-    | TuiOverlay.None | TuiOverlay.Message ->
+    | TuiOverlay.None | TuiOverlay.Message | TuiOverlay.CommandPalette ->
       let lines: (TuiLineKind * string) list =
         TransformerTuiModel.transcriptDisplayRows bodyWidth bodyHeight model
         |> List.map (fun (line: TuiTranscriptLine) ->
@@ -1000,8 +1007,9 @@ module TransformerTuiRenderer =
 
   let private keyHeader width model =
     let f1 = keyButton (model.Overlay = TuiOverlay.Help) "F1 help"
+    let f2 = keyButton (model.Overlay = TuiOverlay.CommandPalette) "F2 command"
     let f4 = keyButton (model.Overlay = TuiOverlay.View) "F4 view"
-    fit width (" " + f1 + "  " + f4 + " ")
+    fit width (" " + f1 + "  " + f2 + "  " + f4 + " ")
 
   let private centerPad width (text: string) =
     let text = if text.Length > width then text[..width - 1] else text
@@ -1022,6 +1030,64 @@ module TransformerTuiRenderer =
        |> List.map (fun line ->
          paint (noticeBg + noticeFg + bold) (centerPad boxWidth line)))
     @ [ blank; dismiss ]
+
+  let private commandPaletteGhost
+    inputWidth
+    (input: string)
+    (model: TransformerTuiModel)
+    (candidates: (string * string) list) =
+    let ghost =
+      if model.PaletteCursor = model.PaletteInput.Length then
+        candidates
+        |> List.tryItem model.PaletteSuggestionIndex
+        |> Option.map fst
+        |> Option.filter (fun command ->
+          command.StartsWith(model.PaletteInput,
+                             StringComparison.OrdinalIgnoreCase))
+        |> Option.map (fun command -> command[model.PaletteInput.Length..])
+        |> Option.defaultValue ""
+      else
+        ""
+    let ghostWidth = max 0 (inputWidth - input.Length)
+    if ghostWidth = 0 then
+      ""
+    elif ghost.Length > ghostWidth then
+      ghost[..ghostWidth - 1]
+    else
+      ghost
+
+  let private commandPaletteCandidateRows
+    boxWidth
+    (model: TransformerTuiModel)
+    (candidates: (string * string) list) =
+    candidates
+    |> List.mapi (fun index (command, detail) ->
+      let marker = if index = model.PaletteSuggestionIndex then "> " else "  "
+      let style =
+        if index = model.PaletteSuggestionIndex then
+          noticeBg + noticeFg + bold
+        else
+          noticeBg + noticeFg
+      paint style (fit boxWidth $"{marker}{command}  {detail}"))
+
+  let private commandPaletteRows boxWidth model =
+    let candidates = Suggestions.commandPaletteCandidates model.PaletteFilter
+    let inputWidth = max 1 (boxWidth - 2)
+    let start = max 0 (model.PaletteCursor - inputWidth + 1)
+    let length = min inputWidth (model.PaletteInput.Length - start)
+    let input = model.PaletteInput.Substring(start, length)
+    let ghost = commandPaletteGhost inputWidth input model candidates
+    let prompt = ": " + input
+    let paddingLength = inputWidth - input.Length - ghost.Length
+    let padding = String.replicate paddingLength " "
+    let blank = paint noticeBg (centerPad boxWidth "")
+    let prompt =
+      paint (paletteInputBg + paletteFg) prompt
+      + paint (paletteInputBg + paletteGhostFg) ghost
+      + paint paletteInputBg padding
+    let candidateRows = commandPaletteCandidateRows boxWidth model candidates
+    let padding = List.replicate (5 - List.length candidateRows) blank
+    [ blank; prompt ] @ candidateRows @ padding @ [ blank ], start
 
   /// Paints `boxContent` over `line`, starting at the visible column
   /// `startCol`; `boxContent` must already be exactly `boxWidth` visible
@@ -1055,6 +1121,26 @@ module TransformerTuiRenderer =
         else
           ())
       lines
+
+  let private overlayCommandPalette width height model lines =
+    if model.Overlay <> TuiOverlay.CommandPalette then
+      lines, None
+    else
+      let boxWidth = max 24 (min 60 (width - 8))
+      let boxRows, inputStart = commandPaletteRows boxWidth model
+      let boxHeight = List.length boxRows
+      let startCol = max 0 ((width - boxWidth) / 2)
+      let startRow = max 0 ((height - boxHeight) / 2)
+      boxRows
+      |> List.iteri (fun offset boxRow ->
+        let row = startRow + offset
+        if row < Array.length lines then
+          lines[row] <- overwriteColumns startCol boxWidth boxRow lines[row]
+        else
+          ())
+      let cursorRow = startRow + 2
+      let cursorColumn = startCol + 3 + model.PaletteCursor - inputStart
+      lines, Some(cursorRow, cursorColumn)
 
   let viewScrollOffset width height model =
     if model.Overlay = TuiOverlay.View then
@@ -1138,16 +1224,24 @@ module TransformerTuiRenderer =
         |> List.map (fun row -> clearLine + row + reset)
         |> List.toArray
         |> overlayMessageBox width height model
+      let lines, paletteCursor =
+        overlayCommandPalette width height model lines
       { Lines = lines
         CursorRow =
-          cursorBodyPosition
-          |> Option.map (fun (row, _) -> 4 + row)
+          paletteCursor
+          |> Option.map fst
+          |> Option.orElseWith (fun () ->
+            cursorBodyPosition
+            |> Option.map (fun (row, _) -> 4 + row))
           |> Option.defaultValue (
             let row, _ = inputCursor
             height - List.length inputRows + row)
         CursorColumn =
-          cursorBodyPosition
-          |> Option.map (fun (_, column) -> min (leftWidth - 1) (column + 1))
+          paletteCursor
+          |> Option.map snd
+          |> Option.orElseWith (fun () ->
+            cursorBodyPosition
+            |> Option.map (fun (_, column) -> min (leftWidth - 1) (column + 1)))
           |> Option.defaultValue (
             let _, column = inputCursor
             min width column) }
