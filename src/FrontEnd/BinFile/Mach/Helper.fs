@@ -257,7 +257,3 @@ let autolinkedLibraries cmds =
 let getPLT symInfo =
   symInfo.Imports
   |> Array.sortBy (fun entry -> entry.TrampolineAddress)
-
-let isPLT symInfo addr =
-  symInfo.Imports
-  |> Array.exists (fun entry -> entry.TrampolineAddress = Some addr)

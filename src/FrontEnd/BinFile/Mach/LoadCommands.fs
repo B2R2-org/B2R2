@@ -149,16 +149,18 @@ module internal LoadCommands =
   /// holds, from the given offset onwards. A command whose last string is
   /// left unterminated names an option running past its own end, which makes
   /// the command malformed rather than a string to read to the end of it.
-  let rec private readOptionStrings (span: ByteSpan) count offset acc =
-    if count = 0 then
-      List.rev acc |> List.toArray
-    else
-      let nul = span.Slice(offset).IndexOf 0uy
+  let private readOptionStrings (span: ByteSpan) count offset =
+    let strs = Array.zeroCreate count
+    let mutable at = offset
+    for i = 0 to count - 1 do
+      let tail = span.Slice at
+      let nul = tail.IndexOf 0uy
       if nul < 0 then
         raise InvalidFileFormatException
       else
-        let str = ByteArray.extractCStringFromSpan span offset
-        readOptionStrings span (count - 1) (offset + nul + 1) (str :: acc)
+        strs[i] <- Text.Encoding.Latin1.GetString(tail.Slice(0, nul))
+        at <- at + nul + 1
+    strs
 
   /// Parses a linker option command, whose count is followed by that many
   /// strings from offset 12 on. Each of them takes a byte at the very least,
@@ -168,7 +170,7 @@ module internal LoadCommands =
     if count < 0 || 12 + count > cmdSize then
       raise InvalidFileFormatException
     else
-      readOptionStrings span count 12 []
+      readOptionStrings span count 12
 
   let parseDyLdInfo toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
