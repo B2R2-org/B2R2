@@ -46,6 +46,10 @@ module TransformerTuiRenderer =
   let private clearLine = "\x1b[2K"
   /// Bright blue used for generic panel borders and dividers.
   let private border = "\x1b[94m"
+  /// Bright blue background used for the top title banner.
+  let private bannerBg = "\x1b[104m"
+  /// Bright white foreground used for the top title banner.
+  let private bannerFg = "\x1b[97m"
   let private maxRenderableChars = 4096
 
   let private paint style text = style + text + reset
@@ -1076,8 +1080,9 @@ module TransformerTuiRenderer =
                                       ("", "")
       let bodyRows =
         List.map2 (renderBodyRow leftWidth rightWidth) body sidebar
-      let title = paint bold " B2R2 TRANSFORMER "
-      let subtitle = paint dim " Interactive Binary Analysis"
+      let titleBar =
+        let text = " B2R2 TRANSFORMER   Interactive Binary Analysis"
+        paint (bannerBg + bannerFg + bold) (fit width text)
       let boxTopRow =
         if hasSidebar then
           boxTop border leftWidth "Main Window"
@@ -1093,7 +1098,7 @@ module TransformerTuiRenderer =
         suggestionRows suggestionCount width completion model.SuggestionIndex
       let context = contextFooter width model
       let rows =
-        [ title + subtitle |> fun text -> text + fit (max 0 (width - 47)) ""
+        [ titleBar
           keyHeader width model
           boxTopRow ]
         @ bodyRows
