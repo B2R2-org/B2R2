@@ -72,6 +72,35 @@ let computeEntryPoint toolBox segs cmds =
     let mainOffset = getMainOffset cmds
     if mainOffset = 0UL then None else Some(mainOffset + getTextSegOffset segs)
 
+/// Returns a pointer to the given address, bounded by the segment that holds
+/// it. An address a segment maps but the file does not reach, as the
+/// zero-filled tail of one is, names no file offset and gives a virtual
+/// pointer; an address no segment maps at all gives a null one.
+let boundedPointerOf (segCmds: SegCmd[]) addr =
+  let mutable found = false
+  let mutable idx = 0
+  let mutable maxAddr = 0UL
+  let mutable offset = 0
+  let mutable maxOffset = 0
+  while not found && idx < segCmds.Length do
+    let seg = segCmds[idx]
+    if addr >= seg.VMAddr && addr < seg.VMAddr + seg.VMSize then
+      found <- true
+      maxOffset <- int seg.FileOff + int seg.FileSize - 1
+      if addr < seg.VMAddr + seg.FileSize then
+        offset <- int seg.FileOff + int (addr - seg.VMAddr)
+        maxAddr <- seg.VMAddr + seg.FileSize - 1UL
+      else
+        offset <- maxOffset + 1
+        maxAddr <- seg.VMAddr + seg.VMSize - 1UL
+    else
+      idx <- idx + 1
+  if found then
+    if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
+    else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
+  else
+    BinFilePointer.Null
+
 let isNXEnabled hdr =
   not (hdr.Flags.HasFlag MachFlag.MH_ALLOW_STACK_EXECUTION)
   || hdr.Flags.HasFlag MachFlag.MH_NO_HEAP_EXECUTION
@@ -113,6 +142,17 @@ let executableRanges segCmds =
 /// Returns the segment that holds the given file offset, which is how an
 /// offset a load command names is turned into the address it is mapped at.
 /// __PAGEZERO and the like occupy no file bytes, so they hold nothing.
+/// Returns the protections a segment carrying the given permissions is
+/// mapped with, which is the inverse of machVMProtToPermission: the two spell
+/// the same three rights out in bits of their own.
+let permissionToMachVMProt (perm: Permission) =
+  let pick has flag = if (perm: Permission).HasFlag(has: Permission) then flag
+                      else MachVMProt.Readable &&& enum 0
+  let r = pick Permission.Readable MachVMProt.Readable
+  let w = pick Permission.Writable MachVMProt.Writable
+  let x = pick Permission.Executable MachVMProt.Executable
+  int (r ||| w ||| x)
+
 let private tryFindSegmentOfOffset segCmds offset =
   segCmds
   |> Array.tryFind (fun s ->

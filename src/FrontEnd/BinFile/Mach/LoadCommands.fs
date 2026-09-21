@@ -84,10 +84,11 @@ module internal LoadCommands =
     | CPUType.ARM64, 6u -> Some 256 (* ARM_THREAD_STATE64.pc *)
     | _ -> None
 
-  /// Reads the initial program counter out of a thread state command, whose
-  /// payload is a run of (flavor, count, state) triples that the count of each
-  /// steps over. The count is in 32-bit words, as the kernel structures are.
-  let rec private readThreadPC toolBox (span: ByteSpan) offset cmdSize =
+  /// Returns where the program counter sits within a thread state command,
+  /// from the given offset onwards. The payload is a run of (flavor, count,
+  /// state) triples that the count of each steps over, in 32-bit words, as
+  /// the kernel structures are.
+  let rec private findThreadPC toolBox (span: ByteSpan) offset cmdSize =
     let reader = toolBox.Reader
     if offset + 8 > cmdSize then
       None
@@ -100,11 +101,14 @@ module internal LoadCommands =
         None
       else
         match pcOffsetOfFlavor toolBox.Header.CPUType flavor with
-        | Some pcOff when stateOff + pcOff < next ->
-          let cls = toolBox.Header.Class
-          Some(readUIntByWordSize span reader cls (stateOff + pcOff))
-        | _ ->
-          readThreadPC toolBox span next cmdSize
+        | Some pcOff when stateOff + pcOff < next -> Some(stateOff + pcOff)
+        | _ -> findThreadPC toolBox span next cmdSize
+
+  /// Returns where the program counter of a thread state command sits, as an
+  /// offset from the start of the command. None where the command carries no
+  /// state whose layout this parser knows, which is what names no entry point.
+  let tryFindThreadPCOffset toolBox span cmdSize =
+    findThreadPC toolBox span 8 cmdSize
 
   /// Parses an image routines command, whose init_address sits at offset 8
   /// in both forms, as a word of the file's own size. It is an unslid
@@ -288,7 +292,11 @@ module internal LoadCommands =
         Main(cmdType, uint32 cmdSize, parseMainCmd toolBox span)
       | CmdType.LC_THREAD
       | CmdType.LC_UNIXTHREAD ->
-        let pc = readThreadPC toolBox span 8 cmdSize
+        let cls = toolBox.Header.Class
+        let pc =
+          match tryFindThreadPCOffset toolBox span cmdSize with
+          | Some at -> Some(readUIntByWordSize span reader cls at)
+          | None -> None
         Thread(cmdType, uint32 cmdSize, pc)
       | CmdType.LC_ROUTINES
       | CmdType.LC_ROUTINES64 ->
