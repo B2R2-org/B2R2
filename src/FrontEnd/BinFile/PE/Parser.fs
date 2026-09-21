@@ -112,7 +112,13 @@ let parseCoff baseAddrOpt bytes reader (hdrs: PEHeaders) =
   let baseAddr = defaultArg baseAddrOpt 0UL
   let wordSize = Coff.getWordSize coff.Machine
   let secs = hdrs.SectionHeaders |> Seq.toArray
-  let idx = secs |> Array.findIndex (fun s -> s.Name.StartsWith ".text")
+  (* An object naming no code section, as a data-only one and one built with
+     LTCG do, has no index to hand back, and -1 is what every caller already
+     reads as no section. *)
+  let idx =
+    secs
+    |> Array.tryFindIndex (fun s -> s.Name.StartsWith SecText)
+    |> Option.defaultValue -1
   let findSectionIdxFromRVA = fun _ -> idx
   { PEHeaders = hdrs
     BaseAddr = baseAddr

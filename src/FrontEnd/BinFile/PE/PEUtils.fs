@@ -26,6 +26,7 @@ module internal B2R2.FrontEnd.BinFile.PE.PEUtils
 
 open System
 open System.Reflection.PortableExecutable
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// <summary>
@@ -44,10 +45,16 @@ let findSectionIndex (hdrs: PEHeaders) secs rva =
   let idx = hdrs.GetContainingSectionIndex rva
   if idx < 0 then findMappedSectionIndex secs rva else idx
 
+/// Returns the file offset at which the given RVA reads. An RVA no section
+/// maps names no byte of the file, which is a fact about the file rather than
+/// an index to read on with, so it raises rather than indexing past the table.
 let getRawOffset secs rva =
-  let idx = findMappedSectionIndex secs rva
-  let sHdr = secs[idx]
-  rva + sHdr.PointerToRawData - sHdr.VirtualAddress
+  match findMappedSectionIndex secs rva with
+  | -1 ->
+    raise InvalidFileFormatException
+  | idx ->
+    let sHdr = secs[idx]
+    rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
 let readStr secs (bytes: byte[]) rva =
   if rva = 0 then ""

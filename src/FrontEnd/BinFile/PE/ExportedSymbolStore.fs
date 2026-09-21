@@ -97,10 +97,14 @@ module private ExportedSymbolStore =
     | None -> $"[{(int16 idx + ordBase)}]" (* Exported with an ordinal. *)
     | Some(name, _) -> name (* ENTP has a corresponding name for this entry. *)
 
+  /// Parts a forwarder string into the library it names and the function it
+  /// names there. The last dot is what parts them, a library name being free
+  /// to carry dots of its own where a function name is not. A string with no
+  /// dot at all names no library, so there is nothing to forward to.
   let decodeForwardInfo (str: string) =
-    let strInfo = str.Split('.')
-    let dllName, funcName = strInfo[0], strInfo[1]
-    (dllName, funcName)
+    match str.LastIndexOf '.' with
+    | -1 -> None
+    | idx -> Some(str.Substring(0, idx), str.Substring(idx + 1))
 
   let buildExportTable bytes reader baseAddr secs range edt =
     let addrTbl = parseEAT bytes reader secs range edt
@@ -117,9 +121,9 @@ module private ExportedSymbolStore =
       | ForwarderRVA rva ->
         let name = decideNameWithTable nameTbl ordinalBase idx
         let forwardStr = readStr secs bytes rva
-        let forwardInfo = decodeForwardInfo forwardStr
-        let forwMap = Map.add name forwardInfo forwMap
-        expMap, forwMap
+        match decodeForwardInfo forwardStr with
+        | Some forwardInfo -> expMap, Map.add name forwardInfo forwMap
+        | None -> expMap, forwMap
     Array.foldi folder (Map.empty, Map.empty) addrTbl
 
   let parse baseAddr bytes reader (headers: PEHeaders) secs =
