@@ -26,7 +26,6 @@ module internal B2R2.FrontEnd.BinFile.PE.Parser
 
 open System
 open System.Collections.Generic
-open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
@@ -107,11 +106,11 @@ let execRanges baseAddr secs =
     IntervalSet.add (AddrRange.create saddr (eaddr - 1UL)) set
     ) IntervalSet.empty
 
-let parseCoff baseAddrOpt bytes reader (hdrs: PEHeaders) =
+let parseCoff baseAddrOpt bytes reader (hdrs: Header) =
   let coff = hdrs.CoffHeader
   let baseAddr = defaultArg baseAddrOpt 0UL
   let wordSize = Coff.getWordSize coff.Machine
-  let secs = hdrs.SectionHeaders |> Seq.toArray
+  let secs = hdrs.SectionHeaders
   (* An object naming no code section, as a data-only one and one built with
      LTCG do, has no index to hand back, and -1 is what every caller already
      reads as no section. *)
@@ -120,7 +119,7 @@ let parseCoff baseAddrOpt bytes reader (hdrs: PEHeaders) =
     |> Array.tryFindIndex (fun s -> s.Name.StartsWith SecText)
     |> Option.defaultValue -1
   let findSectionIdxFromRVA = fun _ -> idx
-  { PEHeaders = hdrs
+  { Header = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
     ImportedSymbols = Map.empty
@@ -134,31 +133,30 @@ let parseCoff baseAddrOpt bytes reader (hdrs: PEHeaders) =
     FindSectionIdxFromRVA = findSectionIdxFromRVA
     BinReader = reader }
 
-let parseImage execpath rawpdb baseAddr bytes reader (hdrs: PEHeaders) =
-  let wordSize = magicToWordSize hdrs.PEHeader.Magic
-  let baseAddr = defaultArg baseAddr hdrs.PEHeader.ImageBase
-  let secs = hdrs.SectionHeaders |> Seq.toArray
-  { PEHeaders = hdrs
+let parseImage execpath rawpdb baseAddr bytes reader (hdrs: Header) opt =
+  let wordSize = magicToWordSize opt.Magic
+  let baseAddr = defaultArg baseAddr opt.ImageBase
+  let secs = hdrs.SectionHeaders
+  { Header = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
-    ImportedSymbols = ImportedSymbolStore.parse bytes reader hdrs secs wordSize
-    ExportedSymbols = ExportedSymbolStore(baseAddr, bytes, reader, hdrs, secs)
-    RelocBlocks = BaseRelocationTable.parse bytes reader hdrs secs
+    ImportedSymbols = ImportedSymbolStore.parse bytes reader opt secs wordSize
+    ExportedSymbols = ExportedSymbolStore(baseAddr, bytes, reader, opt, secs)
+    RelocBlocks = BaseRelocationTable.parse bytes reader opt secs
     WordSize = wordSize
     Symbols = getPDBSymbols reader execpath rawpdb |> buildPDBInfo baseAddr secs
     InvalidAddrRanges = computeInvalidAddrRanges wordSize baseAddr secs
     NotInFileRanges = computeNotInFileRanges wordSize baseAddr secs
     ExecutableRanges = execRanges baseAddr secs
-    FindSectionIdxFromRVA = findSectionIndex hdrs secs
+    FindSectionIdxFromRVA = findSectionIndex secs
     BinReader = reader }
 
-let parsePE execpath baseAddrOpt rawpdb bytes reader (peReader: PEReader) =
-  let hdrs = peReader.PEHeaders
-  if hdrs.IsCoffOnly then parseCoff baseAddrOpt bytes reader hdrs
-  else parseImage execpath rawpdb baseAddrOpt bytes reader hdrs
+let parsePE execpath baseAddrOpt rawpdb bytes reader (hdrs: Header) =
+  match hdrs.OptionalHeader with
+  | None -> parseCoff baseAddrOpt bytes reader hdrs
+  | Some opt -> parseImage execpath rawpdb baseAddrOpt bytes reader hdrs opt
 
 let parse execpath (bytes: byte[]) baseAddrOpt rawpdb =
   let reader = BinReader.Init Endian.Little
-  use stream = new IO.MemoryStream(bytes)
-  use peReader = new PEReader(stream, PEStreamOptions.Default)
-  parsePE execpath baseAddrOpt rawpdb bytes reader peReader
+  Header.parse bytes reader
+  |> parsePE execpath baseAddrOpt rawpdb bytes reader

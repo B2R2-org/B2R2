@@ -54,7 +54,7 @@ let private toRelocation addr: FrontEnd.BinFile.BinRelocation =
 /// Reads the relocations an object keeps per section, which name a symbol
 /// apiece and so have no kind to index them by.
 let private buildForObject bytes pe =
-  let coff = pe.PEHeaders.CoffHeader
+  let coff = pe.Header.CoffHeader
   let names = Coff.getSymbolNames bytes pe.BinReader coff
   let secs = pe.SectionHeaders
   let relocs = Coff.getRelocations bytes pe.BinReader secs names pe.BaseAddr
@@ -81,7 +81,7 @@ let private buildForImage pe =
 
 /// Reads every relocation of the file and indexes it by what it patches.
 let build bytes pe =
-  if pe.PEHeaders.IsCoffOnly then buildForObject bytes pe else buildForImage pe
+  if pe.Header.IsCoffOnly then buildForObject bytes pe else buildForImage pe
 
 let private tryGetRawOffset pe relocAddr size =
   let rva = int (relocAddr - pe.BaseAddr)
@@ -113,5 +113,3 @@ let tryGetRelocatedAddr bytes pe index relocAddr =
     readSlot bytes pe relocAddr 8
   | _ ->
     Error ErrorCase.ItemNotFound
-
-// vim: set tw=80 sts=2 sw=2:

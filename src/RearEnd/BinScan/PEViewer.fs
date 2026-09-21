@@ -24,14 +24,14 @@
 
 module internal B2R2.RearEnd.BinScan.PEViewer
 
-open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.Logging
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.PE
 open B2R2.RearEnd.Utils
 
 let dumpFileHeader _ (pe: PEBinFile) =
-  let hdr = pe.PEHeaders.CoffHeader
+  let hdr = pe.Header.CoffHeader
   let machine = hdr.Machine
   let machineStr = $"{machine} ({HexString.ofUInt64 (uint64 machine)})"
   let ptrToSymTab = HexString.ofInt32 hdr.PointerToSymbolTable
@@ -207,7 +207,7 @@ let dumpRelocs _ (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
   setTableColumnFormats [| addrColumn; LeftAligned 50 |]
   printDoubleHorizontalRule ()
-  if pe.PEHeaders.IsCoffOnly then
+  if pe.Header.IsCoffOnly then
     printsr [| "Address"; "Symbol" |]
     printSingleHorizontalRule ()
     dumpSectionRelocs pe
@@ -278,13 +278,13 @@ let dumpExports _ (pe: PEBinFile) =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dirEntToString (dirent: DirectoryEntry) =
-  let rva = HexString.ofInt32 dirent.RelativeVirtualAddress
+let dirEntToString (dirent: DataDirectory) =
+  let rva = HexString.ofInt32 dirent.RVA
   let size = String.wrapParen (HexString.ofInt32 dirent.Size)
   rva + " " + size
 
 /// The optional header's standard fields, which every COFF image carries.
-let private dumpStandardFields (hdr: PEHeader) =
+let private dumpStandardFields (hdr: OptionalHeader) =
   let magicValue = HexString.ofUInt64 (uint64 hdr.Magic)
   let magicString = String.wrapParen <| hdr.Magic.ToString()
   let majorLinkerVer = hdr.MajorLinkerVersion.ToString()
@@ -303,7 +303,7 @@ let private dumpStandardFields (hdr: PEHeader) =
 
 /// The Windows-specific fields that follow them, which say where the image
 /// wants to be loaded and how it is to be run.
-let private dumpWindowsFields (hdr: PEHeader) =
+let private dumpWindowsFields (hdr: OptionalHeader) =
   let imgBase = hdr.ImageBase
   let sizeOfImage = uint64 hdr.SizeOfImage
   let startImage = HexString.ofUInt64 imgBase
@@ -341,62 +341,54 @@ let private dumpWindowsFields (hdr: PEHeader) =
   printsr [| "Size of heap commit:"; heapCommit |]
   printsr [| "Number of directories:"; hdr.NumberOfRvaAndSizes.ToString() |]
 
+/// The name each data directory goes under, in the order the header holds
+/// them, which is the order they are printed in.
+let private directoryNames =
+  [| DirectoryKind.ExportTable, "Export Directory"
+     DirectoryKind.ImportTable, "Import Directory"
+     DirectoryKind.ResourceTable, "Resource Directory"
+     DirectoryKind.ExceptionTable, "Exception Directory"
+     DirectoryKind.CertificateTable, "Certificate Directory"
+     DirectoryKind.BaseRelocationTable, "Base Relocation Directory"
+     DirectoryKind.Debug, "Debug Directory"
+     DirectoryKind.Architecture, "Architecture Directory"
+     DirectoryKind.GlobalPointer, "Global Pointer Directory"
+     DirectoryKind.ThreadLocalStorageTable, "Thread Storage Directory"
+     DirectoryKind.LoadConfigTable, "Load Configuration Directory"
+     DirectoryKind.BoundImport, "Bound Import Directory"
+     DirectoryKind.ImportAddressTable, "Import Address Table Directory"
+     DirectoryKind.DelayImportDescriptor, "Delay Import Table Directory"
+     DirectoryKind.CorHeaderTable, "COM Descriptor Directory" |]
+
 /// The data directories the header ends with, each named by its RVA and the
 /// size that follows it.
-let private dumpDataDirectories (hdr: PEHeader) =
-  let exportDir = dirEntToString hdr.ExportTableDirectory
-  let importDir = dirEntToString hdr.ImportTableDirectory
-  let resourceDir = dirEntToString hdr.ResourceTableDirectory
-  let exceptionDir = dirEntToString hdr.ExceptionTableDirectory
-  let certificateDir = dirEntToString hdr.CertificateTableDirectory
-  let baseRelocDir = dirEntToString hdr.BaseRelocationTableDirectory
-  let debugDir = dirEntToString hdr.DebugTableDirectory
-  let architectureDir = dirEntToString hdr.CopyrightTableDirectory
-  let globalPtrDir = dirEntToString hdr.GlobalPointerTableDirectory
-  let threadLoStorDir = dirEntToString hdr.ThreadLocalStorageTableDirectory
-  let loadConfigDir = dirEntToString hdr.LoadConfigTableDirectory
-  let boundImpDir = dirEntToString hdr.BoundImportTableDirectory
-  let importAddrDir = dirEntToString hdr.ImportAddressTableDirectory
-  let delayImpDir = dirEntToString hdr.DelayImportTableDirectory
-  let comDescDir = dirEntToString hdr.CorHeaderTableDirectory
-  printsr [| "RVA (size) of Export Directory:"; exportDir |]
-  printsr [| "RVA (size) of Import Directory:"; importDir |]
-  printsr [| "RVA (size) of Resource Directory:"; resourceDir |]
-  printsr [| "RVA (size) of Exception Directory:"; exceptionDir |]
-  printsr [| "RVA (size) of Certificate Directory:"; certificateDir |]
-  printsr [| "RVA (size) of Base Relocation Directory:"; baseRelocDir |]
-  printsr [| "RVA (size) of Debug Directory:"; debugDir |]
-  printsr [| "RVA (size) of Architecture Directory:"; architectureDir |]
-  printsr [| "RVA (size) of Global Pointer Directory:"; globalPtrDir |]
-  printsr [| "RVA (size) of Thread Storage Directory:"; threadLoStorDir |]
-  printsr [| "RVA (size) of Load Configuration Directory:"; loadConfigDir |]
-  printsr [| "RVA (size) of Bound Import Directory:"; boundImpDir |]
-  printsr [| "RVA (size) of Import Address Table Directory:"; importAddrDir |]
-  printsr [| "RVA (size) of Delay Import Table Directory:"; delayImpDir |]
-  printsr [| "RVA (size) of COM Descriptor Directory:"; comDescDir |]
+let private dumpDataDirectories (hdr: OptionalHeader) =
+  for kind, name in directoryNames do
+    let dirent = dirEntToString (hdr.Directory kind)
+    printsr [| $"RVA (size) of {name}:"; dirent |]
   printsn ""
 
-let dumpExistingOptionalHeader (hdr: PEHeader) (_pe: PEBinFile) =
+let dumpExistingOptionalHeader (hdr: OptionalHeader) (_pe: PEBinFile) =
   setTableColumnFormats [| RightAligned 45; LeftAligned 40 |]
   dumpStandardFields hdr
   dumpWindowsFields hdr
   dumpDataDirectories hdr
 
 let dumpOptionalHeader _ (pe: PEBinFile) =
-  let hdr = pe.PEHeaders.PEHeader
-  if isNull hdr then
+  match pe.Header.OptionalHeader with
+  | None ->
     printsn (normalizeEmpty "")
     printsn ""
-  else
+  | Some hdr ->
     dumpExistingOptionalHeader hdr pe
 
 let dumpCLRHeader _ (pe: PEBinFile) =
-  let hdr = pe.PEHeaders.CorHeader
   setTableColumnFormats [| RightAligned 52; LeftAligned 40 |]
-  if isNull hdr then
+  match pe.Header.CorHeader with
+  | None ->
     printsn (normalizeEmpty "")
     printsn ""
-  else
+  | Some hdr ->
     let majorRuntimeVer = hdr.MajorRuntimeVersion.ToString()
     let minorRuntimeVer = hdr.MinorRuntimeVersion.ToString()
     let metaDataDir = dirEntToString hdr.MetadataDirectory

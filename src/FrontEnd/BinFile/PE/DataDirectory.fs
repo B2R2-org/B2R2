@@ -24,7 +24,26 @@
 
 namespace B2R2.FrontEnd.BinFile.PE
 
-/// <summary>
-/// Represents a section header in a PE file.
-/// </summary>
-type internal SectionHeader = System.Reflection.PortableExecutable.SectionHeader
+open B2R2.FrontEnd.BinLifter
+
+/// Represents one data directory, which names a table of the image by where
+/// it begins and how far it runs.
+type internal DataDirectory =
+  { /// Where the table begins, relative to the image base.
+    RVA: int
+    /// How many bytes the table takes up.
+    Size: int }
+
+[<RequireQualifiedAccess>]
+module internal DataDirectory =
+  /// The number of bytes one data directory takes on disk.
+  let [<Literal>] EntrySize = 8
+
+  /// How many data directories an optional header ends with, which is what
+  /// NumberOfRvaAndSizes counts and what every image in use gives it.
+  let [<Literal>] Count = 16
+
+  /// Returns the data directory the given offset of the given span reads as.
+  let read (span: ByteSpan) (reader: IBinReader) offset =
+    { RVA = reader.ReadInt32(span, offset)
+      Size = reader.ReadInt32(span, offset + 4) }

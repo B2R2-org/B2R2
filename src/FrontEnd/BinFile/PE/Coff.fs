@@ -26,7 +26,6 @@ module internal B2R2.FrontEnd.BinFile.PE.Coff
 
 open System
 open System.Collections.Generic
-open System.Reflection.PortableExecutable
 open System.Runtime.InteropServices
 open B2R2
 open B2R2.FrontEnd.BinLifter

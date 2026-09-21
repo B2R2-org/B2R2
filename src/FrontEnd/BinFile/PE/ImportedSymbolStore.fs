@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile.PE
 
 open System
-open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
@@ -67,12 +66,12 @@ module internal ImportedSymbolStore =
       ImportAddressTableRVA = reader.ReadInt32(bs, pos + 12)
       DelayLoad = true }
 
-  let private parseIDT bytes reader (headers: PEHeaders) secs =
-    let rva = headers.PEHeader.ImportTableDirectory.RelativeVirtualAddress
+  let private parseIDT bytes reader (hdr: OptionalHeader) secs =
+    let rva = (hdr.Directory DirectoryKind.ImportTable).RVA
     parseImportDirectoryTblAux bytes reader secs 20 rva readIDTEntry
 
-  let private parseDelayLoadIDT bytes reader (headers: PEHeaders) secs =
-    let rva = headers.PEHeader.DelayImportTableDirectory.RelativeVirtualAddress
+  let private parseDelayLoadIDT bytes reader (hdr: OptionalHeader) secs =
+    let rva = (hdr.Directory DirectoryKind.DelayImportDescriptor).RVA
     parseImportDirectoryTblAux bytes reader secs 32 rva readDelayLoadIDTEntry
 
   let private parseILTEntry bytes (reader: IBinReader) secs idt mask rva =
@@ -104,9 +103,9 @@ module internal ImportedSymbolStore =
     |> getRawOffset secs
     |> loop map 0
 
-  let parse bytes reader (headers: PEHeaders) secs wordSize =
-    let mainImportTbl = parseIDT bytes reader headers secs
-    let delayImportTbl = parseDelayLoadIDT bytes reader headers secs
+  let parse bytes reader (hdr: OptionalHeader) secs wordSize =
+    let mainImportTbl = parseIDT bytes reader hdr secs
+    let delayImportTbl = parseDelayLoadIDT bytes reader hdr secs
     Array.append mainImportTbl delayImportTbl
     |> Array.toList
     |> List.fold (parseILT bytes reader secs wordSize) Map.empty

@@ -24,8 +24,6 @@
 
 module internal B2R2.FrontEnd.BinFile.PE.Helper
 
-open System.IO
-open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinFile
@@ -34,8 +32,8 @@ open B2R2.FrontEnd.BinLifter
 
 /// Main PE format representation.
 type internal PE =
-  { /// PE headers.
-    PEHeaders: PEHeaders
+  { /// Every header of the file.
+    Header: Header
     /// Image base address.
     BaseAddr: Addr
     /// Section headers.
@@ -75,12 +73,13 @@ let private codeViewSignature = 0x53445352u
 /// holds, or none for a file that carries none. An object file has no
 /// optional header for the directory to be named in.
 let private tryFindDebugDirectory pe =
-  if pe.PEHeaders.IsCoffOnly then
+  match pe.Header.OptionalHeader with
+  | None ->
     None
-  else
-    let dir = pe.PEHeaders.PEHeader.DebugTableDirectory
-    match pe.PEHeaders.TryGetDirectoryOffset dir with
-    | true, offset when dir.Size >= 28 -> Some(offset, dir.Size / 28)
+  | Some hdr ->
+    let dir = hdr.Directory DirectoryKind.Debug
+    match tryGetDirectoryOffset pe.SectionHeaders dir with
+    | Some offset when dir.Size >= 28 -> Some(offset, dir.Size / 28)
     | _ -> None
 
 /// Reads the GUID out of the CodeView record at the given file offset. Only
@@ -125,27 +124,38 @@ let getBuildId bytes pe =
   | None -> [||]
 
 let isNXEnabled pe =
-  let hdrs = pe.PEHeaders
-  if hdrs.IsCoffOnly then false
-  else hdrs.PEHeader.DllCharacteristics.HasFlag DllCharacteristics.NxCompatible
+  match pe.Header.OptionalHeader with
+  | None -> false
+  | Some hdr -> hdr.DllCharacteristics.HasFlag DllCharacteristics.NxCompatible
 
 let isPIE pe =
-  let hdrs = pe.PEHeaders
-  not hdrs.IsCoffOnly
-  && not (hdrs.CoffHeader.Characteristics.HasFlag Characteristics.Dll)
-  && hdrs.PEHeader.DllCharacteristics.HasFlag DllCharacteristics.DynamicBase
+  match pe.Header.OptionalHeader with
+  | None ->
+    false
+  | Some hdr ->
+    not (pe.Header.CoffHeader.Characteristics.HasFlag Characteristics.Dll)
+    && hdr.DllCharacteristics.HasFlag DllCharacteristics.DynamicBase
 
 let isBaseRelative pe =
-  let hdrs = pe.PEHeaders
-  if hdrs.IsCoffOnly then true
-  else hdrs.PEHeader.DllCharacteristics.HasFlag DllCharacteristics.DynamicBase
+  match pe.Header.OptionalHeader with
+  | None -> true
+  | Some hdr -> hdr.DllCharacteristics.HasFlag DllCharacteristics.DynamicBase
 
 let getEntryPoint pe =
-  if pe.PEHeaders.IsCoffOnly then
+  match pe.Header.OptionalHeader with
+  | None ->
     None
-  else
-    let entry = pe.PEHeaders.PEHeader.AddressOfEntryPoint
+  | Some hdr ->
+    let entry = hdr.AddressOfEntryPoint
     if entry = 0 then None else uint64 entry + pe.BaseAddr |> Some
+
+/// Returns where the image wants to be loaded, which is what every address
+/// it names is relative to. An object file names no base of its own, every
+/// address of one being relative to the section it sits in instead.
+let getImageBase pe =
+  match pe.Header.OptionalHeader with
+  | None -> 0UL
+  | Some hdr -> hdr.ImageBase
 
 /// Some PE files have a section header indicating that the corresponding
 /// section's size is zero even if it contains actual data, i.e.,
@@ -232,21 +242,15 @@ let peMachineToISA = function
 /// IL it also holds is a fact about the file rather than about its
 /// instruction set. ILOnly is one flag among several a COR header carries, so
 /// it has to be read as a flag.
-let peHeadersToISA (peHeaders: PEHeaders) =
-  let corHeader = peHeaders.CorHeader
-  if isNull corHeader || not (corHeader.Flags.HasFlag CorFlags.ILOnly) then
-    peHeaders.CoffHeader.Machine |> peMachineToISA
-  else
-    ISA Architecture.CIL
+let headerToISA (hdr: Header) =
+  match hdr.CorHeader with
+  | Some cor when cor.Flags.HasFlag CorFlags.ILOnly -> ISA Architecture.CIL
+  | _ -> peMachineToISA hdr.CoffHeader.Machine
 
 /// Return Architecture from the PE header. If the given binary is invalid,
 /// return an Error.
 let getISA (bytes: byte[]) =
   try
-    use stream = new MemoryStream(bytes)
-    use reader = new PEReader(stream, PEStreamOptions.Default)
-    peHeadersToISA reader.PEHeaders |> Ok
+    Header.parse bytes (BinReader.Init Endian.Little) |> headerToISA |> Ok
   with _ ->
     Error ErrorCase.InvalidFormat
-
-// vim: set tw=80 sts=2 sw=2:
