@@ -64,3 +64,29 @@ Useful environment variables:
 
 - `genOpcode.fsx`
 - `intelVEXOpCodes.fsx`
+
+## Intel parser generator
+
+`IntelParserGen/` writes the Intel opcode maps as straight-line F# code:
+`src/FrontEnd/Intel/DLegacy.fs` (the four legacy maps) and
+`src/FrontEnd/Intel/DVex.fs` (the eight VEX and EVEX maps). It reads the
+rows and chains of `InstructionTable`, which in turn come from the
+`InstructionArrays` that autoparse extracts from the manual, so the tables
+stay the single source of truth and the parser never reads them at run
+time.
+
+The generated files are checked in. Run the generator again whenever the
+tables change (`src/FrontEnd/Intel/Intel.fs` or `InstructionTable.fs`),
+then commit the regenerated files with the change:
+
+```bash
+dotnet build scripts/IntelParserGen -c Release \
+  -p:NoDParser=true -p:DefineConstants=NoDParser
+dotnet scripts/IntelParserGen/bin/Release/net10.0/DGen.dll src/FrontEnd/Intel
+```
+
+The first command builds the Intel project without the generated files
+(`NoDParser`), which is what lets the generator be built when they are
+missing or broken. Running the generator twice must give identical files;
+`dotnet build`, `dotnet fslint src --strict` and `dotnet test` then verify
+the result as for any other change.
