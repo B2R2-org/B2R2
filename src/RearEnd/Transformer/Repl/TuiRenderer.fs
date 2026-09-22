@@ -39,11 +39,27 @@ module TransformerTuiRenderer =
   let private bold = "\x1b[1m"
   let private dim = "\x1b[2m"
   let private red = "\x1b[31m"
-  let private blue = "\x1b[34m"
+  let private green = "\x1b[32m"
   let private cyan = "\x1b[36m"
   let private underline = "\x1b[4m"
   let private reverse = "\x1b[7m"
   let private clearLine = "\x1b[2K"
+  /// Bright blue used for generic panel borders and dividers.
+  let private border = "\x1b[94m"
+  /// Bright blue background used for the top title banner.
+  let private bannerBg = "\x1b[104m"
+  /// Bright white foreground used for the top title banner.
+  let private bannerFg = "\x1b[97m"
+  /// Bright yellow background used for the notice dialog.
+  let private noticeBg = "\x1b[103m"
+  /// Black foreground used for text on the notice dialog.
+  let private noticeFg = "\x1b[30m"
+  /// Gray background used for the command palette input.
+  let private paletteInputBg = "\x1b[100m"
+  /// Bright white foreground used for the command palette.
+  let private paletteFg = "\x1b[97m"
+  /// Light gray foreground used for the command palette completion preview.
+  let private paletteGhostFg = "\x1b[38;2;184;184;184m"
   let private maxRenderableChars = 4096
 
   let private paint style text = style + text + reset
@@ -157,35 +173,22 @@ module TransformerTuiRenderer =
       "  <value> |> @<action> [args]      Transform the preceding value"
       "  <expression>                      Evaluate without binding"
       ""
-      "Reference"
-      "  :actions                      List actions and usage forms"
-      "  :show [name|expression]       Show a value or expression result"
-      "  :type [name|expression]       Show an inferred value kind"
-      "  :inspect [name]               List functions and sections"
-      "  :needs <ctx> [k=v]            List required concrete context"
-      ""
-      "Session"
-      "  :values                       List retained values"
-      "  :restore <id>                 Restore a historical value"
-      "  :history                      List evaluated commands"
-      "  :log                          Show execution history"
-      "  :undo                         Undo the last value change"
-      "  :reset                        Reset analysis values"
-      ""
-      "Scripts and environment"
-      "  :script save|load|record ...  Manage replay scripts"
-      "  :export <name> path=<path>    Export a named value"
-      "  :plugin load path=<dll>        Load a plugin"
-      "  :layout [k=v ...]             Resize TUI panes"
-      "  :clear                        Clear the visible transcript"
-      "  # <text>                      Record a script comment"
-      "  :quit                         Leave the TUI"
+      "Controls"
+      "  F2                             Open the control command prompt"
+      "  help                           Show control command usage"
+      "  actions                        List actions and usage forms"
+      "  values                         List retained values"
+      "  history                        List evaluated commands"
+      "  layout order=toggle            Swap shell and suggestions"
+      "  script save|load|record ...    Manage replay scripts"
+      "  plugin load path=<dll>         Load a plugin"
+      "  quit                           Leave the TUI"
       ""
       "Shell"
       "  Enter                          Insert a new line"
       "  ;; then Enter                  Execute the current input"
       "  Tab / Shift+Tab                Apply completion / insert spaces"
-      "  Up / Down                      Browse history or suggestions"
+      "  Up / Down                      Browse history, suggestions, or lines"
       "  Ctrl+N / Ctrl+P                Select next / previous completion"
       "  Ctrl+C                         Cancel a running action"
       "  Ctrl+D                         Leave when input is empty"
@@ -197,9 +200,10 @@ module TransformerTuiRenderer =
       "  PageUp / PageDown              Scroll the active pane"
       "  Ctrl+Up / Ctrl+Down            Move by command in transcript"
       "  Shift+Arrows                   Select text in view"
+      "  F3                             Find text in transcript or view"
       "  Ctrl+F                         Find text in view"
       "  Ctrl+Enter                     Insert view selection into input"
-      "  Alt+Arrows                     Resize sidebar or transcript"
+      "  Alt+Arrows                     Resize sidebar or suggestions"
       "  Esc                            Close a panel or clear input" ]
 
   let private actionLines registry =
@@ -295,7 +299,8 @@ module TransformerTuiRenderer =
         | TuiOverlay.Bindings ->
           bindingLines model
         | TuiOverlay.None | TuiOverlay.View | TuiOverlay.Inspect
-        | TuiOverlay.Values | TuiOverlay.Log ->
+        | TuiOverlay.Values | TuiOverlay.Log | TuiOverlay.Message
+        | TuiOverlay.CommandPalette ->
           []
       lines
       |> List.collect (fun text ->
@@ -575,7 +580,7 @@ module TransformerTuiRenderer =
 
   let private takeBody bodyHeight bodyWidth registry model =
     match model.Overlay with
-    | TuiOverlay.None ->
+    | TuiOverlay.None | TuiOverlay.Message | TuiOverlay.CommandPalette ->
       let lines: (TuiLineKind * string) list =
         TransformerTuiModel.transcriptDisplayRows bodyWidth bodyHeight model
         |> List.map (fun (line: TuiTranscriptLine) ->
@@ -607,24 +612,6 @@ module TransformerTuiRenderer =
   let private scriptPath model =
     model.Session.SessionPath |> Option.defaultValue "<none>"
 
-  let private paneStatus model fallback =
-    match model.Overlay, model.ViewPane with
-    | TuiOverlay.View, Some pane ->
-      let count = pane.Lines.Length
-      let line = min (pane.Cursor.Line + 1) (max 1 count)
-      let column = pane.Cursor.Column + 1
-      let find =
-        if pane.IsFinding then
-          $"  find: {pane.FindText}"
-        else
-          ""
-      $"view result #{pane.BlockIndex}  {line}/{count}:{column}{find}"
-    | _ when model.Focus = TuiFocus.Transcript
-             && fallback = "Transcript focused" ->
-      ""
-    | _ ->
-      fallback
-
   let private selectedBodyIndex body =
     body
     |> List.tryFindIndex (fun (kind, _) ->
@@ -641,15 +628,33 @@ module TransformerTuiRenderer =
     else
       None
 
-  let private sidebarLines height model =
+  let private boxTop color width title =
+    let inner = max 0 (width - 2)
+    let dashes = max 0 (inner - String.length title - 2)
+    paint color ("+-" + title + " " + String.replicate dashes "-" + "+")
+
+  let private boxBottom color width =
+    let inner = max 0 (width - 2)
+    paint color ("+" + String.replicate inner "-" + "+")
+
+  let private boxSide color (content: string) =
+    paint color "|" + content + paint color "|"
+
+  /// Style marker for a sidebar row that is already a full-width, rendered
+  /// box border line, so `renderBodyRow` must not wrap it in "|...|" again.
+  let private rawBoxRow = "\x00raw\x00"
+
+  let private sidebarLines rightWidth height model =
     let current = currentSummary model
-    let header =
-      [ bold, "STATE"
-        "", $"current   {current}"
-        "", $"bindings  {Map.count model.Session.Bindings}"
+    let focus = model.Focus.ToString().ToLowerInvariant()
+    let bindingCount = Map.count model.Session.Bindings
+    let state =
+      [ "", $"current   {current}"
         "", $"commands  {List.length model.Session.CommandHistory}"
-        "", ""
-        bold, "BINDINGS" ]
+        "", $"focus     {focus}" ]
+    let boundary =
+      [ rawBoxRow, boxBottom border rightWidth
+        rawBoxRow, boxTop border rightWidth $"Bindings ({bindingCount})" ]
     let bindings =
       model.Session.Bindings
       |> Map.toList
@@ -662,21 +667,25 @@ module TransformerTuiRenderer =
         [ "", ""; red, "LAST ERROR"; red, message ]
       | None ->
         []
-    header @ bindings @ error
+    state @ boundary @ bindings @ error
     |> List.truncate height
 
   let private renderBodyRow leftWidth rightWidth left right =
     let leftKind, leftText = left
-    let left = paint (lineStyle leftKind) (fit leftWidth leftText)
+    let leftInner = max 0 (leftWidth - 2)
+    let left =
+      boxSide border (paint (lineStyle leftKind) (fit leftInner leftText))
     if rightWidth = 0 then
       left
     else
       let rightStyle, rightText = right
-      left + paint dim "|" + paint rightStyle (fit rightWidth rightText)
-
-  let private spinner frame =
-    let frames = [| "-"; "\\"; "|"; "/" |]
-    frames[frame % frames.Length]
+      let right =
+        if rightStyle = rawBoxRow then
+          fit rightWidth rightText
+        else
+          let rightInner = max 0 (rightWidth - 2)
+          boxSide border (paint rightStyle (fit rightInner rightText))
+      left + " " + right
 
   let private highlightedHint width text highlights =
     let text = sanitize text
@@ -776,43 +785,69 @@ module TransformerTuiRenderer =
           loop (offset + line.Length + 1) (row :: rows) rest
       loop 0 [] lines
 
+  let private fitSuggestionRows rowCount width rows =
+    let rows = List.truncate rowCount rows
+    rows @ List.replicate (rowCount - List.length rows) (fit width "")
+
+  let private slicePart (text: string) startAt endAt =
+    let startAt = max 0 (min text.Length startAt)
+    let endAt = max startAt (min text.Length endAt)
+    text.Substring(startAt, endAt - startAt)
+
+  let private suggestionItemLine innerWidth selected index item =
+    let marker = if index = selected then "> " else "  "
+    let markerStyle = if index = selected then reverse else ""
+    let labelStyle = if index = selected then reverse + bold else bold
+    let detailStyle = if index = selected then reverse + dim else dim
+    let label: string = item.Label
+    let padded = fit innerWidth $"{marker}{label}  {item.Detail}"
+    let labelEnd = marker.Length + label.Length
+    let markerPart = slicePart padded 0 marker.Length
+    let labelPart = slicePart padded marker.Length labelEnd
+    let restPart = slicePart padded labelEnd padded.Length
+    paint markerStyle markerPart
+    + paint labelStyle labelPart
+    + paint detailStyle restPart
+
   let private suggestionRows rowCount width completion selected =
     let rowCount = max 1 rowCount
     let count = List.length completion.Items
-    let hint = hintRows width completion
-    if count = 0 then
-      let rows =
+    let boxed = rowCount > 2
+    let innerWidth = if boxed then max 1 (width - 2) else width
+    let hint = hintRows innerWidth completion
+    let contentRows =
+      if count = 0 then
         match hint with
         | first :: rest ->
           first :: (rest |> List.truncate (rowCount - 1))
         | [] ->
-          [ paint dim (fit width "Suggestions appear here as you type.") ]
-      rows
-      |> fun rows ->
-        rows @ List.replicate (rowCount - List.length rows) (fit width "")
-    else
-      let selected = min selected (count - 1)
-      let itemRows =
-        let visible = max 0 (rowCount - List.length hint)
+          [ paint dim (fit innerWidth
+                        "Suggestions appear here as you type.") ]
+      else
+        let selected = min selected (count - 1)
+        let visible =
+          max 0 ((if boxed then rowCount - 2 else rowCount) - List.length hint)
         let start =
           if visible <= 0 then
             0
           else
             let pageStart = selected / visible * visible
             max 0 (min pageStart (count - visible))
-        completion.Items
-        |> List.skip start
-        |> List.truncate visible
-        |> List.mapi (fun offset item ->
-          let index = start + offset
-          let marker = if index = selected then "> " else "  "
-          let text = $"{marker}{item.Label}  {item.Detail}"
-          let style = if index = selected then reverse else dim
-          paint style (fit width text))
-      hint @ itemRows
-      |> fun rows ->
-        rows @ List.replicate (rowCount - List.length rows)
-          (fit width "")
+        let itemRows =
+          completion.Items
+          |> List.skip start
+          |> List.truncate visible
+          |> List.mapi (fun offset item ->
+            let index = start + offset
+            suggestionItemLine innerWidth selected index item)
+        hint @ itemRows
+    if boxed then
+      [ boxTop cyan width "Suggestions" ]
+      @ (contentRows |> List.map (boxSide cyan))
+      @ [ boxBottom cyan width ]
+      |> fitSuggestionRows rowCount width
+    else
+      contentRows |> fitSuggestionRows rowCount width
 
   let private ghostText completion selected model =
     let completion: SuggestionSet = completion
@@ -892,7 +927,7 @@ module TransformerTuiRenderer =
     let after = styleDiagnostics after afterHighlights
     let padding = String.replicate (available - visibleLength) " "
     let cursor = prompt.Length + cursorColumn - start + 1
-    paint cyan prompt + before + paint dim ghost + after + padding, cursor
+    paint green prompt + before + paint dim ghost + after + padding, cursor
 
   let private indexedInputLines (input: string) =
     let rec loop start output = function
@@ -955,29 +990,169 @@ module TransformerTuiRenderer =
     let text = $" cwd: {cwd}  script: {script}  record: {record}"
     paint dim (fit width text)
 
-  let private keyHeader width =
-    " F1 help  F4 view "
-    |> fit width
-    |> paint dim
+  let private activeFindText model =
+    match model.ViewPane with
+    | Some pane when model.Overlay = TuiOverlay.View && pane.IsFinding ->
+      Some pane.FindText
+    | _ when model.IsFindingTranscript ->
+      Some model.TranscriptFindText
+    | _ ->
+      None
 
-  let private stateLine width model =
-    let busy =
-      if model.IsBusy then
-        $"{spinner model.SpinnerFrame} running"
+  let private findFooter width model =
+    match activeFindText model with
+    | Some findText ->
+      let prompt = " find: "
+      let inputWidth = max 0 (width - prompt.Length)
+      let start = max 0 (findText.Length - inputWidth)
+      let input =
+        if start < findText.Length then findText[start..] else ""
+      let padding = String.replicate (inputWidth - input.Length) " "
+      let row = paint (paletteInputBg + paletteFg) (prompt + input + padding)
+      row, Some(prompt.Length + input.Length + 1)
+    | _ ->
+      contextFooter width model, None
+
+  let private keyButton active label =
+    if active then paint reverse $" {label} " else paint dim $" {label} "
+
+  let private keyHeader width model =
+    let f1 = keyButton (model.Overlay = TuiOverlay.Help) "F1 help"
+    let f2 = keyButton (model.Overlay = TuiOverlay.CommandPalette) "F2 command"
+    let f3 = keyButton (activeFindText model |> Option.isSome) "F3 find"
+    let f4 = keyButton (model.Overlay = TuiOverlay.View) "F4 view"
+    fit width (" " + f1 + "  " + f2 + "  " + f3 + "  " + f4 + " ")
+
+  let private centerPad width (text: string) =
+    let text = if text.Length > width then text[..width - 1] else text
+    let extra = width - text.Length
+    let left = extra / 2
+    String.replicate left " " + text + String.replicate (extra - left) " "
+
+  let private messageBoxRows boxWidth (message: string) =
+    let wrapped =
+      TransformerTuiText.wrapWithOffsets boxWidth message
+      |> List.map (fun (_, _, line) -> line)
+    let blank = paint noticeBg (centerPad boxWidth "")
+    let dismiss =
+      paint (noticeBg + noticeFg)
+        (centerPad boxWidth "Press Enter (or Esc) to dismiss.")
+    [ blank ]
+    @ (wrapped
+       |> List.map (fun line ->
+         paint (noticeBg + noticeFg + bold) (centerPad boxWidth line)))
+    @ [ blank; dismiss ]
+
+  let private commandPaletteGhost
+    inputWidth
+    (input: string)
+    (model: TransformerTuiModel)
+    (candidates: (string * string) list) =
+    let ghost =
+      if model.PaletteCursor = model.PaletteInput.Length then
+        candidates
+        |> List.tryItem model.PaletteSuggestionIndex
+        |> Option.map fst
+        |> Option.filter (fun command ->
+          command.StartsWith(model.PaletteInput,
+                             StringComparison.OrdinalIgnoreCase))
+        |> Option.map (fun command -> command[model.PaletteInput.Length..])
+        |> Option.defaultValue ""
       else
-        model.Status
-    let paneStatus = paneStatus model busy
-    let status =
-      if String.IsNullOrWhiteSpace paneStatus then
         ""
+    let ghostWidth = max 0 (inputWidth - input.Length)
+    if ghostWidth = 0 then
+      ""
+    elif ghost.Length > ghostWidth then
+      ghost[..ghostWidth - 1]
+    else
+      ghost
+
+  let private commandPaletteCandidateRows
+    boxWidth
+    (model: TransformerTuiModel)
+    (candidates: (string * string) list) =
+    candidates
+    |> List.mapi (fun index (command, detail) ->
+      let marker = if index = model.PaletteSuggestionIndex then "> " else "  "
+      let style =
+        if index = model.PaletteSuggestionIndex then
+          noticeBg + noticeFg + bold
+        else
+          noticeBg + noticeFg
+      paint style (fit boxWidth $"{marker}{command}  {detail}"))
+
+  let private commandPaletteRows boxWidth model =
+    let candidates = Suggestions.commandPaletteCandidates model.PaletteFilter
+    let inputWidth = max 1 (boxWidth - 2)
+    let start = max 0 (model.PaletteCursor - inputWidth + 1)
+    let length = min inputWidth (model.PaletteInput.Length - start)
+    let input = model.PaletteInput.Substring(start, length)
+    let ghost = commandPaletteGhost inputWidth input model candidates
+    let prompt = ": " + input
+    let paddingLength = inputWidth - input.Length - ghost.Length
+    let padding = String.replicate paddingLength " "
+    let blank = paint noticeBg (centerPad boxWidth "")
+    let prompt =
+      paint (paletteInputBg + paletteFg) prompt
+      + paint (paletteInputBg + paletteGhostFg) ghost
+      + paint paletteInputBg padding
+    let candidateRows = commandPaletteCandidateRows boxWidth model candidates
+    let padding = List.replicate (5 - List.length candidateRows) blank
+    [ blank; prompt ] @ candidateRows @ padding @ [ blank ], start
+
+  /// Paints `boxContent` over `line`, starting at the visible column
+  /// `startCol`; `boxContent` must already be exactly `boxWidth` visible
+  /// columns wide. Text outside the box keeps its position but loses its
+  /// original color, since the box opaquely covers whatever was behind it.
+  let private overwriteColumns startCol boxWidth (boxContent: string) line =
+    let plain = TransformerTuiText.stripAnsi line
+    let plain =
+      if plain.Length < startCol + boxWidth then
+        plain.PadRight(startCol + boxWidth)
       else
-        "  " + paneStatus
-    let state =
-      $" current: {currentSummary model}  "
-      + $"bindings: {Map.count model.Session.Bindings}  "
-      + $"focus: {model.Focus.ToString().ToLowerInvariant()}"
-      + status
-    paint blue (fit width state)
+        plain
+    let left = plain[..startCol - 1]
+    let right = plain[startCol + boxWidth..]
+    clearLine + left + boxContent + right + reset
+
+  let private overlayMessageBox width height model lines =
+    if model.Overlay <> TuiOverlay.Message then
+      lines
+    else
+      let boxWidth = max 30 (min 60 (width - 8))
+      let boxRows = messageBoxRows boxWidth model.Status
+      let boxHeight = List.length boxRows
+      let startCol = max 0 ((width - boxWidth) / 2)
+      let startRow = max 0 ((height - boxHeight) / 2)
+      boxRows
+      |> List.iteri (fun offset boxRow ->
+        let row = startRow + offset
+        if row < Array.length lines then
+          lines[row] <- overwriteColumns startCol boxWidth boxRow lines[row]
+        else
+          ())
+      lines
+
+  let private overlayCommandPalette width height model lines =
+    if model.Overlay <> TuiOverlay.CommandPalette then
+      lines, None
+    else
+      let boxWidth = max 24 (min 60 (width - 8))
+      let boxRows, inputStart = commandPaletteRows boxWidth model
+      let boxHeight = List.length boxRows
+      let startCol = max 0 ((width - boxWidth) / 2)
+      let startRow = max 0 ((height - boxHeight) / 2)
+      boxRows
+      |> List.iteri (fun offset boxRow ->
+        let row = startRow + offset
+        if row < Array.length lines then
+          lines[row] <- overwriteColumns startCol boxWidth boxRow lines[row]
+        else
+          ())
+      let cursorRow = startRow + 2
+      let cursorColumn = startCol + 3 + model.PaletteCursor - inputStart
+      lines, Some(cursorRow, cursorColumn)
 
   let viewScrollOffset width height model =
     if model.Overlay = TuiOverlay.View then
@@ -995,15 +1170,14 @@ module TransformerTuiRenderer =
         CursorRow = 1
         CursorColumn = 1 }
     else
-      let shellInputRows = TransformerTuiModel.shellInputCapacity model
+      let shellInputRows =
+        TransformerTuiModel.shellInputCapacity height model
       let inputRows, inputCursor =
         inputView width shellInputRows model completion
-      let availableBodyAndCompletion =
-        TransformerTuiModel.availableBodyAndCompletion height model
       let bodyHeight =
         TransformerTuiModel.transcriptHeight height model
       let suggestionCount =
-        max 1 (availableBodyAndCompletion - bodyHeight)
+        TransformerTuiModel.suggestionHeight height model
       let leftWidth = TransformerTuiModel.transcriptBodyWidth width model
       let rightWidth =
         if leftWidth < width then width - leftWidth - 1 else 0
@@ -1025,42 +1199,74 @@ module TransformerTuiRenderer =
         transcriptCursorPosition model body
         |> Option.orElse (viewLayout |> Option.bind _.CursorPosition)
       let body = body @ padding
-      let sidebar = sidebarLines bodyHeight model
+      let sidebar = sidebarLines rightWidth bodyHeight model
       let sidebar = sidebar @ List.replicate (bodyHeight - List.length sidebar)
                                       ("", "")
       let bodyRows =
         List.map2 (renderBodyRow leftWidth rightWidth) body sidebar
-      let title = paint bold " B2R2 TRANSFORMER "
-      let subtitle = paint dim " Interactive Binary Analysis"
-      let state = stateLine width model
-      let divider = paint dim (String.replicate width "-")
+      let titleBar =
+        let text = " B2R2 TRANSFORMER   Interactive Binary Analysis"
+        paint (bannerBg + bannerFg + bold) (fit width text)
+      let boxTopRow =
+        if hasSidebar then
+          boxTop border leftWidth "Main Window"
+          + " " + boxTop border rightWidth "State"
+        else
+          boxTop border leftWidth "Main Window"
+      let boxBottomRow =
+        if hasSidebar then
+          boxBottom border leftWidth + " " + boxBottom border rightWidth
+        else
+          boxBottom border leftWidth
       let suggestions =
         suggestionRows suggestionCount width completion model.SuggestionIndex
-      let context = contextFooter width model
+      let context, findCursor = findFooter width model
+      let bottomRows =
+        match model.BottomPaneOrder with
+        | TuiBottomPaneOrder.ShellAboveSuggestions ->
+          inputRows @ suggestions
+        | TuiBottomPaneOrder.SuggestionsAboveShell ->
+          suggestions @ inputRows
+      let inputStartRow =
+        let afterBody = 5 + bodyHeight
+        match model.BottomPaneOrder with
+        | TuiBottomPaneOrder.ShellAboveSuggestions ->
+          afterBody
+        | TuiBottomPaneOrder.SuggestionsAboveShell ->
+          afterBody + List.length suggestions
       let rows =
-        [ title + subtitle |> fun text -> text + fit (max 0 (width - 47)) ""
-          keyHeader width
-          state
-          divider ]
+        [ titleBar
+          keyHeader width model
+          boxTopRow ]
         @ bodyRows
-        @ [ divider ]
-        @ suggestions
-        @ inputRows
+        @ [ boxBottomRow ]
+        @ bottomRows
         @ [ context ]
       let lines =
         rows
         |> List.map (fun row -> clearLine + row + reset)
         |> List.toArray
+        |> overlayMessageBox width height model
+      let lines, paletteCursor =
+        overlayCommandPalette width height model lines
       { Lines = lines
         CursorRow =
-          cursorBodyPosition
-          |> Option.map (fun (row, _) -> 5 + row)
+          paletteCursor
+          |> Option.map fst
+          |> Option.orElse (findCursor |> Option.map (fun _ -> height))
+          |> Option.orElseWith (fun () ->
+            cursorBodyPosition
+            |> Option.map (fun (row, _) -> 4 + row))
           |> Option.defaultValue (
             let row, _ = inputCursor
-            height - List.length inputRows + row)
+            inputStartRow + row)
         CursorColumn =
-          cursorBodyPosition
-          |> Option.map (fun (_, column) -> min leftWidth column)
+          paletteCursor
+          |> Option.map snd
+          |> Option.orElse findCursor
+          |> Option.orElseWith (fun () ->
+            cursorBodyPosition
+            |> Option.map (fun (_, column) -> min (leftWidth - 1) (column + 1)))
           |> Option.defaultValue (
             let _, column = inputCursor
             min width column) }

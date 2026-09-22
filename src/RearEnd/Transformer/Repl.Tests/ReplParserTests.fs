@@ -25,7 +25,10 @@
 namespace B2R2.RearEnd.Transformer.Tests
 
 open System
+open System.Threading
 open Microsoft.VisualStudio.TestTools.UnitTesting
+open B2R2
+open B2R2.MiddleEnd.SymbEval
 open B2R2.RearEnd.Transformer
 
 [<TestClass>]
@@ -58,8 +61,25 @@ type ReplParserTests() =
     Suggestions.get registry.Value (stateForCollection kind) input input.Length
     |> fun result -> result.Items |> List.map _.Text
 
+  let completionHint kind input =
+    let value =
+      { Kind = kind
+        IsCollection = false
+        Collection = { Values = [||] } }
+    let state =
+      { TransformerReplState.empty with
+          Bindings = Map.ofList [ "target", value ]
+          Current = Some value }
+    Suggestions.get registry.Value state input input.Length
+    |> _.Hint
+    |> Option.defaultValue ""
+
   let assertArguments expected actual =
     Assert.AreEqual<string list>(expected, actual)
+
+  let assertDoesNotContain (expected: string) (actual: string) =
+    let contains = actual.Contains(expected, StringComparison.Ordinal)
+    Assert.AreEqual(false, contains, actual)
 
   let parsePartial input =
     match ReplLanguage.tryParsePartialPipeline input with
@@ -68,6 +88,33 @@ type ReplParserTests() =
     | None ->
       Assert.Fail "Expected incomplete input to produce a partial pipeline."
       Unchecked.defaultof<ReplPartialPipeline>
+
+  let evaluate registry state input =
+    match TransformerReplEvaluator.evaluateCommand
+            registry state input CancellationToken.None with
+    | Continue(registry, state, _) ->
+      registry, state
+    | Exit _ ->
+      Assert.Fail "Expected command evaluation to continue."
+      registry, state
+
+  let evaluateOutput registry state input =
+    match TransformerReplEvaluator.evaluateCommand
+            registry state input CancellationToken.None with
+    | Continue(registry, state, output) ->
+      registry, state, output
+    | Exit _ ->
+      Assert.Fail "Expected command evaluation to continue."
+      registry, state, ReplOutput.ofLines []
+
+  let evaluateControlOutput registry state input =
+    match TransformerReplEvaluator.evaluateControlCommand
+            registry state input CancellationToken.None with
+    | Continue(registry, state, output) ->
+      registry, state, output
+    | Exit _ ->
+      Assert.Fail "Expected command evaluation to continue."
+      registry, state, ReplOutput.ofLines []
 
   [<TestMethod>]
   member _.``Pipeline parser preserves stage and argument boundaries``() =
@@ -209,3 +256,168 @@ type ReplParserTests() =
     Assert.AreEqual(true, List.contains "context=" candidates, detail)
     Assert.AreEqual(true, List.contains "before=" candidates, detail)
     Assert.AreEqual(true, List.contains "after=" candidates, detail)
+
+  [<TestMethod>]
+  member _.``Completion suggests compatible argument bindings``() =
+    let executor = collectionValue ReplValueKind.ConcExecutor
+    let address =
+      { Address = 0x401e08UL }
+      |> box
+      |> fun value -> { Values = [| value |] }
+      |> ReplValue.ofCollection ReplValueKind.Address
+    let limit =
+      100
+      |> box
+      |> fun value -> { Values = [| value |] }
+      |> ReplValue.ofCollection ReplValueKind.Int
+    let state =
+      { TransformerReplState.empty with
+          Bindings =
+            Map.ofList
+              [ "executor", executor
+                "functionEntry", address
+                "failureLimit", limit ] }
+    let entryInput = "executor |> @run-concrete entry=f"
+    let entryCandidates =
+      Suggestions.get registry.Value state entryInput entryInput.Length
+      |> _.Items
+      |> List.map _.Text
+    Assert.Contains("functionEntry", entryCandidates)
+    Assert.DoesNotContain("failureLimit", entryCandidates)
+    let limitInput = "executor |> @run-concrete limit=f"
+    let limitCandidates =
+      Suggestions.get registry.Value state limitInput limitInput.Length
+      |> _.Items
+      |> List.map _.Text
+    Assert.Contains("failureLimit", limitCandidates)
+    Assert.DoesNotContain("functionEntry", limitCandidates)
+
+  [<TestMethod>]
+  member _.``Completion hint filters edit operation overloads``() =
+    let hint =
+      completionHint
+        ReplValueKind.Binary
+        "target |> @edit replace start="
+    StringAssert.Contains(hint, "@edit replace")
+    assertDoesNotContain "@edit insert" hint
+    assertDoesNotContain "@edit delete" hint
+    assertDoesNotContain "@edit force-replace" hint
+
+  [<TestMethod>]
+  member _.``Completion hint filters list operation overloads``() =
+    let hint =
+      completionHint ReplValueKind.Binary "target |> @list functions"
+    StringAssert.Contains(hint, "@list functions")
+    assertDoesNotContain "@list sections" hint
+    assertDoesNotContain "@list known-functions" hint
+
+  [<TestMethod>]
+  member _.``Completion hint filters memory operation overloads``() =
+    let hint =
+      completionHint
+        ReplValueKind.ConcExecutor
+        "target |> @mem read addr="
+    StringAssert.Contains(hint, "@mem read")
+    assertDoesNotContain "@mem write" hint
+
+  [<TestMethod>]
+  member _.``Colon-prefixed shell input is not a control command``() =
+    let _, _, output =
+      evaluateOutput registry.Value TransformerReplState.empty ":help"
+    Assert.AreEqual<string list>(
+      [ "Error: Unknown value or action: :help" ],
+      output.Lines
+    )
+
+  [<TestMethod>]
+  member _.``Colon-prefixed shell input has no completion``() =
+    let suggestions =
+      Suggestions.get registry.Value TransformerReplState.empty ":help" 5
+    Assert.IsEmpty suggestions.Items
+
+  [<TestMethod>]
+  member _.``Control prompt does not recognize show``() =
+    let _, _, output =
+      evaluateControlOutput registry.Value TransformerReplState.empty ":show"
+    Assert.AreEqual<string list>(
+      [ "Error: Unknown REPL command: :show" ],
+      output.Lines
+    )
+
+  [<TestMethod>]
+  member _.``Completion suggests observed addresses with latest sources``() =
+    let registry, state =
+      evaluate
+        registry.Value
+        TransformerReplState.empty
+        "let target = @load hex=90c3 isa=x86-64"
+    let registry, state =
+      evaluate registry state "let targets = [target; target]"
+    let registry, state =
+      evaluate registry state "targets |> iter @disasm |> @print"
+    let source = Unchecked.defaultof<Binary>
+    let functionValue =
+      { Source = source; Entry = 0UL; Symbol = None }
+      |> box
+      |> fun value -> { Values = [| value |] }
+      |> ReplValue.ofCollection ReplValueKind.FunctionInfo
+    let state =
+      TransformerReplState.observeValue
+        state.NextLogID
+        "@list functions"
+        functionValue
+        state
+    let input = "let addr = 0x"
+    let items = Suggestions.get registry state input input.Length |> _.Items
+    let zero = items |> List.filter (fun item -> item.Text = "0x0")
+    Assert.HasCount(1, zero)
+    Assert.AreEqual("command #4 · @list functions", zero.Head.Detail)
+    let one = items |> List.find (fun item -> item.Text = "0x1")
+    Assert.AreEqual("command #3 · @disasm", one.Detail)
+
+  [<TestMethod>]
+  member _.``Completion preserves symbolic input widths``() =
+    let solverValue name value: SolverValue =
+      { Name = name; Value = BitVector(uint64 value, 8<rt>) }
+    let values =
+      [ solverValue "idx_0" 0xf0
+        solverValue "idx_1" 0xff
+        solverValue "idx_2" 0xff
+        solverValue "idx_3" 0xf0 ]
+      @ ([ 0 .. 7 ]
+         |> List.map (fun index -> solverValue $"ind_{index}" 0))
+    let answer: SymbSatisfiabilityAnswer =
+      { Target = 0x401e5cUL
+        State = SymbState()
+        Values = values }
+    let result: SymbRunResult =
+      { Answer = SymbAnswer.Satisfiable [ answer ]
+        StopReasons = []
+        PruneReasons = []
+        StateCount = 1
+        Timeout = None }
+    let source = Unchecked.defaultof<SymbExecutorValue>
+    let run = SymbRunValue(source, "satisfy", Some answer.Target, result)
+    let value =
+      ReplValue.ofCollection
+        ReplValueKind.SymbRunResult
+        { Values = [| box run |] }
+    let state =
+      TransformerReplState.observeValue
+        7
+        "@run-symbolic"
+        value
+        TransformerReplState.empty
+    let idxInput = "let idxValue = 0x"
+    let idxItems =
+      Suggestions.get registry.Value state idxInput idxInput.Length |> _.Items
+    let idx =
+      idxItems |> List.find (fun item -> item.Text = "0xf0fffff0")
+    Assert.AreEqual("command #7 · @run-symbolic · idx:4", idx.Detail)
+    let indInput = "let indValue = 0x0"
+    let indItems =
+      Suggestions.get registry.Value state indInput indInput.Length |> _.Items
+    let ind =
+      indItems
+      |> List.find (fun item -> item.Text = "0x0000000000000000")
+    Assert.AreEqual("command #7 · @run-symbolic · ind:8", ind.Detail)

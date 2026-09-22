@@ -303,39 +303,40 @@ module TransformerRepl =
     |> TransformerTuiModel.setBusy false
     |> TransformerTuiModel.setStatus "Command failed"
 
-  let private startEvaluation registry command model =
+  let private startEvaluation evaluate registry command model =
     let model =
       model
       |> TransformerTuiModel.appendCommand command
       |> TransformerTuiModel.clearInput
-    if command.Trim() = ":clear" then
-      let session =
-        TransformerReplState.recordCommand command model.Session
-      let model =
-        model
-        |> TransformerTuiModel.clearTranscript
-        |> TransformerTuiModel.setSession session
-      model, None
-    else
-      let session = model.Session
-      let cancellation = new CancellationTokenSource()
-      let task =
-        Task.Run((fun () ->
-          TransformerReplEvaluator.evaluateCommand
-            registry
-            session
-            command
-            cancellation.Token), cancellation.Token)
-      let model =
-        model
-        |> TransformerTuiModel.setBusy true
-        |> TransformerTuiModel.setStatus "Running action"
-      let running =
-        { Task = task
-          Cancellation = cancellation
-          Command = command
-          StartedAt = DateTimeOffset.Now }
-      model, Some running
+    let session = model.Session
+    let cancellation = new CancellationTokenSource()
+    let task: Task<ReplEvaluation> =
+      Task.Run(
+        Func<ReplEvaluation>(
+          fun () -> evaluate registry session command cancellation.Token
+        ),
+        cancellation.Token
+      )
+    let model =
+      model
+      |> TransformerTuiModel.setBusy true
+      |> TransformerTuiModel.setStatus "Running action"
+    let running =
+      { Task = task
+        Cancellation = cancellation
+        Command = command
+        StartedAt = DateTimeOffset.Now }
+    model, Some running
+
+  let private startCommandEvaluation registry (command: string) model =
+    let command = command.Trim()
+    let command =
+      if command.StartsWith(':') then command else ":" + command
+    startEvaluation
+      TransformerReplEvaluator.evaluateControlCommand
+      registry
+      command
+      model
 
   let private finishCancellation running (model: TransformerTuiModel) =
     let duration = DateTimeOffset.Now - running.StartedAt
@@ -480,7 +481,16 @@ module TransformerRepl =
       | TuiInputResult.Update next ->
         model <- next
       | TuiInputResult.Execute(next, command) ->
-        let next, task = startEvaluation registry command next
+        let next, task =
+          startEvaluation
+            TransformerReplEvaluator.evaluateCommand
+            registry
+            command
+            next
+        model <- next
+        running <- task
+      | TuiInputResult.ExecuteCommand(next, command) ->
+        let next, task = startCommandEvaluation registry command next
         model <- next
         running <- task
     try
@@ -526,10 +536,18 @@ module TransformerRepl =
               when hasModifier ConsoleModifiers.Control key
                    && key.Key = ConsoleKey.C ->
               model <- requestCancellation runningEvaluation model
+            | Some _ when isTextKey key
+                          && model.Overlay = TuiOverlay.None
+                          && not model.IsFindingTranscript
+                          && model.Focus = TuiFocus.Shell ->
+              let text = readTextBurst key
+              TransformerTuiInputController.appendShellText text model
+              |> applyInputResult
             | Some _ ->
               ()
             | None when isTextKey key
                         && model.Overlay = TuiOverlay.None
+                        && not model.IsFindingTranscript
                         && model.Focus = TuiFocus.Shell ->
               let text = readTextBurst key
               TransformerTuiInputController.appendShellText text model

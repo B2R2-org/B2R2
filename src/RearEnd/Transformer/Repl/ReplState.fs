@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open System.Collections.Generic
 open System.Globalization
 open B2R2
 
@@ -62,6 +63,31 @@ type ReplExecutionLogEntry =
     Command: string
     Detail: string option }
 
+/// The latest command result in which an address was observed.
+type ReplObservedAddress =
+  { Address: Addr
+    CommandID: int
+    Action: string }
+
+/// Address observations indexed for bounded completion queries.
+type ReplAddressObservations =
+  { Entries: Map<Addr, ReplObservedAddress>
+    Ordered: Addr list
+    Buckets: Map<string, Addr list> }
+
+/// The latest command result in which a width-preserving hex value was seen.
+type ReplObservedHexValue =
+  { Text: string
+    Symbol: string
+    CommandID: int
+    Action: string }
+
+/// Width-preserving hexadecimal values indexed for bounded completion queries.
+type ReplHexValueObservations =
+  { Entries: Map<string, ReplObservedHexValue>
+    Ordered: string list
+    Buckets: Map<string, string list> }
+
 /// Restorable state captured before a value-producing command.
 type ReplUndoCapture =
   { Bindings: Map<string, ReplValue>
@@ -84,6 +110,8 @@ type TransformerReplState =
     LastError: string option
     NextValueID: int
     NextLogID: int
+    ObservedAddresses: ReplAddressObservations
+    ObservedHexValues: ReplHexValueObservations
     UndoStack: ReplUndoCapture list }
 
 module ReplValue =
@@ -108,6 +136,7 @@ module ReplValue =
       typeof<StringMatch>, ReplValueKind.StringMatch
       typeof<SectionInfo>, ReplValueKind.SectionInfo
       typeof<FunctionInfo>, ReplValueKind.FunctionInfo
+      typeof<CFGNodeInfo>, ReplValueKind.CFGNodeInfo
       typeof<string>, ReplValueKind.Text
       typeof<int>, ReplValueKind.Int
       typeof<float>, ReplValueKind.Float
@@ -169,6 +198,8 @@ module ReplValue =
       ReplValueKind.SectionInfo
     | :? FunctionInfo ->
       ReplValueKind.FunctionInfo
+    | :? CFGNodeInfo ->
+      ReplValueKind.CFGNodeInfo
     | :? string ->
       ReplValueKind.Text
     | :? OutString ->
@@ -310,6 +341,16 @@ module ReplValue =
       Collection = { Values = [||] } }
 
 module TransformerReplState =
+  let private emptyAddressObservations: ReplAddressObservations =
+    { Entries = Map.empty
+      Ordered = []
+      Buckets = Map.empty }
+
+  let private emptyHexValueObservations: ReplHexValueObservations =
+    { Entries = Map.empty
+      Ordered = []
+      Buckets = Map.empty }
+
   let empty =
     { Bindings = Map.empty
       Current = None
@@ -323,7 +364,183 @@ module TransformerReplState =
       LastError = None
       NextValueID = 1
       NextLogID = 1
+      ObservedAddresses = emptyAddressObservations
+      ObservedHexValues = emptyHexValueObservations
       UndoStack = [] }
+
+  let private instructionAddress = function
+    | ValidInstruction(instruction, _) ->
+      instruction.Address
+    | BadInstruction(address, _) ->
+      address
+
+  let private itemAddresses (item: obj) =
+    match item with
+    | :? (Instruction[]) as instructions ->
+      instructions |> Array.map instructionAddress |> Array.toList
+    | :? FunctionInfo as functionInfo ->
+      [ functionInfo.Entry ]
+    | :? AddressValue as address ->
+      [ address.Address ]
+    | :? StringMatch as matched ->
+      [ matched.Address ]
+    | :? SectionInfo as section ->
+      [ section.Address ]
+    | :? BinarySlice as slice ->
+      [ slice.StartAddress; slice.EndAddress ]
+    | :? CFG as cfg ->
+      match cfg with
+      | CFG(address, _, _) ->
+        [ address ]
+      | NoCFG _ ->
+        []
+    | _ ->
+      []
+
+  let private observationBucket (address: Addr) =
+    let text = address.ToString("x", CultureInfo.InvariantCulture)
+    text[..min 3 (text.Length - 1)]
+
+  let private rebuildBuckets (addresses: Addr list) =
+    addresses
+    |> List.groupBy observationBucket
+    |> Map.ofList
+
+  let private distinctAddresses addresses =
+    let seen = HashSet<Addr>()
+    addresses |> List.filter seen.Add
+
+  let private observeAddresses commandID action addresses state =
+    if List.isEmpty addresses then
+      state
+    else
+      let changed = HashSet<Addr>(addresses)
+      let old: ReplAddressObservations = state.ObservedAddresses
+      let ordered =
+        addresses
+        @ (old.Ordered
+           |> List.filter (changed.Contains >> not))
+      let values =
+        addresses
+        |> List.fold (fun values address ->
+          Map.add
+            address
+            { Address = address; CommandID = commandID; Action = action }
+            values) old.Entries
+      { state with
+          ObservedAddresses =
+            { Entries = values
+              Ordered = ordered
+              Buckets = rebuildBuckets ordered } }
+
+  let private hexValueText (bytes: byte[]) =
+    bytes
+    |> Array.rev
+    |> Array.map (fun byte ->
+      byte.ToString("x2", CultureInfo.InvariantCulture))
+    |> String.concat ""
+    |> fun text -> "0x" + text
+
+  let private itemHexValues (item: obj) =
+    match item with
+    | :? SymbRunValue as result ->
+      result.ConcreteInputs
+      |> List.map (fun (name, bytes) ->
+        hexValueText bytes, $"{name}:{bytes.Length}")
+    | _ ->
+      []
+
+  let private hexValueBucket (text: string) =
+    let digits = text[2..]
+    digits[..min 3 (digits.Length - 1)]
+
+  let private rebuildHexValueBuckets values =
+    values
+    |> List.groupBy hexValueBucket
+    |> Map.ofList
+
+  let private distinctHexValues values =
+    let seen = HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    values |> List.filter (fst >> seen.Add)
+
+  let private observeHexValues commandID action values state =
+    if List.isEmpty values then
+      state
+    else
+      let texts = values |> List.map fst
+      let changed = HashSet<string>(texts, StringComparer.OrdinalIgnoreCase)
+      let old: ReplHexValueObservations = state.ObservedHexValues
+      let ordered =
+        texts
+        @ (old.Ordered
+           |> List.filter (changed.Contains >> not))
+      let entries =
+        values
+        |> List.fold (fun entries (text, symbol) ->
+          Map.add
+            text
+            { Text = text
+              Symbol = symbol
+              CommandID = commandID
+              Action = action }
+            entries) old.Entries
+      { state with
+          ObservedHexValues =
+            { Entries = entries
+              Ordered = ordered
+              Buckets = rebuildHexValueBuckets ordered } }
+
+  let observeValue commandID action (value: ReplValue) state =
+    let items = value.Collection.Values |> Array.toList
+    let addresses =
+      items |> List.collect itemAddresses |> distinctAddresses
+    let hexValues =
+      items |> List.collect itemHexValues |> distinctHexValues
+    state
+    |> observeAddresses commandID action addresses
+    |> observeHexValues commandID action hexValues
+
+  let findObservedAddresses (prefix: string) limit state =
+    let prefix =
+      let prefix = prefix.Trim().ToLowerInvariant()
+      if prefix.StartsWith("0x", StringComparison.Ordinal) then
+        prefix[2..]
+      else
+        prefix
+    let observations = state.ObservedAddresses
+    let addresses =
+      if prefix.Length < 4 then
+        observations.Ordered
+      else
+        let bucket = prefix[..3]
+        observations.Buckets |> Map.tryFind bucket |> Option.defaultValue []
+    addresses
+    |> Seq.choose (fun address ->
+      let text = address.ToString("x", CultureInfo.InvariantCulture)
+      if text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) then
+        Map.tryFind address observations.Entries
+      else
+        None)
+    |> Seq.truncate (max 0 limit)
+    |> Seq.toList
+
+  let findObservedHexValues (prefix: string) limit state =
+    let prefix = prefix.Trim().ToLowerInvariant()
+    let observations = state.ObservedHexValues
+    let values =
+      if prefix.Length < 6 then
+        observations.Ordered
+      else
+        let bucket = prefix[2..5]
+        observations.Buckets |> Map.tryFind bucket |> Option.defaultValue []
+    values
+    |> Seq.choose (fun text ->
+      if text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) then
+        Map.tryFind text observations.Entries
+      else
+        None)
+    |> Seq.truncate (max 0 limit)
+    |> Seq.toList
 
   let private undoCapture state =
     { Bindings = state.Bindings

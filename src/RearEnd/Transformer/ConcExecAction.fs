@@ -33,6 +33,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.Collections
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.Executor
@@ -49,6 +50,29 @@ type private ConcMemoryRegion =
     Start: Addr
     Finish: Addr
     Permission: ConcRegionPermission }
+
+module private ConcCallModels =
+  let fwrite (ctx: CallContext) (st: ConcState) =
+    if ctx.ArgumentRegisters.Length < 3 then
+      Error "fwrite requires three argument registers."
+    else
+      match st.TryGetReg ctx.ArgumentRegisters[2] with
+      | Def count ->
+        st.SetReg(ctx.ReturnRegister, count)
+        Ok()
+      | Undef ->
+        Error "fwrite count argument is uninitialized."
+
+  let tryFind = function
+    | "fwrite" -> Some fwrite
+    | _ -> None
+
+  let bindImports (file: IBinFile) =
+    BinFileOps.getImports file
+    |> Array.choose (fun entry ->
+      match entry.TrampolineAddress, tryFind entry.Name with
+      | Some addr, Some hook -> Some(addr, hook, entry.Name)
+      | _ -> None)
 
 module private ConcRegionPerm =
   let format permission =
@@ -225,7 +249,9 @@ type ConcExecutorValue private(binary: Binary,
                                previousResult: ConcRunResult option,
                                previousTrace: ExecutionTrace option,
                                memoryRanges: (Addr * int) list,
-                               regions: ConcMemoryRegion list) as this =
+                               regions: ConcMemoryRegion list,
+                               hooks: CallHookRegistry<ConcCallHook> option,
+                               hookText: string list) as this =
   let hdl = Binary.Handle binary
   let executor = ConcExecutor hdl
 
@@ -254,7 +280,14 @@ type ConcExecutorValue private(binary: Binary,
   let accessorFor state = ConcStateAccessor(hdl, state)
 
   let withState state result trace ranges regions =
-    ConcExecutorValue(binary, Some state, result, trace, ranges, regions)
+    ConcExecutorValue(binary,
+                      Some state,
+                      result,
+                      trace,
+                      ranges,
+                      regions,
+                      hooks,
+                      hookText)
 
   let clearRunState state ranges regions =
     withState state None None ranges regions
@@ -463,19 +496,26 @@ type ConcExecutorValue private(binary: Binary,
       stopReasons result
 
   let aggregateStopReasons total reasons =
-    reasons
-    |> List.map (function
-      | ConcStopReason.InstructionLimitReached(addr, _) ->
-        ConcStopReason.InstructionLimitReached(addr, total)
-      | reason ->
-        reason)
+    if hasNonLimitStop reasons then
+      reasons |> List.filter (isLimitReason >> not)
+    else
+      reasons
+      |> List.map (function
+        | ConcStopReason.InstructionLimitReached(addr, _) ->
+          ConcStopReason.InstructionLimitReached(addr, total)
+        | reason ->
+          reason)
 
   let makeRunOptions (stops: ConcStopCondition list)
                      (limit: int)
                      : ConcRunOptions =
-    ConcRunOptions.Default(stops)
-      .WithMaxInstructions(limit)
-      .ZeroCallerContext()
+    let options =
+      ConcRunOptions.Default(stops)
+        .WithMaxInstructions(limit)
+        .ZeroCallerContext()
+    match hooks with
+    | Some hooks -> options.WithCallHooks hooks
+    | None -> options
 
   let runOne ct stops (addr: Addr) (runState: ConcState) =
     match ConcRegionPerm.executeViolation regions addr with
@@ -842,8 +882,28 @@ type ConcExecutorValue private(binary: Binary,
         $"    {region.Name}=0x{region.Start:x}..0x{region.Finish:x}:"
         + permission))
 
+  let hookLines () =
+    match hookText with
+    | [] ->
+      [ "  hooks: <none>" ]
+    | hooks ->
+      "  hooks:" :: List.map (fun hook -> "    " + hook) hooks
+
   new(binary) =
     let hdl = Binary.Handle binary
+    let bindings = ConcCallModels.bindImports hdl.File
+    let hooks =
+      if Array.isEmpty bindings then
+        None
+      else
+        bindings
+        |> Array.map (fun (addr, hook, _) -> addr, hook)
+        |> CallHookRegistry
+        |> Some
+    let hookText =
+      bindings
+      |> Array.map (fun (addr, _, name) -> $"{name}@0x{addr:x} (automatic)")
+      |> Array.toList
     let regions =
       ContextParsing.imageRegions hdl.File
       |> List.map (fun region ->
@@ -854,7 +914,7 @@ type ConcExecutorValue private(binary: Binary,
             { Read = region.Permission.Read
               Write = region.Permission.Write
               Execute = region.Permission.Execute } })
-    ConcExecutorValue(binary, None, None, None, [], regions)
+    ConcExecutorValue(binary, None, None, None, [], regions, hooks, hookText)
 
   member _.State = state
 
@@ -876,6 +936,7 @@ type ConcExecutorValue private(binary: Binary,
       $"  stack: {stackText ()}" ]
     @ memoryRangeLines ()
     @ regionLines ()
+    @ hookLines ()
     @ lastRunLines ()
     @ lastViolationLines ()
 

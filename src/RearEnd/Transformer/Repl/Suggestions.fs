@@ -82,6 +82,7 @@ module Suggestions =
       ":inspect", "Select functions and sections from a binary"
       ":export", "Export a named value"
       ":layout", "Resize REPL panes"
+      ":layout order=toggle", "Swap shell and suggestion panes"
       ":log", "Show detailed command execution records"
       ":needs", "List missing concrete execution context"
       ":plugin", "Load REPL actions from a plugin DLL"
@@ -89,10 +90,19 @@ module Suggestions =
       ":reset", "Clear values and reset the analysis state"
       ":restore", "Restore a value-history entry"
       ":script", "Save, load, or configure replay recording"
-      ":show", "Show the full current or named value"
       ":type", "Show the current, named, or expression type"
       ":undo", "Undo the most recent value change"
       ":values", "Show retained value history" ]
+
+  let commandPaletteCandidates (input: string) =
+    let input = input.TrimStart()
+    let input =
+      if input.StartsWith ':' then input[1..] else input
+    metaCommands
+    |> List.map (fun (command, detail) -> command[1..], detail)
+    |> List.filter (fun (command, _) ->
+      command.StartsWith(input, StringComparison.OrdinalIgnoreCase))
+    |> List.truncate 5
 
   let private matches prefix (candidate: string) =
     candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
@@ -123,19 +133,6 @@ module Suggestions =
       Detail = valueTypeDescription value
       Kind = SuggestionKind.Binding
       AppendSpace = true
-      Form = SuggestionForm.Token
-      CursorOffset = None }
-
-  let private commandItem (command, detail) =
-    { Text = command
-      Label = command
-      Detail = detail
-      Kind = SuggestionKind.Command
-      AppendSpace =
-        command = ":show" || command = ":type" || command = ":inspect"
-        || command = ":restore" || command = ":export"
-        || command = ":layout" || command = ":script"
-        || command = ":plugin"
       Form = SuggestionForm.Token
       CursorOffset = None }
 
@@ -490,7 +487,7 @@ module Suggestions =
     with _ ->
       []
 
-  let private addressCandidates state prefix =
+  let private binaryAddressCandidates state prefix =
     try
       match tryCurrentSlice state with
       | Some slice ->
@@ -539,6 +536,30 @@ module Suggestions =
           []
     with _ ->
       []
+
+  let private observedAddressCandidates state prefix =
+    TransformerReplState.findObservedAddresses prefix 20 state
+    |> List.map (fun observation ->
+      let text = $"0x{observation.Address:x}"
+      let detail =
+        $"command #{observation.CommandID} · {observation.Action}"
+      argumentItem SuggestionKind.Argument detail text)
+
+  let private observedHexValueCandidates state prefix =
+    TransformerReplState.findObservedHexValues prefix 20 state
+    |> List.map (fun observation ->
+      let detail =
+        $"command #{observation.CommandID} · {observation.Action}"
+        + $" · {observation.Symbol}"
+      argumentItem SuggestionKind.Argument detail observation.Text)
+
+  let private addressCandidates state prefix =
+    observedAddressCandidates state prefix
+    @ binaryAddressCandidates state prefix
+
+  let private hexLiteralCandidates state prefix =
+    observedHexValueCandidates state prefix
+    @ addressCandidates state prefix
 
   let private requiredRegisterCandidates suffix state prefix =
     match tryCurrentRequirements state with
@@ -723,6 +744,45 @@ module Suggestions =
     | ActionArgumentKind.Text ->
       []
 
+  let private expectedBindingKinds = function
+    | ActionArgumentKind.Text
+    | ActionArgumentKind.Path
+    | ActionArgumentKind.ExistingPath
+    | ActionArgumentKind.OutputPath
+    | ActionArgumentKind.ISA
+    | ActionArgumentKind.HexPattern
+    | ActionArgumentKind.HexBytes
+    | ActionArgumentKind.Section
+    | ActionArgumentKind.Choice ->
+      [ ReplValueKind.Text ]
+    | ActionArgumentKind.Integer
+    | ActionArgumentKind.Size ->
+      [ ReplValueKind.Int ]
+    | ActionArgumentKind.Float ->
+      [ ReplValueKind.Float ]
+    | ActionArgumentKind.Address ->
+      [ ReplValueKind.Address ]
+    | ActionArgumentKind.Action ->
+      [ ReplValueKind.SymbSolver ]
+    | ActionArgumentKind.ParameterFunction ->
+      []
+
+  let private argumentBindingCandidates state argument prefix =
+    let argument: ActionArgument = argument
+    let expected = expectedBindingKinds argument.Kind
+    state.Bindings
+    |> Map.toList
+    |> List.filter (fun (name, value) ->
+      matches prefix name
+      && (expected
+          |> List.exists (ReplValueKind.isCompatible value.Kind))
+      && match value.Collection.Values with
+         | [| item |] ->
+           ReplValue.tryArgumentText item |> Option.isSome
+         | _ ->
+           false)
+    |> List.map bindingItem
+
   let private tryParameterName (token: string) =
     let index = token.IndexOf '='
     if index <= 0 then
@@ -751,7 +811,15 @@ module Suggestions =
     let triggered =
       match completed with
       | trigger :: _ ->
-        syntaxes |> List.filter (fun syntax -> syntax.Trigger = Some trigger)
+        syntaxes
+        |> List.filter (fun syntax ->
+          syntax.Trigger
+          |> Option.exists (fun expected ->
+            String.Equals(
+              expected,
+              trigger,
+              StringComparison.OrdinalIgnoreCase
+            )))
       | [] ->
         []
     let syntaxes =
@@ -831,18 +899,6 @@ module Suggestions =
         prefix
       |> List.distinctBy (fun item -> item.Text)
 
-  let private historyCandidates state prefix =
-    state.ValueHistory
-    |> List.rev
-    |> List.map (fun entry ->
-      let id = string entry.ID
-      let kind = valueTypeDescription entry.Value
-      let name = entry.Name |> Option.defaultValue "<unnamed>"
-      id, $"{name}  {kind}")
-    |> List.filter (fst >> matches prefix)
-    |> List.map (fun (id, detail) ->
-      argumentItem SuggestionKind.Argument detail id)
-
   let private namedArgumentCandidates
     registry
     state
@@ -855,53 +911,59 @@ module Suggestions =
     | None ->
       []
     | Some registered ->
-      if registered.Metadata.ID = "mem" && name = "addr" then
-        requiredMemoryCandidates "" state prefix
-      elif
-        registered.Metadata.ID = "make-concrete-context"
-        && name = "regs"
-      then
-        requiredRegisterCandidates "=" state prefix
-      elif
-        registered.Metadata.ID = "make-concrete-context"
-        && name = "mem"
-      then
-        requiredMemoryCandidates "=" state prefix
-      elif
-        registered.Metadata.ID = "make-concrete-context"
-        && name = "regions"
-      then
-        contextListValueCandidates "regions" prefix
-      elif
-        registered.Metadata.ID = "make-symbolic-context"
-        && name = "regs"
-      then
-        requiredRegisterCandidates "=" state prefix
-      elif
-        registered.Metadata.ID = "make-symbolic-context"
-        && name = "mem"
-      then
-        requiredMemoryCandidates "=" state prefix
-      elif
-        registered.Metadata.ID = "make-symbolic-context"
-        && name = "sym-mem"
-      then
-        contextListValueCandidates "sym-mem" prefix
-      elif
-        registered.Metadata.ID = "make-symbolic-context"
-        && name = "regions"
-      then
-        contextListValueCandidates "regions" prefix
-      else
+      let arguments =
         ActionMetadata.matchingSyntaxes registered.Metadata inputKind completed
         |> List.filter (ActionMetadata.syntaxHasParameter name)
         |> List.collect (fun syntax -> syntax.Arguments)
         |> List.distinctBy (fun argument -> argument.Name)
         |> List.filter (matchesArgumentName name)
+      let bindings =
+        arguments
         |> List.collect (fun argument ->
-          semanticCandidates state argument prefix)
-        |> List.distinctBy (fun item -> item.Text)
-        |> List.distinctBy (fun item -> item.Text)
+          argumentBindingCandidates state argument prefix)
+      let semantic =
+        if registered.Metadata.ID = "mem" && name = "addr" then
+          requiredMemoryCandidates "" state prefix
+        elif
+          registered.Metadata.ID = "make-concrete-context"
+          && name = "regs"
+        then
+          requiredRegisterCandidates "=" state prefix
+        elif
+          registered.Metadata.ID = "make-concrete-context"
+          && name = "mem"
+        then
+          requiredMemoryCandidates "=" state prefix
+        elif
+          registered.Metadata.ID = "make-concrete-context"
+          && name = "regions"
+        then
+          contextListValueCandidates "regions" prefix
+        elif
+          registered.Metadata.ID = "make-symbolic-context"
+          && name = "regs"
+        then
+          requiredRegisterCandidates "=" state prefix
+        elif
+          registered.Metadata.ID = "make-symbolic-context"
+          && name = "mem"
+        then
+          requiredMemoryCandidates "=" state prefix
+        elif
+          registered.Metadata.ID = "make-symbolic-context"
+          && name = "sym-mem"
+        then
+          contextListValueCandidates "sym-mem" prefix
+        elif
+          registered.Metadata.ID = "make-symbolic-context"
+          && name = "regions"
+        then
+          contextListValueCandidates "regions" prefix
+        else
+          arguments
+          |> List.collect (fun argument ->
+            semanticCandidates state argument prefix)
+      bindings @ semantic |> List.distinctBy (fun item -> item.Text)
 
   let private splitAtLastSemicolon tokens =
     let rec loop depth current = function
@@ -1131,136 +1193,6 @@ module Suggestions =
     | _ ->
       None
 
-  let private scriptOperationCandidates prefix =
-    [ "save"; "load"; "record" ]
-    |> valueCandidates SuggestionKind.Argument "script operation" prefix
-
-  let private scriptRecordCandidates prefix =
-    [ "on"; "off" ]
-    |> valueCandidates SuggestionKind.Argument "record mode" prefix
-
-  let private pluginOperationCandidates prefix =
-    [ "load" ]
-    |> valueCandidates SuggestionKind.Argument "plugin operation" prefix
-
-  let private pathArgumentCandidates
-    (name: string) (detail: string) (prefix: string) (args: string list) =
-    let key = name + "="
-    let parameter = parameterItem name detail
-    let paths = pathCandidates prefix
-    match List.tryLast args with
-    | Some token when
-        token.StartsWith(key, StringComparison.OrdinalIgnoreCase) ->
-      paths
-    | Some token when token.Contains "=" ->
-      []
-    | Some _ when matches prefix key ->
-      parameter :: paths
-    | Some _ ->
-      paths
-    | None ->
-      [ parameter ]
-
-  let private scriptPathCandidates prefix words =
-    match words with
-    | [ ":script"; ("save" | "load") ] ->
-      pathArgumentCandidates "path" "script path" prefix []
-    | ":script" :: ("save" | "load") :: args ->
-      pathArgumentCandidates "path" "script path" prefix args
-    | _ ->
-      []
-
-  let private pluginPathCandidates prefix words =
-    match words with
-    | [ ":plugin"; "load" ] ->
-      pathArgumentCandidates "path" "plugin DLL path" prefix []
-    | ":plugin" :: "load" :: args ->
-      pathArgumentCandidates "path" "plugin DLL path" prefix args
-    | _ ->
-      []
-
-  let private exportPathCandidates prefix words =
-    match words with
-    | [ ":export"; _ ] ->
-      []
-    | ":export" :: _ :: args ->
-      pathArgumentCandidates "path" "export path" prefix args
-    | _ ->
-      []
-
-  let private layoutCandidates prefix =
-    [ "sidebar=40"
-      "sidebar=off"
-      "output=20"
-      "output=auto"
-      "shell=4"
-      "shell=6" ]
-    |> valueCandidates SuggestionKind.Argument "layout option" prefix
-
-  let private metaCommandCandidates prefix =
-    metaCommands
-    |> List.filter (fst >> matches prefix)
-    |> List.map commandItem
-
-  let private specialMetaCandidates
-    (input: string)
-    (prefix: string)
-    (words: string list) =
-    if input.StartsWith(":script save ")
-       || input.StartsWith(":script load ") then
-      Some(scriptPathCandidates prefix words)
-    elif input.StartsWith(":script record ") then
-      Some(scriptRecordCandidates prefix)
-    elif input.StartsWith(":script") then
-      Some(scriptOperationCandidates prefix)
-    elif input.StartsWith(":plugin load ") then
-      Some(pluginPathCandidates prefix words)
-    elif input.StartsWith(":plugin") then
-      Some(pluginOperationCandidates prefix)
-    elif input.StartsWith(":layout") then
-      Some(layoutCandidates prefix)
-    else
-      None
-
-  let private completeMeta (state: TransformerReplState) context =
-    let context: InputContext = context
-    let input = context.InputBeforeCursor
-    let prefix = context.Prefix
-    let words = context.Words
-    if context.CompletionPhase = InputCompletionPhase.EditingToken
-       && List.length words = 1 then
-      metaCommandCandidates prefix
-    else
-      let trimmed = input.TrimStart()
-      match specialMetaCandidates trimmed prefix words with
-      | Some candidates ->
-        candidates
-      | None when trimmed.StartsWith(":export ") ->
-        match words with
-        | [ ":export"; _ ] when input.EndsWith " " ->
-          pathArgumentCandidates "path" "export path" prefix []
-        | [ ":export"; _; _ ] ->
-          exportPathCandidates prefix words
-        | _ ->
-          state.Bindings
-          |> Map.toList
-          |> List.filter (fst >> matches prefix)
-          |> List.map bindingItem
-      | None ->
-        match words with
-        | command :: _
-          when command = ":show"
-               || command = ":type"
-               || command = ":inspect" ->
-          state.Bindings
-          |> Map.toList
-          |> List.filter (fst >> matches prefix)
-          |> List.map bindingItem
-        | command :: _ when command = ":restore" ->
-          historyCandidates state prefix
-        | _ ->
-          metaCommandCandidates prefix
-
   let private completeExpression registry state context typeAnalysis =
     let context: InputContext = context
     let expected = expectedOutput context.InputBeforeCursor
@@ -1301,6 +1233,89 @@ module Suggestions =
         argumentIndex
         inputKind
         context.Prefix
+    let literalHexCandidates =
+      match words with
+      | [ token ] when
+          token = context.Prefix
+          && token.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ->
+        Some(hexLiteralCandidates state context.Prefix)
+      | _ ->
+        None
+    let completeCurrent () =
+      match words with
+      | [] ->
+        if hasPipeline then
+          let kind = typeAnalysis.CurrentInput
+          actionCandidates registry kind expected context.Prefix
+          @ iterKeywordCandidates kind context.Prefix
+        else
+          initialCandidates
+            registry
+            state
+            context.Prefix
+            (not context.HasBinding)
+            (not context.HasBinding)
+            expected
+      | [ head ] when endsWithSpace ->
+        completeArguments head [] 0
+      | [ _ ] when hasPipeline ->
+        let kind = typeAnalysis.CurrentInput
+        let actions = actionCandidates registry kind expected context.Prefix
+        let iterations = iterKeywordCandidates kind context.Prefix
+        actions @ iterations
+      | [ _ ] ->
+        initialCandidates
+          registry
+          state
+          context.Prefix
+          (not context.HasBinding)
+          (not context.HasBinding)
+          expected
+      | head :: _ ->
+        let tokenStart = max 0 (segment.Length - context.Prefix.Length)
+        let beforeToken =
+          if tokenStart <= 0 then "" else segment[..tokenStart - 1]
+        let beforeWords = InputAnalysis.splitWords beforeToken
+        let parameter =
+          if isAttachedValuePrefix segment tokenStart then
+            beforeWords
+            |> List.rev
+            |> List.tryHead
+            |> Option.bind tryParameterName
+          else
+            None
+        match parameter with
+        | Some name ->
+          let inputKind = inputKindFor head
+          let completed =
+            match beforeWords with
+            | _ :: completed ->
+              completed
+            | [] ->
+              []
+          namedArgumentCandidates
+            registry
+            argumentState
+            head
+            name
+            inputKind
+            completed
+            context.Prefix
+        | None ->
+          let wordCount = List.length beforeWords
+          let argumentIndex = max 0 (wordCount - 1)
+          let completed =
+            match beforeWords with
+            | _ :: completed ->
+              completed
+            | [] ->
+              []
+          completeArguments head completed argumentIndex
+    let completeLiteral () =
+      literalHexCandidates
+      |> Option.orElseWith (fun () ->
+        literalBindingCandidates state expression context.Prefix)
+      |> Option.defaultWith completeCurrent
     match setContextListCandidates argumentState context with
     | Some candidates ->
       candidates
@@ -1309,99 +1324,7 @@ module Suggestions =
       | Some candidates ->
         candidates
       | None ->
-        match literalBindingCandidates state expression context.Prefix with
-        | Some candidates ->
-          candidates
-        | None ->
-          match words with
-          | [] ->
-            if hasPipeline then
-              let kind = typeAnalysis.CurrentInput
-              actionCandidates registry kind expected context.Prefix
-              @ iterKeywordCandidates kind context.Prefix
-            else
-              initialCandidates
-                registry
-                state
-                context.Prefix
-                (not context.HasBinding)
-                (not context.HasBinding)
-                expected
-          | [ head ] when endsWithSpace ->
-            completeArguments head [] 0
-          | [ _ ] when hasPipeline ->
-            let kind = typeAnalysis.CurrentInput
-            let actions =
-              actionCandidates registry kind expected context.Prefix
-            let iterations = iterKeywordCandidates kind context.Prefix
-            actions @ iterations
-          | [ _ ] ->
-            initialCandidates
-              registry
-              state
-              context.Prefix
-              (not context.HasBinding)
-              (not context.HasBinding)
-              expected
-          | head :: _ ->
-            let tokenStart = max 0 (segment.Length - context.Prefix.Length)
-            let beforeToken =
-              if tokenStart <= 0 then "" else segment[..tokenStart - 1]
-            let beforeWords = InputAnalysis.splitWords beforeToken
-            let parameter =
-              if isAttachedValuePrefix segment tokenStart then
-                beforeWords
-                |> List.rev
-                |> List.tryHead
-                |> Option.bind tryParameterName
-              else
-                None
-            match parameter with
-            | Some name ->
-              let inputKind = inputKindFor head
-              let completed =
-                match beforeWords with
-                | _ :: completed ->
-                  completed
-                | [] ->
-                  []
-              namedArgumentCandidates
-                registry
-                argumentState
-                head
-                name
-                inputKind
-                completed
-                context.Prefix
-            | None ->
-              let wordCount = List.length beforeWords
-              let argumentIndex = max 0 (wordCount - 1)
-              let completed =
-                match beforeWords with
-                | _ :: completed ->
-                  completed
-                | [] ->
-                  []
-              completeArguments head completed argumentIndex
-
-  let private expressionCommandInput command (input: string) =
-    let trimmed = input.TrimStart()
-    let prefix = command + " "
-    if trimmed.StartsWith(prefix, StringComparison.Ordinal) then
-      let commandStart = input.IndexOf(command, StringComparison.Ordinal)
-      let start = commandStart + prefix.Length
-      Some(input[start..], start)
-    else
-      None
-
-  let private metaExpressionInput input =
-    match expressionCommandInput ":show" input with
-    | Some expression ->
-      Some expression
-    | None ->
-      expressionCommandInput ":type" input
-      |> Option.filter (fun (expression, _) ->
-        InputAnalysis.topLevelLastPipeline expression |> Option.isSome)
+        completeLiteral ()
 
   let private currentParameters metadata inputKind args endsWithSpace =
     match args with
@@ -1574,28 +1497,14 @@ module Suggestions =
         ""
       else
         input[..cursor - 1]
-    let metaExpression = metaExpressionInput inputBeforeCursor
-    let context =
-      match metaExpression with
-      | Some(expression, _) ->
-        InputAnalysis.analyzeExpressionWithCache
-          previousContext
-          input
-          cursor
-          expression
-      | None ->
-        InputAnalysis.analyzeWithCache previousContext input cursor
+    let context = InputAnalysis.analyzeWithCache previousContext input cursor
     let expression, expressionStart =
-      match metaExpression with
-      | Some expression ->
-        expression
-      | None ->
-        match ReplLanguage.bindingHeader context.InputBeforeCursor with
-        | Some header when header.HasEquals ->
-          let start = header.ExpressionStart |> Option.defaultValue 0
-          context.InputBeforeCursor[start..], start
-        | _ ->
-          context.InputBeforeCursor, 0
+      match ReplLanguage.bindingHeader context.InputBeforeCursor with
+      | Some header when header.HasEquals ->
+        let start = header.ExpressionStart |> Option.defaultValue 0
+        context.InputBeforeCursor[start..], start
+      | _ ->
+        context.InputBeforeCursor, 0
     let typeAnalysis =
       match context.PartialPipeline with
       | Some pipeline ->
@@ -1607,7 +1516,7 @@ module Suggestions =
           pipeline
       | None ->
         ReplTypeAnalysis.analyze registry state expressionStart expression
-    context, metaExpression, typeAnalysis
+    context, typeAnalysis
 
   let getWithInputContext
     previousContext
@@ -1615,43 +1524,44 @@ module Suggestions =
     (state: TransformerReplState)
     (input: string)
     cursor =
-    let context, metaExpression, typeAnalysis =
+    let context, typeAnalysis =
       analyzeInput previousContext registry state input cursor
-    let diagnostics = typeAnalysis.Diagnostics
-    match typeAnnotationCompletion context.InputBeforeCursor with
-    | Some(items, start, length) ->
-      { Items = prepareItems context items
-        Start = start
-        Length = length
-        Hint = Some "type annotation"
-        HintHighlights = []
-        Diagnostics = [] }, context
-    | None ->
-      let hint = completionHint registry state typeAnalysis context
-      let items =
-        if context.InputBeforeCursor.TrimStart().StartsWith ':' then
-          match metaExpression with
-          | Some _ ->
-            completeExpression registry state context typeAnalysis
-          | None ->
-            completeMeta state context
-        else
-          completeExpression registry state context typeAnalysis
+    if context.InputBeforeCursor.TrimStart().StartsWith ':' then
       { Items =
-          prepareItems context items
+          []
         Start = context.TokenStart
         Length = context.TokenLength
-        Hint =
-          diagnostics
-          |> List.tryHead
-          |> Option.map _.Message
-          |> Option.orElse (hint |> Option.map fst)
-        HintHighlights =
-          if List.isEmpty diagnostics then
-            hint |> Option.map snd |> Option.defaultValue []
-          else
-            []
-        Diagnostics = diagnostics }, context
+        Hint = None
+        HintHighlights = []
+        Diagnostics = [] }, context
+    else
+      let diagnostics = typeAnalysis.Diagnostics
+      match typeAnnotationCompletion context.InputBeforeCursor with
+      | Some(items, start, length) ->
+        { Items = prepareItems context items
+          Start = start
+          Length = length
+          Hint = Some "type annotation"
+          HintHighlights = []
+          Diagnostics = [] }, context
+      | None ->
+        let hint = completionHint registry state typeAnalysis context
+        let items = completeExpression registry state context typeAnalysis
+        { Items =
+            prepareItems context items
+          Start = context.TokenStart
+          Length = context.TokenLength
+          Hint =
+            diagnostics
+            |> List.tryHead
+            |> Option.map _.Message
+            |> Option.orElse (hint |> Option.map fst)
+          HintHighlights =
+            if List.isEmpty diagnostics then
+              hint |> Option.map snd |> Option.defaultValue []
+            else
+              []
+          Diagnostics = diagnostics }, context
 
   let get registry state input cursor =
     getWithInputContext None registry state input cursor |> fst

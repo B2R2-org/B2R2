@@ -34,6 +34,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.Executor
 open B2R2.MiddleEnd.SymbEval
 
@@ -56,6 +57,18 @@ module private SymbCallModels =
         Ok [ st ]
       | ValueNone ->
         Error(UninitializedRegister ctx.ArgumentRegisters[2])
+
+  let tryFind = function
+    | "fwrite" -> Some fwrite
+    | "strlen" -> Some SymbCallHooks.strlen
+    | _ -> None
+
+  let bindImports (hdl: BinHandle) =
+    BinFileOps.getImports hdl.File
+    |> Array.choose (fun entry ->
+      match entry.TrampolineAddress, tryFind entry.Name with
+      | Some addr, Some hook -> Some(addr, hook, entry.Name)
+      | _ -> None)
 
 type SymbSolverValue(id: string,
                      description: string,
@@ -293,6 +306,20 @@ type SymbExecutorValue(binary: Binary,
   new(binary: Binary) =
     let hdl = Binary.Handle binary
     let executor = SymbExecutor hdl
+    let bindings = SymbCallModels.bindImports hdl
+    let hooks =
+      if Array.isEmpty bindings then
+        None
+      else
+        bindings
+        |> Array.map (fun (addr, hook, _) -> addr, hook)
+        |> SymbCallHookRegistry
+        |> Some
+    let hookText =
+      bindings
+      |> Array.map (fun (addr, _, name) -> $"{name}@0x{addr:x} (automatic)")
+      |> Array.toList
+      |> List.rev
     let regions =
       ContextParsing.imageRegions hdl.File
       |> List.map (fun region ->
@@ -308,8 +335,8 @@ type SymbExecutorValue(binary: Binary,
                       [],
                       Set.empty,
                       regions,
-                      None,
-                      [],
+                      hooks,
+                      hookText,
                       None)
 
   member _.Binary = binary
@@ -709,28 +736,30 @@ and SymbRunValue(source: SymbExecutorValue,
       if byte >= 0x20uy && byte <= 0x7euy then char byte else '.')
     |> String
 
+  let indexedByteGroups values =
+    values
+    |> List.choose tryIndexedByte
+    |> List.groupBy (fun (prefix, _, _) -> prefix)
+    |> List.choose (fun (prefix, indexed) ->
+      let indexed = indexed |> List.sortBy (fun (_, index, _) -> index)
+      let indexes = indexed |> List.map (fun (_, index, _) -> index)
+      let expected = [ 0 .. List.length indexes - 1 ]
+      if indexes = expected then
+        indexed
+        |> List.map (fun (_, _, value) -> value)
+        |> List.toArray
+        |> fun bytes -> Some(prefix, bytes)
+      else
+        None)
+
   let appendAsciiGroups (sb: StringBuilder) values =
-    let groups =
-      values
-      |> List.choose tryIndexedByte
-      |> List.groupBy (fun (prefix, _, _) -> prefix)
-      |> List.choose (fun (prefix, indexed) ->
-        let indexed = indexed |> List.sortBy (fun (_, index, _) -> index)
-        let indexes = indexed |> List.map (fun (_, index, _) -> index)
-        let expected = [ 0 .. List.length indexes - 1 ]
-        if indexes = expected then
-          indexed
-          |> List.map (fun (_, _, value) -> value)
-          |> List.toArray
-          |> fun bytes -> Some(prefix, printableAscii bytes)
-        else
-          None)
+    let groups = indexedByteGroups values
     if List.isEmpty groups then
       ()
     else
       sb.AppendLine("  ascii:") |> ignore
-      groups |> List.iter (fun (prefix, text) ->
-        sb.AppendLine($"    {prefix}: {text}") |> ignore)
+      groups |> List.iter (fun (prefix, bytes) ->
+        sb.AppendLine($"    {prefix}: {printableAscii bytes}") |> ignore)
 
   let statusText =
     match result.Timeout with
@@ -791,6 +820,10 @@ and SymbRunValue(source: SymbExecutorValue,
   member _.Source = source
 
   member _.Result = result
+
+  member _.ConcreteInputs =
+    result.SatisfiabilityAnswers
+    |> List.collect (fun answer -> indexedByteGroups answer.Values)
 
   member _.ModelText() =
     let sb = StringBuilder()
@@ -1457,6 +1490,7 @@ module private SymbMetadata =
       Input = input
       AlternativeInputs = []
       Output = output
+      OutputRelation = ActionOutputRelation.Fixed
       Role = role
       Syntaxes = []
       Signature = signature

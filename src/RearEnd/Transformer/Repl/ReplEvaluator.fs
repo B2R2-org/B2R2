@@ -70,6 +70,9 @@ module TransformerReplEvaluator =
       Arguments: string list
       Assignments: (ActionArgument * string) list option }
 
+  type private PrintedValue =
+    { Values: ReplValue list }
+
   let private formatKind kind = ReplValueKind.toString kind
 
   let private normalizePath (path: string) =
@@ -684,6 +687,34 @@ module TransformerReplEvaluator =
         body
     lines |> List.collect (normalizeDisplayLine mode)
 
+  let private renderPrintedValue mode value =
+    let value: ReplValue = value
+    let values = value.Collection.Values
+    let visible = values |> truncateByMode mode |> Seq.toArray
+    let body =
+      visible
+      |> Array.mapi (fun index item ->
+        let lines = renderObject mode None item
+        if value.IsCollection then
+          $"  value #{index}:" :: indentDisplay 4 lines
+        else
+          lines)
+      |> Array.toList
+      |> List.collect id
+    let omitted = values.Length - visible.Length
+    let body =
+      if omitted > 0 then body @ [ omittedLine omitted ] else body
+    let lines =
+      if value.IsCollection then
+        $"{typeDescription value} ({values.Length} values)" :: body
+      else
+        body
+    lines |> List.collect (normalizeDisplayLine mode)
+
+  let private renderPrintResult mode result =
+    let result: PrintedValue = result
+    result.Values |> List.collect (renderPrintedValue mode)
+
   let private outputLines lines =
     ReplOutput.ofLines lines
 
@@ -691,11 +722,21 @@ module TransformerReplEvaluator =
     ReplOutput.ofLazy (renderValue Preview value)
       (lazy (renderValue Full value))
 
+  let private outputPrintResult result =
+    ReplOutput.ofLazy (renderPrintResult Preview result)
+      (lazy (renderPrintResult Full result))
+
+  let private continueOutput registry state output =
+    Continue(registry, state, output)
+
   let private continueWith registry state lines =
-    Continue(registry, state, outputLines lines)
+    continueOutput registry state (outputLines lines)
 
   let private continueValue registry state value =
-    Continue(registry, state, outputValue value)
+    continueOutput registry state (outputValue value)
+
+  let private continuePrintResult registry state result =
+    continueOutput registry state (outputPrintResult result)
 
   let private describeValue name value =
     let count = value.Collection.Values.Length
@@ -1159,8 +1200,21 @@ module TransformerReplEvaluator =
     | _ ->
       loop [] candidate.Syntax.Arguments candidate.Arguments
 
-  let private invalidArguments (metadata: ActionMetadata) detail =
-    let signature = ActionMetadata.typedSignature metadata
+  let private canonicalAssignments candidate =
+    let candidate: NormalizedSyntax = candidate
+    candidate.Assignments
+    |> Option.map (fun assignments ->
+      assignments
+      |> List.map (fun (argument, value) ->
+        argument.Name, canonicalArgumentValue argument value))
+
+  let private invalidArguments
+    (input: ReplValue)
+    (metadata: ActionMetadata)
+    args
+    detail =
+    let signature =
+      ActionMetadata.typedSignatureFor metadata (Some input.Kind) args
     Error(
       $"Invalid arguments for {metadata.ID}: {detail} "
       + $"Expected: {signature}")
@@ -1171,12 +1225,10 @@ module TransformerReplEvaluator =
     args =
     match parseArguments args with
     | Error message ->
-      invalidArguments metadata message
+      invalidArguments input metadata args message
     | Ok parsed ->
       let matching =
-        metadata.Syntaxes
-        |> List.filter (ActionMetadata.syntaxAccepts (Some input.Kind))
-        |> List.filter (ActionMetadata.syntaxMatchesParameters args)
+        ActionMetadata.matchingSyntaxes metadata (Some input.Kind) args
         |> List.choose (normalizeSyntax parsed)
       if List.isEmpty matching then
         let operations =
@@ -1190,7 +1242,7 @@ module TransformerReplEvaluator =
           | operations ->
             let choices = String.concat "|" operations
             $"operation must be one of {choices}."
-        invalidArguments metadata detail
+        invalidArguments input metadata args detail
       else
         let matching =
           matching
@@ -1202,14 +1254,15 @@ module TransformerReplEvaluator =
             | Error error ->
               Some(Error error))
         if List.isEmpty matching then
-          invalidArguments metadata "the number of arguments does not match."
+          invalidArguments
+            input metadata args "the number of arguments does not match."
         else
           let results =
             matching
             |> List.map (function
               | Ok candidate ->
                 validateSyntax input candidate |> Result.map (fun () ->
-                  canonicalArguments candidate)
+                  canonicalArguments candidate, canonicalAssignments candidate)
               | Error error ->
                 Error error)
           match results |> List.tryFind Result.isOk with
@@ -1221,7 +1274,7 @@ module TransformerReplEvaluator =
             |> List.distinct
             |> List.tryHead
             |> Option.defaultValue "the argument layout is invalid."
-            |> invalidArguments metadata
+            |> invalidArguments input metadata args
 
   let private isActionReference (head: string) =
     head.StartsWith("@", StringComparison.Ordinal) && head.Length > 1
@@ -1529,11 +1582,20 @@ module TransformerReplEvaluator =
     (segment: ReplPipelineSegment)
     (cancellationToken: CancellationToken)
     (outputKind: ReplValueKind)
-    (args: string list) =
+    (args: string list)
+    assignments =
     let segment: ReplPipelineSegment =
       { segment with Arguments = args }
     try
-      transform registered input segment cancellationToken
+      let collection =
+        match assignments, registered.Action with
+        | Some arguments,
+          (:? ICancellableNamedArgumentsAction as namedAction) ->
+          let collection = input.Collection
+          namedAction.TransformNamed(arguments, collection, cancellationToken)
+        | _ ->
+          transform registered input segment cancellationToken
+      collection
       |> ReplValue.ofCollection outputKind
       |> Ok
     with
@@ -1541,6 +1603,48 @@ module TransformerReplEvaluator =
       reraise ()
     | error ->
       Error error.Message
+
+  let private printedResult values =
+    let printed: PrintedValue = { Values = values }
+    { Kind = ReplValueKind.Unit
+      IsCollection = false
+      Collection = { Values = [| box printed |] } }
+
+  let private tryGetPrintedValue (value: ReplValue) =
+    match value.Kind, value.Collection.Values with
+    | ReplValueKind.Unit, [| :? PrintedValue as printed |] ->
+      Some printed
+    | _ ->
+      None
+
+  let private combinePrintedValues
+    (outputKinds: ResizeArray<ReplValueKind>)
+    (outputValues: obj[]) =
+    let arePrintedValues =
+      outputValues.Length > 0
+      && (outputValues |> Array.forall (fun value -> value :? PrintedValue))
+    if outputKinds.Count = 0 && arePrintedValues then
+      outputValues
+      |> Array.collect (fun value ->
+        let printed = unbox<PrintedValue> value
+        printed.Values |> List.toArray)
+      |> Array.toList
+      |> printedResult
+      |> Some
+    else
+      None
+
+  let private completeIter
+    (output: ResizeArray<obj>)
+    (outputKinds: ResizeArray<ReplValueKind>) =
+    let outputValues = output.ToArray()
+    match combinePrintedValues outputKinds outputValues with
+    | Some value ->
+      value
+    | None ->
+      let kind = outputKinds |> Seq.toList |> iterOutputKind
+      let collection: ObjCollection = { Values = outputValues }
+      ReplValue.ofCollection kind collection
 
   let rec private invoke
     registry
@@ -1551,7 +1655,11 @@ module TransformerReplEvaluator =
     cancellationToken =
     let metadata = registered.Metadata
     if metadata.ID = "print" then
-      Error "The print action is unavailable in the REPL; use :show instead."
+      match segment.Arguments with
+      | [] ->
+        printedResult [ input ] |> Ok
+      | _ ->
+        Error "print does not accept arguments."
     elif not (ReplTypeAnalysis.acceptsInput input.Kind metadata) then
       actionInputError input metadata |> Error
     else
@@ -1563,7 +1671,7 @@ module TransformerReplEvaluator =
       let transformWith =
         transformWith registered input segment cancellationToken
       if isContextAction metadata then
-        transformWith (contextOutputKind metadata) args
+        transformWith (contextOutputKind metadata) args None
       else
         let ready =
           if metadata.ID = "make-symbolic-executor" then
@@ -1572,19 +1680,22 @@ module TransformerReplEvaluator =
             Ok registry
         ready
         |> Result.bind (fun _ -> validateArguments input metadata args)
-        |> Result.bind (fun normalizedArgs ->
+        |> Result.bind (fun (normalizedArgs, assignments) ->
           let outputKind =
             ActionMetadata.outputForArguments metadata (Some input.Kind) args
-          transformWith outputKind normalizedArgs)
+          transformWith outputKind normalizedArgs assignments)
 
   and private appendIterValue
     (output: ResizeArray<obj>)
     (outputKinds: ResizeArray<ReplValueKind>)
     (value: ReplValue) =
-    if value.Kind <> ReplValueKind.Unit then
+    match tryGetPrintedValue value with
+    | Some printed ->
+      output.Add(box printed)
+    | None when value.Kind <> ReplValueKind.Unit ->
       outputKinds.Add value.Kind
       output.AddRange value.Collection.Values
-    else
+    | None ->
       ()
 
   and private invokeIterItem
@@ -1635,9 +1746,7 @@ module TransformerReplEvaluator =
           let values = input.Collection.Values
           let rec loop index =
             if index >= values.Length then
-              let kind = outputKinds |> Seq.toList |> iterOutputKind
-              let collection = { Values = output.ToArray() }
-              ReplValue.ofCollection kind collection |> Ok
+              completeIter output outputKinds |> Ok
             else
               cancellationToken.ThrowIfCancellationRequested()
               let item = values[index]
@@ -1870,6 +1979,63 @@ module TransformerReplEvaluator =
     | _ ->
       Ok value
 
+  let private sourceActionLabel registry segment =
+    let segment: ReplPipelineSegment = segment
+    if isIterHead segment.Head then
+      ReplLanguage.analyzeIter segment.Head segment.Arguments
+      |> _.ActionID
+      |> Option.map ActionMetadata.actionName
+    elif segment.Head.StartsWith("@", StringComparison.Ordinal) then
+      let id = segment.Head.TrimStart '@'
+      let name = ActionMetadata.actionName id
+      let trigger =
+        ActionRegistry.tryFind id registry
+        |> Option.bind (fun registered ->
+          let triggers =
+            registered.Metadata.Syntaxes
+            |> List.choose _.Trigger
+            |> List.distinct
+          segment.Arguments
+          |> List.tryHead
+          |> Option.bind (fun argument ->
+            triggers
+            |> List.tryFind (fun trigger ->
+              equalsIgnoreCase trigger argument)))
+      trigger |> Option.map (fun trigger -> $"{name} {trigger}")
+      |> Option.orElse (Some name)
+    else
+      None
+
+  let private printInputAction registry segments =
+    match List.rev segments with
+    | _ :: input :: _ ->
+      sourceActionLabel registry input
+    | _ ->
+      None
+
+  let private observePrintedPipelineValue registry segments printed state =
+    match printInputAction registry segments with
+    | Some action ->
+      printed.Values
+      |> List.fold (fun state value ->
+        TransformerReplState.observeValue
+          state.NextLogID action value state) state
+    | None ->
+      state
+
+  let private observePipelineValue registry segments value state =
+    match tryGetPrintedValue value with
+    | Some printed ->
+      observePrintedPipelineValue registry segments printed state
+    | None ->
+      segments
+      |> List.tryLast
+      |> Option.bind (sourceActionLabel registry)
+      |> Option.map (fun action ->
+        TransformerReplState.observeValue
+          state.NextLogID action value state)
+      |> Option.defaultValue state
+
   let private evaluate
     includeSuggestions
     registry
@@ -1904,27 +2070,18 @@ module TransformerReplEvaluator =
             command
         let state =
           TransformerReplState.setValue binding value state
+          |> observePipelineValue registry segments value
           |> TransformerReplState.recordReplayCommand command
-        let output =
-          if includeSuggestions then
-            describeValue binding value :: suggestions registry value.Kind
-          else
-            [ describeValue binding value ]
-        continueWith registry state output
-
-  let private show registry state name =
-    match selectValue name state with
-    | Error message ->
-      fail registry state message
-    | Ok(_, value) ->
-      continueValue registry state value
-
-  let private showExpression registry state segments cancellationToken =
-    match runPipeline registry state segments cancellationToken with
-    | Error message ->
-      fail registry state message
-    | Ok value ->
-      continueValue registry state value
+        match tryGetPrintedValue value with
+        | Some printed ->
+          continuePrintResult registry state printed
+        | None ->
+          let output =
+            if includeSuggestions then
+              describeValue binding value :: suggestions registry value.Kind
+            else
+              [ describeValue binding value ]
+          continueWith registry state output
 
   let private showType registry state name =
     match selectValue name state with
@@ -2193,30 +2350,13 @@ module TransformerReplEvaluator =
       "  <value> |> @<action> [args]      Transform the preceding value"
       "  <expression>                      Evaluate without binding"
       ""
-      "Reference"
-      "  :actions                      List actions and usage forms"
-      "  :show [name|expression]       Show a value or expression result"
-      "  :type [name|expression]       Show an inferred value kind"
-      "  :inspect [name]               List functions and sections"
-      "  :needs <ctx> [k=v]            List required concrete context"
-      ""
-      "Session"
-      "  :values                       List retained values"
-      "  :restore <id> [as <name>]     Restore a historical value"
-      "  :history                      List evaluated commands"
-      "  :log                          Show execution history"
-      "  :undo                         Undo the last value change"
-      "  :reset                        Reset analysis values"
-      ""
-      "Scripts and environment"
-      "  :script save path=<path>      Save recorded commands"
-      "  :script load path=<path>      Reset and replay a script"
-      "  :script record [on|off]       Show or set script recording"
-      "  :export <name> path=<path>    Export a named value"
-      "  :plugin load path=<dll>        Load a plugin"
-      "  :layout [k=v ...]             Resize TUI panes"
-      "  # <text>                      Record a script comment"
-      "  :quit                         Leave the REPL" ]
+      "Controls are available from the F2 command prompt."
+      "  actions                        List actions and usage forms"
+      "  values                         List retained values"
+      "  history                        List evaluated commands"
+      "  script save|load|record ...    Manage replay scripts"
+      "  plugin load path=<dll>         Load a plugin"
+      "  quit                           Leave the REPL" ]
 
   let private addExecutionLog
     timestamp
@@ -2302,7 +2442,35 @@ module TransformerReplEvaluator =
     state
     input
     cancellationToken =
-    match TransformerReplParser.parse input with
+    evaluateParsed
+      includeSuggestions
+      registry
+      state
+      input
+      cancellationToken
+      (TransformerReplParser.parse input)
+
+  and private evaluateControlCore
+    includeSuggestions
+    registry
+    state
+    input
+    cancellationToken =
+    evaluateParsed
+      includeSuggestions
+      registry
+      state
+      input
+      cancellationToken
+      (TransformerReplParser.parseControl input)
+
+  and private evaluateParsed
+    includeSuggestions
+    registry
+    state
+    input
+    cancellationToken =
+    function
     | Error message ->
       fail registry state message
     | Ok NoInput ->
@@ -2346,10 +2514,6 @@ module TransformerReplEvaluator =
         registry
         (TransformerReplState.reset state)
         [ "Analysis state reset." ]
-    | Ok(Show name) ->
-      show registry state name
-    | Ok(ShowExpression segments) ->
-      showExpression registry state segments cancellationToken
     | Ok(TypeOf name) ->
       showType registry state name
     | Ok(TypeOfExpression segments) ->
@@ -2411,3 +2575,12 @@ module TransformerReplEvaluator =
 
   let evaluateCommand registry state input cancellationToken =
     evaluateInput false registry state input cancellationToken
+
+  let evaluateControlCommand registry state input cancellationToken =
+    let timestamp = DateTimeOffset.Now
+    let stopwatch = Stopwatch.StartNew()
+    let state = TransformerReplState.recordCommand input state
+    let evaluation =
+      evaluateControlCore false registry state input cancellationToken
+    stopwatch.Stop()
+    addExecutionLog timestamp stopwatch input evaluation

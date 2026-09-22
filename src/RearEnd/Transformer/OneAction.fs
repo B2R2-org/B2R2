@@ -25,66 +25,29 @@
 namespace B2R2.RearEnd.Transformer
 
 open System.Threading
-open FSharp.Reflection
-open B2R2
 
-/// The `print` action.
-type PrintAction() =
-  let rec print cancellationToken (o: obj) =
+/// The `one` action.
+type OneAction() =
+  let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
     cancellationToken.ThrowIfCancellationRequested()
-    let typ = o.GetType()
-    if typ = typeof<ObjCollection> then
-      printObjCollection cancellationToken o
-    elif typ = typeof<ClusterResult> then
-      printClusterResult cancellationToken o
-    elif typ.IsArray then
-      printArray cancellationToken o
-    elif FSharpType.IsUnion typ
-      && typ.BaseType = typeof<OutString> then
-      printOutString o
+    if List.isEmpty args then
+      match collection.Values with
+      | [| value |] ->
+        { Values = [| value |] }
+      | [||] ->
+        invalidOp "Expected exactly one value, but the collection is empty."
+      | values ->
+        invalidOp $"Expected exactly one value, but found {values.Length}."
     else
-      printsn (o.ToString())
-
-  and printObjCollection cancellationToken (o: obj) =
-    let res = o :?> ObjCollection
-    res.Values
-    |> Array.iteri (fun idx v ->
-      (cancellationToken: CancellationToken).ThrowIfCancellationRequested()
-      printsn $"[*] result({idx})"
-      print cancellationToken v)
-
-  and printClusterResult cancellationToken (o: obj) =
-    let res = o :?> ClusterResult
-    res.Clusters
-    |> Array.iteri (fun idx cluster ->
-      cluster
-      |> Array.iter (fun elem ->
-        (cancellationToken: CancellationToken).ThrowIfCancellationRequested()
-        printsn $"  - Cluster({idx}): {elem}"))
-
-  and printArray cancellationToken (o: obj) =
-    let arr = o :?> _[]
-    arr |> Array.iter (print cancellationToken)
-
-  and printOutString (o: obj) =
-    let os = o :?> OutString
-    printon os
-
-  let transform cancellationToken args collection =
-    match args with
-    | [] ->
-      print cancellationToken (box collection)
-      { Values = [||] }
-    | _ ->
-      invalidArg (nameof args) "Invalid argument."
+      invalidArg (nameof args) "The one action does not accept arguments."
 
   interface IAction with
-    member _.ActionID with get() = "print"
-    member _.Signature with get() = "'a -> unit"
+    member _.ActionID with get() = "one"
+    member _.Signature with get() = "'a collection -> one -> 'a"
     member _.Description with get() =
       """
-    Display the value received from a pipeline.
+    Require the current collection to contain exactly one value.
 """
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection

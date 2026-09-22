@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="ReplParserTests.fs" />
+    <Compile Include="TuiRendererTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -24,34 +24,20 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open System.Threading
+open System.Runtime.CompilerServices
+open B2R2.FrontEnd
+open B2R2.MiddleEnd
 
-/// The interface for a transforming action.
-type IAction =
-  /// Action command ID.
-  abstract member ActionID: string
+/// Cached recovered functions for each loaded binary handle.
+module BinaryAnalysis =
+  let private brews = ConditionalWeakTable<BinHandle, Lazy<BinaryBrew>>()
 
-  /// Signature string.
-  abstract member Signature: string
+  let recoveredFunctions bin =
+    let hdl = Binary.Handle bin
+    let brew = brews.GetValue(hdl, fun hdl -> lazy BinaryBrew(hdl))
+    brew.Value.Functions
 
-  /// Description about this action.
-  abstract member Description: string
-
-  /// Transform the input object collection to the output object collection.
-  abstract member Transform: string list * ObjCollection -> ObjCollection
-
-/// Cancellation contract required by interactive Transformer actions.
-type ICancellableAction =
-  abstract member Transform:
-    string list * ObjCollection * CancellationToken -> ObjCollection
-
-/// Optional contract for actions whose argument names are semantically
-/// significant.
-type INamedArgumentsAction =
-  abstract member TransformNamed:
-    (string * string) list * ObjCollection -> ObjCollection
-
-/// Cancellation contract for actions receiving named arguments.
-type ICancellableNamedArgumentsAction =
-  abstract member TransformNamed:
-    (string * string) list * ObjCollection * CancellationToken -> ObjCollection
+  let tryFindFunction bin entry =
+    recoveredFunctions bin
+    |> fun functions -> functions.Sequence
+    |> Seq.tryFind (fun fn -> fn.EntryPoint = entry)

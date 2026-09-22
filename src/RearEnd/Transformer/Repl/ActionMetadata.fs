@@ -53,6 +53,7 @@ type ReplValueKind =
   | StringMatch
   | SectionInfo
   | FunctionInfo
+  | CFGNodeInfo
   | Int
   | Float
   | Bool
@@ -69,6 +70,13 @@ type ActionRole =
   | Transform
   | Reducer
   | Sink
+
+/// How an action derives its output kind from the input kind.
+[<RequireQualifiedAccess>]
+type ActionOutputRelation =
+  | Fixed
+  | CollectionElement
+  | PreservedCollection
 
 /// The semantic category of one action argument.
 [<RequireQualifiedAccess>]
@@ -115,6 +123,7 @@ type ActionMetadata =
     Input: ReplValueKind
     AlternativeInputs: ReplValueKind list
     Output: ReplValueKind
+    OutputRelation: ActionOutputRelation
     Role: ActionRole
     Syntaxes: ActionSyntax list
     Signature: string
@@ -190,6 +199,8 @@ module ReplValueKind =
       "SectionInfo"
     | ReplValueKind.FunctionInfo ->
       "FunctionInfo"
+    | ReplValueKind.CFGNodeInfo ->
+      "CFGNodeInfo"
     | ReplValueKind.Int ->
       "Int"
     | ReplValueKind.Float ->
@@ -229,6 +240,7 @@ module ReplValueKind =
       ReplValueKind.StringMatch
       ReplValueKind.SectionInfo
       ReplValueKind.FunctionInfo
+      ReplValueKind.CFGNodeInfo
       ReplValueKind.Int
       ReplValueKind.Float
       ReplValueKind.Bool ]
@@ -637,6 +649,7 @@ module ActionMetadata =
         Input = input
         AlternativeInputs = []
         Output = output
+        OutputRelation = ActionOutputRelation.Fixed
         Role = role
         Syntaxes = syntaxes
         Signature = signature
@@ -657,6 +670,7 @@ module ActionMetadata =
         Input = primary
         AlternativeInputs = alternatives
         Output = output
+        OutputRelation = ActionOutputRelation.Fixed
         Role = role
         Syntaxes = syntaxes
         Signature = signature
@@ -676,52 +690,13 @@ module ActionMetadata =
       syntax.Inputs
       |> List.exists (fun expected -> ReplValueKind.isCompatible kind expected)
 
-  let outputForArguments metadata inputKind args =
-    let metadata: ActionMetadata = metadata
-    let tokenParameterName (token: string) =
-      let index = token.IndexOf '='
-      if index <= 0 then
-        None
-      else
-        let key = token[..index - 1]
-        let typeIndex = key.IndexOf ':'
-        let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
-        Some(key.ToLowerInvariant())
-    let matchesParameters syntax =
-      let names = args |> List.choose tokenParameterName
-      if List.isEmpty args || List.isEmpty names then
-        true
-      else
-        names
-        |> List.forall (fun name ->
-          (syntax: ActionSyntax).Arguments
-          |> List.exists (fun argument ->
-            argumentKeys argument |> List.contains name))
-    let matchesTrigger syntax =
-      match (syntax: ActionSyntax).Trigger, args with
-      | None, _ ->
-        true
-      | Some trigger, actual :: _ ->
-        String.Equals(trigger, actual, StringComparison.OrdinalIgnoreCase)
-      | Some _, [] ->
-        false
-    metadata.Syntaxes
-    |> List.filter (syntaxAccepts inputKind)
-    |> List.tryPick (fun syntax ->
-      if matchesTrigger syntax && matchesParameters syntax then
-        syntax.Output
-      else
-        None)
-    |> Option.defaultValue metadata.Output
-
-  let possibleOutputs metadata inputKind =
-    let metadata: ActionMetadata = metadata
-    let outputs =
-      metadata.Syntaxes
-      |> List.filter (syntaxAccepts inputKind)
-      |> List.choose (fun syntax -> syntax.Output)
-      |> List.distinct
-    if List.isEmpty outputs then [ metadata.Output ] else outputs
+  let private collectionElementKind = function
+    | ReplValueKind.Collection kind
+    | ReplValueKind.List kind
+    | ReplValueKind.Array kind ->
+      Some kind
+    | _ ->
+      None
 
   let private tokenParameterName (token: string) =
     let index = token.IndexOf '='
@@ -733,6 +708,64 @@ module ActionMetadata =
       let key = if typeIndex <= 0 then key else key[..typeIndex - 1]
       Some(key.ToLowerInvariant())
 
+  let private syntaxMatchesOutputArguments args syntax =
+    let names = args |> List.choose tokenParameterName
+    if List.isEmpty args || List.isEmpty names then
+      true
+    else
+      names
+      |> List.forall (fun name ->
+        (syntax: ActionSyntax).Arguments
+        |> List.exists (fun argument ->
+          argumentKeys argument |> List.contains name))
+
+  let private syntaxMatchesOutputTrigger args syntax =
+    match (syntax: ActionSyntax).Trigger, args with
+    | None, _ ->
+      true
+    | Some trigger, actual :: _ ->
+      String.Equals(trigger, actual, StringComparison.OrdinalIgnoreCase)
+    | Some _, [] ->
+      false
+
+  let private outputForSyntaxes metadata inputKind args =
+    let metadata: ActionMetadata = metadata
+    metadata.Syntaxes
+    |> List.filter (syntaxAccepts inputKind)
+    |> List.tryPick (fun syntax ->
+      if syntaxMatchesOutputTrigger args syntax
+         && syntaxMatchesOutputArguments args syntax then
+        syntax.Output
+      else
+        None)
+    |> Option.defaultValue metadata.Output
+
+  let private applyOutputRelation relation inputKind output =
+    match relation, inputKind with
+    | ActionOutputRelation.CollectionElement, Some input ->
+      collectionElementKind input |> Option.defaultValue output
+    | ActionOutputRelation.PreservedCollection, Some input ->
+      collectionElementKind input
+      |> Option.map ReplValueKind.Collection
+      |> Option.defaultValue output
+    | _ ->
+      output
+
+  let outputForArguments metadata inputKind args =
+    let metadata: ActionMetadata = metadata
+    let output =
+      outputForSyntaxes metadata inputKind args
+    applyOutputRelation metadata.OutputRelation inputKind output
+
+  let possibleOutputs metadata inputKind =
+    let metadata: ActionMetadata = metadata
+    let outputs =
+      metadata.Syntaxes
+      |> List.filter (syntaxAccepts inputKind)
+      |> List.choose (fun syntax -> syntax.Output)
+      |> List.distinct
+    if List.isEmpty outputs then [ metadata.Output ] else outputs
+
   let syntaxHasParameter (name: string) syntax =
     (syntax: ActionSyntax).Arguments
     |> List.exists (fun argument ->
@@ -742,24 +775,50 @@ module ActionMetadata =
     let names = args |> List.choose tokenParameterName
     names |> List.forall (fun name -> syntaxHasParameter name syntax)
 
-  let matchingSyntaxes metadata inputKind args =
+  let private matchingTriggerSyntaxes args syntaxes =
+    match args with
+    | actual :: _ ->
+      let triggered =
+        syntaxes
+        |> List.filter (fun syntax ->
+          (syntax: ActionSyntax).Trigger
+          |> Option.exists (fun trigger ->
+            String.Equals(
+              trigger,
+              actual,
+              StringComparison.OrdinalIgnoreCase
+            )))
+      if List.isEmpty triggered then syntaxes else triggered
+    | [] ->
+      syntaxes
+
+  let private inputSyntaxes metadata inputKind =
     let metadata: ActionMetadata = metadata
-    metadata.Syntaxes
-    |> List.filter (syntaxAccepts inputKind)
+    metadata.Syntaxes |> List.filter (syntaxAccepts inputKind)
+
+  let matchingSyntaxes metadata inputKind args =
+    inputSyntaxes metadata inputKind
+    |> matchingTriggerSyntaxes args
     |> List.filter (syntaxMatchesParameters args)
 
   let typedSignatureFor metadata inputKind args =
     let metadata: ActionMetadata = metadata
     let syntaxes = matchingSyntaxes metadata inputKind args
     let syntaxes =
-      if List.isEmpty syntaxes then metadata.Syntaxes else syntaxes
+      if List.isEmpty syntaxes then
+        inputSyntaxes metadata inputKind
+      else
+        syntaxes
     typedSignature { metadata with Syntaxes = syntaxes }
 
   let typedSignatureForLines metadata inputKind args =
     let metadata: ActionMetadata = metadata
     let syntaxes = matchingSyntaxes metadata inputKind args
     let syntaxes =
-      if List.isEmpty syntaxes then metadata.Syntaxes else syntaxes
+      if List.isEmpty syntaxes then
+        inputSyntaxes metadata inputKind
+      else
+        syntaxes
     typedSignatureLines { metadata with Syntaxes = syntaxes }
 
   let private cfg =
@@ -1165,29 +1224,43 @@ module ActionMetadata =
 
   let private list =
     let sections =
-      syntaxOutput (Some "sections")
+      syntaxForOutput
+        [ ReplValueKind.Binary ]
+        (Some "sections")
         (ReplValueKind.Collection ReplValueKind.SectionInfo)
         []
     let functions =
-      syntaxOutput (Some "functions")
+      syntaxForOutput
+        [ ReplValueKind.Binary ]
+        (Some "functions")
         (ReplValueKind.Collection ReplValueKind.FunctionInfo)
         []
     let knownFunctions =
-      syntaxOutput (Some "known-functions")
+      syntaxForOutput
+        [ ReplValueKind.Binary ]
+        (Some "known-functions")
         (ReplValueKind.Collection ReplValueKind.FunctionInfo)
         []
-    contract
+    let nodes =
+      syntaxForOutput
+        [ ReplValueKind.CFG ]
+        (Some "nodes")
+        (ReplValueKind.Collection ReplValueKind.CFGNodeInfo)
+        []
+    overloadContract
       "list"
-      ReplValueKind.Binary
+      [ ReplValueKind.Binary; ReplValueKind.CFG ]
       ReplValueKind.Any
       ActionRole.Transform
       10
       ("list <sections|functions|known-functions> -> "
-       + "SectionInfo|FunctionInfo collection")
+       + "SectionInfo|FunctionInfo collection | "
+       + "list nodes -> CFGNodeInfo collection")
       [ "binary |> @list sections"
         "binary |> @list functions"
-        "binary |> @list known-functions" ]
-      [ sections; functions; knownFunctions ]
+        "binary |> @list known-functions"
+        "cfg |> @list nodes" ]
+      [ sections; functions; knownFunctions; nodes ]
 
   let private llvm =
     contract
@@ -1283,15 +1356,70 @@ module ActionMetadata =
     let index =
       required "index" ActionArgumentKind.Integer
         "Zero-based value index in the current collection."
-    contract
-      "pick"
-      (ReplValueKind.Collection ReplValueKind.Any)
-      ReplValueKind.Any
-      ActionRole.Transform
-      5
-      "pick index=<n> -> Any"
-      [ "graphs |> @pick index=<index>" ]
-      [ syntax None [ index ] ]
+    { contract
+        "pick"
+        (ReplValueKind.Collection ReplValueKind.Any)
+        ReplValueKind.Any
+        ActionRole.Transform
+        5
+        "pick index=<n> -> Any"
+        [ "graphs |> @pick index=<index>" ]
+        [ syntax None [ index ] ] with
+        OutputRelation = ActionOutputRelation.CollectionElement }
+
+  let private one =
+    { overloadContract
+        "one"
+        [ ReplValueKind.Collection ReplValueKind.Any
+          ReplValueKind.List ReplValueKind.Any
+          ReplValueKind.Array ReplValueKind.Any ]
+        ReplValueKind.Any
+        ActionRole.Reducer
+        5
+        "one -> Any"
+        [ "items |> @one" ]
+        [ syntax None [] ] with
+        OutputRelation = ActionOutputRelation.CollectionElement }
+
+  let private find =
+    let symbol =
+      required "symbol" ActionArgumentKind.Text "Function symbol name."
+    let entry =
+      required "entry" ActionArgumentKind.Address "Function entry address."
+    let mnemonic =
+      required "mnemonic" ActionArgumentKind.Text "Basic-block mnemonic."
+    let address =
+      required "address" ActionArgumentKind.Address "Basic-block address."
+    { overloadContract
+        "find"
+        [ ReplValueKind.Collection ReplValueKind.FunctionInfo
+          ReplValueKind.Collection ReplValueKind.CFGNodeInfo ]
+        ReplValueKind.Any
+        ActionRole.Transform
+        5
+        ("find symbol=<name>|entry=<addr> -> FunctionInfo collection | "
+         + "find mnemonic=<name>|address=<addr> -> CFGNodeInfo collection")
+        [ "functions |> @find symbol=<name>"
+          "functions |> @find entry=<addr>"
+          "nodes |> @find mnemonic=<name>"
+          "nodes |> @find address=<addr>" ]
+        [ syntaxFor
+            [ ReplValueKind.Collection ReplValueKind.FunctionInfo ]
+            None
+            [ symbol ]
+          syntaxFor
+            [ ReplValueKind.Collection ReplValueKind.FunctionInfo ]
+            None
+            [ entry ]
+          syntaxFor
+            [ ReplValueKind.Collection ReplValueKind.CFGNodeInfo ]
+            None
+            [ mnemonic ]
+          syntaxFor
+            [ ReplValueKind.Collection ReplValueKind.CFGNodeInfo ]
+            None
+            [ address ] ] with
+        OutputRelation = ActionOutputRelation.PreservedCollection }
 
   let private print =
     contract
@@ -1301,7 +1429,7 @@ module ActionMetadata =
       ActionRole.Sink
       100
       "print -> Unit"
-      []
+      [ "value |> @print" ]
       [ syntax None [] ]
 
   let private slice =
@@ -1445,6 +1573,7 @@ module ActionMetadata =
       disasm
       dot
       edit
+      find
       grep
       hexdump
       jaccard
@@ -1453,6 +1582,7 @@ module ActionMetadata =
       llvm
       load
       mem
+      one
       pick
       print
       random
@@ -1519,10 +1649,12 @@ module ActionRegistry =
       ReplValueKind.StringMatch
       ReplValueKind.SectionInfo
       ReplValueKind.FunctionInfo
+      ReplValueKind.CFGNodeInfo
       ReplValueKind.Collection ReplValueKind.CFG
       ReplValueKind.Collection ReplValueKind.Fingerprint
       ReplValueKind.Collection ReplValueKind.SectionInfo
       ReplValueKind.Collection ReplValueKind.FunctionInfo
+      ReplValueKind.Collection ReplValueKind.CFGNodeInfo
       ReplValueKind.Collection ReplValueKind.StringMatch
       ReplValueKind.Collection ReplValueKind.BinarySlice
       ReplValueKind.Collection ReplValueKind.Any
@@ -1557,10 +1689,8 @@ module ActionRegistry =
   let private applicableActions kind actions =
     actions
     |> List.filter (fun registered ->
-      registered.Metadata.ID <> "print"
-      && (ActionMetadata.acceptedInputs registered.Metadata
-          |> List.exists (fun input ->
-            ReplValueKind.isCompatible kind input)))
+      ActionMetadata.acceptedInputs registered.Metadata
+      |> List.exists (fun input -> ReplValueKind.isCompatible kind input))
 
   let private fromMap actions =
     let all = sortActions actions

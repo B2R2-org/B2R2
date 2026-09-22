@@ -60,8 +60,6 @@ type ReplPartialPipeline =
 type TransformerReplCommand =
   | Evaluate of ReplPipelineSegment list * binding: string option
                 * expected: ReplValueKind option
-  | Show of binding: string option
-  | ShowExpression of ReplPipelineSegment list
   | TypeOf of binding: string option
   | TypeOfExpression of ReplPipelineSegment list
   | Inspect of binding: string option

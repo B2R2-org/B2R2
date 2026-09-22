@@ -105,10 +105,6 @@ module TransformerReplParser =
       Ok(ScriptComment(String.concat " " rest))
     | [ ":reset" ] ->
       Ok Reset
-    | [ ":show" ] ->
-      Ok(Show None)
-    | ":show" :: rest ->
-      ReplLanguage.parsePipelineTokens rest |> Result.map ShowExpression
     | [ ":type" ] ->
       Ok(TypeOf None)
     | [ ":type"; name ] ->
@@ -121,17 +117,14 @@ module TransformerReplParser =
       let command = String.concat " " tokens
       Error $"Unknown REPL command: {command}"
 
+  let parseControl (input: string) =
+    InputAnalysis.tokenizeStrict input
+    |> Result.bind (List.map ReplLanguage.unquote >> parseMetaCommand)
+
   let parse (input: string) =
     let trimmed = input.TrimStart()
     if trimmed.StartsWith "#" then
       Ok(ScriptComment(trimmed[1..].TrimStart()))
     else
       InputAnalysis.tokenizeStrict input
-      |> Result.bind (function
-        | [] ->
-          Ok NoInput
-        | command :: _ as tokens
-          when command.StartsWith ':' ->
-          tokens |> List.map ReplLanguage.unquote |> parseMetaCommand
-        | tokens ->
-          ReplLanguage.parseEvaluation input tokens)
+      |> Result.bind (ReplLanguage.parseEvaluation input)
