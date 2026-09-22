@@ -42,7 +42,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   let nameResolver =
     Some { new INameResolvable with
       member _.TryResolveName(addr) =
-        if pe.Symbols.SymbolArray.Length = 0 then
+        if pe.Symbols.Value.SymbolArray.Length = 0 then
           tryFindSymbolFromBinary pe addr
         else
           tryFindSymbolFromPDB pe addr
@@ -76,28 +76,29 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
      them is stripped all the same. *)
   let exportedSymbols =
     lazy
-      [| for KeyValue(addr, names) in pe.ExportedSymbols.Exports do
+      [| for KeyValue(addr, names) in pe.ExportedSymbols.Value.Exports do
            for name in names -> toExportedSymbol addr name |]
 
   let binSymbols =
     lazy
       Array.append
-        (pe.Symbols.SymbolArray |> Array.map toBinSymbol)
+        (pe.Symbols.Value.SymbolArray |> Array.map toBinSymbol)
         exportedSymbols.Value
 
   let tryFindExportedSymbol addr =
-    match pe.ExportedSymbols.TryFind addr with
+    match pe.ExportedSymbols.Value.TryFind addr with
     | Some(name :: _) -> Ok(toExportedSymbol addr name)
     | _ -> Error ErrorCase.SymbolNotFound
 
   let symbolTable =
     Some { new ISymbolTable with
-      member _.IsStripped with get() = Array.isEmpty pe.Symbols.SymbolArray
+      member _.IsStripped with get() =
+        Array.isEmpty pe.Symbols.Value.SymbolArray
 
       member _.Symbols with get() = binSymbols.Value
 
       member _.TryFindSymbolByAddr addr =
-        match pe.Symbols.SymbolByAddr.TryGetValue addr with
+        match pe.Symbols.Value.SymbolByAddr.TryGetValue addr with
         | true, s ->
           Ok(toBinSymbol s)
         | false, _ ->
@@ -111,10 +112,10 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   let functionAddrs =
     lazy
       let staticAddrs =
-        [| for s in pe.Symbols.SymbolArray do
+        [| for s in pe.Symbols.Value.SymbolArray do
              if s.IsFunction then s.Address else () |]
       let dynamicAddrs =
-        [| for addr in pe.ExportedSymbols.Addresses do
+        [| for addr in pe.ExportedSymbols.Value.Addresses do
              if isExecutableAddress addr then addr else () |]
       (* Every range .pdata unwinds opens a function, barring one that chains
          back to the range before it and so only carries that one on. *)
@@ -286,7 +287,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let exportName =
     lazy
-      match pe.ExportedSymbols.DLLName with
+      match pe.ExportedSymbols.Value.DLLName with
       | "" -> None
       | name -> Some name
 
@@ -353,16 +354,16 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   member internal _.SectionHeaders with get() = pe.SectionHeaders
 
   /// Returns the list of relocation blocks.
-  member internal _.RelocBlocks with get() = pe.RelocBlocks
+  member internal _.RelocBlocks with get() = pe.RelocBlocks.Value
 
   /// Returns the symbol store.
-  member internal _.Symbols with get() = pe.Symbols
+  member internal _.Symbols with get() = pe.Symbols.Value
 
   /// Returns the imported symbols.
-  member internal _.ImportedSymbols with get() = pe.ImportedSymbols
+  member internal _.ImportedSymbols with get() = pe.ImportedSymbols.Value
 
   /// Returns the exported symbols.
-  member internal _.ExportedSymbols with get() = pe.ExportedSymbols
+  member internal _.ExportedSymbols with get() = pe.ExportedSymbols.Value
 
   member internal _.RawPDB with get() = rawpdb
 

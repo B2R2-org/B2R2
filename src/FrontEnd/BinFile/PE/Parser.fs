@@ -122,11 +122,11 @@ let parseCoff baseAddrOpt bytes reader (hdrs: Header) =
   { Header = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
-    ImportedSymbols = Map.empty
-    ExportedSymbols = ExportedSymbolStore()
-    RelocBlocks = []
+    ImportedSymbols = lazy Map.empty
+    ExportedSymbols = lazy (ExportedSymbolStore())
+    RelocBlocks = lazy []
     WordSize = wordSize
-    Symbols = Coff.getSymbols bytes reader coff
+    Symbols = lazy (Coff.getSymbols bytes reader coff)
     InvalidAddrRanges = IntervalSet.empty
     NotInFileRanges = IntervalSet.empty
     ExecutableRanges = execRanges baseAddr secs
@@ -140,11 +140,14 @@ let parseImage execpath rawpdb baseAddr bytes reader (hdrs: Header) opt =
   { Header = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
-    ImportedSymbols = ImportedSymbolStore.parse bytes reader opt secs wordSize
-    ExportedSymbols = ExportedSymbolStore(baseAddr, bytes, reader, opt, secs)
-    RelocBlocks = BaseRelocationTable.parse bytes reader opt secs
+    ImportedSymbols =
+      lazy (ImportedSymbolStore.parse bytes reader opt secs wordSize)
+    ExportedSymbols =
+      lazy (ExportedSymbolStore(baseAddr, bytes, reader, opt, secs))
+    RelocBlocks = lazy (BaseRelocationTable.parse bytes reader opt secs)
     WordSize = wordSize
-    Symbols = getPDBSymbols reader execpath rawpdb |> buildPDBInfo baseAddr secs
+    Symbols =
+      lazy (getPDBSymbols reader execpath rawpdb |> buildPDBInfo baseAddr secs)
     InvalidAddrRanges = computeInvalidAddrRanges wordSize baseAddr secs
     NotInFileRanges = computeNotInFileRanges wordSize baseAddr secs
     ExecutableRanges = execRanges baseAddr secs

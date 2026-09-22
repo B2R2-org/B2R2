@@ -67,7 +67,7 @@ let private buildForObject bytes pe =
 let private buildForImage pe =
   let kinds = Dictionary<Addr, BaseRelocType>()
   let relocs = ResizeArray()
-  for block in pe.RelocBlocks do
+  for block in pe.RelocBlocks.Value do
     for entry in block.Entries do
       if isValidEntry entry then
         let addr = getRelocAddr pe block entry
