@@ -49,18 +49,9 @@ module private Bcl =
 /// </summary>
 [<TestClass>]
 type PEHeaderTests() =
-  /// Every PE fixture, named by the archive holding it and the entry inside.
-  static let fixtures =
-    [| "pe_x64", "pe_x64.exe"
-       "pe_x86", "pe_x86.exe"
-       "pe_x64_dll", "pe_x64_dll.dll"
-       "pe_x64_obj", "pe_x64_obj.obj"
-       "pe_x64_pdb", "pe_x64_pdb.exe"
-       "pe_x64_tls", "pe_x64_tls.exe"
-       "pe_x64_guardcf", "pe_x64_guardcf.exe"
-       "pe_x64_exc", "pe_x64_exc.exe"
-       "pe_x64_exc_fh3", "pe_x64_exc_fh3.exe"
-       "pe_x64_signed", "pe_x64_signed.exe" |]
+  /// Every PE fixture there is, so that whatever one is added next is put
+  /// through this without anything here naming it.
+  static let fixtures = ZIPReader.listFixtureNames PEBinary
 
   /// This test assembly is itself a managed PE, which is the one shape the
   /// fixtures leave out: it alone carries a CLI header.
@@ -231,8 +222,8 @@ type PEHeaderTests() =
 
   [<TestMethod>]
   member _.``[PE] every fixture reads as the BCL reader reads it``() =
-    for archive, entry in fixtures do
-      ZIPReader.readBytes PEBinary (archive + ".zip") entry |> checkFile
+    for name in fixtures do
+      ZIPReader.readPEFixture name |> checkFile
 
   [<TestMethod>]
   member _.``[PE] a managed image reads as the BCL reader reads it``() =

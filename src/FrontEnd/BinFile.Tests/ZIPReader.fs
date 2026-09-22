@@ -50,6 +50,21 @@ let readBytes fileFormat zipFileName inZipFileName =
   stream.CopyTo(ms)
   ms.ToArray()
 
+/// Returns the bytes of the binary the named PE fixture archive holds. Every
+/// other format names the entry inside after the archive; a PE fixture gives
+/// it the extension its kind of binary goes under, and one archive holds a
+/// PDB beside the binary.
+let readPEFixture name =
+  let zipDirectory = zipFileSrcDir + getFileDir FileFormat.PEBinary
+  let archive = ZipFile.Open(zipDirectory + name + ".zip", ZipArchiveMode.Read)
+  let isBinary (entry: ZipArchiveEntry) =
+    entry.Name.EndsWith ".exe" || entry.Name.EndsWith ".dll"
+    || entry.Name.EndsWith ".obj"
+  let stream = (archive.Entries |> Seq.find isBinary).Open()
+  use ms = new MemoryStream()
+  stream.CopyTo ms
+  ms.ToArray()
+
 /// Returns the name of every fixture the given format has, which is both the
 /// name of the archive holding it and the name of the sole entry inside.
 let listFixtureNames fileFormat =
