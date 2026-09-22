@@ -155,6 +155,18 @@ type PETests() =
         ()
     bytes
 
+  /// Zeroes the raw-data size of the ".data" section, which is what a linker
+  /// writes for a section holding nothing but uninitialized data. A section
+  /// header runs 40 bytes, its raw-data size sitting 16 bytes into one.
+  static let withEmptyDataSection (bytes: byte[]) =
+    let bytes = Array.copy bytes
+    let hdrs = Header.parse bytes (BinReader.Init Endian.Little)
+    let isData (sec: SectionHeader) = sec.Name = ".data"
+    let idx = hdrs.SectionHeaders |> Array.findIndex isData
+    let offset = hdrs.SectionHeaderTblOffset + idx * 40 + 16
+    BitConverter.GetBytes(0).CopyTo(bytes, offset)
+    bytes
+
   /// Points the sole export at the string naming it, which sits inside the
   /// export directory and so reads as a forwarder, and which carries no dot
   /// to part a library name from a function name.
@@ -836,6 +848,17 @@ type PETests() =
       |> withoutTextSections
     let file = PEBinFile("pe_x64_obj.obj", bytes, None, [||]) :> IBinFile
     Assert.AreEqual<BinFileKind>(Object, file.Kind)
+
+  [<TestMethod>]
+  member _.``[PE] an empty section points at no file bytes``() =
+    (* A section of no raw data holds nothing to point at, which is the same
+       as naming a section the file does not have. *)
+    let bytes =
+      ZIPReader.readBytes PEBinary "pe_x64.zip" "pe_x64.exe"
+      |> withEmptyDataSection
+    let file = PEBinFile("pe_x64.exe", bytes, None, [||]) :> IBinFile
+    let ptr = file.Structure.Value.GetSectionPointer ".data"
+    Assert.AreEqual<bool>(true, ptr.IsNull)
 
   [<TestMethod>]
   member _.``[PE] a forwarder naming no library is passed over``() =

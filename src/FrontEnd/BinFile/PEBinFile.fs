@@ -189,6 +189,21 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
 
   let binSections = lazy (pe.SectionHeaders |> Array.map toBinSection)
 
+  /// Returns a pointer to the file bytes of the given section, or a null
+  /// pointer when the section holds no raw data at all.
+  let toSectionPointer (sec: SectionHeader) =
+    if sec.SizeOfRawData = 0 then
+      BinFilePointer.Null
+    else
+      let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
+      let size = sec.SizeOfRawData
+      BinFilePointer.CreateFileBacked(
+        addr,
+        addr + uint64 size - 1UL,
+        sec.PointerToRawData,
+        sec.PointerToRawData + size - 1
+      )
+
   let structure =
     Some { new IBinStructure with
       member _.Sections with get() = binSections.Value
@@ -197,33 +212,15 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
         pe.SectionHeaders
         |> Array.tryFind (fun sec -> sec.Name = SecText)
         |> function
-          | Some sec ->
-            let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
-            let size = sec.SizeOfRawData
-            BinFilePointer.CreateFileBacked(
-              addr,
-              addr + uint64 size - 1UL,
-              sec.PointerToRawData,
-              sec.PointerToRawData + size - 1
-            )
-          | None ->
-            BinFilePointer.Null
+          | Some sec -> toSectionPointer sec
+          | None -> BinFilePointer.Null
 
       member _.GetSectionPointer name =
         pe.SectionHeaders
         |> Array.tryFind (fun sec -> sec.Name = name)
         |> function
-          | Some sec ->
-            let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
-            let size = sec.SizeOfRawData
-            BinFilePointer.CreateFileBacked(
-              addr,
-              addr + uint64 size - 1UL,
-              sec.PointerToRawData,
-              sec.PointerToRawData + size - 1
-            )
-          | None ->
-            BinFilePointer.Null
+          | Some sec -> toSectionPointer sec
+          | None -> BinFilePointer.Null
 
       member _.TryFindSectionByName name =
         pe.SectionHeaders
