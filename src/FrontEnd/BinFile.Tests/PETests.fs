@@ -660,12 +660,16 @@ type PETests() =
   [<TestMethod>]
   member _.``[PE] an import directory landing nowhere is a format error``() =
     (* An RVA no section maps names no byte of the file, which is a fact about
-       the file rather than an index to read on with. *)
+       the file rather than an index to read on with. A table is read where it
+       is asked for rather than where the file is opened, so that is where the
+       file says so, and everything the table is no part of still reads. *)
     let bytes =
       ZIPReader.readBytes PEBinary "pe_x64.zip" "pe_x64.exe"
       |> withDirectoryRVA 1 0x7f000000
+    let file = PEBinFile("pe_x64.exe", bytes, None, [||]) :> IBinFile
+    Assert.AreEqual(Some 0x140001290UL, file.EntryPoint)
     Assert.ThrowsExactly<InvalidFileFormatException>(fun () ->
-      PEBinFile("pe_x64.exe", bytes, None, [||]) |> ignore)
+      file.ImportTable.Value.Imports |> ignore)
     |> ignore
 
   [<TestMethod>]

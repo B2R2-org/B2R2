@@ -38,16 +38,20 @@ type internal PE =
     BaseAddr: Addr
     /// Section headers.
     SectionHeaders: SectionHeader[]
-    /// RVA to imported symbol.
-    ImportedSymbols: Map<int, ImportedSymbol>
-    /// Exported symbols.
-    ExportedSymbols: ExportedSymbolStore
-    /// List of relocation blocks
-    RelocBlocks: BaseRelocationBlock list
+    /// RVA to imported symbol, read when it is first asked for. A table is
+    /// no part of what opening a file takes, and a file names four of them
+    /// that reading the whole of costs more than everything else here put
+    /// together, so each waits until something wants it.
+    ImportedSymbols: Lazy<Map<int, ImportedSymbol>>
+    /// Exported symbols, read when they are first asked for.
+    ExportedSymbols: Lazy<ExportedSymbolStore>
+    /// List of relocation blocks, read when they are first asked for.
+    RelocBlocks: Lazy<BaseRelocationBlock list>
     /// Word size for the binary.
     WordSize: WordSize
-    /// Symbol information.
-    Symbols: SymbolStore
+    /// Symbol information, read when it is first asked for. For an image
+    /// that is a PDB beside it, which is a file of its own to go and read.
+    Symbols: Lazy<SymbolStore>
     /// Invalid address ranges.
     InvalidAddrRanges: IntervalSet
     /// Not-in-file address ranges.
@@ -162,7 +166,7 @@ let inline isSectionExecutableByIndex pe idx =
   <| SectionCharacteristics.MemExecute
 
 let getImportTable pe =
-  [| for KeyValue(addr, info) in pe.ImportedSymbols do
+  [| for KeyValue(addr, info) in pe.ImportedSymbols.Value do
        let name, dllname =
          match info with
          | ByOrdinal(ord, dll) -> $"[{ord.ToString()}]", dll
@@ -175,7 +179,7 @@ let getImportTable pe =
 
 let isImportTable pe addr =
   let rva = int (addr - pe.BaseAddr)
-  Map.containsKey rva pe.ImportedSymbols
+  Map.containsKey rva pe.ImportedSymbols.Value
 
 let getSecPermission (chr: SectionCharacteristics) =
   let x = if chr.HasFlag SectionCharacteristics.MemExecute then 1 else 0
@@ -185,12 +189,12 @@ let getSecPermission (chr: SectionCharacteristics) =
 
 let private findSymFromIAT addr pe =
   let rva = int (addr - pe.BaseAddr)
-  match Map.tryFind rva pe.ImportedSymbols with
+  match Map.tryFind rva pe.ImportedSymbols.Value with
   | Some(ByName(_, n, _)) -> Some n
   | _ -> None
 
 let private findSymFromEAT addr pe () =
-  match pe.ExportedSymbols.TryFind addr with
+  match pe.ExportedSymbols.Value.TryFind addr with
   | None -> None
   | Some [] -> None
   | Some(n :: _) -> Some n
@@ -202,7 +206,7 @@ let tryFindSymbolFromBinary pe addr =
   | Some s -> Ok s
 
 let tryFindSymbolFromPDB pe addr =
-  match pe.Symbols.SymbolByAddr.TryGetValue addr with
+  match pe.Symbols.Value.SymbolByAddr.TryGetValue addr with
   | false, _ -> Error ErrorCase.SymbolNotFound
   | true, s -> Ok s.Name
 
