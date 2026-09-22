@@ -40,6 +40,7 @@ type private EATEntry =
 [<AutoOpen>]
 module private ExportedSymbolStore =
   open System
+  open System.Collections.Generic
   open B2R2.Collections
   open B2R2.FrontEnd.BinLifter
   open B2R2.FrontEnd.BinFile.PE.PEUtils
@@ -71,30 +72,39 @@ module private ExportedSymbolStore =
         addrTbl[i] <- getEATEntry range rva
       addrTbl
 
-  /// Parse Export Name Pointer Table (ENPT).
+  /// Parses the Export Name Pointer Table (ENPT) into the name each ordinal
+  /// goes under, which is what reading an entry of the export address table
+  /// takes. It is read back an entry at a time, so it is kept by ordinal
+  /// rather than walked: a table naming every one of the thousands of
+  /// functions a library exports would otherwise be walked once per function.
+  /// Two names of one ordinal is an alias export, and the last of them the
+  /// table lists is the one kept, there being one name to give the one
+  /// address the two of them share.
   let parseENPT (bytes: byte[]) (reader: IBinReader) secs edt =
-    let rec loop acc cnt pos1 pos2 =
+    let names = Dictionary<int16, string>()
+    let rec loop cnt pos1 pos2 =
       if cnt = 0 then
-        acc
+        names
       else
         let rva = reader.ReadInt32(bytes, pos1)
         let str = readStr secs bytes rva
         let ord = reader.ReadInt16(bytes, pos2)
-        loop ((str, ord) :: acc) (cnt - 1) (pos1 + 4) (pos2 + 2)
+        names[ord] <- str
+        loop (cnt - 1) (pos1 + 4) (pos2 + 2)
     if edt.NamePointerRVA = 0 then
-      []
+      names
     else
       let offset1 = edt.NamePointerRVA |> getRawOffset secs
       let offset2 = edt.OrdinalTableRVA |> getRawOffset secs
-      loop [] edt.NumNamePointers offset1 offset2
+      loop edt.NumNamePointers offset1 offset2
 
   /// Decide the name of an exported address. The address may have been exported
   /// only with ordinal, and does not have a corresponding name in export name
   /// pointer table. In such case, consider its name as "[<Ordinal>]".
-  let decideNameWithTable nameTbl ordBase idx =
-    match List.tryFind (fun (_, ord) -> int16 idx = ord) nameTbl with
-    | None -> $"[{(int16 idx + ordBase)}]" (* Exported with an ordinal. *)
-    | Some(name, _) -> name (* ENTP has a corresponding name for this entry. *)
+  let decideNameWithTable (nameTbl: Dictionary<int16, string>) ordBase idx =
+    match nameTbl.TryGetValue(int16 idx) with
+    | false, _ -> $"[{(int16 idx + ordBase)}]" (* Exported with an ordinal. *)
+    | true, name -> name (* ENPT has a corresponding name for this entry. *)
 
   /// Parts a forwarder string into the library it names and the function it
   /// names there. The last dot is what parts them, a library name being free
