@@ -39,27 +39,38 @@ let magicToWordSize = function
   | PEMagic.PE32Plus -> WordSize.Bit64
   | _ -> raise InvalidWordSizeException
 
-let readPDB reader expected pdbBytes =
-  if PDB.isValidHeader pdbBytes reader then ()
+let readPDB reader expected source =
+  if PDB.isValidHeader source reader then ()
   else raise InvalidFileFormatException
-  PDB.parse pdbBytes reader expected
+  PDB.parse source reader expected
 
 /// Returns the symbols the given PDB holds. Whatever stops the read -- the
 /// magic it leads with, the shape of the file system inside it, a stream
 /// reaching past its end -- says the one thing a caller can act on: this is
 /// not a PDB to read symbols out of. So every one of them reaches the caller
 /// the same way, rather than as whichever read happened to find it first.
-let parsePDB reader expected pdbBytes =
-  try readPDB reader expected pdbBytes
+let parsePDB reader expected source =
+  try readPDB reader expected source
   with e when not (Terminator.isCritical e) -> raise InvalidFileFormatException
+
+/// Returns the symbols the PDB at the given path holds. The file is read a
+/// block at a time rather than into one array, since a PDB runs to sizes no
+/// array can hold and reading symbols out of one leaves most of it -- every
+/// type record, which is the bulk of a PDB -- untouched. A caller naming a
+/// file that cannot be opened hears of that as it happened: where the file is
+/// and whether it is a PDB are different things to be told.
+let parsePDBFile reader expected pdbPath =
+  use handle = IO.File.OpenHandle pdbPath
+  let len = IO.RandomAccess.GetLength handle
+  parsePDB reader expected (FileSource(handle, len))
 
 /// Returns the symbols a PDB found beside the image holds, or none when there
 /// is no reading it. Such a PDB is not one a caller asked for, so nothing
 /// about it is a reason to fail to load the image it sits next to: not that it
 /// is a portable PDB, which is what every .NET assembly built today ships and
 /// is not the format read here, nor that it cannot be read at all.
-let tryParsePDB reader expected pdbPath =
-  try IO.File.ReadAllBytes pdbPath |> parsePDB reader expected
+let tryParsePDBFile reader expected pdbPath =
+  try parsePDBFile reader expected pdbPath
   with e when not (Terminator.isCritical e) -> []
 
 /// Returns the paths to look for an image's PDB at, nearest first: the name
@@ -84,12 +95,13 @@ let getPDBBesideImage reader execpath cv =
     []
   | Some info ->
     match List.tryFind IO.File.Exists (getPDBSearchPaths execpath info) with
-    | Some path -> tryParsePDB reader cv path
+    | Some path -> tryParsePDBFile reader cv path
     | None -> []
 
 let getPDBSymbols reader execpath cv = function
-  | [||] -> getPDBBesideImage reader execpath cv
-  | rawpdb -> parsePDB reader cv rawpdb
+  | NoPDBGiven -> getPDBBesideImage reader execpath cv
+  | PDBBytes rawpdb -> parsePDB reader cv (ArraySource rawpdb)
+  | PDBPath path -> parsePDBFile reader cv path
 
 let updatePDBInfo baseAddr secs lst (sym: Symbol) =
   let secNum = int sym.Segment - 1
@@ -164,14 +176,14 @@ let parseCoff baseAddrOpt bytes reader (hdrs: Header) =
     FindSectionIdxFromRVA = findSectionIdxFromRVA
     BinReader = reader }
 
-let parseImage execpath rawpdb baseAddr bytes reader (hdrs: Header) opt =
+let parseImage execpath pdb baseAddr bytes reader (hdrs: Header) opt =
   let wordSize = magicToWordSize opt.Magic
   let baseAddr = defaultArg baseAddr opt.ImageBase
   let secs = hdrs.SectionHeaders
   let symbols =
     lazy
       let cv = CodeViewInfo.tryFind bytes reader secs opt
-      getPDBSymbols reader execpath cv rawpdb |> buildPDBInfo baseAddr secs
+      getPDBSymbols reader execpath cv pdb |> buildPDBInfo baseAddr secs
   { Header = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
@@ -188,12 +200,12 @@ let parseImage execpath rawpdb baseAddr bytes reader (hdrs: Header) opt =
     FindSectionIdxFromRVA = findSectionIndex secs
     BinReader = reader }
 
-let parsePE execpath baseAddrOpt rawpdb bytes reader (hdrs: Header) =
+let parsePE execpath baseAddrOpt pdb bytes reader (hdrs: Header) =
   match hdrs.OptionalHeader with
   | None -> parseCoff baseAddrOpt bytes reader hdrs
-  | Some opt -> parseImage execpath rawpdb baseAddrOpt bytes reader hdrs opt
+  | Some opt -> parseImage execpath pdb baseAddrOpt bytes reader hdrs opt
 
-let parse execpath (bytes: byte[]) baseAddrOpt rawpdb =
+let parse execpath (bytes: byte[]) baseAddrOpt pdb =
   let reader = BinReader.Init Endian.Little
   Header.parse bytes reader
-  |> parsePE execpath baseAddrOpt rawpdb bytes reader
+  |> parsePE execpath baseAddrOpt pdb bytes reader

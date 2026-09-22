@@ -113,7 +113,7 @@ type PDBTests() =
   /// A store holding no stream, which is all a record naming no other one
   /// ever reaches into.
   static let noStreams =
-    { PDBBytes = [||]
+    { Source = ArraySource [||]
       SuperBlock = emptySuperBlock
       Directory = { NumStreams = 0; StreamSizes = [||]; StreamBlocks = [||] }
       ReadStreams = Dictionary() }
@@ -299,7 +299,7 @@ type PDBTests() =
     let half = Array.sub bytes 0 (bytes.Length / 2)
     let thrown =
       try
-        Parser.parsePDB reader None half |> ignore
+        Parser.parsePDB reader None (ArraySource half) |> ignore
         false
       with InvalidFileFormatException ->
         true

@@ -32,10 +32,10 @@ open B2R2.FrontEnd.BinFile.PE.Helper
 open B2R2.FrontEnd.BinFile.PE.PEUtils
 
 /// Represents a PE binary file.
-type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
+type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
   let rawBytes = System.ReadOnlyMemory bytes
 
-  let pe = Parser.parse path bytes baseAddrOpt rawpdb
+  let pe = Parser.parse path bytes baseAddrOpt pdb
 
   let isa = headerToISA pe.Header
 
@@ -337,9 +337,28 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       member _.Frames = exceptionFrames.Value
     }
 
-  new(path, bytes) = PEBinFile(path, bytes, None, [||])
+  new(path, bytes) = PEBinFile(path, bytes, None, NoPDBGiven)
 
-  new(path, bytes, rawpdb) = PEBinFile(path, bytes, None, rawpdb)
+  /// Reads the image with the PDB whose bytes are given. An empty array names
+  /// no PDB, and one is then looked for beside the image.
+  new(path, bytes, rawpdb: byte[]) =
+    PEBinFile(path, bytes, None, PDBSource.ofBytes rawpdb)
+
+  /// Reads the image with the PDB at the given path, which is opened and read
+  /// a block at a time. It is the way to name a PDB too large to hold in an
+  /// array, which the biggest of them are.
+  new(path, bytes, pdbPath: string) =
+    PEBinFile(path, bytes, None, PDBPath pdbPath)
+
+  /// Reads the image at the given base address with the PDB whose bytes are
+  /// given. An empty array names no PDB.
+  new(path, bytes, baseAddrOpt, rawpdb: byte[]) =
+    PEBinFile(path, bytes, baseAddrOpt, PDBSource.ofBytes rawpdb)
+
+  /// Reads the image at the given base address with the PDB at the given
+  /// path, which is opened and read a block at a time.
+  new(path, bytes, baseAddrOpt, pdbPath: string) =
+    PEBinFile(path, bytes, baseAddrOpt, PDBPath pdbPath)
 
   /// Returns the base address.
   member internal _.BaseAddress with get() = pe.BaseAddr
@@ -365,7 +384,10 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   /// Returns the exported symbols.
   member internal _.ExportedSymbols with get() = pe.ExportedSymbols.Value
 
-  member internal _.RawPDB with get() = rawpdb
+  member internal _.RawPDB with get() =
+    match pdb with
+    | PDBBytes bs -> bs
+    | _ -> [||]
 
   /// Finds the section index from the given RVA.
   member internal _.FindSectionIdxFromRVA rva = pe.FindSectionIdxFromRVA rva

@@ -72,10 +72,33 @@ module FileFactory =
     ELFBinFile(path, bytes, baseAddrOpt, Some regFactory)
 
   /// <summary>
-  /// Creates a PE binary file object.
+  /// Creates a PE binary file object from the bytes of its PDB. An empty
+  /// <c>rawpdb</c> names no PDB, and one is then looked for beside the image.
+  /// <param name="path">The path to the binary file.</param>
+  /// <param name="bytes">The raw content of the binary file.</param>
+  /// <param name="baseAddrOpt">An optional base address for the binary
+  /// file.
+  /// </param>
+  /// <param name="rawpdb">The raw content of the PDB, or an empty array to
+  /// name none.
+  /// </param>
   /// </summary>
-  let loadPE path bytes baseAddrOpt rawpdb =
+  let loadPE path bytes baseAddrOpt (rawpdb: byte[]) =
     PEBinFile(path, bytes, baseAddrOpt, rawpdb)
+
+  /// <summary>
+  /// Creates a PE binary file object from the path to its PDB, which is read
+  /// a block at a time rather than into one array. It is the way to name a
+  /// PDB too large to hold in an array, which the biggest of them are.
+  /// <param name="path">The path to the binary file.</param>
+  /// <param name="bytes">The raw content of the binary file.</param>
+  /// <param name="baseAddrOpt">An optional base address for the binary
+  /// file.
+  /// </param>
+  /// <param name="pdbPath">The path to the PDB of the binary file.</param>
+  /// </summary>
+  let loadPEWithPDBPath path bytes baseAddrOpt (pdbPath: string) =
+    PEBinFile(path, bytes, baseAddrOpt, pdbPath)
 
   /// <summary>
   /// Creates a Mach-O binary file object.
