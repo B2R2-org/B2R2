@@ -48,10 +48,9 @@ let private tryFindLoadConfig pe =
   | Some hdr ->
     let dir = hdr.Directory DirectoryKind.LoadConfigTable
     let rva = dir.RVA
-    if dir.Size = 0 || findMappedSectionIndex pe.SectionHeaders rva = -1 then
-      None
-    else
-      Some(getRawOffset pe.SectionHeaders rva)
+    let offset =
+      if dir.Size = 0 then -1 else tryGetRawOffset pe.SectionHeaders rva
+    if offset < 0 then None else Some offset
 
 /// Reads a table of function RVAs, which both the SafeSEH table and the
 /// guard function table are. The guard table pads every entry with as many
@@ -67,11 +66,10 @@ let private readFunctionTable (bytes: byte[]) pe tableVA count stride =
   else
     let rva = int (tableVA - imageBase)
     let last = rva + (int count - 1) * stride
-    if findMappedSectionIndex secs rva = -1
-      || findMappedSectionIndex secs last = -1 then
+    let start = tryGetRawOffset secs rva
+    if start < 0 || findMappedSectionIndex secs last = -1 then
       [||]
     else
-      let start = getRawOffset secs rva
       [| for i in 0 .. int count - 1 do
            let entry = pe.BinReader.ReadInt32(bytes, start + i * stride)
            if entry <> 0 then addrFromRVA pe.BaseAddr entry else () |]

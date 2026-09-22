@@ -60,9 +60,14 @@ type private Ctx =
     Secs: SectionHeader[]
     BaseAddr: Addr }
 
+/// Returns the file offset the given RVA reads at, or -1 where no section
+/// holds bytes for it. Nearly every reader below wants both the answer and
+/// the offset, and one scan of the section table gives them both.
+let private offsetOf ctx rva =
+  if rva > 0 then tryGetRawOffset ctx.Secs rva else -1
+
 /// Returns whether the RVA maps into one of the file's sections.
-let private isValidRva ctx rva =
-  rva > 0 && findMappedSectionIndex ctx.Secs rva <> -1
+let private isValidRva ctx rva = offsetOf ctx rva >= 0
 
 /// A per-function exception frame descriptor recovered from `.pdata`/`.xdata`.
 type internal FrameInfo =
@@ -84,10 +89,10 @@ type internal FrameInfo =
 /// following CHAININFO chains up to a small depth bound. Returns None when no
 /// handler is present.
 let rec private resolveHandlerData ctx (span: ByteSpan) unwindRva depth =
-  if depth > 8 || not (isValidRva ctx unwindRva) then
+  let off = if depth > 8 then -1 else offsetOf ctx unwindRva
+  if off < 0 then
     None
   else
-    let off = getRawOffset ctx.Secs unwindRva
     let flags = span[off] >>> 3
     let codeCount = int span[off + 2]
     let dataOff = off + 4 + ((codeCount + 1) &&& ~~~1) * 2
@@ -135,10 +140,10 @@ let private parseScopeTable ctx (span: ByteSpan) off funcBeginRva funcEndRva =
 /// IP-to-state map, spanning the IPs whose state lies in [low, high]. Returns
 /// None when the map is absent or no IP falls in the range.
 let private deriveTryRange ctx (span: ByteSpan) funcEndRva mapRva nIP low high =
-  if nIP <= 0 || not (isValidRva ctx mapRva) then
+  let mapOff = if nIP <= 0 then -1 else offsetOf ctx mapRva
+  if mapOff < 0 then
     None
   else
-    let mapOff = getRawOffset ctx.Secs mapRva
     let mutable beginRva = Int32.MaxValue
     let mutable endRva = 0
     let mutable i = 0
@@ -157,12 +162,24 @@ let private deriveTryRange ctx (span: ByteSpan) funcEndRva mapRva nIP low high =
       i <- i + 1
     if beginRva = Int32.MaxValue then None else Some(beginRva, endRva)
 
+/// Returns the addresses a try block guards, out of the RVA range the
+/// IP-to-state map gave for it. A block the map named no IP of is one whose
+/// guarded range is the whole of the function it sits in.
+let private toBlockRange ctx funcBeginRva funcEndRva range =
+  match range with
+  | Some(b, e) ->
+    addrFromRVA ctx.BaseAddr b, addrFromRVA ctx.BaseAddr e - 1UL
+  | None ->
+    let start = addrFromRVA ctx.BaseAddr funcBeginRva
+    start, addrFromRVA ctx.BaseAddr funcEndRva - 1UL
+
 /// Reads the catch-handler code addresses (dispOfHandler) of a HandlerType
 /// array, one record (20 bytes on x64) per catch clause.
 let private readCatchHandlers ctx (span: ByteSpan) handlerArrayRva nCatch =
   let handlers = ResizeArray<Addr option>()
-  if nCatch > 0 && nCatch <= 0xFFFF && isValidRva ctx handlerArrayRva then
-    let arrOff = getRawOffset ctx.Secs handlerArrayRva
+  let arrOff =
+    if nCatch > 0 && nCatch <= 0xFFFF then offsetOf ctx handlerArrayRva else -1
+  if arrOff >= 0 then
     let mutable k = 0
     while k < nCatch do
       let dispOfHandler = ctx.Reader.ReadInt32(span, arrOff + k * 20 + 12)
@@ -178,10 +195,10 @@ let private readCatchHandlers ctx (span: ByteSpan) handlerArrayRva nCatch =
 /// clause: the try block's guarded range and the catch handler address. Returns
 /// [] when the data is not an FH3 FuncInfo (e.g., FH4 or a GS-only handler).
 let private parseFuncInfo ctx span funcBeginRva funcEndRva funcInfoRva =
-  if not (isValidRva ctx funcInfoRva) then
+  let fi = offsetOf ctx funcInfoRva
+  if fi < 0 then
     []
   else
-    let fi = getRawOffset ctx.Secs funcInfoRva
     let magic = ctx.Reader.ReadInt32(span = span, offset = fi) &&& MagicMask
     if not (Array.contains magic fh3Magics) then
       []
@@ -190,11 +207,12 @@ let private parseFuncInfo ctx span funcBeginRva funcEndRva funcInfoRva =
       let dispTryMap = ctx.Reader.ReadInt32(span, fi + 16)
       let nIP = ctx.Reader.ReadInt32(span, fi + 20)
       let dispIP2State = ctx.Reader.ReadInt32(span, fi + 24)
-      if nTry <= 0 || nTry > 0xFFFF || not (isValidRva ctx dispTryMap) then
+      let tryMapOff =
+        if nTry <= 0 || nTry > 0xFFFF then -1 else offsetOf ctx dispTryMap
+      if tryMapOff < 0 then
         []
       else
         let records = ResizeArray<Addr * Addr * Addr option>()
-        let tryMapOff = getRawOffset ctx.Secs dispTryMap
         let mutable t = 0
         while t < nTry do
           let tb = tryMapOff + t * 20
@@ -203,19 +221,8 @@ let private parseFuncInfo ctx span funcBeginRva funcEndRva funcInfoRva =
           let nCatch = ctx.Reader.ReadInt32(span, tb + 12)
           let dispHandler = ctx.Reader.ReadInt32(span, tb + 16)
           let bStart, bEnd =
-            match deriveTryRange ctx
-                    span
-                    funcEndRva
-                    dispIP2State
-                    nIP
-                    tryLow
-                    tryHigh with
-            | Some(b, e) ->
-              addrFromRVA ctx.BaseAddr b, addrFromRVA ctx.BaseAddr e - 1UL
-            | None ->
-              let beginRva = addrFromRVA ctx.BaseAddr funcBeginRva
-              let endRva = addrFromRVA ctx.BaseAddr funcEndRva - 1UL
-              beginRva, endRva
+            deriveTryRange ctx span funcEndRva dispIP2State nIP tryLow tryHigh
+            |> toBlockRange ctx funcBeginRva funcEndRva
           for handler in readCatchHandlers ctx span dispHandler nCatch do
             records.Add(bStart, bEnd, handler)
           t <- t + 1
@@ -275,8 +282,9 @@ let private rangeFromIp2State entries funcBeginRva funcEndRva low high =
 /// delta-encoded from the function start; states are stored as state + 1.
 let private decodeIP2State ctx (span: ByteSpan) funcBeginRva mapRva =
   let entries = ResizeArray<int * int>()
-  if isValidRva ctx mapRva then
-    let mutable p = getRawOffset ctx.Secs mapRva
+  let offset = offsetOf ctx mapRva
+  if offset >= 0 then
+    let mutable p = offset
     let count = readUnsigned span &p
     let mutable ip = 0
     let mutable j = 0
@@ -293,8 +301,9 @@ let private decodeIP2State ctx (span: ByteSpan) funcBeginRva mapRva =
 /// count followed by variable-length HandlerType4 records).
 let private parseHandlerMap4 ctx (span: ByteSpan) handlerArrayRva =
   let handlers = ResizeArray<Addr option>()
-  if isValidRva ctx handlerArrayRva then
-    let mutable p = getRawOffset ctx.Secs handlerArrayRva
+  let offset = offsetOf ctx handlerArrayRva
+  if offset >= 0 then
+    let mutable p = offset
     let count = readUnsigned span &p
     let mutable k = 0
     while k < count && k < 0x10000 do
@@ -322,10 +331,11 @@ let private parseHandlerMap4 ctx (span: ByteSpan) handlerArrayRva =
 /// Parses a compressed (FH4) C++ FuncInfo4, yielding one handler record per
 /// catch clause. Returns [] when the data is not a usable FH4 FuncInfo.
 let private parseFuncInfo4 ctx span funcBeginRva funcEndRva funcInfoRva =
-  if not (isValidRva ctx funcInfoRva) then
+  let start = offsetOf ctx funcInfoRva
+  if start < 0 then
     []
   else
-    let mutable p = getRawOffset ctx.Secs funcInfoRva
+    let mutable p = start
     let header = (span: ByteSpan)[p] |> int
     p <- p + 1
     if (header &&& 0b10000000) <> 0 || (header &&& 0b10000) = 0 then
@@ -336,12 +346,13 @@ let private parseFuncInfo4 ctx span funcBeginRva funcEndRva funcInfoRva =
       let dispTryMap = ctx.Reader.ReadInt32(span, p)
       p <- p + 4
       let dispIP2State = ctx.Reader.ReadInt32(span, p)
-      if not (isValidRva ctx dispTryMap) then
+      let tryMapOff = offsetOf ctx dispTryMap
+      if tryMapOff < 0 then
         []
       else
         let ip2state = decodeIP2State ctx span funcBeginRva dispIP2State
         let records = ResizeArray<Addr * Addr * Addr option>()
-        let mutable tp = getRawOffset ctx.Secs dispTryMap
+        let mutable tp = tryMapOff
         let nTry = readUnsigned span &tp
         let mutable t = 0
         while t < nTry && t < 0x10000 do
@@ -390,19 +401,21 @@ let private tryFindFunctionTable ctx (pe: PE) =
     None
   | Some hdr ->
     let dir = hdr.Directory DirectoryKind.ExceptionTable
-    if dir.Size = 0 || not (isValidRva ctx dir.RVA) then
+    let offset = if dir.Size = 0 then -1 else offsetOf ctx dir.RVA
+    if offset < 0 then
       None
     else
-      Some(getRawOffset ctx.Secs dir.RVA, dir.Size / 12)
+      Some(offset, dir.Size / 12)
 
 /// Returns whether the UNWIND_INFO at the given RVA chains to another one.
 /// A range whose entry chains carries a function on from where its previous
 /// range left off, and so is the start of nothing.
 let private isChainedEntry ctx (span: ByteSpan) unwindRva =
-  if not (isValidRva ctx unwindRva) then
+  let off = offsetOf ctx unwindRva
+  if off < 0 then
     false
   else
-    let flags = span[getRawOffset ctx.Secs unwindRva] >>> 3
+    let flags = span[off] >>> 3
     (flags &&& ChainInfo) <> 0uy
 
 let parse (pe: PE) (bytes: byte[]) =
