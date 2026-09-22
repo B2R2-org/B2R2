@@ -39,26 +39,57 @@ let magicToWordSize = function
   | PEMagic.PE32Plus -> WordSize.Bit64
   | _ -> raise InvalidWordSizeException
 
-let parsePDB reader (pdbBytes: byte[]) =
+let readPDB reader expected (pdbBytes: byte[]) =
   let span = ReadOnlySpan pdbBytes
   if PDB.isValidHeader span reader then () else raise InvalidFileFormatException
-  PDB.parse span reader
+  PDB.parse span reader expected
+
+/// Returns the symbols the given PDB holds. Whatever stops the read -- the
+/// magic it leads with, the shape of the file system inside it, a stream
+/// reaching past its end -- says the one thing a caller can act on: this is
+/// not a PDB to read symbols out of. So every one of them reaches the caller
+/// the same way, rather than as whichever read happened to find it first.
+let parsePDB reader expected pdbBytes =
+  try readPDB reader expected pdbBytes
+  with e when not (Terminator.isCritical e) -> raise InvalidFileFormatException
 
 /// Returns the symbols a PDB found beside the image holds, or none when there
 /// is no reading it. Such a PDB is not one a caller asked for, so nothing
 /// about it is a reason to fail to load the image it sits next to: not that it
 /// is a portable PDB, which is what every .NET assembly built today ships and
 /// is not the format read here, nor that it cannot be read at all.
-let tryParsePDB reader pdbPath =
-  try IO.File.ReadAllBytes pdbPath |> parsePDB reader
+let tryParsePDB reader expected pdbPath =
+  try IO.File.ReadAllBytes pdbPath |> parsePDB reader expected
   with e when not (Terminator.isCritical e) -> []
 
-let getPDBSymbols reader (execpath: string) = function
-  | [||] ->
-    let pdbPath = IO.Path.ChangeExtension(execpath, "pdb")
-    if IO.File.Exists pdbPath then tryParsePDB reader pdbPath else []
-  | rawpdb ->
-    parsePDB reader rawpdb
+/// Returns the paths to look for an image's PDB at, nearest first: the name
+/// the image records, taken beside the image, and then the image's own name
+/// under a .pdb extension. Only the name at the end of the recorded path
+/// carries over, because the path itself is the one on the machine that built
+/// the image: following it whole would have this reader open whatever file an
+/// image names, anywhere it names one, including across a network.
+let getPDBSearchPaths (execpath: string) (cv: CodeViewInfo) =
+  let fallback = IO.Path.ChangeExtension(execpath, "pdb")
+  let dir = IO.Path.GetDirectoryName fallback
+  let name = cv.PDBPath.Substring(cv.PDBPath.LastIndexOfAny [| '\\'; '/' |] + 1)
+  if name = "" || isNull dir then [ fallback ]
+  else [ IO.Path.Combine(dir, name); fallback ]
+
+/// Returns the symbols the PDB of the given image holds, where one is found
+/// beside it. An image that names no PDB is not one to go looking for a file
+/// next to, since nothing would say whether what turned up belonged to it.
+let getPDBBesideImage reader execpath cv =
+  match cv with
+  | None ->
+    []
+  | Some info ->
+    match List.tryFind IO.File.Exists (getPDBSearchPaths execpath info) with
+    | Some path -> tryParsePDB reader cv path
+    | None -> []
+
+let getPDBSymbols reader execpath cv = function
+  | [||] -> getPDBBesideImage reader execpath cv
+  | rawpdb -> parsePDB reader cv rawpdb
 
 let updatePDBInfo baseAddr secs lst (sym: Symbol) =
   let secNum = int sym.Segment - 1
@@ -137,6 +168,10 @@ let parseImage execpath rawpdb baseAddr bytes reader (hdrs: Header) opt =
   let wordSize = magicToWordSize opt.Magic
   let baseAddr = defaultArg baseAddr opt.ImageBase
   let secs = hdrs.SectionHeaders
+  let symbols =
+    lazy
+      let cv = CodeViewInfo.tryFind bytes reader secs opt
+      getPDBSymbols reader execpath cv rawpdb |> buildPDBInfo baseAddr secs
   { Header = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
@@ -146,8 +181,7 @@ let parseImage execpath rawpdb baseAddr bytes reader (hdrs: Header) opt =
       lazy (ExportedSymbolStore(baseAddr, bytes, reader, opt, secs))
     RelocBlocks = lazy (BaseRelocationTable.parse bytes reader opt secs)
     WordSize = wordSize
-    Symbols =
-      lazy (getPDBSymbols reader execpath rawpdb |> buildPDBInfo baseAddr secs)
+    Symbols = symbols
     InvalidAddrRanges = computeInvalidAddrRanges wordSize baseAddr secs
     NotInFileRanges = computeNotInFileRanges wordSize baseAddr secs
     ExecutableRanges = execRanges baseAddr secs
