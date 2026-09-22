@@ -188,7 +188,7 @@ module TransformerTuiRenderer =
       "  Enter                          Insert a new line"
       "  ;; then Enter                  Execute the current input"
       "  Tab / Shift+Tab                Apply completion / insert spaces"
-      "  Up / Down                      Browse history or suggestions"
+      "  Up / Down                      Browse history, suggestions, or lines"
       "  Ctrl+N / Ctrl+P                Select next / previous completion"
       "  Ctrl+C                         Cancel a running action"
       "  Ctrl+D                         Leave when input is empty"

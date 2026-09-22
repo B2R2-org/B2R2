@@ -242,10 +242,25 @@ module TransformerTuiInputController =
     submitPhrase model.Input model
 
   let private isBrowsingHistory model =
-    Option.isSome (model: TransformerTuiModel).HistoryIndex
+    let model: TransformerTuiModel = model
+    model.ShellInputMode = TuiShellInputMode.HistoryBrowsing
+
+  let private isEditingHistoryInput model =
+    let model: TransformerTuiModel = model
+    model.ShellInputMode = TuiShellInputMode.HistoryEditing
+
+  let private isNormalInput model =
+    let model: TransformerTuiModel = model
+    model.ShellInputMode = TuiShellInputMode.Normal
 
   let private hasMultipleInputLines model =
     (model: TransformerTuiModel).Input.Contains '\n'
+
+  let private hasInput model =
+    not (String.IsNullOrEmpty (model: TransformerTuiModel).Input)
+
+  let private hasSuggestions completion =
+    not (List.isEmpty completion.Items)
 
   let private insertPipeOperator model =
     let input = (model: TransformerTuiModel).Input
@@ -257,7 +272,7 @@ module TransformerTuiInputController =
     let before = before.TrimEnd()
     let after = after.TrimStart()
     let input = before + " |> " + after
-    TransformerTuiModel.setInput input (before.Length + 4) model
+    TransformerTuiModel.replaceInput input (before.Length + 4) model
 
   let private isPipeShortcut control (key: ConsoleKeyInfo) =
     if key.Key = ConsoleKey.Spacebar then
@@ -368,6 +383,12 @@ module TransformerTuiInputController =
       | ConsoleKey.RightArrow ->
         TransformerTuiModel.moveViewCursor 0 1 shift model
         |> TuiInputResult.Update
+      | ConsoleKey.Home ->
+        TransformerTuiModel.moveViewToFirstLine shift model
+        |> TuiInputResult.Update
+      | ConsoleKey.End ->
+        TransformerTuiModel.moveViewToLastLine shift model
+        |> TuiInputResult.Update
       | _ ->
         TuiInputResult.Update model
 
@@ -381,6 +402,14 @@ module TransformerTuiInputController =
     | ConsoleKey.Enter
     | ConsoleKey.F4 ->
       TransformerTuiModel.openSelectedViewPane model |> TuiInputResult.Update
+    | ConsoleKey.Home ->
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptToFirstCommand width height model
+      |> TuiInputResult.Update
+    | ConsoleKey.End ->
+      let width, height = transcriptPageSize model
+      TransformerTuiModel.moveTranscriptToLastCommand width height model
+      |> TuiInputResult.Update
     | ConsoleKey.PageUp ->
       let width, height = transcriptPageSize model
       TransformerTuiModel.moveTranscriptCursorInView
@@ -554,6 +583,46 @@ module TransformerTuiInputController =
         | ConsoleKey.Tab ->
           TransformerTuiModel.applyCompletion completion model
           |> TuiInputResult.Update
+        | ConsoleKey.Home when isBrowsingHistory model ->
+          TransformerTuiModel.historyOldest model |> TuiInputResult.Update
+        | ConsoleKey.End when isBrowsingHistory model ->
+          TransformerTuiModel.historyNewest model |> TuiInputResult.Update
+        | ConsoleKey.UpArrow when isBrowsingHistory model ->
+          TransformerTuiModel.historyPrevious model |> TuiInputResult.Update
+        | ConsoleKey.DownArrow when isBrowsingHistory model ->
+          TransformerTuiModel.historyNext model |> TuiInputResult.Update
+        | ConsoleKey.Home when model.Overlay = TuiOverlay.None
+                               && model.Focus = TuiFocus.Shell
+                               && isNormalInput model
+                               && hasInput model
+                               && hasSuggestions completion ->
+          let count = List.length completion.Items
+          let offset = -model.SuggestionIndex
+          TransformerTuiModel.selectSuggestion offset count model
+          |> TuiInputResult.Update
+        | ConsoleKey.End when model.Overlay = TuiOverlay.None
+                              && model.Focus = TuiFocus.Shell
+                              && isNormalInput model
+                              && hasSuggestions completion ->
+          let count = List.length completion.Items
+          let offset = count - 1 - model.SuggestionIndex
+          TransformerTuiModel.selectSuggestion offset count model
+          |> TuiInputResult.Update
+        | ConsoleKey.UpArrow when model.Overlay = TuiOverlay.None
+                                 && model.Focus = TuiFocus.Shell
+                                 && isNormalInput model
+                                 && hasInput model
+                                 && hasSuggestions completion ->
+          let count = List.length completion.Items
+          TransformerTuiModel.selectSuggestion -1 count model
+          |> TuiInputResult.Update
+        | ConsoleKey.DownArrow when model.Overlay = TuiOverlay.None
+                                   && model.Focus = TuiFocus.Shell
+                                   && isNormalInput model
+                                   && hasSuggestions completion ->
+          let count = List.length completion.Items
+          TransformerTuiModel.selectSuggestion 1 count model
+          |> TuiInputResult.Update
         | ConsoleKey.UpArrow when model.Overlay = TuiOverlay.None
                                  && model.Focus = TuiFocus.Shell
                                  && hasMultipleInputLines model ->
@@ -562,21 +631,15 @@ module TransformerTuiInputController =
                                    && model.Focus = TuiFocus.Shell
                                    && hasMultipleInputLines model ->
           TransformerTuiModel.moveCursorLine 1 model |> TuiInputResult.Update
-        | ConsoleKey.UpArrow when isBrowsingHistory model ->
+        | ConsoleKey.UpArrow when isEditingHistoryInput model ->
           TransformerTuiModel.historyPrevious model |> TuiInputResult.Update
-        | ConsoleKey.DownArrow when isBrowsingHistory model ->
+        | ConsoleKey.DownArrow when isEditingHistoryInput model ->
           TransformerTuiModel.historyNext model |> TuiInputResult.Update
-        | ConsoleKey.UpArrow when not (String.IsNullOrEmpty model.Input) ->
-          let count = List.length completion.Items
-          TransformerTuiModel.selectSuggestion -1 count model
-          |> TuiInputResult.Update
-        | ConsoleKey.DownArrow when not (String.IsNullOrEmpty model.Input) ->
-          let count = List.length completion.Items
-          TransformerTuiModel.selectSuggestion 1 count model
-          |> TuiInputResult.Update
-        | ConsoleKey.UpArrow ->
+        | ConsoleKey.UpArrow when model.Overlay = TuiOverlay.None
+                                 && model.Focus = TuiFocus.Shell ->
           TransformerTuiModel.historyPrevious model |> TuiInputResult.Update
-        | ConsoleKey.DownArrow ->
+        | ConsoleKey.DownArrow when model.Overlay = TuiOverlay.None
+                                   && model.Focus = TuiFocus.Shell ->
           TransformerTuiModel.historyNext model |> TuiInputResult.Update
         | ConsoleKey.LeftArrow ->
           TransformerTuiModel.moveCursor -1 model |> TuiInputResult.Update

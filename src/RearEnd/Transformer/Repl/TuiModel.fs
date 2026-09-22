@@ -211,6 +211,12 @@ module TuiTranscript =
 
   let commandCount transcript = transcript.CommandCount
 
+[<RequireQualifiedAccess>]
+type TuiShellInputMode =
+  | Normal
+  | HistoryBrowsing
+  | HistoryEditing
+
 /// UI state independent from terminal rendering and key reading.
 type TransformerTuiModel =
   { Session: TransformerReplState
@@ -231,6 +237,8 @@ type TransformerTuiModel =
     IsFindingTranscript: bool
     ViewPane: TuiViewPane option
     HistoryIndex: int option
+    HistoryDraft: (string * int) option
+    ShellInputMode: TuiShellInputMode
     SuggestionIndex: int
     Overlay: TuiOverlay
     Focus: TuiFocus
@@ -320,6 +328,8 @@ module TransformerTuiModel =
       IsFindingTranscript = false
       ViewPane = None
       HistoryIndex = None
+      HistoryDraft = None
+      ShellInputMode = TuiShellInputMode.Normal
       SuggestionIndex = 0
       Overlay = TuiOverlay.None
       Focus = TuiFocus.Shell
@@ -478,17 +488,49 @@ module TransformerTuiModel =
         Focus = TuiFocus.Transcript
         FoldTarget = target }
 
-  let setInput input cursor model =
+  let private setInputState input cursor model =
     { model with
         Input = input
         Cursor = max 0 (min cursor input.Length)
         PreferredInputColumn = None
         Focus = TuiFocus.Shell
-        HistoryIndex = None
         SuggestionIndex = 0
         ScrollOffset = 0
         TranscriptViewportStart = None }
     |> clearTranscriptFocusStatus
+
+  let private setNormalInput input cursor model =
+    { setInputState input cursor model with
+        HistoryIndex = None
+        HistoryDraft = None
+        ShellInputMode = TuiShellInputMode.Normal }
+
+  let setInput input cursor model = setNormalInput input cursor model
+
+  let private editInput input cursor model =
+    let mode =
+      match model.ShellInputMode with
+      | TuiShellInputMode.HistoryBrowsing
+      | TuiShellInputMode.HistoryEditing ->
+        TuiShellInputMode.HistoryEditing
+      | TuiShellInputMode.Normal ->
+        TuiShellInputMode.Normal
+    let historyIndex =
+      if mode = TuiShellInputMode.HistoryEditing then
+        model.HistoryIndex
+      else
+        None
+    let historyDraft =
+      if mode = TuiShellInputMode.HistoryEditing then
+        model.HistoryDraft
+      else
+        None
+    { setInputState input cursor model with
+        HistoryIndex = historyIndex
+        HistoryDraft = historyDraft
+        ShellInputMode = mode }
+
+  let replaceInput input cursor model = editInput input cursor model
 
   let clearInput model = setInput "" 0 model
 
@@ -559,7 +601,7 @@ module TransformerTuiModel =
   let insert character model =
     let before = model.Input[..model.Cursor - 1]
     let after = model.Input[model.Cursor..]
-    setInput (before + string character + after) (model.Cursor + 1) model
+    editInput (before + string character + after) (model.Cursor + 1) model
 
   let insertText text model =
     if String.IsNullOrEmpty text then
@@ -567,7 +609,7 @@ module TransformerTuiModel =
     else
       let before = model.Input[..model.Cursor - 1]
       let after = model.Input[model.Cursor..]
-      setInput (before + text + after) (model.Cursor + text.Length) model
+      editInput (before + text + after) (model.Cursor + text.Length) model
 
   let backspace model =
     if model.Cursor = 0 then
@@ -575,7 +617,7 @@ module TransformerTuiModel =
     else
       let before = model.Input[..model.Cursor - 2]
       let after = model.Input[model.Cursor..]
-      setInput (before + after) (model.Cursor - 1) model
+      editInput (before + after) (model.Cursor - 1) model
 
   let delete model =
     if model.Cursor >= model.Input.Length then
@@ -583,20 +625,41 @@ module TransformerTuiModel =
     else
       let before = model.Input[..model.Cursor - 1]
       let after = model.Input[(model.Cursor + 1)..]
-      setInput (before + after) model.Cursor model
+      editInput (before + after) model.Cursor model
+
+  let private inputModeAfterCursorMove model =
+    match model.ShellInputMode with
+    | TuiShellInputMode.HistoryBrowsing ->
+      TuiShellInputMode.HistoryEditing
+    | mode ->
+      mode
+
+  let private historyIndexAfterCursorMove model =
+    if inputModeAfterCursorMove model = TuiShellInputMode.HistoryEditing then
+      model.HistoryIndex
+    else
+      None
 
   let moveCursor offset (model: TransformerTuiModel) =
     { model with
         Cursor = max 0 (min (model.Cursor + offset) model.Input.Length)
-        PreferredInputColumn = None }
+        PreferredInputColumn = None
+        HistoryIndex = historyIndexAfterCursorMove model
+        ShellInputMode = inputModeAfterCursorMove model }
 
   let moveHome (model: TransformerTuiModel) =
-    { model with Cursor = 0; PreferredInputColumn = None }
+    { model with
+        Cursor = 0
+        PreferredInputColumn = None
+        HistoryIndex = historyIndexAfterCursorMove model
+        ShellInputMode = inputModeAfterCursorMove model }
 
   let moveEnd (model: TransformerTuiModel) =
     { model with
         Cursor = model.Input.Length
-        PreferredInputColumn = None }
+        PreferredInputColumn = None
+        HistoryIndex = historyIndexAfterCursorMove model
+        ShellInputMode = inputModeAfterCursorMove model }
 
   let moveCursorLine direction (model: TransformerTuiModel) =
     let input = model.Input
@@ -623,17 +686,19 @@ module TransformerTuiModel =
     | Some startIndex, Some endIndex ->
       { model with
           Cursor = min (startIndex + column) endIndex
-          PreferredInputColumn = Some column }
+          PreferredInputColumn = Some column
+          HistoryIndex = historyIndexAfterCursorMove model
+          ShellInputMode = inputModeAfterCursorMove model }
     | _ ->
       model
 
   let deleteToStart model =
     let input = model.Input[model.Cursor..]
-    setInput input 0 model
+    editInput input 0 model
 
   let deleteToEnd model =
     let input = model.Input[..model.Cursor - 1]
-    setInput input model.Cursor model
+    editInput input model.Cursor model
 
   let deleteWord model =
     let rec skipSpaces index =
@@ -649,10 +714,30 @@ module TransformerTuiModel =
     let start = skipWord (skipSpaces model.Cursor)
     let before = model.Input[..start - 1]
     let after = model.Input[model.Cursor..]
-    setInput (before + after) start model
+    editInput (before + after) start model
 
   let private historyItem index model =
     model.Session.CommandHistory |> List.tryItem index
+
+  let private historyDraft model =
+    match model.ShellInputMode with
+    | TuiShellInputMode.Normal ->
+      Some(model.Input, model.Cursor)
+    | _ ->
+      model.HistoryDraft
+
+  let private setHistoryInput index command model =
+    { setInputState command command.Length model with
+        HistoryIndex = Some index
+        HistoryDraft = historyDraft model
+        ShellInputMode = TuiShellInputMode.HistoryBrowsing }
+
+  let private restoreHistoryDraft model =
+    match model.HistoryDraft with
+    | Some(input, cursor) ->
+      setNormalInput input cursor model
+    | None ->
+      setNormalInput "" 0 model
 
   let historyPrevious model =
     let index =
@@ -661,7 +746,7 @@ module TransformerTuiModel =
       |> Option.defaultValue 0
     match historyItem index model with
     | Some command ->
-      { setInput command command.Length model with HistoryIndex = Some index }
+      setHistoryInput index command model
     | None ->
       model
 
@@ -671,12 +756,26 @@ module TransformerTuiModel =
       let index = index - 1
       match historyItem index model with
       | Some command ->
-        { setInput command command.Length model with
-            HistoryIndex = Some index }
+        setHistoryInput index command model
       | None ->
         model
     | Some _ ->
-      clearInput model
+      restoreHistoryDraft model
+    | None ->
+      model
+
+  let historyOldest model =
+    let index = List.length model.Session.CommandHistory - 1
+    match historyItem index model with
+    | Some command ->
+      setHistoryInput index command model
+    | None ->
+      model
+
+  let historyNewest model =
+    match historyItem 0 model with
+    | Some command ->
+      setHistoryInput 0 command model
     | None ->
       model
 
@@ -735,7 +834,7 @@ module TransformerTuiModel =
   let applyCompletion completion model =
     match Completion.apply completion model.SuggestionIndex model.Input with
     | Some(input, cursor) ->
-      setInput input cursor model
+      editInput input cursor model
     | None ->
       model
 
@@ -1100,6 +1199,26 @@ module TransformerTuiModel =
         FoldTarget = blockAtLine cursor.Line transcript
         Status = "Transcript focused" }
 
+  let private selectTranscriptCommand width height positions index model =
+    let positions: int list = positions
+    let line = positions[index]
+    let cursor = { Line = line; Column = 0 }
+    let next =
+      { model with
+          Focus = TuiFocus.Transcript
+          TranscriptCursor = cursor
+          FoldTarget = Some(index + 1)
+          ScrollOffset = 0
+          Status = $"Selected result #{index + 1}" }
+    let lines = transcriptDisplayRows width height next
+    let cursorIndex =
+      transcriptDisplayCursorIndex 0 width height next
+      |> Option.defaultValue 0
+    let start =
+      cursorIndex - (height / 2)
+      |> clampViewportStart height (List.length lines)
+    { next with TranscriptViewportStart = Some start }
+
   let moveTranscriptCommand width height offset model =
     let positions = commandPositions (transcriptLines model)
     if List.isEmpty positions then
@@ -1110,23 +1229,22 @@ module TransformerTuiModel =
         |> List.tryFindIndex (fun line -> line >= model.TranscriptCursor.Line)
         |> Option.defaultValue (List.length positions - 1)
       let index = max 0 (min (List.length positions - 1) (current + offset))
-      let line = positions[index]
-      let cursor = { Line = line; Column = 0 }
-      let next =
-        { model with
-            Focus = TuiFocus.Transcript
-            TranscriptCursor = cursor
-            FoldTarget = Some(index + 1)
-            ScrollOffset = 0
-            Status = $"Selected result #{index + 1}" }
-      let lines = transcriptDisplayRows width height next
-      let cursorIndex =
-        transcriptDisplayCursorIndex 0 width height next
-        |> Option.defaultValue 0
-      let start =
-        cursorIndex - (height / 2)
-        |> clampViewportStart height (List.length lines)
-      { next with TranscriptViewportStart = Some start }
+      selectTranscriptCommand width height positions index model
+
+  let moveTranscriptToFirstCommand width height model =
+    let positions = commandPositions (transcriptLines model)
+    if List.isEmpty positions then
+      { model with Status = "There is no command in the transcript" }
+    else
+      selectTranscriptCommand width height positions 0 model
+
+  let moveTranscriptToLastCommand width height model =
+    let positions = commandPositions (transcriptLines model)
+    if List.isEmpty positions then
+      { model with Status = "There is no command in the transcript" }
+    else
+      let index = List.length positions - 1
+      selectTranscriptCommand width height positions index model
 
   let setTranscriptFind active model =
     { model with IsFindingTranscript = active; TranscriptFindText = "" }
@@ -1295,6 +1413,38 @@ module TransformerTuiModel =
     match model.ViewPane with
     | Some pane ->
       { model with ViewPane = Some(updater pane) }
+    | None ->
+      model
+
+  let private moveViewToLine line column extend model =
+    let update pane =
+      let anchor =
+        if extend then
+          pane.Anchor |> Option.defaultValue pane.Cursor |> Some
+        else
+          None
+      let line = max 0 (min line (pane.Lines.Length - 1))
+      let maximumColumn =
+        pane.Lines
+        |> Array.tryItem line
+        |> Option.map (fun line -> line.Text.Length)
+        |> Option.defaultValue 0
+      let cursor = { Line = line; Column = min column maximumColumn }
+      { pane with Cursor = cursor; Anchor = anchor }
+    updateViewPane update model
+
+  let moveViewToFirstLine extend model = moveViewToLine 0 0 extend model
+
+  let moveViewToLastLine extend model =
+    match model.ViewPane with
+    | Some pane ->
+      let line = pane.Lines.Length - 1
+      let column =
+        pane.Lines
+        |> Array.tryItem line
+        |> Option.map (fun line -> line.Text.Length)
+        |> Option.defaultValue 0
+      moveViewToLine line column extend model
     | None ->
       model
 
