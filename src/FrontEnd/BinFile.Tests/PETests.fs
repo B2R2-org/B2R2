@@ -90,6 +90,11 @@ type PETests() =
   /// path (PE images carry no symbols of their own).
   static let x64PdbFile = parseFileWithPdb "pe_x64_pdb"
 
+  /// The same source built with /PDBSTRIPPED, whose PDB is the public one a
+  /// symbol server hands out: every private symbol is gone, so each function
+  /// is named by a public symbol record and by nothing else.
+  static let x64PdbStrippedFile = parseFileWithPdb "pe_x64_pdb_stripped"
+
   /// A COFF object file (.obj), exercising the COFF-only path: no entry point,
   /// an object kind, and a COFF symbol table (no PDB needed).
   static let x64ObjFile = parseObjFile "pe_x64_obj"
@@ -396,6 +401,68 @@ type PETests() =
   [<TestMethod>]
   member _.``[PE] x64 pdb function symbol test (2)``() =
     assertFuncSymbolExistence x64PdbFile 0x140001020UL "helper"
+
+  [<TestMethod>]
+  member _.``[PE] x64 stripped pdb function symbol test (1)``() =
+    assertFuncSymbolExistence x64PdbStrippedFile 0x140001040UL "main"
+
+  [<TestMethod>]
+  member _.``[PE] x64 stripped pdb function symbol test (2)``() =
+    assertFuncSymbolExistence x64PdbStrippedFile 0x140001020UL "helper"
+
+  /// A public symbol record says whether it names a function, and in a PDB
+  /// stripped of private symbols it is the only record that says so at all.
+  [<TestMethod>]
+  member _.``[PE] x64 stripped pdb symbol kind test``() =
+    let tbl = (x64PdbStrippedFile :> IBinFile).SymbolTable.Value
+    match tbl.TryFindSymbolByAddr 0x140001020UL with
+    | Ok s ->
+      Assert.AreEqual<string>("helper", s.Name)
+      Assert.AreEqual<BinSymbolKind>(FunctionSymbol, s.Kind)
+    | Error _ ->
+      Assert.Fail()
+
+  /// A leaf function needs no unwinding, so .pdata names main and nothing
+  /// else here. What makes helper a function the image knows about is the
+  /// flag its public symbol carries, and there is no other trace of it.
+  /// An image names its PDB by more than the GUID that is its build ID: the
+  /// age tells one write of that PDB from the next, and the path says what
+  /// the linker called it.
+  [<TestMethod>]
+  member _.``[PE] x64 pdb code view record test``() =
+    let bytes = ZIPReader.readPEFixture "pe_x64_pdb"
+    let hdrs = Header.parse bytes (BinReader.Init Endian.Little)
+    let reader = BinReader.Init Endian.Little
+    match hdrs.OptionalHeader with
+    | Some hdr ->
+      match CodeViewInfo.tryFind bytes reader hdrs.SectionHeaders hdr with
+      | Some cv ->
+        Assert.AreEqual<int>(1, cv.Age)
+        Assert.AreEqual<int>(16, cv.Guid.Length)
+        Assert.AreEqual<bool>(true, cv.PDBPath.EndsWith "pe_x64_pdb.pdb")
+      | None ->
+        Assert.Fail()
+    | None ->
+      Assert.Fail()
+
+  /// A PDB written for another build names another GUID, and the addresses it
+  /// holds are that build's rather than this one's. Reading it would put one
+  /// image's names on another image's addresses, so it yields no symbols at
+  /// all -- here the PDB of the full build, handed to the stripped image.
+  [<TestMethod>]
+  member _.``[PE] x64 pdb built for another image test``() =
+    let name = "pe_x64_pdb_stripped"
+    let exe = ZIPReader.readBytes PEBinary (name + ".zip") (name + ".exe")
+    let pdb = ZIPReader.readBytes PEBinary "pe_x64_pdb.zip" "pe_x64_pdb.pdb"
+    let file = PEBinFile(name + ".exe", exe, None, pdb) :> IBinFile
+    Assert.AreEqual<int>(0, file.SymbolTable.Value.Symbols.Length)
+
+  [<TestMethod>]
+  member _.``[PE] x64 stripped pdb function addresses test``() =
+    let file = x64PdbStrippedFile :> IBinFile
+    let addrs = file.Structure.Value.FunctionAddresses
+    Assert.AreEqual<bool>(true, Array.contains 0x140001040UL addrs)
+    Assert.AreEqual<bool>(true, Array.contains 0x140001020UL addrs)
 
   [<TestMethod>]
   member _.``[PE] x64 obj has no entry point test``() =
