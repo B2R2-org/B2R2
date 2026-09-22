@@ -210,13 +210,13 @@ let inline isValidAddr pe addr =
   IntervalSet.containsAddr addr pe.InvalidAddrRanges |> not
 
 let inline isValidRange pe range =
-  IntervalSet.findAll range pe.InvalidAddrRanges |> List.isEmpty
+  IntervalSet.overlapsRange range pe.InvalidAddrRanges |> not
 
 let inline isAddrMappedToFile pe addr =
   IntervalSet.containsAddr addr pe.NotInFileRanges |> not
 
 let inline isRangeMappedToFile pe range =
-  IntervalSet.findAll range pe.NotInFileRanges |> List.isEmpty
+  IntervalSet.overlapsRange range pe.NotInFileRanges |> not
 
 let inline isExecutableAddr pe addr =
   IntervalSet.containsAddr addr pe.ExecutableRanges

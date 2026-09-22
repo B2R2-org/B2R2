@@ -548,6 +548,49 @@ type PETests() =
     Assert.AreEqual<bool>(false, f.IsAddrMappedToFile 0x140003220UL)
 
   [<TestMethod>]
+  member _.``[PE] x64 valid range test``() =
+    (* .text reaches as far as its virtual size says, which leaves the rest of
+       the page it ends in a gap before .rdata begins. A range with both ends
+       mapped still crosses that gap, so checking the ends is not enough. *)
+    let f = x64File :> IBinFile
+    let inside: AddrRange = { Min = 0x140001000UL; Max = 0x140001100UL }
+    let crossing: AddrRange = { Min = 0x140001000UL; Max = 0x140002000UL }
+    let past: AddrRange = { Min = 0x140006000UL; Max = 0x140006100UL }
+    Assert.AreEqual<bool>(true, f.IsValidRange inside)
+    Assert.AreEqual<bool>(false, f.IsValidRange crossing)
+    Assert.AreEqual<bool>(false, f.IsValidRange past)
+
+  [<TestMethod>]
+  member _.``[PE] x64 valid range boundary test``() =
+    (* .text spans 0x140001000-0x140001c27, and one past its end is the gap. *)
+    let f = x64File :> IBinFile
+    let first: AddrRange = { Min = 0x140001000UL; Max = 0x140001000UL }
+    let last: AddrRange = { Min = 0x140001c27UL; Max = 0x140001c27UL }
+    let onePast: AddrRange = { Min = 0x140001c28UL; Max = 0x140001c28UL }
+    let whole: AddrRange = { Min = 0x140001000UL; Max = 0x140001c27UL }
+    Assert.AreEqual<bool>(true, f.IsValidRange first)
+    Assert.AreEqual<bool>(true, f.IsValidRange last)
+    Assert.AreEqual<bool>(false, f.IsValidRange onePast)
+    Assert.AreEqual<bool>(true, f.IsValidRange whole)
+
+  [<TestMethod>]
+  member _.``[PE] x64 range mapped to file test``() =
+    (* .data takes more room in memory than the file gives it, so its tail is
+       an address of the image that reads no byte of the file. Where the file
+       gives a section more room than memory does, as it does .text, the two
+       questions part the other way: what is past the end of .text in memory
+       is no address of the image, though the file holds bytes there. *)
+    let f = x64File :> IBinFile
+    let backed: AddrRange = { Min = 0x140003000UL; Max = 0x1400031ffUL }
+    let tail: AddrRange = { Min = 0x140003200UL; Max = 0x14000322fUL }
+    let onePast: AddrRange = { Min = 0x140001c28UL; Max = 0x140001c28UL }
+    Assert.AreEqual<bool>(true, f.IsRangeMappedToFile backed)
+    Assert.AreEqual<bool>(true, f.IsValidRange tail)
+    Assert.AreEqual<bool>(false, f.IsRangeMappedToFile tail)
+    Assert.AreEqual<bool>(false, f.IsValidRange onePast)
+    Assert.AreEqual<bool>(true, f.IsRangeMappedToFile onePast)
+
+  [<TestMethod>]
   member _.``[PE] x64 executable address test``() =
     let f = x64File :> IBinFile
     Assert.AreEqual<bool>(true, f.IsExecutableAddr 0x140001000UL) (* .text *)
