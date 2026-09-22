@@ -821,6 +821,22 @@ type MachTests() =
     Assert.AreEqual<bool>(true, ptr.IsNull)
 
   [<TestMethod>]
+  member _.``[Mach] X64 empty text section has no code test``() =
+    (* A __text section that holds nothing is no more code than a missing one,
+       and neither of them points at file bytes. *)
+    let structure = (x64DyldInfoFile :> IBinFile).Structure.Value
+    Assert.AreEqual<bool>(true, structure.CodeSectionPointer.IsNull)
+    Assert.AreEqual<bool>(true, (structure.GetSectionPointer "__text").IsNull)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 zero-fill section pointer is null test``() =
+    (* A zero-fill section takes up memory but no file bytes, and the section
+       offset it keeps is zero, which names the Mach header. *)
+    let structure = (x64RelocFile :> IBinFile).Structure.Value
+    let ptr = structure.GetSectionPointer "__common"
+    Assert.AreEqual<bool>(true, ptr.IsNull)
+
+  [<TestMethod>]
   member _.``[Mach] X64 LC_UNIXTHREAD entry point test``() =
     (* The thread state spells out an unslid address, not an offset. *)
     let entry = (x64UnixThreadFile :> IBinFile).EntryPoint

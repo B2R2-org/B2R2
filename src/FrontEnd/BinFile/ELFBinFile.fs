@@ -247,6 +247,22 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let binSections = lazy (shdrs.Value |> Array.map toBinSection)
 
+  /// Returns a pointer to the file bytes of the given section, or a null
+  /// pointer when the section has none to point at. An SHT_NOBITS section is
+  /// given a nominal file offset, but the bytes there belong to whatever else
+  /// the file keeps at that offset.
+  let toSectionPointer (sec: SectionHeader) =
+    let size = secFileSize sec
+    if size = 0UL then
+      BinFilePointer.Null
+    else
+      BinFilePointer.CreateFileBacked(
+        sec.SecAddr,
+        sec.SecAddr + size - 1UL,
+        int sec.SecOffset,
+        int sec.SecOffset + int size - 1
+      )
+
   let structure =
     Some { new IBinStructure with
       member _.Sections with get() = binSections.Value
@@ -255,29 +271,15 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         shdrs.Value
         |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
         |> function
-          | Some s ->
-            BinFilePointer.CreateFileBacked(
-              s.SecAddr,
-              s.SecAddr + s.SecSize - 1UL,
-              int s.SecOffset,
-              int s.SecOffset + int s.SecSize - 1
-            )
-          | None ->
-            BinFilePointer.Null
+          | Some sec -> toSectionPointer sec
+          | None -> BinFilePointer.Null
 
       member _.GetSectionPointer name =
         shdrs.Value
         |> Array.tryFind (fun sec -> sec.SecName = name)
         |> function
-          | Some sec ->
-            BinFilePointer.CreateFileBacked(
-              sec.SecAddr,
-              sec.SecAddr + sec.SecSize - 1UL,
-              int sec.SecOffset,
-              int sec.SecOffset + int sec.SecSize - 1
-            )
-          | None ->
-            BinFilePointer.Null
+          | Some sec -> toSectionPointer sec
+          | None -> BinFilePointer.Null
 
       member _.TryFindSectionByName name =
         shdrs.Value

@@ -275,13 +275,16 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
     else
       UnknownSection
 
+  let secFileSize (sec: Section) =
+    if isZeroFillSection sec then 0UL else sec.SecSize
+
   let toBinSection (sec: Section) =
     { Name = sec.SecName
       Address = sec.SecAddr
       Size = sec.SecSize
       Offset =
         if isZeroFillSection sec then None else Some(uint64 sec.SecOffset)
-      FileSize = if isZeroFillSection sec then 0UL else sec.SecSize
+      FileSize = secFileSize sec
       Permission = secPermission sec
       Kind = secKind sec }
 
@@ -293,13 +296,29 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
   let tryFindSectionByOffset (offset: uint32) =
     secs.Value
     |> Array.tryFind (fun sec ->
-      let fileSize = if isZeroFillSection sec then 0UL else sec.SecSize
+      let fileSize = secFileSize sec
       let secOffset = uint64 sec.SecOffset
       fileSize > 0UL
       && uint64 offset >= secOffset
       && uint64 offset < secOffset + fileSize)
 
   let binSections = lazy (secs.Value |> Array.map toBinSection)
+
+  /// Returns a pointer to the file bytes of the given section, or a null
+  /// pointer when the section has none to point at. A zero-fill section keeps
+  /// a section offset of zero, which names the Mach header rather than bytes
+  /// of its own.
+  let toSectionPointer (sec: Section) =
+    let size = secFileSize sec
+    if size = 0UL then
+      BinFilePointer.Null
+    else
+      BinFilePointer.CreateFileBacked(
+        sec.SecAddr,
+        sec.SecAddr + size - 1UL,
+        int sec.SecOffset,
+        int sec.SecOffset + int size - 1
+      )
 
   let structure =
     Some { new IBinStructure with
@@ -308,30 +327,15 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       member _.Sections with get() = Array.copy binSections.Value
 
       member _.CodeSectionPointer =
-        if secText.Value < 0 then
-          BinFilePointer.Null
-        else
-          let sec = secs.Value[secText.Value]
-          BinFilePointer.CreateFileBacked(
-            sec.SecAddr,
-            sec.SecAddr + sec.SecSize - 1UL,
-            int sec.SecOffset,
-            int sec.SecOffset + int sec.SecSize - 1
-          )
+        if secText.Value < 0 then BinFilePointer.Null
+        else toSectionPointer secs.Value[secText.Value]
 
       member _.GetSectionPointer name =
         secs.Value
         |> Array.tryFind (fun sec -> sec.SecName = name)
         |> function
-          | Some sec ->
-            BinFilePointer.CreateFileBacked(
-              sec.SecAddr,
-              sec.SecAddr + sec.SecSize - 1UL,
-              int sec.SecOffset,
-              int sec.SecOffset + int sec.SecSize - 1
-            )
-          | None ->
-            BinFilePointer.Null
+          | Some sec -> toSectionPointer sec
+          | None -> BinFilePointer.Null
 
       member _.TryFindSectionByName name =
         secs.Value

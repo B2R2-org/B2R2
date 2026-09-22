@@ -1027,6 +1027,21 @@ type ELFTests() =
     CollectionAssert.AreEqual([| 1; 5 |], atZero)
 
   [<TestMethod>]
+  member _.``[ELF] bpf obj empty section pointer is null test``() =
+    (* A NOBITS section of size zero, which is what an object file gets when
+       nothing lands in .bss, backs no file bytes to point at. *)
+    let structure = (bpfObjFile :> IBinFile).Structure.Value
+    Assert.AreEqual<bool>(true, (structure.GetSectionPointer ".bss").IsNull)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec NOBITS section pointer is null test``() =
+    (* A NOBITS section takes up memory but no file bytes, so the file offset
+       ELF records for it names bytes belonging to something else. *)
+    let structure = (x64ExecFile :> IBinFile).Structure.Value
+    let ptr = structure.GetSectionPointer ".bss"
+    Assert.AreEqual<bool>(true, ptr.IsNull)
+
+  [<TestMethod>]
   member _.``[ELF] x64 obj relocation lookup is section scoped test``() =
     let secNumOf name =
       x64ObjFile.SectionHeaders
