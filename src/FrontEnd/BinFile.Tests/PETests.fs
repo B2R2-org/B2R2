@@ -763,6 +763,21 @@ type PETests() =
     let f = FileFactory.loadPE "" bytes None [||] :> IBinFile
     Assert.AreEqual(PEBinary, f.Format)
 
+  /// A debug file is what a format names beside the binary to carry what the
+  /// binary does not: for a PE that is a PDB, and naming one by the neutral
+  /// name reaches the same reader as naming it a PDB does.
+  [<TestMethod>]
+  member _.``[PE] file factory loadWithDebugFile test``() =
+    let exe = ZIPReader.readBytes PEBinary "pe_x64_pdb.zip" "pe_x64_pdb.exe"
+    let pdb = ZIPReader.readBytes PEBinary "pe_x64_pdb.zip" "pe_x64_pdb.pdb"
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let rf = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
+    let readFrom path =
+      let f = FileFactory.loadWithDebugFile "" exe PEBinary isa rf None path
+      f.SymbolTable.Value.Symbols |> Array.map (fun s -> s.Name) |> Set.ofArray
+    Assert.AreEqual<Set<string>>(set [ "main"; "helper" ],
+                                 withTempFile pdb readFrom)
+
   /// The factory names a PDB either way the image reader does, so a caller
   /// holding a path is no more sent elsewhere than one holding bytes.
   [<TestMethod>]

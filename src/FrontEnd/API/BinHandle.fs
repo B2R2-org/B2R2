@@ -40,10 +40,16 @@ open type FileFormat
 /// to parse/lift instructions from the binary through <see
 /// cref='T:B2R2.FrontEnd.LiftingUnit'/>.
 /// </summary>
-type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
+type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt, dbgOpt) =
   let regFactory = ArchSupport.createRegisterFactory isa
 
-  let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
+  let binFile =
+    match dbgOpt with
+    | None ->
+      FileFactory.load path bytes fmt isa regFactory baseAddrOpt
+    | Some dbg ->
+      let loadWith = FileFactory.loadWithDebugFile path bytes fmt isa
+      loadWith regFactory baseAddrOpt dbg
 
   (* A file that names the OS it was built for is believed, and naming the bare
      machine counts as naming one. Only an image saying nothing at all, which is
@@ -206,7 +212,30 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   static member LoadFile(path: string, isa, baseAddrOpt) =
     let bytes = File.ReadAllBytes path
     let struct (fmt, isa) = FormatDetector.identify bytes isa
-    BinHandle(path, bytes, fmt, isa, baseAddrOpt, None)
+    BinHandle(path, bytes, fmt, isa, baseAddrOpt, None, None)
+
+  /// <summary>
+  /// Reads the file at the given path and loads it together with the debug
+  /// file at the given path: a file sitting beside the binary that carries the
+  /// symbols the binary itself does not. Only a PE reads one today, and it is
+  /// a PDB; a format whose separate debug file this reader does not read yet
+  /// is loaded as if no path had been given, since the format is not known
+  /// until the file has been read and so cannot be a caller's to get right.
+  /// A binary whose debug file sits beside it under the name it records needs
+  /// no path here: that one is found without being named.
+  /// </summary>
+  /// <param name="path">The path of the binary file.</param>
+  /// <param name="isa">The ISA to fall back on when the format does not pin
+  /// one.</param>
+  /// <param name="baseAddrOpt">An optional base address to rebase to.</param>
+  /// <param name="debugPath">The path of the debug file.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
+  static member LoadFile(path: string, isa, baseAddrOpt, debugPath: string) =
+    let bytes = File.ReadAllBytes path
+    let struct (fmt, isa) = FormatDetector.identify bytes isa
+    BinHandle(path, bytes, fmt, isa, baseAddrOpt, None, Some debugPath)
 
   /// <summary>
   /// Reads the file at the given path and loads it, detecting its file format.
@@ -247,7 +276,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// </returns>
   static member LoadFileBytes(bytes: byte[], isa, baseAddrOpt) =
     let struct (fmt, isa) = FormatDetector.identify bytes isa
-    BinHandle("", bytes, fmt, isa, baseAddrOpt, None)
+    BinHandle("", bytes, fmt, isa, baseAddrOpt, None, None)
 
   /// <summary>
   /// Loads a byte array holding the whole content of a binary file, detecting
@@ -276,7 +305,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns a new BinHandle.
   /// </returns>
   static member LoadRawImage(bytes: byte[], isa, baseAddr: Addr, os: OS) =
-    BinHandle("", bytes, RawBinary, isa, Some baseAddr, Some os)
+    BinHandle("", bytes, RawBinary, isa, Some baseAddr, Some os, None)
 
   /// <summary>
   /// Loads a byte array as a raw image based at 0UL, for the given target OS.
@@ -290,7 +319,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns a new BinHandle.
   /// </returns>
   static member LoadRawImage(bytes: byte[], isa, os: OS) =
-    BinHandle("", bytes, RawBinary, isa, None, Some os)
+    BinHandle("", bytes, RawBinary, isa, None, Some os, None)
 
   /// <summary>
   /// Loads a byte array as a raw image based at 0UL, with no target OS. No
@@ -304,7 +333,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns a new BinHandle.
   /// </returns>
   static member LoadRawImage(bytes: byte[], isa) =
-    BinHandle("", bytes, RawBinary, isa, None, None)
+    BinHandle("", bytes, RawBinary, isa, None, None, None)
 
   /// <summary>
   /// Loads an empty image, over which no read can succeed. Useful when only the
@@ -316,7 +345,8 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// <returns>
   /// Returns a new BinHandle.
   /// </returns>
-  static member LoadEmpty(isa) = BinHandle("", [||], RawBinary, isa, None, None)
+  static member LoadEmpty(isa) =
+    BinHandle("", [||], RawBinary, isa, None, None, None)
 
   /// Gets a new instance of lifting unit.
   member _.NewLiftingUnit() =

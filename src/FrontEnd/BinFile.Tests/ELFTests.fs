@@ -2397,6 +2397,19 @@ type ELFTests() =
     Assert.AreEqual(ELFBinary, f.Format)
     Assert.AreEqual(WordSize.Bit64, f.ISA.WordSize)
 
+  /// The format of a file is not known until it has been read, so naming a
+  /// debug file cannot be a caller's to get right. A format whose separate
+  /// debug file this reader does not read yet loads as if none were named.
+  [<TestMethod>]
+  member _.``[ELF] file factory loadWithDebugFile test``() =
+    let bytes = ZIPReader.readBytes ELFBinary "elf_x64_exec.zip" "elf_x64_exec"
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let rf = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
+    let dbg = "no_such_file.debug"
+    let f = FileFactory.loadWithDebugFile "" bytes ELFBinary isa rf None dbg
+    Assert.AreEqual(ELFBinary, f.Format)
+    Assert.AreEqual(WordSize.Bit64, f.ISA.WordSize)
+
   [<TestMethod>]
   member _.``[ELF] file factory loadELF test``() =
     let bytes = ZIPReader.readBytes ELFBinary "elf_x64_exec.zip" "elf_x64_exec"
