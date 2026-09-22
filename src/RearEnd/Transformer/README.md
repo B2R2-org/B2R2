@@ -24,8 +24,8 @@ The `script` mode evaluates a saved REPL script without opening the TUI:
 dotnet run -c Release --project src/RearEnd/Transformer -- script analysis.repl
 ```
 
-At the prompt, `:help` lists the command-level help and `:actions` lists the
-actions currently registered in the session.
+Press `F2` to open the control prompt.  Enter `help` for the command-level
+help or `actions` to list the actions currently registered in the session.
 
 Interaction
 -----------
@@ -39,11 +39,15 @@ same expressions without the interactive `;;` terminator.
 | --- | --- |
 | `Tab` | Apply the selected completion. |
 | `Shift+Tab` | Insert indentation spaces. |
-| `Up` / `Down` | Browse input history or suggestions. |
+| `Up` / `Down` | Browse history, candidates, or input lines by context. |
+| `Home` / `End` | Select the first or last candidate, history entry, or line by context. |
 | `Ctrl+N` / `Ctrl+P` | Select the next or previous completion. |
 | `Ctrl+C` | Cancel a running action. |
 | `Ctrl+D` | Leave the REPL when the input is empty. |
 | `Esc` | Close an open panel or clear the current input. |
+| `F1` | Open interactive help. |
+| `F2` | Open the control prompt. |
+| `F3` | Find text in the transcript or the current view. |
 | `Shift+Up` / `Shift+Down` | Enter or leave transcript focus. |
 | `Enter` or `F4` | Open the selected transcript result in view mode. |
 | `PageUp` / `PageDown` | Scroll the active pane. |
@@ -51,10 +55,10 @@ same expressions without the interactive `;;` terminator.
 | `Shift+Arrow` | Select text in view mode. |
 | `Ctrl+F` | Find text in view mode. |
 | `Ctrl+Enter` | Insert selected view text into the shell input. |
-| `Alt+Arrow` | Resize the sidebar or transcript pane. |
+| `Alt+Arrow` | Resize the sidebar or suggestion area. |
 
-Use the terminal's normal copy and paste shortcuts.  `:layout` can adjust the
-sizes of the TUI panes.
+Use the terminal's normal copy and paste shortcuts.  Use the F2 prompt's
+`layout` command to adjust TUI pane sizes.
 
 Language
 --------
@@ -90,33 +94,51 @@ are filtered by the syntactic position and by the kinds of values available at
 that point.  A value that is not compatible with an action is reported before
 the expression is evaluated.
 
-REPL commands
--------------
+F2 controls
+-----------
+
+Press `F2` to open the control prompt and enter a control.
 
 | Command | Purpose |
 | --- | --- |
-| `:actions` | List registered actions and their usage forms. |
-| `:type [name or expression]` | Display an inferred REPL value kind. |
-| `:inspect [name]` | List functions and sections of a binary value. |
-| `:needs <context> [k=v]` | Show the concrete context required for execution. |
-| `:values` | List retained values. |
-| `:restore <id> [as <name>]` | Restore a historical value. |
-| `:history` / `:log` | Show evaluated commands or execution history. |
-| `:undo` / `:reset` | Undo the last value change or clear analysis values. |
-| `:script save path=<path>` | Save recorded commands as a script. |
-| `:script load path=<path>` | Reset the session and replay a script. |
-| `:script record [on or off]` | Show or set script recording. |
-| `:export <name> path=<path>` | Export a named value. |
-| `:plugin load path=<dll>` | Load actions exported by a plugin assembly. |
-| `:layout [k=v ...]` | Resize TUI panes. |
-| `:quit` | Leave the REPL. |
+| `actions` | List registered actions and their usage forms. |
+| `help` | Display interactive help. |
+| `type [name or expression]` | Display an inferred REPL value kind. |
+| `inspect [name]` | List functions and sections of a binary value. |
+| `needs <context> [k=v]` | Show the concrete context required for execution. |
+| `values` | List retained values. |
+| `restore <id> [as <name>]` | Restore a historical value. |
+| `history` / `log` | Show evaluated commands or execution history. |
+| `undo` / `reset` | Undo the last value change or clear analysis values. |
+| `script save path=<path>` | Save recorded commands as a script. |
+| `script load path=<path>` | Reset the session and replay a script. |
+| `script record [on or off]` | Show or set script recording. |
+| `export <name> path=<path>` | Export a named value. |
+| `plugin load path=<dll>` | Load actions exported by a plugin assembly. |
+| `layout [k=v ...]` | Resize or reorder TUI panes. |
+| `quit` | Leave the REPL. |
 
 Actions
 -------
 
-The tables below use square brackets for optional parameters.  The input is
-the value immediately to the left of `|>` unless an action is listed as a
-source action.
+The tables below use square brackets for optional parameters.  An action
+consumes the value produced by the preceding pipeline stage; source actions
+begin a pipeline.
+
+For example, the following pipeline finds `mov`-containing nodes in the CFG of
+the function named `main`:
+
+```
+let moves =
+  target
+  |> @list functions
+  |> @find symbol="main"
+  |> @one
+  |> @cfg
+  |> @list nodes
+  |> @find mnemonic="mov"
+moves |> @print
+```
 
 ### Sources and binary data
 
@@ -141,12 +163,14 @@ source action.
 | `@disasm` | none | Disassemble a binary or slice. |
 | `@lift` | none | Lift instructions to B2R2's intermediate representation. |
 | `@llvm` | none | Render a binary through the LLVM representation. |
-| `@list` | `sections`, `functions`, or `known-functions` | List sections, recovered functions, or functions known from binary metadata. |
-| `@cfg` | `[entry=<addr>]` | Recover control-flow graphs, optionally for one entry address. |
+| `@list` | `sections`, `functions`, or `known-functions`; `nodes` | List binary sections/functions or CFG nodes. |
+| `@cfg` | `[entry=<addr>]` for a binary, none for a function | Recover CFGs from a binary or the CFG of one function. |
 | `@dot` | none | Render one control-flow graph as DOT text. |
 | `@count` | none | Count collection elements. |
 | `@pick` | `index=<n>` | Select a zero-based collection element. |
-| `@print` | none | Display the value received from a pipeline. |
+| `@one` | none | Require a collection, list, or array to contain exactly one item. |
+| `@find` | `symbol=<name>` or `entry=<addr>`; `mnemonic=<name>` or `address=<addr>` | Filter function or CFG-node collections by a supported property. |
+| `@print` | none | Render the value received from a pipeline in the transcript. |
 | `@write` | `path=<path>` | Write text, text artifacts, or instructions to a file. |
 
 ### Comparison and fingerprints
@@ -198,8 +222,3 @@ These actions are available when a symbolic solver is loaded.
 | `@stop-at` | `addr=<addr>` | Stop symbolic execution at an address. |
 | `@run-symbolic` | `cond=<fun> [precond=<text>] [max-depth=<n>] [max-states=<n>] [loop-bound=<n>] [prune=<choice>]` | Explore paths and solve for a condition. |
 | `@model` | none | Render a symbolic run result and its satisfying model. |
-
-An execution condition is an F#-like lambda.  For example,
-`cond=(fun pp -> pp.at(0x401e5c))` asks symbolic execution to find a path that
-reaches an address.  `cond=(fun _ -> mem.accessViolation())` asks it to find a
-memory-access violation.
