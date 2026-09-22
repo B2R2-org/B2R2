@@ -90,3 +90,38 @@ type FileHelperTests() =
     let span = ReadOnlySpan bytes
     Assert.AreEqual<string>(name, FileHelper.readCStringOfSize span 0 16)
     Assert.AreEqual<string>("ab", FileHelper.readCStringOfSize span 16 3)
+
+/// Tests for the hex-string reader, which decides whether a file is a hex dump
+/// by looking at its raw bytes.
+[<TestClass>]
+type HexStringTests() =
+  static let parse (str: string) =
+    FileHelper.tryParseHexBytes (Text.Encoding.ASCII.GetBytes str)
+
+  [<TestMethod>]
+  member _.``[FileHelper] a hex dump is parsed into its bytes``() =
+    let expected = [| 0xdeuy; 0xaduy |]
+    CollectionAssert.AreEqual(expected, (parse "dead").Value)
+    CollectionAssert.AreEqual(expected, (parse "0xDEAD").Value)
+    CollectionAssert.AreEqual(expected, (parse "dead\r\n ").Value)
+
+  [<TestMethod>]
+  member _.``[FileHelper] a non-hex byte rejects the whole input``() =
+    let binary = [| 0x00uy; 0x61uy |]
+    Assert.AreEqual<byte[] option>(None, parse "deag")
+    Assert.AreEqual<byte[] option>(None, parse "dea")
+    Assert.AreEqual<byte[] option>(None, parse "0x")
+    Assert.AreEqual<byte[] option>(None, parse "")
+    Assert.AreEqual<byte[] option>(None, FileHelper.tryParseHexBytes binary)
+
+  [<TestMethod>]
+  member _.``[FileHelper] a raw binary is not decoded to look for hex``() =
+    (* A large binary must be rejected at its first byte, not turned into a
+       string, which is what the format detector used to pay on every file it
+       could not otherwise identify. *)
+    let bytes = Array.zeroCreate<byte>(16 * 1024 * 1024)
+    bytes[0] <- 0x7fuy
+    let before = GC.GetAllocatedBytesForCurrentThread()
+    Assert.AreEqual<byte[] option>(None, FileHelper.tryParseHexBytes bytes)
+    let allocated = GC.GetAllocatedBytesForCurrentThread() - before
+    Assert.AreEqual<bool>(true, allocated < 1024L, $"allocated {allocated}B")
