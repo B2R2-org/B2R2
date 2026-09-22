@@ -46,10 +46,25 @@ type internal SuperBlock =
     /// The index of a block within the MSF file.
     BlockMapAddr: int }
 
+/// Represents a PDB together with the directory of the streams inside it,
+/// which every read of one goes through. A PDB holds far more streams than
+/// reading symbols out of it touches -- its type records alone can be most of
+/// the file -- so a stream is copied out of its blocks when something asks
+/// for it and not before, and once for however many times it is asked for.
+type internal StreamStore =
+  { /// The bytes of the whole PDB.
+    PDBBytes: byte[]
+    /// The header of the file system inside it.
+    SuperBlock: SuperBlock
+    /// The directory naming every stream in it.
+    Directory: StreamDirectory
+    /// The streams read out of it so far.
+    ReadStreams: Dictionary<int, byte[] * int> }
+
 /// The Stream Directory contains information about the other streams in an MSF
 /// file. MSF is a file system internally used in a PDB file, and a file in MSF
 /// is often called as a stream.
-type internal StreamDirectory =
+and internal StreamDirectory =
   { /// Number of streams.
     NumStreams: int
     /// The sizes of streams.
@@ -92,20 +107,6 @@ type internal ModuleInfo =
     /// Object file name.
     ObjFileName: string }
 
-/// GSI (Global Symbol Information) hash header.
-type internal GSIHashHeader =
-  { VersionSignature: uint32
-    VersionHeader: uint32
-    HashRecordSize: uint32
-    NumBuckets: uint32 }
-
-/// GSI (Global Symbol Information) hash record.
-type internal GSIHashRecord =
-  { /// An offset.
-    HROffset: int
-    /// A cross reference.
-    HRCRef: int }
-
 /// The stream holding what a PDB says about itself, which is the second one.
 let [<Literal>] InfoStreamIndex = 1
 
@@ -143,7 +144,7 @@ let checkFormat cond =
 
 /// Checks if the given span is a valid PDB header. The header is expected to
 /// start with a specific magic number.
-let isValidHeader (span: ByteSpan) (reader: IBinReader) =
+let isValidHeader (bs: byte[]) (reader: IBinReader) =
   let magicBytes =
     [| 'M'
        'i'
@@ -177,48 +178,48 @@ let isValidHeader (span: ByteSpan) (reader: IBinReader) =
        '\000'
        '\000'
        '\000' |]
-  span.Length >= 32 && reader.ReadChars(span, 0, 32) = magicBytes
+  bs.Length >= 32 && reader.ReadChars(bs, 0, 32) = magicBytes
 
-let parseSuperBlock (span: ByteSpan) (reader: IBinReader) =
-  { BlockSize = reader.ReadInt32(span, 32)
-    FreeBlockMapIdx = reader.ReadInt32(span, 36)
-    NumBlocks = reader.ReadInt32(span, 40)
-    NumDirectoryBytes = reader.ReadInt32(span, 44)
-    BlockMapAddr = reader.ReadInt32(span, 52) }
+let parseSuperBlock (bs: byte[]) (reader: IBinReader) =
+  { BlockSize = reader.ReadInt32(bs, 32)
+    FreeBlockMapIdx = reader.ReadInt32(bs, 36)
+    NumBlocks = reader.ReadInt32(bs, 40)
+    NumDirectoryBytes = reader.ReadInt32(bs, 44)
+    BlockMapAddr = reader.ReadInt32(bs, 52) }
 
 /// Checks that the super block describes a file this reader can follow: the
 /// block size is one of the four the format allows, and every block it counts
 /// is in the file, as is the one its stream directory is mapped from. A file
 /// failing any of these is one to give up on rather than read blocks out of.
-let isValidSuperBlock (span: ByteSpan) sb =
+let isValidSuperBlock (bs: byte[]) sb =
   Array.contains sb.BlockSize validBlockSizes
   && sb.NumBlocks > 0
   && sb.BlockMapAddr > 0
   && sb.BlockMapAddr < sb.NumBlocks
-  && int64 sb.NumBlocks * int64 sb.BlockSize <= int64 span.Length
+  && int64 sb.NumBlocks * int64 sb.BlockSize <= int64 bs.Length
   && sb.NumDirectoryBytes > 0
   && int64 sb.NumDirectoryBytes <= int64 sb.NumBlocks * int64 sb.BlockSize
 
 let inline getNumBlocks numBytes blockSize =
   (numBytes + blockSize - 1) / blockSize
 
-let rec readIntValues (span: ByteSpan) reader cnt acc pos =
+let rec readIntValues (bs: byte[]) reader cnt acc pos =
   if cnt = 0 then
     List.rev acc
   else
-    let v = (reader: IBinReader).ReadInt32(span, pos)
-    readIntValues span reader (cnt - 1) (v :: acc) (pos + 4)
+    let v = (reader: IBinReader).ReadInt32(bs, pos)
+    readIntValues bs reader (cnt - 1) (v :: acc) (pos + 4)
 
 /// Copies the blocks the given stream occupies into one buffer. A block index
 /// reaching outside the file is one no stream of a readable PDB carries.
-let readStream (span: ByteSpan) blockSize blockMapAddrs =
+let readStream (bs: byte[]) blockSize blockMapAddrs =
   let size = List.length blockMapAddrs * blockSize
   let buf: byte[] = Array.zeroCreate size
   let mutable idx = 0
   for blockMapAddr in blockMapAddrs do
     let offset = int64 blockMapAddr * int64 blockSize
-    checkFormat (offset >= 0L && offset + int64 blockSize <= int64 span.Length)
-    span.Slice(int offset, blockSize).CopyTo(buf.AsSpan(idx * blockSize))
+    checkFormat (offset >= 0L && offset + int64 blockSize <= int64 bs.Length)
+    Array.blit bs (int offset) buf (idx * blockSize) blockSize
     idx <- idx + 1
   buf
 
@@ -229,56 +230,61 @@ let normalizeStreamSize limit size =
   checkFormat (int64 size <= limit)
   if size < 0 then 0 else size
 
-let parseStreamBlks span reader sb streamSizes offset =
+let parseStreamBlks bs reader sb streamSizes offset =
   let lst = List<int[]>()
   let mutable offset = offset
   for idx = 0 to Array.length streamSizes - 1 do
     let numBlks = getNumBlocks streamSizes[idx] sb.BlockSize
-    checkFormat (offset + numBlks * 4 <= (span: ByteSpan).Length)
-    let blocks = readIntValues span reader numBlks [] offset |> List.toArray
+    checkFormat (offset + numBlks * 4 <= Array.length (bs: byte[]))
+    let blocks = readIntValues bs reader numBlks [] offset |> List.toArray
     offset <- offset + numBlks * 4
     lst.Add blocks
   lst |> Seq.toArray
 
-let buildStreamDirectory sb (span: ByteSpan) reader =
-  let numStream = (reader: IBinReader).ReadInt32(span, 0)
+let buildStreamDirectory sb (bs: byte[]) reader =
+  let numStream = (reader: IBinReader).ReadInt32(bs, 0)
   checkFormat (numStream >= 0)
-  checkFormat (int64 numStream * 4L + 4L <= int64 span.Length)
+  checkFormat (int64 numStream * 4L + 4L <= int64 bs.Length)
   let limit = int64 sb.NumBlocks * int64 sb.BlockSize
-  let sizes = readIntValues span reader numStream [] 4 |> List.toArray
+  let sizes = readIntValues bs reader numStream [] 4 |> List.toArray
   let streamSizes = Array.map (normalizeStreamSize limit) sizes
   let streamBlks =
-    parseStreamBlks span reader sb streamSizes (numStream * 4 + 4)
+    parseStreamBlks bs reader sb streamSizes (numStream * 4 + 4)
   { NumStreams = numStream
     StreamSizes = streamSizes
     StreamBlocks = streamBlks }
 
-let parseStreamDirectory (span: ByteSpan) reader sb =
+let parseStreamDirectory (bs: byte[]) reader sb =
   let numBlks = getNumBlocks sb.NumDirectoryBytes sb.BlockSize
   let blockMapOffset = sb.BlockMapAddr * sb.BlockSize
-  checkFormat (blockMapOffset + numBlks * 4 <= span.Length)
-  let intVals = readIntValues span reader numBlks [] blockMapOffset
-  let bs = readStream span sb.BlockSize intVals
-  buildStreamDirectory sb (ReadOnlySpan bs) reader
+  checkFormat (blockMapOffset + numBlks * 4 <= bs.Length)
+  let intVals = readIntValues bs reader numBlks [] blockMapOffset
+  buildStreamDirectory sb (readStream bs sb.BlockSize intVals) reader
 
-let parseStream span superBlock streamDir idx =
-  let blks = streamDir.StreamBlocks[idx] |> Array.toList
-  let size = streamDir.StreamSizes[idx]
-  readStream span superBlock.BlockSize blks, size
+let buildStreamStore bs sb streamDir =
+  { PDBBytes = bs
+    SuperBlock = sb
+    Directory = streamDir
+    ReadStreams = Dictionary() }
 
-let buildStreamMap span superBlock streamDir =
-  let lst = List<byte[] * int>()
-  for idx = 0 to streamDir.NumStreams - 1 do
-    let stream = parseStream span superBlock streamDir idx
-    lst.Add stream
-  lst |> Seq.toArray
-
-let inline getStream (streamMap: (byte[] * int) array) idx = streamMap[idx]
+/// Returns the bytes of the given stream along with how many of them the
+/// stream holds, reading it out of its blocks the first time it is asked for.
+let getStream store idx =
+  match store.ReadStreams.TryGetValue idx with
+  | true, stream ->
+    stream
+  | false, _ ->
+    let blks = store.Directory.StreamBlocks[idx] |> Array.toList
+    let blockSize = store.SuperBlock.BlockSize
+    let bytes = readStream store.PDBBytes blockSize blks
+    let stream = bytes, store.Directory.StreamSizes[idx]
+    store.ReadStreams[idx] <- stream
+    stream
 
 /// Checks whether the given index names a stream the directory holds. An
 /// index a PDB leaves unset reads as 0xFFFF, which names no stream at all.
-let isValidStreamIndex streamMap idx =
-  idx >= 0 && idx < Array.length streamMap
+let isValidStreamIndex store idx =
+  idx >= 0 && idx < store.Directory.NumStreams
 
 /// Checks that the DBI stream is one this reader can follow. It leads with a
 /// fixed signature and names the layout it uses, and only the VC7.0 layout --
@@ -366,10 +372,26 @@ let parsePublicSymbol (reader: IBinReader) (sp: ByteSpan) =
     { Address = reader.ReadUInt32(sp, 8) |> uint64
       Segment = reader.ReadUInt16(sp, 12)
       Name = name
-      IsFunction = (flags &&& PublicSymbolIsFunction) <> 0u } |> Some
+      IsFunction = (flags &&& PublicSymbolIsFunction) <> 0u
+      Size = None } |> Some
+
+/// Parses a data symbol record (DATASYM32), which names a variable. It lays
+/// its address out where a public symbol does, and names a type where that
+/// one carries the flags saying what it is, so the two are not one record.
+let parseDataSymbol (reader: IBinReader) (sp: ByteSpan) =
+  match tryReadName sp 14 with
+  | None ->
+    None
+  | Some name ->
+    { Address = reader.ReadUInt32(sp, 8) |> uint64
+      Segment = reader.ReadUInt16(sp, 12)
+      Name = name
+      IsFunction = false
+      Size = None } |> Some
 
 /// Parses a procedure symbol record (PROCSYM32), which a PDB holds for every
-/// function it keeps private symbols for.
+/// function it keeps private symbols for. It is the one record here saying
+/// how far a symbol reaches as well as where it begins.
 let parseProcedureSymbol (reader: IBinReader) (sp: ByteSpan) =
   match tryReadName sp 39 with
   | None ->
@@ -378,16 +400,17 @@ let parseProcedureSymbol (reader: IBinReader) (sp: ByteSpan) =
     { Address = reader.ReadUInt32(sp, 32) |> uint64
       Segment = reader.ReadUInt16(sp, 36)
       Name = name
-      IsFunction = true } |> Some
+      IsFunction = true
+      Size = reader.ReadUInt32(sp, 16) |> uint64 |> Some } |> Some
 
 /// Returns the symbol stream of the module the given number names, or none
 /// when there is no such module or it was built without symbols of its own.
 /// The numbers a reference carries are one-based, and a module with nothing
 /// to point at leaves its stream index unset.
-let tryGetModuleStream modules streamMap n =
+let tryGetModuleStream modules store n =
   match Array.tryItem (n - 1) modules with
-  | Some m when isValidStreamIndex streamMap m.SymStreamIndex ->
-    Array.get streamMap m.SymStreamIndex |> Some
+  | Some m when isValidStreamIndex store m.SymStreamIndex ->
+    getStream store m.SymStreamIndex |> Some
   | _ ->
     None
 
@@ -398,8 +421,13 @@ let parseDirectRecord (reader: IBinReader) (sp: ByteSpan) =
   match typ with
   | PDBSymbolKind.S_PUB32 -> (* PUBSYM32 *)
     parsePublicSymbol reader sp
+  | PDBSymbolKind.S_LDATA32
+  | PDBSymbolKind.S_GDATA32 -> (* DATASYM32 *)
+    parseDataSymbol reader sp
   | PDBSymbolKind.S_LPROC32
-  | PDBSymbolKind.S_GPROC32 -> (* PROCSYM32 *)
+  | PDBSymbolKind.S_GPROC32
+  | PDBSymbolKind.S_LPROC32_ID
+  | PDBSymbolKind.S_GPROC32_ID -> (* PROCSYM32 *)
     parseProcedureSymbol reader sp
   | _ ->
     None
@@ -408,10 +436,10 @@ let parseDirectRecord (reader: IBinReader) (sp: ByteSpan) =
 /// symbol stream of the module it points at. What is reached that way is
 /// read as a record in its own right and never as another reference, so a
 /// PDB whose references point at each other is read once and not forever.
-let followSymbolRef (reader: IBinReader) (sp: ByteSpan) modules streamMap =
+let followSymbolRef (reader: IBinReader) (sp: ByteSpan) modules store =
   let refOffset = reader.ReadInt32(sp, 8)
   let modnum = reader.ReadUInt16(sp, 12) |> int
-  match tryGetModuleStream modules streamMap modnum with
+  match tryGetModuleStream modules store modnum with
   | None ->
     None
   | Some(bs, size) ->
@@ -419,7 +447,7 @@ let followSymbolRef (reader: IBinReader) (sp: ByteSpan) modules streamMap =
     | None -> None
     | Some len -> parseDirectRecord reader (ReadOnlySpan(bs, refOffset, len))
 
-let parseSymbolRecord reader (bs: byte[], size) offset modules streamMap =
+let parseSymbolRecord reader (bs: byte[], size) offset modules store =
   match tryGetRecordLength reader bs size offset with
   | None ->
     None
@@ -429,52 +457,23 @@ let parseSymbolRecord reader (bs: byte[], size) offset modules streamMap =
     match typ with
     | PDBSymbolKind.S_PROCREF
     | PDBSymbolKind.S_LPROCREF when len >= 14 -> (* REFSYM2 *)
-      followSymbolRef reader sp modules streamMap
+      followSymbolRef reader sp modules store
     | _ ->
       parseDirectRecord reader sp
 
 /// Reads every symbol record the given stream holds, from its first byte to
 /// the last one its size covers.
-let parseSymRecordStream reader modules streamMap stream =
+let parseSymRecordStream reader modules store stream =
   let bs, size = stream
   let rec loop acc offset =
     match tryGetRecordLength reader bs size offset with
     | None ->
       acc
     | Some len ->
-      let sym = parseSymbolRecord reader stream offset modules streamMap
+      let sym = parseSymbolRecord reader stream offset modules store
       let acc = Option.fold (fun acc sym -> sym :: acc) acc sym
       loop acc (offset + len)
   loop [] 0
-
-let rec readHashRecords acc
-                        (span: ByteSpan)
-                        (reader: IBinReader)
-                        offset
-                        numEntries =
-  if numEntries = 0u then
-    List.rev acc
-  else
-    let r = { HROffset = reader.ReadInt32(span, offset)
-              HRCRef = reader.ReadInt32(span, offset + 4) }
-    readHashRecords (r :: acc) span reader (offset + 8) (numEntries - 1u)
-
-let parseGSIHeader (span: ByteSpan) (reader: IBinReader) =
-  { VersionSignature = reader.ReadUInt32(span, 0)
-    VersionHeader = reader.ReadUInt32(span, 4)
-    HashRecordSize = reader.ReadUInt32(span, 8)
-    NumBuckets = reader.ReadUInt32(span, 12) }
-
-let parseGSIHashRecord span reader gsiHeader =
-  if gsiHeader.VersionSignature = 0xFFFFFFFFu
-    && gsiHeader.VersionHeader = 0xF12F091Au
-  then readHashRecords [] span reader 16 (gsiHeader.HashRecordSize / 8u)
-  else []
-
-let parseGlobalSymb reader (glStream: byte[], _glSize) =
-  let span = ReadOnlySpan glStream
-  let gsiHeader = parseGSIHeader span reader
-  parseGSIHashRecord span reader gsiHeader
 
 /// Checks that the PDB is the one the image was built with. An image names
 /// its PDB by a GUID and an age, and the PDB written by that build repeats
@@ -495,22 +494,22 @@ let isMatchingPDB (reader: IBinReader) (bs: byte[]) expected =
 /// Reads every symbol the given streams hold, which is what a PDB is read
 /// for. They are reached through the DBI stream, which names the stream of
 /// symbol records and the modules those records reach into.
-let parseSymbols reader streamMap =
-  checkFormat (isValidStreamIndex streamMap DBIStreamIndex)
-  let dbiStream, _ = getStream streamMap DBIStreamIndex
+let parseSymbols reader store =
+  checkFormat (isValidStreamIndex store DBIStreamIndex)
+  let dbiStream, _ = getStream store DBIStreamIndex
   checkFormat (isValidDBIStream reader dbiStream)
   let dbi = parseDBIHeader reader dbiStream
   let modules = parseModuleInfo reader dbi dbiStream
-  checkFormat (isValidStreamIndex streamMap dbi.SymRecordStreamIdx)
-  getStream streamMap dbi.SymRecordStreamIdx
-  |> parseSymRecordStream reader modules streamMap
+  checkFormat (isValidStreamIndex store dbi.SymRecordStreamIdx)
+  getStream store dbi.SymRecordStreamIdx
+  |> parseSymRecordStream reader modules store
 
-let parse span reader expected =
-  let sb = parseSuperBlock span reader
-  checkFormat (isValidSuperBlock span sb)
-  let streamDir = parseStreamDirectory span reader sb
-  let streamMap = buildStreamMap span sb streamDir
-  checkFormat (isValidStreamIndex streamMap InfoStreamIndex)
-  let infoStream, _ = getStream streamMap InfoStreamIndex
-  if isMatchingPDB reader infoStream expected then parseSymbols reader streamMap
+let parse bs reader expected =
+  let sb = parseSuperBlock bs reader
+  checkFormat (isValidSuperBlock bs sb)
+  let streamDir = parseStreamDirectory bs reader sb
+  let store = buildStreamStore bs sb streamDir
+  checkFormat (isValidStreamIndex store InfoStreamIndex)
+  let infoStream, _ = getStream store InfoStreamIndex
+  if isMatchingPDB reader infoStream expected then parseSymbols reader store
   else []

@@ -35,4 +35,7 @@ type internal Symbol =
     /// Name of the symbol.
     Name: string
     /// Is the symbol a function?
-    IsFunction: bool }
+    IsFunction: bool
+    /// How many bytes the symbol covers, where the record naming it says. A
+    /// record that says only where a symbol begins says nothing about this.
+    Size: uint64 option }

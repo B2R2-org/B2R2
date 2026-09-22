@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.Tests
 
 open System
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
@@ -59,6 +60,29 @@ type PDBTests() =
     |> Array.concat
     |> symbolRecord PDBSymbolKind.S_PUB32
 
+  /// Builds a procedure symbol record (PROCSYM32) of the given kind.
+  static let procedureSymbol kind len addr seg (name: string) =
+    [| Array.zeroCreate 12
+       BitConverter.GetBytes(uint32 len)
+       Array.zeroCreate 12
+       BitConverter.GetBytes(uint32 addr)
+       BitConverter.GetBytes(uint16 seg)
+       [| 0uy |]
+       Text.Encoding.ASCII.GetBytes name
+       [| 0uy |] |]
+    |> Array.concat
+    |> symbolRecord kind
+
+  /// Builds a data symbol record (DATASYM32).
+  static let dataSymbol addr seg (name: string) =
+    [| BitConverter.GetBytes 0u
+       BitConverter.GetBytes(uint32 addr)
+       BitConverter.GetBytes(uint16 seg)
+       Text.Encoding.ASCII.GetBytes name
+       [| 0uy |] |]
+    |> Array.concat
+    |> symbolRecord PDBSymbolKind.S_GDATA32
+
   /// Builds a reference to a procedure in another module's stream (REFSYM2).
   static let procedureRef modnum symOffset (name: string) =
     [| BitConverter.GetBytes 0u
@@ -77,8 +101,25 @@ type PDBTests() =
       ModuleName = "a.obj"
       ObjFileName = "a.obj" }
 
+  /// The header of a PDB holding nothing, which is every PDB whose records
+  /// are handed over rather than read out of its blocks.
+  static let emptySuperBlock =
+    { BlockSize = 4096
+      FreeBlockMapIdx = 1
+      NumBlocks = 0
+      NumDirectoryBytes = 0
+      BlockMapAddr = 0 }
+
+  /// A store holding no stream, which is all a record naming no other one
+  /// ever reaches into.
+  static let noStreams =
+    { PDBBytes = [||]
+      SuperBlock = emptySuperBlock
+      Directory = { NumStreams = 0; StreamSizes = [||]; StreamBlocks = [||] }
+      ReadStreams = Dictionary() }
+
   static let readRecords modules stream =
-    parseSymRecordStream reader modules [||] stream
+    parseSymRecordStream reader modules noStreams stream
 
   /// Builds the info stream of a PDB naming the given build.
   static let infoStream version age (guid: byte[]) =
@@ -209,6 +250,45 @@ type PDBTests() =
     Assert.AreEqual<int>(2, List.length paths)
     Assert.AreEqual<string>(IO.Path.Combine("bin", "full.pdb"), paths[0])
     Assert.AreEqual<string>(IO.Path.Combine("bin", "prog.pdb"), paths[1])
+
+  /// A procedure record says how far the function reaches as well as where it
+  /// begins, which is the one size any record in a PDB carries.
+  [<TestMethod>]
+  member _.``[PDB] procedure symbol carrying its length test``() =
+    let bs = procedureSymbol PDBSymbolKind.S_GPROC32 0x2a 0x20 1 "helper"
+    match readRecords [||] (bs, bs.Length) with
+    | [ sym ] ->
+      Assert.AreEqual<string>("helper", sym.Name)
+      Assert.AreEqual<bool>(true, sym.IsFunction)
+      Assert.AreEqual<uint64 option>(Some 0x2aUL, sym.Size)
+    | _ ->
+      Assert.Fail()
+
+  /// A compiler that keeps ID records names a procedure's type by an ID index
+  /// and writes S_GPROC32_ID for it, which lays out as S_GPROC32 does.
+  [<TestMethod>]
+  member _.``[PDB] procedure symbol of the ID kind test``() =
+    let bs = procedureSymbol PDBSymbolKind.S_GPROC32_ID 0x2a 0x20 1 "helper"
+    match readRecords [||] (bs, bs.Length) with
+    | [ sym ] ->
+      Assert.AreEqual<string>("helper", sym.Name)
+      Assert.AreEqual<bool>(true, sym.IsFunction)
+    | _ ->
+      Assert.Fail()
+
+  /// A data record lays its address out where a public symbol does, but what
+  /// sits where that one keeps its flags is a type index, so nothing in a
+  /// data record ever makes it a function.
+  [<TestMethod>]
+  member _.``[PDB] data symbol test``() =
+    let bs = dataSymbol 0x3000 2 "counter"
+    match readRecords [||] (bs, bs.Length) with
+    | [ sym ] ->
+      Assert.AreEqual<string>("counter", sym.Name)
+      Assert.AreEqual<bool>(false, sym.IsFunction)
+      Assert.AreEqual<uint64 option>(None, sym.Size)
+    | _ ->
+      Assert.Fail()
 
   /// A PDB cut short holds a file system naming more blocks than are there.
   /// Whichever read finds that out, what reaches the caller says the one

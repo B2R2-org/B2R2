@@ -30,6 +30,10 @@ type internal PDBSymbolKind =
   | S_COMPILE = 0x0001us
   /// Address of virtual function table.
   | S_VFTABLE32 = 0x100cus
+  /// Local data symbol.
+  | S_LDATA32 = 0x110cus
+  /// Global data symbol.
+  | S_GDATA32 = 0x110dus
   /// Public symbol.
   | S_PUB32 = 0x110eus
   /// Reference to a procedure.
@@ -40,3 +44,8 @@ type internal PDBSymbolKind =
   | S_LPROC32 = 0x110fus
   /// Global procedure start.
   | S_GPROC32 = 0x1110us
+  /// Local procedure start, naming its type by an ID index. It is what a
+  /// compiler emits in place of S_LPROC32 once it keeps ID records.
+  | S_LPROC32_ID = 0x1146us
+  /// Global procedure start, naming its type by an ID index.
+  | S_GPROC32_ID = 0x1147us
