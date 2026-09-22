@@ -103,6 +103,16 @@ type PETests() =
   /// export-table name resolution (no PDB needed).
   static let x64DllFile = parseDllFile "pe_x64_dll"
 
+  /// Writes the given bytes to a file of their own, runs the given function
+  /// over its path, and takes the file away again.
+  static let withTempFile (bytes: byte[]) f =
+    let path = Path.GetTempFileName()
+    try
+      File.WriteAllBytes(path, bytes)
+      f path
+    finally
+      File.Delete path
+
   /// A C++/SEH binary (try/catch plus __try/__except): its UNWIND_INFO carries
   /// a personality routine, the SEH frame carries a C scope table, and the C++
   /// try uses the compressed (FH4) FuncInfo format.
@@ -464,6 +474,39 @@ type PETests() =
     | None ->
       Assert.Fail()
 
+  /// A PDB named by its path is read out of the file a block at a time rather
+  /// than into one array, which is what lets a PDB be read that no array
+  /// could hold. What it names has to be what reading the same bytes names.
+  [<TestMethod>]
+  member _.``[PE] x64 pdb read from a path test``() =
+    let exe = ZIPReader.readBytes PEBinary "pe_x64_pdb.zip" "pe_x64_pdb.exe"
+    let pdb = ZIPReader.readBytes PEBinary "pe_x64_pdb.zip" "pe_x64_pdb.pdb"
+    let fromBytes = PEBinFile("pe_x64_pdb.exe", exe, None, pdb) :> IBinFile
+    let readFrom path =
+      let file = PEBinFile("pe_x64_pdb.exe", exe, None, (path: string))
+      (file :> IBinFile).SymbolTable.Value.Symbols
+    let fromPath = withTempFile pdb readFrom
+    let named (syms: BinSymbol[]) =
+      [ for s in syms -> s.Name, s.Address, s.Kind, s.Size ]
+    let expected = named fromBytes.SymbolTable.Value.Symbols
+    Assert.AreEqual<int>(4, List.length expected)
+    Assert.AreEqual(expected, named fromPath)
+
+  /// Every check on the shape of a PDB holds however the PDB is read, so a
+  /// file cut short is no more readable than the same bytes are.
+  [<TestMethod>]
+  member _.``[PE] x64 pdb cut short on disk test``() =
+    let pdb = ZIPReader.readBytes PEBinary "pe_x64_pdb.zip" "pe_x64_pdb.pdb"
+    let half = Array.sub pdb 0 (pdb.Length / 2)
+    let reader = BinReader.Init Endian.Little
+    let thrown path =
+      try
+        Parser.parsePDBFile reader None path |> ignore
+        false
+      with InvalidFileFormatException ->
+        true
+    Assert.AreEqual<bool>(true, withTempFile half thrown)
+
   /// A PDB written for another build names another GUID, and the addresses it
   /// holds are that build's rather than this one's. Reading it would put one
   /// image's names on another image's addresses, so it yields no symbols at
@@ -719,6 +762,18 @@ type PETests() =
     let bytes = ZIPReader.readBytes PEBinary "pe_x64.zip" "pe_x64.exe"
     let f = FileFactory.loadPE "" bytes None [||] :> IBinFile
     Assert.AreEqual(PEBinary, f.Format)
+
+  /// The factory names a PDB either way the image reader does, so a caller
+  /// holding a path is no more sent elsewhere than one holding bytes.
+  [<TestMethod>]
+  member _.``[PE] file factory loadPEWithPDBPath test``() =
+    let exe = ZIPReader.readBytes PEBinary "pe_x64_pdb.zip" "pe_x64_pdb.exe"
+    let pdb = ZIPReader.readBytes PEBinary "pe_x64_pdb.zip" "pe_x64_pdb.pdb"
+    let readFrom path =
+      let f = FileFactory.loadPEWithPDBPath "" exe None path :> IBinFile
+      f.SymbolTable.Value.Symbols |> Array.map (fun s -> s.Name) |> Set.ofArray
+    Assert.AreEqual<Set<string>>(set [ "main"; "helper" ],
+                                 withTempFile pdb readFrom)
 
   [<TestMethod>]
   member _.``[PE] x64 an RVA no section maps reads nowhere``() =

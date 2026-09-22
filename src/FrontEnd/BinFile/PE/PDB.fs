@@ -52,8 +52,8 @@ type internal SuperBlock =
 /// the file -- so a stream is copied out of its blocks when something asks
 /// for it and not before, and once for however many times it is asked for.
 type internal StreamStore =
-  { /// The bytes of the whole PDB.
-    PDBBytes: byte[]
+  { /// Where its blocks are read from.
+    Source: BlockSource
     /// The header of the file system inside it.
     SuperBlock: SuperBlock
     /// The directory naming every stream in it.
@@ -142,9 +142,13 @@ let validBlockSizes = [| 512; 1024; 2048; 4096 |]
 let checkFormat cond =
   if cond then () else raise InvalidFileFormatException
 
-/// Checks if the given span is a valid PDB header. The header is expected to
-/// start with a specific magic number.
-let isValidHeader (bs: byte[]) (reader: IBinReader) =
+/// The number of bytes at the head of a PDB that name the file system in it:
+/// the magic it leads with, and the super block right after it.
+let [<Literal>] SuperBlockSize = 56
+
+/// Checks if the given source leads with a valid PDB header. The header is
+/// expected to start with a specific magic number.
+let isValidHeader source (reader: IBinReader) =
   let magicBytes =
     [| 'M'
        'i'
@@ -178,9 +182,15 @@ let isValidHeader (bs: byte[]) (reader: IBinReader) =
        '\000'
        '\000'
        '\000' |]
-  bs.Length >= 32 && reader.ReadChars(bs, 0, 32) = magicBytes
+  if BlockSource.length source < int64 SuperBlockSize then
+    false
+  else
+    let bs = BlockSource.read source 0L SuperBlockSize
+    reader.ReadChars(bs, 0, 32) = magicBytes
 
-let parseSuperBlock (bs: byte[]) (reader: IBinReader) =
+let parseSuperBlock source (reader: IBinReader) =
+  checkFormat (BlockSource.length source >= int64 SuperBlockSize)
+  let bs = BlockSource.read source 0L SuperBlockSize
   { BlockSize = reader.ReadInt32(bs, 32)
     FreeBlockMapIdx = reader.ReadInt32(bs, 36)
     NumBlocks = reader.ReadInt32(bs, 40)
@@ -191,12 +201,12 @@ let parseSuperBlock (bs: byte[]) (reader: IBinReader) =
 /// block size is one of the four the format allows, and every block it counts
 /// is in the file, as is the one its stream directory is mapped from. A file
 /// failing any of these is one to give up on rather than read blocks out of.
-let isValidSuperBlock (bs: byte[]) sb =
+let isValidSuperBlock source sb =
   Array.contains sb.BlockSize validBlockSizes
   && sb.NumBlocks > 0
   && sb.BlockMapAddr > 0
   && sb.BlockMapAddr < sb.NumBlocks
-  && int64 sb.NumBlocks * int64 sb.BlockSize <= int64 bs.Length
+  && int64 sb.NumBlocks * int64 sb.BlockSize <= BlockSource.length source
   && sb.NumDirectoryBytes > 0
   && int64 sb.NumDirectoryBytes <= int64 sb.NumBlocks * int64 sb.BlockSize
 
@@ -212,14 +222,15 @@ let rec readIntValues (bs: byte[]) reader cnt acc pos =
 
 /// Copies the blocks the given stream occupies into one buffer. A block index
 /// reaching outside the file is one no stream of a readable PDB carries.
-let readStream (bs: byte[]) blockSize blockMapAddrs =
+let readStream source blockSize blockMapAddrs =
   let size = List.length blockMapAddrs * blockSize
   let buf: byte[] = Array.zeroCreate size
+  let len = BlockSource.length source
   let mutable idx = 0
   for blockMapAddr in blockMapAddrs do
     let offset = int64 blockMapAddr * int64 blockSize
-    checkFormat (offset >= 0L && offset + int64 blockSize <= int64 bs.Length)
-    Array.blit bs (int offset) buf (idx * blockSize) blockSize
+    checkFormat (offset >= 0L && offset + int64 blockSize <= len)
+    BlockSource.readInto source buf (idx * blockSize) offset blockSize
     idx <- idx + 1
   buf
 
@@ -254,15 +265,17 @@ let buildStreamDirectory sb (bs: byte[]) reader =
     StreamSizes = streamSizes
     StreamBlocks = streamBlks }
 
-let parseStreamDirectory (bs: byte[]) reader sb =
+let parseStreamDirectory source reader sb =
   let numBlks = getNumBlocks sb.NumDirectoryBytes sb.BlockSize
-  let blockMapOffset = sb.BlockMapAddr * sb.BlockSize
-  checkFormat (blockMapOffset + numBlks * 4 <= bs.Length)
-  let intVals = readIntValues bs reader numBlks [] blockMapOffset
-  buildStreamDirectory sb (readStream bs sb.BlockSize intVals) reader
+  let mapOffset = int64 sb.BlockMapAddr * int64 sb.BlockSize
+  let mapSize = numBlks * 4
+  checkFormat (mapOffset + int64 mapSize <= BlockSource.length source)
+  let map = BlockSource.read source mapOffset mapSize
+  let intVals = readIntValues map reader numBlks [] 0
+  buildStreamDirectory sb (readStream source sb.BlockSize intVals) reader
 
-let buildStreamStore bs sb streamDir =
-  { PDBBytes = bs
+let buildStreamStore source sb streamDir =
+  { Source = source
     SuperBlock = sb
     Directory = streamDir
     ReadStreams = Dictionary() }
@@ -276,7 +289,7 @@ let getStream store idx =
   | false, _ ->
     let blks = store.Directory.StreamBlocks[idx] |> Array.toList
     let blockSize = store.SuperBlock.BlockSize
-    let bytes = readStream store.PDBBytes blockSize blks
+    let bytes = readStream store.Source blockSize blks
     let stream = bytes, store.Directory.StreamSizes[idx]
     store.ReadStreams[idx] <- stream
     stream
@@ -504,11 +517,11 @@ let parseSymbols reader store =
   getStream store dbi.SymRecordStreamIdx
   |> parseSymRecordStream reader modules store
 
-let parse bs reader expected =
-  let sb = parseSuperBlock bs reader
-  checkFormat (isValidSuperBlock bs sb)
-  let streamDir = parseStreamDirectory bs reader sb
-  let store = buildStreamStore bs sb streamDir
+let parse source reader expected =
+  let sb = parseSuperBlock source reader
+  checkFormat (isValidSuperBlock source sb)
+  let streamDir = parseStreamDirectory source reader sb
+  let store = buildStreamStore source sb streamDir
   checkFormat (isValidStreamIndex store InfoStreamIndex)
   let infoStream, _ = getStream store InfoStreamIndex
   if isMatchingPDB reader infoStream expected then parseSymbols reader store
