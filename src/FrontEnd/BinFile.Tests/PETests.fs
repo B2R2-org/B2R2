@@ -592,6 +592,29 @@ type PETests() =
     Assert.AreEqual(PEBinary, f.Format)
 
   [<TestMethod>]
+  member _.``[PE] x64 an RVA no section maps reads nowhere``() =
+    (* Asking whether an RVA reads anywhere and asking where it reads are the
+       one question, and -1 is the answer to both where no section holds bytes
+       for it. Raising is what a caller with nowhere else to go gets instead. *)
+    let secs = x64File.SectionHeaders
+    let unmapped = 0x7f000000
+    Assert.AreEqual(-1, PEUtils.findMappedSectionIndex secs unmapped)
+    Assert.AreEqual(-1, PEUtils.tryGetRawOffset secs unmapped)
+    Assert.ThrowsExactly<InvalidFileFormatException>(fun () ->
+      PEUtils.getRawOffset secs unmapped |> ignore)
+    |> ignore
+
+  [<TestMethod>]
+  member _.``[PE] x64 a mapped RVA reads where its section does``() =
+    (* The first byte of a section reads at the offset the section names, and
+       the two ways of asking for it agree wherever there is an answer. *)
+    let secs = x64File.SectionHeaders
+    let sec = secs |> Array.find (fun s -> s.Name = ".text")
+    let expected = sec.PointerToRawData
+    Assert.AreEqual(expected, PEUtils.tryGetRawOffset secs sec.VirtualAddress)
+    Assert.AreEqual(expected, PEUtils.getRawOffset secs sec.VirtualAddress)
+
+  [<TestMethod>]
   member _.``[PE] an import directory landing nowhere is a format error``() =
     (* An RVA no section maps names no byte of the file, which is a fact about
        the file rather than an index to read on with. *)

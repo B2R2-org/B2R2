@@ -47,10 +47,9 @@ let private tryFindDirectory pe =
   | Some hdr ->
     let dir = hdr.Directory DirectoryKind.ThreadLocalStorageTable
     let rva = dir.RVA
-    if dir.Size = 0 || findMappedSectionIndex pe.SectionHeaders rva = -1 then
-      None
-    else
-      Some(getRawOffset pe.SectionHeaders rva)
+    let offset =
+      if dir.Size = 0 then -1 else tryGetRawOffset pe.SectionHeaders rva
+    if offset < 0 then None else Some offset
 
 /// Reads the null-terminated array of addresses the directory points at.
 /// They are addresses the image would load at, so it is the preferred base
@@ -62,11 +61,11 @@ let private readCallbacks (bytes: byte[]) pe arrayVA =
     [||]
   else
     let rva = int (arrayVA - imageBase)
-    if findMappedSectionIndex secs rva = -1 then
+    let start = tryGetRawOffset secs rva
+    if start < 0 then
       [||]
     else
       let width = WordSize.toByteWidth pe.WordSize
-      let start = getRawOffset secs rva
       let span = System.ReadOnlySpan bytes
       let addrs = ResizeArray()
       let mutable i = 0

@@ -41,16 +41,29 @@ let getVirtualSectionSize (sec: SectionHeader) =
   let virtualSize = sec.VirtualSize
   if virtualSize = 0 then sec.SizeOfRawData else virtualSize
 
+/// Returns the index of the first section that reaches the given RVA, by
+/// however far the given function says a section reaches, or -1 where none of
+/// them does. The scan is written out rather than folded so that it allocates
+/// nothing: it is what every read of an RVA begins with, and reading the
+/// exception data of one image alone begins hundreds of thousands of them.
+let inline private findIndexBy ([<InlineIfLambda>] reachOf) secs rva =
+  let mutable i = 0
+  let mutable found = -1
+  while found < 0 && i < Array.length secs do
+    let s: SectionHeader = secs[i]
+    if s.VirtualAddress <= rva && rva < s.VirtualAddress + reachOf s then
+      found <- i
+    else
+      i <- i + 1
+  found
+
 /// <summary>
 /// Returns the index of the section a loader maps the given RVA into, or -1
 /// where no section does. How far a section reaches in memory is what its
 /// virtual size says, which is the room a loader gives it.
 /// </summary>
-let findContainingSectionIndex (secs: SectionHeader[]) rva =
-  secs
-  |> Array.tryFindIndex (fun s ->
-    s.VirtualAddress <= rva && rva < s.VirtualAddress + s.VirtualSize)
-  |> Option.defaultValue -1
+let findContainingSectionIndex secs rva =
+  findIndexBy _.VirtualSize secs rva
 
 /// <summary>
 /// Returns the index of the section whose bytes in the file the given RVA
@@ -58,11 +71,8 @@ let findContainingSectionIndex (secs: SectionHeader[]) rva =
 /// where the bytes on disk are what is wanted, a section of an object file
 /// being free to take up less of the file than it does of memory.
 /// </summary>
-let findMappedSectionIndex (secs: SectionHeader[]) rva =
-  secs
-  |> Array.tryFindIndex (fun s ->
-    s.VirtualAddress <= rva && rva < s.VirtualAddress + s.SizeOfRawData)
-  |> Option.defaultValue -1
+let findMappedSectionIndex secs rva =
+  findIndexBy _.SizeOfRawData secs rva
 
 /// Returns the index of the section the given RVA belongs to, by what the
 /// loader maps first and by what the file holds where that finds nothing.
@@ -80,16 +90,25 @@ let tryGetDirectoryOffset secs (dir: DataDirectory) =
     let sec: SectionHeader = secs[idx]
     Some(dir.RVA - sec.VirtualAddress + sec.PointerToRawData)
 
+/// Returns the file offset at which the given RVA reads, or -1 where no
+/// section holds bytes for it. Whether an RVA reads anywhere and where it
+/// reads are the one scan of the section table, so a caller that has an
+/// answer for either asks this once rather than asking the two in turn.
+let tryGetRawOffset secs rva =
+  match findMappedSectionIndex secs rva with
+  | -1 ->
+    -1
+  | idx ->
+    let sHdr: SectionHeader = secs[idx]
+    rva + sHdr.PointerToRawData - sHdr.VirtualAddress
+
 /// Returns the file offset at which the given RVA reads. An RVA no section
 /// maps names no byte of the file, which is a fact about the file rather than
 /// an index to read on with, so it raises rather than indexing past the table.
 let getRawOffset secs rva =
-  match findMappedSectionIndex secs rva with
-  | -1 ->
-    raise InvalidFileFormatException
-  | idx ->
-    let sHdr: SectionHeader = secs[idx]
-    rva + sHdr.PointerToRawData - sHdr.VirtualAddress
+  match tryGetRawOffset secs rva with
+  | -1 -> raise InvalidFileFormatException
+  | offset -> offset
 
 let readStr secs (bytes: byte[]) rva =
   if rva = 0 then ""
