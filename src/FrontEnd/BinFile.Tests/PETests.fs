@@ -159,6 +159,39 @@ type PETests() =
     BitConverter.GetBytes(nameRVA).CopyTo(bytes, toOffset eatRVA)
     bytes
 
+  /// The names the aliased export goes under, in the order the export name
+  /// pointer table lists them.
+  static let aliasNames = [| "alias_first"; "alias_second" |]
+
+  /// Gives the sole export both of those names, each naming the same ordinal,
+  /// which is what an alias export is. The two tables and the names go in the
+  /// room the section holds past what it maps, the export directory itself
+  /// having none to spare. Each name is given sixteen bytes of its own, which
+  /// is more than either of them takes.
+  static let withAliasedExport (bytes: byte[]) =
+    let bytes = Array.copy bytes
+    let hdrs = Header.parse bytes (BinReader.Init Endian.Little)
+    let secs = hdrs.SectionHeaders
+    let opt = Option.get hdrs.OptionalHeader
+    let dir = opt.Directory DirectoryKind.ExportTable
+    let dirOffset = PEUtils.tryGetDirectoryOffset secs dir |> Option.get
+    let sec = secs[PEUtils.findContainingSectionIndex secs dir.RVA]
+    let tblRVA = sec.VirtualAddress + PEUtils.alignUp sec.VirtualSize 16
+    let tblOffset = tblRVA - sec.VirtualAddress + sec.PointerToRawData
+    let putInt (v: int) (offset: int) =
+      BitConverter.GetBytes(v).CopyTo(bytes, offset)
+    let putOrd (v: uint16) (offset: int) =
+      BitConverter.GetBytes(v).CopyTo(bytes, offset)
+    putInt 2 (dirOffset + 24)
+    putInt tblRVA (dirOffset + 32)
+    putInt (tblRVA + 8) (dirOffset + 36)
+    for i in 0 .. aliasNames.Length - 1 do
+      putInt (tblRVA + 16 + i * 16) (tblOffset + i * 4)
+      putOrd 0us (tblOffset + 8 + i * 2)
+      Text.Encoding.Latin1.GetBytes(aliasNames[i])
+        .CopyTo(bytes, tblOffset + 16 + i * 16)
+    bytes
+
   /// Every fixture of a format other than PE, read out of its archive. The
   /// entry inside is named after the archive itself, but for the two formats
   /// that give it an extension of its own.
@@ -414,6 +447,19 @@ type PETests() =
   [<TestMethod>]
   member _.``[PE] x64 dll export name resolution test``() =
     assertFuncSymbolExistence x64DllFile 0x180001000UL "exported_func"
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll aliased export takes one name test``() =
+    (* Two names of one ordinal name one entry of the export address table,
+       and so one address, which leaves one of them as the name that address
+       goes under. The last of the names the table lists is the one, which is
+       as good as either and is what reading the table has always given back. *)
+    let bytes = ZIPReader.readBytes PEBinary "pe_x64_dll.zip" "pe_x64_dll.dll"
+    let file = PEBinFile("pe_x64_dll.dll", withAliasedExport bytes, None, [||])
+    let tbl = (file :> IBinFile).SymbolTable.Value
+    match tbl.TryFindSymbolByAddr 0x180001000UL with
+    | Ok s -> Assert.AreEqual<string>("alias_second", s.Name)
+    | Error _ -> Assert.Fail()
 
   [<TestMethod>]
   member _.``[PE] x64 relocation block test``() =
