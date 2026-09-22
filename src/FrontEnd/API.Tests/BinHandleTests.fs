@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.Tests
 
+open System
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
@@ -53,6 +54,23 @@ type BinHandleTests() =
   /// An image holding "hi", a NUL, and then an unterminated "ab".
   static let strHdl =
     BinHandle.LoadRawImage([| 0x68uy; 0x69uy; 0x00uy; 0x61uy; 0x62uy |], isa)
+
+  (* A debug file a caller names is the file the reader is sent to, and being
+     told it is not there is what tells such a file apart from one merely
+     looked for beside the binary, which is passed over in silence. This test
+     assembly is itself a PE, so it is a binary to name one for. *)
+  [<TestMethod>]
+  member _.``[BinHandle] a named debug file reaches the reader test``() =
+    let path = Reflection.Assembly.GetExecutingAssembly().Location
+    let hdl = BinHandle.LoadFile(path, isa, None, path + ".nosuch.pdb")
+    Assert.AreEqual(FileFormat.PEBinary, hdl.File.Format)
+    let thrown =
+      try
+        hdl.File.SymbolTable.Value.Symbols |> ignore
+        false
+      with :? IO.FileNotFoundException ->
+        true
+    Assert.AreEqual<bool>(true, thrown)
 
   (* The handle must report the ISA the file settled on, not a copy of the one
      it was constructed with, since format detection can resolve a different

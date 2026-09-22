@@ -101,6 +101,29 @@ module FileFactory =
     PEBinFile(path, bytes, baseAddrOpt, pdbPath)
 
   /// <summary>
+  /// Creates a binary file object from the given path and byte array, along
+  /// with the debug file at the given path: a file sitting beside the binary
+  /// that carries the symbols the binary itself does not. Only a PE reads one
+  /// today, and it is a PDB; a format whose separate debug file this reader
+  /// does not read yet is loaded as if no path had been given.
+  /// <param name="path">The path to the binary file.</param>
+  /// <param name="bytes">The raw content of the binary file.</param>
+  /// <param name="fmt">The file format of the binary file.</param>
+  /// <param name="isa">The target ISA of the binary file.</param>
+  /// <param name="regFactory">The register factory for the target ISA.</param>
+  /// <param name="baseAddrOpt">An optional base address for the binary
+  /// file.
+  /// </param>
+  /// <param name="debugPath">The path to the debug file.</param>
+  /// </summary>
+  let loadWithDebugFile path bytes fmt isa regFactory baseAddrOpt debugPath =
+    match fmt with
+    | FileFormat.PEBinary ->
+      PEBinFile(path, bytes, baseAddrOpt, (debugPath: string)) :> IBinFile
+    | _ ->
+      load path bytes fmt isa regFactory baseAddrOpt
+
+  /// <summary>
   /// Creates a Mach-O binary file object.
   /// </summary>
   let loadMach path bytes isa regFactory baseAddrOpt =
