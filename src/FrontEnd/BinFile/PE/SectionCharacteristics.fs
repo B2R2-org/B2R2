@@ -29,7 +29,7 @@ open System
 /// Represents what a section holds and how it is to be mapped, which is what
 /// the Characteristics field of its section header holds.
 [<FlagsAttribute>]
-type internal SectionCharacteristics =
+type SectionCharacteristics =
   /// Reserved, and what a section naming no attribute at all reads as.
   | TypeReg = 0x0u
   /// Reserved.

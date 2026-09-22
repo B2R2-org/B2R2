@@ -28,6 +28,19 @@ open System
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
+/// Returns the value rounded up to the next multiple of the alignment.
+let alignUp (value: int) alignment =
+  if alignment <= 1 then value
+  else (value + alignment - 1) / alignment * alignment
+
+/// Some PE files have a section header indicating that the corresponding
+/// section's size is zero even if it contains actual data, i.e.,
+/// sHdr.VirtualSize = 0, but sHdr.SizeOfRawData <> 0. Thus, we should use this
+/// function to get the size of sections.
+let getVirtualSectionSize (sec: SectionHeader) =
+  let virtualSize = sec.VirtualSize
+  if virtualSize = 0 then sec.SizeOfRawData else virtualSize
+
 /// <summary>
 /// Returns the index of the section a loader maps the given RVA into, or -1
 /// where no section does. How far a section reaches in memory is what its

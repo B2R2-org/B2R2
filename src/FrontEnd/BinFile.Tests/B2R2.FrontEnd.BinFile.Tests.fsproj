@@ -15,6 +15,7 @@
     <Compile Include="DWARFTests.fs" />
     <Compile Include="PEHeaderTests.fs" />
     <Compile Include="PETests.fs" />
+    <Compile Include="PEEmitterTests.fs" />
     <Compile Include="MachTests.fs" />
     <Compile Include="MachEmitterTests.fs" />
     <Compile Include="WasmTests.fs" />

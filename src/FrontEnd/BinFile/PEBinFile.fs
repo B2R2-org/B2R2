@@ -29,6 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.PE
 open B2R2.FrontEnd.BinFile.PE.Helper
+open B2R2.FrontEnd.BinFile.PE.PEUtils
 
 /// Represents a PE binary file.
 type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
@@ -342,7 +343,10 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   /// Returns the base address.
   member internal _.BaseAddress with get() = pe.BaseAddr
 
-  /// Returns the PEHeaders.
+  /// Returns the contents of the file.
+  member internal _.Bytes with get() = bytes
+
+  /// Returns every header of the file.
   member internal _.Header with get() = pe.Header
 
   /// Returns the section headers.

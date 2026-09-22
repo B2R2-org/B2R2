@@ -148,6 +148,9 @@
     <Compile Include="PE\OptionalHeader.fs" />
     <Compile Include="PE\CorHeader.fs" />
     <Compile Include="PE\Header.fs" />
+    <Compile Include="PE\Image.fs" />
+    <Compile Include="PE\Layout.fs" />
+    <Compile Include="PE\Emitter.fs" />
     <Compile Include="PE\BaseRelocationBlock.fs" />
     <Compile Include="PE\BaseRelocationTable.fs" />
     <Compile Include="PE\IDTEntry.fs" />
@@ -174,6 +177,7 @@
     <Compile Include="MachWriter.fs" />
     <Compile Include="PythonBinFile.fs" />
     <Compile Include="PEBinFile.fs" />
+    <Compile Include="PEWriter.fs" />
     <Compile Include="FormatDetector.fs" />
     <Compile Include="FileFactory.fs" />
   </ItemGroup>
