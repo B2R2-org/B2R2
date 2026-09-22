@@ -58,7 +58,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       Kind = if s.IsFunction then FunctionSymbol else OtherSymbol
       Binding = UnknownBinding
       IsDefined = true
-      Size = None
+      Size = s.Size
       LibraryName = None }
 
   let toExportedSymbol addr name =

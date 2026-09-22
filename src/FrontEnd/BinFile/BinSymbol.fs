@@ -40,8 +40,9 @@ type BinSymbol =
     /// Whether the symbol is defined within this binary (has a concrete
     /// location here), as opposed to being undefined and resolved elsewhere.
     IsDefined: bool
-    /// Size of the symbol in bytes, when the format records it. None for
-    /// formats that do not carry a symbol size (e.g., PE and Mach-O).
+    /// Size of the symbol in bytes, when the record naming it says. None for
+    /// a record that says only where a symbol begins, which is every one a
+    /// Mach-O carries and every one a PE names outside of a PDB's procedures.
     Size: uint64 option
     /// Library/version that provides the symbol, for versioned or
     /// dynamically-bound symbols (e.g., an ELF version such as "GLIBC_2.2.5" or

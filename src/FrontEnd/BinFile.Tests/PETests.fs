@@ -402,6 +402,25 @@ type PETests() =
   member _.``[PE] x64 pdb function symbol test (2)``() =
     assertFuncSymbolExistence x64PdbFile 0x140001020UL "helper"
 
+  /// A PDB keeping private symbols says how far each function reaches, which
+  /// is the one size a PE names anywhere. helper is the 11 bytes its four
+  /// instructions take, and main the 16 of its five.
+  [<TestMethod>]
+  member _.``[PE] x64 pdb function size test``() =
+    let tbl = (x64PdbFile :> IBinFile).SymbolTable.Value
+    match tbl.TryFindSymbolByAddr 0x140001020UL with
+    | Ok s -> Assert.AreEqual<uint64 option>(Some 11UL, s.Size)
+    | Error _ -> Assert.Fail()
+
+  /// A public symbol says only where a function begins, so a PDB stripped of
+  /// every other record says nothing about how far one reaches.
+  [<TestMethod>]
+  member _.``[PE] x64 stripped pdb has no function size test``() =
+    let tbl = (x64PdbStrippedFile :> IBinFile).SymbolTable.Value
+    match tbl.TryFindSymbolByAddr 0x140001020UL with
+    | Ok s -> Assert.AreEqual<uint64 option>(None, s.Size)
+    | Error _ -> Assert.Fail()
+
   [<TestMethod>]
   member _.``[PE] x64 stripped pdb function symbol test (1)``() =
     assertFuncSymbolExistence x64PdbStrippedFile 0x140001040UL "main"

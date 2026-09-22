@@ -129,7 +129,8 @@ let toPESymbol symb =
     Some { Address = symb.SymbValue |> uint64
            Segment = symb.SecNumber |> uint16
            Name = symb.SymbName
-           IsFunction = true }
+           IsFunction = true
+           Size = None }
   | _ ->
     None
 

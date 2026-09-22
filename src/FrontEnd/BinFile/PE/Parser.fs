@@ -39,10 +39,10 @@ let magicToWordSize = function
   | PEMagic.PE32Plus -> WordSize.Bit64
   | _ -> raise InvalidWordSizeException
 
-let readPDB reader expected (pdbBytes: byte[]) =
-  let span = ReadOnlySpan pdbBytes
-  if PDB.isValidHeader span reader then () else raise InvalidFileFormatException
-  PDB.parse span reader expected
+let readPDB reader expected pdbBytes =
+  if PDB.isValidHeader pdbBytes reader then ()
+  else raise InvalidFileFormatException
+  PDB.parse pdbBytes reader expected
 
 /// Returns the symbols the given PDB holds. Whatever stops the read -- the
 /// magic it leads with, the shape of the file system inside it, a stream
