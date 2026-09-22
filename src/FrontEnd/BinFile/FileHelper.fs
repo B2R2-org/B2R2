@@ -33,24 +33,51 @@ open System
 let inline selectByWordSize wordSize v32 v64 =
   if wordSize = WordSize.Bit32 then v32 else v64
 
-let private normalizeHexString (bytes: byte[]) =
-  let str = Text.Encoding.ASCII.GetString bytes
-  let str = if str.StartsWith "0x" then str[2..] else str
-  str.TrimEnd()
+let private isWhitespaceByte b =
+  b = 0x20uy || (b >= 0x09uy && b <= 0x0Duy)
 
-let private isHexChar c =
-  c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f'
+/// Returns the range of the given bytes that holds the hex digits, i.e., the
+/// bytes past the optional "0x" prefix and before the trailing whitespaces. The
+/// end offset is exclusive.
+let private getHexRange (bytes: byte[]) =
+  let isPrefixed = bytes.Length >= 2 && bytes[0] = '0'B && bytes[1] = 'x'B
+  let s = if isPrefixed then 2 else 0
+  let mutable e = bytes.Length
+  while e > s && isWhitespaceByte bytes[e - 1] do e <- e - 1
+  struct (s, e)
 
-let private isHexString (str: string) =
-  str.Length > 0 && str.Length % 2 = 0 && String.forall isHexChar str
+let private toHexString (bytes: byte[]) s e =
+  Text.Encoding.ASCII.GetString(bytes, s, e - s)
+
+let private isHexByte b =
+  (b >= '0'B && b <= '9'B)
+  || (b >= 'A'B && b <= 'F'B)
+  || (b >= 'a'B && b <= 'f'B)
+
+/// Checks whether the given range of the given bytes is an even-length run of
+/// hex digits. This works on the raw bytes so that a binary that is not a hex
+/// dump is rejected at its first non-hex byte, without decoding the whole file.
+let private isHexBytes (bytes: byte[]) s e =
+  let length = e - s
+  if length <= 0 || length % 2 <> 0 then
+    false
+  else
+    let mutable i = s
+    while i < e && isHexByte bytes[i] do i <- i + 1
+    i = e
 
 /// Converts a byte array containing an ASCII hex string into raw bytes.
-let parseHexBytes bytes = normalizeHexString bytes |> ByteArray.ofHexString
+let parseHexBytes bytes =
+  let struct (s, e) = getHexRange bytes
+  toHexString bytes s e |> ByteArray.ofHexString
 
 /// Tries to parse a byte array containing an ASCII hex string into raw bytes.
 let tryParseHexBytes bytes =
-  let str = normalizeHexString bytes
-  if isHexString str then Some <| ByteArray.ofHexString str else None
+  let struct (s, e) = getHexRange bytes
+  if isHexBytes bytes s e then
+    toHexString bytes s e |> ByteArray.ofHexString |> Some
+  else
+    None
 
 /// Reads either 32-bit or 64-bit value based on the word size from the given
 /// offset of the given byte span. This function always returns a 64-bit value.
