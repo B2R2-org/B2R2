@@ -182,6 +182,21 @@ type ELFTests() =
   /// EM_ARM machine type and the R_ARM_* relocation decoding.
   static let arm32File = parseFile "elf_arm32"
 
+  /// The same ARM executable whose .rel.plt is left saying it holds nothing,
+  /// while the .plt beside it stays as it was. The relocations a PLT entry is
+  /// read through are then not there to be found, so the parser has no first
+  /// entry to count from and the file names no import at all.
+  static let arm32EmptyRelPlt =
+    let bytes = ZIPReader.readBytes ELFBinary "elf_arm32.zip" "elf_arm32"
+    let bytes = Array.copy bytes
+    let reader = BinReader.Init Endian.Little
+    let shoff = reader.ReadInt32(bytes, 0x20) (* e_shoff *)
+    let shentsize = reader.ReadUInt16(bytes, 0x2e) |> int
+    let relPltIdx = 10 (* the .rel.plt of this fixture *)
+    (* sh_size sits 0x14 into an ELF32 section header. *)
+    System.Array.Clear(bytes, shoff + relPltIdx * shentsize + 0x14, 4)
+    ELFBinFile("elf_arm32", bytes, None, None)
+
   /// A 32-bit ARM executable compiled in Thumb mode, so its function symbols
   /// carry the Thumb bit (LSB set) in their addresses.
   static let thumbFile = parseFile "elf_thumb"
@@ -1905,6 +1920,18 @@ type ELFTests() =
     let relocs = (arm32File :> IBinFile).Relocations.Value
     Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x12014UL)
     Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x1201cUL)
+
+  [<TestMethod>]
+  member _.``[ELF] arm32 empty rel.plt names no import test``() =
+    (* The fixture is emptied by section index, so this pins both that the
+       index still names .rel.plt and that the file it came from holds the
+       imports there are to lose. *)
+    let sec = arm32EmptyRelPlt.TryFindSection ".rel.plt" |> Option.get
+    let full = (arm32File :> IBinFile).ImportTable.Value.Imports
+    let emptied = (arm32EmptyRelPlt :> IBinFile).ImportTable.Value.Imports
+    Assert.AreEqual<uint64>(0UL, sec.SecSize)
+    Assert.AreEqual<int>(4, full.Length)
+    Assert.AreEqual<int>(0, emptied.Length)
 
   [<TestMethod>]
   member _.``[ELF] x64 reloc undefined internal function test``() =
