@@ -67,6 +67,16 @@ type State<'Lattice when 'Lattice: equality>
 
   let useDefMap = Dictionary<VarPoint, VarPoint>()
 
+  /// Caches the variable kinds each vertex reads, so that phi placement does
+  /// not re-walk a vertex's statements on every call.
+  let usedVarKindsMemo =
+    Dictionary<IVertex<LowUIRBasicBlock>, HashSet<VarKind>>()
+
+  /// Accumulates every variable kind ever read anywhere in the function. This
+  /// only grows: a vertex is scanned into it once, when it is first pending,
+  /// and its statements never change afterwards.
+  let everUsedVarKinds = HashSet<VarKind>()
+
   /// Holds the vertices that need to be analyzed for reconstructing data flow
   /// information.
   let verticesForProcessing = HashSet<IVertex<LowUIRBasicBlock>>()
@@ -350,6 +360,8 @@ type State<'Lattice when 'Lattice: equality>
     useDefMap.Clear()
     verticesForProcessing.Clear()
     verticesForRemoval.Clear()
+    usedVarKindsMemo.Clear()
+    everUsedVarKinds.Clear()
     vpToSSAVar.Clear()
     ssaVarCounter <- 0
     ssaVarToVp.Clear()
@@ -390,6 +402,10 @@ type State<'Lattice when 'Lattice: equality>
   member _.UseDefMap with get() = useDefMap :> IReadOnlyDictionary<_, _>
 
   member internal _.MutableUseDefMap with get() = useDefMap
+
+  member internal _.UsedVarKindsMemo with get() = usedVarKindsMemo
+
+  member internal _.EverUsedVarKinds with get() = everUsedVarKinds
 
   /// Maps an SSA variable to its corresponding variable point.
   member _.SSAVarToVp with get() = ssaVarToVp :> IReadOnlyDictionary<_, _>
@@ -539,6 +555,7 @@ module internal AnalysisCore = begin
       state.MutablePhiInfos.Remove v |> ignore
       state.MutablePerVertexIncomingDefs.Remove v |> ignore
       state.MutablePerVertexOutgoingDefs.Remove v |> ignore
+      state.UsedVarKindsMemo.Remove v |> ignore
       removeInvalidChains state
     | true, _ ->
       removeInvalidChains state
@@ -611,6 +628,38 @@ module internal AnalysisCore = begin
       memo[v] <- varKinds
       varKinds
 
+  /// Returns the variable kinds read by the given vertex, i.e. the ones a phi
+  /// placed for this vertex could actually feed. A store's own destination is
+  /// a definition, not a use, so only its address and value are walked.
+  let getUsedVarKinds memo (state: State<_>) v =
+    match (memo: Dictionary<_, _>).TryGetValue v with
+    | true, kinds ->
+      kinds
+    | false, _ ->
+      let varKinds = HashSet()
+      let onVarRead vk = varKinds.Add vk |> ignore
+      let tryStackOffset pp e =
+        match getStackValue state pp e with
+        | Ok loc -> Some(LowUIRStackPointer.toFrameOffset loc)
+        | Error _ -> None
+      for (stmt, pp) in state.GetStmtInfos v do
+        match stmt with
+        | Put(Src = src) ->
+          VarKind.iterUses onVarRead (tryStackOffset pp) src
+        | Store(Addr = addr; Value = src) ->
+          VarKind.iterUses onVarRead (tryStackOffset pp) addr
+          VarKind.iterUses onVarRead (tryStackOffset pp) src
+        | Jmp(Target = e) | CJmp(Cond = e) | InterJmp(Target = e) ->
+          VarKind.iterUses onVarRead (tryStackOffset pp) e
+        | InterCJmp(Cond = c; TrueTarget = e1; FalseTarget = e2) ->
+          VarKind.iterUses onVarRead (tryStackOffset pp) c
+          VarKind.iterUses onVarRead (tryStackOffset pp) e1
+          VarKind.iterUses onVarRead (tryStackOffset pp) e2
+        | _ ->
+          ()
+      memo[v] <- varKinds
+      varKinds
+
   /// Returns the variable kinds defined by the phi nodes of the given vertex.
   /// A phi node is a definition on its own, so it can require another phi node
   /// down the dominance frontier.
@@ -621,16 +670,21 @@ module internal AnalysisCore = begin
 
   /// Places the phi nodes that the definitions of `affectingVertex` require at
   /// the insertion point `v`. Returns true if a new phi node has been placed.
-  let placePhisFrom state buf memo v affectingVertex =
+  /// Skips a variable kind that is never read anywhere in the function: no
+  /// query can ever reach such a phi, since every consumer of this analysis
+  /// starts from a real use in some IR expression.
+  let placePhisFrom (everUsed: HashSet<_>) state buf memo v affectingVertex =
     let mutable changed = false
     for varKind in getDefinedVarKinds memo state affectingVertex do
-      if isInnerScopeVarKind v varKind then ()
+      if isInnerScopeVarKind v varKind || not (everUsed.Contains varKind) then
+        ()
       elif placePhi state v varKind then changed <- true
       else ()
     (buf: ResizeArray<_>).Clear()
     buf.AddRange(getPhiVarKinds state affectingVertex)
     for varKind in buf do
-      if isInnerScopeVarKind v varKind then ()
+      if isInnerScopeVarKind v varKind || not (everUsed.Contains varKind) then
+        ()
       elif placePhi state v varKind then changed <- true
       else ()
     changed
@@ -658,6 +712,14 @@ module internal AnalysisCore = begin
   let placePhis g state (dom: IForwardDominance<_>) =
     let memo = Dictionary()
     let buf = ResizeArray()
+    (* Every vertex is marked pending at least once, when it is first added,
+       so folding only the currently pending ones into the persistent
+       everUsed set (rather than rescanning the whole graph every time) still
+       accounts for every vertex exactly once over the state's lifetime. *)
+    let everUsed = (state: State<_>).EverUsedVarKinds
+    for v in state.PendingVertices do
+      for varKind in getUsedVarKinds state.UsedVarKindsMemo state v do
+        everUsed.Add varKind |> ignore
     let candidates = collectPhiInsertionCandidates g state
     let invDFs, dependents = buildInverseDFIndex g dom candidates
     let worklist = Queue candidates
@@ -667,7 +729,8 @@ module internal AnalysisCore = begin
       queued.Remove v |> ignore
       let mutable changed = false
       for affectingVertex in invDFs[v] do
-        if placePhisFrom state buf memo v affectingVertex then changed <- true
+        if placePhisFrom everUsed state buf memo v affectingVertex then
+          changed <- true
         else ()
       match dependents.TryGetValue v with
       | true, lst when changed ->
@@ -1044,6 +1107,9 @@ let compute g (state: State<_>) =
   removeInvalidChains state
   calculateChains g state dom
   propagateStackPointer g state
+  (* Stack pointer propagation lets us recognize stack slot reads that the
+     first pass could not, so the memoized used variable kinds are stale. *)
+  state.UsedVarKindsMemo.Clear()
   calculateChains g state dom
   propagateDomain g state
   state.ClearPendingVertices()
