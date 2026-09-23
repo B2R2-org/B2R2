@@ -49,6 +49,10 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let txtOffset = lazy getTextOffset shdrs.Value
 
+  let regionTable =
+    lazy
+      makeRegionTable shdrs.Value txtOffset.Value phdrs.Value loadables.Value
+
   let notes = lazy Notes.parse toolBox shdrs.Value phdrs.Value
 
   let buildId = lazy (Notes.findBuildId notes.Value |> ImmutableArray.ofArray)
@@ -663,6 +667,4 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value
 
-    member _.GetBoundedPointer addr =
-      let shdrs, phdrs = shdrs.Value, phdrs.Value
-      getBoundedPtr shdrs txtOffset.Value phdrs loadables.Value addr
+    member _.GetBoundedPointer addr = regionTable.Value.GetBoundedPointer addr

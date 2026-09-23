@@ -40,109 +40,41 @@ let getTextOffset shdrs =
   | Some text -> text.SecOffset
   | None -> 0UL
 
-/// Returns the address at which the given section begins, which is where the
-/// text does plus however much further into the file it sits.
-let private baseOfSection (s: SectionHeader) txtOffset =
-  s.SecOffset - txtOffset + s.SecAddr
+/// Returns the regions the sections of an object file map, which is where it
+/// puts everything it assigns an address to. Only sections that carry file
+/// content (SHT_PROGBITS) are addressable, so NOBITS sections such as .bss are
+/// left out. A section is laid out from zero, so what tells one from another
+/// is how far into the file it begins, counted from where the text does.
+let private regionsOfSections (shdrs: SectionHeader[]) txtOffset =
+  shdrs
+  |> Array.filter (fun s -> s.SecType = SectionType.SHT_PROGBITS)
+  |> Array.map (fun s ->
+    { Address = s.SecOffset - txtOffset + s.SecAddr
+      VMSize = s.SecSize
+      Offset = s.SecOffset
+      FileSize = s.SecSize })
 
-/// Checks whether the given section holds the given address. Only sections
-/// that carry file content (SHT_PROGBITS) are addressable, so NOBITS sections
-/// such as .bss are excluded.
-let private sectionHolds (s: SectionHeader) txtOffset addr =
-  let secBase = baseOfSection s txtOffset
-  s.SecType = SectionType.SHT_PROGBITS
-  && secBase <= addr
-  && addr < secBase + s.SecSize
+/// Returns the regions the segments of an executable file map. What a segment
+/// gives room to past what it keeps in the file is zero at run time and
+/// nowhere on disk, which is why the two sizes are told apart.
+let private regionsOfSegments (phdrs: ProgramHeader[]) =
+  phdrs
+  |> Array.map (fun ph ->
+    { Address = ph.PHAddr
+      VMSize = ph.PHMemSize
+      Offset = ph.PHOffset
+      FileSize = ph.PHFileSize })
 
-/// The section the last lookup settled on, which the next one tries before
-/// scanning the table. It is a hint and never an answer: it is taken only
-/// where it passes the very test a scan would apply, so a stale one costs a
-/// bounds check and nothing else.
-let mutable private lastSectionHit = 0
-
-/// Returns the index of the section holding the given address, or -1 where
-/// none of them does. The scan is written out rather than picked so that it
-/// allocates nothing: every read of an address in an object file goes through
-/// it.
-let private findSectionHolding (shdrs: SectionHeader[]) txtOffset addr =
-  let hint = lastSectionHit
-  if hint < shdrs.Length && sectionHolds shdrs[hint] txtOffset addr then
-    hint
-  else
-    let mutable idx = 0
-    let mutable found = -1
-    while found < 0 && idx < shdrs.Length do
-      if sectionHolds shdrs[idx] txtOffset addr then found <- idx
-      else idx <- idx + 1
-    if found >= 0 then lastSectionHit <- found else ()
-    found
-
-/// Returns a bounded pointer for the given address using section information.
-/// This is used for ELF object files (ET_REL), which have no loadable
-/// segments, so their sections are all there is to find an address in.
-let getBoundedPtrBySections (shdrs: SectionHeader[]) txtOffset addr =
-  match findSectionHolding shdrs txtOffset addr with
-  | -1 ->
-    BinFilePointer.Null
-  | idx ->
-    let s = shdrs[idx]
-    let secBase = baseOfSection s txtOffset
-    let offset = int (s.SecOffset + (addr - secBase))
-    let maxOffset = int s.SecOffset + int s.SecSize - 1
-    BinFilePointer.CreateFileBacked(
-      addr, secBase + s.SecSize - 1UL, offset, maxOffset
-    )
-
-/// Checks whether the given segment maps the given address, whether or not
-/// the file keeps bytes for it.
-let private segmentMaps (ph: ProgramHeader) addr =
-  addr >= ph.PHAddr && addr < ph.PHAddr + ph.PHMemSize
-
-/// The segment the last lookup settled on, which the next one tries before
-/// scanning, on the same terms as the hint the sections keep.
-let mutable private lastSegmentHit = 0
-
-/// Returns the index of the segment mapping the given address, or -1 where
-/// none of them does.
-let private findSegmentMapping (phdrs: ProgramHeader[]) addr =
-  let hint = lastSegmentHit
-  if hint < phdrs.Length && segmentMaps phdrs[hint] addr then
-    hint
-  else
-    let mutable idx = 0
-    let mutable found = -1
-    while found < 0 && idx < phdrs.Length do
-      if segmentMaps phdrs[idx] addr then found <- idx else idx <- idx + 1
-    if found >= 0 then lastSegmentHit <- found else ()
-    found
-
-/// Returns a bounded pointer for the given address using the segments the
-/// file loads. An address past what a segment keeps in the file is still its
-/// own, the rest of that segment being zero at run time and nowhere on disk,
-/// and the pointer it gets is virtual rather than file-backed.
-let getBoundedPtrBySegments (phdrs: ProgramHeader[]) addr =
-  match findSegmentMapping phdrs addr with
-  | -1 ->
-    BinFilePointer.Null
-  | idx ->
-    let ph = phdrs[idx]
-    if addr < ph.PHAddr + ph.PHFileSize then
-      let offset = int ph.PHOffset + int (addr - ph.PHAddr)
-      let maxOffset = int ph.PHOffset + int ph.PHFileSize - 1
-      let maxAddr = ph.PHAddr + ph.PHFileSize - 1UL
-      BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
-    else
-      BinFilePointer.CreateVirtual(addr, ph.PHAddr + ph.PHMemSize - 1UL)
-
-/// Returns a bounded pointer for the given address, found through the segments
-/// the file loads, or through its sections where it loads none. The text
-/// offset the section scan needs is asked of the caller, which knows it for
-/// as long as the file is open, rather than looked for on every read.
-let getBoundedPtr shdrs txtOffset phdrs loadables addr =
-  if Array.isEmpty loadables then
-    getBoundedPtrBySections shdrs txtOffset addr
-  else
-    getBoundedPtrBySegments phdrs addr
+/// Returns the table that turns an address into a bounded pointer, built from
+/// the segments the file loads, or from its sections where it loads none, as
+/// an object file (ET_REL) does. The text offset the sections need is asked of
+/// the caller, which knows it for as long as the file is open, rather than
+/// looked for on every read.
+let makeRegionTable shdrs txtOffset phdrs loadables =
+  let regions =
+    if Array.isEmpty loadables then regionsOfSections shdrs txtOffset
+    else regionsOfSegments phdrs
+  BinRegionTable regions
 
 let getRelocatedAddr toolBox (relocInfo: RelocationInfo) relocAddr =
   match relocInfo.TryFind relocAddr with

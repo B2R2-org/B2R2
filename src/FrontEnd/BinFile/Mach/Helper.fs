@@ -72,48 +72,18 @@ let computeEntryPoint toolBox segs cmds =
     let mainOffset = getMainOffset cmds
     if mainOffset = 0UL then None else Some(mainOffset + getTextSegOffset segs)
 
-/// Checks whether the given segment maps the given address, whether or not
-/// the file keeps bytes for it.
-let private segmentMaps (seg: SegCmd) addr =
-  addr >= seg.VMAddr && addr < seg.VMAddr + seg.VMSize
-
-/// The segment the last lookup settled on, which the next one tries before
-/// scanning the list. It is a hint and never an answer: it is taken only
-/// where it passes the very test a scan would apply, so a stale one costs a
-/// bounds check and nothing else.
-let mutable private lastSegmentHit = 0
-
-/// Returns the index of the segment mapping the given address, or -1 where
-/// none of them does.
-let private findSegmentMapping (segCmds: SegCmd[]) addr =
-  let hint = lastSegmentHit
-  if hint < segCmds.Length && segmentMaps segCmds[hint] addr then
-    hint
-  else
-    let mutable idx = 0
-    let mutable found = -1
-    while found < 0 && idx < segCmds.Length do
-      if segmentMaps segCmds[idx] addr then found <- idx else idx <- idx + 1
-    if found >= 0 then lastSegmentHit <- found else ()
-    found
-
-/// Returns a pointer to the given address, bounded by the segment that holds
-/// it. An address a segment maps but the file does not reach, as the
-/// zero-filled tail of one is, names no file offset and gives a virtual
-/// pointer; an address no segment maps at all gives a null one.
-let boundedPointerOf (segCmds: SegCmd[]) addr =
-  match findSegmentMapping segCmds addr with
-  | -1 ->
-    BinFilePointer.Null
-  | idx ->
-    let seg = segCmds[idx]
-    if addr < seg.VMAddr + seg.FileSize then
-      let offset = int seg.FileOff + int (addr - seg.VMAddr)
-      let maxOffset = int seg.FileOff + int seg.FileSize - 1
-      let maxAddr = seg.VMAddr + seg.FileSize - 1UL
-      BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
-    else
-      BinFilePointer.CreateVirtual(addr, seg.VMAddr + seg.VMSize - 1UL)
+/// Returns the table that turns an address into a bounded pointer, built from
+/// the segments the file loads. What a segment gives room to past what it
+/// keeps in the file is zero at run time and nowhere on disk, which is why the
+/// two sizes are told apart.
+let makeRegionTable (segCmds: SegCmd[]) =
+  segCmds
+  |> Array.map (fun seg ->
+    { Address = seg.VMAddr
+      VMSize = seg.VMSize
+      Offset = seg.FileOff
+      FileSize = seg.FileSize })
+  |> BinRegionTable
 
 let isNXEnabled hdr =
   not (hdr.Flags.HasFlag MachFlag.MH_ALLOW_STACK_EXECUTION)

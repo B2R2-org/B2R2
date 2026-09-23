@@ -257,7 +257,8 @@ module internal Image =
   /// one the file holds bytes for, which is what an address in the
   /// zero-filled tail of a segment is.
   let patchByAddr addr bytes img =
-    let ptr = Helper.boundedPointerOf (segmentsOf img) addr
+    let table = Helper.makeRegionTable (segmentsOf img)
+    let ptr = table.GetBoundedPointer addr
     if ptr.CanReadFileBytes && Array.length bytes <= ptr.ReadableAmount then
       patchByOffset ptr.Offset bytes img
     else

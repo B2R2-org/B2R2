@@ -50,6 +50,8 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
 
   let segCmds = lazy Segment.extract cmds.Value
 
+  let regionTable = lazy (makeRegionTable segCmds.Value)
+
   let segMap = lazy Segment.buildMap segCmds.Value
 
   let secs = lazy Section.parse toolBox segCmds.Value
@@ -674,4 +676,4 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
     member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value
 
-    member _.GetBoundedPointer addr = boundedPointerOf segCmds.Value addr
+    member _.GetBoundedPointer addr = regionTable.Value.GetBoundedPointer addr

@@ -10,6 +10,7 @@
     <Compile Include="Relro.fs" />
     <Compile Include="BinFileKind.fs" />
     <Compile Include="BinFilePointer.fs" />
+    <Compile Include="BinRegionTable.fs" />
     <Compile Include="BinSection.fs" />
     <Compile Include="BinSegment.fs" />
     <Compile Include="BinImport.fs" />
