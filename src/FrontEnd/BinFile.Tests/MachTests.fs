@@ -1157,6 +1157,19 @@ type MachTests() =
     Assert.AreEqual<bool>(true, p.CanReadFileBytes)
 
   [<TestMethod>]
+  member _.``[Mach] X64 bounded pointers do not depend on order``() =
+    (* The lookup from an address to the segment holding it keeps the segment
+       it last settled on and tries that one first, so a read jumping between
+       segments has to get the pointer a read of that address alone gets. *)
+    let f = x64File :> IBinFile
+    let addrs = [| 0x100000470UL; 0x100001000UL; 0x1UL; 0x100000000UL |]
+    let fields (p: BinFilePointer) = p.Addr, p.MaxAddr, p.Offset, p.MaxOffset
+    let forth = addrs |> Array.map (f.GetBoundedPointer >> fields)
+    let back = Array.rev addrs |> Array.map (f.GetBoundedPointer >> fields)
+    CollectionAssert.AreEqual(forth, Array.rev back)
+    Assert.AreEqual<bool>(true, (f.GetBoundedPointer addrs[0]).CanReadFileBytes)
+
+  [<TestMethod>]
   member _.``[Mach] X64 holds no fileset entries test``() =
     CollectionAssert.AreEqual([||], x64File.FilesetEntries)
 

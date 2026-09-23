@@ -59,7 +59,9 @@ type internal StreamStore =
     /// The directory naming every stream in it.
     Directory: StreamDirectory
     /// The streams read out of it so far.
-    ReadStreams: Dictionary<int, byte[] * int> }
+    ReadStreams: Dictionary<int, byte[] * int>
+    /// How many bytes those streams take up.
+    mutable CachedBytes: int }
 
 /// The Stream Directory contains information about the other streams in an MSF
 /// file. MSF is a file system internally used in a PDB file, and a file in MSF
@@ -213,25 +215,25 @@ let isValidSuperBlock source sb =
 let inline getNumBlocks numBytes blockSize =
   (numBytes + blockSize - 1) / blockSize
 
-let rec readIntValues (bs: byte[]) reader cnt acc pos =
-  if cnt = 0 then
-    List.rev acc
-  else
-    let v = (reader: IBinReader).ReadInt32(bs, pos)
-    readIntValues bs reader (cnt - 1) (v :: acc) (pos + 4)
+/// Reads the given count of 32-bit values laid out one after another from
+/// the given offset. Every list of blocks a PDB holds is read this way, and
+/// a PDB large enough to be worth reading a block at a time holds enough of
+/// them that the reading of one is not a place to build a list.
+let readIntValues (bs: byte[]) reader cnt pos =
+  let vals: int[] = Array.zeroCreate cnt
+  for i = 0 to cnt - 1 do
+    vals[i] <- (reader: IBinReader).ReadInt32(bs, pos + i * 4)
+  vals
 
 /// Copies the blocks the given stream occupies into one buffer. A block index
 /// reaching outside the file is one no stream of a readable PDB carries.
-let readStream source blockSize blockMapAddrs =
-  let size = List.length blockMapAddrs * blockSize
-  let buf: byte[] = Array.zeroCreate size
+let readStream source blockSize (blockMapAddrs: int[]) =
+  let buf: byte[] = Array.zeroCreate (blockMapAddrs.Length * blockSize)
   let len = BlockSource.length source
-  let mutable idx = 0
-  for blockMapAddr in blockMapAddrs do
-    let offset = int64 blockMapAddr * int64 blockSize
+  for idx = 0 to blockMapAddrs.Length - 1 do
+    let offset = int64 blockMapAddrs[idx] * int64 blockSize
     checkFormat (offset >= 0L && offset + int64 blockSize <= len)
     BlockSource.readInto source buf (idx * blockSize) offset blockSize
-    idx <- idx + 1
   buf
 
 /// Returns the size of a stream as a count of bytes to read. A stream a PDB
@@ -247,7 +249,7 @@ let parseStreamBlks bs reader sb streamSizes offset =
   for idx = 0 to Array.length streamSizes - 1 do
     let numBlks = getNumBlocks streamSizes[idx] sb.BlockSize
     checkFormat (offset + numBlks * 4 <= Array.length (bs: byte[]))
-    let blocks = readIntValues bs reader numBlks [] offset |> List.toArray
+    let blocks = readIntValues bs reader numBlks offset
     offset <- offset + numBlks * 4
     lst.Add blocks
   lst |> Seq.toArray
@@ -257,7 +259,7 @@ let buildStreamDirectory sb (bs: byte[]) reader =
   checkFormat (numStream >= 0)
   checkFormat (int64 numStream * 4L + 4L <= int64 bs.Length)
   let limit = int64 sb.NumBlocks * int64 sb.BlockSize
-  let sizes = readIntValues bs reader numStream [] 4 |> List.toArray
+  let sizes = readIntValues bs reader numStream 4
   let streamSizes = Array.map (normalizeStreamSize limit) sizes
   let streamBlks =
     parseStreamBlks bs reader sb streamSizes (numStream * 4 + 4)
@@ -271,14 +273,30 @@ let parseStreamDirectory source reader sb =
   let mapSize = numBlks * 4
   checkFormat (mapOffset + int64 mapSize <= BlockSource.length source)
   let map = BlockSource.read source mapOffset mapSize
-  let intVals = readIntValues map reader numBlks [] 0
+  let intVals = readIntValues map reader numBlks 0
   buildStreamDirectory sb (readStream source sb.BlockSize intVals) reader
 
 let buildStreamStore source sb streamDir =
   { Source = source
     SuperBlock = sb
     Directory = streamDir
-    ReadStreams = Dictionary() }
+    ReadStreams = Dictionary()
+    CachedBytes = 0 }
+
+/// How many bytes of streams already read a store keeps for the next read of
+/// one. A PDB is read a block at a time so that its whole size never has to
+/// be held at once, and keeping every stream a reference reaches into would
+/// hand that back: past this much, what was kept is dropped.
+let [<Literal>] StreamCacheBudget = 64 * 1024 * 1024
+
+/// Drops what the given store keeps where keeping one more stream of the
+/// given size would have it hold more of the file than the budget allows.
+let evictIfFull store size =
+  if store.CachedBytes + size > StreamCacheBudget then
+    store.ReadStreams.Clear()
+    store.CachedBytes <- 0
+  else
+    ()
 
 /// Returns the bytes of the given stream along with how many of them the
 /// stream holds, reading it out of its blocks the first time it is asked for.
@@ -287,11 +305,12 @@ let getStream store idx =
   | true, stream ->
     stream
   | false, _ ->
-    let blks = store.Directory.StreamBlocks[idx] |> Array.toList
-    let blockSize = store.SuperBlock.BlockSize
-    let bytes = readStream store.Source blockSize blks
+    let blks = store.Directory.StreamBlocks[idx]
+    let bytes = readStream store.Source store.SuperBlock.BlockSize blks
     let stream = bytes, store.Directory.StreamSizes[idx]
+    evictIfFull store bytes.Length
     store.ReadStreams[idx] <- stream
+    store.CachedBytes <- store.CachedBytes + bytes.Length
     stream
 
 /// Checks whether the given index names a stream the directory holds. An
@@ -355,10 +374,10 @@ let parseModuleInfo (reader: IBinReader) dbi (bs: byte[]) =
 let tryGetRecordLength (reader: IBinReader) (bs: byte[]) size offset =
   let size = min size bs.Length
   if offset < 0 || offset + 4 > size then
-    None
+    ValueNone
   else
     let len = (reader.ReadUInt16(bs, offset) |> int) + 2
-    if len < 4 || offset + len > size then None else Some len
+    if len < 4 || offset + len > size then ValueNone else ValueSome len
 
 /// Returns the name a symbol record ends with, or none when the record holds
 /// no terminator for it. Every record this reader knows puts its name last.
@@ -457,14 +476,16 @@ let followSymbolRef (reader: IBinReader) (sp: ByteSpan) modules store =
     None
   | Some(bs, size) ->
     match tryGetRecordLength reader bs size refOffset with
-    | None -> None
-    | Some len -> parseDirectRecord reader (ReadOnlySpan(bs, refOffset, len))
+    | ValueNone ->
+      None
+    | ValueSome len ->
+      parseDirectRecord reader (ReadOnlySpan(bs, refOffset, len))
 
 let parseSymbolRecord reader (bs: byte[], size) offset modules store =
   match tryGetRecordLength reader bs size offset with
-  | None ->
+  | ValueNone ->
     None
-  | Some len ->
+  | ValueSome len ->
     let sp = ReadOnlySpan(bs, offset, len)
     let typ = reader.ReadUInt16(sp, 2) |> LanguagePrimitives.EnumOfValue
     match typ with
@@ -478,15 +499,16 @@ let parseSymbolRecord reader (bs: byte[], size) offset modules store =
 /// the last one its size covers.
 let parseSymRecordStream reader modules store stream =
   let bs, size = stream
-  let rec loop acc offset =
-    match tryGetRecordLength reader bs size offset with
-    | None ->
-      acc
-    | Some len ->
-      let sym = parseSymbolRecord reader stream offset modules store
-      let acc = Option.fold (fun acc sym -> sym :: acc) acc sym
-      loop acc (offset + len)
-  loop [] 0
+  let syms = List<Symbol>()
+  let mutable offset = 0
+  let mutable len = tryGetRecordLength reader bs size offset
+  while len.IsSome do
+    match parseSymbolRecord reader stream offset modules store with
+    | Some sym -> syms.Add sym
+    | None -> ()
+    offset <- offset + len.Value
+    len <- tryGetRecordLength reader bs size offset
+  syms.ToArray()
 
 /// Checks that the PDB is the one the image was built with. An image names
 /// its PDB by a GUID and an age, and the PDB written by that build repeats
@@ -525,4 +547,4 @@ let parse source reader expected =
   checkFormat (isValidStreamIndex store InfoStreamIndex)
   let infoStream, _ = getStream store InfoStreamIndex
   if isMatchingPDB reader infoStream expected then parseSymbols reader store
-  else []
+  else [||]

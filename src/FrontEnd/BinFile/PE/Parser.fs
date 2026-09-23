@@ -71,7 +71,7 @@ let parsePDBFile reader expected pdbPath =
 /// is not the format read here, nor that it cannot be read at all.
 let tryParsePDBFile reader expected pdbPath =
   try parsePDBFile reader expected pdbPath
-  with e when not (Terminator.isCritical e) -> []
+  with e when not (Terminator.isCritical e) -> [||]
 
 /// Returns the paths to look for an image's PDB at, nearest first: the name
 /// the image records, taken beside the image, and then the image's own name
@@ -92,33 +92,43 @@ let getPDBSearchPaths (execpath: string) (cv: CodeViewInfo) =
 let getPDBBesideImage reader execpath cv =
   match cv with
   | None ->
-    []
+    [||]
   | Some info ->
     match List.tryFind IO.File.Exists (getPDBSearchPaths execpath info) with
     | Some path -> tryParsePDBFile reader cv path
-    | None -> []
+    | None -> [||]
 
 let getPDBSymbols reader execpath cv = function
   | NoPDBGiven -> getPDBBesideImage reader execpath cv
   | PDBBytes rawpdb -> parsePDB reader cv (ArraySource rawpdb)
   | PDBPath path -> parsePDBFile reader cv path
 
-let updatePDBInfo baseAddr secs lst (sym: Symbol) =
-  let secNum = int sym.Segment - 1
-  match Array.tryItem secNum (secs: SectionHeader []) with
-  | Some sec ->
-    let addr = baseAddr + uint64 sec.VirtualAddress + uint64 sym.Address
-    { sym with Address = addr } :: lst
-  | None ->
-    lst
+/// Returns the symbols at the addresses the sections their segments name put
+/// them at. A PDB says where a symbol sits within a section rather than where
+/// it lands in the image, and a segment naming no section of the image names
+/// no address at all, so what such a record says is left out.
+let relocatePDBSymbols baseAddr (secs: SectionHeader[]) (symbs: Symbol[]) =
+  let arr = ResizeArray symbs.Length
+  for sym in symbs do
+    let secNum = int sym.Segment - 1
+    if secNum >= 0 && secNum < secs.Length then
+      let sec = secs[secNum]
+      let addr = baseAddr + uint64 sec.VirtualAddress + uint64 sym.Address
+      arr.Add { sym with Address = addr }
+    else
+      ()
+  arr.ToArray()
 
+/// Returns what the given PDB symbols say about the image, which is every one
+/// of them placed at its address and the lookup by address that reading a
+/// symbol out goes through. A PDB names an address more than once wherever it
+/// keeps both a procedure record and the public symbol of the same function,
+/// and the first record naming one is the one that answers for it: the later
+/// ones repeat what it says and say less, a public symbol carrying no size.
 let buildPDBInfo baseAddr secs symbs =
-  let rec folder lst = function
-    | sym :: rest -> folder (updatePDBInfo baseAddr secs lst sym) rest
-    | [] -> List.rev lst |> List.toArray
-  let arr = folder [] symbs
+  let arr = relocatePDBSymbols baseAddr secs symbs
   let byAddr = Dictionary<Addr, Symbol>()
-  for sym in arr do byAddr[sym.Address] <- sym
+  for sym in arr do byAddr.TryAdd(sym.Address, sym) |> ignore
   { SymbolByAddr = byAddr
     SymbolArray = arr }
 

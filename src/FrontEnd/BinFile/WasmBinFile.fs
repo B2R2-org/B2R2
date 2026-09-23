@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Generic
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
@@ -42,6 +43,8 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
   let reader = BinReader.Init Endian.Little
 
   let isa = ISA Architecture.WASM
+
+  let secByAddr = wm.SectionsInfo.SecByAddr
 
   let sectionSummaryToPointer (sec: SectionSummary) =
     let addr = uint64 sec.Offset
@@ -86,19 +89,23 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
       Permission = secPermission sec
       Kind = secKind sec }
 
-  let functionAddrs =
-    lazy
-      wm.IndexMap
-      |> Array.choose (fun idx ->
-        if idx.Kind = IndexKind.Function
-           && NoOverlapIntervalMap.containsAddr
-                (uint64 idx.ElemOffset) wm.SectionsInfo.SecByAddr then
-          match NoOverlapIntervalMap.findByAddr
-                  (uint64 idx.ElemOffset) wm.SectionsInfo.SecByAddr with
-          | sec when sec.Id = SectionId.Code -> Some(uint64 idx.ElemOffset)
-          | _ -> None
-        else
-          None)
+  (* An index entry names a function of this module only where the offset it
+     carries falls in the code section: an imported one carries the offset of
+     the import that names it instead. Whether a section holds the offset and
+     which section that is are the one lookup, so it is made once. *)
+  let tryFunctionAddr (idx: IndexInfo) =
+    if idx.Kind <> IndexKind.Function then
+      None
+    else
+      let addr = uint64 idx.ElemOffset
+      match NoOverlapIntervalMap.tryFindByAddr addr secByAddr with
+      | Some sec when sec.Id = SectionId.Code -> Some addr
+      | _ -> None
+
+  let functionAddrs = lazy Array.choose tryFunctionAddr wm.IndexMap
+
+  let binSections =
+    lazy (wm.SectionsInfo.SecArray |> Array.map toBinSection)
 
   let importEntries = lazy getImports wm
 
@@ -110,6 +117,15 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
       |> Array.map _.LibraryName
       |> Array.filter (fun name -> name <> "")
       |> Array.distinct
+
+  (* Only the table addresses are ever asked for by address, so they are kept
+     on their own rather than looked for among the entries each time. *)
+  let importAddrs =
+    lazy
+      let addrs = HashSet<Addr>()
+      for entry in importEntries.Value do
+        addrs.Add entry.TableAddress |> ignore
+      addrs
 
   let symbolMap = lazy getFunctionNameMap wm
 
@@ -144,8 +160,7 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
 
   let structure =
     Some { new IBinStructure with
-      member _.Sections with get() =
-        wm.SectionsInfo.SecArray |> Array.map toBinSection
+      member _.Sections with get() = binSections.Value
 
       member _.CodeSectionPointer =
         match wm.CodeSection with
@@ -178,7 +193,7 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
           | None -> Error ErrorCase.ItemNotFound
 
       member _.TryFindSectionByAddr addr =
-        NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr
+        NoOverlapIntervalMap.tryFindByAddr addr secByAddr
         |> function
           | Some sec -> Ok(toBinSection sec)
           | None -> Error ErrorCase.ItemNotFound
@@ -189,7 +204,7 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
         | None -> Error ErrorCase.ItemNotFound
 
       member _.TryFindSectionNameByAddr addr =
-        NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr
+        NoOverlapIntervalMap.tryFindByAddr addr secByAddr
         |> function
           | Some sec -> Ok sec.Name
           | None -> Error ErrorCase.ItemNotFound
@@ -206,9 +221,7 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
     Some { new IImportTable with
       member _.Imports = importEntries.Value
 
-      member _.IsInImportTable addr =
-        importEntries.Value
-        |> Array.exists (fun entry -> entry.TableAddress = addr)
+      member _.IsInImportTable addr = importAddrs.Value.Contains addr
     }
 
   new(path, bytes) = WasmBinFile(path, bytes, None)
@@ -300,7 +313,7 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
     member this.IsExecutableAddr addr = (this :> IAddressSpace).IsValidAddr addr
 
     member _.GetBoundedPointer addr =
-      NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr
+      NoOverlapIntervalMap.tryFindByAddr addr secByAddr
       |> function
         | Some s ->
           let size = s.HeaderSize + s.ContentsSize
