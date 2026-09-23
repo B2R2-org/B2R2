@@ -50,7 +50,7 @@ type LifterTests() =
     stream.CopyTo ms
     ms.ToArray()
 
-  static let file = PythonBinFile("", bytes, None)
+  static let file = PythonBinFile("", bytes)
 
   /// An address inside a code object, which is what the pre-3.11 absolute
   /// jumps resolve their targets against.

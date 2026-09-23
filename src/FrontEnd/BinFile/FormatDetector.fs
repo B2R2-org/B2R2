@@ -55,7 +55,7 @@ let private identifyWASM bytes isa =
   else
     None
 
-let private identifyPython bytes isa =
+let private identifyPython bytes =
   let reader = BinReader.Init Endian.Little
   if Python.Helper.isPythonBytecode bytes reader then
     Some struct (FileFormat.PythonBinary, ISA Architecture.Python)
@@ -79,6 +79,6 @@ let identify bytes isa =
   |> Option.orElseWith (fun () -> identifyPE bytes)
   |> Option.orElseWith (fun () -> identifyMach bytes isa)
   |> Option.orElseWith (fun () -> identifyWASM bytes isa)
-  |> Option.orElseWith (fun () -> identifyPython bytes isa)
+  |> Option.orElseWith (fun () -> identifyPython bytes)
   |> Option.orElseWith (fun () -> identifyHexString bytes isa)
   |> Option.defaultValue (FileFormat.RawBinary, isa)

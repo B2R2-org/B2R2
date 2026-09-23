@@ -57,7 +57,7 @@ module FileFactory =
     | FileFormat.WasmBinary ->
       WasmBinFile(path, bytes, baseAddrOpt) :> IBinFile
     | FileFormat.PythonBinary ->
-      PythonBinFile(path, bytes, baseAddrOpt) :> IBinFile
+      PythonBinFile(path, bytes) :> IBinFile
     | FileFormat.HexBinary ->
       RawBinFile(path, parseHexBytes bytes, isa, baseAddrOpt) :> IBinFile
     | FileFormat.RawBinary ->
