@@ -42,7 +42,7 @@ type internal PE =
     /// no part of what opening a file takes, and a file names four of them
     /// that reading the whole of costs more than everything else here put
     /// together, so each waits until something wants it.
-    ImportedSymbols: Lazy<Map<int, ImportedSymbol>>
+    ImportedSymbols: Lazy<ImportedSymbolStore>
     /// Exported symbols, read when they are first asked for.
     ExportedSymbols: Lazy<ExportedSymbolStore>
     /// List of relocation blocks, read when they are first asked for.
@@ -133,7 +133,7 @@ let getImportTable pe =
 
 let isImportTable pe addr =
   let rva = int (addr - pe.BaseAddr)
-  Map.containsKey rva pe.ImportedSymbols.Value
+  pe.ImportedSymbols.Value.ContainsKey rva
 
 let getSecPermission (chr: SectionCharacteristics) =
   let x = if chr.HasFlag SectionCharacteristics.MemExecute then 1 else 0
@@ -143,8 +143,8 @@ let getSecPermission (chr: SectionCharacteristics) =
 
 let private findSymFromIAT addr pe =
   let rva = int (addr - pe.BaseAddr)
-  match Map.tryFind rva pe.ImportedSymbols.Value with
-  | Some(ByName(_, n, _)) -> Some n
+  match pe.ImportedSymbols.Value.TryGetValue rva with
+  | true, ByName(_, n, _) -> Some n
   | _ -> None
 
 let private findSymFromEAT addr pe () =

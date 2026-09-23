@@ -67,13 +67,16 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
 
   let size = bytes.Length
 
-  let consts = extractConsts codeObject
+  (* Walked when first asked for, as every other format reads its tables: a
+     file is opened for plenty that never looks at a name or a constant, and
+     each of these walks the whole tree of code objects. *)
+  let consts = lazy (extractConsts codeObject)
 
-  let names = extractNames codeObject
+  let names = lazy (extractNames codeObject)
 
-  let varnames = extractVarNames codeObject
+  let varnames = lazy (extractVarNames codeObject)
 
-  let freevars = extractFreeVars codeObject
+  let freevars = lazy (extractFreeVars codeObject)
 
   let operator = [||]
 
@@ -81,9 +84,10 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
      no two code objects share an address range, so a flat array is as
      queryable as a per-function one would be. *)
   let exceptionEntries =
-    Python.PyExceptionTable.collect codeObject
-    |> Array.collect snd
-    |> Array.sortBy (fun e -> e.Start)
+    lazy
+      Python.PyExceptionTable.collect codeObject
+      |> Array.collect snd
+      |> Array.sortBy (fun e -> e.Start)
 
   let exceptionFrames = lazy (Python.PyExceptionTable.toFrames codeObject)
 
@@ -102,24 +106,24 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
   member _.CodeObj with get() = codeObject
 
   /// Consts.
-  member _.Consts with get() = consts
+  member _.Consts with get() = consts.Value
 
   /// Varnames.
-  member _.Varnames with get() = varnames
+  member _.Varnames with get() = varnames.Value
 
   /// Pre-3.11 `co_cellvars ++ co_freevars` -- see FreeVars' own doc comment
   /// on PyCodeObject.
-  member _.FreeVars with get() = freevars
+  member _.FreeVars with get() = freevars.Value
 
   /// Names.
-  member _.Names with get() = names
+  member _.Names with get() = names.Value
 
   /// Operator.
   member _.Operator with get() = operator
 
   /// Exception-table entries of every code object in the file, in address
   /// order. Empty for pre-3.11 files, which carry no such table.
-  member _.ExceptionEntries with get() = exceptionEntries
+  member _.ExceptionEntries with get() = exceptionEntries.Value
 
   interface IBinFile with
     member _.Reader with get() = reader

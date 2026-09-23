@@ -174,12 +174,18 @@ module internal Image =
       None
     else
       let rva = int (addr - img.BaseAddress)
-      let secs = img.Sections |> Array.map _.SecHeader
-      match findMappedSectionIndex secs rva with
-      | -1 ->
+      (* The entries are scanned where they sit rather than handed to
+         findMappedSectionIndex, which wants headers and would thus have an
+         array of them built afresh on every patch. *)
+      let holds entry =
+        let sec = entry.SecHeader
+        sec.VirtualAddress <= rva
+        && rva < sec.VirtualAddress + sec.SizeOfRawData
+      match Array.tryFind holds img.Sections with
+      | None ->
         None
-      | idx ->
-        let sec = secs[idx]
+      | Some entry ->
+        let sec = entry.SecHeader
         let offset = rva - sec.VirtualAddress + sec.PointerToRawData
         Some(offset, sec.PointerToRawData + sec.SizeOfRawData - offset)
 

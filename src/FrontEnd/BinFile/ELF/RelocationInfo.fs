@@ -195,23 +195,20 @@ module private RelocMap =
 /// relocation entries, indexed both by the slot each one relocates and by the
 /// address it applies to.
 type internal RelocationInfo internal(toolBox, shdrs, phdrs, dyn, symbs) =
-  let entries = RelocMap.parse toolBox shdrs phdrs dyn symbs
-
-  /// The entries indexed by the slot each relocates, which is what the section
-  /// and the offset name together. Indexing by the offset alone would let the
-  /// sections of a relocatable object, each of which counts its offsets from
-  /// zero, overwrite one another's entries.
-  let slotMap =
-    let map = Dictionary()
-    for e in entries do map[struct(e.RelTargetSecNumber, e.RelOffset)] <- e
-    map
-
-  /// The entries indexed by address, which names an entry in every file but a
-  /// relocatable object, where the offsets are section-relative instead.
-  let relocMap =
-    let map = Dictionary()
-    for e in entries do map[e.RelOffset] <- e
-    map
+  /// The entries indexed by the slot each relocates -- which is what the
+  /// section and the offset name together -- and by the address each applies
+  /// at. Indexing by the offset alone would let the sections of a relocatable
+  /// object, each of which counts its offsets from zero, overwrite one
+  /// another's entries; the address names an entry in every other file. Both
+  /// are filled in one walk, so the parsed list itself is dropped here rather
+  /// than kept alive as a field of every instance.
+  let slotMap, relocMap =
+    let slotMap = Dictionary()
+    let relocMap = Dictionary()
+    for e in RelocMap.parse toolBox shdrs phdrs dyn symbs do
+      slotMap[struct(e.RelTargetSecNumber, e.RelOffset)] <- e
+      relocMap[e.RelOffset] <- e
+    slotMap, relocMap
 
   /// Returns all relocation entries.
   member _.Entries with get() = slotMap.Values
