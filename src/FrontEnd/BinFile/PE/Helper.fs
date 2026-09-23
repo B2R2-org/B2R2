@@ -139,7 +139,7 @@ let getSecPermission (chr: SectionCharacteristics) =
   let x = if chr.HasFlag SectionCharacteristics.MemExecute then 1 else 0
   let w = if chr.HasFlag SectionCharacteristics.MemWrite then 2 else 0
   let r = if chr.HasFlag SectionCharacteristics.MemRead then 4 else 0
-  r + w + x |> LanguagePrimitives.EnumOfValue
+  r ||| w ||| x |> LanguagePrimitives.EnumOfValue
 
 let private findSymFromIAT addr pe =
   let rva = int (addr - pe.BaseAddr)
@@ -147,7 +147,7 @@ let private findSymFromIAT addr pe =
   | true, ByName(_, n, _) -> Some n
   | _ -> None
 
-let private findSymFromEAT addr pe () =
+let private findSymFromEAT addr pe =
   match pe.ExportedSymbols.Value.TryFind addr with
   | None -> None
   | Some [] -> None
@@ -155,7 +155,7 @@ let private findSymFromEAT addr pe () =
 
 let tryFindSymbolFromBinary pe addr =
   match findSymFromIAT addr pe
-        |> Option.orElseWith (findSymFromEAT addr pe) with
+        |> Option.orElseWith (fun () -> findSymFromEAT addr pe) with
   | None -> Error ErrorCase.SymbolNotFound
   | Some s -> Ok s
 

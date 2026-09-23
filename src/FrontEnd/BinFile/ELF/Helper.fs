@@ -122,14 +122,13 @@ let getFuncAddrsFromLibcArr span toolBox relocInfo section =
   let lst = List<Addr>()
   let addr = section.SecAddr
   for ofs in 0 .. entrySize .. secSize - entrySize do
-    readUIntByWordSize span toolBox.Reader readType ofs
-    |> (fun fnAddr ->
-      if fnAddr = 0UL then
-        match getRelocatedAddr toolBox relocInfo (addr + uint64 ofs) with
-        | Ok relocatedAddr -> lst.Add relocatedAddr
-        | Error _ -> ()
-      else
-        lst.Add fnAddr)
+    let fnAddr = readUIntByWordSize span toolBox.Reader readType ofs
+    if fnAddr = 0UL then
+      match getRelocatedAddr toolBox relocInfo (addr + uint64 ofs) with
+      | Ok relocatedAddr -> lst.Add relocatedAddr
+      | Error _ -> ()
+    else
+      lst.Add fnAddr
   lst.ToArray()
 
 /// Returns the function addresses the named array section holds. The three

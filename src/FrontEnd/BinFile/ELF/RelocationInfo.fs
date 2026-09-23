@@ -98,10 +98,7 @@ module private RelocMap =
     | Ok tbl -> tbl
     | Error _ -> [||]
 
-  let inline accumulateRelocInfo (entries: ResizeArray<_>) rel =
-    entries.Add rel
-
-  let parseRelocSection toolBox locate symTbl relocMap sec =
+  let parseRelocSection toolBox locate symTbl (relocMap: ResizeArray<_>) sec =
     let hdr = toolBox.Header
     let hasAddend = sec.SecType = SectionType.SHT_RELA
     let entrySize =
@@ -111,8 +108,8 @@ module private RelocMap =
     let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
     for i = 0 to (numEntries - 1) do
       let offset = i * int entrySize
-      getRelocEntry toolBox locate symTbl (span.Slice offset) sec
-      |> accumulateRelocInfo relocMap
+      let entry = getRelocEntry toolBox locate symTbl (span.Slice offset) sec
+      relocMap.Add entry
 
   /// Applies f to every address a RELR bitmap marks. Bit 0 is the tag that
   /// makes the entry a bitmap, so bit i + 1 marks the i-th word from cursor.
@@ -142,20 +139,20 @@ module private RelocMap =
         applyRelrBitmap width cursor entry f
         cursor <- cursor + stride
 
-  let parseRelrSection toolBox locate relocMap sec kind =
+  let parseRelrSection toolBox locate (relocMap: ResizeArray<_>) sec kind =
     let cls = toolBox.Header.Class
     let span = ReadOnlySpan(toolBox.Bytes, int sec.SecOffset, int sec.SecSize)
     let accumulate offset =
       let addr = offset + toolBox.BaseAddress
-      { RelOffset = addr
-        RelKind = kind
-        (* RELR only ever packs relative relocations, which name no symbol and
-           take as their addend whatever the slot already holds. *)
-        RelSymbol = None
-        RelAddend = readImplicitAddend toolBox locate addr
-        RelSecNumber = sec.SecNum
-        RelTargetSecNumber = int sec.SecInfo }
-      |> accumulateRelocInfo relocMap
+      relocMap.Add
+        { RelOffset = addr
+          RelKind = kind
+          (* RELR only ever packs relative relocations, which name no symbol
+             and take as their addend whatever the slot already holds. *)
+          RelSymbol = None
+          RelAddend = readImplicitAddend toolBox locate addr
+          RelSecNumber = sec.SecNum
+          RelTargetSecNumber = int sec.SecInfo }
     iterRelrTable cls toolBox.Reader span accumulate
 
   let isRelocSection s =
