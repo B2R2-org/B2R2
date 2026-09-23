@@ -22,10 +22,10 @@
   SOFTWARE.
 *)
 
-/// The runtime the generated legacy-map parser (DLegacy) is written against:
-/// the per-instruction state as one struct passed by reference, and the
-/// operand readers that take it. Nothing here reads a table.
-module internal B2R2.FrontEnd.Intel.DOps
+/// The helpers the generated opcode maps (LegacyOpcodeMap, VEXOpcodeMap) are
+/// written against: the per-instruction parsing state, the byte readers, the
+/// operand builders and the functions that finish an instruction.
+module internal B2R2.FrontEnd.Intel.OpcodeMapHelper
 
 open System.Buffers.Binary
 open B2R2
@@ -36,7 +36,7 @@ open B2R2.FrontEnd.BinLifter
 /// position and the prefixes stay in registers rather than round-tripping
 /// through a heap object.
 [<Struct>]
-type DState =
+type ParsingState =
   { /// The position of the next byte to read, from the instruction start.
     mutable Pos: int
     mutable Pref: Prefix
@@ -73,10 +73,10 @@ let inline regv (v: int): Register = LanguagePrimitives.EnumOfValue v
 
 /// The byte at the current position, or 0 where the bytes end: a row that
 /// needs it then fails to read it where it is consumed.
-let inline peek (span: ByteSpan) (st: byref<DState>) =
+let inline peek (span: ByteSpan) (st: byref<ParsingState>) =
   if st.Pos < span.Length then span[st.Pos] else 0uy
 
-let inline readByte (span: ByteSpan) (st: byref<DState>) =
+let inline readByte (span: ByteSpan) (st: byref<ParsingState>) =
   let v = span[st.Pos]
   st.Pos <- st.Pos + 1
   v
@@ -86,7 +86,7 @@ let inline private oprSize (size: RegType) (szCond: SzCond) =
   else size
 
 /// The effective operand size under the given size condition.
-let inline effOprSz (st: byref<DState>) (szCond: SzCond) =
+let inline effOprSz (st: byref<ParsingState>) (szCond: SzCond) =
   if not st.Is64 then
     if Prefix.hasOprSz st.Pref then 16<rt> else 32<rt>
   elif REXPrefix.hasW st.REX then
@@ -96,14 +96,14 @@ let inline effOprSz (st: byref<DState>) (szCond: SzCond) =
   else
     oprSize 32<rt> szCond
 
-let inline wordSize (st: byref<DState>) =
+let inline wordSize (st: byref<ParsingState>) =
   if st.Is64 then WordSize.Bit64 else WordSize.Bit32
 
 /// The width of a fixed register whose width depends on the mode.
-let inline regTypeOf (st: byref<DState>) (r: Register) =
+let inline regTypeOf (st: byref<ParsingState>) (r: Register) =
   RegisterHelper.toRegType (wordSize &st) r
 
-let inline readSigned (span: ByteSpan) (st: byref<DState>) (bytes: int) =
+let inline readSigned (span: ByteSpan) (st: byref<ParsingState>) (bytes: int) =
   let p = st.Pos
   st.Pos <- p + bytes
   match bytes with
@@ -113,7 +113,7 @@ let inline readSigned (span: ByteSpan) (st: byref<DState>) (bytes: int) =
   | 8 -> BinaryPrimitives.ReadInt64LittleEndian(span.Slice p)
   | _ -> raise ParsingFailureException
 
-let inline readUnsigned (span: ByteSpan) (st: byref<DState>) (bytes: int) =
+let inline readUnsigned (span: ByteSpan) (st: byref<ParsingState>) bytes =
   let p = st.Pos
   st.Pos <- p + bytes
   match bytes with
@@ -124,22 +124,22 @@ let inline readUnsigned (span: ByteSpan) (st: byref<DState>) (bytes: int) =
   | _ -> raise ParsingFailureException
 
 /// An unsigned immediate of the given width.
-let inline uimm (span: ByteSpan) (st: byref<DState>) (sz: RegType) =
+let inline uimm (span: ByteSpan) (st: byref<ParsingState>) (sz: RegType) =
   let v = readUnsigned span &st (int sz >>> 3)
   Operands.oprImm (int64 v) sz
 
 /// A sign-extended immediate of the given width.
-let inline simm (span: ByteSpan) (st: byref<DState>) (sz: RegType) =
+let inline simm (span: ByteSpan) (st: byref<ParsingState>) (sz: RegType) =
   let v = readSigned span &st (int sz >>> 3)
   Operands.oprImm v sz
 
 /// A relative branch target of the given offset width.
-let inline rel (span: ByteSpan) (st: byref<DState>) (sz: RegType) =
+let inline rel (span: ByteSpan) (st: byref<ParsingState>) (sz: RegType) =
   let offset = readSigned span &st (int sz >>> 3)
   Operands.relTarget (offset + int64 st.Pos)
 
 /// A far pointer spelled out in the instruction: ptr16:16 or ptr16:32.
-let inline farPtr (span: ByteSpan) (st: byref<DState>) (sz: RegType) =
+let inline farPtr (span: ByteSpan) (st: byref<ParsingState>) (sz: RegType) =
   let addrValue = readUnsigned span &st (int sz >>> 3)
   let selector = int16 (readSigned span &st 2)
   Operand.OprDirAddr(Absolute(selector, addrValue, sz))
@@ -158,7 +158,7 @@ let noRegs = 0xFFFFFFFFu
 
 /// A memory operand from its register bits, its index scale (as a power of
 /// two), the displacement size to read and the access size.
-let inline private oprMem span (st: byref<DState>) regs sc dispSz memSz =
+let inline private oprMem span (st: byref<ParsingState>) regs sc dispSz memSz =
   if dispSz = 0 then
     Operand(OperandKind.Mem, 0L, regs, uint16 (int memSz), sc)
   else
@@ -166,10 +166,10 @@ let inline private oprMem span (st: byref<DState>) regs sc dispSz memSz =
     Operand(OperandKind.Mem, disp, regs, uint16 (int memSz), sc ||| 4uy)
 
 /// A memory operand named by a displacement alone (moffs).
-let inline moffs (span: ByteSpan) (st: byref<DState>) (memSz: RegType) =
+let inline moffs (span: ByteSpan) (st: byref<ParsingState>) (memSz: RegType) =
   oprMem span &st noRegs 0uy (int st.AddrSz >>> 3) memSz
 
-let private mem16 span (st: byref<DState>) (m: byte) memSz =
+let private mem16 span (st: byref<ParsingState>) (m: byte) memSz =
   let bxsi, bxdi = regsOf2 R.BX R.SI, regsOf2 R.BX R.DI
   let bpsi, bpdi = regsOf2 R.BP R.SI, regsOf2 R.BP R.DI
   let si, di, bp, bx = regsOf R.SI, regsOf R.DI, regsOf R.BP, regsOf R.BX
@@ -200,7 +200,7 @@ let private mem16 span (st: byref<DState>) (m: byte) memSz =
   | 23 -> oprMem span &st bx 0uy 2 memSz
   | _ -> raise ParsingFailureException
 
-let private memSIB span (st: byref<DState>) (m: byte) dispSz memSz =
+let private memSIB span (st: byref<ParsingState>) (m: byte) dispSz memSz =
   let sib = int (readByte span &st)
   let s = (sib >>> 6) &&& 0b11
   let i = (sib >>> 3) &&& 0b111
@@ -222,7 +222,7 @@ let private memSIB span (st: byref<DState>) (m: byte) dispSz memSz =
     else 0
   oprMem span &st (baseBits ||| idxBits) sc dispSz memSz
 
-let private mem32 span (st: byref<DState>) (m: byte) memSz =
+let private mem32 span (st: byref<ParsingState>) (m: byte) memSz =
   let md = int m >>> 6
   let r = rm m
   let dispSz = if md = 0 then 0 elif md = 1 then 1 else 4
@@ -239,28 +239,28 @@ let private mem32 span (st: byref<DState>) (m: byte) memSz =
     oprMem span &st (regsOf b) 0uy dispSz memSz
 
 /// The memory operand ModRM names, of the given width.
-let mem (span: ByteSpan) (st: byref<DState>) (m: byte) (memSz: RegType) =
+let mem (span: ByteSpan) (st: byref<ParsingState>) (m: byte) (memSz: RegType) =
   if st.AddrSz = 16<rt> then mem16 span &st m memSz
   else mem32 span &st m memSz
 
 /// The register ModRM.rm names, at the given width.
-let inline rmReg (st: byref<DState>) (m: byte) (sz: RegType) =
+let inline rmReg (st: byref<ParsingState>) (m: byte) (sz: RegType) =
   OperandParsers.findRegRmAndSIBBase sz st.REX (rm m)
 
 /// The register ModRM.reg names, at the given width.
-let inline regReg (st: byref<DState>) (m: byte) (sz: RegType) =
+let inline regReg (st: byref<ParsingState>) (m: byte) (sz: RegType) =
   OperandParsers.findRegRBits sz st.REX (reg m)
 
 /// The register the low three bits of the opcode byte name.
-let inline opReg (st: byref<DState>) (rd: int) (sz: RegType) =
+let inline opReg (st: byref<ParsingState>) (rd: int) (sz: RegType) =
   OperandParsers.findRegRmAndSIBBase sz st.REX rd
 
 /// Register or memory, of one width.
-let inline rmOpr (span: ByteSpan) (st: byref<DState>) (m: byte) (sz: RegType) =
+let inline rmOpr span (st: byref<ParsingState>) (m: byte) (sz: RegType) =
   if isReg m then Operands.oprReg (rmReg &st m sz) else mem span &st m sz
 
 /// The instruction, once every operand has been read.
-let inline finish (st: byref<DState>) opcode oprs opsz isFar (sel: Prefix) =
+let inline finish (st: byref<ParsingState>) opcode oprs opsz isFar sel =
   let pref = st.Pref &&& ~~~sel
   let len = uint32 st.Pos
   let wsz = wordSize &st
@@ -272,20 +272,20 @@ let inline private hi16 (b: bool) = if b then 16 else 0
 
 /// The register ModRM.reg names, widened by EVEX.R' where the prefix carries
 /// one.
-let inline regRegV (st: byref<DState>) (m: byte) (sz: RegType) =
+let inline regRegV (st: byref<ParsingState>) (m: byte) (sz: RegType) =
   let rex = st.REX
   OperandParsers.findRegRBits sz rex (reg m + hi16 (REXPrefix.hasEVEXR rex))
 
 /// The register ModRM.rm names. In a register form EVEX spends X on the fifth
 /// bit of rm.
-let inline rmRegV (st: byref<DState>) (m: byte) (sz: RegType) =
+let inline rmRegV (st: byref<ParsingState>) (m: byte) (sz: RegType) =
   let rex = st.REX
   let hi = hi16 (st.IsEVEX && REXPrefix.hasX rex)
   OperandParsers.findRegRmAndSIBBase sz rex (rm m + hi)
 
 /// The register (E)VEX.vvvv names: a general-purpose register at a GPR width
 /// (BMI, CMPccXADD), a vector register otherwise, widened by EVEX.V'.
-let vvvvReg (st: byref<DState>) (sz: RegType) =
+let vvvvReg (st: byref<ParsingState>) (sz: RegType) =
   if sz <= 64<rt> then
     int (RegGroup.grpEAX sz) + (st.VVVV &&& 0b1111)
     |> LanguagePrimitives.EnumOfValue<int, Register>
@@ -297,14 +297,14 @@ let vvvvReg (st: byref<DState>) (sz: RegType) =
     | _ -> RegisterHelper.xmm n
 
 /// The register imm8[7:4] names.
-let inline is4Reg (span: ByteSpan) (st: byref<DState>) (sz: RegType) =
+let inline is4Reg (span: ByteSpan) (st: byref<ParsingState>) (sz: RegType) =
   let n = int (readByte span &st >>> 4 &&& 0b1111uy)
   OperandParsers.findRegIS4 (wordSize &st) sz n
 
 /// An opmask register named by a field of the encoding. In 64-bit mode a
 /// prefix bit that would carry ModRM.reg past the eight registers is #UD;
 /// outside it the bits are ignored.
-let opmaskReg (st: byref<DState>) (idx: int) (isRegField: bool) =
+let opmaskReg (st: byref<ParsingState>) (idx: int) (isRegField: bool) =
   let rex = st.REX
   if not st.Is64 then
     OperandParsers.parseOpMaskReg (idx &&& 0b111)
@@ -317,20 +317,20 @@ let opmaskReg (st: byref<DState>) (idx: int) (isRegField: bool) =
 /// decoration: EVEX.b on a register form spends L'L on the rounding mode, so
 /// only a row offering one (rc) answers there; otherwise the length has to
 /// be the row's, or the row constrains none (vl = 0).
-let inline vlOk (st: byref<DState>) (m: byte) (rc: bool) (vl: RegType) =
+let inline vlOk (st: byref<ParsingState>) (m: byte) (rc: bool) (vl: RegType) =
   if st.EvexB && isReg m then rc
   else vl = 0<rt> || st.VL = vl
 
 /// The width of one element an embedded broadcast reads: the operand's, or
 /// REX.W's word where the operand declared none.
-let inline private bcstElemSz (st: byref<DState>) (bcst: RegType) =
+let inline private bcstElemSz (st: byref<ParsingState>) (bcst: RegType) =
   if bcst <> 0<rt> then bcst
   elif REXPrefix.hasW st.REX then 64<rt>
   else 32<rt>
 
 /// EVEX compressed displacement (disp8*N) and the width it settles. See the
 /// manual Chap. 15 of Vol. 1 and OperandParsers.uncompressedDisp.
-let private uncompressed (st: byref<DState>) (tt: TupleType) bcst memSz disp =
+let uncompressed (st: byref<ParsingState>) (tt: TupleType) bcst memSz disp =
   let b = st.EvexB
   let w = REXPrefix.hasW st.REX
   let inputSz = bcstElemSz &st bcst
@@ -389,7 +389,7 @@ let private uncompressed (st: byref<DState>) (tt: TupleType) bcst memSz disp =
 
 /// A memory operand under an EVEX prefix: the displacement is compressed and
 /// a broadcast narrows the width to one element.
-let private oprMemE span (st: byref<DState>) regs sc dispSz memSz tt bcst =
+let oprMemE span (st: byref<ParsingState>) regs sc dispSz memSz tt bcst =
   let inline make disp (sz: RegType) flags =
     Operand(OperandKind.Mem, disp, regs, uint16 (int sz), flags)
   if dispSz = 0 then
@@ -406,7 +406,7 @@ let private oprMemE span (st: byref<DState>) regs sc dispSz memSz tt bcst =
     let disp = readSigned span &st dispSz
     make disp memSz (sc ||| 4uy)
 
-let private mem16E span (st: byref<DState>) (m: byte) memSz tt bcst =
+let private mem16E span (st: byref<ParsingState>) (m: byte) memSz tt bcst =
   let bxsi, bxdi = regsOf2 R.BX R.SI, regsOf2 R.BX R.DI
   let bpsi, bpdi = regsOf2 R.BP R.SI, regsOf2 R.BP R.DI
   let si, di, bp, bx = regsOf R.SI, regsOf R.DI, regsOf R.BP, regsOf R.BX
@@ -437,7 +437,7 @@ let private mem16E span (st: byref<DState>) (m: byte) memSz tt bcst =
   | 23 -> oprMemE span &st bx 0uy 2 memSz tt bcst
   | _ -> raise ParsingFailureException
 
-let private memSIBE span (st: byref<DState>) (m: byte) dispSz memSz tt bcst =
+let memSIBE span (st: byref<ParsingState>) (m: byte) dispSz memSz tt bcst =
   let sib = int (readByte span &st)
   let s = (sib >>> 6) &&& 0b11
   let i = (sib >>> 3) &&& 0b111
@@ -459,7 +459,7 @@ let private memSIBE span (st: byref<DState>) (m: byte) dispSz memSz tt bcst =
     else 0
   oprMemE span &st (baseBits ||| idxBits) sc dispSz memSz tt bcst
 
-let private mem32E span (st: byref<DState>) (m: byte) memSz tt bcst =
+let private mem32E span (st: byref<ParsingState>) (m: byte) memSz tt bcst =
   let md = int m >>> 6
   let r = rm m
   let dispSz = if md = 0 then 0 elif md = 1 then 1 else 4
@@ -478,13 +478,13 @@ let private mem32E span (st: byref<DState>) (m: byte) memSz tt bcst =
 /// The memory operand ModRM names under a VEX or EVEX prefix. tt is the
 /// row's tuple type and bcst the element width the operand broadcasts, or
 /// 0<rt>; both matter only under EVEX.
-let memV (span: ByteSpan) (st: byref<DState>) (m: byte) memSz tt bcst =
+let memV (span: ByteSpan) (st: byref<ParsingState>) (m: byte) memSz tt bcst =
   if not st.IsEVEX then mem span &st m memSz
   elif st.AddrSz = 16<rt> then mem16E span &st m memSz tt bcst
   else mem32E span &st m memSz tt bcst
 
 /// Register or memory under a VEX or EVEX prefix.
-let inline rmOprV span (st: byref<DState>) (m: byte) rsz msz tt bcst =
+let inline rmOprV span (st: byref<ParsingState>) (m: byte) rsz msz tt bcst =
   if isReg m then Operands.oprReg (rmRegV &st m rsz)
   else memV span &st m msz tt bcst
 
@@ -492,7 +492,7 @@ let inline rmOprV span (st: byref<DState>) (m: byte) rsz msz tt bcst =
 /// Parser.parseVSIBOperand: the vector length says how many elements there
 /// are, the index register holds that many indices and the access covers
 /// that many data elements.
-let memVSIB (span: ByteSpan) (st: byref<DState>) (m: byte) elemSz tt =
+let memVSIB (span: ByteSpan) (st: byref<ParsingState>) (m: byte) elemSz tt =
   let vl = st.VL
   let dataSz = if REXPrefix.hasW st.REX then 64<rt> else 32<rt>
   let count = vl / max elemSz dataSz
@@ -522,7 +522,7 @@ let memVSIB (span: ByteSpan) (st: byref<DState>) (m: byte) elemSz tt =
 /// The instruction under a VEX or EVEX prefix. A broadcast width the memory
 /// form declared, or the reading EVEX.b took on a register form, is carried
 /// into the EVEX prefix the instruction keeps, as the table parser does.
-let finishV (st: byref<DState>) opcode oprs opsz (bcst: RegType) rc isRegForm =
+let finishV (st: byref<ParsingState>) opcode oprs opsz bcst rc isRegForm =
   let pref = st.Pref &&& ~~~(Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ)
   let len = uint32 st.Pos
   let wsz = wordSize &st

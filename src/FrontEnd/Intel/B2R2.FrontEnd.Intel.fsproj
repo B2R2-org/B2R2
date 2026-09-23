@@ -29,9 +29,9 @@
     <Compile Include="X87Lifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingFunctions.fs" />
-    <Compile Include="DOps.fs" />
-    <Compile Include="DLegacy.fs" Condition="Exists('DLegacy.fs') And '$(NoDParser)' != 'true'" />
-    <Compile Include="DVex.fs" Condition="Exists('DVex.fs') And '$(NoDParser)' != 'true'" />
+    <Compile Include="OpcodeMapHelper.fs" />
+    <Compile Include="LegacyOpcodeMap.fs" Condition="Exists('LegacyOpcodeMap.fs') And '$(NoOpcodeMaps)' != 'true'" />
+    <Compile Include="VEXOpcodeMap.fs" Condition="Exists('VEXOpcodeMap.fs') And '$(NoOpcodeMaps)' != 'true'" />
     <Compile Include="Parser.fs" />
   </ItemGroup>
 

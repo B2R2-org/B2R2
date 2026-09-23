@@ -1,7 +1,32 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
 /// Generates the Intel parser's straight-line opcode code from the rows and
-/// chains of B2R2.FrontEnd.Intel.InstructionTable: DLegacy.fs for the four
-/// legacy maps and DVex.fs for the eight VEX and EVEX maps. One function per
-/// (map, opcode byte) slot; inside it a switch on the ModRM.reg digit where
+/// chains of B2R2.FrontEnd.Intel.InstructionTable: LegacyOpcodeMap.fs for the
+/// four legacy maps and VEXOpcodeMap.fs for the eight VEX and EVEX maps. One
+/// function per (map, opcode byte) slot; inside it a switch on the ModRM.reg
+/// digit where
 /// the slot needs one, a switch on the REX and mandatory-prefix state, and
 /// the row's operands read with every width folded to a constant.
 module IntelParserGen
@@ -253,7 +278,8 @@ type private Opr =
 /// The expression reading one operand, as Parser.parseOperand reads it, with
 /// the row's constants folded in.
 let private operand (em: Emitter) (r: Row) (o: OprSpec) =
-  let mk e = { Expr = e; IsRegStatic = false; NotReg = false; RM = None; Bcst = 0<rt> }
+  let mk e =
+    { Expr = e; IsRegStatic = false; NotReg = false; RM = None; Bcst = 0<rt> }
   let reg e = { mk e with IsRegStatic = true }
   let nonReg e = { mk e with NotReg = true }
   let rmk e rsz msz bcst = { mk e with RM = Some (rsz, msz); Bcst = bcst }
@@ -266,13 +292,18 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
       sprintf "rmOprV span &st m %s %s %s %s" (rt rsz) (rt msz) t (rt bcst)
     elif rsz = msz then sprintf "rmOpr span &st m %s" (rt rsz)
     else
-      sprintf "(if isReg m then Operands.oprReg (rmReg &st m %s) else mem span &st m %s)"
-        (rt rsz) (rt msz)
-  let regReg sz = if em.Vex then sprintf "regRegV &st m %s" (rt sz) else sprintf "regReg &st m %s" (rt sz)
-  let rmReg sz = if em.Vex then sprintf "rmRegV &st m %s" (rt sz) else sprintf "rmReg &st m %s" (rt sz)
+      sprintf "(if isReg m then Operands.oprReg (rmReg &st m %s) else %s)"
+        (rt rsz) (sprintf "mem span &st m %s" (rt msz))
+  let regReg sz =
+    if em.Vex then sprintf "regRegV &st m %s" (rt sz)
+    else sprintf "regReg &st m %s" (rt sz)
+  let rmReg sz =
+    if em.Vex then sprintf "rmRegV &st m %s" (rt sz)
+    else sprintf "rmReg &st m %s" (rt sz)
   match o.Kind with
   | OprKind.RM -> rmk (rmOf o.Size o.Size 0<rt>) o.Size o.Size 0<rt>
-  | OprKind.RMTwoWidths -> rmk (rmOf o.Size o.MemSize 0<rt>) o.Size o.MemSize 0<rt>
+  | OprKind.RMTwoWidths ->
+    rmk (rmOf o.Size o.MemSize 0<rt>) o.Size o.MemSize 0<rt>
   | OprKind.RMBroadcast ->
     rmk (rmOf o.Size o.MemSize o.BcstSize) o.Size o.MemSize o.BcstSize
   | OprKind.MemVSIB -> nonReg (sprintf "memVSIB span &st m %s %s" (rt o.Size) t)
@@ -280,14 +311,16 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
     match o.Field with
     | OprRegType.RegBit -> reg (regReg o.Size)
     | OprRegType.RMBit -> reg (rmReg o.Size)
-    | OprRegType.OpRd -> reg (sprintf "opReg &st %d %s" (int r.OpcodeByte &&& 7) (rt o.Size))
+    | OprRegType.OpRd ->
+      reg (sprintf "opReg &st %d %s" (int r.OpcodeByte &&& 7) (rt o.Size))
     | OprRegType.VVVV -> reg (sprintf "vvvvReg &st %s" (rt o.Size))
     | OprRegType.IS4 -> reg (sprintf "is4Reg span &st %s" (rt o.Size))
     | f -> failwithf "unsupported reg field %A in row %A" f r.Opcode
   | OprKind.Mem -> nonReg (memOf o.Size 0<rt>)
   | OprKind.MemFromPrefixes ->
     if em.Vex then
-      nonReg (sprintf "memV span &st m (effOprSz &st %s) %s 0<rt>" (szc r.SzCond) t)
+      let sz = sprintf "(effOprSz &st %s)" (szc r.SzCond)
+      nonReg (sprintf "memV span &st m %s %s 0<rt>" sz t)
     else nonReg (sprintf "mem span &st m (effOprSz &st %s)" (szc r.SzCond))
   | OprKind.Imm ->
     if r.SignExtendsImm then nonReg (sprintf "simm span &st %s" (rt o.Size))
@@ -297,8 +330,8 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
   | OprKind.STRegRM -> reg "RegisterHelper.streg (rm m)"
   | OprKind.STRegFixed -> reg (regv o.Value)
   | OprKind.BM ->
-    mk (sprintf "(if isReg m then OperandParsers.parseBoundRegister (rm m) else %s)"
-          (memOf o.Size 0<rt>))
+    let bnd = "OperandParsers.parseBoundRegister (rm m)"
+    mk (sprintf "(if isReg m then %s else %s)" bnd (memOf o.Size 0<rt>))
   | OprKind.BndReg -> mk "OperandParsers.parseBoundRegister (reg m)"
   | OprKind.OpMaskReg ->
     let idx, isRegField =
@@ -328,7 +361,7 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
   | OprKind.DebugReg ->
     mk "OperandParsers.parseDebugReg (OperandParsers.sysRegIndex m st.REX)"
   | OprKind.RegAddr ->
-    if r.IsGroupExtension then reg (rmReg 0<rt> |> fun _ -> "rmReg &st m st.AddrSz")
+    if r.IsGroupExtension then reg "rmReg &st m st.AddrSz"
     else reg "regReg &st m st.AddrSz"
   | OprKind.Sreg -> mk "OperandParsers.parseSegReg (reg m)"
   | OprKind.Far ->
@@ -351,8 +384,7 @@ let private opSize (r: Row) =
 /// The call that makes the instruction, for the given operands expression.
 /// Under VEX the broadcast width goes with it: only a memory form of an
 /// RMBroadcast operand declares one.
-let private finishCall (em: Emitter) (r: Row) (oprs: string) (bcstExpr: string) =
-  ignore em
+let private finishCall (em: Emitter) (r: Row) (oprs: string) bcstExpr =
   if em.Vex then
     let regForm = if r.HasModRM then "isReg m" else "false"
     sprintf "finishV &st %s (%s) (%s) %s %s (%s)"
@@ -368,7 +400,8 @@ let private finishCall (em: Emitter) (r: Row) (oprs: string) (bcstExpr: string) 
         sprintf "(if Prefix.hasREPZ st.Pref then Prefix.REPZ else %s)"
           (pfx r.SelectorPrefixes)
       else pfx r.SelectorPrefixes
-    sprintf "finish &st %s (%s) (%s) %s %s" (opc r.Opcode) oprs (opSize r) isFar selector
+    sprintf "finish &st %s (%s) (%s) %s %s"
+      (opc r.Opcode) oprs (opSize r) isFar selector
 
 /// Adds the finishing call; where it would not fit the width, the operands
 /// and the broadcast width are bound to names first.
@@ -401,10 +434,16 @@ let private body (em: Emitter) (ind: string) (r: Row) =
   let lines = ResizeArray<string>()
   let add (s: string) = lines.Add(ind + s)
   if r.HasModRM then add "st.Pos <- st.Pos + 1"
-  let ops = r.OprSpecs |> Array.truncate r.OperandCount |> Array.map (operand em r)
+  let addIn (l: string) = add ("  " + l)
+  let indIn = ind + "  "
+  let t = tt r.TupleType
+  let ops =
+    r.OprSpecs |> Array.truncate r.OperandCount |> Array.map (operand em r)
   let bcstOf (o: Opr) =
-    if o.Bcst <> 0<rt> then sprintf "(if isMem m then %s else 0<rt>)" (rt o.Bcst)
-    else "0<rt>"
+    if o.Bcst <> 0<rt> then
+      sprintf "(if isMem m then %s else 0<rt>)" (rt o.Bcst)
+    else
+      "0<rt>"
   let bcst =
     match ops |> Array.tryFind (fun o -> o.Bcst <> 0<rt>) with
     | Some o -> bcstOf o
@@ -422,7 +461,10 @@ let private body (em: Emitter) (ind: string) (r: Row) =
           sprintf "(if Prefix.hasREPZ st.Pref then Prefix.REPZ else %s)"
             (pfx r.SelectorPrefixes)
         else pfx r.SelectorPrefixes
-      add (sprintf "finish &st %s (NoOperand) (%s) %s %s" (opc r.Opcode) opsz isFar selector)
+      let call =
+        sprintf "finish &st %s (NoOperand) (%s) %s %s"
+          (opc r.Opcode) opsz isFar selector
+      add call
   else
     match ops with
     | [| a |] ->
@@ -438,26 +480,32 @@ let private body (em: Emitter) (ind: string) (r: Row) =
       add (sprintf "let o2 = %s" b.Expr)
       add "if isReg m then"
       add (sprintf "  let o1 = %s &st m %s" rmReg (rt rsz))
-      addFinish em (fun l -> add ("  " + l)) (ind + "  ") r "Operands.twoRegs o1 o2" "0<rt>"
+      addFinish em addIn indIn r "Operands.twoRegs o1 o2" "0<rt>"
       add "else"
       let memE =
-        if em.Vex then sprintf "memV span &st m %s %s %s" (rt msz) (tt r.TupleType) (rt a.Bcst)
-        else sprintf "mem span &st m %s" (rt msz)
+        if em.Vex then
+          sprintf "memV span &st m %s %s %s" (rt msz) t (rt a.Bcst)
+        else
+          sprintf "mem span &st m %s" (rt msz)
       add (sprintf "  let o1 = %s" memE)
-      addFinish em (fun l -> add ("  " + l)) (ind + "  ") r "TwoOperands(o1, Operands.oprReg o2)" (if a.Bcst <> 0<rt> then rt a.Bcst else "0<rt>")
+      let bcst = if a.Bcst <> 0<rt> then rt a.Bcst else "0<rt>"
+      addFinish em addIn indIn r "TwoOperands(o1, Operands.oprReg o2)" bcst
     | [| a; b |] when a.IsRegStatic && b.RM.IsSome ->
       let rsz, msz = b.RM.Value
       let rmReg = if em.Vex then "rmRegV" else "rmReg"
       add (sprintf "let o1 = %s" a.Expr)
       add "if isReg m then"
       add (sprintf "  let o2 = %s &st m %s" rmReg (rt rsz))
-      addFinish em (fun l -> add ("  " + l)) (ind + "  ") r "Operands.twoRegs o1 o2" "0<rt>"
+      addFinish em addIn indIn r "Operands.twoRegs o1 o2" "0<rt>"
       add "else"
       let memE =
-        if em.Vex then sprintf "memV span &st m %s %s %s" (rt msz) (tt r.TupleType) (rt b.Bcst)
-        else sprintf "mem span &st m %s" (rt msz)
+        if em.Vex then
+          sprintf "memV span &st m %s %s %s" (rt msz) t (rt b.Bcst)
+        else
+          sprintf "mem span &st m %s" (rt msz)
       add (sprintf "  let o2 = %s" memE)
-      addFinish em (fun l -> add ("  " + l)) (ind + "  ") r "TwoOperands(Operands.oprReg o1, o2)" (if b.Bcst <> 0<rt> then rt b.Bcst else "0<rt>")
+      let bcst = if b.Bcst <> 0<rt> then rt b.Bcst else "0<rt>"
+      addFinish em addIn indIn r "TwoOperands(Operands.oprReg o1, o2)" bcst
     | [| a; b |] when a.IsRegStatic && b.IsRegStatic ->
       add (sprintf "let o1 = %s" a.Expr)
       add (sprintf "let o2 = %s" b.Expr)
@@ -472,19 +520,21 @@ let private body (em: Emitter) (ind: string) (r: Row) =
     | _ ->
       ops |> Array.iteri (fun i o -> bindOpr add o (sprintf "o%d" (i + 1)))
       let es = ops |> Array.mapi (fun i _ -> sprintf "o%d" (i + 1))
+      let es = String.Join(", ", es)
       let oprs =
-        if ops.Length = 3 then sprintf "ThreeOperands(%s)" (String.Join(", ", es))
-        else sprintf "FourOperands(%s)" (String.Join(", ", es))
+        if ops.Length = 3 then sprintf "ThreeOperands(%s)" es
+        else sprintf "FourOperands(%s)" es
       addFinish em add ind r oprs bcst
   lines
 
 /// The candidates of one context, tried in order.
-let private candidates (em: Emitter) (ind: string) (cands: Row list) hasDigitSwitch =
+let private candidates (em: Emitter) (ind: string) cands hasDigitSwitch =
   let lines = ResizeArray<string>()
   let rec go first = function
     | [] ->
       if not first then lines.Add(ind + "else")
-      lines.Add(ind + (if first then "" else "  ") + "raise ParsingFailureException")
+      let ind = if first then ind else ind + "  "
+      lines.Add(ind + "raise ParsingFailureException")
     | (r: Row) :: rest ->
       let c = rowCond em r hasDigitSwitch
       let kw = if first then "if" else "elif"
@@ -511,9 +561,10 @@ let private digitBody (em: Emitter) (ind: string) (chain32: ResizeArray<Row>)
     let chain = if is64 then chain64 else chain32
     for c in 0 .. 23 do
       let bit = 1UL <<< ((c / 8) * 16 + vexBit + (c % 8))
-      let cands = chain |> Seq.filter (fun r -> r.Accept &&& bit <> 0UL) |> List.ofSeq
+      let cands =
+        chain |> Seq.filter (fun r -> r.Accept &&& bit <> 0UL) |> List.ofSeq
       if not cands.IsEmpty then
-        let key = String.Join(",", cands |> List.map (fun r -> string (ident r)))
+        let key = String.Join(",", cands |> List.map (ident >> string))
         let ctx = if is64 then c + 24 else c
         match groups.TryGetValue key with
         | true, (cs, _) -> cs.Add ctx
@@ -532,7 +583,7 @@ let private digitBody (em: Emitter) (ind: string) (chain32: ResizeArray<Row>)
     lines.Add(ind + "  raise ParsingFailureException")
   lines
 
-let private slot (em: Emitter) (name: string) (heads32: Row[]) (heads64: Row[]) (map: int) (b: int) =
+let private slot (em: Emitter) name (heads32: Row[]) (heads64: Row[]) map b =
   let h32 = Array.init 8 (fun d -> heads32[(map <<< 11) ||| (b <<< 3) ||| d])
   let h64 = Array.init 8 (fun d -> heads64[(map <<< 11) ||| (b <<< 3) ||| d])
   if h64 |> Array.forall (fun h -> isNull (box h)) then None
@@ -542,7 +593,8 @@ let private slot (em: Emitter) (name: string) (heads32: Row[]) (heads64: Row[]) 
     let chains64 = h64 |> Array.map rows
     let all = Seq.append (Seq.concat chains32) (Seq.concat chains64)
     let needsM = (not sameHead) || needsModRM all
-    em.Line(sprintf "let private %s (span: ByteSpan) (st: byref<DState>) =" name)
+    let st = "(st: byref<ParsingState>)"
+    em.Line(sprintf "let private %s (span: ByteSpan) %s =" name st)
     if needsM then em.Line "  let m = peek span &st"
     if sameHead then
       for l in digitBody em "  " chains32[0] chains64[0] false do em.Line l
@@ -557,16 +609,43 @@ let private slot (em: Emitter) (name: string) (heads32: Row[]) (heads64: Row[]) 
     em.Line ""
     Some name
 
+/// The license every source file of B2R2 opens with.
+let private license = """(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)"""
+
 let private header (em: Emitter) (moduleName: string) (what: string) =
-  em.Line(sprintf "/// The Intel %s as straight-line code, one function per" what)
-  em.Line "/// opcode byte, generated by IntelParserGen from InstructionTable. Do not"
-  em.Line "/// edit."
+  for l in license.Split '\n' do em.Line(l.TrimEnd '\r')
+  em.Line ""
+  em.Line(sprintf "/// The Intel %s as straight-line code, one" what)
+  em.Line "/// function per opcode byte, generated by IntelParserGen from"
+  em.Line "/// InstructionTable. Do not edit."
   em.Line(sprintf "module internal B2R2.FrontEnd.Intel.%s" moduleName)
   em.Line ""
   em.Line "open B2R2"
   em.Line "open B2R2.FrontEnd.BinLifter"
   em.Line "open B2R2.FrontEnd.Intel"
-  em.Line "open B2R2.FrontEnd.Intel.DOps"
+  em.Line "open B2R2.FrontEnd.Intel.OpcodeMapHelper"
   em.Line "open type B2R2.FrontEnd.Intel.Operand"
   em.Line "open type B2R2.FrontEnd.Intel.Operands"
   em.Line ""
@@ -575,11 +654,13 @@ let private header (em: Emitter) (moduleName: string) (what: string) =
 let private emitMaps (em: Emitter) prefix (heads32: Row[]) (heads64: Row[]) =
   let mapCount = heads64.Length / 2048
   let names = Array.init mapCount (fun _ -> Array.create 256 None)
+  let st = "(st: byref<ParsingState>)"
   for map in 0 .. mapCount - 1 do
     for b in 0 .. 255 do
-      names[map][b] <- slot em (sprintf "%s%dx%02x" prefix map b) heads32 heads64 map b
+      let name = sprintf "%s%dx%02x" prefix map b
+      names[map][b] <- slot em name heads32 heads64 map b
   for map in 0 .. mapCount - 1 do
-    em.Line(sprintf "let private map%d (span: ByteSpan) (st: byref<DState>) (b: int) =" map)
+    em.Line(sprintf "let private map%d (span: ByteSpan) %s (b: int) =" map st)
     em.Line "  match b with"
     for b in 0 .. 255 do
       match names[map][b] with
@@ -588,12 +669,12 @@ let private emitMaps (em: Emitter) prefix (heads32: Row[]) (heads64: Row[]) =
     em.Line "  | _ -> raise ParsingFailureException"
     em.Line ""
   em.Line "/// Parses the instruction whose opcode byte is b in the given map."
-  em.Line "let parse (span: ByteSpan) (st: byref<DState>) (map: int) (b: int) ="
+  em.Line(sprintf "let parse (span: ByteSpan) %s (map: int) (b: int) =" st)
   em.Line "  match map with"
   for map in 0 .. mapCount - 2 do
     em.Line(sprintf "  | %d -> map%d span &st b" map map)
   em.Line(sprintf "  | _ -> map%d span &st b" (mapCount - 1))
-  names |> Array.sumBy (fun a -> a |> Array.filter Option.isSome |> Array.length)
+  names |> Array.sumBy (Array.filter Option.isSome >> Array.length)
 
 let private write (path: string) (em: Emitter) slots =
   File.WriteAllText(path, em.Text)
@@ -603,14 +684,16 @@ let private write (path: string) (em: Emitter) slots =
 let main argv =
   let outDir = argv[0]
   let legacy = Emitter false
-  header legacy "DLegacy" "legacy opcode maps"
-  let n = emitMaps legacy "m" InstructionTable.legacy32.Value InstructionTable.legacy64.Value
-  write (Path.Combine(outDir, "DLegacy.fs")) legacy n
+  header legacy "LegacyOpcodeMap" "legacy opcode maps"
+  let legacy32 = InstructionTable.legacy32.Value
+  let legacy64 = InstructionTable.legacy64.Value
+  let n = emitMaps legacy "m" legacy32 legacy64
+  write (Path.Combine(outDir, "LegacyOpcodeMap.fs")) legacy n
   let vex = Emitter true
-  header vex "DVex" "VEX and EVEX opcode maps"
+  header vex "VEXOpcodeMap" "VEX and EVEX opcode maps"
   let heads is64 =
     let maps = if is64 then InstructionTable.vex64 else InstructionTable.vex32
     maps |> Array.collect (fun (m: Lazy<Row[]>) -> m.Value)
   let n = emitMaps vex "v" (heads false) (heads true)
-  write (Path.Combine(outDir, "DVex.fs")) vex n
+  write (Path.Combine(outDir, "VEXOpcodeMap.fs")) vex n
   0

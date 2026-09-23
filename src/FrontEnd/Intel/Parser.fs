@@ -32,7 +32,7 @@ open LanguagePrimitives
 
 /// Represents a parser for Intel (x86 or x86-64) instructions. The prefixes,
 /// the REX byte and the VEX or EVEX prefix are read here; the opcode maps are
-/// the generated straight-line code of DLegacy and DVex, which
+/// the generated straight-line code of LegacyOpcodeMap and VEXOpcodeMap, which
 /// IntelParserGen writes from InstructionTable, so that nothing about an
 /// instruction is looked up at parse time.
 type IntelParser(wordSz, reader: IBinReader) =
@@ -170,7 +170,7 @@ type IntelParser(wordSz, reader: IBinReader) =
     | VEXType.Map6, true -> 7
     | _ -> raise ParsingFailureException
 
-#if NoDParser
+#if NoOpcodeMaps
   (* Built without the generated maps, for the generator that writes them. *)
   member private _.ParseLegacy(_: ByteSpan,
                                _: Addr,
@@ -190,11 +190,12 @@ type IntelParser(wordSz, reader: IBinReader) =
     raise ParsingFailureException
 #else
   /// Parses a legacy (non-VEX) instruction with the generated straight-line
-  /// code (DLegacy), the per-instruction state living on this stack frame.
+  /// code (LegacyOpcodeMap), the per-instruction state living on this stack
+  /// frame.
   member private this.ParseLegacy(span: ByteSpan, addr, pref, rex, map, pos) =
     (* The state is zeroed by the frame; only what a legacy instruction reads
        is written, and the VEX fields stay at their zero. *)
-    let mutable st = Unchecked.defaultof<DOps.DState>
+    let mutable st = Unchecked.defaultof<OpcodeMapHelper.ParsingState>
     st.Pos <- pos + 1
     st.Pref <- pref
     st.REX <- rex
@@ -205,9 +206,9 @@ type IntelParser(wordSz, reader: IBinReader) =
     st.NoLock <- not (Prefix.hasLock pref)
     st.Addr <- addr
     st.Lifter <- lifter
-    DLegacy.parse span &st map (int span[pos]) :> IInstruction
+    LegacyOpcodeMap.parse span &st map (int span[pos]) :> IInstruction
 
-  /// Parses a VEX or EVEX instruction with the generated code (DVex).
+  /// Parses a VEX or EVEX instruction with the generated code (VEXOpcodeMap).
   member private this.ParseVex(span: ByteSpan,
                                addr,
                                pref,
@@ -219,7 +220,7 @@ type IntelParser(wordSz, reader: IBinReader) =
       match vInfo.EVEXPrx with
       | Some e -> e.B = 1uy, int e.AAA, e.Z = Zeroing
       | None -> false, 0, false
-    let mutable st: DOps.DState =
+    let mutable st: OpcodeMapHelper.ParsingState =
       { Pos = pos + 1
         Pref = pref
         REX = rex
@@ -238,7 +239,7 @@ type IntelParser(wordSz, reader: IBinReader) =
         AAA = aaa
         Zeroing = zeroing }
     let map = this.VexMapIndex vInfo
-    DVex.parse span &st map (int span[pos]) :> IInstruction
+    VEXOpcodeMap.parse span &st map (int span[pos]) :> IInstruction
 #endif
 
   interface IInstructionParsable with

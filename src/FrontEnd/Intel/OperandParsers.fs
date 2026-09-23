@@ -22,8 +22,8 @@
   SOFTWARE.
 *)
 
-/// The register lookups the generated opcode code (DLegacy, DVex) and its
-/// runtime (DOps) read.
+/// The register lookups the generated opcode maps (LegacyOpcodeMap,
+/// VEXOpcodeMap) and their helpers (OpcodeMapHelper) read.
 [<RequireQualifiedAccess>]
 module internal B2R2.FrontEnd.Intel.OperandParsers
 
