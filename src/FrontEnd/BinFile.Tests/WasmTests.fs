@@ -72,6 +72,21 @@ type WasmTests() =
     + "020041040b01cc"
     |> ByteArray.ofHexString
 
+  (* One function, which the start section names, so the module is entered at
+     the body of func[0]:
+       (module (func $a) (start $a))
+     Its code section puts that body at 0x19. *)
+  static let namedStart =
+    "0061736d01000000010401600000030201000801000a040102000b"
+    |> ByteArray.ofHexString
+
+  (* The same module whose start section names func[5], of which it holds
+     none. A module says which function it is entered at; one naming a
+     function that is not there says nothing this reader can act on. *)
+  static let danglingStart =
+    "0061736d01000000010401600000030201000801050a040102000b"
+    |> ByteArray.ofHexString
+
   [<TestMethod>]
   member _.``[Wasm] format test``() = Assert.AreEqual(WasmBinary, file.Format)
 
@@ -114,6 +129,16 @@ type WasmTests() =
   [<TestMethod>]
   member _.``[Wasm] linkageTableEntries length test``() =
     Assert.AreEqual<int>(1, getLinkageTableEntries file |> Seq.length)
+
+  [<TestMethod>]
+  member _.``[Wasm] start section names the entry point``() =
+    let f = WasmBinFile("", namedStart) :> IBinFile
+    Assert.AreEqual<Addr option>(Some 0x19UL, f.EntryPoint)
+
+  [<TestMethod>]
+  member _.``[Wasm] start section naming no function has no entry point``() =
+    let f = WasmBinFile("", danglingStart) :> IBinFile
+    Assert.AreEqual<Addr option>(None, f.EntryPoint)
 
   [<TestMethod>]
   member _.``[Wasm] name section resolves the entry point name``() =
