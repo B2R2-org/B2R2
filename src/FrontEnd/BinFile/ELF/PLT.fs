@@ -686,9 +686,11 @@ type ARMv7Parser(shdrs, relocInfo, symbs) =
       UnknownPLT
 
   interface IPLTParsable with
-    member _.ParseEntry(addr, idx, _sec, desc, reader, span) =
+    member _.ParseEntry(addr, idx, sec, desc, reader, span) =
       let addrDiff = int (addr - desc.ExtraOffset)
-      let hdrSize = computeARMPLTHeaderSize reader span |> Option.get
+      (* The header is whatever sits between the section and the first entry,
+         which is what findARMv7PLTType already put in ExtraOffset. *)
+      let hdrSize = desc.ExtraOffset - sec.SecAddr
       let baseAddr = Option.get baseAddrOpt
       match computeARMPLTEntrySize reader span hdrSize addrDiff with
       | Ok entSize ->

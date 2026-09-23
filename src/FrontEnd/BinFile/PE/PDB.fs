@@ -148,47 +148,17 @@ let checkFormat cond =
 /// the magic it leads with, and the super block right after it.
 let [<Literal>] SuperBlockSize = 56
 
+/// The 32 characters every PDB leads with, which name the file system in it.
+let private magic = "Microsoft C/C++ MSF 7.00\013\010\026DS\000\000\000"
+
 /// Checks if the given source leads with a valid PDB header. The header is
 /// expected to start with a specific magic number.
 let isValidHeader source (reader: IBinReader) =
-  let magicBytes =
-    [| 'M'
-       'i'
-       'c'
-       'r'
-       'o'
-       's'
-       'o'
-       'f'
-       't'
-       ' '
-       'C'
-       '/'
-       'C'
-       '+'
-       '+'
-       ' '
-       'M'
-       'S'
-       'F'
-       ' '
-       '7'
-       '.'
-       '0'
-       '0'
-       '\013'
-       '\010'
-       '\026'
-       'D'
-       'S'
-       '\000'
-       '\000'
-       '\000' |]
   if BlockSource.length source < int64 SuperBlockSize then
     false
   else
     let bs = BlockSource.read source 0L SuperBlockSize
-    reader.ReadChars(bs, 0, 32) = magicBytes
+    String(reader.ReadChars(bs, 0, magic.Length)) = magic
 
 let parseSuperBlock source (reader: IBinReader) =
   checkFormat (BlockSource.length source >= int64 SuperBlockSize)

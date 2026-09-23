@@ -137,6 +137,27 @@ type PDBTests() =
   static let codeView age guid =
     { Guid = guid; Age = age; PDBPath = @"D:\build\out\prog.pdb" }
 
+  /// Builds the first 56 bytes of a PDB: the magic, and a super block of
+  /// whatever the rest of it is taken to be.
+  static let superBlockBytes (magic: string) =
+    let bs: byte[] = Array.zeroCreate 56
+    Text.Encoding.Latin1.GetBytes(magic, 0, magic.Length, bs, 0) |> ignore
+    bs
+
+  /// The magic every PDB this reader follows leads with.
+  static let pdbMagic = "Microsoft C/C++ MSF 7.00\013\010\026DS\000\000\000"
+
+  /// The 32 bytes a PDB leads with are what says the file is one at all, and
+  /// nothing shorter than the super block holding them can be read for them.
+  [<TestMethod>]
+  member _.``[PDB] header magic test``() =
+    let valid = superBlockBytes pdbMagic
+    Assert.AreEqual<bool>(true, isValidHeader (ArraySource valid) reader)
+    let wrong = superBlockBytes (pdbMagic.Replace('7', '2'))
+    Assert.AreEqual<bool>(false, isValidHeader (ArraySource wrong) reader)
+    let short = ArraySource valid[0..30]
+    Assert.AreEqual<bool>(false, isValidHeader short reader)
+
   /// A stream is allocated in whole blocks, so the array holding one can be
   /// longer than the stream is. Records running to the last byte the size
   /// covers are records to read, and the end of the stream is not a reason to

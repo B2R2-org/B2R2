@@ -25,14 +25,16 @@
 namespace B2R2.FrontEnd.BinFile.PE
 
 open System
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.PE.PEUtils
 
 /// Represents a collection of imported symbols in a PE file, which is located
-/// at the .idata section.
-type internal ImportedSymbolStore = Map<Addr, ImportedSymbol>
+/// at the .idata section, indexed by the RVA of the slot each one fills. Every
+/// read of it asks after one address, so it is a hash table and not a map.
+type internal ImportedSymbolStore = Dictionary<int, ImportedSymbol>
 
 /// Represents an imported symbol.
 and internal ImportedSymbol =
@@ -90,22 +92,24 @@ module internal ImportedSymbolStore =
   let private parseILT (bytes: byte[]) reader secs wordSize map idt =
     let skip = if wordSize = WordSize.Bit32 then 4 else 8
     let mask = computeRVAMaskForILT wordSize
-    let rec loop map rvaOffset pos =
+    let rec loop rvaOffset pos =
       let rva = readUIntByWordSize (ReadOnlySpan bytes) reader wordSize pos
       if rva = 0UL then
-        map
+        ()
       else
         let entry = parseILTEntry bytes reader secs idt mask rva
-        let map = Map.add (idt.ImportAddressTableRVA + rvaOffset) entry map
-        loop map (rvaOffset + skip) (pos + skip)
+        let slot = idt.ImportAddressTableRVA + rvaOffset
+        (map: ImportedSymbolStore)[slot] <- entry
+        loop (rvaOffset + skip) (pos + skip)
     if idt.ImportLookupTableRVA <> 0 then idt.ImportLookupTableRVA
     else idt.ImportAddressTableRVA
     |> getRawOffset secs
-    |> loop map 0
+    |> loop 0
 
   let parse bytes reader (hdr: OptionalHeader) secs wordSize =
-    let mainImportTbl = parseIDT bytes reader hdr secs
-    let delayImportTbl = parseDelayLoadIDT bytes reader hdr secs
-    Array.append mainImportTbl delayImportTbl
-    |> Array.toList
-    |> List.fold (parseILT bytes reader secs wordSize) Map.empty
+    let map = ImportedSymbolStore()
+    for idt in parseIDT bytes reader hdr secs do
+      parseILT bytes reader secs wordSize map idt
+    for idt in parseDelayLoadIDT bytes reader hdr secs do
+      parseILT bytes reader secs wordSize map idt
+    map

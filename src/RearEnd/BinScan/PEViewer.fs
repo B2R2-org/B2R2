@@ -249,9 +249,10 @@ let dumpImports _ (pe: PEBinFile) =
   printsr [| "Address"; "Name"; "Ordinal/Hint"; "Lib Name" |]
   printSingleHorizontalRule ()
   pe.ImportedSymbols
-  |> Map.iter (fun rva imp ->
-    let addr = pe.BaseAddress + uint64 rva
-    match imp with
+  |> Seq.sortBy _.Key
+  |> Seq.iter (fun kv ->
+    let addr = pe.BaseAddress + uint64 kv.Key
+    match kv.Value with
     | PE.ByOrdinal(ord, dllname) ->
       let name = String.wrapSquareBracket $"{ord}"
       dumpImportedSymbol pe addr name ord dllname
