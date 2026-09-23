@@ -116,7 +116,8 @@ type PDBTests() =
     { Source = ArraySource [||]
       SuperBlock = emptySuperBlock
       Directory = { NumStreams = 0; StreamSizes = [||]; StreamBlocks = [||] }
-      ReadStreams = Dictionary() }
+      ReadStreams = Dictionary()
+      CachedBytes = 0 }
 
   static let readRecords modules stream =
     parseSymRecordStream reader modules noStreams stream
@@ -143,7 +144,20 @@ type PDBTests() =
   [<TestMethod>]
   member _.``[PDB] symbol records ending on the stream size test``() =
     let bs = publicSymbol 2 0x20 1 "helper"
-    Assert.AreEqual<int>(1, readRecords [||] (bs, bs.Length) |> List.length)
+    Assert.AreEqual<int>(1, readRecords [||] (bs, bs.Length) |> Array.length)
+
+  /// Records come back in the order the stream lays them out, which is what
+  /// settles an address a PDB names more than once: the first record naming
+  /// one is the one that answers for it.
+  [<TestMethod>]
+  member _.``[PDB] symbol records come in the order the stream holds``() =
+    let proc = procedureSymbol PDBSymbolKind.S_GPROC32 0x2a 0x20 1 "helper"
+    let pub = publicSymbol 2 0x20 1 "helper"
+    let bs = Array.append proc pub
+    let syms = readRecords [||] (bs, bs.Length)
+    Assert.AreEqual<int>(2, Array.length syms)
+    Assert.AreEqual<uint64 option>(Some 0x2aUL, syms[0].Size)
+    Assert.AreEqual<uint64 option>(None, syms[1].Size)
 
   /// The bytes past a stream's size are whatever the blocks held before it,
   /// so a record reaching into them is no record of this stream.
@@ -153,7 +167,7 @@ type PDBTests() =
     let stale = publicSymbol 2 0x40 1 "stale"
     let bs = Array.append first stale
     let syms = readRecords [||] (bs, first.Length + 6)
-    Assert.AreEqual<int>(1, List.length syms)
+    Assert.AreEqual<int>(1, Array.length syms)
 
   /// A public PDB -- one stripped of every symbol but these -- says a symbol
   /// names a function only through the flags its record carries.
@@ -161,7 +175,7 @@ type PDBTests() =
   member _.``[PDB] public symbol naming a function test``() =
     let bs = publicSymbol 2 0x20 1 "helper"
     match readRecords [||] (bs, bs.Length) with
-    | [ sym ] ->
+    | [| sym |] ->
       Assert.AreEqual<string>("helper", sym.Name)
       Assert.AreEqual<bool>(true, sym.IsFunction)
     | _ ->
@@ -173,7 +187,7 @@ type PDBTests() =
   member _.``[PDB] public symbol naming no function test``() =
     let bs = publicSymbol 0 0x20 1 "counter"
     match readRecords [||] (bs, bs.Length) with
-    | [ sym ] ->
+    | [| sym |] ->
       Assert.AreEqual<string>("counter", sym.Name)
       Assert.AreEqual<bool>(false, sym.IsFunction)
     | _ ->
@@ -185,7 +199,7 @@ type PDBTests() =
   member _.``[PDB] reference into a module with no stream test``() =
     let bs = procedureRef 1 0 "helper"
     let syms = readRecords [| moduleInfo 0xFFFF |] (bs, bs.Length)
-    Assert.AreEqual<int>(0, List.length syms)
+    Assert.AreEqual<int>(0, Array.length syms)
 
   /// Module numbers a reference carries are one-based, so a zero names no
   /// module, and neither does a number past the end of the list.
@@ -196,8 +210,8 @@ type PDBTests() =
     let past = procedureRef 9 0 "helper"
     let byZero = readRecords modules (zero, zero.Length)
     let byPast = readRecords modules (past, past.Length)
-    Assert.AreEqual<int>(0, List.length byZero)
-    Assert.AreEqual<int>(0, List.length byPast)
+    Assert.AreEqual<int>(0, Array.length byZero)
+    Assert.AreEqual<int>(0, Array.length byPast)
 
   /// A PDB repeating the GUID and age its image names is that image's.
   [<TestMethod>]
@@ -257,7 +271,7 @@ type PDBTests() =
   member _.``[PDB] procedure symbol carrying its length test``() =
     let bs = procedureSymbol PDBSymbolKind.S_GPROC32 0x2a 0x20 1 "helper"
     match readRecords [||] (bs, bs.Length) with
-    | [ sym ] ->
+    | [| sym |] ->
       Assert.AreEqual<string>("helper", sym.Name)
       Assert.AreEqual<bool>(true, sym.IsFunction)
       Assert.AreEqual<uint64 option>(Some 0x2aUL, sym.Size)
@@ -270,7 +284,7 @@ type PDBTests() =
   member _.``[PDB] procedure symbol of the ID kind test``() =
     let bs = procedureSymbol PDBSymbolKind.S_GPROC32_ID 0x2a 0x20 1 "helper"
     match readRecords [||] (bs, bs.Length) with
-    | [ sym ] ->
+    | [| sym |] ->
       Assert.AreEqual<string>("helper", sym.Name)
       Assert.AreEqual<bool>(true, sym.IsFunction)
     | _ ->
@@ -283,7 +297,7 @@ type PDBTests() =
   member _.``[PDB] data symbol test``() =
     let bs = dataSymbol 0x3000 2 "counter"
     match readRecords [||] (bs, bs.Length) with
-    | [ sym ] ->
+    | [| sym |] ->
       Assert.AreEqual<string>("counter", sym.Name)
       Assert.AreEqual<bool>(false, sym.IsFunction)
       Assert.AreEqual<uint64 option>(None, sym.Size)

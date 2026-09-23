@@ -46,6 +46,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let loadables = lazy ProgramHeaders.filterLoadables phdrs.Value
 
+  let txtOffset = lazy getTextOffset shdrs.Value
+
   let notes = lazy Notes.parse toolBox shdrs.Value phdrs.Value
 
   let buildId = lazy Notes.findBuildId notes.Value
@@ -654,4 +656,5 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       IntervalSet.containsAddr addr executableRanges.Value
 
     member _.GetBoundedPointer addr =
-      getBoundedPtr shdrs.Value phdrs.Value loadables.Value addr
+      let shdrs, phdrs = shdrs.Value, phdrs.Value
+      getBoundedPtr shdrs txtOffset.Value phdrs loadables.Value addr

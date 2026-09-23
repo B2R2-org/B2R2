@@ -816,6 +816,31 @@ type PETests() =
     |> ignore
 
   [<TestMethod>]
+  member _.``[PE] x64 section lookups do not depend on their order``() =
+    (* The lookup from an RVA to its section keeps the section it last settled
+       on and tries that one before scanning the table. A hint is never an
+       answer, so whichever lookups came before it, what one gives has to be
+       what a scan of the whole table gives. *)
+    let secs = x64File.SectionHeaders
+    let expected rva =
+      secs
+      |> Array.tryFindIndex (fun s ->
+        s.VirtualAddress <= rva && rva < s.VirtualAddress + s.VirtualSize)
+      |> Option.defaultValue -1
+    let probes =
+      [| for s in secs do
+           yield s.VirtualAddress - 1
+           yield s.VirtualAddress
+           yield s.VirtualAddress + s.VirtualSize - 1
+           yield s.VirtualAddress + s.VirtualSize
+         yield 0x7f000000 |]
+    let check rva =
+      Assert.AreEqual(expected rva, PEUtils.findContainingSectionIndex secs rva)
+    Assert.AreNotEqual<int>(0, probes.Length, "No section swept.")
+    for rva in probes do check rva
+    for rva in Array.rev probes do check rva
+
+  [<TestMethod>]
   member _.``[PE] x64 a mapped RVA reads where its section does``() =
     (* The first byte of a section reads at the offset the section names, and
        the two ways of asking for it agree wherever there is an answer. *)

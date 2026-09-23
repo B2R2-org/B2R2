@@ -72,34 +72,48 @@ let computeEntryPoint toolBox segs cmds =
     let mainOffset = getMainOffset cmds
     if mainOffset = 0UL then None else Some(mainOffset + getTextSegOffset segs)
 
+/// Checks whether the given segment maps the given address, whether or not
+/// the file keeps bytes for it.
+let private segmentMaps (seg: SegCmd) addr =
+  addr >= seg.VMAddr && addr < seg.VMAddr + seg.VMSize
+
+/// The segment the last lookup settled on, which the next one tries before
+/// scanning the list. It is a hint and never an answer: it is taken only
+/// where it passes the very test a scan would apply, so a stale one costs a
+/// bounds check and nothing else.
+let mutable private lastSegmentHit = 0
+
+/// Returns the index of the segment mapping the given address, or -1 where
+/// none of them does.
+let private findSegmentMapping (segCmds: SegCmd[]) addr =
+  let hint = lastSegmentHit
+  if hint < segCmds.Length && segmentMaps segCmds[hint] addr then
+    hint
+  else
+    let mutable idx = 0
+    let mutable found = -1
+    while found < 0 && idx < segCmds.Length do
+      if segmentMaps segCmds[idx] addr then found <- idx else idx <- idx + 1
+    if found >= 0 then lastSegmentHit <- found else ()
+    found
+
 /// Returns a pointer to the given address, bounded by the segment that holds
 /// it. An address a segment maps but the file does not reach, as the
 /// zero-filled tail of one is, names no file offset and gives a virtual
 /// pointer; an address no segment maps at all gives a null one.
 let boundedPointerOf (segCmds: SegCmd[]) addr =
-  let mutable found = false
-  let mutable idx = 0
-  let mutable maxAddr = 0UL
-  let mutable offset = 0
-  let mutable maxOffset = 0
-  while not found && idx < segCmds.Length do
-    let seg = segCmds[idx]
-    if addr >= seg.VMAddr && addr < seg.VMAddr + seg.VMSize then
-      found <- true
-      maxOffset <- int seg.FileOff + int seg.FileSize - 1
-      if addr < seg.VMAddr + seg.FileSize then
-        offset <- int seg.FileOff + int (addr - seg.VMAddr)
-        maxAddr <- seg.VMAddr + seg.FileSize - 1UL
-      else
-        offset <- maxOffset + 1
-        maxAddr <- seg.VMAddr + seg.VMSize - 1UL
-    else
-      idx <- idx + 1
-  if found then
-    if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
-    else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
-  else
+  match findSegmentMapping segCmds addr with
+  | -1 ->
     BinFilePointer.Null
+  | idx ->
+    let seg = segCmds[idx]
+    if addr < seg.VMAddr + seg.FileSize then
+      let offset = int seg.FileOff + int (addr - seg.VMAddr)
+      let maxOffset = int seg.FileOff + int seg.FileSize - 1
+      let maxAddr = seg.VMAddr + seg.FileSize - 1UL
+      BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
+    else
+      BinFilePointer.CreateVirtual(addr, seg.VMAddr + seg.VMSize - 1UL)
 
 let isNXEnabled hdr =
   not (hdr.Flags.HasFlag MachFlag.MH_ALLOW_STACK_EXECUTION)

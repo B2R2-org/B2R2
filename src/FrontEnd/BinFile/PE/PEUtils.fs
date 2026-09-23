@@ -41,21 +41,44 @@ let getVirtualSectionSize (sec: SectionHeader) =
   let virtualSize = sec.VirtualSize
   if virtualSize = 0 then sec.SizeOfRawData else virtualSize
 
-/// Returns the index of the first section that reaches the given RVA, by
-/// however far the given function says a section reaches, or -1 where none of
-/// them does. The scan is written out rather than folded so that it allocates
-/// nothing: it is what every read of an RVA begins with, and reading the
-/// exception data of one image alone begins hundreds of thousands of them.
-let inline private findIndexBy ([<InlineIfLambda>] reachOf) secs rva =
+/// The section the last lookup settled on. Reading an image walks its RVAs
+/// in the order the sections lay them out, so the answer is nearly always the
+/// one just given, and trying it first turns a scan of the whole table into a
+/// single test. It is a hint and never an answer: it is taken only where it
+/// passes the very test a scan would apply to it, so a stale one -- left by
+/// another image, or by a read that jumped elsewhere -- costs a bounds check
+/// and nothing else.
+let mutable private lastHit = 0
+
+/// Returns whether the given section reaches the given RVA, by however far
+/// the given function says a section reaches.
+let inline private reaches ([<InlineIfLambda>] reach) (s: SectionHeader) rva =
+  s.VirtualAddress <= rva && rva < s.VirtualAddress + reach s
+
+/// Returns the index of the first section that reaches the given RVA, or -1
+/// where none of them does. The scan is written out rather than folded so
+/// that it allocates nothing: it is what every read of an RVA begins with,
+/// and reading the exception data of one image alone begins hundreds of
+/// thousands of them.
+let inline private scanIndexBy ([<InlineIfLambda>] reach) secs rva =
   let mutable i = 0
   let mutable found = -1
   while found < 0 && i < Array.length secs do
-    let s: SectionHeader = secs[i]
-    if s.VirtualAddress <= rva && rva < s.VirtualAddress + reachOf s then
-      found <- i
-    else
-      i <- i + 1
+    if reaches reach secs[i] rva then found <- i else i <- i + 1
   found
+
+/// Returns the index of the section that reaches the given RVA, by however
+/// far the given function says a section reaches, or -1 where none of them
+/// does. Sections a loader accepts do not overlap, so the one the hint names
+/// where it holds is the one a scan of the table would have found.
+let inline private findIndexBy ([<InlineIfLambda>] reach) secs rva =
+  let hint = lastHit
+  if hint < Array.length secs && reaches reach secs[hint] rva then
+    hint
+  else
+    let found = scanIndexBy reach secs rva
+    if found >= 0 then lastHit <- found else ()
+    found
 
 /// <summary>
 /// Returns the index of the section a loader maps the given RVA into, or -1

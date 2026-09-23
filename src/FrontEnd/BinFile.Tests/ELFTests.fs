@@ -2407,6 +2407,19 @@ type ELFTests() =
     Assert.AreEqual<bool>(true, p.CanReadFileBytes)
 
   [<TestMethod>]
+  member _.``[ELF] x64 exec bounded pointers do not depend on order``() =
+    (* The lookup from an address to the segment mapping it keeps the segment
+       it last settled on and tries that one first, so a read jumping between
+       segments has to get the pointer a read of that address alone gets. *)
+    let f = x64ExecFile :> IBinFile
+    let addrs = [| 0x401050UL; 0x402000UL; 0x400000UL; 0x1UL |]
+    let fields (p: BinFilePointer) = p.Addr, p.MaxAddr, p.Offset, p.MaxOffset
+    let forth = addrs |> Array.map (f.GetBoundedPointer >> fields)
+    let back = Array.rev addrs |> Array.map (f.GetBoundedPointer >> fields)
+    CollectionAssert.AreEqual(forth, Array.rev back)
+    Assert.AreEqual<bool>(true, (f.GetBoundedPointer addrs[0]).CanReadFileBytes)
+
+  [<TestMethod>]
   member _.``[ELF] x64 core reads dumped memory test``() =
     (* A core dump maps its memory through PT_LOAD like any other file, so
        what it captured is readable by address. The vDSO is the one mapping

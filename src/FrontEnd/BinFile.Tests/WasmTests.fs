@@ -131,6 +131,29 @@ type WasmTests() =
     Assert.AreEqual<int>(1, getLinkageTableEntries file |> Seq.length)
 
   [<TestMethod>]
+  member _.``[Wasm] import table answers for every entry it holds``() =
+    (* The addresses the import table holds are kept as a set rather than
+       looked for among the entries on every question, so the set has to say
+       of every entry that it is there, and of nothing else. *)
+    let tbl = Option.get file.ImportTable
+    Assert.AreNotEqual<int>(0, tbl.Imports.Length, "No import swept.")
+    for entry in tbl.Imports do
+      Assert.AreEqual<bool>(true, tbl.IsInImportTable entry.TableAddress)
+    Assert.AreEqual<bool>(false, tbl.IsInImportTable 0xdeadbeefUL)
+
+  [<TestMethod>]
+  member _.``[Wasm] sections are the same on every read``() =
+    (* The sections are mapped once and kept, as every other format keeps
+       them, so what a second read gives is what the first one did. *)
+    let structure = Option.get file.Structure
+    let first = structure.Sections
+    let again = structure.Sections
+    CollectionAssert.AreEqual(first |> Array.map _.Name,
+                              again |> Array.map _.Name)
+    CollectionAssert.AreEqual(first |> Array.map _.Kind,
+                              again |> Array.map _.Kind)
+
+  [<TestMethod>]
   member _.``[Wasm] start section names the entry point``() =
     let f = WasmBinFile("", namedStart) :> IBinFile
     Assert.AreEqual<Addr option>(Some 0x19UL, f.EntryPoint)
