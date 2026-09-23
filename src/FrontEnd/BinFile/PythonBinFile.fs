@@ -32,10 +32,11 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.Python.Helper
 
-/// Represents a Python binary file.
-type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
-  let baseAddr = defaultArg baseAddrOpt 0UL
-
+/// Represents a Python binary file. A code object is read by an interpreter
+/// rather than mapped by a loader, so it names no base to be placed at:
+/// every address here is an offset into the file, and there is no base for a
+/// caller to give.
+type PythonBinFile(path, inputBytes: byte[]) =
   let reader = BinReader.Init Endian.Little
 
   let magic = reader.ReadUInt32(inputBytes, 0)

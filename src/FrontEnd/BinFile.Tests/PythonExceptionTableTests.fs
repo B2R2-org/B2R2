@@ -54,9 +54,9 @@ type PythonExceptionTableTests() =
       if int version >= 311 then { co with ExceptionTable = tableBytes } else co
     Builder.build version (Builder.magicOf version) co
 
-  static let file = PythonBinFile("", pycOf PythonVersion.Python312, None)
+  static let file = PythonBinFile("", pycOf PythonVersion.Python312)
 
-  static let legacy = PythonBinFile("", pycOf PythonVersion.Python310, None)
+  static let legacy = PythonBinFile("", pycOf PythonVersion.Python310)
 
   static let codeAddr =
     match file.CodeObj with
@@ -77,7 +77,7 @@ type PythonExceptionTableTests() =
                         "python_exception.zip"
                         "python_exception.pyc"
 
-  static let realFile = PythonBinFile("", realBytes, None)
+  static let realFile = PythonBinFile("", realBytes)
 
   static let guarded =
     PyExceptionTable.collect realFile.CodeObj

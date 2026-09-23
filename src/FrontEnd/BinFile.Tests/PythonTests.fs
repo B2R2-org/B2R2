@@ -34,7 +34,7 @@ type PythonTests() =
   static let bytes =
     ZIPReader.readBytes PythonBinary "python_basic.zip" "python_basic.pyc"
 
-  static let file = PythonBinFile("", bytes, None)
+  static let file = PythonBinFile("", bytes)
 
   [<TestMethod>]
   member _.``[Python] format test``() =

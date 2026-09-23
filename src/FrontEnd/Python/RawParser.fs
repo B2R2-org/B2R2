@@ -51,7 +51,7 @@ type PythonRawParser(isa: ISA, reader: IBinReader) =
 
   let parse (bs: byte[]) =
     let pyc = Builder.build version magic (Builder.codeOf bs)
-    let file = PythonBinFile("", pyc, None)
+    let file = PythonBinFile("", pyc)
     let parser = PythonParser(file, reader) :> IInstructionParsable
     (* Each call builds a file of its own, so the bytes always begin where
        that file put them. The caller's address names a place in its own
