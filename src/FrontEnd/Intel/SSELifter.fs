@@ -220,7 +220,7 @@ let movss (ins: Instruction) bld =
   }
 
 let movsd (ins: Instruction) bld =
-  if ins.Operands = NoOperand then
+  if ins.Operands.Count = 0 then
     GeneralLifter.movs ins bld
   else
     lift bld ins {

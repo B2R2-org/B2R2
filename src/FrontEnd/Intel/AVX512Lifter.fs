@@ -781,7 +781,7 @@ let private vp2intersect (ins: Instruction) bld packSz =
       match dst with
       | OprReg r ->
         let next: Register = LanguagePrimitives.EnumOfValue(int r + 1)
-        OprReg next
+        Operand.OprReg next
       | _ ->
         raise InvalidOperandException
     assignMask ins bld dst (Array.map (anyEq b) a)
@@ -1354,10 +1354,10 @@ let private gatherMask bld (ins: Instruction) =
 /// over the shorter of that and its data vector, which the caller settles.
 let private vsibParts ins (bld: ILowUIRBuilder) idxSz vsib =
   match vsib with
-  | OprMem(baseReg, Some(idxReg, scale), disp, _) ->
+  | OprMem(baseReg, ValueSome(idxReg, scale), disp, _) ->
     let addrSz = bld.RegType
     let struct (b, d) = AVXLifter.vsibBaseDisp bld addrSz baseReg disp
-    let idxOpr = OprReg idxReg
+    let idxOpr = Operand.OprReg idxReg
     let idxWidth = AVXLifter.operandWidth bld idxOpr
     let idx = transOprToArr ins bld true idxSz (64<rt> / idxSz) idxWidth idxOpr
     let scaleNum = numI32 (int scale) addrSz

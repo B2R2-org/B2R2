@@ -17,7 +17,6 @@
     <Compile Include="Intel.fs" />
     <Compile Include="InstructionTable.fs" />
     <Compile Include="Instruction.fs" />
-    <Compile Include="ParsingHelper.fs" />
     <Compile Include="OperandParsers.fs" />
     <Compile Include="Disasm.fs" />
     <Compile Include="LiftingUtils.fs" />
@@ -30,6 +29,9 @@
     <Compile Include="X87Lifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingFunctions.fs" />
+    <Compile Include="OpcodeMapHelper.fs" />
+    <Compile Include="LegacyOpcodeMap.fs" Condition="Exists('LegacyOpcodeMap.fs') And '$(NoOpcodeMaps)' != 'true'" />
+    <Compile Include="VEXOpcodeMap.fs" Condition="Exists('VEXOpcodeMap.fs') And '$(NoOpcodeMaps)' != 'true'" />
     <Compile Include="Parser.fs" />
   </ItemGroup>
 

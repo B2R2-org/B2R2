@@ -66,10 +66,9 @@ let inline getOperationSize (i: Instruction) = i.MainOperationSize
 
 let inline getEffAddrSz (i: Instruction) = i.PointerSize
 
-let inline getImmValue imm =
-  match imm with
-  | OprImm(imm, _) -> imm
-  | _ -> raise InvalidOperandException
+let inline getImmValue (imm: Operand) =
+  if imm.Kind = OperandKind.Imm then imm.Value
+  else raise InvalidOperandException
 
 let inline isConst (e: Expr) =
   match e with
@@ -165,9 +164,7 @@ let isSegReg = function
   | Register.GS -> true
   | _ -> false
 
-let isMemOpr = function
-  | OprMem _ -> true
-  | _ -> false
+let isMemOpr (o: Operand) = o.Kind = OperandKind.Mem
 
 let private segRegToBase = function
   | R.CS -> R.CSBase
@@ -195,7 +192,7 @@ let private numOfAddrSz (ins: Instruction) (bld: ILowUIRBuilder) n =
       64<rt>
   numI64 n sz
 
-let inline private sIdx ins bld (r, s: Scale) =
+let inline private sIdx ins bld (struct (r, s: Scale)) =
   match s with
   | Scale.X1 -> regVar bld r
   | Scale.X2 -> regVar bld r << numOfAddrSz ins bld 1L
@@ -205,10 +202,10 @@ let inline private sIdx ins bld (r, s: Scale) =
 
 let private transMem ins bld useTmpVar b index disp oprSize =
   let address =
-    match b, index, (disp: Displacement option) with
-    | None, None, Some d ->
+    match b, index, (disp: Displacement voption) with
+    | ValueNone, ValueNone, ValueSome d ->
       numOfAddrSz ins bld d
-    | None, Some i, Some d ->
+    | ValueNone, ValueSome i, ValueSome d ->
       let e = (sIdx ins bld i) .+ (numOfAddrSz ins bld d)
       if not useTmpVar then
         e
@@ -218,9 +215,9 @@ let private transMem ins bld useTmpVar b index disp oprSize =
           direct tAddress := e
         }
         tAddress
-    | Some b, None, None ->
+    | ValueSome b, ValueNone, ValueNone ->
       regVar bld b
-    | Some R.RIP, None, Some d -> (* RIP-relative addressing *)
+    | ValueSome R.RIP, ValueNone, ValueSome d -> (* RIP-relative addressing *)
       let pc =
 #if EMULATION
         numOfAddrSz ins bld (int64 (ins: Instruction).Address)
@@ -236,7 +233,7 @@ let private transMem ins bld useTmpVar b index disp oprSize =
           direct tAddress := e
         }
         tAddress
-    | Some b, None, Some d ->
+    | ValueSome b, ValueNone, ValueSome d ->
       let e = regVar bld b .+ (numOfAddrSz ins bld d)
       if not useTmpVar then
         e
@@ -246,7 +243,7 @@ let private transMem ins bld useTmpVar b index disp oprSize =
           direct tAddress := e
         }
         tAddress
-    | Some b, Some i, None ->
+    | ValueSome b, ValueSome i, ValueNone ->
       let e = regVar bld b .+ (sIdx ins bld i)
       if not useTmpVar then
         e
@@ -256,7 +253,7 @@ let private transMem ins bld useTmpVar b index disp oprSize =
           direct tAddress := e
         }
         tAddress
-    | Some b, Some i, Some d ->
+    | ValueSome b, ValueSome i, ValueSome d ->
       let e = regVar bld b .+ (sIdx ins bld i) .+ (numOfAddrSz ins bld d)
       if not useTmpVar then
         e
@@ -270,93 +267,84 @@ let private transMem ins bld useTmpVar b index disp oprSize =
       raise InvalidOperandException
   ldMem ins bld oprSize address
 
-let transOpr ins bld useTmpVar = function
-  | OprReg reg ->
-    regVar bld reg
-  | OprMem(b, index, disp, oprSize) ->
-    transMem ins bld useTmpVar b index disp oprSize
-  | OprImm(imm, _) ->
-    numI64 imm (getOperationSize ins)
-  | OprDirAddr(Relative offset) ->
-    numI64 offset bld.RegType
-  | OprDirAddr(Absolute(_, addr, _)) ->
-    numU64 addr bld.RegType
+/// Translates an operand to an expression. The operand readers here read the
+/// fields directly rather than through the case patterns, which allocate a
+/// choice value per match; every lifted instruction comes through them.
+let transOpr ins bld useTmpVar (o: Operand) =
+  match o.Kind with
+  | OperandKind.Reg ->
+    regVar bld o.Register
+  | OperandKind.Mem ->
+    transMem ins bld useTmpVar o.MemBase o.MemIndex o.MemDisp o.Size
+  | OperandKind.Imm ->
+    numI64 o.Value (getOperationSize ins)
+  | OperandKind.Relative ->
+    numI64 o.Value bld.RegType
+  | OperandKind.Absolute ->
+    numU64 (uint64 o.Value) bld.RegType
   | _ ->
     Terminator.impossible ()
 
-let transOpr16 ins (bld: ILowUIRBuilder) useTmpVar opr =
-  match opr with
-  | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
-    pseudoRegVar bld r 1 |> AST.xtlo 16<rt>
-  | OprReg r ->
-    regVar bld r
-  | OprMem(b, index, disp, 16<rt>) ->
-    transMem ins bld useTmpVar b index disp 16<rt>
+/// A general-purpose register operand of the given width, or the memory
+/// operand of that width, as an expression.
+let private transGpOpr ins bld useTmpVar (o: Operand) sz =
+  match o.Kind with
+  | OperandKind.Reg ->
+    let r = o.Register
+    if RegisterHelper.toRegType (bld: ILowUIRBuilder).WordSize r > 64<rt> then
+      let e = pseudoRegVar bld r 1
+      if sz = 64<rt> then e else AST.xtlo sz e
+    else
+      regVar bld r
+  | OperandKind.Mem when o.Size = sz ->
+    transMem ins bld useTmpVar o.MemBase o.MemIndex o.MemDisp sz
   | _ ->
     raise InvalidOperandException
 
-let transOpr32 ins (bld: ILowUIRBuilder) useTmpVar opr =
-  match opr with
-  | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
-    pseudoRegVar bld r 1 |> AST.xtlo 32<rt>
-  | OprReg r ->
-    regVar bld r
-  | OprMem(b, index, disp, 32<rt>) ->
-    transMem ins bld useTmpVar b index disp 32<rt>
+/// A vector register operand, or the memory operand, as the expression the
+/// given reader makes of the loaded value.
+let private transVecOpr ins bld useTmpVar (o: Operand) regVar memExpr =
+  match o.Kind with
+  | OperandKind.Reg ->
+    regVar bld o.Register
+  | OperandKind.Mem ->
+    transMem ins bld useTmpVar o.MemBase o.MemIndex o.MemDisp o.Size
+    |> memExpr
   | _ ->
     raise InvalidOperandException
 
-let transOpr64 ins (bld: ILowUIRBuilder) useTmpVar opr =
-  match opr with
-  | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
-    pseudoRegVar bld r 1
-  | OprReg r ->
-    regVar bld r
-  | OprMem(b, index, disp, 64<rt>) ->
-    transMem ins bld useTmpVar b index disp 64<rt>
-  | _ ->
-    raise InvalidOperandException
+let transOpr16 ins bld useTmpVar opr = transGpOpr ins bld useTmpVar opr 16<rt>
+
+let transOpr32 ins bld useTmpVar opr = transGpOpr ins bld useTmpVar opr 32<rt>
+
+let transOpr64 ins bld useTmpVar opr = transGpOpr ins bld useTmpVar opr 64<rt>
 
 let transOpr128 ins bld useTmpVar opr =
-  match opr with
-  | OprReg r ->
-    pseudoRegVar128 bld r
-  | OprMem(b, index, disp, oprSize) ->
-    transMem ins bld useTmpVar b index disp oprSize |> getMemExpr128
-  | _ ->
-    raise InvalidOperandException
+  transVecOpr ins bld useTmpVar opr pseudoRegVar128 getMemExpr128
 
 let transOpr256 ins bld useTmpVar opr =
-  match opr with
-  | OprReg r ->
-    pseudoRegVar256 bld r
-  | OprMem(b, index, disp, oprSize) ->
-    transMem ins bld useTmpVar b index disp oprSize |> getMemExpr256
-  | _ ->
-    raise InvalidOperandException
+  transVecOpr ins bld useTmpVar opr pseudoRegVar256 getMemExpr256
 
 let transOpr512 ins bld useTmpVar opr =
-  match opr with
-  | OprReg r ->
-    pseudoRegVar512 bld r
-  | OprMem(b, index, disp, oprSize) ->
-    transMem ins bld useTmpVar b index disp oprSize |> getMemExpr512
-  | _ ->
-    raise InvalidOperandException
+  transVecOpr ins bld useTmpVar opr pseudoRegVar512 getMemExpr512
 
 /// Return a tuple (jump target expr, is pc-relative?)
 let transJumpTargetOpr ins (bld: ILowUIRBuilder) useTmpVar pc =
-  match (ins: Instruction).Operands with
-  | OneOperand(OprDirAddr(Absolute(_, addr, _))) ->
-    struct (numU64 addr bld.RegType, false)
-  | OneOperand(OprDirAddr(Relative offset)) ->
+  let oprs = (ins: Instruction).Operands
+  if oprs.Count <> 1 then raise InvalidOperandException else ()
+  let o = oprs[0]
+  match o.Kind with
+  | OperandKind.Absolute ->
+    struct (numU64 (uint64 o.Value) bld.RegType, false)
+  | OperandKind.Relative ->
     let wordSize = bld.RegType
-    let offset = numI64 offset wordSize |> AST.sext wordSize
+    let offset = numI64 o.Value wordSize |> AST.sext wordSize
     struct (pc .+ offset, true)
-  | OneOperand(OprReg reg) ->
-    struct (regVar bld reg, false)
-  | OneOperand(OprMem(b, index, disp, oprSize)) ->
-    struct (transMem ins bld useTmpVar b index disp oprSize, false)
+  | OperandKind.Reg ->
+    struct (regVar bld o.Register, false)
+  | OperandKind.Mem ->
+    let e = transMem ins bld useTmpVar o.MemBase o.MemIndex o.MemDisp o.Size
+    struct (e, false)
   | _ ->
     raise InvalidOperandException
 
@@ -926,10 +914,10 @@ let hasStackPtr (ins: Instruction) =
   match ins.Operands with
   | OneOperand(OprReg Register.ESP)
   | OneOperand(OprReg Register.RSP)
-  | OneOperand(OprMem(Some Register.ESP, _, _, _))
-  | OneOperand(OprMem(Some Register.RSP, _, _, _))
-  | OneOperand(OprMem(_, Some(Register.ESP, _), _, _))
-  | OneOperand(OprMem(_, Some(Register.RSP, _), _, _)) -> true
+  | OneOperand(OprMem(ValueSome Register.ESP, _, _, _))
+  | OneOperand(OprMem(ValueSome Register.RSP, _, _, _))
+  | OneOperand(OprMem(_, ValueSome(Register.ESP, _), _, _))
+  | OneOperand(OprMem(_, ValueSome(Register.RSP, _), _, _)) -> true
   | _ -> false
 
 /// Holds a small constant at each width an x86 operand can have. The flag

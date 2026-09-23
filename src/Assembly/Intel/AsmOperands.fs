@@ -73,19 +73,19 @@ let regTo3Bit = function
 let private getModRMByte md reg rm = (md <<< 6) + (reg <<< 3) + rm
 
 let private getRMBySIB baseReg si =
-  match si, baseReg with
-  | Some _, _ -> 0b100uy
-  | None, Some baseReg -> regTo3Bit baseReg
-  | None, None -> 0b101uy
+  match (si: ScaledIndex voption), (baseReg: Register voption) with
+  | ValueSome _, _ -> 0b100uy
+  | ValueNone, ValueSome baseReg -> regTo3Bit baseReg
+  | ValueNone, ValueNone -> 0b101uy
 
 let private isDisp8 disp = 0xFFFFFFFFFFFFFF80L <= disp && disp <= 0x7FL
 
-let private getMod baseReg = function
-  | None ->
+let private getMod (baseReg: Register voption) = function
+  | ValueNone ->
     0b00uy
-  | Some disp ->
+  | ValueSome disp ->
     match baseReg with
-    | Some Register.RIP | None -> 0b00uy
+    | ValueSome Register.RIP | ValueNone -> 0b00uy
     | _ -> if isDisp8 disp then 0b01uy else 0b10uy
 
 let modrmRR reg1 reg2 = getModRMByte 0b11uy (regTo3Bit reg1) (regTo3Bit reg2)
@@ -145,24 +145,24 @@ let private isRegFld4 = function
   | _ -> false
 
 /// SIB and Displacement.
-let mem b si d =
-  match b, si, d with
-  | Some b, None, None ->
+let mem (b: Register voption) (si: ScaledIndex voption) d =
+  match b, si, (d: Displacement voption) with
+  | ValueSome b, ValueNone, ValueNone ->
     if isRegFld4 b then [| 0x24uy |] else [||]
-  | Some b, Some(i, s), None ->
+  | ValueSome b, ValueSome(i, s), ValueNone ->
     [| yield encSIB (getScaleBit s) (regTo3Bit i) (regTo3Bit b) |]
-  | Some b, Some(i, s), Some d ->
+  | ValueSome b, ValueSome(i, s), ValueSome d ->
     [| yield encSIB (getScaleBit s) (regTo3Bit i) (regTo3Bit b)
        yield! encDisp d (getDispSz d) |]
-  | None, Some(i, s), None -> (* Vol.2A 2-7 NOTES *)
+  | ValueNone, ValueSome(i, s), ValueNone -> (* Vol.2A 2-7 NOTES *)
     [| yield encSIB (getScaleBit s) (regTo3Bit i) 0b101uy
        yield! encDisp 0L 32<rt> |]
-  | None, Some(i, s), Some d ->
+  | ValueNone, ValueSome(i, s), ValueSome d ->
     [| yield encSIB (getScaleBit s) (regTo3Bit i) 0b101uy
        yield! encDisp d 32<rt> |]
-  | None, None, Some d ->
+  | ValueNone, ValueNone, ValueSome d ->
     [| yield! encDisp d 32<rt> |]
-  | Some b, None, Some d ->
+  | ValueSome b, ValueNone, ValueSome d ->
     [| yield! if isRegFld4 b then [| 0x24uy |] else [||]
        yield! encDisp d (getDispSz d) |]
   | _ ->

@@ -30,6 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.Intel.Tests")>]
 [<assembly: InternalsVisibleTo("B2R2.Assembly.Intel")>]
+[<assembly: InternalsVisibleTo("IntelParserGen")>]
 do ()
 
 /// Shortcut for Register type.

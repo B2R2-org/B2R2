@@ -24,16 +24,19 @@
 
 namespace B2R2.FrontEnd.Intel
 
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for Intel x86 and x86-64 architectures.
-type Instruction internal(addr, packed: uint64, vex, oprs, lifter: ILiftable) =
+type Instruction
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+  internal(addr, packed: uint64, vex, oprs, lifter: ILiftable) =
 
   let hasConcJmpTarget () =
-    match oprs with
-    | OneOperand(OprDirAddr _) -> true
-    | _ -> false
+    (oprs: Operands).Count = 1
+    && (oprs[0].Kind = OperandKind.Relative
+        || oprs[0].Kind = OperandKind.Absolute)
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
@@ -222,7 +225,8 @@ type Instruction internal(addr, packed: uint64, vex, oprs, lifter: ILiftable) =
         true
       | Opcode.LEA ->
         match oprs with
-        | TwoOperands(OprReg dst, OprMem(Some src, None, Some 0L, _)) ->
+        | TwoOperands(OprReg dst,
+                      OprMem(ValueSome src, ValueNone, ValueSome 0L, _)) ->
           dst = src
         | _ ->
           false
@@ -240,12 +244,13 @@ type Instruction internal(addr, packed: uint64, vex, oprs, lifter: ILiftable) =
       ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
     member this.DirectBranchTarget(addr: byref<Addr>) =
-      if (this :> IInstruction).IsBranch then
-        match oprs with
-        | OneOperand(OprDirAddr(Absolute(_))) ->
+      if (this :> IInstruction).IsBranch && oprs.Count = 1 then
+        let o = oprs[0]
+        match o.Kind with
+        | OperandKind.Absolute ->
           Terminator.futureFeature ()
-        | OneOperand(OprDirAddr(Relative offset)) ->
-          addr <- (int64 this.Address + offset) |> uint64
+        | OperandKind.Relative ->
+          addr <- (int64 this.Address + o.Value) |> uint64
           true
         | _ ->
           false
@@ -255,9 +260,12 @@ type Instruction internal(addr, packed: uint64, vex, oprs, lifter: ILiftable) =
     member this.IndirectTrampolineAddr(addr: byref<Addr>) =
       if (this :> IInstruction).IsIndirectBranch then
         match oprs with
-        | OneOperand(OprMem(None, None, Some disp, _)) ->
+        | OneOperand(OprMem(ValueNone, ValueNone, ValueSome disp, _)) ->
           addr <- uint64 disp; true
-        | OneOperand(OprMem(Some Register.RIP, None, Some disp, _)) ->
+        | OneOperand(OprMem(ValueSome Register.RIP,
+                            ValueNone,
+                            ValueSome disp,
+                            _)) ->
           addr <- this.Address + uint64 this.Length + uint64 disp
           true
         | _ ->
@@ -270,11 +278,22 @@ type Instruction internal(addr, packed: uint64, vex, oprs, lifter: ILiftable) =
         false
       else
         match oprs with
-        | OneOperand(OprMem(Some Register.RIP, None, Some disp, _)) ->
+        | OneOperand(OprMem(ValueSome Register.RIP,
+                            ValueNone,
+                            ValueSome disp,
+                            _)) ->
           addrs <- [| this.Address + uint64 this.Length + uint64 disp |]
           true
-        | TwoOperands(OprMem(Some Register.RIP, None, Some disp, _), _)
-        | TwoOperands(_, OprMem(Some Register.RIP, None, Some disp, _)) ->
+        | TwoOperands(OprMem(ValueSome Register.RIP,
+                             ValueNone,
+                             ValueSome disp,
+                             _),
+                      _)
+        | TwoOperands(_,
+                      OprMem(ValueSome Register.RIP,
+                             ValueNone,
+                             ValueSome disp,
+                             _)) ->
           addrs <- [| this.Address + uint64 this.Length + uint64 disp |]
           true
         | _ ->
