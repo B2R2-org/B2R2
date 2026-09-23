@@ -1087,12 +1087,54 @@ type MachTests() =
     Assert.AreEqual<bool>(false, f.IsValidAddr 0x200000000UL) (* unmapped *)
 
   [<TestMethod>]
+  member _.``[Mach] X64 valid range test``() =
+    (* The segments run on from one another up to the end of __LINKEDIT, so a
+       range leaving them reaches nothing the image maps, wherever it began. *)
+    let f = x64File :> IBinFile
+    let inside: AddrRange = { Min = 0x100000470UL; Max = 0x1000004a0UL }
+    let crossing: AddrRange = { Min = 0x100000470UL; Max = 0x200000000UL }
+    let past: AddrRange = { Min = 0x200000000UL; Max = 0x200000010UL }
+    Assert.AreEqual<bool>(true, f.IsValidRange inside)
+    Assert.AreEqual<bool>(false, f.IsValidRange crossing)
+    Assert.AreEqual<bool>(false, f.IsValidRange past)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 valid range boundary test``() =
+    (* __PAGEZERO maps nothing, so the image begins at __TEXT and ends where
+       __LINKEDIT does; one past that end is no address of it. *)
+    let f = x64File :> IBinFile
+    let first: AddrRange = { Min = 0x100000000UL; Max = 0x100000000UL }
+    let last: AddrRange = { Min = 0x100002fffUL; Max = 0x100002fffUL }
+    let onePast: AddrRange = { Min = 0x100003000UL; Max = 0x100003000UL }
+    let whole: AddrRange = { Min = 0x100000000UL; Max = 0x100002fffUL }
+    Assert.AreEqual<bool>(true, f.IsValidRange first)
+    Assert.AreEqual<bool>(true, f.IsValidRange last)
+    Assert.AreEqual<bool>(false, f.IsValidRange onePast)
+    Assert.AreEqual<bool>(true, f.IsValidRange whole)
+
+  [<TestMethod>]
   member _.``[Mach] X64 address mapped to file test``() =
     (* __text is file-backed, but the tail of __LINKEDIT (vmsize > filesize) is
        not. *)
     let f = x64File :> IBinFile
     Assert.AreEqual<bool>(true, f.IsAddrMappedToFile 0x100000470UL)
     Assert.AreEqual<bool>(false, f.IsAddrMappedToFile 0x100002200UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 range mapped to file test``() =
+    (* __LINKEDIT takes a whole page of memory and 0x120 bytes of the file, so
+       its tail is an address of the image that reads no byte of the file. A
+       range straddling that boundary has both ends mapped and is still not
+       one the file holds whole. *)
+    let f = x64File :> IBinFile
+    let backed: AddrRange = { Min = 0x100002000UL; Max = 0x10000211fUL }
+    let straddling: AddrRange = { Min = 0x100002100UL; Max = 0x100002200UL }
+    let tail: AddrRange = { Min = 0x100002120UL; Max = 0x100002fffUL }
+    Assert.AreEqual<bool>(true, f.IsRangeMappedToFile backed)
+    Assert.AreEqual<bool>(true, f.IsValidRange straddling)
+    Assert.AreEqual<bool>(false, f.IsRangeMappedToFile straddling)
+    Assert.AreEqual<bool>(true, f.IsValidRange tail)
+    Assert.AreEqual<bool>(false, f.IsRangeMappedToFile tail)
 
   [<TestMethod>]
   member _.``[Mach] X64 executable address test``() =
