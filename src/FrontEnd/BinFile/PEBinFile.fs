@@ -41,6 +41,8 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
 
   let isa = headerToISA pe.Header
 
+  let regionTable = lazy (makeRegionTable pe.SectionHeaders pe.BaseAddr)
+
   let nameResolver =
     Some { new INameResolvable with
       member _.TryResolveName(addr) =
@@ -476,4 +478,4 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
 
     member _.IsExecutableAddr addr = isExecutableAddr pe addr
 
-    member _.GetBoundedPointer addr = boundedPointerOf pe addr
+    member _.GetBoundedPointer addr = regionTable.Value.GetBoundedPointer addr

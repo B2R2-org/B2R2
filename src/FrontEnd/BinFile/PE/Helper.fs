@@ -179,52 +179,18 @@ let inline isRangeMappedToFile pe range =
 let inline isExecutableAddr pe addr =
   IntervalSet.containsAddr addr pe.ExecutableRanges
 
-/// Checks whether a loader maps the given address into the given section,
-/// whether or not the file keeps bytes for it.
-let private sectionMaps (sec: SectionHeader) baseAddr addr =
-  let vma = uint64 sec.VirtualAddress + baseAddr
-  addr >= vma && addr < vma + uint64 (getVirtualSectionSize sec)
-
-/// The section the last lookup settled on, which the next one tries before
-/// scanning the table. It is a hint and never an answer: it is taken only
-/// where it passes the very test a scan would apply, so a stale one costs a
-/// bounds check and nothing else.
-let mutable private lastSectionHit = 0
-
-/// Returns the index of the section a loader maps the given address into, or
-/// -1 where none of them does.
-let private findSectionMapping (secs: SectionHeader[]) baseAddr addr =
-  let hint = lastSectionHit
-  if hint < secs.Length && sectionMaps secs[hint] baseAddr addr then
-    hint
-  else
-    let mutable idx = 0
-    let mutable found = -1
-    while found < 0 && idx < secs.Length do
-      if sectionMaps secs[idx] baseAddr addr then found <- idx
-      else idx <- idx + 1
-    if found >= 0 then lastSectionHit <- found else ()
-    found
-
-/// Returns a pointer to the given address, bounded by the section a loader
-/// maps it into. An address such a section gives room to but the file keeps
-/// no bytes for names no file offset and gives a virtual pointer; an address
-/// no section maps at all gives a null one.
-let boundedPointerOf pe addr =
-  match findSectionMapping pe.SectionHeaders pe.BaseAddr addr with
-  | -1 ->
-    BinFilePointer.Null
-  | idx ->
-    let sec = pe.SectionHeaders[idx]
-    let vma = uint64 sec.VirtualAddress + pe.BaseAddr
-    if addr < vma + uint64 sec.SizeOfRawData then
-      let offset = sec.PointerToRawData + int (addr - vma)
-      let maxOffset = sec.PointerToRawData + sec.SizeOfRawData - 1
-      let maxAddr = vma + uint64 sec.SizeOfRawData - 1UL
-      BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
-    else
-      let vmaSize = uint64 (getVirtualSectionSize sec)
-      BinFilePointer.CreateVirtual(addr, vma + vmaSize - 1UL)
+/// Returns the table that turns an address into a bounded pointer, built from
+/// the sections a loader maps, PE having no segments of its own. A section is
+/// given room by its virtual size but backed only by the raw data the file
+/// keeps for it, which is why the two sizes are told apart.
+let makeRegionTable (secs: SectionHeader[]) baseAddr =
+  secs
+  |> Array.map (fun sec ->
+    { Address = uint64 sec.VirtualAddress + baseAddr
+      VMSize = uint64 (getVirtualSectionSize sec)
+      Offset = uint64 sec.PointerToRawData
+      FileSize = uint64 sec.SizeOfRawData })
+  |> BinRegionTable
 
 let peMachineToISA = function
   | Machine.I386 -> ISA(Architecture.Intel, WordSize.Bit32)

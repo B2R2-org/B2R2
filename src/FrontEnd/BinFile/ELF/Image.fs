@@ -202,7 +202,8 @@ module internal Image =
     let shdrs = img.Sections |> Array.map (fun s -> s.SecHeader)
     let loadables = ProgramHeaders.filterLoadables img.ProgramHeaders
     let txtOffset = getTextOffset shdrs
-    let ptr = getBoundedPtr shdrs txtOffset img.ProgramHeaders loadables addr
+    let table = makeRegionTable shdrs txtOffset img.ProgramHeaders loadables
+    let ptr = table.GetBoundedPointer addr
     if ptr.CanReadFileBytes && Array.length bytes <= ptr.ReadableAmount then
       patchByOffset ptr.Offset bytes img
     else
