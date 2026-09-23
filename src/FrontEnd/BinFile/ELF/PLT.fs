@@ -130,28 +130,28 @@ let private tryFindGOTAddr shdrs =
     | Some s -> Some s.SecAddr
     | None -> None
 
-let private tryFindFirstEntryAddrWithRelPLT (reloc: RelocationInfo) shdrs =
-  match Array.tryFind (fun s -> s.SecName = Section.RelPLT) shdrs with
-  | Some s ->
-    reloc.Entries
-    |> Seq.fold (fun minval r ->
-      if r.RelSecNumber = s.SecNum then
-        if r.RelOffset < minval then r.RelOffset else minval
-      else
-        minval) UInt64.MaxValue
-    |> Some
-  | None ->
-    None
+/// Returns the lowest address among the relocation entries the given predicate
+/// picks, which is where the table those entries relocate begins, or none
+/// where it picks none at all. The fold starts at the top of the address
+/// space, so one that met no entry ends where it began and names no address.
+let private tryFindFirstEntryAddr (reloc: RelocationInfo) pick =
+  let folder minval (r: RelocationEntry) =
+    if pick r && r.RelOffset < minval then r.RelOffset else minval
+  let addr = Seq.fold folder UInt64.MaxValue reloc.Entries
+  if addr = UInt64.MaxValue then None else Some addr
 
-let private tryFindFirstEntryAddrWithRelocation (reloc: RelocationInfo) =
-  reloc.Entries
-  |> Seq.fold (fun minval r ->
-    match r.RelKind with
-    | RelocationKindARMv8 RelocationARMv8.R_AARCH64_JUMP_SLOT ->
-      if r.RelOffset < minval then r.RelOffset else minval
-    | _ ->
-      minval) UInt64.MaxValue
-  |> fun addr -> if addr = UInt64.MaxValue then None else Some addr
+let private tryFindFirstEntryAddrWithRelPLT reloc shdrs =
+  match Array.tryFind (fun s -> s.SecName = Section.RelPLT) shdrs with
+  | Some s -> tryFindFirstEntryAddr reloc (fun r -> r.RelSecNumber = s.SecNum)
+  | None -> None
+
+let private isAArch64JumpSlot (r: RelocationEntry) =
+  match r.RelKind with
+  | RelocationKindARMv8 RelocationARMv8.R_AARCH64_JUMP_SLOT -> true
+  | _ -> false
+
+let private tryFindFirstEntryAddrWithRelocation reloc =
+  tryFindFirstEntryAddr reloc isAArch64JumpSlot
 
 let isPLTSectionName name =
   name = Section.PLT || name = SecPLTSnd || name = SecPLTGOT
@@ -214,14 +214,19 @@ type GeneralParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
   (* One PLT entry stands for one entry of the PLT relocation section, whatever
      kind that entry is: an ifunc slot sits among the jump slots and takes an
      entry of its own. Only a file without such a section leaves the kind as
-     the sole thing to go on. *)
+     the sole thing to go on. The n-th entry of the section is read as the one
+     belonging to the n-th stub, so the entries are put in the order of the
+     slots they relocate rather than left in whatever order they are held in. *)
   let relocs =
     let entries = (relocInfo: RelocationInfo).Entries
     let belongsToPLT (r: RelocationEntry) =
       match relPLTSection with
       | Some rsec -> r.RelSecNumber = rsec.SecNum
       | None -> r.RelKind = relKind
-    entries |> Seq.filter belongsToPLT |> Seq.toArray
+    entries
+    |> Seq.filter belongsToPLT
+    |> Seq.sortBy _.RelOffset
+    |> Seq.toArray
 
   (* Where a target gives an imported function the address of its own PLT stub,
      the gap between two such symbols is the entry size. That is worth having,
