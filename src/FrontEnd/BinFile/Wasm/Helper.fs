@@ -26,21 +26,19 @@ module internal B2R2.FrontEnd.BinFile.Wasm.Helper
 
 open B2R2.FrontEnd.BinFile
 
+/// Returns the offset of the function the given index names, or none where the
+/// module holds no such function. A start section is free to name one that is
+/// not there, and an index naming nothing is a fact about the module rather
+/// than an entry point to hand back.
+let private tryFindFuncOffset wm fi =
+  wm.IndexMap
+  |> Array.tryFind (fun ii -> ii.Kind = IndexKind.Function && ii.Index = fi)
+  |> Option.map (fun ii -> uint64 ii.ElemOffset)
+
 let entryPointOf wm =
   match wm.StartSection with
-  | Some ss ->
-    match ss.Contents with
-    | Some fi ->
-      let ii =
-        wm.IndexMap
-        |> Array.find (fun ii ->
-          ii.Kind = IndexKind.Function
-          && ii.Index = fi)
-      Some(uint64 ii.ElemOffset)
-    | None ->
-      None
-  | None ->
-    None
+  | Some ss -> ss.Contents |> Option.bind (tryFindFuncOffset wm)
+  | None -> None
 
 let importToBinImport (entry: Import) =
   { Name = entry.Name
