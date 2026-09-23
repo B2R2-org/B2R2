@@ -652,13 +652,13 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
 
     member _.IsValidRange range =
-      IntervalSet.findAll range notInMemRanges.Value |> List.isEmpty
+      IntervalSet.overlapsRange range notInMemRanges.Value |> not
 
     member _.IsAddrMappedToFile addr =
       IntervalSet.containsAddr addr notInFileRanges.Value |> not
 
     member _.IsRangeMappedToFile range =
-      IntervalSet.findAll range notInFileRanges.Value |> List.isEmpty
+      IntervalSet.overlapsRange range notInFileRanges.Value |> not
 
     member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value
