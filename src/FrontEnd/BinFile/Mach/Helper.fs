@@ -139,20 +139,23 @@ let executableRanges segCmds =
     IntervalSet.add (AddrRange.create s.VMAddr (s.VMAddr + s.VMSize - 1UL)) set
     ) IntervalSet.empty
 
-/// Returns the segment that holds the given file offset, which is how an
-/// offset a load command names is turned into the address it is mapped at.
-/// __PAGEZERO and the like occupy no file bytes, so they hold nothing.
+/// Returns the given Mach protection bit where the permissions carry the
+/// right it stands for, and no bit at all where they do not.
+let private pick (perm: Permission) (has: Permission) (flag: MachVMProt) =
+  if perm.HasFlag has then flag else enum 0
+
 /// Returns the protections a segment carrying the given permissions is
 /// mapped with, which is the inverse of machVMProtToPermission: the two spell
 /// the same three rights out in bits of their own.
 let permissionToMachVMProt (perm: Permission) =
-  let pick has flag = if (perm: Permission).HasFlag(has: Permission) then flag
-                      else MachVMProt.Readable &&& enum 0
-  let r = pick Permission.Readable MachVMProt.Readable
-  let w = pick Permission.Writable MachVMProt.Writable
-  let x = pick Permission.Executable MachVMProt.Executable
+  let r = pick perm Permission.Readable MachVMProt.Readable
+  let w = pick perm Permission.Writable MachVMProt.Writable
+  let x = pick perm Permission.Executable MachVMProt.Executable
   int (r ||| w ||| x)
 
+/// Returns the segment that holds the given file offset, which is how an
+/// offset a load command names is turned into the address it is mapped at.
+/// __PAGEZERO and the like occupy no file bytes, so they hold nothing.
 let private tryFindSegmentOfOffset segCmds offset =
   segCmds
   |> Array.tryFind (fun s ->
