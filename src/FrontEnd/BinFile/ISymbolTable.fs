@@ -24,15 +24,19 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
 
-/// Represents the symbol table of a binary file.
+/// <summary>
+/// Represents the symbol table of a binary file. Every array it returns is
+/// the storage the file itself keeps, handed over rather than copied.
+/// </summary>
 type ISymbolTable =
   /// Returns true if the binary lacks its non-essential symbol table.
   abstract IsStripped: bool
 
   /// Returns an array of all the symbols in the binary.
-  abstract Symbols: BinSymbol[]
+  abstract Symbols: ImmutableArray<BinSymbol>
 
   /// <summary>
   /// Finds the symbol located at the given address. If no symbol exists at the
@@ -45,4 +49,4 @@ type ISymbolTable =
   /// ELF ARM $a/$t/$d mapping symbols). Empty for architectures that do not
   /// interleave encodings.
   /// </summary>
-  abstract CodeModeMarkers: BinCodeModeMarker[]
+  abstract CodeModeMarkers: ImmutableArray<BinCodeModeMarker>

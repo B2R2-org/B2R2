@@ -69,7 +69,7 @@ module private ConcCallModels =
 
   let bindImports (file: IBinFile) =
     BinFileOps.getImports file
-    |> Array.choose (fun entry ->
+    |> ImmutableArray.choose (fun entry ->
       match entry.TrampolineAddress, tryFind entry.Name with
       | Some addr, Some hook -> Some(addr, hook, entry.Name)
       | _ -> None)

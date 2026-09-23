@@ -24,7 +24,13 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-/// Represents the exception (unwinding) table of a binary file.
+open System.Collections.Immutable
+
+/// <summary>
+/// Represents the exception (unwinding) table of a binary file. The array it
+/// returns is the storage the file itself keeps, handed over rather than
+/// copied.
+/// </summary>
 type IExceptionTable =
   /// Returns an array of the per-function exception frames in the binary.
-  abstract Frames: BinExceptionFrame[]
+  abstract Frames: ImmutableArray<BinExceptionFrame>

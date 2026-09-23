@@ -24,6 +24,7 @@
 
 module B2R2.RearEnd.BinScan.Program
 
+open System.Collections.Immutable
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd
@@ -54,8 +55,8 @@ let private dumpSecurity (file: IBinFile) =
     |> Option.defaultValue "N/A"
   let relro =
     file.Relro |> Option.map Relro.toString |> Option.defaultValue "N/A"
-  let pathsToStr paths =
-    if Array.isEmpty paths then "N/A" else String.concat ":" paths
+  let pathsToStr (paths: ImmutableArray<string>) =
+    if paths.IsEmpty then "N/A" else String.concat ":" paths
   printSectionTitle "Security Information"
   printsr [| "Stripped binary:"; stripped |]
   printsr [| "DEP (NX) enabled:"; file.IsNXEnabled.ToString() |]

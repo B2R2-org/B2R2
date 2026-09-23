@@ -26,12 +26,13 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System.Collections.Generic
+open System.Collections.Immutable
 open B2R2
 
 /// Represents the code mode markers of a binary, arranged for walking a code
 /// region in address order: it answers both what a marker at an address says,
 /// and where the region that the marker starts ends.
-type BinCodeModeTable(markers: BinCodeModeMarker[]) =
+type BinCodeModeTable(markers: ImmutableArray<BinCodeModeMarker>) =
   /// The marked addresses in increasing order. Two markers at one address mark
   /// one region, so the later of them wins and each address appears once.
   let entries =

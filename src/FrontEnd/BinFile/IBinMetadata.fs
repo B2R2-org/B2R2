@@ -24,11 +24,13 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
 
 /// <summary>
 /// Represents an interface for accessing binary file metadata, such as its
-/// path, and file format.
+/// path, and file format. Every array it returns is the storage the file
+/// itself keeps, handed over rather than copied.
 /// </summary>
 type IBinMetadata =
   /// The file path where this file is located.
@@ -78,7 +80,7 @@ type IBinMetadata =
   /// cref="RunPath"/>). Returns an empty array for formats that have no such
   /// notion (e.g., PE, Mach-O).
   /// </summary>
-  abstract RPath: string[]
+  abstract RPath: ImmutableArray<string>
 
   /// <summary>
   /// The runtime library search paths of this binary, taken from the ELF
@@ -86,7 +88,7 @@ type IBinMetadata =
   /// commands. Returns an empty array for formats that have no such notion
   /// (e.g., PE).
   /// </summary>
-  abstract RunPath: string[]
+  abstract RunPath: ImmutableArray<string>
 
   /// <summary>
   /// The names of the libraries this binary needs loaded alongside it, taken
@@ -99,7 +101,7 @@ type IBinMetadata =
   /// an install path. Returns an empty array for a binary that needs none
   /// and for formats that have no such notion.
   /// </summary>
-  abstract DependencyNames: string[]
+  abstract DependencyNames: ImmutableArray<string>
 
   /// <summary>
   /// The name this binary announces for itself to whatever links against it,
@@ -116,7 +118,7 @@ type IBinMetadata =
   /// carries. Returns an empty array for a binary that carries none and for
   /// formats that have no such notion (e.g., Wasm).
   /// </summary>
-  abstract BuildId: byte[]
+  abstract BuildId: ImmutableArray<byte>
 
   /// Program header table information for SysV-style process initialization.
   /// ELF exposes this through its program header table; formats without an

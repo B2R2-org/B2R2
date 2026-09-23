@@ -24,7 +24,9 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.PE
@@ -84,6 +86,7 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
       Array.append
         (pe.Symbols.Value.SymbolArray |> Array.map toBinSymbol)
         exportedSymbols.Value
+      |> ImmutableArray.ofArray
 
   let tryFindExportedSymbol addr =
     match pe.ExportedSymbols.Value.TryFind addr with
@@ -104,7 +107,7 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
         | false, _ ->
           tryFindExportedSymbol addr
 
-      member _.CodeModeMarkers = [||]
+      member _.CodeModeMarkers = ImmutableArray.Empty
     }
 
   let unwindFrames = lazy (ExceptionData.parse pe bytes)
@@ -132,6 +135,7 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
         [| staticAddrs; dynamicAddrs; unwindAddrs; vouchedAddrs |]
       |> Array.distinct
       |> Array.sort
+      |> ImmutableArray.ofArray
 
   let isPEMetadataSection name =
     name = Section.Reloc || name = Section.EData
@@ -187,7 +191,9 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
       && uint64 offset >= secStart
       && uint64 offset < secEnd)
 
-  let binSections = lazy (pe.SectionHeaders |> Array.map toBinSection)
+  let binSections =
+    lazy
+      (pe.SectionHeaders |> Array.map toBinSection |> ImmutableArray.ofArray)
 
   /// Returns a pointer to the file bytes of the given section, or a null
   /// pointer when the section holds no raw data at all.
@@ -257,9 +263,7 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
 
   let relocations =
     Some { new IRelocationTable with
-      (* The cached array is never handed out as is, so callers cannot make
-         their edits visible to the next lookup. *)
-      member _.Relocations = Array.copy relocIndex.Value.Relocations
+      member _.Relocations = relocIndex.Value.Relocations
 
       member _.IsRelocationAddr addr =
         relocIndex.Value.Addresses.Contains addr
@@ -271,16 +275,17 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
         Error ErrorCase.SymbolNotFound
     }
 
-  let importEntries = lazy getImportTable pe
+  let importEntries = lazy (getImportTable pe |> ImmutableArray.ofArray)
 
   (* One entry of the import directory per library, which is what every import
      of it names, so the names of the libraries are its names made distinct. *)
   let dependencies =
     lazy
       importEntries.Value
-      |> Array.map _.LibraryName
+      |> ImmutableArray.map _.LibraryName
       |> Array.filter (fun name -> name <> "")
       |> Array.distinct
+      |> ImmutableArray.ofArray
 
   let exportName =
     lazy
@@ -288,7 +293,7 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
       | "" -> None
       | name -> Some name
 
-  let buildId = lazy getBuildId bytes pe
+  let buildId = lazy (getBuildId bytes pe |> ImmutableArray.ofArray)
 
   let importTable =
     Some { new IImportTable with
@@ -312,6 +317,7 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
                  Permission = getSecPermission sec.SectionCharacteristics }
         else
           None)
+      |> ImmutableArray.ofArray
 
   let memoryLayout =
     Some { new IMemoryLayout with
@@ -328,6 +334,7 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
                |> List.map (fun (s, e, h) ->
                  { BlockStart = s; BlockEnd = e; Handler = h })
                |> List.toArray } |]
+      |> ImmutableArray.ofArray
 
   let exceptionTable =
     Some { new IExceptionTable with
@@ -419,15 +426,15 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
 
     member _.InterpreterPath with get() = None
 
-    member _.RPath with get() = [||]
+    member _.RPath with get() = ImmutableArray.Empty
 
-    member _.RunPath with get() = [||]
+    member _.RunPath with get() = ImmutableArray.Empty
 
-    member _.DependencyNames with get() = Array.copy dependencies.Value
+    member _.DependencyNames with get() = dependencies.Value
 
     member _.SharedObjectName with get() = exportName.Value
 
-    member _.BuildId with get() = Array.copy buildId.Value
+    member _.BuildId with get() = buildId.Value
 
     member _.ProgramHeaderTable with get() = None
 
@@ -439,7 +446,7 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
 
     member _.Relro with get() = None
 
-    member _.EncryptedRanges with get() = [||]
+    member _.EncryptedRanges with get() = ImmutableArray.Empty
 
     member _.NameResolver with get() = nameResolver
 

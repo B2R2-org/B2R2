@@ -24,7 +24,9 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
@@ -53,6 +55,7 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
            Permission =
              Permission.Readable ||| Permission.Writable
              ||| Permission.Executable } |]
+      |> ImmutableArray.ofArray
     Some { new IMemoryLayout with
       member _.Segments = segments }
 
@@ -81,15 +84,15 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.InterpreterPath with get() = None
 
-    member _.RPath with get() = [||]
+    member _.RPath with get() = ImmutableArray.Empty
 
-    member _.RunPath with get() = [||]
+    member _.RunPath with get() = ImmutableArray.Empty
 
-    member _.DependencyNames with get() = [||]
+    member _.DependencyNames with get() = ImmutableArray.Empty
 
     member _.SharedObjectName with get() = None
 
-    member _.BuildId with get() = [||]
+    member _.BuildId with get() = ImmutableArray.Empty
 
     member _.ProgramHeaderTable with get() = None
 
@@ -101,7 +104,7 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.Relro with get() = None
 
-    member _.EncryptedRanges with get() = [||]
+    member _.EncryptedRanges with get() = ImmutableArray.Empty
 
     member _.NameResolver with get() = None
 

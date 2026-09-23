@@ -25,7 +25,10 @@
 namespace B2R2.FrontEnd.BinFile.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
+open System.Collections.Immutable
+open System.Runtime.InteropServices
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Mach
@@ -196,6 +199,22 @@ type MachTests() =
   static let arm64ExcFile =
     parseFile "mach_arm64_exc" Architecture.ARMv8 WordSize.Bit64
 
+  /// Checks whether the two immutable arrays hold the very same storage,
+  /// which is how a read that copied nothing is told from one that did.
+  static let sharesStorage (a: ImmutableArray<'T>) (b: ImmutableArray<'T>) =
+    obj.ReferenceEquals(ImmutableCollectionsMarshal.AsArray a,
+                        ImmutableCollectionsMarshal.AsArray b)
+
+  /// The arrays a file caches are handed over rather than copied, so reading
+  /// one twice gives back the very same storage however large it is.
+  [<TestMethod>]
+  member _.``[Mach] cached arrays are handed over, not copied``() =
+    let file = x64File :> IBinFile
+    Assert.AreEqual<bool>(true, sharesStorage file.BuildId file.BuildId)
+    let structure = file.Structure.Value
+    Assert.AreEqual<bool>(true,
+                          sharesStorage structure.Sections structure.Sections)
+
   [<TestMethod>]
   member _.``[Mach] X64 ISA test``() =
     let isa = (x64File :> IBinFile).ISA
@@ -287,8 +306,9 @@ type MachTests() =
     (* A binary carrying neither the pointer arrays nor LC_ROUTINES names its
        functions by symbol alone, and names each of them once. *)
     let addrs = (x64File :> IBinFile).Structure.Value.FunctionAddresses
-    Assert.AreEqual<int>(Array.length (Array.distinct addrs), addrs.Length)
-    CollectionAssert.AreEqual(Array.sort addrs, addrs)
+    let asArray = ImmutableArray.toArray addrs
+    Assert.AreEqual<int>((Array.distinct asArray).Length, addrs.Length)
+    CollectionAssert.AreEqual(Array.sort asArray, addrs)
 
   [<TestMethod>]
   member _.``[Mach] X64 code signature test``() =
@@ -425,13 +445,6 @@ type MachTests() =
     let hex = "1411857880883b2199a52b90d50d8635"
     let expected = ByteArray.ofHexString hex
     CollectionAssert.AreEqual(expected, (arm64File :> IBinFile).BuildId)
-
-  [<TestMethod>]
-  member _.``[Mach] build ID array is not shared test``() =
-    let file = x64File :> IBinFile
-    let buildId = file.BuildId
-    buildId[0] <- 0uy
-    Assert.AreEqual<byte>(0x43uy, file.BuildId[0])
 
   [<TestMethod>]
   member _.``[Mach] X64 base address test``() =
@@ -598,7 +611,7 @@ type MachTests() =
     let symbols = (x64File :> IBinFile).SymbolTable.Value.Symbols
     let isDefined name =
       symbols
-      |> Array.tryFind (fun s -> s.Name = name)
+      |> ImmutableArray.tryFind (fun s -> s.Name = name)
       |> Option.map (fun s -> s.IsDefined)
     Assert.AreEqual(Some false, isDefined "_write")
     Assert.AreEqual(Some true, isDefined "_main")
@@ -723,7 +736,7 @@ type MachTests() =
     let linkage = (x64WeakDyLibFile :> IBinFile).ImportTable.Value
     let entries =
       linkage.Imports
-      |> Array.map (fun e -> e.Name, e.LibraryName)
+      |> ImmutableArray.map (fun e -> e.Name, e.LibraryName)
       |> Array.sortBy fst
     let expected =
       [| "_a_sym", "/usr/lib/liba.dylib"
@@ -732,7 +745,10 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64 weak dylib is a dependency test``() =
-    let deps = (x64WeakDyLibFile :> IBinFile).DependencyNames |> Array.sort
+    let deps =
+      (x64WeakDyLibFile :> IBinFile).DependencyNames
+      |> ImmutableArray.toArray
+      |> Array.sort
     let expected =
       [| "/usr/lib/liba.dylib"
          "/usr/lib/libSystem.B.dylib"
@@ -744,7 +760,7 @@ type MachTests() =
     let symbols = (x64WeakDyLibFile :> IBinFile).SymbolTable.Value.Symbols
     let libOf name =
       symbols
-      |> Array.tryFind (fun s -> s.Name = name)
+      |> ImmutableArray.tryFind (fun s -> s.Name = name)
       |> Option.bind (fun s -> s.LibraryName)
     Assert.AreEqual(Some "/usr/lib/liba.dylib", libOf "_a_sym")
     Assert.AreEqual(Some "/usr/lib/libb.dylib", libOf "_b_sym")
@@ -806,13 +822,14 @@ type MachTests() =
   member _.``[Mach] X64 file without a text section parses test``() =
     let f = x64NoTextFile :> IBinFile
     Assert.AreEqual<BinFileKind>(Object, f.Kind)
-    let names = f.Structure.Value.Sections |> Array.map (fun s -> s.Name)
+    let names =
+      f.Structure.Value.Sections |> ImmutableArray.map (fun s -> s.Name)
     CollectionAssert.AreEqual([| "__data" |], names)
 
   [<TestMethod>]
   member _.``[Mach] X64 file without a text section has symbols test``() =
     let symbols = (x64NoTextFile :> IBinFile).SymbolTable.Value.Symbols
-    let names = symbols |> Array.map (fun s -> s.Name)
+    let names = symbols |> ImmutableArray.map (fun s -> s.Name)
     CollectionAssert.AreEqual([| "_g_table" |], names)
 
   [<TestMethod>]
@@ -897,7 +914,9 @@ type MachTests() =
     (* A scattered entry names an address rather than a symbol. *)
     let relocs = (i386RelocFile :> IBinFile).Relocations.Value.Relocations
     let named =
-      relocs |> Array.map (fun r -> r.Address, r.SymbolName) |> Array.sortBy fst
+      relocs
+      |> ImmutableArray.map (fun r -> r.Address, r.SymbolName)
+      |> Array.sortBy fst
     let expected =
       [| 0x0UL, None
          0x4UL, Some "_pcrel_target"
@@ -909,7 +928,7 @@ type MachTests() =
     (* N_ARM_THUMB_DEF marks the T32 function, and the LC_DATA_IN_CODE range
        interrupts the A32 one, which resumes where the range ends. *)
     let markers = (arm32ThumbFile :> IBinFile).SymbolTable.Value.CodeModeMarkers
-    let actual = markers |> Array.map (fun m -> m.Address, m.Mode)
+    let actual = markers |> ImmutableArray.map (fun m -> m.Address, m.Mode)
     let expected =
       [| 0x10c0UL, ArmMode
          0x10d0UL, DataMode
@@ -925,7 +944,7 @@ type MachTests() =
        is marked ahead of the range itself. *)
     let markers =
       (arm32DataMixFile :> IBinFile).SymbolTable.Value.CodeModeMarkers
-    let actual = markers |> Array.map (fun m -> m.Address, m.Mode)
+    let actual = markers |> ImmutableArray.map (fun m -> m.Address, m.Mode)
     let expected =
       [| 0x10c0UL, DataMode
          0x10c4UL, ArmMode
@@ -957,7 +976,9 @@ type MachTests() =
     let f = MachBinFile(name, bytes, isa, Some 0x10000UL, None)
     let symbols = (f :> IBinFile).SymbolTable.Value.Symbols
     let addrOf n =
-      symbols |> Array.tryFind (fun s -> s.Name = n) |> Option.map _.Address
+      symbols
+      |> ImmutableArray.tryFind (fun s -> s.Name = n)
+      |> Option.map _.Address
     Assert.AreEqual(Some 0x1234UL, addrOf "_abs_sym")
     Assert.AreEqual(Some 0x110c0UL, addrOf "_arm_fn")
 
@@ -991,7 +1012,7 @@ type MachTests() =
     let reloc = (x64ExtRelocFile :> IBinFile).Relocations.Value
     let named =
       reloc.Relocations
-      |> Array.map (fun r -> r.Address, r.SymbolName)
+      |> ImmutableArray.map (fun r -> r.Address, r.SymbolName)
       |> Array.sortBy fst
     let expected = [| 0x2000UL, Some "_data_base"; 0x2008UL, None |]
     CollectionAssert.AreEqual(expected, named)
@@ -1024,14 +1045,15 @@ type MachTests() =
   member _.``[Mach] X64 exception frames have sane ranges``() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let sane =
-      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
+      frames
+      |> ImmutableArray.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
     Assert.AreEqual<bool>(true, sane)
 
   [<TestMethod>]
   member _.``[Mach] X64 exception handler landing pad is resolved``() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let hasHandler =
-      frames |> Array.exists (fun f ->
+      frames |> ImmutableArray.exists (fun f ->
         f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
     Assert.AreEqual<bool>(true, hasHandler)
 
@@ -1043,7 +1065,7 @@ type MachTests() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let personalities =
       frames
-      |> Array.choose (fun f -> f.PersonalityRoutine)
+      |> ImmutableArray.choose (fun f -> f.PersonalityRoutine)
       |> Array.distinct
     CollectionAssert.AreEqual([| 0x100001000UL |], personalities)
 
@@ -1055,7 +1077,7 @@ type MachTests() =
     let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let named =
       frames
-      |> Array.choose (fun f ->
+      |> ImmutableArray.choose (fun f ->
         f.PersonalityRoutine |> Option.map (fun p -> f.FunctionStart, p))
     CollectionAssert.AreEqual([| 0x100000608UL, 0x100004028UL |], named)
 
@@ -1068,14 +1090,15 @@ type MachTests() =
   member _.``[Mach] ARM64 compact unwind frames have sane ranges``() =
     let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let sane =
-      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
+      frames
+      |> ImmutableArray.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
     Assert.AreEqual<bool>(true, sane)
 
   [<TestMethod>]
   member _.``[Mach] ARM64 compact unwind handler landing pad is resolved``() =
     let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let hasHandler =
-      frames |> Array.exists (fun f ->
+      frames |> ImmutableArray.exists (fun f ->
         f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
     Assert.AreEqual<bool>(true, hasHandler)
 

@@ -24,13 +24,15 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
 
 /// <summary>
 /// Represents the virtual-memory layout of a binary: the set of segments that
 /// are mapped into the virtual memory when the binary is loaded. Binary formats
 /// without a native VM layout (e.g., bytecode containers) do not provide this
-/// interface.
+/// interface. The array it returns is the storage the file itself keeps,
+/// handed over rather than copied.
 /// </summary>
 type IMemoryLayout =
   /// <summary>
@@ -39,4 +41,4 @@ type IMemoryLayout =
   /// memory. For example, an entire segment with PT_LOAD type of a program
   /// header in ELF files is considered a memory-mapped segment.
   /// </summary>
-  abstract Segments: BinSegment[]
+  abstract Segments: ImmutableArray<BinSegment>

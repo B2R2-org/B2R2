@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System.Collections.Generic
+open System.Collections.Immutable
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
@@ -84,7 +85,9 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
 
   let filesetEntries = lazy filesetEntries cmds.Value
 
-  let encryptedRanges = lazy encryptedRanges segCmds.Value cmds.Value
+  let encryptedRanges =
+    lazy
+      (encryptedRanges segCmds.Value cmds.Value |> ImmutableArray.ofArray)
 
   let codeSignature = lazy CodeSignature.parse toolBox cmds.Value
 
@@ -115,7 +118,8 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
     lazy (cmds.Value
           |> Array.choose (function
             | Rpath(_, _, path) -> Some path
-            | _ -> None))
+            | _ -> None)
+          |> ImmutableArray.ofArray)
 
   let linkerOptions = lazy linkerOptions cmds.Value
 
@@ -126,12 +130,13 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
   let dependencies =
     lazy
       if toolBox.Header.FileType = FileType.MH_OBJECT then
-        autolinkedLibraries cmds.Value
+        autolinkedLibraries cmds.Value |> ImmutableArray.ofArray
       else
         cmds.Value
         |> Array.choose (function
           | DyLib(_, _, c) -> Some c.DyLibName
           | _ -> None)
+        |> ImmutableArray.ofArray
 
   let installName =
     lazy (cmds.Value
@@ -157,7 +162,8 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
           |> Array.tryPick (function
             | Uuid(_, _, uuid) -> Some uuid
             | _ -> None)
-          |> Option.defaultValue [||])
+          |> Option.defaultValue [||]
+          |> ImmutableArray.ofArray)
 
   let machSymKind secText (s: Symbol) =
     if Symbol.IsFunc(secText, s) then FunctionSymbol
@@ -179,12 +185,15 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       LibraryName = s.VerInfo |> Option.map (fun d -> d.DyLibName) }
 
   let binSymbols =
-    lazy (syms.Value.SymbolArray |> Array.map (toBinSymbol secText.Value))
+    lazy (syms.Value.SymbolArray
+          |> Array.map (toBinSymbol secText.Value)
+          |> ImmutableArray.ofArray)
 
   let codeModeMarkers =
     lazy
       let symbols = syms.Value.SymbolArray
       CodeMode.compute toolBox cmds.Value imageBase.Value secText.Value symbols
+      |> ImmutableArray.ofArray
 
   let symbolTableObj =
     { new ISymbolTable with
@@ -226,6 +235,7 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       |> Array.concat
       |> Array.distinct
       |> Array.sort
+      |> ImmutableArray.ofArray
 
   let isZeroFillSection (sec: Section) =
     sec.SecType = SectionType.S_ZEROFILL
@@ -302,7 +312,8 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
       && uint64 offset >= secOffset
       && uint64 offset < secOffset + fileSize)
 
-  let binSections = lazy (secs.Value |> Array.map toBinSection)
+  let binSections =
+    lazy (secs.Value |> Array.map toBinSection |> ImmutableArray.ofArray)
 
   /// Returns a pointer to the file bytes of the given section, or a null
   /// pointer when the section has none to point at. A zero-fill section keeps
@@ -322,9 +333,7 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
 
   let structure =
     Some { new IBinStructure with
-      (* The cached array is never handed out as is, so a caller cannot make
-         its edits visible to the next reader. *)
-      member _.Sections with get() = Array.copy binSections.Value
+      member _.Sections with get() = binSections.Value
 
       member _.CodeSectionPointer =
         if secText.Value < 0 then BinFilePointer.Null
@@ -389,13 +398,11 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
           | Bind(sym, _, addend) ->
             { Address = addr; SymbolName = Some sym; Addend = Some addend })
         |> Seq.toArray
-      Array.append classic fixupRelocs
+      Array.append classic fixupRelocs |> ImmutableArray.ofArray
 
   let relocations =
     Some { new IRelocationTable with
-      (* The cached array is never handed out as is, so a caller cannot make
-         its edits visible to the next lookup. *)
-      member _.Relocations = Array.copy binRelocations.Value
+      member _.Relocations = binRelocations.Value
 
       member _.IsRelocationAddr addr =
         relocMap.Value.ContainsKey addr || fixupMap.Value.ContainsKey addr
@@ -432,7 +439,9 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
   let importEntries =
     lazy
       let classic = getPLT syms.Value
-      if Array.isEmpty classic then fixupImports.Value else classic
+      let entries =
+        if Array.isEmpty classic then fixupImports.Value else classic
+      ImmutableArray.ofArray entries
 
   (* Only the stub addresses are ever asked for by address, so they are kept
      on their own rather than looked for among the entries each time. *)
@@ -467,6 +476,7 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
           Offset = seg.FileOff
           FileSize = seg.FileSize
           Permission = machVMProtToPermission seg.InitProt })
+      |> ImmutableArray.ofArray
 
   let memoryLayout =
     Some { new IMemoryLayout with
@@ -500,6 +510,7 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
              FunctionEnd = frame.FuncEnd - 1UL
              PersonalityRoutine = frame.PersonalityRoutine
              Handlers = toExceptionHandlers frame } |]
+      |> ImmutableArray.ofArray
 
   let exceptionTable =
     Some { new IExceptionTable with
@@ -605,15 +616,15 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
 
     member _.InterpreterPath with get() = interpreterPath.Value
 
-    member _.RPath with get() = [||]
+    member _.RPath with get() = ImmutableArray.Empty
 
     member _.RunPath with get() = rpaths.Value
 
-    member _.DependencyNames with get() = Array.copy dependencies.Value
+    member _.DependencyNames with get() = dependencies.Value
 
     member _.SharedObjectName with get() = installName.Value
 
-    member _.BuildId with get() = Array.copy buildId.Value
+    member _.BuildId with get() = buildId.Value
 
     member _.ProgramHeaderTable with get() = None
 

@@ -25,7 +25,9 @@
 module internal B2R2.FrontEnd.BinFile.PE.Relocation
 
 open System.Collections.Generic
+open System.Collections.Immutable
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile.PE.Helper
 
 /// <summary>
@@ -34,7 +36,7 @@ open B2R2.FrontEnd.BinFile.PE.Helper
 /// </summary>
 type internal RelocationIndex =
   { /// Every relocation the file carries, in the order it keeps them.
-    Relocations: FrontEnd.BinFile.BinRelocation[]
+    Relocations: ImmutableArray<FrontEnd.BinFile.BinRelocation>
     /// The kind of base relocation at each address an image relocates, which
     /// is what reading the slot behind one takes. An object relocates by
     /// naming a symbol rather than by holding an address, so it has none.
@@ -58,7 +60,7 @@ let private buildForObject bytes pe =
   let names = Coff.getSymbolNames bytes pe.BinReader coff
   let secs = pe.SectionHeaders
   let relocs = Coff.getRelocations bytes pe.BinReader secs names pe.BaseAddr
-  { Relocations = relocs
+  { Relocations = ImmutableArray.ofArray relocs
     Kinds = Dictionary()
     Addresses = HashSet(relocs |> Array.map _.Address) }
 
@@ -75,7 +77,7 @@ let private buildForImage pe =
         relocs.Add(toRelocation addr)
       else
         ()
-  { Relocations = relocs.ToArray()
+  { Relocations = ImmutableArray.ofArray (relocs.ToArray())
     Kinds = kinds
     Addresses = HashSet kinds.Keys }
 

@@ -31,6 +31,7 @@ open System.Text
 open System.Text.RegularExpressions
 open System.Threading
 open B2R2
+open B2R2.Collections
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
@@ -65,7 +66,7 @@ module private SymbCallModels =
 
   let bindImports (hdl: BinHandle) =
     BinFileOps.getImports hdl.File
-    |> Array.choose (fun entry ->
+    |> ImmutableArray.choose (fun entry ->
       match entry.TrampolineAddress, tryFind entry.Name with
       | Some addr, Some hook -> Some(addr, hook, entry.Name)
       | _ -> None)

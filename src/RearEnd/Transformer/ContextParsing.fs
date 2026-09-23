@@ -27,6 +27,7 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Globalization
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 
@@ -134,7 +135,7 @@ module ContextParsing =
 
   let imageRegions (file: IBinFile) =
     BinFileOps.getSegments file
-    |> Array.mapi (fun index segment ->
+    |> ImmutableArray.mapi (fun index segment ->
       if segment.Size > UInt64.MaxValue - segment.Address then
         None
       else

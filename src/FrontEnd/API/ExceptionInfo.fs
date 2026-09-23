@@ -127,7 +127,7 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
 
   let exnTbl =
     BinFileOps.getExceptionFrames liftingUnit.File
-    |> Array.fold buildExceptionTable IntervalMap.empty
+    |> ImmutableArray.fold buildExceptionTable IntervalMap.empty
 
   new(hdl: BinHandle) = ExceptionInfo(hdl.NewLiftingUnit())
 

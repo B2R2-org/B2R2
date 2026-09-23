@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.Tests
 
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Wasm
 open Microsoft.VisualStudio.TestTools.UnitTesting
@@ -148,10 +149,10 @@ type WasmTests() =
     let structure = Option.get file.Structure
     let first = structure.Sections
     let again = structure.Sections
-    CollectionAssert.AreEqual(first |> Array.map _.Name,
-                              again |> Array.map _.Name)
-    CollectionAssert.AreEqual(first |> Array.map _.Kind,
-                              again |> Array.map _.Kind)
+    CollectionAssert.AreEqual(first |> ImmutableArray.map _.Name,
+                              again |> ImmutableArray.map _.Name)
+    CollectionAssert.AreEqual(first |> ImmutableArray.map _.Kind,
+                              again |> ImmutableArray.map _.Kind)
 
   [<TestMethod>]
   member _.``[Wasm] start section names the entry point``() =
@@ -181,7 +182,7 @@ type WasmTests() =
     let resolver = Option.get file.NameResolver
     let hasMain =
       file.Structure.Value.FunctionAddresses
-      |> Array.exists (fun a -> resolver.TryResolveName a = Ok "main")
+      |> ImmutableArray.exists (fun a -> resolver.TryResolveName a = Ok "main")
     Assert.AreEqual<bool>(true, hasMain)
 
   [<TestMethod>]
@@ -235,7 +236,7 @@ type WasmTests() =
        count for any module built with bulk memory. *)
     let file = WasmBinFile("", modernSections)
     let names =
-      BinFileOps.getSections file |> Array.map (fun sec -> sec.Name)
+      BinFileOps.getSections file |> ImmutableArray.map (fun sec -> sec.Name)
     CollectionAssert.Contains(names, "tag")
     CollectionAssert.Contains(names, "datacount")
     let bodies = file.FunctionBodies

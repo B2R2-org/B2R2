@@ -24,14 +24,20 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
 
-/// Represents an interface for accessing the relocation table in a binary file.
+/// <summary>
+/// Represents an interface for accessing the relocation table in a binary
+/// file. The array it returns is the storage the file itself keeps, handed
+/// over rather than copied, which matters here more than anywhere: a large
+/// image relocates hundreds of thousands of slots.
+/// </summary>
 type IRelocationTable =
   /// <summary>
   /// Returns an array of all the relocations in the binary.
   /// </summary>
-  abstract Relocations: BinRelocation[]
+  abstract Relocations: ImmutableArray<BinRelocation>
 
   /// <summary>
   /// Checks if the given address has relocation information.

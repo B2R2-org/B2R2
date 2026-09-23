@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
@@ -50,7 +51,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let notes = lazy Notes.parse toolBox shdrs.Value phdrs.Value
 
-  let buildId = lazy Notes.findBuildId notes.Value
+  let buildId = lazy (Notes.findBuildId notes.Value |> ImmutableArray.ofArray)
 
   let gnuProperties = lazy GNUProperties.parse toolBox notes.Value
 
@@ -131,11 +132,13 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         | MappingSymbol.A64 -> Some { Address = s.Addr; Mode = A64Mode }
         | MappingSymbol.Data -> Some { Address = s.Addr; Mode = DataMode }
         | _ -> None)
+      |> ImmutableArray.ofArray
 
   let binSymbols =
     lazy
       Array.append symbs.Value.StaticSymbols symbs.Value.DynamicSymbols
       |> Array.map toBinSymbol
+      |> ImmutableArray.ofArray
 
   let symbolTableObj =
     { new ISymbolTable with
@@ -176,6 +179,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
       |> Array.distinct
       |> Array.sort
+      |> ImmutableArray.ofArray
 
   let secFileSize (sec: SectionHeader) =
     if sec.SecType = SectionType.SHT_NOBITS then 0UL else sec.SecSize
@@ -247,7 +251,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       fileSize > 0UL && uint64 offset >= sec.SecOffset
       && uint64 offset < sec.SecOffset + fileSize)
 
-  let binSections = lazy (shdrs.Value |> Array.map toBinSection)
+  let binSections =
+    lazy (shdrs.Value |> Array.map toBinSection |> ImmutableArray.ofArray)
 
   /// Returns a pointer to the file bytes of the given section, or a null
   /// pointer when the section has none to point at. An SHT_NOBITS section is
@@ -323,12 +328,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           SymbolName = r.RelSymbol |> Option.map (fun s -> s.SymName)
           Addend = Some(int64 r.RelAddend) })
       |> Seq.toArray
+      |> ImmutableArray.ofArray
 
   let relocations =
     Some { new IRelocationTable with
-      (* The cached array is never handed out as is, so callers cannot make
-         their edits visible to the next lookup. *)
-      member _.Relocations = Array.copy binRelocations.Value
+      member _.Relocations = binRelocations.Value
 
       member _.IsRelocationAddr addr = relocs.Value.Contains addr
 
@@ -368,6 +372,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
                FunctionEnd = fde.PCEnd - 1UL
                PersonalityRoutine = personality
                Handlers = toExceptionHandlers fde } |]
+      |> ImmutableArray.ofArray
 
   let exceptionTable =
     Some { new IExceptionTable with
@@ -380,6 +385,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
       |> List.sortBy (fun entry -> entry.TrampolineAddress)
       |> List.toArray
+      |> ImmutableArray.ofArray
 
   let importTable =
     Some { new IImportTable with
@@ -402,6 +408,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           Offset = ph.PHOffset
           FileSize = ph.PHFileSize
           Permission = ProgramHeader.FlagsToPerm ph.PHFlags })
+      |> ImmutableArray.ofArray
 
   let memoryLayout =
     Some { new IMemoryLayout with
@@ -445,11 +452,12 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     acc.ToArray() |> Array.filter (fun s -> s <> "")
 
   (* Kept apart so that asking for one search path does not decode the other. *)
-  let rpath = lazy dynamicPaths DTag.DT_RPATH
+  let rpath = lazy (dynamicPaths DTag.DT_RPATH |> ImmutableArray.ofArray)
 
-  let runpath = lazy dynamicPaths DTag.DT_RUNPATH
+  let runpath = lazy (dynamicPaths DTag.DT_RUNPATH |> ImmutableArray.ofArray)
 
-  let dependencies = lazy dynamicStrings DTag.DT_NEEDED
+  let dependencies =
+    lazy (dynamicStrings DTag.DT_NEEDED |> ImmutableArray.ofArray)
 
   let soname = lazy (dynamicStrings DTag.DT_SONAME |> Array.tryHead)
 
@@ -582,15 +590,15 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.InterpreterPath with get() = interpreterPath.Value
 
-    member _.RPath with get() = Array.copy rpath.Value
+    member _.RPath with get() = rpath.Value
 
-    member _.RunPath with get() = Array.copy runpath.Value
+    member _.RunPath with get() = runpath.Value
 
-    member _.DependencyNames with get() = Array.copy dependencies.Value
+    member _.DependencyNames with get() = dependencies.Value
 
     member _.SharedObjectName with get() = soname.Value
 
-    member _.BuildId with get() = Array.copy buildId.Value
+    member _.BuildId with get() = buildId.Value
 
     member _.ProgramHeaderTable with get() = programHeaderTable.Value
 
@@ -620,7 +628,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       else
         Some NoRelro
 
-    member _.EncryptedRanges with get() = [||]
+    member _.EncryptedRanges with get() = ImmutableArray.Empty
 
     member _.NameResolver with get() = nameResolver
 

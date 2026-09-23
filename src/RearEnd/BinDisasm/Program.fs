@@ -26,6 +26,7 @@ module B2R2.RearEnd.BinDisasm.Program
 
 open System
 open B2R2
+open B2R2.Collections
 open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
@@ -191,7 +192,7 @@ let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
       dumpOneSection codeprn $"code object {n}" ptr)
   elif hasDumpableSections hdl then
     BinFileOps.getSections hdl.File
-    |> Array.tryFind (fun sec -> sec.Name = name)
+    |> ImmutableArray.tryFind (fun sec -> sec.Name = name)
     |> function
       | Some sec -> dumpSection hdl opts codeprn tableprn sec
       | None -> ()

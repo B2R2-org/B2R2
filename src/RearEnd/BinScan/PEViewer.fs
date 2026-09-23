@@ -25,6 +25,7 @@
 module internal B2R2.RearEnd.BinScan.PEViewer
 
 open B2R2
+open B2R2.Collections
 open B2R2.Logging
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.PE
@@ -414,7 +415,7 @@ let dumpCLRHeader _ (pe: PEBinFile) =
 
 let dumpDependencies _ (file: IBinFile) =
   BinFileOps.getImports file
-  |> Array.map (fun e -> e.LibraryName)
+  |> ImmutableArray.map (fun e -> e.LibraryName)
   |> Set.ofArray
   |> Set.iter (fun s -> printsn $"- {s}")
   printsn ""
@@ -447,7 +448,7 @@ let dumpExceptionTable _ (pe: PEBinFile) =
   printsr [| "FuncStart"; "FuncEnd"; "Personality"; "Guarded Block" |]
   printSingleHorizontalRule ()
   let frames = BinFileOps.getExceptionFrames pe
-  if Array.isEmpty frames then
+  if frames.IsEmpty then
     printsn "n/a"
   else
     for f in frames do dumpExceptionFrame wordSize f

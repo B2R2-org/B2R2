@@ -26,7 +26,9 @@
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.BinFileOps
 
+open System.Collections.Immutable
 open B2R2
+open B2R2.Collections
 
 /// <summary>
 /// Slices the given binary file into a span of bytes of the specified length
@@ -89,7 +91,7 @@ let isCoreDump (file: IBinFile) = file.Kind = BinFileKind.Core
 let getSymbols (file: IBinFile) =
   match file.SymbolTable with
   | Some symbolTable -> symbolTable.Symbols
-  | None -> [||]
+  | None -> ImmutableArray.Empty
 
 /// Tries to find the symbol located at the given address.
 [<CompiledName "TryFindSymbolByAddr">]
@@ -103,7 +105,7 @@ let tryFindSymbolByAddr (file: IBinFile) addr =
 let getCodeModeMarkers (file: IBinFile) =
   match file.SymbolTable with
   | Some symbolTable -> symbolTable.CodeModeMarkers
-  | None -> [||]
+  | None -> ImmutableArray.Empty
 
 /// Returns a pointer to the code section of the given binary file.
 [<CompiledName "GetCodeSectionPointer">]
@@ -135,7 +137,7 @@ let getSectionPointer (file: IBinFile) name =
 let getSections (file: IBinFile) =
   match file.Structure with
   | Some structure -> structure.Sections
-  | None -> [||]
+  | None -> ImmutableArray.Empty
 
 /// Tries to find the section whose name matches the given name.
 [<CompiledName "TryFindSectionByName">]
@@ -177,14 +179,14 @@ let tryFindSectionNameByOffset (file: IBinFile) offset =
 let getFunctionAddresses (file: IBinFile) =
   match file.Structure with
   | Some structure -> structure.FunctionAddresses
-  | None -> [||]
+  | None -> ImmutableArray.Empty
 
 /// Returns all relocations in the given binary file.
 [<CompiledName "GetRelocations">]
 let getRelocations (file: IBinFile) =
   match file.Relocations with
   | Some relocs -> relocs.Relocations
-  | None -> [||]
+  | None -> ImmutableArray.Empty
 
 /// Checks if the given address has relocation information.
 [<CompiledName "IsRelocationAddr">]
@@ -213,14 +215,14 @@ let tryGetInternalFunctionAddr (file: IBinFile) relocAddr =
 let getExceptionFrames (file: IBinFile) =
   match file.ExceptionTable with
   | Some exnTable -> exnTable.Frames
-  | None -> [||]
+  | None -> ImmutableArray.Empty
 
 /// Returns all imported symbols from the given binary file.
 [<CompiledName "GetImports">]
 let getImports (file: IBinFile) =
   match file.ImportTable with
   | Some importTable -> importTable.Imports
-  | None -> [||]
+  | None -> ImmutableArray.Empty
 
 /// Checks if the given address falls within the import table.
 [<CompiledName "IsInImportTable">]
@@ -234,20 +236,20 @@ let isInImportTable (file: IBinFile) addr =
 let getSegments (file: IBinFile) =
   match file.MemoryLayout with
   | Some layout -> layout.Segments
-  | None -> [||]
+  | None -> ImmutableArray.Empty
 
 /// Returns all memory-mapped regions of the given binary file.
 [<CompiledName "GetMemoryMappedRegions">]
 let getMemoryMappedRegions (file: IBinFile) =
   getSegments file
-  |> Array.map (fun seg ->
+  |> ImmutableArray.map (fun seg ->
     AddrRange.create seg.Address (seg.Address + seg.Size - 1UL))
 
 /// Returns the memory-mapped regions that carry the given permission.
 [<CompiledName "GetMemoryMappedRegionsByPermission">]
 let getMemoryMappedRegionsByPermission (file: IBinFile) perm =
   getSegments file
-  |> Array.choose (fun seg ->
+  |> ImmutableArray.choose (fun seg ->
     if seg.Permission.HasFlag perm then
       AddrRange.create seg.Address (seg.Address + seg.Size - 1UL) |> Some
     else

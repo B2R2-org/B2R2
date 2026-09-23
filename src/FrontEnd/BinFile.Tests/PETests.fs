@@ -25,8 +25,11 @@
 namespace B2R2.FrontEnd.BinFile.Tests
 
 open System
+open System.Collections.Immutable
+open System.Runtime.InteropServices
 open System.IO
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.PE
@@ -237,6 +240,24 @@ type PETests() =
     |> List.map (fun b -> b.PageRVA, b.BlockSize)
     |> assertExistenceOfPair (pageRVA, blockSize)
 
+  /// Checks whether the two immutable arrays hold the very same storage,
+  /// which is how a read that copied nothing is told from one that did.
+  static let sharesStorage (a: ImmutableArray<'T>) (b: ImmutableArray<'T>) =
+    obj.ReferenceEquals(ImmutableCollectionsMarshal.AsArray a,
+                        ImmutableCollectionsMarshal.AsArray b)
+
+  /// The arrays a file caches are handed over rather than copied, so reading
+  /// one twice gives back the very same storage however large it is.
+  [<TestMethod>]
+  member _.``[PE] cached arrays are handed over, not copied``() =
+    let file = x64File :> IBinFile
+    let structure = file.Structure.Value
+    Assert.AreEqual<bool>(true,
+                          sharesStorage structure.Sections structure.Sections)
+    let relocs = file.Relocations.Value
+    Assert.AreEqual<bool>(true,
+                          sharesStorage relocs.Relocations relocs.Relocations)
+
   [<TestMethod>]
   member _.``[PE] X64 PDB build ID test``() =
     (* PE names a build by the GUID of the PDB it was built with, which the
@@ -290,7 +311,8 @@ type PETests() =
          "api-ms-win-crt-math-l1-1-0.dll"
          "api-ms-win-crt-runtime-l1-1-0.dll"
          "api-ms-win-crt-stdio-l1-1-0.dll" |]
-    CollectionAssert.AreEqual(expected, Array.sort file.DependencyNames)
+    let deps = file.DependencyNames |> ImmutableArray.toArray |> Array.sort
+    CollectionAssert.AreEqual(expected, deps)
     Assert.AreEqual<string option>(None, file.SharedObjectName)
 
   [<TestMethod>]
@@ -498,7 +520,7 @@ type PETests() =
       let file = PEBinFile("pe_x64_pdb.exe", exe, None, (path: string))
       (file :> IBinFile).SymbolTable.Value.Symbols
     let fromPath = withTempFile pdb readFrom
-    let named (syms: BinSymbol[]) =
+    let named (syms: ImmutableArray<BinSymbol>) =
       [ for s in syms -> s.Name, s.Address, s.Kind, s.Size ]
     let expected = named fromBytes.SymbolTable.Value.Symbols
     Assert.AreEqual<int>(4, List.length expected)
@@ -535,8 +557,8 @@ type PETests() =
   member _.``[PE] x64 stripped pdb function addresses test``() =
     let file = x64PdbStrippedFile :> IBinFile
     let addrs = file.Structure.Value.FunctionAddresses
-    Assert.AreEqual<bool>(true, Array.contains 0x140001040UL addrs)
-    Assert.AreEqual<bool>(true, Array.contains 0x140001020UL addrs)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x140001040UL)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x140001020UL)
 
   [<TestMethod>]
   member _.``[PE] x64 obj has no entry point test``() =
@@ -564,7 +586,7 @@ type PETests() =
        COFF symbol table by name rather than by address. *)
     let names =
       (x64ObjFile :> IBinFile).SymbolTable.Value.Symbols
-      |> Array.map (fun s -> s.Name)
+      |> ImmutableArray.map (fun s -> s.Name)
       |> Set.ofArray
     Assert.AreEqual<bool>(true, names.Contains "main")
     Assert.AreEqual<bool>(true, names.Contains "helper")
@@ -628,7 +650,8 @@ type PETests() =
   member _.``[PE] x64 exception frames have sane ranges``() =
     let frames = (x64File :> IBinFile).ExceptionTable.Value.Frames
     let sane =
-      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
+      frames
+      |> ImmutableArray.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
     Assert.AreEqual<bool>(true, sane)
 
   [<TestMethod>]
@@ -640,14 +663,14 @@ type PETests() =
   member _.``[PE] x64 exception frame has a personality routine``() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let hasPersonality =
-      frames |> Array.exists (fun f -> f.PersonalityRoutine.IsSome)
+      frames |> ImmutableArray.exists (fun f -> f.PersonalityRoutine.IsSome)
     Assert.AreEqual<bool>(true, hasPersonality)
 
   [<TestMethod>]
   member _.``[PE] x64 exception handler is resolved``() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let hasHandler =
-      frames |> Array.exists (fun f ->
+      frames |> ImmutableArray.exists (fun f ->
         f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
     Assert.AreEqual<bool>(true, hasHandler)
 
@@ -656,7 +679,8 @@ type PETests() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let multiCatch =
       frames
-      |> Array.collect (fun f -> f.Handlers)
+      |> ImmutableArray.map (fun f -> f.Handlers)
+      |> Array.concat
       |> Array.filter (fun h -> h.Handler.IsSome)
       |> Array.groupBy (fun h -> h.BlockStart, h.BlockEnd)
       |> Array.exists (fun (_, hs) -> hs.Length >= 2)
@@ -667,7 +691,8 @@ type PETests() =
     let frames = (x64ExcFh3File :> IBinFile).ExceptionTable.Value.Frames
     let multiCatch =
       frames
-      |> Array.collect (fun f -> f.Handlers)
+      |> ImmutableArray.map (fun f -> f.Handlers)
+      |> Array.concat
       |> Array.filter (fun h -> h.Handler.IsSome)
       |> Array.groupBy (fun h -> h.BlockStart, h.BlockEnd)
       |> Array.exists (fun (_, hs) -> hs.Length >= 2)
@@ -786,7 +811,9 @@ type PETests() =
     let rf = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
     let readFrom path =
       let f = FileFactory.loadWithDebugFile "" exe PEBinary isa rf None path
-      f.SymbolTable.Value.Symbols |> Array.map (fun s -> s.Name) |> Set.ofArray
+      f.SymbolTable.Value.Symbols
+      |> ImmutableArray.map (fun s -> s.Name)
+      |> Set.ofArray
     Assert.AreEqual<Set<string>>(set [ "main"; "helper" ],
                                  withTempFile pdb readFrom)
 
@@ -798,7 +825,9 @@ type PETests() =
     let pdb = ZIPReader.readBytes PEBinary "pe_x64_pdb.zip" "pe_x64_pdb.pdb"
     let readFrom path =
       let f = FileFactory.loadPEWithPDBPath "" exe None path :> IBinFile
-      f.SymbolTable.Value.Symbols |> Array.map (fun s -> s.Name) |> Set.ofArray
+      f.SymbolTable.Value.Symbols
+      |> ImmutableArray.map (fun s -> s.Name)
+      |> Set.ofArray
     Assert.AreEqual<Set<string>>(set [ "main"; "helper" ],
                                  withTempFile pdb readFrom)
 
@@ -895,7 +924,7 @@ type PETests() =
     let file = PEBinFile("pe_x64_dll.dll", bytes, None, [||]) :> IBinFile
     Assert.AreEqual<BinFileKind>(SharedLibrary, file.Kind)
     let names =
-      file.SymbolTable.Value.Symbols |> Array.map (fun s -> s.Name)
+      file.SymbolTable.Value.Symbols |> ImmutableArray.map (fun s -> s.Name)
     Assert.AreEqual<bool>(false, Array.contains "exported_func" names)
 
   [<TestMethod>]
@@ -903,15 +932,15 @@ type PETests() =
     (* An image carrying neither a PDB nor exports names its functions
        nowhere but in the table it unwinds them by. *)
     let addrs = (x64File :> IBinFile).Structure.Value.FunctionAddresses
-    Assert.AreEqual<bool>(true, Array.contains 0x140001840UL addrs)
-    Assert.AreEqual<bool>(true, Array.contains 0x140001000UL addrs)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x140001840UL)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x140001000UL)
 
   [<TestMethod>]
   member _.``[PE] x64 a chained .pdata range is no function``() =
     (* 0x14000184b carries on the range 0x140001840 opens, which is what its
        UNWIND_INFO chaining back to that one says, so it starts nothing. *)
     let addrs = (x64File :> IBinFile).Structure.Value.FunctionAddresses
-    Assert.AreEqual<bool>(false, Array.contains 0x14000184bUL addrs)
+    Assert.AreEqual<bool>(false, addrs.Contains 0x14000184bUL)
 
   [<TestMethod>]
   member _.``[PE] x64 dll exports are symbols``() =
@@ -919,7 +948,7 @@ type PETests() =
        only name it gives an address inside it. *)
     let names =
       (x64DllFile :> IBinFile).SymbolTable.Value.Symbols
-      |> Array.map (fun s -> s.Name)
+      |> ImmutableArray.map (fun s -> s.Name)
     Assert.AreEqual<bool>(true, Array.contains "exported_func" names)
 
   [<TestMethod>]
@@ -939,13 +968,15 @@ type PETests() =
     let relocs = (x64File :> IBinFile).Relocations.Value
     let all = relocs.Relocations
     Assert.AreEqual<bool>(true, all.Length > 0)
-    let found = all |> Array.forall (fun r -> relocs.IsRelocationAddr r.Address)
+    let found =
+      all |> ImmutableArray.forall (fun r -> relocs.IsRelocationAddr r.Address)
     Assert.AreEqual<bool>(true, found)
 
   [<TestMethod>]
   member _.``[PE] x64 obj section relocations name their symbols``() =
     let relocs = (x64ObjFile :> IBinFile).Relocations.Value.Relocations
-    let names = relocs |> Array.choose (fun r -> r.SymbolName) |> Set.ofArray
+    let names =
+      relocs |> ImmutableArray.choose (fun r -> r.SymbolName) |> Set.ofArray
     Assert.AreEqual<bool>(true, names.Contains "puts")
     Assert.AreEqual<bool>(true, names.Contains "msg")
     Assert.AreEqual<bool>(true, names.Contains "g_buf")
@@ -962,7 +993,7 @@ type PETests() =
     (* The load configuration of the x86 fixture names one exception handler,
        and a handler is a function nothing else in the file names. *)
     let addrs = (x86File :> IBinFile).Structure.Value.FunctionAddresses
-    Assert.AreEqual<bool>(true, Array.contains 0x4018f0UL addrs)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x4018f0UL)
 
   [<TestMethod>]
   member _.``[PE] x64 guard CF table entries are functions``() =
@@ -971,9 +1002,9 @@ type PETests() =
        the middle and its last, which no reading of it at the wrong stride
        or for the wrong count gets all three of. *)
     let addrs = (x64GuardCFFile :> IBinFile).Structure.Value.FunctionAddresses
-    Assert.AreEqual<bool>(true, Array.contains 0x140001000UL addrs)
-    Assert.AreEqual<bool>(true, Array.contains 0x140001040UL addrs)
-    Assert.AreEqual<bool>(true, Array.contains 0x140001bc0UL addrs)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x140001000UL)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x140001040UL)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x140001bc0UL)
 
   [<TestMethod>]
   member _.``[PE] x64 TLS callbacks are functions``() =
@@ -981,5 +1012,5 @@ type PETests() =
        table, so the callback array is the only thing naming them. Taking
        both tells reading it through from stopping at its first entry. *)
     let addrs = (x64TLSFile :> IBinFile).Structure.Value.FunctionAddresses
-    Assert.AreEqual<bool>(true, Array.contains 0x140001000UL addrs)
-    Assert.AreEqual<bool>(true, Array.contains 0x140001010UL addrs)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x140001000UL)
+    Assert.AreEqual<bool>(true, addrs.Contains 0x140001010UL)

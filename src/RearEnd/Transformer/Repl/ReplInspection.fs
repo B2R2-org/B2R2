@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 
 /// One selectable analysis target shown by the interactive inspector.
@@ -41,7 +42,7 @@ module TransformerReplInspection =
     let hdl = Binary.Handle binary
     let sections =
       BinFileOps.getSections hdl.File
-      |> Array.filter (fun section ->
+      |> ImmutableArray.filter (fun section ->
         section.FileSize > 0UL && not (String.IsNullOrWhiteSpace section.Name))
       |> Array.map (fun section ->
         { Label = $"section  {section.Name}"
@@ -51,6 +52,7 @@ module TransformerReplInspection =
       |> Array.toList
     let functions =
       BinFileOps.getFunctionAddresses hdl.File
+      |> ImmutableArray.toArray
       |> Array.sort
       |> Array.map (fun address ->
         { Label = $"function  0x{address:x}"

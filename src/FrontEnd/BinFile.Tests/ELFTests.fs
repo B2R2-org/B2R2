@@ -24,7 +24,10 @@
 
 namespace B2R2.FrontEnd.BinFile.Tests
 
+open System.Collections.Immutable
+open System.Runtime.InteropServices
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.DWARF
@@ -43,7 +46,7 @@ type ELFTests() =
   /// The code mode markers of the given file, keyed by the address each marks.
   static let markersOf (file: ELFBinFile) =
     (file :> IBinFile).SymbolTable.Value.CodeModeMarkers
-    |> Array.map (fun m -> m.Address, m.Mode)
+    |> ImmutableArray.map (fun m -> m.Address, m.Mode)
     |> Map.ofArray
 
   static let tryResolveName (file: ELFBinFile) addr =
@@ -426,6 +429,29 @@ type ELFTests() =
     |> Seq.map (fun reloc -> reloc.RelOffset, reloc.RelSymbol.Value.SymName)
     |> assertExistenceOfPair (offset, symbolName)
 
+  /// Checks whether the two immutable arrays hold the very same storage,
+  /// which is how a read that copied nothing is told from one that did.
+  static let sharesStorage (a: ImmutableArray<'T>) (b: ImmutableArray<'T>) =
+    obj.ReferenceEquals(ImmutableCollectionsMarshal.AsArray a,
+                        ImmutableCollectionsMarshal.AsArray b)
+
+  /// The arrays a file caches are handed over rather than copied, so reading
+  /// one twice gives back the very same storage however large it is. Nothing
+  /// guards them but their type: an immutable array has no way to write into
+  /// what it shares.
+  [<TestMethod>]
+  member _.``[ELF] cached arrays are handed over, not copied``() =
+    let file = x64ExecFile :> IBinFile
+    Assert.AreEqual<bool>(true, sharesStorage file.BuildId file.BuildId)
+    Assert.AreEqual<bool>(true,
+                          sharesStorage file.DependencyNames
+                                        file.DependencyNames)
+    let structure = file.Structure.Value
+    Assert.AreEqual<bool>(true,
+                          sharesStorage structure.Sections structure.Sections)
+    let symbols = file.SymbolTable.Value
+    Assert.AreEqual<bool>(true, sharesStorage symbols.Symbols symbols.Symbols)
+
   [<TestMethod>]
   member _.``[ELF] x64 exec ISA test``() =
     let isa = (x64ExecFile :> IBinFile).ISA
@@ -490,22 +516,6 @@ type ELFTests() =
     CollectionAssert.AreEqual([||], file.RunPath)
 
   [<TestMethod>]
-  member _.``[ELF] x64 rpath array is not shared test``() =
-    let file = parseFile "elf_x64_rpath" :> IBinFile
-    let rpath = file.RPath
-    rpath[0] <- "/mutated"
-    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RPath)
-    CollectionAssert.AreEqual([||], file.RunPath)
-
-  [<TestMethod>]
-  member _.``[ELF] x64 runpath array is not shared test``() =
-    let file = parseFile "elf_x64_runpath" :> IBinFile
-    let runpath = file.RunPath
-    runpath[0] <- "/mutated"
-    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RunPath)
-    CollectionAssert.AreEqual([||], file.RPath)
-
-  [<TestMethod>]
   member _.``[ELF] x64 soname test``() =
     let file = x64SonameFile :> IBinFile
     CollectionAssert.AreEqual([| "libc.so.6" |], file.DependencyNames)
@@ -516,13 +526,6 @@ type ELFTests() =
     let file = x64ExecFile :> IBinFile
     CollectionAssert.AreEqual([| "libc.so.6" |], file.DependencyNames)
     Assert.AreEqual<string option>(None, file.SharedObjectName)
-
-  [<TestMethod>]
-  member _.``[ELF] x64 dependency array is not shared test``() =
-    let file = parseFile "elf_x64_soname" :> IBinFile
-    let deps = file.DependencyNames
-    deps[0] <- "/mutated"
-    CollectionAssert.AreEqual([| "libc.so.6" |], file.DependencyNames)
 
   [<TestMethod>]
   member _.``[ELF] x64 nosec dependencies test``() =
@@ -591,13 +594,6 @@ type ELFTests() =
     let types = x64ObjFile.Notes |> Array.map _.NoteType
     CollectionAssert.AreEqual([| 5u |], types)
     CollectionAssert.AreEqual([||], (x64ObjFile :> IBinFile).BuildId)
-
-  [<TestMethod>]
-  member _.``[ELF] build ID array is not shared test``() =
-    let file = parseFile "elf_x64_exec" :> IBinFile
-    let buildId = file.BuildId
-    buildId[0] <- 0uy
-    Assert.AreEqual<byte>(0xd2uy, file.BuildId[0])
 
   [<TestMethod>]
   member _.``[ELF] x64 exec GNU property test``() =
@@ -1517,7 +1513,8 @@ type ELFTests() =
     let relocs = (mips32SoFile :> IBinFile).Relocations.Value
     let addends =
       relocs.Relocations
-      |> Array.filter (fun r -> r.Address = 0x1fff0UL || r.Address = 0x1fff4UL)
+      |> ImmutableArray.filter (fun r ->
+        r.Address = 0x1fff0UL || r.Address = 0x1fff4UL)
       |> Array.sortBy (fun r -> r.Address)
       |> Array.map (fun r -> r.Addend)
     CollectionAssert.AreEqual([| Some 0x510L; Some 0x4a4L |], addends)
@@ -1550,7 +1547,7 @@ type ELFTests() =
     (* .preinit_array holds one relocated pointer, to load_gp, which the symbol
        table marks NOTYPE and so reaches the function list by no other path. *)
     let addrs = (riscv64File :> IBinFile).Structure.Value.FunctionAddresses
-    Assert.AreEqual(true, Array.contains 0x672UL addrs)
+    Assert.AreEqual(true, addrs.Contains 0x672UL)
 
   [<TestMethod>]
   member _.``[ELF] riscv64 imports test``() =
@@ -1949,19 +1946,10 @@ type ELFTests() =
          0x404000UL, Some "write", Some 0L
          0x404020UL, Some "__environ", Some 0L |]
     let first = relocs.Relocations
-    let byAddr = first |> Array.map toTuple |> Array.sortBy (fun (a, _, _) -> a)
+    let byAddr =
+      first |> ImmutableArray.map toTuple |> Array.sortBy (fun (a, _, _) -> a)
     CollectionAssert.AreEqual(expected, byAddr)
     CollectionAssert.AreEqual(first, relocs.Relocations)
-
-  [<TestMethod>]
-  member _.``[ELF] x64 reloc relocation array is not shared test``() =
-    let relocs = (parseFile "elf_x64_reloc" :> IBinFile).Relocations.Value
-    let entries = relocs.Relocations
-    let expected = Array.copy entries
-    entries[0] <- { Address = 0UL; SymbolName = None; Addend = None }
-    CollectionAssert.AreEqual(expected, relocs.Relocations)
-    Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x404000UL)
-    Assert.AreEqual(Ok 0UL, relocs.TryGetRelocatedAddr 0x404000UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 nonx IsNXEnabled test``() =
@@ -1976,14 +1964,15 @@ type ELFTests() =
   member _.``[ELF] x64 exception frames have sane ranges``() =
     let frames = (x64EhFrameFile :> IBinFile).ExceptionTable.Value.Frames
     let sane =
-      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
+      frames
+      |> ImmutableArray.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
     Assert.AreEqual<bool>(true, sane)
 
   [<TestMethod>]
   member _.``[ELF] x64 exception handler landing pad is resolved``() =
     let frames = (x64EhFrameFile :> IBinFile).ExceptionTable.Value.Frames
     let hasHandler =
-      frames |> Array.exists (fun f ->
+      frames |> ImmutableArray.exists (fun f ->
         f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
     Assert.AreEqual<bool>(true, hasHandler)
 
@@ -1995,7 +1984,7 @@ type ELFTests() =
     let frames = (x64EhFrameFile :> IBinFile).ExceptionTable.Value.Frames
     let personalities =
       frames
-      |> Array.choose (fun f -> f.PersonalityRoutine)
+      |> ImmutableArray.choose (fun f -> f.PersonalityRoutine)
       |> Array.distinct
     CollectionAssert.AreEqual([| 0x4018UL |], personalities)
 
@@ -2082,14 +2071,15 @@ type ELFTests() =
   member _.``[ELF] arm32 exidx frames have sane ranges``() =
     let frames = (arm32ExidxFile :> IBinFile).ExceptionTable.Value.Frames
     let sane =
-      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
+      frames
+      |> ImmutableArray.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
     Assert.AreEqual<bool>(true, sane)
 
   [<TestMethod>]
   member _.``[ELF] arm32 exidx handler landing pad is resolved``() =
     let frames = (arm32ExidxFile :> IBinFile).ExceptionTable.Value.Frames
     let hasHandler =
-      frames |> Array.exists (fun f ->
+      frames |> ImmutableArray.exists (fun f ->
         f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
     Assert.AreEqual<bool>(true, hasHandler)
 
