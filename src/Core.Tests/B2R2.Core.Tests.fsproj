@@ -18,6 +18,7 @@
     <Compile Include="ErrorCaseTests.fs" />
     <Compile Include="PermissionTests.fs" />
     <Compile Include="OSTests.fs" />
+    <Compile Include="ImmutableArrayTests.fs" />
     <Compile Include="SortedListTests.fs" />
     <Compile Include="PersistentQueueTests.fs" />
     <Compile Include="LoggingTests.fs" />

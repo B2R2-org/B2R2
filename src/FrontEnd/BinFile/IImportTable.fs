@@ -24,12 +24,14 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
 
 /// <summary>
 /// Represents an interface for accessing the import table of a binary file,
 /// i.e., the linkage table (PLT/GOT, IAT, etc.) that resolves dynamically
-/// linked symbols.
+/// linked symbols. The array it returns is the storage the file itself keeps,
+/// handed over rather than copied.
 /// </summary>
 type IImportTable =
   /// <summary>
@@ -38,7 +40,7 @@ type IImportTable =
   /// <returns>
   /// An array of imports, e.g., PLT entries for ELF files.
   /// </returns>
-  abstract Imports: BinImport[]
+  abstract Imports: ImmutableArray<BinImport>
 
   /// <summary>
   /// Returns whether the given address falls within the import table.

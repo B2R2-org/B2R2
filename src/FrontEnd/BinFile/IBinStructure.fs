@@ -24,15 +24,20 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
 
+/// <summary>
 /// Represents the structural view of a binary file, such as its sections and
-/// functions.
+/// functions. Every array it returns is the storage the file itself keeps,
+/// handed over rather than copied, so reading one costs nothing however large
+/// it is; being immutable is what lets it be shared that way.
+/// </summary>
 type IBinStructure =
   /// <summary>
   /// Returns an array of binary sections in the associated binary file.
   /// </summary>
-  abstract Sections: BinSection[]
+  abstract Sections: ImmutableArray<BinSection>
 
   /// <summary>
   /// Returns a binary file pointer that points to the beginning of the code
@@ -96,4 +101,4 @@ type IBinStructure =
   /// <returns>
   /// An array of function addresses.
   /// </returns>
-  abstract FunctionAddresses: Addr[]
+  abstract FunctionAddresses: ImmutableArray<Addr>

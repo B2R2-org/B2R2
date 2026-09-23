@@ -25,6 +25,7 @@
 module internal B2R2.RearEnd.BinScan.ELFViewer
 
 open System
+open System.Collections.Immutable
 open B2R2
 open B2R2.Collections
 open B2R2.Logging
@@ -575,12 +576,12 @@ let private dumpNoteTable (file: ELFBinFile) =
   printDoubleHorizontalRule ()
   printsn ""
 
-let private toHexString (bytes: byte[]) =
-  bytes |> Array.map (fun b -> b.ToString "x2") |> String.concat ""
+let private toHexString (bytes: ImmutableArray<byte>) =
+  bytes |> ImmutableArray.map (fun b -> b.ToString "x2") |> String.concat ""
 
 let private dumpBuildId (elf: ELFBinFile) =
   let buildId = (elf :> IBinFile).BuildId
-  if not (Array.isEmpty buildId) then
+  if not buildId.IsEmpty then
     printSubsectionTitle "Build ID"
     printsn (toHexString buildId)
     printsn ""

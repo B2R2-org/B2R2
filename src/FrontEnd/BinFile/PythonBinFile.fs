@@ -25,7 +25,9 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System.Collections.Generic
+open System.Collections.Immutable
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.Python.Helper
@@ -89,7 +91,9 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
       |> Array.collect snd
       |> Array.sortBy (fun e -> e.Start)
 
-  let exceptionFrames = lazy (Python.PyExceptionTable.toFrames codeObject)
+  let exceptionFrames =
+    lazy
+      (Python.PyExceptionTable.toFrames codeObject |> ImmutableArray.ofArray)
 
   let exceptionTable =
     Some { new IExceptionTable with
@@ -150,15 +154,15 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
 
     member _.InterpreterPath with get() = None
 
-    member _.RPath with get() = [||]
+    member _.RPath with get() = ImmutableArray.Empty
 
-    member _.RunPath with get() = [||]
+    member _.RunPath with get() = ImmutableArray.Empty
 
-    member _.DependencyNames with get() = [||]
+    member _.DependencyNames with get() = ImmutableArray.Empty
 
     member _.SharedObjectName with get() = None
 
-    member _.BuildId with get() = [||]
+    member _.BuildId with get() = ImmutableArray.Empty
 
     member _.ProgramHeaderTable with get() = None
 
@@ -170,7 +174,7 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
 
     member _.Relro with get() = None
 
-    member _.EncryptedRanges with get() = [||]
+    member _.EncryptedRanges with get() = ImmutableArray.Empty
 
     member _.NameResolver with get() = None
 

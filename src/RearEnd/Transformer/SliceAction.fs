@@ -28,6 +28,7 @@ open System
 open System.Globalization
 open System.Threading
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 
@@ -45,7 +46,7 @@ type SliceAction() =
 
   let fileBackedSections (hdl: BinHandle) =
     BinFileOps.getSections hdl.File
-    |> Array.filter (fun section -> section.FileSize > 0UL)
+    |> ImmutableArray.filter (fun section -> section.FileSize > 0UL)
 
   let describeSections sections =
     if Array.isEmpty sections then

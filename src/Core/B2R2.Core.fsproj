@@ -44,6 +44,7 @@
     <Compile Include="Logging\HexDump.fs" />
     <Compile Include="Logging\Log.fs" />
     <Compile Include="Collections\Array.fs" />
+    <Compile Include="Collections\ImmutableArray.fs" />
     <Compile Include="Collections\SortedList.fs" />
     <Compile Include="Collections\DoublyLinkedKeyValue.fs" />
     <Compile Include="Collections\LRUCache.fs" />

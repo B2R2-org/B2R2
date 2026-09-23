@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System.Collections.Generic
+open System.Collections.Immutable
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
@@ -102,21 +103,26 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
       | Some sec when sec.Id = SectionId.Code -> Some addr
       | _ -> None
 
-  let functionAddrs = lazy Array.choose tryFunctionAddr wm.IndexMap
+  let functionAddrs =
+    lazy
+      (Array.choose tryFunctionAddr wm.IndexMap |> ImmutableArray.ofArray)
 
   let binSections =
-    lazy (wm.SectionsInfo.SecArray |> Array.map toBinSection)
+    lazy (wm.SectionsInfo.SecArray
+          |> Array.map toBinSection
+          |> ImmutableArray.ofArray)
 
-  let importEntries = lazy getImports wm
+  let importEntries = lazy (getImports wm |> ImmutableArray.ofArray)
 
   (* Every import names the module it comes from, and those names made
      distinct are the modules this one needs instantiated alongside it. *)
   let dependencies =
     lazy
       importEntries.Value
-      |> Array.map _.LibraryName
+      |> ImmutableArray.map _.LibraryName
       |> Array.filter (fun name -> name <> "")
       |> Array.distinct
+      |> ImmutableArray.ofArray
 
   (* Only the table addresses are ever asked for by address, so they are kept
      on their own rather than looked for among the entries each time. *)
@@ -143,7 +149,7 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
 
   let functionBodies =
     lazy
-      let importedCount = Array.length importEntries.Value
+      let importedCount = importEntries.Value.Length
       match wm.CodeSection with
       | Some { Contents = Some conts } ->
         conts.Elements |> Array.mapi (toFunctionBody importedCount)
@@ -260,15 +266,15 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.InterpreterPath with get() = None
 
-    member _.RPath with get() = [||]
+    member _.RPath with get() = ImmutableArray.Empty
 
-    member _.RunPath with get() = [||]
+    member _.RunPath with get() = ImmutableArray.Empty
 
-    member _.DependencyNames with get() = Array.copy dependencies.Value
+    member _.DependencyNames with get() = dependencies.Value
 
     member _.SharedObjectName with get() = None
 
-    member _.BuildId with get() = [||]
+    member _.BuildId with get() = ImmutableArray.Empty
 
     member _.ProgramHeaderTable with get() = None
 
@@ -280,7 +286,7 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.Relro with get() = None
 
-    member _.EncryptedRanges with get() = [||]
+    member _.EncryptedRanges with get() = ImmutableArray.Empty
 
     member _.NameResolver with get() = nameResolver
 

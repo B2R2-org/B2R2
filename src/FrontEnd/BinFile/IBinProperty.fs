@@ -24,10 +24,13 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Immutable
 open B2R2
 
 /// <summary>
-/// Represents an interface for accessing the basic properties of a binary file.
+/// Represents an interface for accessing the basic properties of a binary
+/// file. Every array it returns is the storage the file itself keeps, handed
+/// over rather than copied.
 /// </summary>
 type IBinProperty =
   /// Is NX enabled for this binary? (DEP enabled or not)
@@ -62,4 +65,4 @@ type IBinProperty =
   /// <c>LC_ENCRYPTION_INFO_64</c>; formats that have no such notion return an
   /// empty array, as does a binary that ships none.
   /// </summary>
-  abstract EncryptedRanges: AddrRange[]
+  abstract EncryptedRanges: ImmutableArray<AddrRange>

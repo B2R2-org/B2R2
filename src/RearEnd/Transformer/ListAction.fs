@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.Transformer
 
 open System.Threading
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd
@@ -47,7 +48,7 @@ type ListAction() =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
     BinFileOps.getSections hdl.File
-    |> Array.map (sectionInfo bin >> box)
+    |> ImmutableArray.map (sectionInfo bin >> box)
 
   let symbolName (hdl: BinHandle) addr =
     match BinFileOps.tryFindSymbolByAddr hdl.File addr with
@@ -66,6 +67,7 @@ type ListAction() =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
     BinFileOps.getFunctionAddresses hdl.File
+    |> ImmutableArray.toArray
     |> Array.sort
     |> Array.map (functionInfo bin hdl)
 

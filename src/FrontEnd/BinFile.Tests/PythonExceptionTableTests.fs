@@ -24,7 +24,9 @@
 
 namespace B2R2.FrontEnd.BinFile.Tests
 
+open System.Collections.Immutable
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Python
 open Microsoft.VisualStudio.TestTools.UnitTesting
@@ -64,7 +66,7 @@ type PythonExceptionTableTests() =
   static let framesOf (f: PythonBinFile) =
     match (f :> IBinFile).ExceptionTable with
     | Some tbl -> tbl.Frames
-    | None -> [||]
+    | None -> ImmutableArray.Empty
 
   (* A real CPython 3.12 file, so that the decoder is held to what an
      interpreter actually wrote rather than only to what this test writes.

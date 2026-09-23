@@ -28,6 +28,7 @@ open System
 open System.Collections.Concurrent
 open System.IO
 open System.Runtime.CompilerServices
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 
 /// The semantic category of an interactive completion candidate.
@@ -458,7 +459,7 @@ module Suggestions =
       let sectionItems binary inside =
         let hdl = Binary.Handle binary
         BinFileOps.getSections hdl.File
-        |> Array.filter (fun section -> section.FileSize > 0UL)
+        |> ImmutableArray.filter (fun section -> section.FileSize > 0UL)
         |> Array.filter inside
         |> Array.choose (fun section ->
           if String.IsNullOrWhiteSpace section.Name then
@@ -505,7 +506,7 @@ module Suggestions =
               let sections = BinFileOps.getSections hdl.File
               let sectionName address =
                 sections
-                |> Array.tryFind (fun section ->
+                |> ImmutableArray.tryFind (fun section ->
                   let finish = section.Address + section.FileSize
                   section.FileSize > 0UL
                   && section.Address <= address && address < finish)
@@ -517,10 +518,11 @@ module Suggestions =
                 |> Option.defaultValue "<no section>"
               let entryPoint = hdl.File.EntryPoint |> Option.toList
               let functions =
-                BinFileOps.getFunctionAddresses hdl.File |> Array.toList
+                BinFileOps.getFunctionAddresses hdl.File
+                |> ImmutableArray.toList
               let sectionStarts =
                 sections
-                |> Array.map (fun section -> section.Address)
+                |> ImmutableArray.map (fun section -> section.Address)
                 |> Array.toList
               entryPoint @ functions @ sectionStarts
               |> List.distinct

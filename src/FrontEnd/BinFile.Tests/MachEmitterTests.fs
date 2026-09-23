@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.Tests
 
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Mach
 open Microsoft.VisualStudio.TestTools.UnitTesting
@@ -322,7 +323,7 @@ type MachEmitterTests() =
     let symbolCount (f: IBinFile) = f.SymbolTable.Value.Symbols.Length
     Assert.AreEqual<int>(symbolCount before + 1, symbolCount after)
     let importNames (f: IBinFile) =
-      f.ImportTable.Value.Imports |> Array.map (fun i -> i.Name)
+      f.ImportTable.Value.Imports |> ImmutableArray.map (fun i -> i.Name)
     CollectionAssert.AreEqual(importNames before, importNames after)
     Assert.AreEqual<uint64 option>(before.EntryPoint, after.EntryPoint)
 

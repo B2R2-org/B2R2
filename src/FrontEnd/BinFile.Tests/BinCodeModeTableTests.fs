@@ -26,6 +26,7 @@
 namespace B2R2.FrontEnd.BinFile.Tests
 
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
@@ -41,7 +42,7 @@ type BinCodeModeTableTests() =
        { Address = 0x100UL; Mode = ArmMode }
        { Address = 0x108UL; Mode = DataMode } |]
 
-  static let table = BinCodeModeTable markers
+  static let table = BinCodeModeTable(ImmutableArray.ofArray markers)
 
   [<TestMethod>]
   member _.``[BinCodeModeTable] a marked address reads its own mode``() =
@@ -72,12 +73,12 @@ type BinCodeModeTableTests() =
     let doubled =
       [| { Address = 0x100UL; Mode = DataMode }
          { Address = 0x100UL; Mode = ArmMode } |]
-    let table = BinCodeModeTable doubled
+    let table = BinCodeModeTable(ImmutableArray.ofArray doubled)
     Assert.AreEqual<BinCodeMode option>(Some ArmMode, table.TryFindMode 0x100UL)
     Assert.AreEqual<Addr option>(None, table.TryFindRegionEnd 0x100UL)
 
   [<TestMethod>]
   member _.``[BinCodeModeTable] a file without markers is empty``() =
-    let table = BinCodeModeTable [||]
+    let table = BinCodeModeTable(ImmutableArray.ofArray [||])
     Assert.AreEqual<bool>(true, table.IsEmpty)
     Assert.AreEqual<Addr option>(None, table.TryFindRegionEnd 0x100UL)

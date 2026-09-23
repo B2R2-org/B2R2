@@ -28,6 +28,7 @@ module B2R2.RearEnd.BinExplore.JsonAPI
 open System
 open System.Text.Json
 open System.Text.Json.Serialization
+open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization
@@ -133,5 +134,6 @@ let getSections arbiter =
   API.getSections arbiter
   |> Result.map (fun sections ->
     sections
-    |> Array.map (fun s -> { SectionName = s.Name; SectionAddr = s.Address }))
+    |> ImmutableArray.map (fun s ->
+      { SectionName = s.Name; SectionAddr = s.Address }))
   |> toJson

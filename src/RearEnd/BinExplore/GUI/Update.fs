@@ -31,6 +31,7 @@ open Avalonia.Media
 open Avalonia.Styling
 open Avalonia.Threading
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.BinExplore
 open B2R2.RearEnd.Visualization
@@ -312,7 +313,8 @@ let private buildLoadedBinaryState (arbiter: Arbiter<_, _>) model filePath =
         API.getSections arbiter,
         API.getFile arbiter with
   | Ok fns, Ok secs, Ok file ->
-    let sections = secs |> Array.map SectionItem.make |> List.ofArray
+    let sections =
+      secs |> ImmutableArray.map SectionItem.make |> List.ofArray
     let numDigits = (file.ISA.WordSize |> WordSize.toByteWidth) * 2
     let fontSize = model.Theme.Font.Monospace.FontSize
     let hexdump =
@@ -1336,7 +1338,7 @@ let selectWorkspacePanel (arbiter: Arbiter<_, _>) model panel =
       match API.getSections arbiter with
       | Ok secs ->
         secs
-        |> Array.map SectionItem.make
+        |> ImmutableArray.map SectionItem.make
         |> List.ofArray
       | Error _ ->
         []
