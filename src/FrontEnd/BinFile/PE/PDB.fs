@@ -129,6 +129,12 @@ let [<Literal>] InfoVersionVC70 = 20000404
 /// substream holds sits past.
 let [<Literal>] DBIHeaderSize = 64
 
+/// The size of the fixed part of a ModInfo record, which the module name and
+/// the object file name follow. It is as wide as the DBI stream header, but
+/// only by coincidence: the two count different things and are named apart so
+/// that moving one never moves the other.
+let [<Literal>] ModInfoFixedSize = 64
+
 /// The signature every DBI stream leads with.
 let [<Literal>] DBISignature = -1
 
@@ -323,10 +329,10 @@ let readName (bs: byte[]) limit pos =
 let parseModuleInfo (reader: IBinReader) dbi (bs: byte[]) =
   let limit = dbi.ModInfoSize + DBIHeaderSize
   let rec loop acc pos =
-    if pos + DBIHeaderSize >= limit then
+    if pos + ModInfoFixedSize >= limit then
       acc
     else
-      let modName, next = readName bs limit (pos + DBIHeaderSize)
+      let modName, next = readName bs limit (pos + ModInfoFixedSize)
       let objName, next = readName bs limit next
       let acc =
         { SectionIndex = reader.ReadUInt16(bs, pos + 4) |> int
