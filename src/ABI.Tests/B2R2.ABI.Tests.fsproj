@@ -11,6 +11,7 @@
     <Compile Include="ConventionsTests.fs" />
     <Compile Include="LinuxSyscallTests.fs" />
     <Compile Include="MacosSyscallTests.fs" />
+    <Compile Include="MachTrapTests.fs" />
     <Compile Include="WindowsSyscallTests.fs" />
   </ItemGroup>
 

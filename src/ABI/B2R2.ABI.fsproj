@@ -10,6 +10,7 @@
     <Compile Include="ArgClassification.fs" />
     <Compile Include="LinuxSyscall.fs" />
     <Compile Include="MacosSyscall.fs" />
+    <Compile Include="MachTrap.fs" />
     <Compile Include="WindowsBuild.fs" />
     <Compile Include="WindowsSyscall.fs" />
     <Compile Include="CallingConvention.fs" />
