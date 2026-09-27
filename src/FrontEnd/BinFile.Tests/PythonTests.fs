@@ -53,6 +53,10 @@ type PythonTests() =
     Assert.AreEqual<OS>(OS.UnknownOS, (file :> IBinFile).OS)
 
   [<TestMethod>]
+  member _.``[Python] raw bytes offset is zero test``() =
+    Assert.AreEqual<uint64>(0UL, (file :> IBinFile).RawBytesOffset)
+
+  [<TestMethod>]
   member _.``[Python] kind test``() =
     Assert.AreEqual<BinFileKind>(Unknown, (file :> IBinFile).Kind)
 

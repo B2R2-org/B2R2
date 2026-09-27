@@ -64,6 +64,8 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.RawBytes with get() = rawBytes
 
+    member _.RawBytesOffset with get() = 0UL
+
     member _.Length with get() = bytes.Length
 
     member _.Path with get() = path

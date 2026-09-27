@@ -61,6 +61,10 @@ type RawTests() =
     Assert.AreEqual<OS>(OS.UnknownOS, rawFile.OS)
 
   [<TestMethod>]
+  member _.``[Raw] raw bytes offset is zero test``() =
+    Assert.AreEqual<uint64>(0UL, rawFile.RawBytesOffset)
+
+  [<TestMethod>]
   member _.``[Raw] entry point and base address test``() =
     Assert.AreEqual(Some 0UL, rawFile.EntryPoint)
     Assert.AreEqual<uint64>(0UL, rawFile.BaseAddress)

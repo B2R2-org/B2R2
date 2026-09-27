@@ -473,6 +473,10 @@ type ELFTests() =
     Assert.AreEqual<OS>(OS.BareMetal, standalone.OS)
 
   [<TestMethod>]
+  member _.``[ELF] raw bytes offset is zero test``() =
+    Assert.AreEqual<uint64>(0UL, (x64ExecFile :> IBinFile).RawBytesOffset)
+
+  [<TestMethod>]
   member _.``[ELF] x64 exec entry point test``() =
     Assert.AreEqual(Some 0x401080UL, (x64ExecFile :> IBinFile).EntryPoint)
 

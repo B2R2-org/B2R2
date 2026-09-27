@@ -100,6 +100,10 @@ type WasmTests() =
     Assert.AreEqual<OS>(OS.UnknownOS, file.OS)
 
   [<TestMethod>]
+  member _.``[Wasm] raw bytes offset is zero test``() =
+    Assert.AreEqual<uint64>(0UL, file.RawBytesOffset)
+
+  [<TestMethod>]
   member _.``[Wasm] kind test``() =
     Assert.AreEqual<BinFileKind>(Unknown, file.Kind)
 

@@ -563,6 +563,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.RawBytes with get() = rawBytes
 
+    member _.RawBytesOffset with get() = 0UL
+
     member _.Length with get() = bytes.Length
 
     member _.Path with get() = path

@@ -40,6 +40,15 @@ type IBinFile =
   /// Returns the raw file content as a read-only memory block.
   abstract RawBytes: System.ReadOnlyMemory<byte>
 
+  /// <summary>
+  /// Returns where <see cref="RawBytes"/> begins within the file at <see
+  /// cref="P:B2R2.FrontEnd.BinFile.IBinMetadata.Path"/>. Every file offset
+  /// this interface hands out counts from there, so a consumer that maps the
+  /// file on disk directly adds this to rebase them. It is the slice offset
+  /// for a Mach-O universal binary, and zero for every other file.
+  /// </summary>
+  abstract RawBytesOffset: uint64
+
   /// Returns the size of the associated binary file in bytes.
   abstract Length: int
 

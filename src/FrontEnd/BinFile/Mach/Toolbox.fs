@@ -32,6 +32,9 @@ open B2R2.FrontEnd.BinLifter
 type internal Toolbox =
   { /// Raw bytes of the Mach-O file.
     Bytes: byte[]
+    /// Offset of Bytes within the file they were read from. It is the slice
+    /// offset for a universal binary, and zero for any other file.
+    BytesOffset: uint64
     /// Binary reader for reading the Mach-O file.
     Reader: IBinReader
     /// Base address.
@@ -47,10 +50,12 @@ type internal Toolbox =
 with
   /// Initializes a toolbox for Mach-O files. The bytes it keeps are the ones
   /// of the image alone, so a universal binary is narrowed to the one slice
-  /// that was picked and every file offset stays relative to it.
+  /// that was picked and every file offset stays relative to it, while where
+  /// the slice starts in the file is kept in BytesOffset.
   static member Init(bytes, struct (hdr, reader, baseAddr, bounds, isa)) =
     let struct (machOffset, machSize): struct (uint64 * uint64) = bounds
     { Bytes = Array.sub bytes (int machOffset) (int machSize)
+      BytesOffset = machOffset
       Reader = reader
       BaseAddress = baseAddr
       Header = hdr

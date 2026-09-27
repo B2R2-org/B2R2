@@ -798,6 +798,33 @@ type MachTests() =
     CollectionAssert.AreEqual(expected, f.Slice(text.Addr, 8).ToArray())
 
   [<TestMethod>]
+  member _.``[Mach] FAT binary raw bytes offset is the slice offset test``() =
+    let offsetOf (file: MachBinFile) cpu =
+      let arch = file.FatArchs |> Array.find (fun a -> a.CPUType = cpu)
+      Assert.AreEqual<uint64>(arch.Offset, (file :> IBinFile).RawBytesOffset)
+    offsetOf fatX64File CPUType.X64
+    offsetOf fatArm64File CPUType.ARM64
+    offsetOf fat64X64File CPUType.X64
+
+  [<TestMethod>]
+  member _.``[Mach] Thin binary raw bytes offset is zero test``() =
+    Assert.AreEqual<uint64>(0UL, (x64File :> IBinFile).RawBytesOffset)
+
+  [<TestMethod>]
+  member _.``[Mach] FAT binary segments rebase onto the file test``() =
+    (* A loader that maps the file on disk finds each segment's contents at
+       the raw bytes offset plus the segment offset. *)
+    let name = "mach_fat_x64_arm64"
+    let whole = ZIPReader.readBytes MachBinary (name + ".zip") name
+    let f = fatArm64File :> IBinFile
+    let seg =
+      f.MemoryLayout.Value.Segments
+      |> Seq.find (fun s -> s.Name = Some "__TEXT")
+    let start = int (f.RawBytesOffset + seg.Offset)
+    let expected = whole[start..start + 15]
+    CollectionAssert.AreEqual(expected, f.Slice(seg.Address, 16).ToArray())
+
+  [<TestMethod>]
   member _.``[Mach] FAT binary entry point is in the slice test``() =
     let entry = (fatX64File :> IBinFile).EntryPoint
     Assert.AreEqual<bool>(true, Option.isSome entry)

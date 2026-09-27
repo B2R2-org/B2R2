@@ -289,6 +289,10 @@ type PETests() =
     Assert.AreEqual<OS>(OS.Windows, (x64File :> IBinFile).OS)
 
   [<TestMethod>]
+  member _.``[PE] raw bytes offset is zero test``() =
+    Assert.AreEqual<uint64>(0UL, (x64File :> IBinFile).RawBytesOffset)
+
+  [<TestMethod>]
   member _.``[PE] x64 entry point test``() =
     Assert.AreEqual(Some 0x140001290UL, (x64File :> IBinFile).EntryPoint)
 

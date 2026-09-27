@@ -591,6 +591,8 @@ type MachBinFile private(path, bytes: byte[], toolBox, regFactoryOpt) =
 
     member _.RawBytes with get() = rawBytes
 
+    member _.RawBytesOffset with get() = toolBox.BytesOffset
+
     member _.Length with get() = image.Length
 
     member _.Path with get() = path
