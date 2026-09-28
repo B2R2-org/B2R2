@@ -214,6 +214,32 @@ let translate (ins: Instruction) bld =
     loadAcquirePc ins bld 16<rt>
   | Opcode.LDAPR ->
     loadAcquirePc ins bld ins.OprSize
+  | Opcode.IRG ->
+    insertRandomTag ins bld
+  | Opcode.GMI ->
+    tagMaskInsert ins bld
+  | Opcode.LDG ->
+    loadTag ins bld
+  | Opcode.STG | Opcode.ST2G | Opcode.STGM ->
+    storeTag ins bld
+  | Opcode.LDGM ->
+    loadTagMultiple ins bld
+  | Opcode.STZGM ->
+    storeTagZeroingMultiple ins bld
+  | Opcode.STZG ->
+    storeTagZeroing ins bld 1
+  | Opcode.STZ2G ->
+    storeTagZeroing ins bld 2
+  | Opcode.STGP ->
+    storeTagPair ins bld
+  | Opcode.ADDG ->
+    addg ins bld
+  | Opcode.SUBG ->
+    subg ins bld
+  | Opcode.SUBP ->
+    subp ins bld
+  | Opcode.SUBPS | Opcode.CMPP ->
+    subps ins bld
   | Opcode.CFINV ->
     cfinv ins bld
   | Opcode.SETF8 ->

@@ -436,7 +436,49 @@ let getWdWnWm bin = ThreeOperands(wd bin, wn bin, wm bin)
 
 let getWdWnXm bin = ThreeOperands(wd bin, wn bin, xm bin)
 
+let getXsdXsnI6I4 bin =
+  let offset = OprImm(int64 (extract bin 21u 16u) * 16L)
+  let tag = OprImm(int64 (extract bin 13u 10u))
+  FourOperands(xsd bin, xsn bin, offset, tag)
+
+let getXdXsnXsm bin = ThreeOperands(xd bin, xsn bin, xsm bin)
+
+let getXsnXsm bin = TwoOperands(xsn bin, xsm bin)
+
 let getXdXnXm bin = ThreeOperands(xd bin, xn bin, xm bin)
+
+/// IRG, whose two tagged pointers may each be the stack pointer, and whose
+/// third operand is written only when it is named: register 31 there is the
+/// zero register and means the offset was left out.
+let getXsdXsnXm bin =
+  if valM bin = 0b11111u then TwoOperands(xsd bin, xsn bin)
+  else ThreeOperands(xsd bin, xsn bin, xm bin)
+
+/// GMI, which reads a tagged pointer that may be the stack pointer and writes
+/// an ordinary register.
+let getXdXsnXm bin = ThreeOperands(xd bin, xsn bin, xm bin)
+
+/// The offset a memory-tag access carries. The field is the same signed nine
+/// bits the unscaled accesses beside it use, and it counts GRANULES of
+/// sixteen bytes rather than bytes, because a tag belongs to a granule.
+let private tagSimm bin = (simm9 bin |> int64) * 16L
+
+let getXtBIXSnTag bin =
+  TwoOperands(xt1 bin, memBaseImm (xsr (valN bin), Some(tagSimm bin)))
+
+/// The tagged stores name a register that may be the stack pointer, which the
+/// tagged load does not.
+let getXstBIXSnTag bin =
+  TwoOperands(xsr (valT1 bin) |> OprRegister,
+              memBaseImm (xsr (valN bin), Some(tagSimm bin)))
+
+let getXstPoXSnTag bin =
+  TwoOperands(xsr (valT1 bin) |> OprRegister,
+              memPostIdxImm (xsr (valN bin), Some(tagSimm bin)))
+
+let getXstPrXSnTag bin =
+  TwoOperands(xsr (valT1 bin) |> OprRegister,
+              memPreIdxImm (xsr (valN bin), Some(tagSimm bin)))
 
 let getVdtaVntbVmtb b r = r b; ThreeOperands(vdts1 b, vntsq1 b, vmtsq1 b)
 
@@ -922,11 +964,29 @@ let parsePCRel bin =
   if (pickBit bin 31u) = 0u then Op.ADR, getXdLabel bin 0, 64<rt>
   else Op.ADRP, getXdLabel bin 12, 64<rt>
 
+/// <summary>
+/// Add and subtract an immediate WITH TAGS, which the immediate group routes
+/// to by an op0 of 011 where the ordinary add and subtract take 010.
+///
+/// The immediate counts GRANULES of sixteen bytes, like every other offset
+/// in this feature, and the second immediate is what is added to the
+/// pointer's tag rather than to its address.
+/// </summary>
+let parseAddSubImmTags bin =
+  let cond = concat (concat (pickBit bin 31u) (pickBit bin 30u) 1)
+                    (concat (pickBit bin 29u) (pickBit bin 22u) 1)
+                    2 (* sf:op:S:o2 *)
+  match cond with
+  | 0b1000u -> Op.ADDG, getXsdXsnI6I4 bin, 64<rt>
+  | 0b1100u -> Op.SUBG, getXsdXsnI6I4 bin, 64<rt>
+  | _ -> raise ParsingFailureException
+
 /// Data processing - immediate
 let parse64Group1 bin =
   let op0 = extract bin 25u 23u
   match op0 with
   | op0 when op0 &&& 0b110u = 0b000u -> parsePCRel bin
+  | 0b011u -> parseAddSubImmTags bin
   | op0 when op0 &&& 0b110u = 0b010u -> parseAddSubImm bin
   | 0b100u -> parseLogical bin
   | 0b101u -> parseMoveWide bin
@@ -1927,7 +1987,7 @@ let parseLoadStoreRegPairOffset bin =
   | 0b0001u -> Op.LDP, getWt1Wt2BIXSnimm bin 2, 32<rt>
   | 0b0010u -> Op.STP, getSt1St2BIXSnimm bin 2, 32<rt>
   | 0b0011u -> Op.LDP, getSt1St2BIXSnimm bin 2, 32<rt>
-  | 0b0100u -> unallocated ()
+  | 0b0100u -> Op.STGP, getXt1Xt2BIXSnimm bin 4, 64<rt>
   | 0b0101u -> Op.LDPSW, getXt1Xt2BIXSnimm bin 2, 64<rt>
   | 0b0110u -> Op.STP, getDt1Dt2BIXSnimm bin 3, 64<rt>
   | 0b0111u -> Op.LDP, getDt1Dt2BIXSnimm bin 3, 64<rt>
@@ -1947,7 +2007,7 @@ let parseLoadStoreRegPairPostIndexed bin =
   | 0b0001u -> Op.LDP, getWt1Wt2PoXSnimm bin, 32<rt>
   | 0b0010u -> Op.STP, getSt1St2PoXSnimm bin, 32<rt>
   | 0b0011u -> Op.LDP, getSt1St2PoXSnimm bin, 32<rt>
-  | 0b0100u -> unallocated ()
+  | 0b0100u -> Op.STGP, getXt1Xt2PoXSnimm bin 4, 64<rt>
   | 0b0101u -> Op.LDPSW, getXt1Xt2PoXSnimm bin 2, 64<rt>
   | 0b0110u -> Op.STP, getDt1Dt2PoXSnimm bin, 64<rt>
   | 0b0111u -> Op.LDP, getDt1Dt2PoXSnimm bin, 64<rt>
@@ -1967,7 +2027,7 @@ let parseLoadStoreRegPairPreIndexed bin =
   | 0b0001u -> Op.LDP, getWt1Wt2PrXSnimm bin, 32<rt>
   | 0b0010u -> Op.STP, getSt1St2PrXSnimm bin, 32<rt>
   | 0b0011u -> Op.LDP, getSt1St2PrXSnimm bin, 32<rt>
-  | 0b0100u -> unallocated ()
+  | 0b0100u -> Op.STGP, getXt1Xt2PrXSnimm bin 4, 64<rt>
   | 0b0101u -> Op.LDPSW, getXt1Xt2PrXSnimm bin 2, 64<rt>
   | 0b0110u -> Op.STP, getDt1Dt2PrXSnimm bin, 64<rt>
   | 0b0111u -> Op.LDP, getDt1Dt2PrXSnimm bin, 64<rt>
@@ -2114,6 +2174,37 @@ let parseAtomicMemoryOperations bin =
   else
     unallocated ()
 
+/// <summary>
+/// Load/store memory tags: LDG, STG, ST2G, STZG and STZ2G, and the block
+/// forms LDGM, STGM and STZGM.
+///
+/// The class is told from the unscaled accesses it sits beside by bit 21,
+/// and opc says which of the five it is; op2 is the addressing mode, except
+/// where it is 00, which is LDG or, with no offset, one of the block forms.
+/// </summary>
+let parseLoadStoreMemoryTags bin =
+  let opc = extract bin 23u 22u
+  let op2 = extract bin 11u 10u
+  let isImm9Zero = extract bin 20u 12u = 0u
+  match opc, op2 with
+  | 0b01u, 0b00u -> Op.LDG, getXtBIXSnTag bin, 64<rt>
+  | 0b00u, 0b01u -> Op.STG, getXstPoXSnTag bin, 64<rt>
+  | 0b00u, 0b10u -> Op.STG, getXstBIXSnTag bin, 64<rt>
+  | 0b00u, 0b11u -> Op.STG, getXstPrXSnTag bin, 64<rt>
+  | 0b01u, 0b01u -> Op.STZG, getXstPoXSnTag bin, 64<rt>
+  | 0b01u, 0b10u -> Op.STZG, getXstBIXSnTag bin, 64<rt>
+  | 0b01u, 0b11u -> Op.STZG, getXstPrXSnTag bin, 64<rt>
+  | 0b10u, 0b01u -> Op.ST2G, getXstPoXSnTag bin, 64<rt>
+  | 0b10u, 0b10u -> Op.ST2G, getXstBIXSnTag bin, 64<rt>
+  | 0b10u, 0b11u -> Op.ST2G, getXstPrXSnTag bin, 64<rt>
+  | 0b11u, 0b01u -> Op.STZ2G, getXstPoXSnTag bin, 64<rt>
+  | 0b11u, 0b10u -> Op.STZ2G, getXstBIXSnTag bin, 64<rt>
+  | 0b11u, 0b11u -> Op.STZ2G, getXstPrXSnTag bin, 64<rt>
+  | 0b00u, 0b00u when isImm9Zero -> Op.STZGM, getXtMXSn bin, 64<rt>
+  | 0b10u, 0b00u when isImm9Zero -> Op.STGM, getXtMXSn bin, 64<rt>
+  | 0b11u, 0b00u when isImm9Zero -> Op.LDGM, getXtMXSn bin, 64<rt>
+  | _ -> unallocated ()
+
 /// Loads and stores
 let parse64Group3 bin =
   let op0 = pickBit bin 31u
@@ -2125,6 +2216,11 @@ let parse64Group3 bin =
   let cond =
     concat (concat (concat (concat (concat op0 op1 2) op2 1) op3 2) op4 6) op5 2
   match cond with
+  (* The memory-tag accesses are read before the unscaled ones they share a
+     class with: bit 24 tells them apart and bit 21 marks the tag forms. *)
+  | c when c &&& 0b11111010000000u = 0b10101010000000u
+           && pickBit bin 30u = 1u ->
+    parseLoadStoreMemoryTags bin
   | c when c &&& 0b11111111111100u = 0b00010000000000u ->
     parseAdvSIMDMul bin
   | c when c &&& 0b11111110000000u = 0b00010100000000u ->
@@ -2196,10 +2292,22 @@ let parseDataProcessing2Src bin =
                     (extract bin 15u 10u)
                     6  (* sf:S:opcode *)
   match cond with
+  (* SUBP and SUBPS sit at opcode 000000 of the 64-bit half, which the
+     guards below read as unallocated for want of anything there. CMPP is
+     the SUBPS whose destination is the zero register. *)
+  | 0b10000000u -> Op.SUBP, getXdXsnXsm bin, 64<rt>
+  | 0b11000000u when valD bin = 0b11111u -> Op.CMPP, getXsnXsm bin, 64<rt>
+  | 0b11000000u -> Op.SUBPS, getXdXsnXsm bin, 64<rt>
   | c when c &&& 0b00111110u = 0b00000000u -> unallocated ()
   | c when c &&& 0b00111000u = 0b00011000u -> unallocated ()
   | c when c &&& 0b00100000u = 0b00100000u -> unallocated ()
-  | c when c &&& 0b01111100u = 0b00000100u -> unallocated ()
+  (* IRG and GMI take opcodes 000100 and 000101 of the 64-bit half of this
+     class; the 32-bit half has nothing there, and neither has anything at
+     000110 or 000111. *)
+  | 0b10000100u -> Op.IRG, getXsdXsnXm bin, 64<rt>
+  | 0b10000101u -> Op.GMI, getXdXsnXm bin, 64<rt>
+  | c when c &&& 0b11111100u = 0b00000100u -> unallocated ()
+  | c when c &&& 0b11111110u = 0b10000110u -> unallocated ()
   | c when c &&& 0b01111100u = 0b00001100u -> unallocated ()
   | c when c &&& 0b01000000u = 0b01000000u -> unallocated ()
   | 0b00000010u -> Op.UDIV, getWdWnWm bin, 32<rt>

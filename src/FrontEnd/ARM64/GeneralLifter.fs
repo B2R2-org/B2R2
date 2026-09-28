@@ -327,6 +327,237 @@ let loadAcquirePc (ins: Instruction) bld accSz =
       AST.zext ins.OprSize (AST.loadLE accSz address)
   }
 
+/// <summary>
+/// The four bits of an address that hold a memory tag, and the same as a
+/// mask.
+///
+/// A tagged pointer keeps its tag in bits 59:56, which are part of the top
+/// byte an address does not use for addressing.
+/// </summary>
+let private tagShift = numI32 56 64<rt>
+
+let private tagMask = numU64 0x0f00000000000000UL 64<rt>
+
+/// <summary>
+/// IRG, which replaces the tag of an address with one chosen at random from
+/// the tags that are not excluded.
+///
+/// Which tag it chooses is not fixed by the architecture, and the exclusion
+/// set that decides it lives in a system register this model does not carry.
+/// A process that has not asked for tagging has every tag excluded, and
+/// ChooseNonExcludedTag answers zero when there is nothing to choose from --
+/// which is the answer the reference gives and the one taken here.
+/// </summary>
+let insertRandomTag (ins: Instruction) bld =
+  lift bld ins {
+    (* The third operand, where it is written, names tag values to keep the
+       choice away from. The tag a process gets here is zero whichever
+       values it excludes, so the operand is read and not used. *)
+    let struct (dst, src) =
+      match ins.Operands with
+      | TwoOperands(d, s) | ThreeOperands(d, s, _) ->
+        struct (transOpr ins bld d, transOpr ins bld s)
+      | _ ->
+        raise InvalidOperandException
+    sized 64<rt> dst := src .& AST.not tagMask
+  }
+
+/// <summary>
+/// GMI, which adds a tag to a set of them.
+///
+/// The set is a sixteen-bit mask with one bit per tag value, and this sets
+/// the bit the first operand's tag names, leaving the rest of the second
+/// operand as it was.
+/// </summary>
+let tagMaskInsert ins bld =
+  lift bld ins {
+    let dst, src1, src2 = transThreeOprs ins bld
+    let tag = (src1 .& tagMask) >> tagShift
+    sized 64<rt> dst := src2 .| (AST.num1 64<rt> << tag)
+  }
+
+/// <summary>
+/// LDG, which reads the tag of the granule an address points into and puts
+/// it in the destination, keeping every other bit of it.
+///
+/// There is no tag memory here, so what it reads is zero -- the tag an
+/// untagged granule has. The rest of the register is kept, which is the part
+/// of this instruction a model can be wrong about.
+/// </summary>
+let loadTag ins bld =
+  lift bld ins {
+    let struct (dst, _) = getTwoOprs ins
+    let dst = transOpr ins bld dst
+    sized 64<rt> dst := dst .& AST.not tagMask
+  }
+
+/// <summary>
+/// STG, ST2G and STGM, which write a tag to one granule, to two, or to a
+/// whole block.
+///
+/// The tag memory they write is not addressable and nothing here reads it
+/// back, so what they leave behind is nothing. The zeroing forms below are
+/// the ones with an effect a program can see.
+/// </summary>
+let storeTag ins bld =
+  lift bld ins {
+    ()
+  }
+
+/// <summary>
+/// STZG and STZ2G, which write a tag AND clear the granule it belongs to.
+///
+/// The clearing is the part that shows: sixteen bytes for the one-granule
+/// form and thirty-two for the other, at the address the operand names with
+/// its tag bits still in place -- the address an instruction uses is the
+/// whole of it.
+/// </summary>
+let storeTagZeroing ins bld granules =
+  lift bld ins {
+    let struct (_, mem) = getTwoOprs ins
+    let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    let address = tmpVar bld 64<rt>
+    direct address := bReg .+ offset
+    for i in 0 .. granules * 2 - 1 do
+      direct (AST.loadLE 64<rt> (address .+ numI32 (i * 8) 64<rt>)) :=
+        AST.num0 64<rt>
+  }
+
+/// <summary>
+/// STGP, which stores a pair of registers and a tag at once.
+///
+/// The pair is stored the way any pair is; the tag goes where the other tag
+/// stores go, which is nowhere a program can look.
+/// </summary>
+let storeTagPair ins bld =
+  lift bld ins {
+    let struct (o1, o2, mem) = getThreeOprs ins
+    let src1 = transOpr ins bld o1
+    let src2 = transOpr ins bld o2
+    let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    let address = tmpVar bld 64<rt>
+    direct address := bReg .+ offset
+    direct (AST.loadLE 64<rt> address) := src1
+    direct (AST.loadLE 64<rt> (address .+ numI32 8 64<rt>)) := src2
+  }
+
+/// <summary>
+/// LDGM, which reads the tags of a whole block of granules into a register.
+///
+/// With no tag memory every tag is zero, and the bits no tag is written to
+/// are zero by definition, so the register becomes zero.
+/// </summary>
+let loadTagMultiple ins bld =
+  lift bld ins {
+    let struct (dst, _) = getTwoOprs ins
+    let dst = transOpr ins bld dst
+    sized 64<rt> dst := AST.num0 64<rt>
+  }
+
+/// <summary>
+/// Clears the block DC ZVA clears around an address: 4 << DCZID_EL0.BS
+/// bytes, from the address aligned down to that size, a word at a time.
+/// </summary>
+let private zeroBlock bld address =
+  let dczid = regVar bld R.DCZIDEL0
+  let struct (size, start, idx) = tmpVars3 bld 64<rt>
+  let lblLoop = label bld "Loop"
+  let lblLoopCont = label bld "LoopContinue"
+  let lblEnd = label bld "End"
+  append bld {
+    direct size := numI32 4 64<rt> << (dczid .& numI32 0xf 64<rt>)
+    direct start := address .& AST.not (size .- AST.num1 64<rt>)
+    direct idx := AST.num0 64<rt>
+    AST.lmark lblLoop
+    AST.cjmp (idx == size) (AST.jmpDest lblEnd) (AST.jmpDest lblLoopCont)
+    AST.lmark lblLoopCont
+    direct (AST.loadLE 32<rt> (start .+ idx)) := AST.num0 32<rt>
+    direct idx := idx .+ numI32 4 64<rt>
+    AST.jmp (AST.jmpDest lblLoop)
+    AST.lmark lblEnd
+  }
+
+/// <summary>
+/// STZGM, which writes the tags of the block DC ZVA clears and clears it.
+/// The tags go nowhere a program can read, the way STG's do; the clearing
+/// is what shows.
+/// </summary>
+let storeTagZeroingMultiple ins bld =
+  lift bld ins {
+    let struct (_, mem) = getTwoOprs ins
+    let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    zeroBlock bld (bReg .+ offset)
+  }
+
+/// <summary>
+/// ADDG and SUBG, which move an address by an offset and give it a tag.
+///
+/// The two halves are independent: the offset never carries into the tag and
+/// the tag never disturbs the address. The offset is what the operand says,
+/// and the tag is the one ChooseNonExcludedTag picks starting from the
+/// address's own -- except that the whole of that choosing is gated on
+/// allocation tag access being enabled, and where it is not the tag written
+/// is zero however the operands read. That is the same gate <see
+/// cref="insertRandomTag"/> answers zero for, and the same answer.
+///
+/// So the second immediate is read and not used, and the tag field is
+/// cleared rather than left as it was -- an address arriving here with a tag
+/// already in it loses it.
+/// </summary>
+let private tagOffset (ins: Instruction) bld isSub =
+  lift bld ins {
+    let struct (dst, src, off, _) = getFourOprs ins
+    let d = transOpr ins bld dst
+    let n = transOpr ins bld src
+    let offset = numI64 (getImmValue off) 64<rt>
+    let addr = if isSub then n .- offset else n .+ offset
+    sized 64<rt> d := addr .& AST.not tagMask
+  }
+
+let addg ins bld = tagOffset ins bld false
+
+let subg ins bld = tagOffset ins bld true
+
+/// <summary>
+/// SUBP, SUBPS and CMPP: the difference of two addresses with their tags
+/// ignored.
+///
+/// Ignored means SIGN EXTENDED from bit 55, not masked off: the difference
+/// of two addresses in the upper half of the space has to come out the same
+/// as the difference of two in the lower half, and masking would make one of
+/// them enormous. SUBPS sets the flags from that subtraction, and CMPP is
+/// the SUBPS that throws the answer away.
+/// </summary>
+let private tagSubtract (ins: Instruction) bld setsFlags =
+  lift bld ins {
+    let struct (d, n, m) =
+      match ins.Operands with
+      | ThreeOperands(a, b, c) ->
+        struct (transOpr ins bld a, transOpr ins bld b, transOpr ins bld c)
+      | TwoOperands(b, c) ->
+        struct (regVar bld R.XZR, transOpr ins bld b, transOpr ins bld c)
+      | _ ->
+        raise InvalidOperandException
+    let bare e = AST.sext 64<rt> (AST.xtlo 56<rt> e)
+    let struct (x, y) = tmpVars2 bld 64<rt>
+    direct x := bare n
+    direct y := bare m
+    let one = AST.num1 64<rt>
+    let result, (nf, zf, cf, vf) = addWithCarry x (AST.not y) one 64<rt>
+    if setsFlags then
+      direct (regVar bld R.N) := nf
+      direct (regVar bld R.Z) := zf
+      direct (regVar bld R.C) := cf
+      direct (regVar bld R.V) := vf
+    else
+      ()
+    sized 64<rt> d := result
+  }
+
+let subp ins bld = tagSubtract ins bld false
+
+let subps ins bld = tagSubtract ins bld true
+
 /// CFINV, which inverts the carry flag and touches nothing else.
 let cfinv ins bld =
   lift bld ins {

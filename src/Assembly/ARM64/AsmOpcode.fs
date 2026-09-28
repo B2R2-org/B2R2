@@ -1504,6 +1504,114 @@ let private evaluateIntoFlags sz ins =
   | _ ->
     wrongOperands ins
 
+/// <summary>
+/// IRG and GMI, the two tag operations that take their operands in registers.
+///
+/// IRG's third operand is written only when it is named; the register field
+/// holds 31 for the form that leaves it out, which is the zero register and
+/// excludes no tag value.
+/// </summary>
+let private tagTwoSource opcode dstMaySP ins =
+  let head = (1u <<< 31) ||| (0b11010110u <<< 21) ||| (opcode <<< 10)
+  let dst reg = if dstMaySP then coreRegSP reg else coreReg reg
+  match ins.Operands with
+  | TwoOperands(Rg rd, Rg rn) ->
+    head ||| (0b11111u <<< 16) ||| (coreRegSP rn <<< 5) ||| dst rd
+  | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
+    head ||| (coreReg rm <<< 16) ||| (coreRegSP rn <<< 5) ||| dst rd
+  | _ ->
+    wrongOperands ins
+
+/// BFCVT, which rounds a single-precision number to the BFloat16 that keeps
+/// The bits a memory-tag access shares. Its offset counts GRANULES of sixteen
+/// bytes rather than bytes, because a tag belongs to a granule.
+let private tagAccessWith opc op2 rtField rt rn offset =
+  (0b11011001u <<< 24) ||| (opc <<< 22) ||| (1u <<< 21)
+  ||| (signedImm 9 (scaled 16 offset) <<< 12) ||| (op2 <<< 10)
+  ||| (coreRegSP rn <<< 5) ||| rtField rt
+
+/// <summary>
+/// LDG, STG, ST2G, STZG and STZ2G. The addressing mode sits in op2, except
+/// that the combination the stores leave free is what marks the load.
+///
+/// The stores name a register that may be the stack pointer and the load
+/// names one that may be the zero register, which is the same field read two
+/// ways -- hence rtField rather than one of the two.
+/// </summary>
+let private memoryTag opc offsetOp2 rtField ins =
+  match ins.Operands with
+  | TwoOperands(Rg rt, OprMemory(BaseMode(ImmOffset(BaseOffset(rn, off))))) ->
+    tagAccessWith opc offsetOp2 rtField rt rn (defaultArg off 0L)
+  | TwoOperands(Rg rt, OprMemory(PreIdxMode(ImmOffset(BaseOffset(rn, off))))) ->
+    tagAccessWith opc 0b11u rtField rt rn (defaultArg off 0L)
+  | TwoOperands(Rg rt,
+                OprMemory(PostIdxMode(ImmOffset(BaseOffset(rn, off))))) ->
+    tagAccessWith opc 0b01u rtField rt rn (defaultArg off 0L)
+  | _ ->
+    wrongOperands ins
+
+/// LDGM, STGM and STZGM, which move the tags of a whole block: op2 is 00 and
+/// there is no offset.
+let private memoryTagMultiple opc ins =
+  match ins.Operands with
+  | TwoOperands(Rg t, OprMemory(BaseMode(ImmOffset(BaseOffset(n, None))))) ->
+    tagAccessWith opc 0b00u coreReg t n 0L
+  | _ ->
+    wrongOperands ins
+
+/// The bits STGP shares with the ordinary pair transfers: it is the one
+/// combination of opc and L they leave free, and its offset is scaled by a
+/// granule the way the tag accesses above scale theirs.
+let private tagPairWith kind rt1 rt2 rn offset =
+  (0b01u <<< 30) ||| (0b101u <<< 27) ||| (kind <<< 23)
+  ||| (signedImm 7 (scaled 16 offset) <<< 15) ||| (coreReg rt2 <<< 10)
+  ||| (coreRegSP rn <<< 5) ||| coreReg rt1
+
+let private tagPair ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rt1,
+                  Rg rt2,
+                  OprMemory(BaseMode(ImmOffset(BaseOffset(rn, off))))) ->
+    tagPairWith 0b010u rt1 rt2 rn (defaultArg off 0L)
+  | ThreeOperands(Rg rt1,
+                  Rg rt2,
+                  OprMemory(PreIdxMode(ImmOffset(BaseOffset(rn, off))))) ->
+    tagPairWith 0b011u rt1 rt2 rn (defaultArg off 0L)
+  | ThreeOperands(Rg rt1,
+                  Rg rt2,
+                  OprMemory(PostIdxMode(ImmOffset(BaseOffset(rn, off))))) ->
+    tagPairWith 0b001u rt1 rt2 rn (defaultArg off 0L)
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// ADDG and SUBG, whose first immediate counts granules of sixteen bytes and
+/// whose second is added to the tag.
+/// </summary>
+let private tagImmediate isSub ins =
+  match ins.Operands with
+  | FourOperands(Rg rd, Rg rn, Im off, Im tag) ->
+    (* 100011 sits at 28:23, with the o2 bit below it -- a field one place
+       further up would be the ordinary add and subtract's *)
+    (1u <<< 31) ||| ((if isSub then 1u else 0u) <<< 30)
+    ||| (0b100011u <<< 23) ||| ((uint32 off / 16u &&& 0x3fu) <<< 16)
+    ||| ((uint32 tag &&& 0xfu) <<< 10) ||| (coreRegSP rn <<< 5)
+    ||| coreRegSP rd
+  | _ ->
+    wrongOperands ins
+
+/// SUBP, SUBPS and CMPP, which are the two-source class at opcode 000000.
+let private tagSubtract setsFlags ins =
+  let head = (1u <<< 31) ||| ((if setsFlags then 1u else 0u) <<< 29)
+             ||| (0b11010110u <<< 21)
+  match ins.Operands with
+  | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
+    head ||| (coreRegSP rm <<< 16) ||| (coreRegSP rn <<< 5) ||| coreReg rd
+  | TwoOperands(Rg rn, Rg rm) ->
+    head ||| (coreRegSP rm <<< 16) ||| (coreRegSP rn <<< 5) ||| 0b11111u
+  | _ ->
+    wrongOperands ins
+
 let systemEncoders () =
   [ Opcode.SVC, exceptionGen 0b000u 0b01u
     Opcode.HVC, exceptionGen 0b000u 0b10u
@@ -1576,6 +1684,20 @@ let loadStoreEncoders () =
     Opcode.LDNP, loadStorePairNoAlloc 1u
     Opcode.STNP, loadStorePairNoAlloc 0u
     Opcode.LDPSW, loadPairSigned
+    Opcode.STGP, tagPair
+    Opcode.LDG, memoryTag 0b01u 0b00u coreReg
+    Opcode.STG, memoryTag 0b00u 0b10u coreRegSP
+    Opcode.STZG, memoryTag 0b01u 0b10u coreRegSP
+    Opcode.ST2G, memoryTag 0b10u 0b10u coreRegSP
+    Opcode.STZ2G, memoryTag 0b11u 0b10u coreRegSP
+    Opcode.STZGM, memoryTagMultiple 0b00u
+    Opcode.STGM, memoryTagMultiple 0b10u
+    Opcode.LDGM, memoryTagMultiple 0b11u
+    Opcode.ADDG, tagImmediate false
+    Opcode.SUBG, tagImmediate true
+    Opcode.SUBP, tagSubtract false
+    Opcode.SUBPS, tagSubtract true
+    Opcode.CMPP, tagSubtract true
     Opcode.STXRB, exclusiveStore (Some 0b00u) 0u
     Opcode.STLXRB, exclusiveStore (Some 0b00u) 1u
     Opcode.STXRH, exclusiveStore (Some 0b01u) 0u
@@ -1834,6 +1956,8 @@ let dataProcRegEncoders () =
     Opcode.SMULL, multiply 0b001u 0u
     Opcode.SMNEGL, multiply 0b001u 1u
     Opcode.UMULL, multiply 0b101u 0u
+    Opcode.IRG, tagTwoSource 0b000100u true
+    Opcode.GMI, tagTwoSource 0b000101u false
     Opcode.SETF8, evaluateIntoFlags 0u
     Opcode.RMIF, rotateMaskInsert
     Opcode.SETF16, evaluateIntoFlags 1u

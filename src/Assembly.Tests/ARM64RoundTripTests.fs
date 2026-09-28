@@ -972,7 +972,19 @@ type ARM64RoundTripTests() =
   /// </summary>
   static let unreachedByTheSweep =
     [ "setf8 w3"
-      "setf16 w7" ]
+      "setf16 w7"
+      "irg x0, x1"
+      "irg x0, x1, x2"
+      "gmi x0, x1, x2"
+      "ldg x0, [x1, #0x10]"
+      "stg x0, [x1, #0x20]!"
+      "stg x0, [x1], #0x20"
+      "st2g x0, [x1, #0x10]!"
+      "stzg x0, [x1], #0x10"
+      "stz2g x0, [x1, #0x10]"
+      "stgp x0, x1, [x2, #0x10]"
+      "stgp x0, x1, [x2, #0x10]!"
+      "stgp x0, x1, [x2], #0x10" ]
 
   [<TestMethod>]
   [<TestCategory("Sweep")>]

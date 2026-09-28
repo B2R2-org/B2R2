@@ -1192,6 +1192,8 @@ let xs bin = x (valS1 bin) |> OprRegister
 
 let xsd bin = xsr (valD bin) |> OprRegister
 
+let xsm bin = xsr (valM bin) |> OprRegister
+
 let xsn bin = xsr (valN bin) |> OprRegister
 
 let xt1 bin = x (valT1 bin) |> OprRegister

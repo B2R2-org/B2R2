@@ -113,6 +113,12 @@ type ParserTests() =
     let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL)
     Assert.AreEqual<string>(expected, ins.Disasm())
 
+  /// A word the decoder must refuse, being no instruction at all.
+  let testRefused (byteString: string) =
+    let bytes = ByteArray.ofHexString byteString
+    let parse () = parser.Parse(bytes, 0UL) |> ignore
+    Assert.ThrowsExactly<ParsingFailureException>(fun () -> parse ()) |> ignore
+
   let operandsFromArray oprList =
     let oprs = Array.ofList oprList
     match oprs.Length with
@@ -4692,3 +4698,122 @@ type ParserTests() =
   [<TestMethod>]
   member _.``C4.2 Evaluate into flags (2)``() =
     "3a0048ed" ++ SETF16 ** [ O.Reg W7 ] ||> test
+
+  /// IRG writes its third operand only when it is named: register 31 there is
+  /// the zero register and excludes no tag value.
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (1)``() =
+    "9adf1020" ++ IRG ** [ O.Reg X0; O.Reg X1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (2)``() =
+    "9ac21020" ++ IRG ** [ O.Reg X0; O.Reg X1; O.Reg X2 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (3)``() =
+    "9adf103f" ++ IRG ** [ O.Reg SP; O.Reg X1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (4)``() =
+    "9ac21420" ++ GMI ** [ O.Reg X0; O.Reg X1; O.Reg X2 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (5)``() =
+    "9ac20020" ++ SUBP ** [ O.Reg X0; O.Reg X1; O.Reg X2 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (6)``() =
+    "bac50083" ++ SUBPS ** [ O.Reg X3; O.Reg X4; O.Reg X5 ] ||> test
+
+  /// CMPP is the SUBPS whose destination is the zero register, so the
+  /// destination field alone tells the two apart.
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (7)``() =
+    "bac2003f" ++ CMPP ** [ O.Reg X1; O.Reg X2 ] ||> test
+
+  /// ADDG and SUBG reach the immediate group by an op0 of 011 where the
+  /// ordinary add and subtract take 010, and their first immediate counts
+  /// granules of sixteen bytes rather than bytes. Both fields name the
+  /// stack pointer at 31 rather than the zero register.
+  [<TestMethod>]
+  member _.``C4.2 Add/subtract (immediate, tags) (1)``() =
+    "91810c20" ++ ADDG ** [ O.Reg X0; O.Reg X1; O.Imm 0x10L; O.Imm 3L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.2 Add/subtract (immediate, tags) (2)``() =
+    "919f03ff" ++ ADDG ** [ O.Reg SP; O.Reg SP; O.Imm 0x1f0L; O.Imm 0L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.2 Add/subtract (immediate, tags) (3)``() =
+    "d18214c5" ++ SUBG ** [ O.Reg X5; O.Reg X6; O.Imm 0x20L; O.Imm 5L ]
+    ||> test
+
+  /// The memory-tag accesses count their offset in granules of sixteen bytes,
+  /// where the unscaled accesses they sit beside count bytes.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (1)``() =
+    "d9600020" ++ LDG ** [ O.Reg X0; O.MemBaseImm(X1, 0L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (2)``() =
+    "d97ff020" ++ LDG ** [ O.Reg X0; O.MemBaseImm(X1, -16L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (3)``() =
+    "d9202820" ++ STG ** [ O.Reg X0; O.MemBaseImm(X1, 32L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (4)``() =
+    "d9202420" ++ STG ** [ O.Reg X0; O.MemPostIdxImm(X1, 32L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (5)``() =
+    "d9a01c20" ++ ST2G ** [ O.Reg X0; O.MemPreIdxImm(X1, 16L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (6)``() =
+    "d9e01420" ++ STZ2G ** [ O.Reg X0; O.MemPostIdxImm(X1, 16L) ] ||> test
+
+  /// LDGM, STGM and STZGM are op2 = 00 with no offset, which LDG leaves free
+  /// at the other values of opc; with an offset they are no instruction.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (LDGM)``() =
+    "d9e003c0" ++ LDGM ** [ O.Reg X0; O.MemBaseImm X30 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (STGM)``() =
+    "d9a003e1" ++ STGM ** [ O.Reg X1; O.MemBaseImm SP ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (STZGM)``() =
+    "d9200041" ++ STZGM ** [ O.Reg X1; O.MemBaseImm X2 ] ||> test
+
+  /// LDGM with an offset: the block forms take none.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (LDGM with an offset)``() =
+    testRefused "d9e013c0"
+
+  /// STGM with an offset.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (STGM with an offset)``() =
+    testRefused "d9a013e1"
+
+  /// STZGM with an offset.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (STZGM with an offset)``() =
+    testRefused "d9201041"
+
+  /// STGP is the one combination of opc and L the ordinary pairs leave free.
+  [<TestMethod>]
+  member _.``C4.4 Load/store register pair (tags) (1)``() =
+    "69008440"
+    ++ STGP ** [ O.Reg X0; O.Reg X1; O.MemBaseImm(X2, 16L) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register pair (tags) (2)``() =
+    "69808440"
+    ++ STGP ** [ O.Reg X0; O.Reg X1; O.MemPreIdxImm(X2, 16L) ]
+    ||> test
