@@ -550,6 +550,10 @@ let getWt1Wt2MXSn bin = ThreeOperands(wt1 bin, wt2 bin, memXSn bin)
 
 let getXt1Xt2MXSn bin = ThreeOperands(xt1 bin, xt2 bin, memXSn bin)
 
+let getWsMXSn bin = TwoOperands(ws bin, memXSn bin)
+
+let getXsMXSn bin = TwoOperands(xs bin, memXSn bin)
+
 (* Register - Immediate - Shift *)
 let getVdtImm8LAmt bin oprVdt = function
   | Some s -> ThreeOperands(oprVdt bin, imm8 bin, s)
@@ -633,6 +637,18 @@ let getWdWnWmLsb bin = FourOperands(wd bin, wn bin, wm bin, lsb bin 31u)
 let getXdXnXmLsb bin = FourOperands(xd bin, xn bin, xm bin, lsb bin 63u)
 
 let getWsWt1Wt2MXSn bin = FourOperands(ws bin, wt1 bin, wt2 bin, memXSn bin)
+
+/// <summary>
+/// CASP's operands: two pairs of registers, each named by its first, which
+/// must be even, and the base register of the access.
+/// </summary>
+let getCasPair bin oprSize =
+  let s, t = valS1 bin, valT1 bin
+  if (s ||| t) &&& 1u = 1u then
+    unallocated ()
+  else
+    let reg v = getRegister64 oprSize (byte v) |> OprRegister
+    FiveOperands(reg s, reg (s + 1u), reg t, reg (t + 1u), memXSn bin)
 
 let getWsXt1Xt2MXSn bin = FourOperands(ws bin, xt1 bin, xt2 bin, memXSn bin)
 
@@ -1608,18 +1624,35 @@ let parseLoadStoreExclusive bin =
   | c when c &&& 0b001011u = 0b001000u (* FEAT_LOR *) -> unallocated ()
   | c when c &&& 0b001010u = 0b001010u && rt2 <> 0b11111u -> unallocated ()
   | c when c &&& 0b100010u = 0b000010u && rt2 <> 0b11111u -> unallocated ()
+  (* FEAT_LSE's compare and swap of a pair, at o1 set with a size of 0x *)
+  | 0b000010u when rt2 = 0b11111u -> Op.CASP, getCasPair bin 32<rt>, 32<rt>
+  | 0b000011u when rt2 = 0b11111u -> Op.CASPL, getCasPair bin 32<rt>, 32<rt>
+  | 0b000110u when rt2 = 0b11111u -> Op.CASPA, getCasPair bin 32<rt>, 32<rt>
+  | 0b000111u when rt2 = 0b11111u -> Op.CASPAL, getCasPair bin 32<rt>, 32<rt>
+  | 0b010010u when rt2 = 0b11111u -> Op.CASP, getCasPair bin 64<rt>, 64<rt>
+  | 0b010011u when rt2 = 0b11111u -> Op.CASPL, getCasPair bin 64<rt>, 64<rt>
+  | 0b010110u when rt2 = 0b11111u -> Op.CASPA, getCasPair bin 64<rt>, 64<rt>
+  | 0b010111u when rt2 = 0b11111u -> Op.CASPAL, getCasPair bin 64<rt>, 64<rt>
   | 0b000000u -> Op.STXRB, getWsWtMXSn bin, 32<rt>
   | 0b000001u -> Op.STLXRB, getWsWtMXSn bin, 32<rt>
   | 0b000100u -> Op.LDXRB, getWtMXSn bin, 32<rt>
   | 0b000101u -> Op.LDAXRB, getWtMXSn bin, 32<rt>
   | 0b001001u -> Op.STLRB, getWtMXSn bin, 32<rt>
   | 0b001101u -> Op.LDARB, getWtMXSn bin, 32<rt>
+  | 0b001010u -> Op.CASB, getWsWtMXSn bin, 32<rt>
+  | 0b001011u -> Op.CASLB, getWsWtMXSn bin, 32<rt>
+  | 0b001110u -> Op.CASAB, getWsWtMXSn bin, 32<rt>
+  | 0b001111u -> Op.CASALB, getWsWtMXSn bin, 32<rt>
   | 0b010000u -> Op.STXRH, getWsWtMXSn bin, 32<rt>
   | 0b010001u -> Op.STLXRH, getWsWtMXSn bin, 32<rt>
   | 0b010100u -> Op.LDXRH, getWtMXSn bin, 32<rt>
   | 0b010101u -> Op.LDAXRH, getWtMXSn bin, 32<rt>
   | 0b011001u -> Op.STLRH, getWtMXSn bin, 32<rt>
   | 0b011101u -> Op.LDARH, getWtMXSn bin, 32<rt>
+  | 0b011010u -> Op.CASH, getWsWtMXSn bin, 32<rt>
+  | 0b011011u -> Op.CASLH, getWsWtMXSn bin, 32<rt>
+  | 0b011110u -> Op.CASAH, getWsWtMXSn bin, 32<rt>
+  | 0b011111u -> Op.CASALH, getWsWtMXSn bin, 32<rt>
   | 0b100000u -> Op.STXR, getWsWtMXSn bin, 32<rt>
   | 0b100001u -> Op.STLXR, getWsWtMXSn bin, 32<rt>
   | 0b100010u -> Op.STXP, getWsWt1Wt2MXSn bin, 32<rt>
@@ -1933,6 +1966,142 @@ let parseLoadStoreRegPairPreIndexed bin =
   | c when c &&& 0b1100u = 0b1100u -> unallocated ()
   | _ -> raise ParsingFailureException
 
+/// <summary>
+/// Every name an atomic memory operation goes under, by the fields that pick
+/// it: the width first, then the operation, then the ordering.
+///
+/// One encoding class carries a hundred and fifty-nine spellings, because
+/// three fields name the instruction rather than one -- the size field puts a
+/// letter on the end, the opcode field picks the operation, and the acquire
+/// and release bits put their own letters in between. A table is the shortest
+/// honest way to write that down.
+///
+/// The width index is the size field with its last two values folded
+/// together: a word and a doubleword are spelled the same way and told apart
+/// by the register the operands name. The ordering index is A:R in the order
+/// the field counts -- neither, release, acquire, both.
+/// </summary>
+let private atomicLoadOps =
+  [| [| (* byte *)
+        [| Op.LDADDB; Op.LDADDLB; Op.LDADDAB; Op.LDADDALB |]
+        [| Op.LDCLRB; Op.LDCLRLB; Op.LDCLRAB; Op.LDCLRALB |]
+        [| Op.LDEORB; Op.LDEORLB; Op.LDEORAB; Op.LDEORALB |]
+        [| Op.LDSETB; Op.LDSETLB; Op.LDSETAB; Op.LDSETALB |]
+        [| Op.LDSMAXB; Op.LDSMAXLB; Op.LDSMAXAB; Op.LDSMAXALB |]
+        [| Op.LDSMINB; Op.LDSMINLB; Op.LDSMINAB; Op.LDSMINALB |]
+        [| Op.LDUMAXB; Op.LDUMAXLB; Op.LDUMAXAB; Op.LDUMAXALB |]
+        [| Op.LDUMINB; Op.LDUMINLB; Op.LDUMINAB; Op.LDUMINALB |] |]
+     [| (* halfword *)
+        [| Op.LDADDH; Op.LDADDLH; Op.LDADDAH; Op.LDADDALH |]
+        [| Op.LDCLRH; Op.LDCLRLH; Op.LDCLRAH; Op.LDCLRALH |]
+        [| Op.LDEORH; Op.LDEORLH; Op.LDEORAH; Op.LDEORALH |]
+        [| Op.LDSETH; Op.LDSETLH; Op.LDSETAH; Op.LDSETALH |]
+        [| Op.LDSMAXH; Op.LDSMAXLH; Op.LDSMAXAH; Op.LDSMAXALH |]
+        [| Op.LDSMINH; Op.LDSMINLH; Op.LDSMINAH; Op.LDSMINALH |]
+        [| Op.LDUMAXH; Op.LDUMAXLH; Op.LDUMAXAH; Op.LDUMAXALH |]
+        [| Op.LDUMINH; Op.LDUMINLH; Op.LDUMINAH; Op.LDUMINALH |] |]
+     [| (* word or doubleword *)
+        [| Op.LDADD; Op.LDADDL; Op.LDADDA; Op.LDADDAL |]
+        [| Op.LDCLR; Op.LDCLRL; Op.LDCLRA; Op.LDCLRAL |]
+        [| Op.LDEOR; Op.LDEORL; Op.LDEORA; Op.LDEORAL |]
+        [| Op.LDSET; Op.LDSETL; Op.LDSETA; Op.LDSETAL |]
+        [| Op.LDSMAX; Op.LDSMAXL; Op.LDSMAXA; Op.LDSMAXAL |]
+        [| Op.LDSMIN; Op.LDSMINL; Op.LDSMINA; Op.LDSMINAL |]
+        [| Op.LDUMAX; Op.LDUMAXL; Op.LDUMAXA; Op.LDUMAXAL |]
+        [| Op.LDUMIN; Op.LDUMINL; Op.LDUMINA; Op.LDUMINAL |] |] |]
+
+/// The same operations under the name they take when the value they loaded
+/// has nowhere to go. There is no acquire column: a form with no destination
+/// cannot be ordered against a read that is not happening.
+let private atomicStoreOps =
+  [| [| (* byte *)
+        [| Op.STADDB; Op.STADDLB |]
+        [| Op.STCLRB; Op.STCLRLB |]
+        [| Op.STEORB; Op.STEORLB |]
+        [| Op.STSETB; Op.STSETLB |]
+        [| Op.STSMAXB; Op.STSMAXLB |]
+        [| Op.STSMINB; Op.STSMINLB |]
+        [| Op.STUMAXB; Op.STUMAXLB |]
+        [| Op.STUMINB; Op.STUMINLB |] |]
+     [| (* halfword *)
+        [| Op.STADDH; Op.STADDLH |]
+        [| Op.STCLRH; Op.STCLRLH |]
+        [| Op.STEORH; Op.STEORLH |]
+        [| Op.STSETH; Op.STSETLH |]
+        [| Op.STSMAXH; Op.STSMAXLH |]
+        [| Op.STSMINH; Op.STSMINLH |]
+        [| Op.STUMAXH; Op.STUMAXLH |]
+        [| Op.STUMINH; Op.STUMINLH |] |]
+     [| (* word or doubleword *)
+        [| Op.STADD; Op.STADDL |]
+        [| Op.STCLR; Op.STCLRL |]
+        [| Op.STEOR; Op.STEORL |]
+        [| Op.STSET; Op.STSETL |]
+        [| Op.STSMAX; Op.STSMAXL |]
+        [| Op.STSMIN; Op.STSMINL |]
+        [| Op.STUMAX; Op.STUMAXL |]
+        [| Op.STUMIN; Op.STUMINL |] |] |]
+
+/// The swap, which is the same class with the o3 bit set.
+let private atomicSwapOps =
+  [| [| Op.SWPB; Op.SWPLB; Op.SWPAB; Op.SWPALB |] (* byte *)
+     [| Op.SWPH; Op.SWPLH; Op.SWPAH; Op.SWPALH |] (* halfword *)
+     [| Op.SWP; Op.SWPL; Op.SWPA; Op.SWPAL |] (* word or doubleword *) |]
+
+/// The acquiring load, which shares the class and is not an operation at all.
+let private atomicAcquireOps =
+  [| Op.LDAPRB (* byte *)
+     Op.LDAPRH (* halfword *)
+     Op.LDAPR (* word or doubleword *) |]
+
+/// <summary>
+/// Atomic memory operations.
+///
+/// The load form applies the operation to the location and hands back what
+/// was there before it. Where the destination is the zero register and there
+/// is no acquire, that value goes nowhere, and the manual's preferred
+/// disassembly is the store name, written without it; the release bit keeps
+/// its letter in both spellings.
+///
+/// LDAPR shares the class -- o3 set, opcode 100, the source register reading
+/// as the zero register -- and is a plain load with acquire ordering rather
+/// than an operation on anything.
+///
+/// A vector bit that is set belongs to the 64-byte accesses, which nothing
+/// here models.
+/// </summary>
+let parseAtomicMemoryOperations bin =
+  let size = extract bin 31u 30u
+  let ar = extract bin 23u 22u (* A:R *)
+  let rs = extract bin 20u 16u
+  let opc = extract bin 14u 12u
+  let rt = extract bin 4u 0u
+  let width = if size = 0b11u then 2 else int size
+  let is64 = size = 0b11u
+  let oprSize = if is64 then 64<rt> else 32<rt>
+  let regReg bin = if is64 then getXsXtMXSn bin else getWsWtMXSn bin
+  (* One index at a time: a chain of brackets reads as a chain of arguments. *)
+  let pick (table: Opcode[][][]) ordering =
+    let byWidth = table[width]
+    let byOpcode = byWidth[int opc]
+    byOpcode[ordering]
+  if pickBit bin 26u = 1u then
+    unallocated ()
+  elif pickBit bin 15u = 0u then
+    if ar < 0b10u && rt = 0b11111u then
+      let opr = if is64 then getXsMXSn bin else getWsMXSn bin
+      pick atomicStoreOps (int ar), opr, oprSize
+    else
+      pick atomicLoadOps (int ar), regReg bin, oprSize
+  elif opc = 0b000u then
+    let byWidth = atomicSwapOps[width]
+    byWidth[int ar], regReg bin, oprSize
+  elif opc = 0b100u && ar = 0b10u && rs = 0b11111u then
+    let opr = if is64 then getXtMXSn bin else getWtMXSn bin
+    atomicAcquireOps[width], opr, oprSize
+  else
+    unallocated ()
+
 /// Loads and stores
 let parse64Group3 bin =
   let op0 = pickBit bin 31u
@@ -1991,7 +2160,7 @@ let parse64Group3 bin =
   | c when c &&& 0b01101010000011u = 0b01100000000011u ->
     parseLoadStoreRegImmPreIndexed bin
   | c when c &&& 0b01101010000011u = 0b01100010000000u ->
-    unallocated ()
+    parseAtomicMemoryOperations bin
   | c when c &&& 0b01101010000011u = 0b01100010000001u ->
     unallocated ()
   | c when c &&& 0b01101010000011u = 0b01100010000010u ->

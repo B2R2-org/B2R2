@@ -122,8 +122,98 @@ let translate (ins: Instruction) bld =
     bCond ins bld VC
   | Opcode.BVS ->
     bCond ins bld VS
+  | Opcode.CASP | Opcode.CASPA | Opcode.CASPL | Opcode.CASPAL ->
+    compareAndSwapPair ins bld
   | Opcode.CAS | Opcode.CASA | Opcode.CASL | Opcode.CASAL ->
-    compareAndSwap ins bld
+    compareAndSwap ins bld ins.OprSize
+  | Opcode.CASB | Opcode.CASAB | Opcode.CASLB | Opcode.CASALB ->
+    compareAndSwap ins bld 8<rt>
+  | Opcode.CASH | Opcode.CASAH | Opcode.CASLH | Opcode.CASALH ->
+    compareAndSwap ins bld 16<rt>
+  | Opcode.LDADDB | Opcode.LDADDLB | Opcode.LDADDAB | Opcode.LDADDALB
+  | Opcode.STADDB | Opcode.STADDLB ->
+    atomicMemOp ins bld (.+) 8<rt>
+  | Opcode.LDADDH | Opcode.LDADDLH | Opcode.LDADDAH | Opcode.LDADDALH
+  | Opcode.STADDH | Opcode.STADDLH ->
+    atomicMemOp ins bld (.+) 16<rt>
+  | Opcode.LDADD | Opcode.LDADDL | Opcode.LDADDA | Opcode.LDADDAL
+  | Opcode.STADD | Opcode.STADDL ->
+    atomicMemOp ins bld (.+) ins.OprSize
+  | Opcode.LDCLRB | Opcode.LDCLRLB | Opcode.LDCLRAB | Opcode.LDCLRALB
+  | Opcode.STCLRB | Opcode.STCLRLB ->
+    atomicMemOp ins bld atomicClear 8<rt>
+  | Opcode.LDCLRH | Opcode.LDCLRLH | Opcode.LDCLRAH | Opcode.LDCLRALH
+  | Opcode.STCLRH | Opcode.STCLRLH ->
+    atomicMemOp ins bld atomicClear 16<rt>
+  | Opcode.LDCLR | Opcode.LDCLRL | Opcode.LDCLRA | Opcode.LDCLRAL
+  | Opcode.STCLR | Opcode.STCLRL ->
+    atomicMemOp ins bld atomicClear ins.OprSize
+  | Opcode.LDEORB | Opcode.LDEORLB | Opcode.LDEORAB | Opcode.LDEORALB
+  | Opcode.STEORB | Opcode.STEORLB ->
+    atomicMemOp ins bld (<+>) 8<rt>
+  | Opcode.LDEORH | Opcode.LDEORLH | Opcode.LDEORAH | Opcode.LDEORALH
+  | Opcode.STEORH | Opcode.STEORLH ->
+    atomicMemOp ins bld (<+>) 16<rt>
+  | Opcode.LDEOR | Opcode.LDEORL | Opcode.LDEORA | Opcode.LDEORAL
+  | Opcode.STEOR | Opcode.STEORL ->
+    atomicMemOp ins bld (<+>) ins.OprSize
+  | Opcode.LDSETB | Opcode.LDSETLB | Opcode.LDSETAB | Opcode.LDSETALB
+  | Opcode.STSETB | Opcode.STSETLB ->
+    atomicMemOp ins bld (.|) 8<rt>
+  | Opcode.LDSETH | Opcode.LDSETLH | Opcode.LDSETAH | Opcode.LDSETALH
+  | Opcode.STSETH | Opcode.STSETLH ->
+    atomicMemOp ins bld (.|) 16<rt>
+  | Opcode.LDSET | Opcode.LDSETL | Opcode.LDSETA | Opcode.LDSETAL
+  | Opcode.STSET | Opcode.STSETL ->
+    atomicMemOp ins bld (.|) ins.OprSize
+  | Opcode.LDSMAXB | Opcode.LDSMAXLB | Opcode.LDSMAXAB | Opcode.LDSMAXALB
+  | Opcode.STSMAXB | Opcode.STSMAXLB ->
+    atomicMemOp ins bld atomicSMax 8<rt>
+  | Opcode.LDSMAXH | Opcode.LDSMAXLH | Opcode.LDSMAXAH | Opcode.LDSMAXALH
+  | Opcode.STSMAXH | Opcode.STSMAXLH ->
+    atomicMemOp ins bld atomicSMax 16<rt>
+  | Opcode.LDSMAX | Opcode.LDSMAXL | Opcode.LDSMAXA | Opcode.LDSMAXAL
+  | Opcode.STSMAX | Opcode.STSMAXL ->
+    atomicMemOp ins bld atomicSMax ins.OprSize
+  | Opcode.LDSMINB | Opcode.LDSMINLB | Opcode.LDSMINAB | Opcode.LDSMINALB
+  | Opcode.STSMINB | Opcode.STSMINLB ->
+    atomicMemOp ins bld atomicSMin 8<rt>
+  | Opcode.LDSMINH | Opcode.LDSMINLH | Opcode.LDSMINAH | Opcode.LDSMINALH
+  | Opcode.STSMINH | Opcode.STSMINLH ->
+    atomicMemOp ins bld atomicSMin 16<rt>
+  | Opcode.LDSMIN | Opcode.LDSMINL | Opcode.LDSMINA | Opcode.LDSMINAL
+  | Opcode.STSMIN | Opcode.STSMINL ->
+    atomicMemOp ins bld atomicSMin ins.OprSize
+  | Opcode.LDUMAXB | Opcode.LDUMAXLB | Opcode.LDUMAXAB | Opcode.LDUMAXALB
+  | Opcode.STUMAXB | Opcode.STUMAXLB ->
+    atomicMemOp ins bld atomicUMax 8<rt>
+  | Opcode.LDUMAXH | Opcode.LDUMAXLH | Opcode.LDUMAXAH | Opcode.LDUMAXALH
+  | Opcode.STUMAXH | Opcode.STUMAXLH ->
+    atomicMemOp ins bld atomicUMax 16<rt>
+  | Opcode.LDUMAX | Opcode.LDUMAXL | Opcode.LDUMAXA | Opcode.LDUMAXAL
+  | Opcode.STUMAX | Opcode.STUMAXL ->
+    atomicMemOp ins bld atomicUMax ins.OprSize
+  | Opcode.LDUMINB | Opcode.LDUMINLB | Opcode.LDUMINAB | Opcode.LDUMINALB
+  | Opcode.STUMINB | Opcode.STUMINLB ->
+    atomicMemOp ins bld atomicUMin 8<rt>
+  | Opcode.LDUMINH | Opcode.LDUMINLH | Opcode.LDUMINAH | Opcode.LDUMINALH
+  | Opcode.STUMINH | Opcode.STUMINLH ->
+    atomicMemOp ins bld atomicUMin 16<rt>
+  | Opcode.LDUMIN | Opcode.LDUMINL | Opcode.LDUMINA | Opcode.LDUMINAL
+  | Opcode.STUMIN | Opcode.STUMINL ->
+    atomicMemOp ins bld atomicUMin ins.OprSize
+  | Opcode.SWPB | Opcode.SWPLB | Opcode.SWPAB | Opcode.SWPALB ->
+    swapMem ins bld 8<rt>
+  | Opcode.SWPH | Opcode.SWPLH | Opcode.SWPAH | Opcode.SWPALH ->
+    swapMem ins bld 16<rt>
+  | Opcode.SWP | Opcode.SWPL | Opcode.SWPA | Opcode.SWPAL ->
+    swapMem ins bld ins.OprSize
+  | Opcode.LDAPRB ->
+    loadAcquirePc ins bld 8<rt>
+  | Opcode.LDAPRH ->
+    loadAcquirePc ins bld 16<rt>
+  | Opcode.LDAPR ->
+    loadAcquirePc ins bld ins.OprSize
   | Opcode.CBNZ ->
     cbnz ins bld
   | Opcode.CBZ ->

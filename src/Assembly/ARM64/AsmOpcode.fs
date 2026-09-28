@@ -1113,12 +1113,13 @@ let private exclusivePairStore o0 ins =
   | _ ->
     wrongOperands ins
 
-/// Encodes <Rs>, <Rt>, [<Xn|SP>], the compare-and-swap accesses, whose size the
-/// registers say and whose mnemonic says only how ordered they are.
-let private compareAndSwap l o0 ins =
+/// Encodes <Rs>, <Rt>, [<Xn|SP>], the compare-and-swap accesses. The byte and
+/// halfword forms say their width in the mnemonic; the other two leave the
+/// registers to say it.
+let private compareAndSwap size l o0 ins =
   match ins.Operands with
   | ThreeOperands(Rg rs, Rg rt, mem) ->
-    exclusiveWith (accessSize rs)
+    exclusiveWith (defaultArg size (accessSize rs))
                   1u
                   l
                   1u
@@ -1127,6 +1128,76 @@ let private compareAndSwap l o0 ins =
                   31u
                   (plainBase ins mem)
                   (coreReg rt)
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// CASP and its orderings, which name both registers of each pair and encode
+/// only the first: it must be even, and the second the one after it.
+/// </summary>
+let private compareAndSwapPair l o0 ins =
+  match ins.Operands with
+  | FiveOperands(Rg rs, Rg rs2, Rg rt, Rg rt2, mem) ->
+    let s, t = coreReg rs, coreReg rt
+    let paired = coreReg rs2 = s + 1u && coreReg rt2 = t + 1u
+    if (s ||| t) &&& 1u <> 0u || not paired then
+      fail "a pair is an even register and the one after it"
+    else
+      let sz = if is64Reg rs then 1u else 0u
+      exclusiveWith sz 0u l 1u o0 s 31u (plainBase ins mem) t
+  | _ ->
+    wrongOperands ins
+
+/// The bits an atomic memory operation shares.
+let private atomicWith size a r rs o3 opc rn rt =
+  (size <<< 30) ||| (0b111000u <<< 24) ||| (a <<< 23) ||| (r <<< 22)
+  ||| (1u <<< 21) ||| (rs <<< 16) ||| (o3 <<< 15) ||| (opc <<< 12)
+  ||| (coreRegSP rn <<< 5) ||| rt
+
+/// <summary>
+/// Encodes the atomic memory operations, in both of the spellings they have.
+///
+/// The load form names a source and a destination. The store form names only
+/// the source and is the same encoding with the destination reading as the
+/// zero register, which is why a mnemonic beginning ST arrives here with two
+/// operands and is given thirty-one for the third.
+/// </summary>
+let private atomicMemory size a r o3 opc ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rs, Rg rt, mem) ->
+    atomicWith (defaultArg size (accessSize rs))
+               a
+               r
+               (coreReg rs)
+               o3
+               opc
+               (plainBase ins mem)
+               (coreReg rt)
+  | TwoOperands(Rg rs, mem) ->
+    atomicWith (defaultArg size (accessSize rs))
+               a
+               r
+               (coreReg rs)
+               o3
+               opc
+               (plainBase ins mem)
+               31u
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <Rt>, [<Xn|SP>], the acquiring load that shares the atomic class
+/// and operates on nothing.
+let private loadAcquirePc size ins =
+  match ins.Operands with
+  | TwoOperands(Rg rt, mem) ->
+    atomicWith (defaultArg size (accessSize rt))
+               1u
+               0u
+               31u
+               1u
+               0b100u
+               (plainBase ins mem)
+               (coreReg rt)
   | _ ->
     wrongOperands ins
 
@@ -1472,10 +1543,181 @@ let loadStoreEncoders () =
     Opcode.STLXP, exclusivePairStore 1u
     Opcode.LDXP, exclusivePairLoad 0u
     Opcode.LDAXP, exclusivePairLoad 1u
-    Opcode.CAS, compareAndSwap 0u 0u
-    Opcode.CASL, compareAndSwap 0u 1u
-    Opcode.CASA, compareAndSwap 1u 0u
-    Opcode.CASAL, compareAndSwap 1u 1u
+    Opcode.CASP, compareAndSwapPair 0u 0u
+    Opcode.CASPL, compareAndSwapPair 0u 1u
+    Opcode.CASPA, compareAndSwapPair 1u 0u
+    Opcode.CASPAL, compareAndSwapPair 1u 1u
+    Opcode.CAS, compareAndSwap None 0u 0u
+    Opcode.CASL, compareAndSwap None 0u 1u
+    Opcode.CASA, compareAndSwap None 1u 0u
+    Opcode.CASAL, compareAndSwap None 1u 1u
+    Opcode.CASB, compareAndSwap (Some 0b00u) 0u 0u
+    Opcode.CASLB, compareAndSwap (Some 0b00u) 0u 1u
+    Opcode.CASAB, compareAndSwap (Some 0b00u) 1u 0u
+    Opcode.CASALB, compareAndSwap (Some 0b00u) 1u 1u
+    Opcode.CASH, compareAndSwap (Some 0b01u) 0u 0u
+    Opcode.CASLH, compareAndSwap (Some 0b01u) 0u 1u
+    Opcode.CASAH, compareAndSwap (Some 0b01u) 1u 0u
+    Opcode.CASALH, compareAndSwap (Some 0b01u) 1u 1u
+    Opcode.LDADDB, atomicMemory (Some 0b00u) 0u 0u 0u 0b000u
+    Opcode.LDADDLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b000u
+    Opcode.LDADDAB, atomicMemory (Some 0b00u) 1u 0u 0u 0b000u
+    Opcode.LDADDALB, atomicMemory (Some 0b00u) 1u 1u 0u 0b000u
+    Opcode.STADDB, atomicMemory (Some 0b00u) 0u 0u 0u 0b000u
+    Opcode.STADDLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b000u
+    Opcode.LDADDH, atomicMemory (Some 0b01u) 0u 0u 0u 0b000u
+    Opcode.LDADDLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b000u
+    Opcode.LDADDAH, atomicMemory (Some 0b01u) 1u 0u 0u 0b000u
+    Opcode.LDADDALH, atomicMemory (Some 0b01u) 1u 1u 0u 0b000u
+    Opcode.STADDH, atomicMemory (Some 0b01u) 0u 0u 0u 0b000u
+    Opcode.STADDLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b000u
+    Opcode.LDADD, atomicMemory (None) 0u 0u 0u 0b000u
+    Opcode.LDADDL, atomicMemory (None) 0u 1u 0u 0b000u
+    Opcode.LDADDA, atomicMemory (None) 1u 0u 0u 0b000u
+    Opcode.LDADDAL, atomicMemory (None) 1u 1u 0u 0b000u
+    Opcode.STADD, atomicMemory (None) 0u 0u 0u 0b000u
+    Opcode.STADDL, atomicMemory (None) 0u 1u 0u 0b000u
+    Opcode.LDCLRB, atomicMemory (Some 0b00u) 0u 0u 0u 0b001u
+    Opcode.LDCLRLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b001u
+    Opcode.LDCLRAB, atomicMemory (Some 0b00u) 1u 0u 0u 0b001u
+    Opcode.LDCLRALB, atomicMemory (Some 0b00u) 1u 1u 0u 0b001u
+    Opcode.STCLRB, atomicMemory (Some 0b00u) 0u 0u 0u 0b001u
+    Opcode.STCLRLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b001u
+    Opcode.LDCLRH, atomicMemory (Some 0b01u) 0u 0u 0u 0b001u
+    Opcode.LDCLRLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b001u
+    Opcode.LDCLRAH, atomicMemory (Some 0b01u) 1u 0u 0u 0b001u
+    Opcode.LDCLRALH, atomicMemory (Some 0b01u) 1u 1u 0u 0b001u
+    Opcode.STCLRH, atomicMemory (Some 0b01u) 0u 0u 0u 0b001u
+    Opcode.STCLRLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b001u
+    Opcode.LDCLR, atomicMemory (None) 0u 0u 0u 0b001u
+    Opcode.LDCLRL, atomicMemory (None) 0u 1u 0u 0b001u
+    Opcode.LDCLRA, atomicMemory (None) 1u 0u 0u 0b001u
+    Opcode.LDCLRAL, atomicMemory (None) 1u 1u 0u 0b001u
+    Opcode.STCLR, atomicMemory (None) 0u 0u 0u 0b001u
+    Opcode.STCLRL, atomicMemory (None) 0u 1u 0u 0b001u
+    Opcode.LDEORB, atomicMemory (Some 0b00u) 0u 0u 0u 0b010u
+    Opcode.LDEORLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b010u
+    Opcode.LDEORAB, atomicMemory (Some 0b00u) 1u 0u 0u 0b010u
+    Opcode.LDEORALB, atomicMemory (Some 0b00u) 1u 1u 0u 0b010u
+    Opcode.STEORB, atomicMemory (Some 0b00u) 0u 0u 0u 0b010u
+    Opcode.STEORLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b010u
+    Opcode.LDEORH, atomicMemory (Some 0b01u) 0u 0u 0u 0b010u
+    Opcode.LDEORLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b010u
+    Opcode.LDEORAH, atomicMemory (Some 0b01u) 1u 0u 0u 0b010u
+    Opcode.LDEORALH, atomicMemory (Some 0b01u) 1u 1u 0u 0b010u
+    Opcode.STEORH, atomicMemory (Some 0b01u) 0u 0u 0u 0b010u
+    Opcode.STEORLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b010u
+    Opcode.LDEOR, atomicMemory (None) 0u 0u 0u 0b010u
+    Opcode.LDEORL, atomicMemory (None) 0u 1u 0u 0b010u
+    Opcode.LDEORA, atomicMemory (None) 1u 0u 0u 0b010u
+    Opcode.LDEORAL, atomicMemory (None) 1u 1u 0u 0b010u
+    Opcode.STEOR, atomicMemory (None) 0u 0u 0u 0b010u
+    Opcode.STEORL, atomicMemory (None) 0u 1u 0u 0b010u
+    Opcode.LDSETB, atomicMemory (Some 0b00u) 0u 0u 0u 0b011u
+    Opcode.LDSETLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b011u
+    Opcode.LDSETAB, atomicMemory (Some 0b00u) 1u 0u 0u 0b011u
+    Opcode.LDSETALB, atomicMemory (Some 0b00u) 1u 1u 0u 0b011u
+    Opcode.STSETB, atomicMemory (Some 0b00u) 0u 0u 0u 0b011u
+    Opcode.STSETLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b011u
+    Opcode.LDSETH, atomicMemory (Some 0b01u) 0u 0u 0u 0b011u
+    Opcode.LDSETLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b011u
+    Opcode.LDSETAH, atomicMemory (Some 0b01u) 1u 0u 0u 0b011u
+    Opcode.LDSETALH, atomicMemory (Some 0b01u) 1u 1u 0u 0b011u
+    Opcode.STSETH, atomicMemory (Some 0b01u) 0u 0u 0u 0b011u
+    Opcode.STSETLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b011u
+    Opcode.LDSET, atomicMemory (None) 0u 0u 0u 0b011u
+    Opcode.LDSETL, atomicMemory (None) 0u 1u 0u 0b011u
+    Opcode.LDSETA, atomicMemory (None) 1u 0u 0u 0b011u
+    Opcode.LDSETAL, atomicMemory (None) 1u 1u 0u 0b011u
+    Opcode.STSET, atomicMemory (None) 0u 0u 0u 0b011u
+    Opcode.STSETL, atomicMemory (None) 0u 1u 0u 0b011u
+    Opcode.LDSMAXB, atomicMemory (Some 0b00u) 0u 0u 0u 0b100u
+    Opcode.LDSMAXLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b100u
+    Opcode.LDSMAXAB, atomicMemory (Some 0b00u) 1u 0u 0u 0b100u
+    Opcode.LDSMAXALB, atomicMemory (Some 0b00u) 1u 1u 0u 0b100u
+    Opcode.STSMAXB, atomicMemory (Some 0b00u) 0u 0u 0u 0b100u
+    Opcode.STSMAXLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b100u
+    Opcode.LDSMAXH, atomicMemory (Some 0b01u) 0u 0u 0u 0b100u
+    Opcode.LDSMAXLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b100u
+    Opcode.LDSMAXAH, atomicMemory (Some 0b01u) 1u 0u 0u 0b100u
+    Opcode.LDSMAXALH, atomicMemory (Some 0b01u) 1u 1u 0u 0b100u
+    Opcode.STSMAXH, atomicMemory (Some 0b01u) 0u 0u 0u 0b100u
+    Opcode.STSMAXLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b100u
+    Opcode.LDSMAX, atomicMemory (None) 0u 0u 0u 0b100u
+    Opcode.LDSMAXL, atomicMemory (None) 0u 1u 0u 0b100u
+    Opcode.LDSMAXA, atomicMemory (None) 1u 0u 0u 0b100u
+    Opcode.LDSMAXAL, atomicMemory (None) 1u 1u 0u 0b100u
+    Opcode.STSMAX, atomicMemory (None) 0u 0u 0u 0b100u
+    Opcode.STSMAXL, atomicMemory (None) 0u 1u 0u 0b100u
+    Opcode.LDSMINB, atomicMemory (Some 0b00u) 0u 0u 0u 0b101u
+    Opcode.LDSMINLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b101u
+    Opcode.LDSMINAB, atomicMemory (Some 0b00u) 1u 0u 0u 0b101u
+    Opcode.LDSMINALB, atomicMemory (Some 0b00u) 1u 1u 0u 0b101u
+    Opcode.STSMINB, atomicMemory (Some 0b00u) 0u 0u 0u 0b101u
+    Opcode.STSMINLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b101u
+    Opcode.LDSMINH, atomicMemory (Some 0b01u) 0u 0u 0u 0b101u
+    Opcode.LDSMINLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b101u
+    Opcode.LDSMINAH, atomicMemory (Some 0b01u) 1u 0u 0u 0b101u
+    Opcode.LDSMINALH, atomicMemory (Some 0b01u) 1u 1u 0u 0b101u
+    Opcode.STSMINH, atomicMemory (Some 0b01u) 0u 0u 0u 0b101u
+    Opcode.STSMINLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b101u
+    Opcode.LDSMIN, atomicMemory (None) 0u 0u 0u 0b101u
+    Opcode.LDSMINL, atomicMemory (None) 0u 1u 0u 0b101u
+    Opcode.LDSMINA, atomicMemory (None) 1u 0u 0u 0b101u
+    Opcode.LDSMINAL, atomicMemory (None) 1u 1u 0u 0b101u
+    Opcode.STSMIN, atomicMemory (None) 0u 0u 0u 0b101u
+    Opcode.STSMINL, atomicMemory (None) 0u 1u 0u 0b101u
+    Opcode.LDUMAXB, atomicMemory (Some 0b00u) 0u 0u 0u 0b110u
+    Opcode.LDUMAXLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b110u
+    Opcode.LDUMAXAB, atomicMemory (Some 0b00u) 1u 0u 0u 0b110u
+    Opcode.LDUMAXALB, atomicMemory (Some 0b00u) 1u 1u 0u 0b110u
+    Opcode.STUMAXB, atomicMemory (Some 0b00u) 0u 0u 0u 0b110u
+    Opcode.STUMAXLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b110u
+    Opcode.LDUMAXH, atomicMemory (Some 0b01u) 0u 0u 0u 0b110u
+    Opcode.LDUMAXLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b110u
+    Opcode.LDUMAXAH, atomicMemory (Some 0b01u) 1u 0u 0u 0b110u
+    Opcode.LDUMAXALH, atomicMemory (Some 0b01u) 1u 1u 0u 0b110u
+    Opcode.STUMAXH, atomicMemory (Some 0b01u) 0u 0u 0u 0b110u
+    Opcode.STUMAXLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b110u
+    Opcode.LDUMAX, atomicMemory (None) 0u 0u 0u 0b110u
+    Opcode.LDUMAXL, atomicMemory (None) 0u 1u 0u 0b110u
+    Opcode.LDUMAXA, atomicMemory (None) 1u 0u 0u 0b110u
+    Opcode.LDUMAXAL, atomicMemory (None) 1u 1u 0u 0b110u
+    Opcode.STUMAX, atomicMemory (None) 0u 0u 0u 0b110u
+    Opcode.STUMAXL, atomicMemory (None) 0u 1u 0u 0b110u
+    Opcode.LDUMINB, atomicMemory (Some 0b00u) 0u 0u 0u 0b111u
+    Opcode.LDUMINLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b111u
+    Opcode.LDUMINAB, atomicMemory (Some 0b00u) 1u 0u 0u 0b111u
+    Opcode.LDUMINALB, atomicMemory (Some 0b00u) 1u 1u 0u 0b111u
+    Opcode.STUMINB, atomicMemory (Some 0b00u) 0u 0u 0u 0b111u
+    Opcode.STUMINLB, atomicMemory (Some 0b00u) 0u 1u 0u 0b111u
+    Opcode.LDUMINH, atomicMemory (Some 0b01u) 0u 0u 0u 0b111u
+    Opcode.LDUMINLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b111u
+    Opcode.LDUMINAH, atomicMemory (Some 0b01u) 1u 0u 0u 0b111u
+    Opcode.LDUMINALH, atomicMemory (Some 0b01u) 1u 1u 0u 0b111u
+    Opcode.STUMINH, atomicMemory (Some 0b01u) 0u 0u 0u 0b111u
+    Opcode.STUMINLH, atomicMemory (Some 0b01u) 0u 1u 0u 0b111u
+    Opcode.LDUMIN, atomicMemory (None) 0u 0u 0u 0b111u
+    Opcode.LDUMINL, atomicMemory (None) 0u 1u 0u 0b111u
+    Opcode.LDUMINA, atomicMemory (None) 1u 0u 0u 0b111u
+    Opcode.LDUMINAL, atomicMemory (None) 1u 1u 0u 0b111u
+    Opcode.STUMIN, atomicMemory (None) 0u 0u 0u 0b111u
+    Opcode.STUMINL, atomicMemory (None) 0u 1u 0u 0b111u
+    Opcode.SWPB, atomicMemory (Some 0b00u) 0u 0u 1u 0b000u
+    Opcode.SWPLB, atomicMemory (Some 0b00u) 0u 1u 1u 0b000u
+    Opcode.SWPAB, atomicMemory (Some 0b00u) 1u 0u 1u 0b000u
+    Opcode.SWPALB, atomicMemory (Some 0b00u) 1u 1u 1u 0b000u
+    Opcode.SWPH, atomicMemory (Some 0b01u) 0u 0u 1u 0b000u
+    Opcode.SWPLH, atomicMemory (Some 0b01u) 0u 1u 1u 0b000u
+    Opcode.SWPAH, atomicMemory (Some 0b01u) 1u 0u 1u 0b000u
+    Opcode.SWPALH, atomicMemory (Some 0b01u) 1u 1u 1u 0b000u
+    Opcode.SWP, atomicMemory (None) 0u 0u 1u 0b000u
+    Opcode.SWPL, atomicMemory (None) 0u 1u 1u 0b000u
+    Opcode.SWPA, atomicMemory (None) 1u 0u 1u 0b000u
+    Opcode.SWPAL, atomicMemory (None) 1u 1u 1u 0b000u
+    Opcode.LDAPRB, loadAcquirePc (Some 0b00u)
+    Opcode.LDAPRH, loadAcquirePc (Some 0b01u)
+    Opcode.LDAPR, loadAcquirePc (None)
     Opcode.LD1, structureOrElement 1u 1
     Opcode.LD2, structureOrElement 1u 2
     Opcode.LD3, structureOrElement 1u 3

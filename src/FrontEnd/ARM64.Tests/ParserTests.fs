@@ -464,6 +464,40 @@ type ParserTests() =
     ++ LDXRB ** [ O.Reg W26; O.MemBaseImm X11 ]
     ||> test
 
+  /// FEAT_LSE's compare and swap of a pair takes an even register for
+  /// each pair and encodes only it.
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (1)``() =
+    testDisasm "08207c82" "casp w0, w1, w2, w3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (2)``() =
+    testDisasm "08607c82" "caspa w0, w1, w2, w3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (3)``() =
+    testDisasm "0860fc82" "caspal w0, w1, w2, w3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (4)``() =
+    testDisasm "0820fc82" "caspl w0, w1, w2, w3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (5)``() =
+    testDisasm "48207c82" "casp x0, x1, x2, x3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (6)``() =
+    testDisasm "48667fe8" "caspa x6, x7, x8, x9, [sp]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (7)``() =
+    testDisasm "487cfd8a" "caspal x28, x29, x10, x11, [x12]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (8)``() =
+    testDisasm "4822fcc4" "caspl x2, x3, x4, x5, [x6]"
+
   [<TestMethod>]
   member _.``C4.4.7 Load/store no-allocate pair (offset) (1)``() =
     "280c2aa3"

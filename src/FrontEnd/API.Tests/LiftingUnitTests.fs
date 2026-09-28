@@ -104,8 +104,10 @@ type LiftingUnitTests() =
   static let parsableArchs = alignments |> Array.map fst
 
   /// Instructions whose IR nobody has written yet, with the mnemonic each one
-  /// decodes to. Found by fuzzing; a sample stops serving once that instruction
-  /// is implemented, which is the point of the list.
+  /// decodes to. A sample stops serving once that instruction is implemented,
+  /// which is the point of the list, so each is taken from a corner that stays
+  /// unwritten longest -- the privileged forms and the newest vector
+  /// extensions.
   static let unlifted =
     [| Architecture.ARMv7, "730806b7", "smlsdx"
        Architecture.ARMv7, "50ef2ba1", "qsub"

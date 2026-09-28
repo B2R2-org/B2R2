@@ -200,18 +200,131 @@ let inline private compareBranch ins bld cmp =
     return NoEndMark
   }
 
-let compareAndSwap ins bld =
+/// <summary>
+/// CAS, whose access is as wide as its name says and not as wide as the
+/// registers it names: the byte and halfword forms compare and store one
+/// byte or one halfword, and the comparison register comes back holding what
+/// was there with the rest of it zeroed.
+/// </summary>
+let compareAndSwap (ins: Instruction) bld accSz =
   lift bld ins {
-    let dst, src, mem = transThreeOprs ins bld
-    let struct (compareVal, newVal, oldVal) = tmpVars3 bld ins.OprSize
-    let memVal = tmpVar bld 64<rt>
+    let oprSz = ins.OprSize
+    let dst, src, (bReg, offset) = transThreeOprsSepMem ins bld
+    let struct (compareVal, newVal, oldVal) = tmpVars3 bld accSz
+    let address = tmpVar bld 64<rt>
     let cond = oldVal == compareVal
-    direct compareVal := dst
-    direct newVal := src
-    direct memVal := mem
-    direct oldVal := memVal |> AST.xtlo ins.OprSize
-    direct mem := AST.ite cond (newVal |> AST.sext 64<rt>) memVal
-    direct dst := oldVal |> AST.zext ins.OprSize
+    let narrow e = if accSz = oprSz then e else AST.xtlo accSz e
+    direct address := bReg .+ offset
+    direct compareVal := narrow dst
+    direct newVal := narrow src
+    direct oldVal := AST.loadLE accSz address
+    direct (AST.loadLE accSz address) := AST.ite cond newVal oldVal
+    sized oprSz dst := AST.zext oprSz oldVal
+  }
+
+/// <summary>
+/// CASP, CASPA, CASPAL and CASPL: the compare and swap of a PAIR -- two words
+/// or two doublewords, which the manual reads as one access of twice the
+/// size. They are compared with the first pair of registers and replaced by
+/// the second where both match, and the first pair gets what memory held. On
+/// a little-endian access the lower register of each pair goes with the
+/// lower address.
+/// </summary>
+let compareAndSwapPair (ins: Instruction) bld =
+  lift bld ins {
+    let oprSz = ins.OprSize
+    match ins.Operands with
+    | FiveOperands(s1, s2, t1, t2, mem) ->
+      let bReg, offset = transOpr ins bld mem |> separateMemExpr
+      let struct (address, high) = tmpVars2 bld 64<rt>
+      let struct (oldLo, oldHi) = tmpVars2 bld oprSz
+      let reg o = transOpr ins bld o
+      let matches = (oldLo == reg s1) .& (oldHi == reg s2)
+      direct address := bReg .+ offset
+      direct high := address .+ numI32 (int oprSz / 8) 64<rt>
+      direct oldLo := AST.loadLE oprSz address
+      direct oldHi := AST.loadLE oprSz high
+      direct (AST.loadLE oprSz address) := AST.ite matches (reg t1) oldLo
+      direct (AST.loadLE oprSz high) := AST.ite matches (reg t2) oldHi
+      sized oprSz (reg s1) := oldLo
+      sized oprSz (reg s2) := oldHi
+    | _ ->
+      raise InvalidOperandException
+  }
+
+/// The four operations whose name is not already an operator. CLR clears the
+/// bits the operand names, which is why it is not an AND, and the four
+/// extremes differ only in whether the comparison reads the sign.
+let atomicClear (a: Expr) (b: Expr) = a .& AST.not b
+
+let atomicSMax (a: Expr) (b: Expr) = AST.ite (a ?> b) a b
+
+let atomicSMin (a: Expr) (b: Expr) = AST.ite (a ?< b) a b
+
+let atomicUMax (a: Expr) (b: Expr) = AST.ite (a .> b) a b
+
+let atomicUMin (a: Expr) (b: Expr) = AST.ite (a .< b) a b
+
+/// <summary>
+/// The atomic memory operations: a load, an operation on what was loaded and
+/// a store, in one instruction.
+///
+/// What goes back to the destination is the value the location held BEFORE
+/// the operation, so it is latched into a temporary first -- the source
+/// register may also be the destination, and the store must not read back
+/// what it is about to write.
+///
+/// The store form has no destination at all. It is the same encoding with the
+/// destination reading as the zero register, and it arrives here with two
+/// operands rather than three because that is how the manual spells it.
+///
+/// The acquire and release suffixes say nothing here. They order this access
+/// against others on the same processor, and a model that runs one
+/// instruction after another has nothing for them to constrain.
+///
+/// The width of the ACCESS is not the width of the registers and arrives
+/// separately. A byte form names two 32-bit registers and reads one byte, and
+/// the operation is done on that byte: LDSMAXB compares eight signed bits,
+/// not thirty-two, and what comes back is the old byte with the rest of the
+/// register zeroed.
+/// </summary>
+let atomicMemOp (ins: Instruction) bld op accSz =
+  lift bld ins {
+    let oprSz = ins.OprSize
+    let struct (operand, oldVal) = tmpVars2 bld accSz
+    let address = tmpVar bld 64<rt>
+    let narrow e = if accSz = oprSz then e else AST.xtlo accSz e
+    match ins.Operands with
+    | ThreeOperands _ ->
+      let src, dst, (bReg, offset) = transThreeOprsSepMem ins bld
+      direct address := bReg .+ offset
+      direct operand := narrow src
+      direct oldVal := AST.loadLE accSz address
+      direct (AST.loadLE accSz address) := op oldVal operand
+      sized oprSz dst := AST.zext oprSz oldVal
+    | _ ->
+      let src, (bReg, offset) = transTwoOprsSepMem ins bld
+      direct address := bReg .+ offset
+      direct operand := narrow src
+      direct oldVal := AST.loadLE accSz address
+      direct (AST.loadLE accSz address) := op oldVal operand
+  }
+
+/// SWP, which is the same class with nothing to combine: what goes to memory
+/// is the operand itself.
+let swapMem ins bld accSz =
+  atomicMemOp ins bld (fun _ operand -> operand) accSz
+
+/// LDAPR, a load that shares the atomic class and is not atomic: the acquire
+/// ordering it carries is the whole of what distinguishes it from LDR, and
+/// ordering is not modelled.
+let loadAcquirePc (ins: Instruction) bld accSz =
+  lift bld ins {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld
+    let address = tmpVar bld 64<rt>
+    direct address := bReg .+ offset
+    sized ins.OprSize dst :=
+      AST.zext ins.OprSize (AST.loadLE accSz address)
   }
 
 let cbnz ins bld = compareBranch ins bld (!=)
