@@ -461,11 +461,22 @@ let private fpCompare bld oprSz src1 src2 =
   }
   result
 
+/// <summary>
+/// Whether a comparison raises Invalid: FCMP and FCCMP for a signalling NaN,
+/// FCMPE and FCCMPE -- the signalling comparisons -- for any NaN.
+/// </summary>
+let private compareInvalid (ins: Instruction) src1 src2 =
+  let sz = ins.OprSize
+  match ins.Opcode with
+  | Opcode.FCMPE | Opcode.FCCMPE -> isNaN sz src1 .| isNaN sz src2
+  | _ -> isSNaN sz src1 .| isSNaN sz src2
+
 let fcmp (ins: Instruction) bld =
   lift bld ins {
     let src1, src2 = transTwoOprs ins bld
     let flags = tmpVar bld 8<rt>
     direct flags := fpCompare bld ins.OprSize src1 src2
+    fpExceptionsInvalidOnly bld (compareInvalid ins src1 src2)
     direct (regVar bld R.N) := AST.extract flags 1<rt> 3
     direct (regVar bld R.Z) := AST.extract flags 1<rt> 2
     direct (regVar bld R.C) := AST.extract flags 1<rt> 1
@@ -476,8 +487,12 @@ let fccmp (ins: Instruction) bld =
   lift bld ins {
     let src1, src2, nzcv, cond = transOprOfCCMP ins bld
     let flags = tmpVar bld 8<rt>
+    let holds = tmpVar bld 1<rt>
+    direct holds := conditionHolds bld cond
     let comp = fpCompare bld ins.OprSize src1 src2
-    direct flags := AST.ite (conditionHolds bld cond) comp (AST.xtlo 8<rt> nzcv)
+    direct flags := AST.ite holds comp (AST.xtlo 8<rt> nzcv)
+    (* nothing is compared where the condition fails, so nothing is raised *)
+    fpExceptionsInvalidOnly bld (holds .& compareInvalid ins src1 src2)
     direct (regVar bld R.N) := AST.extract flags 1<rt> 3
     direct (regVar bld R.Z) := AST.extract flags 1<rt> 2
     direct (regVar bld R.C) := AST.extract flags 1<rt> 1

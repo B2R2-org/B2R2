@@ -222,11 +222,13 @@ let translate (ins: Instruction) bld =
   | Opcode.FMADD ->
     fmadd ins bld
   | Opcode.FMAX ->
-    fmaxmin ins bld AST.fgt
+    fmax ins bld
   | Opcode.FMAXNM ->
-    unsupported ins bld
+    fmaxnm ins bld
   | Opcode.FMIN ->
-    fmaxmin ins bld AST.flt
+    fmin ins bld
+  | Opcode.FMINNM ->
+    fminnm ins bld
   | Opcode.FMLA ->
     fmla ins bld
   | Opcode.FMLS ->

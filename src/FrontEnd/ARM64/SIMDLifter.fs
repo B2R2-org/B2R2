@@ -81,6 +81,7 @@ let private fpType bld mode eSize element =
     direct res := AST.ite (isZero eSize element) (fpZero element eSize) castElem
     AST.lmark lblEnd
   }
+  fpExceptionsInvalidOnly bld (isSNaN eSize element)
   res
 
 let private isVecIdxOrLD1ST1 (ins: Instruction) opr =
@@ -112,19 +113,23 @@ let private fillZeroHigh64 (ins: Instruction) bld opr =
   else
     ()
 
+/// <summary>
+/// FixedToFP: an integer, or a fixed-point number with <c>fbits</c> of
+/// fraction, converted to a single or a double.
+///
+/// The integer is rounded into the format and then scaled by a power of two,
+/// which is exact -- the smallest value a fixed-point source reaches is two to
+/// the -64th, nowhere near subnormal -- so the conversion's one rounding is
+/// the cast's, and Inexact, the only exception it can raise, is asked of the
+/// cast.
+/// </summary>
 let private fixedToFp bld oprSz fbits unsigned src =
-  let divBits =
-    AST.cast CastKind.UIntToFloat oprSz (numU64 0x1uL oprSz << fbits)
-  let intOperand, num0 =
-    if unsigned then
-      let float0 = AST.cast CastKind.UIntToFloat oprSz (AST.num0 oprSz)
-      AST.cast CastKind.UIntToFloat oprSz src, float0
-    else
-      let float0 = AST.cast CastKind.SIntToFloat oprSz (AST.num0 oprSz)
-      AST.cast CastKind.SIntToFloat oprSz src, float0
-  let realOperand = fpDiv bld oprSz intOperand divBits
-  let cond = AST.eq realOperand num0
-  AST.ite cond (AST.num0 oprSz) realOperand
+  let kind = if unsigned then CastKind.UIntToFloat else CastKind.SIntToFloat
+  let integer = AST.cast kind oprSz src
+  let r = tmpVar bld oprSz
+  append bld { direct r := AST.fdiv integer (powerOfTwoOf oprSz fbits) }
+  fpExceptionsRounded bld AST.b0 (AST.not (fpIsExact integer))
+  r
 
 let private getRndConst amt eSize =
   let n1 = AST.num1 eSize
@@ -836,15 +841,17 @@ let fmadd (ins: Instruction) bld =
     dstAssignScalar ins bld dst result eSize
   }
 
-let fmaxmin (ins: Instruction) bld fop =
+/// FMAX, FMIN and the two numeric forms. All four agree on the shape of the
+/// operands and differ only in which primitive each element goes through, so
+/// that choice arrives as a function and the four opcodes are named below.
+let private fmaxmin (ins: Instruction) bld fp =
   lift bld ins {
     match ins.Operands with
     | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
       let struct (eSize, _, _) = getElemDataSzAndElems o1
       let src1 = transOpr ins bld o2
       let src2 = transOpr ins bld o3
-      let cond = fop src1 src2
-      let result = AST.ite cond src1 src2
+      let result = fp bld eSize src1 src2
       dstAssignScalar ins bld o1 result eSize
     | _ ->
       let struct (o1, o2, o3) = getThreeOprs ins
@@ -852,15 +859,21 @@ let fmaxmin (ins: Instruction) bld fop =
       let struct (dstB, dstA) = transOpr128 ins bld o1
       let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
       let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-      let result = Array.init elements (fun _ -> tmpVar bld eSize)
-      let inline cond e1 e2 =
-        let src1 = AST.cast CastKind.FloatCast eSize e1
-        let src2 = AST.cast CastKind.FloatCast eSize e2
-        AST.ite (fop src1 src2) src1 src2
-      Array.iteri2 (fun i e1 e2 ->
-        append bld { direct (result[i]) := cond e1 e2 }) src1 src2
+      let result = Array.map2 (fp bld eSize) src1 src2
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
+
+let fmax ins bld =
+  fmaxmin ins bld (fun bld eSize -> fpMaxMin bld eSize true)
+
+let fmaxnm ins bld =
+  fmaxmin ins bld (fun bld eSize -> fpMaxMinNum bld eSize true)
+
+let fmin ins bld =
+  fmaxmin ins bld (fun bld eSize -> fpMaxMin bld eSize false)
+
+let fminnm ins bld =
+  fmaxmin ins bld (fun bld eSize -> fpMaxMinNum bld eSize false)
 
 /// FMLA and FMLS accumulate a fused product into the destination, element by
 /// element: Vd + Vn * Vm and Vd - Vn * Vm, each element rounded once rather
@@ -1049,18 +1062,37 @@ let private fpRoundToInt (ins: Instruction) bld mode =
       raise InvalidOperandException
   }
 
-let private fpCurrentRoundToInt (ins: Instruction) bld =
+/// <summary>
+/// FRINTI's and FRINTX's rounding of one element, in the direction FPCR
+/// names: a NaN processed, and what it raised recorded -- Invalid for a
+/// signalling NaN, and for FRINTX alone Inexact where the rounding changed
+/// the value.
+/// </summary>
+let private currentRound bld isExact eSize e =
+  let struct (res, rounded) = tmpVars2 bld eSize
+  let nan = fpProcessNan bld eSize e
+  append bld {
+    direct rounded := fpRoundingMode e eSize
+    direct res := AST.ite (isNaN eSize e) nan rounded
+  }
+  let changed = AST.not (isNaN eSize e) .& (rounded != e)
+  let inexact = if isExact then changed else AST.b0
+  fpExceptionsRounded bld (isSNaN eSize e) inexact
+  res
+
+let private fpCurrentRoundToInt (ins: Instruction) bld isExact =
   lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems dst
       let src = transOpr ins bld src
-      let result = fpRoundingMode src ins.OprSize
-      dstAssignScalar ins bld dst result ins.OprSize
+      let result = currentRound bld isExact eSize src
+      dstAssignScalar ins bld dst result eSize
     | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
       let struct (dstB, dstA) = transOpr128 ins bld dst
       let src = transSIMDOprToExpr bld eSize dataSize elements src
-      let result = Array.map (fun s -> fpRoundingMode s eSize) src
+      let result = Array.map (currentRound bld isExact eSize) src
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
       raise InvalidOperandException
@@ -1110,7 +1142,7 @@ let frinta (ins: Instruction) bld =
       raise InvalidOperandException
   }
 
-let frinti ins bld = fpCurrentRoundToInt ins bld
+let frinti ins bld = fpCurrentRoundToInt ins bld false
 
 let frintm ins bld =
   fpRoundToInt ins bld RoundingMode.TowardNegative
@@ -1121,7 +1153,7 @@ let frintn ins bld =
 let frintp ins bld =
   fpRoundToInt ins bld RoundingMode.TowardPositive
 
-let frintx ins bld = fpCurrentRoundToInt ins bld
+let frintx ins bld = fpCurrentRoundToInt ins bld true
 
 let frintz ins bld =
   fpRoundToInt ins bld RoundingMode.TowardZero
@@ -1132,12 +1164,12 @@ let fsqrt ins bld =
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _), _) ->
-      let src = transOpr ins bld src |> AST.fsqrt
+      let src = transOpr ins bld src |> fpSqrt bld eSize
       dstAssignScalar ins bld dst src eSize
     | _ ->
       let struct (dstB, dstA) = transOpr128 ins bld dst
       let src = transSIMDOprToExpr bld eSize dataSize elements src
-                |> Array.map (AST.fsqrt)
+                |> Array.map (fpSqrt bld eSize)
       dstAssignForSIMD dstA dstB src dataSize elements bld
   }
 
