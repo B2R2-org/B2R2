@@ -20,6 +20,7 @@ jobs:
       run: |
         dotnet tool restore
         dotnet fslint src --strict
+        dotnet fslint scripts --strict
 
   notify-failure:
 
