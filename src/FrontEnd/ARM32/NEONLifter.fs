@@ -461,22 +461,39 @@ let private immAt width e =
   elif sz > width then AST.xtlo width e
   else AST.zext width e
 
+/// <summary>
+/// The immediate of a SIMD move, filled out to the width of the register it
+/// is written into.
+///
+/// The operand carries the immediate the DISASSEMBLY names: VMOV.I8 is
+/// written with eight bits and printed with eight, and AdvSIMDExpandImm's
+/// answer is masked back down to them on the way out of the parser. What the
+/// instruction writes is a copy of it in every element, so assigning it as it
+/// stands leaves the first element set and the rest zero -- VMOV.I8 Dd, #255
+/// filled a register with 0xff rather than with eight of them, and the guests
+/// that build an all-ones vector that way came out wrong from there on.
+/// </summary>
+let private replicatedImm (p: ParsingInfo) imm =
+  let rec fill acc shift =
+    if shift >= 64 then acc
+    else fill (acc .| (imm << numI32 shift 64<rt>)) (shift + p.ESize)
+  fill imm p.ESize
+
 let parseOprOfVMOV (ins: Instruction) bld =
   match ins.Operands with
   (* VMOV (immediate) *)
   | TwoOperands(OprSIMD _, OprImm _) ->
     let struct (dst, imm) = getTwoOprs ins
+    let imm = transOpr ins bld imm |> replicatedImm (getParsingInfo ins)
     match ins.OprSize with
     | 128<rt> ->
       let struct (dstB, dstA) = transOpr128 bld dst
-      let imm = transOpr ins bld imm
       append bld {
         dstB := imm
         dstA := imm
       }
     | _ ->
       let dst = transOpr ins bld dst
-      let imm = transOpr ins bld imm
       append bld {
         dst := imm
       }
@@ -2206,6 +2223,122 @@ let vrshrn (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
+/// The shape every bitwise operation on two vector registers has: a pair of
+/// halves where the operands are quadwords, and one register where they are
+/// doublewords.
+let private vbitwise (ins: Instruction) bld op =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (dst, src1, src2) = getThreeOprs ins
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
+      dstB := op src1B src2B
+      dstA := op src1A src2A
+    | _ ->
+      let struct (dst, src1, src2) = transThreeOprs ins bld
+      dst := op src1 src2
+    putEndLabel bld lblIgnore
+  }
+
+let veor ins bld = vbitwise ins bld (<+>)
+
+/// <summary>
+/// VBIC, which clears the bits its second operand names.
+///
+/// The immediate form reads the destination as well as writing it, because
+/// what it clears is named by the immediate and everything else is kept.
+/// </summary>
+let vbic (ins: Instruction) bld =
+  match ins.Operands with
+  | ThreeOperands _ ->
+    vbitwise ins bld (fun a b -> a .& AST.not b)
+  | _ ->
+    lift bld ins {
+      let isUnconditional = ParseUtils.isUnconditional ins.Condition
+      let lblIgnore = checkCondition ins bld isUnconditional
+      let struct (dst, imm) = getTwoOprs ins
+      let p = getParsingInfo ins
+      let mask = transOpr ins bld imm |> replicatedImm p |> AST.not
+      match ins.OprSize with
+      | 128<rt> ->
+        let struct (dstB, dstA) = transOpr128 bld dst
+        dstB := dstB .& mask
+        dstA := dstA .& mask
+      | _ ->
+        let dst = transOpr ins bld dst
+        dst := dst .& mask
+      putEndLabel bld lblIgnore
+    }
+
+/// <summary>
+/// VMVN, the bitwise complement.
+///
+/// The immediate form does not read the destination at all: it writes the
+/// complement of the immediate, which is why it is a move and not an
+/// operation on what was there.
+/// </summary>
+let vmvn (ins: Instruction) bld =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    match ins.Operands with
+    | TwoOperands(_, OprImm _) ->
+      let struct (dst, imm) = getTwoOprs ins
+      let p = getParsingInfo ins
+      let value = transOpr ins bld imm |> replicatedImm p |> AST.not
+      match ins.OprSize with
+      | 128<rt> ->
+        let struct (dstB, dstA) = transOpr128 bld dst
+        dstB := value
+        dstA := value
+      | _ ->
+        let dst = transOpr ins bld dst
+        dst := value
+    | _ ->
+      match ins.OprSize with
+      | 128<rt> ->
+        let struct (dst, src) = getTwoOprs ins
+        let struct (dstB, dstA) = transOpr128 bld dst
+        let struct (srcB, srcA) = transOpr128 bld src
+        dstB := AST.not srcB
+        dstA := AST.not srcA
+      | _ ->
+        let struct (dst, src) = transTwoOprs ins bld
+        dst := AST.not src
+    putEndLabel bld lblIgnore
+  }
+
+/// VSWP, which exchanges two whole registers. Both are latched first, because
+/// the second write would otherwise read back what the first one put there.
+let vswp (ins: Instruction) bld =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (srcB, srcA) = transOpr128 bld src
+      let struct (tB, tA) = tmpVars2 bld 64<rt>
+      tB := dstB
+      tA := dstA
+      dstB := srcB
+      dstA := srcA
+      srcB := tB
+      srcA := tA
+    | _ ->
+      let struct (dst, src) = transTwoOprs ins bld
+      let t = tmpVar bld 64<rt>
+      t := dst
+      dst := src
+      src := t
+    putEndLabel bld lblIgnore
+  }
+
 let vorrReg (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -2232,13 +2365,12 @@ let vorrImm (ins: Instruction) bld =
     | 128<rt> ->
       let struct (dst, imm) = getTwoOprs ins
       let struct (dstB, dstA) = transOpr128 bld dst
-      let imm =
-        AST.concat (transOpr ins bld imm) (transOpr ins bld imm)
+      let imm = transOpr ins bld imm |> replicatedImm (getParsingInfo ins)
       dstB := dstB .| imm
       dstA := dstA .| imm
     | _ ->
       let struct (dst, imm) = transTwoOprs ins bld
-      let imm = AST.concat imm imm // FIXME: A8-975
+      let imm = replicatedImm (getParsingInfo ins) imm
       dst := dst .| imm
     putEndLabel bld lblIgnore
   }
@@ -2852,76 +2984,6 @@ let udf (ins: Instruction) bld =
   match ins.Operands with
   | OneOperand(OprImm n) -> sideEffects ins bld (Interrupt(int n))
   | _ -> raise InvalidOperandException
-
-let uasx (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let struct (dst, src1, src2) = transThreeOprs ins bld
-    let cpsr = regVar bld R.CPSR
-    let struct (diff, sum) = tmpVars2 bld 32<rt>
-    let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
-    let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
-    let struct (ge10, ge32) = tmpVars2 bld 32<rt>
-    let numI32 n = numI32 n 32<rt>
-    diff := xtlo src1 .- xthi src2
-    sum := xthi src1 .+ xtlo src2
-    dst := AST.concat (AST.xtlo 16<rt> sum) (AST.xtlo 16<rt> diff)
-    ge10 := AST.ite (diff .>= numI32 0) (numI32 0xC0000) (numI32 0)
-    ge32 := AST.ite (sum .>= numI32 0x10000) (numI32 0x30000) (numI32 0)
-    cpsr := (cpsr .& (numI32 0xFFF0FFFF)) .| (ge32 .| ge10)
-    putEndLabel bld lblIgnore
-  }
-
-let uhsub16 (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let struct (dst, src1, src2) = transThreeOprs ins bld
-    let struct (diff1, diff2) = tmpVars2 bld 32<rt>
-    let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
-    let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
-    let n1 = AST.num1 32<rt>
-    diff1 := xtlo src1 .- xtlo src2
-    diff2 := xthi src1 .- xthi src2
-    dst :=
-      AST.concat (AST.xtlo 16<rt> (diff2 >> n1)) (AST.xtlo 16<rt> (diff1 >> n1))
-    putEndLabel bld lblIgnore
-  }
-
-let uqsax (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let struct (dst, src1, src2) = transThreeOprs ins bld
-    let struct (sum, diff) = tmpVars2 bld 32<rt>
-    let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
-    let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
-    sum := xtlo src1 .+ xthi src2
-    diff := xthi src1 .- xtlo src2
-    dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum)
-    putEndLabel bld lblIgnore
-  }
-
-let usax (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let struct (dst, src1, src2) = transThreeOprs ins bld
-    let cpsr = regVar bld R.CPSR
-    let struct (sum, diff) = tmpVars2 bld 32<rt>
-    let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
-    let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
-    let struct (ge10, ge32) = tmpVars2 bld 32<rt>
-    let numI32 n = numI32 n 32<rt>
-    sum := xtlo src1 .+ xthi src2
-    diff := xthi src1 .- xtlo src2
-    dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum)
-    ge10 := AST.ite (sum .>= numI32 0x10000) (numI32 0x30000) (numI32 0)
-    ge32 := AST.ite (diff .>= numI32 0) (numI32 0xC0000) (numI32 0)
-    cpsr := (cpsr .& (numI32 0xFFF0FFFF)) .| (ge10 .| ge32)
-    putEndLabel bld lblIgnore
-  }
 
 let vext (ins: Instruction) bld =
   lift bld ins {

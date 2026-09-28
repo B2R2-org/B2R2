@@ -343,6 +343,7 @@ type OprDesc =
   | OprSPSPImm7 = 309
   | OprSPSPRm = 310
   | OprSregRnT = 311
+  | OprCsync = 312
 
 type OD = OprDesc
 
@@ -1060,6 +1061,12 @@ and internal ParsingHelper(arch,
 type internal OprNo() =
   inherit OperandParser()
   override _.Render _ = struct (NoOperand, false, None, 0<rt>)
+
+(* CSYNC *)
+type internal OprCsync() =
+  inherit OperandParser()
+  override _.Render _ =
+    struct (OneOperand(OprHintOpt CSYNC), false, None, 0<rt>)
 
 (* <Rn>{!} *)
 type internal OprRn() =

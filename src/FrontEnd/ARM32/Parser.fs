@@ -388,7 +388,8 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
        OprSingleRegsT() :> OperandParser
        OprSPSPImm7() :> OperandParser
        OprSPSPRm() :> OperandParser
-       OprSregRnT() :> OperandParser |]
+       OprSregRnT() :> OperandParser
+       OprCsync() :> OperandParser |]
 
   let mutable isThumb: bool = isThumb
 

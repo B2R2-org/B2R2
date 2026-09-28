@@ -1105,6 +1105,53 @@ type ThumbParserTests() =
   member _.``[T32] VLD2 of the last two D registers``() =
     testDisasm "f962e818" "vld2.8 {d30, d31}, [r2:64], r8"
 
+  /// MRRC keeps its second register at 19:16, and 11:8 is the coprocessor.
+  [<TestMethod>]
+  member _.``[T32] MRRC from coprocessor 15``() =
+    testDisasm "ec510f34" "mrrc p15, #0x3, r0, r1, c4"
+
+  /// PLDW's eight-bit offset is an immediate; its low four bits name no
+  /// register.
+  [<TestMethod>]
+  member _.``[T32] PLDW with a negative offset ending in F``() =
+    testDisasm "f83efcaf" "pldw [lr, #-0xaf]"
+
+  /// TSB CSYNC names its option, which is part of what it is written as.
+  [<TestMethod>]
+  member _.``[T32] TSB CSYNC names its option``() =
+    testDisasm "f3af8012" "tsb csync"
+
+  /// RRX rotates by exactly one place and is written with no amount.
+  [<TestMethod>]
+  member _.``[T32] An RRX operand takes no amount``() =
+    testDisasm "ea010034" "and r0, r1, r4, rrx"
+
+  /// A MOV whose operand is shifted reads as the shift it names, which the
+  /// manual gives as its preferred disassembly (F5-4557).
+  [<TestMethod>]
+  member _.``[T32] MOV with RRX reads as RRX``() =
+    testDisasm "ea4f0031" "rrx r0, r1"
+
+  [<TestMethod>]
+  member _.``[T32] MOV with LSL reads as LSL``() =
+    testDisasm "ea4f00c1" "lsl r0, r1, #0x3"
+
+  [<TestMethod>]
+  member _.``[T32] MOV with LSR reads as LSR``() =
+    testDisasm "ea4f00d1" "lsr r0, r1, #0x3"
+
+  [<TestMethod>]
+  member _.``[T32] MOV with LSR #32 reads as LSR #32``() =
+    testDisasm "ea4f0011" "lsr r0, r1, #0x20"
+
+  [<TestMethod>]
+  member _.``[T32] MOV with ASR reads as ASR``() =
+    testDisasm "ea4f00e1" "asr r0, r1, #0x3"
+
+  [<TestMethod>]
+  member _.``[T32] MOV with ROR reads as ROR``() =
+    testDisasm "ea4f00f1" "ror r0, r1, #0x3"
+
   /// VMOV.F32 builds a single-precision number from its eight bits the way
   /// AdvSIMDExpandImm does (J1-7926).
   [<TestMethod>]
@@ -1128,6 +1175,30 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[T32] VMVN.I32 (immediate) shifts in sixteen ones``() =
     testDisasm "ef850d3a" "vmvn.i32 d0, #0x5affff"
+
+  /// SHA256H2 is written as one word with its data type.
+  [<TestMethod>]
+  member _.``[T32] SHA256H2 is written as one word``() =
+    testDisasm "ff100c40" "sha256h2.32 q0, q0, q0"
+
+  /// The wide moves of a register keep their destination in bits 11:8 of the
+  /// second halfword, as every wide data-processing instruction does; bits
+  /// 15:12 hold the top of the shift amount.
+  [<TestMethod>]
+  member _.``[T32] MOV (register, wide) names its destination``() =
+    testDisasm "ea4f0801" "mov r8, r1"
+
+  [<TestMethod>]
+  member _.``[T32] MOVS.W (register) names its destination``() =
+    testDisasm "ea5f0801" "movs.w r8, r1"
+
+  [<TestMethod>]
+  member _.``[T32] RRX names its destination``() =
+    testDisasm "ea4f0831" "rrx r8, r1"
+
+  [<TestMethod>]
+  member _.``[T32] RRXS names its destination``() =
+    testDisasm "ea5f0831" "rrxs r8, r1"
 
   /// The floating-point instructions are the coprocessor space with 10 in bits
   /// 11:10, and T32 reads no other coprocessor's data-processing words.

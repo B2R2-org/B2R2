@@ -1141,6 +1141,16 @@ type ParserTests() =
     ++ VQSHLU ** [ O.SimdVectorReg D0; O.SimdVectorReg D1; O.Imm 1L ]
     ||> testNoWbackNoQ Condition.UN (Some(OneDT SIMDTypS8))
 
+  /// TSB CSYNC names its option, which is part of what it is written as.
+  [<TestMethod>]
+  member _.``[ARMv7] TSB CSYNC names its option``() =
+    testDisasm "e320f012" "tsb csync"
+
+  /// RRX rotates by exactly one place and is written with no amount.
+  [<TestMethod>]
+  member _.``[ARMv7] An RRX operand takes no amount``() =
+    testDisasm "e0010064" "and r0, r1, r4, rrx"
+
   /// VMOV.F32 builds a single-precision number from its eight bits the way
   /// AdvSIMDExpandImm does (J1-7926): sign, an exponent whose top bit is the
   /// inverse of the bit below it, and four bits of fraction.
@@ -1181,6 +1191,17 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] VMVN.I32 (immediate) shifts in sixteen ones``() =
     testDisasm "f2850d3a" "vmvn.i32 d0, #0x5affff"
+
+  /// DBG names the option it passes to the debug system (F5-4385).
+  [<TestMethod>]
+  member _.``[ARMv7] DBG names its option``() =
+    testDisasm "e320f0f4" "dbg #0x4"
+
+  /// SHA256H2 is written as one word with its data type, as every other SHA
+  /// instruction is.
+  [<TestMethod>]
+  member _.``[ARMv7] SHA256H2 is written as one word``() =
+    testDisasm "f3100c40" "sha256h2.32 q0, q0, q0"
 
   /// The floating-point instructions are the coprocessor space with 10 in bits
   /// 11:10: coprocessors 10 and 11, and 9 for half precision. The four above

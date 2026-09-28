@@ -51,6 +51,7 @@ and Operand =
   | OprIflag of Iflag
   | OprEndian of Endian
   | OprCond of Condition
+  | OprHintOpt of HintOption
   | GoToLabel of string
 
 /// Represents flag combinations used in ARM32 PSR (Program Status Register).
@@ -154,6 +155,12 @@ and BarrierOption =
   | LD = 0b1101
   | ST = 0b1110
   | SY = 0b1111
+
+/// Represents the word a hint is written with when it takes one: the CSYNC of
+/// TSB.
+and HintOption =
+  /// TSB CSYNC.
+  | CSYNC
 
 /// Represents interrupt mask flags in ARM32 architecture.
 and Iflag =

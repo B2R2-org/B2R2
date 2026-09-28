@@ -214,7 +214,22 @@ type Instruction
           (* The PC value of an instruction is its address plus 4 for a Thumb
              instruction, or plus 8 for an ARM instruction. *)
           let offset = if not this.IsThumb then 8L else 4L
-          let pc = (int64 this.Address + offset) / 4L * 4L (* Align by 4 *)
+          (* Align(PC,4) only when the TARGET instruction set is ARM,
+             which from Thumb means BLX immediate:
+
+               if targetInstrSet == InstrSet_ARM then
+                    targetAddress = Align(PC,4) + imm32;
+               else targetAddress = PC + imm32;
+
+             and a plain B is `BranchWritePC(PC + imm32)` with no
+             alignment at all. Aligning unconditionally put every Thumb
+             branch sitting at an address congruent to 2 mod 4 -- about
+             half of them -- two bytes low. In ARM state the alignment is
+             a no-op, since A32 instructions are word-aligned already. *)
+          let basePC = int64 this.Address + offset
+          let pc =
+            if this.IsThumb && op <> Op.BLX then basePC
+            else basePC / 4L * 4L
           addr <- ((pc + target) &&& 0xFFFFFFFFL) |> uint64
           true
         | _ ->

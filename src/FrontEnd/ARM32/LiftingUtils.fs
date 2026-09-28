@@ -654,7 +654,14 @@ let memU addr size value = memUWithPriv addr size value
 
 /// Value stored when an ARM instruction stores the R.PC, on page A2-47.
 /// function : PCStoreValue()
-let pcStoreValue bld = getPC bld
+///
+/// A2-47 is explicit that it "returns the address of the current instruction
+/// plus 8". R.PC here holds the instruction's own address -- the +8 is added
+/// by convertPCOpr wherever the PC is read as a data operand -- so returning
+/// it unchanged made STR PC, PUSH {..,pc} and STM with PC in the list store a
+/// value eight bytes low. All three are deprecated, which is why nothing else
+/// in the suite reaches them.
+let pcStoreValue bld = getPC bld .+ numI32 8 32<rt>
 
 /// Returns TRUE in Secure state or if no Security Extensions, on page B1-1157.
 /// function : IsSecure()
@@ -732,6 +739,7 @@ let writeModeBits bld value isExcptReturn =
   append bld {
     regVar bld R.CPSR := disablePSRBits bld R.CPSR PSR.M .| mValue
   }
+
 /// <summary>
 /// A fused multiply-add: <c>x * y + z</c> with a SINGLE rounding.
 ///

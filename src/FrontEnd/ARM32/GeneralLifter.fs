@@ -321,7 +321,12 @@ let add isSetFlags ins bld =
       result := addWithCarryOnlyResult src1 src2 (AST.num0 32<rt>)
       if dst = getPC bld then aluWritePC bld ins isUnconditional result
       else append bld { dst := result }
-      putEndLabel bld lblIgnore
+    (* Outside the `else`, where every sibling in this file puts it. It sat
+       inside, and Op.ADDS always takes the flag-setting arm -- so a
+       conditional ADDS emitted its cjmp to the skip label and never marked
+       it. The evaluator failed on the missing label rather than producing a
+       wrong value, and in Thumb the ITSTATE advance went with it. *)
+    putEndLabel bld lblIgnore
   }
 
 /// Align integer or bitstring to multiple of an integer, on page AppxP-2655
@@ -468,6 +473,30 @@ let sSat bld i oprSz n =
   let struct (r, _) = sSatQ bld i oprSz n
   r
 
+/// <summary>
+/// QADD and QSUB, the scalar saturating pair.
+///
+/// The arithmetic is done at sixty-four bits because that is where a sum of
+/// two thirty-two bit values that went out of range still exists; a thirty-two
+/// bit addition has wrapped, and SignedSat asked after it has nothing left to
+/// clamp. Q is set where the answer was clamped and is never cleared.
+///
+/// These are not the doubling forms below, which clamp twice.
+/// </summary>
+let qaddsub (ins: Instruction) bld isSub =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let wide e = AST.sext 64<rt> e
+    let value = if isSub then wide src1 .- wide src2 else wide src1 .+ wide src2
+    let struct (r, sat) = sSatQ bld value 64<rt> 32<rt>
+    dst := r
+    let cpsr = regVar bld R.CPSR
+    cpsr := AST.ite sat (enablePSRBits bld R.CPSR PSR.Q) cpsr
+    putEndLabel bld lblIgnore
+  }
+
 let qdadd (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -512,40 +541,133 @@ let qdsub (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
-let qsax (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let struct (dst, src1, src2) = transThreeOprs ins bld
-    let struct (sum, diff) = tmpVars2 bld 32<rt>
-    let struct (satSum, satDiff) = tmpVars2 bld 16<rt>
-    (* The lanes are sign-extended into 32 bits before the arithmetic: a lane
-       computed at its final 16 bits has already wrapped, and there is nothing
-       left for SignedSat to clamp. *)
-    let xtlo src = AST.sext 32<rt> (AST.xtlo 16<rt> src)
-    let xthi src = AST.sext 32<rt> (AST.xthi 16<rt> src)
-    sum := xtlo src1 .+ xthi src2
-    diff := xthi src1 .- xtlo src2
-    satSum := sSat bld sum 32<rt> 16<rt>
-    satDiff := sSat bld diff 32<rt> 16<rt>
-    dst := AST.concat satDiff satSum
-    putEndLabel bld lblIgnore
-  }
+/// <summary>
+/// UnsignedSat: what an n-bit unsigned lane holds, clamped.
+///
+/// Both comparisons are signed, because the value arrives WIDER than the lane
+/// and a borrow has already left it negative there; an unsigned comparison
+/// reads that as an enormous number and clamps it to the top of the range
+/// instead of to the bottom.
+/// </summary>
+let private uSat i oprSz n =
+  let maxV = numI64 ((1L <<< RegType.toBitWidth n) - 1L) oprSz
+  let zero = AST.num0 oprSz
+  AST.xtlo n (AST.ite (i ?> maxV) maxV (AST.ite (i ?< zero) zero i))
 
-let qsub16 (ins: Instruction) bld =
+/// <summary>
+/// How a lane of a parallel add or subtract is finished.
+///
+/// The family is written with six prefixes, which are three treatments of a
+/// lane crossed with the two signednesses. A WRAPPING lane keeps the low bits
+/// and says in the GE flags what went over; a SATURATING one clamps to the
+/// lane's range; a HALVING one shifts the answer down a place, which is why
+/// it cannot go over at all.
+/// </summary>
+type ParallelLane =
+  | WrappingLane
+  | SaturatingLane
+  | HalvingLane
+
+/// <summary>
+/// Which lane of the second operand each result lane reads, and whether it is
+/// added or subtracted.
+///
+/// The plain forms read the lanes across from one another and do the same
+/// thing to every one. The two exchanging forms cross the second operand's
+/// halfwords over and do one of each, which is what their names say: ASX
+/// subtracts in the low half and adds in the high one, SAX the other way
+/// round.
+/// </summary>
+type ParallelPattern =
+  | ParallelAdd
+  | ParallelSub
+  | AddSubExchange
+  | SubAddExchange
+
+/// Which lane of the second operand a lane of the first is paired with, and
+/// whether the two are added. The exchanging forms cross the halves over and
+/// add on one side while subtracting on the other.
+let private parallelSource pattern i =
+  match pattern with
+  | ParallelAdd -> i, true
+  | ParallelSub -> i, false
+  | AddSubExchange -> 1 - i, i = 1
+  | SubAddExchange -> 1 - i, i = 0
+
+/// One lane's answer, narrowed back to the lane's own width the way the kind
+/// of instruction says: by dropping the bits above it, by clamping to them,
+/// or by keeping the bits one place up.
+let private parallelLane bld kind unsigned wide rt value =
+  match kind with
+  | WrappingLane ->
+    AST.xtlo rt value
+  | SaturatingLane ->
+    if unsigned then uSat value wide rt else sSat bld value wide rt
+  | HalvingLane ->
+    (* The shift is logical for both signednesses: only the low bits are
+       kept, and the bit that lands in the top of them is the one above the
+       lane either way. *)
+    AST.xtlo rt (value >> AST.num1 wide)
+
+/// The GE bits a wrapping form leaves behind, one for each byte of the answer
+/// and a pair for each halfword.
+let private parallelGE pattern unsigned eSize wide lanes (values: Expr[]) =
+  let bits = 4 / lanes
+  let geOf i =
+    let _, isAdd = parallelSource pattern i
+    if unsigned && isAdd then values[i] ?>= numI32 (1 <<< eSize) wide
+    else values[i] ?>= AST.num0 wide
+  Array.init lanes (fun i ->
+    let m = numI32 (((1 <<< bits) - 1) <<< (i * bits)) 32<rt>
+    AST.ite (geOf i) m (AST.num0 32<rt>))
+  |> Array.reduce (.|)
+
+/// <summary>
+/// The parallel additions and subtractions, which are thirty-six mnemonics
+/// over one instruction with three fields.
+///
+/// Every lane is computed at twice its own width, because that is where what
+/// the three treatments need still exists: the bit a wrapping lane reports in
+/// GE, the range a saturating lane is clamped to and the bit a halving lane
+/// shifts back down all sit above the lane's own top bit, and an arithmetic
+/// done at the lane's width has thrown them away before anything can read
+/// them.
+///
+/// The GE flags belong to the wrapping forms alone. A saturating or a halving
+/// lane cannot overflow, so it has nothing to report, and the manual leaves
+/// the flags alone for them. What the bit means does change with the
+/// operation: for a subtraction, and for a signed addition, it is that the
+/// answer came out at or above zero; for an unsigned addition it is the carry
+/// out, which is the answer reaching the lane's width.
+/// </summary>
+let parallelAddSub (ins: Instruction) bld eSize unsigned kind pattern =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let struct (dst, src1, src2) = transThreeOprs ins bld
-    let struct (diff1, diff2) = tmpVars2 bld 32<rt>
-    let struct (sat1, sat2) = tmpVars2 bld 16<rt>
-    let xtlo src = AST.sext 32<rt> (AST.xtlo 16<rt> src)
-    let xthi src = AST.sext 32<rt> (AST.xthi 16<rt> src)
-    diff1 := xtlo src1 .- xtlo src2
-    diff2 := xthi src1 .- xthi src2
-    sat1 := sSat bld diff1 32<rt> 16<rt>
-    sat2 := sSat bld diff2 32<rt> 16<rt>
-    dst := AST.concat sat2 sat1
+    let struct (rd, rn, rm) = transThreeOprs ins bld
+    let lanes = 32 / eSize
+    let rt = RegType.fromBitWidth eSize
+    let wide = RegType.fromBitWidth (eSize * 2)
+    let ext e = if unsigned then AST.zext wide e else AST.sext wide e
+    let lane src i = ext (AST.extract src rt (i * eSize))
+    let values = Array.init lanes (fun _ -> tmpVar bld wide)
+    let results = Array.init lanes (fun _ -> tmpVar bld rt)
+    for i in 0 .. lanes - 1 do
+      let j, isAdd = parallelSource pattern i
+      let a = lane rn i
+      let b = lane rm j
+      values[i] := if isAdd then a .+ b else a .- b
+      results[i] := parallelLane bld kind unsigned wide rt values[i]
+    rd :=
+      (results
+       |> Array.mapi (fun i r -> AST.zext 32<rt> r << numI32 (i * eSize) 32<rt>)
+       |> Array.reduce (.|))
+    match kind with
+    | WrappingLane ->
+      let ge = parallelGE pattern unsigned eSize wide lanes values
+      regVar bld R.CPSR := ge |> setPSR bld R.CPSR PSR.GE
+    | _ ->
+      ()
     putEndLabel bld lblIgnore
   }
 
@@ -1595,7 +1717,16 @@ let smulandacc isSetFlags doAcc ins bld =
     putEndLabel bld lblIgnore
   }
 
-let smulacclongdual (ins: Instruction) bld sign =
+/// <summary>
+/// SMLALD and SMLSLD, which take two halfword products at once and carry them
+/// into a sixty-four bit accumulator.
+///
+/// The X in a name exchanges the second operand's halves before the products
+/// are taken, which is a rotation by sixteen. Neither form touches the Q
+/// flag: an accumulator this wide cannot be overflowed by two products of
+/// halfwords.
+/// </summary>
+let smulacclongdual (ins: Instruction) bld swap isSub =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -1605,12 +1736,113 @@ let smulacclongdual (ins: Instruction) bld sign =
     let rotated = shiftROR src2 32<rt> 16u
     let xtlo src = AST.xtlo 16<rt> src |> AST.sext 64<rt>
     let xthi src = AST.xthi 16<rt> src |> AST.sext 64<rt>
-    if sign then append bld { o := rotated } else append bld { o := src2 }
+    if swap then append bld { o := rotated } else append bld { o := src2 }
     p1 := xtlo src1 .* xtlo o
     p2 := xthi src1 .* xthi o
-    result := p1 .+ p2 .+ AST.concat dst2 dst1
+    result :=
+      (if isSub then p1 .- p2 else p1 .+ p2) .+ AST.concat dst2 dst1
     dst2 := AST.xthi 32<rt> result
     dst1 := AST.xtlo 32<rt> result
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// SMUAD, SMUSD and the two that accumulate a third register into them.
+///
+/// Both halfword products are taken and then added or subtracted, and the sum
+/// is kept at sixty-four bits because that is where the overflow the Q flag
+/// reports still exists -- an addition done at thirty-two has already wrapped
+/// and left nothing to compare against.
+///
+/// SMUSD is the one form here that cannot overflow: the difference of two
+/// products of halfwords always fits in thirty-two bits, and the manual
+/// leaves Q alone for it. The other three set it, the accumulating ones
+/// because the third operand can carry the sum out of range.
+/// </summary>
+let smuldual (ins: Instruction) bld swap isSub =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (dst, src1, src2, acc) =
+      match ins.Operands with
+      | FourOperands _ ->
+        let struct (d, n, m, a) = transFourOprs ins bld
+        struct (d, n, m, AST.sext 64<rt> a)
+      | _ ->
+        let struct (d, n, m) = transThreeOprs ins bld
+        struct (d, n, m, AST.num0 64<rt>)
+    let o = tmpVar bld 32<rt>
+    let struct (p1, p2, result) = tmpVars3 bld 64<rt>
+    let rotated = shiftROR src2 32<rt> 16u
+    let xtlo src = AST.xtlo 16<rt> src |> AST.sext 64<rt>
+    let xthi src = AST.xthi 16<rt> src |> AST.sext 64<rt>
+    if swap then append bld { o := rotated } else append bld { o := src2 }
+    p1 := xtlo src1 .* xtlo o
+    p2 := xthi src1 .* xthi o
+    result := (if isSub then p1 .- p2 else p1 .+ p2) .+ acc
+    dst := AST.xtlo 32<rt> result
+    let setsQ =
+      match ins.Operands with
+      | FourOperands _ -> true
+      | _ -> not isSub
+    if setsQ then
+      let cpsr = regVar bld R.CPSR
+      let fits = AST.sext 64<rt> (AST.xtlo 32<rt> result)
+      append bld {
+        cpsr :=
+          AST.ite (result != fits) (enablePSRBits bld R.CPSR PSR.Q) cpsr
+      }
+    else
+      ()
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// SMMLS, which subtracts the whole product from an accumulator that sits in
+/// the top half, and keeps that half.
+///
+/// The accumulator is shifted up by thirty-two rather than the product being
+/// shifted down, so that the bits the subtraction borrows from are still
+/// there. The rounding form adds a half of the discarded half before the top
+/// is taken, which is what R means throughout this family.
+/// </summary>
+let smmls (ins: Instruction) bld isRound =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (dst, src1, src2, src3) = transFourOprs ins bld
+    let result = tmpVar bld 64<rt>
+    let ra = (AST.sext 64<rt> src3) << numI32 32 64<rt>
+    result := ra .- AST.sext 64<rt> src1 .* AST.sext 64<rt> src2
+    if isRound then
+      append bld { result := result .+ numU32 0x80000000u 64<rt> }
+    else
+      ()
+    dst := AST.xthi 32<rt> result
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// SMULWB and SMULWT: a whole word by one halfword, keeping the middle
+/// thirty-two bits of the forty-eight the product has.
+///
+/// It is SMLAWB without the accumulate, and it does not touch Q. The
+/// accumulating form can carry the answer out of range and reports that;
+/// nothing a word times a halfword produces can leave the thirty-two bits
+/// starting at bit sixteen.
+/// </summary>
+let smulwordbyhalf (ins: Instruction) bld isTop =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let o = tmpVar bld 32<rt>
+    let result = tmpVar bld 64<rt>
+    let sext src = AST.sext 64<rt> src
+    if isTop then append bld { o := AST.xthi 16<rt> src2 |> AST.sext 32<rt> }
+    else append bld { o := AST.xtlo 16<rt> src2 |> AST.sext 32<rt> }
+    result := sext src1 .* sext o
+    dst := AST.extract result 32<rt> 16
     putEndLabel bld lblIgnore
   }
 
@@ -1624,10 +1856,14 @@ let smulaccwordbyhalf (ins: Instruction) bld sign =
     let sext src = AST.sext 64<rt> src
     if sign then append bld { o := AST.xthi 16<rt> src2 |> AST.sext 32<rt> }
     else append bld { o := AST.xtlo 16<rt> src2 |> AST.sext 32<rt> }
-    result := sext src1 .* sext o .+ sext (src3 << numI32 16 32<rt>)
+    result := sext src1 .* sext o .+ (sext src3 << numI32 16 64<rt>)
     dst := AST.extract result 32<rt> 16
     let cpsr = regVar bld R.CPSR
-    cpsr := AST.ite ((result >> numI32 16 64<rt>) != sext dst)
+    (* The overflow test compares the arithmetic value of result >> 16 against
+       the 32 bits actually stored, so the shift has to be arithmetic: a
+       logical one clears the sign of every negative result and reports an
+       overflow that did not happen. *)
+    cpsr := AST.ite ((result ?>> numI32 16 64<rt>) != sext dst)
                     (enablePSRBits bld R.CPSR PSR.Q)
                     cpsr
     putEndLabel bld lblIgnore
@@ -1643,7 +1879,19 @@ let smulacchalf ins bld s1top s2top =
     else append bld { t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt> }
     if s2top then append bld { t2 := AST.xthi 16<rt> rm |> AST.sext 32<rt> }
     else append bld { t2 := AST.xtlo 16<rt> rm |> AST.sext 32<rt> }
-    rd := (t1 .* t2) .+ AST.sext 32<rt> ra
+    (* A8-621: the accumulation is a mathematical sum, and Q is set when it
+       does not fit the 32 bits actually written. The product of two
+       sign-extended halfwords is exact at 32 bits, so only the accumulate
+       can overflow -- which is why doing the whole thing at 32 bits looks
+       right and silently drops the flag. smulaccwordbyhalf next door already
+       does the 64-bit comparison. *)
+    let result = tmpVar bld 64<rt>
+    result := AST.sext 64<rt> (t1 .* t2) .+ AST.sext 64<rt> ra
+    rd := AST.xtlo 32<rt> result
+    let cpsr = regVar bld R.CPSR
+    cpsr := AST.ite (result != AST.sext 64<rt> (AST.xtlo 32<rt> result))
+                    (enablePSRBits bld R.CPSR PSR.Q)
+                    cpsr
     putEndLabel bld lblIgnore
   }
 
@@ -1954,28 +2202,6 @@ let combineGEs ge0 ge1 ge2 ge3 =
   let n2 = numI32 2 32<rt>
   let n3 = numI32 3 32<rt>
   ge0 .| (ge1 << n1) .| (ge2 << n2) .| (ge3 << n3)
-
-let uadd8 ins bld =
-  lift bld ins {
-    let struct (rd, rn, rm) = transThreeOprs ins bld
-    let struct (sum1, sum2, sum3, sum4) = tmpVars4 bld 32<rt>
-    let struct (ge0, ge1, ge2, ge3) = tmpVars4 bld 32<rt>
-    let cpsr = regVar bld R.CPSR
-    let n100 = numI32 0x100 32<rt>
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    sum1 := sel8Bits rn 0 .+ sel8Bits rm 0
-    sum2 := sel8Bits rn 8 .+ sel8Bits rm 8
-    sum3 := sel8Bits rn 16 .+ sel8Bits rm 16
-    sum4 := sel8Bits rn 24 .+ sel8Bits rm 24
-    rd := combine8bitResults sum1 sum2 sum3 sum4
-    ge0 := AST.zext 32<rt> (AST.ge sum1 n100)
-    ge1 := AST.zext 32<rt> (AST.ge sum2 n100)
-    ge2 := AST.zext 32<rt> (AST.ge sum3 n100)
-    ge3 := AST.zext 32<rt> (AST.ge sum4 n100)
-    cpsr := combineGEs ge0 ge1 ge2 ge3 |> setPSR bld R.CPSR PSR.GE
-    putEndLabel bld lblIgnore
-  }
 
 let sel ins bld =
   lift bld ins {
@@ -2343,61 +2569,22 @@ let bfx ins bld signExtend =
     if lsb + width - 1 > 31 || width < 0 then raise InvalidOperandException
     else ()
     let v = BitVector(BigInteger.makeMask width, 32<rt>) |> AST.num
-    rd := (rn >> (numI32 lsb 32<rt>)) .& v
-    if signExtend && width > 1 then
+    let field = (rn >> (numI32 lsb 32<rt>)) .& v
+    (* No width is excluded. The expression below sign-extends a field of any
+       width, one included: at width 1 the msb IS the field, msb - 1 is 0 when
+       it is set, and the complement shifted left by the width fills every bit
+       above it. The guard that used to exclude width 1 was the whole defect --
+       SBFX of a one-bit field came back zero-extended. The sign is read from
+       Rn before Rd is written, as the two may be one register. *)
+    if signExtend then
       let struct (msb, mask) = tmpVars2 bld 32<rt>
       let msboffset = numI32 (lsb + width - 1) 32<rt>
       let shift = numI32 width 32<rt>
       msb := (rn >> msboffset) .& AST.num1 32<rt>
       mask := (AST.not (msb .- AST.num1 32<rt>)) << shift
-      rd := rd .| mask
+      rd := field .| mask
     else
-      ()
-    putEndLabel bld lblIgnore
-  }
-
-let parseOprOfUqOpr bld = function
-  | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
-    regVar bld rd, regVar bld rn, regVar bld rm
-  | _ ->
-    raise InvalidOperandException
-
-let createTemporaries bld cnt regtype =
-  Array.init cnt (fun _ -> tmpVar bld regtype)
-
-let extractUQOps r width =
-  let typ = RegType.fromBitWidth width
-  [| for w in 0 .. width .. 31 do
-       yield AST.extract r typ w |> AST.zext 32<rt>
-     done |]
-
-let saturate e width =
-  let max32 = numI32 (pown 2 width - 1) 32<rt>
-  let zero = AST.num0 32<rt>
-  let resultType = RegType.fromBitWidth width
-  AST.ite (AST.sgt e max32)
-    (AST.xtlo resultType max32)
-    (AST.ite (AST.slt e zero) (AST.num0 resultType) (AST.xtlo resultType e))
-
-let getUQAssignment tmps width =
-  tmps
-  |> Array.mapi (fun idx t ->
-       (AST.zext 32<rt> t) << (numI32 (idx * width) 32<rt>))
-  |> Array.reduce (.|)
-
-let uqopr (ins: Instruction) bld width opr =
-  lift bld ins {
-    let rd, rn, rm = parseOprOfUqOpr bld ins.Operands
-    let tmps = createTemporaries bld (32 / width) 32<rt>
-    let sats = createTemporaries bld (32 / width) (RegType.fromBitWidth width)
-    let rns = extractUQOps rn width
-    let rms = extractUQOps rm width
-    let diffs = Array.map2 opr rns rms
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    Array.iter2 (fun tmp diff -> append bld { tmp := diff }) tmps diffs
-    Array.iter2 (fun s t -> append bld { s := saturate t width }) sats tmps
-    rd := getUQAssignment sats width
+      rd := field
     putEndLabel bld lblIgnore
   }
 
@@ -2468,25 +2655,228 @@ let extend (ins: Instruction) bld extractfn amount =
     putEndLabel bld lblIgnore
   }
 
-let uxtb16 ins bld =
-  lift bld ins {
-    let rd, rm, rotation = parseOprOfExtend ins bld
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let rotated = shiftROR rm 32<rt> rotation
-    let r1 = AST.xtlo 8<rt> rotated |> AST.zext 32<rt>
-    let r2 =
-      (AST.extract rotated 8<rt> 16 |> AST.zext 32<rt>) << numI32 16 32<rt>
-    rd := r2 .| r1
-    putEndLabel bld lblIgnore
-  }
-
 let parseOprOfXTA (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprShift(_, Imm i)) ->
     regVar bld rd, regVar bld rn, regVar bld rm, i
   | _ ->
     raise InvalidOperandException
+
+/// <summary>
+/// SXTB16 and UXTB16, and the two that accumulate.
+///
+/// Two bytes are extended into two halfwords at once: the low byte of each
+/// halfword of the rotated operand, each landing in the halfword it came out
+/// of. The accumulating forms add the first operand's halfwords on top, each
+/// to its own, and the two additions do not carry into one another.
+/// </summary>
+let extendHalves (ins: Instruction) bld extractfn =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (rd, rn, rm, rotation) =
+      match ins.Operands with
+      | FourOperands _ ->
+        let rd, rn, rm, rot = parseOprOfXTA ins bld
+        struct (rd, rn, rm, rot)
+      | _ ->
+        let rd, rm, rot = parseOprOfExtend ins bld
+        struct (rd, AST.num0 32<rt>, rm, rot)
+    let rotated = shiftROR rm 32<rt> rotation
+    let lo = AST.xtlo 8<rt> rotated |> extractfn 16<rt>
+    let hi = AST.extract rotated 8<rt> 16 |> extractfn 16<rt>
+    rd := AST.concat (AST.xthi 16<rt> rn .+ hi) (AST.xtlo 16<rt> rn .+ lo)
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// A value clamped into a field of the given width, and whether it had to be.
+///
+/// The value arrives WIDER than the field, which is the whole point: a clamp
+/// asked of a value already narrowed to the field has nothing to catch,
+/// because the value has wrapped instead. Both comparisons are signed, for
+/// the unsigned form as well -- the manual reads the operand as signed there
+/// too, and clamps a negative one to zero rather than to the top.
+/// </summary>
+let private clampTo bld wide unsigned bits value =
+  let maxV =
+    if unsigned then numI64 ((1L <<< bits) - 1L) wide
+    else numI64 ((1L <<< (bits - 1)) - 1L) wide
+  let minV =
+    if unsigned then AST.num0 wide else numI64 (-(1L <<< (bits - 1))) wide
+  let t = tmpVar bld wide
+  append bld {
+    t := value
+  }
+  let tooHigh = t ?> maxV
+  let tooLow = t ?< minV
+  struct (AST.ite tooHigh maxV (AST.ite tooLow minV t), tooHigh .| tooLow)
+
+/// The operands of a saturating instruction: the destination, the width to
+/// clamp to, the source, and the shift the word forms may carry.
+let private parseOprOfSat (ins: Instruction) bld =
+  match ins.Operands with
+  | ThreeOperands(OprReg rd, OprImm n, OprReg rm) ->
+    regVar bld rd, int n, regVar bld rm, None
+  | FourOperands(OprReg rd, OprImm n, OprReg rm, OprShift(typ, Imm i)) ->
+    regVar bld rd, int n, regVar bld rm, Some(typ, i)
+  | _ ->
+    raise InvalidOperandException
+
+/// <summary>
+/// SSAT and USAT: the whole register shifted and then clamped.
+///
+/// The shift belongs to the instruction and not to the operand, so what is
+/// clamped is what the shift produced -- and the shift wraps at thirty-two
+/// bits before the clamp sees it, which is what the manual says as
+/// SInt(operand). The clamp itself is done wider, because the field is
+/// narrower than the register and the value that went out of range has to
+/// still be there.
+///
+/// Q is set where the value was clamped and is never cleared here.
+/// </summary>
+let satWord (ins: Instruction) bld unsigned =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let rd, bits, rm, shf = parseOprOfSat ins bld
+    let carry = getCarryFlag bld
+    let operand =
+      match shf with
+      | Some(typ, amount) -> shift rm 32<rt> typ (uint32 amount) carry
+      | None -> rm
+    let struct (clamped, sat) =
+      clampTo bld 64<rt> unsigned bits (AST.sext 64<rt> operand)
+    rd := AST.xtlo 32<rt> clamped
+    let cpsr = regVar bld R.CPSR
+    cpsr := AST.ite sat (enablePSRBits bld R.CPSR PSR.Q) cpsr
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// SSAT16 and USAT16, which clamp each halfword on its own.
+///
+/// There is no shift here, and each half is read as a signed halfword before
+/// it is clamped. Q is set if either half was clamped.
+/// </summary>
+let satHalves (ins: Instruction) bld unsigned =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let rd, bits, rm, _ = parseOprOfSat ins bld
+    let half e = AST.sext 32<rt> e
+    let struct (lo, satLo) =
+      clampTo bld 32<rt> unsigned bits (half (AST.xtlo 16<rt> rm))
+    let struct (hi, satHi) =
+      clampTo bld 32<rt> unsigned bits (half (AST.xthi 16<rt> rm))
+    rd := AST.concat (AST.xtlo 16<rt> hi) (AST.xtlo 16<rt> lo)
+    let cpsr = regVar bld R.CPSR
+    cpsr := AST.ite (satLo .| satHi) (enablePSRBits bld R.CPSR PSR.Q) cpsr
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// USAD8 and USADA8: the sum of the four absolute differences of the bytes.
+///
+/// Each byte is read unsigned and widened before the subtraction, so the
+/// difference is a number rather than a wrapped byte, and the magnitude is
+/// taken by choosing which way round to subtract. USADA8 adds a fourth
+/// register on top; USAD8 is the same instruction with nothing to add.
+/// </summary>
+let usad8 (ins: Instruction) bld =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (rd, rn, rm, acc) =
+      match ins.Operands with
+      | FourOperands _ ->
+        let struct (d, n, m, a) = transFourOprs ins bld
+        struct (d, n, m, a)
+      | _ ->
+        let struct (d, n, m) = transThreeOprs ins bld
+        struct (d, n, m, AST.num0 32<rt>)
+    let diff i =
+      let a = AST.extract rn 8<rt> (i * 8) |> AST.zext 32<rt>
+      let b = AST.extract rm 8<rt> (i * 8) |> AST.zext 32<rt>
+      AST.ite (a .> b) (a .- b) (b .- a)
+    rd := acc .+ diff 0 .+ diff 1 .+ diff 2 .+ diff 3
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// SDIV and UDIV.
+///
+/// A divisor of zero answers zero rather than trapping, which is what the
+/// architecture does with integer zero-divide trapping turned off, and what
+/// a system running user code has. It is a branch and not a select because a
+/// select computes both arms, and the arm that divides by zero is the one
+/// that must not run.
+///
+/// The signed overflow needs the same treatment for the same reason: there
+/// is no thirty-two bit answer to the most negative number over minus one,
+/// and the architecture answers with the low thirty-two bits of the one it
+/// cannot hold.
+/// </summary>
+let divide (ins: Instruction) bld unsigned =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (rd, rn, rm) = transThreeOprs ins bld
+    let res = tmpVar bld 32<rt>
+    let intMin = numU32 0x80000000u 32<rt>
+    let lblSpecial = label bld "NoQuotient"
+    let lblDivide = label bld "Divide"
+    let lblEnd = label bld "EndDiv"
+    let noQuotient =
+      if unsigned then rm == AST.num0 32<rt>
+      else (rm == AST.num0 32<rt>) .| ((rn == intMin) .& (rm == AST.not
+                                                                (AST.num0
+                                                                  32<rt>)))
+    AST.cjmp noQuotient (AST.jmpDest lblSpecial) (AST.jmpDest lblDivide)
+    AST.lmark lblSpecial
+    res := AST.ite (rm == AST.num0 32<rt>) (AST.num0 32<rt>) intMin
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblDivide
+    res := if unsigned then rn ./ rm else rn ?/ rm
+    AST.lmark lblEnd
+    rd := res
+    putEndLabel bld lblIgnore
+  }
+
+/// The base register a swap addresses through, which is the whole of its
+/// memory operand: there is no offset and no writeback to read.
+let private parseOprOfSwapAddr (ins: Instruction) bld =
+  match ins.Operands with
+  | ThreeOperands(_, _, OprMemory(OffsetMode(RegOffset(rn, None, _, None)))) ->
+    regVar bld rn
+  | ThreeOperands(_, _, OprMemory(OffsetMode(ImmOffset(rn, _, _)))) ->
+    regVar bld rn
+  | _ ->
+    raise InvalidOperandException
+
+/// <summary>
+/// SWP and SWPB, which read a word or a byte, write another in its place and
+/// hand back what was there.
+///
+/// The old value is latched first because the two registers the instruction
+/// names may be the same one, and because the value written must not be the
+/// one just read back.
+/// </summary>
+let swap (ins: Instruction) bld accSz =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (rt, rt2, _) = getThreeOprs ins
+    let rt = transOpr ins bld rt
+    let rt2 = transOpr ins bld rt2
+    let address = tmpVar bld 32<rt>
+    let old = tmpVar bld accSz
+    address := parseOprOfSwapAddr ins bld
+    old := loadNative bld accSz address
+    loadNative bld accSz address := AST.xtlo accSz rt2
+    rt := AST.zext 32<rt> old
+    putEndLabel bld lblIgnore
+  }
 
 let extendAndAdd (ins: Instruction) bld extractfn amount =
   lift bld ins {

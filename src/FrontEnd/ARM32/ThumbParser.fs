@@ -4764,7 +4764,7 @@ let parseSystemReg64BitMove phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.MCRR None N OD.OprCpOpc1RtRt2CRm
   | _ (* 10 *) ->
 #if !EMULATION
-    chkThumbPCRtRt2Eq bin
+    chkPCRtRt2Eq bin
 #endif
     render phlp &itstate 0 isInIT bin Op.MRRC None N OD.OprCpOpc1RtRt2CRm
 
@@ -6981,6 +6981,18 @@ let parseLdStDualExclusiveAndTblBranch phlp (itstate: byref<BL>) isInIT bin =
     raise ParsingFailureException
 
 /// Alias conditions on page F5-4557.
+let changeToAliasOfMOV bin =
+  let stype = pickTwo bin 4
+  let imm5 = concat (pickThree bin 12) (pickTwo bin 6) 2
+  if stype = 0b10u then struct (Op.ASR, OD.OprRdRmImmT32)
+  elif imm5 <> 0b00000u && stype = 0b00u then struct (Op.LSL, OD.OprRdRmImmT32)
+  elif stype = 0b01u then struct (Op.LSR, OD.OprRdRmImmT32)
+  elif imm5 <> 0b00000u && stype = 0b11u then struct (Op.ROR, OD.OprRdRmImmT32)
+  elif imm5 = 0b00000u && stype = 0b11u then struct (Op.RRX, OD.OprRdRmT32)
+  elif imm5 = 0b00000u then struct (Op.MOV, OD.OprRdRmT32)
+  else struct (Op.MOV, OD.OprRdRmShfT32)
+
+/// Alias conditions on page F5-4557.
 let changeToAliasOfMOVS bin =
   let stype = pickTwo bin 4
   let imm5 = concat (pickThree bin 12) (pickTwo bin 6) 2
@@ -6988,9 +7000,9 @@ let changeToAliasOfMOVS bin =
   elif imm5 <> 0b00000u && stype = 0b00u then struct (Op.LSLS, OD.OprRdRmImmT32)
   elif stype = 0b01u then struct (Op.LSRS, OD.OprRdRmImmT32)
   elif imm5 <> 0b00000u && stype = 0b11u then struct (Op.RORS, OD.OprRdRmImmT32)
-  elif imm5 = 0b00000u && stype = 0b11u then struct (Op.RRXS, OD.OprRdRm)
-  elif imm5 = 0b00000u then struct (Op.MOVS, OD.OprRdRm)
-  else struct (Op.MOVS, OD.OprRdRmShf)
+  elif imm5 = 0b00000u && stype = 0b11u then struct (Op.RRXS, OD.OprRdRmT32)
+  elif imm5 = 0b00000u then struct (Op.MOVS, OD.OprRdRmT32)
+  else struct (Op.MOVS, OD.OprRdRmShfT32)
 
 /// Data-processing (shifted register) on page F3-4160.
 let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
@@ -7076,13 +7088,15 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkThumbPCRdRm bin
 #endif
-    render phlp &itstate 0 isInIT bin Op.MOV None N OD.OprRdRmShfT32
+    let struct (opcode, oprs) = changeToAliasOfMOV bin
+    render phlp &itstate 0 isInIT bin opcode None N oprs
   | 0b00100u when rn = 0b1111u ->
 #if !EMULATION
     chkThumbPCRdRm bin
 #endif
+    let struct (opcode, oprs) = changeToAliasOfMOV bin
     let q = if inITBlock itstate then W else N
-    render phlp &itstate 0 isInIT bin Op.MOV None q OD.OprRdRmShfT32
+    render phlp &itstate 0 isInIT bin opcode None q oprs
   (* ORRS (register) *)
   | 0b00101u when rn <> 0b1111u && i3i2st = 0b11u ->
 #if !EMULATION
@@ -7396,7 +7410,7 @@ let parseHints32 phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.NOP None W OD.OprNo
   | 0b00010010u -> (* TSB CSYNC Armv8.4 *)
     inITBlock itstate |> checkUndef
-    render phlp &itstate 0 isInIT bin Op.TSB None N OD.OprNo
+    render phlp &itstate 0 isInIT bin Op.TSB None N OD.OprCsync
   | 0b00010011u ->
     render phlp &itstate 0 isInIT bin Op.NOP None W OD.OprNo
   | 0b00010100u ->
@@ -8336,9 +8350,6 @@ let parseLdStUnsignedNegImm phlp (itstate: byref<BL>) isInIT bin =
 #endif
     render phlp &itstate 0 isInIT bin Op.LDRH None N OD.OprRtMemImm8M
   | 0b011u ->
-#if !EMULATION
-    chkPCRm bin
-#endif
     render phlp &itstate 0 isInIT bin Op.PLDW None N OD.OprMemImm8M
   | 0b100u ->
 #if !EMULATION

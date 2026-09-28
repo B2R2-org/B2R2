@@ -93,7 +93,7 @@ let translate (ins: Instruction) bld =
     cmn ins bld
   | Op.CMP ->
     cmp ins bld
-  | Op.CLREX | Op.DMB | Op.DSB | Op.ISB | Op.PLD ->
+  | Op.CLREX | Op.DMB | Op.DSB | Op.ISB | Op.PLD | Op.PLI | Op.PLDW ->
     nop ins bld
   | Op.EOR ->
     eor false ins bld
@@ -181,6 +181,9 @@ let translate (ins: Instruction) bld =
     mvns true ins bld
   | Op.NOP ->
     nop ins bld
+  | Op.CSDB | Op.DBG | Op.ESB | Op.SB | Op.SEV | Op.SEVL | Op.TSB | Op.WFE
+  | Op.WFI | Op.YIELD ->
+    nop ins bld
   | Op.ORN ->
     orn false ins bld
   | Op.ORNS ->
@@ -197,14 +200,86 @@ let translate (ins: Instruction) bld =
     pop ins bld
   | Op.PUSH ->
     push ins bld
+  | Op.SADD16 ->
+    parallelAddSub ins bld 16 false WrappingLane ParallelAdd
+  | Op.SASX ->
+    parallelAddSub ins bld 16 false WrappingLane AddSubExchange
+  | Op.SSAX ->
+    parallelAddSub ins bld 16 false WrappingLane SubAddExchange
+  | Op.SSUB16 ->
+    parallelAddSub ins bld 16 false WrappingLane ParallelSub
+  | Op.SADD8 ->
+    parallelAddSub ins bld 8 false WrappingLane ParallelAdd
+  | Op.SSUB8 ->
+    parallelAddSub ins bld 8 false WrappingLane ParallelSub
+  | Op.QADD16 ->
+    parallelAddSub ins bld 16 false SaturatingLane ParallelAdd
+  | Op.QASX ->
+    parallelAddSub ins bld 16 false SaturatingLane AddSubExchange
+  | Op.QSAX ->
+    parallelAddSub ins bld 16 false SaturatingLane SubAddExchange
+  | Op.QSUB16 ->
+    parallelAddSub ins bld 16 false SaturatingLane ParallelSub
+  | Op.QADD8 ->
+    parallelAddSub ins bld 8 false SaturatingLane ParallelAdd
+  | Op.QSUB8 ->
+    parallelAddSub ins bld 8 false SaturatingLane ParallelSub
+  | Op.SHADD16 ->
+    parallelAddSub ins bld 16 false HalvingLane ParallelAdd
+  | Op.SHASX ->
+    parallelAddSub ins bld 16 false HalvingLane AddSubExchange
+  | Op.SHSAX ->
+    parallelAddSub ins bld 16 false HalvingLane SubAddExchange
+  | Op.SHSUB16 ->
+    parallelAddSub ins bld 16 false HalvingLane ParallelSub
+  | Op.SHADD8 ->
+    parallelAddSub ins bld 8 false HalvingLane ParallelAdd
+  | Op.SHSUB8 ->
+    parallelAddSub ins bld 8 false HalvingLane ParallelSub
+  | Op.UADD16 ->
+    parallelAddSub ins bld 16 true WrappingLane ParallelAdd
+  | Op.UASX ->
+    parallelAddSub ins bld 16 true WrappingLane AddSubExchange
+  | Op.USAX ->
+    parallelAddSub ins bld 16 true WrappingLane SubAddExchange
+  | Op.USUB16 ->
+    parallelAddSub ins bld 16 true WrappingLane ParallelSub
+  | Op.UADD8 ->
+    parallelAddSub ins bld 8 true WrappingLane ParallelAdd
+  | Op.USUB8 ->
+    parallelAddSub ins bld 8 true WrappingLane ParallelSub
+  | Op.UQADD16 ->
+    parallelAddSub ins bld 16 true SaturatingLane ParallelAdd
+  | Op.UQASX ->
+    parallelAddSub ins bld 16 true SaturatingLane AddSubExchange
+  | Op.UQSAX ->
+    parallelAddSub ins bld 16 true SaturatingLane SubAddExchange
+  | Op.UQSUB16 ->
+    parallelAddSub ins bld 16 true SaturatingLane ParallelSub
+  | Op.UQADD8 ->
+    parallelAddSub ins bld 8 true SaturatingLane ParallelAdd
+  | Op.UQSUB8 ->
+    parallelAddSub ins bld 8 true SaturatingLane ParallelSub
+  | Op.UHADD16 ->
+    parallelAddSub ins bld 16 true HalvingLane ParallelAdd
+  | Op.UHASX ->
+    parallelAddSub ins bld 16 true HalvingLane AddSubExchange
+  | Op.UHSAX ->
+    parallelAddSub ins bld 16 true HalvingLane SubAddExchange
+  | Op.UHSUB16 ->
+    parallelAddSub ins bld 16 true HalvingLane ParallelSub
+  | Op.UHADD8 ->
+    parallelAddSub ins bld 8 true HalvingLane ParallelAdd
+  | Op.UHSUB8 ->
+    parallelAddSub ins bld 8 true HalvingLane ParallelSub
+  | Op.QADD ->
+    qaddsub ins bld false
+  | Op.QSUB ->
+    qaddsub ins bld true
   | Op.QDADD ->
     qdadd ins bld
   | Op.QDSUB ->
     qdsub ins bld
-  | Op.QSAX ->
-    qsax ins bld
-  | Op.QSUB16 ->
-    qsub16 ins bld
   | Op.RBIT ->
     rbit ins bld
   | Op.REV ->
@@ -251,14 +326,50 @@ let translate (ins: Instruction) bld =
     smulacchalf ins bld true false
   | Op.SMLATT ->
     smulacchalf ins bld true true
+  (* All four halves of the matrix. BB and TB were missing while BT and TT
+     were present, so a block containing either died in the raising
+     fall-through -- and the lifter behind them already takes both
+     half-selectors. The non-long SMLABB/BT/TB/TT above are all four wired. *)
+  | Op.SMLALBB ->
+    smulacclonghalf ins bld false false
   | Op.SMLALBT ->
     smulacclonghalf ins bld false true
+  | Op.SMLALTB ->
+    smulacclonghalf ins bld true false
   | Op.SMLALTT ->
     smulacclonghalf ins bld true true
+  | Op.SMLAD ->
+    smuldual ins bld false false
+  | Op.SMLADX ->
+    smuldual ins bld true false
+  | Op.SMLSD ->
+    smuldual ins bld false true
+  | Op.SMLSDX ->
+    smuldual ins bld true true
+  | Op.SMUAD ->
+    smuldual ins bld false false
+  | Op.SMUADX ->
+    smuldual ins bld true false
+  | Op.SMUSD ->
+    smuldual ins bld false true
+  | Op.SMUSDX ->
+    smuldual ins bld true true
   | Op.SMLALD ->
-    smulacclongdual ins bld false
+    smulacclongdual ins bld false false
   | Op.SMLALDX ->
-    smulacclongdual ins bld true
+    smulacclongdual ins bld true false
+  | Op.SMLSLD ->
+    smulacclongdual ins bld false true
+  | Op.SMLSLDX ->
+    smulacclongdual ins bld true true
+  | Op.SMMLS ->
+    smmls ins bld false
+  | Op.SMMLSR ->
+    smmls ins bld true
+  | Op.SMULWB ->
+    smulwordbyhalf ins bld false
+  | Op.SMULWT ->
+    smulwordbyhalf ins bld true
   | Op.SMLAWB ->
     smulaccwordbyhalf ins bld false
   | Op.SMLAWT ->
@@ -329,6 +440,34 @@ let translate (ins: Instruction) bld =
     extendAndAdd ins bld AST.sext 16<rt>
   | Op.SXTB ->
     extend ins bld AST.sext 8<rt>
+  | Op.SXTB16 | Op.SXTAB16 ->
+    extendHalves ins bld AST.sext
+  | Op.SSAT ->
+    satWord ins bld false
+  | Op.USAT ->
+    satWord ins bld true
+  | Op.SSAT16 ->
+    satHalves ins bld false
+  | Op.USAT16 ->
+    satHalves ins bld true
+  | Op.USAD8 | Op.USADA8 ->
+    usad8 ins bld
+  | Op.SDIV ->
+    divide ins bld false
+  | Op.UDIV ->
+    divide ins bld true
+  | Op.SWP ->
+    swap ins bld 32<rt>
+  | Op.SWPB ->
+    swap ins bld 8<rt>
+  | Op.VBIC ->
+    vbic ins bld
+  | Op.VEOR ->
+    veor ins bld
+  | Op.VMVN ->
+    vmvn ins bld
+  | Op.VSWP ->
+    vswp ins bld
   | Op.SXTH ->
     extend ins bld AST.sext 16<rt>
   | Op.TBH | Op.TBB ->
@@ -337,16 +476,10 @@ let translate (ins: Instruction) bld =
     teq ins bld
   | Op.TST ->
     tst ins bld
-  | Op.UADD8 ->
-    uadd8 ins bld
-  | Op.UASX ->
-    uasx ins bld
   | Op.UBFX ->
     bfx ins bld false
   | Op.UDF ->
     udf ins bld
-  | Op.UHSUB16 ->
-    uhsub16 ins bld
   | Op.UMAAL ->
     umaal ins bld
   | Op.UMLAL ->
@@ -357,26 +490,14 @@ let translate (ins: Instruction) bld =
     umull false ins bld
   | Op.UMULLS ->
     umull true ins bld
-  | Op.UQADD16 ->
-    uqopr ins bld 16 (.+)
-  | Op.UQADD8 ->
-    uqopr ins bld 8 (.+)
-  | Op.UQSAX ->
-    uqsax ins bld
-  | Op.UQSUB16 ->
-    uqopr ins bld 16 (.-)
-  | Op.UQSUB8 ->
-    uqopr ins bld 8 (.-)
-  | Op.USAX ->
-    usax ins bld
   | Op.UXTAB ->
     extendAndAdd ins bld AST.zext 8<rt>
   | Op.UXTAH ->
     extendAndAdd ins bld AST.zext 16<rt>
   | Op.UXTB ->
     extend ins bld AST.zext 8<rt>
-  | Op.UXTB16 ->
-    uxtb16 ins bld
+  | Op.UXTB16 | Op.UXTAB16 ->
+    extendHalves ins bld AST.zext
   | Op.UXTH ->
     extend ins bld AST.zext 16<rt>
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->

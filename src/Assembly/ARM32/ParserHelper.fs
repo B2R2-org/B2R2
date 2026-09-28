@@ -253,6 +253,9 @@ let shiftOps =
     "rrx", ShiftOp.RRX ]
   |> Map.ofList
 
+/// The words a hint is written with when it takes one.
+let hintOptions = [ "csync", CSYNC ] |> Map.ofList
+
 let barrierOptions =
   [ "sy", BarrierOption.SY
     "st", BarrierOption.ST

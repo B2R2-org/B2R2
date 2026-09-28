@@ -63,6 +63,17 @@ type LifterTests() =
   let ( !@ ) (name, pos) =
     regFactory.GetPseudoRegVar(Register.toRegID name, pos)
 
+  /// The target a branch reports through the analysis API, parsed at a
+  /// given address. This is a different code path from the lifter's own
+  /// branch handling, and the two are able to disagree.
+  let branchTargetAt (isa: ISA) (hex: string) (addr: uint64) =
+    let reader = BinReader.Init isa.Endian
+    let parser = ARM32Parser(isa, true, reader) :> IInstructionParsable
+    let ins = parser.Parse(ByteArray.ofHexString hex, addr)
+    let mutable target = 0UL
+    let ok = ins.DirectBranchTarget(&target)
+    struct (ok, target)
+
   let ( ++ ) (byteStr: string) givenStmts =
     ByteArray.ofHexString byteStr, givenStmts
 
@@ -76,6 +87,20 @@ type LifterTests() =
   let testARM (bytes: byte[], givenStmts: Stmt[]) = test false bytes givenStmts
 
   let testThumb (bytes: byte[], givenStmts: Stmt[]) = test true bytes givenStmts
+
+  /// The statements one encoding lifts to.
+  let liftedBy isThumb (hex: string) =
+    let parser = ARM32Parser(isa, isThumb, reader) :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
+    let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+    ins.Translate builder
+
+  /// The registers the statements of one encoding write.
+  let writtenBy isThumb hex =
+    liftedBy isThumb hex
+    |> Array.choose (function
+      | Put(dst, _) -> Some dst
+      | _ -> None)
 
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =
@@ -126,14 +151,64 @@ type LifterTests() =
     ++ [| t32 1 :=
             AST.sext 32<rt> (AST.xtlo 16<rt> !.R1)
               .+ AST.sext 32<rt> (AST.xthi 16<rt> !.R2)
+          t32 5 := t32 1
+          t16 3 := sat (t32 5)
           t32 2 :=
             AST.sext 32<rt> (AST.xthi 16<rt> !.R1)
               .- AST.sext 32<rt> (AST.xtlo 16<rt> !.R2)
-          t32 5 := t32 1
-          t16 3 := sat (t32 5)
           t32 6 := t32 2
           t16 4 := sat (t32 6)
-          !.R0 := AST.concat (t16 4) (t16 3) |]
+          !.R0 :=
+            (AST.zext 32<rt> (t16 3) << AST.num0 32<rt>)
+            .| (AST.zext 32<rt> (t16 4) << num 0x10u) |]
+    |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] UQSAX saturates each lane to an unsigned halfword``() =
+    (* The clamp is chosen at the WIDE width and narrowed once at the end,
+       which is what keeps the value that went out of range around long
+       enough to be recognised. *)
+    let sat t =
+      AST.xtlo 16<rt>
+        (AST.ite (t ?> num 0xffffu)
+                 (num 0xffffu)
+                 (AST.ite (t ?< AST.num0 32<rt>) (AST.num0 32<rt>) t))
+    "e6610f52"
+    ++ [| t32 1 :=
+            AST.zext 32<rt> (AST.xtlo 16<rt> !.R1)
+              .+ AST.zext 32<rt> (AST.xthi 16<rt> !.R2)
+          t16 3 := sat (t32 1)
+          t32 2 :=
+            AST.zext 32<rt> (AST.xthi 16<rt> !.R1)
+              .- AST.zext 32<rt> (AST.xtlo 16<rt> !.R2)
+          t16 4 := sat (t32 2)
+          !.R0 :=
+            (AST.zext 32<rt> (t16 3) << AST.num0 32<rt>)
+            .| (AST.zext 32<rt> (t16 4) << num 0x10u) |]
+    |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] UASX gives each GE half its own result half``() =
+    (* The low half subtracts, so its GE bits say the subtraction did not
+       borrow; the high half adds, so its say the addition carried out of the
+       halfword. Each reads its own result and nothing else. *)
+    let zero = AST.num0 32<rt>
+    let geLo = AST.ite (t32 1 ?>= zero) (num 0x3u) zero
+    let geHi = AST.ite (t32 2 ?>= num 0x10000u) (num 0xcu) zero
+    "e6510f32"
+    ++ [| t32 1 :=
+            AST.zext 32<rt> (AST.xtlo 16<rt> !.R1)
+              .- AST.zext 32<rt> (AST.xthi 16<rt> !.R2)
+          t16 3 := AST.xtlo 16<rt> (t32 1)
+          t32 2 :=
+            AST.zext 32<rt> (AST.xthi 16<rt> !.R1)
+              .+ AST.zext 32<rt> (AST.xtlo 16<rt> !.R2)
+          t16 4 := AST.xtlo 16<rt> (t32 2)
+          !.R0 :=
+            (AST.zext 32<rt> (t16 3) << AST.num0 32<rt>)
+            .| (AST.zext 32<rt> (t16 4) << num 0x10u)
+          !.CPSR :=
+            (!.CPSR .& num 0xfff0ffffu) .| ((geLo .| geHi) << num 0x10u) |]
     |> testARM
 
   [<TestMethod>]
@@ -150,12 +225,75 @@ type LifterTests() =
                              (AST.fmul s1 s2 <+> sign)) |]
     |> testARM
 
+  (* DDI0406C: a plain Thumb B is `BranchWritePC(PC + imm32)` with no
+     alignment, and BL/BLX align the base only `if targetInstrSet ==
+     InstrSet_ARM`. The analysis API aligned for every Thumb branch, so a
+     four-byte-aligned base was used where the manual wants PC = addr + 4
+     -- which changes the answer for every branch sitting at an address
+     congruent to 2 mod 4, roughly half of them. The lifter's own path
+     keys the alignment on the target mode and is right, so the two
+     disagreed with each other. Only the analysis API is affected: the
+     lifted IR never takes this path. *)
+  [<TestMethod>]
+  member _.``[Thumb] a branch at an odd halfword keeps its unaligned PC``() =
+    let isa = ISA(Architecture.ARMv7, Endian.Little)
+    (* B .+8 (T2), at an address congruent to 2 mod 4. *)
+    let struct (ok, target) = branchTargetAt isa "02e0" 0x1002UL
+    Assert.AreEqual<bool>(true, ok, "no branch target reported")
+    Assert.AreEqual<uint64>(0x100AUL, target)
+
+  [<TestMethod>]
+  member _.``[Thumb] a branch at an even halfword is unchanged``() =
+    let isa = ISA(Architecture.ARMv7, Endian.Little)
+    let struct (ok, target) = branchTargetAt isa "02e0" 0x1000UL
+    Assert.AreEqual<bool>(true, ok, "no branch target reported")
+    Assert.AreEqual<uint64>(0x1008UL, target)
+
+  (* A one-bit field is the width the guard used to exclude, and the width at
+     which the difference between SBFX and UBFX is entirely the sign. The mask
+     below is what the lifter builds for any width; at width 1 the extracted
+     bit is itself the sign, so a set bit must fill the register. *)
+  [<TestMethod>]
+  member _.``[ARMv7] SBFX sign-extends a one-bit field``() =
+    let bit = (!.R1 >> num 4u) .& num 1u
+    "e7a00251"
+    ++ [| t32 1 := bit
+          t32 2 := AST.not (t32 1 .- num 1u) << num 1u
+          !.R0 := bit .| t32 2 |]
+    |> testARM
+
+  (* SBFX takes its sign from Rn, so with Rd and Rn one register the sign has
+     to be read before the field is written. Read after, it is a bit of the
+     field shifted down -- zero whenever the field does not start at bit 0 --
+     and the result never sign-extends. *)
+  [<TestMethod>]
+  member _.``[ARMv7] SBFX reads the sign before it writes Rd``() =
+    "e7a31251"
+    ++ [| t32 1 := (!.R1 >> num 7u) .& num 1u
+          t32 2 := AST.not (t32 1 .- num 1u) << num 4u
+          !.R1 := ((!.R1 >> num 4u) .& num 0xfu) .| t32 2 |]
+    |> testARM
+
   [<TestMethod>]
   member _.``[ARMv7] SMULBT sign-extends both halfword operands``() =
     "e16002c1"
     ++ [| t32 1 := AST.sext 32<rt> (AST.xtlo 16<rt> !.R1)
           t32 2 := AST.sext 32<rt> (AST.xthi 16<rt> !.R2)
           !.R0 := t32 1 .* t32 2 |]
+    |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] SMLAWB widens its accumulator before shifting``() =
+    "e1203281"
+    ++ [| t32 1 := AST.sext 32<rt> (AST.xtlo 16<rt> !.R2)
+          t64 2 :=
+            AST.sext 64<rt> !.R1 .* AST.sext 64<rt> (t32 1)
+              .+ (AST.sext 64<rt> !.R3 << num64 0x10UL)
+          !.R0 := AST.extract (t64 2) 32<rt> 16
+          !.CPSR :=
+            AST.ite ((t64 2 ?>> num64 0x10UL) != AST.sext 64<rt> !.R0)
+                    (!.CPSR .| num 0x8000000u)
+                    !.CPSR |]
     |> testARM
 
   (* MSR names which fields it writes, so it is a read-modify-write and not an
@@ -273,3 +411,138 @@ type LifterTests() =
                    (AST.app "FMA32" [ s1 <+> sign; s2; s0 <+> sign; flags ]
                       32<rt>) |]
     |> testARM
+
+  /// A hint changes nothing a program can see: with one thread and nothing
+  /// to wait for, each of these lifts to no statement at all.
+  [<TestMethod>]
+  member _.``[ARMv7] YIELD lifts to nothing``() =
+    "e320f001" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] WFE lifts to nothing``() =
+    "e320f002" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] WFI lifts to nothing``() =
+    "e320f003" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] SEV lifts to nothing``() =
+    "e320f004" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] SEVL lifts to nothing``() =
+    "e320f005" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] ESB lifts to nothing``() =
+    "e320f010" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] TSB CSYNC lifts to nothing``() =
+    "e320f012" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] CSDB lifts to nothing``() =
+    "e320f014" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] DBG lifts to nothing``() =
+    "e320f0f3" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] SB lifts to nothing``() =
+    "f57ff070" ++ [||] |> testARM
+
+  [<TestMethod>]
+  member _.``[Thumb] YIELD (narrow) lifts to nothing``() =
+    "bf10" ++ [||] |> testThumb
+
+  [<TestMethod>]
+  member _.``[Thumb] WFE (narrow) lifts to nothing``() =
+    "bf20" ++ [||] |> testThumb
+
+  [<TestMethod>]
+  member _.``[Thumb] WFI (narrow) lifts to nothing``() =
+    "bf30" ++ [||] |> testThumb
+
+  [<TestMethod>]
+  member _.``[Thumb] SEV (narrow) lifts to nothing``() =
+    "bf40" ++ [||] |> testThumb
+
+  [<TestMethod>]
+  member _.``[Thumb] SEVL (narrow) lifts to nothing``() =
+    "bf50" ++ [||] |> testThumb
+
+  [<TestMethod>]
+  member _.``[Thumb] ESB.W (wide) lifts to nothing``() =
+    "f3af8010" ++ [||] |> testThumb
+
+  [<TestMethod>]
+  member _.``[Thumb] TSB CSYNC (wide) lifts to nothing``() =
+    "f3af8012" ++ [||] |> testThumb
+
+  [<TestMethod>]
+  member _.``[Thumb] CSDB.W (wide) lifts to nothing``() =
+    "f3af8014" ++ [||] |> testThumb
+
+  [<TestMethod>]
+  member _.``[Thumb] DBG (wide) lifts to nothing``() =
+    "f3af80f3" ++ [||] |> testThumb
+
+  [<TestMethod>]
+  member _.``[Thumb] SB (wide) lifts to nothing``() =
+    "f3bf8f70" ++ [||] |> testThumb
+
+  /// A constant is copied into every lane it names. These are the forms
+  /// whose constant was expanded wrong, or written to one lane only.
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV.F32 (immediate) fills both lanes``() =
+    let imm = num64 0x40a00000UL
+    "f2810f14"
+    ++ [| !@(Q0, 1) := imm .| (imm << num64 0x20UL) |]
+    |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV.F32 (immediate) fills a quadword``() =
+    let imm = num64 0x40a00000UL
+    let lanes = imm .| (imm << num64 0x20UL)
+    "f2810f54"
+    ++ [| !@(Q0, 2) := lanes
+          !@(Q0, 1) := lanes |]
+    |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV.I32 (immediate) shifts in ones``() =
+    let imm = num64 0x5affUL
+    "f2850c1a"
+    ++ [| !@(Q0, 1) := imm .| (imm << num64 0x20UL) |]
+    |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMVN.I32 (immediate) complements the ones``() =
+    let imm = num64 0x5affUL
+    "f2850c3a"
+    ++ [| !@(Q0, 1) := AST.not (imm .| (imm << num64 0x20UL)) |]
+    |> testARM
+
+  /// A wide move of a register writes the register it names, not r0.
+  [<TestMethod>]
+  member _.``[Thumb] MOV (register, wide) writes its destination``() =
+    let written = writtenBy true "ea4f0801"
+    Assert.AreEqual<bool>(true, Array.contains !.R8 written)
+
+  [<TestMethod>]
+  member _.``[Thumb] MOVS.W (register) writes its destination``() =
+    let written = writtenBy true "ea5f0801"
+    Assert.AreEqual<bool>(true, Array.contains !.R8 written)
+
+  [<TestMethod>]
+  member _.``[Thumb] RRX (wide) writes its destination``() =
+    let written = writtenBy true "ea4f0831"
+    Assert.AreEqual<bool>(true, Array.contains !.R8 written)
+
+  [<TestMethod>]
+  member _.``[Thumb] RRXS (wide) writes its destination``() =
+    let written = writtenBy true "ea5f0831"
+    Assert.AreEqual<bool>(true, Array.contains !.R8 written)

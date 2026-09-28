@@ -377,6 +377,14 @@ let private dbg ins =
   | _ ->
     wrongOperands ins
 
+/// TSB, the one hint written with an option, CSYNC being the only one it has.
+let private tsb ins =
+  match ins.Operands with
+  | OneOperand(OprHintOpt CSYNC) ->
+    cond ins ||| (0b00110010u <<< 20) ||| (0xfu <<< 12) ||| 0x12u
+  | _ ->
+    wrongOperands ins
+
 /// <summary>
 /// The barriers and CLREX, which share one encoding in the unconditional
 /// space and differ in the four bits above their option.
@@ -1971,6 +1979,7 @@ let hintEncoders () =
     Opcode.SEVL, hint 0x05u
     Opcode.ESB, hint 0x10u
     Opcode.CSDB, hint 0x14u
+    Opcode.TSB, tsb
     Opcode.DBG, dbg
     Opcode.CLREX, barrier 0b0001u 0xfu
     Opcode.DSB, barrier 0b0100u 0xfu

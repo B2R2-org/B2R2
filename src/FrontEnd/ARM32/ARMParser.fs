@@ -1188,7 +1188,7 @@ let parseMovSpecReg00 (phlp: ParsingHelper) bin =
     render phlp bin Op.NOP None OD.OprNo
   | 0b010010u -> (* TSB CSYNC *)
     phlp.Cond <> Condition.AL |> checkUnpred
-    render phlp bin Op.TSB None OD.OprNo (* Armv8.4 *)
+    render phlp bin Op.TSB None OD.OprCsync (* Armv8.4 *)
   | 0b010011u ->
     render phlp bin Op.NOP None OD.OprNo
   | 0b010100u ->
@@ -1208,7 +1208,7 @@ let parseMovSpecReg00 (phlp: ParsingHelper) bin =
 let parseMovSpecReg11 (phlp: ParsingHelper) bin =
   match pickTwo bin 4 with
   | 0b10u -> render phlp bin Op.NOP None OD.OprNo
-  | 0b11u -> render phlp bin Op.DBG None OD.OprNo
+  | 0b11u -> render phlp bin Op.DBG None OD.OprOptImm
   (* 0b0xu *)
   | _ -> render phlp bin Op.NOP None OD.OprNo
 
