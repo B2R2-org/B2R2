@@ -50,6 +50,7 @@ same expressions without the interactive `;;` terminator.
 | `Ctrl+A` / `Ctrl+E` | Move to the start or end of shell input. |
 | `Ctrl+W` / `Ctrl+Backspace` | Delete the previous shell-input word. |
 | `Ctrl+U` / `Ctrl+K` | Delete shell input before or after the cursor. |
+| Click a suggestion | Apply the clicked completion. |
 | `Ctrl+C` | Cancel a running action. |
 | `Ctrl+D` | Leave the REPL when the input is empty. |
 | `Esc` | Close an open panel or clear the current input. |
