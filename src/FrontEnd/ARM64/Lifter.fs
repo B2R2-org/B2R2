@@ -425,6 +425,26 @@ let translate (ins: Instruction) bld =
     ldarSized ins bld 8<rt>
   | Opcode.LDARH ->
     ldarSized ins bld 16<rt>
+  (* The unprivileged accesses read and write through the translation regime
+     the operating system uses for its own data rather than the one the
+     current level runs under. There is one regime here and no privilege to
+     drop, so each of them is the unscaled access it is written like. *)
+  | Opcode.LDTR ->
+    ldur ins bld
+  | Opcode.LDTRB ->
+    ldurb ins bld
+  | Opcode.LDTRH ->
+    ldurh ins bld
+  | Opcode.LDTRSB ->
+    ldursb ins bld
+  | Opcode.LDTRSH ->
+    ldursh ins bld
+  | Opcode.LDTRSW ->
+    ldursw ins bld
+  | Opcode.STTR ->
+    stur ins bld
+  | Opcode.STTRH ->
+    sturh ins bld
   | Opcode.LDAXP | Opcode.LDXP ->
     ldaxp ins bld
   | Opcode.LDAXR | Opcode.LDXR ->
