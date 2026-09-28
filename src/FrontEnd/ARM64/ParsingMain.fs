@@ -1693,6 +1693,17 @@ let parseLoadStoreExclusive bin =
                     1 (* size:o2:L:o1:o0 *)
   let rt2 = extract bin 14u 10u
   match cond with
+  (* FEAT_LOR: the same ordered accesses as LDAR and STLR, ordered against a
+     limited region rather than against everything. There is one region in a
+     model with one thread, so they are told apart by o0 alone. *)
+  | 0b001000u -> Op.STLLRB, getWtMXSn bin, 32<rt>
+  | 0b001100u -> Op.LDLARB, getWtMXSn bin, 32<rt>
+  | 0b011000u -> Op.STLLRH, getWtMXSn bin, 32<rt>
+  | 0b011100u -> Op.LDLARH, getWtMXSn bin, 32<rt>
+  | 0b101000u -> Op.STLLR, getWtMXSn bin, 32<rt>
+  | 0b101100u -> Op.LDLAR, getWtMXSn bin, 32<rt>
+  | 0b111000u -> Op.STLLR, getXtMXSn bin, 64<rt>
+  | 0b111100u -> Op.LDLAR, getXtMXSn bin, 64<rt>
   | c when c &&& 0b001011u = 0b001000u (* FEAT_LOR *) -> unallocated ()
   | c when c &&& 0b001010u = 0b001010u && rt2 <> 0b11111u -> unallocated ()
   | c when c &&& 0b100010u = 0b000010u && rt2 <> 0b11111u -> unallocated ()
@@ -2175,6 +2186,34 @@ let parseAtomicMemoryOperations bin =
     unallocated ()
 
 /// <summary>
+/// FEAT_LRCPC2: the acquiring loads and releasing stores that take an
+/// unscaled offset, which is the addressing mode LDAR and STLR do not have.
+///
+/// They share their class with the memory-tag accesses and are told from
+/// them by bit 21. Ordering is the whole of what they add, and a model with
+/// one thread has nothing to order against, so each is the plain access of
+/// its width.
+/// </summary>
+let parseLoadStoreOrderedUnscaled bin =
+  let size = extract bin 31u 30u
+  let opc = extract bin 23u 22u
+  match size, opc with
+  | 0b00u, 0b00u -> Op.STLURB, getWtBIXSnsimm bin, 32<rt>
+  | 0b00u, 0b01u -> Op.LDAPURB, getWtBIXSnsimm bin, 32<rt>
+  | 0b00u, 0b10u -> Op.LDAPURSB, getXtBIXSnsimm bin, 64<rt>
+  | 0b00u, 0b11u -> Op.LDAPURSB, getWtBIXSnsimm bin, 32<rt>
+  | 0b01u, 0b00u -> Op.STLURH, getWtBIXSnsimm bin, 32<rt>
+  | 0b01u, 0b01u -> Op.LDAPURH, getWtBIXSnsimm bin, 32<rt>
+  | 0b01u, 0b10u -> Op.LDAPURSH, getXtBIXSnsimm bin, 64<rt>
+  | 0b01u, 0b11u -> Op.LDAPURSH, getWtBIXSnsimm bin, 32<rt>
+  | 0b10u, 0b00u -> Op.STLUR, getWtBIXSnsimm bin, 32<rt>
+  | 0b10u, 0b01u -> Op.LDAPUR, getWtBIXSnsimm bin, 32<rt>
+  | 0b10u, 0b10u -> Op.LDAPURSW, getXtBIXSnsimm bin, 64<rt>
+  | 0b11u, 0b00u -> Op.STLUR, getXtBIXSnsimm bin, 64<rt>
+  | 0b11u, 0b01u -> Op.LDAPUR, getXtBIXSnsimm bin, 64<rt>
+  | _ -> unallocated ()
+
+/// <summary>
 /// Load/store memory tags: LDG, STG, ST2G, STZG and STZ2G, and the block
 /// forms LDGM, STGM and STZGM.
 ///
@@ -2221,6 +2260,10 @@ let parse64Group3 bin =
   | c when c &&& 0b11111010000000u = 0b10101010000000u
            && pickBit bin 30u = 1u ->
     parseLoadStoreMemoryTags bin
+  (* And the acquiring and releasing unscaled accesses beside them, which is
+     the same class with bit 21 clear. *)
+  | c when c &&& 0b01111010000011u = 0b00101000000000u ->
+    parseLoadStoreOrderedUnscaled bin
   | c when c &&& 0b11111111111100u = 0b00010000000000u ->
     parseAdvSIMDMul bin
   | c when c &&& 0b11111110000000u = 0b00010100000000u ->

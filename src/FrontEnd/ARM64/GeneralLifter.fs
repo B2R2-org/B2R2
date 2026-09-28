@@ -937,12 +937,14 @@ let ldar ins bld =
     sized ins.OprSize dst := AST.loadLE ins.OprSize address
   }
 
-let ldarb ins bld =
+/// An acquiring load of less than a whole register, zero-extended into it.
+/// The width of the access is what the mnemonic's last letter says.
+let ldarSized ins bld accSz =
   lift bld ins {
     let dst, (bReg, offset) = transTwoOprsSepMem ins bld
     let address = tmpVar bld 64<rt>
     direct address := bReg .+ offset
-    sized ins.OprSize dst := AST.loadLE 8<rt> address
+    sized ins.OprSize dst := AST.loadLE accSz address
   }
 
 let ldax ins bld size =
@@ -1303,14 +1305,14 @@ let stlr ins bld =
     sized ins.OprSize (AST.loadLE ins.OprSize address) := src
   }
 
-let stlrb ins bld =
+/// A releasing store of less than a whole register, taking the low bits of
+/// it. The width of the access is what the mnemonic's last letter says.
+let stlrSized ins bld accSz =
   lift bld ins {
     let src, (bReg, offset) = transTwoOprsSepMem ins bld
     let address = tmpVar bld 64<rt>
-    let data = tmpVar bld 8<rt>
     direct address := bReg .+ offset
-    direct data := AST.xtlo 8<rt> src
-    direct (AST.loadLE 8<rt> address) := data
+    direct (AST.loadLE accSz address) := AST.xtlo accSz src
   }
 
 let stlx ins bld size =

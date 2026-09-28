@@ -111,7 +111,7 @@ type LiftingUnitTests() =
   static let unlifted =
     [| Architecture.ARMv7, "730806b7", "smlsdx"
        Architecture.ARMv7, "50ef2ba1", "qsub"
-       Architecture.ARMv8, "c0dddb48", "ldarh"
+       Architecture.ARMv8, "207e0bd5", "dccivac"
        Architecture.ARMv8, "bdd94e0f", "sqrdmulh"
        Architecture.Intel, "c4e27fccc1", "vsha512msg1"
        Architecture.Intel, "c4e26edac1", "vsm4key4" |]

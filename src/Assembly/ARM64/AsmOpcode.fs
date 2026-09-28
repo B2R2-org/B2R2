@@ -1074,6 +1074,33 @@ let private exclusiveOne size o2 l o0 ins =
   | _ ->
     wrongOperands ins
 
+/// <summary>
+/// FEAT_LRCPC2's acquiring loads and releasing stores, which take the
+/// unscaled offset the ordinary acquiring ones have no room for.
+///
+/// They sit in the class the memory tags share and are told from them by bit
+/// 21. `opcOf` reads the opc field off the register where the mnemonic does
+/// not fix it: a sign-extending load says in that field how wide the answer
+/// is, which is the only place the register is asked.
+/// </summary>
+let private orderedUnscaled size opcOf ins =
+  match ins.Operands with
+  | TwoOperands(Rg rt, OprMemory(BaseMode(ImmOffset(BaseOffset(rn, off))))) ->
+    let sz = defaultArg size (accessSize rt)
+    ((sz <<< 30) ||| (0b011001u <<< 24) ||| (opcOf rt <<< 22)
+     ||| (signedImm 9 (defaultArg off 0L) <<< 12)
+     ||| (coreRegSP rn <<< 5) ||| coreReg rt)
+  | _ ->
+    wrongOperands ins
+
+/// The opc of a releasing store, an acquiring load, and an acquiring load
+/// that sign-extends -- the last one saying how wide it extends to.
+let private ordStore (_: Register) = 0b00u
+
+let private ordLoad (_: Register) = 0b01u
+
+let private ordSigned rt = if is64Reg rt then 0b10u else 0b11u
+
 /// Encodes <Ws>, <Rt>, [<Xn|SP>], the stores that say whether they succeeded.
 let private exclusiveStore size o0 ins =
   match ins.Operands with
@@ -1698,6 +1725,21 @@ let loadStoreEncoders () =
     Opcode.SUBP, tagSubtract false
     Opcode.SUBPS, tagSubtract true
     Opcode.CMPP, tagSubtract true
+    Opcode.LDAPUR, orderedUnscaled None ordLoad
+    Opcode.STLUR, orderedUnscaled None ordStore
+    Opcode.LDAPURB, orderedUnscaled (Some 0b00u) ordLoad
+    Opcode.STLURB, orderedUnscaled (Some 0b00u) ordStore
+    Opcode.LDAPURH, orderedUnscaled (Some 0b01u) ordLoad
+    Opcode.STLURH, orderedUnscaled (Some 0b01u) ordStore
+    Opcode.LDAPURSB, orderedUnscaled (Some 0b00u) ordSigned
+    Opcode.LDAPURSH, orderedUnscaled (Some 0b01u) ordSigned
+    Opcode.LDAPURSW, orderedUnscaled (Some 0b10u) ordSigned
+    Opcode.LDLARB, exclusiveOne (Some 0b00u) 1u 1u 0u
+    Opcode.STLLRB, exclusiveOne (Some 0b00u) 1u 0u 0u
+    Opcode.LDLARH, exclusiveOne (Some 0b01u) 1u 1u 0u
+    Opcode.STLLRH, exclusiveOne (Some 0b01u) 1u 0u 0u
+    Opcode.LDLAR, exclusiveOne None 1u 1u 0u
+    Opcode.STLLR, exclusiveOne None 1u 0u 0u
     Opcode.STXRB, exclusiveStore (Some 0b00u) 0u
     Opcode.STLXRB, exclusiveStore (Some 0b00u) 1u
     Opcode.STXRH, exclusiveStore (Some 0b01u) 0u

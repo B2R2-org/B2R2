@@ -403,8 +403,28 @@ let translate (ins: Instruction) bld =
     loadRep ins bld
   | Opcode.LDAR ->
     ldar ins bld
+  | Opcode.LDLAR ->
+    ldar ins bld
+  | Opcode.LDLARB ->
+    ldarSized ins bld 8<rt>
+  | Opcode.LDLARH ->
+    ldarSized ins bld 16<rt>
+  | Opcode.LDAPUR ->
+    ldur ins bld
+  | Opcode.LDAPURB ->
+    ldurb ins bld
+  | Opcode.LDAPURH ->
+    ldurh ins bld
+  | Opcode.LDAPURSB ->
+    ldursb ins bld
+  | Opcode.LDAPURSH ->
+    ldursh ins bld
+  | Opcode.LDAPURSW ->
+    ldursw ins bld
   | Opcode.LDARB ->
-    ldarb ins bld
+    ldarSized ins bld 8<rt>
+  | Opcode.LDARH ->
+    ldarSized ins bld 16<rt>
   | Opcode.LDAXP | Opcode.LDXP ->
     ldaxp ins bld
   | Opcode.LDAXR | Opcode.LDXR ->
@@ -581,8 +601,22 @@ let translate (ins: Instruction) bld =
     loadStoreList ins bld false
   | Opcode.STLR ->
     stlr ins bld
+  | Opcode.STLLR ->
+    stlr ins bld
+  | Opcode.STLLRB ->
+    stlrSized ins bld 8<rt>
+  | Opcode.STLLRH ->
+    stlrSized ins bld 16<rt>
+  | Opcode.STLUR ->
+    stur ins bld
+  | Opcode.STLURB ->
+    sturb ins bld
+  | Opcode.STLURH ->
+    sturh ins bld
   | Opcode.STLRB ->
-    stlrb ins bld
+    stlrSized ins bld 8<rt>
+  | Opcode.STLRH ->
+    stlrSized ins bld 16<rt>
   | Opcode.STLXP | Opcode.STXP ->
     stlxp ins bld
   | Opcode.STLXR | Opcode.STXR ->
