@@ -15,8 +15,12 @@ Running the REPL
 From the repository root, start the interactive REPL with:
 
 ```
-dotnet run -c Release --project src/RearEnd/Transformer -- repl
+dotnet run -c Release --project src/RearEnd/Transformer
 ```
+
+The explicit `repl` argument is equivalent. Transformer does not provide a
+separate action-chain command-line interface: interactive commands and scripts
+use the same REPL language, including action names prefixed with `@`.
 
 The `script` mode evaluates a saved REPL script without opening the TUI:
 
