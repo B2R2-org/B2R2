@@ -1959,8 +1959,14 @@ type internal OprRtLabelHL() =
   inherit OperandParser()
   override _.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
-    let label = (* imm4H:imm4L *)
-      concat (extract bin 11 8) (extract bin 3 0) 4 |> int64 |> memLabel
+    let imm = (* imm4H:imm4L *)
+      concat (extract bin 11 8) (extract bin 3 0) 4 |> int64
+    (* add = (U == '1'). The word form one screen up already does this;
+       the imm4H:imm4L parsers did not, so every backward literal-pool
+       reference was read forward. Forward references are the common case
+       in compiled code, which is why it survived. *)
+    let label = if pickBit bin 23 = 1u then memLabel imm
+                else memLabel (imm * -1L)
     struct (TwoOperands(rt, label), wback bin, None, 32<rt>)
 
 (* <Rn>{!}, <registers> *)
@@ -2982,8 +2988,14 @@ type internal OprRtRt2LabelA() =
   override _.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
     let rt2 = extract bin 15 12 + 1u |> getRegister |> OprReg
-    let label = (* imm4H:imm4L *)
-      concat (extract bin 11 8) (extract bin 3 0) 4 |> int64 |> memLabel
+    let imm = (* imm4H:imm4L *)
+      concat (extract bin 11 8) (extract bin 3 0) 4 |> int64
+    (* add = (U == '1'). The word form one screen up already does this;
+       the imm4H:imm4L parsers did not, so every backward literal-pool
+       reference was read forward. Forward references are the common case
+       in compiled code, which is why it survived. *)
+    let label = if pickBit bin 23 = 1u then memLabel imm
+                else memLabel (imm * -1L)
     struct (ThreeOperands(rt, rt2, label), false, None, 32<rt>)
 
 (* p14, c5, <label> *)
