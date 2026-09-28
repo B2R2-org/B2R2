@@ -59,6 +59,8 @@ let private splitOutsideParens (width: int) (indent: string) (s: string) =
       pieces.Add(s.Substring(lineStart, start - lineStart))
       lineStart <- start
       limit <- width - indent.Length - 2
+    else
+      ()
     start <- b + 1
   pieces.Add(s.Substring lineStart)
   if pieces.Count <= 1 then
@@ -69,89 +71,134 @@ let private splitOutsideParens (width: int) (indent: string) (s: string) =
     let tokens = ResizeArray<string>()
     let mutable last = 0
     for b in breaks do
-      if b > last then tokens.Add(s.Substring(last, b - last).Trim())
+      if b > last then tokens.Add(s.Substring(last, b - last).Trim()) else ()
       last <- b + 1
     tokens
     |> Seq.filter (fun t -> t <> "")
     |> Seq.mapi (fun i t -> if i = 0 then indent + t else indent + "  " + t)
     |> List.ofSeq
 
+/// Folds a context case, spreading its alternatives over as many lines as
+/// they need.
+let private foldCase (indent: string) (body: string) =
+  let alts = body.Substring(2, body.Length - 5).Split(" | ")
+  let lines = ResizeArray<string>()
+  let cur = StringBuilder(indent + "| " + alts[0])
+  for a in alts |> Array.skip 1 do
+    if cur.Length + 3 + a.Length > 77 then
+      lines.Add(cur.ToString())
+      cur.Clear().Append(indent + "| " + a) |> ignore
+    else
+      cur.Append(" | " + a) |> ignore
+  lines.Add(cur.ToString() + " ->")
+  List.ofSeq lines
+
+/// Whether a line is a condition that folds by breaking before each &&.
+let private isFoldableCond (body: string) =
+  (body.StartsWith "if " || body.StartsWith "elif ")
+  && body.EndsWith " then"
+  && body.Contains " && "
+
+/// Whether the '&' at i opens an && that sits outside parentheses.
+let private isTopLevelAnd (cond: string) depth i =
+  depth = 0
+  && i + 1 < cond.Length
+  && cond[i + 1] = '&'
+  && i > 0
+  && cond[i - 1] = ' '
+
+/// The conjuncts of a condition, split at the &&s outside parentheses.
+let private condParts (cond: string) =
+  let parts = ResizeArray<string>()
+  let mutable depth = 0
+  let mutable start = 0
+  for i in 0 .. cond.Length - 1 do
+    match cond[i] with
+    | '(' ->
+      depth <- depth + 1
+    | ')' ->
+      depth <- depth - 1
+    | '&' when isTopLevelAnd cond depth i ->
+      parts.Add(cond.Substring(start, i - 1 - start))
+      start <- i + 3
+    | _ ->
+      ()
+  parts.Add(cond.Substring start)
+  parts.ToArray()
+
+/// Folds a condition, breaking before each of its top-level &&s.
+let private foldCond (indent: string) (body: string) =
+  let kw = if body.StartsWith "if " then "if " else "elif "
+  let cond = body.Substring(kw.Length, body.Length - kw.Length - 5)
+  let parts = condParts cond
+  let pad = String(' ', indent.Length + kw.Length)
+  [ for i in 0 .. parts.Length - 1 do
+      let prefix = if i = 0 then indent + kw else pad
+      let suffix = if i = parts.Length - 1 then " then" else " &&"
+      yield prefix + parts[i] + suffix ]
+  |> List.collect (fun l ->
+    if l.Length <= 80 then [ l ] else splitOutsideParens 80 pad l)
+
+/// Folds a binding whose right-hand side is a parenthesized conditional,
+/// spelling the conditional out over lines of its own.
+let private foldLetIf (head: string) (pad: string) (rest: string) =
+  let inner = rest.Substring(1, rest.Length - 2)
+  let thenAt = inner.IndexOf " then "
+  let elseAt = inner.LastIndexOf " else "
+  let c = inner.Substring(3, thenAt - 3)
+  let a = inner.Substring(thenAt + 6, elseAt - thenAt - 6)
+  let b = inner.Substring(elseAt + 6)
+  [ head
+    pad + "if " + c + " then"
+    pad + "  " + a
+    pad + "else"
+    pad + "  " + b ]
+  |> List.collect (fun l ->
+    if l.Length <= 80 then [ l ] else splitOutsideParens 80 pad l)
+
+/// Folds a binding, continuing its right-hand side two columns further in.
+let private foldLet (indent: string) (line: string) =
+  let eq = line.IndexOf " = "
+  let head = line.Substring(0, eq + 2)
+  let rest = line.Substring(eq + 3)
+  let pad = indent + "  "
+  if rest.StartsWith "(if " && rest.EndsWith ")" then
+    foldLetIf head pad rest
+  else
+    let restLine = pad + rest
+    let tail =
+      if restLine.Length <= 80 then
+        [ restLine ]
+      else
+        splitOutsideParens 80 pad restLine
+    head :: tail
+
 /// Folds a generated line to the 80-column width the repository keeps: a
 /// context case splits its alternatives, a condition breaks before each &&,
 /// and a call or binding continues on lines indented two more.
 let private fold (line: string) =
-  if line.Length <= 80 then [ line ]
+  let indent = line.Substring(0, line.Length - line.TrimStart().Length)
+  let body = line.TrimStart()
+  if line.Length <= 80 then
+    [ line ]
+  elif body.StartsWith "| " && body.EndsWith " ->" then
+    foldCase indent body
+  elif isFoldableCond body then
+    foldCond indent body
+  elif body.StartsWith "let " && body.Contains " = " then
+    foldLet indent line
   else
-    let indent = line.Substring(0, line.Length - line.TrimStart().Length)
-    let body = line.TrimStart()
-    if body.StartsWith "| " && body.EndsWith " ->" then
-      let alts = body.Substring(2, body.Length - 5).Split(" | ")
-      let lines = ResizeArray<string>()
-      let cur = StringBuilder(indent + "| " + alts[0])
-      for a in alts |> Array.skip 1 do
-        if cur.Length + 3 + a.Length > 77 then
-          lines.Add(cur.ToString())
-          cur.Clear().Append(indent + "| " + a) |> ignore
-        else cur.Append(" | " + a) |> ignore
-      lines.Add(cur.ToString() + " ->")
-      List.ofSeq lines
-    elif (body.StartsWith "if " || body.StartsWith "elif ")
-         && body.EndsWith " then" && body.Contains " && " then
-      let kw = if body.StartsWith "if " then "if " else "elif "
-      let cond = body.Substring(kw.Length, body.Length - kw.Length - 5)
-      let parts = ResizeArray<string>()
-      let mutable depth = 0
-      let mutable start = 0
-      for i in 0 .. cond.Length - 1 do
-        match cond[i] with
-        | '(' -> depth <- depth + 1
-        | ')' -> depth <- depth - 1
-        | '&' when depth = 0 && i + 1 < cond.Length && cond[i + 1] = '&'
-                   && i > 0 && cond[i - 1] = ' ' ->
-          parts.Add(cond.Substring(start, i - 1 - start))
-          start <- i + 3
-        | _ -> ()
-      parts.Add(cond.Substring start)
-      let parts = parts.ToArray()
-      let pad = String(' ', indent.Length + kw.Length)
-      [ for i in 0 .. parts.Length - 1 do
-          let prefix = if i = 0 then indent + kw else pad
-          let suffix = if i = parts.Length - 1 then " then" else " &&"
-          yield prefix + parts[i] + suffix ]
-      |> List.collect (fun l ->
-        if l.Length <= 80 then [ l ] else splitOutsideParens 80 pad l)
-    elif body.StartsWith "let " && body.Contains " = " then
-      let eq = line.IndexOf " = "
-      let head = line.Substring(0, eq + 2)
-      let rest = line.Substring(eq + 3)
-      let pad = indent + "  "
-      if rest.StartsWith "(if " && rest.EndsWith ")" then
-        let inner = rest.Substring(1, rest.Length - 2)
-        let thenAt = inner.IndexOf " then "
-        let elseAt = inner.LastIndexOf " else "
-        let c = inner.Substring(3, thenAt - 3)
-        let a = inner.Substring(thenAt + 6, elseAt - thenAt - 6)
-        let b = inner.Substring(elseAt + 6)
-        [ head; pad + "if " + c + " then"; pad + "  " + a; pad + "else"
-          pad + "  " + b ]
-        |> List.collect (fun l ->
-          if l.Length <= 80 then [ l ] else splitOutsideParens 80 pad l)
-      else
-        let restLine = pad + rest
-        head :: (if restLine.Length <= 80 then [ restLine ]
-                 else splitOutsideParens 80 pad restLine)
-    else
-      splitOutsideParens 80 indent line
+    splitOutsideParens 80 indent line
 
 type private Emitter(vex: bool) =
   let sb = StringBuilder()
 
   member _.Vex = vex
 
+  member _.Text = sb.ToString()
+
   member _.Line(s: string) =
     for l in fold s do sb.Append(l).Append('\n') |> ignore
-
-  member _.Text = sb.ToString()
 
 let private rows (head: Row) =
   let acc = ResizeArray<Row>()
@@ -171,7 +218,8 @@ let private rt (sz: RegType) = sprintf "%d<rt>" (int sz)
 let private opc (o: Opcode) = sprintf "Opcode.%s" (o.ToString())
 
 let private pfx (p: Prefix) =
-  if p = Prefix.None then "Prefix.None"
+  if p = Prefix.None then
+    "Prefix.None"
   else
     let names =
       [ Prefix.OPSIZE; Prefix.REPZ; Prefix.REPNZ; Prefix.LOCK; Prefix.ADDRSIZE ]
@@ -202,16 +250,21 @@ let private vlOf (r: Row) =
 /// The condition the ModRM byte has to satisfy beyond the digit switch.
 let private modRMCond (r: Row) hasDigitSwitch =
   let wd = r.MatchWord
-  if wd &&& MatchWord.Any <> 0UL then []
+  if wd &&& MatchWord.Any <> 0UL then
+    []
   else
     let mask = int (wd &&& 0xFFUL)
     let value = int ((wd >>> 8) &&& 0xFFUL)
     let mask = if hasDigitSwitch then mask &&& 0xC7 else mask
     let notReg = wd &&& MatchWord.NotReg <> 0UL
     [ if mask <> 0 then
-        if mask = 0xC0 && value &&& 0xC0 = 0xC0 then yield "isReg m"
-        else yield sprintf "(m &&& 0x%02Xuy) = 0x%02Xuy" mask (value &&& mask)
-      if notReg then yield "isMem m" ]
+        if mask = 0xC0 && value &&& 0xC0 = 0xC0 then
+          yield "isReg m"
+        else
+          yield sprintf "(m &&& 0x%02Xuy) = 0x%02Xuy" mask (value &&& mask)
+      else
+        ()
+      if notReg then yield "isMem m" else () ]
 
 let private e3Cond (r: Row) =
   match r.Opcode.ToString() with
@@ -224,10 +277,7 @@ let private e3Cond (r: Row) =
 /// EVEX.b on a register form in a slot that offers a rounding decoration,
 /// L'L is spent on the rounding mode and only a row offering one answers.
 let private vlCond (r: Row) =
-  let plain =
-    match vlOf r with
-    | Some vl -> Some (sprintf "st.VL = %d<rt>" vl)
-    | None -> None
+  let plain = vlOf r |> Option.map (sprintf "st.VL = %d<rt>")
   if r.SlotDeclaresRC then
     let rc = if r.RCDecor <> NoRounding then "true" else "false"
     let vl = defaultArg (vlOf r) 0
@@ -239,31 +289,38 @@ let private vlCond (r: Row) =
 /// The opmask constraints, as Parser.matchGatherMask, matchZeroing and
 /// matchMaskableDest read them, with the row's facts folded in.
 let private maskConds (r: Row) =
-  [ if r.UsesVSIB then yield "not (st.IsEVEX && st.AAA = 0)"
+  [ if r.UsesVSIB then yield "not (st.IsEVEX && st.AAA = 0)" else ()
     if r.UsesVSIB || r.DestIsMaskReg then
       yield "not (st.IsEVEX && st.Zeroing)"
     elif r.HasMemoryDest then
       yield "not (st.IsEVEX && st.Zeroing && isMem m)"
+    else
+      ()
     if not r.DestRegCanBeMasked then
       if r.HasMemoryDest then
         yield "(not (st.IsEVEX && st.AAA <> 0) || isMem m)"
       else
-        yield "not (st.IsEVEX && st.AAA <> 0)" ]
+        yield "not (st.IsEVEX && st.AAA <> 0)"
+    else
+      () ]
+
+/// The part of a row's condition that only the VEX and EVEX maps carry.
+let private vexCond (r: Row) =
+  let opsz =
+    if r.Requires66h then
+      [ "(Prefix.hasOprSz st.Pref && not (REXPrefix.hasW st.REX))" ]
+    else
+      []
+  opsz @ vlCond r @ maskConds r
 
 /// The whole condition of a row, given the digit was switched on already.
 let private rowCond (em: Emitter) (r: Row) hasDigitSwitch =
-  let conds =
-    modRMCond r hasDigitSwitch
-    @ (if r.IsE3 then e3Cond r else [])
-    @ (if r.IsPlainNop then [ "not (REXPrefix.hasB st.REX)" ] else [])
-    @ (if em.Vex then
-         (if r.Requires66h then
-            [ "(Prefix.hasOprSz st.Pref && not (REXPrefix.hasW st.REX))" ]
-          else [])
-         @ vlCond r
-         @ maskConds r
-       else [])
-    @ (if r.LockableDest then [ "(st.NoLock || isMem m)" ] else [ "st.NoLock" ])
+  let e3 = if r.IsE3 then e3Cond r else []
+  let nop = if r.IsPlainNop then [ "not (REXPrefix.hasB st.REX)" ] else []
+  let vex = if em.Vex then vexCond r else []
+  let lck =
+    if r.LockableDest then [ "(st.NoLock || isMem m)" ] else [ "st.NoLock" ]
+  let conds = modRMCond r hasDigitSwitch @ e3 @ nop @ vex @ lck
   String.Join(" && ", conds)
 
 type private Opr =
@@ -282,7 +339,7 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
     { Expr = e; IsRegStatic = false; NotReg = false; RM = None; Bcst = 0<rt> }
   let reg e = { mk e with IsRegStatic = true }
   let nonReg e = { mk e with NotReg = true }
-  let rmk e rsz msz bcst = { mk e with RM = Some (rsz, msz); Bcst = bcst }
+  let rmk e rsz msz bcst = { mk e with RM = Some(rsz, msz); Bcst = bcst }
   let t = tt r.TupleType
   let memOf sz bcst =
     if em.Vex then sprintf "memV span &st m %s %s %s" (rt sz) t (rt bcst)
@@ -290,7 +347,8 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
   let rmOf rsz msz bcst =
     if em.Vex then
       sprintf "rmOprV span &st m %s %s %s %s" (rt rsz) (rt msz) t (rt bcst)
-    elif rsz = msz then sprintf "rmOpr span &st m %s" (rt rsz)
+    elif rsz = msz then
+      sprintf "rmOpr span &st m %s" (rt rsz)
     else
       sprintf "(if isReg m then Operands.oprReg (rmReg &st m %s) else %s)"
         (rt rsz) (sprintf "mem span &st m %s" (rt msz))
@@ -301,38 +359,52 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
     if em.Vex then sprintf "rmRegV &st m %s" (rt sz)
     else sprintf "rmReg &st m %s" (rt sz)
   match o.Kind with
-  | OprKind.RM -> rmk (rmOf o.Size o.Size 0<rt>) o.Size o.Size 0<rt>
+  | OprKind.RM ->
+    rmk (rmOf o.Size o.Size 0<rt>) o.Size o.Size 0<rt>
   | OprKind.RMTwoWidths ->
     rmk (rmOf o.Size o.MemSize 0<rt>) o.Size o.MemSize 0<rt>
   | OprKind.RMBroadcast ->
     rmk (rmOf o.Size o.MemSize o.BcstSize) o.Size o.MemSize o.BcstSize
-  | OprKind.MemVSIB -> nonReg (sprintf "memVSIB span &st m %s %s" (rt o.Size) t)
+  | OprKind.MemVSIB ->
+    nonReg (sprintf "memVSIB span &st m %s %s" (rt o.Size) t)
   | OprKind.Reg ->
     match o.Field with
-    | OprRegType.RegBit -> reg (regReg o.Size)
-    | OprRegType.RMBit -> reg (rmReg o.Size)
+    | OprRegType.RegBit ->
+      reg (regReg o.Size)
+    | OprRegType.RMBit ->
+      reg (rmReg o.Size)
     | OprRegType.OpRd ->
       reg (sprintf "opReg &st %d %s" (int r.OpcodeByte &&& 7) (rt o.Size))
-    | OprRegType.VVVV -> reg (sprintf "vvvvReg &st %s" (rt o.Size))
-    | OprRegType.IS4 -> reg (sprintf "is4Reg span &st %s" (rt o.Size))
-    | f -> failwithf "unsupported reg field %A in row %A" f r.Opcode
-  | OprKind.Mem -> nonReg (memOf o.Size 0<rt>)
+    | OprRegType.VVVV ->
+      reg (sprintf "vvvvReg &st %s" (rt o.Size))
+    | OprRegType.IS4 ->
+      reg (sprintf "is4Reg span &st %s" (rt o.Size))
+    | f ->
+      failwithf "unsupported reg field %A in row %A" f r.Opcode
+  | OprKind.Mem ->
+    nonReg (memOf o.Size 0<rt>)
   | OprKind.MemFromPrefixes ->
     if em.Vex then
       let sz = sprintf "(effOprSz &st %s)" (szc r.SzCond)
       nonReg (sprintf "memV span &st m %s %s 0<rt>" sz t)
-    else nonReg (sprintf "mem span &st m (effOprSz &st %s)" (szc r.SzCond))
+    else
+      nonReg (sprintf "mem span &st m (effOprSz &st %s)" (szc r.SzCond))
   | OprKind.Imm ->
     if r.SignExtendsImm then nonReg (sprintf "simm span &st %s" (rt o.Size))
     else nonReg (sprintf "uimm span &st %s" (rt o.Size))
-  | OprKind.Rel -> nonReg (sprintf "rel span &st %s" (rt o.Size))
-  | OprKind.FixedReg | OprKind.FixedRegModeWidth -> reg (regv o.Value)
-  | OprKind.STRegRM -> reg "RegisterHelper.streg (rm m)"
-  | OprKind.STRegFixed -> reg (regv o.Value)
+  | OprKind.Rel ->
+    nonReg (sprintf "rel span &st %s" (rt o.Size))
+  | OprKind.FixedReg | OprKind.FixedRegModeWidth ->
+    reg (regv o.Value)
+  | OprKind.STRegRM ->
+    reg "RegisterHelper.streg (rm m)"
+  | OprKind.STRegFixed ->
+    reg (regv o.Value)
   | OprKind.BM ->
     let bnd = "OperandParsers.parseBoundRegister (rm m)"
     mk (sprintf "(if isReg m then %s else %s)" bnd (memOf o.Size 0<rt>))
-  | OprKind.BndReg -> mk "OperandParsers.parseBoundRegister (reg m)"
+  | OprKind.BndReg ->
+    mk "OperandParsers.parseBoundRegister (reg m)"
   | OprKind.OpMaskReg ->
     let idx, isRegField =
       match o.Field with
@@ -355,7 +427,8 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
           (memOf o.Size 0<rt>))
   | OprKind.FixedImm ->
     nonReg (sprintf "Operands.oprImm %dL %s" o.Value (rt r.FixedImmSize))
-  | OprKind.Moffs -> nonReg (sprintf "moffs span &st %s" (rt o.Size))
+  | OprKind.Moffs ->
+    nonReg (sprintf "moffs span &st %s" (rt o.Size))
   | OprKind.CtrlReg ->
     mk "OperandParsers.parseControlReg (OperandParsers.sysRegIndex m st.REX)"
   | OprKind.DebugReg ->
@@ -363,23 +436,37 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
   | OprKind.RegAddr ->
     if r.IsGroupExtension then reg "rmReg &st m st.AddrSz"
     else reg "regReg &st m st.AddrSz"
-  | OprKind.Sreg -> mk "OperandParsers.parseSegReg (reg m)"
+  | OprKind.Sreg ->
+    mk "OperandParsers.parseSegReg (reg m)"
   | OprKind.Far ->
     (* m16:16, m16:32 or m16:64: the memory operand is the whole pointer, the
        selector included, as Parser.parseFarOperand sizes it. *)
     if r.HasModRM then nonReg (memOf (o.Size + 16<rt>) 0<rt>)
     else nonReg (sprintf "farPtr span &st %s" (rt o.Size))
-  | k -> failwithf "unsupported operand kind %A in row %A" k r.Opcode
+  | k ->
+    failwithf "unsupported operand kind %A in row %A" k r.Opcode
 
 let private opSize (r: Row) =
   match r.OpWidthKind with
-  | OpWidthKind.Fixed -> rt r.OpWidth
+  | OpWidthKind.Fixed ->
+    rt r.OpWidth
   | OpWidthKind.ByModRMForm ->
     sprintf "(if isReg m then %s else %s)" (rt r.OpWidth) (rt r.OpWidthMem)
   | OpWidthKind.FixedRegister ->
     sprintf "regTypeOf &st %s" (regv (int r.OpWidthReg))
-  | OpWidthKind.EffectiveAddress -> "st.AddrSz"
-  | _ -> sprintf "effOprSz &st %s" (szc r.EffSzCond)
+  | OpWidthKind.EffectiveAddress ->
+    "st.AddrSz"
+  | _ ->
+    sprintf "effOprSz &st %s" (szc r.EffSzCond)
+
+/// The prefix the instruction records as its own: a NOP or a PAUSE carrying
+/// REPZ records that, and every other row the prefixes its slot selects on.
+let private selectorOf (r: Row) =
+  if r.IsNopOrPause then
+    sprintf "(if Prefix.hasREPZ st.Pref then Prefix.REPZ else %s)"
+      (pfx r.SelectorPrefixes)
+  else
+    pfx r.SelectorPrefixes
 
 /// The call that makes the instruction, for the given operands expression.
 /// Under VEX the broadcast width goes with it: only a memory form of an
@@ -390,36 +477,30 @@ let private finishCall (em: Emitter) (r: Row) (oprs: string) bcstExpr =
     sprintf "finishV &st %s (%s) (%s) %s %s (%s)"
       (opc r.Opcode) oprs (opSize r) bcstExpr (rcDecor r) regForm
   else
-    let isFar =
-      if r.IsFarRet
-         || (r.OprSpecs |> Array.exists (fun o -> o.Kind = OprKind.Far)) then
-        "true"
-      else "false"
-    let selector =
-      if r.IsNopOrPause then
-        sprintf "(if Prefix.hasREPZ st.Pref then Prefix.REPZ else %s)"
-          (pfx r.SelectorPrefixes)
-      else pfx r.SelectorPrefixes
+    let hasFar = r.OprSpecs |> Array.exists (fun o -> o.Kind = OprKind.Far)
+    let isFar = if r.IsFarRet || hasFar then "true" else "false"
     sprintf "finish &st %s (%s) (%s) %s %s"
-      (opc r.Opcode) oprs (opSize r) isFar selector
+      (opc r.Opcode) oprs (opSize r) isFar (selectorOf r)
 
 /// Adds the finishing call; where it would not fit the width, the operands
 /// and the broadcast width are bound to names first.
-let private addFinish (em: Emitter) (add: string -> unit) (ind: string) (r: Row)
-                      (oprs: string) (bcst: string) =
+let private addFinish em add (ind: string) r oprs bcst =
   let call = finishCall em r oprs bcst
-  if ind.Length + call.Length <= 80 then add call
+  if ind.Length + call.Length <= 80 then
+    add call
   else
     let oprs =
       if oprs.Contains " " then
         add (sprintf "let oprs = %s" oprs)
         "oprs"
-      else oprs
+      else
+        oprs
     let bcst =
       if bcst.Contains " " then
         add (sprintf "let bcst = %s" bcst)
         "bcst"
-      else bcst
+      else
+        bcst
     add (finishCall em r oprs bcst)
 
 /// Binds an operand to a name; a register is wrapped into its operand value
@@ -427,13 +508,14 @@ let private addFinish (em: Emitter) (add: string -> unit) (ind: string) (r: Row)
 let private bindOpr (add: string -> unit) (o: Opr) (name: string) =
   if o.IsRegStatic then
     add (sprintf "let %s = Operands.oprReg (%s)" name o.Expr)
-  else add (sprintf "let %s = %s" name o.Expr)
+  else
+    add (sprintf "let %s = %s" name o.Expr)
 
 /// The body reading a row's operands and finishing the instruction.
 let private body (em: Emitter) (ind: string) (r: Row) =
   let lines = ResizeArray<string>()
   let add (s: string) = lines.Add(ind + s)
-  if r.HasModRM then add "st.Pos <- st.Pos + 1"
+  if r.HasModRM then add "st.Pos <- st.Pos + 1" else ()
   let addIn (l: string) = add ("  " + l)
   let indIn = ind + "  "
   let t = tt r.TupleType
@@ -456,14 +538,9 @@ let private body (em: Emitter) (ind: string) (r: Row) =
         if r.IsByteString then "8<rt>"
         else sprintf "effOprSz &st %s" (szc r.EffSzCond)
       let isFar = if r.IsFarRet then "true" else "false"
-      let selector =
-        if r.IsNopOrPause then
-          sprintf "(if Prefix.hasREPZ st.Pref then Prefix.REPZ else %s)"
-            (pfx r.SelectorPrefixes)
-        else pfx r.SelectorPrefixes
       let call =
         sprintf "finish &st %s (NoOperand) (%s) %s %s"
-          (opc r.Opcode) opsz isFar selector
+          (opc r.Opcode) opsz isFar (selectorOf r)
       add call
   else
     match ops with
@@ -532,7 +609,7 @@ let private candidates (em: Emitter) (ind: string) cands hasDigitSwitch =
   let lines = ResizeArray<string>()
   let rec go first = function
     | [] ->
-      if not first then lines.Add(ind + "else")
+      if not first then lines.Add(ind + "else") else ()
       let ind = if first then ind else ind + "  "
       lines.Add(ind + "raise ParsingFailureException")
     | (r: Row) :: rest ->
@@ -551,26 +628,30 @@ let private needsModRM (all: Row seq) =
 /// context to reach the rows in play. The accept masks number a state
 /// (rexState * 2 + vexPresent) * 8 + prefState; the runtime numbers it
 /// rexState * 8 + prefState, plus 24 in 64-bit mode.
-let private digitBody (em: Emitter) (ind: string) (chain32: ResizeArray<Row>)
-                      (chain64: ResizeArray<Row>) hasDigitSwitch =
+let private digitBody (em: Emitter) ind chain32 chain64 hasDigitSwitch =
   let lines = ResizeArray<string>()
   let groups = Dictionary<string, ResizeArray<int> * Row list>()
   let order = ResizeArray<string>()
+  let remember key ctx cands =
+    match groups.TryGetValue key with
+    | true, (cs, _) ->
+      cs.Add ctx
+    | _ ->
+      groups[key] <- (ResizeArray [ ctx ], cands)
+      order.Add key
   let vexBit = if em.Vex then 8 else 0
   for is64 in [ false; true ] do
-    let chain = if is64 then chain64 else chain32
+    let chain: ResizeArray<Row> = if is64 then chain64 else chain32
     for c in 0 .. 23 do
       let bit = 1UL <<< ((c / 8) * 16 + vexBit + (c % 8))
       let cands =
         chain |> Seq.filter (fun r -> r.Accept &&& bit <> 0UL) |> List.ofSeq
-      if not cands.IsEmpty then
+      if cands.IsEmpty then
+        ()
+      else
         let key = String.Join(",", cands |> List.map (ident >> string))
         let ctx = if is64 then c + 24 else c
-        match groups.TryGetValue key with
-        | true, (cs, _) -> cs.Add ctx
-        | _ ->
-          groups[key] <- (ResizeArray [ ctx ], cands)
-          order.Add key
+        remember key ctx cands
   if order.Count = 0 then
     lines.Add(ind + "raise ParsingFailureException")
   else
@@ -583,10 +664,16 @@ let private digitBody (em: Emitter) (ind: string) (chain32: ResizeArray<Row>)
     lines.Add(ind + "  raise ParsingFailureException")
   lines
 
+/// Emits one ModRM.reg digit's case of a slot that switches on the digit.
+let private digitCase (em: Emitter) d chain32 chain64 =
+  em.Line(sprintf "  | %d ->" d)
+  for l in digitBody em "    " chain32 chain64 true do em.Line l
+
 let private slot (em: Emitter) name (heads32: Row[]) (heads64: Row[]) map b =
   let h32 = Array.init 8 (fun d -> heads32[(map <<< 11) ||| (b <<< 3) ||| d])
   let h64 = Array.init 8 (fun d -> heads64[(map <<< 11) ||| (b <<< 3) ||| d])
-  if h64 |> Array.forall (fun h -> isNull (box h)) then None
+  if h64 |> Array.forall (fun h -> isNull (box h)) then
+    None
   else
     let sameHead = h64 |> Array.forall (fun h -> obj.ReferenceEquals(h, h64[0]))
     let chains32 = h32 |> Array.map rows
@@ -595,15 +682,14 @@ let private slot (em: Emitter) name (heads32: Row[]) (heads64: Row[]) map b =
     let needsM = (not sameHead) || needsModRM all
     let st = "(st: byref<ParsingState>)"
     em.Line(sprintf "let private %s (span: ByteSpan) %s =" name st)
-    if needsM then em.Line "  let m = peek span &st"
+    if needsM then em.Line "  let m = peek span &st" else ()
     if sameHead then
       for l in digitBody em "  " chains32[0] chains64[0] false do em.Line l
     else
       em.Line "  match reg m with"
       for d in 0 .. 7 do
-        if not (isNull (box h64[d])) then
-          em.Line(sprintf "  | %d ->" d)
-          for l in digitBody em "    " chains32[d] chains64[d] true do em.Line l
+        if isNull (box h64[d]) then ()
+        else digitCase em d chains32[d] chains64[d]
       em.Line "  | _ ->"
       em.Line "    raise ParsingFailureException"
     em.Line ""
