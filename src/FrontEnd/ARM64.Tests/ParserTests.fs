@@ -4659,6 +4659,40 @@ type ParserTests() =
     ++ FCVTZU ** [ O.Reg X2; O.ScalarReg D19 ]
     ||> test
 
+  /// The moves and conversions between a half and a general register: a
+  /// W or an X on the general side, type 11 on the other.
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (1)``() =
+    testDisasm "1ee70020" "fmov h0, w1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (2)``() =
+    testDisasm "1ee60020" "fmov w0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (3)``() =
+    testDisasm "9ee70020" "fmov h0, x1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (4)``() =
+    testDisasm "9ee30020" "ucvtf h0, x1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (5)``() =
+    testDisasm "1ef80020" "fcvtzs w0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (6)``() =
+    testDisasm "9ee50020" "fcvtau x0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and fixed-point (FP16) (1)``() =
+    testDisasm "1ed8f420" "fcvtzs w0, h1, #3"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and fixed-point (FP16) (2)``() =
+    testDisasm "1ec2f420" "scvtf h0, w1, #3"
+
   (* The instructions below had a lifter and no decoder arm, so the front end
      answered ParsingFailureException to every one of them and the lifter was
      unreachable. Each byte string is the assembler's own encoding of the text

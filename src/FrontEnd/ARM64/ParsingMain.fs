@@ -56,6 +56,10 @@ let getDdWn bin = TwoOperands(dd bin, wn bin)
 
 let getHdWn bin = TwoOperands(hd bin, wn bin)
 
+let getWdHn bin = TwoOperands(wd bin, hn bin)
+
+let getXdHn bin = TwoOperands(xd bin, hn bin)
+
 let getSdXn bin = TwoOperands(sd bin, xn bin)
 
 let getDdXn bin = TwoOperands(dd bin, xn bin)
@@ -564,6 +568,10 @@ let getHdWnFbits bin = ThreeOperands(hd bin, wn bin, fbits2 bin)
 let getSdWnFbits bin = ThreeOperands(sd bin, wn bin, fbits2 bin)
 
 let getWdSnFbits bin = ThreeOperands(wd bin, sn bin, fbits2 bin)
+
+let getWdHnFbits bin = ThreeOperands(wd bin, hn bin, fbits2 bin)
+
+let getXdHnFbits bin = ThreeOperands(xd bin, hn bin, fbits2 bin)
 
 let getDdWnFbits bin = ThreeOperands(dd bin, wn bin, fbits2 bin)
 
@@ -4096,6 +4104,13 @@ let parseConvBetwFPAndFixedPt bin =
   | 0b100100011u -> Op.UCVTF, getDdXnFbits bin, 64<rt>
   | 0b100111000u -> Op.FCVTZS, getXdDnFbits bin, 64<rt>
   | 0b100111001u -> Op.FCVTZU, getXdDnFbits bin, 64<rt>
+  (* FEAT_FP16's conversions of a half to and from fixed point *)
+  | 0b001100011u -> Op.UCVTF, getHdWnFbits bin, 32<rt>
+  | 0b001111000u -> Op.FCVTZS, getWdHnFbits bin, 32<rt>
+  | 0b001111001u -> Op.FCVTZU, getWdHnFbits bin, 32<rt>
+  | 0b101100011u -> Op.UCVTF, getHdXnFbits bin, 64<rt>
+  | 0b101111000u -> Op.FCVTZS, getXdHnFbits bin, 64<rt>
+  | 0b101111001u -> Op.FCVTZU, getXdHnFbits bin, 64<rt>
   | 0b101100010u -> Opcode.SCVTF, getHdXnFbits bin, 64<rt> (* FEAT_FP16 *)
   | _ -> raise ParsingFailureException
 
@@ -4176,6 +4191,33 @@ let parseConvBetwFPAndInt bin =
   | 0b101001110u -> Op.FMOV, getXdVnD1 bin, 64<rt>
   | 0b101001111u -> Op.FMOV, getVdD1Xn bin, 128<rt>
   | c when c &&& 0b111110110u = 0b101010110u -> unallocated ()
+  (* FEAT_FP16's conversions of a half to and from a general register *)
+  | 0b001100000u -> Op.FCVTNS, getWdHn bin, 32<rt>
+  | 0b001100001u -> Op.FCVTNU, getWdHn bin, 32<rt>
+  | 0b001100011u -> Op.UCVTF, getHdWn bin, 32<rt>
+  | 0b001100100u -> Op.FCVTAS, getWdHn bin, 32<rt>
+  | 0b001100101u -> Op.FCVTAU, getWdHn bin, 32<rt>
+  | 0b001100110u -> Op.FMOV, getWdHn bin, 32<rt>
+  | 0b001100111u -> Op.FMOV, getHdWn bin, 16<rt>
+  | 0b001101000u -> Op.FCVTPS, getWdHn bin, 32<rt>
+  | 0b001101001u -> Op.FCVTPU, getWdHn bin, 32<rt>
+  | 0b001110000u -> Op.FCVTMS, getWdHn bin, 32<rt>
+  | 0b001110001u -> Op.FCVTMU, getWdHn bin, 32<rt>
+  | 0b001111000u -> Op.FCVTZS, getWdHn bin, 32<rt>
+  | 0b001111001u -> Op.FCVTZU, getWdHn bin, 32<rt>
+  | 0b101100000u -> Op.FCVTNS, getXdHn bin, 64<rt>
+  | 0b101100001u -> Op.FCVTNU, getXdHn bin, 64<rt>
+  | 0b101100011u -> Op.UCVTF, getHdXn bin, 64<rt>
+  | 0b101100100u -> Op.FCVTAS, getXdHn bin, 64<rt>
+  | 0b101100101u -> Op.FCVTAU, getXdHn bin, 64<rt>
+  | 0b101100110u -> Op.FMOV, getXdHn bin, 64<rt>
+  | 0b101100111u -> Op.FMOV, getHdXn bin, 16<rt>
+  | 0b101101000u -> Op.FCVTPS, getXdHn bin, 64<rt>
+  | 0b101101001u -> Op.FCVTPU, getXdHn bin, 64<rt>
+  | 0b101110000u -> Op.FCVTMS, getXdHn bin, 64<rt>
+  | 0b101110001u -> Op.FCVTMU, getXdHn bin, 64<rt>
+  | 0b101111000u -> Op.FCVTZS, getXdHn bin, 64<rt>
+  | 0b101111001u -> Op.FCVTZU, getXdHn bin, 64<rt>
   | 0b101100010u -> Op.SCVTF, getHdXn bin, 64<rt> (* FEAT_FP16 *)
   | _ -> raise ParsingFailureException
 

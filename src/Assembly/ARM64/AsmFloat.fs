@@ -524,7 +524,7 @@ let private convertToGeneral rmode opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
     convertWith (if is64Reg rd then 1u else 0u)
-                (floatWideType ins rn)
+                (floatType ins rn)
                 rmode
                 opcode
                 (simdNumber ins rn)
@@ -583,7 +583,7 @@ let private convertFixedToGeneral rmode opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im fbits) ->
     convertFixedWith rd
-                     (floatWideType ins rn)
+                     (floatType ins rn)
                      rmode
                      opcode
                      fbits
@@ -600,6 +600,7 @@ let private checkPaired ins float general =
     match tryScalarWidth float with
     | Some 32 -> not (is64Reg general)
     | Some 64 -> is64Reg general
+    | Some 16 -> true
     | _ -> false
   if paired then () else wrongOperands ins
 
@@ -624,7 +625,7 @@ let private move ins =
     floatOneSource 0b000000u ins
   | TwoOperands(Rg rd, Rg rn) when (tryScalarWidth rd).IsSome ->
     checkPaired ins rd rn
-    convertToFloat floatWideType 0b00u 0b111u ins
+    convertToFloat floatType 0b00u 0b111u ins
   | TwoOperands(Rg rd, Rg rn) when (tryScalarWidth rn).IsSome ->
     checkPaired ins rn rd
     convertToGeneral 0b00u 0b110u ins
@@ -821,9 +822,9 @@ let floatEncoders () =
     Opcode.FMOV, move
     Opcode.MOV, moveElement
     Opcode.SCVTF, convert floatType 0u 0u 0b11101u 0b00u 0b010u true
-    Opcode.UCVTF, convert floatWideType 1u 0u 0b11101u 0b00u 0b011u true
-    Opcode.FCVTZS, convert floatWideType 0u 1u 0b11011u 0b11u 0b000u false
-    Opcode.FCVTZU, convert floatWideType 1u 1u 0b11011u 0b11u 0b001u false
+    Opcode.UCVTF, convert floatType 1u 0u 0b11101u 0b00u 0b011u true
+    Opcode.FCVTZS, convert floatType 0u 1u 0b11011u 0b11u 0b000u false
+    Opcode.FCVTZU, convert floatType 1u 1u 0b11011u 0b11u 0b001u false
     Opcode.FCVTNS, convertOrRound 0u 0u 0b11010u 0b00u 0b000u
     Opcode.FCVTNU, convertOrRound 1u 0u 0b11010u 0b00u 0b001u
     Opcode.FCVTAS, convertOrRound 0u 0u 0b11100u 0b00u 0b100u

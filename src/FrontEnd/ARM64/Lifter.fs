@@ -329,6 +329,18 @@ let translate (ins: Instruction) bld =
     fcsel ins bld
   | Opcode.FCVT ->
     fcvt ins bld
+  | Opcode.FCVTL ->
+    fcvtLong ins bld false
+  | Opcode.FCVTL2 ->
+    fcvtLong ins bld true
+  | Opcode.FCVTN ->
+    fcvtNarrow ins bld false
+  | Opcode.FCVTN2 ->
+    fcvtNarrow ins bld true
+  | Opcode.FCVTNS ->
+    fcvtns ins bld
+  | Opcode.FCVTNU ->
+    fcvtnu ins bld
   | Opcode.FCVTAS ->
     fcvtas ins bld
   | Opcode.FCVTAU ->

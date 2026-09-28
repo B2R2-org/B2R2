@@ -717,13 +717,68 @@ let fcvt (ins: Instruction) bld =
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as o1, o2) ->
       let struct (eSize, _, _) = getElemDataSzAndElems o1
+      let struct (srcSize, _, _) = getElemDataSzAndElems o2
       let src = transOpr ins bld o2
-      let result = AST.cast CastKind.FloatCast eSize src
+      let result =
+        if eSize = 16<rt> then fpConvertToHalf bld srcSize src
+        elif eSize > srcSize then fpConvertWiden bld srcSize eSize src
+        else fpConvertNarrow bld src
       dstAssignScalar ins bld o1 result eSize
     | _ ->
       let dst, src = transTwoOprs ins bld
       let oprSize = ins.OprSize
       sized oprSize dst := AST.cast CastKind.FloatCast oprSize src
+  }
+
+/// <summary>
+/// FCVTL and FCVTL2: convert each element of a vector to the floating-point
+/// format twice as wide, half to single or single to double.
+///
+/// The source arrangement says both widths -- the destination's elements are
+/// twice the source's -- and the `2` form reads the upper half of the source
+/// register rather than the lower one. Which half it reads is the only
+/// difference between the two.
+/// </summary>
+let fcvtLong (ins: Instruction) bld isPart2 =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, _, _) = getElemDataSzAndElems src
+    let wide = eSize * 2
+    let elements = 64<rt> / eSize
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let part = if isPart2 then 128<rt> else 64<rt>
+    let widen e = fpConvertWiden bld eSize wide e
+    let result = transSIMDOprVPart bld eSize part src |> Array.map widen
+    dstAssignForSIMD dstA dstB result 128<rt> (elements / 2 * 2) bld
+  }
+
+/// <summary>
+/// FCVTN and FCVTN2: convert each element of a vector to the floating-point
+/// format half as wide.
+///
+/// Here the DESTINATION arrangement says both widths, because it is the
+/// narrow side, and the `2` form writes the upper half of the destination
+/// while leaving the lower one alone. The plain form clears the upper half,
+/// which is what every write to a 64-bit arrangement does.
+/// </summary>
+let fcvtNarrow (ins: Instruction) bld isPart2 =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, _, _) = getElemDataSzAndElems dst
+    let wide = eSize * 2
+    let elements = 64<rt> / eSize
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    (* and narrowing to one is a rounding the IR has no cast for either *)
+    let narrow e =
+      if eSize = 16<rt> then fpConvertToHalf bld wide e
+      else fpConvertNarrow bld e
+    let result =
+      transSIMDOprToExpr bld wide 128<rt> elements src |> Array.map narrow
+    if isPart2 then
+      direct dstB := AST.revConcat result
+    else
+      direct dstA := AST.revConcat result
+      direct dstB := AST.num0 64<rt>
   }
 
 /// Converts every lane of a vector operand to a fixed-point value, leaving
@@ -791,6 +846,15 @@ let fcvtas ins bld =
 
 let fcvtau ins bld =
   fpConvert ins bld true FPRounding_TIEAWAY
+
+/// FCVTNS and FCVTNU, which round to the nearest integer and break a tie by
+/// taking the even one. They differ from the six beside them in nothing but
+/// that direction.
+let fcvtns ins bld =
+  fpConvert ins bld false FPRounding_TIEEVEN
+
+let fcvtnu ins bld =
+  fpConvert ins bld true FPRounding_TIEEVEN
 
 let fcvtms ins bld =
   fpConvert ins bld false FPRounding_NEGINF
@@ -950,9 +1014,16 @@ let fmov (ins: Instruction) bld =
       let struct (dst, src) = getTwoOprs ins
       let struct (_, dataSize, _) = getElemDataSzAndElems dst
       let src = transOpr ins bld src
+      (* a half from a general register is its low sixteen bits *)
+      let src =
+        if Expr.typeOf src > dataSize then AST.xtlo dataSize src else src
       dstAssignScalar ins bld dst src dataSize
     | _ ->
       let dst, src = transTwoOprs ins bld
+      (* and a half into one is zero-extended *)
+      let src =
+        if Expr.typeOf src < ins.OprSize then AST.zext ins.OprSize src
+        else src
       sized ins.OprSize dst := src
   }
 
@@ -1754,6 +1825,11 @@ let rev32 (ins: Instruction) bld =
 let icvtf (ins: Instruction) bld unsigned =
   lift bld ins {
     let oprSize = ins.OprSize
+    (* a half is reached through a double; every other width converts at its
+       own *)
+    let convert (eSize: int<rt>) sz fbits src =
+      if eSize = 16<rt> then intToHalf bld unsigned fbits src
+      else fixedToFp bld sz fbits unsigned src
     match ins.Operands with
     | TwoOperands(OprSIMD(VecReg _), _) ->
       let struct (o1, o2) = getTwoOprs ins
@@ -1761,20 +1837,20 @@ let icvtf (ins: Instruction) bld unsigned =
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
       let src = transSIMDOprToExpr bld eSize dataSize elements o2
       let n0 = AST.num0 eSize
-      let result = Array.map (fixedToFp bld eSize n0 unsigned) src
+      let result = Array.map (convert eSize eSize n0) src
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | TwoOperands(OprSIMD(ScalarReg _) as dst, _) ->
       let struct (eSize, _, _) = getElemDataSzAndElems dst
       let _, src = transTwoOprs ins bld
       let n0 = AST.num0 oprSize
-      let result = fixedToFp bld oprSize n0 unsigned src
+      let result = convert eSize oprSize n0 src
       dstAssignScalar ins bld dst result eSize
     | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
       let struct (o1, o2, o3) = getThreeOprs ins
       let struct (eSize, _, _) = getElemDataSzAndElems o1
       let src = transOpr ins bld o2
       let fbits = transOpr ins bld o3
-      let result = fixedToFp bld eSize fbits unsigned src
+      let result = convert eSize eSize fbits src
       dstAssignScalar ins bld o1 result eSize
     | ThreeOperands(OprSIMD(VecReg _), _, _) ->
       let struct (o1, o2, o3) = getThreeOprs ins
@@ -1782,7 +1858,7 @@ let icvtf (ins: Instruction) bld unsigned =
       let struct (eSz, dataSize, elements) = getElemDataSzAndElems o2
       let src = transSIMDOprToExpr bld eSz dataSize elements o2
       let fbits = transOpr ins bld o3 |> AST.xtlo eSz
-      let result = Array.map (fixedToFp bld eSz fbits unsigned) src
+      let result = Array.map (convert eSz eSz fbits) src
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
       let dst, src, fbits = transThreeOprs ins bld
