@@ -3095,6 +3095,34 @@ let private rdbase (ins: Instruction) bld reg =
     sized oprSize dst := AST.xtlo oprSize (regVar bld reg)
   }
 
+/// <summary>
+/// Stores a descriptor-table register to the pseudo-descriptor a caller named:
+/// the limit first, then the base, which is the order the two sit in memory
+/// and the order LGDT and LIDT read them back in.
+///
+/// The operand is ten bytes where the base is a full address and six where it
+/// is not, so the base is cut to what the operand has room for.
+/// </summary>
+let private storeDescriptorTable ins bld baseReg limitReg =
+  lift bld ins {
+    let addr = unwrapLeaSrc (transOneOpr ins bld)
+    let baseSz = if getOperationSize ins = 80<rt> then 64<rt> else 32<rt>
+    let bas = regVar bld baseReg
+    let past = numI32 2 (Expr.typeOf addr)
+    direct (AST.loadLE 16<rt> addr) := regVar bld limitReg
+    direct (AST.loadLE baseSz (addr .+ past)) := AST.xtlo baseSz bas
+  }
+
+/// SIDT: stores the interrupt descriptor table register. It is not privileged
+/// so ordinary programs can reach it.
+let sidt ins bld =
+  storeDescriptorTable ins bld R.IDTRBase R.IDTRLimit
+
+/// SGDT: stores the global descriptor table register, on the same terms as
+/// SIDT.
+let sgdt ins bld =
+  storeDescriptorTable ins bld R.GDTRBase R.GDTRLimit
+
 let rdfsbase ins bld = rdbase ins bld R.FSBase
 
 let rdgsbase ins bld = rdbase ins bld R.GSBase

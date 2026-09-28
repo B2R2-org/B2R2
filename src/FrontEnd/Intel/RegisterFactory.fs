@@ -154,6 +154,10 @@ type RegisterFactory(isa: ISA) =
   let csbase = regBasic (Register.toRegID CSBase) "CSBase"
   let dsbase = regBasic (Register.toRegID DSBase) "DSBase"
   let esbase = regBasic (Register.toRegID ESBase) "ESBase"
+  let idtrbase = AST.var 64<rt> (Register.toRegID IDTRBase) "IDTRBase"
+  let idtrlimit = AST.var 16<rt> (Register.toRegID IDTRLimit) "IDTRLimit"
+  let gdtrbase = AST.var 64<rt> (Register.toRegID GDTRBase) "GDTRBase"
+  let gdtrlimit = AST.var 16<rt> (Register.toRegID GDTRLimit) "GDTRLimit"
   let fsbase = regBasic (Register.toRegID FSBase) "FSBase"
   let gsbase = regBasic (Register.toRegID GSBase) "GSBase"
   let ssbase = regBasic (Register.toRegID SSBase) "SSBase"
@@ -900,6 +904,14 @@ type RegisterFactory(isa: ISA) =
         dsbase
       | R.ESBase ->
         esbase
+      | R.IDTRBase ->
+        idtrbase
+      | R.IDTRLimit ->
+        idtrlimit
+      | R.GDTRBase ->
+        gdtrbase
+      | R.GDTRLimit ->
+        gdtrlimit
       | R.FSBase ->
         fsbase
       | R.GSBase ->
@@ -1343,6 +1355,10 @@ type RegisterFactory(isa: ISA) =
       | "CSBASE" -> csbase
       | "DSBASE" -> dsbase
       | "ESBASE" -> esbase
+      | "IDTRBASE" -> idtrbase
+      | "IDTRLIMIT" -> idtrlimit
+      | "GDTRBASE" -> gdtrbase
+      | "GDTRLIMIT" -> gdtrlimit
       | "FSBASE" -> fsbase
       | "GSBASE" -> gsbase
       | "SSBASE" -> ssbase
@@ -3701,6 +3717,10 @@ type RegisterFactory(isa: ISA) =
            esi
            edi
            eip
+           idtrbase
+           idtrlimit
+           gdtrbase
+           gdtrlimit
            csbase
            dsbase
            esbase
@@ -3849,6 +3869,10 @@ type RegisterFactory(isa: ISA) =
            r14
            r15
            rip
+           idtrbase
+           idtrlimit
+           gdtrbase
+           gdtrlimit
            csbase
            dsbase
            esbase

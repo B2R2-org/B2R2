@@ -540,10 +540,14 @@ let translate (ins: Instruction) bld =
   | OP.CLAC | OP.GETSEC | OP.IN | OP.INVD | OP.INVLPG | OP.INVPCID
   | OP.IRET | OP.IRETQ | OP.IRETW | OP.IRETD
   | OP.LAR | OP.LGDT | OP.LIDT | OP.LLDT
-  | OP.LMSW | OP.LSL | OP.LTR | OP.MONITOR | OP.MWAIT | OP.OUT | OP.SGDT
-  | OP.SIDT | OP.SLDT | OP.SMSW | OP.STAC | OP.STR | OP.SWAPGS
+  | OP.LMSW | OP.LSL | OP.LTR | OP.MONITOR | OP.MWAIT | OP.OUT
+  | OP.SLDT | OP.SMSW | OP.STAC | OP.STR | OP.SWAPGS
   | OP.VERR | OP.XRSTORS | OP.XRSTORS64 | OP.XSAVES | OP.XSAVES64 ->
     LiftingUtils.unsupported ins bld
+  | OP.SIDT ->
+    GeneralLifter.sidt ins bld
+  | OP.SGDT ->
+    GeneralLifter.sgdt ins bld
   | OP.SHA1NEXTE ->
     SSELifter.sha1nexte ins bld
   | OP.SHA1MSG1 ->

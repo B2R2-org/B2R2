@@ -1121,6 +1121,17 @@ type Register =
   | CCSRC2W = 0x16e
   | CCSRC2B = 0x16f
 #endif
+  /// The base of the interrupt descriptor table, which SIDT stores and LIDT
+  /// loads. The register is the two fields together; they are kept apart
+  /// because that is how every instruction reading or writing it does.
+  | IDTRBase = 0x221
+  /// The limit of the interrupt descriptor table.
+  | IDTRLimit = 0x222
+  /// The base of the global descriptor table, which SGDT stores and LGDT
+  /// loads.
+  | GDTRBase = 0x223
+  /// The limit of the global descriptor table.
+  | GDTRLimit = 0x224
 
 /// Provides functions to handle Intel registers.
 [<RequireQualifiedAccess>]
@@ -1326,6 +1337,10 @@ module Register =
     | "csbase" -> Register.CSBase
     | "ssbase" -> Register.SSBase
     | "dsbase" -> Register.DSBase
+    | "idtrbase" -> Register.IDTRBase
+    | "idtrlimit" -> Register.IDTRLimit
+    | "gdtrbase" -> Register.GDTRBase
+    | "gdtrlimit" -> Register.GDTRLimit
     | "fsbase" -> Register.FSBase
     | "gsbase" -> Register.GSBase
     | "cr0" -> Register.CR0
@@ -1714,6 +1729,10 @@ module Register =
     | Register.CSBase -> "CSBase"
     | Register.DSBase -> "DSBase"
     | Register.ESBase -> "ESBase"
+    | Register.IDTRBase -> "IDTRBase"
+    | Register.IDTRLimit -> "IDTRLimit"
+    | Register.GDTRBase -> "GDTRBase"
+    | Register.GDTRLimit -> "GDTRLimit"
     | Register.FSBase -> "FSBase"
     | Register.GSBase -> "GSBase"
     | Register.SSBase -> "SSBase"

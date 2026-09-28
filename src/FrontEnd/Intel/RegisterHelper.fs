@@ -269,6 +269,10 @@ module internal RegisterHelper = begin
     | R.FTW0 | R.FTW1 | R.FTW2 | R.FTW3
     | R.FTW4 | R.FTW5 | R.FTW6 | R.FTW7
     | R.FTOP -> 8<rt>
+    (* A descriptor-table register is kept as the two fields the instructions
+       storing and loading it read: a full-width base and a 16-bit limit. *)
+    | R.IDTRBase | R.GDTRBase -> 64<rt>
+    | R.IDTRLimit | R.GDTRLimit -> 16<rt>
     | R.ESBase | R.CSBase | R.SSBase | R.DSBase | R.FSBase | R.GSBase
     | R.CR0 | R.CR2 | R.CR3 | R.CR4 | R.CR8
 #if EMULATION
