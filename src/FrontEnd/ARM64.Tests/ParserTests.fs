@@ -3142,6 +3142,20 @@ type ParserTests() =
     ++ SUQADD ** [ O.SIMDVecReg(V19, EightH); O.SIMDVecReg(V17, EightH) ]
     ||> test
 
+  /// SUQADD reads doublewords where Q is set: only the single doubleword is
+  /// reserved. REV64 is the other way round, since an element as wide as
+  /// the container it is reversed within leaves nothing to reverse, so size
+  /// 11 is reserved whatever Q says.
+  [<TestMethod>]
+  member _.``4.6.17 Advanced SIMD two-reg miscellaneous (SUQADD 2D)``() =
+    "4ee03a33"
+    ++ SUQADD ** [ O.SIMDVecReg(V19, TwoD); O.SIMDVecReg(V17, TwoD) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``4.6.17 Advanced SIMD two-reg miscellaneous (REV64 2D)``() =
+    testRefused "4ee00983"
+
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (5)``() =
     "4ea0487c"
@@ -4782,6 +4796,301 @@ type ParserTests() =
   [<TestMethod>]
   member _.``C4.2 Add/subtract (immediate, tags) (3)``() =
     "d18214c5" ++ SUBG ** [ O.Reg X5; O.Reg X6; O.Imm 0x20L; O.Imm 5L ]
+    ||> test
+
+  /// FEAT_FP16 gave the halves two vector classes of their own, because the
+  /// classes they would otherwise sit in spend on the element size the bits
+  /// that would have named them. The three-same class is told apart by bit
+  /// 21 being zero and the two-register one by bits 22:17, and in both the
+  /// arrangement is named by Q alone.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (1)``() =
+    "4e423c20"
+    ++ FRECPS
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (2)``() =
+    "4ec23c20"
+    ++ FRSQRTS
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (3)``() =
+    "6ec21420"
+    ++ FABD
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (4)``() =
+    "0e421420"
+    ++ FADD
+    ** [ O.SIMDVecReg(V0, FourH)
+         O.SIMDVecReg(V1, FourH)
+         O.SIMDVecReg(V2, FourH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (5)``() =
+    "6ec22c20"
+    ++ FACGT
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  /// The scalar arithmetic takes type 11 for a half, which the class had no
+  /// arm for at all.
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (2 source, FP16) (1)``() =
+    testDisasm "1ee22820" "fadd h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (2 source, FP16) (2)``() =
+    testDisasm "1ee28820" "fnmul h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (1 source, FP16) (1)``() =
+    testDisasm "1ee1c020" "fsqrt h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (1 source, FP16) (2)``() =
+    testDisasm "1ee74020" "frintx h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (1 source, FP16) (3)``() =
+    testDisasm "1ee04020" "fmov h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (3 source, FP16) (1)``() =
+    testDisasm "1fc20c20" "fmadd h0, h1, h2, h3"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (3 source, FP16) (2)``() =
+    testDisasm "1fe28c20" "fnmsub h0, h1, h2, h3"
+
+  [<TestMethod>]
+  member _.``C4.6 FP immediate (FP16)``() =
+    testDisasm "1eee1000" "fmov h0, #1.00000000"
+
+  [<TestMethod>]
+  member _.``C4.6 FP compare (FP16) (1)``() =
+    testDisasm "1ee12000" "fcmp h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 FP compare (FP16) (2)``() =
+    testDisasm "1ee02018" "fcmpe h0, #0.00000000"
+
+  [<TestMethod>]
+  member _.``C4.6 FP conditional compare (FP16)``() =
+    testDisasm "1ee10400" "fccmp h0, h1, #0x0, eq"
+
+  [<TestMethod>]
+  member _.``C4.6 FP conditional select (FP16)``() =
+    testDisasm "1ee21c20" "fcsel h0, h1, h2, ne"
+
+  /// The scalar FP16 classes sit where the vector ones do in the scalar
+  /// group, and nothing routed them before.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three-same (FP16) (1)``() =
+    testDisasm "7ec21420" "fabd h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three-same (FP16) (2)``() =
+    testDisasm "5ec23c20" "frsqrts h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar two-register (FP16) (1)``() =
+    testDisasm "5ef8d820" "fcmeq h0, h1, #0.00000000"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar two-register (FP16) (2)``() =
+    testDisasm "5ef9f820" "frecpx h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar two-register (FP16) (3)``() =
+    testDisasm "7ef9b820" "fcvtzu h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar two-register (FP16) (4)``() =
+    testDisasm "5e79d820" "scvtf h0, h1"
+
+  /// A U of 0 is the half-precision pairwise form, whose source is two
+  /// halves.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar pairwise (FP16) (1)``() =
+    testDisasm "5e30d820" "faddp h0, v1.2h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar pairwise (FP16) (2)``() =
+    testDisasm "5eb0c820" "fminnmp h0, v1.2h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD across lanes (FP16) (1)``() =
+    testDisasm "4e30f820" "fmaxv h0, v1.8h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD across lanes (FP16) (2)``() =
+    testDisasm "0eb0c820" "fminnmv h0, v1.4h"
+
+  /// FMOV of a half is the one modified-immediate form with o2 set.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD modified immediate (FP16) (1)``() =
+    testDisasm "4f03fe00" "fmov v0.8h, #1.00000000"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD modified immediate (FP16) (2)``() =
+    testDisasm "0f04fc00" "fmov v0.4h, #-2.00000000"
+
+  /// An immh of 001x is FEAT_FP16's, which the class had as reserved.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD shift by immediate (FP16) (1)``() =
+    testDisasm "4f1de420" "scvtf v0.8h, v1.8h, #3"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD shift by immediate (FP16) (2)``() =
+    testDisasm "2f1efc20" "fcvtzu v0.4h, v1.4h, #2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD shift by immediate (FP16) (3)``() =
+    testDisasm "5f1de420" "scvtf h0, h1, #3"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD shift by immediate (FP16) (4)``() =
+    testDisasm "5f1bfc20" "fcvtzs h0, h1, #5"
+
+  /// A size of 00 is the half-precision form, whose element is laid out as
+  /// an integer form of size 01 lays it out.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (1)``() =
+    testDisasm "4f321020" "fmla v0.8h, v1.8h, v2.h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (2)``() =
+    testDisasm "0f125020" "fmls v0.4h, v1.4h, v2.h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (3)``() =
+    testDisasm "4f329020" "fmul v0.8h, v1.8h, v2.h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (4)``() =
+    testDisasm "6f229820" "fmulx v0.8h, v1.8h, v2.h[6]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (5)``() =
+    testDisasm "5f129020" "fmul h0, h1, v2.h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (6)``() =
+    testDisasm "5f221020" "fmla h0, h1, v2.h[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (7)``() =
+    testDisasm "7f329020" "fmulx h0, h1, v2.h[3]"
+
+  /// FEAT_FCMA is the three-register extension class with U set: FCADD at
+  /// opcode 11x0 with one bit of rotation, FCMLA at 10xx with two -- and by
+  /// element, where its index names a pair and its register is M:Rm.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (1)``() =
+    testDisasm "2e42e420" "fcadd v0.4h, v1.4h, v2.4h, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (2)``() =
+    testDisasm "6e42f420" "fcadd v0.8h, v1.8h, v2.8h, #0x10e"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (3)``() =
+    testDisasm "2e82e420" "fcadd v0.2s, v1.2s, v2.2s, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (4)``() =
+    testDisasm "6e82f420" "fcadd v0.4s, v1.4s, v2.4s, #0x10e"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (5)``() =
+    testDisasm "6ec2e420" "fcadd v0.2d, v1.2d, v2.2d, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (6)``() =
+    testDisasm "2e42c420" "fcmla v0.4h, v1.4h, v2.4h, #0x0"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (7)``() =
+    testDisasm "6e42cc20" "fcmla v0.8h, v1.8h, v2.8h, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (8)``() =
+    testDisasm "2e82d420" "fcmla v0.2s, v1.2s, v2.2s, #0xb4"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (9)``() =
+    testDisasm "6e82dc20" "fcmla v0.4s, v1.4s, v2.4s, #0x10e"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (10)``() =
+    testDisasm "6ec2cc20" "fcmla v0.2d, v1.2d, v2.2d, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (11)``() =
+    testDisasm "2f621020" "fcmla v0.4h, v1.4h, v2.h[1], #0x0"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (12)``() =
+    testDisasm "6f623820" "fcmla v0.8h, v1.8h, v2.h[3], #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (13)``() =
+    testDisasm "6f5f5820" "fcmla v0.8h, v1.8h, v31.h[2], #0xb4"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (14)``() =
+    testDisasm "6f827820" "fcmla v0.4s, v1.4s, v2.s[1], #0x10e"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (15)``() =
+    testDisasm "6f913020" "fcmla v0.4s, v1.4s, v17.s[0], #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FP16) (1)``() =
+    "6ef8d820"
+    ++ FCMLE
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         OprFPImm 0.0 ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FP16) (2)``() =
+    "4ef8e820"
+    ++ FCMLT
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         OprFPImm 0.0 ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FP16) (3)``() =
+    "4e798820"
+    ++ FRINTN
+    ** [ O.SIMDVecReg(V0, EightH); O.SIMDVecReg(V1, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FP16) (4)``() =
+    "6ef9f820"
+    ++ FSQRT
+    ** [ O.SIMDVecReg(V0, EightH); O.SIMDVecReg(V1, EightH) ]
     ||> test
 
   /// The memory-tag accesses count their offset in granules of sixteen bytes,

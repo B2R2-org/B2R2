@@ -47,9 +47,13 @@ let translate (ins: Instruction) bld =
   | Opcode.ADD ->
     add ins bld
   | Opcode.ADDHN ->
-    addSubHN ins bld false (.+)
+    addSubHN ins bld false false (.+)
   | Opcode.ADDHN2 ->
-    addSubHN ins bld true (.+)
+    addSubHN ins bld true false (.+)
+  | Opcode.RADDHN ->
+    addSubHN ins bld false true (.+)
+  | Opcode.RADDHN2 ->
+    addSubHN ins bld true true (.+)
   | Opcode.ADDP ->
     addp ins bld
   | Opcode.ADDS ->
@@ -240,6 +244,14 @@ let translate (ins: Instruction) bld =
     subp ins bld
   | Opcode.SUBPS | Opcode.CMPP ->
     subps ins bld
+  | Opcode.FCADD ->
+    fcadd ins bld
+  | Opcode.FCMLA ->
+    fcmla ins bld
+  | Opcode.FRECPS ->
+    frecps ins bld
+  | Opcode.FRSQRTS ->
+    frsqrts ins bld
   | Opcode.CFINV ->
     cfinv ins bld
   | Opcode.SETF8 ->
@@ -262,6 +274,18 @@ let translate (ins: Instruction) bld =
     ccmp ins bld
   | Opcode.CLS ->
     cls ins bld
+  | Opcode.FRSQRTE ->
+    frsqrte ins bld
+  | Opcode.FRECPE ->
+    frecpe ins bld
+  | Opcode.URECPE ->
+    urecpe ins bld
+  | Opcode.URSQRTE ->
+    ursqrte ins bld
+  | Opcode.FRECPX ->
+    frecpx ins bld
+  | Opcode.SQDMLSL | Opcode.SQDMLSL2 ->
+    sqdmlsl ins bld
   | Opcode.CLZ ->
     clz ins bld
   | Opcode.CMEQ ->
@@ -274,6 +298,8 @@ let translate (ins: Instruction) bld =
     cmhi ins bld
   | Opcode.CMHS ->
     cmhs ins bld
+  | Opcode.CMLE ->
+    cmle ins bld
   | Opcode.CMLT ->
     cmlt ins bld
   | Opcode.CMN ->
@@ -319,8 +345,30 @@ let translate (ins: Instruction) bld =
     fccmp ins bld
   | Opcode.FCCMPE ->
     fccmp ins bld
+  | Opcode.FMULX ->
+    fmulx ins bld
+  | Opcode.FMAXP | Opcode.FMAXV ->
+    fmaxp ins bld
+  | Opcode.FMINP | Opcode.FMINV ->
+    fminp ins bld
+  | Opcode.FMAXNMP | Opcode.FMAXNMV ->
+    fmaxnmp ins bld
+  | Opcode.FMINNMP | Opcode.FMINNMV ->
+    fminnmp ins bld
   | Opcode.FCMGT ->
     fcmgt ins bld
+  | Opcode.FCMGE ->
+    fcmge ins bld
+  | Opcode.FCMEQ ->
+    fcmeq ins bld
+  | Opcode.FCMLT ->
+    fcmlt ins bld
+  | Opcode.FCMLE ->
+    fcmle ins bld
+  | Opcode.FACGT ->
+    facgt ins bld
+  | Opcode.FACGE ->
+    facge ins bld
   | Opcode.FCMP ->
     fcmp ins bld
   | Opcode.FCMPE ->
@@ -580,9 +628,77 @@ let translate (ins: Instruction) bld =
   | Opcode.SHL ->
     shl ins bld
   | Opcode.SHRN ->
-    shrn ins bld false
+    shrn ins bld false false
   | Opcode.SHRN2 ->
-    shrn ins bld true
+    shrn ins bld true false
+  | Opcode.RSHRN ->
+    shrn ins bld false true
+  | Opcode.RSHRN2 ->
+    shrn ins bld true true
+  | Opcode.SHLL | Opcode.SHLL2 ->
+    shiftULeftLong ins bld
+  | Opcode.SQRDMULH ->
+    sqrdmulh ins bld
+  | Opcode.SQSHL ->
+    sqshlReg ins bld false
+  | Opcode.SQRSHL ->
+    sqshlReg ins bld true
+  | Opcode.SQSHRN ->
+    sqshrn ins bld false false false false
+  | Opcode.SQSHRN2 ->
+    sqshrn ins bld true false false false
+  | Opcode.SQRSHRN ->
+    sqshrn ins bld false true false false
+  | Opcode.SQRSHRN2 ->
+    sqshrn ins bld true true false false
+  | Opcode.SQSHRUN ->
+    sqshrn ins bld false false false true
+  | Opcode.SQSHRUN2 ->
+    sqshrn ins bld true false false true
+  | Opcode.SQRSHRUN ->
+    sqshrn ins bld false true false true
+  | Opcode.SQRSHRUN2 ->
+    sqshrn ins bld true true false true
+  | Opcode.UQSHRN ->
+    sqshrn ins bld false false true true
+  | Opcode.UQSHRN2 ->
+    sqshrn ins bld true false true true
+  | Opcode.UQRSHRN ->
+    sqshrn ins bld false true true true
+  | Opcode.UQRSHRN2 ->
+    sqshrn ins bld true true true true
+  | Opcode.SQXTN ->
+    qxtn ins bld false false false
+  | Opcode.SQXTN2 ->
+    qxtn ins bld true false false
+  | Opcode.UQXTN ->
+    qxtn ins bld false true true
+  | Opcode.UQXTN2 ->
+    qxtn ins bld true true true
+  | Opcode.SQXTUN ->
+    qxtn ins bld false false true
+  | Opcode.SQXTUN2 ->
+    qxtn ins bld true false true
+  | Opcode.SRSHR ->
+    rshr ins bld false false
+  | Opcode.URSHR ->
+    rshr ins bld true false
+  | Opcode.SRSRA ->
+    rshr ins bld false true
+  | Opcode.URSRA ->
+    rshr ins bld true true
+  | Opcode.SLI ->
+    shiftInsert ins bld true
+  | Opcode.SRI ->
+    shiftInsert ins bld false
+  | Opcode.SQABS ->
+    qabsneg ins bld false
+  | Opcode.SQNEG ->
+    qabsneg ins bld true
+  | Opcode.SUQADD ->
+    usqadd ins bld false
+  | Opcode.USQADD ->
+    usqadd ins bld true
   | Opcode.SMADDL ->
     smaddl ins bld
   | Opcode.SMOV ->
@@ -678,9 +794,13 @@ let translate (ins: Instruction) bld =
   | Opcode.SUB ->
     sub ins bld
   | Opcode.SUBHN ->
-    addSubHN ins bld false (.-)
+    addSubHN ins bld false false (.-)
   | Opcode.SUBHN2 ->
-    addSubHN ins bld true (.-)
+    addSubHN ins bld true false (.-)
+  | Opcode.RSUBHN ->
+    addSubHN ins bld false true (.-)
+  | Opcode.RSUBHN2 ->
+    addSubHN ins bld true true (.-)
   | Opcode.SUBS ->
     subs ins bld
   | Opcode.SVC ->
@@ -693,6 +813,8 @@ let translate (ins: Instruction) bld =
     sxtw ins bld
   | Opcode.TBL ->
     tbl ins bld
+  | Opcode.TBX ->
+    tbx ins bld
   | Opcode.TBNZ ->
     tbnz ins bld
   | Opcode.TBZ ->
@@ -704,11 +826,33 @@ let translate (ins: Instruction) bld =
   | Opcode.TST ->
     tst ins bld
   | Opcode.UABAL | Opcode.UABAL2 ->
-    uabal ins bld
+    abal ins bld true
+  | Opcode.SABAL | Opcode.SABAL2 ->
+    abal ins bld false
+  | Opcode.UABA ->
+    absDiff ins bld true true
+  | Opcode.SABA ->
+    absDiff ins bld false true
+  | Opcode.UABD ->
+    absDiff ins bld true false
+  | Opcode.SABD ->
+    absDiff ins bld false false
+  | Opcode.UHADD ->
+    hsub ins bld true false
+  | Opcode.SHADD ->
+    hsub ins bld false false
+  | Opcode.UHSUB ->
+    hsub ins bld true true
+  | Opcode.SHSUB ->
+    hsub ins bld false true
   | Opcode.UABDL | Opcode.UABDL2 ->
-    uabdl ins bld
+    abdl ins bld true
+  | Opcode.SABDL | Opcode.SABDL2 ->
+    abdl ins bld false
   | Opcode.UADALP ->
-    uadalp ins bld
+    adalp ins bld true
+  | Opcode.SADALP ->
+    adalp ins bld false
   | Opcode.UADDL | Opcode.UADDL2 ->
     uaddl ins bld
   | Opcode.UADDLP ->
@@ -752,19 +896,25 @@ let translate (ins: Instruction) bld =
   | Opcode.UMULL | Opcode.UMULL2 ->
     umull ins bld
   | Opcode.UQADD ->
-    uqadd ins bld
+    qadd ins bld true
+  | Opcode.SQADD ->
+    qadd ins bld false
   | Opcode.UQRSHL ->
     uqrshl ins bld
   | Opcode.UQSHL ->
     uqshl ins bld
   | Opcode.UQSUB ->
-    uqsub ins bld
+    qsub ins bld true
+  | Opcode.SQSUB ->
+    qsub ins bld false
   | Opcode.URSHL ->
     urshl ins bld
   | Opcode.SRSHL ->
     srshl ins bld
   | Opcode.URHADD ->
-    urhadd ins bld
+    rhadd ins bld true
+  | Opcode.SRHADD ->
+    rhadd ins bld false
   | Opcode.USHL ->
     ushl ins bld
   | Opcode.USHR ->

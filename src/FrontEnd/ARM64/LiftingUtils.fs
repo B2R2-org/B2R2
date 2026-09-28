@@ -212,6 +212,7 @@ let getElemDataSzAndElemsByVector = function
   (* SIMD vector register names *)
   | EightB -> struct (8<rt>, 64<rt>, 8)
   | SixteenB -> struct (8<rt>, 128<rt>, 16)
+  | TwoH -> struct (16<rt>, 64<rt>, 2)
   | FourH -> struct (16<rt>, 64<rt>, 4)
   | EightH -> struct (16<rt>, 128<rt>, 8)
   | TwoS -> struct (32<rt>, 64<rt>, 2)
@@ -311,6 +312,24 @@ let transMem ins bld = function
   | PostIdxMode offset -> transBaseMode ins bld offset
   | LiteralMode offset -> transBaseMode ins bld offset
 
+/// <summary>
+/// The bits of a half holding the given value, for an FMOV immediate or a
+/// comparison with zero.
+///
+/// Every value either can name fits a half exactly: an eight-bit immediate
+/// has a four-bit fraction and an exponent between minus three and four, so
+/// the double's exponent is rebiased and the top of its fraction kept, and
+/// nothing is lost.
+/// </summary>
+let private halfBitsOf (v: float) =
+  if v = 0.0 then
+    if Double.IsNegative v then 0x8000L else 0L
+  else
+    let bits = BitConverter.DoubleToInt64Bits v
+    let sign = (bits >>> 63) &&& 1L
+    let exp = ((bits >>> 52) &&& 0x7ffL) - 1023L + 15L
+    (sign <<< 15) ||| (exp <<< 10) ||| ((bits >>> 42) &&& 0x3ffL)
+
 let transOpr ins bld = function
   | OprRegister reg ->
     regVar bld reg
@@ -329,6 +348,8 @@ let transOpr ins bld = function
   | OprFPImm float ->
     if ins.OprSize = 64<rt> then
       numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
+    elif ins.OprSize = 16<rt> then
+      numI64 (halfBitsOf float) ins.OprSize
     else
       BitConverter.SingleToInt32Bits(float32 float)
       |> int64
@@ -338,8 +359,10 @@ let transOpr ins bld = function
 
 let transOprFPImm (ins: Instruction) eSize src =
   match eSize, src with
+  | 16<rt>, OprFPImm float ->
+    numI64 (halfBitsOf float) ins.OprSize
   | 32<rt>, OprFPImm float ->
-    numI64 (int64 (BitConverter.SingleToInt32Bits(float32 float))) ins.OprSize
+    numU32 (BitConverter.SingleToUInt32Bits(float32 float)) ins.OprSize
   | 64<rt>, OprFPImm float ->
     numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
   | _ ->
@@ -1540,6 +1563,13 @@ let fpExceptionsFused bld oprSz negProduct src1 src2 addend result =
 let fpExceptionsRounded bld invalid inexact =
   fpRecord bld (fpBits invalid fpNone fpNone fpNone inexact)
 
+/// What a reciprocal estimate raises: Invalid for a signalling NaN or an
+/// operand with no real answer, Divide-by-zero for a zero, and for an operand
+/// too small for its reciprocal to be written, Overflow and the Inexact that
+/// comes with it.
+let fpExceptionsEstimate bld invalid divZero overflow =
+  fpRecord bld (fpBits invalid divZero overflow fpNone overflow)
+
 /// What an operation raises where the only thing it can raise is Invalid: a
 /// signalling NaN met by an operation that does no arithmetic on it.
 let fpExceptionsInvalidOnly bld invalid =
@@ -1927,7 +1957,7 @@ let private fpArithLabels bld =
 
 /// shared/functions/float/fpadd/FPAdd
 /// FPAdd()
-let fpAdd bld dSz src1 src2 =
+let private fpAddWide bld dSz src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
   let struct (sign1, sign2) = tmpVars2 bld 1<rt>
   let res = tmpVar bld dSz
@@ -1968,9 +1998,16 @@ let fpAdd bld dSz src1 src2 =
   fpExceptions bld dSz FPAdd src1 src2 res
   res
 
+/// FPAdd at every width: a half's goes through doubles.
+let fpAdd bld dSz src1 src2 =
+  if dSz = 16<rt> then
+    viaDouble bld (fun w -> fpAddWide bld 64<rt> w[0] w[1]) [| src1; src2 |]
+  else
+    fpAddWide bld dSz src1 src2
+
 /// shared/functions/float/fpadd/FPSub
 /// FPSub()
-let fpSub bld dSz src1 src2 =
+let private fpSubWide bld dSz src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
   let struct (sign1, sign2) = tmpVars2 bld 1<rt>
   let res = tmpVar bld dSz
@@ -2010,6 +2047,13 @@ let fpSub bld dSz src1 src2 =
   }
   fpExceptions bld dSz FPSub src1 src2 res
   res
+
+/// FPSub at every width: a half's goes through doubles.
+let fpSub bld dSz src1 src2 =
+  if dSz = 16<rt> then
+    viaDouble bld (fun w -> fpSubWide bld 64<rt> w[0] w[1]) [| src1; src2 |]
+  else
+    fpSubWide bld dSz src1 src2
 
 /// <summary>
 /// FPMul and FPMulX, which differ in one answer.
@@ -2065,11 +2109,19 @@ let private fpMultiplyCases bld dataSize extended src1 src2 res =
 
 /// FPMul and FPMulX, which differ only in what they answer for a zero times
 /// an infinity: a default NaN, or the two that a reciprocal step wants.
-let private fpMultiply bld dataSize extended src1 src2 =
+let private fpMultiplyWide bld dataSize extended src1 src2 =
   let res = tmpVar bld dataSize
   fpMultiplyCases bld dataSize extended src1 src2 res
   fpExceptions bld dataSize FPMul src1 src2 res
   res
+
+/// The same at every width: a half's goes through doubles.
+let private fpMultiply bld dSz extended src1 src2 =
+  if dSz = 16<rt> then
+    let op (w: Expr[]) = fpMultiplyWide bld 64<rt> extended w[0] w[1]
+    viaDouble bld op [| src1; src2 |]
+  else
+    fpMultiplyWide bld dSz extended src1 src2
 
 /// shared/functions/float/fpmul/FPMul
 /// FPMul()
@@ -2106,7 +2158,7 @@ let private fpClassify bld dSz src =
 /// exactly as the pseudocode does, so no sign flag is passed along: the fourth
 /// argument of the primitive, which the Intel FMA forms use to say which of
 /// the product and the addend to negate, is always zero here.
-let fpMulAdd bld dSz addend src1 src2 =
+let private fpMulAddWide bld dSz addend src1 src2 =
   let struct (signA, isZeroA, isInfA) = fpClassify bld dSz addend
   let struct (sign1, isZero1, isInf1) = fpClassify bld dSz src1
   let struct (sign2, isZero2, isInf2) = fpClassify bld dSz src2
@@ -2143,6 +2195,16 @@ let fpMulAdd bld dSz addend src1 src2 =
   }
   fpExceptionsFused bld dSz false src1 src2 addend res
   res
+
+/// FPMulAdd at every width. A half's goes through doubles, which is the
+/// one width here where that is not merely convenient but necessary: a
+/// single would round the exact sum first and then round it again.
+let fpMulAdd bld dSz addend src1 src2 =
+  if dSz = 16<rt> then
+    let op (w: Expr[]) = fpMulAddWide bld 64<rt> w[0] w[1] w[2]
+    viaDouble bld op [| addend; src1; src2 |]
+  else
+    fpMulAddWide bld dSz addend src1 src2
 
 /// shared/functions/float/fpdiv/FPDiv
 /// FPDiv()
@@ -2190,11 +2252,18 @@ let private fpDivCases bld dataSize src1 src2 res =
 
 /// FPDiv, which the case analysis above answers for every operand pair that
 /// does not reach the division itself.
-let fpDiv bld dataSize src1 src2 =
+let private fpDivWide bld dataSize src1 src2 =
   let res = tmpVar bld dataSize
   fpDivCases bld dataSize src1 src2 res
   fpExceptions bld dataSize FPDiv src1 src2 res
   res
+
+/// FPDiv at every width: a half's goes through doubles.
+let fpDiv bld dSz src1 src2 =
+  if dSz = 16<rt> then
+    viaDouble bld (fun w -> fpDivWide bld 64<rt> w[0] w[1]) [| src1; src2 |]
+  else
+    fpDivWide bld dSz src1 src2
 
 /// <summary>
 /// shared/functions/float/fpsqrt/FPSqrt
@@ -2210,7 +2279,7 @@ let fpDiv bld dataSize src1 src2 =
 /// x86 produces has its sign bit set where AArch64's FPDefaultNaN has not.
 /// Nothing but the front end knows which of the two the architecture means.
 /// </summary>
-let fpSqrt bld dSz src =
+let private fpSqrtWide bld dSz src =
   let res = tmpVar bld dSz
   let struct (nan, zero, sign) = tmpVars3 bld 1<rt>
   let resNaN = fpProcessNan bld dSz src
@@ -2224,6 +2293,13 @@ let fpSqrt bld dSz src =
   }
   fpExceptions bld dSz FPSqrt src src res
   res
+
+/// FPSqrt at every width: a half's goes through doubles.
+let fpSqrt bld dSz src =
+  if dSz = 16<rt> then
+    viaDouble bld (fun w -> fpSqrtWide bld 64<rt> w[0]) [| src |]
+  else
+    fpSqrtWide bld dSz src
 
 /// <summary>
 /// shared/functions/float/fpmax/FPMax and shared/functions/float/fpmin/FPMin
@@ -2241,7 +2317,7 @@ let fpSqrt bld dSz src =
 /// round they are written. A zero is nothing but its sign bit, so combining
 /// the two operands' sign bits builds the answer outright.
 /// </summary>
-let fpMaxMin bld dSz isMax src1 src2 =
+let private fpMaxMinWide bld dSz isMax src1 src2 =
   let res = tmpVar bld dSz
   let struct (isNaN, resNaN) = fpProcessNaNs bld dSz src1 src2
   let cmp = if isMax then AST.fgt src1 src2 else AST.flt src1 src2
@@ -2256,6 +2332,15 @@ let fpMaxMin bld dSz isMax src1 src2 =
   fpExceptionsInvalidOnly bld (isSNaN dSz src1 .| isSNaN dSz src2)
   res
 
+/// FPMax and FPMin at every width: a half's goes through doubles, which
+/// round nothing here but carry the NaN a half propagates.
+let fpMaxMin bld dSz isMax src1 src2 =
+  if dSz = 16<rt> then
+    let op (w: Expr[]) = fpMaxMinWide bld 64<rt> isMax w[0] w[1]
+    viaDouble bld op [| src1; src2 |]
+  else
+    fpMaxMinWide bld dSz isMax src1 src2
+
 /// <summary>
 /// shared/functions/float/fpmaxnum/FPMaxNum and its minimum
 ///
@@ -2266,7 +2351,7 @@ let fpMaxMin bld dSz isMax src1 src2 =
 /// propagates, which is why this hands the substituted operands to FPMax
 /// rather than reimplementing it.
 /// </summary>
-let fpMaxMinNum bld dSz isMax src1 src2 =
+let private fpMaxMinNumWide bld dSz isMax src1 src2 =
   let struct (q1, q2) = tmpVars2 bld 1<rt>
   let struct (o1, o2) = tmpVars2 bld dSz
   let losing = fpInfinity (if isMax then AST.b1 else AST.b0) dSz
@@ -2277,6 +2362,14 @@ let fpMaxMinNum bld dSz isMax src1 src2 =
     direct o2 := AST.ite (q2 .& AST.not q1) losing src2
   }
   fpMaxMin bld dSz isMax o1 o2
+
+/// FPMaxNum and FPMinNum at every width: a half's goes through doubles.
+let fpMaxMinNum bld dSz isMax src1 src2 =
+  if dSz = 16<rt> then
+    let op (w: Expr[]) = fpMaxMinNumWide bld 64<rt> isMax w[0] w[1]
+    viaDouble bld op [| src1; src2 |]
+  else
+    fpMaxMinNumWide bld dSz isMax src1 src2
 
 /// Positive and negative one half, in the width being converted from. Ties
 /// away from zero go up once the fraction reaches one of these.

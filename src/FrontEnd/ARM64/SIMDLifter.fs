@@ -84,6 +84,15 @@ let private fpType bld mode eSize element =
   fpExceptionsInvalidOnly bld (isSNaN eSize element)
   res
 
+/// <summary>
+/// One element rounded to an integral value at its own width, a half's
+/// through doubles: the rounded value is a whole number no larger than the
+/// half was, so narrowing it back is exact.
+/// </summary>
+let private roundLane bld eSize round e =
+  if eSize = 16<rt> then viaDouble bld (fun w -> round 64<rt> w[0]) [| e |]
+  else round eSize e
+
 let private isVecIdxOrLD1ST1 (ins: Instruction) opr =
   let isVecIdx =
     match opr with
@@ -130,6 +139,19 @@ let private fixedToFp bld oprSz fbits unsigned src =
   append bld { direct r := AST.fdiv integer (powerOfTwoOf oprSz fbits) }
   fpExceptionsRounded bld AST.b0 (AST.not (fpIsExact integer))
   r
+
+/// <summary>
+/// How far a shift operand shifts.
+///
+/// SHLL's amount is written as a shift rather than as a bare number -- the
+/// disassembly is `shll v0.4s, v1.4h, lsl #16` -- so the operand carries the
+/// kind as well as the count and the general translation has nothing to make
+/// of it.
+/// </summary>
+let private shiftAmountOf = function
+  | OprImm imm -> imm
+  | OprShift(_, Imm imm) -> imm
+  | _ -> raise InvalidOperandException
 
 let private getRndConst amt eSize =
   let n1 = AST.num1 eSize
@@ -183,6 +205,247 @@ let private usatQShl bld expr amt eSize =
   let r = AST.ite isSat sat (AST.ite isNeg (expr >> AST.neg amt) (expr << amt))
   let isZero = (expr == AST.num0 eSize) .| (amt == AST.num0 eSize)
   AST.ite isZero expr r
+
+/// <summary>
+/// The signed saturating shift by a signed amount, with or without rounding:
+/// SQSHL and SQRSHL in their register forms.
+///
+/// The shift is done at twice the element's width, where a left shift of a
+/// whole element cannot lose a bit, and the answer is clamped from there.
+/// That is why the amount is split into a left half and a right half rather
+/// than used as it stands: SatQ raises the sticky QC bit, so a right shift
+/// must not go anywhere near the left computation or it would report a
+/// saturation that did not happen. Each half is zero where the other one is
+/// doing the work, and a shift by zero saturates nothing.
+///
+/// A left shift further than the element is wide saturates unless the element
+/// is zero, which clamping the amount to the width preserves.
+///
+/// A right shift further than that does not clamp the same way for both
+/// forms. Without rounding it leaves the sign in every bit, so one less than
+/// the width will do. With rounding it does not: the constant added before
+/// the shift is half of what is shifted out, and at that distance it is
+/// larger than the whole element, so every value, the most negative
+/// included, rounds to zero. Clamping the amount would add a constant for a
+/// shorter shift than the one being taken and answer -1 for those.
+/// </summary>
+let private satQShlBy bld isRound expr amt (eSize: int<rt>) =
+  let wide = eSize * 2
+  let n0 = AST.num0 eSize
+  let widest = numI32 (int eSize) eSize
+  let deepest = numI32 (int eSize - 1) eSize
+  let struct (isNeg, left, right) = tmpVars3 bld eSize
+  let struct (over, capped) = tmpVars2 bld eSize
+  append bld {
+    direct isNeg := AST.ite (amt ?< n0) (AST.num1 eSize) n0
+    direct left := AST.ite (amt ?< n0) n0 (AST.ite (amt ?> widest) widest amt)
+    direct right := AST.ite (amt ?< n0) (AST.neg amt) n0
+    direct over := AST.ite (right .>= widest) (AST.num1 eSize) n0
+    direct capped := AST.ite (right .>= widest) deepest right
+  }
+  let wideExpr = AST.sext wide expr
+  let shifted amount = AST.xtlo eSize (wideExpr ?>> AST.zext wide amount)
+  let rounded =
+    let one = AST.num1 wide
+    let half = one << (AST.zext wide capped .- one)
+    wideExpr .+ AST.ite (capped == n0) (AST.num0 wide) half
+  let rightRes =
+    if isRound then
+      let kept = AST.xtlo eSize (rounded ?>> AST.zext wide capped)
+      AST.ite (over == AST.num1 eSize) n0 kept
+    else
+      shifted capped
+  let leftRes = satQ bld (wideExpr << AST.zext wide left) eSize false
+  AST.ite (isNeg == AST.num1 eSize) rightRes leftRes
+
+/// <summary>
+/// One element narrowed to half its width with saturation, in the three
+/// combinations the instruction set has: signed to signed, unsigned to
+/// unsigned, and signed to unsigned.
+///
+/// The general SatQ cannot serve here. It compares at twice the destination's
+/// width, which for a narrowing is the SOURCE's width, and its comparisons
+/// are signed -- so an unsigned source with its top bit set would read as
+/// negative and be clamped to nothing. Which comparison to use is exactly
+/// what the source's signedness decides, so it is written out.
+/// </summary>
+let private satNarrow bld e (eSize: int<rt>) srcUnsigned dstUnsigned =
+  let half = eSize / 2
+  let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
+  let maxHalf = getIntMax half dstUnsigned
+  let minHalf = if dstUnsigned then AST.num0 half else AST.not maxHalf
+  let max =
+    if dstUnsigned then AST.zext eSize maxHalf else AST.sext eSize maxHalf
+  let min = if dstUnsigned then AST.num0 eSize else AST.sext eSize minHalf
+  let struct (tooHigh, tooLow) = tmpVars2 bld 1<rt>
+  append bld {
+    direct tooHigh := if srcUnsigned then e .> max else e ?> max
+    direct tooLow := if srcUnsigned then AST.b0 else e ?< min
+    direct bitQC := bitQC .| tooHigh .| tooLow
+  }
+  AST.ite tooHigh maxHalf (AST.ite tooLow minHalf (AST.xtlo half e))
+
+/// <summary>
+/// SQXTN, UQXTN and SQXTUN: every element narrowed to half its width and
+/// clamped rather than wrapped.
+///
+/// SQXTUN is the odd one: it reads a SIGNED element and writes an UNSIGNED
+/// one, so a negative operand is not a large answer but the smallest one.
+/// </summary>
+let qxtn (ins: Instruction) bld isPart2 srcUnsigned dstUnsigned =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems src
+      let e = transOpr ins bld src
+      let result = satNarrow bld e eSize srcUnsigned dstUnsigned
+      dstAssignScalar ins bld dst result (eSize / 2)
+    | _ ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+      let struct (dstB, dstA) = transOpr128 ins bld dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.init elements (fun _ -> tmpVar bld (eSize / 2))
+      Array.map (fun e -> satNarrow bld e eSize srcUnsigned dstUnsigned) src
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      if isPart2 then
+        direct dstB := AST.revConcat result
+      else
+        direct dstA := AST.revConcat result
+        direct dstB := AST.num0 64<rt>
+  }
+
+/// <summary>
+/// SRSHR, URSHR and the two that accumulate: a shift right that rounds.
+///
+/// Half of what the shift discards is added first, at twice the element's
+/// width so that the addition cannot carry out of the element, and the
+/// widening is the one the mnemonic names.
+/// </summary>
+let rshr (ins: Instruction) bld unsigned accumulate =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let dbl = eSize * 2
+    let ext = if unsigned then AST.zext else AST.sext
+    let amt = transOpr ins bld o3 |> AST.xtlo 8<rt> |> AST.zext dbl
+    let rnd = AST.num1 dbl << (amt .- AST.num1 dbl)
+    let shifted e = AST.xtlo eSize ((ext dbl e .+ rnd) >> amt)
+    match o1 with
+    | OprSIMD(ScalarReg _) ->
+      let dst = transOpr ins bld o1
+      let src = transOpr ins bld o2
+      let result =
+        if accumulate then dst .+ shifted src else shifted src
+      dstAssignScalar ins bld o1 result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let dst = transSIMDOprToExpr bld eSize dataSize elements o1
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.iteri (fun i r ->
+        append bld {
+          direct r :=
+            if accumulate then dst[i] .+ shifted src[i] else shifted src[i]
+        }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// SLI and SRI: a shift that keeps what the shift vacated rather than
+/// filling it with zeros.
+///
+/// What is kept is the destination's own bits in the places the shifted
+/// operand does not reach, which is why the destination is read as well as
+/// written and why the mask is built from the shift amount.
+/// </summary>
+let shiftInsert (ins: Instruction) bld isLeft =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let amt = transOpr ins bld o3 |> AST.xtlo 8<rt> |> AST.zext eSize
+    let ones = AST.not (AST.num0 eSize)
+    (* The bits the shift leaves behind: the low ones for a left shift and the
+       high ones for a right shift. *)
+    let keep = if isLeft then AST.not (ones << amt) else AST.not (ones >> amt)
+    let insert d e = (if isLeft then e << amt else e >> amt) .| (d .& keep)
+    match o1 with
+    | OprSIMD(ScalarReg _) ->
+      let dst = transOpr ins bld o1
+      let src = transOpr ins bld o2
+      dstAssignScalar ins bld o1 (insert dst src) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let dst = transSIMDOprToExpr bld eSize dataSize elements o1
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.iteri (fun i r ->
+        append bld { direct r := insert dst[i] src[i] }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// SQABS and SQNEG, which clamp rather than wrap.
+///
+/// There is one operand each of them cannot answer: the most negative value
+/// has no positive counterpart at the same width, and both instructions give
+/// the largest positive one instead. The arithmetic is done a width wider so
+/// that the value which has no answer is still there to be recognised.
+/// </summary>
+let qabsneg (ins: Instruction) bld isNeg =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let dbl = eSize * 2
+    let value e =
+      let w = AST.sext dbl e
+      if isNeg then AST.neg w
+      else AST.ite (w ?< AST.num0 dbl) (AST.neg w) w
+    match o1 with
+    | OprSIMD(ScalarReg _) ->
+      let src = transOpr ins bld o2
+      dstAssignScalar ins bld o1 (signedSatQ bld (value src) eSize) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map (fun e -> signedSatQ bld (value e) eSize) src
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// SUQADD and USQADD, which add one signedness to the other.
+///
+/// SUQADD accumulates an unsigned operand into a signed destination and
+/// clamps the answer to the signed range; USQADD is the other way round in
+/// both. The sum is taken a width wider, where an operand of either
+/// signedness fits and the answer that went out of range is still there.
+/// </summary>
+let usqadd (ins: Instruction) bld dstUnsigned =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let dbl = eSize * 2
+    let extDst = if dstUnsigned then AST.zext dbl else AST.sext dbl
+    let extSrc = if dstUnsigned then AST.sext dbl else AST.zext dbl
+    let sum d e = extDst d .+ extSrc e
+    match o1 with
+    | OprSIMD(ScalarReg _) ->
+      let dst = transOpr ins bld o1
+      let src = transOpr ins bld o2
+      let result = satQ bld (sum dst src) eSize dstUnsigned
+      dstAssignScalar ins bld o1 result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let dst = transSIMDOprToExpr bld eSize dataSize elements o1
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.iteri (fun i r ->
+        let v = satQ bld (sum dst[i] src[i]) eSize dstUnsigned
+        append bld { direct r := v }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let abs (ins: Instruction) bld =
   lift bld ins {
@@ -461,7 +724,9 @@ let cmhi ins bld = cmpHigher ins bld (.>)
 
 let cmhs ins bld = cmpHigher ins bld (.>=)
 
-let cmlt (ins: Instruction) bld =
+/// The compares against zero, whose only difference is which side of it the
+/// answer is true on.
+let private cmpZero (ins: Instruction) bld cond =
   lift bld ins {
     let struct (dst, src1, _) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
@@ -471,14 +736,19 @@ let cmlt (ins: Instruction) bld =
     match dst with
     | OprSIMD(ScalarReg _) ->
       let src1 = transOpr ins bld src1
-      let result = AST.ite (src1 ?< zeros) ones zeros
+      let result = AST.ite (cond src1 zeros) ones zeros
       dstAssignScalar ins bld dst result eSize
     | _ ->
       let struct (dstB, dstA) = transOpr128 ins bld dst
       let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-      let result = Array.map (fun e -> AST.ite (e ?< zeros) ones zeros) src1
+      let result = Array.map (fun e -> AST.ite (cond e zeros) ones zeros) src1
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
+
+/// CMLE, which is CMLT with the boundary on the other side of zero.
+let cmle (ins: Instruction) bld = cmpZero ins bld (?<=)
+
+let cmlt (ins: Instruction) bld = cmpZero ins bld (?<)
 
 let cmtst (ins: Instruction) bld =
   lift bld ins {
@@ -642,6 +912,98 @@ let fadd (ins: Instruction) bld =
       raise InvalidOperandException
   }
 
+/// <summary>
+/// An across-vector reduction, which the architecture does as a TREE and not
+/// as a running total: the elements are folded in pairs, then the pairs in
+/// pairs.
+///
+/// The order is visible in the numeric forms, where a NaN is given up in
+/// favour of the other operand. A signalling NaN in the LAST element survives
+/// a left fold -- nothing comes after it to drop it, so it is quieted and
+/// carried out as the answer -- and does not survive this. That is one case
+/// in a vector of four, and it is what FMAXNMV and FMINNMV came back
+/// disagreeing about.
+/// </summary>
+let rec private reduceTree fp (xs: Expr[]) =
+  if Array.length xs = 1 then
+    xs[0]
+  else
+    Array.init (Array.length xs / 2) (fun i -> fp xs[i * 2] xs[i * 2 + 1])
+    |> reduceTree fp
+
+/// <summary>
+/// The pairwise and across-vector floating-point extremes: FMAXP, FMINP,
+/// their numeric twins, and the four that reduce a whole vector to one
+/// value.
+///
+/// The pairwise form takes the two operands' elements in order and folds each
+/// adjacent pair; the across form folds every element of the one operand it
+/// has. Both use the same primitive as the two-operand FMAX and FMIN, so a
+/// NaN propagates here exactly as it does there.
+/// </summary>
+let fpMaxMinReduce (ins: Instruction) bld fp =
+  lift bld ins {
+    match ins.Operands with
+    | TwoOperands(dst, src) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = reduceTree (fp bld eSize) src
+      dstAssignScalar ins bld dst result eSize
+    | ThreeOperands(dst, src1, src2) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOpr128 ins bld dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result =
+        Array.append src1 src2
+        |> Array.chunkBySize 2
+        |> Array.map (fun e -> fp bld eSize e[0] e[1])
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
+
+/// <summary>
+/// FMULX, which is FMUL everywhere except at zero times infinity.
+///
+/// The indexed form points every lane at the same element of the second
+/// operand, which is the only other thing it does differently.
+/// </summary>
+let fmulx (ins: Instruction) bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 =
+        match o3 with
+        | OprSIMD(VecRegWithIdx _) ->
+          let e = transOpr ins bld o3
+          Array.create elements e
+        | _ ->
+          transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.map2 (fpMulX bld eSize) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let src1 = transOpr ins bld o2
+      let src2 = transOpr ins bld o3
+      dstAssignScalar ins bld o1 (fpMulX bld eSize src1 src2) eSize
+  }
+
+let fmaxp ins bld =
+  fpMaxMinReduce ins bld (fun bld eSize -> fpMaxMin bld eSize true)
+
+let fminp ins bld =
+  fpMaxMinReduce ins bld (fun bld eSize -> fpMaxMin bld eSize false)
+
+let fmaxnmp ins bld =
+  fpMaxMinReduce ins bld (fun bld eSize -> fpMaxMinNum bld eSize true)
+
+let fminnmp ins bld =
+  fpMaxMinReduce ins bld (fun bld eSize -> fpMaxMinNum bld eSize false)
+
 let faddp (ins: Instruction) bld =
   lift bld ins {
     match ins.Operands with
@@ -667,50 +1029,363 @@ let faddp (ins: Instruction) bld =
       raise InvalidOperandException
   }
 
-let fcmgt (ins: Instruction) bld =
+/// <summary>
+/// A lane read at the width the comparison is made at.
+///
+/// A half has no comparison of its own to reach, so its lanes are widened to
+/// singles first. Widening is exact, so the verdict is the one the manual
+/// asks for -- and the mask that goes back is still the HALF's, because only
+/// the reading widens.
+/// </summary>
+let private compareWidth bld eSize e =
+  if eSize <> 16<rt> then
+    e
+  else
+    let t = tmpVar bld 32<rt>
+    let w = halfToSingleAsIs bld e
+    append bld { direct t := w }
+    t
+
+/// <summary>
+/// What one lane of a floating-point comparison answers: a mask of ones
+/// where it holds, of zeros where it does not, and of zeros where either
+/// side is a NaN whichever comparison was asked for.
+///
+/// And what it raised. Equality is FPCompareEQ, which raises Invalid only
+/// for a signalling NaN; every ordering is FPCompareGE or FPCompareGT, which
+/// raise it for a quiet one too -- that is the difference `signals` carries.
+/// </summary>
+let private compareLane bld wSize cmp absolute signals ones zeros e1 e2 =
+  let signBit =
+    match wSize with
+    | 64<rt> -> numU64 0x8000000000000000UL 64<rt>
+    | _ -> numU64 0x80000000UL 32<rt>
+  let mag e = if absolute then e .& AST.not signBit else e
+  let holds =
+    cmp (checkZero bld wSize (mag e1)) (checkZero bld wSize (mag e2))
+  let anyNaN = (isNaN wSize e1) .| (isNaN wSize e2)
+  fpExceptionsCompare bld wSize signals e1 e2
+  AST.ite anyNaN zeros (AST.ite holds ones zeros)
+
+/// <summary>
+/// The floating-point compares that answer with a mask rather than with the
+/// flags.
+///
+/// Each writes all ones where the comparison holds and zero where it does
+/// not, and zero for any pair that includes a NaN: an unordered pair
+/// satisfies none of these predicates, which is why the NaN test comes first
+/// and not out of the comparison.
+///
+/// The absolute forms compare magnitudes, which is the sign bit cleared on
+/// the way in and nothing else.
+/// </summary>
+let private fpCompare (ins: Instruction) bld cmp absolute signals =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (ones, zeros) = tmpVars2 bld eSize
-    let chkNan e1 e2 = (isNaN eSize e1) .| (isNaN eSize e2)
-    let fpgt e1 e2 = AST.fgt (checkZero bld eSize e1) (checkZero bld eSize e2)
+    let wSize = if eSize = 16<rt> then 32<rt> else eSize
+    let wide e = compareWidth bld eSize e
+    let lane e1 e2 =
+      compareLane bld wSize cmp absolute signals ones zeros e1 e2
     direct ones := numI64 -1L eSize
     direct zeros := AST.num0 eSize
     match dst, src2 with
     | OprSIMD(ScalarReg _) as o1, _ ->
-      let _, src1, src2 = transThreeOprs ins bld
-      let cond = chkNan src1 src2
-      let result = AST.ite cond zeros (AST.ite (fpgt src1 src2) ones zeros)
-      dstAssignScalar ins bld o1 result eSize
+      let _, s1, s2 = transThreeOprs ins bld
+      dstAssignScalar ins bld o1 (lane (wide s1) (wide s2)) eSize
     | OprSIMD(VecReg _), OprFPImm _ ->
       let struct (dstB, dstA) = transOpr128 ins bld dst
-      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-      let src2 = transOpr ins bld src2 |> AST.xtlo eSize
-      let result =
-        Array.map (fun e ->
-          AST.ite (chkNan e src2) zeros (AST.ite (fpgt e src2) ones zeros)) src1
+      let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let z = wide (transOpr ins bld src2 |> AST.xtlo eSize)
+      let result = Array.map (fun e -> lane (wide e) z) s1
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | OprSIMD(VecReg _), _ ->
       let struct (dstB, dstA) = transOpr128 ins bld dst
       let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
       let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
-      let result =
-        Array.map2 (fun e1 e2 ->
-          AST.ite (chkNan e1 e2) zeros (AST.ite (fpgt e1 e2) ones zeros)) s1 s2
+      let result = Array.map2 (fun a b -> lane (wide a) (wide b)) s1 s2
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
       raise InvalidOperandException
+  }
+
+let fcmgt ins bld = fpCompare ins bld AST.fgt false true
+
+let fcmge ins bld = fpCompare ins bld AST.fge false true
+
+let fcmeq ins bld = fpCompare ins bld AST.feq false false
+
+let fcmlt ins bld = fpCompare ins bld AST.flt false true
+
+let fcmle ins bld = fpCompare ins bld AST.fle false true
+
+/// FACGT and FACGE, the same two comparisons on magnitudes.
+let facgt ins bld = fpCompare ins bld AST.fgt true true
+
+let facge ins bld = fpCompare ins bld AST.fge true true
+
+/// <summary>
+/// The rotation a complex instruction names, as the number of quarter turns.
+/// </summary>
+let private quarterTurns rot =
+  match rot with
+  | OprImm deg -> int (deg / 90L)
+  | _ -> raise InvalidOperandException
+
+/// <summary>
+/// FCADD: each complex pair of the second source rotated by 90 or 270
+/// degrees and added to the first source's.
+///
+/// A rotation by 90 takes (x, y) to (-y, x) and one by 270 to (y, -x), and
+/// the negation is FPNeg, a flip of the sign bit that a NaN is not spared.
+/// </summary>
+let fcadd (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2, rot) = getFourOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let a = transSIMDOprToExpr bld eSize dataSize elements src1
+    let b = transSIMDOprToExpr bld eSize dataSize elements src2
+    let turned = quarterTurns rot = 3
+    let lane i =
+      let pair = i / 2 * 2
+      let other =
+        match i % 2 = 0, turned with
+        | true, false -> fpneg b[pair + 1] eSize
+        | true, true -> b[pair + 1]
+        | false, false -> b[pair]
+        | false, true -> fpneg b[pair] eSize
+      let t = tmpVar bld eSize
+      let sum = fpAdd bld eSize a[i] other
+      append bld { direct t := sum }
+      t
+    let result = Array.init elements lane
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// The two products one FCMLA lane pair adds, for a pair of the first source
+/// and one of the second: which part of the first each multiplies, and the
+/// second's parts in the order the rotation puts them, negated where it
+/// turns them past the axis.
+/// </summary>
+let private complexTerms eSize turns (a: Expr[]) pair (re, im) =
+  let aRe, aIm = a[pair], a[pair + 1]
+  match turns with
+  | 0 -> struct (aRe, re, aRe, im)
+  | 1 -> struct (aIm, fpneg im eSize, aIm, re)
+  | 2 -> struct (aRe, fpneg re eSize, aRe, fpneg im eSize)
+  | _ -> struct (aIm, im, aIm, fpneg re eSize)
+
+/// One pair of FCMLA's result: two fused multiply-adds into the
+/// destination's pair, each rounded once.
+let private complexPair bld eSize (acc: Expr[]) pair terms =
+  let struct (x1, y1, x2, y2) = terms
+  let struct (r1, r2) = tmpVars2 bld eSize
+  let e1 = fpMulAdd bld eSize acc[pair] x1 y1
+  append bld { direct r1 := e1 }
+  let e2 = fpMulAdd bld eSize acc[pair + 1] x2 y2
+  append bld { direct r2 := e2 }
+  [| r1; r2 |]
+
+/// <summary>
+/// FCMLA: each complex pair of the second source rotated by a quarter turn
+/// times the rotation, multiplied by one part of the first source's pair,
+/// and added to the destination's pair with one rounding.
+///
+/// On whole vectors the pairs of the two sources meet pair by pair; by
+/// element, every pair of the first meets the one pair of the second that
+/// the index names.
+/// </summary>
+let fcmla (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2, rot) = getFourOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let a = transSIMDOprToExpr bld eSize dataSize elements src1
+    let acc = transSIMDOprToExpr bld eSize dataSize elements dst
+    let second pair =
+      match src2 with
+      | OprSIMD(VecRegWithIdx(reg, _, idx)) ->
+        let full = if eSize = 16<rt> then EightH else FourS
+        let lanes = 128 / int eSize
+        let whole = OprSIMD(VecReg(reg, full))
+        let b = transSIMDOprToExpr bld eSize 128<rt> lanes whole
+        b[int idx * 2], b[int idx * 2 + 1]
+      | _ ->
+        let b = transSIMDOprToExpr bld eSize dataSize elements src2
+        b[pair], b[pair + 1]
+    let turns = quarterTurns rot
+    let pairOf p =
+      let terms = complexTerms eSize turns a (p * 2) (second (p * 2))
+      complexPair bld eSize acc (p * 2) terms
+    let result = Array.init (elements / 2) pairOf |> Array.concat
+    dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
 let fcsel ins bld =
   lift bld ins {
     let o1, s1, s2, cond = transOprOfFCSEL ins bld
     let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let fs1 = AST.cast CastKind.FloatCast ins.OprSize s1
-    let fs2 = AST.cast CastKind.FloatCast ins.OprSize s2
-    let result = AST.ite (conditionHolds bld cond) fs1 fs2
+    let result = AST.ite (conditionHolds bld cond) s1 s2
     dstAssignScalar ins bld o1 result eSize
   }
+
+/// <summary>
+/// The constants FPRecipStepFused and FPRSqrtStepFused are written around:
+/// two, three, one and a half, and a half, in the size being worked in.
+/// </summary>
+let private stepConstants eSize =
+  match eSize with
+  | 32<rt> ->
+    let two = numU32 0x40000000u 32<rt>
+    let three = numU32 0x40400000u 32<rt>
+    let onePointFive = numU32 0x3fc00000u 32<rt>
+    struct (two, three, onePointFive, numU32 0x3f000000u 32<rt>)
+  | 64<rt> ->
+    let two = numU64 0x4000000000000000UL 64<rt>
+    let three = numU64 0x4008000000000000UL 64<rt>
+    let onePointFive = numU64 0x3ff8000000000000UL 64<rt>
+    struct (two, three, onePointFive, numU64 0x3fe0000000000000UL 64<rt>)
+  | _ ->
+    raise InvalidOperandSizeException
+
+/// The sign an infinite answer carries: the two operands' signs exclusive
+/// ored, with the first operand's taken AFTER the negation the step begins
+/// with.
+let private stepInfinity eSize a b =
+  let top = int eSize - 1
+  let sign = AST.extract a 1<rt> top <+> AST.extract b 1<rt> top <+> AST.b1
+  let inf =
+    match eSize with
+    | 32<rt> -> numU32 0x7f800000u 32<rt>
+    | _ -> numU64 0x7ff0000000000000UL 64<rt>
+  AST.ite sign (inf .| (AST.num1 eSize << numI32 top eSize)) inf
+
+/// <summary>
+/// The operands FRSQRTS's one rounding is taken on, and whether its answer is
+/// halved after it.
+///
+/// Three less the product, halved, is one and a half less the product with
+/// its larger operand halved -- which never computes three less the product,
+/// a value that can run past the top of the range where its half does not.
+/// Halving that operand is exact unless it is subnormal, and then both are
+/// and the product is far too small to reach the top, so the step keeps three
+/// and halves its answer instead: exact again, since three less so small a
+/// product is nowhere near subnormal. A NaN or an infinity keeps the operands
+/// as they came, for the flags to read.
+/// </summary>
+let private sqrtStepTerms bld eSize a b =
+  let struct (_, three, onePointFive, half) = stepConstants eSize
+  let mBits, maxExp = if eSize = 32<rt> then 23, 0xff else 52, 0x7ff
+  let top = numI32 (int eSize - 1) eSize
+  let magnitude e = e .& ((AST.num1 eSize << top) .- AST.num1 eSize)
+  let struct (x, y, addend) = tmpVars3 bld eSize
+  let halving = tmpVar bld 1<rt>
+  let aBig = magnitude a .>= magnitude b
+  let big = AST.ite aBig a b
+  let small = AST.ite aBig b a
+  let e = magnitude big >> numI32 mBits eSize
+  let exactHalf = (e .> AST.num1 eSize) .& (e .< numI32 maxExp eSize)
+  append bld {
+    direct halving := AST.not exactHalf
+    direct x := AST.ite halving a (AST.fmul big half)
+    direct y := AST.ite halving b small
+    direct addend := AST.ite halving three onePointFive
+  }
+  struct (x, y, addend, halving)
+
+/// <summary>
+/// One lane of FRECPS or FRSQRTS: the manual's FPRecipStepFused and
+/// FPRSqrtStepFused.
+///
+/// The value is two less the product, or three less it and then halved, and
+/// it is FULLY FUSED -- one rounding for the multiply and the addition
+/// together. Computing the product and subtracting it separately rounds
+/// twice and gives a different answer wherever the product lands close to
+/// the constant, which is exactly where these instructions are used.
+///
+/// The manual negates the first operand before anything else, and that shows
+/// in more than the arithmetic: a NaN operand comes back with its SIGN
+/// INVERTED, because what propagates is the negated operand rather than the
+/// one the instruction was given.
+///
+/// Infinity times zero is the one product the fused form cannot compute, so
+/// the manual names it: the answer is two, or one and a half, positive
+/// however the operands were signed. An infinity anywhere else gives an
+/// infinity whose sign is the two operands' exclusive or.
+/// </summary>
+let private recipStep bld eSize isSqrt a b =
+  let struct (two, _, onePointFive, half) = stepConstants eSize
+  (* the NaN that propagates is the NEGATED first operand's, because the
+     negation is the first thing the manual does -- which is why a NaN comes
+     back with its sign inverted rather than as it went in *)
+  let negA = tmpVar bld eSize
+  let top = numI32 (int eSize - 1) eSize
+  append bld { direct negA := a <+> (AST.num1 eSize << top) }
+  let struct (isNaN, resNaN) = fpProcessNaNs bld eSize negA b
+  let struct (x, y, addend, halving) =
+    if isSqrt then sqrtStepTerms bld eSize a b
+    else struct (a, b, two, AST.b0)
+  let fused = tmpVar bld eSize
+  append bld { direct fused := fma eSize true false x y addend }
+  let ordinary = AST.ite halving (AST.fmul fused half) fused
+  let degenerate =
+    (isInfinity eSize a .& isZero eSize b)
+    .| (isZero eSize a .& isInfinity eSize b)
+  let anyInf = isInfinity eSize a .| isInfinity eSize b
+  let res = tmpVar bld eSize
+  let infOrOrdinary = AST.ite anyInf (stepInfinity eSize a b) ordinary
+  let named = if isSqrt then onePointFive else two
+  let finite = AST.ite degenerate named infOrOrdinary
+  append bld { direct res := AST.ite isNaN resNaN finite }
+  (* what the one rounding raised: the degenerate product raises nothing, so
+     it is asked of the constant the manual answers with and not of the NaN
+     the arithmetic would make of it *)
+  fpExceptionsFused bld eSize true x y addend (AST.ite degenerate addend fused)
+  res
+
+/// <summary>
+/// The same step for halves, which is done in doubles.
+///
+/// The step is FUSED, and a fused step on halves cannot be done in singles:
+/// the exact 2 - a*b can put a single's rounding exactly on a half's
+/// midpoint, and the second rounding then goes to even the wrong way. 2414
+/// stepped against 27d9 is 3fff where rounding through a single gives 4000,
+/// and 588 pairs of significands do the same for each of FRECPS and FRSQRTS.
+/// In a double the step on two halves is exact, so it rounds once.
+/// </summary>
+let private recipStepHalf bld isSqrt a b =
+  let op (w: Expr[]) = recipStep bld 64<rt> isSqrt w[0] w[1]
+  viaDouble bld op [| a; b |]
+
+/// <summary>
+/// FRECPS and FRSQRTS, a step of the Newton-Raphson iteration that turns an
+/// estimate into a reciprocal or a reciprocal square root.
+/// </summary>
+let private recipStepOp (ins: Instruction) bld isSqrt =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let lane a b =
+      if eSize = 16<rt> then recipStepHalf bld isSqrt a b
+      else recipStep bld eSize isSqrt a b
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let _, s1, s2 = transThreeOprs ins bld
+      dstAssignScalar ins bld dst (lane s1 s2) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld dst
+      let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result = Array.map2 lane s1 s2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+let frecps ins bld = recipStepOp ins bld false
+
+let frsqrts ins bld = recipStepOp ins bld true
 
 let fcvt (ins: Instruction) bld =
   lift bld ins {
@@ -1121,13 +1796,13 @@ let private fpRoundToInt (ins: Instruction) bld mode =
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
       let struct (eSize, _, _) = getElemDataSzAndElems dst
       let src = transOpr ins bld src
-      let result = fpType bld mode eSize src
+      let result = roundLane bld eSize (fpType bld mode) src
       dstAssignScalar ins bld dst result eSize
     | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
       let struct (dstB, dstA) = transOpr128 ins bld dst
       let src = transSIMDOprToExpr bld eSize dataSize elements src
-      let result = Array.map (fpType bld mode eSize) src
+      let result = Array.map (roundLane bld eSize (fpType bld mode)) src
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
       raise InvalidOperandException
@@ -1157,13 +1832,14 @@ let private fpCurrentRoundToInt (ins: Instruction) bld isExact =
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
       let struct (eSize, _, _) = getElemDataSzAndElems dst
       let src = transOpr ins bld src
-      let result = currentRound bld isExact eSize src
+      let result = roundLane bld eSize (currentRound bld isExact) src
       dstAssignScalar ins bld dst result eSize
     | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
       let struct (dstB, dstA) = transOpr128 ins bld dst
       let src = transSIMDOprToExpr bld eSize dataSize elements src
-      let result = Array.map (currentRound bld isExact eSize) src
+      let lane = roundLane bld eSize (currentRound bld isExact)
+      let result = Array.map lane src
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
       raise InvalidOperandException
@@ -1201,13 +1877,13 @@ let frinta (ins: Instruction) bld =
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
       let struct (eSize, _, _) = getElemDataSzAndElems dst
       let src = transOpr ins bld src
-      let result = tieawayCast bld eSize src
+      let result = roundLane bld eSize (tieawayCast bld) src
       dstAssignScalar ins bld dst result eSize
     | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
       let struct (dstB, dstA) = transOpr128 ins bld dst
       let src = transSIMDOprToExpr bld eSize dataSize elements src
-      let result = Array.map (tieawayCast bld eSize) src
+      let result = Array.map (roundLane bld eSize (tieawayCast bld)) src
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
       raise InvalidOperandException
@@ -1801,6 +2477,316 @@ let rev16 (ins: Instruction) bld =
       sized ins.OprSize dst := tmp
   }
 
+/// <summary>
+/// The manual's RecipEstimate: the reciprocal of a nine-bit fixed-point
+/// number in [0.5, 1), to nine bits. It is stated as a division and needs no
+/// table -- the input is rounded to the middle of its interval by doubling
+/// and adding one, the reciprocal taken at nineteen bits, and the answer
+/// rounded back to nine.
+/// </summary>
+let private recipEstimate9 a =
+  let rounded = (a .* numI32 2 64<rt>) .+ AST.num1 64<rt>
+  let b = numI32 0x80000 64<rt> ./ rounded
+  (b .+ AST.num1 64<rt>) ./ numI32 2 64<rt>
+
+/// <summary>
+/// The manual's RecipSqrtEstimate, which it states as a SEARCH: the largest
+/// b whose square, times the input, stays under two to the twenty-eighth.
+///
+/// A loop counting b up from 512 is not something the IR can say, but the
+/// condition is monotone in b, so the same answer comes out of building b
+/// one bit at a time from the top -- nine steps rather than up to five
+/// hundred. One temporary per step, because each step names the running
+/// value twice and an expression that does that nine times over is five
+/// hundred times the size.
+/// </summary>
+let private recipSqrtEstimate9 bld a =
+  let limit = numI32 0x10000000 64<rt>
+  let struct (rounded, b) = tmpVars2 bld 64<rt>
+  let low = (a .* numI32 2 64<rt>) .+ AST.num1 64<rt>
+  let high = ((a >> AST.num1 64<rt>) << AST.num1 64<rt>) .+ AST.num1 64<rt>
+  append bld {
+    direct rounded :=
+      AST.ite (a .< numI32 256 64<rt>) low (high .* numI32 2 64<rt>)
+    direct b := numI32 512 64<rt>
+  }
+  for bit in [ 256; 128; 64; 32; 16; 8; 4; 2; 1 ] do
+    let cand = b .+ numI32 bit 64<rt>
+    append bld {
+      direct b := AST.ite ((rounded .* cand .* cand) .< limit) cand b
+    }
+  (b .+ AST.num1 64<rt>) ./ numI32 2 64<rt>
+
+/// <summary>
+/// URECPE and URSQRTE: a nine-bit estimate of the reciprocal, or of the
+/// reciprocal square root, of the top of each element.
+///
+/// An element too small to estimate answers all ones, which is the largest
+/// the format holds: below a half for the reciprocal and below a quarter for
+/// the reciprocal square root. Everything else is read as a fixed-point
+/// number from its top nine bits and the estimate written back to the same
+/// place.
+/// </summary>
+let uestimate (ins: Instruction) bld isSqrt =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let ones32 = numU32 0xffffffffu 32<rt>
+    let tooSmall e =
+      if isSqrt then e .< numU32 0x40000000u 32<rt>
+      else e .< numU32 0x80000000u 32<rt>
+    let lane e =
+      let top = AST.zext 64<rt> (e >> numI32 23 32<rt>)
+      let est =
+        if isSqrt then recipSqrtEstimate9 bld top else recipEstimate9 top
+      let scaled = AST.xtlo 32<rt> est << numI32 23 32<rt>
+      AST.ite (tooSmall e) ones32 scaled
+    let src = transSIMDOprToExpr bld eSize dataSize elements src
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    Array.map lane src
+    |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+let urecpe ins bld = uestimate ins bld false
+
+let ursqrte ins bld = uestimate ins bld true
+
+/// <summary>
+/// The layout of a float as the estimates read it: the width of its fraction
+/// and of its exponent, and the constants FPRecipEstimate and FPRSqrtEstimate
+/// take the result's exponent from -- which differ between the widths only
+/// because the biases do.
+/// </summary>
+let private estimateLayout eSize =
+  match eSize with
+  | 16<rt> -> struct (10, 5, 29, 44)
+  | 32<rt> -> struct (23, 8, 253, 380)
+  | _ -> struct (52, 11, 2045, 3068)
+
+/// <summary>
+/// The pieces of an operand the estimates start from, in a double's layout
+/// whatever its width, as the manual has them: the sign bit where the width
+/// has it, the fraction, the biased exponent, and the fraction moved up to
+/// fill fifty-two bits.
+/// </summary>
+let private estimateParts eSize e =
+  let struct (mBits, eBits, _, _) = estimateLayout eSize
+  let rt = 64<rt>
+  let x = if eSize = rt then e else AST.zext rt e
+  let mant = x .& ((AST.num1 rt << numI32 mBits rt) .- AST.num1 rt)
+  let rawExp = (x >> numI32 mBits rt) .& numI32 ((1 <<< eBits) - 1) rt
+  let sign = x .& (AST.num1 rt << numI32 (int eSize - 1) rt)
+  let started = mant << numI32 (52 - mBits) rt
+  struct (sign, mant, rawExp, started)
+
+/// The low eSize bits of a value built at sixty-four.
+let private toWidth eSize x = if eSize = 64<rt> then x else AST.xtlo eSize x
+
+/// <summary>
+/// FRECPX: the exponent replaced by its own complement, which is the
+/// reciprocal's exponent, and the significand thrown away.
+///
+/// A zero or a denormal has no exponent to complement, so both answer with
+/// the largest finite one. A NaN is processed -- made quiet, or the default
+/// one under DN -- and a signalling one raises Invalid, the only exception
+/// this can raise. Nothing else about the value survives -- that is the point
+/// of the instruction: it is the part of a reciprocal that cannot overflow.
+/// </summary>
+let frecpx (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, _, _) = getElemDataSzAndElems dst
+    let struct (mantBits, expBits, _, _) = estimateLayout eSize
+    let e = tmpVar bld eSize
+    let src = transOpr ins bld src
+    let expMask = ((AST.num1 eSize << numI32 expBits eSize) .- AST.num1 eSize)
+    direct e := (src >> numI32 mantBits eSize) .& expMask
+    let sign = src .& (AST.num1 eSize << numI32 (int eSize - 1) eSize)
+    let maxExp = expMask .- AST.num1 eSize
+    let flipped = AST.ite (e == AST.num0 eSize) maxExp (AST.not e .& expMask)
+    let ordinary = sign .| (flipped << numI32 mantBits eSize)
+    let nan = fpProcessNan bld eSize src
+    fpExceptionsInvalidOnly bld (isSNaN eSize src)
+    dstAssignScalar ins bld dst (AST.ite (isNaN eSize src) nan ordinary) eSize
+  }
+
+/// <summary>
+/// FRECPE for one lane: the manual's FPRecipEstimate, at any of the three
+/// widths.
+///
+/// The shape of it is that the reciprocal's exponent is the negation of the
+/// operand's -- a constant less it, once both are biased -- and its
+/// significand is a nine-bit table lookup, which RecipEstimate states as a
+/// division. A denormal has to be normalised first, by one shift or two
+/// depending on where its leading one is, and the exponent adjusted to match.
+///
+/// Two of the exponent's values fall off the bottom of what the width can
+/// hold as a normal, and the manual puts the implicit one back by hand for
+/// them, shifting the significand down to make room. Those are the two
+/// `result_exp` tests below and they are the only place the sequence is not
+/// straight-line arithmetic.
+///
+/// The special cases are the usual ones with one addition: an operand too
+/// small for its reciprocal to be written -- under two to the minus sixteen,
+/// the minus hundred and twenty-eight or the minus thousand and twenty-four --
+/// OVERFLOWS, to an infinity or to the largest finite number as the rounding
+/// direction says.
+/// </summary>
+let private recipNormalise bld isDen started =
+  let struct (frac, exp) = tmpVars2 bld 64<rt>
+  let top = (started >> numI32 51 64<rt>) .& AST.num1 64<rt>
+  let topSet = top == AST.num1 64<rt>
+  let once = started << AST.num1 64<rt>
+  let twice = started << numI32 2 64<rt>
+  let shifted = AST.ite topSet once twice
+  let lowered = AST.ite topSet (AST.num0 64<rt>) (numI32 -1 64<rt>)
+  append bld {
+    direct frac := AST.ite isDen shifted started
+  }
+  struct (frac, exp, lowered)
+
+let private recipBody eSize frac exp =
+  let struct (mBits, eBits, recipBase, _) = estimateLayout eSize
+  let scaled =
+    numI32 0x100 64<rt> .| ((frac >> numI32 44 64<rt>) .& numI32 0xff 64<rt>)
+  let resExp = numI32 recipBase 64<rt> .- exp
+  let est = recipEstimate9 scaled
+  let fracE = (est .& numI32 0xff 64<rt>) << numI32 44 64<rt>
+  let atZero =
+    (AST.num1 64<rt> << numI32 51 64<rt>) .| (fracE >> AST.num1 64<rt>)
+  let atMinusOne =
+    (AST.num1 64<rt> << numI32 50 64<rt>) .| (fracE >> numI32 2 64<rt>)
+  let minusOne = resExp == numI32 -1 64<rt>
+  let deep = AST.ite minusOne atMinusOne fracE
+  let fracF = AST.ite (resExp == AST.num0 64<rt>) atZero deep
+  let outExp = AST.ite minusOne (AST.num0 64<rt>) resExp
+  let eMask = numI32 ((1 <<< eBits) - 1) 64<rt>
+  let mMask = (AST.num1 64<rt> << numI32 mBits 64<rt>) .- AST.num1 64<rt>
+  ((outExp .& eMask) << numI32 mBits 64<rt>)
+  .| ((fracF >> numI32 (52 - mBits) 64<rt>) .& mMask)
+
+let private recipEstimate bld eSize e =
+  let struct (mBits, eBits, _, _) = estimateLayout eSize
+  let struct (sign, mant, rawExp, started) = estimateParts eSize e
+  let isDen = rawExp == AST.num0 64<rt>
+  let struct (frac, exp, lowered) = recipNormalise bld isDen started
+  append bld {
+    direct exp := AST.ite isDen lowered rawExp
+  }
+  let body = sign .| recipBody eSize frac exp
+  let eMax = numI32 ((1 <<< eBits) - 1) 64<rt>
+  let infinity = sign .| (eMax << numI32 mBits 64<rt>)
+  let largest = sign .| ((eMax << numI32 mBits 64<rt>) .- AST.num1 64<rt>)
+  let isTop = rawExp == eMax
+  let isNaN = isTop .& (mant != AST.num0 64<rt>)
+  let isInf = isTop .& (mant == AST.num0 64<rt>)
+  let isZero = isDen .& (mant == AST.num0 64<rt>)
+  (* under the smallest value whose reciprocal can be written, which is a
+     denormal whose fraction does not reach its top two bits *)
+  let tiny =
+    isDen .& ((started >> numI32 50 64<rt>) == AST.num0 64<rt>)
+    .& AST.not isZero
+  let toInf = fpOverflowsToInfinity bld (sign != AST.num0 64<rt>)
+  let overflow = AST.ite toInf infinity largest
+  let small = AST.ite isZero infinity (AST.ite tiny overflow body)
+  let nan = fpProcessNan bld eSize e
+  fpExceptionsEstimate bld (isSNaN eSize e) isZero tiny
+  AST.ite isNaN nan (toWidth eSize (AST.ite isInf sign small))
+
+let frecpe (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _), _) ->
+      let e = transOpr ins bld src
+      dstAssignScalar ins bld dst (recipEstimate bld eSize e) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map (recipEstimate bld eSize) src
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// FRSQRTE for one lane: the manual's FPRSqrtEstimate, at any of the three
+/// widths.
+///
+/// A square root halves the exponent, so the estimate has to know whether
+/// the exponent is EVEN or ODD -- the significand is read as nine bits from
+/// a different place in each case, and that is the only thing that makes
+/// this different in shape from the reciprocal beside it.
+///
+/// The manual normalises a denormal with a loop that shifts until the top
+/// bit is set. The number of shifts is where the leading one already is, so
+/// it is found once and used as a shift amount rather than counted out.
+///
+/// A negative operand has no real square root: it answers the DEFAULT NaN
+/// and raises Invalid, which is the one place in these two estimates that a
+/// payload is thrown away rather than carried.
+/// </summary>
+let private rsqrtEstimate bld eSize e =
+  let struct (mBits, eBits, _, rsqrtBase) = estimateLayout eSize
+  let struct (sign, mant, rawExp, started) = estimateParts eSize e
+  let isDen = rawExp == AST.num0 64<rt>
+  let top = highestSetBitForIR mant mBits 64<rt> bld
+  let shifts = numI32 (mBits - 1) 64<rt> .- top
+  let struct (frac, exp) = tmpVars2 bld 64<rt>
+  append bld {
+    let opened = started << (shifts .+ AST.num1 64<rt>)
+    direct frac := AST.ite isDen opened started
+    direct exp := AST.ite isDen (AST.neg shifts) rawExp
+  }
+  let even = (exp .& AST.num1 64<rt>) == AST.num0 64<rt>
+  let atEven =
+    numI32 0x100 64<rt> .| ((frac >> numI32 44 64<rt>) .& numI32 0xff 64<rt>)
+  let atOdd =
+    numI32 0x80 64<rt> .| ((frac >> numI32 45 64<rt>) .& numI32 0x7f 64<rt>)
+  let scaled = AST.ite even atEven atOdd
+  let resExp = (numI32 rsqrtBase 64<rt> .- exp) ?/ numI32 2 64<rt>
+  let est = recipSqrtEstimate9 bld scaled
+  let eMask = numI32 ((1 <<< eBits) - 1) 64<rt>
+  let body =
+    ((resExp .& eMask) << numI32 mBits 64<rt>)
+    .| ((est .& numI32 0xff 64<rt>) << numI32 (mBits - 8) 64<rt>)
+  let isTop = rawExp == eMask
+  let isNaN = isTop .& (mant != AST.num0 64<rt>)
+  let isZero = isDen .& (mant == AST.num0 64<rt>)
+  let infinity = sign .| (eMask << numI32 mBits 64<rt>)
+  let negative = sign != AST.num0 64<rt>
+  let positive = AST.ite isTop (AST.num0 64<rt>) body
+  let noRoot =
+    if eSize = 64<rt> then fpDefaultNan eSize
+    else AST.zext 64<rt> (fpDefaultNan eSize)
+  let signed = AST.ite negative noRoot positive
+  let nan = fpProcessNan bld eSize e
+  let invalid = isSNaN eSize e .| (negative .& AST.not isNaN .& AST.not isZero)
+  fpExceptionsEstimate bld invalid isZero AST.b0
+  AST.ite isNaN nan (toWidth eSize (AST.ite isZero infinity signed))
+
+let frsqrte (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _), _) ->
+      let e = transOpr ins bld src
+      dstAssignScalar ins bld dst (rsqrtEstimate bld eSize e) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map (rsqrtEstimate bld eSize) src
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// The polynomial product of two elements over GF(2): the same shift and add
+/// an ordinary product is, with the addition replaced by exclusive or -- which
 let rev32 (ins: Instruction) bld =
   lift bld ins {
     let tmp = tmpVar bld ins.OprSize
@@ -1924,16 +2910,43 @@ let smull (ins: Instruction) bld =
       direct dst := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2
   }
 
+/// <summary>
+/// One element of SSHL or USHL: shifted left by an amount that may be
+/// negative, in which case it is shifted right by the other way round.
+///
+/// The amount is the second operand's low byte read as a SIGNED number, so it
+/// runs to plus or minus a hundred and twenty-eight and can ask for more
+/// places than the element has. The architecture answers a left shift past
+/// the width with zero and a right shift past it with the sign -- all ones or
+/// all zeros -- where a shift in the IR by more than the operand's width says
+/// nothing at all. Both are therefore clamped before the shift rather than
+/// after it.
+///
+/// The work is done a width wider where the element is narrow, so that
+/// negating an amount of minus a hundred and twenty-eight does not itself
+/// overflow.
+/// </summary>
+let private shiftByRegister bld (eSize: int<rt>) unsigned e1 e2 =
+  let wide = if eSize < 16<rt> then 16<rt> else eSize
+  let struct (amt, v) = tmpVars2 bld wide
+  append bld {
+    direct amt := AST.xtlo 8<rt> e2 |> AST.sext wide
+    direct v := (if unsigned then AST.zext wide e1 else AST.sext wide e1)
+  }
+  let width = numI32 (int eSize) wide
+  let negAmt = AST.neg amt
+  let capped = AST.ite (negAmt ?>= width) (width .- AST.num1 wide) negAmt
+  let right = if unsigned then v >> capped else v ?>> capped
+  let outOfRange = if unsigned then AST.num0 wide else v ?>> capped
+  let right = AST.ite (negAmt ?>= width) outOfRange right
+  let left = AST.ite (amt ?>= width) (AST.num0 wide) (v << amt)
+  AST.xtlo eSize (AST.ite (amt ?< AST.num0 wide) right left)
+
 let sshl (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, o1, o2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let inline shiftLeft e1 e2 =
-      let shf = tmpVar bld eSize
-      append bld {
-        direct shf := AST.xtlo 8<rt> e2 |> AST.sext eSize
-      }
-      AST.ite (shf ?< AST.num0 eSize) (e1 ?>> AST.neg shf) (e1 << shf)
+    let inline shiftLeft e1 e2 = shiftByRegister bld eSize false e1 e2
     match ins.Operands with
     | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
       let src1 = transOpr ins bld o1
@@ -2114,7 +3127,31 @@ let private tableRegsOf ins bld src1 =
   | _ ->
     raise InvalidOperandException
 
-let tbl (ins: Instruction) bld = (* FIMXE *)
+/// The byte the destination already holds at one lane, which TBX keeps where
+/// TBL writes zero. The lane is a byte index into the pair of doublewords a
+/// vector register is kept as, so which half it comes from is fixed at lift
+/// time rather than decided in the IR.
+let private tblDstByte dstA dstB i =
+  let nFF = numI32 -1 8<rt> |> AST.zext 64<rt>
+  let half = if i < 8 then dstA else dstB
+  ((half >> (numI32 (i * 8) 64<rt>)) .& nFF) |> AST.xtlo 8<rt>
+
+/// The byte one table register holds at an index, counting from its bottom.
+/// The index is taken modulo eight because the caller has already decided
+/// which register of the table it falls in.
+let private tblByte expr idx =
+  let n8 = numI32 8 8<rt>
+  let nFF = numI32 -1 8<rt> |> AST.zext 64<rt>
+  ((expr >> (AST.zext 64<rt> ((idx .% n8) .* n8))) .& nFF) |> AST.xtlo 8<rt>
+
+/// <summary>
+/// TBL and TBX, which read a table of vector registers by byte index.
+///
+/// They differ in one thing: where the index is past the end of the table TBL
+/// writes zero and TBX leaves the destination byte as it was. That is the
+/// `keepDst` flag, and it is the whole of the difference.
+/// </summary>
+let tblOrTbx (ins: Instruction) bld keepDst =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
@@ -2122,29 +3159,21 @@ let tbl (ins: Instruction) bld = (* FIMXE *)
     let struct (dstB, dstA) = transOpr128 ins bld dst
     let src = tableRegsOf ins bld src1
     let indices = transSIMDOprToExpr bld 8<rt> dataSize elements src2
-    let n8 = numI32 8 8<rt>
-    let nFF = numI32 -1 8<rt> |> AST.zext 64<rt>
-    let zeros = tmpVar bld eSize
-    direct zeros := AST.num0 eSize
-    let inline elem expr idx =
-      let idx = idx .% n8
-      ((expr >> (AST.zext 64<rt> (idx .* n8))) .& nFF) |> AST.xtlo 8<rt>
+    let past = tmpVar bld eSize
+    direct past := AST.num0 eSize
     let lenExpr = tmpVar bld 8<rt>
     let len = Array.length src
     direct lenExpr := numI32 (len / 2 * 16) 8<rt>
-    let inline limit i expr index =
-      let dst =
-        if i < 8 then (dstA >> (numI32 (i * 8) 64<rt>)) .& nFF
-        else (dstB >> (numI32 (i * 8) 64<rt>)) .& nFF
-        |> AST.xtlo 8<rt>
-      AST.ite (index .< lenExpr) (elem expr index) dst
+    let limit i expr index =
+      AST.ite (index .< lenExpr) (tblByte expr index) (tblDstByte dstA dstB i)
     let getElem i idx =
       if len = 2 || len = 4 || len = 6 || len = 8 then
         (* each register covers eight indices, and past the last of them the
-           lookup gives zero *)
+           lookup gives zero unless the destination is being kept *)
+        let outside = if keepDst then tblDstByte dstA dstB i else past
         Array.foldBack (fun k rest ->
           AST.ite (idx .< numI32 (8 * (k + 1)) 8<rt>) (limit i src[k] idx) rest
-        ) [| 0 .. len - 1 |] zeros
+        ) [| 0 .. len - 1 |] outside
       else
         raise InvalidOperandException
     let result = Array.init elements (fun _ -> tmpVar bld eSize)
@@ -2152,6 +3181,10 @@ let tbl (ins: Instruction) bld = (* FIMXE *)
     |> Array.iter2 (fun e1 e2 -> append bld { direct e1 := e2 }) result
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
+
+let tbl ins bld = tblOrTbx ins bld false
+
+let tbx ins bld = tblOrTbx ins bld true
 
 let trn1 ins bld =
   lift bld ins {
@@ -2181,7 +3214,9 @@ let trn2 ins bld =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let uabal (ins: Instruction) bld =
+/// The widening absolute difference accumulated into the destination, in
+/// both signednesses.
+let abal (ins: Instruction) bld unsigned =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src1
@@ -2193,16 +3228,18 @@ let uabal (ins: Instruction) bld =
     let s2 = transSIMDOprVPart bld eSize part src2
     let result = Array.init elements (fun _ -> tmpVar bld dblESz)
     Array.iter2 (fun r e -> append bld { direct r := e }) result dst
-    let dblExt e = AST.zext dblESz e
+    let dblExt e = (if unsigned then AST.zext else AST.sext) dblESz e
+    let ge = if unsigned then (.>=) else (?>=)
     Array.map2 (fun e1 e2 ->
-      AST.ite (e1 .>= e2) (dblExt e1 .- dblExt e2) (dblExt e2 .- dblExt e1))
+      AST.ite (ge e1 e2) (dblExt e1 .- dblExt e2) (dblExt e2 .- dblExt e1))
       s1 s2
-    |> Array.iter2 (fun r absDiff ->
-      append bld { direct r := r .+ absDiff }) result
+    |> Array.iter2 (fun r d ->
+      append bld { direct r := r .+ d }) result
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let uabdl (ins: Instruction) bld =
+/// The widening absolute difference, in both signednesses.
+let abdl (ins: Instruction) bld unsigned =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src1
@@ -2212,21 +3249,24 @@ let uabdl (ins: Instruction) bld =
     let s1 = transSIMDOprVPart bld eSize part src1
     let s2 = transSIMDOprVPart bld eSize part src2
     let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-    let dblExt e = AST.zext dblESz e
+    let dblExt e = (if unsigned then AST.zext else AST.sext) dblESz e
+    let ge = if unsigned then (.>=) else (?>=)
     Array.map2 (fun e1 e2 ->
-      AST.ite (e1 .>= e2) (dblExt e1 .- dblExt e2) (dblExt e2 .- dblExt e1))
+      AST.ite (ge e1 e2) (dblExt e1 .- dblExt e2) (dblExt e2 .- dblExt e1))
       s1 s2
-    |> Array.iter2 (fun r absDiff -> append bld { direct r := absDiff }) result
+    |> Array.iter2 (fun r d -> append bld { direct r := d }) result
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let uadalp ins bld =
+/// The pairwise widening accumulate, in both signednesses.
+let adalp ins bld unsigned =
   lift bld ins {
     let struct (o1, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let dst = transSIMDOprToExpr bld (eSize * 2) dataSize (elements / 2) o1
     let src = transSIMDOprToExpr bld eSize dataSize elements src
-              |> Array.map (AST.zext (2 * eSize))
+              |> Array.map ((if unsigned then AST.zext else AST.sext)
+                              (2 * eSize))
     let result = Array.init (elements / 2) (fun _ -> tmpVar bld (2 * eSize))
     Array.iter2 (fun dst res -> append bld { direct res := dst }) dst result
     let sum = src |> Array.chunkBySize 2 |> Array.map (fun e -> e[0] .+ e[1])
@@ -2558,6 +3598,66 @@ let sqdmlal (ins: Instruction) bld =
       raise InvalidOperandException
   }
 
+/// The doubling multiply and SUBTRACT, read the way the accumulate above is:
+/// a signed difference leaves the range when the accumulator and the product
+/// differ in sign and the answer takes the product's rather than the
+/// accumulator's.
+let private ssatQMSub bld src1 src2 dstElm eSize =
+  let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
+  let max = getIntMax (2 * eSize) false
+  let min = AST.not max
+  let product = ssatQMulL bld src1 src2 eSize
+  let accum = dstElm .- product
+  let o1 = AST.xthi 1<rt> dstElm
+  let o2 = AST.xthi 1<rt> product
+  let r = AST.xthi 1<rt> accum
+  let outOfRange = (o1 <+> o2) .& (o1 <+> r)
+  let overflow = (o1 == AST.b0) .& outOfRange
+  let underflow = (o1 == AST.b1) .& outOfRange
+  append bld {
+    direct bitQC := bitQC .| overflow .| underflow
+  }
+  AST.ite overflow max (AST.ite underflow min accum)
+
+let sqdmlsl (ins: Instruction) bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems o2
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecRegWithIdx _)) ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let elements = 64<rt> / eSize
+      let dblESz = 2 * eSize
+      let dst = transSIMDOprToExpr bld dblESz 128<rt> elements o1
+      let src1 = transSIMDOprVPart bld eSize part o2
+      let src2 = transOpr ins bld o3
+      let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+      Array.map2 (fun e1 e2 -> ssatQMSub bld e1 src2 e2 eSize) src1 dst
+      |> Array.iter2 (fun res accum ->
+        append bld { direct res := accum }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let elements = 64<rt> / eSize
+      let dblESz = 2 * eSize
+      let dst = transSIMDOprToExpr bld dblESz 128<rt> elements o1
+      let src1 = transSIMDOprVPart bld eSize part o2
+      let src2 = transSIMDOprVPart bld eSize part o3
+      let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+      Array.map3 (fun e1 e2 e3 -> ssatQMSub bld e1 e2 e3 eSize) src1 src2 dst
+      |> Array.iter2 (fun res accum ->
+        append bld { direct res := accum }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let dst = transOpr ins bld o1
+      let src1 = transOpr ins bld o2
+      let src2 = transOpr ins bld o3
+      let result = ssatQMSub bld src1 src2 dst eSize
+      dstAssignScalar ins bld o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
+
 let umlal (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
@@ -2654,19 +3754,41 @@ let umull (ins: Instruction) bld =
       direct dst := AST.zext 64<rt> src1 .* AST.zext 64<rt> src2
   }
 
-let uqadd (ins: Instruction) bld =
+/// A saturating add of two doublewords, which has no wider width to compute
+/// in: the overflow is read off the operands instead. An unsigned sum went
+/// over when it came out below either operand, and a signed one when both
+/// operands shared a sign that the answer does not.
+let private satQAdd64 bld unsigned src1 src2 =
+  let input = src1 .+ src2
+  let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
+  let n0 = AST.num0 64<rt>
+  let max = getIntMax 64<rt> unsigned
+  let overflow =
+    if unsigned then input .< src1
+    else ((src1 <+> src2) ?>= n0) .& ((input <+> src1) ?< n0)
+  let limit =
+    if unsigned then max else AST.ite (src1 ?< n0) (AST.not max) max
+  append bld {
+    direct bitQC := bitQC .| overflow
+  }
+  AST.ite overflow limit input
+
+/// <summary>
+/// The saturating add, in both signednesses.
+///
+/// Every width but the widest is done one bit wider than the element and then
+/// clamped, which is the direct reading of the pseudocode. At sixty-four bits
+/// there is no wider type to compute in, so the overflow is read off the
+/// signs instead: an unsigned sum that came out below what went in carried,
+/// and a signed sum of two operands of the same sign that came out with the
+/// other sign went over.
+/// </summary>
+let qadd (ins: Instruction) bld unsigned =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let inline satQ64 src1 src2 =
-      let input = src1 .+ src2
-      let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
-      let max = numU64 0xffffffff_ffffffffUL 64<rt>
-      let overflow = input .< src1
-      append bld {
-        direct bitQC := bitQC .| overflow
-      }
-      AST.ite overflow max input
+    let ext = if unsigned then AST.zext else AST.sext
+    let satQ64 src1 src2 = satQAdd64 bld unsigned src1 src2
     match ins.Operands with
     | ThreeOperands(OprSIMD(VecReg _), _, _) ->
       let struct (dstB, dstA) = transOpr128 ins bld o1
@@ -2679,9 +3801,9 @@ let uqadd (ins: Instruction) bld =
           append bld { direct element := i }) result
       else
         Array.map2 (fun e1 e2 ->
-          AST.zext (2 * eSize) e1 .+ AST.zext (2 * eSize) e2) src1 src2
+          ext (2 * eSize) e1 .+ ext (2 * eSize) e2) src1 src2
         |> Array.iter2 (fun element i ->
-          append bld { direct element := satQ bld i eSize true }) result
+          append bld { direct element := satQ bld i eSize unsigned }) result
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
       let src1 = transOpr ins bld o2
@@ -2722,18 +3844,164 @@ let uqrshl (ins: Instruction) bld =
       raise InvalidOperandException
   }
 
-let uqsub (ins: Instruction) bld =
+/// <summary>
+/// SQSHL and SQRSHL in their register forms: the signed saturating shift by
+/// an amount another vector carries.
+///
+/// The amount is the LOW BYTE of its element read as a signed number, so a
+/// negative one shifts right. Reading the whole element instead would make
+/// every amount above 127 a huge left shift rather than the right shift the
+/// byte says.
+/// </summary>
+let sqshlReg (ins: Instruction) bld isRound =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let inline satQ64 src1 src2 =
-      let eval = src1 .- src2
-      let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
-      let underflow = src1 .< src2
-      append bld {
-        direct bitQC := bitQC .| underflow
-      }
-      AST.ite underflow (AST.num0 64<rt>) eval
+    let amountOf e = e |> AST.xtlo 8<rt> |> AST.sext eSize
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD _) ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map2 (fun e shf ->
+        satQShlBy bld isRound e (amountOf shf) eSize) src1 src2
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let shift = numI64 (shiftAmountOf o3) eSize
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map (fun e -> satQShlBy bld isRound e shift eSize) src1
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, OprSIMD _) ->
+      let src1 = transOpr ins bld o2
+      let shift = transOpr ins bld o3 |> amountOf
+      let result = satQShlBy bld isRound src1 shift eSize
+      dstAssignScalar ins bld o1 result eSize
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOpr ins bld o2
+      let shift = numI64 (shiftAmountOf o3) eSize
+      let result = satQShlBy bld isRound src1 shift eSize
+      dstAssignScalar ins bld o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
+
+/// <summary>
+/// SQRDMULH: multiply two signed elements, double the product, round it and
+/// keep the top half, saturating.
+///
+/// The manual says (2*a*b + 2^(esize-1)) >> esize, and that doubling is the
+/// one place a product of two elements no longer fits in two elements' worth
+/// of bits: a and b both at the signed minimum give exactly the bit above the
+/// top. Halving both sides of the shift says the same thing without leaving
+/// the width -- (a*b + 2^(esize-2)) >> (esize-1) -- because shifting a
+/// doubled value one place further is the value itself.
+/// </summary>
+let private rdmulhElem bld (eSize: int<rt>) e1 e2 =
+  let wide = eSize * 2
+  let product = AST.sext wide e1 .* AST.sext wide e2
+  let half = AST.num1 wide << numI32 (int eSize - 2) wide
+  let rounded = (product .+ half) ?>> numI32 (int eSize - 1) wide
+  satQ bld rounded eSize false
+
+let sqrdmulh (ins: Instruction) bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecRegWithIdx _)) ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transOpr ins bld o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map (fun e1 -> rdmulhElem bld eSize e1 src2) src1
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map2 (rdmulhElem bld eSize) src1 src2
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOpr ins bld o2
+      let src2 = transOpr ins bld o3
+      let result = rdmulhElem bld eSize src1 src2
+      dstAssignScalar ins bld o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
+
+/// <summary>
+/// SQSHRN and SQRSHRN: shift each element right by an immediate and narrow it
+/// to half its width, saturating.
+///
+/// The shift is of the SOURCE element, which is twice as wide as what is
+/// written, so the rounding constant and the shift both belong at the source
+/// width and only the saturation looks at the narrow one.
+/// </summary>
+let sqshrn (ins: Instruction) bld isPart2 isRound srcUnsigned dstUnsigned =
+  lift bld ins {
+    let struct (dst, src, amt) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let shift = numI64 (shiftAmountOf amt) eSize
+    let rnd = AST.num1 eSize << (shift .- AST.num1 eSize)
+    let shifted e =
+      let e = if isRound then e .+ rnd else e
+      if srcUnsigned then e >> shift else e ?>> shift
+    let narrowed e = satNarrow bld (shifted e) eSize srcUnsigned dstUnsigned
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src = transOpr ins bld src
+      dstAssignScalar ins bld dst (narrowed src) (eSize / 2)
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.init elements (fun _ -> tmpVar bld (eSize / 2))
+      Array.map narrowed src
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      if isPart2 then
+        direct dstB := AST.revConcat result
+      else
+        direct dstA := AST.revConcat result
+        direct dstB := AST.num0 64<rt>
+  }
+
+/// The saturating subtract, in both signednesses, read the same way round as
+/// the add above: an unsigned difference borrows when the first operand is
+/// the smaller, and a signed one goes over when the operands differ in sign
+/// and the answer takes the second one's.
+/// The saturating subtract of two doublewords, read the way satQAdd64 reads
+/// the add: an unsigned difference went under when the first operand is the
+/// smaller, and a signed one when the operands differ in sign and the answer
+/// takes the second's.
+let private satQSub64 bld unsigned src1 src2 =
+  let eval = src1 .- src2
+  let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
+  let n0 = AST.num0 64<rt>
+  let max = getIntMax 64<rt> false
+  let underflow =
+    if unsigned then src1 .< src2
+    else ((src1 <+> src2) ?< n0) .& ((eval <+> src1) ?< n0)
+  let limit =
+    if unsigned then n0 else AST.ite (src1 ?< n0) (AST.not max) max
+  append bld {
+    direct bitQC := bitQC .| underflow
+  }
+  AST.ite underflow limit eval
+
+let qsub (ins: Instruction) bld unsigned =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let ext = if unsigned then AST.zext else AST.sext
+    let satQ64 src1 src2 = satQSub64 bld unsigned src1 src2
     match ins.Operands with
     | ThreeOperands(OprSIMD(VecReg _), _, _) ->
       let struct (dstB, dstA) = transOpr128 ins bld o1
@@ -2746,9 +4014,9 @@ let uqsub (ins: Instruction) bld =
           append bld { direct element := i }) result
       else
         Array.map2 (fun e1 e2 ->
-          AST.zext (2 * eSize) e1 .- AST.zext (2 * eSize) e2) src1 src2
+          ext (2 * eSize) e1 .- ext (2 * eSize) e2) src1 src2
         |> Array.iter2 (fun element i ->
-          append bld { direct element := satQ bld i eSize true }) result
+          append bld { direct element := satQ bld i eSize unsigned }) result
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
       let src1 = transOpr ins bld o2
@@ -2807,7 +4075,7 @@ let shiftULeftLong (ins: Instruction) bld =
     let struct (dstB, dstA) = transOpr128 ins bld o1
     let src = transSIMDOprVPart bld eSize part o2
     let amt = tmpVar bld dblESz
-    direct amt := transOpr ins bld o3 |> AST.xtlo dblESz
+    direct amt := numI64 (shiftAmountOf o3) dblESz
     let result = Array.init elements (fun _ -> tmpVar bld dblESz)
     Array.map (fun e -> AST.zext dblESz e << amt) src
     |> Array.iter2 (fun r e -> append bld { direct r := e }) result
@@ -2924,19 +4192,80 @@ let srshl (ins: Instruction) bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let urhadd ins bld =
+/// <summary>
+/// The rounding halving add, in both signednesses.
+///
+/// The element is widened before the sum, because what is wanted is bits
+/// esize:1 of a value that has esize+1 of them; the widening is the one the
+/// mnemonic names, so that the signed form brings a sign down into the
+/// element rather than a zero. There is no sixty-four bit element form of
+/// this instruction, so widening to sixty-four is always enough.
+/// </summary>
+let rhadd ins bld unsigned =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let struct (dstB, dstA) = transOpr128 ins bld o1
     let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
     let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+    let ext = if unsigned then AST.zext else AST.sext
     let inline roundAdd e1 e2 =
-      let e1 = AST.zext 64<rt> e1
-      let e2 = AST.zext 64<rt> e2
+      let e1 = ext 64<rt> e1
+      let e2 = ext 64<rt> e2
       (e1 .+ e2 .+ AST.num1 64<rt>) >> AST.num1 64<rt>
       |> AST.xtlo eSize
     let result = Array.map2 roundAdd src1 src2
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// The halving add and subtract, in both signednesses: bits esize:1 of a sum
+/// or difference that has one more bit than the element does.
+///
+/// The rounding form above adds one before the shift; these two truncate.
+/// </summary>
+let hsub ins bld unsigned isSub =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let struct (dstB, dstA) = transOpr128 ins bld o1
+    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+    let ext = if unsigned then AST.zext else AST.sext
+    let inline halve e1 e2 =
+      let e1 = ext 64<rt> e1
+      let e2 = ext 64<rt> e2
+      (if isSub then e1 .- e2 else e1 .+ e2) >> AST.num1 64<rt>
+      |> AST.xtlo eSize
+    let result = Array.map2 halve src1 src2
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// The absolute difference of each pair of elements, and the form that
+/// accumulates it into the destination.
+///
+/// The magnitude is taken by choosing which way round to subtract, which is
+/// exact at the element's own width: the larger minus the smaller never goes
+/// out of range, where a subtraction the other way round would wrap and an
+/// absolute value taken afterwards would keep the wrap.
+/// </summary>
+let absDiff ins bld unsigned accumulate =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let struct (dstB, dstA) = transOpr128 ins bld o1
+    let dst = transSIMDOprToExpr bld eSize dataSize elements o1
+    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+    let ge = if unsigned then (.>=) else (?>=)
+    let diff e1 e2 = AST.ite (ge e1 e2) (e1 .- e2) (e2 .- e1)
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    Array.iteri (fun i r ->
+      let d = diff src1[i] src2[i]
+      append bld {
+        direct r := if accumulate then dst[i] .+ d else d
+      }) result
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
@@ -2944,14 +4273,21 @@ let shiftRight ins bld shifter =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOpr128 ins bld o1
-    let dst = transSIMDOprToExpr bld eSize dataSize elements o1
-    let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let shf = transOpr ins bld o3 |> AST.xtlo eSize
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.map2 (fun e1 e2 -> e1 .+ (shifter e2 shf)) dst src
-    |> Array.iter2 (fun e1 e2 -> append bld { direct e1 := e2 }) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let dst = transOpr ins bld o1
+      let src = transOpr ins bld o2
+      let shf = transOpr ins bld o3
+      dstAssignScalar ins bld o1 (dst .+ shifter src shf) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let dst = transSIMDOprToExpr bld eSize dataSize elements o1
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let shf = transOpr ins bld o3 |> AST.xtlo eSize
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map2 (fun e1 e2 -> e1 .+ (shifter e2 shf)) dst src
+      |> Array.iter2 (fun e1 e2 -> append bld { direct e1 := e2 }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
 let ssubl (ins: Instruction) bld =
@@ -2989,12 +4325,7 @@ let ushl ins bld =
   lift bld ins {
     let struct (dst, o1, o2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let inline shiftLeft e1 e2 =
-      let shf = tmpVar bld eSize
-      append bld {
-        direct shf := AST.xtlo 8<rt> e2 |> AST.sext eSize
-      }
-      AST.ite (shf ?< AST.num0 eSize) (e1 >> AST.neg shf) (e1 << shf)
+    let inline shiftLeft e1 e2 = shiftByRegister bld eSize true e1 e2
     match ins.Operands with
     | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
       let src1 = transOpr ins bld o1
@@ -3084,14 +4415,19 @@ let xtn2 (ins: Instruction) bld =
 /// SHRN/SHRN2: shift each wide source element right by the immediate and narrow
 /// it to the lower half width. SHRN writes the low 64-bit destination half (and
 /// zeroes the high half); SHRN2 writes the high half, preserving the low one.
-let shrn (ins: Instruction) bld isPart2 =
+/// RSHRN/RSHRN2 first add half of what the shift is about to discard, which is
+/// a one in the bit below the ones that are kept.
+let shrn (ins: Instruction) bld isPart2 isRound =
   lift bld ins {
     let struct (dst, src, amt) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let struct (dstB, dstA) = transOpr128 ins bld dst
     let amt = transOpr ins bld amt |> AST.xtlo eSize
+    let rnd = AST.num1 eSize << (amt .- AST.num1 eSize)
+    let narrow e =
+      AST.xtlo (eSize / 2) ((if isRound then e .+ rnd else e) >> amt)
     let src = transSIMDOprToExpr bld eSize dataSize elements src
-              |> Array.map (fun e -> AST.xtlo (eSize / 2) (e >> amt))
+              |> Array.map narrow
     if isPart2 then
       direct dstB := AST.revConcat src
     else
@@ -3103,16 +4439,22 @@ let shrn (ins: Instruction) bld isPart2 =
 /// the high half of each result element, narrowing to half the width. The base
 /// form writes the low destination half (zeroing the high half); the *2 form
 /// writes the high half, preserving the low one.
-let addSubHN (ins: Instruction) bld isPart2 op =
+/// RADDHN/RSUBHN first add half of what is about to be discarded, which is a
+/// one in the top bit of the part being thrown away; the addition is done at
+/// the wide width, where it cannot carry out of the answer.
+let addSubHN (ins: Instruction) bld isPart2 isRound op =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src1
     let struct (dstB, dstA) = transOpr128 ins bld dst
     let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
     let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let shf = numI32 (RegType.toBitWidth (eSize / 2)) eSize
-    let result =
-      Array.map2 (fun a b -> AST.xtlo (eSize / 2) (op a b >> shf)) s1 s2
+    let half = RegType.toBitWidth (eSize / 2)
+    let shf = numI32 half eSize
+    let rnd = AST.num1 eSize << numI32 (half - 1) eSize
+    let rounded v = if isRound then v .+ rnd else v
+    let narrow v = AST.xtlo (eSize / 2) (rounded v >> shf)
+    let result = Array.map2 (fun a b -> narrow (op a b)) s1 s2
     if isPart2 then
       direct dstB := AST.revConcat result
     else

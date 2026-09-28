@@ -1564,6 +1564,7 @@ let simdVectorToString = function
   | VecD -> "d"
   | EightB -> "8b"
   | SixteenB -> "16b"
+  | TwoH -> "2h"
   | FourH -> "4h"
   | EightH -> "8h"
   | TwoS -> "2s"

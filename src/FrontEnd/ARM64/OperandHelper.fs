@@ -1006,6 +1006,10 @@ let vdtq2 bin = vtq2 bin valD
 
 let vdtq3 bin = vtq3 bin valD
 
+let vntq3 bin = vtq3 bin valN
+
+let vmtq3 bin = vtq3 bin valM
+
 let vdtih bin = vtih bin valD
 
 let vdtihq bin = vtihq bin valD
@@ -1053,6 +1057,26 @@ let vmtsidx1 bin =
 
 let vmtsidx2 bin =
   getSIMDFPRegWithIdx (valM bin) (tsz2 (valSz bin)) (index2 bin)
+
+/// <summary>
+/// The indexed operand of a FEAT_FP16 by-element form. Its size field reads
+/// 00, but its register and its index are laid out as an integer form's of
+/// size 01: four bits of register, and H:L:M for the index.
+/// </summary>
+let vmHidx bin =
+  let reg = getRmBySize (valM1 bin) (valM2 bin) 0b01u
+  let idx = getIdxBySize (valL bin) (valH bin) (valM1 bin) 0b01u |> uint8
+  getSIMDFPRegWithIdx reg (ts3 0b01u) idx
+
+/// <summary>
+/// The indexed operand of FCMLA by element, which names a PAIR: its register
+/// is M:Rm whatever the size, and its index is H:L for halves and H alone for
+/// singles.
+/// </summary>
+let vmComplexIdx bin =
+  let size = valSize1 bin
+  let idx = if size = 0b01u then (valH bin <<< 1) ||| valL bin else valH bin
+  getSIMDFPRegWithIdx (valM bin) (ts3 size) (uint8 idx)
 
 let vtsidx1 bin value =
   let idx = getIdxByImm5 (valImm5 bin) |> uint8
@@ -1135,6 +1159,10 @@ let dt2 bin = d (valT2 bin)
 let hd bin = h (valD bin)
 
 let hn bin = h (valN bin)
+
+let hm bin = h (valM bin)
+
+let ha bin = h (valA bin)
 
 let ht bin = h (valT1 bin)
 
@@ -1476,7 +1504,7 @@ let szL11 bin = chkReserved [ 0b11u ] (conSzL bin)
 let immh0000 bin = chkReserved [ 0b0000u ] (valImmh bin)
 
 (* immh = 0b00xx *)
-let immh00xx bin = chkReserved [ 0b0000u .. 0b0011u ] (valImmh bin)
+let immh000x bin = chkReserved [ 0b0000u; 0b0001u ] (valImmh bin)
 
 (* immh = 0b1xxx *)
 let immh1xxx bin = chkReserved [ 0b1000u .. 0b1111u ] (valImmh bin)
@@ -1491,8 +1519,8 @@ let immh00001xxx bin =
 (* immh = 0b0001, 0b001x *)
 let immh2 bin = chkReserved [ 0b0001u; 0b0010u; 0b0011u ] (valImmh bin)
 
-(* immh:Q = 0b0001x, 0b001xx, 0b1xxx0 *)
-let immhQ1 bin = chkReserved ([ 0b00010u .. 0b00111u ] @
+(* immh:Q = 0b0001x, 0b1xxx0 -- an immh of 001x is FEAT_FP16's halves *)
+let immhQ1 bin = chkReserved ([ 0b00010u; 0b00011u ] @
                               [ for i in 0u .. 7u do yield 16u + (i * 2u) ])
                               (conImmhQ bin)
 

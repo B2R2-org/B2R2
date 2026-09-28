@@ -892,6 +892,23 @@ let private fpCompare bld oprSz src1 src2 =
   result
 
 /// <summary>
+/// The comparison at the operands' own width: a half's in doubles, which
+/// hold every half exactly and so order them the same way.
+/// </summary>
+let private fpCompareAt bld oprSz src1 src2 =
+  if oprSz = 16<rt> then
+    let struct (w1, w2) = tmpVars2 bld 64<rt>
+    let e1 = halfToWide false 64<rt> bld src1
+    let e2 = halfToWide false 64<rt> bld src2
+    append bld {
+      direct w1 := e1
+      direct w2 := e2
+    }
+    fpCompare bld 64<rt> w1 w2
+  else
+    fpCompare bld oprSz src1 src2
+
+/// <summary>
 /// Whether a comparison raises Invalid: FCMP and FCCMP for a signalling NaN,
 /// FCMPE and FCCMPE -- the signalling comparisons -- for any NaN.
 /// </summary>
@@ -905,7 +922,7 @@ let fcmp (ins: Instruction) bld =
   lift bld ins {
     let src1, src2 = transTwoOprs ins bld
     let flags = tmpVar bld 8<rt>
-    direct flags := fpCompare bld ins.OprSize src1 src2
+    direct flags := fpCompareAt bld ins.OprSize src1 src2
     fpExceptionsInvalidOnly bld (compareInvalid ins src1 src2)
     direct (regVar bld R.N) := AST.extract flags 1<rt> 3
     direct (regVar bld R.Z) := AST.extract flags 1<rt> 2
@@ -919,7 +936,7 @@ let fccmp (ins: Instruction) bld =
     let flags = tmpVar bld 8<rt>
     let holds = tmpVar bld 1<rt>
     direct holds := conditionHolds bld cond
-    let comp = fpCompare bld ins.OprSize src1 src2
+    let comp = fpCompareAt bld ins.OprSize src1 src2
     direct flags := AST.ite holds comp (AST.xtlo 8<rt> nzcv)
     (* nothing is compared where the condition fails, so nothing is raised *)
     fpExceptionsInvalidOnly bld (holds .& compareInvalid ins src1 src2)
