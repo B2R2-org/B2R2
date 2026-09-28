@@ -327,6 +327,92 @@ let loadAcquirePc (ins: Instruction) bld accSz =
       AST.zext ins.OprSize (AST.loadLE accSz address)
   }
 
+/// CFINV, which inverts the carry flag and touches nothing else.
+let cfinv ins bld =
+  lift bld ins {
+    let c = regVar bld R.C
+    direct c := AST.not c
+  }
+
+/// <summary>
+/// SETF8 and SETF16, which set N, Z and V from a value narrower than a
+/// register as though a subtraction had just produced it.
+///
+/// N is the value's top bit at the width named, Z is whether the whole of
+/// that width is zero, and V is whether the bits above it disagree with the
+/// sign -- which is what an overflow out of that width looks like. C is left
+/// alone, because nothing here carried.
+/// </summary>
+let setFlags ins bld width =
+  lift bld ins {
+    let src = transOneOpr ins bld
+    let value = AST.xtlo (width + 1<rt>) src
+    let sign = AST.extract value 1<rt> (RegType.toBitWidth width - 1)
+    direct (regVar bld R.N) := sign
+    direct (regVar bld R.Z) :=
+      AST.xtlo width src == AST.num0 width
+    direct (regVar bld R.V) := sign <+> AST.xthi 1<rt> value
+  }
+
+/// <summary>
+/// AXFLAG and XAFLAG, which convert between the condition flags an Arm
+/// floating-point compare leaves and the ones another format expects.
+///
+/// The Arm form distinguishes unordered from less-than; the other does not,
+/// and folds the unordered case into equality. AXFLAG goes one way and
+/// XAFLAG the other, and neither reads or writes anything but the flags.
+/// </summary>
+let axflag ins bld =
+  lift bld ins {
+    let struct (z, c, v) = tmpVars3 bld 1<rt>
+    direct z := regVar bld R.Z
+    direct c := regVar bld R.C
+    direct v := regVar bld R.V
+    direct (regVar bld R.N) := AST.b0
+    direct (regVar bld R.Z) := z .| v
+    direct (regVar bld R.C) := c .& AST.not v
+    direct (regVar bld R.V) := AST.b0
+  }
+
+let xaflag ins bld =
+  lift bld ins {
+    let struct (z, c) = tmpVars2 bld 1<rt>
+    direct z := regVar bld R.Z
+    direct c := regVar bld R.C
+    direct (regVar bld R.N) := AST.not c .& AST.not z
+    direct (regVar bld R.Z) := c .& z
+    direct (regVar bld R.C) := c .| z
+    direct (regVar bld R.V) := AST.not c .& z
+  }
+
+/// <summary>
+/// RMIF: one register rotated right by an immediate, its bottom four bits
+/// copied into NZCV, and a mask saying which of the four to write.
+///
+/// The mask's bits run the same way the flags do -- bit 3 is N and bit 0 is
+/// V -- so a flag the mask leaves out keeps what it had. That is the whole
+/// of the instruction, and it is the only one of FEAT_FlagM's three that
+/// reads a register at all.
+/// </summary>
+let rotateMaskInsert (ins: Instruction) bld =
+  lift bld ins {
+    let struct (src, shift, mask) = getThreeOprs ins
+    let n = transOpr ins bld src
+    let amount = int (getImmValue shift)
+    let m = int (getImmValue mask)
+    let rotated = tmpVar bld 64<rt>
+    let ror =
+      if amount = 0 then n
+      else (n >> numI32 amount 64<rt>) .| (n << numI32 (64 - amount) 64<rt>)
+    direct rotated := ror
+    let flags = [ R.N, 3; R.Z, 2; R.C, 1; R.V, 0 ]
+    for reg, bit in flags do
+      if m &&& (1 <<< bit) <> 0 then
+        direct (regVar bld reg) := AST.extract rotated 1<rt> bit
+      else
+        ()
+  }
+
 let cbnz ins bld = compareBranch ins bld (!=)
 
 let cbz ins bld = compareBranch ins bld (==)

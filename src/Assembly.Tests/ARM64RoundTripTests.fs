@@ -961,6 +961,19 @@ type ARM64RoundTripTests() =
       "ldrsw x0, L", "ldrsw x0,"
       "prfm pldl1keep, L", "prfm pldl1keep," ]
 
+  /// <summary>
+  /// The shapes the sweep above cannot reach, written out.
+  ///
+  /// The sweep walks the encoding space from fixed payloads, so a form whose
+  /// fields it never lands on is not covered however complete the rule is:
+  /// SETF8 and SETF16 pin every bit outside the register they name, and the
+  /// sweep's payloads never set that combination. Each of these decodes to
+  /// the text beside it under objdump as well.
+  /// </summary>
+  static let unreachedByTheSweep =
+    [ "setf8 w3"
+      "setf16 w7" ]
+
   [<TestMethod>]
   [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
@@ -1112,4 +1125,13 @@ type ARM64RoundTripTests() =
       "",
       String.concat "\n" wrong,
       "These branches no longer reach the instruction their label marks."
+    )
+
+  [<TestMethod>]
+  member _.``Every shape the sweep cannot reach encodes correctly``() =
+    let wrong = brokenSources unreachedByTheSweep
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" wrong,
+      "These shapes decode but do not encode back to the same word."
     )

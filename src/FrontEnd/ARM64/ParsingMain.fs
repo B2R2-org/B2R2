@@ -1019,6 +1019,16 @@ let parseSystem bin =
       unallocated ()
     | c when c &&& 0b1110001111000u = 0b0000000100000u && not isRt1F ->
       unallocated ()
+    (* FEAT_FlagM and FEAT_FlagM2 rewrite NZCV in place and take no operands,
+       so they are written where an MSR to a PSTATE field would name one: the
+       three of them are op1 000 with the immediate field zero, which no
+       PSTATE field uses. *)
+    | 0b0000000100000u when isRt1F && isCRmZero ->
+      Op.CFINV, NoOperand, 0<rt>
+    | 0b0000000100001u when isRt1F && isCRmZero ->
+      Op.XAFLAG, NoOperand, 0<rt>
+    | 0b0000000100010u when isRt1F && isCRmZero ->
+      Op.AXFLAG, NoOperand, 0<rt>
     | c when c &&& 0b1110001111000u = 0b0000000100000u && isRt1F ->
       Op.MSR, getPstatefieldImm bin, 0<rt>
     | c when c &&& 0b1110001111000u = 0b0000000101000u ->
@@ -1067,6 +1077,8 @@ let parseSystem bin =
       Op.DMB, getOptionOrimm bin, 0<rt>
     | 0b0000110011110u when isRt1F ->
       Op.ISB, getISBOprs crm, 0<rt>
+    | 0b0000110011111u when isCRmZero && isRt1F ->
+      Op.SB, NoOperand, 0<rt>
     | 0b0000110011111u ->
       unallocated ()
     | c when c &&& 0b1111001110000u = 0b0001000010000u ->
@@ -2387,11 +2399,42 @@ let changeToAliasOfWithCarry = function
   | Op.SBCS, ThreeOperands(rd, _, rm), oSz -> Op.NGCS, TwoOperands(rd, rm), oSz
   | instr -> instr
 
+/// SETF8 and SETF16 share a class with the carrying add and differ from it in
+/// opcode2 alone. Everything else the encoding fixes is checked here, because
+/// the rest of opcode2 is unallocated and claiming it would take encodings
+/// these are not.
+let private isSetf bin =
+  valM bin = 0b00000u && extract bin 4u 0u = 0b01101u
+
+let private getWn bin = OneOperand(wn bin)
+
+/// <summary>
+/// RMIF shares the carrying add's class and is told from it by bits 14:10
+/// saying 00001, with bit 4 a fixed zero.
+///
+/// The test is written on the word rather than on the class's selector
+/// because the immediate's low bit sits at 15, which that selector carries.
+/// </summary>
+let private isRmif bin =
+  extract bin 31u 29u = 0b101u && extract bin 14u 10u = 0b00001u
+  && pickBit bin 4u = 0u
+
+/// RMIF, whose first immediate is how far to rotate and whose second says
+/// which of the four flags to write.
+let getXnI6I4 bin =
+  ThreeOperands(xn bin,
+                OprImm(int64 (extract bin 20u 15u)),
+                OprImm(int64 (extract bin 3u 0u)))
+
 let parseAddSubWithCarry bin =
   let cond = concat (extract bin 31u 29u) (extract bin 15u 10u) 6
   let instr =
     match cond with  (* sf:op:s:opcode2 *)
+    (* FEAT_FlagM's RMIF, which the guard below reads as unallocated *)
+    | _ when isRmif bin -> Op.RMIF, getXnI6I4 bin, 64<rt>
     | c when c &&& 0b000111111u = 0b000000001u -> unallocated ()
+    | 0b001000010u when isSetf bin -> Op.SETF8, getWn bin, 32<rt>
+    | 0b001010010u when isSetf bin -> Op.SETF16, getWn bin, 32<rt>
     | c when c &&& 0b000111111u = 0b000000010u -> unallocated ()
     | c when c &&& 0b000111111u = 0b000000100u -> unallocated ()
     | c when c &&& 0b000111111u = 0b000001000u -> unallocated ()

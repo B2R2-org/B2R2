@@ -275,6 +275,12 @@ type ParserTests() =
     ||> test
 
   [<TestMethod>]
+  member _.``C4.3.4 System (10)``() =
+    "d50330ff"
+    ++ SB ** []
+    ||> test
+
+  [<TestMethod>]
   member _.``C4.3.5 Test & branch (immediate) (1)``() =
     "b6080043"
     ++ TBZ ** [ O.Reg X3; O.Imm 0x21L; O.MemLabel 0x8L ]
@@ -4646,3 +4652,43 @@ type ParserTests() =
     "9e790262"
     ++ FCVTZU ** [ O.Reg X2; O.ScalarReg D19 ]
     ||> test
+
+  (* The instructions below had a lifter and no decoder arm, so the front end
+     answered ParsingFailureException to every one of them and the lifter was
+     unreachable. Each byte string is the assembler's own encoding of the text
+     beside it. *)
+
+  /// FEAT_FlagM and FEAT_FlagM2 write where a move to a PSTATE field would,
+  /// with the immediate that field carries left at zero.
+  [<TestMethod>]
+  member _.``C4.2 Flag manipulation (1)``() =
+    testDisasm "d500401f" "cfinv"
+
+  [<TestMethod>]
+  member _.``C4.2 Flag manipulation (2)``() =
+    testDisasm "d500403f" "xaflag"
+
+  [<TestMethod>]
+  member _.``C4.2 Flag manipulation (3)``() =
+    testDisasm "d500405f" "axflag"
+
+  /// RMIF is the third of FEAT_FlagM and the only one that reads a register.
+  /// Its immediate's low bit sits at 15, inside the field the class selects
+  /// on, so an odd rotate reaches a different arm from an even one.
+  [<TestMethod>]
+  member _.``C4.2 Rotate right into flags (1)``() =
+    "ba05040f" ++ RMIF ** [ O.Reg X0; O.Imm 0xaL; O.Imm 0xfL ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.2 Rotate right into flags (2)``() =
+    "ba1f87c9" ++ RMIF ** [ O.Reg X30; O.Imm 0x3fL; O.Imm 0x9L ] ||> test
+
+  /// SETF8 and SETF16 share their class with the carrying add; the size sits
+  /// in bit 14 of opcode2.
+  [<TestMethod>]
+  member _.``C4.2 Evaluate into flags (1)``() =
+    "3a00086d" ++ SETF8 ** [ O.Reg W3 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.2 Evaluate into flags (2)``() =
+    "3a0048ed" ++ SETF16 ** [ O.Reg W7 ] ||> test

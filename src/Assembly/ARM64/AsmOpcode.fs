@@ -707,6 +707,16 @@ let private barrier op2 ins =
   systemHead 0u ||| (0b011u <<< 16) ||| (0b0011u <<< 12) ||| (crm <<< 8)
   ||| (op2 <<< 5) ||| 0b11111u
 
+/// SB, the barrier that ends speculation, which takes no option: its CRm is
+/// zero where the other barriers hold the option.
+let private speculationBarrier ins =
+  match ins.Operands with
+  | NoOperand ->
+    systemHead 0u ||| (0b011u <<< 16) ||| (0b0011u <<< 12) ||| (0b111u <<< 5)
+    ||| 0b11111u
+  | _ ->
+    wrongOperands ins
+
 /// SYS and SYSL, which hand an instruction to whatever the numbers name.
 let private systemInstruction l ins =
   let fields op1 cn cm op2 rt =
@@ -1453,6 +1463,47 @@ let branchEncoders () =
     Opcode.TBZ, testBranch 0u
     Opcode.TBNZ, testBranch 1u ]
 
+/// <summary>
+/// CFINV, XAFLAG and AXFLAG, which rewrite NZCV in place and name nothing.
+///
+/// They are written where a move to a PSTATE field would sit, with the
+/// immediate the field carries left at zero -- no PSTATE field uses that, so
+/// the three of them fit in the hole it leaves.
+/// </summary>
+let private flagManipulation op2 ins =
+  match ins.Operands with
+  | NoOperand ->
+    systemHead 0u ||| (0b0100u <<< 12) ||| (op2 <<< 5) ||| 0b11111u
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// RMIF, which rotates a register right and copies the bottom four bits
+/// into NZCV under a mask.
+///
+/// It shares the carrying add's class and is told from it by the opcode in
+/// bits 14:10 -- 00001, where SETF8 and SETF16 hold 00010 with the size in
+/// bit 14 above them.
+/// </summary>
+let private rotateMaskInsert ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rn, Im shift, Im mask) ->
+    (0b101u <<< 29) ||| (0b11010000u <<< 21)
+    ||| ((uint32 shift &&& 0x3fu) <<< 15) ||| (0b00001u <<< 10)
+    ||| (coreReg rn <<< 5) ||| (uint32 mask &&& 0xfu)
+  | _ ->
+    wrongOperands ins
+
+/// SETF8 and SETF16, which read a register's low byte or halfword and set the
+/// flags an addition of that width would have left.
+let private evaluateIntoFlags sz ins =
+  match ins.Operands with
+  | OneOperand(Rg rn) ->
+    (0b0011101u <<< 25) ||| (sz <<< 14) ||| (0b0010u <<< 10)
+    ||| (coreReg rn <<< 5) ||| 0b01101u
+  | _ ->
+    wrongOperands ins
+
 let systemEncoders () =
   [ Opcode.SVC, exceptionGen 0b000u 0b01u
     Opcode.HVC, exceptionGen 0b000u 0b10u
@@ -1473,6 +1524,7 @@ let systemEncoders () =
     Opcode.DSB, barrier 0b100u
     Opcode.DMB, barrier 0b101u
     Opcode.ISB, barrier 0b110u
+    Opcode.SB, speculationBarrier
     Opcode.SYS, systemInstruction 0u
     Opcode.SYSL, systemInstruction 1u
     Opcode.MSR, moveToSystem
@@ -1484,7 +1536,10 @@ let systemEncoders () =
     Opcode.DCCSW, cacheInstruction 0b000u 0b0111u 0b1010u 0b010u
     Opcode.DCCVAU, cacheInstruction 0b011u 0b0111u 0b1011u 0b001u
     Opcode.DCCIVAC, cacheInstruction 0b011u 0b0111u 0b1110u 0b001u
-    Opcode.DCCISW, cacheInstruction 0b000u 0b0111u 0b1110u 0b010u ]
+    Opcode.DCCISW, cacheInstruction 0b000u 0b0111u 0b1110u 0b010u
+    Opcode.CFINV, flagManipulation 0b000u
+    Opcode.XAFLAG, flagManipulation 0b001u
+    Opcode.AXFLAG, flagManipulation 0b010u ]
 
 let loadStoreEncoders () =
   [ Opcode.LDR, loadStore (ByRegister true)
@@ -1779,6 +1834,9 @@ let dataProcRegEncoders () =
     Opcode.SMULL, multiply 0b001u 0u
     Opcode.SMNEGL, multiply 0b001u 1u
     Opcode.UMULL, multiply 0b101u 0u
+    Opcode.SETF8, evaluateIntoFlags 0u
+    Opcode.RMIF, rotateMaskInsert
+    Opcode.SETF16, evaluateIntoFlags 1u
     Opcode.UMNEGL, multiply 0b101u 1u
     Opcode.SMULH, multiply 0b010u 0u
     Opcode.UMULH, multiply 0b110u 0u

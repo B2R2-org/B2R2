@@ -214,6 +214,18 @@ let translate (ins: Instruction) bld =
     loadAcquirePc ins bld 16<rt>
   | Opcode.LDAPR ->
     loadAcquirePc ins bld ins.OprSize
+  | Opcode.CFINV ->
+    cfinv ins bld
+  | Opcode.SETF8 ->
+    setFlags ins bld 8<rt>
+  | Opcode.SETF16 ->
+    setFlags ins bld 16<rt>
+  | Opcode.AXFLAG ->
+    axflag ins bld
+  | Opcode.XAFLAG ->
+    xaflag ins bld
+  | Opcode.RMIF ->
+    rotateMaskInsert ins bld
   | Opcode.CBNZ ->
     cbnz ins bld
   | Opcode.CBZ ->
@@ -259,7 +271,7 @@ let translate (ins: Instruction) bld =
   | Opcode.DCZVA ->
     dczva ins bld
   | Opcode.CLREX
-  | Opcode.DMB | Opcode.DSB | Opcode.ISB ->
+  | Opcode.DMB | Opcode.DSB | Opcode.ISB | Opcode.SB ->
     nop ins bld
   | Opcode.DUP ->
     dup ins bld
