@@ -79,7 +79,8 @@ let matches =
 matches |> @print
 ```
 
-Names refer to previously retained values.  Arguments have the form
+Names refer to previously retained values.  The reserved name `it` refers to
+the most recent successful result.  Arguments have the form
 `name=value`; hexadecimal addresses use `0x`, and strings use double quotes.
 Lists use semicolons, for example `[ RDI=0x70000000; RDX=0x0 ]`.  A tuple such
 as `(left, right)` supplies a pair to actions such as `@diff` and `@jaccard`.
