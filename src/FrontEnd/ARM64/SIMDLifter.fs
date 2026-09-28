@@ -969,10 +969,11 @@ let extr ins bld =
         | FourOperands(_, _, _, OprLSB lsb) -> int32 lsb
         | _ -> raise InvalidOperandException
       if lsb = 0 then
-        direct dst := src2
+        sized ins.OprSize dst := src2
       else
         let leftAmt = numI32 (64 - lsb) 64<rt>
-        direct dst := (src1 << leftAmt) .| (src2 >> (numI32 lsb 64<rt>))
+        sized ins.OprSize dst :=
+          (src1 << leftAmt) .| (src2 >> (numI32 lsb 64<rt>))
     else
       raise InvalidOperandSizeException
   }
@@ -3659,7 +3660,7 @@ let rev32 (ins: Instruction) bld =
         let revIdx = (i ^^^ 0b11) * 8
         direct (AST.extract tmp 8<rt> revIdx) := AST.extract src 8<rt> (i * 8)
       done
-      direct dst := tmp
+      sized ins.OprSize dst := tmp
   }
 
 let icvtf (ins: Instruction) bld unsigned =
@@ -3728,7 +3729,7 @@ let smulh ins bld =
     (* The high 64 bits of the signed 64x64->128 product: the evaluator
        holds the 128-bit intermediate, so extract from it directly. *)
     let prod = AST.sext 128<rt> src1 .* AST.sext 128<rt> src2
-    direct dst := AST.xthi 64<rt> prod
+    sized ins.OprSize dst := AST.xthi 64<rt> prod
   }
 
 let smull (ins: Instruction) bld =
@@ -4571,7 +4572,7 @@ let umulh ins bld =
     (* The high 64 bits of the unsigned 64x64->128 product, extracted from the
        128-bit intermediate the evaluator holds. *)
     let prod = AST.zext 128<rt> src1 .* AST.zext 128<rt> src2
-    direct dst := AST.xthi 64<rt> prod
+    sized ins.OprSize dst := AST.xthi 64<rt> prod
   }
 
 let umull (ins: Instruction) bld =

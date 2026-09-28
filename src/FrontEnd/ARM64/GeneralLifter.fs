@@ -79,13 +79,14 @@ let adds ins bld =
 let adr ins bld =
   lift bld ins {
     let dst, label = transTwoOprs ins bld
-    direct dst := getPC bld .+ label
+    sized ins.OprSize dst := getPC bld .+ label
   }
 
 let adrp ins bld =
   lift bld ins {
     let dst, lbl = transTwoOprs ins bld
-    direct dst := (getPC bld .& numI64 0xfffffffffffff000L 64<rt>) .+ lbl
+    sized ins.OprSize dst :=
+      (getPC bld .& numI64 0xfffffffffffff000L 64<rt>) .+ lbl
   }
 
 let asrv ins bld =
@@ -173,13 +174,16 @@ let bl ins bld =
     return NoEndMark
   }
 
+/// BLR, which reads its target before it writes the link register: the two
+/// are the same register in BLR X30.
 let blr ins bld =
   lift bld ins {
-    let src = transOneOpr ins bld
+    let target = tmpVar bld 64<rt>
+    direct target := transOneOpr ins bld
     let pc = numU64 (ins:Instruction).Address bld.RegType
     direct (regVar bld R.X30) := pc .+ numI64 4L ins.OprSize
     (* FIXME: BranchTo (BranchType_INDCALL) *)
-    AST.interjmp src InterJmpKind.IsCall
+    AST.interjmp target InterJmpKind.IsCall
     return NoEndMark
   }
 
@@ -205,6 +209,20 @@ let inline private compareBranch ins bld cmp =
 /// registers it names: the byte and halfword forms compare and store one
 /// byte or one halfword, and the comparison register comes back holding what
 /// was there with the rest of it zeroed.
+///
+/// The manual's MemAtomicCompareAndSwap is
+/// <c>_Mem[memaddrdesc, size DIV 8, ...]</c>, which is four for the W forms.
+/// The address used to come in through transThreeOprs, whose memory path
+/// hardcodes a 64-bit load, so a 32-bit CAS read eight bytes and on a
+/// successful swap wrote eight -- corrupting the word above the one it was
+/// given, and faulting on a four-byte CAS at the end of a mapped page.
+///
+/// The destination is the other half of it. <c>direct dst :=</c> bypasses
+/// assignXZRAware, so a W-form result was written as a partial register,
+/// leaving Xd's high half from before the instruction where the manual says
+/// <c>X[s] = ZeroExtend(data, regsize)</c>, and a write to XZR was stored
+/// rather than discarded. <c>sized</c> is the form every other GPR-writing
+/// lifter in this file uses; this one was the outlier.
 /// </summary>
 let compareAndSwap (ins: Instruction) bld accSz =
   lift bld ins {
@@ -1038,8 +1056,9 @@ let ldaxp ins bld =
       sized ins.OprSize dst1 := AST.xtlo 32<rt> src
       sized ins.OprSize dst2 := AST.xthi 32<rt> src
     else
-      direct dst1 := (AST.loadLE 64<rt> address)
-      direct dst2 := (AST.loadLE 64<rt> (address .+ numI32 8 64<rt>))
+      sized ins.OprSize dst1 := (AST.loadLE 64<rt> address)
+      sized ins.OprSize dst2 :=
+        (AST.loadLE 64<rt> (address .+ numI32 8 64<rt>))
   }
 
 let ldpsw ins bld =
@@ -1053,8 +1072,8 @@ let ldpsw ins bld =
     direct address := if isPostIndex then address else address .+ offset
     direct data1 := AST.loadLE 32<rt> address
     direct data2 := AST.loadLE 32<rt> (address .+ numI32 4 64<rt>)
-    direct src1 := AST.sext 64<rt> data1
-    direct src2 := AST.sext 64<rt> data2
+    sized ins.OprSize src1 := AST.sext 64<rt> data1
+    sized ins.OprSize src2 := AST.sext 64<rt> data2
     writeBack bld isWBack isPostIndex bReg address offset
   }
 
@@ -1120,7 +1139,7 @@ let ldrsw (ins: Instruction) bld =
       let offset = transOpr ins bld (OprMemory(LiteralMode o2))
       direct address := getPC bld .+ offset
       direct data := AST.loadLE 32<rt> address
-      direct dst := AST.sext 64<rt> data
+      sized ins.OprSize dst := AST.sext 64<rt> data
     | TwoOperands(o1, o2) ->
       let dst = transOpr ins bld o1
       let bReg, offset = transOpr ins bld o2 |> separateMemExpr
@@ -1128,7 +1147,7 @@ let ldrsw (ins: Instruction) bld =
       direct address := bReg
       direct address := if isPostIndex then address else address .+ offset
       direct data := AST.loadLE 32<rt> address
-      direct dst := AST.sext 64<rt> data
+      sized ins.OprSize dst := AST.sext 64<rt> data
       writeBack bld isWBack isPostIndex bReg address offset
     | _ ->
       raise InvalidOperandException
@@ -1507,7 +1526,8 @@ let sdiv ins bld =
 let smaddl ins bld =
   lift bld ins {
     let dst, src1, src2, src3 = transFourOprs ins bld
-    direct dst := src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+    sized ins.OprSize dst :=
+      src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
   }
 
 let smov (ins: Instruction) bld =
@@ -1521,7 +1541,8 @@ let smov (ins: Instruction) bld =
 let smsubl ins bld =
   lift bld ins {
     let dst, src1, src2, src3 = transOprOfSMSUBL ins bld
-    direct dst := src3 .- (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+    sized ins.OprSize dst :=
+      src3 .- (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
   }
 
 let stlr ins bld =
@@ -1747,7 +1768,8 @@ let udiv ins bld =
 let umaddl ins bld =
   lift bld ins {
     let dst, src1, src2, src3 = transFourOprs ins bld
-    direct dst := src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
+    sized ins.OprSize dst :=
+      src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
   }
 
 let umov (ins: Instruction) bld =
@@ -1759,7 +1781,8 @@ let umov (ins: Instruction) bld =
 let umsubl ins bld =
   lift bld ins {
     let dst, src1, src2, src3 = transOprOfUMADDL ins bld
-    direct dst := src3 .- (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
+    sized ins.OprSize dst :=
+      src3 .- (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
   }
 
 let uxtb ins bld =

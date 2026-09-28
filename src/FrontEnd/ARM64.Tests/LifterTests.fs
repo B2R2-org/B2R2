@@ -67,6 +67,12 @@ type LifterTests() =
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 
+  /// Whether a statement jumps to the given expression.
+  let jumpsTo target (stmt: Stmt) =
+    match stmt with
+    | InterJmp(t, _) -> t = target
+    | _ -> false
+
   (* NGC, NGCS and a BFC with a non-zero lsb all reached the raising
      fall-through in `translate`, so a block containing one did not lift at
      all. The claim these pin is exactly that -- each encoding produces
@@ -82,6 +88,14 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[AArch64] BFC with a non-zero lsb lifts``() =
     Assert.AreEqual<bool>(true, (lifted "b3781fe0").Length > 0, "BFC")
+
+  /// BLR X30 goes where X30 pointed, not to the instruction after it: the
+  /// target is taken before the link register is written, so the jump is to
+  /// that copy and never to X30 itself.
+  [<TestMethod>]
+  member _.``[AArch64] BLR X30 branches to the old X30``() =
+    let jumps = lifted "d63f03c0" |> Array.exists (jumpsTo !.X30)
+    Assert.AreEqual<bool>(false, jumps)
 
   [<TestMethod>]
   member _.``[AArch64] ADD (immedate) lift test``() =
