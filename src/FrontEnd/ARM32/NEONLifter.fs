@@ -309,12 +309,33 @@ let vmrs ins bld =
     putEndLabel bld lblIgnore
   }
 
+/// <summary>
+/// VMSR, which does not keep every bit it is handed.
+///
+/// FPSCR has two bits that are RES0, 6 and 5, and a row of trap enables --
+/// IDE at 15 and IXE through IOE at 12:8 -- that an implementation without
+/// trapped floating-point exceptions leaves read-as-zero, write-ignored.
+/// There is no FP trapping anywhere in this front end, so storing those bits
+/// would let a program read back a mode nothing here can enter; the reference
+/// answers 0xffff009f to all ones written and read straight back, and the
+/// bits that vanish are exactly these.
+///
+/// Length and stride, 21:20 and 18:16, are NOT among them: short vectors are
+/// part of VFPv4 and the field is writable there.
+///
+/// The mask is FPSCR's alone, so a VMSR naming another system register --
+/// FPEXC is the one an implementation may allow -- stores what it was given.
+/// </summary>
 let vmsr ins bld =
   lift bld ins {
-    let struct (fpscr, rt) = transTwoOprs ins bld
+    let struct (dst, rt) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    fpscr := rt
+    match ins.Operands with
+    | TwoOperands(OprReg R.FPSCR, _) ->
+      dst := rt .& numU32 0xffff009fu 32<rt>
+    | _ ->
+      dst := rt
     putEndLabel bld lblIgnore
   }
 
@@ -2479,11 +2500,33 @@ let vext (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
-let vhaddsub (ins: Instruction) bld opFn =
+/// <summary>
+/// The halved sum or difference one element of VHADD, VHSUB or VRHADD
+/// answers with.
+///
+/// The arithmetic is done at twice the element's width, because what the
+/// pseudocode takes is bits esize:1 of a value that has esize+1 of them:
+/// VHADD.U8 of 0xff and 0xff is 0xff, and an eight-bit add loses the carry
+/// the answer is built out of. The widening is the one the data type names,
+/// so that a signed halving brings the sign down into the element rather than
+/// a zero.
+///
+/// VRHADD rounds where the other two truncate, which is the one added before
+/// the shift.
+/// </summary>
+let private halvedElem p unsigned opFn round e1 e2 =
+  let wide = RegType.fromBitWidth (p.ESize * 2)
+  let ext = if unsigned then AST.zext wide else AST.sext wide
+  let sum = opFn (ext e1) (ext e2)
+  let sum = if round then sum .+ AST.num1 wide else sum
+  AST.xtlo p.RtESize (sum >> AST.num1 wide)
+
+let private vhaddsubrnd (ins: Instruction) bld opFn round =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
+    let half = halvedElem p (isUnsigned ins.SIMDTyp) opFn round
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
@@ -2496,45 +2539,21 @@ let vhaddsub (ins: Instruction) bld opFn =
         op2B := elem src2B e p.ESize
         op1A := elem src1A e p.ESize
         op2A := elem src2A e p.ESize
-        elem dstB e p.ESize := (opFn op1B op2B) >> (AST.num1 p.RtESize)
-        elem dstA e p.ESize := (opFn op1A op2A) >> (AST.num1 p.RtESize)
+        elem dstB e p.ESize := half op1B op2B
+        elem dstA e p.ESize := half op1A op2A
     | _ ->
       let struct (dst, src1, src2) = transThreeOprs ins bld
       let struct (op1, op2) = tmpVars2 bld p.RtESize
       for e in 0 .. p.Elements - 1 do
         op1 := elem src1 e p.ESize
         op2 := elem src2 e p.ESize
-        elem dst e p.ESize := (opFn op1 op2) >> (AST.num1 p.RtESize)
+        elem dst e p.ESize := half op1 op2
     putEndLabel bld lblIgnore
   }
 
-let vrhadd (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let p = getParsingInfo ins
-    let struct (op1, op2) = tmpVars2 bld p.RtESize
-    let n1 = AST.num1 p.RtESize
-    match ins.OprSize with
-    | 128<rt> ->
-      let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOpr128 bld dst
-      let struct (src1B, src1A) = transOpr128 bld src1
-      let struct (src2B, src2A) = transOpr128 bld src2
-      for e in 0 .. (64 / p.ESize) - 1 do
-        op1 := elem src1B e p.ESize .+ elem src2B e p.ESize .+ n1
-        op2 := elem src1A e p.ESize .+ elem src2A e p.ESize .+ n1
-        elem dstB e p.ESize := AST.xtlo p.RtESize (op1 >> n1)
-        elem dstA e p.ESize := AST.xtlo p.RtESize (op2 >> n1)
-    | _ ->
-      let struct (dst, src1, src2) = transThreeOprs ins bld
-      for e in 0 .. (64 / p.ESize) - 1 do
-        op1 := elem src1 e p.ESize
-        op2 := elem src2 e p.ESize
-        let result = op1 .+ op2 .+ n1
-        elem dst e p.ESize := AST.xtlo p.RtESize (result >> n1)
-    putEndLabel bld lblIgnore
-  }
+let vhaddsub ins bld opFn = vhaddsubrnd ins bld opFn false
+
+let vrhadd ins bld = vhaddsubrnd ins bld (.+) true
 
 let vsra (ins: Instruction) bld =
   lift bld ins {
