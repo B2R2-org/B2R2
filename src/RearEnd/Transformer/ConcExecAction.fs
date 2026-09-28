@@ -1401,9 +1401,9 @@ type RegsAction() =
             invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "regs"
+    member _.ActionID with get() = "inspect-registers"
     member _.Signature with get() =
-      "ConcExecutor -> regs [name=<register>] -> RegisterView"
+      "ConcExecutor -> inspect-registers [name=<register>] -> RegisterView"
     member _.Description with get() =
       "Show currently defined concrete register values."
     member _.Transform(args, collection) =

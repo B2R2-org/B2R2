@@ -104,9 +104,10 @@ type CFGAction() =
         |> Array.collect (getCFGs cancellationToken args) }
 
   interface IAction with
-    member _.ActionID with get() = "cfg"
+    member _.ActionID with get() = "recover-cfg"
     member _.Signature with get() =
-      "Binary -> cfg -> CFG collection | cfg entry=<address> -> CFG"
+      "Binary -> recover-cfg -> CFG collection | recover-cfg entry=<address> "
+      + "-> CFG"
     member _.Description with get() =
       """
     Take in a Binary as input and returns an IR-level Control Flow Graph (CFG)

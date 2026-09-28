@@ -63,7 +63,7 @@ type DOTAction() =
     { Values = collection.Values |> Array.map (toDOT cancellationToken) }
 
   interface IAction with
-    member _.ActionID with get() = "dot"
+    member _.ActionID with get() = "export-dot"
     member _.Signature with get() = "CFG -> TextArtifact"
     member _.Description with get() =
       """

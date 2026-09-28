@@ -147,14 +147,14 @@ type ReplParserTests() =
 
   [<TestMethod>]
   member _.``Pipeline parser retains iter lambda tokens``() =
-    let input = "targets |> iter @strings (fun item -> min=4)"
+    let input = "targets |> iter @extract-strings (fun item -> min=4)"
     let segments, binding, expected = parseEvaluate input
     Assert.AreEqual(None, binding)
     Assert.AreEqual(None, expected)
     Assert.AreEqual(2, List.length segments)
     Assert.AreEqual("iter", segments[1].Head)
     assertArguments
-      [ "@strings"; "("; "fun"; "item"; "->"; "min=4"; ")" ]
+      [ "@extract-strings"; "("; "fun"; "item"; "->"; "min=4"; ")" ]
       segments[1].Arguments
 
   [<TestMethod>]
@@ -169,7 +169,8 @@ type ReplParserTests() =
 
   [<TestMethod>]
   member _.``Pipeline parser rejects incomplete delimiters``() =
-    match TransformerReplParser.parse "targets |> iter @strings (fun item" with
+    let input = "targets |> iter @extract-strings (fun item"
+    match TransformerReplParser.parse input with
     | Error _ ->
       ()
     | Ok command ->
@@ -178,8 +179,10 @@ type ReplParserTests() =
   [<TestMethod>]
   member _.``Partial iter analysis records a missing lambda arrow``() =
     let analysis =
-      ReplLanguage.analyzeIter "iter" [ "@strings"; "("; "fun"; "item" ]
-    Assert.AreEqual(Some "strings", analysis.ActionID)
+      ReplLanguage.analyzeIter
+        "iter"
+        [ "@extract-strings"; "("; "fun"; "item" ]
+    Assert.AreEqual(Some "extract-strings", analysis.ActionID)
     Assert.AreEqual(Some [ "item" ], analysis.LambdaParameters)
     Assert.AreEqual(1, analysis.ExpectedParameterCount)
     Assert.AreEqual(true, analysis.HasOpeningDelimiter)
@@ -189,11 +192,11 @@ type ReplParserTests() =
   [<TestMethod>]
   member _.``Partial parser retains an incomplete lambda``() =
     let pipeline =
-      parsePartial "targets |> iter @strings (fun item "
+      parsePartial "targets |> iter @extract-strings (fun item "
     Assert.AreEqual(Some 8, pipeline.LastPipelineStart)
     Assert.AreEqual(false, pipeline.HasTrailingPipeline)
     Assert.AreEqual<string list list>(
-      [ [ "targets" ]; [ "iter"; "@strings"; "("; "fun"; "item" ] ],
+      [ [ "targets" ]; [ "iter"; "@extract-strings"; "("; "fun"; "item" ] ],
       pipeline.Segments |> List.map _.Tokens
     )
 
@@ -243,7 +246,7 @@ type ReplParserTests() =
   member _.``Completion suggests a lambda arrow after its parameter``() =
     let candidates =
       candidateTexts ReplValueKind.Binary
-        "targets |> iter @strings (fun item "
+        "targets |> iter @extract-strings (fun item "
     let detail = String.concat ", " candidates
     Assert.AreEqual(true, List.contains "-> " candidates, detail)
 
