@@ -1346,6 +1346,8 @@ let vectorEncoders () =
     Opcode.FCVTNS, twoRegFP Float 0u 0u 0b11010u
     Opcode.FCVTMS, twoRegFP Float 0u 0u 0b11011u
     Opcode.FCVTAS, twoRegFP Float 0u 0u 0b11100u
+    Opcode.FRINT32Z, twoRegFP FloatWide 0u 0u 0b11110u
+    Opcode.FRINT64Z, twoRegFP FloatWide 0u 0u 0b11111u
     Opcode.FABS, twoRegFP Float 0u 1u 0b01111u
     Opcode.FRINTP, twoRegFP Float 0u 1u 0b11000u
     Opcode.FRINTZ, twoRegFP Float 0u 1u 0b11001u
@@ -1357,6 +1359,8 @@ let vectorEncoders () =
     Opcode.FCVTNU, twoRegFP Float 1u 0u 0b11010u
     Opcode.FCVTMU, twoRegFP Float 1u 0u 0b11011u
     Opcode.FCVTAU, twoRegFP Float 1u 0u 0b11100u
+    Opcode.FRINT32X, twoRegFP FloatWide 1u 0u 0b11110u
+    Opcode.FRINT64X, twoRegFP FloatWide 1u 0u 0b11111u
     Opcode.FNEG, twoRegFP Float 1u 1u 0b01111u
     Opcode.FRINTI, twoRegFP Float 1u 1u 0b11001u
     Opcode.FCVTPU, twoRegFP Float 1u 1u 0b11010u

@@ -301,6 +301,16 @@ let translate (ins: Instruction) bld =
     bfmlalb ins bld
   | Opcode.BFMLALT ->
     bfmlalt ins bld
+  | Opcode.FRINT32Z ->
+    frint32z ins bld
+  | Opcode.FRINT32X ->
+    frint32x ins bld
+  | Opcode.FRINT64Z ->
+    frint64z ins bld
+  | Opcode.FRINT64X ->
+    frint64x ins bld
+  | Opcode.FJCVTZS ->
+    fjcvtzs ins bld
   | Opcode.CFINV ->
     cfinv ins bld
   | Opcode.SETF8 ->
@@ -333,6 +343,8 @@ let translate (ins: Instruction) bld =
     ursqrte ins bld
   | Opcode.FRECPX ->
     frecpx ins bld
+  | Opcode.SQSHLU ->
+    sqshlu ins bld
   | Opcode.SQDMLSL | Opcode.SQDMLSL2 ->
     sqdmlsl ins bld
   | Opcode.CRC32B ->
@@ -371,6 +383,10 @@ let translate (ins: Instruction) bld =
     sha256Hash ins bld true
   | Opcode.SHA256H2 ->
     sha256Hash ins bld false
+  | Opcode.FCVTXN ->
+    fcvtxn ins bld false
+  | Opcode.FCVTXN2 ->
+    fcvtxn ins bld true
   | Opcode.PMUL ->
     pmul ins bld
   | Opcode.PMULL ->

@@ -5510,6 +5510,58 @@ type ParserTests() =
          O.SIMDVecReg(V2, EightH) ]
     ||> test
 
+  /// FEAT_FRINTTS sits at the four opcodes above the ordinary roundings,
+  /// which the one-source class had read as unallocated because the guard
+  /// there tests the bit they all carry.
+  [<TestMethod>]
+  member _.``C4.6 Floating-point round to integer (1)``() =
+    "1e684020" ++ FRINT32Z ** [ O.ScalarReg D0; O.ScalarReg D1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Floating-point round to integer (2)``() =
+    "1e68c020" ++ FRINT32X ** [ O.ScalarReg D0; O.ScalarReg D1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Floating-point round to integer (3)``() =
+    "1e694020" ++ FRINT64Z ** [ O.ScalarReg D0; O.ScalarReg D1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Floating-point round to integer (4)``() =
+    "1e69c020" ++ FRINT64X ** [ O.ScalarReg D0; O.ScalarReg D1 ] ||> test
+
+  /// The vector forms sit at the two-register opcodes 11110 and 11111 with a
+  /// size of 0x, which the class had read as unallocated too.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FRINTTS) (1)``() =
+    "4e21e820"
+    ++ FRINT32Z ** [ O.SIMDVecReg(V0, FourS); O.SIMDVecReg(V1, FourS) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FRINTTS) (2)``() =
+    "6e61e820"
+    ++ FRINT32X ** [ O.SIMDVecReg(V0, TwoD); O.SIMDVecReg(V1, TwoD) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FRINTTS) (3)``() =
+    "0e21f820"
+    ++ FRINT64Z ** [ O.SIMDVecReg(V0, TwoS); O.SIMDVecReg(V1, TwoS) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FRINTTS) (4)``() =
+    "6e21f820"
+    ++ FRINT64X ** [ O.SIMDVecReg(V0, FourS); O.SIMDVecReg(V1, FourS) ]
+    ||> test
+
+  /// FEAT_JSCVT takes the one combination of rmode and opcode the
+  /// conversion class leaves free, and its source is a double and nothing
+  /// else -- the type field is part of what names it.
+  [<TestMethod>]
+  member _.``C4.6 Floating-point convert (JavaScript)``() =
+    "1e7e0020" ++ FJCVTZS ** [ O.Reg W0; O.ScalarReg D1 ] ||> test
+
   /// The memory-tag accesses count their offset in granules of sixteen bytes,
   /// where the unscaled accesses they sit beside count bytes.
   [<TestMethod>]

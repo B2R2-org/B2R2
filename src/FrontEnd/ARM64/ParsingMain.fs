@@ -2950,11 +2950,9 @@ let parseAdvSIMDTwoReg bin =
     unallocated ()
   | c when c &&& 0b00011111u = 0b00010101u ->
     unallocated ()
-  | c when c &&& 0b00011111u = 0b00011110u ->
+  | c when c &&& 0b01011111u = 0b01011110u ->
     unallocated ()
   | c when c &&& 0b01011100u = 0b00001100u ->
-    unallocated ()
-  | c when c &&& 0b01011111u = 0b00011111u ->
     unallocated ()
   | c when c &&& 0b01011111u = 0b01010110u ->
     unallocated ()
@@ -3006,6 +3004,10 @@ let parseAdvSIMDTwoReg bin =
     Op.FCVTAS, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b00011101u ->
     Op.SCVTF, getVdtVnt2 bin szQ10, oprSize
+  | c when c &&& 0b11011111u = 0b00011110u ->
+    Op.FRINT32Z, getVdtVnt2 bin szQ10, oprSize
+  | c when c &&& 0b11011111u = 0b00011111u ->
+    Op.FRINT64Z, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b01001100u ->
     Op.FCMGT, getVdtVntF0 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b01001101u ->
@@ -3072,6 +3074,10 @@ let parseAdvSIMDTwoReg bin =
     Op.FCVTAU, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b10011101u ->
     Op.UCVTF, getVdtVnt2 bin szQ10, oprSize
+  | c when c &&& 0b11011111u = 0b10011110u ->
+    Op.FRINT32X, getVdtVnt2 bin szQ10, oprSize
+  | c when c &&& 0b11011111u = 0b10011111u ->
+    Op.FRINT64X, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11111111u = 0b10000101u ->
     toAliasFromNOT Op.NOT, getVdtVnt3 bin, oprSize
   | c when c &&& 0b11111111u = 0b10100101u ->
@@ -4647,6 +4653,9 @@ let parseConvBetwFPAndInt bin =
     (pickBit bin 31u <<< 8) ||| (pickBit bin 29u <<< 7) |||
     (extract bin 23u 22u <<< 5) ||| (extract bin 20u 16u)
   match cond with
+  (* FEAT_JSCVT, whose rmode of 11 with opcode 110 the guards below read as
+     one of the unallocated combinations *)
+  | 0b000111110u -> Op.FJCVTZS, getWdDn bin, 32<rt>
   | c when c &&& 0b000001110u = 0b000001010u -> unallocated ()
   | c when c &&& 0b000001110u = 0b000001100u -> unallocated ()
   | c when c &&& 0b000010110u = 0b000010010u -> unallocated ()
@@ -4754,6 +4763,16 @@ let parseFPDP1Src bin =
     (pickBit bin 31u <<< 9) ||| (pickBit bin 29u <<< 8) |||
     (extract bin 23u 22u <<< 6) ||| (extract bin 20u 15u)
   match cond with
+  (* FEAT_FRINTTS, which the guard below reads as unallocated because its
+     opcode has the bit that guard tests *)
+  | 0b0000010000u -> Op.FRINT32Z, getSdSn bin, 32<rt>
+  | 0b0000010001u -> Op.FRINT32X, getSdSn bin, 32<rt>
+  | 0b0000010010u -> Op.FRINT64Z, getSdSn bin, 32<rt>
+  | 0b0000010011u -> Op.FRINT64X, getSdSn bin, 32<rt>
+  | 0b0001010000u -> Op.FRINT32Z, getDdDn bin, 64<rt>
+  | 0b0001010001u -> Op.FRINT32X, getDdDn bin, 64<rt>
+  | 0b0001010010u -> Op.FRINT64Z, getDdDn bin, 64<rt>
+  | 0b0001010011u -> Op.FRINT64X, getDdDn bin, 64<rt>
   | c when c &&& 0b0000010000u = 0b0000010000u -> unallocated ()
   | c when c &&& 0b0000100000u = 0b0000100000u -> unallocated ()
   | c when c &&& 0b0100000000u = 0b0100000000u -> unallocated ()

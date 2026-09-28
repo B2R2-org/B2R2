@@ -469,6 +469,28 @@ let private floatOneSourceWith typeOf opcode ins =
 
 let private floatOneSource opcode ins = floatOneSourceWith floatType opcode ins
 
+/// The same, for FEAT_FRINTTS's roundings, which have no half-precision form.
+let private floatOneSourceWide opcode ins =
+  floatOneSourceWith floatWideType opcode ins
+
+/// <summary>
+/// FJCVTZS, the JavaScript conversion, whose fields are fixed: a word
+/// destination, a double source, and the one combination of rmode and
+/// opcode the class leaves for it.
+/// </summary>
+let private jsConvert ins =
+  match ins.Operands with
+  | TwoOperands(Rg rd, Rg rn) ->
+    (* the source is a double and nothing else: the type field is part of
+       what names the instruction here, so a narrower register would encode
+       to a word that means something different *)
+    if floatType ins rn <> 0b01u then wrongOperands ins else ()
+    (0b00011110u <<< 24) ||| (0b01u <<< 22) ||| (1u <<< 21)
+    ||| (0b11u <<< 19) ||| (0b110u <<< 16)
+    ||| (simdNumber ins rn <<< 5) ||| coreReg rd
+  | _ ->
+    wrongOperands ins
+
 /// FCVT, whose destination is of a different width from its source, and which
 /// says which width that is in the bottom of its opcode.
 let private convertFloat ins =
@@ -861,6 +883,10 @@ let floatEncoders () =
     Opcode.FRINTP, floatOneSource 0b001001u
     Opcode.FRINTM, floatOneSource 0b001010u
     Opcode.FRINTZ, floatOneSource 0b001011u
+    Opcode.FRINT32Z, floatOneSourceWide 0b010000u
+    Opcode.FRINT32X, floatOneSourceWide 0b010001u
+    Opcode.FRINT64Z, floatOneSourceWide 0b010010u
+    Opcode.FRINT64X, floatOneSourceWide 0b010011u
     Opcode.FRINTA, floatOneSource 0b001100u
     Opcode.FRINTX, floatOneSource 0b001110u
     Opcode.FRINTI, floatOneSource 0b001111u
@@ -887,6 +913,7 @@ let floatEncoders () =
     Opcode.SCVTF, convert floatType 0u 0u 0b11101u 0b00u 0b010u true
     Opcode.UCVTF, convert floatType 1u 0u 0b11101u 0b00u 0b011u true
     Opcode.FCVTZS, convert floatType 0u 1u 0b11011u 0b11u 0b000u false
+    Opcode.FJCVTZS, jsConvert
     Opcode.FCVTZU, convert floatType 1u 1u 0b11011u 0b11u 0b001u false
     Opcode.FCVTNS, convertOrRound 0u 0u 0b11010u 0b00u 0b000u
     Opcode.FCVTNU, convertOrRound 1u 0u 0b11010u 0b00u 0b001u

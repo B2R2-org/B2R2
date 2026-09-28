@@ -2073,6 +2073,167 @@ let frinta (ins: Instruction) bld =
       raise InvalidOperandException
   }
 
+/// <summary>
+/// The value FPRoundIntN answers when the rounded number does not fit the
+/// integer size it was asked about, and when the operand is a NaN or an
+/// infinity: the most negative value of that size, as a float.
+///
+/// It is one exponent with a zero significand and the sign set. The manual
+/// writes the exponent as 126 + intsize for a single and 1022 + intsize for
+/// a double, which is the same as saying two to the intsize-less-one.
+/// </summary>
+let private rintOverflow eSize intSize =
+  match eSize, intSize with
+  | 32<rt>, 32 -> numU32 0xcf000000u 32<rt>
+  | 32<rt>, _ -> numU32 0xdf000000u 32<rt>
+  | _, 32 -> numU64 0xc1e0000000000000UL 64<rt>
+  | _, _ -> numU64 0xc3e0000000000000UL 64<rt>
+
+/// The positive bound the rounded value is compared against, which is two to
+/// the intsize-less-one -- the first value that does NOT fit.
+let private rintBound eSize intSize =
+  match eSize, intSize with
+  | 32<rt>, 32 -> numU32 0x4f000000u 32<rt>
+  | 32<rt>, _ -> numU32 0x5f000000u 32<rt>
+  | _, 32 -> numU64 0x41e0000000000000UL 64<rt>
+  | _, _ -> numU64 0x43e0000000000000UL 64<rt>
+
+/// <summary>
+/// FRINT32Z, FRINT32X, FRINT64Z and FRINT64X: round to a whole number that
+/// fits a 32- or 64-bit integer.
+///
+/// The rounding itself is FRINTZ's or FRINTX's -- toward zero for the Z
+/// forms, in whatever direction FPCR names for the X ones. What makes these
+/// their own instructions is the answer when the result does not fit, which
+/// is not a saturation to the largest value but the most NEGATIVE one, and
+/// which a NaN and an infinity get as well.
+///
+/// The bound is tested after the rounding and not before, because a value
+/// just under the bound can round up to it. The lower test is strict: the
+/// most negative value itself fits.
+///
+/// Invalid is raised for a NaN, an infinity and a whole number that does not
+/// fit, and otherwise Inexact for a fraction the rounding dropped -- by the Z
+/// forms as well as the X ones, which is where FPRoundIntN differs from
+/// FPRoundInt.
+/// </summary>
+let private rintFitLane bld eSize intSize round e =
+  let rounded = tmpVar bld eSize
+  append bld { direct rounded := round eSize e }
+  let most = rintOverflow eSize intSize
+  let bad =
+    isNaN eSize e .| AST.fge rounded (rintBound eSize intSize)
+    .| AST.flt rounded most
+  fpExceptionsRounded bld bad (AST.not bad .& (rounded != e))
+  AST.ite bad most rounded
+
+/// The instruction on a scalar or on every element of a vector.
+let private rintFit (ins: Instruction) bld intSize round =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let lane = rintFitLane bld eSize intSize round (transOpr ins bld src)
+      dstAssignScalar ins bld dst lane eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.map (rintFitLane bld eSize intSize round) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+let private truncating eSize e =
+  AST.roundToIntegral RoundingMode.TowardZero eSize e
+
+let frint32z ins bld = rintFit ins bld 32 truncating
+
+let frint64z ins bld = rintFit ins bld 64 truncating
+
+/// The X forms, which round in whatever direction FPCR names rather than
+/// toward zero, and are otherwise the Z forms exactly.
+let private inCurrentMode eSize e = fpRoundingMode e eSize
+
+let frint32x ins bld = rintFit ins bld 32 inCurrentMode
+
+let frint64x ins bld = rintFit ins bld 64 inCurrentMode
+
+/// <summary>
+/// The integer part of a double, as a magnitude, with everything that has
+/// no integer part answering zero.
+///
+/// The significand moves by the exponent: below two to the zero there is
+/// nothing to keep, from there to 2^52 it moves right, and above that left.
+/// Past 2^84 every bit that would survive into the low word is a zero the
+/// shift brought in, so the answer is zero -- and the counts are clamped
+/// for the same reason, since a shift past the width says nothing.
+/// </summary>
+let private jsIntegerPart bld s =
+  let e = (s >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+  let mant = s .& numU64 0xfffffffffffffUL 64<rt>
+  let full = tmpVar bld 64<rt>
+  append bld { direct full := numU64 0x10000000000000UL 64<rt> .| mant }
+  let unbiased = e .- numI32 1023 64<rt>
+  let capped n = AST.ite (n .> numI32 63 64<rt>) (numI32 63 64<rt>) n
+  let rightBy = capped (numI32 52 64<rt> .- unbiased)
+  let leftBy = capped (unbiased .- numI32 52 64<rt>)
+  let small = unbiased ?< numI32 52 64<rt>
+  let shifted = AST.ite small (full >> rightBy) (full << leftBy)
+  let tiny = unbiased ?< AST.num0 64<rt>
+  let huge = unbiased ?>= numI32 84 64<rt>
+  let gone = tiny .| huge .| (e == numI32 0x7ff 64<rt>)
+  let magnitude = tmpVar bld 64<rt>
+  append bld {
+    direct magnitude := AST.ite gone (AST.num0 64<rt>) shifted
+  }
+  let kept = (full >> rightBy) << rightBy
+  let dropped = AST.ite small (full .- kept) (AST.num0 64<rt>)
+  struct (magnitude, dropped, gone)
+
+/// <summary>
+/// FJCVTZS: JavaScript's ToInt32, which is the one conversion in the set
+/// that does not saturate.
+///
+/// It truncates toward zero and takes the result modulo two to the
+/// thirty-second, so 2^31 comes back as the most negative integer rather
+/// than the most positive, and a double far outside the range comes back as
+/// whatever its low thirty-two bits are. A cast would saturate, which is
+/// the thing this instruction is defined not to do, so the significand is
+/// moved by hand -- see <see cref="jsIntegerPart"/>.
+///
+/// The flags are written and Z alone carries anything: it says the
+/// conversion was exact, meaning the double held an integer that fitted and
+/// was not a minus zero. FPSR hears the same thing in two parts, Invalid for
+/// a NaN, an infinity or an integer that does not fit, and otherwise Inexact
+/// for a fraction dropped; the magnitude is only good below two to the
+/// sixty-fourth, which is where both stop asking it.
+/// </summary>
+let fjcvtzs (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let d = transOpr ins bld dst
+    let s = transOpr ins bld src
+    let struct (magnitude, dropped, gone) = jsIntegerPart bld s
+    let negative = AST.xthi 1<rt> s
+    let signed = AST.ite negative (AST.neg magnitude) magnitude
+    let answer = AST.xtlo 32<rt> signed
+    let isZero = (s .& numU64 0x7fffffffffffffffUL 64<rt>) == AST.num0 64<rt>
+    let bound = numU64 0x80000000UL 64<rt>
+    let inRange =
+      AST.ite negative (magnitude .<= bound) (magnitude .< bound)
+    let biased = (s >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+    let noInteger = (biased .>= numI32 (1023 + 64) 64<rt>) .| AST.not inRange
+    let fitted =
+      (dropped == AST.num0 64<rt>) .& AST.not (noInteger .| gone)
+    let exact = AST.ite isZero (AST.not negative) fitted
+    fpExceptionsToInt bld 64<rt> s noInteger
+    direct (regVar bld R.N) := AST.b0
+    direct (regVar bld R.Z) := exact
+    direct (regVar bld R.C) := AST.b0
+    direct (regVar bld R.V) := AST.b0
+    sized 32<rt> d := answer
+  }
+
 let frinti ins bld = fpCurrentRoundToInt ins bld false
 
 let frintm ins bld =
@@ -3525,6 +3686,128 @@ let xar (ins: Instruction) bld =
     direct hi := ror (nB <+> mB)
     direct dstA := lo
     direct dstB := hi
+  }
+
+/// <summary>
+/// SQSHLU: a signed element shifted left by an immediate and clamped to the
+/// UNSIGNED range, so a negative one answers zero rather than the bottom of
+/// a signed range. That mixture of signednesses is the whole of what tells
+/// it from SQSHL.
+/// </summary>
+let sqshlu (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src, amt) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let wide = eSize * 2
+    let shift = numI64 (shiftAmountOf amt) wide
+    let lane e = satNarrow bld (AST.sext wide e << shift) wide false true
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let e = transOpr ins bld src
+      dstAssignScalar ins bld dst (lane e) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map lane src
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// One double narrowed to a single by ROUNDING TO ODD, which is what makes
+/// FCVTXN different from FCVTN.
+///
+/// Rounding to odd never rounds up. It truncates towards zero and, if
+/// anything at all was lost, forces the lowest bit of the significand to
+/// one. That is enough to keep a later rounding to nearest from landing on
+/// the wrong side of a halfway case, which is the point of it -- and it is
+/// why there is no tie to break and no overflow to infinity: the answer is
+/// always at most the largest finite one.
+///
+/// The three cases are the usual ones. Every exponent bit set is an infinity
+/// or a NaN, and a NaN comes back quiet and narrowed. Otherwise the
+/// significand is shifted down by twenty-nine, or further when the exponent
+/// is too small for a single to hold normally, and the bits that fell off
+/// decide the lowest bit of what is left.
+/// </summary>
+let private oddSignificand bld sig64 unbiased =
+  let struct (shift, lost, out) = tmpVars3 bld 64<rt>
+  let n64 = numI32 64 64<rt>
+  let least = numI32 -126 64<rt>
+  append bld {
+    (* twenty-nine bits go normally; an exponent below a single's smallest
+       normal costs one shift for each step it is short *)
+    direct shift :=
+      numI32 29 64<rt>
+      .+ AST.ite (unbiased ?< least) (least .- unbiased) (AST.num0 64<rt>)
+    let kept = sig64 .& ((AST.num1 64<rt> << shift) .- AST.num1 64<rt>)
+    direct lost := AST.ite (shift ?>= n64) sig64 kept
+    direct out :=
+      AST.ite (shift ?>= n64) (AST.num0 64<rt>) (sig64 >> shift)
+    direct out :=
+      AST.ite (lost != AST.num0 64<rt>) (out .| AST.num1 64<rt>) out
+  }
+  out
+
+let private doubleToOdd bld d =
+  let sig64 = tmpVar bld 64<rt>
+  let expD = (d >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+  let mantD = d .& numU64 0xfffffffffffffUL 64<rt>
+  let signBits = (d >> numI32 32 64<rt>) .& numU64 0x80000000UL 64<rt>
+  let sign = AST.xtlo 32<rt> signBits
+  append bld {
+    (* a denormal has no implicit one, and its exponent counts as one *)
+    let whole = mantD .| (AST.num1 64<rt> << numI32 52 64<rt>)
+    direct sig64 := AST.ite (expD == AST.num0 64<rt>) mantD whole
+  }
+  let biased = AST.ite (expD == AST.num0 64<rt>) (AST.num1 64<rt>) expD
+  let unbiased = biased .- numI32 1023 64<rt>
+  let out = oddSignificand bld sig64 unbiased
+  let normalExp = AST.xtlo 32<rt> (unbiased .+ numI32 127 64<rt>)
+  let isSub = unbiased ?< numI32 -126 64<rt>
+  let expS = AST.ite isSub (AST.num0 32<rt>) normalExp
+  let ordinary =
+    sign .| (expS << numI32 23 32<rt>)
+    .| (AST.xtlo 32<rt> out .& numU32 0x7fffffu 32<rt>)
+  (* an exponent past a single's largest finite one cannot round up here, so
+     it clamps to that rather than to an infinity *)
+  let maxNormal = sign .| numU32 0x7f7fffffu 32<rt>
+  let tooBig = AST.sext 32<rt> normalExp ?>= numI32 255 32<rt>
+  let narrowed =
+    AST.xtlo 32<rt> (mantD >> numI32 29 64<rt>) .& numU32 0x7fffffu 32<rt>
+  let infinity = sign .| numU32 0x7f800000u 32<rt>
+  let quiet = infinity .| narrowed .| numU32 0x400000u 32<rt>
+  let special = AST.ite (mantD == AST.num0 64<rt>) infinity quiet
+  let finite = AST.ite tooBig maxNormal ordinary
+  AST.ite (expD == numI32 0x7ff 64<rt>) special finite
+
+/// <summary>
+/// FCVTXN and FCVTXN2: every doubleword of the source narrowed to a word by
+/// rounding to odd. The `2` form writes the upper half of the destination
+/// and leaves the lower alone; the plain form writes the lower and zeroes
+/// the upper, and the scalar one narrows its one double into the lowest word
+/// and zeroes the rest. It is FPConvert with the rounding named, so a NaN
+/// is processed and FPSR hears what the rounding lost -- including Overflow
+/// at the largest finite answer.
+/// </summary>
+let fcvtxn (ins: Instruction) bld isPart2 =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let narrow e = fpConvertNarrowWith bld (doubleToOdd bld) e
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let s = transOpr ins bld src
+      dstAssignScalar ins bld dst (narrow s) 32<rt>
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld dst
+      let lanes = transSIMDOprToExpr bld 64<rt> 128<rt> 2 src
+      let result = Array.map narrow lanes
+      if isPart2 then
+        direct dstB := AST.concat result[1] result[0]
+      else
+        direct dstA := AST.concat result[1] result[0]
+        direct dstB := AST.num0 64<rt>
   }
 
 /// The polynomial product of two elements over GF(2): the same shift and add
