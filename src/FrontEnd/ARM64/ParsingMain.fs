@@ -518,9 +518,23 @@ let getVadVbnVbm bin r = r bin; ThreeOperands(vd1 bin, vn2 bin, vm2 bin)
 
 let getQdSnVm4S bin = ThreeOperands(qd bin, sn bin, vm4S bin)
 
+let getVd16BVn16BVm16BVa16B bin =
+  FourOperands(vd16B bin, vn16B bin, vm16B bin, va16B bin)
+
+let getVd2DVn2DVm2D bin = ThreeOperands(vd2D bin, vn2D bin, vm2D bin)
+
+let getVd2DVn2DVm2DI6 bin =
+  FourOperands(vd2D bin, vn2D bin, vm2D bin, OprImm(int64 (imm6 bin)))
+
 let getVd4SVn4SVm4S bin = ThreeOperands(vd4S bin, vn4S bin, vm4S bin)
 
 let getQdQnVm4S bin = ThreeOperands(qd bin, qn bin, vm4S bin)
+
+let getQdQnVm2D bin = ThreeOperands(qd bin, qn bin, vm2D bin)
+
+let getVd4SVn4SVm4SVa4S bin =
+  let va4S = getSIMDFPVecReg (valA bin) FourS
+  FourOperands(vd4S bin, vn4S bin, vm4S bin, va4S)
 
 let getVdtVntVmt b r = r b; ThreeOperands(vdtsq1 b, vntsq1 b, vmtsq1 b)
 
@@ -3932,6 +3946,72 @@ let private isAdvSIMDFP16 bin =
        && pickBit bin 10u = 1u)
       || (extract bin 22u 17u = 0b111100u && extract bin 11u 10u = 0b10u))
 
+/// Cryptographic three-register SHA 512 on page C4-356: SHA-512's hash halves
+/// and second schedule update, RAX1, and the SM3 and SM4 members beside them.
+let private parseCryptThreeRegSHA512 bin =
+  match concat (pickBit bin 14u) (extract bin 11u 10u) 2 (* O:opcode *) with
+  | 0b000u -> Op.SHA512H, getQdQnVm2D bin, 128<rt>
+  | 0b001u -> Op.SHA512H2, getQdQnVm2D bin, 128<rt>
+  | 0b010u -> Op.SHA512SU1, getVd2DVn2DVm2D bin, 128<rt>
+  | 0b011u -> Op.RAX1, getVd2DVn2DVm2D bin, 128<rt>
+  | 0b100u -> Op.SM3PARTW1, getVd4SVn4SVm4S bin, 128<rt>
+  | 0b101u -> Op.SM3PARTW2, getVd4SVn4SVm4S bin, 128<rt>
+  | 0b110u -> Op.SM4EKEY, getVd4SVn4SVm4S bin, 128<rt>
+  | _ -> unallocated ()
+
+/// Cryptographic two-register SHA 512 on page C4-357: SHA512SU0 and SM4E.
+let private parseCryptTwoRegSHA512 bin =
+  match extract bin 11u 10u with
+  | 0b00u -> Op.SHA512SU0, TwoOperands(vd2D bin, vn2D bin), 128<rt>
+  | 0b01u -> Op.SM4E, TwoOperands(vd4S bin, vn4S bin), 128<rt>
+  | _ -> unallocated ()
+
+/// Cryptographic three-register, imm2 on page C4-356: SM3's four round
+/// functions, whose third source is the one word of a register the immediate
+/// names.
+let private parseCryptThreeRegImm2 bin =
+  let index = extract bin 13u 12u |> uint8
+  let wj = getSIMDFPRegWithIdx (valM bin) VecS index
+  let oprs = ThreeOperands(vd4S bin, vn4S bin, wj)
+  match extract bin 11u 10u with
+  | 0b00u -> Op.SM3TT1A, oprs, 128<rt>
+  | 0b01u -> Op.SM3TT1B, oprs, 128<rt>
+  | 0b10u -> Op.SM3TT2A, oprs, 128<rt>
+  | _ -> Op.SM3TT2B, oprs, 128<rt>
+
+/// <summary>
+/// The classes that share the 0xce opcode byte: FEAT_SHA3's four-register
+/// instructions, its rotate-and-exclusive-or, and the SHA-512, SM3 and SM4
+/// families beside them.
+///
+/// They are reached by a test on the raw word rather than on the group's own
+/// selector, because that selector is built from bits 31:28, 24:17 and 15:10
+/// and does not carry bits 27:25 -- which are the only thing telling 0xce
+/// from 0xc6. Nothing else in the group uses that byte, so the test is as
+/// narrow as the class is.
+///
+/// Bits 23:21 name the class, and bits 15:14 finish telling the two that
+/// share a value of them apart.
+/// </summary>
+let parseCryptFourReg bin =
+  match extract bin 23u 21u with
+  | 0b000u when pickBit bin 15u = 0u ->
+    Op.EOR3, getVd16BVn16BVm16BVa16B bin, 128<rt>
+  | 0b001u when pickBit bin 15u = 0u ->
+    Op.BCAX, getVd16BVn16BVm16BVa16B bin, 128<rt>
+  | 0b010u when pickBit bin 15u = 0u ->
+    Op.SM3SS1, getVd4SVn4SVm4SVa4S bin, 128<rt>
+  | 0b010u when extract bin 15u 14u = 0b10u ->
+    parseCryptThreeRegImm2 bin
+  | 0b011u when pickBit bin 15u = 1u && extract bin 13u 12u = 0b00u ->
+    parseCryptThreeRegSHA512 bin
+  | 0b100u ->
+    Op.XAR, getVd2DVn2DVm2DI6 bin, 128<rt>
+  | 0b110u when extract bin 20u 12u = 0b000001000u ->
+    parseCryptTwoRegSHA512 bin
+  | _ ->
+    unallocated ()
+
 /// Data processing - SIMD and FP - 1
 let parse64Group5 bin =
   let cond = concat (concat (extract bin 31u 28u) (extract bin 24u 17u) 8)
@@ -3946,6 +4026,10 @@ let parse64Group5 bin =
   | _ when isAdvSIMDFP16 bin ->
     if pickBit bin 10u = 1u then parseAdvSIMDThreeSameFP16 bin
     else parseAdvSIMDTwoRegFP16 bin
+  (* the crypto classes are told apart by bits 27:25, which the selector
+     above does not carry, so they are taken on the raw word first *)
+  | _ when extract bin 31u 24u = 0b11001110u ->
+    parseCryptFourReg bin
   | c when c &&& 0b111110011111000011u = 0b000000010100000010u ->
     unallocated ()
   | c when c &&& 0b111110011111000011u = 0b001000010100000010u ->

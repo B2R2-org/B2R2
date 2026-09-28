@@ -1145,6 +1145,14 @@ let vd16B bin = getSIMDFPVecReg (valD bin) SixteenB
 
 let vn16B bin = getSIMDFPVecReg (valN bin) SixteenB
 
+let vm16B bin = getSIMDFPVecReg (valM bin) SixteenB
+
+let va16B bin = getSIMDFPVecReg (valA bin) SixteenB
+
+let vn2D bin = getSIMDFPVecReg (valN bin) TwoD
+
+let vm2D bin = getSIMDFPVecReg (valM bin) TwoD
+
 let vn116B bin = v1t bin vn SixteenB
 
 let vn216B bin = v2t bin vn SixteenB

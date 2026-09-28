@@ -1694,6 +1694,95 @@ let private dotProduct u opcode size indexOpcode ins =
   | _ ->
     wrongOperands ins
 
+/// <summary>
+/// FEAT_SHA3's four-register instructions and its rotate-and-exclusive-or.
+///
+/// All four share the 0xce opcode byte and are told apart by bits 23:21.
+/// EOR3 and BCAX name four vectors of bytes; RAX1 names three of
+/// doublewords and fixes the field an immediate would sit in; XAR names
+/// three and an immediate. The operand shapes are what differ, so each
+/// shape gets an encoder and the two that share one share it.
+/// </summary>
+let private cryptFourReg opcode ins =
+  match ins.Operands with
+  | FourOperands(Vec(vd, SixteenB),
+                 Vec(vn, SixteenB),
+                 Vec(vm, SixteenB),
+                 Vec(va, SixteenB)) ->
+    (0b11001110u <<< 24) ||| (opcode <<< 21) ||| (vectorReg vm <<< 16)
+    ||| (vectorReg va <<< 10) ||| (vectorReg vn <<< 5) ||| vectorReg vd
+  | _ ->
+    wrongOperands ins
+
+let private cryptRax1 ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(vd, TwoD), Vec(vn, TwoD), Vec(vm, TwoD)) ->
+    (0b11001110u <<< 24) ||| (0b011u <<< 21) ||| (vectorReg vm <<< 16)
+    ||| (0b100011u <<< 10) ||| (vectorReg vn <<< 5) ||| vectorReg vd
+  | _ ->
+    wrongOperands ins
+
+let private cryptXar ins =
+  match ins.Operands with
+  | FourOperands(Vec(vd, TwoD), Vec(vn, TwoD), Vec(vm, TwoD), Im imm) ->
+    (0b11001110u <<< 24) ||| (0b100u <<< 21) ||| (vectorReg vm <<< 16)
+    ||| ((uint32 imm &&& 0x3fu) <<< 10) ||| (vectorReg vn <<< 5)
+    ||| vectorReg vd
+  | _ ->
+    wrongOperands ins
+
+/// SM3SS1, the four-register class's third member, which names four vectors
+/// of words where EOR3 and BCAX name bytes.
+let private cryptSm3ss1 ins =
+  match ins.Operands with
+  | FourOperands(Vec(vd, FourS),
+                 Vec(vn, FourS),
+                 Vec(vm, FourS),
+                 Vec(va, FourS)) ->
+    (0b11001110u <<< 24) ||| (0b010u <<< 21) ||| (vectorReg vm <<< 16)
+    ||| (vectorReg va <<< 10) ||| (vectorReg vn <<< 5) ||| vectorReg vd
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// The three-register SHA 512 class, told apart by O and a two-bit opcode.
+/// SHA-512's hash halves name their first two operands as whole registers,
+/// which is what an arrangement of None stands for; the rest name three
+/// vectors of the arrangement given.
+/// </summary>
+let private cryptSha512Three o opcode arrangement ins =
+  let encode d n vm =
+    (0b11001110011u <<< 21) ||| (vectorReg vm <<< 16) ||| (1u <<< 15)
+    ||| (o <<< 14) ||| (opcode <<< 10) ||| (n <<< 5) ||| d
+  match ins.Operands, arrangement with
+  | ThreeOperands(Rg qd, Rg qn, Vec(vm, TwoD)), None ->
+    encode (simdReg 128 qd) (simdReg 128 qn) vm
+  | ThreeOperands(Vec(vd, td), Vec(vn, tn), Vec(vm, tm)), Some t
+    when td = t && tn = t && tm = t ->
+    encode (vectorReg vd) (vectorReg vn) vm
+  | _ ->
+    wrongOperands ins
+
+/// The two-register SHA 512 class: SHA512SU0 on doublewords, SM4E on words.
+let private cryptSha512Two opcode t ins =
+  match ins.Operands with
+  | TwoOperands(Vec(vd, td), Vec(vn, tn)) when td = t && tn = t ->
+    (0b11001110110u <<< 21) ||| (0b1000u <<< 12) ||| (opcode <<< 10)
+    ||| (vectorReg vn <<< 5) ||| vectorReg vd
+  | _ ->
+    wrongOperands ins
+
+/// SM3's round functions, whose third source is one word of a register.
+let private cryptSm3tt opcode ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(vd, FourS), Vec(vn, FourS), Elem(vm, VecS, index))
+    when index < 4uy ->
+    (0b11001110010u <<< 21) ||| (vectorReg vm <<< 16) ||| (0b10u <<< 14)
+    ||| (uint32 index <<< 12) ||| (opcode <<< 10) ||| (vectorReg vn <<< 5)
+    ||| vectorReg vd
+  | _ ->
+    wrongOperands ins
+
 let systemEncoders () =
   [ Opcode.SVC, exceptionGen 0b000u 0b01u
     Opcode.HVC, exceptionGen 0b000u 0b10u
@@ -1800,6 +1889,23 @@ let loadStoreEncoders () =
     Opcode.USDOT, dotProduct 0u 0b10011u 0b10u 0b1111u
     Opcode.SUDOT, dotProductIndexed 0u 0b00u 0b1111u
     Opcode.BFCVT, bfConvert
+    Opcode.EOR3, cryptFourReg 0b000u
+    Opcode.BCAX, cryptFourReg 0b001u
+    Opcode.RAX1, cryptRax1
+    Opcode.XAR, cryptXar
+    Opcode.SM3SS1, cryptSm3ss1
+    Opcode.SHA512H, cryptSha512Three 0u 0b00u None
+    Opcode.SHA512H2, cryptSha512Three 0u 0b01u None
+    Opcode.SHA512SU1, cryptSha512Three 0u 0b10u (Some TwoD)
+    Opcode.SM3PARTW1, cryptSha512Three 1u 0b00u (Some FourS)
+    Opcode.SM3PARTW2, cryptSha512Three 1u 0b01u (Some FourS)
+    Opcode.SM4EKEY, cryptSha512Three 1u 0b10u (Some FourS)
+    Opcode.SHA512SU0, cryptSha512Two 0b00u TwoD
+    Opcode.SM4E, cryptSha512Two 0b01u FourS
+    Opcode.SM3TT1A, cryptSm3tt 0b00u
+    Opcode.SM3TT1B, cryptSm3tt 0b01u
+    Opcode.SM3TT2A, cryptSm3tt 0b10u
+    Opcode.SM3TT2B, cryptSm3tt 0b11u
     Opcode.STXRB, exclusiveStore (Some 0b00u) 0u
     Opcode.STLXRB, exclusiveStore (Some 0b00u) 1u
     Opcode.STXRH, exclusiveStore (Some 0b01u) 0u

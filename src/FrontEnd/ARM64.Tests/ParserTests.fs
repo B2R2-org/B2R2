@@ -5539,3 +5539,100 @@ type ParserTests() =
   [<TestMethod>]
   member _.``4.6.30 Conversion between FP and BFloat16``() =
     "1e634020" ++ BFCVT ** [ O.ScalarReg H0; O.ScalarReg S1 ] ||> test
+
+  /// The four FEAT_SHA3 encodings share the 0xce opcode byte with the
+  /// SHA-512, SM3 and SM4 families and are told from them by bits 23:21,
+  /// which the group's own selector does not carry.
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic four-register (EOR3)``() =
+    "ce020c20"
+    ++ EOR3
+    ** [ O.SIMDVecReg(V0, SixteenB)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB)
+         O.SIMDVecReg(V3, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic four-register (BCAX)``() =
+    "ce220c20"
+    ++ BCAX
+    ** [ O.SIMDVecReg(V0, SixteenB)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB)
+         O.SIMDVecReg(V3, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic three-register (RAX1)``() =
+    "ce628c20"
+    ++ RAX1
+    ** [ O.SIMDVecReg(V0, TwoD)
+         O.SIMDVecReg(V1, TwoD)
+         O.SIMDVecReg(V2, TwoD) ]
+    ||> test
+
+  /// SHA-512, SM3 and SM4 fill the rest of the byte: the three-
+  /// register SHA 512 class RAX1 belongs to, the two-register one,
+  /// the imm2 one and the four-register one.
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (1)``() =
+    testDisasm "ce628020" "sha512h q0, q1, v2.2d"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (2)``() =
+    testDisasm "ce628420" "sha512h2 q0, q1, v2.2d"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (3)``() =
+    testDisasm "cec08020" "sha512su0 v0.2d, v1.2d"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (4)``() =
+    testDisasm "ce628820" "sha512su1 v0.2d, v1.2d, v2.2d"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (5)``() =
+    testDisasm "ce420c20" "sm3ss1 v0.4s, v1.4s, v2.4s, v3.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (6)``() =
+    testDisasm "ce42b020" "sm3tt1a v0.4s, v1.4s, v2.s[3]"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (7)``() =
+    testDisasm "ce428420" "sm3tt1b v0.4s, v1.4s, v2.s[0]"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (8)``() =
+    testDisasm "ce429820" "sm3tt2a v0.4s, v1.4s, v2.s[1]"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (9)``() =
+    testDisasm "ce42ac20" "sm3tt2b v0.4s, v1.4s, v2.s[2]"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (10)``() =
+    testDisasm "ce62c020" "sm3partw1 v0.4s, v1.4s, v2.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (11)``() =
+    testDisasm "ce62c420" "sm3partw2 v0.4s, v1.4s, v2.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (12)``() =
+    testDisasm "cec08420" "sm4e v0.4s, v1.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (13)``() =
+    testDisasm "ce62c820" "sm4ekey v0.4s, v1.4s, v2.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 XAR``() =
+    "ce823420"
+    ++ XAR
+    ** [ O.SIMDVecReg(V0, TwoD)
+         O.SIMDVecReg(V1, TwoD)
+         O.SIMDVecReg(V2, TwoD)
+         O.Imm 0xdL ]
+    ||> test

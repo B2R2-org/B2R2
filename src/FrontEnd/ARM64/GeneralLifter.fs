@@ -674,6 +674,60 @@ let ccmp ins bld =
     direct (regVar bld R.V) := (AST.ite tCond v (AST.xtlo 1<rt> nzcv))
   }
 
+/// <summary>
+/// One step of a bit-reflected CRC: shift the remainder down by a bit and,
+/// when the bit that fell out was set, subtract the polynomial.
+///
+/// The polynomial is given reflected too, which is what lets the whole thing
+/// run from the bottom of the word rather than the top. Subtraction over GF(2)
+/// is exclusive or, so there is no borrow to carry between steps.
+/// </summary>
+let private crcStep bld poly crc =
+  let one = AST.num1 32<rt>
+  let shifted = crc >> one
+  let next = AST.ite ((crc .& one) == one) (shifted <+> poly) shifted
+  append bld { direct crc := next }
+
+/// <summary>
+/// CRC32 and CRC32C, over a byte, a halfword, a word or a doubleword.
+///
+/// The manual states them by reversing the accumulator and the data, running
+/// a polynomial division from the top, and reversing the answer. Reversing
+/// the POLYNOMIAL instead says the same thing and leaves everything else the
+/// right way up, which is why the constants below are the reflections of
+/// 0x04C11DB7 and 0x1EDC6F41.
+///
+/// A doubleword is two words: the low word is mixed in and thirty-two steps
+/// run, then the high word and thirty-two more. That is the same division,
+/// written the way a table-driven implementation writes it.
+/// </summary>
+let crc32 (ins: Instruction) bld isCastagnoli (size: int<rt>) =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let dst = transOpr ins bld dst
+    let acc = transOpr ins bld src1 |> AST.xtlo 32<rt>
+    let value = transOpr ins bld src2
+    let poly =
+      if isCastagnoli then numU32 0x82F63B78u 32<rt>
+      else numU32 0xEDB88320u 32<rt>
+    let crc = tmpVar bld 32<rt>
+    let wordOf pos =
+      if size = 64<rt> then AST.extract value 32<rt> pos
+      elif size = 32<rt> then AST.xtlo 32<rt> value
+      else AST.zext 32<rt> (AST.xtlo size value)
+    direct crc := acc <+> wordOf 0
+    (* A doubleword is two words: the low one is mixed in above and the high
+       one here, each followed by thirty-two steps. *)
+    let rounds = if size = 64<rt> then [ 32 ] else []
+    for _ in 1 .. min (int size) 32 do
+      crcStep bld poly crc
+    for pos in rounds do
+      direct crc := crc <+> wordOf pos
+      for _ in 1 .. 32 do
+        crcStep bld poly crc
+    sized 32<rt> dst := crc
+  }
+
 let clzBits src bitSize oprSize bld =
   let x = tmpVar bld oprSize
   match oprSize with

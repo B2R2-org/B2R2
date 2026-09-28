@@ -326,6 +326,90 @@ let translate (ins: Instruction) bld =
     frecpx ins bld
   | Opcode.SQDMLSL | Opcode.SQDMLSL2 ->
     sqdmlsl ins bld
+  | Opcode.CRC32B ->
+    crc32 ins bld false 8<rt>
+  | Opcode.CRC32H ->
+    crc32 ins bld false 16<rt>
+  | Opcode.CRC32W ->
+    crc32 ins bld false 32<rt>
+  | Opcode.CRC32X ->
+    crc32 ins bld false 64<rt>
+  | Opcode.CRC32CB ->
+    crc32 ins bld true 8<rt>
+  | Opcode.CRC32CH ->
+    crc32 ins bld true 16<rt>
+  | Opcode.CRC32CW ->
+    crc32 ins bld true 32<rt>
+  | Opcode.CRC32CX ->
+    crc32 ins bld true 64<rt>
+  | Opcode.SHA1C ->
+    sha1c ins bld
+  | Opcode.SHA1P ->
+    sha1p ins bld
+  | Opcode.SHA1M ->
+    sha1m ins bld
+  | Opcode.SHA1H ->
+    sha1h ins bld
+  | Opcode.SHA1SU0 ->
+    sha1su0 ins bld
+  | Opcode.SHA1SU1 ->
+    sha1su1 ins bld
+  | Opcode.SHA256SU0 ->
+    sha256su0 ins bld
+  | Opcode.SHA256SU1 ->
+    sha256su1 ins bld
+  | Opcode.SHA256H ->
+    sha256Hash ins bld true
+  | Opcode.SHA256H2 ->
+    sha256Hash ins bld false
+  | Opcode.PMUL ->
+    pmul ins bld
+  | Opcode.PMULL ->
+    pmull ins bld false
+  | Opcode.PMULL2 ->
+    pmull ins bld true
+  | Opcode.EOR3 ->
+    eor3 ins bld
+  | Opcode.BCAX ->
+    bcax ins bld
+  | Opcode.RAX1 ->
+    rax1 ins bld
+  | Opcode.XAR ->
+    xar ins bld
+  | Opcode.SHA512H ->
+    sha512h ins bld
+  | Opcode.SHA512H2 ->
+    sha512h2 ins bld
+  | Opcode.SHA512SU0 ->
+    sha512su0 ins bld
+  | Opcode.SHA512SU1 ->
+    sha512su1 ins bld
+  | Opcode.SM3PARTW1 ->
+    sm3partw1 ins bld
+  | Opcode.SM3PARTW2 ->
+    sm3partw2 ins bld
+  | Opcode.SM3SS1 ->
+    sm3ss1 ins bld
+  | Opcode.SM3TT1A ->
+    sm3tt1a ins bld
+  | Opcode.SM3TT1B ->
+    sm3tt1b ins bld
+  | Opcode.SM3TT2A ->
+    sm3tt2a ins bld
+  | Opcode.SM3TT2B ->
+    sm3tt2b ins bld
+  | Opcode.SM4E ->
+    sm4e ins bld
+  | Opcode.SM4EKEY ->
+    sm4ekey ins bld
+  | Opcode.AESE ->
+    aesRound ins bld false
+  | Opcode.AESD ->
+    aesRound ins bld true
+  | Opcode.AESMC ->
+    aesMixColumns ins bld false
+  | Opcode.AESIMC ->
+    aesMixColumns ins bld true
   | Opcode.CLZ ->
     clz ins bld
   | Opcode.CMEQ ->

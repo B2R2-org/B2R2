@@ -2968,8 +2968,673 @@ let frsqrte (ins: Instruction) bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
+/// The whole of a vector register as one value.
+let private whole ins bld o =
+  let struct (b, a) = transOpr128 ins bld o
+  AST.concat b a
+
+/// The three bitwise choices SHA-1 and SHA-256 are built from. Each is the
+/// manual's definition written out, and naming them is what lets the rounds
+/// below read the way its pseudocode does.
+let private shaChoose x y z = ((y <+> z) .& x) <+> z
+
+let private shaMajority x y z = (x .& y) .| ((x .| y) .& z)
+
+let private shaParity x y z = x <+> y <+> z
+
+/// A word rotated left, which the IR has no operator of its own for. Every
+/// amount these hashes use is between one and thirty-one, so neither shift
+/// is ever by the whole width.
+let private rol32 e n = (e << numI32 n 32<rt>) .| (e >> numI32 (32 - n) 32<rt>)
+
+let private ror32 e n = rol32 e (32 - n)
+
+let private shaSigma0 x = ror32 x 2 <+> ror32 x 13 <+> ror32 x 22
+
+let private shaSigma1 x = ror32 x 6 <+> ror32 x 11 <+> ror32 x 25
+
+/// The four words of a vector register, lowest first. A vector is kept as a
+/// pair of doublewords here, so which half a word comes from is decided at
+/// lift time rather than in the IR.
+let private wordsOf hi lo =
+  [| AST.xtlo 32<rt> lo
+     AST.xthi 32<rt> lo
+     AST.xtlo 32<rt> hi
+     AST.xthi 32<rt> hi |]
+
+/// <summary>
+/// SHA1C, SHA1P and SHA1M: four rounds of SHA-1, differing in nothing but
+/// which of the three bitwise choices the round uses.
+///
+/// The manual keeps the hash in a 128-bit X and a 32-bit Y and rotates the
+/// 160-bit pair left by one word at the end of every round. A rotate by a
+/// whole word is a renaming of the words, so it is done here by moving the
+/// temporaries -- the IR has no 160-bit type to build the pair in.
+/// </summary>
+let private sha1Hash (ins: Instruction) bld choose =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let w = wordsOf mB mA
+    let d = wordsOf dstB dstA
+    (* the second source is named as a word, not a vector, so it is read
+       whole rather than through the pair of doublewords *)
+    let n = transOpr ins bld src1 |> AST.xtlo 32<rt>
+    let x = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    let struct (y, t, carried) = tmpVars3 bld 32<rt>
+    for i in 0 .. 3 do
+      direct x[i] := d[i]
+    direct y := n
+    for e in 0 .. 3 do
+      direct t := choose x[1] x[2] x[3]
+      direct carried := y .+ rol32 x[0] 5 .+ t .+ w[e]
+      direct x[1] := rol32 x[1] 30
+      direct t := x[3]
+      direct x[3] := x[2]
+      direct x[2] := x[1]
+      direct x[1] := x[0]
+      direct x[0] := carried
+      direct y := t
+    direct dstA := AST.concat x[1] x[0]
+    direct dstB := AST.concat x[3] x[2]
+  }
+
+let sha1c ins bld = sha1Hash ins bld shaChoose
+
+let sha1p ins bld = sha1Hash ins bld shaParity
+
+let sha1m ins bld = sha1Hash ins bld shaMajority
+
+/// SHA1H, which is a rotate and nothing else. The destination is named as a
+/// word, so what it does not write is zeroed.
+let sha1h (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let src = transOpr ins bld src |> AST.xtlo 32<rt>
+    dstAssignScalar ins bld dst (rol32 src 30) 32<rt>
+  }
+
+/// <summary>
+/// SHA1SU0: the first half of the message schedule update, which is three
+/// exclusive ors over a window that straddles two registers.
+///
+/// The window is the destination's top half followed by the second source's
+/// bottom half, so the low doubleword of the answer is built from the high
+/// one of the destination. Reading every source into temporaries first is
+/// what keeps that from reading a result.
+/// </summary>
+let sha1su0 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let struct (_, nA) = transOpr128 ins bld src1
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let struct (lo, hi) = tmpVars2 bld 64<rt>
+    direct lo := dstB <+> dstA <+> mA
+    direct hi := nA <+> dstB <+> mB
+    direct dstA := lo
+    direct dstB := hi
+  }
+
+/// SHA1SU1: the second half, a rotate of every word of the destination
+/// exclusive-or'd with the second source shifted down by one word, and the
+/// top word mixed with the bottom one again.
+let sha1su1 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src
+    let d = wordsOf dstB dstA
+    let n = wordsOf nB nA
+    let t = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    direct t[0] := d[0] <+> n[1]
+    direct t[1] := d[1] <+> n[2]
+    direct t[2] := d[2] <+> n[3]
+    direct t[3] := d[3]
+    let r = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    for i in 0 .. 2 do
+      direct r[i] := rol32 t[i] 1
+    direct r[3] := rol32 t[3] 1 <+> rol32 t[0] 2
+    direct dstA := AST.concat r[1] r[0]
+    direct dstB := AST.concat r[3] r[2]
+  }
+
+/// SHA256SU0: the schedule's sigma-0 step, over a window that starts one
+/// word into the destination and takes its last word from the source.
+let sha256su0 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src
+    let d = wordsOf dstB dstA
+    let n = wordsOf nB nA
+    let t = [| d[1]; d[2]; d[3]; n[0] |]
+    let r = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    for i in 0 .. 3 do
+      let mixed = ror32 t[i] 7 <+> ror32 t[i] 18 <+> (t[i] >> numI32 3 32<rt>)
+      direct r[i] := mixed .+ d[i]
+    direct dstA := AST.concat r[1] r[0]
+    direct dstB := AST.concat r[3] r[2]
+  }
+
+/// <summary>
+/// SHA256SU1: the schedule's sigma-1 step.
+///
+/// The two halves are not alike: the first pair of words mixes the third
+/// source's top half, and the second pair mixes what the first pair just
+/// produced. That dependence is why the words are written into temporaries
+/// one pair at a time rather than all four at once.
+/// </summary>
+let sha256su1 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src1
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let d = wordsOf dstB dstA
+    let n = wordsOf nB nA
+    let m = wordsOf mB mA
+    let t0 = [| n[1]; n[2]; n[3]; m[0] |]
+    let r = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    let mix e = ror32 e 17 <+> ror32 e 19 <+> (e >> numI32 10 32<rt>)
+    for i in 0 .. 1 do
+      direct r[i] := mix m[i + 2] .+ d[i] .+ t0[i]
+    for i in 2 .. 3 do
+      direct r[i] := mix r[i - 2] .+ d[i] .+ t0[i]
+    direct dstA := AST.concat r[1] r[0]
+    direct dstB := AST.concat r[3] r[2]
+  }
+
+/// <summary>
+/// SHA256H and SHA256H2: four rounds of SHA-256 between them.
+///
+/// The manual states one function over a 256-bit pair and has the two
+/// instructions call it with their sources the other way round, each keeping
+/// the half it is named for. The pair's rotate is by a whole word again, so
+/// it is a renaming of temporaries here as well.
+/// </summary>
+let sha256Hash (ins: Instruction) bld keepX =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src1
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let w = wordsOf mB mA
+    let first = if keepX then wordsOf dstB dstA else wordsOf nB nA
+    let second = if keepX then wordsOf nB nA else wordsOf dstB dstA
+    let x = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    let y = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    for i in 0 .. 3 do
+      direct x[i] := first[i]
+      direct y[i] := second[i]
+    let struct (t, carried) = tmpVars2 bld 32<rt>
+    for e in 0 .. 3 do
+      direct t := y[3] .+ shaSigma1 y[0] .+ shaChoose y[0] y[1] y[2] .+ w[e]
+      direct x[3] := t .+ x[3]
+      direct y[3] := t .+ shaSigma0 x[0] .+ shaMajority x[0] x[1] x[2]
+      direct carried := x[3]
+      direct x[3] := x[2]
+      direct x[2] := x[1]
+      direct x[1] := x[0]
+      direct x[0] := y[3]
+      direct y[3] := y[2]
+      direct y[2] := y[1]
+      direct y[1] := y[0]
+      direct y[0] := carried
+    let out = if keepX then x else y
+    direct dstA := AST.concat out[1] out[0]
+    direct dstB := AST.concat out[3] out[2]
+  }
+
+/// A doubleword rotated right. Every amount SHA-512 uses is between one and
+/// sixty-three, so neither shift is by the whole width.
+let private ror64 e n = (e >> numI32 n 64<rt>) .| (e << numI32 (64 - n) 64<rt>)
+
+/// <summary>
+/// SHA512H: the half of two rounds of SHA-512 with the choice and Sigma1 in
+/// it, over the doublewords of its three registers as the manual writes it
+/// out. The second doubleword it computes reads the first.
+/// </summary>
+let sha512h (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (w1, w0) = transOpr128 ins bld dst
+    let struct (x1, x0) = transOpr128 ins bld src1
+    let struct (y1, y0) = transOpr128 ins bld src2
+    let sigma1 v = ror64 v 14 <+> ror64 v 18 <+> ror64 v 41
+    let struct (hi, lo) = tmpVars2 bld 64<rt>
+    let tmp = tmpVar bld 64<rt>
+    direct hi := shaChoose y1 x0 x1 .+ sigma1 y1 .+ w1
+    direct tmp := hi .+ y0
+    direct lo := shaChoose tmp y1 x0 .+ sigma1 tmp .+ w0
+    direct w0 := lo
+    direct w1 := hi
+  }
+
+/// SHA512H2: the other half, with the majority and Sigma0 in it.
+let sha512h2 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (w1, w0) = transOpr128 ins bld dst
+    let struct (_, x0) = transOpr128 ins bld src1
+    let struct (y1, y0) = transOpr128 ins bld src2
+    let sigma0 v = ror64 v 28 <+> ror64 v 34 <+> ror64 v 39
+    let struct (hi, lo) = tmpVars2 bld 64<rt>
+    direct hi := shaMajority x0 y1 y0 .+ sigma0 y0 .+ w1
+    direct lo := shaMajority hi y0 y1 .+ sigma0 hi .+ w0
+    direct w0 := lo
+    direct w1 := hi
+  }
+
+/// <summary>
+/// SHA512SU0: the first half of SHA-512's message schedule update. Each
+/// doubleword of the destination has a sigma0 added to it, the lower one of
+/// the destination's own upper doubleword and the upper one of the source's
+/// lower doubleword, as the manual has it.
+/// </summary>
+let sha512su0 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (w1, w0) = transOpr128 ins bld dst
+    let struct (_, x0) = transOpr128 ins bld src
+    let sig0 v = ror64 v 1 <+> ror64 v 8 <+> (v >> numI32 7 64<rt>)
+    let struct (hi, lo) = tmpVars2 bld 64<rt>
+    direct lo := w0 .+ sig0 w1
+    direct hi := w1 .+ sig0 x0
+    direct w0 := lo
+    direct w1 := hi
+  }
+
+/// SHA512SU1: the second half, a sigma1 of each doubleword of the first
+/// source and the matching doubleword of the second added in.
+let sha512su1 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (w1, w0) = transOpr128 ins bld dst
+    let struct (x1, x0) = transOpr128 ins bld src1
+    let struct (y1, y0) = transOpr128 ins bld src2
+    let sig1 v = ror64 v 19 <+> ror64 v 61 <+> (v >> numI32 6 64<rt>)
+    let struct (hi, lo) = tmpVars2 bld 64<rt>
+    direct hi := w1 .+ sig1 x1 .+ y1
+    direct lo := w0 .+ sig1 x0 .+ y0
+    direct w0 := lo
+    direct w1 := hi
+  }
+
+/// The permutation SM3's message expansion applies, P1.
+let private sm3P1 x = x <+> rol32 x 15 <+> rol32 x 23
+
+/// <summary>
+/// SM3PARTW1: the first part of SM3's message expansion, word by word as the
+/// manual writes it. The top word reads the bottom one after the bottom one
+/// has been through P1, which is why it is computed last.
+/// </summary>
+let sm3partw1 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dB, dA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src1
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let d = wordsOf dB dA
+    let n = wordsOf nB nA
+    let m = wordsOf mB mA
+    let t = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    let r = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    for i in 0 .. 2 do
+      direct t[i] := (d[i] <+> n[i]) <+> rol32 m[i + 1] 15
+      direct r[i] := sm3P1 t[i]
+    direct t[3] := (d[3] <+> n[3]) <+> rol32 r[0] 15
+    direct r[3] := sm3P1 t[3]
+    direct dA := AST.concat r[1] r[0]
+    direct dB := AST.concat r[3] r[2]
+  }
+
+/// SM3PARTW2: the second part, the top word taking a P1 of the bottom one
+/// on top of what every word takes.
+let sm3partw2 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dB, dA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src1
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let d = wordsOf dB dA
+    let n = wordsOf nB nA
+    let m = wordsOf mB mA
+    let t = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    let r = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    let t2 = tmpVar bld 32<rt>
+    for i in 0 .. 3 do
+      direct t[i] := n[i] <+> rol32 m[i] 7
+      direct r[i] := d[i] <+> t[i]
+    direct t2 := rol32 t[0] 15
+    direct r[3] := r[3] <+> sm3P1 t2
+    direct dA := AST.concat r[1] r[0]
+    direct dB := AST.concat r[3] r[2]
+  }
+
+/// SM3SS1: the SS1 term of an SM3 round, in the top word, from the top words
+/// of the three sources; the rest of the destination is cleared.
+let sm3ss1 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2, src3) = getFourOprs ins
+    let struct (dB, dA) = transOpr128 ins bld dst
+    let top o =
+      let struct (hi, _) = transOpr128 ins bld o
+      AST.xthi 32<rt> hi
+    let sum = tmpVar bld 32<rt>
+    direct sum := rol32 (top src1) 12 .+ top src2 .+ top src3
+    direct dA := AST.num0 64<rt>
+    direct dB := AST.concat (rol32 sum 7) (AST.num0 32<rt>)
+  }
+
+/// <summary>
+/// SM3TT1A, SM3TT1B, SM3TT2A and SM3TT2B: one SM3 round's TT1 or TT2, from
+/// the boolean function that tells the A form from the B and the word of the
+/// third source the immediate names, with the destination's words moved
+/// along as the manual moves them.
+/// </summary>
+let private sm3tt (ins: Instruction) bld isTT2 boolean =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dB, dA) = transOpr128 ins bld dst
+    let struct (nB, _) = transOpr128 ins bld src1
+    let d = wordsOf dB dA
+    let n3 = AST.xthi 32<rt> nB
+    let wj = transOpr ins bld src2
+    let tt = tmpVar bld 32<rt>
+    let r = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    let term = if isTT2 then n3 else n3 <+> rol32 d[3] 12
+    direct tt := boolean d[3] d[2] d[1] .+ d[0] .+ term .+ wj
+    direct r[0] := d[1]
+    direct r[1] := rol32 d[2] (if isTT2 then 19 else 9)
+    direct r[2] := d[3]
+    direct r[3] := if isTT2 then tt <+> rol32 tt 9 <+> rol32 tt 17 else tt
+    direct dA := AST.concat r[1] r[0]
+    direct dB := AST.concat r[3] r[2]
+  }
+
+let sm3tt1a ins bld = sm3tt ins bld false shaParity
+
+let sm3tt1b ins bld = sm3tt ins bld false shaMajority
+
+let sm3tt2a ins bld = sm3tt ins bld true shaParity
+
+let sm3tt2b ins bld = sm3tt ins bld true shaChoose
+
+/// <summary>
+/// The SM4 substitution, as the manual gives it: a string of 256 bytes, the
+/// first of them what zero substitutes to.
+/// </summary>
+let private sm4Table =
+  [ "d690e9fecce13db716b614c228fb2c05"
+    "2b679a762abe04c3aa44132649860699"
+    "9c4250f491ef987a33540b43edcfac62"
+    "e4b31ca9c908e89580df94fa758f3fa6"
+    "4707a7fcf37317ba83593c19e6854fa8"
+    "686b81b27164da8bf8eb0f4b70569d35"
+    "1e240e5e6358d1a225227c3b01217887"
+    "d40046579fd327524c3602e7a0c4c89e"
+    "eabf8ad240c738b5a3f7f2cef96115a1"
+    "e0ae5da49b341a55ad933230f58cb1e3"
+    "1df6e22e8266ca60c02923ab0d534e6f"
+    "d5db3745defd8e2f03ff6a726d6c5b51"
+    "8d1baf92bbddbc7f11d95c411f105ad8"
+    "0ac13188a5cd7bbd2d74d012b8e5b4b0"
+    "8969974a0c96777e65b9f109c56ec684"
+    "18f07dec3adc4d2079ee5f3ed7cb3948" ]
+  |> String.concat ""
+  |> Seq.chunkBySize 2
+  |> Seq.map (fun c -> System.Convert.ToByte(System.String c, 16))
+  |> Array.ofSeq
+
+/// <summary>
+/// Sbox: one byte substituted. The IR has no tables, so the byte is looked
+/// up by a tree of selects on its bits, the top one first: 255 of them, of
+/// which an evaluator follows the eight on one path.
+/// </summary>
+let private sm4Sbox (b: Expr) =
+  let rec pick first bit =
+    if bit < 0 then
+      numI32 (int sm4Table[first]) 8<rt>
+    else
+      let upper = pick (first + (1 <<< bit)) (bit - 1)
+      AST.ite (AST.extract b 1<rt> bit) upper (pick first (bit - 1))
+  pick 0 7
+
+/// <summary>
+/// One round of SM4E or SM4EKEY: the three upper words and the key word
+/// exclusive-or'd, substituted a byte at a time, put through the linear
+/// transform the instruction names, and exclusive-or'd with the lowest word,
+/// as the words move down one to make room for it at the top.
+/// </summary>
+let private sm4Round bld (rr: Expr[]) key linear =
+  let struct (x, s, next) = tmpVars3 bld 32<rt>
+  append bld { direct x := rr[3] <+> rr[2] <+> rr[1] <+> key }
+  let bytes = Array.init 4 (fun i -> sm4Sbox (AST.extract x 8<rt> (8 * i)))
+  append bld {
+    direct s := AST.revConcat bytes
+    direct next := linear s <+> rr[0]
+  }
+  [| rr[1]; rr[2]; rr[3]; next |]
+
+/// <summary>
+/// SM4E: four rounds of SM4 encryption, the destination the state and the
+/// source the four round keys, lowest first.
+/// </summary>
+let sm4e (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (dB, dA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src
+    let linear x = x <+> rol32 x 2 <+> rol32 x 10 <+> rol32 x 18 <+> rol32 x 24
+    let round rr k = sm4Round bld rr k linear
+    let rr = Array.fold round (wordsOf dB dA) (wordsOf nB nA)
+    direct dA := AST.concat rr[1] rr[0]
+    direct dB := AST.concat rr[3] rr[2]
+  }
+
+/// <summary>
+/// SM4EKEY: four rounds of the SM4 key schedule, the first source the words
+/// the rounds start from and the second the four constants; the answer goes
+/// to the destination.
+/// </summary>
+let sm4ekey (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dB, dA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src1
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let linear x = x <+> rol32 x 13 <+> rol32 x 23
+    let round rr k = sm4Round bld rr k linear
+    let rr = Array.fold round (wordsOf nB nA) (wordsOf mB mA)
+    direct dA := AST.concat rr[1] rr[0]
+    direct dB := AST.concat rr[3] rr[2]
+  }
+
+/// <summary>
+/// EOR3 and BCAX: three sources combined bitwise across the whole register.
+///
+/// EOR3 is an exclusive or of all three. BCAX is the bit-clear form -- the
+/// second source with the third's bits cleared out of it, exclusive-or'd
+/// with the first. Neither has lanes to speak of: the arrangement is bytes,
+/// but nothing crosses a bit boundary, so both are done a doubleword at a
+/// time.
+/// </summary>
+let private threeWayBitwise (ins: Instruction) bld combine =
+  lift bld ins {
+    let struct (dst, src1, src2, src3) = getFourOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src1
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let struct (aB, aA) = transOpr128 ins bld src3
+    let struct (lo, hi) = tmpVars2 bld 64<rt>
+    direct lo := combine nA mA aA
+    direct hi := combine nB mB aB
+    direct dstA := lo
+    direct dstB := hi
+  }
+
+let eor3 ins bld = threeWayBitwise ins bld (fun n m a -> n <+> m <+> a)
+
+let bcax ins bld =
+  threeWayBitwise ins bld (fun n m a -> n <+> (m .& AST.not a))
+
+/// <summary>
+/// RAX1 and XAR: an exclusive or with a rotate, per doubleword.
+///
+/// RAX1 rotates the second source left by one before the exclusive or; XAR
+/// rotates the answer right by an immediate. The rotate is written out of a
+/// pair of shifts, which the IR has no operator for, and the amount is never
+/// zero or the whole width for RAX1 -- XAR's can be zero, so that one is
+/// decided at lift time rather than in the IR.
+/// </summary>
+let rax1 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src1
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let rol1 e = (e << AST.num1 64<rt>) .| (e >> numI32 63 64<rt>)
+    let struct (lo, hi) = tmpVars2 bld 64<rt>
+    direct lo := nA <+> rol1 mA
+    direct hi := nB <+> rol1 mB
+    direct dstA := lo
+    direct dstB := hi
+  }
+
+let xar (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2, amt) = getFourOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let struct (nB, nA) = transOpr128 ins bld src1
+    let struct (mB, mA) = transOpr128 ins bld src2
+    let n = int (shiftAmountOf amt)
+    let ror e =
+      if n = 0 then e
+      else (e >> numI32 n 64<rt>) .| (e << numI32 (64 - n) 64<rt>)
+    let struct (lo, hi) = tmpVars2 bld 64<rt>
+    direct lo := ror (nA <+> mA)
+    direct hi := ror (nB <+> mB)
+    direct dstA := lo
+    direct dstB := hi
+  }
+
 /// The polynomial product of two elements over GF(2): the same shift and add
 /// an ordinary product is, with the addition replaced by exclusive or -- which
+/// is what leaves no carry to propagate from one bit to the next.
+let private polyMul bld (eSize: int<rt>) e1 e2 =
+  let wide = eSize * 2
+  let one = AST.num1 wide
+  let a = AST.zext wide e1
+  let b = AST.zext wide e2
+  let acc = tmpVar bld wide
+  append bld { direct acc := AST.num0 wide }
+  for i in 0 .. int eSize - 1 do
+    let bit = (a >> numI32 i wide) .& one
+    let add = AST.ite (bit == one) (b << numI32 i wide) (AST.num0 wide)
+    append bld { direct acc := acc <+> add }
+  acc
+
+/// PMUL: the polynomial product of two elements kept at the width it was
+/// computed from. PMULL below is the form that keeps all of it instead.
+let pmul (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let opr1 = transSIMDOprToExpr bld eSize dataSize elements src1
+    let opr2 = transSIMDOprToExpr bld eSize dataSize elements src2
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    Array.map2 (fun a b -> AST.xtlo eSize (polyMul bld eSize a b)) opr1 opr2
+    |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// PMULL and PMULL2: the polynomial product of each element with the one
+/// beside it, written into an element twice as wide. The `2` form reads the
+/// upper half of its sources, which is the only difference between them.
+///
+/// The byte form is written out as shift-and-exclusive-or, eight steps of it.
+/// The doubleword form would be sixty-four steps of the same thing, so it
+/// goes to the carry-less multiply the IR already names instead: the two are
+/// the same operation, and a host has an instruction for the latter.
+/// </summary>
+let pmull (ins: Instruction) bld isPart2 =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src1
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    match eSize with
+    | 64<rt> ->
+      let struct (nB, nA) = transOpr128 ins bld src1
+      let struct (mB, mA) = transOpr128 ins bld src2
+      let control = if isPart2 then numI32 0x11 8<rt> else numI32 0 8<rt>
+      let args = [ AST.concat nB nA; AST.concat mB mA; control ]
+      let t = tmpVar bld 128<rt>
+      direct t := AST.app "PCLMULQDQ" args 128<rt>
+      direct dstA := AST.xtlo 64<rt> t
+      direct dstB := AST.xthi 64<rt> t
+    | _ ->
+      let elements = 64<rt> / eSize
+      let opr1 = transSIMDOprVPart bld eSize part src1
+      let opr2 = transSIMDOprVPart bld eSize part src2
+      let result = Array.init elements (fun _ -> tmpVar bld (eSize * 2))
+      Array.map2 (polyMul bld eSize) opr1 opr2
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
+
+/// <summary>
+/// AESE and AESD: add the round key, then shift the rows and substitute the
+/// bytes.
+///
+/// These are half of a round each, and the halves are split differently from
+/// the way x86 splits them: there a round is shift-substitute-mix-add and the
+/// key comes last, here the key comes first and the mixing is an instruction
+/// of its own. The two still meet, because adding zero as the key turns the
+/// x86 last-round instruction into exactly the shift and the substitution --
+/// so AESE is AESENCLAST of the state already added to the key, and AESD is
+/// AESDECLAST of it.
+/// </summary>
+let aesRound (ins: Instruction) bld isDecrypt =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld o1
+    let state = AST.concat dstB dstA <+> whole ins bld o2
+    let name = if isDecrypt then "AESDECLAST" else "AESENCLAST"
+    let t = tmpVar bld 128<rt>
+    direct t := AST.app name [ state; AST.num0 128<rt> ] 128<rt>
+    direct dstA := AST.xtlo 64<rt> t
+    direct dstB := AST.xthi 64<rt> t
+  }
+
+/// <summary>
+/// AESMC and AESIMC: the column mixing of a round, and its inverse.
+///
+/// The inverse is an instruction on x86 as well and goes straight across. The
+/// forward one is not, and is recovered from the round: an x86 round mixes
+/// what it has just shifted and substituted, so undoing those two first
+/// leaves the mixing alone. AESDECLAST with a zero key is exactly that
+/// undoing, because the inverse substitution is bytewise and commutes with
+/// the row shifting.
+/// </summary>
+let aesMixColumns (ins: Instruction) bld isInverse =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld o1
+    let zero = AST.num0 128<rt>
+    let t = tmpVar bld 128<rt>
+    if isInverse then
+      direct t := AST.app "AESIMC" [ whole ins bld o2 ] 128<rt>
+    else
+      direct t := AST.app "AESDECLAST" [ whole ins bld o2; zero ] 128<rt>
+      direct t := AST.app "AESENC" [ t; zero ] 128<rt>
+    direct dstA := AST.xtlo 64<rt> t
+    direct dstB := AST.xthi 64<rt> t
+  }
+
 let rev32 (ins: Instruction) bld =
   lift bld ins {
     let tmp = tmpVar bld ins.OprSize
