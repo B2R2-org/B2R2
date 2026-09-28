@@ -167,11 +167,17 @@ module internal Header =
       raise InvalidFileFormatException
 
   /// Checks if the file has a valid Mach-O header and returns the ISA if it
-  /// does.
+  /// does. A universal binary is answered from its own table of slices, which
+  /// says what each one is without the slice having to be there.
   let getISA bytes isa =
-    let struct (offset, _) = computeMachBounds bytes isa
-    if isMach bytes offset then
-      let hdr = parseHeader bytes offset
-      Ok(toISA hdr)
+    if Header.IsFat bytes then
+      let fatArch = Fat.parseArch bytes isa
+      let arch, wordSize =
+        CPUType.toArchWordSizeTuple fatArch.CPUType fatArch.CPUSubType
+      Ok(ISA(arch, Endian.Little, wordSize))
     else
-      Error ErrorCase.InvalidFormat
+      let struct (offset, _) = computeMachBounds bytes isa
+      if isMach bytes offset then
+        Ok(toISA (parseHeader bytes offset))
+      else
+        Error ErrorCase.InvalidFormat
