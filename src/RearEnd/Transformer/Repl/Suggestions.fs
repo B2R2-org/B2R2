@@ -1533,7 +1533,9 @@ module Suggestions =
     cursor =
     let context, typeAnalysis =
       analyzeInput previousContext registry state input cursor
-    if context.InputBeforeCursor.TrimStart().StartsWith ':' then
+    let canComplete = String.IsNullOrWhiteSpace context.InputAfterCursor
+    let isColonCommand = context.InputBeforeCursor.TrimStart().StartsWith ':'
+    if not canComplete || isColonCommand then
       { Items =
           []
         Start = context.TokenStart
