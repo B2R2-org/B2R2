@@ -360,6 +360,11 @@ let pstateField = function
   | SPSEL -> 0b000101u
   | DAIFSET -> 0b011110u
   | DAIFCLR -> 0b011111u
+  | UAO -> 0b000011u
+  | PAN -> 0b000100u
+  | SSBS -> 0b011001u
+  | DIT -> 0b011010u
+  | TCO -> 0b011100u
 
 /// The low bits of a value, as many of them as the given width has.
 let private lowBits width (value: uint64) =

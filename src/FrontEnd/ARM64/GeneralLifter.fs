@@ -861,25 +861,12 @@ let ctz ins bld =
     sized ins.OprSize dst := res
   }
 
+/// DC ZVA, which clears the block DCZID_EL0 names around the address it is
+/// given.
 let dczva ins bld =
   lift bld ins {
     let src = transOneOpr ins bld
-    let dczid = regVar bld R.DCZIDEL0
-    let struct (idx, n4, len) = tmpVars3 bld 64<rt>
-    let lblLoop = label bld "Loop"
-    let lblLoopCont = label bld "LoopContinue"
-    let lblEnd = label bld "End"
-    direct idx := AST.num0 64<rt>
-    direct n4 := numI32 4 64<rt>
-    direct len := (numI32 2 64<rt> << (dczid .+ numI32 1 64<rt>))
-    direct len := len ./ n4
-    AST.lmark lblLoop
-    AST.cjmp (idx == len) (AST.jmpDest lblEnd) (AST.jmpDest lblLoopCont)
-    AST.lmark lblLoopCont
-    direct (AST.loadLE 32<rt> (src .+ (idx .* n4))) := AST.num0 32<rt>
-    direct idx := idx .+ AST.num1 64<rt>
-    AST.jmp (AST.jmpDest lblLoop)
-    AST.lmark lblEnd
+    zeroBlock bld src
   }
 
 let checkZero bld dataSize fpVal =
@@ -1241,21 +1228,116 @@ let movz (ins: Instruction) bld =
     sized ins.OprSize dst := src
   }
 
-let msr (ins: Instruction) bld =
-  lift bld ins {
-    let struct (dst, src) = getTwoOprs ins
-    match dst with
-    | OprRegister R.NZCV ->
-      let src = transOpr ins bld src
-      direct (regVar bld R.N) := AST.extract src 1<rt> 31
-      direct (regVar bld R.Z) := AST.extract src 1<rt> 30
-      direct (regVar bld R.C) := AST.extract src 1<rt> 29
-      direct (regVar bld R.V) := AST.extract src 1<rt> 28
-    | _ ->
-      let dst = transOpr ins bld dst
-      let src = transOpr ins bld src
-      direct dst := src
+/// <summary>
+/// The bits of its register a field of PSTATE occupies, which are the bits
+/// SPSR keeps it at. Every other bit of such a register is RES0, so a write
+/// keeps only these and a read finds nothing else. Zero for a register that
+/// is no such window.
+/// </summary>
+let private pstateBits = function
+  | R.DAIF -> 0x3c0UL
+  | R.PAN -> 1UL <<< 22
+  | R.UAO -> 1UL <<< 23
+  | R.DIT -> 1UL <<< 24
+  | R.TCO -> 1UL <<< 25
+  | R.SSBS -> 1UL <<< 12
+  | _ -> 0UL
+
+/// The register the field an MSR (immediate) names is read back through.
+let private fieldRegister = function
+  | SPSEL -> R.SPSEL
+  | UAO -> R.UAO
+  | PAN -> R.PAN
+  | SSBS -> R.SSBS
+  | DIT -> R.DIT
+  | TCO -> R.TCO
+  | DAIFSET | DAIFCLR -> R.DAIF
+
+/// <summary>
+/// Makes SP name the stack pointer a selection asks for: SP_EL0 for zero,
+/// and EL1's own for one. SP always holds whichever is selected, so a change
+/// of selection parks the one being left in its own register and brings the
+/// other one in; a selection that changes nothing moves nothing.
+/// </summary>
+let private selectStack bld sel =
+  let sp = regVar bld R.SP
+  let spsel = regVar bld R.SPSEL
+  let el0 = regVar bld R.SPEL0
+  let el1 = regVar bld R.SPEL1
+  let next = tmpVar bld 64<rt>
+  let old = tmpVar bld 64<rt>
+  let toEL0 = tmpVar bld 1<rt>
+  let toEL1 = tmpVar bld 1<rt>
+  append bld {
+    direct next := sel
+    direct old := sp
+    direct toEL0 := (spsel != next) .& (next == AST.num0 64<rt>)
+    direct toEL1 := (spsel != next) .& (next != AST.num0 64<rt>)
+    direct sp := AST.ite toEL0 el0 (AST.ite toEL1 el1 old)
+    direct el1 := AST.ite toEL0 old el1
+    direct el0 := AST.ite toEL1 old el0
+    direct spsel := next
   }
+
+/// MSR (immediate). DAIFSet and DAIFClr set and clear the masks the four
+/// bits of the immediate name, SPSel selects a stack pointer, and every other
+/// field takes the immediate's low bit and ignores the rest.
+let private msrImmediate ins bld field (imm: int64) =
+  let imm = uint64 imm
+  let daif = regVar bld R.DAIF
+  let reg = fieldRegister field
+  lift bld ins {
+    match field with
+    | DAIFSET ->
+      direct daif := daif .| numU64 (imm <<< 6) 64<rt>
+    | DAIFCLR ->
+      direct daif := daif .& numU64 (~~~(imm <<< 6)) 64<rt>
+    | SPSEL ->
+      selectStack bld (numU64 (imm &&& 1UL) 64<rt>)
+    | _ ->
+      direct (regVar bld reg) := numU64 ((imm &&& 1UL) * pstateBits reg) 64<rt>
+  }
+
+/// MSR SPSel, Xt, which selects the stack pointer bit 0 of Xt names.
+let private msrStackSelect ins bld src =
+  lift bld ins {
+    let src = transOpr ins bld src
+    selectStack bld (src .& AST.num1 64<rt>)
+  }
+
+/// MSR to a register that is a window onto PSTATE, which keeps only the bits
+/// of the field it names.
+let private msrWindow ins bld reg src =
+  lift bld ins {
+    let src = transOpr ins bld src
+    direct (regVar bld reg) := src .& numU64 (pstateBits reg) 64<rt>
+  }
+
+let msr (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(OprSysReg _, _) ->
+    unsupported ins bld
+  | TwoOperands(OprPstate field, OprImm imm) ->
+    msrImmediate ins bld field imm
+  | TwoOperands(OprRegister R.SPSEL, src) ->
+    msrStackSelect ins bld src
+  | TwoOperands(OprRegister reg, src) when pstateBits reg <> 0UL ->
+    msrWindow ins bld reg src
+  | _ ->
+    lift bld ins {
+      let struct (dst, src) = getTwoOprs ins
+      match dst with
+      | OprRegister R.NZCV ->
+        let src = transOpr ins bld src
+        direct (regVar bld R.N) := AST.extract src 1<rt> 31
+        direct (regVar bld R.Z) := AST.extract src 1<rt> 30
+        direct (regVar bld R.C) := AST.extract src 1<rt> 29
+        direct (regVar bld R.V) := AST.extract src 1<rt> 28
+      | _ ->
+        let dst = transOpr ins bld dst
+        let src = transOpr ins bld src
+        direct dst := src
+    }
 
 let msub ins bld =
   lift bld ins {
@@ -1265,6 +1347,52 @@ let msub ins bld =
 
 let nop ins bld =
   lift bld ins { }
+
+/// The one-bit fields of PSTATE an exception return takes out of SPSR, each
+/// into the register that reads it back, at the bit SPSR keeps it at.
+let private restoreFields bld spsr =
+  for reg in [ R.PAN; R.UAO; R.DIT; R.TCO; R.SSBS ] do
+    let bits = numU64 (pstateBits reg) 64<rt>
+    append bld { direct (regVar bld reg) := spsr .& bits }
+
+/// <summary>
+/// ERET, which returns from an exception: the saved program status becomes
+/// the current one and the exception link register becomes the program
+/// counter.
+///
+/// What is restored here is the part of PSTATE this model carries. The
+/// condition flags are kept as four one-bit registers, so they are taken out
+/// of SPSR_EL1 one at a time; the interrupt masks are kept in DAIF at the
+/// bits SPSR holds them at, so those move across as a field; and PAN, UAO,
+/// DIT, TCO and SSBS each move across as the one bit its register keeps. The
+/// low bit of SPSR's mode field says which stack pointer to return on, and
+/// that selection is made.
+///
+/// What is NOT restored is the exception level, which the rest of the mode
+/// field names. There is one level in this model, so there is nothing for it
+/// to select between -- and code that read CurrentEL across an ERET would be
+/// reading a register this does not write. That is a limit worth stating
+/// rather than papering over with a value that looks right.
+/// </summary>
+let eret ins bld =
+  lift bld ins {
+    let spsr = regVar bld R.SPSREL1
+    let target = tmpVar bld 64<rt>
+    direct target := regVar bld R.ELREL1
+    direct (regVar bld R.N) := AST.extract spsr 1<rt> 31
+    direct (regVar bld R.Z) := AST.extract spsr 1<rt> 30
+    direct (regVar bld R.C) := AST.extract spsr 1<rt> 29
+    direct (regVar bld R.V) := AST.extract spsr 1<rt> 28
+    (* D, A, I and F sit at 9:6 in both registers, so the field moves without
+       being taken apart. *)
+    direct (regVar bld R.DAIF) :=
+      (regVar bld R.DAIF .& AST.not (numU64 0x3c0UL 64<rt>))
+      .| (spsr .& numU64 0x3c0UL 64<rt>)
+    restoreFields bld spsr
+    selectStack bld (spsr .& AST.num1 64<rt>)
+    branchTo ins bld target BrTypeRET InterJmpKind.IsRet
+    return NoEndMark
+  }
 
 let ret ins bld =
   lift bld ins {

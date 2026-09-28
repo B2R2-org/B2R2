@@ -777,6 +777,25 @@ let private systemRegisters =
     Register.DACR32EL2, 0b1110000110000000u
     Register.DCZIDEL0, 0b1101100000000111u
     Register.ESREL1, 0b1100001010010000u
+    Register.SCTLREL1, 0b1100000010000000u
+    Register.TTBR0EL1, 0b1100000100000000u
+    Register.TTBR1EL1, 0b1100000100000001u
+    Register.TCREL1, 0b1100000100000010u
+    Register.MAIREL1, 0b1100010100010000u
+    Register.VBAREL1, 0b1100011000000000u
+    Register.FAREL1, 0b1100001100000000u
+    Register.ELREL1, 0b1100001000000001u
+    Register.SPSREL1, 0b1100001000000000u
+    Register.SPEL0, 0b1100001000001000u
+    Register.TPIDREL1, 0b1100011010000100u
+    Register.CURRENTEL, 0b1100001000010010u
+    Register.DAIF, 0b1101101000010001u
+    Register.SPSEL, 0b1100001000010000u
+    Register.PAN, 0b1100001000010011u
+    Register.UAO, 0b1100001000010100u
+    Register.DIT, 0b1101101000010101u
+    Register.SSBS, 0b1101101000010110u
+    Register.TCO, 0b1101101000010111u
     Register.ESREL2, 0b1110001010010000u
     Register.ESREL3, 0b1111001010010000u
     Register.HPFAREL2, 0b1110001100000100u
@@ -786,8 +805,7 @@ let private systemRegisters =
     Register.MIDREL1, 0b1100000000000000u
     Register.NZCV, 0b1101101000010000u
     Register.S3_5_C3_C2_0, 0b1110100110010000u
-    Register.S3_7_C2_C2_7, 0b1011100100010111u
-    Register.S0_0_C2_C9_3, 0b0000000101001011u
+    Register.S3_7_C2_C2_7, 0b1111100100010111u
     Register.S2_7_C12_C7_6, 0b1011111000111110u
     Register.CNTVCT_EL0, 0b1101111100000010u ]
   |> Map.ofList
@@ -797,6 +815,18 @@ let private systemRegister reg =
   | Some value -> value
   | None -> fail $"{Register.toString reg} is not a system register"
 
+/// The register a field of the processor state is also written through,
+/// which a line names with the field's own name: "msr pan, x0" reads as far
+/// as the field before the register after it says which form it is.
+let private pstateRegister = function
+  | SPSEL -> Register.SPSEL
+  | UAO -> Register.UAO
+  | PAN -> Register.PAN
+  | SSBS -> Register.SSBS
+  | DIT -> Register.DIT
+  | TCO -> Register.TCO
+  | DAIFSET | DAIFCLR -> fail "DAIFSet and DAIFClr take an immediate"
+
 /// MSR, which writes either a system register or one of the fields of the
 /// processor state that has a name of its own.
 let private moveToSystem ins =
@@ -805,8 +835,13 @@ let private moveToSystem ins =
     let field = pstateField state
     systemHead 0u ||| ((field >>> 3) <<< 16) ||| (0b0100u <<< 12)
     ||| (unsignedImm 4 imm <<< 8) ||| ((field &&& 0b111u) <<< 5) ||| 0b11111u
+  | TwoOperands(OprPstate state, Rg rt) ->
+    let sreg = pstateRegister state
+    systemHead 0u ||| (systemRegister sreg <<< 5) ||| coreReg rt
   | TwoOperands(Rg sreg, Rg rt) ->
     systemHead 0u ||| (systemRegister sreg <<< 5) ||| coreReg rt
+  | TwoOperands(OprSysReg key, Rg rt) ->
+    systemHead 0u ||| (key <<< 5) ||| coreReg rt
   | _ ->
     wrongOperands ins
 
@@ -815,6 +850,8 @@ let private moveFromSystem ins =
   match ins.Operands with
   | TwoOperands(Rg rt, Rg sreg) ->
     systemHead 1u ||| (systemRegister sreg <<< 5) ||| coreReg rt
+  | TwoOperands(Rg rt, OprSysReg key) ->
+    systemHead 1u ||| (key <<< 5) ||| coreReg rt
   | _ ->
     wrongOperands ins
 

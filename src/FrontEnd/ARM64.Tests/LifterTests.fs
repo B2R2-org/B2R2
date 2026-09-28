@@ -51,6 +51,8 @@ type LifterTests() =
   let ( ++ ) (byteStr: string) (givenStmts: Stmt[]) =
     ByteArray.ofHexString byteStr, givenStmts
 
+  let unsupported = AST.sideEffect BinIR.SideEffect.UnsupportedInstruction
+
   let test (bytes: byte[], givenStmts) =
     let parser = ARM64Parser reader :> IInstructionParsable
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
@@ -84,3 +86,54 @@ type LifterTests() =
     "8b336280"
     ++ [| !.X0 := !.X20 .+ (!.X19 << num64 0x0UL) .+ num64 0x0UL |]
     |> test
+
+  /// DC ZVA clears the block DCZID_EL0 names, so the register has to be one
+  /// this front end models, with a value from reset on.
+  [<TestMethod>]
+  member _.``[AArch64] DCZID_EL0 is a modelled system register``() =
+    Assert.AreEqual<bool>(true, List.contains DCZIDEL0 SysReg.modelled)
+
+  /// What it holds is what the processor holds: a Cortex-A57 clears sixteen
+  /// words, which DCZID_EL0.BS spells as four.
+  [<TestMethod>]
+  member _.``[AArch64] DCZID_EL0 holds a Cortex-A57's block size``() =
+    Assert.AreEqual<uint64>(0x4UL, SysReg.resetValue DCZIDEL0)
+
+  /// DAIFSet and DAIFClr set and clear the masks their immediate names, at the
+  /// bits DAIF keeps them in, and leave the other masks as they were.
+  [<TestMethod>]
+  member _.``[AArch64] MSR DAIFSet ORs its masks into DAIF``() =
+    "d50345df"
+    ++ [| !.DAIF := !.DAIF .| num64 0x140UL |]
+    |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR DAIFClr clears its masks from DAIF``() =
+    "d50343ff"
+    ++ [| !.DAIF := !.DAIF .& num64 0xffffffffffffff3fUL |]
+    |> test
+
+  /// Every other field takes the low bit of the immediate and nothing else.
+  [<TestMethod>]
+  member _.``[AArch64] MSR PAN takes the low bit of its immediate``() =
+    "d5004f9f"
+    ++ [| !.PAN := num64 0x400000UL |]
+    |> test
+
+  /// A register that is a window onto PSTATE keeps only its field's bits.
+  [<TestMethod>]
+  member _.``[AArch64] MSR DAIF keeps only the mask bits``() =
+    "d51b4220"
+    ++ [| !.DAIF := !.X0 .& num64 0x3c0UL |]
+    |> test
+
+  /// What a system register with no name holds is the processor's own, so a
+  /// read or a write of one is left to the emulator to report rather than
+  /// given a value nothing stands behind.
+  [<TestMethod>]
+  member _.``[AArch64] MRS of an unnamed system register is unsupported``() =
+    "d538f200" ++ [| unsupported |] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR to an unnamed system register is unsupported``() =
+    "d51ff001" ++ [| unsupported |] |> test

@@ -153,20 +153,56 @@ let getControlRegister = function (* 1:op0:op1:CRn:CRm:op2 *)
     R.MIDREL1
   | 0b1101101000010000u ->
     R.NZCV
+  | 0b1100000010000000u ->
+    R.SCTLREL1
+  | 0b1100000100000000u ->
+    R.TTBR0EL1
+  | 0b1100000100000001u ->
+    R.TTBR1EL1
+  | 0b1100000100000010u ->
+    R.TCREL1
+  | 0b1100010100010000u ->
+    R.MAIREL1
+  | 0b1100011000000000u ->
+    R.VBAREL1
+  | 0b1100001100000000u ->
+    R.FAREL1
+  | 0b1100001000000001u ->
+    R.ELREL1
+  | 0b1100001000000000u ->
+    R.SPSREL1
+  | 0b1100001000001000u ->
+    R.SPEL0
+  | 0b1100011010000100u ->
+    R.TPIDREL1
+  | 0b1100001000010010u ->
+    R.CURRENTEL
+  | 0b1101101000010001u ->
+    R.DAIF
+  | 0b1100001000010000u ->
+    R.SPSEL
+  | 0b1100001000010011u ->
+    R.PAN
+  | 0b1100001000010100u ->
+    R.UAO
+  | 0b1101101000010101u ->
+    R.DIT
+  | 0b1101101000010110u ->
+    R.SSBS
+  | 0b1101101000010111u ->
+    R.TCO
   | 0b1110100110010000u ->
     R.S3_5_C3_C2_0
-  | 0b1011100100010111u ->
+  | 0b1111100100010111u ->
     R.S3_7_C2_C2_7
-  | 0b0000000101001011u ->
-    R.S0_0_C2_C9_3
   | 0b1011111000111110u ->
     R.S2_7_C12_C7_6
   | 0b1101111100000010u ->
     R.CNTVCT_EL0 (* S3_3_C14_C0_2 *)
   | _ ->
     (* D13.2 General system control registers. The table above covers only part
-       of them, so the encoding may well be valid and simply undecodable here.
-       That is a parsing failure, not a claim that this cannot happen. *)
+       of them, so the encoding may well be valid and simply unnamed here; the
+       caller names it by its encoding instead. *)
     raise ParsingFailureException
 
 let getCoprocCRegister = function
@@ -514,11 +550,18 @@ let getExtend = function
   | 0b111u -> SXTX
   | _ -> raise InvalidOperandException
 
+/// The field of PSTATE an MSR (immediate) names by op1:op2. The encodings no
+/// field takes are reserved, and the instruction is UNDEFINED there.
 let getPstate = function
+  | 0b000011u -> UAO
+  | 0b000100u -> PAN
   | 0b000101u -> SPSEL
+  | 0b011001u -> SSBS
+  | 0b011010u -> DIT
+  | 0b011100u -> TCO
   | 0b011110u -> DAIFSET
   | 0b011111u -> DAIFCLR
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
 
 let getPrefetchOperation = function
   | 0b00000uy -> OprPrfOp PLDL1KEEP
@@ -1484,7 +1527,13 @@ let pstatefield bin = getPstate (conOp1Op2 bin) |> OprPstate
 
 let optionOrimm bin = getOption64 (valCrm bin |> byte) |> getOptOrImm bin
 
-let systemregOrctrl bin = getControlRegister (extract bin 20u 5u) |> OprRegister
+/// The system register an MRS or MSR names: by name where this front end has
+/// one, and otherwise by its encoding, which is still a register -- the
+/// IMPLEMENTATION DEFINED ones at CRn 11 and 15 are all of that kind.
+let systemregOrctrl bin =
+  let key = extract bin 20u 5u
+  try OprRegister(getControlRegister key)
+  with :? ParsingFailureException -> OprSysReg key
 
 /// Reserved check function
 let resNone _ = ()

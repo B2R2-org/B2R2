@@ -93,7 +93,7 @@ type LiftingUnitTests() =
   static let undecodable =
     [| Architecture.Intel, "c57da606b4c0d483"      (* Intel/ParsingFunctions *)
        Architecture.ARMv8, "520f5f6ecc7d4906"      (* ARM64/ParsingMain *)
-       Architecture.ARMv8, "da2310d58e8c42b9"      (* ARM64/OperandHelper *)
+       Architecture.ARMv8, "df4000d58e8c42b9"      (* ARM64/OperandHelper *)
        Architecture.ARMv8, "077f1cf2f69240e8"      (* ARM64/Utils *)
        Architecture.SPARC, "3e775fa20b35409b"      (* SPARC/ParsingMain *)
        Architecture.SH4, "31004ec52ee90c4e"        (* SH4/ParsingMain *)

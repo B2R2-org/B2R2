@@ -25,6 +25,7 @@
 module internal B2R2.Assembly.ARM64.ParserHelper
 
 open System
+open System.Text.RegularExpressions
 open B2R2.FrontEnd.ARM64
 open B2R2.Assembly.BinLowerer
 
@@ -174,10 +175,31 @@ let prefetchOperations =
     "plil3strm", PLIL3STRM ]
   |> Map.ofList
 
+let private sysRegPattern =
+  Regex("^s([23])_([0-7])_c([0-9]|1[0-5])_c([0-9]|1[0-5])_([0-7])$")
+
+/// The encoding a system register written as s<op0>_<op1>_c<n>_c<m>_<op2>
+/// stands for -- the sixteen bits MRS and MSR carry at 20:5 -- which is how
+/// the disassembler writes one it has no name for.
+let sysRegKey (name: string) =
+  let m = sysRegPattern.Match name
+  if m.Success then
+    let field (i: int) = uint32 m.Groups[i].Value
+    (1u <<< 15) ||| ((field 1 - 2u) <<< 14) ||| (field 2 <<< 11)
+    ||| (field 3 <<< 7) ||| (field 4 <<< 3) ||| field 5
+    |> Some
+  else
+    None
+
 let pstates =
   [ "spsel", SPSEL
     "daifset", DAIFSET
-    "daifclr", DAIFCLR ]
+    "daifclr", DAIFCLR
+    "uao", UAO
+    "pan", PAN
+    "ssbs", SSBS
+    "dit", DIT
+    "tco", TCO ]
   |> Map.ofList
 
 /// Every arrangement a vector register may be written with, which says both how

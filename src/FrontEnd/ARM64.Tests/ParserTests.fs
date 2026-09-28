@@ -229,7 +229,7 @@ type ParserTests() =
   [<TestMethod>]
   member _.``C4.3.4 System (1)``() =
     "d50042bf"
-    ++ MSR ** [ O.Pstate SPSEL; O.Imm 0x2L ]
+    ++ MSR ** [ O.Pstate Pstate.SPSEL; O.Imm 0x2L ]
     ||> test
 
   [<TestMethod>]
@@ -285,6 +285,79 @@ type ParserTests() =
     "d50330ff"
     ++ SB ** []
     ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (11)``() =
+    "d500419f"
+    ++ MSR ** [ O.Pstate Pstate.PAN; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (12)``() =
+    "d500417f"
+    ++ MSR ** [ O.Pstate Pstate.UAO; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (13)``() =
+    "d503415f"
+    ++ MSR ** [ O.Pstate Pstate.DIT; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (14)``() =
+    "d503413f"
+    ++ MSR ** [ O.Pstate Pstate.SSBS; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (15)``() =
+    "d503419f"
+    ++ MSR ** [ O.Pstate Pstate.TCO; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (16)``() =
+    "d5384260"
+    ++ MRS ** [ O.Reg X0; O.Reg PAN ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (17)``() =
+    "d5184201"
+    ++ MSR ** [ O.Reg SPSEL; O.Reg X1 ]
+    ||> test
+
+  /// A system register this front end has no name for is still a system
+  /// register, written by its encoding the way the manual spells one that has
+  /// no name -- S<op0>_<op1>_C<n>_C<m>_<op2> -- and not refused.
+  [<TestMethod>]
+  member _.``C4.3.4 System (18)``() =
+    testDisasm "d538f200" "mrs x0, s3_0_c15_c2_0"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (19)``() =
+    testDisasm "d51ff001" "msr s3_7_c15_c0_0, x1"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (20)``() =
+    testDisasm "d53314e5" "mrs x5, s2_3_c1_c4_7"
+
+  /// S3_7_C2_C2_7 is the register the table names; the word with op0 = 2 is
+  /// another one, and has no name.
+  [<TestMethod>]
+  member _.``C4.3.4 System (21)``() =
+    testDisasm "d53f22e0" "mrs x0, s3_7_c2_c2_7"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (22)``() =
+    testDisasm "d53722e0" "mrs x0, s2_7_c2_c2_7"
+
+  /// op1:op2 of 001:000 names no field of PSTATE, and the manual leaves the
+  /// encoding UNDEFINED.
+  [<TestMethod>]
+  member _.``[AArch64] MSR (immediate) naming no field is refused``() =
+    testRefused "d501401f"
 
   [<TestMethod>]
   member _.``C4.3.5 Test & branch (immediate) (1)``() =

@@ -118,6 +118,8 @@ let translate (ins: Instruction) bld =
     bCond ins bld PL
   | Opcode.BR ->
     br ins bld
+  | Opcode.ERET ->
+    eret ins bld
   | Opcode.BRK ->
     sideEffects ins bld Breakpoint
   | Opcode.BSL ->

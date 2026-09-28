@@ -2490,7 +2490,8 @@ let movk (ins: Instruction) bld =
     sized ins.OprSize dst := (dst .& mask) .| src
   }
 
-let mrs (ins: Instruction) bld =
+/// MRS of a register this front end names.
+let private mrsNamed (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     match dst, src with
@@ -2513,6 +2514,11 @@ let mrs (ins: Instruction) bld =
           transOpr ins bld src
       direct dst := src
   }
+
+let mrs (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(_, OprSysReg _) -> unsupported ins bld
+  | _ -> mrsNamed ins bld
 
 let mvni (ins: Instruction) bld =
   lift bld ins {

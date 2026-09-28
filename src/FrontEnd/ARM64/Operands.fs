@@ -48,6 +48,9 @@ and Operand =
   | OprMemory of AddressingMode
   | OprOption of BarrierOperation
   | OprPstate of Pstate
+  (* a system register with no name here, by its encoding: the sixteen bits
+     MRS and MSR carry at 20:5, op0:op1:CRn:CRm:op2 with op0's top bit set *)
+  | OprSysReg of uint32
   | OprPrfOp of PrefetchOperation
   | OprCond of Condition
   | OprFbits of uint8  (* fractional bits *)
@@ -182,6 +185,11 @@ and Pstate =
   | SPSEL
   | DAIFSET
   | DAIFCLR
+  | UAO
+  | PAN
+  | SSBS
+  | DIT
+  | TCO
 
 /// Represents prefetch operations used for memory hint instructions.
 and PrefetchOperation =

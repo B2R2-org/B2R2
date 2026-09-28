@@ -803,6 +803,47 @@ type Register =
   /// Virtual timer count register (CNTVCT_EL0), the 64-bit virtual counter read
   /// with mrs. It has no stored value; the emulator supplies a monotonic count.
   | CNTVCT_EL0 = 0x17D
+  /// System Control Register (EL1).
+  | SCTLREL1 = 0x17E
+  /// Translation Table Base Register 0 (EL1).
+  | TTBR0EL1 = 0x17F
+  /// Translation Table Base Register 1 (EL1).
+  | TTBR1EL1 = 0x180
+  /// Translation Control Register (EL1).
+  | TCREL1 = 0x181
+  /// Memory Attribute Indirection Register (EL1).
+  | MAIREL1 = 0x182
+  /// Vector Base Address Register (EL1).
+  | VBAREL1 = 0x183
+  /// Fault Address Register (EL1).
+  | FAREL1 = 0x184
+  /// Exception Link Register (EL1).
+  | ELREL1 = 0x185
+  /// Saved Program Status Register (EL1).
+  | SPSREL1 = 0x186
+  /// Stack Pointer (EL0), as EL1 names it.
+  | SPEL0 = 0x187
+  /// EL1 Read/Write Software Thread ID.
+  | TPIDREL1 = 0x188
+  /// Current Exception Level, which is read-only.
+  | CURRENTEL = 0x189
+  /// The interrupt mask bits.
+  | DAIF = 0x18A
+  /// Which stack pointer SP names: SP_EL0, or the current level's own.
+  | SPSEL = 0x18B
+  /// Privileged Access Never.
+  | PAN = 0x18C
+  /// User Access Override.
+  | UAO = 0x18D
+  /// Data Independent Timing.
+  | DIT = 0x18E
+  /// Speculative Store Bypass Safe.
+  | SSBS = 0x18F
+  /// Tag Check Override.
+  | TCO = 0x190
+  /// Stack Pointer (EL1), where the EL1 stack pointer is kept while SP names
+  /// SP_EL0.
+  | SPEL1 = 0x191
 
 /// Provides functions to handle ARM64 registers.
 [<RequireQualifiedAccess>]
@@ -1183,6 +1224,26 @@ module Register =
     | "dacr32el2" -> Register.DACR32EL2
     | "dczidel0" -> Register.DCZIDEL0
     | "esrel1" -> Register.ESREL1
+    | "sctlr_el1" -> Register.SCTLREL1
+    | "ttbr0_el1" -> Register.TTBR0EL1
+    | "ttbr1_el1" -> Register.TTBR1EL1
+    | "tcr_el1" -> Register.TCREL1
+    | "mair_el1" -> Register.MAIREL1
+    | "vbar_el1" -> Register.VBAREL1
+    | "far_el1" -> Register.FAREL1
+    | "elr_el1" -> Register.ELREL1
+    | "spsr_el1" -> Register.SPSREL1
+    | "sp_el0" -> Register.SPEL0
+    | "tpidr_el1" -> Register.TPIDREL1
+    | "currentel" -> Register.CURRENTEL
+    | "daif" -> Register.DAIF
+    | "spsel" -> Register.SPSEL
+    | "pan" -> Register.PAN
+    | "uao" -> Register.UAO
+    | "dit" -> Register.DIT
+    | "ssbs" -> Register.SSBS
+    | "tco" -> Register.TCO
+    | "sp_el1" -> Register.SPEL1
     | "esrel2" -> Register.ESREL2
     | "esrel3" -> Register.ESREL3
     | "hpfarel2" -> Register.HPFAREL2
@@ -1576,6 +1637,26 @@ module Register =
     | Register.DACR32EL2 -> "dacr32_el2"
     | Register.DCZIDEL0 -> "dczid_el0"
     | Register.ESREL1 -> "esr_el1"
+    | Register.SCTLREL1 -> "sctlr_el1"
+    | Register.TTBR0EL1 -> "ttbr0_el1"
+    | Register.TTBR1EL1 -> "ttbr1_el1"
+    | Register.TCREL1 -> "tcr_el1"
+    | Register.MAIREL1 -> "mair_el1"
+    | Register.VBAREL1 -> "vbar_el1"
+    | Register.FAREL1 -> "far_el1"
+    | Register.ELREL1 -> "elr_el1"
+    | Register.SPSREL1 -> "spsr_el1"
+    | Register.SPEL0 -> "sp_el0"
+    | Register.TPIDREL1 -> "tpidr_el1"
+    | Register.CURRENTEL -> "currentel"
+    | Register.DAIF -> "daif"
+    | Register.SPSEL -> "spsel"
+    | Register.PAN -> "pan"
+    | Register.UAO -> "uao"
+    | Register.DIT -> "dit"
+    | Register.SSBS -> "ssbs"
+    | Register.TCO -> "tco"
+    | Register.SPEL1 -> "sp_el1"
     | Register.ESREL2 -> "esr_el2"
     | Register.ESREL3 -> "esr_el3"
     | Register.HPFAREL2 -> "hpfar_el2"
