@@ -53,11 +53,35 @@ type LifterTests() =
 
   let unsupported = AST.sideEffect BinIR.SideEffect.UnsupportedInstruction
 
+  /// The statements one encoding lifts to, for a test whose claim is that
+  /// the encoding lifts at all rather than what it lifts to.
+  let lifted (hex: string) =
+    let parser = ARM64Parser reader :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
+    let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+    ins.Translate builder
+
   let test (bytes: byte[], givenStmts) =
     let parser = ARM64Parser reader :> IInstructionParsable
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
+
+  (* NGC, NGCS and a BFC with a non-zero lsb all reached the raising
+     fall-through in `translate`, so a block containing one did not lift at
+     all. The claim these pin is exactly that -- each encoding produces
+     statements instead of NotImplementedIRException. *)
+  [<TestMethod>]
+  member _.``[AArch64] NGC lifts``() =
+    Assert.AreEqual<bool>(true, (lifted "da0103e0").Length > 0, "NGC")
+
+  [<TestMethod>]
+  member _.``[AArch64] NGCS lifts``() =
+    Assert.AreEqual<bool>(true, (lifted "fa0103e0").Length > 0, "NGCS")
+
+  [<TestMethod>]
+  member _.``[AArch64] BFC with a non-zero lsb lifts``() =
+    Assert.AreEqual<bool>(true, (lifted "b3781fe0").Length > 0, "BFC")
 
   [<TestMethod>]
   member _.``[AArch64] ADD (immedate) lift test``() =

@@ -1431,6 +1431,34 @@ let sbcs ins bld =
     sized ins.OprSize dst := result
   }
 
+/// NGC and NGCS are the Rn==31 aliases of SBC and SBCS, and the parser emits
+/// them under those names -- dropping the zero-register operand as it goes,
+/// so they arrive with TWO operands. That is why they cannot simply be
+/// dispatched to sbc/sbcs, which read three: the zero register is implied by
+/// the alias, not carried by it. DDI0487F C6.2.185.
+let ngc ins bld =
+  lift bld ins {
+    let dst, src = transTwoOprs ins bld
+    let c = AST.zext ins.OprSize (regVar bld R.C)
+    let result, _ =
+      addWithCarry (AST.num0 ins.OprSize) (AST.not src) c ins.OprSize
+    sized ins.OprSize dst := result
+  }
+
+let ngcs ins bld =
+  lift bld ins {
+    let dst, src = transTwoOprs ins bld
+    let c = tmpVar bld ins.OprSize
+    direct c := AST.zext ins.OprSize (regVar bld R.C)
+    let result, (n, z, c, v) =
+      addWithCarry (AST.num0 ins.OprSize) (AST.not src) c ins.OprSize
+    direct (regVar bld R.N) := n
+    direct (regVar bld R.Z) := z
+    direct (regVar bld R.C) := c
+    direct (regVar bld R.V) := v
+    sized ins.OprSize dst := result
+  }
+
 let sbfm (ins: Instruction) bld dst src immr imms =
   lift bld ins {
     let oprSz = ins.OprSize
