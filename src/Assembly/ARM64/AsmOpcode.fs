@@ -643,6 +643,37 @@ let private branchNoReg opc ins =
   | _ ->
     wrongOperands ins
 
+/// The fields FEAT_PAuth's branches share: those of BR, BLR, RET or ERET,
+/// with bit 11 set and the key in bit 10.
+let private authBranchHead opc key =
+  (0b1101011u <<< 25) ||| (opc <<< 21) ||| (0b11111u <<< 16) ||| (1u <<< 11)
+  ||| (key <<< 10)
+
+/// BRAA and BLRAA and their key-B forms, which name their modifier where the
+/// others hold 11111, and in which 11111 is the stack pointer.
+let private branchAuthModifier opc key ins =
+  match ins.Operands with
+  | TwoOperands(Rg rn, Rg rm) ->
+    authBranchHead opc key ||| (coreReg rn <<< 5) ||| coreRegSP rm
+  | _ ->
+    wrongOperands ins
+
+/// BRAAZ and BLRAAZ and their key-B forms, whose modifier is zero.
+let private branchAuthZero opc key ins =
+  match ins.Operands with
+  | OneOperand(Rg rn) ->
+    authBranchHead opc key ||| (coreReg rn <<< 5) ||| 0b11111u
+  | _ ->
+    wrongOperands ins
+
+/// RETAA and ERETAA and their key-B forms, which name nothing.
+let private branchAuthImplicit opc key ins =
+  match ins.Operands with
+  | NoOperand ->
+    authBranchHead opc key ||| (0b11111u <<< 5) ||| 0b11111u
+  | _ ->
+    wrongOperands ins
+
 /// CBZ and CBNZ, which branch on whether a register holds zero.
 let private compareBranch op ins =
   match ins.Operands with
@@ -1522,6 +1553,18 @@ let branchEncoders () =
     Opcode.RET, returnBranch
     Opcode.ERET, branchNoReg 0b0100u
     Opcode.DRPS, branchNoReg 0b0101u
+    Opcode.BRAA, branchAuthModifier 0b1000u 0u
+    Opcode.BRAB, branchAuthModifier 0b1000u 1u
+    Opcode.BLRAA, branchAuthModifier 0b1001u 0u
+    Opcode.BLRAB, branchAuthModifier 0b1001u 1u
+    Opcode.BRAAZ, branchAuthZero 0b0000u 0u
+    Opcode.BRABZ, branchAuthZero 0b0000u 1u
+    Opcode.BLRAAZ, branchAuthZero 0b0001u 0u
+    Opcode.BLRABZ, branchAuthZero 0b0001u 1u
+    Opcode.RETAA, branchAuthImplicit 0b0010u 0u
+    Opcode.RETAB, branchAuthImplicit 0b0010u 1u
+    Opcode.ERETAA, branchAuthImplicit 0b0100u 0u
+    Opcode.ERETAB, branchAuthImplicit 0b0100u 1u
     Opcode.CBZ, compareBranch 0u
     Opcode.CBNZ, compareBranch 1u
     Opcode.TBZ, testBranch 0u
@@ -1555,6 +1598,29 @@ let private rotateMaskInsert ins =
     (0b101u <<< 29) ||| (0b11010000u <<< 21)
     ||| ((uint32 shift &&& 0x3fu) <<< 15) ||| (0b00001u <<< 10)
     ||| (coreReg rn <<< 5) ||| (uint32 mask &&& 0xfu)
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// LDRAA and LDRAB, whose offset is a signed ten bits counting eight-byte
+/// words rather than bytes, split as S:imm9 with the sign at the top.
+/// </summary>
+let private loadAuth isKeyB ins =
+  let head =
+    (0b11111000u <<< 24) ||| ((if isKeyB then 1u else 0u) <<< 23)
+    ||| (1u <<< 21) ||| (1u <<< 10)
+  let encode rn rt off wback =
+    let scaled = uint32 ((off / 8L) &&& 0x3ffL)
+    head ||| ((scaled >>> 9) <<< 22) ||| ((scaled &&& 0x1ffu) <<< 12)
+    ||| ((if wback then 1u else 0u) <<< 11) ||| (coreRegSP rn <<< 5)
+    ||| coreReg rt
+  match ins.Operands with
+  | TwoOperands(Rg rt,
+                OprMemory(BaseMode(ImmOffset(BaseOffset(rn, off))))) ->
+    encode rn rt (defaultArg off 0L) false
+  | TwoOperands(Rg rt,
+                OprMemory(PreIdxMode(ImmOffset(BaseOffset(rn, off))))) ->
+    encode rn rt (defaultArg off 0L) true
   | _ ->
     wrongOperands ins
 
@@ -1728,6 +1794,45 @@ let private dotProduct u opcode size indexOpcode ins =
     ||| (vectorReg vn <<< 5) ||| vectorReg vd
   | ThreeOperands(_, _, Elem _) ->
     dotProductIndexed u size indexOpcode ins
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// The pointer authentication instructions that name registers: the whole
+/// of the one-source class at opcode2 = 00001.
+///
+/// The Z forms differ from the plain ones in the field the modifier would
+/// name, which they fix to the zero register rather than leaving out -- so
+/// one encoder serves both and the operand count is what picks between them.
+/// XPACI and XPACD are Z forms of the same shape.
+/// </summary>
+let private pacOneSource opcode ins =
+  (* sf:1:S:11010110:opcode2, with opcode2 fixed at 00001 for the whole
+     family -- the one-source class puts a 1 at bit 30 where the two-source
+     class beside it puts a 0 *)
+  let head = (0b11u <<< 30) ||| (0b11010110u <<< 21) ||| (1u <<< 16)
+             ||| (opcode <<< 10)
+  match ins.Operands with
+  | TwoOperands(Rg rd, Rg rn) ->
+    head ||| (coreRegSP rn <<< 5) ||| coreReg rd
+  | OneOperand(Rg rd) ->
+    head ||| (0b11111u <<< 5) ||| coreReg rd
+  | _ ->
+    wrongOperands ins
+
+/// The implicit pointer authentication forms, which are hints: everything
+/// but CRm and op2 is fixed, and the register field reads as the zero
+/// register because there is no register to name.
+let private pacHint crm op2 _ =
+  0xd503201fu ||| (crm <<< 8) ||| (op2 <<< 5)
+
+/// PACGA, which is a two-source instruction and the only one of the family
+/// that reads two whole registers rather than a pointer and a modifier.
+let private pacGeneric ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
+    (1u <<< 31) ||| (0b11010110u <<< 21) ||| (coreRegSP rm <<< 16)
+    ||| (0b001100u <<< 10) ||| (coreReg rn <<< 5) ||| coreReg rd
   | _ ->
     wrongOperands ins
 
@@ -1926,6 +2031,38 @@ let loadStoreEncoders () =
     Opcode.USDOT, dotProduct 0u 0b10011u 0b10u 0b1111u
     Opcode.SUDOT, dotProductIndexed 0u 0b00u 0b1111u
     Opcode.BFCVT, bfConvert
+    Opcode.PACIA, pacOneSource 0b000000u
+    Opcode.PACIB, pacOneSource 0b000001u
+    Opcode.PACDA, pacOneSource 0b000010u
+    Opcode.PACDB, pacOneSource 0b000011u
+    Opcode.AUTIA, pacOneSource 0b000100u
+    Opcode.AUTIB, pacOneSource 0b000101u
+    Opcode.AUTDA, pacOneSource 0b000110u
+    Opcode.AUTDB, pacOneSource 0b000111u
+    Opcode.PACIZA, pacOneSource 0b001000u
+    Opcode.PACIZB, pacOneSource 0b001001u
+    Opcode.PACDZA, pacOneSource 0b001010u
+    Opcode.PACDZB, pacOneSource 0b001011u
+    Opcode.AUTIZA, pacOneSource 0b001100u
+    Opcode.AUTIZB, pacOneSource 0b001101u
+    Opcode.AUTDZA, pacOneSource 0b001110u
+    Opcode.AUTDZB, pacOneSource 0b001111u
+    Opcode.XPACI, pacOneSource 0b010000u
+    Opcode.XPACD, pacOneSource 0b010001u
+    Opcode.PACGA, pacGeneric
+    Opcode.XPACLRI, pacHint 0u 7u
+    Opcode.PACIA1716, pacHint 1u 0u
+    Opcode.PACIB1716, pacHint 1u 2u
+    Opcode.AUTIA1716, pacHint 1u 4u
+    Opcode.AUTIB1716, pacHint 1u 6u
+    Opcode.PACIAZ, pacHint 3u 0u
+    Opcode.PACIASP, pacHint 3u 1u
+    Opcode.PACIBZ, pacHint 3u 2u
+    Opcode.PACIBSP, pacHint 3u 3u
+    Opcode.AUTIAZ, pacHint 3u 4u
+    Opcode.AUTIASP, pacHint 3u 5u
+    Opcode.AUTIBZ, pacHint 3u 6u
+    Opcode.AUTIBSP, pacHint 3u 7u
     Opcode.EOR3, cryptFourReg 0b000u
     Opcode.BCAX, cryptFourReg 0b001u
     Opcode.RAX1, cryptRax1
@@ -2205,6 +2342,8 @@ let dataProcRegEncoders () =
     Opcode.GMI, tagTwoSource 0b000101u false
     Opcode.SETF8, evaluateIntoFlags 0u
     Opcode.RMIF, rotateMaskInsert
+    Opcode.LDRAA, loadAuth false
+    Opcode.LDRAB, loadAuth true
     Opcode.SETF16, evaluateIntoFlags 1u
     Opcode.UMNEGL, multiply 0b101u 1u
     Opcode.SMULH, multiply 0b010u 0u

@@ -67,6 +67,15 @@ type LifterTests() =
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 
+  /// The statements one encoding lifts to, as the text they print as.
+  let liftedText (hex: string) =
+    lifted hex |> Array.map string |> String.concat "\n"
+
+  /// How a failed authentication writes its error code over bits 62:61, as
+  /// the lifted text spells it.
+  let poison (code: uint64) =
+    $"& 0x9fffffffffffffff:I64) | 0x{code:x16}:I64"
+
   /// Whether a statement jumps to the given expression.
   let jumpsTo target (stmt: Stmt) =
     match stmt with
@@ -175,3 +184,23 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[AArch64] MSR to an unnamed system register is unsupported``() =
     "d51ff001" ++ [| unsupported |] |> test
+
+  /// A failed authentication puts key_number:NOT(key_number) in bits 62:61 in
+  /// place of what was there (Auth(), J1-7662): 01 under an A key, 10 under a
+  /// B key. Setting one bit on top of the address would leave an address in
+  /// the upper half, whose top bits are all ones, exactly as it was.
+  [<TestMethod>]
+  member _.``[AArch64] A failed AUTIA leaves 01 in bits 62:61``() =
+    StringAssert.Contains(liftedText "dac11020", poison 0x2000000000000000UL)
+
+  [<TestMethod>]
+  member _.``[AArch64] A failed AUTIB leaves 10 in bits 62:61``() =
+    StringAssert.Contains(liftedText "dac11420", poison 0x4000000000000000UL)
+
+  [<TestMethod>]
+  member _.``[AArch64] A failed AUTDA leaves 01 in bits 62:61``() =
+    StringAssert.Contains(liftedText "dac11820", poison 0x2000000000000000UL)
+
+  [<TestMethod>]
+  member _.``[AArch64] A failed AUTDB leaves 10 in bits 62:61``() =
+    StringAssert.Contains(liftedText "dac11c20", poison 0x4000000000000000UL)

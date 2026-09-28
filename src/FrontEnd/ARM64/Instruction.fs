@@ -76,6 +76,9 @@ type Instruction
       | Opcode.B | Opcode.BL
       (* Unconditional branch (register) *)
       | Opcode.BLR | Opcode.BR | Opcode.RET
+      | Opcode.BRAA | Opcode.BRAAZ | Opcode.BRAB | Opcode.BRABZ
+      | Opcode.BLRAA | Opcode.BLRAAZ | Opcode.BLRAB | Opcode.BLRABZ
+      | Opcode.RETAA | Opcode.RETAB
         -> true
       | _ -> false
 
@@ -105,9 +108,13 @@ type Instruction
     member _.IsCall =
       match op with
       | Opcode.BL | Opcode.BLR -> true
+      | Opcode.BLRAA | Opcode.BLRAAZ | Opcode.BLRAB | Opcode.BLRABZ -> true
       | _ -> false
 
-    member _.IsRET = op = Opcode.RET
+    member _.IsRET =
+      match op with
+      | Opcode.RET | Opcode.RETAA | Opcode.RETAB -> true
+      | _ -> false
 
     member _.IsPush = Terminator.futureFeature ()
 
@@ -121,7 +128,7 @@ type Instruction
     member _.IsExit =
       match op with
       | Opcode.HLT
-      | Opcode.ERET -> true
+      | Opcode.ERET | Opcode.ERETAA | Opcode.ERETAB -> true
       | _ -> false
 
     member _.IsNop = op = Opcode.NOP

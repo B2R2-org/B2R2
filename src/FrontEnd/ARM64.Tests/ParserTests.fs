@@ -5761,3 +5761,136 @@ type ParserTests() =
          O.SIMDVecReg(V2, TwoD)
          O.Imm 0xdL ]
     ||> test
+
+  /// The pointer authentication family sits at opcode2 = 00001 of the
+  /// one-source class, which every guard above it had marked unallocated.
+  /// The Z forms fix the modifier's field to the zero register rather than
+  /// leaving it out, so they are one operand where the others are two.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACIA)``() =
+    "dac10020" ++ PACIA ** [ O.Reg X0; O.Reg X1 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (AUTDB)``() =
+    "dac11c20" ++ AUTDB ** [ O.Reg X0; O.Reg X1 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACIZA)``() =
+    "dac123e0" ++ PACIZA ** [ O.Reg X0 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (XPACD)``() =
+    "dac147e0" ++ XPACD ** [ O.Reg X0 ] ||> test
+
+  /// PACIZA with a register in Rn: the Z forms and XPACI and XPACD hold
+  /// 11111 there as part of their opcode.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACIZA, Rn not 11111)``() =
+    testRefused "dac12043"
+
+  /// AUTDZB with a register in Rn.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (AUTDZB, Rn not 11111)``() =
+    testRefused "dac13c43"
+
+  /// XPACI with a register in Rn.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (XPACI, Rn not 11111)``() =
+    testRefused "dac14043"
+
+  /// XPACD with a register in Rn.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (XPACD, Rn not 11111)``() =
+    testRefused "dac14443"
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACGA)``() =
+    "9ac23020" ++ PACGA ** [ O.Reg X0; O.Reg X1; O.Reg X2 ] ||> test
+
+  /// The implicit forms name no register and are encoded as hints, which is
+  /// how a processor without the feature runs them and does nothing. They
+  /// are told apart by CRm, which the system class's own selector does not
+  /// carry.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACIASP)``() =
+    "d503233f" ++ PACIASP ** [] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (AUTIB1716)``() =
+    "d50321df" ++ AUTIB1716 ** [] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (XPACLRI)``() =
+    "d50320ff" ++ XPACLRI ** [] ||> test
+
+  /// The branches authenticate their target first. BRAA and BLRAA name the
+  /// modifier in the field the others hold 11111 in, where 11111 is the
+  /// stack pointer; the Z forms fix that field, and RETAA and ERETAA fix Rn
+  /// as well, so any other value in a fixed field is no instruction.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BRAA)``() =
+    "d71f0843" ++ BRAA ** [ O.Reg X2; O.Reg X3 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BLRAB)``() =
+    "d73f0c5f" ++ BLRAB ** [ O.Reg X2; O.Reg SP ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BRABZ)``() =
+    "d61f0c5f" ++ BRABZ ** [ O.Reg X2 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BLRAAZ)``() =
+    "d63f081f" ++ BLRAAZ ** [ O.Reg X0 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (RETAA)``() =
+    "d65f0bff" ++ RETAA ** [] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (ERETAB)``() =
+    "d69f0fff" ++ ERETAB ** [] ||> test
+
+  /// BRAAZ with a register in Rm, which the Z form holds at 11111.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BRAAZ, Rm not 11111)``() =
+    testRefused "d61f0843"
+
+  /// RETAA with registers in Rn and Rm, which it holds at 11111.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (RETAA, Rn and Rm not 11111)``() =
+    testRefused "d65f0843"
+
+  /// ERETAA with a register in Rm.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (ERETAA, Rm not 11111)``() =
+    testRefused "d69f0bfe"
+
+  /// DRPS with op3 set, which has no authenticated form.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (DRPS, op3 not 000000)``() =
+    testRefused "d6bf0bff"
+
+  /// LDRAA and LDRAB authenticate the base before the offset is added, and
+  /// the offset counts eight-byte words rather than bytes. Bit 10 is what
+  /// tells the class from the atomics and the register offset beside it, and
+  /// bit 11 above it is the writeback.
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (1)``() =
+    "f8201420" ++ LDRAA ** [ O.Reg X0; O.MemBaseImm(X1, 8L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (2)``() =
+    "f87ff420" ++ LDRAA ** [ O.Reg X0; O.MemBaseImm(X1, -8L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (3)``() =
+    "f83ffc62" ++ LDRAA ** [ O.Reg X2; O.MemPreIdxImm(X3, 4088L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (4)``() =
+    "f8e004a4" ++ LDRAB ** [ O.Reg X4; O.MemBaseImm(X5, -4096L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (5)``() =
+    "f8a007e6" ++ LDRAB ** [ O.Reg X6; O.MemBaseImm(SP, 0L) ] ||> test

@@ -576,6 +576,310 @@ let subp ins bld = tagSubtract ins bld false
 
 let subps ins bld = tagSubtract ins bld true
 
+/// <summary>
+/// The bits a pointer authentication code occupies, for a pointer whose
+/// address is forty-eight bits: the whole of 63:56 and 54:48, with bit 55
+/// left alone because it is what the rest is a sign extension of.
+/// </summary>
+let private pacFieldMask = 0xff7f000000000000UL
+
+/// <summary>
+/// A pointer with its authentication code taken off, which is bit 55
+/// extended back over the field.
+///
+/// This is XPAC, and it is also the first thing every signing and
+/// authenticating instruction does -- what is signed is the ADDRESS, not
+/// whatever was in the field before.
+/// </summary>
+let private stripPAC bld x =
+  let mask = numU64 pacFieldMask 64<rt>
+  (* bit 55, which is what the field either side of it is a sign extension
+     of -- not bit 63, and not what shifting the whole word left by one and
+     taking its top bit gives, which is bit 62 *)
+  let upper = AST.extract x 1<rt> 55
+  let t = tmpVar bld 64<rt>
+  append bld {
+    direct t := AST.ite (upper == AST.b1) (x .| mask) (x .& AST.not mask)
+  }
+  t
+
+/// <summary>
+/// The signature of an address under a modifier.
+///
+/// The architecture leaves the function itself IMPLEMENTATION DEFINED and
+/// fixes only where the answer goes, so this is a mixing function of this
+/// front end's own -- a multiply by an odd constant and two folds, which is
+/// enough to make the signature depend on every bit of both inputs. What a
+/// program can hold it to is that signing changes the pointer and that
+/// authenticating undoes it, and both of those are true of any deterministic
+/// function.
+///
+/// The fifteen bits it produces are split the way the field is: eight above
+/// bit 55 and seven below it.
+/// </summary>
+let private pacSignature bld addr modifier =
+  let s = tmpVar bld 64<rt>
+  let mixed = (addr <+> modifier) .* numU64 0x9e3779b97f4a7c15UL 64<rt>
+  append bld {
+    direct s := (mixed >> numI32 49 64<rt>) <+> (mixed >> numI32 17 64<rt>)
+  }
+  let bits = s .& numI32 0x7fff 64<rt>
+  ((bits >> numI32 7 64<rt>) << numI32 56 64<rt>)
+  .| ((bits .& numI32 0x7f 64<rt>) << numI32 48 64<rt>)
+
+/// <summary>
+/// What a failed authentication makes of the address. The manual's Auth()
+/// (J1-7662) writes key_number:NOT(key_number) into bits 62:61 in place of
+/// what was there -- 01 under an A key, 10 under a B key -- so the pointer is
+/// non-canonical in either half of the address space; setting one bit on top
+/// would leave an upper-half address, whose top bits are all ones, as it was.
+/// The keys are numbered A, B, A, B here, so the low bit is the key_number.
+/// Under TBI the code would go in 54:53, but this front end keeps the
+/// signature where TBI is off, as stripPAC does.
+/// </summary>
+let private poisoned addr key =
+  let code = if key &&& 1 = 0 then 0b01UL else 0b10UL
+  (addr .& numU64 0x9fffffffffffffffUL 64<rt>) .| numU64 (code <<< 61) 64<rt>
+
+/// The single operand of a Z form, which names the register it signs and
+/// nothing else.
+let private oneOpr (ins: Instruction) =
+  match ins.Operands with
+  | OneOperand o -> o
+  | _ -> raise InvalidOperandException
+
+/// <summary>
+/// What PAC* and AUT* both do: strip the pointer, sign the address under the
+/// modifier, and either write that signature in or check it against what was
+/// there.
+///
+/// Which KEY is named makes no difference to what this computes -- the
+/// architecture allows five independent keys and this front end has one --
+/// but it does make a difference to what ROUND-TRIPS: a pointer signed with
+/// one key and authenticated with another must not come back, so the key's
+/// number is mixed into the modifier.
+///
+/// An authentication that fails leaves an error code in the top bits. The
+/// architecture allows that or an exception (FEAT_FPAC); the code is what is
+/// done here, because it is a value rather than a trap and a model with no
+/// exception to raise can still say it.
+/// </summary>
+let private pacWrite bld d m key isAuth =
+  let addr = stripPAC bld d
+  let keyed = m <+> numI32 key 64<rt>
+  let expected = tmpVar bld 64<rt>
+  append bld { direct expected := addr .| pacSignature bld addr keyed }
+  if isAuth then AST.ite (expected == d) addr (poisoned addr key)
+  else expected
+
+/// The forms that name a modifier register.
+let private pacTwo (ins: Instruction) bld key isAuth =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let d = transOpr ins bld dst
+    let m = transOpr ins bld src
+    sized 64<rt> d := pacWrite bld d m key isAuth
+  }
+
+/// The Z forms, whose modifier is zero.
+let private pacOne (ins: Instruction) bld key isAuth =
+  lift bld ins {
+    let d = transOpr ins bld (oneOpr ins)
+    sized 64<rt> d := pacWrite bld d (AST.num0 64<rt>) key isAuth
+  }
+
+/// XPACI and XPACD, which take the signature off and leave everything else.
+let xpac (ins: Instruction) bld =
+  lift bld ins {
+    let d = transOpr ins bld (oneOpr ins)
+    sized 64<rt> d := stripPAC bld d
+  }
+
+/// <summary>
+/// PACGA: a code over two whole registers rather than over an address.
+///
+/// It is not a pointer signer and has no inverse. What the architecture
+/// fixes about it is where the answer goes -- the top half, with the bottom
+/// half zero -- and that is the whole of what a case can hold it to.
+/// </summary>
+let pacga (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let d = transOpr ins bld dst
+    let n = transOpr ins bld src1
+    let m = transOpr ins bld src2
+    let mixed = tmpVar bld 64<rt>
+    direct mixed := (n <+> m) .* numU64 0x9e3779b97f4a7c15UL 64<rt>
+    let folded = (mixed >> numI32 32 64<rt>) <+> mixed
+    let low = folded .& numU64 0xffffffffUL 64<rt>
+    sized 64<rt> d := low << numI32 32 64<rt>
+  }
+
+let pacia ins bld = pacTwo ins bld 0 false
+
+let pacib ins bld = pacTwo ins bld 1 false
+
+let pacda ins bld = pacTwo ins bld 2 false
+
+let pacdb ins bld = pacTwo ins bld 3 false
+
+let paciza ins bld = pacOne ins bld 0 false
+
+let pacizb ins bld = pacOne ins bld 1 false
+
+let pacdza ins bld = pacOne ins bld 2 false
+
+let pacdzb ins bld = pacOne ins bld 3 false
+
+let autia ins bld = pacTwo ins bld 0 true
+
+let autib ins bld = pacTwo ins bld 1 true
+
+let autda ins bld = pacTwo ins bld 2 true
+
+let autdb ins bld = pacTwo ins bld 3 true
+
+let autiza ins bld = pacOne ins bld 0 true
+
+let autizb ins bld = pacOne ins bld 1 true
+
+let autdza ins bld = pacOne ins bld 2 true
+
+let autdzb ins bld = pacOne ins bld 3 true
+
+/// <summary>
+/// The implicit forms, which name no register: the link register is the
+/// pointer, and the modifier is the stack pointer, zero, or X16 with X17 as
+/// the pointer instead.
+///
+/// They are encoded in the HINT space, which is what lets a processor
+/// without FEAT_PAuth run them and do nothing -- and is why B2R2 read them
+/// as `hint #N` until they were given arms of their own.
+/// </summary>
+let private pacImplicit (ins: Instruction) bld key isAuth ptr modifier =
+  let modifier: Register option = modifier
+  lift bld ins {
+    let d = regVar bld ptr
+    let m =
+      match modifier with
+      | Some r -> regVar bld r
+      | None -> AST.num0 64<rt>
+    direct d := pacWrite bld d m key isAuth
+  }
+
+let paciaz ins bld = pacImplicit ins bld 0 false R.X30 None
+
+let paciasp ins bld = pacImplicit ins bld 0 false R.X30 (Some R.SP)
+
+let pacibz ins bld = pacImplicit ins bld 1 false R.X30 None
+
+let pacibsp ins bld = pacImplicit ins bld 1 false R.X30 (Some R.SP)
+
+let autiaz ins bld = pacImplicit ins bld 0 true R.X30 None
+
+let autiasp ins bld = pacImplicit ins bld 0 true R.X30 (Some R.SP)
+
+let autibz ins bld = pacImplicit ins bld 1 true R.X30 None
+
+let autibsp ins bld = pacImplicit ins bld 1 true R.X30 (Some R.SP)
+
+let pacia1716 ins bld = pacImplicit ins bld 0 false R.X17 (Some R.X16)
+
+let pacib1716 ins bld = pacImplicit ins bld 1 false R.X17 (Some R.X16)
+
+let autia1716 ins bld = pacImplicit ins bld 0 true R.X17 (Some R.X16)
+
+let autib1716 ins bld = pacImplicit ins bld 1 true R.X17 (Some R.X16)
+
+/// XPACLRI, which is XPACI on the link register.
+let xpaclri (ins: Instruction) bld =
+  lift bld ins {
+    let d = regVar bld R.X30
+    direct d := stripPAC bld d
+  }
+
+/// <summary>
+/// LDRAA and LDRAB: a load whose BASE is authenticated before the offset is
+/// added.
+///
+/// The modifier is X[31], which the manual's pseudocode means as the ZERO
+/// register -- the same page writes `SP[]` two lines further down where it
+/// means the stack pointer. So a pointer signed with PACDZA authenticates
+/// here and one signed against the stack pointer does not.
+///
+/// The offset counts eight-byte words and is signed, and it is added AFTER
+/// the authentication: what is signed is the base, not the address the load
+/// reaches.
+/// </summary>
+let private loadAuth (ins: Instruction) bld isKeyB =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let d = transOpr ins bld dst
+    let struct (bReg, offset) =
+      match src with
+      | OprMemory(BaseMode(ImmOffset(BaseOffset(b, o)))) ->
+        struct (regVar bld b, defaultArg o 0L)
+      | OprMemory(PreIdxMode(ImmOffset(BaseOffset(b, o)))) ->
+        struct (regVar bld b, defaultArg o 0L)
+      | _ ->
+        raise InvalidOperandException
+    let key = if isKeyB then 3 else 2
+    let authed = tmpVar bld 64<rt>
+    direct authed := pacWrite bld bReg (AST.num0 64<rt>) key true
+    let address = authed .+ numI64 offset 64<rt>
+    sized 64<rt> d := AST.loadLE 64<rt> address
+  }
+
+let ldraa ins bld = loadAuth ins bld false
+
+let ldrab ins bld = loadAuth ins bld true
+
+/// <summary>
+/// The target of BRAA, BLRAA and their Z and key-B forms: the first operand
+/// authenticated under the key, against the second operand where there is
+/// one and against zero where there is not. It goes into a temporary before
+/// anything is written, since BLRAA's target can be the link register BLRAA
+/// writes.
+/// </summary>
+let private authenticatedTarget (ins: Instruction) bld key =
+  let target, modifier =
+    match ins.Operands with
+    | OneOperand o -> transOpr ins bld o, AST.num0 64<rt>
+    | TwoOperands(o1, o2) -> transOpr ins bld o1, transOpr ins bld o2
+    | _ -> raise InvalidOperandException
+  let t = tmpVar bld 64<rt>
+  append bld { direct t := pacWrite bld target modifier key true }
+  t
+
+/// BRAA, BRAAZ, BRAB and BRABZ: BR to a target authenticated first.
+let branchAuth ins bld key =
+  lift bld ins {
+    let target = authenticatedTarget ins bld key
+    AST.interjmp target InterJmpKind.Base
+    return NoEndMark
+  }
+
+/// BLRAA, BLRAAZ, BLRAB and BLRABZ: BLR to a target authenticated first.
+let branchLinkAuth (ins: Instruction) bld key =
+  lift bld ins {
+    let target = authenticatedTarget ins bld key
+    let pc = numU64 ins.Address bld.RegType
+    direct (regVar bld R.X30) := pc .+ numI64 4L 64<rt>
+    AST.interjmp target InterJmpKind.IsCall
+    return NoEndMark
+  }
+
+/// RETAA and RETAB: RET to the link register, authenticated against the
+/// stack pointer first.
+let returnAuth ins bld key =
+  lift bld ins {
+    let lr = regVar bld R.X30
+    let target = tmpVar bld 64<rt>
+    direct target := pacWrite bld lr (regVar bld R.SP) key true
+    branchTo ins bld target BrTypeRET InterJmpKind.IsRet
+    return NoEndMark
+  }
+
 /// CFINV, which inverts the carry flag and touches nothing else.
 let cfinv ins bld =
   lift bld ins {
@@ -1392,12 +1696,21 @@ let private restoreFields bld spsr =
 /// to select between -- and code that read CurrentEL across an ERET would be
 /// reading a register this does not write. That is a limit worth stating
 /// rather than papering over with a value that looks right.
+///
+/// ERETAA and ERETAB are the same return with the address authenticated
+/// against the stack pointer first, under the key given here; what they
+/// authenticate is not written back to the link register.
 /// </summary>
-let eret ins bld =
+let private exceptionReturn ins bld key =
   lift bld ins {
     let spsr = regVar bld R.SPSREL1
+    let elr = regVar bld R.ELREL1
+    let source =
+      match key with
+      | Some k -> pacWrite bld elr (regVar bld R.SP) k true
+      | None -> elr
     let target = tmpVar bld 64<rt>
-    direct target := regVar bld R.ELREL1
+    direct target := source
     direct (regVar bld R.N) := AST.extract spsr 1<rt> 31
     direct (regVar bld R.Z) := AST.extract spsr 1<rt> 30
     direct (regVar bld R.C) := AST.extract spsr 1<rt> 29
@@ -1412,6 +1725,12 @@ let eret ins bld =
     branchTo ins bld target BrTypeRET InterJmpKind.IsRet
     return NoEndMark
   }
+
+let eret ins bld = exceptionReturn ins bld None
+
+let eretaa ins bld = exceptionReturn ins bld (Some 0)
+
+let eretab ins bld = exceptionReturn ins bld (Some 1)
 
 let ret ins bld =
   lift bld ins {

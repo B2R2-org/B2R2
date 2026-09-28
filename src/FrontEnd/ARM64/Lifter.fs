@@ -311,6 +311,88 @@ let translate (ins: Instruction) bld =
     frint64x ins bld
   | Opcode.FJCVTZS ->
     fjcvtzs ins bld
+  | Opcode.PACIA ->
+    pacia ins bld
+  | Opcode.PACIB ->
+    pacib ins bld
+  | Opcode.PACDA ->
+    pacda ins bld
+  | Opcode.PACDB ->
+    pacdb ins bld
+  | Opcode.PACIZA ->
+    paciza ins bld
+  | Opcode.PACIZB ->
+    pacizb ins bld
+  | Opcode.PACDZA ->
+    pacdza ins bld
+  | Opcode.PACDZB ->
+    pacdzb ins bld
+  | Opcode.AUTIA ->
+    autia ins bld
+  | Opcode.AUTIB ->
+    autib ins bld
+  | Opcode.AUTDA ->
+    autda ins bld
+  | Opcode.AUTDB ->
+    autdb ins bld
+  | Opcode.AUTIZA ->
+    autiza ins bld
+  | Opcode.AUTIZB ->
+    autizb ins bld
+  | Opcode.AUTDZA ->
+    autdza ins bld
+  | Opcode.AUTDZB ->
+    autdzb ins bld
+  | Opcode.XPACI | Opcode.XPACD ->
+    xpac ins bld
+  | Opcode.PACGA ->
+    pacga ins bld
+  | Opcode.XPACLRI ->
+    xpaclri ins bld
+  | Opcode.PACIA1716 ->
+    pacia1716 ins bld
+  | Opcode.PACIB1716 ->
+    pacib1716 ins bld
+  | Opcode.AUTIA1716 ->
+    autia1716 ins bld
+  | Opcode.AUTIB1716 ->
+    autib1716 ins bld
+  | Opcode.PACIAZ ->
+    paciaz ins bld
+  | Opcode.PACIASP ->
+    paciasp ins bld
+  | Opcode.PACIBZ ->
+    pacibz ins bld
+  | Opcode.PACIBSP ->
+    pacibsp ins bld
+  | Opcode.AUTIAZ ->
+    autiaz ins bld
+  | Opcode.AUTIASP ->
+    autiasp ins bld
+  | Opcode.AUTIBZ ->
+    autibz ins bld
+  | Opcode.AUTIBSP ->
+    autibsp ins bld
+  | Opcode.LDRAA ->
+    ldraa ins bld
+  | Opcode.LDRAB ->
+    ldrab ins bld
+  | Opcode.BRAA | Opcode.BRAAZ ->
+    branchAuth ins bld 0
+  | Opcode.BRAB | Opcode.BRABZ ->
+    branchAuth ins bld 1
+  | Opcode.BLRAA | Opcode.BLRAAZ ->
+    branchLinkAuth ins bld 0
+  | Opcode.BLRAB | Opcode.BLRABZ ->
+    branchLinkAuth ins bld 1
+  | Opcode.RETAA ->
+    returnAuth ins bld 0
+  | Opcode.RETAB ->
+    returnAuth ins bld 1
+  | Opcode.ERETAA ->
+    eretaa ins bld
+  | Opcode.ERETAB ->
+    eretab ins bld
   | Opcode.CFINV ->
     cfinv ins bld
   | Opcode.SETF8 ->

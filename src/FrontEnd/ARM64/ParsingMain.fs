@@ -457,6 +457,12 @@ let getXdXsnXsm bin = ThreeOperands(xd bin, xsn bin, xsm bin)
 
 let getXsnXsm bin = TwoOperands(xsn bin, xsm bin)
 
+let getXdXSn bin = TwoOperands(xd bin, xsn bin)
+
+let getXd bin = OneOperand(xd bin)
+
+let getXdXnXSm bin = ThreeOperands(xd bin, xn bin, xsm bin)
+
 let getXdXnXm bin = ThreeOperands(xd bin, xn bin, xm bin)
 
 /// IRG, whose two tagged pointers may each be the stack pointer, and whose
@@ -1189,6 +1195,35 @@ let parseSystem bin =
       unallocated ()
     | c when c &&& 0b1111111110000u = 0b0000110010000u && not isRt1F ->
       unallocated ()
+    (* FEAT_PAuth's implicit forms, which name no register and are encoded
+       as hints so that a processor without the feature runs them as no-ops.
+       They are told apart by CRm, which the selector above does not carry. *)
+    | 0b0000110010111u when isCRmZero && isRt1F ->
+      Op.XPACLRI, NoOperand, 0<rt>
+    | 0b0000110010000u when crm = 1L && isRt1F ->
+      Op.PACIA1716, NoOperand, 0<rt>
+    | 0b0000110010010u when crm = 1L && isRt1F ->
+      Op.PACIB1716, NoOperand, 0<rt>
+    | 0b0000110010100u when crm = 1L && isRt1F ->
+      Op.AUTIA1716, NoOperand, 0<rt>
+    | 0b0000110010110u when crm = 1L && isRt1F ->
+      Op.AUTIB1716, NoOperand, 0<rt>
+    | 0b0000110010000u when crm = 3L && isRt1F ->
+      Op.PACIAZ, NoOperand, 0<rt>
+    | 0b0000110010001u when crm = 3L && isRt1F ->
+      Op.PACIASP, NoOperand, 0<rt>
+    | 0b0000110010010u when crm = 3L && isRt1F ->
+      Op.PACIBZ, NoOperand, 0<rt>
+    | 0b0000110010011u when crm = 3L && isRt1F ->
+      Op.PACIBSP, NoOperand, 0<rt>
+    | 0b0000110010100u when crm = 3L && isRt1F ->
+      Op.AUTIAZ, NoOperand, 0<rt>
+    | 0b0000110010101u when crm = 3L && isRt1F ->
+      Op.AUTIASP, NoOperand, 0<rt>
+    | 0b0000110010110u when crm = 3L && isRt1F ->
+      Op.AUTIBZ, NoOperand, 0<rt>
+    | 0b0000110010111u when crm = 3L && isRt1F ->
+      Op.AUTIBSP, NoOperand, 0<rt>
     | c when c &&& 0b1111111111000u = 0b0000110010000u &&
              not isCRmZero &&
              isRt1F ->
@@ -1256,7 +1291,28 @@ let parseUncondBranchImm bin =
   let offset = signExtend 28 64 (extract bin 25u 0u <<< 2 |> uint64) |> int64
   opCode, OneOperand(memLabel offset), 64<rt>
 
-let parseUncondBranchReg bin =
+/// <summary>
+/// FEAT_PAuth's branches, which are BR, BLR, RET and ERET with the target
+/// authenticated first: under key A where bit 10 is clear and key B where it
+/// is set. BRAA and BLRAA name their modifier in the field the others hold
+/// 11111 in, where 11111 is the stack pointer, and set bit 24 to say so;
+/// BRAAZ and BLRAAZ authenticate against zero, and RETAA and ERETAA against
+/// the stack pointer without naming it.
+/// </summary>
+let parseUncondBranchRegAuth bin =
+  let isRn1F = valN bin = 0b11111u
+  let isRm1F = valD bin = 0b11111u
+  let pick a b = if pickBit bin 10u = 0u then a else b
+  match extract bin 24u 21u with
+  | 0b0000u when isRm1F -> pick Op.BRAAZ Op.BRABZ, OneOperand(xn bin), 64<rt>
+  | 0b0001u when isRm1F -> pick Op.BLRAAZ Op.BLRABZ, OneOperand(xn bin), 64<rt>
+  | 0b0010u when isRn1F && isRm1F -> pick Op.RETAA Op.RETAB, NoOperand, 64<rt>
+  | 0b0100u when isRn1F && isRm1F -> pick Op.ERETAA Op.ERETAB, NoOperand, 0<rt>
+  | 0b1000u -> pick Op.BRAA Op.BRAB, TwoOperands(xn bin, xsd bin), 64<rt>
+  | 0b1001u -> pick Op.BLRAA Op.BLRAB, TwoOperands(xn bin, xsd bin), 64<rt>
+  | _ -> unallocated ()
+
+let parseUncondBranchRegPlain bin =
   let opc = extract bin 24u 21u
   let isOp21F = extract bin 20u 16u = 0b11111u
   let isOp3Zero = extract bin 15u 10u = 0b000000u
@@ -1285,6 +1341,12 @@ let parseUncondBranchReg bin =
     unallocated ()
   | _ ->
     raise ParsingFailureException
+
+/// Unconditional branch (register): FEAT_PAuth's forms where op2 is 11111
+/// and op3 is 00001 followed by the key, and the plain ones otherwise.
+let parseUncondBranchReg bin =
+  if extract bin 20u 11u = 0b1111100001u then parseUncondBranchRegAuth bin
+  else parseUncondBranchRegPlain bin
 
 /// Branches, exception generating and system instructions
 let parse64Group2 bin =
@@ -2330,6 +2392,34 @@ let parseLoadStoreMemoryTags bin =
   | 0b11u, 0b00u when isImm9Zero -> Op.LDGM, getXtMXSn bin, 64<rt>
   | _ -> unallocated ()
 
+/// <summary>
+/// FEAT_PAuth's loads, whose base is authenticated before the offset is
+/// added.
+///
+/// They sit inside the unscaled class at bit 21 with bit 10 set, which is
+/// what tells them from the atomics below them and the register offset
+/// beside them; bit 11 above it is the writeback. The selector
+/// `parse64Group3` builds does not carry the size bit that tells them from
+/// their neighbours, so they are taken on the raw word, the way the crypto
+/// classes are.
+///
+/// The offset is a signed ten bits, S:imm9, counting eight-byte words, and
+/// W says whether the authenticated base is written back.
+/// </summary>
+let private isLoadStorePac bin =
+  extract bin 31u 30u = 0b11u && extract bin 29u 27u = 0b111u
+  && pickBit bin 26u = 0u && extract bin 25u 24u = 0b00u
+  && pickBit bin 21u = 1u && pickBit bin 10u = 1u
+
+let parseLoadStorePac bin =
+  let raw = (int64 (pickBit bin 22u) <<< 9) ||| int64 (extract bin 20u 12u)
+  let offset = Some((if raw >= 512L then raw - 1024L else raw) * 8L)
+  let mem =
+    if pickBit bin 11u = 0u then memBaseImm (xsr (valN bin), offset)
+    else memPreIdxImm (xsr (valN bin), offset)
+  let op = if pickBit bin 23u = 0u then Op.LDRAA else Op.LDRAB
+  op, TwoOperands(xt1 bin, mem), 64<rt>
+
 /// Loads and stores
 let parse64Group3 bin =
   let op0 = pickBit bin 31u
@@ -2398,6 +2488,9 @@ let parse64Group3 bin =
     parseLoadStoreRegImmPreIndexed bin
   | c when c &&& 0b01101010000011u = 0b01100010000000u ->
     parseAtomicMemoryOperations bin
+  (* FEAT_PAuth's loads, which the guard below reads as unallocated *)
+  | _ when isLoadStorePac bin ->
+    parseLoadStorePac bin
   | c when c &&& 0b01101010000011u = 0b01100010000001u ->
     unallocated ()
   | c when c &&& 0b01101010000011u = 0b01100010000010u ->
@@ -2435,6 +2528,10 @@ let parseDataProcessing2Src bin =
      000110 or 000111. *)
   | 0b10000100u -> Op.IRG, getXsdXsnXm bin, 64<rt>
   | 0b10000101u -> Op.GMI, getXdXsnXm bin, 64<rt>
+  (* PACGA sits in the same half at 001100, and is the only one of the
+     pointer authentication family that reads two registers rather than a
+     pointer and a modifier *)
+  | 0b10001100u -> Op.PACGA, getXdXnXSm bin, 64<rt>
   | c when c &&& 0b11111100u = 0b00000100u -> unallocated ()
   | c when c &&& 0b11111110u = 0b10000110u -> unallocated ()
   | c when c &&& 0b01111100u = 0b00001100u -> unallocated ()
@@ -2470,7 +2567,29 @@ let parseDataProcessing1Src bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
                     (extract bin 20u 10u)
                     11 (* sf:S:opcode2:opcode *)
+  let isRn1F = valN bin = 0b11111u
   match cond with
+  (* FEAT_PAuth, whose whole class sits at opcode2 = 00001 and is otherwise
+     read exactly like the one-source instructions beside it; the Z forms
+     and XPAC hold 11111 in Rn as part of their opcode *)
+  | 0b1000001000000u -> Op.PACIA, getXdXSn bin, 64<rt>
+  | 0b1000001000001u -> Op.PACIB, getXdXSn bin, 64<rt>
+  | 0b1000001000010u -> Op.PACDA, getXdXSn bin, 64<rt>
+  | 0b1000001000011u -> Op.PACDB, getXdXSn bin, 64<rt>
+  | 0b1000001000100u -> Op.AUTIA, getXdXSn bin, 64<rt>
+  | 0b1000001000101u -> Op.AUTIB, getXdXSn bin, 64<rt>
+  | 0b1000001000110u -> Op.AUTDA, getXdXSn bin, 64<rt>
+  | 0b1000001000111u -> Op.AUTDB, getXdXSn bin, 64<rt>
+  | 0b1000001001000u when isRn1F -> Op.PACIZA, getXd bin, 64<rt>
+  | 0b1000001001001u when isRn1F -> Op.PACIZB, getXd bin, 64<rt>
+  | 0b1000001001010u when isRn1F -> Op.PACDZA, getXd bin, 64<rt>
+  | 0b1000001001011u when isRn1F -> Op.PACDZB, getXd bin, 64<rt>
+  | 0b1000001001100u when isRn1F -> Op.AUTIZA, getXd bin, 64<rt>
+  | 0b1000001001101u when isRn1F -> Op.AUTIZB, getXd bin, 64<rt>
+  | 0b1000001001110u when isRn1F -> Op.AUTDZA, getXd bin, 64<rt>
+  | 0b1000001001111u when isRn1F -> Op.AUTDZB, getXd bin, 64<rt>
+  | 0b1000001010000u when isRn1F -> Op.XPACI, getXd bin, 64<rt>
+  | 0b1000001010001u when isRn1F -> Op.XPACD, getXd bin, 64<rt>
   | c when c &&& 0b0000000001000u = 0b0000000001000u -> unallocated ()
   | c when c &&& 0b0000000010000u = 0b0000000010000u -> unallocated ()
   | c when c &&& 0b0000000100000u = 0b0000000100000u -> unallocated ()
