@@ -1550,6 +1550,16 @@ let private tagTwoSource opcode dstMaySP ins =
     wrongOperands ins
 
 /// BFCVT, which rounds a single-precision number to the BFloat16 that keeps
+/// its exponent and the top of its significand.
+let private bfConvert ins =
+  match ins.Operands with
+  | TwoOperands(Rg rd, Rg rn) ->
+    (0b00011110u <<< 24) ||| (0b01u <<< 22) ||| (1u <<< 21)
+    ||| (0b000110u <<< 15) ||| (0b10000u <<< 10) ||| (simdReg 32 rn <<< 5)
+    ||| simdReg 16 rd
+  | _ ->
+    wrongOperands ins
+
 /// The bits a memory-tag access shares. Its offset counts GRANULES of sixteen
 /// bytes rather than bytes, because a tag belongs to a granule.
 let private tagAccessWith opc op2 rtField rt rn offset =
@@ -1636,6 +1646,51 @@ let private tagSubtract setsFlags ins =
     head ||| (coreRegSP rm <<< 16) ||| (coreRegSP rn <<< 5) ||| coreReg rd
   | TwoOperands(Rg rn, Rg rm) ->
     head ||| (coreRegSP rm <<< 16) ||| (coreRegSP rn <<< 5) ||| 0b11111u
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// The dot products by element, whose second source names one group of four
+/// bytes for every word: a register of five bits, and an index of two, H:L.
+/// </summary>
+let private dotProductIndexed u size opcode ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(vd, ta), Vec(vn, tb), Elem(vm, FourB, index))
+    when index < 4uy ->
+    let q =
+      match ta, tb with
+      | TwoS, EightB -> 0u
+      | FourS, SixteenB -> 1u
+      | _ -> fail "a dot product reads bytes and writes words"
+    let i = uint32 index
+    (q <<< 30) ||| (u <<< 29) ||| (0b01111u <<< 24) ||| (size <<< 22)
+    ||| ((i &&& 1u) <<< 21) ||| (vectorReg vm <<< 16) ||| (opcode <<< 12)
+    ||| ((i >>> 1) <<< 11) ||| (vectorReg vn <<< 5) ||| vectorReg vd
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// The dot products, which read four bytes of each source for every word of
+/// the destination: the words of another vector, or by element the one group
+/// of four the size and the indexed opcode name.
+///
+/// Two arrangements meet in one instruction, so the Q bit cannot be read off
+/// either side alone: it comes from the destination and the sources are
+/// checked to agree with it.
+/// </summary>
+let private dotProduct u opcode size indexOpcode ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(vd, ta), Vec(vn, tb), Vec(vm, tc)) ->
+    let q =
+      match ta, tb, tc with
+      | TwoS, EightB, EightB -> 0u
+      | FourS, SixteenB, SixteenB -> 1u
+      | _ -> fail "a dot product reads bytes and writes words"
+    (q <<< 30) ||| (u <<< 29) ||| (0b01110u <<< 24) ||| (0b10u <<< 22)
+    ||| (vectorReg vm <<< 16) ||| (opcode <<< 11) ||| (1u <<< 10)
+    ||| (vectorReg vn <<< 5) ||| vectorReg vd
+  | ThreeOperands(_, _, Elem _) ->
+    dotProductIndexed u size indexOpcode ins
   | _ ->
     wrongOperands ins
 
@@ -1740,6 +1795,11 @@ let loadStoreEncoders () =
     Opcode.STLLRH, exclusiveOne (Some 0b01u) 1u 0u 0u
     Opcode.LDLAR, exclusiveOne None 1u 1u 0u
     Opcode.STLLR, exclusiveOne None 1u 0u 0u
+    Opcode.SDOT, dotProduct 0u 0b10010u 0b10u 0b1110u
+    Opcode.UDOT, dotProduct 1u 0b10010u 0b10u 0b1110u
+    Opcode.USDOT, dotProduct 0u 0b10011u 0b10u 0b1111u
+    Opcode.SUDOT, dotProductIndexed 0u 0b00u 0b1111u
+    Opcode.BFCVT, bfConvert
     Opcode.STXRB, exclusiveStore (Some 0b00u) 0u
     Opcode.STLXRB, exclusiveStore (Some 0b00u) 1u
     Opcode.STXRH, exclusiveStore (Some 0b01u) 0u

@@ -592,6 +592,21 @@ let getVdtVntVmHidx bin = ThreeOperands(vdtq3 bin, vntq3 bin, vmHidx bin)
 
 let getHdHnVmHidx bin = ThreeOperands(hd bin, hn bin, vmHidx bin)
 
+/// The dot products by element: words, bytes, and the one group of four
+/// bytes every word reads.
+let getVdtVntVm4Bidx bin = ThreeOperands(vdtq2 bin, vntq1 bin, vm4Bidx bin)
+
+/// BFDOT by element: words, halves, and one pair of halves.
+let getVdtVntVm2Hidx bin = ThreeOperands(vdtq2 bin, vntq3 bin, vm2Hidx bin)
+
+/// The long multiply-accumulates by element: words, the halves Q counts
+/// from the destination, and one half.
+let getVdtVntVmHidxLong bin = ThreeOperands(vdtq2 bin, vntq4 bin, vmHidx bin)
+
+/// BFMLALB and BFMLALT by element: four words, eight halves, one half.
+let getVd4SVn8HVmHidx bin =
+  ThreeOperands(vd4S bin, getSIMDFPVecReg (valN bin) EightH, vmHidx bin)
+
 let getVdtFImmH bin = TwoOperands(vdtq3 bin, fVecImm8 bin)
 
 (* Register - Register - Shift *)
@@ -764,6 +779,7 @@ let getOprSizeByVector = function
   | VecH -> 16<rt>
   | VecS -> 32<rt>
   | VecD -> 64<rt>
+  | FourB -> 32<rt>
   | EightB -> 64<rt>
   | SixteenB -> 128<rt>
   | TwoH -> 64<rt>
@@ -2899,12 +2915,23 @@ let parseAdvSIMDCopy bin =
 let toAliasFromNOT _ = Op.MVN
 
 /// Advanced SIMD two-register miscellaneous on page C4-343.
+/// BFCVTN and BFCVTN2, whose source is always four words and whose
+/// destination is four or eight halves by Q -- the only two-register form in
+/// the class whose two sides carry different arrangements.
+let getVdtVnt4S bin =
+  TwoOperands(vdtq3 bin, getSIMDFPVecReg (valN bin) FourS)
+
 let parseAdvSIMDTwoReg bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
                     (extract bin 16u 12u)
                     5 (* U:size:opcode *)
   let oprSize = getOprSizeByQ bin
   match cond with
+  (* FEAT_BF16's narrowing convert, which the guards below read as belonging
+     to the conversions it sits among *)
+  | 0b01010110u ->
+    let op = if pickBit bin 30u = 0u then Op.BFCVTN else Op.BFCVTN2
+    op, getVdtVnt4S bin, oprSize
   | c when c &&& 0b00011110u = 0b00010000u ->
     unallocated ()
   | c when c &&& 0b00011111u = 0b00010101u ->
@@ -3197,6 +3224,75 @@ let parseAdvSIMDThreeDiff bin =
   | _ ->
     raise ParsingFailureException
 
+/// The matrix multiplies, whose arrangements are fixed rather than named by
+/// a size field: four words accumulated from sixteen bytes on each side.
+let getVd4SVn16BVm16B bin =
+  ThreeOperands(getSIMDFPVecReg (valD bin) FourS,
+                getSIMDFPVecReg (valN bin) SixteenB,
+                getSIMDFPVecReg (valM bin) SixteenB)
+
+/// BFMLALB and BFMLALT, whose destination is four words and whose sources
+/// are eight halves -- fixed, like the matrix multiplies beside them.
+let getVd4SVn8HVm8H bin =
+  ThreeOperands(getSIMDFPVecReg (valD bin) FourS,
+                getSIMDFPVecReg (valN bin) EightH,
+                getSIMDFPVecReg (valM bin) EightH)
+
+/// <summary>
+/// Advanced SIMD three-register extension: the operations that read their
+/// sources as elements narrower than the ones they write.
+///
+/// The dot products are the three here with a lifter. Each reads four bytes
+/// of each source per word of the destination and sums the four products
+/// into it, so the destination's arrangement is words and the sources' is
+/// bytes -- two arrangements in one instruction, which is why the class
+/// exists beside the three-register ones where they are the same.
+///
+/// The class is bit 10 set as well as bit 15, and the selector that sends
+/// words here reads only the latter, so a word with bit 10 clear is turned
+/// away before anything else is read of it.
+/// </summary>
+let parseAdvSIMDThreeRegExtension bin =
+  if pickBit bin 10u = 0u then unallocated () else ()
+  let oprs = ThreeOperands(vdtq2 bin, vntq1 bin, vmtq1 bin)
+  let cond = (* U:size:opcode *)
+    concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
+           (extract bin 15u 11u)
+           5
+  match cond with
+  (* FEAT_RDM, whose two members are the only ones in this class whose
+     arrangement comes from the size field rather than from Q alone *)
+  | c when c &&& 0b10011111u = 0b10010000u ->
+    Op.SQRDMLAH, getVdtVntVmt1 bin size0011, getOprSizeByQ bin
+  | c when c &&& 0b10011111u = 0b10010001u ->
+    Op.SQRDMLSH, getVdtVntVmt1 bin size0011, getOprSizeByQ bin
+  | 0b11111111u ->
+    let op = if pickBit bin 30u = 0u then Op.BFMLALB else Op.BFMLALT
+    op, getVd4SVn8HVm8H bin, 128<rt>
+  | 0b10111111u ->
+    Op.BFDOT, ThreeOperands(vdtq2 bin, vntq3 bin, vmtq3 bin), getOprSizeByQ bin
+  | 0b10111101u when valQ bin = 1u ->
+    Op.BFMMLA, getVd4SVn8HVm8H bin, 128<rt>
+  | 0b01010100u when valQ bin = 1u ->
+    Op.SMMLA, getVd4SVn16BVm16B bin, 128<rt>
+  | 0b11010100u when valQ bin = 1u ->
+    Op.UMMLA, getVd4SVn16BVm16B bin, 128<rt>
+  | 0b01010101u when valQ bin = 1u ->
+    Op.USMMLA, getVd4SVn16BVm16B bin, 128<rt>
+  | 0b01010010u ->
+    Op.SDOT, oprs, getOprSizeByQ bin
+  | 0b11010010u ->
+    Op.UDOT, oprs, getOprSizeByQ bin
+  | 0b01010011u ->
+    Op.USDOT, oprs, getOprSizeByQ bin
+  | _ ->
+    unallocated ()
+
+/// The long multiply-accumulate's operands: a destination of words and two
+/// sources of halves, both counted by Q.
+let getVdtVntVmtLong bin =
+  ThreeOperands(vdtq2 bin, vntq4 bin, vmtq4 bin)
+
 let changeToAliasOfAdvSIMDThreeSame bin = function
   | Op.ORR, ThreeOperands(vdt, vnt, _) when valM bin = valN bin ->
     Op.MOV, TwoOperands(vdt, vnt)
@@ -3209,6 +3305,17 @@ let parseAdvSIMDThreeSame b =
                     5 (* U:size:opcode *)
   let ins =
     match cond with
+    (* FEAT_FHM, whose four members sit in slots this class otherwise reads
+       as unallocated. They are the only three-same instructions whose
+       sources are narrower than their destination. *)
+    | 0b00011101u ->
+      Op.FMLAL, getVdtVntVmtLong b
+    | 0b10011001u ->
+      Op.FMLAL2, getVdtVntVmtLong b
+    | 0b01011101u ->
+      Op.FMLSL, getVdtVntVmtLong b
+    | 0b11011001u ->
+      Op.FMLSL2, getVdtVntVmtLong b
     | c when c &&& 0b10011111u = 0b00000000u ->
       Op.SHADD, getVdtVntVmt1 b size11
     | c when c &&& 0b10011111u = 0b00000001u ->
@@ -3542,6 +3649,33 @@ let parseAdvSIMDVecXIdxElem bin =
                     (extract bin 15u 12u)
                     4 (* U:size:opcode *)
   match cond with
+  (* FEAT_DotProd, FEAT_I8MM, FEAT_BF16, FEAT_FHM and FEAT_RDM by element,
+     every one at an opcode the guards below read as unallocated *)
+  | 0b0101110u ->
+    Op.SDOT, getVdtVntVm4Bidx bin, getOprSizeByQ bin
+  | 0b1101110u ->
+    Op.UDOT, getVdtVntVm4Bidx bin, getOprSizeByQ bin
+  | 0b0001111u ->
+    Op.SUDOT, getVdtVntVm4Bidx bin, getOprSizeByQ bin
+  | 0b0101111u ->
+    Op.USDOT, getVdtVntVm4Bidx bin, getOprSizeByQ bin
+  | 0b0011111u ->
+    Op.BFDOT, getVdtVntVm2Hidx bin, getOprSizeByQ bin
+  | 0b0111111u ->
+    let op = if valQ bin = 0u then Op.BFMLALB else Op.BFMLALT
+    op, getVd4SVn8HVmHidx bin, 128<rt>
+  | 0b0100000u ->
+    Op.FMLAL, getVdtVntVmHidxLong bin, getOprSizeByQ bin
+  | 0b0100100u ->
+    Op.FMLSL, getVdtVntVmHidxLong bin, getOprSizeByQ bin
+  | 0b1101000u ->
+    Op.FMLAL2, getVdtVntVmHidxLong bin, getOprSizeByQ bin
+  | 0b1101100u ->
+    Op.FMLSL2, getVdtVntVmHidxLong bin, getOprSizeByQ bin
+  | c when c &&& 0b1001111u = 0b1001101u ->
+    Op.SQRDMLAH, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
+  | c when c &&& 0b1001111u = 0b1001111u ->
+    Op.SQRDMLSH, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
   | c when c &&& 0b0001110u = 0b0001110u ->
     unallocated ()
   | c when c &&& 0b1001111u = 0b0000000u ->
@@ -3835,7 +3969,7 @@ let parse64Group5 bin =
   | c when c &&& 0b100110110000110001u = 0b000000100000010001u ->
     unallocated ()
   | c when c &&& 0b100110010000100000u = 0b000000000000100000u ->
-    unallocated ()
+    parseAdvSIMDThreeRegExtension bin
   | c when c &&& 0b100110011111000011u = 0b000000010000000010u ->
     parseAdvSIMDTwoReg bin
   | c when c &&& 0b100110011111000011u = 0b000000011000000010u ->
@@ -4118,6 +4252,16 @@ let parseAdvSIMDScalarThreeDiff bin =
   | _ ->
     raise ParsingFailureException
 
+/// <summary>
+/// Advanced SIMD scalar three same extra on page C4-327: FEAT_RDM's scalar
+/// accumulating multiplies, the class's only members.
+/// </summary>
+let parseAdvSIMDScalarThreeSameExtra bin =
+  match concat (pickBit bin 29u) (extract bin 14u 11u) 4 (* U:opcode *) with
+  | 0b10000u -> Op.SQRDMLAH, getVdVnVm1 bin size0011, getOprSzBySize bin
+  | 0b10001u -> Op.SQRDMLSH, getVdVnVm1 bin size0011, getOprSzBySize bin
+  | _ -> unallocated ()
+
 let parseAdvSIMDScalarThreeSame bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
                     (extract bin 15u 11u)
@@ -4311,6 +4455,11 @@ let parseAdvSIMDScalarXIdxElem b =
                     (extract b 15u 12u)
                     4 (* U:size:opcode *)
   match cond with
+  (* FEAT_RDM's forms, at opcodes the guards below read as unallocated *)
+  | c when c &&& 0b1001111u = 0b1001101u ->
+    Op.SQRDMLAH, getVdVnVmtsidx1 b size0011, getOprSzBySize b
+  | c when c &&& 0b1001111u = 0b1001111u ->
+    Op.SQRDMLSH, getVdVnVmtsidx1 b size0011, getOprSzBySize b
   | c when c &&& 0b0001111u = 0b0000000u ->
     unallocated ()
   | c when c &&& 0b0001111u = 0b0000100u ->
@@ -4546,7 +4695,11 @@ let parseFPDP1Src bin =
   | 0b0001000011u -> Op.FSQRT, getDdDn bin, 64<rt>
   | 0b0001000100u -> Op.FCVT, getSdDn bin, 32<rt>
   | 0b0001000101u -> unallocated ()
-  | 0b0001000110u -> unallocated ()
+  (* BFCVT reads a single and writes a BFloat16, which is half a word wide;
+     FEAT_BF16 gave it the slot beside the double-precision conversions
+     rather than one of its own, so the type field says 01 here and the
+     operands are the ones the mnemonic names. *)
+  | 0b0001000110u -> Op.BFCVT, getHdSn bin, 16<rt>
   | 0b0001000111u -> Op.FCVT, getHdDn bin, 16<rt>
   | 0b0001001000u -> Op.FRINTN, getDdDn bin, 64<rt>
   | 0b0001001001u -> Op.FRINTP, getDdDn bin, 64<rt>
@@ -4757,6 +4910,8 @@ let parse64Group6 bin =
     unallocated ()
   | c when c &&& 0b110110010000000011u = 0b010100010000000000u ->
     parseAdvSIMDScalarThreeDiff bin
+  | c when c &&& 0b110110010000100001u = 0b010100000000100001u ->
+    parseAdvSIMDScalarThreeSameExtra bin
   | c when c &&& 0b110110010000000001u = 0b010100010000000001u ->
     parseAdvSIMDScalarThreeSame bin
   | c when c &&& 0b110111000000000001u = 0b010110000000000001u ->

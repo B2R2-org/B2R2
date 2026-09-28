@@ -5093,6 +5093,350 @@ type ParserTests() =
     ** [ O.SIMDVecReg(V0, EightH); O.SIMDVecReg(V1, EightH) ]
     ||> test
 
+  /// FEAT_FHM's long multiply-accumulate, whose sources are halves and whose
+  /// destination is words. Both forms spell the arrangement the same way, so
+  /// the mnemonic is the only thing that says which half of the source
+  /// register is read.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FHM) (1)``() =
+    "0e22ec20"
+    ++ FMLAL
+    ** [ O.SIMDVecReg(V0, TwoS)
+         O.SIMDVecReg(V1, TwoH)
+         O.SIMDVecReg(V2, TwoH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FHM) (2)``() =
+    "2e22cc20"
+    ++ FMLAL2
+    ** [ O.SIMDVecReg(V0, TwoS)
+         O.SIMDVecReg(V1, TwoH)
+         O.SIMDVecReg(V2, TwoH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FHM) (3)``() =
+    "4ea2ec20"
+    ++ FMLSL
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, FourH)
+         O.SIMDVecReg(V2, FourH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FHM) (4)``() =
+    "6ea2cc20"
+    ++ FMLSL2
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, FourH)
+         O.SIMDVecReg(V2, FourH) ]
+    ||> test
+
+  /// FEAT_RDM sits in the three-register extension class beside the dot
+  /// products, and is the only thing there whose arrangement comes from the
+  /// size field rather than from Q alone.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (RDM) (1)``() =
+    "6e828420"
+    ++ SQRDMLAH
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, FourS)
+         O.SIMDVecReg(V2, FourS) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (RDM) (2)``() =
+    "6e828c20"
+    ++ SQRDMLSH
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, FourS)
+         O.SIMDVecReg(V2, FourS) ]
+    ||> test
+
+  /// BFCVTN and BFCVTN2 are an ordinary two-register miscellaneous encoding
+  /// whose two sides carry different arrangements: the source is four words
+  /// whichever half of the destination the mnemonic names, so Q comes from
+  /// the destination alone.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (BF16) (1)``() =
+    "0ea16820"
+    ++ BFCVTN
+    ** [ O.SIMDVecReg(V0, FourH); O.SIMDVecReg(V1, FourS) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (BF16) (2)``() =
+    "4ea16820"
+    ++ BFCVTN2
+    ** [ O.SIMDVecReg(V0, EightH); O.SIMDVecReg(V1, FourS) ]
+    ||> test
+
+  /// FEAT_I8MM's matrix multiplies are the one thing in this class whose
+  /// arrangements are fixed rather than named by a size field: four words
+  /// accumulated from sixteen bytes on each side, whatever Q says.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (I8MM) (1)``() =
+    "4e82a420"
+    ++ SMMLA
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (I8MM) (2)``() =
+    "6e82a420"
+    ++ UMMLA
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (I8MM) (3)``() =
+    "4e82ac20"
+    ++ USMMLA
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  /// The dot products by element name a group of four bytes, whose register
+  /// is M:Rm and whose index is H:L; they sit at an opcode the class had
+  /// read as unallocated.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (1)``() =
+    testDisasm "4fa2e020" "sdot v0.4s, v1.16b, v2.4b[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (2)``() =
+    testDisasm "0fbfe820" "sdot v0.2s, v1.8b, v31.4b[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (3)``() =
+    testDisasm "4f92e225" "sdot v5.4s, v17.16b, v18.4b[0]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (4)``() =
+    testDisasm "6f82e820" "udot v0.4s, v1.16b, v2.4b[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (5)``() =
+    testDisasm "2fb4e020" "udot v0.2s, v1.8b, v20.4b[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (I8MM) (1)``() =
+    testDisasm "4f22f020" "sudot v0.4s, v1.16b, v2.4b[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (I8MM) (2)``() =
+    testDisasm "0f1bf820" "sudot v0.2s, v1.8b, v27.4b[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (I8MM) (3)``() =
+    testDisasm "0fa2f820" "usdot v0.2s, v1.8b, v2.4b[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (I8MM) (4)``() =
+    testDisasm "4f93f020" "usdot v0.4s, v1.16b, v19.4b[0]"
+
+  /// BFDOT by element names a pair of halves the same way; BFMLALB and
+  /// BFMLALT name one half, with a register of four bits and H:L:M.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (1)``() =
+    testDisasm "4f62f020" "bfdot v0.4s, v1.8h, v2.2h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (2)``() =
+    testDisasm "0f7ff820" "bfdot v0.2s, v1.4h, v31.2h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (3)``() =
+    testDisasm "0ff2f820" "bfmlalb v0.4s, v1.8h, v2.h[7]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (4)``() =
+    testDisasm "0fc5f083" "bfmlalb v3.4s, v4.8h, v5.h[0]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (5)``() =
+    testDisasm "4feff020" "bfmlalt v0.4s, v1.8h, v15.h[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (1)``() =
+    testDisasm "4f920820" "fmlal v0.4s, v1.4h, v2.h[5]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (2)``() =
+    testDisasm "0f820020" "fmlal v0.2s, v1.2h, v2.h[0]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (3)``() =
+    testDisasm "2fbf8820" "fmlal2 v0.2s, v1.2h, v15.h[7]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (4)``() =
+    testDisasm "6fb38020" "fmlal2 v0.4s, v1.4h, v3.h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (5)``() =
+    testDisasm "4f924020" "fmlsl v0.4s, v1.4h, v2.h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (6)``() =
+    testDisasm "0fa94820" "fmlsl v0.2s, v1.2h, v9.h[6]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (7)``() =
+    testDisasm "6fa2c820" "fmlsl2 v0.4s, v1.4h, v2.h[6]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (8)``() =
+    testDisasm "2f8cc820" "fmlsl2 v0.2s, v1.2h, v12.h[4]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (1)``() =
+    testDisasm "6fa2d820" "sqrdmlah v0.4s, v1.4s, v2.s[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (2)``() =
+    testDisasm "2f9fd020" "sqrdmlah v0.2s, v1.2s, v31.s[0]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (3)``() =
+    testDisasm "6f72d820" "sqrdmlah v0.8h, v1.8h, v2.h[7]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (4)``() =
+    testDisasm "2f4fd820" "sqrdmlah v0.4h, v1.4h, v15.h[4]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (5)``() =
+    testDisasm "2f52f020" "sqrdmlsh v0.4h, v1.4h, v2.h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (6)``() =
+    testDisasm "2fbff020" "sqrdmlsh v0.2s, v1.2s, v31.s[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (7)``() =
+    testDisasm "6f91f820" "sqrdmlsh v0.4s, v1.4s, v17.s[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (8)``() =
+    testDisasm "6f57f820" "sqrdmlsh v0.8h, v1.8h, v7.h[5]"
+
+  /// BFDOT and BFMMLA are the three-register extension class at U = 1 and a
+  /// size of 01, BFMMLA with Q set alone.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16 dot) (1)``() =
+    testDisasm "2e42fc20" "bfdot v0.2s, v1.4h, v2.4h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16 dot) (2)``() =
+    testDisasm "6e42fc20" "bfdot v0.4s, v1.8h, v2.8h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16 dot) (3)``() =
+    testDisasm "6e42ec20" "bfmmla v0.4s, v1.8h, v2.8h"
+
+  /// SDOT with bit 10 clear: every word of the class holds it set.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (SDOT, bit 10)``() =
+    testRefused "4e829020"
+
+  /// SQRDMLAH with bit 10 clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (RDM, bit 10)``() =
+    testRefused "6e828020"
+
+  /// SMMLA with bit 10 clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (SMMLA, bit 10)``() =
+    testRefused "4e82a020"
+
+  /// BFDOT with bit 10 clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BFDOT, bit 10)``() =
+    testRefused "6e42f820"
+
+  /// SMMLA with Q clear: the matrix multiplies are quadword-only, Q being
+  /// part of their opcode rather than a choice of arrangement.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (SMMLA, Q clear)``() =
+    testRefused "0e82a420"
+
+  /// UMMLA with Q clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (UMMLA, Q clear)``() =
+    testRefused "2e82a420"
+
+  /// USMMLA with Q clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (USMMLA, Q clear)``() =
+    testRefused "0e82ac20"
+
+  /// BFMMLA with Q clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BFMMLA, Q clear)``() =
+    testRefused "2e42ec20"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar x indexed element (RDM) (1)``() =
+    testDisasm "7fa2d020" "sqrdmlah s0, s1, v2.s[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar x indexed element (RDM) (2)``() =
+    testDisasm "7f6fd820" "sqrdmlah h0, h1, v15.h[6]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar x indexed element (RDM) (3)``() =
+    testDisasm "7f72f020" "sqrdmlsh h0, h1, v2.h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar x indexed element (RDM) (4)``() =
+    testDisasm "7fbff820" "sqrdmlsh s0, s1, v31.s[3]"
+
+  /// The scalar three same extra class holds the scalar SQRDMLAH and
+  /// SQRDMLSH and nothing else, and nothing routed it.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three same extra (RDM) (1)``() =
+    testDisasm "7e828420" "sqrdmlah s0, s1, s2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three same extra (RDM) (2)``() =
+    testDisasm "7e428420" "sqrdmlah h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three same extra (RDM) (3)``() =
+    testDisasm "7e828c20" "sqrdmlsh s0, s1, s2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three same extra (RDM) (4)``() =
+    testDisasm "7e458c83" "sqrdmlsh h3, h4, h5"
+
+  /// BFMLALB and BFMLALT share one encoding and are told apart by Q, which
+  /// here picks which bfloat16 of each word is read rather than how many
+  /// lanes there are -- both write all four words.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16) (1)``() =
+    "2ec2fc20"
+    ++ BFMLALB
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16) (2)``() =
+    "6ec2fc20"
+    ++ BFMLALT
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
   /// The memory-tag accesses count their offset in granules of sixteen bytes,
   /// where the unscaled accesses they sit beside count bytes.
   [<TestMethod>]
@@ -5160,3 +5504,38 @@ type ParserTests() =
     "69808440"
     ++ STGP ** [ O.Reg X0; O.Reg X1; O.MemPreIdxImm(X2, 16L) ]
     ||> test
+
+  /// The dot products read four bytes of each source for every word of the
+  /// destination, so the two sides carry different arrangements.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (1)``() =
+    "4e829420"
+    ++ SDOT
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (2)``() =
+    "2e829420"
+    ++ UDOT
+    ** [ O.SIMDVecReg(V0, TwoS)
+         O.SIMDVecReg(V1, EightB)
+         O.SIMDVecReg(V2, EightB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (3)``() =
+    "4e829c20"
+    ++ USDOT
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  /// BFCVT sits in the slot beside the double-precision conversions, so its
+  /// type field says 01 while its operands are a single and a half.
+  [<TestMethod>]
+  member _.``4.6.30 Conversion between FP and BFloat16``() =
+    "1e634020" ++ BFCVT ** [ O.ScalarReg H0; O.ScalarReg S1 ] ||> test

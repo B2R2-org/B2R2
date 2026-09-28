@@ -976,6 +976,7 @@ type ARM64RoundTripTests() =
       "irg x0, x1"
       "irg x0, x1, x2"
       "gmi x0, x1, x2"
+      "bfcvt h0, s1"
       "ldg x0, [x1, #0x10]"
       "stg x0, [x1, #0x20]!"
       "stg x0, [x1], #0x20"
@@ -984,7 +985,11 @@ type ARM64RoundTripTests() =
       "stz2g x0, [x1, #0x10]"
       "stgp x0, x1, [x2, #0x10]"
       "stgp x0, x1, [x2, #0x10]!"
-      "stgp x0, x1, [x2], #0x10" ]
+      "stgp x0, x1, [x2], #0x10"
+      "sdot v0.4s, v1.16b, v2.16b"
+      "sdot v0.2s, v1.8b, v2.8b"
+      "udot v0.4s, v1.16b, v2.16b"
+      "usdot v0.4s, v1.16b, v2.16b" ]
 
   [<TestMethod>]
   [<TestCategory("Sweep")>]

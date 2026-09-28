@@ -209,9 +209,15 @@ let getElemDataSzAndElemsByVector = function
   | VecH -> struct (16<rt>, 16<rt>, 1)
   | VecS -> struct (32<rt>, 32<rt>, 1)
   | VecD -> struct (64<rt>, 64<rt>, 1)
+  (* the four bytes a dot product's indexed operand names, which it reads as
+     one word *)
+  | FourB -> struct (32<rt>, 32<rt>, 1)
   (* SIMD vector register names *)
   | EightB -> struct (8<rt>, 64<rt>, 8)
   | SixteenB -> struct (8<rt>, 128<rt>, 16)
+  (* FEAT_FHM's long multiply-accumulate names two halves where the
+     register holds four, because its DESTINATION is what the size is
+     counted from and that is a word *)
   | TwoH -> struct (16<rt>, 64<rt>, 2)
   | FourH -> struct (16<rt>, 64<rt>, 4)
   | EightH -> struct (16<rt>, 128<rt>, 8)

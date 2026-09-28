@@ -728,6 +728,25 @@ let private multiplyScalar u opcode indexOpcode ins =
   | ThreeOperands(_, _, Elem _) -> scalarIndexed 0u indexOpcode ins
   | _ -> scalarThreeSame HalfOrWord u opcode ins
 
+/// <summary>
+/// FEAT_RDM's scalar accumulating multiplies: the scalar three same extra
+/// class -- bit 21 clear and bit 15 set -- or, by element, the indexed class
+/// with U set.
+/// </summary>
+let private rdmAccumulateScalar opcode indexOpcode ins =
+  match ins.Operands with
+  | ThreeOperands(_, _, Elem _) ->
+    scalarIndexed 1u indexOpcode ins
+  | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
+    sameWidth ins rd rn
+    sameWidth ins rd rm
+    checkWidth ins HalfOrWord rd
+    let size, d = scalarFields ins rd
+    scalarHead 1u size ||| (simdNumber ins rm <<< 16) ||| (1u <<< 15)
+    ||| (opcode <<< 11) ||| (1u <<< 10) ||| (simdNumber ins rn <<< 5) ||| d
+  | _ ->
+    wrongOperands ins
+
 /// The same, for the ones whose result is twice as wide as what they read.
 let private multiplyLong opcode indexOpcode ins =
   match ins.Operands with
@@ -883,6 +902,8 @@ let floatEncoders () =
     Opcode.FMULX, multiplyExtended
     Opcode.SQDMULH, multiplyScalar 0u 0b10110u 0b1100u
     Opcode.SQRDMULH, multiplyScalar 1u 0b10110u 0b1101u
+    Opcode.SQRDMLAH, rdmAccumulateScalar 0b0000u 0b1101u
+    Opcode.SQRDMLSH, rdmAccumulateScalar 0b0001u 0b1111u
     Opcode.SQDMLAL, multiplyLong 0b1001u 0b0011u
     Opcode.SQDMLSL, multiplyLong 0b1011u 0b0111u
     Opcode.SQDMULL, multiplyLong 0b1101u 0b1011u

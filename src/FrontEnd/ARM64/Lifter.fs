@@ -252,6 +252,46 @@ let translate (ins: Instruction) bld =
     frecps ins bld
   | Opcode.FRSQRTS ->
     frsqrts ins bld
+  | Opcode.SDOT ->
+    dotProduct ins bld false false
+  | Opcode.UDOT ->
+    dotProduct ins bld true true
+  | Opcode.USDOT ->
+    dotProduct ins bld true false
+  | Opcode.SUDOT ->
+    dotProduct ins bld false true
+  | Opcode.BFCVT ->
+    bfcvt ins bld
+  | Opcode.BFCVTN ->
+    bfcvtn ins bld false
+  | Opcode.BFCVTN2 ->
+    bfcvtn ins bld true
+  | Opcode.FMLAL ->
+    fmlal ins bld
+  | Opcode.FMLAL2 ->
+    fmlal2 ins bld
+  | Opcode.FMLSL ->
+    fmlsl ins bld
+  | Opcode.FMLSL2 ->
+    fmlsl2 ins bld
+  | Opcode.SQRDMLAH ->
+    sqrdmlah ins bld
+  | Opcode.SQRDMLSH ->
+    sqrdmlsh ins bld
+  | Opcode.SMMLA ->
+    smmla ins bld
+  | Opcode.UMMLA ->
+    ummla ins bld
+  | Opcode.USMMLA ->
+    usmmla ins bld
+  | Opcode.BFDOT ->
+    bfdot ins bld
+  | Opcode.BFMMLA ->
+    bfmmla ins bld
+  | Opcode.BFMLALB ->
+    bfmlalb ins bld
+  | Opcode.BFMLALT ->
+    bfmlalt ins bld
   | Opcode.CFINV ->
     cfinv ins bld
   | Opcode.SETF8 ->

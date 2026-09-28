@@ -372,6 +372,14 @@ let getSIMDVectorByQ2 value = if value = 0b0u then TwoS else FourS
 
 let getSIMDVectorByQ3 value = if value = 0b0u then FourH else EightH
 
+/// <summary>
+/// The halves a long multiply-accumulate names: two of them where the
+/// destination holds two words, four where it holds four. The count comes
+/// from the DESTINATION, which is why this is not the ordinary half
+/// arrangement.
+/// </summary>
+let getSIMDVectorByQ4 value = if value = 0b0u then TwoH else FourH
+
 let getSIMDVectorBySizeWithIdx = function
   | 0b00u -> VecB
   | 0b01u -> VecH
@@ -880,6 +888,8 @@ let tq2 value = getSIMDVectorByQ2 value          (* Q *)
 
 let tq3 value = getSIMDVectorByQ3 value          (* Q *)
 
+let tq4 value = getSIMDVectorByQ4 value          (* Q *)
+
 let ti5 value = getSIMDVectorByImm5 value        (* imm5 *)
 
 let ti5q value = getSIMDVectorByImm5Q value      (* imm5:Q *)
@@ -1006,6 +1016,14 @@ let vdtq2 bin = vtq2 bin valD
 
 let vdtq3 bin = vtq3 bin valD
 
+let vtq4 bin v = getSIMDFPVecReg (v bin) (tq4 (valQ bin))
+
+let vdtq4 bin = vtq4 bin valD
+
+let vntq4 bin = vtq4 bin valN
+
+let vmtq4 bin = vtq4 bin valM
+
 let vntq3 bin = vtq3 bin valN
 
 let vmtq3 bin = vtq3 bin valM
@@ -1077,6 +1095,19 @@ let vmComplexIdx bin =
   let size = valSize1 bin
   let idx = if size = 0b01u then (valH bin <<< 1) ||| valL bin else valH bin
   getSIMDFPRegWithIdx (valM bin) (ts3 size) (uint8 idx)
+
+/// <summary>
+/// The indexed operand of a dot product by element, which names a group of
+/// four bytes: its register is M:Rm, and its index H:L.
+/// </summary>
+let vm4Bidx bin =
+  let idx = (valH bin <<< 1) ||| valL bin
+  getSIMDFPRegWithIdx (valM bin) FourB (uint8 idx)
+
+/// The same for BFDOT, whose group is a pair of bfloat16s.
+let vm2Hidx bin =
+  let idx = (valH bin <<< 1) ||| valL bin
+  getSIMDFPRegWithIdx (valM bin) TwoH (uint8 idx)
 
 let vtsidx1 bin value =
   let idx = getIdxByImm5 (valImm5 bin) |> uint8

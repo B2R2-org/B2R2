@@ -75,6 +75,7 @@ and SIMDVector =
   | VecH
   | VecS
   | VecD
+  | FourB
   | EightB
   | SixteenB
   | TwoH

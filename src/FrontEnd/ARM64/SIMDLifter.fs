@@ -447,6 +447,130 @@ let usqadd (ins: Instruction) bld dstUnsigned =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
+/// <summary>
+/// SDOT, UDOT, USDOT and SUDOT: four byte products summed into each word.
+///
+/// Each thirty-two bit lane of the destination reads the four bytes that sit
+/// under it in each operand, multiplies them pairwise and adds all four to
+/// what the lane already holds. Each operand's bytes are read with their own
+/// signedness, which is what USDOT and SUDOT are for -- USDOT's first is
+/// unsigned and its second signed, SUDOT's the other way round, and nothing
+/// else in the set mixes them. SUDOT has no form but the indexed one.
+///
+/// The indexed form points every lane at the same four bytes of the second
+/// operand instead of at the four beside it.
+/// </summary>
+let dotProduct (ins: Instruction) bld unsigned1 unsigned2 =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let struct (dstB, dstA) = transOpr128 ins bld o1
+    let dst = transSIMDOprToExpr bld eSize dataSize elements o1
+    let bytes = RegType.toBitWidth dataSize / 8
+    let src1 = transSIMDOprToExpr bld 8<rt> dataSize bytes o2
+    let src2 =
+      match o3 with
+      | OprSIMD(VecRegWithIdx _) ->
+        let e = transOpr ins bld o3
+        Array.init bytes (fun i -> AST.extract e 8<rt> ((i % 4) * 8))
+      | _ ->
+        transSIMDOprToExpr bld 8<rt> dataSize bytes o3
+    let ext1 = if unsigned1 then AST.zext eSize else AST.sext eSize
+    let ext2 = if unsigned2 then AST.zext eSize else AST.sext eSize
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    Array.iteri (fun i r ->
+      let sum =
+        Array.init 4 (fun k ->
+          ext1 src1[i * 4 + k] .* ext2 src2[i * 4 + k])
+        |> Array.reduce (.+)
+      append bld { direct r := dst[i] .+ sum }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// Whether a single's top sixteen bits round up to make its bfloat16, in the
+/// direction the two bits of FPCR.RMode name: to nearest on the bits dropped,
+/// a tie going to an even result; away from zero on either side where
+/// anything was dropped, for the direction toward the value's own infinity;
+/// never toward zero.
+/// </summary>
+let private bfRoundsUp mode src =
+  let low = src .& numU32 0xffffu 32<rt>
+  let lost = low != AST.num0 32<rt>
+  let negative = AST.xthi 1<rt> src
+  let tie = low == numU32 0x8000u 32<rt>
+  let odd = AST.extract src 1<rt> 16
+  let nearest = (low .> numU32 0x8000u 32<rt>) .| (tie .& odd)
+  let towardPlus = lost .& AST.not negative
+  let directed = AST.ite (mode == numI32 1 2<rt>) towardPlus (lost .& negative)
+  let otherwise = AST.ite (mode == numI32 3 2<rt>) AST.b0 directed
+  AST.ite (mode == AST.num0 2<rt>) nearest otherwise
+
+/// <summary>
+/// FPConvertBF: the bfloat16 a single-precision value rounds to, which is its
+/// top sixteen bits, rounded in the direction FPCR.RMode names. On the bits
+/// of a magnitude that is an increment or nothing, and the carry walks up
+/// into the exponent by itself, and out of the top of the range into an
+/// infinity.
+///
+/// A NaN does not round: it is the default NaN where FPCR.DN says so, and
+/// otherwise its own top sixteen bits with the quiet bit set, which keeps the
+/// sign and as much of the payload as bfloat16 has room for. FPSR hears what
+/// the rounding lost: Inexact, Overflow where it made an infinity, Underflow
+/// for a subnormal single -- tiny before rounding -- and Invalid for a
+/// signalling NaN.
+/// </summary>
+let private toBFloat bld src =
+  let fpcr = regVar bld R.FPCR
+  let rounded = tmpVar bld 16<rt>
+  let up = bfRoundsUp (AST.extract fpcr 2<rt> 22) src
+  append bld {
+    direct rounded := AST.xthi 16<rt> src .+ AST.zext 16<rt> up
+  }
+  (* a NaN is not rounded and is not replaced either: what comes back is its
+     own top sixteen bits with the quiet bit set, which keeps the sign and as
+     much of the payload as bfloat16 has room for. Measured on both forms --
+     7f8abcde converts to 7fca, and 7f800001, whose top half would read as an
+     infinity, to 7fc0. *)
+  let quieted = AST.xthi 16<rt> src .| numU32 0x40u 16<rt>
+  let dn = AST.extract fpcr 1<rt> 25
+  let nan = AST.ite dn (numU32 0x7fc0u 16<rt>) quieted
+  let finite = AST.not (isNaN 32<rt> src .| isInfinity 32<rt> src)
+  let inexact = finite .& ((src .& numU32 0xffffu 32<rt>) != AST.num0 32<rt>)
+  let magnitude = rounded .& numU32 0x7fffu 16<rt>
+  let overflow = finite .& (magnitude == numU32 0x7f80u 16<rt>)
+  let tiny = (src .& numU32 0x7f800000u 32<rt>) == AST.num0 32<rt>
+  let none = AST.num0 1<rt>
+  fpBits (isSNaN 32<rt> src) none overflow (tiny .& inexact) inexact
+  |> fpRecord bld
+  AST.ite (isNaN 32<rt> src) nan rounded
+
+/// BFCVT, one single-precision value to one bfloat16.
+let bfcvt (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let src = transOpr ins bld src
+    dstAssignScalar ins bld dst (toBFloat bld src) 16<rt>
+  }
+
+/// BFCVTN, a whole vector of them, landing in the half of the destination the
+/// mnemonic's number says.
+let bfcvtn (ins: Instruction) bld isPart2 =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let src = transSIMDOprToExpr bld eSize dataSize elements src
+    let result = Array.init elements (fun _ -> tmpVar bld 16<rt>)
+    Array.map (fun e -> toBFloat bld e) src
+    |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+    if isPart2 then
+      direct dstB := AST.revConcat result
+    else
+      direct dstA := AST.revConcat result
+      direct dstB := AST.num0 64<rt>
+  }
+
 let abs (ins: Instruction) bld =
   lift bld ins {
     match ins.Operands with
@@ -1386,6 +1510,65 @@ let private recipStepOp (ins: Instruction) bld isSqrt =
 let frecps ins bld = recipStepOp ins bld false
 
 let frsqrts ins bld = recipStepOp ins bld true
+
+/// <summary>
+/// FMLAL, FMLAL2, FMLSL and FMLSL2: a multiply-accumulate whose sources are
+/// halves and whose destination is words.
+///
+/// The product never rounds. Two eleven-bit significands multiply into
+/// twenty-two bits and a single holds twenty-four, so widening the operands
+/// and going through the ordinary fused multiply-add gives what the manual's
+/// FPMulAddH asks for, with its one rounding in the right place.
+///
+/// The plain forms read the LOW half of each source register and the `2`
+/// forms the HIGH half; both spell the arrangement the same way, so the
+/// mnemonic is the only thing that says which. FMLSL and FMLSL2 negate the
+/// first operand before anything else, which is visible in more than the
+/// arithmetic: a NaN comes back with its sign inverted.
+///
+/// The widening must not quiet a signalling NaN, because FPProcessNaNs3
+/// picks a signalling one ahead of a quiet one and the accumulator can be
+/// either -- see <see cref="halfToSingleAsIs"/>.
+///
+/// By element, every lane's second operand is the one half the index names.
+/// </summary>
+let private mulAddLong (ins: Instruction) bld isSub isUpper =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (_, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOpr128 ins bld dst
+    let halves o = transSIMDOprToExpr bld 16<rt> dataSize (elements * 2) o
+    let part (a: Expr[]) =
+      let first = if isUpper then elements else 0
+      a[first..first + elements - 1]
+    let n = part (halves src1)
+    let m =
+      match src2 with
+      | OprSIMD(VecRegWithIdx _) ->
+        Array.create elements (transOpr ins bld src2)
+      | _ ->
+        part (halves src2)
+    let acc = transSIMDOprToExpr bld 32<rt> dataSize elements dst
+    let lane a b addend =
+      let x = tmpVar bld 32<rt>
+      let widened = halfToSingleAsIs bld a
+      let sign = numU32 0x80000000u 32<rt>
+      append bld { direct x := if isSub then widened <+> sign else widened }
+      let y = tmpVar bld 32<rt>
+      let other = halfToSingleAsIs bld b
+      append bld { direct y := other }
+      fpMulAdd bld 32<rt> addend x y
+    let result = Array.init elements (fun i -> lane n[i] m[i] acc[i])
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+let fmlal ins bld = mulAddLong ins bld false false
+
+let fmlal2 ins bld = mulAddLong ins bld false true
+
+let fmlsl ins bld = mulAddLong ins bld true false
+
+let fmlsl2 ins bld = mulAddLong ins bld true true
 
 let fcvt (ins: Instruction) bld =
   lift bld ins {
@@ -3936,6 +4119,288 @@ let sqrdmulh (ins: Instruction) bld =
       dstAssignScalar ins bld o1 result eSize
     | _ ->
       raise InvalidOperandException
+  }
+
+/// <summary>
+/// SQRDMLAH and SQRDMLSH: SQRDMULH with the destination accumulated in.
+///
+/// The manual adds the accumulator SHIFTED UP by the element width and
+/// saturates the whole sum ONCE:
+///
+///   accum = (element3 &lt;&lt; esize) +- 2 * element1 * element2 + 2^(esize-1)
+///
+/// which is not the same as saturating the product and adding to that --
+/// a product that saturates on its own can be pulled back inside the range
+/// by an accumulator of the opposite sign, and the two readings differ
+/// there.
+///
+/// Both sides are halved, as in <see cref="rdmulhElem"/>: the doubling is
+/// the one place a product of two elements no longer fits in two elements'
+/// worth of bits. Every term of the sum is even, so the halved rounding
+/// constant rounds the same way.
+/// </summary>
+let private rdmlaElem bld (eSize: int<rt>) isSub acc e1 e2 =
+  let wide = eSize * 2
+  let up = AST.sext wide acc << numI32 (int eSize - 1) wide
+  let product = AST.sext wide e1 .* AST.sext wide e2
+  let half = AST.num1 wide << numI32 (int eSize - 2) wide
+  let sum = if isSub then (up .- product) .+ half else (up .+ product) .+ half
+  satQ bld (sum ?>> numI32 (int eSize - 1) wide) eSize false
+
+/// The instructions on a scalar, on vectors, or on a vector and the one
+/// element of the second source that every lane reads.
+let private rdmla (ins: Instruction) bld isSub =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    match o1 with
+    | OprSIMD(ScalarReg _) ->
+      let acc = transOpr ins bld o1
+      let e1 = transOpr ins bld o2
+      let e2 = transOpr ins bld o3
+      dstAssignScalar ins bld o1 (rdmlaElem bld eSize isSub acc e1 e2) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOpr128 ins bld o1
+      let acc = transSIMDOprToExpr bld eSize dataSize elements o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 =
+        match o3 with
+        | OprSIMD(VecRegWithIdx _) ->
+          Array.create elements (transOpr ins bld o3)
+        | _ ->
+          transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      let lane i = rdmlaElem bld eSize isSub acc[i] src1[i] src2[i]
+      Array.init elements lane
+      |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+let sqrdmlah ins bld = rdmla ins bld false
+
+let sqrdmlsh ins bld = rdmla ins bld true
+
+/// <summary>
+/// SMMLA, UMMLA and USMMLA: the 2x8 by 8x2 integer matrix product,
+/// accumulated into a 2x2 of words.
+///
+/// Destination lane `2*i + j` reads row `i` of the first source and row `j`
+/// of the second -- eight bytes each -- and adds the eight products to what
+/// the lane already held. Each side is read with its own signedness, which
+/// is what USMMLA is for: its first operand is unsigned and its second
+/// signed, and nothing else in the set mixes them.
+///
+/// Nothing saturates and nothing rounds. A sum of eight byte products is at
+/// most fifteen bits wide before the accumulator, so it cannot leave a word
+/// on its own; the accumulator can wrap, and wrapping is what the manual
+/// says.
+/// </summary>
+let private matrixMultiply (ins: Instruction) bld unsigned1 unsigned2 =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld o1
+    let acc = transSIMDOprToExpr bld 32<rt> 128<rt> 4 o1
+    let src1 = transSIMDOprToExpr bld 8<rt> 128<rt> 16 o2
+    let src2 = transSIMDOprToExpr bld 8<rt> 128<rt> 16 o3
+    let widen unsigned e =
+      if unsigned then AST.zext 32<rt> e else AST.sext 32<rt> e
+    let lane n =
+      let i, j = n / 2, n % 2
+      let term k =
+        widen unsigned1 src1[8 * i + k] .* widen unsigned2 src2[8 * j + k]
+      Array.init 8 term |> Array.reduce (.+) |> (.+) acc[n]
+    let result = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    Array.init 4 lane
+    |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> 4 bld
+  }
+
+let smmla ins bld = matrixMultiply ins bld false false
+
+let ummla ins bld = matrixMultiply ins bld true true
+
+let usmmla ins bld = matrixMultiply ins bld true false
+
+/// <summary>
+/// BFMLALB and BFMLALT: one bfloat16 out of each word, widened and
+/// accumulated into the word it came from.
+///
+/// The widening is a shift and nothing else -- a bfloat16 IS the top half of
+/// a single -- so B reads the bottom half of each word and T the top, and
+/// both write all four words.
+///
+/// These follow FPCR, unlike BFDOT and BFMMLA beside them, which round to
+/// odd and flush and answer the default NaN. With FPCR clear, a denormal
+/// source survives as `00010000`, a quiet NaN comes back as itself, and
+/// `2^-24` added to `2^25` rounds away rather than forcing the last bit.
+///
+/// The product is exact in a single's significand -- eight bits times eight
+/// is sixteen -- but not in its range, and where it runs past the top an
+/// unfused sum would already have rounded it there: this is FPMulAdd, as the
+/// manual has it, with the one rounding at the end. By element, the second
+/// source is the one half the index names, whichever half of the words the
+/// first is read from.
+/// </summary>
+let private bfMulAddLong (ins: Instruction) bld isTop =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld o1
+    let acc = transSIMDOprToExpr bld 32<rt> 128<rt> 4 o1
+    let halves o = transSIMDOprToExpr bld 16<rt> 128<rt> 8 o
+    let src1 = halves o2
+    let pick (a: Expr[]) i = a[2 * i + (if isTop then 1 else 0)]
+    let second =
+      match o3 with
+      | OprSIMD(VecRegWithIdx _) -> Array.create 4 (transOpr ins bld o3)
+      | _ -> Array.init 4 (pick (halves o3))
+    let widen e = AST.concat e (AST.num0 16<rt>)
+    let lane i =
+      let x = tmpVar bld 32<rt>
+      let y = tmpVar bld 32<rt>
+      append bld {
+        direct x := widen (pick src1 i)
+        direct y := widen second[i]
+      }
+      fpMulAdd bld 32<rt> acc[i] x y
+    let result = Array.init 4 (fun _ -> tmpVar bld 32<rt>)
+    Array.init 4 lane
+    |> Array.iter2 (fun r e -> append bld { direct r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> 4 bld
+  }
+
+let bfmlalb ins bld = bfMulAddLong ins bld false
+
+let bfmlalt ins bld = bfMulAddLong ins bld true
+
+/// <summary>
+/// A single as BFUnpack reads it: a denormal is a zero of its sign, which is
+/// the flushing the bfloat16 arithmetic does whatever FPCR says.
+/// </summary>
+let private bfFlush e =
+  let exponent = e .& numU32 0x7f800000u 32<rt>
+  AST.ite (exponent == AST.num0 32<rt>) (e .& numU32 0x80000000u 32<rt>) e
+
+/// <summary>
+/// BFRound of an arithmetic's exact answer, which the bfloat16 dot product
+/// and matrix multiply take in place of FPCR: rounded to ODD -- truncated,
+/// and the last bit set if anything was lost -- a zero of its sign below the
+/// smallest normal, and an infinity from two to the 128th on, which is where
+/// its exponent no longer fits. That last is asked of the answer halved, as
+/// the flags of the other operations ask it.
+/// </summary>
+let private bfRound arith halved =
+  let truncated e = AST.roundCtrl (AST.roundingMode RoundingMode.TowardZero) e
+  let magnitude e = e .& numU32 0x7fffffffu 32<rt>
+  let t = truncated arith
+  let sign = t .& numU32 0x80000000u 32<rt>
+  let odd = AST.ite (fpIsExact arith) t (t .| AST.num1 32<rt>)
+  let tiny = magnitude t .< numU32 0x00800000u 32<rt>
+  let beyond = magnitude (truncated halved) .>= numU32 0x7f000000u 32<rt>
+  let infinity = sign .| numU32 0x7f800000u 32<rt>
+  AST.ite beyond infinity (AST.ite tiny sign odd)
+
+/// <summary>
+/// BFMul: two bfloat16s multiplied into a single. A NaN, or an infinity times
+/// a zero, makes the default NaN; an infinity or a zero otherwise carries the
+/// two signs' exclusive or; and the rest rounds by bfRound -- which changes an
+/// answer only at the ends of the range, two eight-bit significands
+/// multiplying exactly into a single's.
+/// </summary>
+let private bfMul bld a b =
+  let struct (x, y, r) = tmpVars3 bld 32<rt>
+  append bld {
+    direct x := bfFlush (AST.concat a (AST.num0 16<rt>))
+    direct y := bfFlush (AST.concat b (AST.num0 16<rt>))
+  }
+  let half = numU32 0x3f000000u 32<rt>
+  let rounded = bfRound (AST.fmul x y) (AST.fmul (AST.fmul x half) y)
+  let sign = (x <+> y) .& numU32 0x80000000u 32<rt>
+  let infX, infY = isInfinity 32<rt> x, isInfinity 32<rt> y
+  let zeroX, zeroY = isZero 32<rt> x, isZero 32<rt> y
+  let invalid =
+    isNaN 32<rt> x .| isNaN 32<rt> y .| (infX .& zeroY) .| (zeroX .& infY)
+  let special =
+    AST.ite (infX .| infY) (sign .| numU32 0x7f800000u 32<rt>) sign
+  let ordinary = AST.ite (infX .| infY .| zeroX .| zeroY) special rounded
+  append bld { direct r := AST.ite invalid (fpDefaultNan 32<rt>) ordinary }
+  r
+
+/// <summary>
+/// BFAdd: two singles added, each read as BFUnpack reads it. A NaN, or
+/// infinities of opposite signs, make the default NaN; an infinity otherwise
+/// wins; two zeros of one sign keep it; and the rest rounds by bfRound, a sum
+/// that cancels exactly coming out a positive zero -- which is also what
+/// truncating it gives.
+/// </summary>
+let private bfAdd bld a b =
+  let struct (x, y, r) = tmpVars3 bld 32<rt>
+  append bld {
+    direct x := bfFlush a
+    direct y := bfFlush b
+  }
+  let half e = AST.fmul e (numU32 0x3f000000u 32<rt>)
+  let rounded = bfRound (AST.fadd x y) (AST.fadd (half x) (half y))
+  let infX, infY = isInfinity 32<rt> x, isInfinity 32<rt> y
+  let opposite = AST.xthi 1<rt> x <+> AST.xthi 1<rt> y
+  let invalid =
+    isNaN 32<rt> x .| isNaN 32<rt> y .| (infX .& infY .& opposite)
+  let zeros = isZero 32<rt> x .& isZero 32<rt> y .& AST.not opposite
+  let ordinary = AST.ite infX x (AST.ite (infY .| zeros) y rounded)
+  append bld { direct r := AST.ite invalid (fpDefaultNan 32<rt>) ordinary }
+  r
+
+/// <summary>
+/// BFDOT: every word of the destination accumulates two products of
+/// bfloat16s, a pair from the first source against a pair from the second --
+/// the one pair the index names, by element -- by BFMul and BFAdd. It rounds
+/// to odd, flushes denormals and answers the default NaN whatever FPCR says,
+/// and FPSR hears nothing of it.
+/// </summary>
+let bfdot (ins: Instruction) bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (_, dataSize, elements) = getElemDataSzAndElems o1
+    let struct (dstB, dstA) = transOpr128 ins bld o1
+    let acc = transSIMDOprToExpr bld 32<rt> dataSize elements o1
+    let a = transSIMDOprToExpr bld 16<rt> dataSize (elements * 2) o2
+    let pairOf =
+      match o3 with
+      | OprSIMD(VecRegWithIdx(reg, _, idx)) ->
+        let whole = OprSIMD(VecReg(reg, EightH))
+        let b = transSIMDOprToExpr bld 16<rt> 128<rt> 8 whole
+        fun _ -> b[int idx * 2], b[int idx * 2 + 1]
+      | _ ->
+        let b = transSIMDOprToExpr bld 16<rt> dataSize (elements * 2) o3
+        fun e -> b[2 * e], b[2 * e + 1]
+    let lane e =
+      let b0, b1 = pairOf e
+      let sum = bfAdd bld (bfMul bld a[2 * e] b0) (bfMul bld a[2 * e + 1] b1)
+      bfAdd bld acc[e] sum
+    let result = Array.init elements lane
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
+
+/// <summary>
+/// BFMMLA: the 2x4 by 4x2 bfloat16 matrix product accumulated into a 2x2 of
+/// words. BFMatMulAdd adds two pairs of products to each word in turn, and
+/// every step rounds as BFDOT's do.
+/// </summary>
+let bfmmla (ins: Instruction) bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld o1
+    let acc = transSIMDOprToExpr bld 32<rt> 128<rt> 4 o1
+    let a = transSIMDOprToExpr bld 16<rt> 128<rt> 8 o2
+    let b = transSIMDOprToExpr bld 16<rt> 128<rt> 8 o3
+    let lane n =
+      let i, j = n / 2, n % 2
+      let step sum k =
+        let p0 = bfMul bld a[4 * i + 2 * k] b[4 * j + 2 * k]
+        let p1 = bfMul bld a[4 * i + 2 * k + 1] b[4 * j + 2 * k + 1]
+        bfAdd bld sum (bfAdd bld p0 p1)
+      step (step acc[n] 0) 1
+    let result = Array.init 4 lane
+    dstAssignForSIMD dstA dstB result 128<rt> 4 bld
   }
 
 /// <summary>

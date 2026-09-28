@@ -187,6 +187,7 @@ let vectorArrangements =
     "h", VecH
     "s", VecS
     "d", VecD
+    "4b", FourB
     "8b", EightB
     "16b", SixteenB
     "2h", TwoH
