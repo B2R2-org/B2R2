@@ -1167,12 +1167,12 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVnVmSzIT b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VMLS (oneDt SIMDTypF32) N OD.OprDdDnDm
+    render phlp &itstate 0 isInIT b Op.VMLS (oneDt SIMDTypF32) N OD.OprQdQnQm
   | 0b011110101u ->
 #if !EMULATION
     chkQVdVnVmSzIT b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VMLS (oneDt SIMDTypF16) N OD.OprQdQnQm
+    render phlp &itstate 0 isInIT b Op.VMLS (oneDt SIMDTypF16) N OD.OprDdDnDm
   | 0b011110111u ->
 #if !EMULATION
     chkQVdVnVmSzIT b itstate
@@ -1190,12 +1190,12 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVnVmSzIT b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VMIN (oneDt SIMDTypF32) N OD.OprDdDnDm
+    render phlp &itstate 0 isInIT b Op.VMIN (oneDt SIMDTypF32) N OD.OprQdQnQm
   | 0b011111100u ->
 #if !EMULATION
     chkQVdVnVmSzIT b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VMIN (oneDt SIMDTypF16) N OD.OprQdQnQm
+    render phlp &itstate 0 isInIT b Op.VMIN (oneDt SIMDTypF16) N OD.OprDdDnDm
   | 0b011111110u ->
 #if !EMULATION
     chkQVdVnVmSzIT b itstate
@@ -1211,17 +1211,17 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkQVdVnVmSzIT b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VRSQRTS (oneDt SIMDTypF32) N OD.OprDdDnDm
+    render phlp &itstate 0 isInIT b Op.VRSQRTS (oneDt SIMDTypF32) N OD.OprQdQnQm
   | 0b011111101u ->
 #if !EMULATION
     chkQVdVnVmSzIT b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VRSQRTS (oneDt SIMDTypF32) N OD.OprDdDnDm
+    render phlp &itstate 0 isInIT b Op.VRSQRTS (oneDt SIMDTypF16) N OD.OprDdDnDm
   | 0b011111111u ->
 #if !EMULATION
     chkQVdVnVmSzIT b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VRSQRTS (oneDt SIMDTypF32) N OD.OprDdDnDm
+    render phlp &itstate 0 isInIT b Op.VRSQRTS (oneDt SIMDTypF16) N OD.OprQdQnQm
   (* VSHL xxx0100x0 *)
   | 0b000010000u ->
 #if !EMULATION
@@ -3233,27 +3233,27 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #if !EMULATION
     chkFSzITQVdVm b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypS8) N OD.OprDdDm
+    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypS8) N OD.OprQdQm
   | 0b010101101u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypS16) N OD.OprDdDm
+    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypS16) N OD.OprQdQm
   | 0b100101101u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypS32) N OD.OprDdDm
+    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypS32) N OD.OprQdQm
   | 0b010111101u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypF16) N OD.OprDdDm
+    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypF16) N OD.OprQdQm
   | 0b100111101u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
 #endif
-    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypF32) N OD.OprDdDm
+    render phlp &itstate 0 isInIT b Op.VABS (oneDt SIMDTypF32) N OD.OprQdQm
   (* VNEG xx01x111x *)
   | 0b110101110u | 0b110101111u | 0b110111110u | 0b110111111u (* size = 11 *)
   | 0b000111110u | 0b000111111u -> (* F = 1 && size = 00 *)
@@ -4330,26 +4330,26 @@ let parseAdvSIMDTwoRegsAndScalar phlp (itstate: byref<BL>) isInIT bin =
   (* VQDMULH x1100 *)
   | 0b01100u ->
 #if !EMULATION
-    chkSzQVdVn bin
+    chkSzQVdVnT32 bin
 #endif
     let dt = getDTSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VQDMULH dt N OD.OprDdDnDmx
   | 0b11100u ->
 #if !EMULATION
-    chkSzQVdVn bin
+    chkSzQVdVnT32 bin
 #endif
     let dt = getDTSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VQDMULH dt N OD.OprQdQnDmx
   (* VQRDMULH x1101 *)
   | 0b01101u ->
 #if !EMULATION
-    chkSzQVdVn bin
+    chkSzQVdVnT32 bin
 #endif
     let dt = getDTSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VQRDMULH dt N OD.OprDdDnDmx
   | 0b11101u ->
 #if !EMULATION
-    chkSzQVdVn bin
+    chkSzQVdVnT32 bin
 #endif
     let dt = getDTSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VQRDMULH dt N OD.OprQdQnDmx
@@ -4358,26 +4358,26 @@ let parseAdvSIMDTwoRegsAndScalar phlp (itstate: byref<BL>) isInIT bin =
   (* VQRDMLAH x1110 Armv8.1 *)
   | 0b01110u ->
 #if !EMULATION
-    chkSzQVdVn bin
+    chkSzQVdVnT32 bin
 #endif
     let dt = getDTSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VQRDMLAH dt N OD.OprDdDnDmx
   | 0b11110u ->
 #if !EMULATION
-    chkSzQVdVn bin
+    chkSzQVdVnT32 bin
 #endif
     let dt = getDTSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VQRDMLAH dt N OD.OprQdQnDmx
   (* VQRDMLSH x1111 Armv8.1 *)
   | 0b01111u ->
 #if !EMULATION
-    chkSzQVdVn bin
+    chkSzQVdVnT32 bin
 #endif
     let dt = getDTSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VQRDMLSH dt N OD.OprDdDnDmx
   | _ (* 11111 *) ->
 #if !EMULATION
-    chkSzQVdVn bin
+    chkSzQVdVnT32 bin
 #endif
     let dt = getDTSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VQRDMLSH dt N OD.OprQdQnDmx
@@ -4536,7 +4536,7 @@ let parseAdvSIMDTwoRegsAndShfAmt phlp (itstate: byref<BL>) isInIT bin =
     let dt = getDTLImmT bin
     render phlp &itstate 0 isInIT bin Op.VSRA dt N OD.OprQdQmImm
   (* VMOVL x10100 *)
-  | 0b010100u | 0b110100u when extract bin 18 6 = 0u (* imm3L *) ->
+  | 0b010100u | 0b110100u when extract bin 18 16 = 0u (* imm6<2:0> *) ->
 #if !EMULATION
     chkVd bin
 #endif
@@ -4620,14 +4620,14 @@ let parseAdvSIMDTwoRegsAndShfAmt phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkQVdVm bin
 #endif
-    let dt = getDTImm6 bin
-    render phlp &itstate 0 isInIT bin Op.VSHL dt N OD.OprDdDmImm
+    let dt = getDTLImmInt bin
+    render phlp &itstate 0 isInIT bin Op.VSHL dt N OD.OprDdDmImmLeft
   | 0b001011u ->
 #if !EMULATION
     chkQVdVm bin
 #endif
-    let dt = getDTImm6 bin
-    render phlp &itstate 0 isInIT bin Op.VSHL dt N OD.OprQdQmImm
+    let dt = getDTLImmInt bin
+    render phlp &itstate 0 isInIT bin Op.VSHL dt N OD.OprQdQmImmLeft
   (* VSHRN 010000 *)
   | 0b010000u ->
 #if !EMULATION
@@ -4673,27 +4673,27 @@ let parseAdvSIMDTwoRegsAndShfAmt phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkUOpQVdVm bin
 #endif
-    let dt = getDTLImmT bin
+    let dt = getDTLImmSign bin
     render phlp &itstate 0 isInIT bin Op.VQSHLU dt N OD.OprDdDmImmLeft
   | 0b101101u ->
 #if !EMULATION
     chkUOpQVdVm bin
 #endif
-    let dt = getDTLImmT bin
+    let dt = getDTLImmSign bin
     render phlp &itstate 0 isInIT bin Op.VQSHLU dt N OD.OprQdQmImmLeft
   (* VQSHRUN 110000 *)
   | 0b110000u ->
 #if !EMULATION
     chkVm bin
 #endif
-    let dt = getDTImm6WordT bin
+    let dt = getDTImm6Sign bin
     render phlp &itstate 0 isInIT bin Op.VQSHRUN dt N OD.OprDdQmImm
   (* VQRSHRUN 110001 *)
   | 0b110001u ->
 #if !EMULATION
     chkVm bin
 #endif
-    let dt = getDTImm6WordT bin
+    let dt = getDTImm6Sign bin
     render phlp &itstate 0 isInIT bin Op.VQRSHRUN dt N OD.OprDdQmImm
   (* A gap in the Advanced SIMD tables above rather than an impossible state:
      ordinary Thumb input reaches this, so it reports an undecodable encoding
@@ -6715,6 +6715,9 @@ let parseSystemRegAccessAdvSIMDAndFP phlp (itstate: byref<BL>) isInIT bin =
     parseAdvSIMDDataProcess phlp &itstate isInIT bin
   | b when b &&& 0b11010u = 0b00010u (* 00x1x *) ->
     parseAdvSIMDAndSysRegLdStAnd64BitMov phlp &itstate isInIT bin
+  (* Floating point is the coprocessors with 10 in bits 11:10. *)
+  | 0b01010u when pickTwo bin 10 = 0b11u ->
+    raise ParsingFailureException
   | 0b01010u ->
     parseFPDataProcessing phlp &itstate isInIT bin
   | 0b01011u ->

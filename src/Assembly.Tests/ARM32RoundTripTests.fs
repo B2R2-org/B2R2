@@ -300,6 +300,15 @@ type ARM32RoundTripTests() =
       "OP.u16 q0, q1, q2"
       "OP.u32 q13, q14, q15" ]
 
+  /// What a source reads back as once encoded in A32 and in Thumb, for each
+  /// of the two where it does not read back as itself.
+  let brokenInEither source =
+    let wrongThumb =
+      match thumbRoundTrip source with
+      | ARM32Preserved -> []
+      | outcome -> [ $"'{source}' in Thumb: {outcome}" ]
+    brokenSources [ source ] @ wrongThumb |> String.concat "\n"
+
   /// <summary>
   /// Sources that open an IT block and fill it, which is the only way a narrow
   /// Thumb instruction runs conditionally.
@@ -443,6 +452,25 @@ type ARM32RoundTripTests() =
       "These SIMD and floating-point operand shapes no longer encode \
        correctly."
     )
+
+  /// A multiply-accumulate by one element of a register says whether its
+  /// elements are floating-point in a bit of the encoding as well as in the
+  /// data type of the text, so each kind is round-tripped on its own.
+  [<TestMethod>]
+  member _.``VMLA.F32 by an element keeps its data type``() =
+    Assert.AreEqual<string>("", brokenInEither "vmla.f32 d5, d27, d0[0]")
+
+  [<TestMethod>]
+  member _.``VMLS.F32 by an element keeps its data type``() =
+    Assert.AreEqual<string>("", brokenInEither "vmls.f32 q1, q2, d3[1]")
+
+  [<TestMethod>]
+  member _.``VMLA.I32 by an element keeps its data type``() =
+    Assert.AreEqual<string>("", brokenInEither "vmla.i32 d5, d11, d0[0]")
+
+  [<TestMethod>]
+  member _.``VMLS.I16 by an element keeps its data type``() =
+    Assert.AreEqual<string>("", brokenInEither "vmls.i16 d1, d2, d3[2]")
 
   [<TestMethod>]
   member _.``An IT block says what the instructions in it run under``() =

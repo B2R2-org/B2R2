@@ -381,12 +381,40 @@ let translate (ins: Instruction) bld =
     extend ins bld AST.zext 16<rt>
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
     vabsf ins bld
+  | Op.VABD ->
+    vabd ins bld
+  | Op.VABA ->
+    vaba ins bld
+  | Op.VABDL ->
+    vabdl ins bld
+  | Op.VABAL ->
+    vabal ins bld
+  | Op.VSHRN ->
+    vshrn ins bld
   | Op.VABS ->
     vabs ins bld
   | Op.VADD when isF16orF32orF64 ins.SIMDTyp ->
     vaddsub ins bld AST.fadd
   | Op.VADD ->
     vaddsub ins bld (.+)
+  | Op.VSUBL ->
+    vsubl ins bld
+  | Op.VADDW ->
+    vaddw ins bld
+  | Op.VSUBW ->
+    vsubw ins bld
+  | Op.VMOVL ->
+    vmovl ins bld
+  | Op.VSHLL ->
+    vshll ins bld
+  | Op.VADDHN ->
+    vaddhn ins bld
+  | Op.VSUBHN ->
+    vsubhn ins bld
+  | Op.VRADDHN ->
+    vraddhn ins bld
+  | Op.VRSUBHN ->
+    vrsubhn ins bld
   | Op.VADDL ->
     vaddl ins bld
   | Op.VAND ->
@@ -394,6 +422,22 @@ let translate (ins: Instruction) bld =
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
     when isF32orF64 ins.SIMDTyp ->
     unsupported ins bld
+  | Op.VACGE ->
+    vacge ins bld
+  | Op.VACGT ->
+    vacgt ins bld
+  | Op.VACLE ->
+    vacle ins bld
+  | Op.VACLT ->
+    vaclt ins bld
+  | Op.VRECPE ->
+    vrecpe ins bld
+  | Op.VRSQRTE ->
+    vrsqrte ins bld
+  | Op.VRECPS ->
+    vrecps ins bld
+  | Op.VRSQRTS ->
+    vrsqrts ins bld
   | Op.VCEQ ->
     vceq ins bld
   | Op.VCGE ->
@@ -404,15 +448,31 @@ let translate (ins: Instruction) bld =
     vcle ins bld
   | Op.VCLT ->
     vclt ins bld
+  | Op.VCLS ->
+    vcls ins bld
+  | Op.VCNT ->
+    vcnt ins bld
+  | Op.VBSL ->
+    vbsl ins bld
+  | Op.VBIT ->
+    vbit ins bld
+  | Op.VBIF ->
+    vbif ins bld
+  | Op.VREV16 ->
+    vrev16 ins bld
+  | Op.VREV32 ->
+    vrev32 ins bld
+  | Op.VREV64 ->
+    vrev64 ins bld
   | Op.VCLZ ->
     vclz ins bld
   | Op.VCMLA ->
     unsupported ins bld
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR ->
     unsupported ins bld
-  (* The four fused forms, which differ only in which of the product and the
-     accumulator they negate. Each negation is a flag rather than a sign flip
-     on the operand, so that a NaN reaches the operation as it was written. *)
+  (* The four fused forms, which differ only in which of Sn and Sd they pass
+     through FPNeg. The flip is made on the operand, as the manual makes it,
+     so that a NaN operand comes out with its sign turned over. *)
   | Op.VFMA ->
     vfpFusedMulAcc ins bld false false
   | Op.VFMS ->
@@ -424,9 +484,16 @@ let translate (ins: Instruction) bld =
   | Op.VNMUL ->
     vfpMulAcc ins bld (fun sz _ p -> fpNegBits sz p)
   | Op.VNMLA ->
-    vfpMulAcc ins bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
+    (* FPAdd(FPNeg(Sd), FPNeg(product)), not FPNeg(FPAdd(Sd, product)). The
+       two agree on every finite value and part company on a signed zero:
+       negating the sum of +0 and -0 gives -0, while summing their negations
+       gives +0. *)
+    vfpMulAcc ins bld (fun sz d p ->
+      AST.fadd (fpNegBits sz d) (fpNegBits sz p))
   | Op.VNMLS ->
-    vfpMulAcc ins bld (fun _ d p -> AST.fsub p d)
+    (* FPAdd(FPNeg(Sd), product). A subtraction agrees on every number and
+       hands a NaN accumulator back unflipped. *)
+    vfpMulAcc ins bld (fun sz d p -> AST.fadd (fpNegBits sz d) p)
   | Op.VSQRT ->
     vsqrtf ins bld
   | Op.VCMP | Op.VCMPE ->
@@ -435,6 +502,10 @@ let translate (ins: Instruction) bld =
     vcvt ins bld
   | Op.VDIV ->
     vdiv ins bld
+  | Op.VCVTB ->
+    vcvtb ins bld
+  | Op.VCVTT ->
+    vcvtt ins bld
   | Op.VDUP ->
     vdup ins bld
   | Op.VEXT ->
@@ -464,7 +535,8 @@ let translate (ins: Instruction) bld =
   | Op.VMLA when isF16orF32orF64 ins.SIMDTyp ->
     vfpMulAcc ins bld (fun _ d p -> AST.fadd d p)
   | Op.VMLS when isF16orF32orF64 ins.SIMDTyp ->
-    vfpMulAcc ins bld (fun _ d p -> AST.fsub d p)
+    (* FPAdd(Sd, FPNeg(product)), for the same reason as VNMLS. *)
+    vfpMulAcc ins bld (fun sz d p -> AST.fadd d (fpNegBits sz p))
   | Op.VMLA ->
     vmla ins bld
   | Op.VMLAL ->
@@ -473,7 +545,7 @@ let translate (ins: Instruction) bld =
     vmls ins bld
   | Op.VMLSL ->
     vmlsl ins bld
-  | Op.VMOV when isF16orF32orF64 ins.SIMDTyp ->
+  | Op.VMOV when isF16orF32orF64 ins.SIMDTyp && not (isSIMDF32Imm ins) ->
     vmovfp ins bld
   | Op.VMOV ->
     vmov ins bld
@@ -497,6 +569,14 @@ let translate (ins: Instruction) bld =
     vorn ins bld
   | Op.VORR ->
     vorr ins bld
+  | Op.VPMAX ->
+    vpmax ins bld
+  | Op.VPMIN ->
+    vpmin ins bld
+  | Op.VPADDL ->
+    vpaddl ins bld
+  | Op.VPADAL ->
+    vpadal ins bld
   | Op.VPADD when isF32orF64 ins.SIMDTyp ->
     unsupported ins bld
   | Op.VPADD ->
@@ -505,6 +585,44 @@ let translate (ins: Instruction) bld =
     vpop ins bld
   | Op.VPUSH ->
     vpush ins bld
+  | Op.VQADD ->
+    vqadd ins bld
+  | Op.VQSUB ->
+    vqsub ins bld
+  | Op.VQABS ->
+    vqabs ins bld
+  | Op.VQNEG ->
+    vqneg ins bld
+  | Op.VQSHL ->
+    vqshl ins bld
+  | Op.VQSHLU ->
+    vqshlu ins bld
+  | Op.VQRSHL ->
+    vqrshl ins bld
+  | Op.VRSHL ->
+    vrshl ins bld
+  | Op.VQSHRN ->
+    vqshrn ins bld
+  | Op.VQRSHRN ->
+    vqrshrn ins bld
+  | Op.VQSHRUN ->
+    vqshrun ins bld
+  | Op.VQRSHRUN ->
+    vqrshrun ins bld
+  | Op.VQDMULH ->
+    vqdmulh ins bld
+  | Op.VQRDMULH ->
+    vqrdmulh ins bld
+  | Op.VQDMULL ->
+    vqdmull ins bld
+  | Op.VQDMLAL ->
+    vqdmlal ins bld
+  | Op.VQDMLSL ->
+    vqdmlsl ins bld
+  | Op.VQMOVN ->
+    vqmovn ins bld
+  | Op.VQMOVUN ->
+    vqmovun ins bld
   | Op.VRHADD ->
     vrhadd ins bld
   | Op.VRINTP ->
@@ -517,6 +635,16 @@ let translate (ins: Instruction) bld =
     vshl ins bld
   | Op.VSHR ->
     vshr ins bld
+  | Op.VRSRA ->
+    vrsra ins bld
+  | Op.VSLI ->
+    vsli ins bld
+  | Op.VSRI ->
+    vsri ins bld
+  | Op.VTRN ->
+    vtrn ins bld
+  | Op.VZIP ->
+    vzip ins bld
   | Op.VSRA ->
     vsra ins bld
   | Op.VST1 ->

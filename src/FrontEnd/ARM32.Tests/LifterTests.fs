@@ -36,9 +36,15 @@ open type Register
 type LifterTests() =
   let num (v: uint32) = BitVector(v, 32<rt>) |> AST.num
 
+  let num16 (v: uint16) = BitVector(v, 16<rt>) |> AST.num
+
+  let num64 (v: uint64) = BitVector(v, 64<rt>) |> AST.num
+
   let t16 id = AST.tmpvar 16<rt> id
 
   let t32 id = AST.tmpvar 32<rt> id
+
+  let t64 id = AST.tmpvar 64<rt> id
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
@@ -49,6 +55,13 @@ type LifterTests() =
   let regFactory = RegisterFactory isa :> IRegisterFactory
 
   let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+
+  (* A VFP single- or double-precision register is half of a Q register in
+     this front end, so it is reached through the pseudo-register accessor
+     rather than by name: S0 is Q0's first half, S1 its second, S2 is Q1's
+     first. *)
+  let ( !@ ) (name, pos) =
+    regFactory.GetPseudoRegVar(Register.toRegID name, pos)
 
   let ( ++ ) (byteStr: string) givenStmts =
     ByteArray.ofHexString byteStr, givenStmts
@@ -124,6 +137,20 @@ type LifterTests() =
     |> testARM
 
   [<TestMethod>]
+  member _.``[ARMv7] VNMLA sums the negated addends``() =
+    let sign = num 0x80000000u
+    let s0 = AST.xtlo 32<rt> !@(Q0, 1)
+    let s1 = AST.xthi 32<rt> !@(Q0, 1)
+    let s2 = AST.xtlo 32<rt> !@(Q0, 2)
+    "ee100ac1"
+    ++ [| !@(Q0, 1) :=
+            (!@(Q0, 1) .& num64 0xffffffff00000000UL)
+              .| AST.zext 64<rt>
+                   (AST.fadd (s0 <+> sign)
+                             (AST.fmul s1 s2 <+> sign)) |]
+    |> testARM
+
+  [<TestMethod>]
   member _.``[ARMv7] SMULBT sign-extends both halfword operands``() =
     "e16002c1"
     ++ [| t32 1 := AST.sext 32<rt> (AST.xtlo 16<rt> !.R1)
@@ -159,4 +186,90 @@ type LifterTests() =
     "e5910000"
     ++ [| t32 1 := AST.loadBE 32<rt> (!.R1 .+ num 0x0u)
           !.R0 := t32 1 |]
+    |> testARM
+
+  (* An element of a doubleword is written by rebuilding the whole register:
+     the other elements are kept and the new one is shifted into place. These
+     assertions are written the way the lifter writes them, so the shape below
+     is a property of `elem` rather than of the instruction. *)
+  /// <summary>
+  /// VTST sets a lane to ones when the two lanes have a bit in common. Every
+  /// other comparison in this front end answers with a mask and this one
+  /// answered with the number one, which is the same thing only for a lane one
+  /// bit wide.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VTST fills a lane that tests true``() =
+    let low = num64 0xffffffff00000000UL
+    let high = num64 0xffffffffUL
+    let test e =
+      let any = (e !@(Q0, 2) .& e !@(Q1, 1)) != num 0x0u
+      AST.ite any (num 0xffffffffu) (num 0x0u)
+    "f2210812"
+    ++ [| !@(Q0, 1) :=
+            (!@(Q0, 1) .& low) .| AST.zext 64<rt> (test (AST.xtlo 32<rt>))
+          !@(Q0, 1) :=
+            (!@(Q0, 1) .& high)
+              .| (AST.zext 64<rt> (test (AST.xthi 32<rt>)) << num64 0x20UL) |]
+    |> testARM
+
+  /// <summary>
+  /// VMLS subtracts the product. Adding the product's bitwise NOT instead is
+  /// one short of that in every lane, because the two's complement wants the
+  /// one back.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VMLS subtracts the product``() =
+    let low = num64 0xffffffff00000000UL
+    let high = num64 0xffffffffUL
+    let diff e = e !@(Q0, 1) .- (e !@(Q0, 2) .* e !@(Q1, 1))
+    "f3210902"
+    ++ [| !@(Q0, 1) :=
+            (!@(Q0, 1) .& low) .| AST.zext 64<rt> (diff (AST.xtlo 32<rt>))
+          !@(Q0, 1) :=
+            (!@(Q0, 1) .& high)
+              .| (AST.zext 64<rt> (diff (AST.xthi 32<rt>)) << num64 0x20UL) |]
+    |> testARM
+
+  /// <summary>
+  /// VSRA accumulates each lane of the shifted source into its OWN lane of the
+  /// destination, and the shift is arithmetic for a signed type. The shift is
+  /// made at twice the lane's width so that a shift by the whole width, which
+  /// the encoding allows, still has somewhere to come from.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VSRA accumulates lane by lane``() =
+    let low = num64 0xffffffff00000000UL
+    let high = num64 0xffffffffUL
+    let acc e =
+      e !@(Q0, 1)
+      .+ AST.xtlo 32<rt> (AST.sext 64<rt> (e !@(Q0, 2)) ?>> num64 0x1UL)
+    "f2bf0111"
+    ++ [| !@(Q0, 1) :=
+            (!@(Q0, 1) .& low) .| AST.zext 64<rt> (acc (AST.xtlo 32<rt>))
+          !@(Q0, 1) :=
+            (!@(Q0, 1) .& high)
+              .| (AST.zext 64<rt> (acc (AST.xthi 32<rt>)) << num64 0x20UL) |]
+    |> testARM
+
+  /// <summary>
+  /// VFNMA is FPMulAdd(FPNeg(Sd), FPNeg(Sn), Sm), and FPNeg flips the sign bit
+  /// of whatever it is handed -- a NaN included. Asking the fused multiply-add
+  /// to negate its product and its addend instead agrees on every number and
+  /// returns a propagated NaN with the sign it went in with.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VFNMA negates its operands, not its product``() =
+    let low = num64 0xffffffff00000000UL
+    let sign = num 0x80000000u
+    let s0 = AST.xtlo 32<rt> !@(Q0, 1)
+    let s1 = AST.xthi 32<rt> !@(Q0, 1)
+    let s2 = AST.xtlo 32<rt> !@(Q0, 2)
+    let flags = BitVector(0u, 8<rt>) |> AST.num
+    "ee900ac1"
+    ++ [| !@(Q0, 1) :=
+            (!@(Q0, 1) .& low)
+              .| AST.zext 64<rt>
+                   (AST.app "FMA32" [ s1 <+> sign; s2; s0 <+> sign; flags ]
+                      32<rt>) |]
     |> testARM

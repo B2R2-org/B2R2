@@ -76,6 +76,14 @@ type ThumbParserTests() =
   let testNoSimd pref wback q (bytes: byte[]) (opcode, operands) =
     test pref opcode wback q None operands bytes
 
+  /// Checks the disassembly of a word the parser must read.
+  let testDisasm (byteString: string) (expected: string) =
+    let bytes = ByteArray.ofHexString byteString
+    let isa = ISA(Architecture.ARMv7, Endian.Big)
+    let parser = ARM32Parser(isa, true, BinReader.Init Endian.Big)
+    let ins = (parser :> IInstructionParsable).Parse(bytes, 0UL)
+    Assert.AreEqual<string>(expected, ins.Disasm())
+
   /// Checks that a word the manual calls UNPREDICTABLE is refused rather than
   /// decoded into whatever its fields happen to say.
   let testRefused (byteString: string) =
@@ -1016,3 +1024,131 @@ type ThumbParserTests() =
                   O.SimdVectorReg S2
                   O.SimdVectorReg S9 ]
     ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypF16))
+
+  /// <summary>
+  /// The Thumb encoding of an Advanced SIMD instruction differs from the A32
+  /// one only in the four bits above it, so the two tables below that point
+  /// say the same thing twice -- and where the Thumb copy disagreed with the
+  /// A32 one, it was the Thumb copy that was wrong. Each of the seven below
+  /// was measured against the A32 reading of the same instruction.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[Thumb] VABS names a quadword destination in its Q form``() =
+    "ffb10342"
+    ++ VABS ** [ O.SimdVectorReg Q0; O.SimdVectorReg Q1 ]
+    ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypS8))
+
+  /// VSHL by an immediate shifts LEFT, and its field counts up from the
+  /// element width rather than down from twice it.
+  [<TestMethod>]
+  member _.``[Thumb] VSHL counts its immediate up from the width``() =
+    "ef890511"
+    ++ VSHL ** [ O.SimdVectorReg D0; O.SimdVectorReg D1; O.Imm 1L ]
+    ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypI8))
+
+  /// The smallest size a shift by an immediate names is a byte; the Thumb
+  /// table answered U16 to the field that means an unsigned byte.
+  [<TestMethod>]
+  member _.``[Thumb] VSHR reads a byte as a byte``() =
+    "ff8f0011"
+    ++ VSHR ** [ O.SimdVectorReg D0; O.SimdVectorReg D1; O.Imm 1L ]
+    ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypU8))
+
+  /// VQSHRUN reads signed elements and writes unsigned ones, so the U bit of
+  /// its encoding selects the instruction rather than the sign of its type.
+  [<TestMethod>]
+  member _.``[Thumb] VQSHRUN keeps a signed data type``() =
+    "ff8f0812"
+    ++ VQSHRUN ** [ O.SimdVectorReg D0; O.SimdVectorReg Q1; O.Imm 1L ]
+    ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypS16))
+
+  /// VMOVL is the shift-by-immediate encoding whose amount is zero, which is
+  /// the low three bits of imm6 and not a wider field.
+  [<TestMethod>]
+  member _.``[Thumb] VMOVL is told from VSHLL by imm6's low bits``() =
+    "ef880a11"
+    ++ VMOVL ** [ O.SimdVectorReg Q0; O.SimdVectorReg D1 ]
+    ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypS8))
+
+  [<TestMethod>]
+  member _.``[Thumb] VMIN names quadwords in its Q form``() =
+    "ef220f44"
+    ++ VMIN ** [ O.SimdVectorReg Q0; O.SimdVectorReg Q1; O.SimdVectorReg Q2 ]
+    ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypF32))
+
+  [<TestMethod>]
+  member _.``[Thumb] VRSQRTS names quadwords in its Q form``() =
+    "ef220f54"
+    ++ VRSQRTS ** [ O.SimdVectorReg Q0
+                    O.SimdVectorReg Q1
+                    O.SimdVectorReg Q2 ]
+    ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypF32))
+
+  /// The by-scalar class keeps Q at bit 28 of a T32 word, where an A32 word
+  /// keeps it at bit 24, so a D-register form names odd registers freely.
+  [<TestMethod>]
+  member _.``[T32] VMLA by an element names an odd D``() =
+    testDisasm "efab51c0" "vmla.f32 d5, d27, d0[0]"
+
+  [<TestMethod>]
+  member _.``[T32] VQRDMULH by an element names an odd D``() =
+    testDisasm "efee7dc5" "vqrdmulh.s32 d23, d30, d5[0]"
+
+  /// VMULL's destination is the quadword that must be even, not a source.
+  [<TestMethod>]
+  member _.``[T32] VMULL with an odd first source``() =
+    testDisasm "ff8bcc0e" "vmull.u8 q6, d11, d14"
+
+  /// VLD2 of one register a structure steps by one, so d30 and d31 are the
+  /// last pair it can name.
+  [<TestMethod>]
+  member _.``[T32] VLD2 of the last two D registers``() =
+    testDisasm "f962e818" "vld2.8 {d30, d31}, [r2:64], r8"
+
+  /// VMOV.F32 builds a single-precision number from its eight bits the way
+  /// AdvSIMDExpandImm does (J1-7926).
+  [<TestMethod>]
+  member _.``[T32] VMOV.F32 (immediate) expands its constant``() =
+    testDisasm "ef810f14" "vmov.f32 d0, #0x40a00000"
+
+  /// The sign is the i bit, which T32 keeps at bit 28.
+  [<TestMethod>]
+  member _.``[T32] VMOV.F32 (immediate) takes its sign from i``() =
+    testDisasm "ff810f14" "vmov.f32 d0, #0xc0a00000"
+
+  [<TestMethod>]
+  member _.``[T32] VMOV.F32 (immediate) to a quadword keeps the constant``() =
+    testDisasm "ef810f54" "vmov.f32 q0, #0x40a00000"
+
+  /// cmode 1100 shifts the byte in over eight ones, and 1101 over sixteen.
+  [<TestMethod>]
+  member _.``[T32] VMOV.I32 (immediate) shifts in eight ones``() =
+    testDisasm "ef850c1a" "vmov.i32 d0, #0x5aff"
+
+  [<TestMethod>]
+  member _.``[T32] VMVN.I32 (immediate) shifts in sixteen ones``() =
+    testDisasm "ef850d3a" "vmvn.i32 d0, #0x5affff"
+
+  /// The floating-point instructions are the coprocessor space with 10 in bits
+  /// 11:10, and T32 reads no other coprocessor's data-processing words.
+  [<TestMethod>]
+  member _.``[T32] Coprocessor 13 is not floating-point``() =
+    testRefused "ee000d00"
+
+  [<TestMethod>]
+  member _.``[T32] Coprocessor 14 is not floating-point``() =
+    testRefused "ee000e00"
+
+  [<TestMethod>]
+  member _.``[T32] Coprocessor 15 is not floating-point``() =
+    testRefused "ee000f00"
+
+  /// A register list that runs past the last register names registers that do
+  /// not exist, so every build refuses it.
+  [<TestMethod>]
+  member _.``[T32] VLDM past D31 is refused in every build``() =
+    testRefused "ecd0fb04"
+
+  [<TestMethod>]
+  member _.``[T32] VLDM past S31 is refused in every build``() =
+    testRefused "ecd0fa02"
