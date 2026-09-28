@@ -176,7 +176,8 @@ module TransformerTuiRenderer =
       "Controls"
       "  F2                             Open the control command prompt"
       "  help                           Show control command usage"
-      "  actions                        List actions and usage forms"
+      "  help @<action>                 Show action usage and examples"
+      "  actions                        List concise action summaries"
       "  values                         List retained values"
       "  history                        List evaluated commands"
       "  layout order=toggle            Swap shell and suggestions"
@@ -190,6 +191,9 @@ module TransformerTuiRenderer =
       "  Tab / Shift+Tab                Apply completion / insert spaces"
       "  Up / Down                      Browse history, suggestions, or lines"
       "  Ctrl+N / Ctrl+P                Select next / previous completion"
+      "  Ctrl+A / Ctrl+E                Move to input start / end"
+      "  Ctrl+W / Ctrl+Backspace        Delete the previous input word"
+      "  Ctrl+U / Ctrl+K                Delete to input start / end"
       "  Ctrl+C                         Cancel a running action"
       "  Ctrl+D                         Leave when input is empty"
       "  Copy / paste                   Use the terminal's shortcuts"
@@ -209,9 +213,12 @@ module TransformerTuiRenderer =
   let private actionLines registry =
     let format registered =
       let metadata = (registered: RegisteredAction).Metadata
-      ActionMetadata.documentationLines metadata @ [ "" ]
-    "AVAILABLE ACTIONS" :: "" ::
-      (ActionRegistry.getAll registry |> List.collect format)
+      let name = ActionMetadata.actionName metadata.ID
+      $"{name.PadRight 28} {metadata.Description}"
+    [ "AVAILABLE ACTIONS"
+      "Use the F2 prompt with help @<action> for details."
+      "" ]
+    @ (ActionRegistry.getAll registry |> List.map format)
 
   let private bindingLines model =
     let lastResult =
@@ -1007,7 +1014,13 @@ module TransformerTuiRenderer =
     if active then paint reverse $" {label} " else paint dim $" {label} "
 
   let private keyHeader width model =
-    let f1 = keyButton (model.Overlay = TuiOverlay.Help) "F1 help"
+    let isHelpView =
+      match model.Overlay, model.ViewPane with
+      | TuiOverlay.View, Some pane ->
+        pane.Title = "Help"
+      | _ ->
+        false
+    let f1 = keyButton isHelpView "F1 help"
     let f2 = keyButton (model.Overlay = TuiOverlay.CommandPalette) "F2 command"
     let f3 = keyButton (activeFindText model |> Option.isSome) "F3 find"
     let f4 = keyButton (model.Overlay = TuiOverlay.View) "F4 view"
@@ -1198,11 +1211,17 @@ module TransformerTuiRenderer =
         let text = " B2R2 TRANSFORMER   Interactive Binary Analysis"
         paint (bannerBg + bannerFg + bold) (fit width text)
       let boxTopRow =
+        let title =
+          match model.Overlay, model.ViewPane with
+          | TuiOverlay.View, Some pane ->
+            pane.Title
+          | _ ->
+            "Main Window"
         if hasSidebar then
-          boxTop border leftWidth "Main Window"
+          boxTop border leftWidth title
           + " " + boxTop border rightWidth "Values"
         else
-          boxTop border leftWidth "Main Window"
+          boxTop border leftWidth title
       let boxBottomRow =
         if hasSidebar then
           boxBottom border leftWidth + " " + boxBottom border rightWidth

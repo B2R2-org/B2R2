@@ -155,7 +155,8 @@ type TuiTextCursor =
 
 /// View pane state for one command result.
 type TuiViewPane =
-  { BlockIndex: int
+  { Title: string
+    BlockIndex: int
     Lines: TuiLine array
     Cursor: TuiTextCursor
     Anchor: TuiTextCursor option
@@ -257,6 +258,62 @@ module TransformerTuiModel =
 
   let defaultSuggestionHeight = 7
 
+  let private helpLine text = { Kind = TuiLineKind.System; Text = text }
+
+  let helpViewLines =
+    [ helpLine "REPL GUIDE"
+      helpLine ""
+      helpLine "Pipelines"
+      helpLine "  let <name> = <expression>       Bind an analysis result"
+      helpLine
+        "  <value> |> @<action> [args]      Transform the preceding value"
+      helpLine "  <expression>                      Evaluate without binding"
+      helpLine ""
+      helpLine "Controls"
+      helpLine "  F2                   Open the control command prompt"
+      helpLine "  help                           Show this guide"
+      helpLine
+        "  help @<action>                 Show action usage and examples"
+      helpLine "  actions                        List action documentation"
+      helpLine "  values                         List retained values"
+      helpLine "  history                        List evaluated commands"
+      helpLine "  layout order=toggle            Swap shell and suggestions"
+      helpLine "  script save|load|record ...    Manage replay scripts"
+      helpLine "  plugin load path=<dll>         Load a plugin"
+      helpLine "  quit                           Leave the TUI"
+      helpLine ""
+      helpLine "Shell"
+      helpLine "  Enter                          Insert a new line"
+      helpLine "  ;; then Enter                  Execute the current input"
+      helpLine
+        "  Tab / Shift+Tab                Apply completion / insert spaces"
+      helpLine
+        "  Up / Down                      Browse history, suggestions, or lines"
+      helpLine
+        "  Ctrl+N / Ctrl+P                Select next / previous completion"
+      helpLine "  Ctrl+A / Ctrl+E                Move to input start / end"
+      helpLine
+        "  Ctrl+W / Ctrl+Backspace        Delete the previous input word"
+      helpLine "  Ctrl+U / Ctrl+K                Delete to input start / end"
+      helpLine "  Ctrl+C             Copy selection or cancel an action"
+      helpLine "  Ctrl+D                         Leave when input is empty"
+      helpLine "  Click a suggestion             Apply that completion"
+      helpLine "  Copy / paste                   Use the terminal's shortcuts"
+      helpLine ""
+      helpLine "Transcript and view"
+      helpLine
+        "  Shift+Up / Shift+Down          Enter / leave transcript focus"
+      helpLine
+        "  Enter or F4                    Open the selected result in view"
+      helpLine "  PageUp / PageDown              Scroll the active pane"
+      helpLine "  Ctrl+Up / Ctrl+Down            Move by command in transcript"
+      helpLine "  Shift+Arrows                   Select text in view"
+      helpLine "  F3                   Find text in transcript or view"
+      helpLine "  Ctrl+F                         Find text in view"
+      helpLine "  Ctrl+Enter           Insert view selection into input"
+      helpLine "  Alt+Arrows                     Resize sidebar or suggestions"
+      helpLine "  Esc                            Close a panel or clear input" ]
+
   let private fixedFrameRows = 5
 
   let private inputLineCount (input: string) =
@@ -310,7 +367,7 @@ module TransformerTuiModel =
             Text = "Welcome to B2R2 Transformer interactive analysis." }
           { Kind = TuiLineKind.System
             Text =
-              "Load a binary or press F1 to see the interactive guide." } ]
+              "Enter a pipeline below. Tab completes; F1 opens the guide." } ]
         |> TuiTranscript.ofList
       ResultBlocks = Map.empty
       LastViewLines = []
@@ -1325,20 +1382,15 @@ module TransformerTuiModel =
       | None ->
         { model with Status = $"Not found: {model.TranscriptFindText}" }
 
-  let openViewPane blockIndex model =
-    let lines =
-      model.ResultBlocks
-      |> Map.tryFind blockIndex
-      |> Option.map (fun lines -> lines.Value)
-      |> Option.defaultWith (fun () ->
-        outputLinesOfBlock blockIndex (transcriptLines model))
+  let private openViewPaneWithLines title blockIndex lines model =
     let lines =
       if List.isEmpty lines then
         [ { Kind = TuiLineKind.System; Text = "This command has no output." } ]
       else
         lines
     let pane =
-      { BlockIndex = blockIndex
+      { Title = title
+        BlockIndex = blockIndex
         Lines = List.toArray lines
         Cursor = { Line = 0; Column = 0 }
         Anchor = None
@@ -1349,7 +1401,19 @@ module TransformerTuiModel =
         ViewPane = Some pane
         LastViewLines = lines
         ScrollOffset = 0
-        Status = $"View result #{blockIndex}" }
+        Status = title }
+
+  let openTextView title lines model =
+    openViewPaneWithLines title -1 lines model
+
+  let openViewPane blockIndex model =
+    let lines =
+      model.ResultBlocks
+      |> Map.tryFind blockIndex
+      |> Option.map (fun lines -> lines.Value)
+      |> Option.defaultWith (fun () ->
+        outputLinesOfBlock blockIndex (transcriptLines model))
+    openViewPaneWithLines $"View result #{blockIndex}" blockIndex lines model
 
   let openSelectedViewPane model =
     let blockIndex =

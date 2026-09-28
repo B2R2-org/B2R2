@@ -73,7 +73,8 @@ type TuiRendererTests() =
   [<TestMethod>]
   member _.``view find renders an input row with its cursor``() =
     let pane =
-      { BlockIndex = 1
+      { Title = "View"
+        BlockIndex = 1
         Lines = [| { Kind = TuiLineKind.Output; Text = "needle" } |]
         Cursor = { Line = 0; Column = 0 }
         Anchor = None

@@ -77,7 +77,7 @@ type TransformerReplCommand =
   | ScriptComment of text: string
   | PluginLoad of path: string
   | Layout of options: string list
-  | Help
+  | Help of action: string option
   | Reset
   | Quit
   | NoInput
