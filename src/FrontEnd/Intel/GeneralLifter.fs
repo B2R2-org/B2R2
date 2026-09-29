@@ -1146,6 +1146,20 @@ let compareExchangeBytes ins bld =
     let oprSize = getOperationSize ins
     let zf = regVar bld R.ZF
     let cond = tmpVar bld 1<rt>
+#if EMULATION
+    (* ZF is the only flag this writes; the rest outlive it. While the flags
+       are lazy they are a promise about the operation before this one, and
+       that promise names ZF too -- so the ZF written below has to end the
+       promise, or the next reader recomputes ZF from that earlier operation
+       and reads back whatever it would have said.
+       A compare-and-swap is followed by a test of exactly that bit, which is
+       how leaving it unsettled turns a lock that was taken on the first try
+       into a spin that cannot see its own success. *)
+    if bld.ConditionCodeOp <> ConditionCodeOp.EFlags then
+      genDynamicFlagsUpdate bld
+    else
+      ()
+#endif
     match oprSize with
     | 64<rt> -> cmpXchg8b ins bld oprSize zf cond
     | 128<rt> -> cmpXchg16b ins bld zf cond
