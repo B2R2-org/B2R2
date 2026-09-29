@@ -175,9 +175,16 @@ let private segRegToBase = function
   | R.SS -> R.SSBase
   | _ -> Terminator.impossible ()
 
+/// Adds a segment's base to an effective address.
+let private withSegBase bld seg e =
+  let bse = regVar bld (segRegToBase seg)
+  let baseSize = Expr.typeOf bse
+  if Expr.typeOf e = baseSize then bse .+ e
+  else bse .+ AST.zext baseSize e
+
 let private ldMem (ins: Instruction) bld oprSize e =
   match Prefix.getSegment ins.Prefixes with
-  | Some s -> regVar bld (segRegToBase s) .+ e
+  | Some s -> withSegBase bld s e
   | None -> e
   |> AST.loadLE oprSize
 
