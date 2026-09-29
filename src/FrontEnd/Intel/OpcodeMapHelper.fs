@@ -294,6 +294,7 @@ let vvvvReg (st: byref<ParsingState>) (sz: RegType) =
     match sz with
     | 512<rt> -> RegisterHelper.zmm n
     | 256<rt> -> RegisterHelper.ymm n
+    | 1024<rt> -> RegisterHelper.tmm n (* The third tile of a TDP row. *)
     | _ -> RegisterHelper.xmm n
 
 /// The register imm8[7:4] names.
@@ -482,6 +483,16 @@ let memV (span: ByteSpan) (st: byref<ParsingState>) (m: byte) memSz tt bcst =
   if not st.IsEVEX then mem span &st m memSz
   elif st.AddrSz = 16<rt> then mem16E span &st m memSz tt bcst
   else mem32E span &st m memSz tt bcst
+
+/// The memory operand of an AMX tile load or store. The manual writes its
+/// ModRM as !(11):rrr:100 and Table 2-67 makes anything else #UD: "#UD if not
+/// using SIB addressing". The index register is a stride between rows rather
+/// than a part of one address, and how many rows and bytes are read is
+/// configured at run time, so the operand declares no width and none is
+/// printed. SDM Vol. 2B, TILELOADD 4-710.
+let memSib (span: ByteSpan) (st: byref<ParsingState>) (m: byte) =
+  if rm m <> 0b100 then raise ParsingFailureException else ()
+  mem span &st m 0<rt>
 
 /// Register or memory under a VEX or EVEX prefix.
 let inline rmOprV span (st: byref<ParsingState>) (m: byte) rsz msz tt bcst =

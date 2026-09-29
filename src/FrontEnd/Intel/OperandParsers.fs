@@ -44,6 +44,11 @@ let inline private regOfIndex sz (n: int) =
   | 128<rt> -> RegisterHelper.xmm n
   | 256<rt> -> RegisterHelper.ymm n
   | 512<rt> -> RegisterHelper.zmm n
+  (* The width the AMX rows give a tile operand. It is not a width a tile has
+     -- the manual writes these operands tmm1, tmm2 and tmm3, with no size at
+     all -- but the table has no other way to say which register file the
+     field names, and 1024 is the one it spends on saying so. *)
+  | 1024<rt> -> RegisterHelper.tmm n
   | _ -> raise ParsingFailureException
 
 /// Find a specific reg. The bitmask will be used to extract a specific REX

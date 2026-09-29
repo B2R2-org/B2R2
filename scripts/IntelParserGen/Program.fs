@@ -367,6 +367,8 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
     rmk (rmOf o.Size o.MemSize o.BcstSize) o.Size o.MemSize o.BcstSize
   | OprKind.MemVSIB ->
     nonReg (sprintf "memVSIB span &st m %s %s" (rt o.Size) t)
+  | OprKind.SibMem ->
+    nonReg "memSib span &st m"
   | OprKind.Reg ->
     match o.Field with
     | OprRegType.RegBit ->

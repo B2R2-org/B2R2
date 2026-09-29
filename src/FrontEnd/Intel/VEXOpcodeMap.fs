@@ -6929,7 +6929,7 @@ let private v1x49 (span: ByteSpan) (st: byref<ParsingState>) =
       else
         raise ParsingFailureException
     | 25 | 29 | 33 | 37 ->
-      if isReg m && st.VL = 128<rt> && st.NoLock then
+      if (m &&& 0xC7uy) = 0xC0uy && st.VL = 128<rt> && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = regRegV &st m 1024<rt>
         let oprs = Operands.oneReg o1
@@ -6952,7 +6952,7 @@ let private v1x49 (span: ByteSpan) (st: byref<ParsingState>) =
   | 1 ->
     match st.Ctx with
     | 25 | 29 | 33 | 37 ->
-      if isReg m && st.VL = 128<rt> && st.NoLock then
+      if (m &&& 0xC7uy) = 0xC0uy && st.VL = 128<rt> && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = regRegV &st m 1024<rt>
         let oprs = Operands.oneReg o1
@@ -6964,7 +6964,7 @@ let private v1x49 (span: ByteSpan) (st: byref<ParsingState>) =
   | 2 ->
     match st.Ctx with
     | 25 | 29 | 33 | 37 ->
-      if isReg m && st.VL = 128<rt> && st.NoLock then
+      if (m &&& 0xC7uy) = 0xC0uy && st.VL = 128<rt> && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = regRegV &st m 1024<rt>
         let oprs = Operands.oneReg o1
@@ -6976,7 +6976,7 @@ let private v1x49 (span: ByteSpan) (st: byref<ParsingState>) =
   | 3 ->
     match st.Ctx with
     | 25 | 29 | 33 | 37 ->
-      if isReg m && st.VL = 128<rt> && st.NoLock then
+      if (m &&& 0xC7uy) = 0xC0uy && st.VL = 128<rt> && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = regRegV &st m 1024<rt>
         let oprs = Operands.oneReg o1
@@ -6988,7 +6988,7 @@ let private v1x49 (span: ByteSpan) (st: byref<ParsingState>) =
   | 4 ->
     match st.Ctx with
     | 25 | 29 | 33 | 37 ->
-      if isReg m && st.VL = 128<rt> && st.NoLock then
+      if (m &&& 0xC7uy) = 0xC0uy && st.VL = 128<rt> && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = regRegV &st m 1024<rt>
         let oprs = Operands.oneReg o1
@@ -7000,7 +7000,7 @@ let private v1x49 (span: ByteSpan) (st: byref<ParsingState>) =
   | 5 ->
     match st.Ctx with
     | 25 | 29 | 33 | 37 ->
-      if isReg m && st.VL = 128<rt> && st.NoLock then
+      if (m &&& 0xC7uy) = 0xC0uy && st.VL = 128<rt> && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = regRegV &st m 1024<rt>
         let oprs = Operands.oneReg o1
@@ -7012,7 +7012,7 @@ let private v1x49 (span: ByteSpan) (st: byref<ParsingState>) =
   | 6 ->
     match st.Ctx with
     | 25 | 29 | 33 | 37 ->
-      if isReg m && st.VL = 128<rt> && st.NoLock then
+      if (m &&& 0xC7uy) = 0xC0uy && st.VL = 128<rt> && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = regRegV &st m 1024<rt>
         let oprs = Operands.oneReg o1
@@ -7024,7 +7024,7 @@ let private v1x49 (span: ByteSpan) (st: byref<ParsingState>) =
   | 7 ->
     match st.Ctx with
     | 25 | 29 | 33 | 37 ->
-      if isReg m && st.VL = 128<rt> && st.NoLock then
+      if (m &&& 0xC7uy) = 0xC0uy && st.VL = 128<rt> && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = regRegV &st m 1024<rt>
         let oprs = Operands.oneReg o1
@@ -7043,7 +7043,7 @@ let private v1x4b (span: ByteSpan) (st: byref<ParsingState>) =
     if isMem m && st.VL = 128<rt> && st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = Operands.oprReg (regRegV &st m 1024<rt>)
-      let o2 = memV span &st m (effOprSz &st SzCond.Normal) TupleType.NA 0<rt>
+      let o2 = memSib span &st m
       let oprs = TwoOperands(o1, o2)
       finishV &st Opcode.TILELOADD (oprs) (1024<rt>) 0<rt> NoRounding (isReg m)
     else
@@ -7055,7 +7055,7 @@ let private v1x4b (span: ByteSpan) (st: byref<ParsingState>) =
        (not (st.IsEVEX && st.AAA <> 0) || isMem m) &&
        st.NoLock then
       st.Pos <- st.Pos + 1
-      let o1 = memV span &st m (effOprSz &st SzCond.Normal) TupleType.NA 0<rt>
+      let o1 = memSib span &st m
       let o2 = Operands.oprReg (regRegV &st m 1024<rt>)
       let oprs = TwoOperands(o1, o2)
       finishV &st Opcode.TILESTORED (oprs) (0<rt>) 0<rt> NoRounding (isReg m)
@@ -7065,7 +7065,7 @@ let private v1x4b (span: ByteSpan) (st: byref<ParsingState>) =
     if isMem m && st.VL = 128<rt> && st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = Operands.oprReg (regRegV &st m 1024<rt>)
-      let o2 = memV span &st m (effOprSz &st SzCond.Normal) TupleType.NA 0<rt>
+      let o2 = memSib span &st m
       let oprs = TwoOperands(o1, o2)
       finishV
         &st

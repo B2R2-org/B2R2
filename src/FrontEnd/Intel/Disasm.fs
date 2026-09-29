@@ -194,6 +194,10 @@ module IntelSyntax = begin
        and FRSTOR read, and the 48-byte Key Locker handle. objdump prints
        these bare too. *)
     | 224<rt> | 384<rt> | 864<rt> -> ""
+    (* The manual's sibmem, which names no width at all: how many rows an
+       AMX tile load or store moves, and how wide each is, is configured at
+       run time rather than encoded. *)
+    | 0<rt> -> ""
     | _ -> Terminator.impossible ()
 
   /// Opens a memory operand, leaving out the separating space when the width

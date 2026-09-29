@@ -2739,6 +2739,139 @@ type ParserTests() =
       [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Mem(R.RAX, 16L, 64<rt>) ]
     ||> testX64NoPrefixNoSeg
 
+  (* INTEL ADVANCED MATRIX EXTENSIONS (AMX). The tile registers are named by
+     three-bit fields of the VEX prefix and the ModRM byte, and the loads and
+     stores reach memory only through a SIB byte whose index is a row stride.
+     SDM Vol. 2B, 4-672 and 4-701 through 4-714. *)
+  [<TestMethod>]
+  member _.``AMX tile configuration (1)``() = (* LDTILECFG *)
+    "c4e2784900"
+    ++ LDTILECFG ** [ O.Mem(R.RAX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX tile configuration (2)``() = (* STTILECFG *)
+    "c4e2794900"
+    ++ STTILECFG ** [ O.Mem(R.RAX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX tile configuration (3)``() = (* TILERELEASE *)
+    "c4e27849c0"
+    ++ TILERELEASE ** []
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX tile zeroing (1)``() = (* TILEZERO tmm1 *)
+    "c4e27b49c8"
+    ++ TILEZERO ** [ O.Reg R.TMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX tile zeroing (2)``() = (* the last tile, TILEZERO tmm7 *)
+    "c4e27b49f8"
+    ++ TILEZERO ** [ O.Reg R.TMM7 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* sibmem declares no width: how many rows are moved, and how wide each of
+     them is, is configured at run time rather than encoded. *)
+  [<TestMethod>]
+  member _.``AMX tile load (1)``() = (* TILELOADD *)
+    "c4e27b4b0c18"
+    ++ TILELOADD ** [ O.Reg R.TMM1; O.Mem(R.RAX, R.RBX, Scale.X1, 0<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX tile load (2)``() = (* a scaled stride and a displacement *)
+    "c4e27b4b4c9820"
+    ++ TILELOADD **
+      [ O.Reg R.TMM1; O.Mem(R.RAX, R.RBX, Scale.X4, 32L, 0<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX tile load (3)``() = (* TILELOADDT1 *)
+    "c4e2794b0c18"
+    ++ TILELOADDT1 ** [ O.Reg R.TMM1; O.Mem(R.RAX, R.RBX, Scale.X1, 0<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX tile store (1)``() = (* TILESTORED *)
+    "c4e27a4b0c18"
+    ++ TILESTORED ** [ O.Mem(R.RAX, R.RBX, Scale.X1, 0<rt>); O.Reg R.TMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* The dot products take their third tile from VEX.vvvv. *)
+  [<TestMethod>]
+  member _.``AMX dot product (1)``() = (* TDPBSSD, F2 *)
+    "c4e2635eca"
+    ++ TDPBSSD ** [ O.Reg R.TMM1; O.Reg R.TMM2; O.Reg R.TMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX dot product (2)``() = (* TDPBSUD, F3 *)
+    "c4e2625eca"
+    ++ TDPBSUD ** [ O.Reg R.TMM1; O.Reg R.TMM2; O.Reg R.TMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX dot product (3)``() = (* TDPBUSD, 66 *)
+    "c4e2615eca"
+    ++ TDPBUSD ** [ O.Reg R.TMM1; O.Reg R.TMM2; O.Reg R.TMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX dot product (4)``() = (* TDPBUUD, no prefix *)
+    "c4e2605eca"
+    ++ TDPBUUD ** [ O.Reg R.TMM1; O.Reg R.TMM2; O.Reg R.TMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX dot product (5)``() = (* TDPBF16PS, F3 *)
+    "c4e2625cca"
+    ++ TDPBF16PS ** [ O.Reg R.TMM1; O.Reg R.TMM2; O.Reg R.TMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AMX dot product (6)``() = (* TDPFP16PS, F2 *)
+    "c4e2635cca"
+    ++ TDPFP16PS ** [ O.Reg R.TMM1; O.Reg R.TMM2; O.Reg R.TMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* TILEZERO is written 11:rrr:000, so every r/m but zero is #UD. *)
+  [<TestMethod>]
+  member _.``AMX ParsingFailure Test (1)``() =
+    testX64Invalid "c4e27b49c9" (* TILEZERO with r/m = 001 *)
+
+  [<TestMethod>]
+  member _.``AMX ParsingFailure Test (2)``() =
+    testX64Invalid "c4e27b49cf" (* TILEZERO with r/m = 111 *)
+
+  (* "#UD if not using SIB addressing": the tile loads and stores are written
+     !(11):rrr:100, so any other r/m names no instruction. *)
+  [<TestMethod>]
+  member _.``AMX ParsingFailure Test (3)``() =
+    testX64Invalid "c4e27b4b08" (* TILELOADD with r/m = 000 *)
+
+  [<TestMethod>]
+  member _.``AMX ParsingFailure Test (4)``() =
+    testX64Invalid "c4e27a4b08" (* TILESTORED with r/m = 000 *)
+
+  (* Only eight tiles exist, and the manual writes the fields that name them
+     as three bits, so a prefix bit that would carry one past TMM7 names no
+     register. VEX.R extends ModRM.reg, VEX.B extends ModRM.r/m, and the
+     fourth bit of vvvv extends the third tile of a dot product. *)
+  [<TestMethod>]
+  member _.``AMX ParsingFailure Test (5)``() =
+    testX64Invalid "c462635eca" (* TDPBSSD with VEX.R set *)
+
+  [<TestMethod>]
+  member _.``AMX ParsingFailure Test (6)``() =
+    testX64Invalid "c4c2635eca" (* TDPBSSD with VEX.B set *)
+
+  [<TestMethod>]
+  member _.``AMX ParsingFailure Test (7)``() =
+    testX64Invalid "c4e23b5eca" (* TDPBSSD with vvvv naming a ninth tile *)
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Size cond ParsingFailure Test (1)``() =

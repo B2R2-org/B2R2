@@ -140,6 +140,14 @@ module internal RegisterHelper = begin
     0x15A + n
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
+  /// Get the tile register of the given index. The manual writes the tile
+  /// fields as three bits apiece (11:rrr:bbb) and Table 2-67 gives the prefix
+  /// bits that would extend them no meaning, so an index past the eight tiles
+  /// that exist names no register at all.
+  let tmm n =
+    if n > 7 then raise ParsingFailureException
+    else 0x225 + n |> LanguagePrimitives.EnumOfValue<int, Register>
+
   let toRegType wordSize = function
     | R.MM0 | R.MM1 | R.MM2 | R.MM3 | R.MM4 | R.MM5 | R.MM6 | R.MM7
     | R.ST0A | R.ST1A | R.ST2A | R.ST3A | R.ST4A | R.ST5A | R.ST6A | R.ST7A
@@ -263,6 +271,11 @@ module internal RegisterHelper = begin
     | R.ZMM24 | R.ZMM25 | R.ZMM26 | R.ZMM27
     | R.ZMM28 | R.ZMM29 | R.ZMM30
     | R.ZMM31 -> 512<rt>
+    (* A tile is at most sixteen rows of sixty-four bytes each. How much of
+       that it holds is set by LDTILECFG at run time, so the widest it can be
+       is the only width that is always true of it. *)
+    | R.TMM0 | R.TMM1 | R.TMM2 | R.TMM3
+    | R.TMM4 | R.TMM5 | R.TMM6 | R.TMM7 -> 8192<rt>
     | R.ST0 | R.ST1 | R.ST2 | R.ST3 | R.ST4 | R.ST5 | R.ST6 | R.ST7 -> 80<rt>
     | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF | R.IF | R.TF
     | R.FSWC0 | R.FSWC1 | R.FSWC2 | R.FSWC3 -> 1<rt>
