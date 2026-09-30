@@ -157,6 +157,22 @@ type ParserTests() =
       parse (ISA(Architecture.ARMv7, Endian.Big)) bytes |> ignore)
     |> ignore
 
+  /// The disassembly of a word under the ISA a name gives, or nothing where
+  /// that ISA leaves the word UNDEFINED.
+  let under (isaName: string) (byteString: string) =
+    let parser = ARM32Parser(ISA isaName, false, BinReader.Init Endian.Big)
+    let bytes = ByteArray.ofHexString byteString
+    try Some(((parser :> IInstructionParsable).Parse(bytes, 0UL)).Disasm())
+    with :? ParsingFailureException -> None
+
+  /// Checks that a word reads under each ISA of one list and is refused under
+  /// each of the other, which is what a version and its extensions decide.
+  let readsOnlyUnder word (reads: string list) (refuses: string list) =
+    for name in reads do
+      Assert.AreEqual<bool>(true, (under name word).IsSome, $"{word} {name}")
+    for name in refuses do
+      Assert.AreEqual<string option>(None, under name word, $"{word} {name}")
+
   let testNoQNoSimd pref wback (bytes: byte[]) (opcode, operands) =
     test pref opcode wback None operands bytes
 
@@ -422,6 +438,108 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] VLD2 of the last two D registers``() =
     testDisasm "f46be812" "vld2.8 {d30, d31}, [fp:64], r2"
+
+  /// <summary>
+  /// Which ISAs read each word, and which refuse it. An ARMv7 ISA naming a
+  /// version reads the instructions of the extensions it has and no others:
+  /// the moves and loads of the extension registers are either unit's, the
+  /// fused multiply-adds need VFPv4 and the half-precision conversions FP16
+  /// on top, and what Armv8 added no ARMv7 version reads.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 is either unit's``() =
+    readsOnlyUnder "ee300a81" [ "armv7-v7+fp"; "armv7-v7+simd" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.I32 is Advanced SIMD's``() =
+    readsOnlyUnder "f2210802" [ "armv7-v7+simd" ] [ "armv7-v7+fp"; "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VFMA.F32 is VFPv4's``() =
+    readsOnlyUnder "eea00a81" [ "armv7-v7+vfpv4" ]
+      [ "armv7-v7+fp"; "armv7-v7+simd" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VFMA of vectors needs SIMD and VFPv4``() =
+    readsOnlyUnder "f2010c12" [ "armv7-v7+simd+vfpv4" ] [ "armv7-v7+simd" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTB is the half-precision extension's``() =
+    readsOnlyUnder "eeb20a60" [ "armv7-v7+fp+fp16"; "armv7-v7+vfpv4" ]
+      [ "armv7-v7+fp" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT of halves needs SIMD and FP16``() =
+    readsOnlyUnder "f3b60602" [ "armv7-v7+simd+fp16" ] [ "armv7-v7+simd" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] SDIV is the divide extension's``() =
+    readsOnlyUnder "e710f211" [ "armv7-v7+idiv"; "armv7-v7+virt" ]
+      [ "armv7-v7+mp" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] SDIV comes with ARMv7VE``() =
+    readsOnlyUnder "e710f211" [ "armv7-v7ve" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] PLDW is the multiprocessing extension's``() =
+    readsOnlyUnder "f590f000" [ "armv7-v7+mp"; "armv7-v7ve" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] SMC is the security extension's``() =
+    readsOnlyUnder "e1600070" [ "armv7-v7+sec"; "armv7-v7ve" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] HVC is the virtualization extension's``() =
+    readsOnlyUnder "e1400070" [ "armv7-v7+virt"; "armv7-v7ve" ]
+      [ "armv7-v7+idiv" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] MRS (banked) is the virtualization extension's``() =
+    readsOnlyUnder "e1000200" [ "armv7-v7+virt" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VLDM is either unit's``() =
+    readsOnlyUnder "ec900b04" [ "armv7-v7+fp"; "armv7-v7+simd" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VLD1 is Advanced SIMD's``() =
+    readsOnlyUnder "f420070f" [ "armv7-v7+simd" ] [ "armv7-v7+fp" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV of a word to a core register is either unit's``() =
+    readsOnlyUnder "ee300b10" [ "armv7-v7+fp"; "armv7-v7+simd" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV of a byte to a core register is Advanced SIMD's``() =
+    readsOnlyUnder "eed00b30" [ "armv7-v7+simd" ] [ "armv7-v7+fp" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] CRC32B is Armv8's``() =
+    readsOnlyUnder "e1010042" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMAXNM is Armv8's``() =
+    readsOnlyUnder "f3010f12" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] LDA is Armv8's``() =
+    readsOnlyUnder "e1910c9f" [ "armv7" ] [ "armv7-v7ve" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] ADD is every version's``() =
+    readsOnlyUnder "e0810002" [ "armv7-v7" ] []
+
+  /// Armv8's hints are NOPs to an ARMv7 processor, as its unallocated hints
+  /// are, so an ARMv7 version reads them as NOP.
+  [<TestMethod>]
+  member _.``[ARMv7] SEVL reads as NOP under an ARMv7 version``() =
+    Assert.AreEqual<string option>(Some "nop", under "armv7-v7" "e320f005")
+
+  /// An ISA that names no version reads every instruction.
+  [<TestMethod>]
+  member _.``[ARMv7] SEVL reads as SEVL without a version``() =
+    Assert.AreEqual<string option>(Some "sevl", under "armv7" "e320f005")
 
   /// A register list of no registers is UNPREDICTABLE. A build that checks
   /// refuses it, and one that does not reads the empty list it names; either

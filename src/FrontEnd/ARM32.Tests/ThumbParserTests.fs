@@ -95,6 +95,22 @@ type ThumbParserTests() =
       parser.Parse(bs = bytes, addr = 0UL) |> ignore)
     |> ignore
 
+  /// The disassembly of a word under the ISA a name gives, or nothing where
+  /// that ISA leaves the word UNDEFINED.
+  let under (isaName: string) (byteString: string) =
+    let parser = ARM32Parser(ISA isaName, true, BinReader.Init Endian.Big)
+    let bytes = ByteArray.ofHexString byteString
+    try Some(((parser :> IInstructionParsable).Parse(bytes, 0UL)).Disasm())
+    with :? ParsingFailureException -> None
+
+  /// Checks that a word reads under each ISA of one list and is refused under
+  /// each of the other, which is what a version and its extensions decide.
+  let readsOnlyUnder word (reads: string list) (refuses: string list) =
+    for name in reads do
+      Assert.AreEqual<bool>(true, (under name word).IsSome, $"{word} {name}")
+    for name in refuses do
+      Assert.AreEqual<string option>(None, under name word, $"{word} {name}")
+
   let operandsFromArray oprList =
     let oprs = Array.ofList oprList
     match oprs.Length with
@@ -1115,6 +1131,38 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[T32] PLDW with a negative offset ending in F``() =
     testDisasm "f83efcaf" "pldw [lr, #-0xaf]"
+
+  /// A T32 word is gated the way its A32 counterpart is: its class says which
+  /// unit it belongs to, and an ARMv7 version reads no Armv8 instruction.
+  [<TestMethod>]
+  member _.``[T32] SDIV is the divide extension's``() =
+    readsOnlyUnder "fb91f0f2" [ "thumb-v7+idiv"; "thumb-v7ve" ] [ "thumb-v7" ]
+
+  [<TestMethod>]
+  member _.``[T32] VADD.I32 is Advanced SIMD's``() =
+    readsOnlyUnder "ef210802" [ "thumb-v7+simd" ] [ "thumb-v7+fp" ]
+
+  [<TestMethod>]
+  member _.``[T32] VADD.F32 is the floating-point unit's``() =
+    readsOnlyUnder "ee300a81" [ "thumb-v7+fp" ] [ "thumb-v7" ]
+
+  [<TestMethod>]
+  member _.``[T32] VLD1 is Advanced SIMD's``() =
+    readsOnlyUnder "f920070f" [ "thumb-v7+simd" ] [ "thumb-v7+fp" ]
+
+  [<TestMethod>]
+  member _.``[T32] PLDW is the multiprocessing extension's``() =
+    readsOnlyUnder "f8b0f000" [ "thumb-v7+mp" ] [ "thumb-v7" ]
+
+  [<TestMethod>]
+  member _.``[T32] CRC32B is Armv8's``() =
+    readsOnlyUnder "fac1f082" [ "thumb" ] [ "thumb-v7ve+simd+vfpv4" ]
+
+  /// An Armv8 hint is a NOP to an ARMv7 processor, as its unallocated hints
+  /// are.
+  [<TestMethod>]
+  member _.``[T32] SEVL reads as NOP under an ARMv7 version``() =
+    Assert.AreEqual<string option>(Some "nop", under "thumb-v7" "bf50bf00")
 
   /// TSB CSYNC names its option, which is part of what it is written as.
   [<TestMethod>]
