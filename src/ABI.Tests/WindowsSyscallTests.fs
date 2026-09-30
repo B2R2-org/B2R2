@@ -98,3 +98,52 @@ type WindowsSyscallTests() =
     Assert.ThrowsExactly<UnhandledSyscallException>(fun () ->
       WindowsSyscall.toNumber WindowsBuild.Win10_2004 arm f |> ignore)
     |> ignore
+
+[<TestClass>]
+type WindowsBuildTests() =
+
+  let x64 = ISA(Architecture.Intel, WordSize.Bit64)
+
+  [<TestMethod>]
+  member _.``A version names the build it belongs to``() =
+    Assert.AreEqual<WindowsBuild option>(
+      Some WindowsBuild.Win11_24H2, WindowsBuild.ofVersion 10 0 26100
+    )
+    Assert.AreEqual<WindowsBuild option>(
+      Some WindowsBuild.Win10_2004, WindowsBuild.ofVersion 10 0 19041
+    )
+
+  (* The numbers a real 24H2 ntdll carries, read out of its own stubs. They
+     are what ties this mapping to a machine rather than to a table. *)
+  [<TestMethod>]
+  member _.``The build a 24H2 version names numbers calls as 24H2 does``() =
+    match WindowsBuild.ofVersion 10 0 26100 with
+    | None ->
+      Assert.Fail "10.0.26100 names a build"
+    | Some build ->
+      let ssn sc = WindowsSyscall.toNumber build x64 sc
+      Assert.AreEqual<int>(0x06, ssn WindowsSyscall.NtReadFile)
+      Assert.AreEqual<int>(0x0f, ssn WindowsSyscall.NtClose)
+      Assert.AreEqual<int>(0x55, ssn WindowsSyscall.NtCreateFile)
+      Assert.AreEqual<int>(0xd1, ssn WindowsSyscall.NtCreateUserProcess)
+
+  (* Before Windows 10 a build number names several releases that disagree
+     about system-call numbers -- NT 4.0 is 1381 under all six of its service
+     packs -- so there is no answer to give. *)
+  [<TestMethod>]
+  member _.``A version older than Windows 10 names no build``() =
+    Assert.AreEqual<WindowsBuild option>(None, WindowsBuild.ofVersion 4 0 1381)
+    Assert.AreEqual<WindowsBuild option>(None, WindowsBuild.ofVersion 6 1 7601)
+    Assert.AreEqual<WindowsBuild option>(None, WindowsBuild.ofVersion 10 0 1)
+
+  (* A build this names has to be one the tables know, or the mapping sends a
+     caller somewhere there is nothing to read. *)
+  [<TestMethod>]
+  member _.``Every build a version names has a table``() =
+    for b in 10000 .. 27000 do
+      match WindowsBuild.ofVersion 10 0 b with
+      | None ->
+        ()
+      | Some build ->
+        WindowsSyscall.toNumber build x64 WindowsSyscall.NtClose |> ignore
+

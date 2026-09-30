@@ -137,3 +137,48 @@ type WindowsBuild =
   | WinSrv2025 = 52
   /// Windows 11 and Server (11 25H2).
   | Win11_25H2 = 53
+
+/// Resolves a Windows version to the build it names.
+[<RequireQualifiedAccess>]
+module WindowsBuild =
+  /// The build number each release goes by, as Microsoft's release
+  /// information publishes it. Two entries may share one: a Windows 11
+  /// release and the server built from it are one build, and they number
+  /// their system calls alike, so either answers for both.
+  let private builds =
+    [ 10240, WindowsBuild.Win10_1507
+      10586, WindowsBuild.Win10_1511
+      14393, WindowsBuild.Win10_1607
+      15063, WindowsBuild.Win10_1703
+      16299, WindowsBuild.Win10_1709
+      17134, WindowsBuild.Win10_1803
+      17763, WindowsBuild.Win10_1809
+      18362, WindowsBuild.Win10_1903
+      18363, WindowsBuild.Win10_1909
+      19041, WindowsBuild.Win10_2004
+      19042, WindowsBuild.Win10_20H2
+      19043, WindowsBuild.Win10_21H1
+      19044, WindowsBuild.Win10_21H2
+      19045, WindowsBuild.Win10_22H2
+      20348, WindowsBuild.WinSrv2022
+      22000, WindowsBuild.Win11_21H2
+      22621, WindowsBuild.Win11_22H2
+      22631, WindowsBuild.Win11_23H2
+      26100, WindowsBuild.Win11_24H2
+      26200, WindowsBuild.Win11_25H2 ]
+    |> Map.ofList
+
+  /// Returns the build a Windows version names, or none for a version this
+  /// has no build for.
+  ///
+  /// Only Windows 10 and 11 are here. A build number does not name a release
+  /// before them: Windows NT 4.0 is build 1381 under every one of its six
+  /// service packs, and those disagree about system-call numbers -- five
+  /// different numberings for the one build -- as do the two of Windows
+  /// Server 2003, which is 3790 throughout. Where a build number cannot
+  /// decide, none is the answer rather than a guess at one.
+  [<CompiledName "OfVersion">]
+  let ofVersion major minor build =
+    if major <> 10 || minor <> 0 then None
+    else Map.tryFind build builds
+
