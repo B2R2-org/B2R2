@@ -191,6 +191,14 @@ let sysRegKey (name: string) =
   else
     None
 
+/// The words a hint is written with when it takes one.
+let hintOptions =
+  [ "c", BTIC
+    "j", BTIJ
+    "jc", BTIJC
+    "csync", CSYNC ]
+  |> Map.ofList
+
 let pstates =
   [ "spsel", SPSEL
     "daifset", DAIFSET

@@ -1776,6 +1776,12 @@ let sysRegName (key: uint32) =
   let crm = (key >>> 3) &&& 0xfu
   $"s{op0}_{op1}_c{crn}_c{crm}_{key &&& 7u}"
 
+let hintOptToString = function
+  | BTIC -> "c"
+  | BTIJ -> "j"
+  | BTIJC -> "jc"
+  | CSYNC -> "csync"
+
 let pStToString = function
   | SPSEL -> "spsel"
   | DAIFSET -> "daifset"
@@ -1827,6 +1833,9 @@ let oprToString i addr opr delim builder =
   | OprSysReg key ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.Variable, sysRegName key)
+  | OprHintOpt opt ->
+    prependDelimiter delim builder
+    builder.Accumulate(AsmWordKind.Variable, hintOptToString opt)
   | OprSIMD simd ->
     prependDelimiter delim builder
     simdToString simd builder

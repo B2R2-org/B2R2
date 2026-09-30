@@ -134,6 +134,28 @@ type ParserTests() =
 
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
+  /// The disassembly of a word under the ISA a name gives, or nothing where
+  /// that ISA leaves the word UNDEFINED.
+  let under (isaName: string) (byteString: string) =
+    let parser = ARM64Parser(ISA isaName, reader) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString byteString
+    try Some((parser.Parse(System.ReadOnlySpan bytes, 0UL)).Disasm())
+    with :? ParsingFailureException -> None
+
+  /// Checks that a word reads under each ISA of one list and is refused under
+  /// each of the other, which is what a version and its extensions decide.
+  let readsOnlyUnder word (reads: string list) (refuses: string list) =
+    for name in reads do
+      Assert.AreEqual<bool>(true, (under name word).IsSome, $"{word} {name}")
+    for name in refuses do
+      Assert.AreEqual<string option>(None, under name word, $"{word} {name}")
+
+  /// Checks the two readings of a hint-space word: what an ISA without its
+  /// feature reads it as, and what one with the feature does.
+  let readsAs word without (asHint: string) isaWith (asName: string) =
+    Assert.AreEqual<string option>(Some asHint, under without word)
+    Assert.AreEqual<string option>(Some asName, under isaWith word)
+
   /// C4.2.1 Add/subtract (immediate)
   [<TestMethod>]
   member _.``[AArch64] Add/subtract (immedate) Parse Test``() =
@@ -352,6 +374,40 @@ type ParserTests() =
   [<TestMethod>]
   member _.``C4.3.4 System (22)``() =
     testDisasm "d53722e0" "mrs x0, s2_7_c2_c2_7"
+
+  /// The hints the manual names are read by name: BTI with the branches it
+  /// admits, and ESB, PSB CSYNC, TSB CSYNC and CSDB.
+  [<TestMethod>]
+  member _.``C4.3.4 System (23)``() =
+    testDisasm "d503241f" "bti"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (24)``() =
+    testDisasm "d503245f" "bti c"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (25)``() =
+    testDisasm "d503249f" "bti j"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (26)``() =
+    testDisasm "d50324df" "bti jc"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (27)``() =
+    testDisasm "d503221f" "esb"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (28)``() =
+    testDisasm "d503223f" "psb csync"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (29)``() =
+    testDisasm "d503225f" "tsb csync"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (30)``() =
+    testDisasm "d503229f" "csdb"
 
   /// op1:op2 of 001:000 names no field of PSTATE, and the manual leaves the
   /// encoding UNDEFINED.
@@ -5894,3 +5950,215 @@ type ParserTests() =
   [<TestMethod>]
   member _.``C4.4 Load/store register (pac) (5)``() =
     "f8a007e6" ++ LDRAB ** [ O.Reg X6; O.MemBaseImm(SP, 0L) ] ||> test
+
+  /// An ISA naming a version reads what DDI0487F.c A2 makes mandatory at that
+  /// version and what its extensions name, and nothing else: FEAT_LSE is
+  /// Armv8.1's and an Armv8.0 core has it only by naming it, FEAT_FP16 stays
+  /// OPTIONAL at every version, and FEAT_FHM is mandatory from Armv8.4 only
+  /// where FEAT_FP16 is had.
+
+  [<TestMethod>]
+  member _.``[AArch64] CASAL is FEAT_LSE's``() =
+    readsOnlyUnder "88e0fc41" [ "armv8.1-a"; "armv8-a+lse" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SQRDMLAH is FEAT_RDM's``() =
+    readsOnlyUnder "6e828420" [ "armv8.1-a"; "armv8-a+rdma" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FADD of halves is FEAT_FP16's``() =
+    readsOnlyUnder "1ee22820" [ "armv8.2-a+fp16" ] [ "armv8.2-a"; "armv8.6-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FMLAL is FEAT_FHM's``() =
+    readsOnlyUnder "0e22ec20" [ "armv8.2-a+fp16fml" ] [ "armv8.2-a+fp16" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FMLAL comes with FEAT_FP16 at Armv8.4``() =
+    readsOnlyUnder "0e22ec20" [ "armv8.4-a+fp16" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SDOT is FEAT_DotProd's``() =
+    readsOnlyUnder "4e829420"
+      [ "armv8.2-a+dotprod"; "armv8.4-a" ]
+      [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] PACIA is FEAT_PAuth's``() =
+    readsOnlyUnder "dac10020" [ "armv8.3-a"; "armv8.2-a+pauth" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FJCVTZS is Armv8.3's``() =
+    readsOnlyUnder "1e7e0020" [ "armv8.3-a" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] LDAPUR is Armv8.4's``() =
+    readsOnlyUnder "99400020" [ "armv8.4-a" ] [ "armv8.3-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FRINT32Z is Armv8.5's``() =
+    readsOnlyUnder "1e284020" [ "armv8.5-a" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] IRG is FEAT_MTE's``() =
+    readsOnlyUnder "9adf1020"
+      [ "armv8.5-a+memtag" ]
+      [ "armv8.5-a"; "armv8.6-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] BFDOT is FEAT_BF16's``() =
+    readsOnlyUnder "6e42fc20" [ "armv8.6-a"; "armv8.2-a+bf16" ] [ "armv8.5-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SMMLA is FEAT_I8MM's``() =
+    readsOnlyUnder "4e82a420" [ "armv8.6-a"; "armv8.2-a+i8mm" ] [ "armv8.5-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] CRC32B is FEAT_CRC32's``() =
+    readsOnlyUnder "1ac24020" [ "armv8.1-a"; "armv8-a+crc" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] AESE is FEAT_AES's``() =
+    readsOnlyUnder "4e284820"
+      [ "armv8-a+aes"; "armv8-a+crypto" ]
+      [ "armv8.6-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] PMULL of bytes is every version's``() =
+    readsOnlyUnder "0e22e020" [ "armv8-a" ] []
+
+  [<TestMethod>]
+  member _.``[AArch64] PMULL of doublewords is FEAT_PMULL's``() =
+    readsOnlyUnder "0ee2e020" [ "armv8-a+aes" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SHA512H is FEAT_SHA512's``() =
+    readsOnlyUnder "ce628020"
+      [ "armv8.2-a+sha3" ]
+      [ "armv8.2-a"; "armv8.2-a+crypto" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SM4E is FEAT_SM4's``() =
+    readsOnlyUnder "cec08420" [ "armv8.2-a+sm4" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FCADD of singles is Armv8.3's``() =
+    readsOnlyUnder "6e82e420" [ "armv8.3-a" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FCADD of halves needs FEAT_FP16 as well``() =
+    readsOnlyUnder "2e42e420"
+      [ "armv8.3-a+fp16" ]
+      [ "armv8.3-a"; "armv8.2-a+fp16" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] ADD is every version's``() =
+    readsOnlyUnder "8b020020" [ "armv8-a" ] []
+
+  [<TestMethod>]
+  member _.``[AArch64] LDLAR is Armv8.1's``() =
+    readsOnlyUnder "88df7c20" [ "armv8.1-a" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] CFINV is FEAT_FlagM's``() =
+    readsOnlyUnder "d500401f" [ "armv8.4-a"; "armv8.2-a+flagm" ] [ "armv8.3-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] AXFLAG is Armv8.5's``() =
+    readsOnlyUnder "d500405f" [ "armv8.5-a" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SB is FEAT_SB's``() =
+    readsOnlyUnder "d50330ff" [ "armv8.5-a"; "armv8-a+sb" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR PAN is Armv8.1's``() =
+    readsOnlyUnder "d500419f" [ "armv8.1-a" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MRS PAN is Armv8.1's``() =
+    readsOnlyUnder "d5384260" [ "armv8.1-a" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR UAO is Armv8.2's``() =
+    readsOnlyUnder "d500417f" [ "armv8.2-a" ] [ "armv8.1-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR DIT is Armv8.4's``() =
+    readsOnlyUnder "d503415f" [ "armv8.4-a" ] [ "armv8.3-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR SSBS is FEAT_SSBS's``() =
+    readsOnlyUnder "d503413f" [ "armv8.5-a"; "armv8-a+ssbs" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR TCO is FEAT_MTE's``() =
+    readsOnlyUnder "d503419f" [ "armv8.5-a+memtag" ] [ "armv8.5-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR SPSel is every version's``() =
+    readsOnlyUnder "d50042bf" [ "armv8-a" ] []
+
+  [<TestMethod>]
+  member _.``[AArch64] LDAPR is FEAT_LRCPC's``() =
+    readsOnlyUnder "b8bfc020" [ "armv8.3-a"; "armv8.2-a+rcpc" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FMOV of a half is FEAT_FP16's``() =
+    readsOnlyUnder "1ee70020" [ "armv8.2-a+fp16" ] [ "armv8.2-a" ]
+
+  /// An ISA that names no version reads every word, which is what it has
+  /// always done.
+  [<TestMethod>]
+  member _.``[AArch64] An ISA with no version reads CASAL``() =
+    Assert.AreEqual<bool>(true, (under "aarch64" "88e0fc41").IsSome)
+
+  [<TestMethod>]
+  member _.``[AArch64] An ISA with no version reads FADD of halves``() =
+    Assert.AreEqual<bool>(true, (under "aarch64" "1ee22820").IsSome)
+
+  [<TestMethod>]
+  member _.``[AArch64] An ISA with no version reads IRG``() =
+    Assert.AreEqual<bool>(true, (under "aarch64" "9adf1020").IsSome)
+
+  [<TestMethod>]
+  member _.``[AArch64] An ISA with no version reads BFDOT``() =
+    Assert.AreEqual<bool>(true, (under "aarch64" "6e42fc20").IsSome)
+
+  /// A hint the version does not have is still a hint: the hint space is
+  /// defined as a NOP wherever its instruction is not implemented, so the
+  /// word reads as HINT rather than being refused.
+  [<TestMethod>]
+  member _.``[AArch64] PACIASP reads as HINT before Armv8.3``() =
+    readsAs "d503233f" "armv8.2-a" "hint #0x19" "armv8.3-a" "paciasp"
+
+  [<TestMethod>]
+  member _.``[AArch64] XPACLRI reads as HINT before Armv8.3``() =
+    readsAs "d50320ff" "armv8.2-a" "hint #0x7" "armv8.3-a" "xpaclri"
+
+  /// The named hints follow the same rule. FEAT_BTI is Armv8.5's and
+  /// FEAT_RAS Armv8.2's; FEAT_SPE and FEAT_TRF are never made mandatory and
+  /// are had by naming them; CSDB is every version's.
+  [<TestMethod>]
+  member _.``[AArch64] BTI reads as HINT before Armv8.5``() =
+    readsAs "d503241f" "armv8.4-a" "hint #0x20" "armv8.5-a" "bti"
+
+  [<TestMethod>]
+  member _.``[AArch64] ESB reads as HINT before Armv8.2``() =
+    readsAs "d503221f" "armv8.1-a" "hint #0x10" "armv8.2-a" "esb"
+
+  [<TestMethod>]
+  member _.``[AArch64] ESB reads by name where FEAT_RAS is named``() =
+    readsAs "d503221f" "armv8-a" "hint #0x10" "armv8-a+ras" "esb"
+
+  [<TestMethod>]
+  member _.``[AArch64] PSB CSYNC reads by name only with FEAT_SPE``() =
+    readsAs "d503223f" "armv8.6-a" "hint #0x11" "armv8.2-a+profile" "psb csync"
+
+  [<TestMethod>]
+  member _.``[AArch64] TSB CSYNC reads by name only with FEAT_TRF``() =
+    readsAs "d503225f" "armv8.6-a" "hint #0x12" "armv8.4-a+trf" "tsb csync"
+
+  [<TestMethod>]
+  member _.``[AArch64] CSDB reads by name at every version``() =
+    Assert.AreEqual<string option>(Some "csdb", under "armv8-a" "d503229f")

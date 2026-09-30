@@ -79,7 +79,7 @@ module ArchSupport =
       let isThumb = isa.ARM32Mode = ARM32Mode.Thumb
       ARM32.ARM32Parser(isa, isThumb, reader) :> IInstructionParsable
     | AArch64 ->
-      ARM64.ARM64Parser(reader) :> IInstructionParsable
+      ARM64.ARM64Parser(isa, reader) :> IInstructionParsable
     | MIPS ->
       MIPS.MIPSParser(isa, reader) :> IInstructionParsable
     | EVM ->

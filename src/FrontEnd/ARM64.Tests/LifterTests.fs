@@ -204,3 +204,45 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[AArch64] A failed AUTDB leaves 10 in bits 62:61``() =
     StringAssert.Contains(liftedText "dac11c20", poison 0x4000000000000000UL)
+
+  /// A hint changes nothing a program can see: with one thread and nothing
+  /// to wait for, each of these lifts to no statement at all.
+  [<TestMethod>]
+  member _.``[AArch64] YIELD lifts to nothing``() =
+    "d503203f" ++ [||] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] WFE lifts to nothing``() =
+    "d503205f" ++ [||] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] WFI lifts to nothing``() =
+    "d503207f" ++ [||] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] SEV lifts to nothing``() =
+    "d503209f" ++ [||] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] SEVL lifts to nothing``() =
+    "d50320bf" ++ [||] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] BTI lifts to nothing``() =
+    "d503241f" ++ [||] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] ESB lifts to nothing``() =
+    "d503221f" ++ [||] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] PSB CSYNC lifts to nothing``() =
+    "d503223f" ++ [||] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] TSB CSYNC lifts to nothing``() =
+    "d503225f" ++ [||] |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] CSDB lifts to nothing``() =
+    "d503229f" ++ [||] |> test

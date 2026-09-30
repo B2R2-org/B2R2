@@ -707,14 +707,31 @@ let private exceptionGen opc ll ins =
 /// The bits every instruction in the system space shares.
 let private systemHead l = (0b1101010100u <<< 22) ||| (l <<< 21)
 
+/// The word of the hint CRm:op2 selects.
+let private hintWord crm op2 =
+  systemHead 0u ||| (0b011u <<< 16) ||| (0b0010u <<< 12) ||| (crm <<< 8)
+  ||| (op2 <<< 5) ||| 0b11111u
+
 /// A hint, which does nothing a program can see and so names nothing.
 let private namedHint crm op2 ins =
   match ins.Operands with
-  | NoOperand ->
-    systemHead 0u ||| (0b011u <<< 16) ||| (0b0010u <<< 12) ||| (crm <<< 8)
-    ||| (op2 <<< 5) ||| 0b11111u
-  | _ ->
-    wrongOperands ins
+  | NoOperand -> hintWord crm op2
+  | _ -> wrongOperands ins
+
+/// PSB and TSB, whose one operand is CSYNC.
+let private syncHint op2 ins =
+  match ins.Operands with
+  | OneOperand(OprHintOpt CSYNC) -> hintWord 0b0010u op2
+  | _ -> wrongOperands ins
+
+/// BTI, whose operand says which branches may land on it.
+let private branchTarget ins =
+  match ins.Operands with
+  | NoOperand -> hintWord 0b0100u 0b000u
+  | OneOperand(OprHintOpt BTIC) -> hintWord 0b0100u 0b010u
+  | OneOperand(OprHintOpt BTIJ) -> hintWord 0b0100u 0b100u
+  | OneOperand(OprHintOpt BTIJC) -> hintWord 0b0100u 0b110u
+  | _ -> wrongOperands ins
 
 /// HINT, which names by number the hint it gives.
 let private hint ins =
@@ -1940,6 +1957,11 @@ let systemEncoders () =
     Opcode.WFI, namedHint 0b0000u 0b011u
     Opcode.SEV, namedHint 0b0000u 0b100u
     Opcode.SEVL, namedHint 0b0000u 0b101u
+    Opcode.ESB, namedHint 0b0010u 0b000u
+    Opcode.CSDB, namedHint 0b0010u 0b100u
+    Opcode.PSB, syncHint 0b001u
+    Opcode.TSB, syncHint 0b010u
+    Opcode.BTI, branchTarget
     Opcode.HINT, hint
     Opcode.CLREX, barrier 0b010u
     Opcode.DSB, barrier 0b100u

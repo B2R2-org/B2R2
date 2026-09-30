@@ -329,6 +329,12 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | None, Some key -> preturn (OprSysReg key)
       | _ -> fail $"'{name}' is not a system register written by encoding"
 
+  let pOprHintOpt =
+    pName >>= fun name ->
+      match Map.tryFind name hintOptions with
+      | Some opt -> preturn (OprHintOpt opt)
+      | None -> fail $"'{name}' is not a hint's operand"
+
   let pOprCondition =
     pName >>= fun name ->
       match Map.tryFind name conditions with
@@ -354,6 +360,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     | Opcode.PRFM | Opcode.PRFUM -> pOprPrefetch
     | Opcode.MSR -> attempt pOprPstate <|> pOprSysReg
     | Opcode.MRS -> pOprSysReg
+    | Opcode.BTI | Opcode.PSB | Opcode.TSB -> pOprHintOpt
     | opcode when takesCondition opcode -> pOprCondition
     | _ -> fail "not an operand of this instruction"
 

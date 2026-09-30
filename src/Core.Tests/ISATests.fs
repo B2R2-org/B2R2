@@ -43,6 +43,26 @@ type ISATests() =
       "aarch32t", Architecture.ARMv8, Endian.Little, ARM32Mode.Thumb
       "aarch32tbe", Architecture.ARMv8, Endian.Big, ARM32Mode.Thumb ]
 
+  /// Every AArch64 ISA naming a version, and what it means. The version is
+  /// part of what an ARM ISA reads -- each adds encodings the ones below it
+  /// leave UNDEFINED -- and the extensions add what the version leaves
+  /// OPTIONAL.
+  static let aarch64Versions =
+    [ "aarch64-v8", ARMArchVersion.V8, AArch64Extension.None
+      "aarch64-v8.1", ARMArchVersion.V8_1, AArch64Extension.None
+      "aarch64-v8.2+sha3", ARMArchVersion.V8_2, AArch64Extension.SHA3
+      "aarch64be-v8.3+pauth", ARMArchVersion.V8_3, AArch64Extension.PAuth
+      "aarch64-v8.6+memtag", ARMArchVersion.V8_6, AArch64Extension.MemTag
+      "aarch64-v8.2+ssbs", ARMArchVersion.V8_2, AArch64Extension.SSBS
+      "aarch64-v8.2+profile", ARMArchVersion.V8_2, AArch64Extension.SPE ]
+
+  /// Every ARMv7 ISA naming a version, and what it means.
+  static let armv7Versions =
+    [ "armv7-v7", ARMArchVersion.V7, ARMv7Extension.None
+      "armv7be-v7ve+simd", ARMArchVersion.V7VE, ARMv7Extension.SIMD
+      "thumb-v7+vfpv4", ARMArchVersion.V7, ARMv7Extension.VFPv4
+      "thumbbe-v7ve", ARMArchVersion.V7VE, ARMv7Extension.None ]
+
   /// Every member of the 68000 family and the name it goes by. Which member an
   /// m68k ISA means is part of what it is, because the family shares one
   /// encoding space and a later member reads encodings an earlier one does not.
@@ -109,6 +129,80 @@ type ISATests() =
     for name, others in aliases do
       for other in others do
         Assert.AreEqual<string>(name, (ISA other).ToString(), other)
+
+  [<TestMethod>]
+  member _.``An AArch64 name says which version it means``() =
+    for name, version, extensions in aarch64Versions do
+      let isa = ISA name
+      Assert.AreEqual<Architecture>(Architecture.ARMv8, isa.Arch, name)
+      Assert.AreEqual<ARMArchVersion>(version, isa.ARMArchVersion, name)
+      Assert.AreEqual<AArch64Extension>(extensions, isa.AArch64Extensions, name)
+
+  [<TestMethod>]
+  member _.``An ARMv7 name says which version it means``() =
+    for name, version, extensions in armv7Versions do
+      let isa = ISA name
+      Assert.AreEqual<Architecture>(Architecture.ARMv7, isa.Arch, name)
+      Assert.AreEqual<ARMArchVersion>(version, isa.ARMArchVersion, name)
+      Assert.AreEqual<ARMv7Extension>(extensions, isa.ARMv7Extensions, name)
+
+  /// Extensions follow one another, and print back in the order the table of
+  /// them keeps.
+  [<TestMethod>]
+  member _.``An ARM name can carry several extensions``() =
+    let aarch64 = ISA "aarch64-v8.2+sha3+fp16fml"
+    let armv7 = ISA "thumb-v7+fp+vfpv4"
+    let both = AArch64Extension.SHA3 ||| AArch64Extension.FP16FML
+    let two = ARMv7Extension.FP ||| ARMv7Extension.VFPv4
+    Assert.AreEqual<AArch64Extension>(both, aarch64.AArch64Extensions)
+    Assert.AreEqual<ARMv7Extension>(two, armv7.ARMv7Extensions)
+    Assert.AreEqual<string>("aarch64-v8.2+sha3+fp16fml", aarch64.ToString())
+    Assert.AreEqual<string>("thumb-v7+fp+vfpv4", armv7.ToString())
+
+  [<TestMethod>]
+  member _.``An ARM ISA with a version prints as the name it is read from``() =
+    let names =
+      [ for name, _, _ in aarch64Versions -> name ]
+      @ [ for name, _, _ in armv7Versions -> name ]
+    for name in names do
+      Assert.AreEqual<string>(name, (ISA name).ToString(), name)
+
+  /// GCC's -march names are what a build names its target with, so they are
+  /// read as the little-endian base of their architecture.
+  [<TestMethod>]
+  member _.``GCC's spelling of an ARM version means the same ISA``() =
+    let spellings =
+      [ "armv8.2-a+fp16", "aarch64-v8.2+fp16"
+        "armv8-a+crypto", "aarch64-v8+aes+sha2"
+        "armv8.5-a+memtag", "aarch64-v8.5+memtag"
+        "armv7ve", "armv7-v7ve"
+        "armv7-a+mp", "armv7-v7+mp" ]
+    for gcc, name in spellings do
+      Assert.AreEqual<string>(name, (ISA gcc).ToString(), gcc)
+
+  [<TestMethod>]
+  member _.``A Thumb ISA naming a version still reads Thumb``() =
+    Assert.AreEqual<ARM32Mode>(ARM32Mode.Thumb, (ISA "thumb-v7ve").ARM32Mode)
+    Assert.AreEqual<ARM32Mode>(ARM32Mode.ARM, (ISA "armv7-v7ve").ARM32Mode)
+
+  [<TestMethod>]
+  member _.``An ARM ISA naming no version reads every encoding``() =
+    for name in [ "aarch64"; "aarch64be"; "armv7"; "thumb" ] do
+      let version = (ISA name).ARMArchVersion
+      Assert.AreEqual<ARMArchVersion>(ARMArchVersion.Any, version, name)
+
+  /// A name whose version belongs to the other architecture, or whose
+  /// extension is not one, names no ISA rather than a guess at one.
+  [<TestMethod>]
+  member _.``An ARM name with a wrong version or extension is refused``() =
+    let wrongNames =
+      [ "aarch64-v7"
+        "armv7-v8.1"
+        "aarch64-v8.2+foo"
+        "armv7-v7+pauth" ]
+    for name in wrongNames do
+      Assert.ThrowsExactly<InvalidISAException>(fun () -> ISA name |> ignore)
+      |> ignore
 
   [<TestMethod>]
   member _.``An m68k name says which member of the family it means``() =

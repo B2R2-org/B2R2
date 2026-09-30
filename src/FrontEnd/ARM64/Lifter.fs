@@ -816,6 +816,9 @@ let translate (ins: Instruction) bld =
     orn ins bld
   | Opcode.NOP ->
     nop ins bld
+  | Opcode.BTI | Opcode.CSDB | Opcode.ESB | Opcode.PSB | Opcode.TSB
+  | Opcode.SEV | Opcode.SEVL | Opcode.WFE | Opcode.WFI | Opcode.YIELD ->
+    nop ins bld
   | Opcode.ORN ->
     orn ins bld
   | Opcode.ORR ->

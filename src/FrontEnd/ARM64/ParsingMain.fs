@@ -1224,6 +1224,25 @@ let parseSystem bin =
       Op.AUTIBZ, NoOperand, 0<rt>
     | 0b0000110010111u when crm = 3L && isRt1F ->
       Op.AUTIBSP, NoOperand, 0<rt>
+    (* The hints CRm 0010 and 0100 name (C6.2, the Hints table): ESB, PSB
+       CSYNC, TSB CSYNC and CSDB, and BTI with the branches it admits. An
+       encoding there that names nothing stays HINT. *)
+    | 0b0000110010000u when crm = 2L && isRt1F ->
+      Op.ESB, NoOperand, 0<rt>
+    | 0b0000110010001u when crm = 2L && isRt1F ->
+      Op.PSB, OneOperand(OprHintOpt CSYNC), 0<rt>
+    | 0b0000110010010u when crm = 2L && isRt1F ->
+      Op.TSB, OneOperand(OprHintOpt CSYNC), 0<rt>
+    | 0b0000110010100u when crm = 2L && isRt1F ->
+      Op.CSDB, NoOperand, 0<rt>
+    | 0b0000110010000u when crm = 4L && isRt1F ->
+      Op.BTI, NoOperand, 0<rt>
+    | 0b0000110010010u when crm = 4L && isRt1F ->
+      Op.BTI, OneOperand(OprHintOpt BTIC), 0<rt>
+    | 0b0000110010100u when crm = 4L && isRt1F ->
+      Op.BTI, OneOperand(OprHintOpt BTIJ), 0<rt>
+    | 0b0000110010110u when crm = 4L && isRt1F ->
+      Op.BTI, OneOperand(OprHintOpt BTIJC), 0<rt>
     | c when c &&& 0b1111111111000u = 0b0000110010000u &&
              not isCRmZero &&
              isRt1F ->
@@ -5185,9 +5204,11 @@ let parseByGroupOfB64 bin =
   | op0 when op0 &&& 0b1111u = 0b1111u -> parse64Group6 bin
   | _ -> raise ParsingFailureException
 
-let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
+let parse isa lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt32(span, 0)
   let opcode, operands, oprSize = parseByGroupOfB64 bin
+  let struct (opcode, operands, oprSize) =
+    Features.check isa bin opcode operands oprSize
   Instruction(addr, 4u, None, opcode, operands, oprSize, lifter)
 
 // vim: set tw=80 sts=2 sw=2:
