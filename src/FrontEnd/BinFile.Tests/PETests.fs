@@ -133,6 +133,12 @@ type PETests() =
   /// starts and ends and which nothing else in the image names.
   static let x64TLSFile = parseFile "pe_x64_tls"
 
+  /// A build carrying a version resource, stamped 1.2.3.4 for the file and
+  /// 5.6.7.8 for the product so the two are told apart. Made from a .rc with
+  /// those two numbers in it: llvm-rc it to a .res, then link the .res beside
+  /// an object whose entry point returns.
+  static let x64VersionFile = parseFile "pe_x64_version"
+
   /// Rewrites the RVA of one data directory, which is how a file naming a
   /// directory that lands nowhere is made out of a sound one. The directories
   /// follow the optional header, whose PE32+ form runs 112 bytes.
@@ -276,6 +282,32 @@ type PETests() =
   member _.``[PE] X64 object file has no build ID test``() =
     (* An object file has no optional header, so no debug directory either. *)
     CollectionAssert.AreEqual([||], (x64ObjFile :> IBinFile).BuildId)
+
+  [<TestMethod>]
+  member _.``[PE] X64 version resource test``() =
+    (* A version resource reads through three levels of the resource
+       directory -- the type, the name, the language -- and then past the key
+       naming the block to the fixed part the numbers sit in. *)
+    match x64VersionFile.VersionInfo with
+    | None ->
+      Assert.Fail "the image carries a version resource"
+    | Some info ->
+      Assert.AreEqual<VersionNumber>(
+        { Major = 1; Minor = 2; Build = 3; Revision = 4 }, info.File
+      )
+      Assert.AreEqual<VersionNumber>(
+        { Major = 5; Minor = 6; Build = 7; Revision = 8 }, info.Product
+      )
+
+  [<TestMethod>]
+  member _.``[PE] X64 without a version resource says nothing``() =
+    (* Only a build told to stamps one in, so most images carry none. *)
+    Assert.AreEqual<VersionInfo option>(None, x64File.VersionInfo)
+
+  [<TestMethod>]
+  member _.``[PE] an object file has no version resource``() =
+    (* It has no optional header for a resource directory to be named in. *)
+    Assert.AreEqual<VersionInfo option>(None, x64ObjFile.VersionInfo)
 
   [<TestMethod>]
   member _.``[PE] x64 ISA test``() =

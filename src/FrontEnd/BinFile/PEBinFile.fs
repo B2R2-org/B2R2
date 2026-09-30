@@ -381,6 +381,10 @@ type PEBinFile private(path, bytes: byte[], baseAddrOpt, pdb) =
   /// Returns the list of relocation blocks.
   member internal _.RelocBlocks with get() = pe.RelocBlocks.Value
 
+  /// What the image's version resource says it is, or none for an image
+  /// carrying no such resource.
+  member _.VersionInfo with get() = Helper.tryGetVersionInfo bytes pe
+
   /// Returns the symbol store.
   member internal _.Symbols with get() = pe.Symbols.Value
 

@@ -73,6 +73,15 @@ let tryGetCodeViewInfo bytes pe =
   | None -> None
   | Some hdr -> CodeViewInfo.tryFind bytes pe.BinReader pe.SectionHeaders hdr
 
+/// Returns what the image's version resource says it is, or none for an image
+/// carrying no such resource -- which is most of them, a build only stamping
+/// one in when it is told to. An object file has no optional header for a
+/// resource directory to be named in.
+let tryGetVersionInfo bytes pe =
+  match pe.Header.OptionalHeader with
+  | None -> None
+  | Some hdr -> VersionInfo.tryFind bytes pe.BinReader pe.SectionHeaders hdr
+
 /// Returns the build ID of the binary, which is the GUID that the CodeView
 /// entry of its debug directory carries. It names the PDB built beside the
 /// binary, and a build made without one carries no such entry.

@@ -150,6 +150,7 @@
     <Compile Include="PE\CorHeader.fs" />
     <Compile Include="PE\Header.fs" />
     <Compile Include="PE\CodeViewInfo.fs" />
+    <Compile Include="PE\VersionInfo.fs" />
     <Compile Include="PE\Image.fs" />
     <Compile Include="PE\Layout.fs" />
     <Compile Include="PE\Emitter.fs" />
