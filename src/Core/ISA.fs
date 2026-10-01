@@ -24,274 +24,6 @@
 
 namespace B2R2
 
-/// Raised when an invalid ISA is given as a parameter.
-exception InvalidISAException
-
-/// Represents which of the two instruction sets a 32-bit ARM ISA means. A
-/// 32-bit ARM processor runs both, and nothing but the mode it is in says
-/// which one a word belongs to.
-type ARM32Mode =
-  /// The A32 instruction set, whose instructions are one word each.
-  | ARM = 0
-  /// The T32 instruction set, whose instructions are one or two halfwords.
-  | Thumb = 1
-
-/// <summary>
-/// Represents which version of the ARM architecture an ARM ISA means.
-///
-/// "ARMv8" is not one instruction set: each version adds instructions that the
-/// versions below it leave UNDEFINED, and what a processor reads is what its
-/// version makes mandatory plus the OPTIONAL features it has, which the
-/// extensions name. Any names no version and reads every encoding the front
-/// end knows, which is what an ARM ISA without one has always meant.
-/// </summary>
-type ARMArchVersion =
-  /// No version named: every encoding is read.
-  | Any = 0
-  /// ARMv7-A.
-  | V7 = 1
-  /// ARMv7-A with the Virtualization Extensions, which bring the integer
-  /// divides, the Security Extensions and the Multiprocessing Extensions with
-  /// them.
-  | V7VE = 2
-  /// Armv8.0-A.
-  | V8 = 3
-  /// Armv8.1-A.
-  | V8_1 = 4
-  /// Armv8.2-A.
-  | V8_2 = 5
-  /// Armv8.3-A.
-  | V8_3 = 6
-  /// Armv8.4-A.
-  | V8_4 = 7
-  /// Armv8.5-A.
-  | V8_5 = 8
-  /// Armv8.6-A.
-  | V8_6 = 9
-
-/// <summary>
-/// Represents the OPTIONAL features an AArch64 ISA has beyond what its version
-/// makes mandatory, named as GCC's -march extensions name them. Each value is
-/// the bit it takes in an ISA's flags.
-/// </summary>
-[<System.Flags>]
-type AArch64Extension =
-  /// Nothing beyond the version.
-  | None = 0
-  /// FEAT_CRC32.
-  | CRC = 0x100
-  /// FEAT_AES and FEAT_PMULL.
-  | AES = 0x200
-  /// FEAT_SHA1 and FEAT_SHA256.
-  | SHA2 = 0x400
-  /// FEAT_SHA512 and FEAT_SHA3.
-  | SHA3 = 0x800
-  /// FEAT_SM3 and FEAT_SM4.
-  | SM4 = 0x1000
-  /// FEAT_FP16.
-  | FP16 = 0x2000
-  /// FEAT_FHM, which cannot be had without FEAT_FP16.
-  | FP16FML = 0x4000
-  /// FEAT_DotProd.
-  | DotProd = 0x8000
-  /// FEAT_LSE.
-  | LSE = 0x10000
-  /// FEAT_RDM.
-  | RDMA = 0x20000
-  /// FEAT_LRCPC.
-  | RCPC = 0x40000
-  /// FEAT_I8MM.
-  | I8MM = 0x80000
-  /// FEAT_BF16.
-  | BF16 = 0x100000
-  /// FEAT_MTE.
-  | MemTag = 0x200000
-  /// FEAT_SB.
-  | SB = 0x400000
-  /// FEAT_FlagM.
-  | FlagM = 0x800000
-  /// FEAT_PAuth.
-  | PAuth = 0x1000000
-  /// FEAT_SSBS.
-  | SSBS = 0x2000000
-  /// FEAT_RAS.
-  | RAS = 0x4000000
-  /// FEAT_SPE, the statistical profiling extension.
-  | SPE = 0x8000000
-  /// FEAT_TRF, the self-hosted trace extensions.
-  | TRF = 0x10000000
-
-/// <summary>
-/// Represents the extensions an ARMv7 ISA has beyond its version, named as
-/// GCC's -march and -mfpu name them. Each value is the bit it takes in an
-/// ISA's flags.
-/// </summary>
-[<System.Flags>]
-type ARMv7Extension =
-  /// Nothing beyond the version.
-  | None = 0
-  /// VFPv3, the floating-point instructions.
-  | FP = 0x100
-  /// Advanced SIMD.
-  | SIMD = 0x200
-  /// VFPv4, the fused multiply-adds.
-  | VFPv4 = 0x400
-  /// The half-precision conversions.
-  | FP16 = 0x800
-  /// SDIV and UDIV.
-  | IDIV = 0x1000
-  /// The Multiprocessing Extensions, which add PLDW.
-  | MP = 0x2000
-  /// The Security Extensions, which add SMC.
-  | Sec = 0x4000
-  /// The Virtualization Extensions, which add HVC and ERET and bring the
-  /// integer divides.
-  | Virt = 0x8000
-
-/// <summary>
-/// Reads and writes the ARM names that say which version they mean: a base
-/// name, the version after a dash and each extension after a plus, as in
-/// "aarch64-v8.2+fp16" or "thumb-v7ve+simd". GCC's -march names are read as
-/// well, as the little-endian base of their architecture: "armv8.2-a+fp16" is
-/// "aarch64-v8.2+fp16" and "armv7ve" is "armv7-v7ve".
-/// </summary>
-module internal ARMVersionName =
-  let private thumb = int ARM32Mode.Thumb
-
-  let private bases =
-    [ "aarch64", (Architecture.ARMv8, Endian.Little, WordSize.Bit64, 0)
-      "aarch64be", (Architecture.ARMv8, Endian.Big, WordSize.Bit64, 0)
-      "armv7", (Architecture.ARMv7, Endian.Little, WordSize.Bit32, 0)
-      "armv7be", (Architecture.ARMv7, Endian.Big, WordSize.Bit32, 0)
-      "thumb", (Architecture.ARMv7, Endian.Little, WordSize.Bit32, thumb)
-      "thumbbe", (Architecture.ARMv7, Endian.Big, WordSize.Bit32, thumb) ]
-
-  let private aarch64Versions =
-    [ "v8", ARMArchVersion.V8
-      "v8.1", ARMArchVersion.V8_1
-      "v8.2", ARMArchVersion.V8_2
-      "v8.3", ARMArchVersion.V8_3
-      "v8.4", ARMArchVersion.V8_4
-      "v8.5", ARMArchVersion.V8_5
-      "v8.6", ARMArchVersion.V8_6 ]
-
-  let private armv7Versions =
-    [ "v7", ARMArchVersion.V7
-      "v7ve", ARMArchVersion.V7VE ]
-
-  let private aarch64Extensions =
-    [ "crc", int AArch64Extension.CRC
-      "aes", int AArch64Extension.AES
-      "sha2", int AArch64Extension.SHA2
-      "sha3", int AArch64Extension.SHA3
-      "sm4", int AArch64Extension.SM4
-      "fp16", int AArch64Extension.FP16
-      "fp16fml", int AArch64Extension.FP16FML
-      "dotprod", int AArch64Extension.DotProd
-      "lse", int AArch64Extension.LSE
-      "rdma", int AArch64Extension.RDMA
-      "rcpc", int AArch64Extension.RCPC
-      "i8mm", int AArch64Extension.I8MM
-      "bf16", int AArch64Extension.BF16
-      "memtag", int AArch64Extension.MemTag
-      "sb", int AArch64Extension.SB
-      "flagm", int AArch64Extension.FlagM
-      "pauth", int AArch64Extension.PAuth
-      "ssbs", int AArch64Extension.SSBS
-      "ras", int AArch64Extension.RAS
-      "profile", int AArch64Extension.SPE
-      "trf", int AArch64Extension.TRF ]
-
-  let private armv7Extensions =
-    [ "fp", int ARMv7Extension.FP
-      "simd", int ARMv7Extension.SIMD
-      "vfpv4", int ARMv7Extension.VFPv4
-      "fp16", int ARMv7Extension.FP16
-      "idiv", int ARMv7Extension.IDIV
-      "mp", int ARMv7Extension.MP
-      "sec", int ARMv7Extension.Sec
-      "virt", int ARMv7Extension.Virt ]
-
-  (* GCC's name for the Armv8.0 Cryptographic Extension, which is two of the
-     features above; it is read but never printed. *)
-  let private crypto =
-    "crypto", int (AArch64Extension.AES ||| AArch64Extension.SHA2)
-
-  let private lookup key pairs =
-    List.tryFind (fun (k, _) -> k = key) pairs |> Option.map snd
-
-  let private fromGCC (head: string) =
-    match head with
-    | "armv7-a" ->
-      Some("armv7", "v7")
-    | "armv7ve" ->
-      Some("armv7", "v7ve")
-    | "armv8-a" ->
-      Some("aarch64", "v8")
-    | _ when head.StartsWith "armv8." && head.EndsWith "-a" ->
-      Some("aarch64", "v" + head.Substring(4, head.Length - 6))
-    | _ ->
-      None
-
-  let private splitBase (head: string) =
-    match fromGCC head, head.LastIndexOf '-' with
-    | Some pair, _ -> Some pair
-    | None, i when i > 0 -> Some(head.Substring(0, i), head.Substring(i + 1))
-    | None, _ -> None
-
-  let private versionsOf arch =
-    if arch = Architecture.ARMv8 then aarch64Versions else armv7Versions
-
-  let private extensionsOf arch =
-    if arch = Architecture.ARMv8 then crypto :: aarch64Extensions
-    else armv7Extensions
-
-  let private extensionBits arch (names: string[]) =
-    let bits = names |> Array.map (fun n -> lookup n (extensionsOf arch))
-    if Array.forall Option.isSome bits then
-      Some(Array.fold (fun acc b -> acc ||| Option.get b) 0 bits)
-    else
-      None
-
-  let private flagsOf arch mode verName extNames =
-    match lookup verName (versionsOf arch), extensionBits arch extNames with
-    | Some version, Some exts -> Some(mode ||| (int version <<< 4) ||| exts)
-    | _ -> None
-
-  /// <summary>
-  /// What a name that says its version means: the architecture, endianness
-  /// and word size of its base, and flags holding the instruction set, the
-  /// version and the extensions. Nothing for any other name.
-  /// </summary>
-  let tryParse (name: string) =
-    let parts = name.Split '+'
-    match splitBase parts[0] with
-    | Some(baseName, verName) ->
-      match lookup baseName bases with
-      | Some(arch, endian, wordSize, mode) ->
-        flagsOf arch mode verName parts[1..]
-        |> Option.map (fun flags -> arch, endian, wordSize, flags)
-      | None ->
-        None
-    | None ->
-      None
-
-  [<return: Struct>]
-  let (|Versioned|_|) name =
-    match tryParse name with
-    | Some isa -> ValueSome isa
-    | None -> ValueNone
-
-  /// The name an ARM ISA with a version prints as: its base name, the version
-  /// after a dash, and each extension after a plus, in the order above.
-  let print baseName arch (version: ARMArchVersion) exts =
-    let verName = versionsOf arch |> List.find (fun (_, v) -> v = version)
-    let named =
-      extensionsOf arch
-      |> List.filter (fun (n, bit) -> n <> fst crypto && (exts &&& bit) = bit)
-    baseName + "-" + fst verName
-    + String.concat "" [ for n, _ in named -> "+" + n ]
-
 /// <summary>
 /// Represents the Instruction Set Architecture (ISA).
 /// </summary>
@@ -315,363 +47,62 @@ type ISA(arch, endian, wordSize, flags) =
   /// <see cref='T:B2R2.InvalidISAException'/> if the architecture is not
   /// recognized.
   new(arch) =
-    match arch with
-    | Architecture.Intel ->
-      ISA(arch, Endian.Little, WordSize.Bit64)
-    | Architecture.ARMv7 ->
-      ISA(arch, Endian.Little, WordSize.Bit32)
-    | Architecture.ARMv8 ->
-      ISA(arch, Endian.Little, WordSize.Bit64)
-    | Architecture.MIPS ->
-      ISA(arch, Endian.Big, WordSize.Bit32)
-    | Architecture.PPC ->
-      ISA(arch, Endian.Big, WordSize.Bit32)
-    | Architecture.RISCV ->
-      ISA(arch, Endian.Little, WordSize.Bit64)
-    | Architecture.SPARC ->
-      ISA(arch, Endian.Big, WordSize.Bit64)
-    | Architecture.S390 ->
-      ISA(arch, Endian.Big, WordSize.Bit64)
-    | Architecture.SH4 ->
-      ISA(arch, Endian.Little, WordSize.Bit32)
-    | Architecture.PARISC ->
-      ISA(arch, Endian.Big, WordSize.Bit32)
-    | Architecture.M68K ->
-      ISA(arch, Endian.Big, WordSize.Bit32, int M68KModel.M68020)
-    | Architecture.Alpha ->
-      ISA(arch, Endian.Little, WordSize.Bit64)
-    | Architecture.AVR ->
-      ISA(arch, Endian.Little, WordSize.Bit8)
-    | Architecture.TMS320C6000 ->
-      ISA(arch, Endian.Little, WordSize.Bit32)
-    | Architecture.EVM ->
-      ISA(arch, Endian.Big, WordSize.Bit256)
-    | Architecture.Python ->
-      ISA(arch, Endian.Little, WordSize.Bit64, int PythonVersion.Python312)
-    | Architecture.WASM ->
-      ISA(arch, Endian.Little, WordSize.Bit32)
-    | Architecture.CIL ->
-      ISA(arch, Endian.Little, WordSize.Bit64)
-    | Architecture.BPF ->
-      ISA(arch, Endian.Little, WordSize.Bit64)
-    | _ ->
-      ISA(Architecture.UnknownISA, Endian.Little, WordSize.Bit64)
+    let arch, endian, wordSize, flags = ISADefaults.ofArch arch
+    ISA(arch, endian, wordSize, flags)
 
   /// Constructs an ISA object with the given architecture and endianness. The
   /// word size is set to the default value for the given architecture and
   /// endianness. Raises <see cref='T:B2R2.InvalidISAException'/> if the
   /// combination is not recognized.
   new(arch, endian) =
-    match arch with
-    | Architecture.Intel when endian = Endian.Little ->
-      ISA(arch, endian, WordSize.Bit64)
-    | Architecture.ARMv7 ->
-      ISA(arch, endian, WordSize.Bit32)
-    | Architecture.ARMv8 ->
-      ISA(arch, endian, WordSize.Bit64)
-    | Architecture.MIPS ->
-      ISA(arch, endian, WordSize.Bit32)
-    | Architecture.PPC when endian = Endian.Little ->
-      ISA(arch, endian, WordSize.Bit32)
-    | Architecture.RISCV ->
-      ISA(arch, endian, WordSize.Bit64)
-    | Architecture.SPARC ->
-      ISA(arch, endian, WordSize.Bit64)
-    | Architecture.S390 ->
-      ISA(arch, endian, WordSize.Bit64)
-    | Architecture.SH4 ->
-      ISA(arch, endian, WordSize.Bit32)
-    | Architecture.PARISC when endian = Endian.Big ->
-      ISA(arch, endian, WordSize.Bit32)
-    | Architecture.M68K when endian = Endian.Big ->
-      ISA(arch, endian, WordSize.Bit32, int M68KModel.M68020)
-    | Architecture.Alpha when endian = Endian.Little ->
-      ISA(arch, endian, WordSize.Bit64)
-    | Architecture.AVR ->
-      ISA(arch, endian, WordSize.Bit8)
-    | Architecture.TMS320C6000 ->
-      ISA(arch, endian, WordSize.Bit32)
-    | Architecture.EVM ->
-      ISA(arch, endian, WordSize.Bit256)
-    | Architecture.Python ->
-      ISA(arch, endian, WordSize.Bit64)
-    | Architecture.WASM ->
-      ISA(arch, endian, WordSize.Bit32)
-    | Architecture.CIL ->
-      ISA(arch, endian, WordSize.Bit64)
-    (* A program is stored in the order the machine running it stores a word,
-       and both orders are built for, so this is the one thing about an eBPF
-       image that is not settled in advance. *)
-    | Architecture.BPF ->
-      ISA(arch, endian, WordSize.Bit64)
-    | _ ->
-      ISA(Architecture.UnknownISA, endian, WordSize.Bit64)
+    let arch, endian, wordSize, flags = ISADefaults.ofArchEndian arch endian
+    ISA(arch, endian, wordSize, flags)
 
   /// Constructs an ISA object with the given architecture and word size. The
   /// endianness is set to the default value for the given architecture. Raises
   /// <see cref='T:B2R2.InvalidISAException'/> if the combination is not
   /// recognized.
   new(arch, wordSize) =
-    match arch with
-    | Architecture.Intel when wordSize = WordSize.Bit32
-                           || wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.ARMv7 when wordSize = WordSize.Bit32 ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.ARMv8 when wordSize = WordSize.Bit32
-                           || wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.MIPS when wordSize = WordSize.Bit32
-                          || wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Big, wordSize)
-    | Architecture.PPC when wordSize = WordSize.Bit32
-                         || wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Big, wordSize)
-    | Architecture.RISCV when wordSize = WordSize.Bit32
-                           || wordSize = WordSize.Bit64
-                           || wordSize = WordSize.Bit128 ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.SPARC when wordSize = WordSize.Bit32
-                           || wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Big, wordSize)
-    | Architecture.S390 when wordSize = WordSize.Bit32
-                          || wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Big, wordSize)
-    | Architecture.SH4 when wordSize = WordSize.Bit32
-                         || wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.PARISC when wordSize = WordSize.Bit32
-                            || wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Big, wordSize)
-    | Architecture.M68K when wordSize = WordSize.Bit32 ->
-      ISA(arch, Endian.Big, wordSize, int M68KModel.M68020)
-    | Architecture.Alpha when wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.AVR when wordSize = WordSize.Bit8 ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.TMS320C6000 when wordSize = WordSize.Bit32 ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.EVM when wordSize = WordSize.Bit256 ->
-      ISA(arch, Endian.Big, wordSize)
-    | Architecture.Python ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.WASM ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.CIL ->
-      ISA(arch, Endian.Little, wordSize)
-    | Architecture.BPF when wordSize = WordSize.Bit64 ->
-      ISA(arch, Endian.Little, wordSize)
-    | _ ->
-      ISA(Architecture.UnknownISA, Endian.Little, wordSize)
+    let arch, endian, wordSize, flags =
+      ISADefaults.ofArchWordSize arch wordSize
+    ISA(arch, endian, wordSize, flags)
 
   /// Constructs an ISA object for the given Python version.
   new(pythonVer: PythonVersion) =
-    let flag = int pythonVer
-    ISA(Architecture.Python, Endian.Little, WordSize.Bit64, flag)
+    let arch, endian, wordSize, flags = ISADefaults.ofPythonVersion pythonVer
+    ISA(arch, endian, wordSize, flags)
 
   /// Constructs an ISA object for the given member of the 68000 family.
   new(m68kModel: M68KModel) =
-    let flag = int m68kModel
-    ISA(Architecture.M68K, Endian.Big, WordSize.Bit32, flag)
+    let arch, endian, wordSize, flags = ISADefaults.ofM68KModel m68kModel
+    ISA(arch, endian, wordSize, flags)
 
   /// Constructs an ISA object for the given AVR core.
-  new(avrCore: AVRCore) =
-    let flag = int avrCore
-    ISA(Architecture.AVR, Endian.Little, WordSize.Bit8, flag)
+  new(avrCore: AVRCore) = ISA(avrCore, 0UL)
 
   /// Constructs an ISA object for the given AVR core and program memory size,
   /// which must be a power of two. Only a loader that has read the part out of
   /// an image knows the size; without it a relative branch cannot wrap.
   new(avrCore: AVRCore, programSize: uint64) =
-    let mutable log2 = 0
-    while programSize >>> (log2 + 1) <> 0UL do log2 <- log2 + 1
-    let flag = int avrCore ||| (if programSize = 0UL then 0 else log2 <<< 8)
-    ISA(Architecture.AVR, Endian.Little, WordSize.Bit8, flag)
+    let arch, endian, wordSize, flags =
+      ISADefaults.ofAVRCore avrCore programSize
+    ISA(arch, endian, wordSize, flags)
 
   /// Constructs a 32-bit ARM ISA meaning the given instruction set, which is
   /// AArch32 if isAArch32 says so and ARMv7 otherwise. Only those two have the
   /// instruction sets a mode chooses between, so this names neither an
   /// architecture nor a word size that could be something else.
   new(endian, isAArch32: bool, mode: ARM32Mode) =
-    let arch = if isAArch32 then Architecture.ARMv8 else Architecture.ARMv7
-    ISA(arch, endian, WordSize.Bit32, int mode)
+    let arch, endian, wordSize, flags =
+      ISADefaults.ofARM32Mode endian isAArch32 mode
+    ISA(arch, endian, wordSize, flags)
 
   /// Constructs an ISA object from a canonical ISA name string such as "x86",
   /// "x86-64", "aarch64", "mips32le", etc. Raises <see
   /// cref='T:B2R2.InvalidISAException'/> if the string is not recognized.
   new(isaName: string) =
-    (* The three MIPS encodings sit in the same flags word as the release, so
-       a name that says both hands over both. Named here because the arms
-       below are one line each. *)
-    let umips = int MIPSISAMode.MicroMIPS
-    let umips6 = int MIPSRelease.R6 ||| int MIPSISAMode.MicroMIPS
-    let m16 = int MIPSISAMode.MIPS16
-    match isaName.ToLowerInvariant() with
-    | ARMVersionName.Versioned(arch, endian, wordSize, flags) ->
-      ISA(arch, endian, wordSize, flags)
-    | "x86" | "i386" ->
-      ISA(Architecture.Intel, WordSize.Bit32)
-    | "x64" | "x86-64" | "amd64" ->
-      ISA(Architecture.Intel, WordSize.Bit64)
-    | "armv7" | "armv7le" | "armel" | "armhf" | "arm32" | "arm" ->
-      ISA Architecture.ARMv7
-    | "armv7be" ->
-      ISA(Architecture.ARMv7, Endian.Big)
-    | "thumb" | "t32" ->
-      ISA(Endian.Little, false, ARM32Mode.Thumb)
-    | "thumbbe" | "t32be" ->
-      ISA(Endian.Big, false, ARM32Mode.Thumb)
-    | "armv8a32" | "aarch32" ->
-      ISA(Architecture.ARMv8, WordSize.Bit32)
-    | "armv8a32be" | "aarch32be" ->
-      ISA(Architecture.ARMv8, Endian.Big, WordSize.Bit32)
-    | "aarch32t" ->
-      ISA(Endian.Little, true, ARM32Mode.Thumb)
-    | "aarch32tbe" ->
-      ISA(Endian.Big, true, ARM32Mode.Thumb)
-    | "armv8a64" | "aarch64" | "arm64" ->
-      ISA Architecture.ARMv8
-    | "armv8a64be" | "aarch64be" ->
-      ISA(Architecture.ARMv8, Endian.Big)
-    | "mipsel" | "mips32le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32)
-    | "mips32" | "mips32be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
-    | "mips64el" | "mips64" | "mips64le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64)
-    | "mips64be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
-    | "mipsr6el" | "mips32r6el" | "mips32r6le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, int MIPSRelease.R6)
-    | "mips32r6" | "mips32r6be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, int MIPSRelease.R6)
-    | "mips64r6el" | "mips64r6" | "mips64r6le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, int MIPSRelease.R6)
-    | "mips64r6be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
-    | "micromipsel" | "micromips32le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, umips)
-    | "micromips" | "micromips32" | "micromips32be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, umips)
-    | "micromips64el" | "micromips64le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, umips)
-    | "micromips64" | "micromips64be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, umips)
-    | "micromipsr6el" | "micromips32r6le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, umips6)
-    | "micromips32r6" | "micromips32r6be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, umips6)
-    | "micromips64r6el" | "micromips64r6le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, umips6)
-    | "micromips64r6" | "micromips64r6be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, umips6)
-    | "mips16el" | "mips16le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, m16)
-    | "mips16" | "mips16be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, m16)
-    | "mips16-64el" | "mips16-64le" ->
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, m16)
-    | "mips16-64" | "mips16-64be" ->
-      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, m16)
-    | "ppc32le" ->
-      ISA(Architecture.PPC, Endian.Little, WordSize.Bit32)
-    | "ppc32" | "ppc32be" ->
-      ISA(Architecture.PPC, Endian.Big, WordSize.Bit32)
-    | "ppc64le" ->
-      ISA(Architecture.PPC, Endian.Little, WordSize.Bit64)
-    | "ppc64" | "ppc64be" ->
-      ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
-    | "riscv32" ->
-      ISA(Architecture.RISCV, Endian.Little, WordSize.Bit32)
-    | "riscv64" | "riscv" ->
-      ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
-    | "sparc32" | "sparcv8" ->
-      ISA(Architecture.SPARC, Endian.Big, WordSize.Bit32)
-    | "sparc" | "sparc64" ->
-      ISA(Architecture.SPARC, Endian.Big)
-    | "s390" ->
-      ISA(Architecture.S390, WordSize.Bit32)
-    | "s390x" ->
-      ISA(Architecture.S390, WordSize.Bit64)
-    | "sh4" ->
-      ISA(Architecture.SH4, Endian.Little)
-    | "sh4be" ->
-      ISA(Architecture.SH4, Endian.Big)
-    | "parisc" | "hppa" | "hppa32" ->
-      ISA(Architecture.PARISC, WordSize.Bit32)
-    | "parisc64" | "hppa64" ->
-      ISA(Architecture.PARISC, WordSize.Bit64)
-    | "m68k" | "68k" ->
-      ISA M68KModel.M68020
-    | "m68000" | "68000" ->
-      ISA M68KModel.M68000
-    | "m68010" | "68010" ->
-      ISA M68KModel.M68010
-    | "m68020" | "68020" ->
-      ISA M68KModel.M68020
-    | "m68030" | "68030" ->
-      ISA M68KModel.M68030
-    | "m68040" | "68040" ->
-      ISA M68KModel.M68040
-    | "m68060" | "68060" ->
-      ISA M68KModel.M68060
-    | "alpha" | "alphaev6" ->
-      ISA Architecture.Alpha
-    | "avr" | "avr8" ->
-      ISA Architecture.AVR
-    | "avr6" ->
-      ISA AVRCore.Avr6
-    | "tms320c6000" ->
-      ISA Architecture.TMS320C6000
-    | "evm" ->
-      ISA Architecture.EVM
-    | "cil" ->
-      ISA Architecture.CIL
-    (* The bare name takes the default version, the way "m68k" takes a default
-       model, so that an input whose version is not the point does not have to
-       name one. *)
-    | "python" ->
-      ISA Architecture.Python
-    | "python3.0" ->
-      ISA PythonVersion.Python300
-    | "python3.1" ->
-      ISA PythonVersion.Python301
-    | "python3.2" ->
-      ISA PythonVersion.Python302
-    | "python3.3" ->
-      ISA PythonVersion.Python303
-    | "python3.4" ->
-      ISA PythonVersion.Python304
-    | "python3.5" ->
-      ISA PythonVersion.Python305
-    | "python3.6" ->
-      ISA PythonVersion.Python306
-    | "python3.7" ->
-      ISA PythonVersion.Python307
-    | "python3.8" ->
-      ISA PythonVersion.Python308
-    | "python3.9" ->
-      ISA PythonVersion.Python309
-    | "python3.10" ->
-      ISA PythonVersion.Python310
-    | "python3.11" ->
-      ISA PythonVersion.Python311
-    | "python3.12" ->
-      ISA PythonVersion.Python312
-    | "python3.13" ->
-      ISA PythonVersion.Python313
-    | "python3.14" ->
-      ISA PythonVersion.Python314
-    | "python3.15" ->
-      ISA PythonVersion.Python315
-    | "wasm" ->
-      ISA Architecture.WASM
-    | "bpf" | "ebpf" | "bpfel" ->
-      ISA Architecture.BPF
-    | "bpfeb" ->
-      ISA(Architecture.BPF, Endian.Big)
-    | _ ->
-      ISA Architecture.UnknownISA
+    let arch, endian, wordSize, flags = ISAName.parse isaName
+    ISA(arch, endian, wordSize, flags)
 
   /// CPU Architecture.
   member _.Arch with get(): Architecture = arch
@@ -689,7 +120,7 @@ type ISA(arch, endian, wordSize, flags) =
   /// say otherwise. Only 32-bit ARM has two of them, so this says nothing about
   /// any other architecture.
   member _.ARM32Mode with get(): ARM32Mode =
-    LanguagePrimitives.EnumOfValue(flags &&& 1)
+    ISAFlags.arm32Mode flags
 
   /// <summary>
   /// Which version of the ARM architecture an ARM ISA means, which is Any --
@@ -698,16 +129,16 @@ type ISA(arch, endian, wordSize, flags) =
   /// one as well.
   /// </summary>
   member _.ARMArchVersion with get(): ARMArchVersion =
-    LanguagePrimitives.EnumOfValue((flags >>> 4) &&& 0xf)
+    ISAFlags.armArchVersion flags
 
   /// The OPTIONAL features an AArch64 ISA names beyond what its version makes
   /// mandatory.
   member _.AArch64Extensions with get(): AArch64Extension =
-    LanguagePrimitives.EnumOfValue(flags &&& ~~~0xff)
+    ISAFlags.aarch64Extensions flags
 
   /// The extensions an ARMv7 ISA names beyond what its version includes.
   member _.ARMv7Extensions with get(): ARMv7Extension =
-    LanguagePrimitives.EnumOfValue(flags &&& ~~~0xff)
+    ISAFlags.armv7Extensions flags
 
   /// Which release of the MIPS architecture a MIPS ISA means, which is one
   /// of Release 1 to 5 unless the flags say otherwise. Release 6 is not a
@@ -717,7 +148,7 @@ type ISA(arch, endian, wordSize, flags) =
   /// word of MIPS code cannot be decoded without knowing which release it
   /// belongs to, and an ELF image says so in its processor-specific flags.
   member _.MIPSRelease with get(): MIPSRelease =
-    LanguagePrimitives.EnumOfValue(flags &&& 1)
+    ISAFlags.mipsRelease flags
 
   /// <summary>
   /// Which of the MIPS encodings a MIPS ISA begins in.
@@ -731,20 +162,20 @@ type ISA(arch, endian, wordSize, flags) =
   /// extensions it uses.
   /// </summary>
   member _.MIPSISAMode with get(): MIPSISAMode =
-    LanguagePrimitives.EnumOfValue(flags &&& 6)
+    ISAFlags.mipsISAMode flags
 
   /// The member of the 68000 family an m68k ISA means, which is the 68020
   /// unless the flags say otherwise. The family shares one encoding space and a
   /// later model reads encodings an earlier one rejects, so nothing but this
   /// says what a halfword of m68k code belongs to.
   member _.M68KModel with get(): M68KModel =
-    LanguagePrimitives.EnumOfValue flags
+    ISAFlags.m68kModel flags
 
   /// How wide the program counter of an AVR ISA's core is, which is two bytes
   /// unless the flags say otherwise. Only AVR has cores that differ in this, so
   /// this says nothing about any other architecture.
   member _.AVRCore with get(): AVRCore =
-    LanguagePrimitives.EnumOfValue(flags &&& 0xff)
+    ISAFlags.avrCore flags
 
   /// How many bytes of program memory an AVR part has, or zero when nothing
   /// said. A relative branch on AVR wraps around the end of program memory --
@@ -752,9 +183,7 @@ type ISA(arch, endian, wordSize, flags) =
   /// it -- so this is what the wrap is taken modulo of. It is always a power of
   /// two, and the flags hold its base-two logarithm.
   member _.AVRProgramSize with get() =
-    match (flags >>> 8) &&& 0xff with
-    | 0 -> 0UL
-    | log2 -> 1UL <<< log2
+    ISAFlags.avrProgramSize flags
 
   /// Returns true if this ISA is Intel x86.
   member _.IsX86 with get() =
@@ -844,407 +273,4 @@ type ISA(arch, endian, wordSize, flags) =
   /// Returns true if this ISA is eBPF (either byte order).
   member _.IsBPF with get() = arch = Architecture.BPF
 
-  override this.ToString() =
-    let thumb = this.ARM32Mode = ARM32Mode.Thumb
-    (* A version is part of what an ARM ISA reads, so a name that left it out
-       would read back as every encoding rather than the version's. *)
-    let armName baseName =
-      match this.ARMArchVersion with
-      | ARMArchVersion.Any -> baseName
-      | v -> ARMVersionName.print baseName arch v (flags &&& ~~~0xff)
-    let r6 = this.MIPSRelease = MIPSRelease.R6
-    (* Which encoding a MIPS ISA is read in belongs in its name for the same
-       reason the release does: the three have separate opcode maps, so a name
-       that left it out would print an ISA that reads a different instruction
-       set from the one it names.
-       MIPS16e has no Release 6 spelling because Release 6 removed the ASE. *)
-    let mipsName () =
-      let le = endian = Endian.Little
-      let w64 = wordSize = WordSize.Bit64
-      let width = if w64 then "64" else "32"
-      let rel = if r6 then "r6" else ""
-      match this.MIPSISAMode with
-      | MIPSISAMode.MicroMIPS ->
-        "micromips" + width + rel + (if le then "le" else "")
-      | MIPSISAMode.MIPS16 ->
-        (if w64 then "mips16-64" else "mips16") + (if le then "le" else "")
-      | _ ->
-        (* The big-endian 64-bit name carries its "be" where the 32-bit one
-           does not, because "mips64" already names the LITTLE-endian one in
-           the table above: printing a big-endian MIPS64 as "mips64" made it
-           read back as a different ISA. The Release 6 arm never had that. *)
-        "mips" + width + rel + (if le then "le" elif w64 then "be" else "")
-    match arch, endian, wordSize with
-    | Architecture.Intel, _, WordSize.Bit32 ->
-      "x86"
-    | Architecture.Intel, _, WordSize.Bit64 ->
-      "x86-64"
-    | Architecture.ARMv7, Endian.Little, _ ->
-      armName (if thumb then "thumb" else "armv7")
-    | Architecture.ARMv7, Endian.Big, _ ->
-      armName (if thumb then "thumbbe" else "armv7be")
-    | Architecture.ARMv8, Endian.Little, WordSize.Bit32 ->
-      if thumb then "aarch32t" else "aarch32"
-    | Architecture.ARMv8, Endian.Big, WordSize.Bit32 ->
-      if thumb then "aarch32tbe" else "aarch32be"
-    | Architecture.ARMv8, Endian.Little, WordSize.Bit64 ->
-      armName "aarch64"
-    | Architecture.ARMv8, Endian.Big, WordSize.Bit64 ->
-      armName "aarch64be"
-    | Architecture.MIPS, _, WordSize.Bit32
-    | Architecture.MIPS, _, WordSize.Bit64 ->
-      mipsName ()
-    | Architecture.PPC, Endian.Little, WordSize.Bit32 ->
-      "ppc32le"
-    | Architecture.PPC, Endian.Big, WordSize.Bit32 ->
-      "ppc32"
-    | Architecture.PPC, Endian.Little, WordSize.Bit64 ->
-      "ppc64le"
-    | Architecture.PPC, Endian.Big, WordSize.Bit64 ->
-      "ppc64"
-    | Architecture.RISCV, Endian.Little, WordSize.Bit32 ->
-      "riscv32"
-    | Architecture.RISCV, Endian.Little, WordSize.Bit64 ->
-      "riscv64"
-    | Architecture.SPARC, Endian.Big, WordSize.Bit32 ->
-      "sparc32"
-    | Architecture.SPARC, Endian.Big, WordSize.Bit64 ->
-      "sparc64"
-    | Architecture.S390, Endian.Big, WordSize.Bit32 ->
-      "s390"
-    | Architecture.S390, Endian.Big, WordSize.Bit64 ->
-      "s390x"
-    | Architecture.SH4, Endian.Little, WordSize.Bit32 ->
-      "sh4"
-    | Architecture.SH4, Endian.Big, WordSize.Bit32 ->
-      "sh4be"
-    | Architecture.PARISC, Endian.Big, WordSize.Bit32 ->
-      "parisc"
-    | Architecture.PARISC, Endian.Big, WordSize.Bit64 ->
-      "parisc64"
-    | Architecture.M68K, _, _ ->
-      match LanguagePrimitives.EnumOfValue flags with
-      | M68KModel.M68000 -> "m68000"
-      | M68KModel.M68010 -> "m68010"
-      | M68KModel.M68020 -> "m68020"
-      | M68KModel.M68030 -> "m68030"
-      | M68KModel.M68040 -> "m68040"
-      | M68KModel.M68060 -> "m68060"
-      | _ -> raise InvalidISAException
-    | Architecture.Alpha, Endian.Little, WordSize.Bit64 ->
-      "alpha"
-    | Architecture.AVR, _, _ ->
-      "avr"
-    | Architecture.TMS320C6000, _, _ ->
-      "tms320c6000"
-    | Architecture.EVM, _, _ ->
-      "evm"
-    | Architecture.Python, _, _ ->
-      match LanguagePrimitives.EnumOfValue flags with
-      | PythonVersion.Python300 -> "python3.0"
-      | PythonVersion.Python301 -> "python3.1"
-      | PythonVersion.Python302 -> "python3.2"
-      | PythonVersion.Python303 -> "python3.3"
-      | PythonVersion.Python304 -> "python3.4"
-      | PythonVersion.Python305 -> "python3.5"
-      | PythonVersion.Python306 -> "python3.6"
-      | PythonVersion.Python307 -> "python3.7"
-      | PythonVersion.Python308 -> "python3.8"
-      | PythonVersion.Python309 -> "python3.9"
-      | PythonVersion.Python310 -> "python3.10"
-      | PythonVersion.Python311 -> "python3.11"
-      | PythonVersion.Python312 -> "python3.12"
-      | PythonVersion.Python313 -> "python3.13"
-      | PythonVersion.Python314 -> "python3.14"
-      | PythonVersion.Python315 -> "python3.15"
-      | _ -> raise InvalidISAException
-    | Architecture.WASM, _, _ ->
-      "wasm"
-    | Architecture.BPF, Endian.Little, _ ->
-      "bpfel"
-    | Architecture.BPF, Endian.Big, _ ->
-      "bpfeb"
-    | Architecture.CIL, _, _ ->
-      "cil"
-    | _ ->
-      raise InvalidISAException
-
-/// Represents which release of the MIPS architecture a MIPS ISA means.
-/// Release 6 is a different encoding space, not an extension of the earlier
-/// ones, so nothing but this says what a word of MIPS code belongs to.
-and MIPSRelease =
-  /// Release 1 through 5, which share one encoding space.
-  | PreR6 = 0
-  /// Release 6.
-  | R6 = 1
-
-/// <summary>
-/// Represents which encoding of the MIPS instruction set a MIPS ISA means.
-///
-/// All three stand for the same instructions and a processor reads whichever
-/// its ISA Mode bit names, so nothing but that bit says what a halfword of
-/// MIPS code belongs to. They sit beside the release in the same flags word,
-/// which is why this counts from the second bit.
-///
-/// The bit is ONE bit on the processor: MD00076 gives it as "0: the
-/// processor is executing 32-bit MIPS instructions, 1: the processor is
-/// executing MIPS16e or microMIPS instructions". Which of the two compressed
-/// encodings a 1 means is a property of the processor rather than of the
-/// code, and no implementation has both -- so the two occupy separate values
-/// here, where what is being said is which decoder to use.
-/// </summary>
-and MIPSISAMode =
-  /// The MIPS32 and MIPS64 encoding, whose instructions are one word each.
-  | MIPS = 0
-  /// The microMIPS encoding, whose instructions are one halfword or two.
-  | MicroMIPS = 2
-  /// <summary>
-  /// The MIPS16e encoding, whose instructions are one halfword, or two where
-  /// an EXTEND prefix widens the immediate. It is an Application-Specific
-  /// Extension rather than a base encoding -- MD00076 and MD00077, Volume
-  /// IV-a of each architecture -- and Release 6 removes it.
-  /// </summary>
-  | MIPS16 = 4
-
-/// Represents which member of the 68000 family an m68k ISA means. The family
-/// shares one encoding space, and a later model reads encodings an earlier one
-/// rejects -- including addressing modes that change how long an instruction is
-/// -- so nothing but the model says what a halfword of code belongs to.
-and M68KModel =
-  /// MC68000, MC68008, MC68HC000, MC68HC001, and MC68EC000.
-  | M68000 = 0
-  /// MC68010.
-  | M68010 = 1
-  /// MC68020 and MC68EC020.
-  | M68020 = 2
-  /// MC68030 and MC68EC030.
-  | M68030 = 3
-  /// MC68040, MC68EC040, and MC68LC040.
-  | M68040 = 4
-  /// MC68060, MC68EC060, and MC68LC060.
-  | M68060 = 5
-
-/// Represents how wide an AVR core's program counter is, which is the one way
-/// the AVR cores differ that an instruction's encoding does not already settle.
-/// avr6 -- the cores reaching more than 128 KiB of program memory -- needs
-/// three bytes of program counter, so a call there pushes three bytes of return
-/// address where every earlier core pushes two, and a frame laid out for the
-/// wrong one puts every saved register at the wrong offset. The finer core
-/// levels (avr2, avr25, avr51, ...) differ only in which instructions they
-/// have, which the decoder settles on its own, so nothing names them here.
-and AVRCore =
-  /// Every core up to avr51, whose program counter fits in two bytes. This is
-  /// also what a raw image reports, having nothing to say which core it is for.
-  | Classic = 0
-  /// avr6, whose program counter needs three bytes.
-  | Avr6 = 1
-
-/// Represents the Python version.
-and PythonVersion =
-  /// Python 3.0.
-  | Python300 = 300
-  /// Python 3.1.
-  | Python301 = 301
-  /// Python 3.2.
-  | Python302 = 302
-  /// Python 3.3.
-  | Python303 = 303
-  /// Python 3.4.
-  | Python304 = 304
-  /// Python 3.5.
-  | Python305 = 305
-  /// Python 3.6
-  | Python306 = 306
-  /// Python 3.7
-  | Python307 = 307
-  /// Python 3.8.
-  | Python308 = 308
-  /// Python 3.9.
-  | Python309 = 309
-  /// Python 3.10.
-  | Python310 = 310
-  /// Python 3.11.
-  | Python311 = 311
-  /// Python 3.12.
-  | Python312 = 312
-  /// Python 3.13.
-  | Python313 = 313
-  /// Python 3.14.
-  | Python314 = 314
-  /// Python 3.15.
-  | Python315 = 315
-
-module PythonVersion =
-  let minor (ver: PythonVersion) = int ver % 100
-
-/// Provides active patterns for matching against specific ISAs.
-[<AutoOpen>]
-module ISA =
-  [<return: Struct>]
-  let (|X86|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.Intel, WordSize.Bit32 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|X64|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.Intel, WordSize.Bit64 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|Intel|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.Intel -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|ARMv7|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.ARMv7 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|ARM32|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.ARMv7, _
-    | Architecture.ARMv8, WordSize.Bit32 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|AArch64|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.ARMv8, WordSize.Bit64 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|MIPS|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.MIPS -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|MIPS32|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.MIPS, WordSize.Bit32 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|MIPS64|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.MIPS, WordSize.Bit64 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|PPC|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.PPC -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|PPC32|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.PPC, WordSize.Bit32 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|PPC64|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.PPC, WordSize.Bit64 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|RISCV|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.RISCV -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|RISCV32|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.RISCV, WordSize.Bit32 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|RISCV64|_|) (isa: ISA) =
-    match isa.Arch, isa.WordSize with
-    | Architecture.RISCV, WordSize.Bit64 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|SPARC|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.SPARC -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|S390|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.S390 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|SH4|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.SH4 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|PARISC|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.PARISC -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|M68K|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.M68K -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|Alpha|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.Alpha -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|AVR|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.AVR -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|TMS320C6000|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.TMS320C6000 -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|BPF|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.BPF -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|EVM|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.EVM -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|WASM|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.WASM -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|Python|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.Python -> ValueSome()
-    | _ -> ValueNone
-
-  [<return: Struct>]
-  let (|CIL|_|) (isa: ISA) =
-    match isa.Arch with
-    | Architecture.CIL -> ValueSome()
-    | _ -> ValueNone
+  override _.ToString() = ISAName.print arch endian wordSize flags

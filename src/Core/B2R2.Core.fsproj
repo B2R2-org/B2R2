@@ -21,7 +21,11 @@
     <Compile Include="Permission.fs" />
     <Compile Include="OS.fs" />
     <Compile Include="Architecture.fs" />
+    <Compile Include="ISAFlags.fs" />
+    <Compile Include="ISADefaults.fs" />
+    <Compile Include="ISAName.fs" />
     <Compile Include="ISA.fs" />
+    <Compile Include="ISAPatterns.fs" />
     <Compile Include="Addr.fs" />
     <Compile Include="AddrRange.fs" />
     <Compile Include="BitVector.fs" />
