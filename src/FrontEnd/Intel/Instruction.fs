@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.Intel
 
+open System.Numerics
 open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
@@ -33,10 +34,16 @@ type Instruction
   [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   internal(addr, packed: uint64, vex, oprs, lifter: ILiftable) =
 
+  /// JMPABS carries its 64-bit target as an immediate; no other branch does.
+  let isJmpAbs () =
+    let opcode = int ((packed >>> 4) &&& 0xFFFUL)
+    LanguagePrimitives.EnumOfValue<int, Opcode> opcode = Opcode.JMPABS
+
   let hasConcJmpTarget () =
     (oprs: Operands).Count = 1
     && (oprs[0].Kind = OperandKind.Relative
-        || oprs[0].Kind = OperandKind.Absolute)
+        || oprs[0].Kind = OperandKind.Absolute
+        || (oprs[0].Kind = OperandKind.Imm && isJmpAbs ()))
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
@@ -50,7 +57,7 @@ type Instruction
 
   /// REX Prefix.
   member _.REXPrefix with get(): REXPrefix =
-    LanguagePrimitives.EnumOfValue(int ((packed >>> 28) &&& 0x7FUL))
+    LanguagePrimitives.EnumOfValue(int ((packed >>> 28) &&& 0x3FFUL))
 
   /// VEX information.
   member _.VEXInfo with get(): VEXInfo option = vex
@@ -100,28 +107,29 @@ type Instruction
   /// operation size when the instruction semantics are complex. We use this
   /// only for the purpose of optimizing the lifting process.
   member _.MainOperationSize with get(): RegType =
-    LanguagePrimitives.Int32WithMeasure(int ((packed >>> 35) &&& 0x3FFUL))
+    LanguagePrimitives.Int32WithMeasure(int ((packed >>> 38) &&& 0x3FFUL))
 
   /// Size of the memory pointer in the instruction, i.e., how many bytes are
   /// required to represent a memory address. This field may hold a dummy value
   /// if there's no memory operand. This is mainly used for the lifting purpose
   /// along with the MainOperationSize.
   member _.PointerSize with get(): RegType =
-    LanguagePrimitives.Int32WithMeasure(int ((packed >>> 45) &&& 0xFFUL))
+    LanguagePrimitives.Int32WithMeasure(int ((packed >>> 48) &&& 0xFFUL))
 
-  member _.IsFar with get(): bool = (packed >>> 53) &&& 1UL = 1UL
+  member _.IsFar with get(): bool = (packed >>> 56) &&& 1UL = 1UL
 
   /// The word size of the mode the instruction was parsed in.
   member private _.WordSize with get(): WordSize =
-    LanguagePrimitives.EnumOfValue(int ((packed >>> 54) &&& 0x1FFUL))
+    LanguagePrimitives.EnumOfValue(1 <<< int ((packed >>> 57) &&& 0x7UL))
 
   /// The scalar fields packed into one word. An instruction is allocated for
   /// every one parsed, and as eight separate fields these cost three times the
   /// space and a third of the parsing time. Widths: the length in bits 3:0
-  /// (at most 15), the opcode in 15:4, the prefixes in 27:16, REX in 34:28,
-  /// the operation size in 44:35 (the widest operand, the x87 state, is 864
-  /// bits), the pointer size in 52:45, the far flag in 53, and the word size
-  /// in 62:54. Every property below unpacks its own.
+  /// (at most 15), the opcode in 15:4, the prefixes in 27:16, REX in 37:28
+  /// (ten bits, with the REX2 and fifth-register bits of Intel APX), the
+  /// operation size in 47:38 (the widest operand, the x87 state, is 864
+  /// bits), the pointer size in 55:48, the far flag in 56, and the word size
+  /// in 59:57 as its log2. Every property below unpacks its own.
   static member inline internal Pack(len: uint32,
                                      wordSz: WordSize,
                                      pref: Prefix,
@@ -133,11 +141,11 @@ type Instruction
     (uint64 len &&& 0xFUL)
     ||| ((uint64 (int opcode) &&& 0xFFFUL) <<< 4)
     ||| ((uint64 (int pref) &&& 0xFFFUL) <<< 16)
-    ||| ((uint64 (int rex) &&& 0x7FUL) <<< 28)
-    ||| ((uint64 (int opsz) &&& 0x3FFUL) <<< 35)
-    ||| ((uint64 (int psz) &&& 0xFFUL) <<< 45)
-    ||| ((if isFar then 1UL else 0UL) <<< 53)
-    ||| ((uint64 (int wordSz) &&& 0x1FFUL) <<< 54)
+    ||| ((uint64 (int rex) &&& 0x3FFUL) <<< 28)
+    ||| ((uint64 (int opsz) &&& 0x3FFUL) <<< 38)
+    ||| ((uint64 (int psz) &&& 0xFFUL) <<< 48)
+    ||| ((if isFar then 1UL else 0UL) <<< 56)
+    ||| (uint64 (BitOperations.Log2(uint32 (int wordSz))) <<< 57)
 
   member private this.AddBranchTargetIfExist addrs =
     match (this :> IInstruction).DirectBranchTarget() with
@@ -251,6 +259,9 @@ type Instruction
           Terminator.futureFeature ()
         | OperandKind.Relative ->
           addr <- (int64 this.Address + o.Value) |> uint64
+          true
+        | OperandKind.Imm when this.Opcode = Opcode.JMPABS ->
+          addr <- uint64 o.Value
           true
         | _ ->
           false

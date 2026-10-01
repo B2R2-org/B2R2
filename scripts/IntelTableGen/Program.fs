@@ -82,6 +82,14 @@ type ModRM =
   | FixedModRM of int
   | STiModRM of int
 
+/// The APX bits an EVEX-promoted row allows, as Intel.json spells them: "0",
+/// "1" or "0/1" for ND and NF, and the source condition code of a CCMPscc
+/// or CTESTscc row, -1 where it carries none.
+type ApxNeed =
+  { ND: string
+    NF: string
+    SCC: int }
+
 type Row =
   { OpcodeByte: int
     Opcode: string
@@ -96,7 +104,8 @@ type Row =
     Mode64: string
     Compat: string
     Tuple: string
-    SzCond: string }
+    SzCond: string
+    APX: ApxNeed option }
 
 type OpcodeEntry =
   { Name: string
@@ -256,7 +265,20 @@ let private rowFields =
     "Mode64"
     "Compat"
     "TupleType"
-    "SzCond" ]
+    "SzCond"
+    "APX" ]
+
+let private parseAPX (e: JsonElement) =
+  match e.TryGetProperty "APX" with
+  | true, a ->
+    allowKeys a [ "ND"; "NF"; "SCC" ] "APX"
+    let scc =
+      match a.TryGetProperty "SCC" with
+      | true, _ -> num a "SCC"
+      | _ -> -1
+    Some { ND = str a "ND"; NF = str a "NF"; SCC = scc }
+  | _ ->
+    None
 
 let private parseRow (e: JsonElement) =
   allowKeys e rowFields "row"
@@ -278,7 +300,8 @@ let private parseRow (e: JsonElement) =
     Mode64 = str e "Mode64"
     Compat = str e "Compat"
     Tuple = str e "TupleType"
-    SzCond = str e "SzCond" }
+    SzCond = str e "SzCond"
+    APX = parseAPX e }
 
 let private parseOpcode (e: JsonElement) =
   allowKeys e [ "name"; "description"; "aliases" ] "opcode"
@@ -368,7 +391,7 @@ let private generatedNote =
   + "do not\n   edit it, edit Intel.json and rerun the generator. *)"
 
 let private opcodeModule = """  let isBranch = function
-    | Opcode.CALL | Opcode.JMP | Opcode.RET
+    | Opcode.CALL | Opcode.JMP | Opcode.JMPABS | Opcode.RET
     | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
     | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL
     | Opcode.JNO | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO
@@ -380,6 +403,19 @@ let private opcodeModule = """  let isBranch = function
     | Opcode.INCSSPD | Opcode.INCSSPQ | Opcode.RDSSPD | Opcode.RDSSPQ
     | Opcode.SAVEPREVSSP | Opcode.RSTORSSP | Opcode.WRSSD | Opcode.WRSSQ
     | Opcode.WRUSSD | Opcode.WRUSSQ | Opcode.SETSSBSY | Opcode.CLRSSBSY -> true
+    | _ -> false
+
+  /// The conditional compares and tests of Intel APX, whose EVEX prefix
+  /// carries a default flags value beside the operands.
+  let isCondCmpOrTest = function
+    | Opcode.CCMPO | Opcode.CCMPNO | Opcode.CCMPB | Opcode.CCMPNB
+    | Opcode.CCMPZ | Opcode.CCMPNZ | Opcode.CCMPBE | Opcode.CCMPA
+    | Opcode.CCMPS | Opcode.CCMPNS | Opcode.CCMPT | Opcode.CCMPF
+    | Opcode.CCMPL | Opcode.CCMPNL | Opcode.CCMPLE | Opcode.CCMPG
+    | Opcode.CTESTO | Opcode.CTESTNO | Opcode.CTESTB | Opcode.CTESTNB
+    | Opcode.CTESTZ | Opcode.CTESTNZ | Opcode.CTESTBE | Opcode.CTESTA
+    | Opcode.CTESTS | Opcode.CTESTNS | Opcode.CTESTT | Opcode.CTESTF
+    | Opcode.CTESTL | Opcode.CTESTNL | Opcode.CTESTLE | Opcode.CTESTG -> true
     | _ -> false
 """
 
@@ -478,7 +514,9 @@ let private maps =
     "EVEX", "ThreeBytes38", "evexThree38"
     "EVEX", "ThreeBytes3A", "evexThree3A"
     "EVEX", "MAP5", "evexMap5"
-    "EVEX", "MAP6", "evexMap6" ]
+    "EVEX", "MAP6", "evexMap6"
+    "EVEX", "MAP4", "evexMap4"
+    "EVEX", "MAP7", "evexMap7" ]
 
 /// Reports entries that no emitted table claims. An opcode map we do not
 /// handle yet must not go missing without a word.
@@ -612,11 +650,34 @@ let private packOpr (fixedIdx: string -> int) opr =
   | Rel s -> pack 28 s 0 0
   | NoOpr -> pack 29 0 0 0
 
-let private packMain opcodeByte opcode modRM oprList =
+/// The ND and NF requirements of a row as decodeRow reads them: 0 clear, 1
+/// set, 2 either, mirroring BitNeed in InstructionCore.fs.
+let private bitNeed (name: string) (v: string) =
+  match v with
+  | "0" -> 0
+  | "1" -> 1
+  | "0/1" -> 2
+  | v -> failwithf "unknown %s '%s'" name v
+
+/// The APX bits of a row, packed above its operand list index: a presence
+/// bit, ND and NF in two bits apiece, and the source condition code plus one
+/// in five, so that zero stands for none.
+let private packAPX (apx: ApxNeed option) =
+  match apx with
+  | None ->
+    0L
+  | Some a ->
+    (1L <<< 52)
+    ||| (fit "ND" 2 (bitNeed "ND" a.ND) <<< 53)
+    ||| (fit "NF" 2 (bitNeed "NF" a.NF) <<< 55)
+    ||| (fit "SCC" 5 (a.SCC + 1) <<< 57)
+
+let private packMain opcodeByte opcode modRM oprList apx =
   fit "opcode byte" 8 opcodeByte
   ||| (fit "opcode" 16 opcode <<< 8)
   ||| (fit "ModRM index" 12 modRM <<< 24)
   ||| (fit "operand list index" 16 oprList <<< 36)
+  ||| packAPX apx
 
 let private packAttrs pref rex vl opEn mode64 compat tuple szCond =
   int (fit "prefix index" 3 pref
@@ -635,7 +696,8 @@ let private enumIndex (name: string) (values: string[]) (v: string) =
   | Some i -> i
   | None -> failwithf "unknown %s '%s'" name v
 
-let private rexTypes = [| "NOREX"; "WIG"; "W0"; "W1"; "REX"; "REXW" |]
+let private rexTypes =
+  [| "NOREX"; "WIG"; "W0"; "W1"; "REX"; "REXW"; "REX2"; "REX2W" |]
 
 let private vectorLengths = [| "None"; "V128"; "V256"; "V512" |]
 
@@ -676,7 +738,16 @@ let private opEns =
      "TD"
      "VM"
      "VMI"
-     "ZO" |]
+     "ZO"
+     "RI"
+     "IR"
+     "VR"
+     "VMR"
+     "VRM"
+     "VM1"
+     "VMC"
+     "VMRI"
+     "VMRC" |]
 
 let private mode64s =
   [| "None"
@@ -809,7 +880,14 @@ let private decodeRow i =
     Mode64 = enum<Mode64> ((a >>> 16) &&& 0x7)
     Compat = enum<CompatLegMode> ((a >>> 19) &&& 0x7)
     TupleType = enum<TupleType> ((a >>> 22) &&& 0x1F)
-    SzCond = enum<SzCond> ((a >>> 27) &&& 0x7) }
+    SzCond = enum<SzCond> ((a >>> 27) &&& 0x7)
+    APX =
+      if (m >>> 52) &&& 0x1L = 0L then
+        None
+      else
+        Some { ND = enum<BitNeed> (int ((m >>> 53) &&& 0x3L))
+               NF = enum<BitNeed> (int ((m >>> 55) &&& 0x3L))
+               SCC = int ((m >>> 57) &&& 0x1FL) - 1 } }
 
 /// The 256 slots of one opcode map.
 let private buildMap (mapIdx: int) =
@@ -905,7 +983,7 @@ let private rowMainLit (p: Packed) opcodeId (r: Row) =
   let opcode = opcodeId r.Opcode
   let modRM = p.ModRMIndex[r.ModRM]
   let oprList = p.OprIndex[r.Operands]
-  let bits = packMain r.OpcodeByte opcode modRM oprList
+  let bits = packMain r.OpcodeByte opcode modRM oprList r.APX
   $"0x{bits:X}L"
 
 let private rowAttrsLit (p: Packed) (r: Row) =

@@ -17810,6 +17810,314 @@ let private v3x7f (span: ByteSpan) (st: byref<ParsingState>) =
   | _ ->
     raise ParsingFailureException
 
+let private v3x90 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = opmaskReg &st (reg m) true
+      let o2 =
+        if isReg m then
+          OperandParsers.parseOpMaskReg (rm m)
+        else
+          memV span &st m 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.KMOVW (Operands.twoOperands o1 o2) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = opmaskReg &st (reg m) true
+      let o2 =
+        if isReg m then
+          OperandParsers.parseOpMaskReg (rm m)
+        else
+          memV span &st m 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.KMOVB (Operands.twoOperands o1 o2) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = opmaskReg &st (reg m) true
+      let o2 =
+        if isReg m then
+          OperandParsers.parseOpMaskReg (rm m)
+        else
+          memV span &st m 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.KMOVQ (Operands.twoOperands o1 o2) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = opmaskReg &st (reg m) true
+      let o2 =
+        if isReg m then
+          OperandParsers.parseOpMaskReg (rm m)
+        else
+          memV span &st m 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.KMOVD (Operands.twoOperands o1 o2) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v3x91 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+      let o2 = opmaskReg &st (reg m) true
+      finishA &st Opcode.KMOVW (TwoOperands(o1, o2)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+      let o2 = opmaskReg &st (reg m) true
+      finishA &st Opcode.KMOVB (TwoOperands(o1, o2)) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = opmaskReg &st (reg m) true
+      finishA &st Opcode.KMOVQ (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = opmaskReg &st (reg m) true
+      finishA &st Opcode.KMOVD (TwoOperands(o1, o2)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v3x92 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if isReg m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = opmaskReg &st (reg m) true
+      let o2 = Operands.oprReg (rmRegV &st m 32<rt>)
+      finishA &st Opcode.KMOVW (Operands.twoOperands o1 o2) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 ->
+    if isReg m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = opmaskReg &st (reg m) true
+      let o2 = Operands.oprReg (rmRegV &st m 32<rt>)
+      finishA &st Opcode.KMOVD (Operands.twoOperands o1 o2) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if isReg m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = opmaskReg &st (reg m) true
+      let o2 = Operands.oprReg (rmRegV &st m 32<rt>)
+      finishA &st Opcode.KMOVB (Operands.twoOperands o1 o2) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 41 | 45 ->
+    if isReg m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = opmaskReg &st (reg m) true
+      let o2 = Operands.oprReg (rmRegV &st m 64<rt>)
+      finishA &st Opcode.KMOVQ (Operands.twoOperands o1 o2) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v3x93 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if isReg m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = opmaskReg &st (rm m) false
+      finishA &st Opcode.KMOVW (Operands.twoOperands o1 o2) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 ->
+    if isReg m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = opmaskReg &st (rm m) false
+      finishA &st Opcode.KMOVD (Operands.twoOperands o1 o2) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if isReg m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = opmaskReg &st (rm m) false
+      finishA &st Opcode.KMOVB (Operands.twoOperands o1 o2) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 41 | 45 ->
+    if isReg m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = opmaskReg &st (rm m) false
+      finishA &st Opcode.KMOVQ (Operands.twoOperands o1 o2) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
 let private v3xc2 (span: ByteSpan) (st: byref<ParsingState>) =
   let m = peek span &st
   match st.Ctx with
@@ -24006,6 +24314,148 @@ let private v4x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let oprs = ThreeOperands(o1, o2, o3)
       let bcst = (if isMem m then 64<rt> else 0<rt>)
       finishV &st Opcode.VPSLLVQ (oprs) (512<rt>) bcst NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4x49 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if isMem m &&
+         st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = memV span &st m 512<rt> TupleType.NA 0<rt>
+        finishA &st Opcode.LDTILECFG (OneOperand o1) (512<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if isMem m &&
+         st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = memV span &st m 512<rt> TupleType.NA 0<rt>
+        finishA &st Opcode.STTILECFG (OneOperand o1) (512<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4x4a (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 25 | 29 | 33 | 37 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 1024<rt>)
+      let o2 = memSib span &st m
+      let oprs = TwoOperands(o1, o2)
+      finishA &st Opcode.TILELOADDRS (oprs) (1024<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 1024<rt>)
+      let o2 = memSib span &st m
+      let oprs = TwoOperands(o1, o2)
+      finishA &st Opcode.TILELOADDRST1 (oprs) (1024<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4x4b (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 25 | 29 | 33 | 37 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 1024<rt>)
+      let o2 = memSib span &st m
+      finishA &st Opcode.TILELOADD (TwoOperands(o1, o2)) (1024<rt>) false false
+    else
+      raise ParsingFailureException
+  | 26 | 27 | 31 | 34 | 35 | 39 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memSib span &st m
+      let o2 = Operands.oprReg (regRegV &st m 1024<rt>)
+      finishA &st Opcode.TILESTORED (TwoOperands(o1, o2)) (0<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 1024<rt>)
+      let o2 = memSib span &st m
+      let oprs = TwoOperands(o1, o2)
+      finishA &st Opcode.TILELOADDT1 (oprs) (1024<rt>) false false
     else
       raise ParsingFailureException
   | _ ->
@@ -30707,6 +31157,1076 @@ let private v4xdf (span: ByteSpan) (st: byref<ParsingState>) =
   | _ ->
     raise ParsingFailureException
 
+let private v4xe0 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPOXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPOXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xe1 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNOXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNOXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xe2 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPBXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPBXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xe3 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNBXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNBXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xe4 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPZXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPZXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xe5 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNZXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNZXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xe6 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPBEXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPBEXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xe7 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNBEXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNBEXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xe8 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPSXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPSXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xe9 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNSXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNSXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xea (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPPXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPPXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xeb (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNPXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNPXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xec (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPLXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPLXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xed (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNLXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNLXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xee (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPLEXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPLEXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xef (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNLEXADD (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMPNLEXADD (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xf2 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
+  | 39 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ANDN (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ANDN (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xf3 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 1 ->
+    match st.Ctx with
+    | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37
+    | 38 | 39 ->
+      if st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.BLSR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.BLSR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+      if st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.BLSR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.BLSR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37
+    | 38 | 39 ->
+      if st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.BLSMSK (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.BLSMSK (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+      if st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.BLSMSK (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.BLSMSK (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37
+    | 38 | 39 ->
+      if st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.BLSI (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.BLSI (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+      if st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.BLSI (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.BLSI (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xf5 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.BZHI (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.PDEP (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 26 | 27 | 30 | 31 | 34 | 35 | 38 | 39 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.PEXT (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 | 44 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.BZHI (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 41 | 45 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.PDEP (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 42 | 43 | 46 | 47 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.PEXT (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xf6 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 25 | 29 | 33 | 37 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.MULX (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 41 | 45 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.MULX (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v4xf7 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.BEXTR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      finishA &st Opcode.SHRX (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 26 | 27 | 31 | 34 | 35 | 39 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      finishA &st Opcode.SARX (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 32<rt>)
+      finishA &st Opcode.SHLX (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.BEXTR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 41 | 45 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      finishA &st Opcode.SHRX (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 42 | 43 | 47 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      finishA &st Opcode.SARX (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 64<rt>)
+      finishA &st Opcode.SHLX (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
 let private v5x00 (span: ByteSpan) (st: byref<ParsingState>) =
   let m = peek span &st
   match st.Ctx with
@@ -33363,6 +34883,46 @@ let private v5xcf (span: ByteSpan) (st: byref<ParsingState>) =
         bcst
         NoRounding
         (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v5xf0 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 25 | 29 | 33 | 37 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 8<rt>
+      finishA &st Opcode.RORX (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 41 | 45 ->
+    if st.VL = 128<rt> &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 8<rt>
+      finishA &st Opcode.RORX (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | _ ->
@@ -37439,6 +38999,21394 @@ let private v7xd7 (span: ByteSpan) (st: byref<ParsingState>) =
   | _ ->
     raise ParsingFailureException
 
+let private v8x00 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADD (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 8<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x01 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x02 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADD (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 8<rt>)
+      let o3 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x03 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x08 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.OR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 8<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x09 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x0a (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.OR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 8<rt>)
+      let o3 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x0b (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x10 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (8<rt>) false false
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADC (oprs) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 8<rt>)
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x11 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADC (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADC (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADC (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.ADC (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x12 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (8<rt>) false false
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADC (oprs) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 8<rt>)
+      let o3 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x13 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADC (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADC (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADC (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.ADC (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADC (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x18 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (8<rt>) false false
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SBB (oprs) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 8<rt>)
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x19 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SBB (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SBB (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SBB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SBB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x1a (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (8<rt>) false false
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SBB (oprs) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 8<rt>)
+      let o3 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x1b (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SBB (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SBB (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SBB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.SBB (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SBB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x20 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.AND (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 8<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x21 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x22 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.AND (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 8<rt>)
+      let o3 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x23 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x24 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHLD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHLD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHLD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHLD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHLD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHLD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHLD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHLD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x28 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SUB (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 8<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x29 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x2a (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SUB (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 8<rt>)
+      let o3 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x2b (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x2c (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHRD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHRD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHRD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHRD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHRD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHRD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHRD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHRD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x30 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.XOR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 8<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x31 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       (st.NoLock || isMem m) then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x32 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.XOR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 8<rt>)
+      let o3 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x33 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x38 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPO (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNO (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPB (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNB (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPZ (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNZ (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNA (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPA (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPS (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNS (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPT (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPF (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPL (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPGE (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPLE (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNLE (oprs) (8<rt>) false true
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPO (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNO (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPB (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNB (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPZ (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNZ (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNA (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPA (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPS (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNS (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPT (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPF (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPL (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPGE (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPLE (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNLE (oprs) (32<rt>) false true
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPO (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNO (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPB (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNB (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPZ (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNZ (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNA (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPA (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPS (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNS (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPT (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPF (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPL (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPGE (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPLE (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNLE (oprs) (16<rt>) false true
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPB (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNB (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPT (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPF (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPL (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPGE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPLE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNLE (oprs) (64<rt>) false true
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPB (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNB (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPT (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPF (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPL (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPGE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPLE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CCMPNLE (oprs) (64<rt>) false true
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x3a (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPO (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNO (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPB (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNB (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPZ (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNZ (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNA (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPA (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPS (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNS (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPT (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPF (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPL (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPGE (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPLE (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 8<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNLE (oprs) (8<rt>) false true
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPO (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNO (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPB (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNB (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPZ (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNZ (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNA (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPA (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPS (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNS (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPT (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPF (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPL (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPGE (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPLE (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNLE (oprs) (32<rt>) false true
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPO (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNO (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPB (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNB (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPZ (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNZ (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNA (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPA (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPS (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNS (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPT (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPF (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPL (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPGE (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPLE (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNLE (oprs) (16<rt>) false true
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPB (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNB (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPT (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPF (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPL (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPGE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPLE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNLE (oprs) (64<rt>) false true
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPB (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPB (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNB (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNB (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPT (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPT (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPF (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPF (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPL (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPL (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPGE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPLE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CCMPNLE (oprs) (64<rt>) false true
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x40 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVO (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVO (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVO (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVO (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVO (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVO (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETO (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUO (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVO (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVO (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVO (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVO (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVO (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVO (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVO (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVO (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVO (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVO (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVO (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVO (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x41 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNO (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNO (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNO (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNO (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNO (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNO (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETNO (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUNO (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNO (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNO (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNO (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNO (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNO (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNO (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNO (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNO (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNO (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x42 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVB (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVB (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVB (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVB (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVB (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMOVNAE (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETB (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUB (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVB (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVB (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVB (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVB (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVB (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMOVNAE (oprs) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVB (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVB (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMOVNAE (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVB (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVB (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVB (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CMOVNAE (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNC (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETAE (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUNB (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNC (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x44 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVZ (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVZ (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVZ (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVZ (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVZ (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVE (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZ (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUZ (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVZ (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVZ (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVZ (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVZ (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVZ (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVE (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVZ (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVZ (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVZ (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVZ (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVZ (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVZ (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVZ (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVZ (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVZ (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVZ (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNE (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETNZ (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUNE (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNE (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x46 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVBE (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVBE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVBE (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVBE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVBE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNA (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETBE (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUNA (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVBE (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVBE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVBE (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVBE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVBE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNA (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNA (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNA (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVA (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETNBE (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUA (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVA (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVA (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVA (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x48 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVS (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVS (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVS (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVS (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVS (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVS (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETS (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUS (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVS (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVS (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVS (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVS (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVS (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVS (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVS (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVS (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVS (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVS (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVS (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVS (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x49 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNS (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNS (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNS (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNS (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNS (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNS (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETNS (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUNS (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNS (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNS (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNS (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNS (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNS (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNS (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNS (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNS (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNS (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVPE (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETP (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUPE (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVPE (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVPE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVPE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x4b (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNP (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNP (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNP (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNP (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNP (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNP (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETPO (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUNP (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNP (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNP (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNP (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNP (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNP (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNP (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNP (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVNP (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNP (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x4c (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVL (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVL (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVL (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVL (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVL (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVL (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETNGE (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUL (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVL (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVL (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVL (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVL (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVL (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVL (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVL (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVL (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVL (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVL (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVL (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVL (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVL (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVL (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVL (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVL (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNL (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETGE (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUNL (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNL (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVNL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x4e (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVLE (oprs) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVLE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVLE (oprs) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVLE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVLE (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVLE (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETNG (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUNG (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVLE (oprs) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVLE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVLE (oprs) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVLE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVLE (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVLE (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVLE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVLE (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVLE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x4f (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVG (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVG (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CFCMOVG (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVG (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVG (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVG (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETG (Operands.oneOperand o1) (8<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.SETZUG (Operands.oneOperand o1) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVG (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVG (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CFCMOVG (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVG (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVG (oprs) (16<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVG (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVG (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVG (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVG (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVG (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVG (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVG (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVG (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CFCMOVG (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CFCMOVG (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CFCMOVG (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) <> 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.CFCMOVG (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.CMOVG (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x60 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.MOVBE (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.MOVBE (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.MOVBE (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.MOVBE (oprs) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.MOVBE (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.MOVBE (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.MOVBE (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.MOVBE (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x61 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.MOVBE (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.MOVBE (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.MOVBE (Operands.twoRegs o1 o2) (16<rt>) false false
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.MOVBE (oprs) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.MOVBE (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.MOVBE (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.MOVBE (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.MOVBE (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x65 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 28 | 30 | 36 | 38 | 44 | 46 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      finishA &st Opcode.WRUSSD (TwoOperands(o1, o2)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x66 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 | 40 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      finishA &st Opcode.WRSSD (TwoOperands(o1, o2)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 26 | 27 | 31 | 34 | 35 | 39 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.ADOX (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADOX (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ADOX (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.ADCX (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADCX (oprs) (32<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ADCX (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 42 | 43 | 47 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.ADOX (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADOX (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ADOX (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.ADCX (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.ADCX (oprs) (64<rt>) false false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ADCX (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x69 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 32<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 32<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMULZU (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 16<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 16<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMULZU (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 32<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 32<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMULZU (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 32<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 32<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMULZU (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x6b (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMULZU (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMULZU (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMULZU (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = simm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMULZU (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x80 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ADD (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ADD (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.OR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.OR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.ADC (TwoOperands(o1, o2)) (8<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.SBB (TwoOperands(o1, o2)) (8<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.AND (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.AND (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SUB (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SUB (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.XOR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.XOR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPO (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPNO (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPB (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPNB (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPZ (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPNZ (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPA (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPS (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPNS (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPT (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPF (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPL (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPLE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (8<rt>) false true
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.ADC (TwoOperands(o1, o2)) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.ADC (TwoOperands(o1, o2)) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 16<rt>
+        finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.ADC (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.ADC (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.SBB (TwoOperands(o1, o2)) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.SBB (TwoOperands(o1, o2)) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 16<rt>
+        finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.SBB (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.SBB (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPO (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPNO (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPB (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPNB (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPZ (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPNZ (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPA (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPS (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPNS (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPT (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPF (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPL (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPLE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (32<rt>) false true
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPO (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPNO (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPB (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPNB (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPZ (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPNZ (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPA (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPS (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPNS (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPT (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPF (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPL (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPLE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (16<rt>) false true
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPB (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNB (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPT (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPF (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPL (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPLE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (64<rt>) false true
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPB (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNB (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPT (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPF (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPL (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPLE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (64<rt>) false true
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ADD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ADD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ADD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.OR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.OR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.OR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.ADC (TwoOperands(o1, o2)) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.ADC (TwoOperands(o1, o2)) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.ADC (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.ADC (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        finishA &st Opcode.ADC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.SBB (TwoOperands(o1, o2)) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.SBB (TwoOperands(o1, o2)) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.SBB (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.SBB (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        finishA &st Opcode.SBB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.AND (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.AND (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.AND (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SUB (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SUB (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SUB (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.XOR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.XOR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = simm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.XOR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPO (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNO (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPB (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNB (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPZ (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNZ (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPA (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPS (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNS (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPT (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPF (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPL (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPLE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (32<rt>) false true
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPO (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNO (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPB (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNB (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPZ (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNZ (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPA (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPS (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNS (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPT (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPF (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPL (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPLE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (16<rt>) false true
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPB (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNB (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPT (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPF (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPL (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPLE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (64<rt>) false true
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPB (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNB (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPT (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPF (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPL (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPLE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 8<rt>
+        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (64<rt>) false true
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x84 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTO (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTO (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTNO (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNO (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNAE (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNC (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTE (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTNZ (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNZ (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNA (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTA (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTA (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTS (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTS (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTNS (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNS (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTT (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTT (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTF (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTF (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNGE (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTGE (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTLE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTLE (oprs) (8<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 8<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (8<rt>) false true
+      else
+        let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNLE (oprs) (8<rt>) false true
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTO (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTO (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTNO (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNO (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNAE (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNC (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTE (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTNZ (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNZ (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNA (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTA (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTA (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTS (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTS (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTNS (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNS (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTT (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTT (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTF (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTF (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNGE (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTGE (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTLE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTLE (oprs) (32<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 32<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (32<rt>) false true
+      else
+        let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNLE (oprs) (32<rt>) false true
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTO (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTO (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTNO (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNO (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNAE (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNC (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTE (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTNZ (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNZ (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNA (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTA (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTA (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTS (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTS (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTNS (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNS (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTT (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTT (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTF (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTF (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNGE (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTGE (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTLE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTLE (oprs) (16<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 16<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (16<rt>) false true
+      else
+        let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNLE (oprs) (16<rt>) false true
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNAE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNC (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTT (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTT (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTF (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTF (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNGE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTGE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTLE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNLE (oprs) (64<rt>) false true
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       scc &st = 0 &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 1 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNO (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNO (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 2 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNAE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 3 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNC (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 4 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 5 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNZ (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNZ (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 6 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 7 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTA (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTA (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 8 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 9 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNS (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNS (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 10 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTT (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTT (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 11 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTF (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTF (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 12 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNGE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 13 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTGE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 14 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTLE (oprs) (64<rt>) false true
+    elif not st.Zeroing &&
+         not st.ND &&
+         scc &st = 15 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o2 = regRegV &st m 64<rt>
+      if isReg m then
+        let o1 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+      else
+        let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(o1, Operands.oprReg o2)
+        finishA &st Opcode.CTESTNLE (oprs) (64<rt>) false true
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x88 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.POPCNT (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.POPCNT (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.POPCNT (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.POPCNT (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.POPCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.POPCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.POPCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.POPCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x8a (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 | 40 | 44 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 8<rt>)
+      let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.MOVRS (TwoOperands(o1, o2)) (8<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x8b (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.MOVRS (TwoOperands(o1, o2)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.MOVRS (TwoOperands(o1, o2)) (16<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.MOVRS (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.MOVRS (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8x8f (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 ->
+      if isReg m &&
+         not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.POP2 (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if isReg m &&
+         not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.POP2P (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xa5 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg ((regv 49))
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHLD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o4 = Operands.oprReg ((regv 49))
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHLD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = Operands.oprReg ((regv 49))
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHLD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o4 = Operands.oprReg ((regv 49))
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHLD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg ((regv 49))
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHLD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o4 = Operands.oprReg ((regv 49))
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHLD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg ((regv 49))
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHLD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o4 = Operands.oprReg ((regv 49))
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHLD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xad (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = Operands.oprReg ((regv 49))
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHRD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o4 = Operands.oprReg ((regv 49))
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHRD (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = Operands.oprReg ((regv 49))
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHRD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o4 = Operands.oprReg ((regv 49))
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHRD (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg ((regv 49))
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHRD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o4 = Operands.oprReg ((regv 49))
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHRD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = Operands.oprReg ((regv 49))
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.SHRD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o4 = Operands.oprReg ((regv 49))
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishA &st Opcode.SHRD (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xaf (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.IMUL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.IMUL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.IMUL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.IMUL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 16<rt>)
+      let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    elif not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xc0 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (8<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (8<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xc1 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xd0 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 8<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (8<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 8<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 8<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (8<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 8<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 8<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 8<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xd1 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 32<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 32<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 16<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 16<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        finishA &st Opcode.RCL (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 32<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 32<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 16<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 16<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        finishA &st Opcode.RCR (TwoOperands(o1, o2)) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 32<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 16<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 16<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = Operands.oprImm 1L 64<rt>
+        let oprs = TwoOperands(o1, o2)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprImm 1L 64<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xd2 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 8<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 8<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 8<rt>
+          finishA &st Opcode.RCL (Operands.twoRegs o1 o2) (8<rt>) false false
+        else
+          let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCL (oprs) (8<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 8<rt>
+          finishA &st Opcode.RCR (Operands.twoRegs o1 o2) (8<rt>) false false
+        else
+          let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCR (oprs) (8<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (8<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 8<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 8<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 8<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 8<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SAR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SAR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 8<rt>)
+        let o2 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xd3 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 16<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 16<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.ROR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 32<rt>
+          finishA &st Opcode.RCL (Operands.twoRegs o1 o2) (32<rt>) false false
+        else
+          let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCL (oprs) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 16<rt>
+          finishA &st Opcode.RCL (Operands.twoRegs o1 o2) (16<rt>) false false
+        else
+          let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCL (oprs) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          finishA &st Opcode.RCL (Operands.twoRegs o1 o2) (64<rt>) false false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCL (oprs) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          finishA &st Opcode.RCL (Operands.twoRegs o1 o2) (64<rt>) false false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCL (oprs) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCL (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 32<rt>
+          finishA &st Opcode.RCR (Operands.twoRegs o1 o2) (32<rt>) false false
+        else
+          let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCR (oprs) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 16<rt>
+          finishA &st Opcode.RCR (Operands.twoRegs o1 o2) (16<rt>) false false
+        else
+          let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCR (oprs) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          finishA &st Opcode.RCR (Operands.twoRegs o1 o2) (64<rt>) false false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCR (oprs) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          finishA &st Opcode.RCR (Operands.twoRegs o1 o2) (64<rt>) false false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.RCR (oprs) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        finishA &st Opcode.RCR (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 16<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 16<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 16<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SHL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SAR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SAR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 16<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SAR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SAR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
+        let o2 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o2 = (regv 49)
+        if isReg m then
+          let o1 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(o1, Operands.oprReg o2)
+          finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o3 = Operands.oprReg ((regv 49))
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishA &st Opcode.SAR (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xf0 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CRC32 (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CRC32 (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 26 | 27 | 30 | 31 | 34 | 35 | 38 | 39 | 42 | 43 | 46 | 47 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.INVEPT (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 | 44 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 8<rt>
+        finishA &st Opcode.CRC32 (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CRC32 (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xf1 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        finishA &st Opcode.CRC32 (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CRC32 (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 26 | 27 | 31 | 34 | 35 | 39 | 42 | 43 | 47 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.INVVPID (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        finishA &st Opcode.CRC32 (Operands.twoRegs o1 o2) (32<rt>) false false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CRC32 (oprs) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CRC32 (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CRC32 (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.CRC32 (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.CRC32 (oprs) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xf2 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 26 | 27 | 30 | 31 | 34 | 35 | 38 | 39 | 42 | 43 | 46 | 47 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.INVPCID (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xf4 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.TZCNT (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.TZCNT (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.TZCNT (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.TZCNT (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.TZCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.TZCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.TZCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.TZCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xf5 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 32<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 32<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.LZCNT (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.LZCNT (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 16<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 16<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.LZCNT (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.LZCNT (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.LZCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.LZCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 64<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishA &st Opcode.LZCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishA &st Opcode.LZCNT (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (8<rt>) false true
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (8<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 8<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (8<rt>) false true
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        finishA &st Opcode.NOT (Operands.oneOperand o1) (8<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 8<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 8<rt>
+          finishA &st Opcode.NOT (Operands.twoRegs o1 o2) (8<rt>) false false
+        else
+          let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NOT (oprs) (8<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.NEG (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 8<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 8<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.NEG (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NEG (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.MUL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IMUL (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DIV (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IDIV (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (32<rt>) false true
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (16<rt>) false true
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (64<rt>) false true
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (64<rt>) false true
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (32<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (32<rt>) false true
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (16<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let o2 = uimm span &st 16<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (16<rt>) false true
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (64<rt>) false true
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         scc &st = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 1 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNO (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 2 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 3 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 4 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 5 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNZ (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 6 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 7 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTA (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 8 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 9 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNS (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 10 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTT (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 11 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTF (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 12 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 13 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 14 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTLE (TwoOperands(o1, o2)) (64<rt>) false true
+      elif not st.Zeroing &&
+           not st.ND &&
+           scc &st = 15 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let o2 = simm span &st 32<rt>
+        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (64<rt>) false true
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        finishA &st Opcode.NOT (Operands.oneOperand o1) (32<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          finishA &st Opcode.NOT (Operands.twoRegs o1 o2) (32<rt>) false false
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NOT (oprs) (32<rt>) false false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        finishA &st Opcode.NOT (Operands.oneOperand o1) (16<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 16<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 16<rt>
+          finishA &st Opcode.NOT (Operands.twoRegs o1 o2) (16<rt>) false false
+        else
+          let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NOT (oprs) (16<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        finishA &st Opcode.NOT (Operands.oneOperand o1) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          finishA &st Opcode.NOT (Operands.twoRegs o1 o2) (64<rt>) false false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NOT (oprs) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        finishA &st Opcode.NOT (Operands.oneOperand o1) (64<rt>) false false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           (st.AAA &&& 4) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          finishA &st Opcode.NOT (Operands.twoRegs o1 o2) (64<rt>) false false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NOT (oprs) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.NEG (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.NEG (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NEG (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.NEG (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 16<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 16<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.NEG (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NEG (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.NEG (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.NEG (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NEG (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.NEG (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.NEG (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.NEG (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.MUL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.MUL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.MUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.MUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IMUL (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IMUL (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IMUL (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DIV (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DIV (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DIV (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DIV (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IDIV (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IDIV (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IDIV (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.IDIV (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xf8 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 25 | 29 | 33 | 37 | 41 | 45 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = memV span &st m 512<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ENQCMD (TwoOperands(o1, o2)) (64<rt>) false false
+    elif isReg m &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = rmRegV &st m 64<rt>
+      let o2 = regRegV &st m 64<rt>
+      finishA &st Opcode.URDMSR (Operands.twoRegs o1 o2) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 26 | 27 | 31 | 34 | 35 | 39 | 42 | 43 | 47 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = memV span &st m 512<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.ENQCMDS (TwoOperands(o1, o2)) (64<rt>) false false
+    elif isReg m &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 64<rt>
+      let o2 = rmRegV &st m 64<rt>
+      finishA &st Opcode.UWRMSR (Operands.twoRegs o1 o2) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 | 44 | 46 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = memV span &st m 512<rt> TupleType.NA 0<rt>
+      finishA &st Opcode.MOVDIR64B (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xf9 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 28 | 32 | 36 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      finishA &st Opcode.MOVDIRI (TwoOperands(o1, o2)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 | 44 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      finishA &st Opcode.MOVDIRI (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xfc (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 24 | 32 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      finishA &st Opcode.AADD (TwoOperands(o1, o2)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 25 | 29 | 33 | 37 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      finishA &st Opcode.AOR (TwoOperands(o1, o2)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 26 | 27 | 31 | 34 | 35 | 39 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      finishA &st Opcode.AXOR (TwoOperands(o1, o2)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 32<rt>)
+      finishA &st Opcode.AAND (TwoOperands(o1, o2)) (32<rt>) false false
+    else
+      raise ParsingFailureException
+  | 40 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      finishA &st Opcode.AADD (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 41 | 45 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      finishA &st Opcode.AOR (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 42 | 43 | 47 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      finishA &st Opcode.AXOR (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | 44 | 46 ->
+    if isMem m &&
+       not st.Zeroing &&
+       not st.ND &&
+       (st.AAA &&& 3) = 0 &&
+       (st.AAA &&& 4) = 0 &&
+       st.VVVV = 0 &&
+       not (REXPrefix.hasEVEXV st.REX) &&
+       not (isReg m && REXPrefix.hasX4 st.REX) &&
+       st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
+      let o2 = Operands.oprReg (regRegV &st m 64<rt>)
+      finishA &st Opcode.AAND (TwoOperands(o1, o2)) (64<rt>) false false
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xfe (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.INC (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 8<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 8<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.INC (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.INC (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 28 | 32 | 36 | 40 | 44 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DEC (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 8<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 8<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.DEC (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.DEC (oprs) (8<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v8xff (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.INC (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.INC (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.INC (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.INC (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 16<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 16<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.INC (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.INC (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.INC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.INC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.INC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.INC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.INC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.INC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DEC (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.DEC (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.DEC (oprs) (32<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 28 | 30 | 36 | 38 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DEC (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 16<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 16<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.DEC (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.DEC (oprs) (16<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DEC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.DEC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.DEC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | 44 | 46 ->
+      if not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         (st.NoLock || isMem m) then
+        st.Pos <- st.Pos + 1
+        let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+        let oprs = Operands.oneOperand o1
+        finishA &st Opcode.DEC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      elif not st.Zeroing &&
+           st.ND &&
+           (st.AAA &&& 3) = 0 &&
+           not (isReg m && REXPrefix.hasX4 st.REX) &&
+           st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishA &st Opcode.DEC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishA &st Opcode.DEC (oprs) (64<rt>) (st.AAA &&& 4 <> 0) false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 24 | 32 ->
+      if isReg m &&
+         not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.PUSH2 (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 40 ->
+      if isReg m &&
+         not st.Zeroing &&
+         st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        let o2 = rmRegV &st m 64<rt>
+        finishA &st Opcode.PUSH2P (Operands.twoRegs o1 o2) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v9xf6 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 25 | 29 | 33 | 37 | 41 | 45 ->
+      if isReg m &&
+         st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (rmRegV &st m 64<rt>)
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.RDMSR (TwoOperands(o1, o2)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 26 | 27 | 30 | 31 | 34 | 35 | 38 | 39 | 42 | 43 | 46 | 47 ->
+      if isReg m &&
+         st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = uimm span &st 32<rt>
+        let o2 = Operands.oprReg (rmRegV &st m 64<rt>)
+        finishA &st Opcode.WRMSRNS (TwoOperands(o1, o2)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v9xf8 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 25 | 29 | 33 | 37 ->
+      if isReg m &&
+         st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (rmRegV &st m 64<rt>)
+        let o2 = uimm span &st 32<rt>
+        finishA &st Opcode.URDMSR (TwoOperands(o1, o2)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | 26 | 27 | 30 | 31 | 34 | 35 | 38 | 39 ->
+      if isReg m &&
+         st.VL = 128<rt> &&
+         not st.Zeroing &&
+         not st.ND &&
+         (st.AAA &&& 3) = 0 &&
+         (st.AAA &&& 4) = 0 &&
+         st.VVVV = 0 &&
+         not (REXPrefix.hasEVEXV st.REX) &&
+         not (isReg m && REXPrefix.hasX4 st.REX) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = uimm span &st 32<rt>
+        let o2 = Operands.oprReg (rmRegV &st m 64<rt>)
+        finishA &st Opcode.UWRMSR (TwoOperands(o1, o2)) (64<rt>) false false
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
 let private map0 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
   match b with
   | 0x10 -> v0x10 span &st
@@ -37831,6 +60779,10 @@ let private map3 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
   | 0x7B -> v3x7b span &st
   | 0x7E -> v3x7e span &st
   | 0x7F -> v3x7f span &st
+  | 0x90 -> v3x90 span &st
+  | 0x91 -> v3x91 span &st
+  | 0x92 -> v3x92 span &st
+  | 0x93 -> v3x93 span &st
   | 0xC2 -> v3xc2 span &st
   | 0xC4 -> v3xc4 span &st
   | 0xC5 -> v3xc5 span &st
@@ -37939,6 +60891,9 @@ let private map4 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
   | 0x45 -> v4x45 span &st
   | 0x46 -> v4x46 span &st
   | 0x47 -> v4x47 span &st
+  | 0x49 -> v4x49 span &st
+  | 0x4A -> v4x4a span &st
+  | 0x4B -> v4x4b span &st
   | 0x4C -> v4x4c span &st
   | 0x4D -> v4x4d span &st
   | 0x4E -> v4x4e span &st
@@ -38034,6 +60989,27 @@ let private map4 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
   | 0xDD -> v4xdd span &st
   | 0xDE -> v4xde span &st
   | 0xDF -> v4xdf span &st
+  | 0xE0 -> v4xe0 span &st
+  | 0xE1 -> v4xe1 span &st
+  | 0xE2 -> v4xe2 span &st
+  | 0xE3 -> v4xe3 span &st
+  | 0xE4 -> v4xe4 span &st
+  | 0xE5 -> v4xe5 span &st
+  | 0xE6 -> v4xe6 span &st
+  | 0xE7 -> v4xe7 span &st
+  | 0xE8 -> v4xe8 span &st
+  | 0xE9 -> v4xe9 span &st
+  | 0xEA -> v4xea span &st
+  | 0xEB -> v4xeb span &st
+  | 0xEC -> v4xec span &st
+  | 0xED -> v4xed span &st
+  | 0xEE -> v4xee span &st
+  | 0xEF -> v4xef span &st
+  | 0xF2 -> v4xf2 span &st
+  | 0xF3 -> v4xf3 span &st
+  | 0xF5 -> v4xf5 span &st
+  | 0xF6 -> v4xf6 span &st
+  | 0xF7 -> v4xf7 span &st
   | _ -> raise ParsingFailureException
 
 let private map5 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
@@ -38090,6 +61066,7 @@ let private map5 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
   | 0xC2 -> v5xc2 span &st
   | 0xCE -> v5xce span &st
   | 0xCF -> v5xcf span &st
+  | 0xF0 -> v5xf0 span &st
   | _ -> raise ParsingFailureException
 
 let private map6 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
@@ -38168,6 +61145,102 @@ let private map7 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
   | 0xD7 -> v7xd7 span &st
   | _ -> raise ParsingFailureException
 
+let private map8 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
+  match b with
+  | 0x00 -> v8x00 span &st
+  | 0x01 -> v8x01 span &st
+  | 0x02 -> v8x02 span &st
+  | 0x03 -> v8x03 span &st
+  | 0x08 -> v8x08 span &st
+  | 0x09 -> v8x09 span &st
+  | 0x0A -> v8x0a span &st
+  | 0x0B -> v8x0b span &st
+  | 0x10 -> v8x10 span &st
+  | 0x11 -> v8x11 span &st
+  | 0x12 -> v8x12 span &st
+  | 0x13 -> v8x13 span &st
+  | 0x18 -> v8x18 span &st
+  | 0x19 -> v8x19 span &st
+  | 0x1A -> v8x1a span &st
+  | 0x1B -> v8x1b span &st
+  | 0x20 -> v8x20 span &st
+  | 0x21 -> v8x21 span &st
+  | 0x22 -> v8x22 span &st
+  | 0x23 -> v8x23 span &st
+  | 0x24 -> v8x24 span &st
+  | 0x28 -> v8x28 span &st
+  | 0x29 -> v8x29 span &st
+  | 0x2A -> v8x2a span &st
+  | 0x2B -> v8x2b span &st
+  | 0x2C -> v8x2c span &st
+  | 0x30 -> v8x30 span &st
+  | 0x31 -> v8x31 span &st
+  | 0x32 -> v8x32 span &st
+  | 0x33 -> v8x33 span &st
+  | 0x38 -> v8x38 span &st
+  | 0x39 -> v8x39 span &st
+  | 0x3A -> v8x3a span &st
+  | 0x3B -> v8x3b span &st
+  | 0x40 -> v8x40 span &st
+  | 0x41 -> v8x41 span &st
+  | 0x42 -> v8x42 span &st
+  | 0x43 -> v8x43 span &st
+  | 0x44 -> v8x44 span &st
+  | 0x45 -> v8x45 span &st
+  | 0x46 -> v8x46 span &st
+  | 0x47 -> v8x47 span &st
+  | 0x48 -> v8x48 span &st
+  | 0x49 -> v8x49 span &st
+  | 0x4A -> v8x4a span &st
+  | 0x4B -> v8x4b span &st
+  | 0x4C -> v8x4c span &st
+  | 0x4D -> v8x4d span &st
+  | 0x4E -> v8x4e span &st
+  | 0x4F -> v8x4f span &st
+  | 0x60 -> v8x60 span &st
+  | 0x61 -> v8x61 span &st
+  | 0x65 -> v8x65 span &st
+  | 0x66 -> v8x66 span &st
+  | 0x69 -> v8x69 span &st
+  | 0x6B -> v8x6b span &st
+  | 0x80 -> v8x80 span &st
+  | 0x81 -> v8x81 span &st
+  | 0x83 -> v8x83 span &st
+  | 0x84 -> v8x84 span &st
+  | 0x85 -> v8x85 span &st
+  | 0x88 -> v8x88 span &st
+  | 0x8A -> v8x8a span &st
+  | 0x8B -> v8x8b span &st
+  | 0x8F -> v8x8f span &st
+  | 0xA5 -> v8xa5 span &st
+  | 0xAD -> v8xad span &st
+  | 0xAF -> v8xaf span &st
+  | 0xC0 -> v8xc0 span &st
+  | 0xC1 -> v8xc1 span &st
+  | 0xD0 -> v8xd0 span &st
+  | 0xD1 -> v8xd1 span &st
+  | 0xD2 -> v8xd2 span &st
+  | 0xD3 -> v8xd3 span &st
+  | 0xF0 -> v8xf0 span &st
+  | 0xF1 -> v8xf1 span &st
+  | 0xF2 -> v8xf2 span &st
+  | 0xF4 -> v8xf4 span &st
+  | 0xF5 -> v8xf5 span &st
+  | 0xF6 -> v8xf6 span &st
+  | 0xF7 -> v8xf7 span &st
+  | 0xF8 -> v8xf8 span &st
+  | 0xF9 -> v8xf9 span &st
+  | 0xFC -> v8xfc span &st
+  | 0xFE -> v8xfe span &st
+  | 0xFF -> v8xff span &st
+  | _ -> raise ParsingFailureException
+
+let private map9 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
+  match b with
+  | 0xF6 -> v9xf6 span &st
+  | 0xF8 -> v9xf8 span &st
+  | _ -> raise ParsingFailureException
+
 /// Parses the instruction whose opcode byte is b in the given map.
 let parse (span: ByteSpan) (st: byref<ParsingState>) (map: int) (b: int) =
   match map with
@@ -38178,4 +61251,6 @@ let parse (span: ByteSpan) (st: byref<ParsingState>) (map: int) (b: int) =
   | 4 -> map4 span &st b
   | 5 -> map5 span &st b
   | 6 -> map6 span &st b
-  | _ -> map7 span &st b
+  | 7 -> map7 span &st b
+  | 8 -> map8 span &st b
+  | _ -> map9 span &st b

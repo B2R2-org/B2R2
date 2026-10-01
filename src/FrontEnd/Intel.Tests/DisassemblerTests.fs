@@ -297,6 +297,89 @@ type DisassemblerTests() =
     ++ [| "tdpfp16ps tmm1, tmm2, tmm3"; "tdpfp16ps %tmm3, %tmm2, %tmm1" |]
     |> testX64
 
+  (* Intel APX. The extended GPRs print as r16 to r31 with the usual width
+     suffixes; a suppressed flags update prints as the {nf} marker ahead of
+     the mnemonic, and a conditional compare's default flags value after it,
+     as XED and LLVM print them. Intel APX spec 355828-007. *)
+  [<TestMethod>]
+  member _.``X64 APX REX2 test (1)``() =
+    "d55901cf"
+    ++ [| "add r31, r17"; "add %r17, %r31" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX REX2 test (2)``() =
+    "d53a8b0478"
+    ++ [| "mov rax, qword ptr [r16+r31*2]"; "movq (%r16, %r31, 2), %rax" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX REX2 test (3)``() =
+    "d55000ec"
+    ++ [| "add r20b, r21b"; "add %r21b, %r20b" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX JMPABS test (1)``() =
+    "d500a18877665544332211"
+    ++ [| "jmpabs 0x1122334455667788"; "jmpabs $0x1122334455667788" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX PUSHP test (1)``() =
+    "d51857"
+    ++ [| "pushp r23"; "pushp %r23" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX new data destination test (1)``() =
+    "62f4741801d3"
+    ++ [| "add ecx, ebx, edx"; "add %edx, %ebx, %ecx" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX new data destination test (2)``() =
+    "62f46c18000b"
+    ++ [| "add dl, byte ptr [rbx], cl"; "addb %cl, (%rbx), %dl" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX no-flags test (1)``() =
+    "62f4741c01d3"
+    ++ [| "{nf} add ecx, ebx, edx"; "{nf} add %edx, %ebx, %ecx" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX conditional compare test (1)``() =
+    "62f4440239c8"
+    ++ [| "ccmpb {dfv=of} eax, ecx"; "ccmpb {dfv=of} %ecx, %eax" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX conditional compare test (2)``() =
+    "62f41c04f7c078563412"
+    ++ [| "ctestz {dfv=zf,cf} eax, 0x12345678"
+          "ctestz {dfv=zf,cf} $0x12345678, %eax" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX conditional move test (1)``() =
+    "62f46c1c42c1"
+    ++ [| "cfcmovb edx, eax, ecx"; "cfcmovb %ecx, %eax, %edx" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX zero-upper test (1)``() =
+    "62f47f1842c0"
+    ++ [| "setzub al"; "setzub %al" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 APX PUSH2 test (1)``() =
+    "62f4fc18fff3"
+    ++ [| "push2p rax, rbx"; "push2p %rbx, %rax" |]
+    |> testX64
+
   (* AMD SSE4a. The Intel manual does not cover these, so their rows are the
      ones Intel.json carries with a note rather than ones read from the SDM;
      pinning every encoding here keeps a regeneration from dropping them

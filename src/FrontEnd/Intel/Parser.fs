@@ -53,6 +53,14 @@ type Parser(wordSz, reader: IBinReader) =
 
   let is64 = wordSz = WordSize.Bit64
 
+  /// The prefixes that may not sit ahead of an EVEX prefix selecting one of
+  /// the Intel APX maps; only address-size and segment overrides may. Intel
+  /// APX spec 355828-007, 3.1.2.3.
+  let apxForbiddenPrefixes =
+    Prefix.LOCK ||| Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ
+
+  let jmpAbsForbiddenPrefixes = apxForbiddenPrefixes ||| Prefix.ADDRSIZE
+
   let mutable disasm = Disasm.Delegate Disasm.IntelSyntax.disasm
 
   let lifter =
@@ -139,8 +147,15 @@ type Parser(wordSz, reader: IBinReader) =
       vex <- Some(getThreeVEXInfo bs &rex (pos + 1))
       pos + 3
     | 0x62uy when bs[pos + 1] >= 0xC0uy || is64 ->
-      vex <- Some(getEVEXInfo bs &rex (pos + 1))
+      vex <- Some(getEVEXInfo bs &rex is64 (pos + 1))
       pos + 4
+    (* Intel APX's REX2, in 64-bit mode alone: below it D5h is AAD. The byte
+       after its payload is the opcode, in the map the payload names, so no
+       escape follows it. A REX ahead of it is #UD. *)
+    | 0xD5uy when is64 ->
+      if rex <> REXPrefix.NOREX then raise ParsingFailureException else ()
+      map <- getREX2Info bs &rex (pos + 1)
+      pos + 2
     | _ ->
       pos
 
@@ -156,7 +171,8 @@ type Parser(wordSz, reader: IBinReader) =
     else (if Prefix.hasAddrSz pref then 16<rt> else 32<rt>)
 
   /// The generated map a VEX or EVEX prefix selects: the VEX maps first, in
-  /// the order VEXType numbers them, then the EVEX ones.
+  /// the order VEXType numbers them, then the EVEX ones, with the two maps
+  /// Intel APX added last.
   member private _.VexMapIndex(vInfo: VEXInfo) =
     let evex = vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX
     match vInfo.VEXType &&& (~~~VEXType.EVEX), evex with
@@ -168,6 +184,8 @@ type Parser(wordSz, reader: IBinReader) =
     | VEXType.ThreeByteOpTwo, true -> 5
     | VEXType.Map5, true -> 6
     | VEXType.Map6, true -> 7
+    | VEXType.Map4, true -> 8
+    | VEXType.Map7, true -> 9
     | _ -> raise ParsingFailureException
 
 #if NoOpcodeMaps
@@ -193,6 +211,16 @@ type Parser(wordSz, reader: IBinReader) =
   /// code (LegacyOpcodeMap), the per-instruction state living on this stack
   /// frame.
   member private this.ParseLegacy(span: ByteSpan, addr, pref, rex, map, pos) =
+    (* JMPABS, which REX2 turns A1h of the one-byte map into, takes no prefix
+       but a segment override, and the table has no way to say so of one
+       row. Intel APX spec 355828-007, 3.1.3.3. *)
+    if REXPrefix.isREX2 rex
+       && map = 0
+       && span[pos] = 0xA1uy
+       && pref &&& jmpAbsForbiddenPrefixes <> Prefix.None then
+      raise ParsingFailureException
+    else
+      ()
     (* The state is zeroed by the frame; only what a legacy instruction reads
        is written, and the VEX fields stay at their zero. *)
     let mutable st = Unchecked.defaultof<OpcodeMapHelper.ParsingState>
@@ -220,6 +248,15 @@ type Parser(wordSz, reader: IBinReader) =
       match vInfo.EVEXPrx with
       | Some e -> e.B = 1uy, int e.AAA, e.Z = Zeroing
       | None -> false, 0, false
+    let map = this.VexMapIndex vInfo
+    (* The APX maps take only address-size and segment prefixes ahead of the
+       EVEX prefix; the others are #UD. Intel APX spec 355828-007, 3.1.2.3.
+       There P2[4] is ND rather than a broadcast. *)
+    let isAPXMap = map >= 8
+    if isAPXMap && pref &&& apxForbiddenPrefixes <> Prefix.None then
+      raise ParsingFailureException
+    else
+      ()
     let mutable st: OpcodeMapHelper.ParsingState =
       { Pos = pos + 1
         Pref = pref
@@ -235,10 +272,10 @@ type Parser(wordSz, reader: IBinReader) =
         VL = vInfo.VectorLength
         VVVV = int vInfo.VVVV
         IsEVEX = vInfo.EVEXPrx.IsSome
-        EvexB = evexB
+        EvexB = evexB && not isAPXMap
         AAA = aaa
-        Zeroing = zeroing }
-    let map = this.VexMapIndex vInfo
+        Zeroing = zeroing
+        ND = evexB }
     VEXOpcodeMap.parse span &st map (int span[pos]) :> IInstruction
 #endif
 

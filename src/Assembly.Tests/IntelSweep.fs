@@ -54,7 +54,7 @@ type internal Probe =
 /// encodes. A form the manual leaves reserved never reaches the assembler,
 /// because the decode tables carry the manual's own ModRM constraint and the
 /// decoder refuses it; nothing here has to list those coordinates by hand. What
-/// the two filters below drop is text no assembly syntax accepts, and a space
+/// the filters below drop is text no assembly syntax accepts, and spaces
 /// this sweep does not claim to cover. Each says which of the two it is.
 /// </summary>
 module internal IntelSweep =
@@ -135,6 +135,12 @@ module internal IntelSweep =
   /// arrived through a VEX prefix is out of scope.
   let private isVexEncoded (ins: Instruction) = ins.VEXInfo |> Option.isSome
 
+  /// D5h is the REX2 prefix of Intel APX in 64-bit mode, so a probe there
+  /// decodes a legacy instruction naming the extended GPRs, which the
+  /// assembler does not encode: another space this sweep does not cover.
+  let private isREX2Encoded (ins: Instruction) =
+    ins.REXPrefix &&& REXPrefix.REX2 = REXPrefix.REX2
+
   /// Every byte pattern probed for one opcode map under one word size.
   let private patterns map wordSize =
     [ for prefix in prefixesOf map do
@@ -149,7 +155,8 @@ module internal IntelSweep =
       let parsed = parser.Parse(Array.append bytes padding, 0UL)
       let ins = parsed :?> Instruction
       if int parsed.Length > bytes.Length + padding.Length
-         || isVexEncoded ins then
+         || isVexEncoded ins
+         || isREX2Encoded ins then
         None
       else
         Some(ins.Opcode, (parsed.Disasm()).ToLowerInvariant())

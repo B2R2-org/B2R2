@@ -62,10 +62,18 @@ type REXPrefix =
   | REXWRX = 0b1001110
   /// REX.RXB + Operand 64bit.
   | REXWRXB = 0b1001111
-  /// EVEX R': fifth bit of the ModR/M reg field.
+  /// EVEX R' or REX2.R4: fifth bit of the ModR/M reg field.
   | EVEXR = 0b0010000
   /// EVEX V': fifth bit of the vvvv and VSIB index fields.
   | EVEXV = 0b0100000
+  /// A REX2 prefix is present rather than a REX: Intel APX's two-byte D5h
+  /// form, whose low payload bits read as REX.W, R, X and B.
+  | REX2 = 0b0010000000
+  /// REX2.B4 or EVEX.B4: fifth bit of a general-purpose register named by
+  /// ModR/M rm, by the SIB base or by the opcode byte.
+  | REXB4 = 0b0100000000
+  /// REX2.X4, or EVEX.U inverted: fifth bit of the SIB index.
+  | REXX4 = 0b1000000000
 
 /// Provides a set of functions to manipulate REX prefixes.
 [<RequireQualifiedAccess>]
@@ -83,6 +91,12 @@ module internal REXPrefix =
 
   let inline hasEVEXV rexPref =
     rexPref &&& REXPrefix.EVEXV = REXPrefix.EVEXV
+
+  let inline isREX2 rexPref = rexPref &&& REXPrefix.REX2 = REXPrefix.REX2
+
+  let inline hasB4 rexPref = rexPref &&& REXPrefix.REXB4 = REXPrefix.REXB4
+
+  let inline hasX4 rexPref = rexPref &&& REXPrefix.REXX4 = REXPrefix.REXX4
 
   /// The 16 a set EVEX high bit adds to a register field, or 0.
   let inline highBit isSet = if isSet then 16 else 0

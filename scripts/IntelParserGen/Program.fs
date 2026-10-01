@@ -304,6 +304,31 @@ let private maskConds (r: Row) =
     else
       () ]
 
+/// The condition an Intel APX row puts to the EVEX payload: the bits the
+/// vector instructions read as z, the opmask and the broadcast control are
+/// reserved, ND, NF or the source condition code here, and where no
+/// register or default flags value sits in vvvv the field has to be zero.
+/// The fifth index bit is defined only where ModRM names memory.
+let private apxCond (r: Row) =
+  [ yield "not st.Zeroing"
+    match r.ND with
+    | BitNeed.Clear -> yield "not st.ND"
+    | BitNeed.Set -> yield "st.ND"
+    | _ -> ()
+    if r.SCC >= 0 then
+      yield sprintf "scc &st = %d" r.SCC
+    else
+      yield "(st.AAA &&& 3) = 0"
+      match r.NF with
+      | BitNeed.Clear -> yield "(st.AAA &&& 4) = 0"
+      | BitNeed.Set -> yield "(st.AAA &&& 4) <> 0"
+      | _ -> ()
+    if r.NeedsZeroVVVV then
+      yield "st.VVVV = 0 && not (REXPrefix.hasEVEXV st.REX)"
+    else
+      ()
+    if r.HasModRM then yield "not (isReg m && REXPrefix.hasX4 st.REX)" else () ]
+
 /// The part of a row's condition that only the VEX and EVEX maps carry.
 let private vexCond (r: Row) =
   let opsz =
@@ -311,13 +336,29 @@ let private vexCond (r: Row) =
       [ "(Prefix.hasOprSz st.Pref && not (REXPrefix.hasW st.REX))" ]
     else
       []
-  opsz @ vlCond r @ maskConds r
+  if r.IsAPX then vlCond r @ apxCond r
+  else opsz @ vlCond r @ maskConds r
+
+/// The condition a row puts to Intel APX's REX2 prefix (see REX2Need); the
+/// REX state the context switched on already settled W.
+let private rex2Cond (r: Row) =
+  match r.REX2 with
+  | REX2Need.REX2 | REX2Need.REX2W ->
+    [ "REXPrefix.isREX2 st.REX" ]
+  | REX2Need.NoREX2 ->
+    [ "not (REXPrefix.isREX2 st.REX)" ]
+  | REX2Need.NotREX2 ->
+    [ "not (REXPrefix.isREX2 st.REX && not (REXPrefix.hasW st.REX))" ]
+  | REX2Need.NotREX2W ->
+    [ "not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX)" ]
+  | _ ->
+    []
 
 /// The whole condition of a row, given the digit was switched on already.
 let private rowCond (em: Emitter) (r: Row) hasDigitSwitch =
   let e3 = if r.IsE3 then e3Cond r else []
   let nop = if r.IsPlainNop then [ "not (REXPrefix.hasB st.REX)" ] else []
-  let vex = if em.Vex then vexCond r else []
+  let vex = if em.Vex then vexCond r else rex2Cond r
   let lck =
     if r.LockableDest then [ "(st.NoLock || isMem m)" ] else [ "st.NoLock" ]
   let conds = modRMCond r hasDigitSwitch @ e3 @ nop @ vex @ lck
@@ -474,7 +515,12 @@ let private selectorOf (r: Row) =
 /// Under VEX the broadcast width goes with it: only a memory form of an
 /// RMBroadcast operand declares one.
 let private finishCall (em: Emitter) (r: Row) (oprs: string) bcstExpr =
-  if em.Vex then
+  if em.Vex && r.IsAPX then
+    let nf = if r.NF = BitNeed.Either then "(st.AAA &&& 4 <> 0)" else "false"
+    let hasScc = if r.SCC >= 0 then "true" else "false"
+    sprintf "finishA &st %s (%s) (%s) %s %s"
+      (opc r.Opcode) oprs (opSize r) nf hasScc
+  elif em.Vex then
     let regForm = if r.HasModRM then "isReg m" else "false"
     sprintf "finishV &st %s (%s) (%s) %s %s (%s)"
       (opc r.Opcode) oprs (opSize r) bcstExpr (rcDecor r) regForm

@@ -1118,6 +1118,134 @@ type Register =
   | TMM6 = 0x22B
   /// Tile register. For Intel AMX.
   | TMM7 = 0x22C
+  /// General-Purpose Register of Intel APX (64bit).
+  | R16 = 0x22D
+  /// General-Purpose Register of Intel APX (64bit).
+  | R17 = 0x22E
+  /// General-Purpose Register of Intel APX (64bit).
+  | R18 = 0x22F
+  /// General-Purpose Register of Intel APX (64bit).
+  | R19 = 0x230
+  /// General-Purpose Register of Intel APX (64bit).
+  | R20 = 0x231
+  /// General-Purpose Register of Intel APX (64bit).
+  | R21 = 0x232
+  /// General-Purpose Register of Intel APX (64bit).
+  | R22 = 0x233
+  /// General-Purpose Register of Intel APX (64bit).
+  | R23 = 0x234
+  /// General-Purpose Register of Intel APX (64bit).
+  | R24 = 0x235
+  /// General-Purpose Register of Intel APX (64bit).
+  | R25 = 0x236
+  /// General-Purpose Register of Intel APX (64bit).
+  | R26 = 0x237
+  /// General-Purpose Register of Intel APX (64bit).
+  | R27 = 0x238
+  /// General-Purpose Register of Intel APX (64bit).
+  | R28 = 0x239
+  /// General-Purpose Register of Intel APX (64bit).
+  | R29 = 0x23A
+  /// General-Purpose Register of Intel APX (64bit).
+  | R30 = 0x23B
+  /// General-Purpose Register of Intel APX (64bit).
+  | R31 = 0x23C
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R16D = 0x23D
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R17D = 0x23E
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R18D = 0x23F
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R19D = 0x240
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R20D = 0x241
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R21D = 0x242
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R22D = 0x243
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R23D = 0x244
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R24D = 0x245
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R25D = 0x246
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R26D = 0x247
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R27D = 0x248
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R28D = 0x249
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R29D = 0x24A
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R30D = 0x24B
+  /// General-Purpose Register of Intel APX (Doubleword Register).
+  | R31D = 0x24C
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R16W = 0x24D
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R17W = 0x24E
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R18W = 0x24F
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R19W = 0x250
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R20W = 0x251
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R21W = 0x252
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R22W = 0x253
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R23W = 0x254
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R24W = 0x255
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R25W = 0x256
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R26W = 0x257
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R27W = 0x258
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R28W = 0x259
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R29W = 0x25A
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R30W = 0x25B
+  /// General-Purpose Register of Intel APX (Word Register).
+  | R31W = 0x25C
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R16B = 0x25D
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R17B = 0x25E
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R18B = 0x25F
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R19B = 0x260
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R20B = 0x261
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R21B = 0x262
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R22B = 0x263
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R23B = 0x264
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R24B = 0x265
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R25B = 0x266
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R26B = 0x267
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R27B = 0x268
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R28B = 0x269
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R29B = 0x26A
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R30B = 0x26B
+  /// General-Purpose Register of Intel APX (Byte Register).
+  | R31B = 0x26C
   /// Unknown Register.
   | UnknownReg = 0x162
 #if EMULATION
@@ -1578,6 +1706,70 @@ module Register =
     | "tmm5" -> Register.TMM5
     | "tmm6" -> Register.TMM6
     | "tmm7" -> Register.TMM7
+    | "r16" -> Register.R16
+    | "r17" -> Register.R17
+    | "r18" -> Register.R18
+    | "r19" -> Register.R19
+    | "r20" -> Register.R20
+    | "r21" -> Register.R21
+    | "r22" -> Register.R22
+    | "r23" -> Register.R23
+    | "r24" -> Register.R24
+    | "r25" -> Register.R25
+    | "r26" -> Register.R26
+    | "r27" -> Register.R27
+    | "r28" -> Register.R28
+    | "r29" -> Register.R29
+    | "r30" -> Register.R30
+    | "r31" -> Register.R31
+    | "r16d" -> Register.R16D
+    | "r17d" -> Register.R17D
+    | "r18d" -> Register.R18D
+    | "r19d" -> Register.R19D
+    | "r20d" -> Register.R20D
+    | "r21d" -> Register.R21D
+    | "r22d" -> Register.R22D
+    | "r23d" -> Register.R23D
+    | "r24d" -> Register.R24D
+    | "r25d" -> Register.R25D
+    | "r26d" -> Register.R26D
+    | "r27d" -> Register.R27D
+    | "r28d" -> Register.R28D
+    | "r29d" -> Register.R29D
+    | "r30d" -> Register.R30D
+    | "r31d" -> Register.R31D
+    | "r16w" -> Register.R16W
+    | "r17w" -> Register.R17W
+    | "r18w" -> Register.R18W
+    | "r19w" -> Register.R19W
+    | "r20w" -> Register.R20W
+    | "r21w" -> Register.R21W
+    | "r22w" -> Register.R22W
+    | "r23w" -> Register.R23W
+    | "r24w" -> Register.R24W
+    | "r25w" -> Register.R25W
+    | "r26w" -> Register.R26W
+    | "r27w" -> Register.R27W
+    | "r28w" -> Register.R28W
+    | "r29w" -> Register.R29W
+    | "r30w" -> Register.R30W
+    | "r31w" -> Register.R31W
+    | "r16b" -> Register.R16B
+    | "r17b" -> Register.R17B
+    | "r18b" -> Register.R18B
+    | "r19b" -> Register.R19B
+    | "r20b" -> Register.R20B
+    | "r21b" -> Register.R21B
+    | "r22b" -> Register.R22B
+    | "r23b" -> Register.R23B
+    | "r24b" -> Register.R24B
+    | "r25b" -> Register.R25B
+    | "r26b" -> Register.R26B
+    | "r27b" -> Register.R27B
+    | "r28b" -> Register.R28B
+    | "r29b" -> Register.R29B
+    | "r30b" -> Register.R30B
+    | "r31b" -> Register.R31B
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an Intel register.
@@ -2122,6 +2314,70 @@ module Register =
     | Register.TMM5 -> "TMM5"
     | Register.TMM6 -> "TMM6"
     | Register.TMM7 -> "TMM7"
+    | Register.R16 -> "R16"
+    | Register.R17 -> "R17"
+    | Register.R18 -> "R18"
+    | Register.R19 -> "R19"
+    | Register.R20 -> "R20"
+    | Register.R21 -> "R21"
+    | Register.R22 -> "R22"
+    | Register.R23 -> "R23"
+    | Register.R24 -> "R24"
+    | Register.R25 -> "R25"
+    | Register.R26 -> "R26"
+    | Register.R27 -> "R27"
+    | Register.R28 -> "R28"
+    | Register.R29 -> "R29"
+    | Register.R30 -> "R30"
+    | Register.R31 -> "R31"
+    | Register.R16D -> "R16D"
+    | Register.R17D -> "R17D"
+    | Register.R18D -> "R18D"
+    | Register.R19D -> "R19D"
+    | Register.R20D -> "R20D"
+    | Register.R21D -> "R21D"
+    | Register.R22D -> "R22D"
+    | Register.R23D -> "R23D"
+    | Register.R24D -> "R24D"
+    | Register.R25D -> "R25D"
+    | Register.R26D -> "R26D"
+    | Register.R27D -> "R27D"
+    | Register.R28D -> "R28D"
+    | Register.R29D -> "R29D"
+    | Register.R30D -> "R30D"
+    | Register.R31D -> "R31D"
+    | Register.R16W -> "R16W"
+    | Register.R17W -> "R17W"
+    | Register.R18W -> "R18W"
+    | Register.R19W -> "R19W"
+    | Register.R20W -> "R20W"
+    | Register.R21W -> "R21W"
+    | Register.R22W -> "R22W"
+    | Register.R23W -> "R23W"
+    | Register.R24W -> "R24W"
+    | Register.R25W -> "R25W"
+    | Register.R26W -> "R26W"
+    | Register.R27W -> "R27W"
+    | Register.R28W -> "R28W"
+    | Register.R29W -> "R29W"
+    | Register.R30W -> "R30W"
+    | Register.R31W -> "R31W"
+    | Register.R16B -> "R16B"
+    | Register.R17B -> "R17B"
+    | Register.R18B -> "R18B"
+    | Register.R19B -> "R19B"
+    | Register.R20B -> "R20B"
+    | Register.R21B -> "R21B"
+    | Register.R22B -> "R22B"
+    | Register.R23B -> "R23B"
+    | Register.R24B -> "R24B"
+    | Register.R25B -> "R25B"
+    | Register.R26B -> "R26B"
+    | Register.R27B -> "R27B"
+    | Register.R28B -> "R28B"
+    | Register.R29B -> "R29B"
+    | Register.R30B -> "R30B"
+    | Register.R31B -> "R31B"
     | Register.PKRU -> "PKRU"
     | Register.XCR0 -> "XCR0"
 #if EMULATION
