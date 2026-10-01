@@ -1100,6 +1100,24 @@ type Register =
   /// bit each. XGETBV reads it and the XSAVE family masks its register-feature
   /// mask by it.
   | XCR0 = 0x220
+  /// Tile register. For Intel AMX. A tile holds up to sixteen rows of up to
+  /// sixty-four bytes, and how much of that it holds is set at run time by
+  /// LDTILECFG rather than by the encoding.
+  | TMM0 = 0x225
+  /// Tile register. For Intel AMX.
+  | TMM1 = 0x226
+  /// Tile register. For Intel AMX.
+  | TMM2 = 0x227
+  /// Tile register. For Intel AMX.
+  | TMM3 = 0x228
+  /// Tile register. For Intel AMX.
+  | TMM4 = 0x229
+  /// Tile register. For Intel AMX.
+  | TMM5 = 0x22A
+  /// Tile register. For Intel AMX.
+  | TMM6 = 0x22B
+  /// Tile register. For Intel AMX.
+  | TMM7 = 0x22C
   /// Unknown Register.
   | UnknownReg = 0x162
 #if EMULATION
@@ -1552,6 +1570,14 @@ module Register =
     | "k5" -> Register.K5
     | "k6" -> Register.K6
     | "k7" -> Register.K7
+    | "tmm0" -> Register.TMM0
+    | "tmm1" -> Register.TMM1
+    | "tmm2" -> Register.TMM2
+    | "tmm3" -> Register.TMM3
+    | "tmm4" -> Register.TMM4
+    | "tmm5" -> Register.TMM5
+    | "tmm6" -> Register.TMM6
+    | "tmm7" -> Register.TMM7
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an Intel register.
@@ -2088,6 +2114,14 @@ module Register =
     | Register.K5 -> "K5"
     | Register.K6 -> "K6"
     | Register.K7 -> "K7"
+    | Register.TMM0 -> "TMM0"
+    | Register.TMM1 -> "TMM1"
+    | Register.TMM2 -> "TMM2"
+    | Register.TMM3 -> "TMM3"
+    | Register.TMM4 -> "TMM4"
+    | Register.TMM5 -> "TMM5"
+    | Register.TMM6 -> "TMM6"
+    | Register.TMM7 -> "TMM7"
     | Register.PKRU -> "PKRU"
     | Register.XCR0 -> "XCR0"
 #if EMULATION

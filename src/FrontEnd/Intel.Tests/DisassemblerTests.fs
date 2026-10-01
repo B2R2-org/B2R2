@@ -243,3 +243,56 @@ type DisassemblerTests() =
     ++ [| "vaddps zmm1{k1}, zmm2, dword ptr [rip+0x40]{1to16} ; 0x4a"
           "vaddpsl +0x40(%rip){1to16}, %zmm2, %zmm1{%k1}" |]
     |> testX64
+
+  (* AMX. A tile prints as its own name in either syntax, and sibmem prints
+     bare: it names no width, because how many rows a tile load or store
+     moves and how wide each of them is are configured at run time rather
+     than encoded. SDM Vol. 2B, TILELOADD 4-710. *)
+  [<TestMethod>]
+  member _.``X64 AMX tile configuration test (1)``() =
+    "c4e2784900"
+    ++ [| "ldtilecfg zmmword ptr [rax]"; "ldtilecfg (%rax)" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AMX tile configuration test (2)``() =
+    "c4e27849c0"
+    ++ [| "tilerelease"; "tilerelease" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AMX tile zeroing test (1)``() =
+    "c4e27b49c8"
+    ++ [| "tilezero tmm1"; "tilezero %tmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AMX tile load test (1)``() =
+    "c4e27b4b0c18"
+    ++ [| "tileloadd tmm1, [rax+rbx]"; "tileloadd (%rax, %rbx), %tmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AMX tile load test (2)``() =
+    "c4e27b4b4c9820"
+    ++ [| "tileloadd tmm1, [rax+rbx*4+0x20]"
+          "tileloadd +0x20(%rax, %rbx, 4), %tmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AMX tile store test (1)``() =
+    "c4e27a4b0c18"
+    ++ [| "tilestored [rax+rbx], tmm1"; "tilestored %tmm1, (%rax, %rbx)" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AMX dot product test (1)``() =
+    "c4e2635eca"
+    ++ [| "tdpbssd tmm1, tmm2, tmm3"; "tdpbssd %tmm3, %tmm2, %tmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AMX dot product test (2)``() =
+    "c4e2635cca"
+    ++ [| "tdpfp16ps tmm1, tmm2, tmm3"; "tdpfp16ps %tmm3, %tmm2, %tmm1" |]
+    |> testX64

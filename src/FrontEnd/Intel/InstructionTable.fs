@@ -103,6 +103,9 @@ type internal OprKind =
   /// NoOpr among other operands, or an Unknown the extractor could not
   /// classify. Neither occurs in the generated tables today.
   | Unsupported = 26
+  /// Memory reached only through a SIB byte and declaring no width: the
+  /// sibmem operand of the AMX tile loads and stores.
+  | SibMem = 27
 
 /// The operand shapes common enough to be read by code of their own rather
 /// than descriptor by descriptor: a register named by ModRM.reg beside a
@@ -667,6 +670,15 @@ module internal InstructionTable =
       Value = value
       Field = Unused }
 
+  /// The instructions whose memory operand is the manual's sibmem: reached
+  /// only through a SIB byte, whose index register is a row stride rather
+  /// than part of the address. The generated table writes it as a sizeless
+  /// memory operand, which is what it also writes XSAVE's with, so the
+  /// opcode is what separates the two.
+  let private readsSibMem = function
+    | Opcode.TILELOADD | Opcode.TILELOADDT1 | Opcode.TILESTORED -> true
+    | _ -> false
+
   /// The flat form of one operand descriptor. LDDQU is the one instruction
   /// whose sizeless memory operand is not sized by the prefixes: it reads a
   /// whole XMM register's worth.
@@ -687,6 +699,8 @@ module internal InstructionTable =
       regSpec sz RegBit
     | Mem 0<rt> when opcode = Opcode.LDDQU ->
       spec OprKind.Mem 128<rt> 128<rt> 0<rt> 0
+    | Mem 0<rt> when readsSibMem opcode ->
+      spec OprKind.SibMem 0<rt> 0<rt> 0<rt> 0
     | Mem 0<rt> ->
       spec OprKind.MemFromPrefixes 0<rt> 0<rt> 0<rt> 0
     | Mem sz ->
@@ -742,6 +756,11 @@ module internal InstructionTable =
     match core.ModRM with
     | ModRMType.NoModRM | ModRMType.ModRM OpRegMem ->
       struct (0uy, 0uy, false)
+    (* TILEZERO is written 11:rrr:000, where rrr names the tile and r/m has
+       to be zero; the table carries only the mod half of that, so the r/m
+       half is asked for here. SDM Vol. 2B, TILEZERO 4-714. *)
+    | ModRMType.ModRM OpReg when core.Opcode = Opcode.TILEZERO ->
+      struct (0b11000111uy, 0b11000000uy, false)
     | ModRMType.ModRM OpReg ->
       struct (0b11000000uy, 0b11000000uy, false)
     | ModRMType.ModRM OpMem ->
