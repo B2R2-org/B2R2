@@ -917,9 +917,44 @@ let private shiftByAddress ins bld f =
     mapOne bld w d x (fun a -> f a n)
   }
 
-/// VECTOR SHIFT LEFT and its relatives, which shift the whole 128 bits by a
-/// count the rightmost byte of a third vector's last lane gives.
-let private shiftWhole ins bld byBytes f =
+/// One byte of a shift by bits: byte i moved by the count s, with the bits its
+/// neighbour gives up shifted in behind them. The leftmost byte of a right
+/// shift has no neighbour, so an arithmetic shift fills it from its own sign.
+let private shiftedByte x left arith i s =
+  let e = lane x 8<rt> i
+  let back = numI32 8 8<rt> .- s
+  if left && i = 15 then e << s
+  elif left then (e << s) .| (lane x 8<rt> (i + 1) >> back)
+  elif i = 0 && arith then e ?>> s
+  elif i = 0 then e >> s
+  else (e >> s) .| (lane x 8<rt> (i - 1) << back)
+
+/// VECTOR SHIFT LEFT, RIGHT LOGICAL and RIGHT ARITHMETIC. Since the second
+/// vector-enhancements facility each byte moves by the count in bits 5-7 of
+/// the same byte of the third operand; earlier machines took one count for the
+/// whole vector and left differing counts unpredictable, so wherever both are
+/// defined the two readings agree. Every byte is formed before any is written,
+/// as the result may be one of the sources.
+let private shiftBits ins bld left arith =
+  lift bld (ins: Instruction) {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let ss = Array.init 16 (fun _ -> tmpVar bld 8<rt>)
+    let ts = Array.init 16 (fun _ -> tmpVar bld 8<rt>)
+    for i in 0 .. 15 do
+      ss[i] := lane y 8<rt> i .& numI32 7 8<rt>
+    for i in 0 .. 15 do
+      ts[i] := shiftedByte x left arith i ss[i]
+    for i in 0 .. 15 do
+      lane d 8<rt> i := ts[i]
+  }
+
+/// VECTOR SHIFT LEFT BY BYTE and its relatives, which shift the whole 128 bits
+/// by the number of bytes in bits 1-4 of byte element 7 of the third operand.
+/// Those four bits sit where they already count the shift in bits.
+let private shiftBytes ins bld f =
   lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
@@ -927,10 +962,8 @@ let private shiftWhole ins bld byBytes f =
     let y = vec bld o[2]
     let t = tmpVar bld 128<rt>
     let n = tmpVar bld 128<rt>
-    n := AST.zext 128<rt> (lane y 8<rt> 15)
-    let count = if byBytes then (n .& numI64 15L 128<rt>) .* numI64 8L 128<rt>
-                else n .& numI64 127L 128<rt>
-    t := f (whole x) count
+    n := AST.zext 128<rt> (lane y 8<rt> 7 .& numI32 0x78 8<rt>)
+    t := f (whole x) n
     setWhole bld d t
   }
 
@@ -1075,10 +1108,9 @@ let private setIndex bld w d found idx =
 /// The search VFEE, VFENE and VFAE share. Given what makes a lane of the
 /// second operand match, the result is the byte index of the first matching
 /// lane -- or of the first zero lane when the mask asks for a zero search,
-/// whichever comes first -- and 16 when there is neither. The condition code,
-/// when asked for, is 3 for neither, 1 for a match with no zero anywhere, 2
-/// for a match ahead of the first zero, and 0 for a zero ahead of (or in the
-/// same lane as) any match.
+/// whichever comes first -- and 16 when there is neither. The two indices are
+/// handed back, 16 standing for none, for the condition code to be read from:
+/// VFENE reads it differently from the other two.
 let private searchLanes bld w (o: Operand[]) (m5: Mask) matchAt =
   let zeroSearch = m5 &&& 2us <> 0us
   let maskResult = m5 &&& 4us <> 0us
@@ -1108,12 +1140,49 @@ let private searchLanes bld w (o: Operand[]) (m5: Mask) matchAt =
     else
       let first = AST.ite (idxZ .< idxM) idxZ idxM
       setIndex bld w d (first != none) first
-    if wantsCC m5 then
-      let ahead = AST.ite (idxM .< idxZ) (numCC 2) (numCC 0)
-      let noZero = AST.ite (idxZ == none) (numCC 1) ahead
+  }
+  struct (idxM, idxZ)
+
+/// The condition code VFEE and VFAE set, when asked for: 3 for neither a match
+/// nor a zero, 1 for a match with no zero anywhere, 2 for a match ahead of the
+/// first zero, and 0 for a zero ahead of (or in the same lane as) any match.
+let private setMatchCC bld (m5: Mask) idxM idxZ =
+  if wantsCC m5 then
+    let none = numG 16L
+    let ahead = AST.ite (idxM .< idxZ) (numCC 2) (numCC 0)
+    let noZero = AST.ite (idxZ == none) (numCC 1) ahead
+    append bld {
       ccVar bld := AST.ite ((idxM == none) .& (idxZ == none)) (numCC 3) noZero
-    else
-      ()
+    }
+  else
+    ()
+
+/// Whether the second operand's lane is the smaller of the two at the first
+/// lane where they differ. It is read before the search writes its result,
+/// which may overwrite either source.
+let private firstSmaller bld w x y =
+  let lt = tmpVar bld 1<rt>
+  append bld {
+    lt := AST.b0
+    for i in lanes w - 1 .. -1 .. 0 do
+      let a = lane x w i
+      let b = lane y w i
+      lt := AST.ite (a != b) (a .< b) lt
+  }
+  lt
+
+/// The condition code VFENE sets, which orders the first unequal lanes rather
+/// than placing them against the zero: 1 when the second operand's lane is the
+/// smaller, 2 when it is the larger, 0 only for a zero strictly ahead of every
+/// inequality, and 3 for neither. A zero in the very lane that differs is
+/// ordered like any other inequality: it is one string ending first, which is
+/// what a string comparison reads the code for.
+let private setMismatchCC bld smaller idxM idxZ =
+  let none = numG 16L
+  let order = AST.ite smaller (numCC 1) (numCC 2)
+  let zeroFirst = AST.ite (idxZ .< idxM) (numCC 0) order
+  append bld {
+    ccVar bld := AST.ite ((idxM == none) .& (idxZ == none)) (numCC 3) zeroFirst
   }
 
 /// VECTOR FIND ELEMENT EQUAL and NOT EQUAL: lane against lane.
@@ -1127,7 +1196,13 @@ let findElement ins bld wantEqual =
     let matchAt i =
       if wantEqual then lane x w i == lane y w i
       else lane x w i != lane y w i
-    searchLanes bld w o m5 matchAt
+    if wantEqual || not (wantsCC m5) then
+      let struct (idxM, idxZ) = searchLanes bld w o m5 matchAt
+      setMatchCC bld m5 idxM idxZ
+    else
+      let smaller = firstSmaller bld w x y
+      let struct (idxM, idxZ) = searchLanes bld w o m5 matchAt
+      setMismatchCC bld smaller idxM idxZ
   }
 
 /// VECTOR FIND ANY ELEMENT EQUAL: a lane of the second operand matches when
@@ -1145,7 +1220,8 @@ let findAnyElement ins bld =
     let anyEqual i =
       [ for j in 0 .. n - 1 -> lane x w i == lane y w j ] |> List.reduce (.|)
     let matchAt i = if invert then AST.not (anyEqual i) else anyEqual i
-    searchLanes bld w o m5 matchAt
+    let struct (idxM, idxZ) = searchLanes bld w o m5 matchAt
+    setMatchCC bld m5 idxM idxZ
   }
 
 /// VECTOR ISOLATE STRING, which keeps every lane up to the first zero one and
@@ -1199,7 +1275,8 @@ let stringRangeCompare ins bld =
       [ for j in 0 .. 2 .. n - 2 -> holds a j .& holds a (j + 1) ]
       |> List.reduce (.|)
     let matchAt i = if invert then AST.not (inRange i) else inRange i
-    searchLanes bld w o m6 matchAt
+    let struct (idxM, idxZ) = searchLanes bld w o m6 matchAt
+    setMatchCC bld m6 idxM idxZ
   }
 
 /// The substring length of a string search, in lanes: byte 7 of the fourth
@@ -1709,17 +1786,17 @@ let translate (ins: Instruction) bld =
   | Opcode.VERIM ->
     rotateInsert ins bld
   | Opcode.VSL ->
-    shiftWhole ins bld false (<<)
+    shiftBits ins bld true false
   | Opcode.VSRL ->
-    shiftWhole ins bld false (>>)
+    shiftBits ins bld false false
   | Opcode.VSRA ->
-    shiftWhole ins bld false (?>>)
+    shiftBits ins bld false true
   | Opcode.VSLB ->
-    shiftWhole ins bld true (<<)
+    shiftBytes ins bld (<<)
   | Opcode.VSRLB ->
-    shiftWhole ins bld true (>>)
+    shiftBytes ins bld (>>)
   | Opcode.VSRAB ->
-    shiftWhole ins bld true (?>>)
+    shiftBytes ins bld (?>>)
   | Opcode.VSLDB ->
     shiftDoubleLeft ins bld true
   | Opcode.VSLD ->
