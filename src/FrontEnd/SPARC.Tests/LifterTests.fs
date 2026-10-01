@@ -53,7 +53,7 @@ type LifterTests() =
     (* a fresh builder per test: the SPARC builder carries delayed-branch state
        across instructions, which must not leak between independent tests *)
     let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
-    let parser = SPARCParser(reader) :> IInstructionParsable
+    let parser = Parser(reader) :> IInstructionParsable
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 

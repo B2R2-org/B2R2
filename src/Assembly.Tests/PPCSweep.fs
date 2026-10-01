@@ -176,7 +176,7 @@ module internal PPCSweep =
   /// one instruction per distinct operand shape.
   let probes wordSize =
     let parser =
-      PPCParser(wordSize, BinReader.Init Endian.Little)
+      Parser(wordSize, BinReader.Init Endian.Little)
       :> IInstructionParsable
     let byForm = List.choose (decode parser) formWords
     let forms =

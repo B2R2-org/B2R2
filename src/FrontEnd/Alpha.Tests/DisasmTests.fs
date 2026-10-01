@@ -35,7 +35,7 @@ type DisasmTests() =
   static let isa = ISA Architecture.Alpha
 
   static let parser =
-    AlphaParser(BinReader.Init isa.Endian) :> IInstructionParsable
+    Parser(BinReader.Init isa.Endian) :> IInstructionParsable
 
   static let disasm hex =
     let bytes = ByteArray.ofHexString hex

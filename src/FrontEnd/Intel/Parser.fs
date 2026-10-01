@@ -35,7 +35,7 @@ open LanguagePrimitives
 /// the generated straight-line code of LegacyOpcodeMap and VEXOpcodeMap, which
 /// IntelParserGen writes from InstructionTable, so that nothing about an
 /// instruction is looked up at parse time.
-type IntelParser(wordSz, reader: IBinReader) =
+type Parser(wordSz, reader: IBinReader) =
   /// Split a byte value into two fileds (high 3 bits; low 5 bits), and
   /// categorize prefix values into 8 groups based on the high 3 bits (= 2^3).
   /// The below array is a collection of bitmaps that maps the low 5-bit value

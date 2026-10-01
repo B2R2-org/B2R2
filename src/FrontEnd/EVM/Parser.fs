@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents for EVM insturction parser.
-type EVMParser(isa: ISA) =
+type Parser(isa: ISA) =
   let mutable codeOffset: Addr = 0UL
 
   let lifter =

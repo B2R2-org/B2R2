@@ -35,11 +35,11 @@ type DisasmTests() =
   static let isa = ISA Architecture.M68K
 
   static let parser =
-    M68KParser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
 
   static let disasmWith (isa: ISA) hex =
     let bytes = ByteArray.ofHexString hex
-    let parser = M68KParser(isa, BinReader.Init isa.Endian)
+    let parser = Parser(isa, BinReader.Init isa.Endian)
     let ins = (parser :> IInstructionParsable).Parse(ReadOnlySpan bytes, 0UL)
     let builder = StringDisasmBuilder(false, null, WordSize.Bit32)
     ins.Disasm builder

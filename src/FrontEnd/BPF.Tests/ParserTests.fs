@@ -36,7 +36,7 @@ open type Register
 type ParserTests() =
   static let parseWith endian hex =
     let bytes = ByteArray.ofHexString hex
-    let parser = BPFParser(BinReader.Init endian)
+    let parser = Parser(BinReader.Init endian)
     (parser :> IInstructionParsable).Parse(ReadOnlySpan bytes, 0UL)
     :?> Instruction
 

@@ -43,7 +43,7 @@ type ParserTests() =
 
   static let parseWith (isa: ISA) hex =
     let bytes = ByteArray.ofHexString hex
-    let parser = M68KParser(isa, BinReader.Init isa.Endian)
+    let parser = Parser(isa, BinReader.Init isa.Endian)
     (parser :> IInstructionParsable).Parse(ReadOnlySpan bytes, 0UL)
     :?> Instruction
 
@@ -234,7 +234,7 @@ type ParserTests() =
     let dst = indexed (Some A1) (index D0 false 1) 0x30 (Some 0x40) true
     Assert.AreEqual<Operands>(TwoOperands(src, dst), ins.Operands)
     Assert.AreEqual<uint32>(22u, ins.Length)
-    let parser = M68KParser(m68020, BinReader.Init Endian.Big)
+    let parser = Parser(m68020, BinReader.Init Endian.Big)
     let maxSize = (parser :> IInstructionParsable).MaxInstructionSize
     Assert.AreEqual<int>(maxSize, int ins.Length)
 

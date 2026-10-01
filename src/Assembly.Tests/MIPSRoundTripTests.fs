@@ -66,10 +66,10 @@ type MIPSRoundTripTests() =
   /// asks for millions of decodings, so building one each time would dominate
   /// the run.
   static let parser32 =
-    MIPSParser(isa32, BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(isa32, BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let parser64 =
-    MIPSParser(isa64, BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(isa64, BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let assembler32 = Assembler(isa32, 0UL) :> ILowerable
 
@@ -87,7 +87,7 @@ type MIPSRoundTripTests() =
   static let assemblerR6 = Assembler(isaR6, 0UL) :> ILowerable
 
   static let parserR6 =
-    MIPSParser(isaR6, BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(isaR6, BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let assembler64 = Assembler(isa64, 0UL) :> ILowerable
 
@@ -105,7 +105,7 @@ type MIPSRoundTripTests() =
   static let assemblerMicro = Assembler(isaMicro, 0UL) :> ILowerable
 
   static let parserMicro =
-    MIPSParser(isaMicro, BinReader.Init Endian.Little)
+    Parser(isaMicro, BinReader.Init Endian.Little)
     :> IInstructionParsable
 
   static let isaMicroR6 =
@@ -119,7 +119,7 @@ type MIPSRoundTripTests() =
   static let assemblerMicroR6 = Assembler(isaMicroR6, 0UL) :> ILowerable
 
   static let parserMicroR6 =
-    MIPSParser(isaMicroR6, BinReader.Init Endian.Little)
+    Parser(isaMicroR6, BinReader.Init Endian.Little)
     :> IInstructionParsable
 
   /// MIPS16e, which has no Release 6 form: the release removed the ASE.
@@ -134,7 +134,7 @@ type MIPSRoundTripTests() =
   static let assembler16 = Assembler(isa16, 0UL) :> ILowerable
 
   static let parser16 =
-    MIPSParser(isa16, BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(isa16, BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let isa1664 =
     ISA(
@@ -147,7 +147,7 @@ type MIPSRoundTripTests() =
   static let assembler1664 = Assembler(isa1664, 0UL) :> ILowerable
 
   static let parser1664 =
-    MIPSParser(isa1664, BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(isa1664, BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let disasm (parser: IInstructionParsable) (bytes: byte[]) =
     (parser.Parse(bytes, 0UL)).Disasm()

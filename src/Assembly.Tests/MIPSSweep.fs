@@ -181,7 +181,7 @@ module internal MIPSSweep =
          leave every instruction the manual marks MIPS64 out of the
          probe set, and so out of the assembler's obligations. *)
       ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, int release)
-    let parser = MIPSParser(isa, BinReader.Init Endian.Little)
+    let parser = Parser(isa, BinReader.Init Endian.Little)
     let walk key words =
       List.choose (decode parser) words
       |> List.distinctBy (fun probe -> keyOf key probe.Text)

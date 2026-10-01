@@ -203,7 +203,7 @@ module internal PARISCSweep =
   /// distinct operand shape.
   let probes () =
     let isa = ISA(Architecture.PARISC, Endian.Big, WordSize.Bit64)
-    let parser = PARISCParser(isa, BinReader.Init Endian.Big)
+    let parser = Parser(isa, BinReader.Init Endian.Big)
     let parser = parser :> IInstructionParsable
     let shape (probe: PARISCProbe) = keyOf true shapeOfPart probe.Text
     let byForm = survey parser (fun p -> keyOf true kindOfPart p.Text) formWords

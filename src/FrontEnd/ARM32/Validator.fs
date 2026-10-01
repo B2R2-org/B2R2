@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.ARM32.ARMValidator
+module internal B2R2.FrontEnd.ARM32.Validator
 
 #if !EMULATION
 open B2R2.FrontEnd.ARM32.ParseUtils

@@ -34,7 +34,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 type InstructionTests() =
   static let parser =
     let isa = ISA(Architecture.S390, endian = Endian.Big)
-    S390Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
 
   static let parse hex =
     let head = ByteArray.ofHexString hex

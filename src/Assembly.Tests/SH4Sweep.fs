@@ -68,7 +68,7 @@ module internal SH4Sweep =
   /// sequence rather than a list because most of them are nothing at all and
   /// only the ones kept are worth holding on to.
   let probes () =
-    let parser = SH4Parser(BinReader.Init Endian.Little) :> IInstructionParsable
+    let parser = Parser(BinReader.Init Endian.Little) :> IInstructionParsable
     words |> Seq.choose (decode parser) |> Seq.toList
 
 // vim: set tw=80 sts=2 sw=2:

@@ -159,7 +159,7 @@ module internal ARM64Sweep =
   /// distinct operand shape.
   let probes () =
     let parser =
-      ARM64Parser(BinReader.Init Endian.Little) :> IInstructionParsable
+      Parser(BinReader.Init Endian.Little) :> IInstructionParsable
     [ for word in words do
         match decode parser word with
         | Some(opcode, text) -> yield { Opcode = opcode; Text = text }

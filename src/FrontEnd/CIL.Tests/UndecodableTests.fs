@@ -38,7 +38,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 [<TestClass>]
 type UndecodableTests() =
   static let parser =
-    CILParser(BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let assertFails hex =
     let bytes = ByteArray.ofHexString hex

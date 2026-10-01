@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for SPARC instructions.
-type SPARCParser(reader) =
+type Parser(reader) =
   let lifter =
     { new ILiftable with
         member _.Lift(ins, builder) = Lifter.translate ins builder

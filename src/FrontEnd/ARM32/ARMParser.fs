@@ -30,7 +30,7 @@ open B2R2.FrontEnd.ARM32.ParseUtils
 open B2R2.FrontEnd.ARM32.OperandHelper
 open B2R2.FrontEnd.ARM32.OperandParsingHelper
 #if !EMULATION
-open B2R2.FrontEnd.ARM32.ARMValidator
+open B2R2.FrontEnd.ARM32.Validator
 #endif
 
 let render (phlp: ParsingHelper) bin opcode dt oidx =

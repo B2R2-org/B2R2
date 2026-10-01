@@ -53,7 +53,7 @@ type LifterTests() =
     let reader = BinReader.Init isa.Endian
     let regFactory = RegisterFactory isa
     let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
-    let parser = MIPSParser(isa, reader) :> IInstructionParsable
+    let parser = Parser(isa, reader) :> IInstructionParsable
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     ins.Translate builder
 
@@ -61,7 +61,7 @@ type LifterTests() =
   /// reading the encoding a mode names on the processor an ISA names.
   let jumpKinds (isa: ISA) mode branch slot =
     let builder = LowUIRBuilder(isa, RegisterFactory isa, LowUIRStream())
-    let parser = MIPSParser(isa, BinReader.Init isa.Endian)
+    let parser = Parser(isa, BinReader.Init isa.Endian)
     parser.ISAMode <- mode
     let p = parser :> IInstructionParsable
     let ins = p.Parse(ByteArray.ofHexString branch, 0UL)
@@ -75,7 +75,7 @@ type LifterTests() =
     let reader = BinReader.Init isa.Endian
     let regFactory = RegisterFactory isa
     let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
-    let parser = MIPSParser(isa, reader) :> IInstructionParsable
+    let parser = Parser(isa, reader) :> IInstructionParsable
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 
@@ -87,7 +87,7 @@ type LifterTests() =
     let reader = BinReader.Init isa.Endian
     let regFactory = RegisterFactory isa
     let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
-    let parser = MIPSParser(isa, reader) :> IInstructionParsable
+    let parser = Parser(isa, reader) :> IInstructionParsable
     let branch = parser.Parse(ByteArray.ofHexString branch, 0UL)
     branch.Translate builder |> ignore
     let ins = parser.Parse(ByteArray.ofHexString slot, 4UL)

@@ -186,7 +186,7 @@ module internal BPFSweep =
   /// Probes the whole space this sweep covers, keeping one instruction per
   /// distinct operand shape, and returns the canonical text of each.
   let probes () =
-    let parser = BPFParser(BinReader.Init Endian.Little) :> IInstructionParsable
+    let parser = Parser(BinReader.Init Endian.Little) :> IInstructionParsable
     let byForm = survey parser (keyOf kindOfPart) formWords
     let forms = byForm |> List.map fst
     byForm @ survey parser (keyOf shapeOfPart) (registerWords forms)

@@ -238,7 +238,7 @@ module internal WASMSweep =
   /// Every opcode the decoder makes an instruction of, together with every
   /// immediate worth trying.
   let probes () =
-    let parser = WASMParser(BinReader.Init Endian.Little)
+    let parser = Parser(BinReader.Init Endian.Little)
     let parser = parser :> IInstructionParsable
     opcodeProbes parser @ immediateProbes parser
 

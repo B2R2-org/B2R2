@@ -33,7 +33,7 @@ open B2R2.FrontEnd.EVM
 type ParserTests() =
   let test (bytes: byte[]) (opcode: Opcode) =
     let isa = ISA Architecture.EVM
-    let parser = EVMParser(isa) :> IInstructionParsable
+    let parser = Parser(isa) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
     let ins = parser.Parse(span, 0UL) :?> Instruction
     let opcode' = ins.Opcode

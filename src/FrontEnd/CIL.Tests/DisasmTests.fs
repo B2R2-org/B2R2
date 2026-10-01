@@ -36,7 +36,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 [<TestClass>]
 type DisasmTests() =
   static let parser =
-    CILParser(BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let disasmAt addr hex =
     let bytes = ByteArray.ofHexString hex

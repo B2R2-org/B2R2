@@ -28,7 +28,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for Python instructions.
-type PythonParser(binFile: IBinFile, reader) =
+type Parser(binFile: IBinFile, reader) =
   let binFile = binFile :?> PythonBinFile
 
   interface IInstructionParsable with

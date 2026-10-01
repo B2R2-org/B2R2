@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for CIL instructions.
-type CILParser(reader: IBinReader) =
+type Parser(reader: IBinReader) =
   let lifter =
     { new ILiftable with
         member _.Lift(ins, builder) = Lifter.translate ins builder

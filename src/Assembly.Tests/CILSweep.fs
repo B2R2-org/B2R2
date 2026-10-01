@@ -209,7 +209,7 @@ module internal CILSweep =
   /// Every opcode the decoder makes an instruction of, together with every
   /// operand worth trying.
   let probes () =
-    let parser = CILParser(BinReader.Init Endian.Little)
+    let parser = Parser(BinReader.Init Endian.Little)
     let parser = parser :> IInstructionParsable
     opcodeProbes parser @ operandProbes parser
 

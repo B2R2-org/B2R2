@@ -189,7 +189,7 @@ module internal SPARCSweep =
   /// Probes the whole space this sweep covers, keeping one instruction per
   /// distinct operand shape.
   let probes () =
-    let parser = SPARCParser(BinReader.Init Endian.Big) :> IInstructionParsable
+    let parser = Parser(BinReader.Init Endian.Big) :> IInstructionParsable
     let walked = Seq.append formWords floatWords
     let shape (probe: SPARCProbe) = keyOf shapeOfPart probe.Text
     let byForm = survey parser (fun probe -> keyOf kindOfPart probe.Text) walked

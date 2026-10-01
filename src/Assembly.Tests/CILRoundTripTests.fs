@@ -61,7 +61,7 @@ type CILRoundTripTests() =
 
   /// One parser, reused across the whole sweep.
   static let parser =
-    CILParser(BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let assembler = Assembler(isa, 0UL) :> ILowerable
 

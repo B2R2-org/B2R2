@@ -156,7 +156,7 @@ module internal MicroMIPSSweep =
   let probesFor (release: MIPSRelease) =
     let flags = int release ||| int MIPSISAMode.MicroMIPS
     let isa = ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, flags)
-    let parser = MIPSParser(isa, BinReader.Init Endian.Little)
+    let parser = Parser(isa, BinReader.Init Endian.Little)
     (* A halfword is a whole instruction only where the major opcode says so,
        and the rest of the space is the first half of a longer one, which this
        walk reaches through the words above rather than here. *)

@@ -43,7 +43,7 @@ open B2R2.FrontEnd.SPARC
 type DisasmTests() =
   static let reader = BinReader.Init (ISA Architecture.SPARC).Endian
 
-  static let parser = SPARCParser(reader) :> IInstructionParsable
+  static let parser = Parser(reader) :> IInstructionParsable
 
   static let disasm hex =
     let bytes = ByteArray.ofHexString hex

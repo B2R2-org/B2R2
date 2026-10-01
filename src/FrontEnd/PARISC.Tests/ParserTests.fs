@@ -52,7 +52,7 @@ module private Shortcut =
 
   let test (isa: ISA) opcode (opr: Operands) completer condition uid bytes =
     let reader = BinReader.Init isa.Endian
-    let parser = PARISCParser(isa, reader) :> IInstructionParsable
+    let parser = Parser(isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan(bytes: byte[])
     let ins = parser.Parse(span, 0UL) :?> Instruction
     let opcode' = ins.Opcode

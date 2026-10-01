@@ -46,7 +46,7 @@ type private O =
 type ParserTests() =
   let parseWith (isa: ISA) (bytes: byte[]) =
     let reader = BinReader.Init isa.Endian
-    let parser = S390Parser(isa, reader) :> IInstructionParsable
+    let parser = Parser(isa, reader) :> IInstructionParsable
     parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
 
   let assertIns opcode (oprs: Operands) (ins: Instruction) =

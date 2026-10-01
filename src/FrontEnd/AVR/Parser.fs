@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 /// Represents a parser for AVR instructions. The ISA names the core, which the
 /// lifter needs even though decoding does not: a call frame on avr6 holds three
 /// bytes of return address where every earlier core holds two.
-type AVRParser(isa: ISA, reader) =
+type Parser(isa: ISA, reader) =
   let core = isa.AVRCore
 
   (* A relative branch wraps around the end of program memory, so its target is
@@ -51,7 +51,7 @@ type AVRParser(isa: ISA, reader) =
 
   /// Constructs a parser for a core whose program counter fits in two bytes,
   /// which is every AVR core up to avr51.
-  new(reader) = AVRParser(ISA AVRCore.Classic, reader)
+  new(reader) = Parser(ISA AVRCore.Classic, reader)
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4

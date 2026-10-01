@@ -354,7 +354,7 @@ type LiftingUnitTests() =
       let unit = unitFor arch
       Assert.AreEqual<int>(expected, unit.InstructionAlignment)
 
-  (* An odd entry point selects Thumb mode. ArchSupport builds an ARM32Parser
+  (* An odd entry point selects Thumb mode. ArchSupport builds an ARM32.Parser
      for every ISA the ARM32 pattern covers, AArch32 included, but BinHandle
      used to test for ARMv7 alone and so left AArch32 in ARM mode. *)
   [<TestMethod>]

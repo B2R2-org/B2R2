@@ -67,7 +67,7 @@ type LifterTests() =
   /// Lifts the bytes for the given core and compares the statements.
   let testOn (core: AVRCore) (bytes: byte[], givenStmts: Stmt[]) =
     let isa = ISA core
-    let parser = AVRParser(isa, reader) :> IInstructionParsable
+    let parser = Parser(isa, reader) :> IInstructionParsable
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)

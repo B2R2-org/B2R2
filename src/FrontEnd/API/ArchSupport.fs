@@ -74,44 +74,44 @@ module ArchSupport =
   let createParser reader (isa: ISA) =
     match isa with
     | Intel ->
-      Intel.IntelParser(isa.WordSize, reader) :> IInstructionParsable
+      Intel.Parser(isa.WordSize, reader) :> IInstructionParsable
     | ARM32 ->
       let isThumb = isa.ARM32Mode = ARM32Mode.Thumb
-      ARM32.ARM32Parser(isa, isThumb, reader) :> IInstructionParsable
+      ARM32.Parser(isa, isThumb, reader) :> IInstructionParsable
     | AArch64 ->
-      ARM64.ARM64Parser(isa, reader) :> IInstructionParsable
+      ARM64.Parser(isa, reader) :> IInstructionParsable
     | MIPS ->
-      MIPS.MIPSParser(isa, reader) :> IInstructionParsable
+      MIPS.Parser(isa, reader) :> IInstructionParsable
     | EVM ->
-      EVM.EVMParser(isa) :> IInstructionParsable
+      EVM.Parser(isa) :> IInstructionParsable
     | TMS320C6000 ->
-      TMS320C6000.TMS320C6000Parser(reader) :> IInstructionParsable
+      TMS320C6000.Parser(reader) :> IInstructionParsable
     | AVR ->
-      AVR.AVRParser(isa, reader) :> IInstructionParsable
+      AVR.Parser(isa, reader) :> IInstructionParsable
     | S390 ->
-      S390.S390Parser(isa, reader) :> IInstructionParsable
+      S390.Parser(isa, reader) :> IInstructionParsable
     | SH4 ->
-      SH4.SH4Parser(reader) :> IInstructionParsable
+      SH4.Parser(reader) :> IInstructionParsable
     | PPC ->
-      PPC.PPCParser(isa.WordSize, reader) :> IInstructionParsable
+      PPC.Parser(isa.WordSize, reader) :> IInstructionParsable
     | RISCV ->
-      RISCV.RISCVParser(isa, reader) :> IInstructionParsable
+      RISCV.Parser(isa, reader) :> IInstructionParsable
     | SPARC ->
-      SPARC.SPARCParser(reader) :> IInstructionParsable
+      SPARC.Parser(reader) :> IInstructionParsable
     | PARISC ->
-      PARISC.PARISCParser(isa, reader) :> IInstructionParsable
+      PARISC.Parser(isa, reader) :> IInstructionParsable
     | M68K ->
-      M68K.M68KParser(isa, reader) :> IInstructionParsable
+      M68K.Parser(isa, reader) :> IInstructionParsable
     | Alpha ->
-      Alpha.AlphaParser reader :> IInstructionParsable
+      Alpha.Parser reader :> IInstructionParsable
     | BPF ->
-      BPF.BPFParser reader :> IInstructionParsable
+      BPF.Parser reader :> IInstructionParsable
     | Python ->
-      Python.PythonRawParser(isa, reader) :> IInstructionParsable
+      Python.RawParser(isa, reader) :> IInstructionParsable
     | WASM ->
-      WASM.WASMParser reader :> IInstructionParsable
+      WASM.Parser reader :> IInstructionParsable
     | CIL ->
-      CIL.CILParser reader :> IInstructionParsable
+      CIL.Parser reader :> IInstructionParsable
     | _ ->
       Terminator.futureFeature ()
 
@@ -132,7 +132,7 @@ module ArchSupport =
   let createParserForFile (binFile: IBinFile) =
     match binFile.ISA with
     | Python ->
-      Python.PythonParser(binFile, binFile.Reader) :> IInstructionParsable
+      Python.Parser(binFile, binFile.Reader) :> IInstructionParsable
     | _ ->
       createParser (instructionReader binFile) binFile.ISA
 

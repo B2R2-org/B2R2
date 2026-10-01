@@ -72,14 +72,14 @@ type ARM32RoundTripTests() =
   /// One parser, reused across the whole sweep. Building one costs an array of
   /// operand parsers, and the sweep asks for tens of thousands of decodings.
   static let parser =
-    ARM32Parser(isa, false, BinReader.Init Endian.Little)
+    Parser(isa, false, BinReader.Init Endian.Little)
     :> IInstructionParsable
 
   static let assembler = Assembler(isa, 0UL) :> ILowerable
 
   /// A Thumb parser and assembler of their own: which instruction set a line
   /// belongs to is settled when each is built, as nothing in the line says.
-  static let thumbParser = ARM32Parser(isa, true, BinReader.Init Endian.Little)
+  static let thumbParser = Parser(isa, true, BinReader.Init Endian.Little)
 
   static let thumbAssembler =
     Assembler(ISA(Endian.Little, false, ARM32Mode.Thumb), 0UL) :> ILowerable

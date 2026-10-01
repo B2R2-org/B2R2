@@ -66,11 +66,11 @@ type PPCRoundTripTests() =
   /// asks for millions of decodings, so building one each time would dominate
   /// the run.
   static let parser32 =
-    PPCParser(WordSize.Bit32, BinReader.Init Endian.Little)
+    Parser(WordSize.Bit32, BinReader.Init Endian.Little)
     :> IInstructionParsable
 
   static let parser64 =
-    PPCParser(WordSize.Bit64, BinReader.Init Endian.Little)
+    Parser(WordSize.Bit64, BinReader.Init Endian.Little)
     :> IInstructionParsable
 
   static let assembler32 = Assembler(isa32, 0UL) :> ILowerable

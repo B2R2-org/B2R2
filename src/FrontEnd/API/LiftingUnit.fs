@@ -61,7 +61,7 @@ type LiftingUnit
   let rawBytes = binFile.RawBytes
 
   (* ARM32 is the only architecture with a parsing mode, and ArchSupport builds
-     an ARM32Parser for every ISA the ARM32 pattern covers, AArch32 included.
+     an ARM32.Parser for every ISA the ARM32 pattern covers, AArch32 included.
      Owning the test here is what lets callers set a mode without repeating it;
      two of them used to test for ARMv7 alone and silently ignored AArch32. *)
   let modeSwitch =
@@ -215,7 +215,7 @@ type LiftingUnit
     and set syntax =
       match binFile.ISA with
       | Intel ->
-        (parser :?> Intel.IntelParser).SetDisassemblySyntax syntax
+        (parser :?> Intel.Parser).SetDisassemblySyntax syntax
         disasmSyntax <- syntax
       | _ ->
         ()

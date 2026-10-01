@@ -37,7 +37,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 type UndecodableTests() =
   static let reader = BinReader.Init Endian.Little
 
-  static let parser = AVRParser(reader) :> IInstructionParsable
+  static let parser = Parser(reader) :> IInstructionParsable
 
   [<TestMethod>]
   member _.``[AVR] Undecodable Bytes Do Not Parse Test``() =

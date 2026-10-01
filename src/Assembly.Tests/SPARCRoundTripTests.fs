@@ -65,7 +65,7 @@ type SPARCRoundTripTests() =
   /// One parser, reused across the whole sweep. The sweep asks for millions of
   /// decodings, so building one each time would dominate the run.
   static let parser =
-    SPARCParser(BinReader.Init Endian.Big) :> IInstructionParsable
+    Parser(BinReader.Init Endian.Big) :> IInstructionParsable
 
   static let assembler = Assembler(isa, 0UL) :> ILowerable
 

@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM32.OperandParsingHelper
 
-module private Parser =
+module private ParsingMain =
   let parseARM (span: ByteSpan) (phlp: ParsingHelper) =
     let bin = phlp.BinReader.ReadUInt32(span, 0)
     phlp.Len <- 4u
@@ -86,7 +86,7 @@ module private Parser =
       hi ||| (m &&& 0b11111uy) ||| (1uy <<< (4 - k))
 
 /// Represents a parser for 32-bit ARM instructions.
-type ARM32Parser(isa: ISA, isThumb, reader) =
+type Parser(isa: ISA, isThumb, reader) =
 
   let oparsers =
     [| OprNo() :> OperandParser
@@ -417,8 +417,8 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
   interface IModeSwitchable with
     member _.IsThumb with get() = isThumb and set v = isThumb <- v
     member _.ITState
-      with get() = Parser.packITState itstate
-      and set v = itstate <- Parser.unpackITState v
+      with get() = ParsingMain.packITState itstate
+      and set v = itstate <- ParsingMain.unpackITState v
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
@@ -430,9 +430,9 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
         phlp.IsThumb <- isThumb
         phlp.InsAddr <- addr
         let ins =
-          if isThumb then Parser.parseThumb span phlp &itstate
-          else Parser.parseARM span phlp
-        let bin = Parser.wordOf span phlp ins
+          if isThumb then ParsingMain.parseThumb span phlp &itstate
+          else ParsingMain.parseARM span phlp
+        let bin = ParsingMain.wordOf span phlp ins
         Features.check isa bin ins lifter :> IInstruction
       with e when not (Terminator.isCritical e) ->
         raise ParsingFailureException

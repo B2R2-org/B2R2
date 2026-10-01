@@ -47,7 +47,7 @@ module private Shortcut =
 [<TestClass>]
 type ParserTests() =
   let reader = BinReader.Init Endian.Little
-  let parser = SPARCParser(reader) :> IInstructionParsable
+  let parser = Parser(reader) :> IInstructionParsable
 
   let test (bytes: byte[]) (opcode, oprs: Operands) =
     let span = System.ReadOnlySpan bytes

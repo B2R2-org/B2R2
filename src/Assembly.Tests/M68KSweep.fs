@@ -266,7 +266,7 @@ module internal M68KSweep =
   /// and every model both added to it and dropped from it.
   let parserFor model =
     let isa = ISA(model: M68KModel)
-    M68KParser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
 
   /// The instructions of the given probes that the given member of the family
   /// reads, which is how the part of the space an earlier model shares is

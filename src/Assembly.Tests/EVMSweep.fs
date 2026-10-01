@@ -113,7 +113,7 @@ module internal EVMSweep =
   /// Every byte the decoder makes an instruction of, together with every push
   /// holding a number worth trying.
   let probes () =
-    let parser = EVMParser(ISA Architecture.EVM) :> IInstructionParsable
+    let parser = Parser(ISA Architecture.EVM) :> IInstructionParsable
     opcodeProbes parser @ pushProbes parser
 
 // vim: set tw=80 sts=2 sw=2:
