@@ -927,6 +927,10 @@ let translate (ins: Instruction) bld =
     lxsdx ins bld true true
   | Op.STXSDX ->
     lxsdx ins bld false false
+  | Op.LXSD ->
+    lxsd ins bld true
+  | Op.STXSD ->
+    lxsd ins bld false
   | Op.VAND | Op.XXLAND ->
     vecLogical ins bld (.&)
   | Op.VOR | Op.XXLOR ->
@@ -943,12 +947,16 @@ let translate (ins: Instruction) bld =
     vecLogical ins bld (fun a b -> AST.not (a .& b))
   | Op.VEQV | Op.XXLEQV ->
     vecLogical ins bld (fun a b -> AST.not (a <+> b))
-  | Op.VSEL ->
+  | Op.VSEL | Op.XXSEL ->
     vecSelect ins bld
   | Op.VPERM ->
     vecPermute ins bld
   | Op.XXPERMDI ->
     vecPermuteDouble ins bld
+  | Op.XXMRGHW ->
+    vecMerge ins bld 32<rt> true
+  | Op.XXMRGLW ->
+    vecMerge ins bld 32<rt> false
   | Op.XXSPLTW ->
     xxspltw ins bld
   | Op.XXSPLTIB ->
@@ -967,6 +975,26 @@ let translate (ins: Instruction) bld =
     mffscrnImm ins bld
   | Op.XSADDDP ->
     vsxScalarBinary ins bld AST.fadd true
+  | Op.XVADDDP ->
+    vsxVectorBinary ins bld AST.fadd
+  | Op.XVSUBDP ->
+    vsxVectorBinary ins bld AST.fsub
+  | Op.XVMULDP ->
+    vsxVectorBinary ins bld AST.fmul
+  | Op.XVDIVDP ->
+    vsxVectorBinary ins bld AST.fdiv
+  | Op.XVNEGDP ->
+    xvnegdp ins bld
+  | Op.XVCMPGEDP ->
+    vecCompare ins bld 64<rt> AST.fge false
+  | Op.XVCMPGEDPdot ->
+    vecCompare ins bld 64<rt> AST.fge true
+  | Op.XVCMPGTDP ->
+    vecCompare ins bld 64<rt> AST.fgt false
+  | Op.XVCMPGTDPdot ->
+    vecCompare ins bld 64<rt> AST.fgt true
+  | Op.XVCVSXWDP ->
+    xvcvsxwdp ins bld
   | Op.XSMULDP ->
     vsxScalarBinary ins bld AST.fmul true
   | Op.XSADDSP ->
@@ -1147,6 +1175,16 @@ let translate (ins: Instruction) bld =
     vecBinary ins bld 16<rt> (.+)
   | Op.VADDUWM ->
     vecBinary ins bld 32<rt> (.+)
+  | Op.VADDUBS ->
+    vecSaturateByte ins bld true
+  | Op.VSUBUBS ->
+    vecSaturateByte ins bld false
+  | Op.VMULUWM ->
+    vecBinary ins bld 32<rt> (.*)
+  | Op.VMULESW ->
+    vecMulWord ins bld true
+  | Op.VMULOSW ->
+    vecMulWord ins bld false
   | Op.VADDUDM ->
     vecBinary ins bld 64<rt> (.+)
   | Op.VSUBUBM ->

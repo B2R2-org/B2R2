@@ -90,6 +90,60 @@ let vecUnary ins bld esize f =
     dl := tl
   }
 
+/// vmulesw/vmulosw, which multiply the signed words at even (0 and 2) or odd
+/// (1 and 3) positions of the two sources into doubleword products. An even
+/// word is the high one of its doubleword.
+let vecMulWord ins bld even =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    let pos = if even then 32 else 0
+    let word x = AST.sext 64<rt> (AST.extract x 32<rt> pos)
+    th := word ah .* word bh
+    tl := word al .* word bl
+    dh := th
+    dl := tl
+  }
+
+/// One unsigned byte added or subtracted with saturation: the answer clamped
+/// to 0..255 rather than wrapped, and whether it had to be.
+let private saturatedByte isAdd a b =
+  if isAdd then
+    let sum = AST.zext 16<rt> a .+ AST.zext 16<rt> b
+    let over = sum .> numI32 255 16<rt>
+    struct (AST.ite over (numI32 255 8<rt>) (AST.xtlo 8<rt> sum), over)
+  else
+    let over = a .< b
+    struct (AST.ite over (AST.num0 8<rt>) (a .- b), over)
+
+/// vaddubs/vsububs, the unsigned byte add and subtract that saturate. A byte
+/// that had to be clamped sets VSCR's sticky SAT bit, the register's lowest.
+let vecSaturateByte ins bld isAdd =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    let sat = tmpVar bld 1<rt>
+    sat := AST.b0
+    for (t, a, b) in [ th, ah, bh; tl, al, bl ] do
+      for i in 0 .. 7 do
+        let pos = i * 8
+        let x = AST.extract a 8<rt> pos
+        let y = AST.extract b 8<rt> pos
+        let struct (r, over) = saturatedByte isAdd x y
+        AST.extract t 8<rt> pos := r
+        sat := sat .| over
+    dh := th
+    dl := tl
+    let vscr = regVar bld Register.VSCR
+    vscr := vscr .| AST.zext 32<rt> sat
+  }
+
 /// The all-ones or all-zeroes an element-wise compare writes per element.
 let private compareMask esize cond =
   AST.ite cond (AST.not (AST.num0 esize)) (AST.num0 esize)
@@ -259,6 +313,22 @@ let lxsdx ins (bld: ILowUIRBuilder) splat isLoad =
         append bld { dl := dh }
       else
         append bld { dl := AST.num0 64<rt> }
+    else
+      loadNative bld 64<rt> tmpEA := dh
+  }
+
+/// lxsd/stxsd, the ISA 3.0 DS-form moves of one doubleword between memory and
+/// the high half of a vector register (VSR32-63). The load clears the low half,
+/// as the indexed lxsdx does.
+let lxsd ins (bld: ILowUIRBuilder) isLoad =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := transEAWithOffset o2 bld
+    if isLoad then
+      dh := loadNative bld 64<rt> tmpEA
+      dl := AST.num0 64<rt>
     else
       loadNative bld 64<rt> tmpEA := dh
   }
@@ -660,6 +730,34 @@ let vsxScalarBinarySingle ins bld fnOp =
     setFPRF bld dh
   }
 
+/// A result that became a NaN on its own -- neither operand was one -- is an
+/// invalid operation, which on POWER answers with the positive default quiet
+/// NaN. The host arithmetic hands back a negative one, so it is rewritten, as
+/// the multiply-adds do; a NaN that came in through an operand propagates.
+let private withDefaultNaN a b res =
+  AST.ite (noNaNOperand a b b .& IEEE754Double.isNaN res) defaultQNaN res
+
+/// The vector double-precision forms of an "xT, xA, xB": the same operation on
+/// each doubleword, a double in both. Unlike the scalar forms they leave FPRF
+/// alone.
+let vsxVectorBinary ins bld fnOp =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    th := withDefaultNaN ah bh (fnOp ah bh)
+    tl := withDefaultNaN al bl (fnOp al bl)
+    dh := th
+    dl := tl
+  }
+
+/// xvnegdp, which flips the sign of both doubles. It is a bit operation, so a
+/// NaN flips too and nothing is raised.
+let xvnegdp ins bld =
+  vecUnary ins bld 64<rt> (fun a -> a <+> numU64 0x8000000000000000UL 64<rt>)
+
 /// An "xT, xB" over the double in the source's high half.
 let vsxScalarUnary ins bld fnOp setsFPRF =
   lift bld ins {
@@ -852,6 +950,23 @@ let xscvuxddp ins bld = vsxFromInt ins bld false false
 let xscvsxdsp ins bld = vsxFromInt ins bld true true
 
 let xscvuxdsp ins bld = vsxFromInt ins bld false true
+
+/// xvcvsxwdp, which converts the signed word at the top of each doubleword of
+/// xB to a double -- exactly, as a double holds every 32-bit integer.
+let xvcvsxwdp ins bld =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, bl) = vecHalves bld o2
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    let toDouble x =
+      AST.sext 64<rt> (AST.extract x 32<rt> 32)
+      |> AST.cast CastKind.SIntToFloat 64<rt>
+    th := toDouble bh
+    tl := toDouble bl
+    dh := th
+    dl := tl
+  }
 
 /// xscvdpsp, the double-to-single conversion that rounds: the result is a
 /// single in word element 0, which is the high half of the target's first

@@ -175,6 +175,27 @@ let private xx2SplatByte ins =
   | _ ->
     wrongOperands ins
 
+/// lxsd and stxsd, the DS-form moves of a doubleword to or from a vector
+/// register, whose two low bits say which of the forms sharing the primary
+/// opcode this is.
+let private vrDsMemory po ins =
+  match ins.Operands with
+  | [ Rg v; Mem(disp, b) ] ->
+    dForm po (vr v) (gpr b) ((wordDisplacement disp) ||| 2u)
+  | _ ->
+    wrongOperands ins
+
+/// xxsel, the one XX4 form: its fourth register lies in the bits below the
+/// third, with its sixth bit beside the other three at the end.
+let private xx4Select ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Rg b; Rg c ] ->
+    let n = vsr c
+    let rest = ((n &&& 0x1Fu) <<< 6) ||| (3u <<< 4) ||| ((n >>> 5) <<< 3)
+    vsxWord rest (vsr t) (vsr a) (vsr b)
+  | _ ->
+    wrongOperands ins
+
 /// The loads and the stores of a wide register, and the moves between one and
 /// the general registers.
 let private wideMemoryEncoders () =
@@ -203,7 +224,9 @@ let private wideMemoryEncoders () =
     Op.MTVSRWA, vsxIndexed 211u
     Op.MTVSRWZ, vsxIndexed 243u
     Op.MFVSRLD, vsxIndexed 307u
-    Op.MTVSRDD, vsxIndexed 435u ]
+    Op.MTVSRDD, vsxIndexed 435u
+    Op.LXSD, vrDsMemory 57u
+    Op.STXSD, vrDsMemory 61u ]
 
 /// The instructions that work on every element of a vector at once: the
 /// arithmetic, the logic, the shifts, and the ones that pick a smaller or a
@@ -217,6 +240,11 @@ let private elementwiseEncoders () =
     Op.VSUBUHM, vx 1088u
     Op.VSUBUWM, vx 1152u
     Op.VSUBUDM, vx 1216u
+    Op.VADDUBS, vx 512u
+    Op.VSUBUBS, vx 1536u
+    Op.VMULUWM, vx 137u
+    Op.VMULESW, vx 904u
+    Op.VMULOSW, vx 392u
     Op.VMAXUB, vx 2u
     Op.VMAXUH, vx 66u
     Op.VMAXUW, vx 130u
@@ -335,7 +363,10 @@ let private wideLogicEncoders () =
     Op.XXPERMDI, xx3Pick 10u
     Op.XXSLDWI, xx3Pick 2u
     Op.XXSPLTW, xx2Splat
-    Op.XXSPLTIB, xx2SplatByte ]
+    Op.XXSPLTIB, xx2SplatByte
+    Op.XXMRGHW, xx3 18u
+    Op.XXMRGLW, xx3 50u
+    Op.XXSEL, xx4Select ]
 
 /// <summary>
 /// The arithmetic on the one floating-point number a vector-scalar register
@@ -391,6 +422,26 @@ let private scalarMultiplyAddEncoders () =
     Op.XSNMSUBADP, xx3 177u
     Op.XSNMSUBMDP, xx3 185u ]
 
+/// <summary>
+/// The arithmetic on the two double-precision numbers a vector-scalar register
+/// holds side by side, which a compiler reaches for when it vectorizes a loop.
+///
+/// A comparison is written both with and without the bit that records what
+/// it found, and that bit is the top one of its extended opcode, so the two
+/// forms are two opcodes here.
+/// </summary>
+let private vectorArithmeticEncoders () =
+  [ Op.XVADDDP, xx3 96u
+    Op.XVSUBDP, xx3 104u
+    Op.XVMULDP, xx3 112u
+    Op.XVDIVDP, xx3 120u
+    Op.XVCMPGTDP, xx3 107u
+    Op.XVCMPGTDPdot, xx3 235u
+    Op.XVCMPGEDP, xx3 115u
+    Op.XVCMPGEDPdot, xx3 243u
+    Op.XVCVSXWDP, xx2 248u
+    Op.XVNEGDP, xx2 505u ]
+
 /// The roundings of the number a vector-scalar register holds, and the
 /// conversions between how wide it is written and what it counts.
 let private scalarConvertEncoders () =
@@ -422,4 +473,5 @@ let vectorEncoders () =
       wideLogicEncoders ()
       scalarArithmeticEncoders ()
       scalarMultiplyAddEncoders ()
+      vectorArithmeticEncoders ()
       scalarConvertEncoders () ]
