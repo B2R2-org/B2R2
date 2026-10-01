@@ -26,10 +26,6 @@ namespace B2R2.Collections
 
 open B2R2.Collections.FingerTree
 
-/// Represents an error raised when an operation requires a non-empty random
-/// access queue.
-exception EmptyRandomAccessQueueException
-
 /// Represents an element for our random access queue.
 type private RandomAccessQueueElem<'T>(v) =
   member val Val: 'T = v

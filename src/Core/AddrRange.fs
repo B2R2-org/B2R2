@@ -24,13 +24,6 @@
 
 namespace B2R2
 
-/// Raised when there are overlapping intervals from the interval tree.
-exception RangeOverlapException
-
-/// Raised when an invalid AddrRange is constructed, i.e., when the min address
-/// is greater than the max address.
-exception InvalidAddrRangeException
-
 /// <summary>
 /// Represents a range of address values that are greater than or equal to the
 /// <c>Min</c> value (inclusive) and are less than or equal to the <c>Max</c>

@@ -27,10 +27,6 @@ namespace B2R2.Collections
 open System
 open System.Numerics
 
-/// Represents an error raised when a register set is created with an invalid
-/// size.
-exception InvalidRegisterSetSizeException
-
 /// Represents a set of register IDs. This is an efficient and
 /// architecture-agnostic set data structure that internally uses bit arrays.
 /// Since RegisterIDs always start from 0 for any architecture, we can use it

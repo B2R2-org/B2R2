@@ -77,43 +77,9 @@ F# specifics (see CONTRIBUTING.md for the complete list with examples):
   lowercase/curried use a space (`String.replace ()`).
 - One blank line between top-level bindings; no blank lines inside a function
   body (if you want one, the function is too long — split it).
-- **`if`/`else` and `match` branch layout is all-or-nothing** (fslint does not
-  catch this — keep it by hand). For an `if`/`elif`/`else`, either every branch
-  body is inline on its `then`/`else` line, or every branch body sits on its own
-  indented line below. Never mix: an inline `then` with a multi-line `else` (or
-  vice versa) is wrong — put the inline side on its own line too. Inline form is
-  allowed only when every such line fits in 80 columns.
-
-  ```fsharp
-  if length <= 0L then size, extents else grow ()   // ok: all inline, fits 80
-  if length <= 0L then                               // ok: all multi-line
-    size, extents
-  else
-    let added = ...
-    ...
-  if length <= 0L then size, extents                 // BAD: inline then,
-  else                                               //      multi-line else
-    let added = ...
-  ```
-
-  The same applies to `match`: either every case is a single `| pat -> expr`
-  line, or every case puts its body on a new indented line. If one case must
-  wrap, wrap them all.
-- **Record literals are all-or-nothing too.** If every field fits on one line,
-  write the record on a single line with `;` separators (`{ A = x; B = y }`).
-  Otherwise put every field on its own line with no `;` separators — never the
-  mixed form that groups some fields with `;` while spanning multiple lines.
-  This holds for copy-and-update (`{ r with ... }`) as well. A nested record
-  that itself fits one line stays inline (`Device = { Major = 1; Minor = 3 }`).
-
-  ```fsharp
-  { Major = 1; Minor = 3 }                  // ok: fits one line, semicolons
-  { Owner = rwx                             // ok: one field per line, no ';'
-    Group = rwx
-    Others = rwx }
-  { Owner = rwx; Group = rwx                // BAD: ';' grouping across lines
-    Others = rwx }
-  ```
+- `if`/`else` branches, `match` cases and record fields are all-or-nothing:
+  either every one sits inline (record fields separated by `;`) or every one
+  goes on its own line (no `;`) — never a mix.
 - Use `_` for unused self-identifiers, `this` only when needed; never `__`.
 - Avoid parameter lists so long they must wrap onto a continuation line; if a
   signature does not fit on one line, the function has too many parameters —
@@ -121,6 +87,29 @@ F# specifics (see CONTRIBUTING.md for the complete list with examples):
   annotations: drop them, and if it still compiles you are done; if not, add a
   single annotation at the first use site inside the function body instead, so
   the definition line stays short.
+- **A file leads with its namesake** (fslint does not catch this). The type or
+  module a file is named after is its first public declaration, so the file
+  reads from what it offers down to how it is built. Private or internal
+  helpers it uses, types or modules, may precede it, as helper functions
+  precede their caller. Other public types join it as `and` members, with any
+  attribute on the `and` line, and a companion module follows the group.
+  Exceptions are the exception: they live in the `Exceptions.fs` of their
+  namespace, compiled first, unless they belong to a module. A namesake module
+  cannot come before the public types it reads, so move those types to the
+  file they belong with (the ISA flag enums live in `Architecture.fs`, leaving
+  `ISAFlags.fs` to the `ISAFlags` module alone).
+
+  ```fsharp
+  type Architecture =            // Architecture.fs: the namesake comes first
+    | Intel = 0
+    ...
+  and ARM32Mode =                // the other types join it with `and`
+    ...
+  and [<System.Flags>] AArch64Extension =
+    ...
+  module PythonVersion =         // a companion module follows the group
+    ...
+  ```
 - Order private helper functions in the sequence their caller first references
   them, so reading top-to-bottom follows the call flow. F# requires definition
   before use; when several helpers are mutually independent, the tie-break is

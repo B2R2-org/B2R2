@@ -24,10 +24,6 @@
 
 namespace B2R2.Collections
 
-/// Represents an error raised when an operation requires a non-empty
-/// persistent queue.
-exception EmptyPersistentQueueException
-
 /// Represents a persistent queue. Uses two lists internally to represent the
 /// queue.
 type PersistentQueue<'T> =

@@ -24,14 +24,6 @@
 
 namespace B2R2
 
-/// Raised when an invalid RegType is encountered.
-exception InvalidRegTypeException
-
-/// <exclude/>
-/// <summary>A unit of measure for register types.</summary>
-[<Measure>]
-type rt
-
 /// <summary>
 /// Represents a register type in terms of its bit width. We use a unit of
 /// measure to represent the bit width of a register. For example, a 32-bit
@@ -39,6 +31,10 @@ type rt
 /// represented as <c>64&lt;rt&gt;</c>.
 /// </summary>
 type RegType = int<rt>
+
+/// <exclude/>
+/// <summary>A unit of measure for register types.</summary>
+and [<Measure>] rt
 
 /// <summary>
 /// Provides several helper functions to deal with <see cref="T:B2R2.RegType"/>.

@@ -24,9 +24,6 @@
 
 namespace B2R2
 
-/// Raised when unknown OS type is detected.
-exception UnknownOSException
-
 /// Represents the target operating system type that the binary is compiled for.
 type OS =
   /// Windows.

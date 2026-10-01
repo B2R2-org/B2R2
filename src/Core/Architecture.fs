@@ -297,6 +297,3 @@ and PythonVersion =
 
 module PythonVersion =
   let minor (ver: PythonVersion) = int ver % 100
-
-/// Raised when an invalid ISA is given as a parameter.
-exception InvalidISAException

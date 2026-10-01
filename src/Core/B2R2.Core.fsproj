@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Exceptions.fs" />
     <Compile Include="Terminator.fs" />
     <Compile Include="ErrorCase.fs" />
     <Compile Include="Byte.fs" />
@@ -47,6 +48,7 @@
     <Compile Include="Logging\FilePrinter.fs" />
     <Compile Include="Logging\HexDump.fs" />
     <Compile Include="Logging\Log.fs" />
+    <Compile Include="Collections\Exceptions.fs" />
     <Compile Include="Collections\Array.fs" />
     <Compile Include="Collections\ImmutableArray.fs" />
     <Compile Include="Collections\SortedList.fs" />

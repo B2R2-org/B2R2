@@ -24,9 +24,6 @@
 
 namespace B2R2
 
-/// Raised when an invalid Endian value is used.
-exception InvalidEndianException
-
 /// Represents the endianness used in a binary.
 type Endian =
   /// Little endian.

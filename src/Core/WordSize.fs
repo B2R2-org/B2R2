@@ -24,9 +24,6 @@
 
 namespace B2R2
 
-/// Raised when an invalid WordSize is encountered.
-exception InvalidWordSizeException
-
 /// <summary>
 /// Represents the word size of a CPU. The word size is the number of bits that
 /// the CPU can naturally process in a single operation.

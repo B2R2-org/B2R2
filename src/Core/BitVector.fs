@@ -26,10 +26,6 @@ namespace B2R2
 
 open System
 
-/// Raised when two BitVectors have incompatible types (different bit lengths)
-/// in a binary operation.
-exception RegTypeMismatchException
-
 /// Represents a helper module for BitVector.
 [<AutoOpen>]
 module private BitVector = begin
