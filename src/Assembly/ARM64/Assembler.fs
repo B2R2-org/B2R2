@@ -321,6 +321,20 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | Some state -> preturn (OprPstate state)
       | None -> fail $"'{name}' is not a part of the processor state"
 
+  /// A system register written by its encoding, for one that has no name in
+  /// the register list.
+  let pOprSysReg =
+    pName >>= fun name ->
+      match Map.tryFind name registers, sysRegKey name with
+      | None, Some key -> preturn (OprSysReg key)
+      | _ -> fail $"'{name}' is not a system register written by encoding"
+
+  let pOprHintOpt =
+    pName >>= fun name ->
+      match Map.tryFind name hintOptions with
+      | Some opt -> preturn (OprHintOpt opt)
+      | None -> fail $"'{name}' is not a hint's operand"
+
   let pOprCondition =
     pName >>= fun name ->
       match Map.tryFind name conditions with
@@ -344,7 +358,9 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     match opcode with
     | Opcode.DMB | Opcode.DSB | Opcode.ISB -> pOprBarrier
     | Opcode.PRFM | Opcode.PRFUM -> pOprPrefetch
-    | Opcode.MSR -> pOprPstate
+    | Opcode.MSR -> attempt pOprPstate <|> pOprSysReg
+    | Opcode.MRS -> pOprSysReg
+    | Opcode.BTI | Opcode.PSB | Opcode.TSB -> pOprHintOpt
     | opcode when takesCondition opcode -> pOprCondition
     | _ -> fail "not an operand of this instruction"
 

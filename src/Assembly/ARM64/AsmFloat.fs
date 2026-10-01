@@ -53,8 +53,12 @@ type Widths =
   | LongElement
   /// A halfword or a word, which is what a doubling multiply reads.
   | HalfOrWord
-  /// A word or a doubleword, which is what a floating-point element is.
+  /// A word or a doubleword, which is what a floating-point element is where
+  /// the instruction has no half-precision form.
   | WordOrLong
+  /// A half, a word or a doubleword, which is what a floating-point element
+  /// is once FEAT_FP16 gives halves an arithmetic of their own.
+  | AnyFloat
 
 /// Rejects a width the family member does not accept, which is one the manual
 /// reserves rather than one the encoding cannot hold.
@@ -65,6 +69,7 @@ let private checkWidth (ins: AsmInsInfo) allowed reg =
     | LongElement, Some 64 -> true
     | HalfOrWord, Some 16 | HalfOrWord, Some 32 -> true
     | WordOrLong, Some 32 | WordOrLong, Some 64 -> true
+    | AnyFloat, Some 16 | AnyFloat, Some 32 | AnyFloat, Some 64 -> true
     | _ -> false
   if accepts then () else fail $"{ins.Opcode} does not read {reg}"
 
@@ -127,6 +132,14 @@ let private scalarThreeSame allowed u opcode ins =
 /// whether they are doublewords.
 let private scalarThreeSameFP u hi opcode ins =
   match ins.Operands with
+  | ThreeOperands(Rg rd, Rg rn, Rg rm) when tryScalarWidth rd = Some 16 ->
+    sameWidth ins rd rn
+    sameWidth ins rd rm
+    (* FEAT_FP16's class: bits 22:21 read 10, and the opcode is the low three
+       bits of the wider form's *)
+    scalarHead u ((hi <<< 1) ||| 1u) ||| (simdNumber ins rm <<< 16)
+    ||| ((opcode &&& 0b111u) <<< 11) ||| (1u <<< 10)
+    ||| (simdNumber ins rn <<< 5) ||| simdNumber ins rd
   | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
     sameWidth ins rd rn
     sameWidth ins rd rm
@@ -142,6 +155,12 @@ let private scalarTwoRegWith u size opcode rn rd =
   scalarHead u size ||| (0b10000u <<< 17) ||| (opcode <<< 12) ||| (0b10u <<< 10)
   ||| (rn <<< 5) ||| rd
 
+/// The same, for FEAT_FP16's class, which sits beside the wider one with bits
+/// 22:17 reading 111100 where the size and 10000 sit.
+let private scalarTwoRegHalf u hi opcode rn rd =
+  scalarHead u ((hi <<< 1) ||| 1u) ||| (0b11100u <<< 17) ||| (opcode <<< 12)
+  ||| (0b10u <<< 10) ||| (rn <<< 5) ||| rd
+
 /// Encodes <V><d>, <V><n>
 let private scalarTwoReg allowed u opcode ins =
   match ins.Operands with
@@ -156,6 +175,9 @@ let private scalarTwoReg allowed u opcode ins =
 /// The same, on floating-point elements.
 let private scalarTwoRegFP u hi opcode ins =
   match ins.Operands with
+  | TwoOperands(Rg rd, Rg rn) when tryScalarWidth rd = Some 16 ->
+    sameWidth ins rd rn
+    scalarTwoRegHalf u hi opcode (simdNumber ins rn) (simdNumber ins rd)
   | TwoOperands(Rg rd, Rg rn) ->
     sameWidth ins rd rn
     let sz, d = floatFields ins rd
@@ -177,6 +199,10 @@ let private scalarCompareZero u opcode ins =
 /// The same, on floating-point elements, whose nothing is written as one.
 let private scalarCompareZeroFP u hi opcode ins =
   match ins.Operands with
+  | ThreeOperands(Rg rd, Rg rn, OprFPImm 0.0)
+    when tryScalarWidth rd = Some 16 ->
+    sameWidth ins rd rn
+    scalarTwoRegHalf u hi opcode (simdNumber ins rn) (simdNumber ins rd)
   | ThreeOperands(Rg rd, Rg rn, OprFPImm 0.0) ->
     sameWidth ins rd rn
     let sz, d = floatFields ins rd
@@ -226,6 +252,10 @@ let private scalarPairwise u opcode ins =
 /// </summary>
 let private scalarPairwiseFP u hi opcode ins =
   match ins.Operands with
+  | TwoOperands(Rg rd, Vec(rn, TwoH)) when tryScalarWidth rd = Some 16 ->
+    (* FEAT_FP16's pairs are told from the wider ones by U, which reads 0 *)
+    scalarHead 0u (hi <<< 1) ||| (0b11000u <<< 17) ||| (opcode <<< 12)
+    ||| (0b10u <<< 10) ||| (vectorReg rn <<< 5) ||| simdNumber ins rd
   | TwoOperands(Rg rd, Vec(rn, t)) ->
     let sz, d = floatFields ins rd
     if t <> (if sz = 0u then TwoS else TwoD) then
@@ -294,7 +324,7 @@ let private scalarConvertFixed u opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im amount) ->
     sameWidth ins rd rn
-    checkWidth ins WordOrLong rd
+    checkWidth ins AnyFloat rd
     let field = rightShift ins (elementOf ins rd) amount
     scalarShiftWith u opcode field (simdNumber ins rn) (simdNumber ins rd)
   | _ ->
@@ -321,6 +351,17 @@ let private scalarIndexed u opcode ins =
 /// The same, on floating-point elements.
 let private scalarIndexedFP u opcode ins =
   match ins.Operands with
+  | ThreeOperands(Rg rd, Rg rn, Elem(rm, vec, index))
+    when tryScalarWidth rd = Some 16 ->
+    sameWidth ins rd rn
+    let d = simdNumber ins rd
+    let selected, source = indexedSource ins vec rm index
+    (* FEAT_FP16's forms lay the element out as an integer form of size 01
+       does, and say they read halves with a size of 00 *)
+    if selected <> 0b01u then
+      wrongOperands ins
+    else
+      scalarIndexedWith u opcode 0b00u source (simdNumber ins rn) d
   | ThreeOperands(Rg rd, Rg rn, Elem(rm, vec, index)) ->
     sameWidth ins rd rn
     let sz, d = floatFields ins rd
@@ -398,8 +439,8 @@ let private shaTwoReg opcode ins =
     wrongOperands ins
 
 (* The instructions on the floating-point registers. *)
-/// The two bits that say how wide a floating-point register is, of which a
-/// half-precision one is reached by the conversions alone.
+/// The two bits that say how wide a floating-point register is, a
+/// half-precision one's being FEAT_FP16's.
 let private floatType ins reg =
   match tryScalarWidth reg with
   | Some 32 -> 0b00u
@@ -415,13 +456,38 @@ let private floatWideType ins reg =
 /// The bits every one of them shares.
 let private floatHead ty = (0b11110u <<< 24) ||| (ty <<< 22) ||| (1u <<< 21)
 
-/// Encodes <Vd>, <Vn>, the ones that read one register into another.
-let private floatOneSource opcode ins =
+/// Encodes <Vd>, <Vn>, the ones that read one register into another, at the
+/// widths the type function allows.
+let private floatOneSourceWith typeOf opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
     sameWidth ins rd rn
-    floatHead (floatWideType ins rn) ||| (opcode <<< 15) ||| (0b10000u <<< 10)
+    floatHead (typeOf ins rn) ||| (opcode <<< 15) ||| (0b10000u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| simdNumber ins rd
+  | _ ->
+    wrongOperands ins
+
+let private floatOneSource opcode ins = floatOneSourceWith floatType opcode ins
+
+/// The same, for FEAT_FRINTTS's roundings, which have no half-precision form.
+let private floatOneSourceWide opcode ins =
+  floatOneSourceWith floatWideType opcode ins
+
+/// <summary>
+/// FJCVTZS, the JavaScript conversion, whose fields are fixed: a word
+/// destination, a double source, and the one combination of rmode and
+/// opcode the class leaves for it.
+/// </summary>
+let private jsConvert ins =
+  match ins.Operands with
+  | TwoOperands(Rg rd, Rg rn) ->
+    (* the source is a double and nothing else: the type field is part of
+       what names the instruction here, so a narrower register would encode
+       to a word that means something different *)
+    if floatType ins rn <> 0b01u then wrongOperands ins else ()
+    (0b00011110u <<< 24) ||| (0b01u <<< 22) ||| (1u <<< 21)
+    ||| (0b11u <<< 19) ||| (0b110u <<< 16)
+    ||| (simdNumber ins rn <<< 5) ||| coreReg rd
   | _ ->
     wrongOperands ins
 
@@ -442,7 +508,7 @@ let private floatTwoSource opcode ins =
   | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
     sameWidth ins rd rn
     sameWidth ins rd rm
-    floatHead (floatWideType ins rd) ||| (simdNumber ins rm <<< 16)
+    floatHead (floatType ins rd) ||| (simdNumber ins rm <<< 16)
     ||| (opcode <<< 12) ||| (0b10u <<< 10) ||| (simdNumber ins rn <<< 5)
     ||| simdNumber ins rd
   | _ ->
@@ -455,7 +521,7 @@ let private floatThreeSource o1 o0 ins =
     sameWidth ins rd rn
     sameWidth ins rd rm
     sameWidth ins rd ra
-    (0b11111u <<< 24) ||| (floatWideType ins rd <<< 22) ||| (o1 <<< 21)
+    (0b11111u <<< 24) ||| (floatType ins rd <<< 22) ||| (o1 <<< 21)
     ||| (simdNumber ins rm <<< 16) ||| (o0 <<< 15)
     ||| (simdNumber ins ra <<< 10) ||| (simdNumber ins rn <<< 5)
     ||| simdNumber ins rd
@@ -468,10 +534,10 @@ let private floatCompare opcode2 ins =
   match ins.Operands with
   | TwoOperands(Rg rn, Rg rm) ->
     sameWidth ins rn rm
-    floatHead (floatWideType ins rn) ||| (simdNumber ins rm <<< 16)
+    floatHead (floatType ins rn) ||| (simdNumber ins rm <<< 16)
     ||| (0b001000u <<< 10) ||| (simdNumber ins rn <<< 5) ||| opcode2
   | TwoOperands(Rg rn, OprFPImm 0.0) ->
-    floatHead (floatWideType ins rn) ||| (0b001000u <<< 10)
+    floatHead (floatType ins rn) ||| (0b001000u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| opcode2 ||| 0b01000u
   | _ ->
     wrongOperands ins
@@ -482,7 +548,7 @@ let private floatCondCompare op ins =
   match ins.Operands with
   | FourOperands(Rg rn, Rg rm, Im nzcv, OprCond cond) ->
     sameWidth ins rn rm
-    floatHead (floatWideType ins rn) ||| (simdNumber ins rm <<< 16)
+    floatHead (floatType ins rn) ||| (simdNumber ins rm <<< 16)
     ||| (condField cond <<< 12) ||| (0b01u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| (op <<< 4) ||| unsignedImm 4 nzcv
   | _ ->
@@ -495,7 +561,7 @@ let private floatCondSelect ins =
   | FourOperands(Rg rd, Rg rn, Rg rm, OprCond cond) ->
     sameWidth ins rd rn
     sameWidth ins rd rm
-    floatHead (floatWideType ins rd) ||| (simdNumber ins rm <<< 16)
+    floatHead (floatType ins rd) ||| (simdNumber ins rm <<< 16)
     ||| (condField cond <<< 12) ||| (0b11u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| simdNumber ins rd
   | _ ->
@@ -506,7 +572,7 @@ let private floatCondSelect ins =
 let private floatImmediate ins =
   match ins.Operands with
   | TwoOperands(Rg rd, OprFPImm value) ->
-    floatHead (floatWideType ins rd) ||| (floatImm value <<< 13)
+    floatHead (floatType ins rd) ||| (floatImm value <<< 13)
     ||| (0b100u <<< 10) ||| simdNumber ins rd
   | _ ->
     wrongOperands ins
@@ -524,7 +590,7 @@ let private convertToGeneral rmode opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
     convertWith (if is64Reg rd then 1u else 0u)
-                (floatWideType ins rn)
+                (floatType ins rn)
                 rmode
                 opcode
                 (simdNumber ins rn)
@@ -583,7 +649,7 @@ let private convertFixedToGeneral rmode opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im fbits) ->
     convertFixedWith rd
-                     (floatWideType ins rn)
+                     (floatType ins rn)
                      rmode
                      opcode
                      fbits
@@ -600,6 +666,7 @@ let private checkPaired ins float general =
     match tryScalarWidth float with
     | Some 32 -> not (is64Reg general)
     | Some 64 -> is64Reg general
+    | Some 16 -> true
     | _ -> false
   if paired then () else wrongOperands ins
 
@@ -624,7 +691,7 @@ let private move ins =
     floatOneSource 0b000000u ins
   | TwoOperands(Rg rd, Rg rn) when (tryScalarWidth rd).IsSome ->
     checkPaired ins rd rn
-    convertToFloat floatWideType 0b00u 0b111u ins
+    convertToFloat floatType 0b00u 0b111u ins
   | TwoOperands(Rg rd, Rg rn) when (tryScalarWidth rn).IsSome ->
     checkPaired ins rn rd
     convertToGeneral 0b00u 0b110u ins
@@ -682,6 +749,25 @@ let private multiplyScalar u opcode indexOpcode ins =
   match ins.Operands with
   | ThreeOperands(_, _, Elem _) -> scalarIndexed 0u indexOpcode ins
   | _ -> scalarThreeSame HalfOrWord u opcode ins
+
+/// <summary>
+/// FEAT_RDM's scalar accumulating multiplies: the scalar three same extra
+/// class -- bit 21 clear and bit 15 set -- or, by element, the indexed class
+/// with U set.
+/// </summary>
+let private rdmAccumulateScalar opcode indexOpcode ins =
+  match ins.Operands with
+  | ThreeOperands(_, _, Elem _) ->
+    scalarIndexed 1u indexOpcode ins
+  | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
+    sameWidth ins rd rn
+    sameWidth ins rd rm
+    checkWidth ins HalfOrWord rd
+    let size, d = scalarFields ins rd
+    scalarHead 1u size ||| (simdNumber ins rm <<< 16) ||| (1u <<< 15)
+    ||| (opcode <<< 11) ||| (1u <<< 10) ||| (simdNumber ins rn <<< 5) ||| d
+  | _ ->
+    wrongOperands ins
 
 /// The same, for the ones whose result is twice as wide as what they read.
 let private multiplyLong opcode indexOpcode ins =
@@ -797,6 +883,10 @@ let floatEncoders () =
     Opcode.FRINTP, floatOneSource 0b001001u
     Opcode.FRINTM, floatOneSource 0b001010u
     Opcode.FRINTZ, floatOneSource 0b001011u
+    Opcode.FRINT32Z, floatOneSourceWide 0b010000u
+    Opcode.FRINT32X, floatOneSourceWide 0b010001u
+    Opcode.FRINT64Z, floatOneSourceWide 0b010010u
+    Opcode.FRINT64X, floatOneSourceWide 0b010011u
     Opcode.FRINTA, floatOneSource 0b001100u
     Opcode.FRINTX, floatOneSource 0b001110u
     Opcode.FRINTI, floatOneSource 0b001111u
@@ -821,9 +911,10 @@ let floatEncoders () =
     Opcode.FMOV, move
     Opcode.MOV, moveElement
     Opcode.SCVTF, convert floatType 0u 0u 0b11101u 0b00u 0b010u true
-    Opcode.UCVTF, convert floatWideType 1u 0u 0b11101u 0b00u 0b011u true
-    Opcode.FCVTZS, convert floatWideType 0u 1u 0b11011u 0b11u 0b000u false
-    Opcode.FCVTZU, convert floatWideType 1u 1u 0b11011u 0b11u 0b001u false
+    Opcode.UCVTF, convert floatType 1u 0u 0b11101u 0b00u 0b011u true
+    Opcode.FCVTZS, convert floatType 0u 1u 0b11011u 0b11u 0b000u false
+    Opcode.FJCVTZS, jsConvert
+    Opcode.FCVTZU, convert floatType 1u 1u 0b11011u 0b11u 0b001u false
     Opcode.FCVTNS, convertOrRound 0u 0u 0b11010u 0b00u 0b000u
     Opcode.FCVTNU, convertOrRound 1u 0u 0b11010u 0b00u 0b001u
     Opcode.FCVTAS, convertOrRound 0u 0u 0b11100u 0b00u 0b100u
@@ -838,6 +929,8 @@ let floatEncoders () =
     Opcode.FMULX, multiplyExtended
     Opcode.SQDMULH, multiplyScalar 0u 0b10110u 0b1100u
     Opcode.SQRDMULH, multiplyScalar 1u 0b10110u 0b1101u
+    Opcode.SQRDMLAH, rdmAccumulateScalar 0b0000u 0b1101u
+    Opcode.SQRDMLSH, rdmAccumulateScalar 0b0001u 0b1111u
     Opcode.SQDMLAL, multiplyLong 0b1001u 0b0011u
     Opcode.SQDMLSL, multiplyLong 0b1011u 0b0111u
     Opcode.SQDMULL, multiplyLong 0b1101u 0b1011u

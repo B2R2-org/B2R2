@@ -343,6 +343,7 @@ type OprDesc =
   | OprSPSPImm7 = 309
   | OprSPSPRm = 310
   | OprSregRnT = 311
+  | OprCsync = 312
 
 type OD = OprDesc
 
@@ -376,9 +377,9 @@ module OperandParsingHelper =
       replicate (imm8 <<< 8 |> int64) 16 64<rt> (* imm8:Zeros(8) *)
     | 0b110u ->
       let imm =
-        if cmode0 = 0u && op = 0u
-        then (imm8 <<< 8 |> int64) ||| 0xFL (* Zeros(16):imm8:Ones(8) *)
-        else (imm8 <<< 16 |> int64) ||| 0xFFL (* Zeros(8):imm8:Ones(16) *)
+        if cmode0 = 0u
+        then (imm8 <<< 8 |> int64) ||| 0xFFL (* Zeros(16):imm8:Ones(8) *)
+        else (imm8 <<< 16 |> int64) ||| 0xFFFFL (* Zeros(8):imm8:Ones(16) *)
       replicate (imm |> int64) 32 64<rt>
     | 0b111u ->
       if cmode0 = 0u && op = 0u then
@@ -400,17 +401,15 @@ module OperandParsingHelper =
       elif cmode0 = 1u && op = 0u then
         (* imm32 = imm8<7>:NOT(imm8<6>):Replicate(imm8<6>,5):imm8<5:0>:Zeros(19)
            imm64 = Replicate(imm32, 2) *)
+        let b = pickBit imm8 6 |> int64
         let imm32 =
-          ((pickBit imm8 7 |> int64) <<< 12 |||
-           (~~~(pickBit imm8 6) |> int64) <<< 11 |||
-           (replicate (pickBit imm8 6 |> int64) 1 5<rt>) <<< 6 |||
-           (extract imm8 5 0 |> int64)) <<< 19
+          ((pickBit imm8 7 |> int64) <<< 31)
+          ||| ((b ^^^ 1L) <<< 30)
+          ||| (replicate b 1 5<rt> <<< 25)
+          ||| ((extract imm8 5 0 |> int64) <<< 19)
         replicate imm32 32 64<rt>
-      else (* cmode0 = 1u && op = 1u *)
-        (((pickBit imm8 7 |> int64) <<< 15) |||
-         ((~~~(pickBit imm8 6) |> int64) <<< 14) |||
-         ((replicate (pickBit imm8 6 |> int64) 1 8<rt>) <<< 6) |||
-         (extract imm8 5 0 |> int64)) <<< 48
+      else (* cmode0 = 1u && op = 1u, which AArch32 reserves *)
+        raise ParsingFailureException
     | _ ->
       raise ParsingFailureException
 
@@ -612,6 +611,34 @@ module OperandParsingHelper =
     | _ -> SIMDTypS64
     |> oneDt
 
+  /// The element size a shift by an immediate reads out of L:imm6<5:3>, as
+  /// the I<size> of an instruction that does not care about signedness.
+  let getDTLImmInt bin =
+    match concat (pickBit bin 7) (extract bin 21 19) 3 (* L:imm6<5:3> *) with
+    | 0b0000u -> raise ParsingFailureException
+    | 0b0001u -> SIMDTypI8
+    (* 001x *)
+    | 0b0010u | 0b0011u -> SIMDTypI16
+    (* 01xx *)
+    | 0b0100u | 0b0101u | 0b0110u | 0b0111u -> SIMDTypI32
+    (* 1xxx *)
+    | _ -> SIMDTypI64
+    |> oneDt
+
+  /// The same size as a signed type whatever U says. VQSHLU is encoded with
+  /// U set and reads its operand as signed: its data type is S<size>.
+  let getDTLImmSign bin =
+    match concat (pickBit bin 7) (extract bin 21 19) 3 (* L:imm6<5:3> *) with
+    | 0b0000u -> raise ParsingFailureException
+    | 0b0001u -> SIMDTypS8
+    (* 001x *)
+    | 0b0010u | 0b0011u -> SIMDTypS16
+    (* 01xx *)
+    | 0b0100u | 0b0101u | 0b0110u | 0b0111u -> SIMDTypS32
+    (* 1xxx *)
+    | _ -> SIMDTypS64
+    |> oneDt
+
   let getDTPolyA b =
     (* op:U:size *)
     match (pickBit b 9 <<< 3) + (pickBit b 24 <<< 2) + (extract b 21 20) with
@@ -732,13 +759,23 @@ module OperandParsingHelper =
 
   let getOption n: BarrierOption = n |> int |> LanguagePrimitives.EnumOfValue
 
+  (* The count can be zero, which is UNPREDICTABLE, so the list is built by
+     counting up to it: a range ending at fReg + rNum - 1 wraps round when both
+     are zero. A list that runs past the last register is UNPREDICTABLE too,
+     but it names registers that do not exist, so no build reads it. *)
   let getDRegList fReg rNum = (* fReg: First Register, rNum: Number of regs *)
-    List.map (fun r -> r |> getVecDReg) [ fReg .. fReg + rNum - 1u ]
-    |> OprRegList
+    if fReg + rNum > 32u then
+      raise ParsingFailureException
+    else
+      List.init (int rNum) (fun i -> getVecDReg (fReg + uint32 i))
+      |> OprRegList
 
   let getSRegList fReg rNum =
-    List.map (fun r -> r |> getVecSReg) [ fReg .. fReg + rNum - 1u ]
-    |> OprRegList
+    if fReg + rNum > 32u then
+      raise ParsingFailureException
+    else
+      List.init (int rNum) (fun i -> getVecSReg (fReg + uint32 i))
+      |> OprRegList
 
   let toMemAlign rn align = function
     | R.PC -> memOffsetAlign (rn, align, None)
@@ -825,7 +862,7 @@ module OperandParsingHelper =
       | 0b0000u ->
         raise ParsingFailureException
       | 0b0001u ->
-        if isSign then SIMDTypS8 else SIMDTypU16
+        if isSign then SIMDTypS8 else SIMDTypU8
       | 0b0010u | 0b0011u ->
         if isSign then SIMDTypS16 else SIMDTypU16
       | 0b0100u | 0b0101u | 0b0110u | 0b0111u ->
@@ -1024,6 +1061,12 @@ and internal ParsingHelper(arch,
 type internal OprNo() =
   inherit OperandParser()
   override _.Render _ = struct (NoOperand, false, None, 0<rt>)
+
+(* CSYNC *)
+type internal OprCsync() =
+  inherit OperandParser()
+  override _.Render _ =
+    struct (OneOperand(OprHintOpt CSYNC), false, None, 0<rt>)
 
 (* <Rn>{!} *)
 type internal OprRn() =
@@ -1289,7 +1332,9 @@ type internal OprRdSregA() =
 type internal OprSregRnA() =
   inherit OperandParser()
   override _.Render bin =
-    let struct (sreg, flag) = getCPSR (extract bin 19 16)
+    let mask = extract bin 19 16
+    let struct (sreg, flag) =
+      if pickBit bin 22 = 0u then getCPSR mask else getSPSR mask
     let rn = extract bin 3 0 |> getRegister |> OprReg
     struct (TwoOperands(OprSpecReg(sreg, flag), rn), false, None, 32<rt>)
 
@@ -1785,7 +1830,7 @@ type internal OprQdImmF32A() =
     let qd = (* D:Vd *)
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
     let imm = advSIMDExpandImm bin (pickBit bin 24) |> int64
-    let imm = imm &&& 0xFFFFFFL |> OprImm
+    let imm = imm &&& 0xFFFFFFFFL |> OprImm (* F32 *)
     struct (TwoOperands(qd, imm), false, None, 128<rt>)
 
 (* <Sd>, #<imm> *)
@@ -1839,7 +1884,9 @@ type internal OprRdImm16A() =
 type internal OprSregImm() =
   inherit OperandParser()
   override _.Render bin =
-    let struct (sreg, flag) = getCPSR (extract bin 19 16)
+    let mask = extract bin 19 16
+    let struct (sreg, flag) =
+      if pickBit bin 22 = 0u then getCPSR mask else getSPSR mask
     let imm = expandImmediate bin |> int64 |> OprImm
     struct (TwoOperands(OprSpecReg(sreg, flag), imm), false, None, 32<rt>)
 
@@ -1916,8 +1963,14 @@ type internal OprRtLabelHL() =
   inherit OperandParser()
   override _.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
-    let label = (* imm4H:imm4L *)
-      concat (extract bin 11 8) (extract bin 3 0) 4 |> int64 |> memLabel
+    let imm = (* imm4H:imm4L *)
+      concat (extract bin 11 8) (extract bin 3 0) 4 |> int64
+    (* add = (U == '1'). The word form one screen up already does this;
+       the imm4H:imm4L parsers did not, so every backward literal-pool
+       reference was read forward. Forward references are the common case
+       in compiled code, which is why it survived. *)
+    let label = if pickBit bin 23 = 1u then memLabel imm
+                else memLabel (imm * -1L)
     struct (TwoOperands(rt, label), wback bin, None, 32<rt>)
 
 (* <Rn>{!}, <registers> *)
@@ -1971,6 +2024,13 @@ type internal OprListMem() =
       | 0b1010u -> [ d; d + 1u ]
       | 0b0110u -> [ d; d + 1u; d + 2u ]
       | 0b0010u -> [ d; d + 1u; d + 2u; d + 3u ]
+      (* VLD2 and VST2: a pair spaced one or two apart, or two pairs *)
+      | 0b1000u -> [ d; d + 1u ]
+      | 0b1001u -> [ d; d + 2u ]
+      | 0b0011u -> [ d; d + 1u; d + 2u; d + 3u ]
+      (* VLD3 and VST3: three spaced one or two apart *)
+      | 0b0100u -> [ d; d + 1u; d + 2u ]
+      | 0b0101u -> [ d; d + 2u; d + 4u ]
       | _ -> raise ParsingFailureException
       |> List.map getVecDReg |> getSIMDVector
     let mem =
@@ -2096,7 +2156,8 @@ type internal OprListMemA() =
       (* 11 *)
       | _ -> undefined ()
       |> uint8 |> Some
-    let list = getSIMDScalar idx [ getVecDReg (extract bin 15 12) (* Rd *) ]
+    let d = concat (pickBit bin 22) (extract bin 15 12) 4 (* D:Vd *)
+    let list = getSIMDScalar idx [ getVecDReg d ]
     let mem =
       let rn = extract bin 19 16 |> getRegister
       let rm = extract bin 3 0 |> getRegister
@@ -2931,8 +2992,14 @@ type internal OprRtRt2LabelA() =
   override _.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
     let rt2 = extract bin 15 12 + 1u |> getRegister |> OprReg
-    let label = (* imm4H:imm4L *)
-      concat (extract bin 11 8) (extract bin 3 0) 4 |> int64 |> memLabel
+    let imm = (* imm4H:imm4L *)
+      concat (extract bin 11 8) (extract bin 3 0) 4 |> int64
+    (* add = (U == '1'). The word form one screen up already does this;
+       the imm4H:imm4L parsers did not, so every backward literal-pool
+       reference was read forward. Forward references are the common case
+       in compiled code, which is why it survived. *)
+    let label = if pickBit bin 23 = 1u then memLabel imm
+                else memLabel (imm * -1L)
     struct (ThreeOperands(rt, rt2, label), false, None, 32<rt>)
 
 (* p14, c5, <label> *)
@@ -3809,7 +3876,9 @@ type internal OprRnRegsW() =
 type internal OprSregRnT() =
   inherit OperandParser()
   override _.Render bin =
-    let struct (sreg, flag) = getCPSR (extract bin 11 8) (* mask *)
+    let mask = extract bin 11 8
+    let struct (sreg, flag) =
+      if pickBit bin 20 = 0u then getCPSR mask else getSPSR mask
     let rn = extract bin 19 16 |> getRegister |> OprReg
     struct (TwoOperands(OprSpecReg(sreg, flag), rn), false, None, 32<rt>)
 

@@ -43,6 +43,26 @@ type ISATests() =
       "aarch32t", Architecture.ARMv8, Endian.Little, ARM32Mode.Thumb
       "aarch32tbe", Architecture.ARMv8, Endian.Big, ARM32Mode.Thumb ]
 
+  /// Every AArch64 ISA naming a version, and what it means. The version is
+  /// part of what an ARM ISA reads -- each adds encodings the ones below it
+  /// leave UNDEFINED -- and the extensions add what the version leaves
+  /// OPTIONAL.
+  static let aarch64Versions =
+    [ "aarch64-v8", ARMArchVersion.V8, AArch64Extension.None
+      "aarch64-v8.1", ARMArchVersion.V8_1, AArch64Extension.None
+      "aarch64-v8.2+sha3", ARMArchVersion.V8_2, AArch64Extension.SHA3
+      "aarch64be-v8.3+pauth", ARMArchVersion.V8_3, AArch64Extension.PAuth
+      "aarch64-v8.6+memtag", ARMArchVersion.V8_6, AArch64Extension.MemTag
+      "aarch64-v8.2+ssbs", ARMArchVersion.V8_2, AArch64Extension.SSBS
+      "aarch64-v8.2+profile", ARMArchVersion.V8_2, AArch64Extension.SPE ]
+
+  /// Every ARMv7 ISA naming a version, and what it means.
+  static let armv7Versions =
+    [ "armv7-v7", ARMArchVersion.V7, ARMv7Extension.None
+      "armv7be-v7ve+simd", ARMArchVersion.V7VE, ARMv7Extension.SIMD
+      "thumb-v7+vfpv4", ARMArchVersion.V7, ARMv7Extension.VFPv4
+      "thumbbe-v7ve", ARMArchVersion.V7VE, ARMv7Extension.None ]
+
   /// Every member of the 68000 family and the name it goes by. Which member an
   /// m68k ISA means is part of what it is, because the family shares one
   /// encoding space and a later member reads encodings an earlier one does not.
@@ -53,6 +73,35 @@ type ISATests() =
       "m68030", M68KModel.M68030
       "m68040", M68KModel.M68040
       "m68060", M68KModel.M68060 ]
+
+  /// Every Release 6 MIPS ISA and the name it goes by. Which release a
+  /// MIPS ISA means is part of what it is, because Release 6 reassigned
+  /// primary opcodes that the earlier releases had given to other
+  /// instructions.
+  static let mipsR6 =
+    [ "mips32r6le", Endian.Little, WordSize.Bit32
+      "mips32r6", Endian.Big, WordSize.Bit32
+      "mips64r6le", Endian.Little, WordSize.Bit64
+      "mips64r6be", Endian.Big, WordSize.Bit64 ]
+
+  /// Every compressed MIPS encoding and the name it goes by. Which encoding a
+  /// MIPS ISA is read in is part of what it is for the same reason the
+  /// release is: the three have separate opcode maps, so a name that does not
+  /// say which one it means names an ISA that reads a different instruction
+  /// set. MIPS16e has no Release 6 spelling because Release 6 removed it.
+  static let mipsCompressed =
+    [ "micromips32le", Endian.Little, WordSize.Bit32, MIPSISAMode.MicroMIPS
+      "micromips32", Endian.Big, WordSize.Bit32, MIPSISAMode.MicroMIPS
+      "micromips64le", Endian.Little, WordSize.Bit64, MIPSISAMode.MicroMIPS
+      "micromips64", Endian.Big, WordSize.Bit64, MIPSISAMode.MicroMIPS
+      "micromips32r6le", Endian.Little, WordSize.Bit32, MIPSISAMode.MicroMIPS
+      "micromips32r6", Endian.Big, WordSize.Bit32, MIPSISAMode.MicroMIPS
+      "micromips64r6le", Endian.Little, WordSize.Bit64, MIPSISAMode.MicroMIPS
+      "micromips64r6", Endian.Big, WordSize.Bit64, MIPSISAMode.MicroMIPS
+      "mips16le", Endian.Little, WordSize.Bit32, MIPSISAMode.MIPS16
+      "mips16", Endian.Big, WordSize.Bit32, MIPSISAMode.MIPS16
+      "mips16-64le", Endian.Little, WordSize.Bit64, MIPSISAMode.MIPS16
+      "mips16-64", Endian.Big, WordSize.Bit64, MIPSISAMode.MIPS16 ]
 
   [<TestMethod>]
   member _.``An ARM32 name says which instruction set it means``() =
@@ -80,6 +129,80 @@ type ISATests() =
     for name, others in aliases do
       for other in others do
         Assert.AreEqual<string>(name, (ISA other).ToString(), other)
+
+  [<TestMethod>]
+  member _.``An AArch64 name says which version it means``() =
+    for name, version, extensions in aarch64Versions do
+      let isa = ISA name
+      Assert.AreEqual<Architecture>(Architecture.ARMv8, isa.Arch, name)
+      Assert.AreEqual<ARMArchVersion>(version, isa.ARMArchVersion, name)
+      Assert.AreEqual<AArch64Extension>(extensions, isa.AArch64Extensions, name)
+
+  [<TestMethod>]
+  member _.``An ARMv7 name says which version it means``() =
+    for name, version, extensions in armv7Versions do
+      let isa = ISA name
+      Assert.AreEqual<Architecture>(Architecture.ARMv7, isa.Arch, name)
+      Assert.AreEqual<ARMArchVersion>(version, isa.ARMArchVersion, name)
+      Assert.AreEqual<ARMv7Extension>(extensions, isa.ARMv7Extensions, name)
+
+  /// Extensions follow one another, and print back in the order the table of
+  /// them keeps.
+  [<TestMethod>]
+  member _.``An ARM name can carry several extensions``() =
+    let aarch64 = ISA "aarch64-v8.2+sha3+fp16fml"
+    let armv7 = ISA "thumb-v7+fp+vfpv4"
+    let both = AArch64Extension.SHA3 ||| AArch64Extension.FP16FML
+    let two = ARMv7Extension.FP ||| ARMv7Extension.VFPv4
+    Assert.AreEqual<AArch64Extension>(both, aarch64.AArch64Extensions)
+    Assert.AreEqual<ARMv7Extension>(two, armv7.ARMv7Extensions)
+    Assert.AreEqual<string>("aarch64-v8.2+sha3+fp16fml", aarch64.ToString())
+    Assert.AreEqual<string>("thumb-v7+fp+vfpv4", armv7.ToString())
+
+  [<TestMethod>]
+  member _.``An ARM ISA with a version prints as the name it is read from``() =
+    let names =
+      [ for name, _, _ in aarch64Versions -> name ]
+      @ [ for name, _, _ in armv7Versions -> name ]
+    for name in names do
+      Assert.AreEqual<string>(name, (ISA name).ToString(), name)
+
+  /// GCC's -march names are what a build names its target with, so they are
+  /// read as the little-endian base of their architecture.
+  [<TestMethod>]
+  member _.``GCC's spelling of an ARM version means the same ISA``() =
+    let spellings =
+      [ "armv8.2-a+fp16", "aarch64-v8.2+fp16"
+        "armv8-a+crypto", "aarch64-v8+aes+sha2"
+        "armv8.5-a+memtag", "aarch64-v8.5+memtag"
+        "armv7ve", "armv7-v7ve"
+        "armv7-a+mp", "armv7-v7+mp" ]
+    for gcc, name in spellings do
+      Assert.AreEqual<string>(name, (ISA gcc).ToString(), gcc)
+
+  [<TestMethod>]
+  member _.``A Thumb ISA naming a version still reads Thumb``() =
+    Assert.AreEqual<ARM32Mode>(ARM32Mode.Thumb, (ISA "thumb-v7ve").ARM32Mode)
+    Assert.AreEqual<ARM32Mode>(ARM32Mode.ARM, (ISA "armv7-v7ve").ARM32Mode)
+
+  [<TestMethod>]
+  member _.``An ARM ISA naming no version reads every encoding``() =
+    for name in [ "aarch64"; "aarch64be"; "armv7"; "thumb" ] do
+      let version = (ISA name).ARMArchVersion
+      Assert.AreEqual<ARMArchVersion>(ARMArchVersion.Any, version, name)
+
+  /// A name whose version belongs to the other architecture, or whose
+  /// extension is not one, names no ISA rather than a guess at one.
+  [<TestMethod>]
+  member _.``An ARM name with a wrong version or extension is refused``() =
+    let wrongNames =
+      [ "aarch64-v7"
+        "armv7-v8.1"
+        "aarch64-v8.2+foo"
+        "armv7-v7+pauth" ]
+    for name in wrongNames do
+      Assert.ThrowsExactly<InvalidISAException>(fun () -> ISA name |> ignore)
+      |> ignore
 
   [<TestMethod>]
   member _.``An m68k name says which member of the family it means``() =
@@ -169,6 +292,105 @@ type ISATests() =
       Assert.AreEqual<Endian>(Endian.Little, isa.Endian)
       Assert.AreEqual<WordSize>(WordSize.Bit64, isa.WordSize)
       Assert.AreEqual<string>("cil", isa.ToString())
+
+  [<TestMethod>]
+  member _.``A MIPS name says which release it means``() =
+    for name, endian, wordSize in mipsR6 do
+      let isa = ISA name
+      Assert.AreEqual<Architecture>(Architecture.MIPS, isa.Arch, name)
+      Assert.AreEqual<Endian>(endian, isa.Endian, name)
+      Assert.AreEqual<WordSize>(wordSize, isa.WordSize, name)
+      Assert.AreEqual<MIPSRelease>(MIPSRelease.R6, isa.MIPSRelease, name)
+
+  [<TestMethod>]
+  member _.``A Release 6 ISA prints as the name it is read from``() =
+    for name, _, _ in mipsR6 do
+      Assert.AreEqual<string>(name, (ISA name).ToString(), name)
+
+  [<TestMethod>]
+  member _.``The names of one Release 6 ISA all mean it``() =
+    let aliases =
+      [ "mips32r6le", [ "mipsr6el"; "mips32r6el" ]
+        "mips32r6", [ "mips32r6be" ]
+        "mips64r6le", [ "mips64r6"; "mips64r6el" ] ]
+    for name, others in aliases do
+      for other in others do
+        Assert.AreEqual<string>(name, (ISA other).ToString(), other)
+
+  [<TestMethod>]
+  member _.``A MIPS name says which encoding it means``() =
+    for name, endian, wordSize, mode in mipsCompressed do
+      let isa = ISA name
+      Assert.AreEqual<Architecture>(Architecture.MIPS, isa.Arch, name)
+      Assert.AreEqual<Endian>(endian, isa.Endian, name)
+      Assert.AreEqual<WordSize>(wordSize, isa.WordSize, name)
+      Assert.AreEqual<MIPSISAMode>(mode, isa.MIPSISAMode, name)
+
+  [<TestMethod>]
+  member _.``A compressed ISA prints as the name it is read from``() =
+    for name, _, _, _ in mipsCompressed do
+      Assert.AreEqual<string>(name, (ISA name).ToString(), name)
+
+  /// <summary>
+  /// The encoding and the release are separate fields of the same word, so a
+  /// name that says both has to come back with both.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A compressed name carries the release as well``() =
+    let r6 =
+      [ "micromips32r6le"
+        "micromips32r6"
+        "micromips64r6le"
+        "micromips64r6" ]
+    let preR6 = [ "micromips32le"; "micromips32"; "mips16"; "mips16-64le" ]
+    for name in r6 do
+      Assert.AreEqual<MIPSRelease>(MIPSRelease.R6, (ISA name).MIPSRelease, name)
+    for name in preR6 do
+      let release = (ISA name).MIPSRelease
+      Assert.AreEqual<MIPSRelease>(MIPSRelease.PreR6, release, name)
+
+  /// The names of one compressed ISA all mean it.
+  [<TestMethod>]
+  member _.``The names of one compressed ISA all mean it``() =
+    let aliases =
+      [ "micromips32le", [ "micromipsel" ]
+        "micromips32", [ "micromips"; "micromips32be" ]
+        "micromips64le", [ "micromips64el" ]
+        "micromips64", [ "micromips64be" ]
+        "micromips32r6le", [ "micromipsr6el" ]
+        "micromips32r6", [ "micromips32r6be" ]
+        "micromips64r6le", [ "micromips64r6el" ]
+        "micromips64r6", [ "micromips64r6be" ]
+        "mips16le", [ "mips16el" ]
+        "mips16", [ "mips16be" ]
+        "mips16-64le", [ "mips16-64el" ]
+        "mips16-64", [ "mips16-64be" ] ]
+    for name, others in aliases do
+      for other in others do
+        Assert.AreEqual<string>(name, (ISA other).ToString(), other)
+
+  /// <summary>
+  /// A big-endian MIPS64 prints as a name that means a big-endian MIPS64.
+  ///
+  /// It printed as "mips64", which the table reads as the LITTLE-endian one,
+  /// so the one ISA in this family did not survive being written down and
+  /// read back. The Release 6 arm beside it never had the fault.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A big-endian MIPS64 survives a round trip``() =
+    for name in [ "mips64be"; "mips64"; "mips64le"; "mips32"; "mips32le" ] do
+      let isa = ISA name
+      let back = ISA(isa.ToString())
+      Assert.AreEqual<Endian>(isa.Endian, back.Endian, name)
+      Assert.AreEqual<WordSize>(isa.WordSize, back.WordSize, name)
+
+  /// A MIPS name that does not say a release means the releases that
+  /// share one encoding space, which is every release up to 5.
+  [<TestMethod>]
+  member _.``A MIPS name without a release is not Release 6``() =
+    for name in [ "mipsel"; "mips32"; "mips64"; "mips64be" ] do
+      let release = (ISA name).MIPSRelease
+      Assert.AreEqual<MIPSRelease>(MIPSRelease.PreR6, release, name)
 
   /// The flags an ISA carries mean whatever the architecture they belong to
   /// says they mean, so an architecture that has nothing to say there is read

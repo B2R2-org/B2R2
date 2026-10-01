@@ -221,7 +221,7 @@ let opCodeToString = function
   | Op.SHA1SU0 -> "sha1su0"
   | Op.SHA1SU1 -> "sha1su1"
   | Op.SHA256H -> "sha256h"
-  | Op.SHA256H2 -> "sha256h2 "
+  | Op.SHA256H2 -> "sha256h2"
   | Op.SHA256SU0 -> "sha256su0"
   | Op.SHA256SU1 -> "sha256su1"
   | Op.SHADD16 -> "shadd16"
@@ -750,6 +750,9 @@ let shiftToString shift delim builder =
   match shift with
   | _, Imm 0u ->
     ()
+  | ShiftOp.RRX, _ ->
+    prependDelimiter delim builder
+    builder.Accumulate(AsmWordKind.String, srTypeToString ShiftOp.RRX)
   | s, Imm i ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.String, srTypeToString s)
@@ -829,7 +832,11 @@ let processAddrExn32 (ins: Instruction) addr =
   match ins.Opcode with
   | Op.CBZ | Op.CBNZ
   | Op.B | Op.BX -> pc
-  | Op.BL | Op.BLX -> ParseUtils.align pc 4UL
+  (* BL aligns only when its target is ARM state, which from Thumb is BLX.
+     A Thumb BL targets Thumb, so it takes the unaligned PC like the B and
+     CBZ lines above it. In ARM state the align is a no-op either way. *)
+  | Op.BL -> if ins.IsThumb then pc else ParseUtils.align pc 4UL
+  | Op.BLX -> ParseUtils.align pc 4UL
   | Op.ADR -> ParseUtils.align pc 4UL
   | Op.LDR | Op.LDRB | Op.LDRD | Op.LDRH | Op.LDRSB | Op.LDRSH | Op.PLD
   | Op.PLDW | Op.PLI | Op.VLDR -> ParseUtils.align pc 4UL
@@ -906,6 +913,9 @@ let endToString endian =
   | Endian.Big -> "be"
   | _ -> invalidArg (nameof endian) "Invalid endian is given."
 
+let hintOptToString = function
+  | CSYNC -> "csync"
+
 let oprToString ins addr operand delim builder =
   match operand with
   | OprReg reg ->
@@ -946,6 +956,9 @@ let oprToString ins addr operand delim builder =
   | OprCond c ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.String, condToString c)
+  | OprHintOpt opt ->
+    prependDelimiter delim builder
+    builder.Accumulate(AsmWordKind.String, hintOptToString opt)
   | GoToLabel _ ->
     ()
 

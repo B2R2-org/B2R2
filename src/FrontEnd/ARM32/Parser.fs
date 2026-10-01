@@ -38,6 +38,18 @@ module private Parser =
   let parseThumb span phlp (itstate: byref<byte list>) =
     ThumbParser.parse span phlp &itstate
 
+  /// The bits of an instruction read as one word: an A32 word as it is, and a
+  /// 32-bit T32 one with its first halfword on top.
+  let wordOf (span: ByteSpan) (phlp: ParsingHelper) (ins: Instruction) =
+    let reader = phlp.BinReader
+    if not ins.IsThumb then
+      reader.ReadUInt32(span, 0)
+    elif ins.Length = 4u then
+      (uint32 (reader.ReadUInt16(span, 0)) <<< 16)
+      ||| uint32 (reader.ReadUInt16(span, 2))
+    else
+      uint32 (reader.ReadUInt16(span, 0))
+
   /// One ITAdvance step: shifts IT[4:0] left, returning 0 once the block ends
   /// (IT[2:0] = 0 marks the last instruction).
   let itAdvance (st: byte) =
@@ -388,7 +400,8 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
        OprSingleRegsT() :> OperandParser
        OprSPSPImm7() :> OperandParser
        OprSPSPRm() :> OperandParser
-       OprSregRnT() :> OperandParser |]
+       OprSregRnT() :> OperandParser
+       OprCsync() :> OperandParser |]
 
   let mutable isThumb: bool = isThumb
 
@@ -416,8 +429,11 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
       try
         phlp.IsThumb <- isThumb
         phlp.InsAddr <- addr
-        if isThumb then Parser.parseThumb span phlp &itstate :> IInstruction
-        else Parser.parseARM span phlp :> IInstruction
+        let ins =
+          if isThumb then Parser.parseThumb span phlp &itstate
+          else Parser.parseARM span phlp
+        let bin = Parser.wordOf span phlp ins
+        Features.check isa bin ins lifter :> IInstruction
       with e when not (Terminator.isCritical e) ->
         raise ParsingFailureException
 

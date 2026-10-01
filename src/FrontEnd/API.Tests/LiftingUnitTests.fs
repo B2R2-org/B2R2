@@ -92,8 +92,8 @@ type LiftingUnitTests() =
   /// sample can be replaced if that dispatch is rewritten.
   static let undecodable =
     [| Architecture.Intel, "c57da606b4c0d483"      (* Intel/ParsingFunctions *)
-       Architecture.ARMv8, "523f5f4ecc7d4906"      (* ARM64/ParsingMain *)
-       Architecture.ARMv8, "da2310d58e8c42b9"      (* ARM64/OperandHelper *)
+       Architecture.ARMv8, "520f5f6ecc7d4906"      (* ARM64/ParsingMain *)
+       Architecture.ARMv8, "df4000d58e8c42b9"      (* ARM64/OperandHelper *)
        Architecture.ARMv8, "077f1cf2f69240e8"      (* ARM64/Utils *)
        Architecture.SPARC, "3e775fa20b35409b"      (* SPARC/ParsingMain *)
        Architecture.SH4, "31004ec52ee90c4e"        (* SH4/ParsingMain *)
@@ -104,13 +104,15 @@ type LiftingUnitTests() =
   static let parsableArchs = alignments |> Array.map fst
 
   /// Instructions whose IR nobody has written yet, with the mnemonic each one
-  /// decodes to. Found by fuzzing; a sample stops serving once that instruction
-  /// is implemented, which is the point of the list.
+  /// decodes to. A sample stops serving once that instruction is implemented,
+  /// which is the point of the list, so each is taken from a corner that stays
+  /// unwritten longest -- the privileged forms and the newest vector
+  /// extensions.
   static let unlifted =
-    [| Architecture.ARMv7, "730806b7", "smlsdx"
-       Architecture.ARMv7, "50ef2ba1", "qsub"
-       Architecture.ARMv8, "c0dddb48", "ldarh"
-       Architecture.ARMv8, "bdd94e0f", "sqrdmulh"
+    [| Architecture.ARMv7, "000201f1", "setend"
+       Architecture.ARMv7, "10056df9", "srsdb"
+       Architecture.ARMv8, "207e0bd5", "dccivac"
+       Architecture.ARMv8, "e003bfd6", "drps"
        Architecture.Intel, "c4e27fccc1", "vsha512msg1"
        Architecture.Intel, "c4e26edac1", "vsm4key4" |]
 
@@ -377,3 +379,23 @@ type LiftingUnitTests() =
     x86Unit.IsThumb <- true
     Assert.AreEqual<bool>(false, x86Unit.IsThumb)
     Assert.AreEqual<int>(1, x86Unit.InstructionAlignment)
+
+  (* BE8, which every big-endian ARM build since ARMv6 is, byte-swaps data and
+     leaves instruction words little-endian, and AArch64 always fetches
+     little-endian. A file's reader carries its data endianness, which is
+     therefore not what instruction fetch reads with: the entry word of a BE8
+     image used to be read reversed and decode to nothing. The hex below is
+     memory order, so "0d00a0e1" is the word e1a0000d. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] ARM instruction fetch stays little-endian``() =
+    let cases =
+      [| Architecture.ARMv7, "0d00a0e1", "mov r0, sp"
+         Architecture.ARMv8, "1f2003d5", "nop" |]
+    for arch, hex, expected in cases do
+      let code = ByteArray.ofHexString hex
+      let disasmOf (endian: Endian) =
+        let isa = ISA(arch, endian)
+        let unit = BinHandle.LoadRawImage(code, isa).NewLiftingUnit()
+        unit.DisasmInstruction(addr = 0UL)
+      Assert.AreEqual<string>(expected, disasmOf Endian.Little)
+      Assert.AreEqual<string>(expected, disasmOf Endian.Big)

@@ -48,6 +48,11 @@ and Operand =
   | OprMemory of AddressingMode
   | OprOption of BarrierOperation
   | OprPstate of Pstate
+  (* a system register with no name here, by its encoding: the sixteen bits
+     MRS and MSR carry at 20:5, op0:op1:CRn:CRm:op2 with op0's top bit set *)
+  | OprSysReg of uint32
+  (* the word after a hint that takes one *)
+  | OprHintOpt of HintOption
   | OprPrfOp of PrefetchOperation
   | OprCond of Condition
   | OprFbits of uint8  (* fractional bits *)
@@ -75,8 +80,10 @@ and SIMDVector =
   | VecH
   | VecS
   | VecD
+  | FourB
   | EightB
   | SixteenB
+  | TwoH
   | FourH
   | EightH
   | TwoS
@@ -180,6 +187,23 @@ and Pstate =
   | SPSEL
   | DAIFSET
   | DAIFCLR
+  | UAO
+  | PAN
+  | SSBS
+  | DIT
+  | TCO
+
+/// Represents the word a hint is written with when it takes one: the branches
+/// BTI admits, or the CSYNC of PSB and TSB.
+and HintOption =
+  /// BTI c, for calls and for jumps through X16 and X17.
+  | BTIC
+  /// BTI j, for jumps.
+  | BTIJ
+  /// BTI jc, for both.
+  | BTIJC
+  /// PSB CSYNC and TSB CSYNC.
+  | CSYNC
 
 /// Represents prefetch operations used for memory hint instructions.
 and PrefetchOperation =

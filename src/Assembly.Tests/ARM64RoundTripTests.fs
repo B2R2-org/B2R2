@@ -375,7 +375,23 @@ type ARM64RoundTripTests() =
       "wfi"
       "sev"
       "sevl"
-      "hint #0x7"
+      (* #0x7 used to sit here; it is XPACLRI now, and so are twelve of the
+         other hint numbers, so the one left standing for a plain hint is
+         #0x6. The named forms are listed below it. *)
+      "hint #0x6"
+      "xpaclri"
+      "paciaz"
+      "paciasp"
+      "pacibz"
+      "pacibsp"
+      "autiaz"
+      "autiasp"
+      "autibz"
+      "autibsp"
+      "pacia1716"
+      "pacib1716"
+      "autia1716"
+      "autib1716"
       "clrex #0x5"
       "dsb sy"
       "dmb ish"
@@ -387,6 +403,27 @@ type ARM64RoundTripTests() =
       "msr nzcv, x0"
       "msr spsel, #0x1"
       "msr daifset, #0x3"
+      "msr daifclr, #0xf"
+      "msr pan, #0x1"
+      "msr uao, #0x0"
+      "msr dit, #0x1"
+      "msr ssbs, #0x1"
+      "msr tco, #0x0"
+      "mrs x0, pan"
+      "mrs x2, dit"
+      "msr spsel, x1"
+      "msr tco, x3"
+      "mrs x0, s3_0_c15_c2_0"
+      "msr s3_7_c15_c0_0, x1"
+      "mrs x5, s2_3_c1_c4_7"
+      "bti"
+      "bti c"
+      "bti j"
+      "bti jc"
+      "esb"
+      "psb csync"
+      "tsb csync"
+      "csdb"
       "sys #0x0, c8, c3, #0x1, x0"
       "sysl x0, #0x3, c7, c4, #0x1"
       "ret"
@@ -961,6 +998,36 @@ type ARM64RoundTripTests() =
       "ldrsw x0, L", "ldrsw x0,"
       "prfm pldl1keep, L", "prfm pldl1keep," ]
 
+  /// <summary>
+  /// The shapes the sweep above cannot reach, written out.
+  ///
+  /// The sweep walks the encoding space from fixed payloads, so a form whose
+  /// fields it never lands on is not covered however complete the rule is:
+  /// SETF8 and SETF16 pin every bit outside the register they name, and the
+  /// sweep's payloads never set that combination. Each of these decodes to
+  /// the text beside it under objdump as well.
+  /// </summary>
+  static let unreachedByTheSweep =
+    [ "setf8 w3"
+      "setf16 w7"
+      "irg x0, x1"
+      "irg x0, x1, x2"
+      "gmi x0, x1, x2"
+      "bfcvt h0, s1"
+      "ldg x0, [x1, #0x10]"
+      "stg x0, [x1, #0x20]!"
+      "stg x0, [x1], #0x20"
+      "st2g x0, [x1, #0x10]!"
+      "stzg x0, [x1], #0x10"
+      "stz2g x0, [x1, #0x10]"
+      "stgp x0, x1, [x2, #0x10]"
+      "stgp x0, x1, [x2, #0x10]!"
+      "stgp x0, x1, [x2], #0x10"
+      "sdot v0.4s, v1.16b, v2.16b"
+      "sdot v0.2s, v1.8b, v2.8b"
+      "udot v0.4s, v1.16b, v2.16b"
+      "usdot v0.4s, v1.16b, v2.16b" ]
+
   [<TestMethod>]
   [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
@@ -1112,4 +1179,13 @@ type ARM64RoundTripTests() =
       "",
       String.concat "\n" wrong,
       "These branches no longer reach the instruction their label marks."
+    )
+
+  [<TestMethod>]
+  member _.``Every shape the sweep cannot reach encodes correctly``() =
+    let wrong = brokenSources unreachedByTheSweep
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" wrong,
+      "These shapes decode but do not encode back to the same word."
     )

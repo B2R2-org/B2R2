@@ -654,7 +654,14 @@ let memU addr size value = memUWithPriv addr size value
 
 /// Value stored when an ARM instruction stores the R.PC, on page A2-47.
 /// function : PCStoreValue()
-let pcStoreValue bld = getPC bld
+///
+/// A2-47 is explicit that it "returns the address of the current instruction
+/// plus 8". R.PC here holds the instruction's own address -- the +8 is added
+/// by convertPCOpr wherever the PC is read as a data operand -- so returning
+/// it unchanged made STR PC, PUSH {..,pc} and STM with PC in the list store a
+/// value eight bytes low. All three are deprecated, which is why nothing else
+/// in the suite reaches them.
+let pcStoreValue bld = getPC bld .+ numI32 8 32<rt>
 
 /// Returns TRUE in Secure state or if no Security Extensions, on page B1-1157.
 /// function : IsSecure()
@@ -732,3 +739,33 @@ let writeModeBits bld value isExcptReturn =
   append bld {
     regVar bld R.CPSR := disablePSRBits bld R.CPSR PSR.M .| mValue
   }
+
+/// <summary>
+/// A fused multiply-add: <c>x * y + z</c> with a SINGLE rounding.
+///
+/// It is one operation and not a multiply followed by an add. The product is
+/// kept exact and rounded once with the sum, where a multiply and an add
+/// round twice, and the two answers differ whenever the product is not
+/// exactly representable -- by a unit in the last place usually, and by far
+/// more where the addition cancels. This architecture carries both a fused
+/// and an unfused multiply-add, so it is telling the two apart, and writing
+/// the fused one as the unfused pair lifts the wrong instruction.
+///
+/// It goes out as a named call because that is what the IR already offers for
+/// an operation of three arguments. The negations ride along as a flag rather
+/// than being applied to the operands: a negation flips a sign bit, and
+/// flipping a NaN operand's sign before the operation would change which NaN
+/// the answer carries. Bit 0 of the flag negates the product and bit 1 the
+/// addend.
+/// </summary>
+let fma sz negProduct negAddend x y z =
+  let prodBit = if negProduct then 1UL else 0UL
+  let addBit = if negAddend then 2UL else 0UL
+  let args = [ x; y; z; numU64 (prodBit ||| addBit) 8<rt> ]
+  let name =
+    match sz with
+    | 16<rt> -> "FMA16"
+    | 32<rt> -> "FMA32"
+    | 64<rt> -> "FMA64"
+    | _ -> raise InvalidRegTypeException
+  AST.app name args sz

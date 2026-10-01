@@ -113,6 +113,12 @@ type ParserTests() =
     let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL)
     Assert.AreEqual<string>(expected, ins.Disasm())
 
+  /// A word the decoder must refuse, being no instruction at all.
+  let testRefused (byteString: string) =
+    let bytes = ByteArray.ofHexString byteString
+    let parse () = parser.Parse(bytes, 0UL) |> ignore
+    Assert.ThrowsExactly<ParsingFailureException>(fun () -> parse ()) |> ignore
+
   let operandsFromArray oprList =
     let oprs = Array.ofList oprList
     match oprs.Length with
@@ -127,6 +133,28 @@ type ParserTests() =
   let ( ** ) opcode oprList = opcode, operandsFromArray oprList
 
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
+
+  /// The disassembly of a word under the ISA a name gives, or nothing where
+  /// that ISA leaves the word UNDEFINED.
+  let under (isaName: string) (byteString: string) =
+    let parser = ARM64Parser(ISA isaName, reader) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString byteString
+    try Some((parser.Parse(System.ReadOnlySpan bytes, 0UL)).Disasm())
+    with :? ParsingFailureException -> None
+
+  /// Checks that a word reads under each ISA of one list and is refused under
+  /// each of the other, which is what a version and its extensions decide.
+  let readsOnlyUnder word (reads: string list) (refuses: string list) =
+    for name in reads do
+      Assert.AreEqual<bool>(true, (under name word).IsSome, $"{word} {name}")
+    for name in refuses do
+      Assert.AreEqual<string option>(None, under name word, $"{word} {name}")
+
+  /// Checks the two readings of a hint-space word: what an ISA without its
+  /// feature reads it as, and what one with the feature does.
+  let readsAs word without (asHint: string) isaWith (asName: string) =
+    Assert.AreEqual<string option>(Some asHint, under without word)
+    Assert.AreEqual<string option>(Some asName, under isaWith word)
 
   /// C4.2.1 Add/subtract (immediate)
   [<TestMethod>]
@@ -223,7 +251,7 @@ type ParserTests() =
   [<TestMethod>]
   member _.``C4.3.4 System (1)``() =
     "d50042bf"
-    ++ MSR ** [ O.Pstate SPSEL; O.Imm 0x2L ]
+    ++ MSR ** [ O.Pstate Pstate.SPSEL; O.Imm 0x2L ]
     ||> test
 
   [<TestMethod>]
@@ -273,6 +301,119 @@ type ParserTests() =
     "d5381020"
     ++ MRS ** [ O.Reg X0; O.Reg ACTLREL1 ]
     ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (10)``() =
+    "d50330ff"
+    ++ SB ** []
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (11)``() =
+    "d500419f"
+    ++ MSR ** [ O.Pstate Pstate.PAN; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (12)``() =
+    "d500417f"
+    ++ MSR ** [ O.Pstate Pstate.UAO; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (13)``() =
+    "d503415f"
+    ++ MSR ** [ O.Pstate Pstate.DIT; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (14)``() =
+    "d503413f"
+    ++ MSR ** [ O.Pstate Pstate.SSBS; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (15)``() =
+    "d503419f"
+    ++ MSR ** [ O.Pstate Pstate.TCO; O.Imm 0x1L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (16)``() =
+    "d5384260"
+    ++ MRS ** [ O.Reg X0; O.Reg PAN ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (17)``() =
+    "d5184201"
+    ++ MSR ** [ O.Reg SPSEL; O.Reg X1 ]
+    ||> test
+
+  /// A system register this front end has no name for is still a system
+  /// register, written by its encoding the way the manual spells one that has
+  /// no name -- S<op0>_<op1>_C<n>_C<m>_<op2> -- and not refused.
+  [<TestMethod>]
+  member _.``C4.3.4 System (18)``() =
+    testDisasm "d538f200" "mrs x0, s3_0_c15_c2_0"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (19)``() =
+    testDisasm "d51ff001" "msr s3_7_c15_c0_0, x1"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (20)``() =
+    testDisasm "d53314e5" "mrs x5, s2_3_c1_c4_7"
+
+  /// S3_7_C2_C2_7 is the register the table names; the word with op0 = 2 is
+  /// another one, and has no name.
+  [<TestMethod>]
+  member _.``C4.3.4 System (21)``() =
+    testDisasm "d53f22e0" "mrs x0, s3_7_c2_c2_7"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (22)``() =
+    testDisasm "d53722e0" "mrs x0, s2_7_c2_c2_7"
+
+  /// The hints the manual names are read by name: BTI with the branches it
+  /// admits, and ESB, PSB CSYNC, TSB CSYNC and CSDB.
+  [<TestMethod>]
+  member _.``C4.3.4 System (23)``() =
+    testDisasm "d503241f" "bti"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (24)``() =
+    testDisasm "d503245f" "bti c"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (25)``() =
+    testDisasm "d503249f" "bti j"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (26)``() =
+    testDisasm "d50324df" "bti jc"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (27)``() =
+    testDisasm "d503221f" "esb"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (28)``() =
+    testDisasm "d503223f" "psb csync"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (29)``() =
+    testDisasm "d503225f" "tsb csync"
+
+  [<TestMethod>]
+  member _.``C4.3.4 System (30)``() =
+    testDisasm "d503229f" "csdb"
+
+  /// op1:op2 of 001:000 names no field of PSTATE, and the manual leaves the
+  /// encoding UNDEFINED.
+  [<TestMethod>]
+  member _.``[AArch64] MSR (immediate) naming no field is refused``() =
+    testRefused "d501401f"
 
   [<TestMethod>]
   member _.``C4.3.5 Test & branch (immediate) (1)``() =
@@ -463,6 +604,40 @@ type ParserTests() =
     "085f7d7a"
     ++ LDXRB ** [ O.Reg W26; O.MemBaseImm X11 ]
     ||> test
+
+  /// FEAT_LSE's compare and swap of a pair takes an even register for
+  /// each pair and encodes only it.
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (1)``() =
+    testDisasm "08207c82" "casp w0, w1, w2, w3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (2)``() =
+    testDisasm "08607c82" "caspa w0, w1, w2, w3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (3)``() =
+    testDisasm "0860fc82" "caspal w0, w1, w2, w3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (4)``() =
+    testDisasm "0820fc82" "caspl w0, w1, w2, w3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (5)``() =
+    testDisasm "48207c82" "casp x0, x1, x2, x3, [x4]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (6)``() =
+    testDisasm "48667fe8" "caspa x6, x7, x8, x9, [sp]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (7)``() =
+    testDisasm "487cfd8a" "caspal x28, x29, x10, x11, [x12]"
+
+  [<TestMethod>]
+  member _.``C4.4.6 Load/store exclusive (CASP) (8)``() =
+    testDisasm "4822fcc4" "caspl x2, x3, x4, x5, [x6]"
 
   [<TestMethod>]
   member _.``C4.4.7 Load/store no-allocate pair (offset) (1)``() =
@@ -3096,6 +3271,20 @@ type ParserTests() =
     ++ SUQADD ** [ O.SIMDVecReg(V19, EightH); O.SIMDVecReg(V17, EightH) ]
     ||> test
 
+  /// SUQADD reads doublewords where Q is set: only the single doubleword is
+  /// reserved. REV64 is the other way round, since an element as wide as
+  /// the container it is reversed within leaves nothing to reverse, so size
+  /// 11 is reserved whatever Q says.
+  [<TestMethod>]
+  member _.``4.6.17 Advanced SIMD two-reg miscellaneous (SUQADD 2D)``() =
+    "4ee03a33"
+    ++ SUQADD ** [ O.SIMDVecReg(V19, TwoD); O.SIMDVecReg(V17, TwoD) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``4.6.17 Advanced SIMD two-reg miscellaneous (REV64 2D)``() =
+    testRefused "4ee00983"
+
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (5)``() =
     "4ea0487c"
@@ -4612,3 +4801,1364 @@ type ParserTests() =
     "9e790262"
     ++ FCVTZU ** [ O.Reg X2; O.ScalarReg D19 ]
     ||> test
+
+  /// The moves and conversions between a half and a general register: a
+  /// W or an X on the general side, type 11 on the other.
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (1)``() =
+    testDisasm "1ee70020" "fmov h0, w1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (2)``() =
+    testDisasm "1ee60020" "fmov w0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (3)``() =
+    testDisasm "9ee70020" "fmov h0, x1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (4)``() =
+    testDisasm "9ee30020" "ucvtf h0, x1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (5)``() =
+    testDisasm "1ef80020" "fcvtzs w0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and integer (FP16) (6)``() =
+    testDisasm "9ee50020" "fcvtau x0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and fixed-point (FP16) (1)``() =
+    testDisasm "1ed8f420" "fcvtzs w0, h1, #3"
+
+  [<TestMethod>]
+  member _.``C4.6 Conversion between FP and fixed-point (FP16) (2)``() =
+    testDisasm "1ec2f420" "scvtf h0, w1, #3"
+
+  (* The instructions below had a lifter and no decoder arm, so the front end
+     answered ParsingFailureException to every one of them and the lifter was
+     unreachable. Each byte string is the assembler's own encoding of the text
+     beside it. *)
+
+  /// FEAT_FlagM and FEAT_FlagM2 write where a move to a PSTATE field would,
+  /// with the immediate that field carries left at zero.
+  [<TestMethod>]
+  member _.``C4.2 Flag manipulation (1)``() =
+    testDisasm "d500401f" "cfinv"
+
+  [<TestMethod>]
+  member _.``C4.2 Flag manipulation (2)``() =
+    testDisasm "d500403f" "xaflag"
+
+  [<TestMethod>]
+  member _.``C4.2 Flag manipulation (3)``() =
+    testDisasm "d500405f" "axflag"
+
+  /// RMIF is the third of FEAT_FlagM and the only one that reads a register.
+  /// Its immediate's low bit sits at 15, inside the field the class selects
+  /// on, so an odd rotate reaches a different arm from an even one.
+  [<TestMethod>]
+  member _.``C4.2 Rotate right into flags (1)``() =
+    "ba05040f" ++ RMIF ** [ O.Reg X0; O.Imm 0xaL; O.Imm 0xfL ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.2 Rotate right into flags (2)``() =
+    "ba1f87c9" ++ RMIF ** [ O.Reg X30; O.Imm 0x3fL; O.Imm 0x9L ] ||> test
+
+  /// SETF8 and SETF16 share their class with the carrying add; the size sits
+  /// in bit 14 of opcode2.
+  [<TestMethod>]
+  member _.``C4.2 Evaluate into flags (1)``() =
+    "3a00086d" ++ SETF8 ** [ O.Reg W3 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.2 Evaluate into flags (2)``() =
+    "3a0048ed" ++ SETF16 ** [ O.Reg W7 ] ||> test
+
+  /// IRG writes its third operand only when it is named: register 31 there is
+  /// the zero register and excludes no tag value.
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (1)``() =
+    "9adf1020" ++ IRG ** [ O.Reg X0; O.Reg X1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (2)``() =
+    "9ac21020" ++ IRG ** [ O.Reg X0; O.Reg X1; O.Reg X2 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (3)``() =
+    "9adf103f" ++ IRG ** [ O.Reg SP; O.Reg X1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (4)``() =
+    "9ac21420" ++ GMI ** [ O.Reg X0; O.Reg X1; O.Reg X2 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (5)``() =
+    "9ac20020" ++ SUBP ** [ O.Reg X0; O.Reg X1; O.Reg X2 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (6)``() =
+    "bac50083" ++ SUBPS ** [ O.Reg X3; O.Reg X4; O.Reg X5 ] ||> test
+
+  /// CMPP is the SUBPS whose destination is the zero register, so the
+  /// destination field alone tells the two apart.
+  [<TestMethod>]
+  member _.``C4.5 Data processing (2 source, tags) (7)``() =
+    "bac2003f" ++ CMPP ** [ O.Reg X1; O.Reg X2 ] ||> test
+
+  /// ADDG and SUBG reach the immediate group by an op0 of 011 where the
+  /// ordinary add and subtract take 010, and their first immediate counts
+  /// granules of sixteen bytes rather than bytes. Both fields name the
+  /// stack pointer at 31 rather than the zero register.
+  [<TestMethod>]
+  member _.``C4.2 Add/subtract (immediate, tags) (1)``() =
+    "91810c20" ++ ADDG ** [ O.Reg X0; O.Reg X1; O.Imm 0x10L; O.Imm 3L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.2 Add/subtract (immediate, tags) (2)``() =
+    "919f03ff" ++ ADDG ** [ O.Reg SP; O.Reg SP; O.Imm 0x1f0L; O.Imm 0L ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.2 Add/subtract (immediate, tags) (3)``() =
+    "d18214c5" ++ SUBG ** [ O.Reg X5; O.Reg X6; O.Imm 0x20L; O.Imm 5L ]
+    ||> test
+
+  /// FEAT_FP16 gave the halves two vector classes of their own, because the
+  /// classes they would otherwise sit in spend on the element size the bits
+  /// that would have named them. The three-same class is told apart by bit
+  /// 21 being zero and the two-register one by bits 22:17, and in both the
+  /// arrangement is named by Q alone.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (1)``() =
+    "4e423c20"
+    ++ FRECPS
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (2)``() =
+    "4ec23c20"
+    ++ FRSQRTS
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (3)``() =
+    "6ec21420"
+    ++ FABD
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (4)``() =
+    "0e421420"
+    ++ FADD
+    ** [ O.SIMDVecReg(V0, FourH)
+         O.SIMDVecReg(V1, FourH)
+         O.SIMDVecReg(V2, FourH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FP16) (5)``() =
+    "6ec22c20"
+    ++ FACGT
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  /// The scalar arithmetic takes type 11 for a half, which the class had no
+  /// arm for at all.
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (2 source, FP16) (1)``() =
+    testDisasm "1ee22820" "fadd h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (2 source, FP16) (2)``() =
+    testDisasm "1ee28820" "fnmul h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (1 source, FP16) (1)``() =
+    testDisasm "1ee1c020" "fsqrt h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (1 source, FP16) (2)``() =
+    testDisasm "1ee74020" "frintx h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (1 source, FP16) (3)``() =
+    testDisasm "1ee04020" "fmov h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (3 source, FP16) (1)``() =
+    testDisasm "1fc20c20" "fmadd h0, h1, h2, h3"
+
+  [<TestMethod>]
+  member _.``C4.6 FP data-processing (3 source, FP16) (2)``() =
+    testDisasm "1fe28c20" "fnmsub h0, h1, h2, h3"
+
+  [<TestMethod>]
+  member _.``C4.6 FP immediate (FP16)``() =
+    testDisasm "1eee1000" "fmov h0, #1.00000000"
+
+  [<TestMethod>]
+  member _.``C4.6 FP compare (FP16) (1)``() =
+    testDisasm "1ee12000" "fcmp h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 FP compare (FP16) (2)``() =
+    testDisasm "1ee02018" "fcmpe h0, #0.00000000"
+
+  [<TestMethod>]
+  member _.``C4.6 FP conditional compare (FP16)``() =
+    testDisasm "1ee10400" "fccmp h0, h1, #0x0, eq"
+
+  [<TestMethod>]
+  member _.``C4.6 FP conditional select (FP16)``() =
+    testDisasm "1ee21c20" "fcsel h0, h1, h2, ne"
+
+  /// The scalar FP16 classes sit where the vector ones do in the scalar
+  /// group, and nothing routed them before.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three-same (FP16) (1)``() =
+    testDisasm "7ec21420" "fabd h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three-same (FP16) (2)``() =
+    testDisasm "5ec23c20" "frsqrts h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar two-register (FP16) (1)``() =
+    testDisasm "5ef8d820" "fcmeq h0, h1, #0.00000000"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar two-register (FP16) (2)``() =
+    testDisasm "5ef9f820" "frecpx h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar two-register (FP16) (3)``() =
+    testDisasm "7ef9b820" "fcvtzu h0, h1"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar two-register (FP16) (4)``() =
+    testDisasm "5e79d820" "scvtf h0, h1"
+
+  /// A U of 0 is the half-precision pairwise form, whose source is two
+  /// halves.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar pairwise (FP16) (1)``() =
+    testDisasm "5e30d820" "faddp h0, v1.2h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar pairwise (FP16) (2)``() =
+    testDisasm "5eb0c820" "fminnmp h0, v1.2h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD across lanes (FP16) (1)``() =
+    testDisasm "4e30f820" "fmaxv h0, v1.8h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD across lanes (FP16) (2)``() =
+    testDisasm "0eb0c820" "fminnmv h0, v1.4h"
+
+  /// FMOV of a half is the one modified-immediate form with o2 set.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD modified immediate (FP16) (1)``() =
+    testDisasm "4f03fe00" "fmov v0.8h, #1.00000000"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD modified immediate (FP16) (2)``() =
+    testDisasm "0f04fc00" "fmov v0.4h, #-2.00000000"
+
+  /// An immh of 001x is FEAT_FP16's, which the class had as reserved.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD shift by immediate (FP16) (1)``() =
+    testDisasm "4f1de420" "scvtf v0.8h, v1.8h, #3"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD shift by immediate (FP16) (2)``() =
+    testDisasm "2f1efc20" "fcvtzu v0.4h, v1.4h, #2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD shift by immediate (FP16) (3)``() =
+    testDisasm "5f1de420" "scvtf h0, h1, #3"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD shift by immediate (FP16) (4)``() =
+    testDisasm "5f1bfc20" "fcvtzs h0, h1, #5"
+
+  /// A size of 00 is the half-precision form, whose element is laid out as
+  /// an integer form of size 01 lays it out.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (1)``() =
+    testDisasm "4f321020" "fmla v0.8h, v1.8h, v2.h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (2)``() =
+    testDisasm "0f125020" "fmls v0.4h, v1.4h, v2.h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (3)``() =
+    testDisasm "4f329020" "fmul v0.8h, v1.8h, v2.h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (4)``() =
+    testDisasm "6f229820" "fmulx v0.8h, v1.8h, v2.h[6]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (5)``() =
+    testDisasm "5f129020" "fmul h0, h1, v2.h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (6)``() =
+    testDisasm "5f221020" "fmla h0, h1, v2.h[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD by element (FP16) (7)``() =
+    testDisasm "7f329020" "fmulx h0, h1, v2.h[3]"
+
+  /// FEAT_FCMA is the three-register extension class with U set: FCADD at
+  /// opcode 11x0 with one bit of rotation, FCMLA at 10xx with two -- and by
+  /// element, where its index names a pair and its register is M:Rm.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (1)``() =
+    testDisasm "2e42e420" "fcadd v0.4h, v1.4h, v2.4h, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (2)``() =
+    testDisasm "6e42f420" "fcadd v0.8h, v1.8h, v2.8h, #0x10e"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (3)``() =
+    testDisasm "2e82e420" "fcadd v0.2s, v1.2s, v2.2s, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (4)``() =
+    testDisasm "6e82f420" "fcadd v0.4s, v1.4s, v2.4s, #0x10e"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (5)``() =
+    testDisasm "6ec2e420" "fcadd v0.2d, v1.2d, v2.2d, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (6)``() =
+    testDisasm "2e42c420" "fcmla v0.4h, v1.4h, v2.4h, #0x0"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (7)``() =
+    testDisasm "6e42cc20" "fcmla v0.8h, v1.8h, v2.8h, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (8)``() =
+    testDisasm "2e82d420" "fcmla v0.2s, v1.2s, v2.2s, #0xb4"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (9)``() =
+    testDisasm "6e82dc20" "fcmla v0.4s, v1.4s, v2.4s, #0x10e"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (10)``() =
+    testDisasm "6ec2cc20" "fcmla v0.2d, v1.2d, v2.2d, #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (11)``() =
+    testDisasm "2f621020" "fcmla v0.4h, v1.4h, v2.h[1], #0x0"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (12)``() =
+    testDisasm "6f623820" "fcmla v0.8h, v1.8h, v2.h[3], #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (13)``() =
+    testDisasm "6f5f5820" "fcmla v0.8h, v1.8h, v31.h[2], #0xb4"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (14)``() =
+    testDisasm "6f827820" "fcmla v0.4s, v1.4s, v2.s[1], #0x10e"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD complex (FCMA) (15)``() =
+    testDisasm "6f913020" "fcmla v0.4s, v1.4s, v17.s[0], #0x5a"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FP16) (1)``() =
+    "6ef8d820"
+    ++ FCMLE
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         OprFPImm 0.0 ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FP16) (2)``() =
+    "4ef8e820"
+    ++ FCMLT
+    ** [ O.SIMDVecReg(V0, EightH)
+         O.SIMDVecReg(V1, EightH)
+         OprFPImm 0.0 ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FP16) (3)``() =
+    "4e798820"
+    ++ FRINTN
+    ** [ O.SIMDVecReg(V0, EightH); O.SIMDVecReg(V1, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FP16) (4)``() =
+    "6ef9f820"
+    ++ FSQRT
+    ** [ O.SIMDVecReg(V0, EightH); O.SIMDVecReg(V1, EightH) ]
+    ||> test
+
+  /// FEAT_FHM's long multiply-accumulate, whose sources are halves and whose
+  /// destination is words. Both forms spell the arrangement the same way, so
+  /// the mnemonic is the only thing that says which half of the source
+  /// register is read.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FHM) (1)``() =
+    "0e22ec20"
+    ++ FMLAL
+    ** [ O.SIMDVecReg(V0, TwoS)
+         O.SIMDVecReg(V1, TwoH)
+         O.SIMDVecReg(V2, TwoH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FHM) (2)``() =
+    "2e22cc20"
+    ++ FMLAL2
+    ** [ O.SIMDVecReg(V0, TwoS)
+         O.SIMDVecReg(V1, TwoH)
+         O.SIMDVecReg(V2, TwoH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FHM) (3)``() =
+    "4ea2ec20"
+    ++ FMLSL
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, FourH)
+         O.SIMDVecReg(V2, FourH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-same (FHM) (4)``() =
+    "6ea2cc20"
+    ++ FMLSL2
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, FourH)
+         O.SIMDVecReg(V2, FourH) ]
+    ||> test
+
+  /// FEAT_RDM sits in the three-register extension class beside the dot
+  /// products, and is the only thing there whose arrangement comes from the
+  /// size field rather than from Q alone.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (RDM) (1)``() =
+    "6e828420"
+    ++ SQRDMLAH
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, FourS)
+         O.SIMDVecReg(V2, FourS) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (RDM) (2)``() =
+    "6e828c20"
+    ++ SQRDMLSH
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, FourS)
+         O.SIMDVecReg(V2, FourS) ]
+    ||> test
+
+  /// BFCVTN and BFCVTN2 are an ordinary two-register miscellaneous encoding
+  /// whose two sides carry different arrangements: the source is four words
+  /// whichever half of the destination the mnemonic names, so Q comes from
+  /// the destination alone.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (BF16) (1)``() =
+    "0ea16820"
+    ++ BFCVTN
+    ** [ O.SIMDVecReg(V0, FourH); O.SIMDVecReg(V1, FourS) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (BF16) (2)``() =
+    "4ea16820"
+    ++ BFCVTN2
+    ** [ O.SIMDVecReg(V0, EightH); O.SIMDVecReg(V1, FourS) ]
+    ||> test
+
+  /// FEAT_I8MM's matrix multiplies are the one thing in this class whose
+  /// arrangements are fixed rather than named by a size field: four words
+  /// accumulated from sixteen bytes on each side, whatever Q says.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (I8MM) (1)``() =
+    "4e82a420"
+    ++ SMMLA
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (I8MM) (2)``() =
+    "6e82a420"
+    ++ UMMLA
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (I8MM) (3)``() =
+    "4e82ac20"
+    ++ USMMLA
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  /// The dot products by element name a group of four bytes, whose register
+  /// is M:Rm and whose index is H:L; they sit at an opcode the class had
+  /// read as unallocated.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (1)``() =
+    testDisasm "4fa2e020" "sdot v0.4s, v1.16b, v2.4b[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (2)``() =
+    testDisasm "0fbfe820" "sdot v0.2s, v1.8b, v31.4b[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (3)``() =
+    testDisasm "4f92e225" "sdot v5.4s, v17.16b, v18.4b[0]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (4)``() =
+    testDisasm "6f82e820" "udot v0.4s, v1.16b, v2.4b[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (DotProd) (5)``() =
+    testDisasm "2fb4e020" "udot v0.2s, v1.8b, v20.4b[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (I8MM) (1)``() =
+    testDisasm "4f22f020" "sudot v0.4s, v1.16b, v2.4b[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (I8MM) (2)``() =
+    testDisasm "0f1bf820" "sudot v0.2s, v1.8b, v27.4b[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (I8MM) (3)``() =
+    testDisasm "0fa2f820" "usdot v0.2s, v1.8b, v2.4b[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (I8MM) (4)``() =
+    testDisasm "4f93f020" "usdot v0.4s, v1.16b, v19.4b[0]"
+
+  /// BFDOT by element names a pair of halves the same way; BFMLALB and
+  /// BFMLALT name one half, with a register of four bits and H:L:M.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (1)``() =
+    testDisasm "4f62f020" "bfdot v0.4s, v1.8h, v2.2h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (2)``() =
+    testDisasm "0f7ff820" "bfdot v0.2s, v1.4h, v31.2h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (3)``() =
+    testDisasm "0ff2f820" "bfmlalb v0.4s, v1.8h, v2.h[7]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (4)``() =
+    testDisasm "0fc5f083" "bfmlalb v3.4s, v4.8h, v5.h[0]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (BF16) (5)``() =
+    testDisasm "4feff020" "bfmlalt v0.4s, v1.8h, v15.h[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (1)``() =
+    testDisasm "4f920820" "fmlal v0.4s, v1.4h, v2.h[5]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (2)``() =
+    testDisasm "0f820020" "fmlal v0.2s, v1.2h, v2.h[0]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (3)``() =
+    testDisasm "2fbf8820" "fmlal2 v0.2s, v1.2h, v15.h[7]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (4)``() =
+    testDisasm "6fb38020" "fmlal2 v0.4s, v1.4h, v3.h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (5)``() =
+    testDisasm "4f924020" "fmlsl v0.4s, v1.4h, v2.h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (6)``() =
+    testDisasm "0fa94820" "fmlsl v0.2s, v1.2h, v9.h[6]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (7)``() =
+    testDisasm "6fa2c820" "fmlsl2 v0.4s, v1.4h, v2.h[6]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (FHM) (8)``() =
+    testDisasm "2f8cc820" "fmlsl2 v0.2s, v1.2h, v12.h[4]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (1)``() =
+    testDisasm "6fa2d820" "sqrdmlah v0.4s, v1.4s, v2.s[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (2)``() =
+    testDisasm "2f9fd020" "sqrdmlah v0.2s, v1.2s, v31.s[0]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (3)``() =
+    testDisasm "6f72d820" "sqrdmlah v0.8h, v1.8h, v2.h[7]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (4)``() =
+    testDisasm "2f4fd820" "sqrdmlah v0.4h, v1.4h, v15.h[4]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (5)``() =
+    testDisasm "2f52f020" "sqrdmlsh v0.4h, v1.4h, v2.h[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (6)``() =
+    testDisasm "2fbff020" "sqrdmlsh v0.2s, v1.2s, v31.s[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (7)``() =
+    testDisasm "6f91f820" "sqrdmlsh v0.4s, v1.4s, v17.s[2]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD vector x indexed element (RDM) (8)``() =
+    testDisasm "6f57f820" "sqrdmlsh v0.8h, v1.8h, v7.h[5]"
+
+  /// BFDOT and BFMMLA are the three-register extension class at U = 1 and a
+  /// size of 01, BFMMLA with Q set alone.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16 dot) (1)``() =
+    testDisasm "2e42fc20" "bfdot v0.2s, v1.4h, v2.4h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16 dot) (2)``() =
+    testDisasm "6e42fc20" "bfdot v0.4s, v1.8h, v2.8h"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16 dot) (3)``() =
+    testDisasm "6e42ec20" "bfmmla v0.4s, v1.8h, v2.8h"
+
+  /// SDOT with bit 10 clear: every word of the class holds it set.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (SDOT, bit 10)``() =
+    testRefused "4e829020"
+
+  /// SQRDMLAH with bit 10 clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (RDM, bit 10)``() =
+    testRefused "6e828020"
+
+  /// SMMLA with bit 10 clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (SMMLA, bit 10)``() =
+    testRefused "4e82a020"
+
+  /// BFDOT with bit 10 clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BFDOT, bit 10)``() =
+    testRefused "6e42f820"
+
+  /// SMMLA with Q clear: the matrix multiplies are quadword-only, Q being
+  /// part of their opcode rather than a choice of arrangement.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (SMMLA, Q clear)``() =
+    testRefused "0e82a420"
+
+  /// UMMLA with Q clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (UMMLA, Q clear)``() =
+    testRefused "2e82a420"
+
+  /// USMMLA with Q clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (USMMLA, Q clear)``() =
+    testRefused "0e82ac20"
+
+  /// BFMMLA with Q clear.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BFMMLA, Q clear)``() =
+    testRefused "2e42ec20"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar x indexed element (RDM) (1)``() =
+    testDisasm "7fa2d020" "sqrdmlah s0, s1, v2.s[1]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar x indexed element (RDM) (2)``() =
+    testDisasm "7f6fd820" "sqrdmlah h0, h1, v15.h[6]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar x indexed element (RDM) (3)``() =
+    testDisasm "7f72f020" "sqrdmlsh h0, h1, v2.h[3]"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar x indexed element (RDM) (4)``() =
+    testDisasm "7fbff820" "sqrdmlsh s0, s1, v31.s[3]"
+
+  /// The scalar three same extra class holds the scalar SQRDMLAH and
+  /// SQRDMLSH and nothing else, and nothing routed it.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three same extra (RDM) (1)``() =
+    testDisasm "7e828420" "sqrdmlah s0, s1, s2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three same extra (RDM) (2)``() =
+    testDisasm "7e428420" "sqrdmlah h0, h1, h2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three same extra (RDM) (3)``() =
+    testDisasm "7e828c20" "sqrdmlsh s0, s1, s2"
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD scalar three same extra (RDM) (4)``() =
+    testDisasm "7e458c83" "sqrdmlsh h3, h4, h5"
+
+  /// BFMLALB and BFMLALT share one encoding and are told apart by Q, which
+  /// here picks which bfloat16 of each word is read rather than how many
+  /// lanes there are -- both write all four words.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16) (1)``() =
+    "2ec2fc20"
+    ++ BFMLALB
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (BF16) (2)``() =
+    "6ec2fc20"
+    ++ BFMLALT
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, EightH)
+         O.SIMDVecReg(V2, EightH) ]
+    ||> test
+
+  /// FEAT_FRINTTS sits at the four opcodes above the ordinary roundings,
+  /// which the one-source class had read as unallocated because the guard
+  /// there tests the bit they all carry.
+  [<TestMethod>]
+  member _.``C4.6 Floating-point round to integer (1)``() =
+    "1e684020" ++ FRINT32Z ** [ O.ScalarReg D0; O.ScalarReg D1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Floating-point round to integer (2)``() =
+    "1e68c020" ++ FRINT32X ** [ O.ScalarReg D0; O.ScalarReg D1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Floating-point round to integer (3)``() =
+    "1e694020" ++ FRINT64Z ** [ O.ScalarReg D0; O.ScalarReg D1 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Floating-point round to integer (4)``() =
+    "1e69c020" ++ FRINT64X ** [ O.ScalarReg D0; O.ScalarReg D1 ] ||> test
+
+  /// The vector forms sit at the two-register opcodes 11110 and 11111 with a
+  /// size of 0x, which the class had read as unallocated too.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FRINTTS) (1)``() =
+    "4e21e820"
+    ++ FRINT32Z ** [ O.SIMDVecReg(V0, FourS); O.SIMDVecReg(V1, FourS) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FRINTTS) (2)``() =
+    "6e61e820"
+    ++ FRINT32X ** [ O.SIMDVecReg(V0, TwoD); O.SIMDVecReg(V1, TwoD) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FRINTTS) (3)``() =
+    "0e21f820"
+    ++ FRINT64Z ** [ O.SIMDVecReg(V0, TwoS); O.SIMDVecReg(V1, TwoS) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD two-register (FRINTTS) (4)``() =
+    "6e21f820"
+    ++ FRINT64X ** [ O.SIMDVecReg(V0, FourS); O.SIMDVecReg(V1, FourS) ]
+    ||> test
+
+  /// FEAT_JSCVT takes the one combination of rmode and opcode the
+  /// conversion class leaves free, and its source is a double and nothing
+  /// else -- the type field is part of what names it.
+  [<TestMethod>]
+  member _.``C4.6 Floating-point convert (JavaScript)``() =
+    "1e7e0020" ++ FJCVTZS ** [ O.Reg W0; O.ScalarReg D1 ] ||> test
+
+  /// The memory-tag accesses count their offset in granules of sixteen bytes,
+  /// where the unscaled accesses they sit beside count bytes.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (1)``() =
+    "d9600020" ++ LDG ** [ O.Reg X0; O.MemBaseImm(X1, 0L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (2)``() =
+    "d97ff020" ++ LDG ** [ O.Reg X0; O.MemBaseImm(X1, -16L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (3)``() =
+    "d9202820" ++ STG ** [ O.Reg X0; O.MemBaseImm(X1, 32L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (4)``() =
+    "d9202420" ++ STG ** [ O.Reg X0; O.MemPostIdxImm(X1, 32L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (5)``() =
+    "d9a01c20" ++ ST2G ** [ O.Reg X0; O.MemPreIdxImm(X1, 16L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (6)``() =
+    "d9e01420" ++ STZ2G ** [ O.Reg X0; O.MemPostIdxImm(X1, 16L) ] ||> test
+
+  /// LDGM, STGM and STZGM are op2 = 00 with no offset, which LDG leaves free
+  /// at the other values of opc; with an offset they are no instruction.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (LDGM)``() =
+    "d9e003c0" ++ LDGM ** [ O.Reg X0; O.MemBaseImm X30 ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (STGM)``() =
+    "d9a003e1" ++ STGM ** [ O.Reg X1; O.MemBaseImm SP ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (STZGM)``() =
+    "d9200041" ++ STZGM ** [ O.Reg X1; O.MemBaseImm X2 ] ||> test
+
+  /// LDGM with an offset: the block forms take none.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (LDGM with an offset)``() =
+    testRefused "d9e013c0"
+
+  /// STGM with an offset.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (STGM with an offset)``() =
+    testRefused "d9a013e1"
+
+  /// STZGM with an offset.
+  [<TestMethod>]
+  member _.``C4.4 Load/store memory tags (STZGM with an offset)``() =
+    testRefused "d9201041"
+
+  /// STGP is the one combination of opc and L the ordinary pairs leave free.
+  [<TestMethod>]
+  member _.``C4.4 Load/store register pair (tags) (1)``() =
+    "69008440"
+    ++ STGP ** [ O.Reg X0; O.Reg X1; O.MemBaseImm(X2, 16L) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register pair (tags) (2)``() =
+    "69808440"
+    ++ STGP ** [ O.Reg X0; O.Reg X1; O.MemPreIdxImm(X2, 16L) ]
+    ||> test
+
+  /// The dot products read four bytes of each source for every word of the
+  /// destination, so the two sides carry different arrangements.
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (1)``() =
+    "4e829420"
+    ++ SDOT
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (2)``() =
+    "2e829420"
+    ++ UDOT
+    ** [ O.SIMDVecReg(V0, TwoS)
+         O.SIMDVecReg(V1, EightB)
+         O.SIMDVecReg(V2, EightB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``C4.6 Advanced SIMD three-register extension (3)``() =
+    "4e829c20"
+    ++ USDOT
+    ** [ O.SIMDVecReg(V0, FourS)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB) ]
+    ||> test
+
+  /// BFCVT sits in the slot beside the double-precision conversions, so its
+  /// type field says 01 while its operands are a single and a half.
+  [<TestMethod>]
+  member _.``4.6.30 Conversion between FP and BFloat16``() =
+    "1e634020" ++ BFCVT ** [ O.ScalarReg H0; O.ScalarReg S1 ] ||> test
+
+  /// The four FEAT_SHA3 encodings share the 0xce opcode byte with the
+  /// SHA-512, SM3 and SM4 families and are told from them by bits 23:21,
+  /// which the group's own selector does not carry.
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic four-register (EOR3)``() =
+    "ce020c20"
+    ++ EOR3
+    ** [ O.SIMDVecReg(V0, SixteenB)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB)
+         O.SIMDVecReg(V3, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic four-register (BCAX)``() =
+    "ce220c20"
+    ++ BCAX
+    ** [ O.SIMDVecReg(V0, SixteenB)
+         O.SIMDVecReg(V1, SixteenB)
+         O.SIMDVecReg(V2, SixteenB)
+         O.SIMDVecReg(V3, SixteenB) ]
+    ||> test
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic three-register (RAX1)``() =
+    "ce628c20"
+    ++ RAX1
+    ** [ O.SIMDVecReg(V0, TwoD)
+         O.SIMDVecReg(V1, TwoD)
+         O.SIMDVecReg(V2, TwoD) ]
+    ||> test
+
+  /// SHA-512, SM3 and SM4 fill the rest of the byte: the three-
+  /// register SHA 512 class RAX1 belongs to, the two-register one,
+  /// the imm2 one and the four-register one.
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (1)``() =
+    testDisasm "ce628020" "sha512h q0, q1, v2.2d"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (2)``() =
+    testDisasm "ce628420" "sha512h2 q0, q1, v2.2d"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (3)``() =
+    testDisasm "cec08020" "sha512su0 v0.2d, v1.2d"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (4)``() =
+    testDisasm "ce628820" "sha512su1 v0.2d, v1.2d, v2.2d"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (5)``() =
+    testDisasm "ce420c20" "sm3ss1 v0.4s, v1.4s, v2.4s, v3.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (6)``() =
+    testDisasm "ce42b020" "sm3tt1a v0.4s, v1.4s, v2.s[3]"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (7)``() =
+    testDisasm "ce428420" "sm3tt1b v0.4s, v1.4s, v2.s[0]"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (8)``() =
+    testDisasm "ce429820" "sm3tt2a v0.4s, v1.4s, v2.s[1]"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (9)``() =
+    testDisasm "ce42ac20" "sm3tt2b v0.4s, v1.4s, v2.s[2]"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (10)``() =
+    testDisasm "ce62c020" "sm3partw1 v0.4s, v1.4s, v2.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (11)``() =
+    testDisasm "ce62c420" "sm3partw2 v0.4s, v1.4s, v2.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (12)``() =
+    testDisasm "cec08420" "sm4e v0.4s, v1.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 Cryptographic SHA512, SM3 and SM4 (13)``() =
+    testDisasm "ce62c820" "sm4ekey v0.4s, v1.4s, v2.4s"
+
+  [<TestMethod>]
+  member _.``4.6.31 XAR``() =
+    "ce823420"
+    ++ XAR
+    ** [ O.SIMDVecReg(V0, TwoD)
+         O.SIMDVecReg(V1, TwoD)
+         O.SIMDVecReg(V2, TwoD)
+         O.Imm 0xdL ]
+    ||> test
+
+  /// The pointer authentication family sits at opcode2 = 00001 of the
+  /// one-source class, which every guard above it had marked unallocated.
+  /// The Z forms fix the modifier's field to the zero register rather than
+  /// leaving it out, so they are one operand where the others are two.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACIA)``() =
+    "dac10020" ++ PACIA ** [ O.Reg X0; O.Reg X1 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (AUTDB)``() =
+    "dac11c20" ++ AUTDB ** [ O.Reg X0; O.Reg X1 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACIZA)``() =
+    "dac123e0" ++ PACIZA ** [ O.Reg X0 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (XPACD)``() =
+    "dac147e0" ++ XPACD ** [ O.Reg X0 ] ||> test
+
+  /// PACIZA with a register in Rn: the Z forms and XPACI and XPACD hold
+  /// 11111 there as part of their opcode.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACIZA, Rn not 11111)``() =
+    testRefused "dac12043"
+
+  /// AUTDZB with a register in Rn.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (AUTDZB, Rn not 11111)``() =
+    testRefused "dac13c43"
+
+  /// XPACI with a register in Rn.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (XPACI, Rn not 11111)``() =
+    testRefused "dac14043"
+
+  /// XPACD with a register in Rn.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (XPACD, Rn not 11111)``() =
+    testRefused "dac14443"
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACGA)``() =
+    "9ac23020" ++ PACGA ** [ O.Reg X0; O.Reg X1; O.Reg X2 ] ||> test
+
+  /// The implicit forms name no register and are encoded as hints, which is
+  /// how a processor without the feature runs them and does nothing. They
+  /// are told apart by CRm, which the system class's own selector does not
+  /// carry.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (PACIASP)``() =
+    "d503233f" ++ PACIASP ** [] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (AUTIB1716)``() =
+    "d50321df" ++ AUTIB1716 ** [] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (XPACLRI)``() =
+    "d50320ff" ++ XPACLRI ** [] ||> test
+
+  /// The branches authenticate their target first. BRAA and BLRAA name the
+  /// modifier in the field the others hold 11111 in, where 11111 is the
+  /// stack pointer; the Z forms fix that field, and RETAA and ERETAA fix Rn
+  /// as well, so any other value in a fixed field is no instruction.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BRAA)``() =
+    "d71f0843" ++ BRAA ** [ O.Reg X2; O.Reg X3 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BLRAB)``() =
+    "d73f0c5f" ++ BLRAB ** [ O.Reg X2; O.Reg SP ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BRABZ)``() =
+    "d61f0c5f" ++ BRABZ ** [ O.Reg X2 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BLRAAZ)``() =
+    "d63f081f" ++ BLRAAZ ** [ O.Reg X0 ] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (RETAA)``() =
+    "d65f0bff" ++ RETAA ** [] ||> test
+
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (ERETAB)``() =
+    "d69f0fff" ++ ERETAB ** [] ||> test
+
+  /// BRAAZ with a register in Rm, which the Z form holds at 11111.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (BRAAZ, Rm not 11111)``() =
+    testRefused "d61f0843"
+
+  /// RETAA with registers in Rn and Rm, which it holds at 11111.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (RETAA, Rn and Rm not 11111)``() =
+    testRefused "d65f0843"
+
+  /// ERETAA with a register in Rm.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (ERETAA, Rm not 11111)``() =
+    testRefused "d69f0bfe"
+
+  /// DRPS with op3 set, which has no authenticated form.
+  [<TestMethod>]
+  member _.``4.6.32 Pointer authentication (DRPS, op3 not 000000)``() =
+    testRefused "d6bf0bff"
+
+  /// LDRAA and LDRAB authenticate the base before the offset is added, and
+  /// the offset counts eight-byte words rather than bytes. Bit 10 is what
+  /// tells the class from the atomics and the register offset beside it, and
+  /// bit 11 above it is the writeback.
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (1)``() =
+    "f8201420" ++ LDRAA ** [ O.Reg X0; O.MemBaseImm(X1, 8L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (2)``() =
+    "f87ff420" ++ LDRAA ** [ O.Reg X0; O.MemBaseImm(X1, -8L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (3)``() =
+    "f83ffc62" ++ LDRAA ** [ O.Reg X2; O.MemPreIdxImm(X3, 4088L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (4)``() =
+    "f8e004a4" ++ LDRAB ** [ O.Reg X4; O.MemBaseImm(X5, -4096L) ] ||> test
+
+  [<TestMethod>]
+  member _.``C4.4 Load/store register (pac) (5)``() =
+    "f8a007e6" ++ LDRAB ** [ O.Reg X6; O.MemBaseImm(SP, 0L) ] ||> test
+
+  /// An ISA naming a version reads what DDI0487F.c A2 makes mandatory at that
+  /// version and what its extensions name, and nothing else: FEAT_LSE is
+  /// Armv8.1's and an Armv8.0 core has it only by naming it, FEAT_FP16 stays
+  /// OPTIONAL at every version, and FEAT_FHM is mandatory from Armv8.4 only
+  /// where FEAT_FP16 is had.
+
+  [<TestMethod>]
+  member _.``[AArch64] CASAL is FEAT_LSE's``() =
+    readsOnlyUnder "88e0fc41" [ "armv8.1-a"; "armv8-a+lse" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SQRDMLAH is FEAT_RDM's``() =
+    readsOnlyUnder "6e828420" [ "armv8.1-a"; "armv8-a+rdma" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FADD of halves is FEAT_FP16's``() =
+    readsOnlyUnder "1ee22820" [ "armv8.2-a+fp16" ] [ "armv8.2-a"; "armv8.6-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FMLAL is FEAT_FHM's``() =
+    readsOnlyUnder "0e22ec20" [ "armv8.2-a+fp16fml" ] [ "armv8.2-a+fp16" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FMLAL comes with FEAT_FP16 at Armv8.4``() =
+    readsOnlyUnder "0e22ec20" [ "armv8.4-a+fp16" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SDOT is FEAT_DotProd's``() =
+    readsOnlyUnder "4e829420"
+      [ "armv8.2-a+dotprod"; "armv8.4-a" ]
+      [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] PACIA is FEAT_PAuth's``() =
+    readsOnlyUnder "dac10020" [ "armv8.3-a"; "armv8.2-a+pauth" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FJCVTZS is Armv8.3's``() =
+    readsOnlyUnder "1e7e0020" [ "armv8.3-a" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] LDAPUR is Armv8.4's``() =
+    readsOnlyUnder "99400020" [ "armv8.4-a" ] [ "armv8.3-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FRINT32Z is Armv8.5's``() =
+    readsOnlyUnder "1e284020" [ "armv8.5-a" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] IRG is FEAT_MTE's``() =
+    readsOnlyUnder "9adf1020"
+      [ "armv8.5-a+memtag" ]
+      [ "armv8.5-a"; "armv8.6-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] BFDOT is FEAT_BF16's``() =
+    readsOnlyUnder "6e42fc20" [ "armv8.6-a"; "armv8.2-a+bf16" ] [ "armv8.5-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SMMLA is FEAT_I8MM's``() =
+    readsOnlyUnder "4e82a420" [ "armv8.6-a"; "armv8.2-a+i8mm" ] [ "armv8.5-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] CRC32B is FEAT_CRC32's``() =
+    readsOnlyUnder "1ac24020" [ "armv8.1-a"; "armv8-a+crc" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] AESE is FEAT_AES's``() =
+    readsOnlyUnder "4e284820"
+      [ "armv8-a+aes"; "armv8-a+crypto" ]
+      [ "armv8.6-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] PMULL of bytes is every version's``() =
+    readsOnlyUnder "0e22e020" [ "armv8-a" ] []
+
+  [<TestMethod>]
+  member _.``[AArch64] PMULL of doublewords is FEAT_PMULL's``() =
+    readsOnlyUnder "0ee2e020" [ "armv8-a+aes" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SHA512H is FEAT_SHA512's``() =
+    readsOnlyUnder "ce628020"
+      [ "armv8.2-a+sha3" ]
+      [ "armv8.2-a"; "armv8.2-a+crypto" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SM4E is FEAT_SM4's``() =
+    readsOnlyUnder "cec08420" [ "armv8.2-a+sm4" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FCADD of singles is Armv8.3's``() =
+    readsOnlyUnder "6e82e420" [ "armv8.3-a" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FCADD of halves needs FEAT_FP16 as well``() =
+    readsOnlyUnder "2e42e420"
+      [ "armv8.3-a+fp16" ]
+      [ "armv8.3-a"; "armv8.2-a+fp16" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] ADD is every version's``() =
+    readsOnlyUnder "8b020020" [ "armv8-a" ] []
+
+  [<TestMethod>]
+  member _.``[AArch64] LDLAR is Armv8.1's``() =
+    readsOnlyUnder "88df7c20" [ "armv8.1-a" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] CFINV is FEAT_FlagM's``() =
+    readsOnlyUnder "d500401f" [ "armv8.4-a"; "armv8.2-a+flagm" ] [ "armv8.3-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] AXFLAG is Armv8.5's``() =
+    readsOnlyUnder "d500405f" [ "armv8.5-a" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] SB is FEAT_SB's``() =
+    readsOnlyUnder "d50330ff" [ "armv8.5-a"; "armv8-a+sb" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR PAN is Armv8.1's``() =
+    readsOnlyUnder "d500419f" [ "armv8.1-a" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MRS PAN is Armv8.1's``() =
+    readsOnlyUnder "d5384260" [ "armv8.1-a" ] [ "armv8-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR UAO is Armv8.2's``() =
+    readsOnlyUnder "d500417f" [ "armv8.2-a" ] [ "armv8.1-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR DIT is Armv8.4's``() =
+    readsOnlyUnder "d503415f" [ "armv8.4-a" ] [ "armv8.3-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR SSBS is FEAT_SSBS's``() =
+    readsOnlyUnder "d503413f" [ "armv8.5-a"; "armv8-a+ssbs" ] [ "armv8.4-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR TCO is FEAT_MTE's``() =
+    readsOnlyUnder "d503419f" [ "armv8.5-a+memtag" ] [ "armv8.5-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] MSR SPSel is every version's``() =
+    readsOnlyUnder "d50042bf" [ "armv8-a" ] []
+
+  [<TestMethod>]
+  member _.``[AArch64] LDAPR is FEAT_LRCPC's``() =
+    readsOnlyUnder "b8bfc020" [ "armv8.3-a"; "armv8.2-a+rcpc" ] [ "armv8.2-a" ]
+
+  [<TestMethod>]
+  member _.``[AArch64] FMOV of a half is FEAT_FP16's``() =
+    readsOnlyUnder "1ee70020" [ "armv8.2-a+fp16" ] [ "armv8.2-a" ]
+
+  /// An ISA that names no version reads every word, which is what it has
+  /// always done.
+  [<TestMethod>]
+  member _.``[AArch64] An ISA with no version reads CASAL``() =
+    Assert.AreEqual<bool>(true, (under "aarch64" "88e0fc41").IsSome)
+
+  [<TestMethod>]
+  member _.``[AArch64] An ISA with no version reads FADD of halves``() =
+    Assert.AreEqual<bool>(true, (under "aarch64" "1ee22820").IsSome)
+
+  [<TestMethod>]
+  member _.``[AArch64] An ISA with no version reads IRG``() =
+    Assert.AreEqual<bool>(true, (under "aarch64" "9adf1020").IsSome)
+
+  [<TestMethod>]
+  member _.``[AArch64] An ISA with no version reads BFDOT``() =
+    Assert.AreEqual<bool>(true, (under "aarch64" "6e42fc20").IsSome)
+
+  /// A hint the version does not have is still a hint: the hint space is
+  /// defined as a NOP wherever its instruction is not implemented, so the
+  /// word reads as HINT rather than being refused.
+  [<TestMethod>]
+  member _.``[AArch64] PACIASP reads as HINT before Armv8.3``() =
+    readsAs "d503233f" "armv8.2-a" "hint #0x19" "armv8.3-a" "paciasp"
+
+  [<TestMethod>]
+  member _.``[AArch64] XPACLRI reads as HINT before Armv8.3``() =
+    readsAs "d50320ff" "armv8.2-a" "hint #0x7" "armv8.3-a" "xpaclri"
+
+  /// The named hints follow the same rule. FEAT_BTI is Armv8.5's and
+  /// FEAT_RAS Armv8.2's; FEAT_SPE and FEAT_TRF are never made mandatory and
+  /// are had by naming them; CSDB is every version's.
+  [<TestMethod>]
+  member _.``[AArch64] BTI reads as HINT before Armv8.5``() =
+    readsAs "d503241f" "armv8.4-a" "hint #0x20" "armv8.5-a" "bti"
+
+  [<TestMethod>]
+  member _.``[AArch64] ESB reads as HINT before Armv8.2``() =
+    readsAs "d503221f" "armv8.1-a" "hint #0x10" "armv8.2-a" "esb"
+
+  [<TestMethod>]
+  member _.``[AArch64] ESB reads by name where FEAT_RAS is named``() =
+    readsAs "d503221f" "armv8-a" "hint #0x10" "armv8-a+ras" "esb"
+
+  [<TestMethod>]
+  member _.``[AArch64] PSB CSYNC reads by name only with FEAT_SPE``() =
+    readsAs "d503223f" "armv8.6-a" "hint #0x11" "armv8.2-a+profile" "psb csync"
+
+  [<TestMethod>]
+  member _.``[AArch64] TSB CSYNC reads by name only with FEAT_TRF``() =
+    readsAs "d503225f" "armv8.6-a" "hint #0x12" "armv8.4-a+trf" "tsb csync"
+
+  [<TestMethod>]
+  member _.``[AArch64] CSDB reads by name at every version``() =
+    Assert.AreEqual<string option>(Some "csdb", under "armv8-a" "d503229f")

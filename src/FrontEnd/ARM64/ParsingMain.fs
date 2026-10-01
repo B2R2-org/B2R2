@@ -56,6 +56,12 @@ let getDdWn bin = TwoOperands(dd bin, wn bin)
 
 let getHdWn bin = TwoOperands(hd bin, wn bin)
 
+let getHdHn bin = TwoOperands(hd bin, hn bin)
+
+let getWdHn bin = TwoOperands(wd bin, hn bin)
+
+let getXdHn bin = TwoOperands(xd bin, hn bin)
+
 let getSdXn bin = TwoOperands(sd bin, xn bin)
 
 let getDdXn bin = TwoOperands(dd bin, xn bin)
@@ -79,6 +85,8 @@ let getDdHn bin = TwoOperands(dd bin, hn bin)
 let getDnDm bin = TwoOperands(dn bin, dm bin)
 
 let getSnSm bin = TwoOperands(sn bin, sm bin)
+
+let getHnHm bin = TwoOperands(hn bin, hm bin)
 
 let getXdVnD1 bin = TwoOperands(xd bin, vnD1 bin)
 
@@ -137,9 +145,13 @@ let getVdVntidx bin = TwoOperands(vd4 bin, vntidx bin)
 (* Register - Immediate *)
 let getSnP0 bin = TwoOperands(sn bin, p0)
 
+let getHnP0 bin = TwoOperands(hn bin, p0)
+
 let getDnP0 bin = TwoOperands(dn bin, p0)
 
 let getSdImm8 bin = TwoOperands(sd bin, fScalarImm8 bin)
+
+let getHdImm8 bin = TwoOperands(hd bin, fScalarImm8 bin)
 
 let getDdImm8 bin = TwoOperands(dd bin, fScalarImm8 bin)
 
@@ -436,7 +448,55 @@ let getWdWnWm bin = ThreeOperands(wd bin, wn bin, wm bin)
 
 let getWdWnXm bin = ThreeOperands(wd bin, wn bin, xm bin)
 
+let getXsdXsnI6I4 bin =
+  let offset = OprImm(int64 (extract bin 21u 16u) * 16L)
+  let tag = OprImm(int64 (extract bin 13u 10u))
+  FourOperands(xsd bin, xsn bin, offset, tag)
+
+let getXdXsnXsm bin = ThreeOperands(xd bin, xsn bin, xsm bin)
+
+let getXsnXsm bin = TwoOperands(xsn bin, xsm bin)
+
+let getXdXSn bin = TwoOperands(xd bin, xsn bin)
+
+let getXd bin = OneOperand(xd bin)
+
+let getXdXnXSm bin = ThreeOperands(xd bin, xn bin, xsm bin)
+
 let getXdXnXm bin = ThreeOperands(xd bin, xn bin, xm bin)
+
+/// IRG, whose two tagged pointers may each be the stack pointer, and whose
+/// third operand is written only when it is named: register 31 there is the
+/// zero register and means the offset was left out.
+let getXsdXsnXm bin =
+  if valM bin = 0b11111u then TwoOperands(xsd bin, xsn bin)
+  else ThreeOperands(xsd bin, xsn bin, xm bin)
+
+/// GMI, which reads a tagged pointer that may be the stack pointer and writes
+/// an ordinary register.
+let getXdXsnXm bin = ThreeOperands(xd bin, xsn bin, xm bin)
+
+/// The offset a memory-tag access carries. The field is the same signed nine
+/// bits the unscaled accesses beside it use, and it counts GRANULES of
+/// sixteen bytes rather than bytes, because a tag belongs to a granule.
+let private tagSimm bin = (simm9 bin |> int64) * 16L
+
+let getXtBIXSnTag bin =
+  TwoOperands(xt1 bin, memBaseImm (xsr (valN bin), Some(tagSimm bin)))
+
+/// The tagged stores name a register that may be the stack pointer, which the
+/// tagged load does not.
+let getXstBIXSnTag bin =
+  TwoOperands(xsr (valT1 bin) |> OprRegister,
+              memBaseImm (xsr (valN bin), Some(tagSimm bin)))
+
+let getXstPoXSnTag bin =
+  TwoOperands(xsr (valT1 bin) |> OprRegister,
+              memPostIdxImm (xsr (valN bin), Some(tagSimm bin)))
+
+let getXstPrXSnTag bin =
+  TwoOperands(xsr (valT1 bin) |> OprRegister,
+              memPreIdxImm (xsr (valN bin), Some(tagSimm bin)))
 
 let getVdtaVntbVmtb b r = r b; ThreeOperands(vdts1 b, vntsq1 b, vmtsq1 b)
 
@@ -452,6 +512,8 @@ let getVdtVntVmt3 bin = ThreeOperands(vdtq1 bin, vntq1 bin, vmtq1 bin)
 
 let getSdSnSm bin = ThreeOperands(sd bin, sn bin, sm bin)
 
+let getHdHnHm bin = ThreeOperands(hd bin, hn bin, hm bin)
+
 let getDdDnDm bin = ThreeOperands(dd bin, dn bin, dm bin)
 
 let getVdVnVm1 bin r = r bin; ThreeOperands(vd2 bin, vn2 bin, vm2 bin)
@@ -462,9 +524,23 @@ let getVadVbnVbm bin r = r bin; ThreeOperands(vd1 bin, vn2 bin, vm2 bin)
 
 let getQdSnVm4S bin = ThreeOperands(qd bin, sn bin, vm4S bin)
 
+let getVd16BVn16BVm16BVa16B bin =
+  FourOperands(vd16B bin, vn16B bin, vm16B bin, va16B bin)
+
+let getVd2DVn2DVm2D bin = ThreeOperands(vd2D bin, vn2D bin, vm2D bin)
+
+let getVd2DVn2DVm2DI6 bin =
+  FourOperands(vd2D bin, vn2D bin, vm2D bin, OprImm(int64 (imm6 bin)))
+
 let getVd4SVn4SVm4S bin = ThreeOperands(vd4S bin, vn4S bin, vm4S bin)
 
 let getQdQnVm4S bin = ThreeOperands(qd bin, qn bin, vm4S bin)
+
+let getQdQnVm2D bin = ThreeOperands(qd bin, qn bin, vm2D bin)
+
+let getVd4SVn4SVm4SVa4S bin =
+  let va4S = getSIMDFPVecReg (valA bin) FourS
+  FourOperands(vd4S bin, vn4S bin, vm4S bin, va4S)
 
 let getVdtVntVmt b r = r b; ThreeOperands(vdtsq1 b, vntsq1 b, vmtsq1 b)
 
@@ -507,6 +583,52 @@ let getVdVnI0 bin r = r bin; ThreeOperands(vd2 bin, vn2 bin, OprImm 0L)
 
 let getVdVnF0 bin = ThreeOperands(vd3a bin, vn3 bin, OprFPImm 0.0)
 
+/// <summary>
+/// FEAT_FCMA's operands: vectors whose arrangement is size:Q, and the
+/// rotation in degrees, which FCADD holds as one bit counting 90 or 270 and
+/// FCMLA as two counting quarter turns.
+/// </summary>
+let getVdtVntVmtRot bin rot =
+  FourOperands(vdtsq1 bin, vntsq1 bin, vmtsq1 bin, OprImm rot)
+
+let getVdtVntVmComplexRot bin rot =
+  FourOperands(vdtsq1 bin, vntsq1 bin, vmComplexIdx bin, OprImm rot)
+
+/// <summary>
+/// Whether a complex arithmetic's size and Q name one of its arrangements:
+/// halves or singles either way, doubles only as a pair.
+/// </summary>
+let private isComplexArrangement bin =
+  let size = extract bin 23u 22u
+  size <> 0b00u && (size <> 0b11u || valQ bin = 1u)
+
+let getHdHnF0 bin = ThreeOperands(hd bin, hn bin, OprFPImm 0.0)
+
+let getHdVn2H bin = TwoOperands(hd bin, getSIMDFPVecReg (valN bin) TwoH)
+
+let getHdVntQ3 bin = TwoOperands(hd bin, vntq3 bin)
+
+let getVdtVntVmHidx bin = ThreeOperands(vdtq3 bin, vntq3 bin, vmHidx bin)
+
+let getHdHnVmHidx bin = ThreeOperands(hd bin, hn bin, vmHidx bin)
+
+/// The dot products by element: words, bytes, and the one group of four
+/// bytes every word reads.
+let getVdtVntVm4Bidx bin = ThreeOperands(vdtq2 bin, vntq1 bin, vm4Bidx bin)
+
+/// BFDOT by element: words, halves, and one pair of halves.
+let getVdtVntVm2Hidx bin = ThreeOperands(vdtq2 bin, vntq3 bin, vm2Hidx bin)
+
+/// The long multiply-accumulates by element: words, the halves Q counts
+/// from the destination, and one half.
+let getVdtVntVmHidxLong bin = ThreeOperands(vdtq2 bin, vntq4 bin, vmHidx bin)
+
+/// BFMLALB and BFMLALT by element: four words, eight halves, one half.
+let getVd4SVn8HVmHidx bin =
+  ThreeOperands(vd4S bin, getSIMDFPVecReg (valN bin) EightH, vmHidx bin)
+
+let getVdtFImmH bin = TwoOperands(vdtq3 bin, fVecImm8 bin)
+
 (* Register - Register - Shift *)
 let getVdtaVntbShf2 b r = r b; ThreeOperands(vdts1 b, vntsq1 b, lshf1 b)
 
@@ -522,6 +644,10 @@ let getHdWnFbits bin = ThreeOperands(hd bin, wn bin, fbits2 bin)
 let getSdWnFbits bin = ThreeOperands(sd bin, wn bin, fbits2 bin)
 
 let getWdSnFbits bin = ThreeOperands(wd bin, sn bin, fbits2 bin)
+
+let getWdHnFbits bin = ThreeOperands(wd bin, hn bin, fbits2 bin)
+
+let getXdHnFbits bin = ThreeOperands(xd bin, hn bin, fbits2 bin)
 
 let getDdWnFbits bin = ThreeOperands(dd bin, wn bin, fbits2 bin)
 
@@ -549,6 +675,10 @@ let getWsXtMXSn bin = ThreeOperands(ws bin, xt1 bin, memXSn bin)
 let getWt1Wt2MXSn bin = ThreeOperands(wt1 bin, wt2 bin, memXSn bin)
 
 let getXt1Xt2MXSn bin = ThreeOperands(xt1 bin, xt2 bin, memXSn bin)
+
+let getWsMXSn bin = TwoOperands(ws bin, memXSn bin)
+
+let getXsMXSn bin = TwoOperands(xs bin, memXSn bin)
 
 (* Register - Immediate - Shift *)
 let getVdtImm8LAmt bin oprVdt = function
@@ -600,9 +730,13 @@ let getXdXnXmCond bin = FourOperands(xd bin, xn bin, xm bin, cond bin)
 
 let getSdSnSmSa bin = FourOperands(sd bin, sn bin, sm bin, sa bin)
 
+let getHdHnHmHa bin = FourOperands(hd bin, hn bin, hm bin, ha bin)
+
 let getDdDnDmDa bin = FourOperands(dd bin, dn bin, dm bin, da bin)
 
 let getSdSnSmCond bin = FourOperands(sd bin, sn bin, sm bin, cond bin)
+
+let getHdHnHmCond bin = FourOperands(hd bin, hn bin, hm bin, cond bin)
 
 let getDdDnDmCond bin = FourOperands(dd bin, dn bin, dm bin, cond bin)
 
@@ -634,9 +768,23 @@ let getXdXnXmLsb bin = FourOperands(xd bin, xn bin, xm bin, lsb bin 63u)
 
 let getWsWt1Wt2MXSn bin = FourOperands(ws bin, wt1 bin, wt2 bin, memXSn bin)
 
+/// <summary>
+/// CASP's operands: two pairs of registers, each named by its first, which
+/// must be even, and the base register of the access.
+/// </summary>
+let getCasPair bin oprSize =
+  let s, t = valS1 bin, valT1 bin
+  if (s ||| t) &&& 1u = 1u then
+    unallocated ()
+  else
+    let reg v = getRegister64 oprSize (byte v) |> OprRegister
+    FiveOperands(reg s, reg (s + 1u), reg t, reg (t + 1u), memXSn bin)
+
 let getWsXt1Xt2MXSn bin = FourOperands(ws bin, xt1 bin, xt2 bin, memXSn bin)
 
 let getSnSmNZCVCond bin = FourOperands(sn bin, sm bin, nzcv bin, cond bin)
+
+let getHnHmNZCVCond bin = FourOperands(hn bin, hm bin, nzcv bin, cond bin)
 
 let getDnDmNZCVCond bin = FourOperands(dn bin, dm bin, nzcv bin, cond bin)
 
@@ -651,8 +799,10 @@ let getOprSizeByVector = function
   | VecH -> 16<rt>
   | VecS -> 32<rt>
   | VecD -> 64<rt>
+  | FourB -> 32<rt>
   | EightB -> 64<rt>
   | SixteenB -> 128<rt>
+  | TwoH -> 64<rt>
   | FourH -> 64<rt>
   | EightH -> 128<rt>
   | TwoS -> 64<rt>
@@ -906,11 +1056,29 @@ let parsePCRel bin =
   if (pickBit bin 31u) = 0u then Op.ADR, getXdLabel bin 0, 64<rt>
   else Op.ADRP, getXdLabel bin 12, 64<rt>
 
+/// <summary>
+/// Add and subtract an immediate WITH TAGS, which the immediate group routes
+/// to by an op0 of 011 where the ordinary add and subtract take 010.
+///
+/// The immediate counts GRANULES of sixteen bytes, like every other offset
+/// in this feature, and the second immediate is what is added to the
+/// pointer's tag rather than to its address.
+/// </summary>
+let parseAddSubImmTags bin =
+  let cond = concat (concat (pickBit bin 31u) (pickBit bin 30u) 1)
+                    (concat (pickBit bin 29u) (pickBit bin 22u) 1)
+                    2 (* sf:op:S:o2 *)
+  match cond with
+  | 0b1000u -> Op.ADDG, getXsdXsnI6I4 bin, 64<rt>
+  | 0b1100u -> Op.SUBG, getXsdXsnI6I4 bin, 64<rt>
+  | _ -> raise ParsingFailureException
+
 /// Data processing - immediate
 let parse64Group1 bin =
   let op0 = extract bin 25u 23u
   match op0 with
   | op0 when op0 &&& 0b110u = 0b000u -> parsePCRel bin
+  | 0b011u -> parseAddSubImmTags bin
   | op0 when op0 &&& 0b110u = 0b010u -> parseAddSubImm bin
   | 0b100u -> parseLogical bin
   | 0b101u -> parseMoveWide bin
@@ -1003,6 +1171,16 @@ let parseSystem bin =
       unallocated ()
     | c when c &&& 0b1110001111000u = 0b0000000100000u && not isRt1F ->
       unallocated ()
+    (* FEAT_FlagM and FEAT_FlagM2 rewrite NZCV in place and take no operands,
+       so they are written where an MSR to a PSTATE field would name one: the
+       three of them are op1 000 with the immediate field zero, which no
+       PSTATE field uses. *)
+    | 0b0000000100000u when isRt1F && isCRmZero ->
+      Op.CFINV, NoOperand, 0<rt>
+    | 0b0000000100001u when isRt1F && isCRmZero ->
+      Op.XAFLAG, NoOperand, 0<rt>
+    | 0b0000000100010u when isRt1F && isCRmZero ->
+      Op.AXFLAG, NoOperand, 0<rt>
     | c when c &&& 0b1110001111000u = 0b0000000100000u && isRt1F ->
       Op.MSR, getPstatefieldImm bin, 0<rt>
     | c when c &&& 0b1110001111000u = 0b0000000101000u ->
@@ -1017,6 +1195,54 @@ let parseSystem bin =
       unallocated ()
     | c when c &&& 0b1111111110000u = 0b0000110010000u && not isRt1F ->
       unallocated ()
+    (* FEAT_PAuth's implicit forms, which name no register and are encoded
+       as hints so that a processor without the feature runs them as no-ops.
+       They are told apart by CRm, which the selector above does not carry. *)
+    | 0b0000110010111u when isCRmZero && isRt1F ->
+      Op.XPACLRI, NoOperand, 0<rt>
+    | 0b0000110010000u when crm = 1L && isRt1F ->
+      Op.PACIA1716, NoOperand, 0<rt>
+    | 0b0000110010010u when crm = 1L && isRt1F ->
+      Op.PACIB1716, NoOperand, 0<rt>
+    | 0b0000110010100u when crm = 1L && isRt1F ->
+      Op.AUTIA1716, NoOperand, 0<rt>
+    | 0b0000110010110u when crm = 1L && isRt1F ->
+      Op.AUTIB1716, NoOperand, 0<rt>
+    | 0b0000110010000u when crm = 3L && isRt1F ->
+      Op.PACIAZ, NoOperand, 0<rt>
+    | 0b0000110010001u when crm = 3L && isRt1F ->
+      Op.PACIASP, NoOperand, 0<rt>
+    | 0b0000110010010u when crm = 3L && isRt1F ->
+      Op.PACIBZ, NoOperand, 0<rt>
+    | 0b0000110010011u when crm = 3L && isRt1F ->
+      Op.PACIBSP, NoOperand, 0<rt>
+    | 0b0000110010100u when crm = 3L && isRt1F ->
+      Op.AUTIAZ, NoOperand, 0<rt>
+    | 0b0000110010101u when crm = 3L && isRt1F ->
+      Op.AUTIASP, NoOperand, 0<rt>
+    | 0b0000110010110u when crm = 3L && isRt1F ->
+      Op.AUTIBZ, NoOperand, 0<rt>
+    | 0b0000110010111u when crm = 3L && isRt1F ->
+      Op.AUTIBSP, NoOperand, 0<rt>
+    (* The hints CRm 0010 and 0100 name (C6.2, the Hints table): ESB, PSB
+       CSYNC, TSB CSYNC and CSDB, and BTI with the branches it admits. An
+       encoding there that names nothing stays HINT. *)
+    | 0b0000110010000u when crm = 2L && isRt1F ->
+      Op.ESB, NoOperand, 0<rt>
+    | 0b0000110010001u when crm = 2L && isRt1F ->
+      Op.PSB, OneOperand(OprHintOpt CSYNC), 0<rt>
+    | 0b0000110010010u when crm = 2L && isRt1F ->
+      Op.TSB, OneOperand(OprHintOpt CSYNC), 0<rt>
+    | 0b0000110010100u when crm = 2L && isRt1F ->
+      Op.CSDB, NoOperand, 0<rt>
+    | 0b0000110010000u when crm = 4L && isRt1F ->
+      Op.BTI, NoOperand, 0<rt>
+    | 0b0000110010010u when crm = 4L && isRt1F ->
+      Op.BTI, OneOperand(OprHintOpt BTIC), 0<rt>
+    | 0b0000110010100u when crm = 4L && isRt1F ->
+      Op.BTI, OneOperand(OprHintOpt BTIJ), 0<rt>
+    | 0b0000110010110u when crm = 4L && isRt1F ->
+      Op.BTI, OneOperand(OprHintOpt BTIJC), 0<rt>
     | c when c &&& 0b1111111111000u = 0b0000110010000u &&
              not isCRmZero &&
              isRt1F ->
@@ -1051,6 +1277,8 @@ let parseSystem bin =
       Op.DMB, getOptionOrimm bin, 0<rt>
     | 0b0000110011110u when isRt1F ->
       Op.ISB, getISBOprs crm, 0<rt>
+    | 0b0000110011111u when isCRmZero && isRt1F ->
+      Op.SB, NoOperand, 0<rt>
     | 0b0000110011111u ->
       unallocated ()
     | c when c &&& 0b1111001110000u = 0b0001000010000u ->
@@ -1082,7 +1310,28 @@ let parseUncondBranchImm bin =
   let offset = signExtend 28 64 (extract bin 25u 0u <<< 2 |> uint64) |> int64
   opCode, OneOperand(memLabel offset), 64<rt>
 
-let parseUncondBranchReg bin =
+/// <summary>
+/// FEAT_PAuth's branches, which are BR, BLR, RET and ERET with the target
+/// authenticated first: under key A where bit 10 is clear and key B where it
+/// is set. BRAA and BLRAA name their modifier in the field the others hold
+/// 11111 in, where 11111 is the stack pointer, and set bit 24 to say so;
+/// BRAAZ and BLRAAZ authenticate against zero, and RETAA and ERETAA against
+/// the stack pointer without naming it.
+/// </summary>
+let parseUncondBranchRegAuth bin =
+  let isRn1F = valN bin = 0b11111u
+  let isRm1F = valD bin = 0b11111u
+  let pick a b = if pickBit bin 10u = 0u then a else b
+  match extract bin 24u 21u with
+  | 0b0000u when isRm1F -> pick Op.BRAAZ Op.BRABZ, OneOperand(xn bin), 64<rt>
+  | 0b0001u when isRm1F -> pick Op.BLRAAZ Op.BLRABZ, OneOperand(xn bin), 64<rt>
+  | 0b0010u when isRn1F && isRm1F -> pick Op.RETAA Op.RETAB, NoOperand, 64<rt>
+  | 0b0100u when isRn1F && isRm1F -> pick Op.ERETAA Op.ERETAB, NoOperand, 0<rt>
+  | 0b1000u -> pick Op.BRAA Op.BRAB, TwoOperands(xn bin, xsd bin), 64<rt>
+  | 0b1001u -> pick Op.BLRAA Op.BLRAB, TwoOperands(xn bin, xsd bin), 64<rt>
+  | _ -> unallocated ()
+
+let parseUncondBranchRegPlain bin =
   let opc = extract bin 24u 21u
   let isOp21F = extract bin 20u 16u = 0b11111u
   let isOp3Zero = extract bin 15u 10u = 0b000000u
@@ -1111,6 +1360,12 @@ let parseUncondBranchReg bin =
     unallocated ()
   | _ ->
     raise ParsingFailureException
+
+/// Unconditional branch (register): FEAT_PAuth's forms where op2 is 11111
+/// and op3 is 00001 followed by the key, and the plain ones otherwise.
+let parseUncondBranchReg bin =
+  if extract bin 20u 11u = 0b1111100001u then parseUncondBranchRegAuth bin
+  else parseUncondBranchRegPlain bin
 
 /// Branches, exception generating and system instructions
 let parse64Group2 bin =
@@ -1605,21 +1860,49 @@ let parseLoadStoreExclusive bin =
                     1 (* size:o2:L:o1:o0 *)
   let rt2 = extract bin 14u 10u
   match cond with
+  (* FEAT_LOR: the same ordered accesses as LDAR and STLR, ordered against a
+     limited region rather than against everything. There is one region in a
+     model with one thread, so they are told apart by o0 alone. *)
+  | 0b001000u -> Op.STLLRB, getWtMXSn bin, 32<rt>
+  | 0b001100u -> Op.LDLARB, getWtMXSn bin, 32<rt>
+  | 0b011000u -> Op.STLLRH, getWtMXSn bin, 32<rt>
+  | 0b011100u -> Op.LDLARH, getWtMXSn bin, 32<rt>
+  | 0b101000u -> Op.STLLR, getWtMXSn bin, 32<rt>
+  | 0b101100u -> Op.LDLAR, getWtMXSn bin, 32<rt>
+  | 0b111000u -> Op.STLLR, getXtMXSn bin, 64<rt>
+  | 0b111100u -> Op.LDLAR, getXtMXSn bin, 64<rt>
   | c when c &&& 0b001011u = 0b001000u (* FEAT_LOR *) -> unallocated ()
   | c when c &&& 0b001010u = 0b001010u && rt2 <> 0b11111u -> unallocated ()
   | c when c &&& 0b100010u = 0b000010u && rt2 <> 0b11111u -> unallocated ()
+  (* FEAT_LSE's compare and swap of a pair, at o1 set with a size of 0x *)
+  | 0b000010u when rt2 = 0b11111u -> Op.CASP, getCasPair bin 32<rt>, 32<rt>
+  | 0b000011u when rt2 = 0b11111u -> Op.CASPL, getCasPair bin 32<rt>, 32<rt>
+  | 0b000110u when rt2 = 0b11111u -> Op.CASPA, getCasPair bin 32<rt>, 32<rt>
+  | 0b000111u when rt2 = 0b11111u -> Op.CASPAL, getCasPair bin 32<rt>, 32<rt>
+  | 0b010010u when rt2 = 0b11111u -> Op.CASP, getCasPair bin 64<rt>, 64<rt>
+  | 0b010011u when rt2 = 0b11111u -> Op.CASPL, getCasPair bin 64<rt>, 64<rt>
+  | 0b010110u when rt2 = 0b11111u -> Op.CASPA, getCasPair bin 64<rt>, 64<rt>
+  | 0b010111u when rt2 = 0b11111u -> Op.CASPAL, getCasPair bin 64<rt>, 64<rt>
   | 0b000000u -> Op.STXRB, getWsWtMXSn bin, 32<rt>
   | 0b000001u -> Op.STLXRB, getWsWtMXSn bin, 32<rt>
   | 0b000100u -> Op.LDXRB, getWtMXSn bin, 32<rt>
   | 0b000101u -> Op.LDAXRB, getWtMXSn bin, 32<rt>
   | 0b001001u -> Op.STLRB, getWtMXSn bin, 32<rt>
   | 0b001101u -> Op.LDARB, getWtMXSn bin, 32<rt>
+  | 0b001010u -> Op.CASB, getWsWtMXSn bin, 32<rt>
+  | 0b001011u -> Op.CASLB, getWsWtMXSn bin, 32<rt>
+  | 0b001110u -> Op.CASAB, getWsWtMXSn bin, 32<rt>
+  | 0b001111u -> Op.CASALB, getWsWtMXSn bin, 32<rt>
   | 0b010000u -> Op.STXRH, getWsWtMXSn bin, 32<rt>
   | 0b010001u -> Op.STLXRH, getWsWtMXSn bin, 32<rt>
   | 0b010100u -> Op.LDXRH, getWtMXSn bin, 32<rt>
   | 0b010101u -> Op.LDAXRH, getWtMXSn bin, 32<rt>
   | 0b011001u -> Op.STLRH, getWtMXSn bin, 32<rt>
   | 0b011101u -> Op.LDARH, getWtMXSn bin, 32<rt>
+  | 0b011010u -> Op.CASH, getWsWtMXSn bin, 32<rt>
+  | 0b011011u -> Op.CASLH, getWsWtMXSn bin, 32<rt>
+  | 0b011110u -> Op.CASAH, getWsWtMXSn bin, 32<rt>
+  | 0b011111u -> Op.CASALH, getWsWtMXSn bin, 32<rt>
   | 0b100000u -> Op.STXR, getWsWtMXSn bin, 32<rt>
   | 0b100001u -> Op.STLXR, getWsWtMXSn bin, 32<rt>
   | 0b100010u -> Op.STXP, getWsWt1Wt2MXSn bin, 32<rt>
@@ -1882,7 +2165,7 @@ let parseLoadStoreRegPairOffset bin =
   | 0b0001u -> Op.LDP, getWt1Wt2BIXSnimm bin 2, 32<rt>
   | 0b0010u -> Op.STP, getSt1St2BIXSnimm bin 2, 32<rt>
   | 0b0011u -> Op.LDP, getSt1St2BIXSnimm bin 2, 32<rt>
-  | 0b0100u -> unallocated ()
+  | 0b0100u -> Op.STGP, getXt1Xt2BIXSnimm bin 4, 64<rt>
   | 0b0101u -> Op.LDPSW, getXt1Xt2BIXSnimm bin 2, 64<rt>
   | 0b0110u -> Op.STP, getDt1Dt2BIXSnimm bin 3, 64<rt>
   | 0b0111u -> Op.LDP, getDt1Dt2BIXSnimm bin 3, 64<rt>
@@ -1902,7 +2185,7 @@ let parseLoadStoreRegPairPostIndexed bin =
   | 0b0001u -> Op.LDP, getWt1Wt2PoXSnimm bin, 32<rt>
   | 0b0010u -> Op.STP, getSt1St2PoXSnimm bin, 32<rt>
   | 0b0011u -> Op.LDP, getSt1St2PoXSnimm bin, 32<rt>
-  | 0b0100u -> unallocated ()
+  | 0b0100u -> Op.STGP, getXt1Xt2PoXSnimm bin 4, 64<rt>
   | 0b0101u -> Op.LDPSW, getXt1Xt2PoXSnimm bin 2, 64<rt>
   | 0b0110u -> Op.STP, getDt1Dt2PoXSnimm bin, 64<rt>
   | 0b0111u -> Op.LDP, getDt1Dt2PoXSnimm bin, 64<rt>
@@ -1922,7 +2205,7 @@ let parseLoadStoreRegPairPreIndexed bin =
   | 0b0001u -> Op.LDP, getWt1Wt2PrXSnimm bin, 32<rt>
   | 0b0010u -> Op.STP, getSt1St2PrXSnimm bin, 32<rt>
   | 0b0011u -> Op.LDP, getSt1St2PrXSnimm bin, 32<rt>
-  | 0b0100u -> unallocated ()
+  | 0b0100u -> Op.STGP, getXt1Xt2PrXSnimm bin 4, 64<rt>
   | 0b0101u -> Op.LDPSW, getXt1Xt2PrXSnimm bin 2, 64<rt>
   | 0b0110u -> Op.STP, getDt1Dt2PrXSnimm bin, 64<rt>
   | 0b0111u -> Op.LDP, getDt1Dt2PrXSnimm bin, 64<rt>
@@ -1932,6 +2215,229 @@ let parseLoadStoreRegPairPreIndexed bin =
   | 0b1011u -> Op.LDP, getQt1Qt2PrXSnimm bin, 128<rt>
   | c when c &&& 0b1100u = 0b1100u -> unallocated ()
   | _ -> raise ParsingFailureException
+
+/// <summary>
+/// Every name an atomic memory operation goes under, by the fields that pick
+/// it: the width first, then the operation, then the ordering.
+///
+/// One encoding class carries a hundred and fifty-nine spellings, because
+/// three fields name the instruction rather than one -- the size field puts a
+/// letter on the end, the opcode field picks the operation, and the acquire
+/// and release bits put their own letters in between. A table is the shortest
+/// honest way to write that down.
+///
+/// The width index is the size field with its last two values folded
+/// together: a word and a doubleword are spelled the same way and told apart
+/// by the register the operands name. The ordering index is A:R in the order
+/// the field counts -- neither, release, acquire, both.
+/// </summary>
+let private atomicLoadOps =
+  [| [| (* byte *)
+        [| Op.LDADDB; Op.LDADDLB; Op.LDADDAB; Op.LDADDALB |]
+        [| Op.LDCLRB; Op.LDCLRLB; Op.LDCLRAB; Op.LDCLRALB |]
+        [| Op.LDEORB; Op.LDEORLB; Op.LDEORAB; Op.LDEORALB |]
+        [| Op.LDSETB; Op.LDSETLB; Op.LDSETAB; Op.LDSETALB |]
+        [| Op.LDSMAXB; Op.LDSMAXLB; Op.LDSMAXAB; Op.LDSMAXALB |]
+        [| Op.LDSMINB; Op.LDSMINLB; Op.LDSMINAB; Op.LDSMINALB |]
+        [| Op.LDUMAXB; Op.LDUMAXLB; Op.LDUMAXAB; Op.LDUMAXALB |]
+        [| Op.LDUMINB; Op.LDUMINLB; Op.LDUMINAB; Op.LDUMINALB |] |]
+     [| (* halfword *)
+        [| Op.LDADDH; Op.LDADDLH; Op.LDADDAH; Op.LDADDALH |]
+        [| Op.LDCLRH; Op.LDCLRLH; Op.LDCLRAH; Op.LDCLRALH |]
+        [| Op.LDEORH; Op.LDEORLH; Op.LDEORAH; Op.LDEORALH |]
+        [| Op.LDSETH; Op.LDSETLH; Op.LDSETAH; Op.LDSETALH |]
+        [| Op.LDSMAXH; Op.LDSMAXLH; Op.LDSMAXAH; Op.LDSMAXALH |]
+        [| Op.LDSMINH; Op.LDSMINLH; Op.LDSMINAH; Op.LDSMINALH |]
+        [| Op.LDUMAXH; Op.LDUMAXLH; Op.LDUMAXAH; Op.LDUMAXALH |]
+        [| Op.LDUMINH; Op.LDUMINLH; Op.LDUMINAH; Op.LDUMINALH |] |]
+     [| (* word or doubleword *)
+        [| Op.LDADD; Op.LDADDL; Op.LDADDA; Op.LDADDAL |]
+        [| Op.LDCLR; Op.LDCLRL; Op.LDCLRA; Op.LDCLRAL |]
+        [| Op.LDEOR; Op.LDEORL; Op.LDEORA; Op.LDEORAL |]
+        [| Op.LDSET; Op.LDSETL; Op.LDSETA; Op.LDSETAL |]
+        [| Op.LDSMAX; Op.LDSMAXL; Op.LDSMAXA; Op.LDSMAXAL |]
+        [| Op.LDSMIN; Op.LDSMINL; Op.LDSMINA; Op.LDSMINAL |]
+        [| Op.LDUMAX; Op.LDUMAXL; Op.LDUMAXA; Op.LDUMAXAL |]
+        [| Op.LDUMIN; Op.LDUMINL; Op.LDUMINA; Op.LDUMINAL |] |] |]
+
+/// The same operations under the name they take when the value they loaded
+/// has nowhere to go. There is no acquire column: a form with no destination
+/// cannot be ordered against a read that is not happening.
+let private atomicStoreOps =
+  [| [| (* byte *)
+        [| Op.STADDB; Op.STADDLB |]
+        [| Op.STCLRB; Op.STCLRLB |]
+        [| Op.STEORB; Op.STEORLB |]
+        [| Op.STSETB; Op.STSETLB |]
+        [| Op.STSMAXB; Op.STSMAXLB |]
+        [| Op.STSMINB; Op.STSMINLB |]
+        [| Op.STUMAXB; Op.STUMAXLB |]
+        [| Op.STUMINB; Op.STUMINLB |] |]
+     [| (* halfword *)
+        [| Op.STADDH; Op.STADDLH |]
+        [| Op.STCLRH; Op.STCLRLH |]
+        [| Op.STEORH; Op.STEORLH |]
+        [| Op.STSETH; Op.STSETLH |]
+        [| Op.STSMAXH; Op.STSMAXLH |]
+        [| Op.STSMINH; Op.STSMINLH |]
+        [| Op.STUMAXH; Op.STUMAXLH |]
+        [| Op.STUMINH; Op.STUMINLH |] |]
+     [| (* word or doubleword *)
+        [| Op.STADD; Op.STADDL |]
+        [| Op.STCLR; Op.STCLRL |]
+        [| Op.STEOR; Op.STEORL |]
+        [| Op.STSET; Op.STSETL |]
+        [| Op.STSMAX; Op.STSMAXL |]
+        [| Op.STSMIN; Op.STSMINL |]
+        [| Op.STUMAX; Op.STUMAXL |]
+        [| Op.STUMIN; Op.STUMINL |] |] |]
+
+/// The swap, which is the same class with the o3 bit set.
+let private atomicSwapOps =
+  [| [| Op.SWPB; Op.SWPLB; Op.SWPAB; Op.SWPALB |] (* byte *)
+     [| Op.SWPH; Op.SWPLH; Op.SWPAH; Op.SWPALH |] (* halfword *)
+     [| Op.SWP; Op.SWPL; Op.SWPA; Op.SWPAL |] (* word or doubleword *) |]
+
+/// The acquiring load, which shares the class and is not an operation at all.
+let private atomicAcquireOps =
+  [| Op.LDAPRB (* byte *)
+     Op.LDAPRH (* halfword *)
+     Op.LDAPR (* word or doubleword *) |]
+
+/// <summary>
+/// Atomic memory operations.
+///
+/// The load form applies the operation to the location and hands back what
+/// was there before it. Where the destination is the zero register and there
+/// is no acquire, that value goes nowhere, and the manual's preferred
+/// disassembly is the store name, written without it; the release bit keeps
+/// its letter in both spellings.
+///
+/// LDAPR shares the class -- o3 set, opcode 100, the source register reading
+/// as the zero register -- and is a plain load with acquire ordering rather
+/// than an operation on anything.
+///
+/// A vector bit that is set belongs to the 64-byte accesses, which nothing
+/// here models.
+/// </summary>
+let parseAtomicMemoryOperations bin =
+  let size = extract bin 31u 30u
+  let ar = extract bin 23u 22u (* A:R *)
+  let rs = extract bin 20u 16u
+  let opc = extract bin 14u 12u
+  let rt = extract bin 4u 0u
+  let width = if size = 0b11u then 2 else int size
+  let is64 = size = 0b11u
+  let oprSize = if is64 then 64<rt> else 32<rt>
+  let regReg bin = if is64 then getXsXtMXSn bin else getWsWtMXSn bin
+  (* One index at a time: a chain of brackets reads as a chain of arguments. *)
+  let pick (table: Opcode[][][]) ordering =
+    let byWidth = table[width]
+    let byOpcode = byWidth[int opc]
+    byOpcode[ordering]
+  if pickBit bin 26u = 1u then
+    unallocated ()
+  elif pickBit bin 15u = 0u then
+    if ar < 0b10u && rt = 0b11111u then
+      let opr = if is64 then getXsMXSn bin else getWsMXSn bin
+      pick atomicStoreOps (int ar), opr, oprSize
+    else
+      pick atomicLoadOps (int ar), regReg bin, oprSize
+  elif opc = 0b000u then
+    let byWidth = atomicSwapOps[width]
+    byWidth[int ar], regReg bin, oprSize
+  elif opc = 0b100u && ar = 0b10u && rs = 0b11111u then
+    let opr = if is64 then getXtMXSn bin else getWtMXSn bin
+    atomicAcquireOps[width], opr, oprSize
+  else
+    unallocated ()
+
+/// <summary>
+/// FEAT_LRCPC2: the acquiring loads and releasing stores that take an
+/// unscaled offset, which is the addressing mode LDAR and STLR do not have.
+///
+/// They share their class with the memory-tag accesses and are told from
+/// them by bit 21. Ordering is the whole of what they add, and a model with
+/// one thread has nothing to order against, so each is the plain access of
+/// its width.
+/// </summary>
+let parseLoadStoreOrderedUnscaled bin =
+  let size = extract bin 31u 30u
+  let opc = extract bin 23u 22u
+  match size, opc with
+  | 0b00u, 0b00u -> Op.STLURB, getWtBIXSnsimm bin, 32<rt>
+  | 0b00u, 0b01u -> Op.LDAPURB, getWtBIXSnsimm bin, 32<rt>
+  | 0b00u, 0b10u -> Op.LDAPURSB, getXtBIXSnsimm bin, 64<rt>
+  | 0b00u, 0b11u -> Op.LDAPURSB, getWtBIXSnsimm bin, 32<rt>
+  | 0b01u, 0b00u -> Op.STLURH, getWtBIXSnsimm bin, 32<rt>
+  | 0b01u, 0b01u -> Op.LDAPURH, getWtBIXSnsimm bin, 32<rt>
+  | 0b01u, 0b10u -> Op.LDAPURSH, getXtBIXSnsimm bin, 64<rt>
+  | 0b01u, 0b11u -> Op.LDAPURSH, getWtBIXSnsimm bin, 32<rt>
+  | 0b10u, 0b00u -> Op.STLUR, getWtBIXSnsimm bin, 32<rt>
+  | 0b10u, 0b01u -> Op.LDAPUR, getWtBIXSnsimm bin, 32<rt>
+  | 0b10u, 0b10u -> Op.LDAPURSW, getXtBIXSnsimm bin, 64<rt>
+  | 0b11u, 0b00u -> Op.STLUR, getXtBIXSnsimm bin, 64<rt>
+  | 0b11u, 0b01u -> Op.LDAPUR, getXtBIXSnsimm bin, 64<rt>
+  | _ -> unallocated ()
+
+/// <summary>
+/// Load/store memory tags: LDG, STG, ST2G, STZG and STZ2G, and the block
+/// forms LDGM, STGM and STZGM.
+///
+/// The class is told from the unscaled accesses it sits beside by bit 21,
+/// and opc says which of the five it is; op2 is the addressing mode, except
+/// where it is 00, which is LDG or, with no offset, one of the block forms.
+/// </summary>
+let parseLoadStoreMemoryTags bin =
+  let opc = extract bin 23u 22u
+  let op2 = extract bin 11u 10u
+  let isImm9Zero = extract bin 20u 12u = 0u
+  match opc, op2 with
+  | 0b01u, 0b00u -> Op.LDG, getXtBIXSnTag bin, 64<rt>
+  | 0b00u, 0b01u -> Op.STG, getXstPoXSnTag bin, 64<rt>
+  | 0b00u, 0b10u -> Op.STG, getXstBIXSnTag bin, 64<rt>
+  | 0b00u, 0b11u -> Op.STG, getXstPrXSnTag bin, 64<rt>
+  | 0b01u, 0b01u -> Op.STZG, getXstPoXSnTag bin, 64<rt>
+  | 0b01u, 0b10u -> Op.STZG, getXstBIXSnTag bin, 64<rt>
+  | 0b01u, 0b11u -> Op.STZG, getXstPrXSnTag bin, 64<rt>
+  | 0b10u, 0b01u -> Op.ST2G, getXstPoXSnTag bin, 64<rt>
+  | 0b10u, 0b10u -> Op.ST2G, getXstBIXSnTag bin, 64<rt>
+  | 0b10u, 0b11u -> Op.ST2G, getXstPrXSnTag bin, 64<rt>
+  | 0b11u, 0b01u -> Op.STZ2G, getXstPoXSnTag bin, 64<rt>
+  | 0b11u, 0b10u -> Op.STZ2G, getXstBIXSnTag bin, 64<rt>
+  | 0b11u, 0b11u -> Op.STZ2G, getXstPrXSnTag bin, 64<rt>
+  | 0b00u, 0b00u when isImm9Zero -> Op.STZGM, getXtMXSn bin, 64<rt>
+  | 0b10u, 0b00u when isImm9Zero -> Op.STGM, getXtMXSn bin, 64<rt>
+  | 0b11u, 0b00u when isImm9Zero -> Op.LDGM, getXtMXSn bin, 64<rt>
+  | _ -> unallocated ()
+
+/// <summary>
+/// FEAT_PAuth's loads, whose base is authenticated before the offset is
+/// added.
+///
+/// They sit inside the unscaled class at bit 21 with bit 10 set, which is
+/// what tells them from the atomics below them and the register offset
+/// beside them; bit 11 above it is the writeback. The selector
+/// `parse64Group3` builds does not carry the size bit that tells them from
+/// their neighbours, so they are taken on the raw word, the way the crypto
+/// classes are.
+///
+/// The offset is a signed ten bits, S:imm9, counting eight-byte words, and
+/// W says whether the authenticated base is written back.
+/// </summary>
+let private isLoadStorePac bin =
+  extract bin 31u 30u = 0b11u && extract bin 29u 27u = 0b111u
+  && pickBit bin 26u = 0u && extract bin 25u 24u = 0b00u
+  && pickBit bin 21u = 1u && pickBit bin 10u = 1u
+
+let parseLoadStorePac bin =
+  let raw = (int64 (pickBit bin 22u) <<< 9) ||| int64 (extract bin 20u 12u)
+  let offset = Some((if raw >= 512L then raw - 1024L else raw) * 8L)
+  let mem =
+    if pickBit bin 11u = 0u then memBaseImm (xsr (valN bin), offset)
+    else memPreIdxImm (xsr (valN bin), offset)
+  let op = if pickBit bin 23u = 0u then Op.LDRAA else Op.LDRAB
+  op, TwoOperands(xt1 bin, mem), 64<rt>
 
 /// Loads and stores
 let parse64Group3 bin =
@@ -1944,6 +2450,15 @@ let parse64Group3 bin =
   let cond =
     concat (concat (concat (concat (concat op0 op1 2) op2 1) op3 2) op4 6) op5 2
   match cond with
+  (* The memory-tag accesses are read before the unscaled ones they share a
+     class with: bit 24 tells them apart and bit 21 marks the tag forms. *)
+  | c when c &&& 0b11111010000000u = 0b10101010000000u
+           && pickBit bin 30u = 1u ->
+    parseLoadStoreMemoryTags bin
+  (* And the acquiring and releasing unscaled accesses beside them, which is
+     the same class with bit 21 clear. *)
+  | c when c &&& 0b01111010000011u = 0b00101000000000u ->
+    parseLoadStoreOrderedUnscaled bin
   | c when c &&& 0b11111111111100u = 0b00010000000000u ->
     parseAdvSIMDMul bin
   | c when c &&& 0b11111110000000u = 0b00010100000000u ->
@@ -1991,7 +2506,10 @@ let parse64Group3 bin =
   | c when c &&& 0b01101010000011u = 0b01100000000011u ->
     parseLoadStoreRegImmPreIndexed bin
   | c when c &&& 0b01101010000011u = 0b01100010000000u ->
-    unallocated ()
+    parseAtomicMemoryOperations bin
+  (* FEAT_PAuth's loads, which the guard below reads as unallocated *)
+  | _ when isLoadStorePac bin ->
+    parseLoadStorePac bin
   | c when c &&& 0b01101010000011u = 0b01100010000001u ->
     unallocated ()
   | c when c &&& 0b01101010000011u = 0b01100010000010u ->
@@ -2015,10 +2533,26 @@ let parseDataProcessing2Src bin =
                     (extract bin 15u 10u)
                     6  (* sf:S:opcode *)
   match cond with
+  (* SUBP and SUBPS sit at opcode 000000 of the 64-bit half, which the
+     guards below read as unallocated for want of anything there. CMPP is
+     the SUBPS whose destination is the zero register. *)
+  | 0b10000000u -> Op.SUBP, getXdXsnXsm bin, 64<rt>
+  | 0b11000000u when valD bin = 0b11111u -> Op.CMPP, getXsnXsm bin, 64<rt>
+  | 0b11000000u -> Op.SUBPS, getXdXsnXsm bin, 64<rt>
   | c when c &&& 0b00111110u = 0b00000000u -> unallocated ()
   | c when c &&& 0b00111000u = 0b00011000u -> unallocated ()
   | c when c &&& 0b00100000u = 0b00100000u -> unallocated ()
-  | c when c &&& 0b01111100u = 0b00000100u -> unallocated ()
+  (* IRG and GMI take opcodes 000100 and 000101 of the 64-bit half of this
+     class; the 32-bit half has nothing there, and neither has anything at
+     000110 or 000111. *)
+  | 0b10000100u -> Op.IRG, getXsdXsnXm bin, 64<rt>
+  | 0b10000101u -> Op.GMI, getXdXsnXm bin, 64<rt>
+  (* PACGA sits in the same half at 001100, and is the only one of the
+     pointer authentication family that reads two registers rather than a
+     pointer and a modifier *)
+  | 0b10001100u -> Op.PACGA, getXdXnXSm bin, 64<rt>
+  | c when c &&& 0b11111100u = 0b00000100u -> unallocated ()
+  | c when c &&& 0b11111110u = 0b10000110u -> unallocated ()
   | c when c &&& 0b01111100u = 0b00001100u -> unallocated ()
   | c when c &&& 0b01000000u = 0b01000000u -> unallocated ()
   | 0b00000010u -> Op.UDIV, getWdWnWm bin, 32<rt>
@@ -2052,7 +2586,29 @@ let parseDataProcessing1Src bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
                     (extract bin 20u 10u)
                     11 (* sf:S:opcode2:opcode *)
+  let isRn1F = valN bin = 0b11111u
   match cond with
+  (* FEAT_PAuth, whose whole class sits at opcode2 = 00001 and is otherwise
+     read exactly like the one-source instructions beside it; the Z forms
+     and XPAC hold 11111 in Rn as part of their opcode *)
+  | 0b1000001000000u -> Op.PACIA, getXdXSn bin, 64<rt>
+  | 0b1000001000001u -> Op.PACIB, getXdXSn bin, 64<rt>
+  | 0b1000001000010u -> Op.PACDA, getXdXSn bin, 64<rt>
+  | 0b1000001000011u -> Op.PACDB, getXdXSn bin, 64<rt>
+  | 0b1000001000100u -> Op.AUTIA, getXdXSn bin, 64<rt>
+  | 0b1000001000101u -> Op.AUTIB, getXdXSn bin, 64<rt>
+  | 0b1000001000110u -> Op.AUTDA, getXdXSn bin, 64<rt>
+  | 0b1000001000111u -> Op.AUTDB, getXdXSn bin, 64<rt>
+  | 0b1000001001000u when isRn1F -> Op.PACIZA, getXd bin, 64<rt>
+  | 0b1000001001001u when isRn1F -> Op.PACIZB, getXd bin, 64<rt>
+  | 0b1000001001010u when isRn1F -> Op.PACDZA, getXd bin, 64<rt>
+  | 0b1000001001011u when isRn1F -> Op.PACDZB, getXd bin, 64<rt>
+  | 0b1000001001100u when isRn1F -> Op.AUTIZA, getXd bin, 64<rt>
+  | 0b1000001001101u when isRn1F -> Op.AUTIZB, getXd bin, 64<rt>
+  | 0b1000001001110u when isRn1F -> Op.AUTDZA, getXd bin, 64<rt>
+  | 0b1000001001111u when isRn1F -> Op.AUTDZB, getXd bin, 64<rt>
+  | 0b1000001010000u when isRn1F -> Op.XPACI, getXd bin, 64<rt>
+  | 0b1000001010001u when isRn1F -> Op.XPACD, getXd bin, 64<rt>
   | c when c &&& 0b0000000001000u = 0b0000000001000u -> unallocated ()
   | c when c &&& 0b0000000010000u = 0b0000000010000u -> unallocated ()
   | c when c &&& 0b0000000100000u = 0b0000000100000u -> unallocated ()
@@ -2218,11 +2774,42 @@ let changeToAliasOfWithCarry = function
   | Op.SBCS, ThreeOperands(rd, _, rm), oSz -> Op.NGCS, TwoOperands(rd, rm), oSz
   | instr -> instr
 
+/// SETF8 and SETF16 share a class with the carrying add and differ from it in
+/// opcode2 alone. Everything else the encoding fixes is checked here, because
+/// the rest of opcode2 is unallocated and claiming it would take encodings
+/// these are not.
+let private isSetf bin =
+  valM bin = 0b00000u && extract bin 4u 0u = 0b01101u
+
+let private getWn bin = OneOperand(wn bin)
+
+/// <summary>
+/// RMIF shares the carrying add's class and is told from it by bits 14:10
+/// saying 00001, with bit 4 a fixed zero.
+///
+/// The test is written on the word rather than on the class's selector
+/// because the immediate's low bit sits at 15, which that selector carries.
+/// </summary>
+let private isRmif bin =
+  extract bin 31u 29u = 0b101u && extract bin 14u 10u = 0b00001u
+  && pickBit bin 4u = 0u
+
+/// RMIF, whose first immediate is how far to rotate and whose second says
+/// which of the four flags to write.
+let getXnI6I4 bin =
+  ThreeOperands(xn bin,
+                OprImm(int64 (extract bin 20u 15u)),
+                OprImm(int64 (extract bin 3u 0u)))
+
 let parseAddSubWithCarry bin =
   let cond = concat (extract bin 31u 29u) (extract bin 15u 10u) 6
   let instr =
     match cond with  (* sf:op:s:opcode2 *)
+    (* FEAT_FlagM's RMIF, which the guard below reads as unallocated *)
+    | _ when isRmif bin -> Op.RMIF, getXnI6I4 bin, 64<rt>
     | c when c &&& 0b000111111u = 0b000000001u -> unallocated ()
+    | 0b001000010u when isSetf bin -> Op.SETF8, getWn bin, 32<rt>
+    | 0b001010010u when isSetf bin -> Op.SETF16, getWn bin, 32<rt>
     | c when c &&& 0b000111111u = 0b000000010u -> unallocated ()
     | c when c &&& 0b000111111u = 0b000000100u -> unallocated ()
     | c when c &&& 0b000111111u = 0b000001000u -> unallocated ()
@@ -2480,34 +3067,43 @@ let parseAdvSIMDCopy bin =
 let toAliasFromNOT _ = Op.MVN
 
 /// Advanced SIMD two-register miscellaneous on page C4-343.
+/// BFCVTN and BFCVTN2, whose source is always four words and whose
+/// destination is four or eight halves by Q -- the only two-register form in
+/// the class whose two sides carry different arrangements.
+let getVdtVnt4S bin =
+  TwoOperands(vdtq3 bin, getSIMDFPVecReg (valN bin) FourS)
+
 let parseAdvSIMDTwoReg bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
                     (extract bin 16u 12u)
                     5 (* U:size:opcode *)
   let oprSize = getOprSizeByQ bin
   match cond with
+  (* FEAT_BF16's narrowing convert, which the guards below read as belonging
+     to the conversions it sits among *)
+  | 0b01010110u ->
+    let op = if pickBit bin 30u = 0u then Op.BFCVTN else Op.BFCVTN2
+    op, getVdtVnt4S bin, oprSize
   | c when c &&& 0b00011110u = 0b00010000u ->
     unallocated ()
   | c when c &&& 0b00011111u = 0b00010101u ->
     unallocated ()
-  | c when c &&& 0b00011111u = 0b00011110u ->
+  | c when c &&& 0b01011111u = 0b01011110u ->
     unallocated ()
   | c when c &&& 0b01011100u = 0b00001100u ->
-    unallocated ()
-  | c when c &&& 0b01011111u = 0b00011111u ->
     unallocated ()
   | c when c &&& 0b01011111u = 0b01010110u ->
     unallocated ()
   | c when c &&& 0b01011111u = 0b01010111u ->
     unallocated ()
   | c when c &&& 0b10011111u = 0b00000000u ->
-    Op.REV64, getVdtVnt bin sizeQ110, oprSize
+    Op.REV64, getVdtVnt bin sizeQ11x, oprSize
   | c when c &&& 0b10011111u = 0b00000001u ->
     Op.REV16, getVdtVnt bin sizeQ01x1xx, oprSize
   | c when c &&& 0b10011111u = 0b00000010u ->
     Op.SADDLP, getVdtaVntb bin sizeQ11x, oprSize
   | c when c &&& 0b10011111u = 0b00000011u ->
-    Op.SUQADD, getVdtVnt bin sizeQ11x, oprSize
+    Op.SUQADD, getVdtVnt bin sizeQ110, oprSize
   | c when c &&& 0b10011111u = 0b00000100u ->
     Op.CLS, getVdtVnt bin sizeQ11x, oprSize
   | c when c &&& 0b10011111u = 0b00000101u ->
@@ -2546,6 +3142,10 @@ let parseAdvSIMDTwoReg bin =
     Op.FCVTAS, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b00011101u ->
     Op.SCVTF, getVdtVnt2 bin szQ10, oprSize
+  | c when c &&& 0b11011111u = 0b00011110u ->
+    Op.FRINT32Z, getVdtVnt2 bin szQ10, oprSize
+  | c when c &&& 0b11011111u = 0b00011111u ->
+    Op.FRINT64Z, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b01001100u ->
     Op.FCMGT, getVdtVntF0 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b01001101u ->
@@ -2612,6 +3212,10 @@ let parseAdvSIMDTwoReg bin =
     Op.FCVTAU, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b10011101u ->
     Op.UCVTF, getVdtVnt2 bin szQ10, oprSize
+  | c when c &&& 0b11011111u = 0b10011110u ->
+    Op.FRINT32X, getVdtVnt2 bin szQ10, oprSize
+  | c when c &&& 0b11011111u = 0b10011111u ->
+    Op.FRINT64X, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11111111u = 0b10000101u ->
     toAliasFromNOT Op.NOT, getVdtVnt3 bin, oprSize
   | c when c &&& 0b11111111u = 0b10100101u ->
@@ -2686,6 +3290,15 @@ let parseAdvSIMDAcrossLanes bin =
     Op.UMINV, getVdVnt2 bin sizeQ10011x, oprSize
   | c when c &&& 0b10011111u = 0b10011011u ->
     unallocated ()
+  (* FEAT_FP16's halves, which a U of 0 names with a size of 00 or 10 *)
+  | 0b00001100u ->
+    Op.FMAXNMV, getHdVntQ3 bin, oprSize
+  | 0b00001111u ->
+    Op.FMAXV, getHdVntQ3 bin, oprSize
+  | 0b01001100u ->
+    Op.FMINNMV, getHdVntQ3 bin, oprSize
+  | 0b01001111u ->
+    Op.FMINV, getHdVntQ3 bin, oprSize
   | c when c &&& 0b11011111u = 0b10001100u ->
     Op.FMAXNMV, getVdVnt3 bin szQx011, oprSize
   | c when c &&& 0b11011111u = 0b10001111u ->
@@ -2769,6 +3382,75 @@ let parseAdvSIMDThreeDiff bin =
   | _ ->
     raise ParsingFailureException
 
+/// The matrix multiplies, whose arrangements are fixed rather than named by
+/// a size field: four words accumulated from sixteen bytes on each side.
+let getVd4SVn16BVm16B bin =
+  ThreeOperands(getSIMDFPVecReg (valD bin) FourS,
+                getSIMDFPVecReg (valN bin) SixteenB,
+                getSIMDFPVecReg (valM bin) SixteenB)
+
+/// BFMLALB and BFMLALT, whose destination is four words and whose sources
+/// are eight halves -- fixed, like the matrix multiplies beside them.
+let getVd4SVn8HVm8H bin =
+  ThreeOperands(getSIMDFPVecReg (valD bin) FourS,
+                getSIMDFPVecReg (valN bin) EightH,
+                getSIMDFPVecReg (valM bin) EightH)
+
+/// <summary>
+/// Advanced SIMD three-register extension: the operations that read their
+/// sources as elements narrower than the ones they write.
+///
+/// The dot products are the three here with a lifter. Each reads four bytes
+/// of each source per word of the destination and sums the four products
+/// into it, so the destination's arrangement is words and the sources' is
+/// bytes -- two arrangements in one instruction, which is why the class
+/// exists beside the three-register ones where they are the same.
+///
+/// The class is bit 10 set as well as bit 15, and the selector that sends
+/// words here reads only the latter, so a word with bit 10 clear is turned
+/// away before anything else is read of it.
+/// </summary>
+let parseAdvSIMDThreeRegExtension bin =
+  if pickBit bin 10u = 0u then unallocated () else ()
+  let oprs = ThreeOperands(vdtq2 bin, vntq1 bin, vmtq1 bin)
+  let cond = (* U:size:opcode *)
+    concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
+           (extract bin 15u 11u)
+           5
+  match cond with
+  (* FEAT_RDM, whose two members are the only ones in this class whose
+     arrangement comes from the size field rather than from Q alone *)
+  | c when c &&& 0b10011111u = 0b10010000u ->
+    Op.SQRDMLAH, getVdtVntVmt1 bin size0011, getOprSizeByQ bin
+  | c when c &&& 0b10011111u = 0b10010001u ->
+    Op.SQRDMLSH, getVdtVntVmt1 bin size0011, getOprSizeByQ bin
+  | 0b11111111u ->
+    let op = if pickBit bin 30u = 0u then Op.BFMLALB else Op.BFMLALT
+    op, getVd4SVn8HVm8H bin, 128<rt>
+  | 0b10111111u ->
+    Op.BFDOT, ThreeOperands(vdtq2 bin, vntq3 bin, vmtq3 bin), getOprSizeByQ bin
+  | 0b10111101u when valQ bin = 1u ->
+    Op.BFMMLA, getVd4SVn8HVm8H bin, 128<rt>
+  | 0b01010100u when valQ bin = 1u ->
+    Op.SMMLA, getVd4SVn16BVm16B bin, 128<rt>
+  | 0b11010100u when valQ bin = 1u ->
+    Op.UMMLA, getVd4SVn16BVm16B bin, 128<rt>
+  | 0b01010101u when valQ bin = 1u ->
+    Op.USMMLA, getVd4SVn16BVm16B bin, 128<rt>
+  | 0b01010010u ->
+    Op.SDOT, oprs, getOprSizeByQ bin
+  | 0b11010010u ->
+    Op.UDOT, oprs, getOprSizeByQ bin
+  | 0b01010011u ->
+    Op.USDOT, oprs, getOprSizeByQ bin
+  | _ ->
+    unallocated ()
+
+/// The long multiply-accumulate's operands: a destination of words and two
+/// sources of halves, both counted by Q.
+let getVdtVntVmtLong bin =
+  ThreeOperands(vdtq2 bin, vntq4 bin, vmtq4 bin)
+
 let changeToAliasOfAdvSIMDThreeSame bin = function
   | Op.ORR, ThreeOperands(vdt, vnt, _) when valM bin = valN bin ->
     Op.MOV, TwoOperands(vdt, vnt)
@@ -2781,6 +3463,17 @@ let parseAdvSIMDThreeSame b =
                     5 (* U:size:opcode *)
   let ins =
     match cond with
+    (* FEAT_FHM, whose four members sit in slots this class otherwise reads
+       as unallocated. They are the only three-same instructions whose
+       sources are narrower than their destination. *)
+    | 0b00011101u ->
+      Op.FMLAL, getVdtVntVmtLong b
+    | 0b10011001u ->
+      Op.FMLAL2, getVdtVntVmtLong b
+    | 0b01011101u ->
+      Op.FMLSL, getVdtVntVmtLong b
+    | 0b11011001u ->
+      Op.FMLSL2, getVdtVntVmtLong b
     | c when c &&& 0b10011111u = 0b00000000u ->
       Op.SHADD, getVdtVntVmt1 b size11
     | c when c &&& 0b10011111u = 0b00000001u ->
@@ -2964,6 +3657,10 @@ let parseAdvSIMDModImm bin =
   let cond = concat (extract bin 30u 29u) (extract bin 15u 11u) 5
   let oprSize = getOprSizeByQ bin
   match cond with (* Q:op:cmode:o2 *)
+  (* FEAT_FP16's FMOV, the one form with o2 set, which the guard below reads
+     as unallocated *)
+  | c when c &&& 0b0111111u = 0b0011111u ->
+    Op.FMOV, getVdtFImmH bin, oprSize
   | c when c &&& 0b0000001u = 0b0000001u ->
     unallocated ()
   | c when c &&& 0b0110011u = 0b0000000u ->
@@ -3093,12 +3790,50 @@ let getAdvSIMDShfByImm b =
   | _ ->
     raise ParsingFailureException
 
+/// <summary>
+/// Whether FCMLA by element's size and index are an allocated combination:
+/// halves with an index the arrangement reaches, or four singles with L
+/// clear.
+/// </summary>
+let private isComplexElem bin =
+  match extract bin 23u 22u with
+  | 0b01u -> valQ bin = 1u || pickBit bin 11u = 0u
+  | 0b10u -> valQ bin = 1u && pickBit bin 21u = 0u
+  | _ -> false
+
 /// Advanced SIMD vector x indexed element on page C4-354.
 let parseAdvSIMDVecXIdxElem bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
                     (extract bin 15u 12u)
                     4 (* U:size:opcode *)
   match cond with
+  (* FEAT_DotProd, FEAT_I8MM, FEAT_BF16, FEAT_FHM and FEAT_RDM by element,
+     every one at an opcode the guards below read as unallocated *)
+  | 0b0101110u ->
+    Op.SDOT, getVdtVntVm4Bidx bin, getOprSizeByQ bin
+  | 0b1101110u ->
+    Op.UDOT, getVdtVntVm4Bidx bin, getOprSizeByQ bin
+  | 0b0001111u ->
+    Op.SUDOT, getVdtVntVm4Bidx bin, getOprSizeByQ bin
+  | 0b0101111u ->
+    Op.USDOT, getVdtVntVm4Bidx bin, getOprSizeByQ bin
+  | 0b0011111u ->
+    Op.BFDOT, getVdtVntVm2Hidx bin, getOprSizeByQ bin
+  | 0b0111111u ->
+    let op = if valQ bin = 0u then Op.BFMLALB else Op.BFMLALT
+    op, getVd4SVn8HVmHidx bin, 128<rt>
+  | 0b0100000u ->
+    Op.FMLAL, getVdtVntVmHidxLong bin, getOprSizeByQ bin
+  | 0b0100100u ->
+    Op.FMLSL, getVdtVntVmHidxLong bin, getOprSizeByQ bin
+  | 0b1101000u ->
+    Op.FMLAL2, getVdtVntVmHidxLong bin, getOprSizeByQ bin
+  | 0b1101100u ->
+    Op.FMLSL2, getVdtVntVmHidxLong bin, getOprSizeByQ bin
+  | c when c &&& 0b1001111u = 0b1001101u ->
+    Op.SQRDMLAH, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
+  | c when c &&& 0b1001111u = 0b1001111u ->
+    Op.SQRDMLSH, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
   | c when c &&& 0b0001110u = 0b0001110u ->
     unallocated ()
   | c when c &&& 0b1001111u = 0b0000000u ->
@@ -3126,6 +3861,21 @@ let parseAdvSIMDVecXIdxElem bin =
     Op.SQDMULH, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
   | c when c &&& 0b1001111u = 0b0001101u ->
     Op.SQRDMULH, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
+  (* FEAT_FCMA's FCMLA, whose rotation sits in the opcode field the guards
+     below read as unallocated; halves and singles only, and singles only as
+     four of them *)
+  | c when c &&& 0b1001001u = 0b1000001u && isComplexElem bin ->
+    let rot = int64 (extract bin 14u 13u) * 90L
+    Op.FCMLA, getVdtVntVmComplexRot bin rot, getOprSizeByQ bin
+  (* FEAT_FP16's forms, which read halves and say so with a size of 00 *)
+  | 0b0000001u ->
+    Op.FMLA, getVdtVntVmHidx bin, getOprSizeByQ bin
+  | 0b0000101u ->
+    Op.FMLS, getVdtVntVmHidx bin, getOprSizeByQ bin
+  | 0b0001001u ->
+    Op.FMUL, getVdtVntVmHidx bin, getOprSizeByQ bin
+  | 0b1001001u ->
+    Op.FMULX, getVdtVntVmHidx bin, getOprSizeByQ bin
   | c when c &&& 0b1101111u = 0b0100001u ->
     Op.FMLA, getVdtVntVmtsidx2 bin szL11, getOprSizeByQ bin
   | c when c &&& 0b1101111u = 0b0100101u ->
@@ -3161,12 +3911,269 @@ let parseAdvSIMDVecXIdxElem bin =
   | _ ->
     raise ParsingFailureException
 
+/// The half-precision vector operands, whose arrangement is named by Q
+/// alone because the field that would carry the element size is spent
+/// saying that the elements are halves.
+let getVdtVntVmtQ3 bin =
+  ThreeOperands(vdtq3 bin, vntq3 bin, vmtq3 bin)
+
+let getVdtVntF0Q3 bin = ThreeOperands(vdtq3 bin, vntq3 bin, OprFPImm 0.0)
+
+let getVdtVntQ3 bin = TwoOperands(vdtq3 bin, vntq3 bin)
+
+/// <summary>
+/// FEAT_FP16's three-same class.
+///
+/// It sits where the ordinary three-same class would if its size field read
+/// 1x, and is told apart by bit 21 being zero where that class fixes it to
+/// one. One bit of what would have been the size is left, and it joins the
+/// opcode in naming the instruction.
+/// </summary>
+let parseAdvSIMDThreeSameFP16 bin =
+  let cond = (* U:a:opcode *)
+    (pickBit bin 29u <<< 6) ||| (pickBit bin 23u <<< 5) ||| extract bin 15u 11u
+  let oprSize = getOprSizeByQ bin
+  match cond with
+  | 0b0000000u -> Op.FMAXNM, getVdtVntVmtQ3 bin, oprSize
+  | 0b0000001u -> Op.FMLA, getVdtVntVmtQ3 bin, oprSize
+  | 0b0000010u -> Op.FADD, getVdtVntVmtQ3 bin, oprSize
+  | 0b0000011u -> Op.FMULX, getVdtVntVmtQ3 bin, oprSize
+  | 0b0000100u -> Op.FCMEQ, getVdtVntVmtQ3 bin, oprSize
+  | 0b0000110u -> Op.FMAX, getVdtVntVmtQ3 bin, oprSize
+  | 0b0000111u -> Op.FRECPS, getVdtVntVmtQ3 bin, oprSize
+  | 0b0100000u -> Op.FMINNM, getVdtVntVmtQ3 bin, oprSize
+  | 0b0100001u -> Op.FMLS, getVdtVntVmtQ3 bin, oprSize
+  | 0b0100010u -> Op.FSUB, getVdtVntVmtQ3 bin, oprSize
+  | 0b0100110u -> Op.FMIN, getVdtVntVmtQ3 bin, oprSize
+  | 0b0100111u -> Op.FRSQRTS, getVdtVntVmtQ3 bin, oprSize
+  | 0b1000000u -> Op.FMAXNMP, getVdtVntVmtQ3 bin, oprSize
+  | 0b1000010u -> Op.FADDP, getVdtVntVmtQ3 bin, oprSize
+  | 0b1000011u -> Op.FMUL, getVdtVntVmtQ3 bin, oprSize
+  | 0b1000100u -> Op.FCMGE, getVdtVntVmtQ3 bin, oprSize
+  | 0b1000101u -> Op.FACGE, getVdtVntVmtQ3 bin, oprSize
+  | 0b1000110u -> Op.FMAXP, getVdtVntVmtQ3 bin, oprSize
+  | 0b1000111u -> Op.FDIV, getVdtVntVmtQ3 bin, oprSize
+  | 0b1100000u -> Op.FMINNMP, getVdtVntVmtQ3 bin, oprSize
+  | 0b1100010u -> Op.FABD, getVdtVntVmtQ3 bin, oprSize
+  | 0b1100100u -> Op.FCMGT, getVdtVntVmtQ3 bin, oprSize
+  | 0b1100101u -> Op.FACGT, getVdtVntVmtQ3 bin, oprSize
+  | 0b1100110u -> Op.FMINP, getVdtVntVmtQ3 bin, oprSize
+  | _ -> raise ParsingFailureException
+
+/// <summary>
+/// FEAT_FP16's two-register miscellaneous class, which is where the
+/// comparisons against zero live for halves.
+/// </summary>
+let parseAdvSIMDTwoRegFP16 bin =
+  let cond = (* U:a:opcode *)
+    (pickBit bin 29u <<< 6) ||| (pickBit bin 23u <<< 5) ||| extract bin 16u 12u
+  let oprSize = getOprSizeByQ bin
+  match cond with
+  | 0b0011000u -> Op.FRINTN, getVdtVntQ3 bin, oprSize
+  | 0b0011001u -> Op.FRINTM, getVdtVntQ3 bin, oprSize
+  | 0b0011010u -> Op.FCVTNS, getVdtVntQ3 bin, oprSize
+  | 0b0011011u -> Op.FCVTMS, getVdtVntQ3 bin, oprSize
+  | 0b0011100u -> Op.FCVTAS, getVdtVntQ3 bin, oprSize
+  | 0b0011101u -> Op.SCVTF, getVdtVntQ3 bin, oprSize
+  | 0b0101100u -> Op.FCMGT, getVdtVntF0Q3 bin, oprSize
+  | 0b0101101u -> Op.FCMEQ, getVdtVntF0Q3 bin, oprSize
+  | 0b0101110u -> Op.FCMLT, getVdtVntF0Q3 bin, oprSize
+  | 0b0101111u -> Op.FABS, getVdtVntQ3 bin, oprSize
+  | 0b0111000u -> Op.FRINTP, getVdtVntQ3 bin, oprSize
+  | 0b0111001u -> Op.FRINTZ, getVdtVntQ3 bin, oprSize
+  | 0b0111010u -> Op.FCVTPS, getVdtVntQ3 bin, oprSize
+  | 0b0111011u -> Op.FCVTZS, getVdtVntQ3 bin, oprSize
+  | 0b0111101u -> Op.FRECPE, getVdtVntQ3 bin, oprSize
+  | 0b1011000u -> Op.FRINTA, getVdtVntQ3 bin, oprSize
+  | 0b1011001u -> Op.FRINTX, getVdtVntQ3 bin, oprSize
+  | 0b1011010u -> Op.FCVTNU, getVdtVntQ3 bin, oprSize
+  | 0b1011011u -> Op.FCVTMU, getVdtVntQ3 bin, oprSize
+  | 0b1011100u -> Op.FCVTAU, getVdtVntQ3 bin, oprSize
+  | 0b1011101u -> Op.UCVTF, getVdtVntQ3 bin, oprSize
+  | 0b1101100u -> Op.FCMGE, getVdtVntF0Q3 bin, oprSize
+  | 0b1101101u -> Op.FCMLE, getVdtVntF0Q3 bin, oprSize
+  | 0b1101111u -> Op.FNEG, getVdtVntQ3 bin, oprSize
+  | 0b1111001u -> Op.FRINTI, getVdtVntQ3 bin, oprSize
+  | 0b1111010u -> Op.FCVTPU, getVdtVntQ3 bin, oprSize
+  | 0b1111011u -> Op.FCVTZU, getVdtVntQ3 bin, oprSize
+  | 0b1111101u -> Op.FRSQRTE, getVdtVntQ3 bin, oprSize
+  | 0b1111111u -> Op.FSQRT, getVdtVntQ3 bin, oprSize
+  | _ -> raise ParsingFailureException
+
+/// <summary>
+/// FEAT_FP16's scalar three-same class: the scalar forms of the vector class
+/// above, with the same fields and fewer members.
+/// </summary>
+let parseAdvSIMDScalarThreeSameFP16 bin =
+  let cond = (* U:a:opcode *)
+    (pickBit bin 29u <<< 6) ||| (pickBit bin 23u <<< 5) ||| extract bin 15u 11u
+  match cond with
+  | 0b0000011u -> Op.FMULX, getHdHnHm bin, 16<rt>
+  | 0b0000100u -> Op.FCMEQ, getHdHnHm bin, 16<rt>
+  | 0b0000111u -> Op.FRECPS, getHdHnHm bin, 16<rt>
+  | 0b0100111u -> Op.FRSQRTS, getHdHnHm bin, 16<rt>
+  | 0b1000100u -> Op.FCMGE, getHdHnHm bin, 16<rt>
+  | 0b1000101u -> Op.FACGE, getHdHnHm bin, 16<rt>
+  | 0b1100010u -> Op.FABD, getHdHnHm bin, 16<rt>
+  | 0b1100100u -> Op.FCMGT, getHdHnHm bin, 16<rt>
+  | 0b1100101u -> Op.FACGT, getHdHnHm bin, 16<rt>
+  | _ -> raise ParsingFailureException
+
+/// <summary>
+/// FEAT_FP16's scalar two-register miscellaneous class, the scalar forms of
+/// the vector class above.
+/// </summary>
+let parseAdvSIMDScalarTwoRegFP16 bin =
+  let cond = (* U:a:opcode *)
+    (pickBit bin 29u <<< 6) ||| (pickBit bin 23u <<< 5) ||| extract bin 16u 12u
+  match cond with
+  | 0b0011010u -> Op.FCVTNS, getHdHn bin, 16<rt>
+  | 0b0011011u -> Op.FCVTMS, getHdHn bin, 16<rt>
+  | 0b0011100u -> Op.FCVTAS, getHdHn bin, 16<rt>
+  | 0b0011101u -> Op.SCVTF, getHdHn bin, 16<rt>
+  | 0b0101100u -> Op.FCMGT, getHdHnF0 bin, 16<rt>
+  | 0b0101101u -> Op.FCMEQ, getHdHnF0 bin, 16<rt>
+  | 0b0101110u -> Op.FCMLT, getHdHnF0 bin, 16<rt>
+  | 0b0111010u -> Op.FCVTPS, getHdHn bin, 16<rt>
+  | 0b0111011u -> Op.FCVTZS, getHdHn bin, 16<rt>
+  | 0b0111101u -> Op.FRECPE, getHdHn bin, 16<rt>
+  | 0b0111111u -> Op.FRECPX, getHdHn bin, 16<rt>
+  | 0b1011010u -> Op.FCVTNU, getHdHn bin, 16<rt>
+  | 0b1011011u -> Op.FCVTMU, getHdHn bin, 16<rt>
+  | 0b1011100u -> Op.FCVTAU, getHdHn bin, 16<rt>
+  | 0b1011101u -> Op.UCVTF, getHdHn bin, 16<rt>
+  | 0b1101100u -> Op.FCMGE, getHdHnF0 bin, 16<rt>
+  | 0b1101101u -> Op.FCMLE, getHdHnF0 bin, 16<rt>
+  | 0b1111010u -> Op.FCVTPU, getHdHn bin, 16<rt>
+  | 0b1111011u -> Op.FCVTZU, getHdHn bin, 16<rt>
+  | 0b1111101u -> Op.FRSQRTE, getHdHn bin, 16<rt>
+  | _ -> raise ParsingFailureException
+
+/// True where the word is one of FEAT_FP16's two scalar classes, which the
+/// scalar group's selector cannot tell from the classes they sit among: the
+/// same fields as the vector test below, on the scalar classes' fixed bits.
+let private isAdvSIMDScalarFP16 bin =
+  extract bin 31u 30u = 0b01u && extract bin 28u 24u = 0b11110u
+  && ((extract bin 22u 21u = 0b10u && extract bin 15u 14u = 0b00u
+       && pickBit bin 10u = 1u)
+      || (extract bin 22u 17u = 0b111100u && extract bin 11u 10u = 0b10u))
+
+/// <summary>
+/// FEAT_FCMA's FCADD and FCMLA on whole vectors, which sit in the
+/// three-register extension class with U set: FCMLA's opcode is 10 and a
+/// two-bit rotation, FCADD's 11, a one-bit rotation and a clear bit 11.
+///
+/// They are taken on the raw word, the way the FP16 classes are, because the
+/// rotation is part of the field the group's selector reads.
+/// </summary>
+let private isAdvSIMDComplex bin =
+  pickBit bin 31u = 0u && extract bin 29u 24u = 0b101110u
+  && pickBit bin 21u = 0u && pickBit bin 15u = 1u && pickBit bin 10u = 1u
+  && (extract bin 14u 13u = 0b10u
+      || (extract bin 14u 13u = 0b11u && pickBit bin 11u = 0u))
+  && isComplexArrangement bin
+
+let parseAdvSIMDComplex bin =
+  if extract bin 14u 13u = 0b10u then
+    let rot = int64 (extract bin 12u 11u) * 90L
+    Op.FCMLA, getVdtVntVmtRot bin rot, getOprSizeByQ bin
+  else
+    let rot = if pickBit bin 12u = 0u then 90L else 270L
+    Op.FCADD, getVdtVntVmtRot bin rot, getOprSizeByQ bin
+
+/// True where the word is one of FEAT_FP16's two vector classes, which the
+/// selector below cannot tell from the classes they sit among: the bits
+/// that separate them are 22:21 and 11:10, and it carries neither.
+let private isAdvSIMDFP16 bin =
+  pickBit bin 31u = 0u && extract bin 28u 24u = 0b01110u
+  && ((extract bin 22u 21u = 0b10u && pickBit bin 15u = 0u
+       && pickBit bin 10u = 1u)
+      || (extract bin 22u 17u = 0b111100u && extract bin 11u 10u = 0b10u))
+
+/// Cryptographic three-register SHA 512 on page C4-356: SHA-512's hash halves
+/// and second schedule update, RAX1, and the SM3 and SM4 members beside them.
+let private parseCryptThreeRegSHA512 bin =
+  match concat (pickBit bin 14u) (extract bin 11u 10u) 2 (* O:opcode *) with
+  | 0b000u -> Op.SHA512H, getQdQnVm2D bin, 128<rt>
+  | 0b001u -> Op.SHA512H2, getQdQnVm2D bin, 128<rt>
+  | 0b010u -> Op.SHA512SU1, getVd2DVn2DVm2D bin, 128<rt>
+  | 0b011u -> Op.RAX1, getVd2DVn2DVm2D bin, 128<rt>
+  | 0b100u -> Op.SM3PARTW1, getVd4SVn4SVm4S bin, 128<rt>
+  | 0b101u -> Op.SM3PARTW2, getVd4SVn4SVm4S bin, 128<rt>
+  | 0b110u -> Op.SM4EKEY, getVd4SVn4SVm4S bin, 128<rt>
+  | _ -> unallocated ()
+
+/// Cryptographic two-register SHA 512 on page C4-357: SHA512SU0 and SM4E.
+let private parseCryptTwoRegSHA512 bin =
+  match extract bin 11u 10u with
+  | 0b00u -> Op.SHA512SU0, TwoOperands(vd2D bin, vn2D bin), 128<rt>
+  | 0b01u -> Op.SM4E, TwoOperands(vd4S bin, vn4S bin), 128<rt>
+  | _ -> unallocated ()
+
+/// Cryptographic three-register, imm2 on page C4-356: SM3's four round
+/// functions, whose third source is the one word of a register the immediate
+/// names.
+let private parseCryptThreeRegImm2 bin =
+  let index = extract bin 13u 12u |> uint8
+  let wj = getSIMDFPRegWithIdx (valM bin) VecS index
+  let oprs = ThreeOperands(vd4S bin, vn4S bin, wj)
+  match extract bin 11u 10u with
+  | 0b00u -> Op.SM3TT1A, oprs, 128<rt>
+  | 0b01u -> Op.SM3TT1B, oprs, 128<rt>
+  | 0b10u -> Op.SM3TT2A, oprs, 128<rt>
+  | _ -> Op.SM3TT2B, oprs, 128<rt>
+
+/// <summary>
+/// The classes that share the 0xce opcode byte: FEAT_SHA3's four-register
+/// instructions, its rotate-and-exclusive-or, and the SHA-512, SM3 and SM4
+/// families beside them.
+///
+/// They are reached by a test on the raw word rather than on the group's own
+/// selector, because that selector is built from bits 31:28, 24:17 and 15:10
+/// and does not carry bits 27:25 -- which are the only thing telling 0xce
+/// from 0xc6. Nothing else in the group uses that byte, so the test is as
+/// narrow as the class is.
+///
+/// Bits 23:21 name the class, and bits 15:14 finish telling the two that
+/// share a value of them apart.
+/// </summary>
+let parseCryptFourReg bin =
+  match extract bin 23u 21u with
+  | 0b000u when pickBit bin 15u = 0u ->
+    Op.EOR3, getVd16BVn16BVm16BVa16B bin, 128<rt>
+  | 0b001u when pickBit bin 15u = 0u ->
+    Op.BCAX, getVd16BVn16BVm16BVa16B bin, 128<rt>
+  | 0b010u when pickBit bin 15u = 0u ->
+    Op.SM3SS1, getVd4SVn4SVm4SVa4S bin, 128<rt>
+  | 0b010u when extract bin 15u 14u = 0b10u ->
+    parseCryptThreeRegImm2 bin
+  | 0b011u when pickBit bin 15u = 1u && extract bin 13u 12u = 0b00u ->
+    parseCryptThreeRegSHA512 bin
+  | 0b100u ->
+    Op.XAR, getVd2DVn2DVm2DI6 bin, 128<rt>
+  | 0b110u when extract bin 20u 12u = 0b000001000u ->
+    parseCryptTwoRegSHA512 bin
+  | _ ->
+    unallocated ()
+
 /// Data processing - SIMD and FP - 1
 let parse64Group5 bin =
   let cond = concat (concat (extract bin 31u 28u) (extract bin 24u 17u) 8)
                     (extract bin 15u 10u)
                     6 (* op0:op1:op2:op3:op4 *)
   match cond with
+  (* FEAT_FCMA's FCADD and FCMLA, which the guards below read as unallocated *)
+  | _ when isAdvSIMDComplex bin ->
+    parseAdvSIMDComplex bin
+  (* FEAT_FP16's vector classes, which every guard below reads as belonging
+     to the classes they sit among *)
+  | _ when isAdvSIMDFP16 bin ->
+    if pickBit bin 10u = 1u then parseAdvSIMDThreeSameFP16 bin
+    else parseAdvSIMDTwoRegFP16 bin
+  (* the crypto classes are told apart by bits 27:25, which the selector
+     above does not carry, so they are taken on the raw word first *)
+  | _ when extract bin 31u 24u = 0b11001110u ->
+    parseCryptFourReg bin
   | c when c &&& 0b111110011111000011u = 0b000000010100000010u ->
     unallocated ()
   | c when c &&& 0b111110011111000011u = 0b001000010100000010u ->
@@ -3190,7 +4197,7 @@ let parse64Group5 bin =
   | c when c &&& 0b100110110000110001u = 0b000000100000010001u ->
     unallocated ()
   | c when c &&& 0b100110010000100000u = 0b000000000000100000u ->
-    unallocated ()
+    parseAdvSIMDThreeRegExtension bin
   | c when c &&& 0b100110011111000011u = 0b000000010000000010u ->
     parseAdvSIMDTwoReg bin
   | c when c &&& 0b100110011111000011u = 0b000000011000000010u ->
@@ -3419,6 +4426,17 @@ let parseAdvSIMDScalarPairwise bin =
     Op.ADDP, getVdVnt4 bin size0x10, getOprSzBySize bin
   | c when c &&& 0b10011111u = 0b10011011u ->
     unallocated ()
+  (* FEAT_FP16's halves, which a U of 0 names with a size of 00 or 10 *)
+  | 0b00001100u ->
+    Op.FMAXNMP, getHdVn2H bin, 16<rt>
+  | 0b00001101u ->
+    Op.FADDP, getHdVn2H bin, 16<rt>
+  | 0b00001111u ->
+    Op.FMAXP, getHdVn2H bin, 16<rt>
+  | 0b01001100u ->
+    Op.FMINNMP, getHdVn2H bin, 16<rt>
+  | 0b01001111u ->
+    Op.FMINP, getHdVn2H bin, 16<rt>
   | c when c &&& 0b11011111u = 0b10001100u ->
     Op.FMAXNMP, getVdVnt5 bin, 64<rt>
   | c when c &&& 0b11011111u = 0b10001101u ->
@@ -3461,6 +4479,16 @@ let parseAdvSIMDScalarThreeDiff bin =
     unallocated ()
   | _ ->
     raise ParsingFailureException
+
+/// <summary>
+/// Advanced SIMD scalar three same extra on page C4-327: FEAT_RDM's scalar
+/// accumulating multiplies, the class's only members.
+/// </summary>
+let parseAdvSIMDScalarThreeSameExtra bin =
+  match concat (pickBit bin 29u) (extract bin 14u 11u) 4 (* U:opcode *) with
+  | 0b10000u -> Op.SQRDMLAH, getVdVnVm1 bin size0011, getOprSzBySize bin
+  | 0b10001u -> Op.SQRDMLSH, getVdVnVm1 bin size0011, getOprSzBySize bin
+  | _ -> unallocated ()
 
 let parseAdvSIMDScalarThreeSame bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
@@ -3631,8 +4659,8 @@ let parseAdvSIMDScalarShiftByImm bin =
   | 0b010001u -> unallocated ()
   | 0b010010u -> Op.SQSHRN, getVbdVanShf bin immh00001xxx, getOprSzByHSB bin
   | 0b010011u -> Op.SQRSHRN, getVbdVanShf bin immh00001xxx, getOprSzByHSB bin
-  | 0b011100u -> Op.SCVTF, getVdVnFbits bin immh00xx, getOprSzByImmh bin
-  | 0b011111u -> Op.FCVTZS, getVdVnFbits bin immh00xx, getOprSzByImmh bin
+  | 0b011100u -> Op.SCVTF, getVdVnFbits bin immh000x, getOprSzByImmh bin
+  | 0b011111u -> Op.FCVTZS, getVdVnFbits bin immh000x, getOprSzByImmh bin
   | 0b100000u -> Op.USHR, getVdVnShf bin immh0xxx, 64<rt>
   | 0b100010u -> Op.USRA, getVdVnShf bin immh0xxx, 64<rt>
   | 0b100100u -> Op.URSHR, getVdVnShf bin immh0xxx, 64<rt>
@@ -3645,8 +4673,8 @@ let parseAdvSIMDScalarShiftByImm bin =
   | 0b110001u -> Op.SQRSHRUN, getVbdVanShf bin immh00001xxx, getOprSzByHSB bin
   | 0b110010u -> Op.UQSHRN, getVbdVanShf bin immh00001xxx, getOprSzByHSB bin
   | 0b110011u -> Op.UQRSHRN, getVbdVanShf bin immh00001xxx, getOprSzByHSB bin
-  | 0b111100u -> Op.UCVTF, getVdVnFbits bin immh00xx, getOprSzByImmh bin
-  | 0b111111u -> Op.FCVTZU, getVdVnFbits bin immh00xx, getOprSzByImmh bin
+  | 0b111100u -> Op.UCVTF, getVdVnFbits bin immh000x, getOprSzByImmh bin
+  | 0b111111u -> Op.FCVTZU, getVdVnFbits bin immh000x, getOprSzByImmh bin
   | _ -> raise ParsingFailureException
 
 /// Advanced SIMD scalar x indexed element on page C4-335.
@@ -3655,6 +4683,11 @@ let parseAdvSIMDScalarXIdxElem b =
                     (extract b 15u 12u)
                     4 (* U:size:opcode *)
   match cond with
+  (* FEAT_RDM's forms, at opcodes the guards below read as unallocated *)
+  | c when c &&& 0b1001111u = 0b1001101u ->
+    Op.SQRDMLAH, getVdVnVmtsidx1 b size0011, getOprSzBySize b
+  | c when c &&& 0b1001111u = 0b1001111u ->
+    Op.SQRDMLSH, getVdVnVmtsidx1 b size0011, getOprSzBySize b
   | c when c &&& 0b0001111u = 0b0000000u ->
     unallocated ()
   | c when c &&& 0b0001111u = 0b0000100u ->
@@ -3679,6 +4712,15 @@ let parseAdvSIMDScalarXIdxElem b =
     Op.SQDMULH, getVdVnVmtsidx1 b size0011, getOprSzBySize b
   | c when c &&& 0b1001111u = 0b0001101u ->
     Op.SQRDMULH, getVdVnVmtsidx1 b size0011, getOprSzBySize b
+  (* FEAT_FP16's forms, which read halves and say so with a size of 00 *)
+  | 0b0000001u ->
+    Op.FMLA, getHdHnVmHidx b, 16<rt>
+  | 0b0000101u ->
+    Op.FMLS, getHdHnVmHidx b, 16<rt>
+  | 0b0001001u ->
+    Op.FMUL, getHdHnVmHidx b, 16<rt>
+  | 0b1001001u ->
+    Op.FMULX, getHdHnVmHidx b, 16<rt>
   | c when c &&& 0b1101111u = 0b0100001u ->
     Op.FMLA, getVdVnVmtsidx2 b szL11, getOprSzBySz b
   | c when c &&& 0b1101111u = 0b0100101u ->
@@ -3733,6 +4775,13 @@ let parseConvBetwFPAndFixedPt bin =
   | 0b100100011u -> Op.UCVTF, getDdXnFbits bin, 64<rt>
   | 0b100111000u -> Op.FCVTZS, getXdDnFbits bin, 64<rt>
   | 0b100111001u -> Op.FCVTZU, getXdDnFbits bin, 64<rt>
+  (* FEAT_FP16's conversions of a half to and from fixed point *)
+  | 0b001100011u -> Op.UCVTF, getHdWnFbits bin, 32<rt>
+  | 0b001111000u -> Op.FCVTZS, getWdHnFbits bin, 32<rt>
+  | 0b001111001u -> Op.FCVTZU, getWdHnFbits bin, 32<rt>
+  | 0b101100011u -> Op.UCVTF, getHdXnFbits bin, 64<rt>
+  | 0b101111000u -> Op.FCVTZS, getXdHnFbits bin, 64<rt>
+  | 0b101111001u -> Op.FCVTZU, getXdHnFbits bin, 64<rt>
   | 0b101100010u -> Opcode.SCVTF, getHdXnFbits bin, 64<rt> (* FEAT_FP16 *)
   | _ -> raise ParsingFailureException
 
@@ -3742,6 +4791,9 @@ let parseConvBetwFPAndInt bin =
     (pickBit bin 31u <<< 8) ||| (pickBit bin 29u <<< 7) |||
     (extract bin 23u 22u <<< 5) ||| (extract bin 20u 16u)
   match cond with
+  (* FEAT_JSCVT, whose rmode of 11 with opcode 110 the guards below read as
+     one of the unallocated combinations *)
+  | 0b000111110u -> Op.FJCVTZS, getWdDn bin, 32<rt>
   | c when c &&& 0b000001110u = 0b000001010u -> unallocated ()
   | c when c &&& 0b000001110u = 0b000001100u -> unallocated ()
   | c when c &&& 0b000010110u = 0b000010010u -> unallocated ()
@@ -3813,6 +4865,33 @@ let parseConvBetwFPAndInt bin =
   | 0b101001110u -> Op.FMOV, getXdVnD1 bin, 64<rt>
   | 0b101001111u -> Op.FMOV, getVdD1Xn bin, 128<rt>
   | c when c &&& 0b111110110u = 0b101010110u -> unallocated ()
+  (* FEAT_FP16's conversions of a half to and from a general register *)
+  | 0b001100000u -> Op.FCVTNS, getWdHn bin, 32<rt>
+  | 0b001100001u -> Op.FCVTNU, getWdHn bin, 32<rt>
+  | 0b001100011u -> Op.UCVTF, getHdWn bin, 32<rt>
+  | 0b001100100u -> Op.FCVTAS, getWdHn bin, 32<rt>
+  | 0b001100101u -> Op.FCVTAU, getWdHn bin, 32<rt>
+  | 0b001100110u -> Op.FMOV, getWdHn bin, 32<rt>
+  | 0b001100111u -> Op.FMOV, getHdWn bin, 16<rt>
+  | 0b001101000u -> Op.FCVTPS, getWdHn bin, 32<rt>
+  | 0b001101001u -> Op.FCVTPU, getWdHn bin, 32<rt>
+  | 0b001110000u -> Op.FCVTMS, getWdHn bin, 32<rt>
+  | 0b001110001u -> Op.FCVTMU, getWdHn bin, 32<rt>
+  | 0b001111000u -> Op.FCVTZS, getWdHn bin, 32<rt>
+  | 0b001111001u -> Op.FCVTZU, getWdHn bin, 32<rt>
+  | 0b101100000u -> Op.FCVTNS, getXdHn bin, 64<rt>
+  | 0b101100001u -> Op.FCVTNU, getXdHn bin, 64<rt>
+  | 0b101100011u -> Op.UCVTF, getHdXn bin, 64<rt>
+  | 0b101100100u -> Op.FCVTAS, getXdHn bin, 64<rt>
+  | 0b101100101u -> Op.FCVTAU, getXdHn bin, 64<rt>
+  | 0b101100110u -> Op.FMOV, getXdHn bin, 64<rt>
+  | 0b101100111u -> Op.FMOV, getHdXn bin, 16<rt>
+  | 0b101101000u -> Op.FCVTPS, getXdHn bin, 64<rt>
+  | 0b101101001u -> Op.FCVTPU, getXdHn bin, 64<rt>
+  | 0b101110000u -> Op.FCVTMS, getXdHn bin, 64<rt>
+  | 0b101110001u -> Op.FCVTMU, getXdHn bin, 64<rt>
+  | 0b101111000u -> Op.FCVTZS, getXdHn bin, 64<rt>
+  | 0b101111001u -> Op.FCVTZU, getXdHn bin, 64<rt>
   | 0b101100010u -> Op.SCVTF, getHdXn bin, 64<rt> (* FEAT_FP16 *)
   | _ -> raise ParsingFailureException
 
@@ -3822,6 +4901,16 @@ let parseFPDP1Src bin =
     (pickBit bin 31u <<< 9) ||| (pickBit bin 29u <<< 8) |||
     (extract bin 23u 22u <<< 6) ||| (extract bin 20u 15u)
   match cond with
+  (* FEAT_FRINTTS, which the guard below reads as unallocated because its
+     opcode has the bit that guard tests *)
+  | 0b0000010000u -> Op.FRINT32Z, getSdSn bin, 32<rt>
+  | 0b0000010001u -> Op.FRINT32X, getSdSn bin, 32<rt>
+  | 0b0000010010u -> Op.FRINT64Z, getSdSn bin, 32<rt>
+  | 0b0000010011u -> Op.FRINT64X, getSdSn bin, 32<rt>
+  | 0b0001010000u -> Op.FRINT32Z, getDdDn bin, 64<rt>
+  | 0b0001010001u -> Op.FRINT32X, getDdDn bin, 64<rt>
+  | 0b0001010010u -> Op.FRINT64Z, getDdDn bin, 64<rt>
+  | 0b0001010011u -> Op.FRINT64X, getDdDn bin, 64<rt>
   | c when c &&& 0b0000010000u = 0b0000010000u -> unallocated ()
   | c when c &&& 0b0000100000u = 0b0000100000u -> unallocated ()
   | c when c &&& 0b0100000000u = 0b0100000000u -> unallocated ()
@@ -3847,7 +4936,11 @@ let parseFPDP1Src bin =
   | 0b0001000011u -> Op.FSQRT, getDdDn bin, 64<rt>
   | 0b0001000100u -> Op.FCVT, getSdDn bin, 32<rt>
   | 0b0001000101u -> unallocated ()
-  | 0b0001000110u -> unallocated ()
+  (* BFCVT reads a single and writes a BFloat16, which is half a word wide;
+     FEAT_BF16 gave it the slot beside the double-precision conversions
+     rather than one of its own, so the type field says 01 here and the
+     operands are the ones the mnemonic names. *)
+  | 0b0001000110u -> Op.BFCVT, getHdSn bin, 16<rt>
   | 0b0001000111u -> Op.FCVT, getHdDn bin, 16<rt>
   | 0b0001001000u -> Op.FRINTN, getDdDn bin, 64<rt>
   | 0b0001001001u -> Op.FRINTP, getDdDn bin, 64<rt>
@@ -3860,6 +4953,18 @@ let parseFPDP1Src bin =
   | c when c &&& 0b1111110000u = 0b0010000000u -> unallocated ()
   | 0b0011000100u -> Op.FCVT, getSdHn bin, 32<rt>
   | 0b0011000101u -> Op.FCVT, getDdHn bin, 64<rt>
+  (* FEAT_FP16's type 11 *)
+  | 0b0011000000u -> Op.FMOV, getHdHn bin, 16<rt>
+  | 0b0011000001u -> Op.FABS, getHdHn bin, 16<rt>
+  | 0b0011000010u -> Op.FNEG, getHdHn bin, 16<rt>
+  | 0b0011000011u -> Op.FSQRT, getHdHn bin, 16<rt>
+  | 0b0011001000u -> Op.FRINTN, getHdHn bin, 16<rt>
+  | 0b0011001001u -> Op.FRINTP, getHdHn bin, 16<rt>
+  | 0b0011001010u -> Op.FRINTM, getHdHn bin, 16<rt>
+  | 0b0011001011u -> Op.FRINTZ, getHdHn bin, 16<rt>
+  | 0b0011001100u -> Op.FRINTA, getHdHn bin, 16<rt>
+  | 0b0011001110u -> Op.FRINTX, getHdHn bin, 16<rt>
+  | 0b0011001111u -> Op.FRINTI, getHdHn bin, 16<rt>
   | c when c &&& 0b1111111110u = 0b0011000110u -> unallocated ()
   | 0b0011001101u -> unallocated ()
   | c when c &&& 0b1000000000u = 0b1000000000u -> unallocated ()
@@ -3887,6 +4992,10 @@ let parseFPCompare bin =
   | 0b00010001000u -> Op.FCMP, getDnP0 bin, 64<rt>
   | 0b00010010000u -> Op.FCMPE, getDnDm bin, 64<rt>
   | 0b00010011000u -> Op.FCMPE, getDnP0 bin, 64<rt>
+  | 0b00110000000u -> Op.FCMP, getHnHm bin, 16<rt> (* FEAT_FP16 *)
+  | 0b00110001000u -> Op.FCMP, getHnP0 bin, 16<rt>
+  | 0b00110010000u -> Op.FCMPE, getHnHm bin, 16<rt>
+  | 0b00110011000u -> Op.FCMPE, getHnP0 bin, 16<rt>
   | c when c &&& 0b10000000000u = 0b10000000000u -> unallocated ()
   | _ -> raise ParsingFailureException
 
@@ -3904,6 +5013,7 @@ let parseFPImm bin =
   | c when c &&& 0b001100000u = 0b001000000u -> unallocated ()
   | c when c &&& 0b010000000u = 0b010000000u -> unallocated ()
   | 0b000000000u -> Op.FMOV, getSdImm8 bin, 32<rt>
+  | 0b001100000u -> Op.FMOV, getHdImm8 bin, 16<rt> (* FEAT_FP16 *)
   | 0b000100000u -> Op.FMOV, getDdImm8 bin, 64<rt>
   | c when c &&& 0b100000000u = 0b100000000u -> unallocated ()
   | _ -> raise ParsingFailureException
@@ -3920,6 +5030,8 @@ let parseFPCondComp bin =
   | 0b00001u -> Op.FCCMPE, getSnSmNZCVCond bin, 32<rt>
   | 0b00010u -> Op.FCCMP, getDnDmNZCVCond bin, 64<rt>
   | 0b00011u -> Op.FCCMPE, getDnDmNZCVCond bin, 64<rt>
+  | 0b00110u -> Op.FCCMP, getHnHmNZCVCond bin, 16<rt> (* FEAT_FP16 *)
+  | 0b00111u -> Op.FCCMPE, getHnHmNZCVCond bin, 16<rt>
   | c when c &&& 0b10000u = 0b10000u -> unallocated ()
   | _ -> raise ParsingFailureException
 
@@ -3952,6 +5064,16 @@ let parseFPDP2Src bin =
   | 0b00010110u -> Op.FMAXNM, getDdDnDm bin, 64<rt>
   | 0b00010111u -> Op.FMINNM, getDdDnDm bin, 64<rt>
   | 0b00011000u -> Op.FNMUL, getDdDnDm bin, 64<rt>
+  (* FEAT_FP16's type 11 *)
+  | 0b00110000u -> Op.FMUL, getHdHnHm bin, 16<rt>
+  | 0b00110001u -> Op.FDIV, getHdHnHm bin, 16<rt>
+  | 0b00110010u -> Op.FADD, getHdHnHm bin, 16<rt>
+  | 0b00110011u -> Op.FSUB, getHdHnHm bin, 16<rt>
+  | 0b00110100u -> Op.FMAX, getHdHnHm bin, 16<rt>
+  | 0b00110101u -> Op.FMIN, getHdHnHm bin, 16<rt>
+  | 0b00110110u -> Op.FMAXNM, getHdHnHm bin, 16<rt>
+  | 0b00110111u -> Op.FMINNM, getHdHnHm bin, 16<rt>
+  | 0b00111000u -> Op.FNMUL, getHdHnHm bin, 16<rt>
   | c when c &&& 0b10000000u = 0b10000000u -> unallocated ()
   | _ -> raise ParsingFailureException
 
@@ -3965,6 +5087,7 @@ let parseFPCondSelect bin =
   | c when c &&& 0b0100u = 0b0100u -> unallocated ()
   | 0b0000u -> Op.FCSEL, getSdSnSmCond bin, 32<rt>
   | 0b0001u -> Op.FCSEL, getDdDnDmCond bin, 64<rt>
+  | 0b0011u -> Op.FCSEL, getHdHnHmCond bin, 16<rt> (* FEAT_FP16 *)
   | c when c &&& 0b1000u = 0b1000u -> unallocated ()
   | _ -> raise ParsingFailureException
 
@@ -3984,6 +5107,10 @@ let parseFPDP3Src bin =
   | 0b000101u -> Op.FMSUB, getDdDnDmDa bin, 64<rt>
   | 0b000110u -> Op.FNMADD, getDdDnDmDa bin, 64<rt>
   | 0b000111u -> Op.FNMSUB, getDdDnDmDa bin, 64<rt>
+  | 0b001100u -> Op.FMADD, getHdHnHmHa bin, 16<rt> (* FEAT_FP16 *)
+  | 0b001101u -> Op.FMSUB, getHdHnHmHa bin, 16<rt>
+  | 0b001110u -> Op.FNMADD, getHdHnHmHa bin, 16<rt>
+  | 0b001111u -> Op.FNMSUB, getHdHnHmHa bin, 16<rt>
   | c when c &&& 0b100000u = 0b100000u -> unallocated ()
   | _ -> raise ParsingFailureException
 
@@ -3993,6 +5120,11 @@ let parse64Group6 bin =
                     (extract bin 15u 10u)
                     6 (* op0:op1:op2:op3:op4 *)
   match cond with
+  (* FEAT_FP16's scalar classes, which every guard below reads as belonging
+     to the classes they sit among *)
+  | _ when isAdvSIMDScalarFP16 bin ->
+    if pickBit bin 10u = 1u then parseAdvSIMDScalarThreeSameFP16 bin
+    else parseAdvSIMDScalarTwoRegFP16 bin
   | c when c &&& 0b111110010000100011u = 0b010100000000000000u ->
     parseCryptThreeRegSHA bin
   | c when c &&& 0b111110010000100011u = 0b010100000000000010u ->
@@ -4019,6 +5151,8 @@ let parse64Group6 bin =
     unallocated ()
   | c when c &&& 0b110110010000000011u = 0b010100010000000000u ->
     parseAdvSIMDScalarThreeDiff bin
+  | c when c &&& 0b110110010000100001u = 0b010100000000100001u ->
+    parseAdvSIMDScalarThreeSameExtra bin
   | c when c &&& 0b110110010000000001u = 0b010100010000000001u ->
     parseAdvSIMDScalarThreeSame bin
   | c when c &&& 0b110111000000000001u = 0b010110000000000001u ->
@@ -4070,9 +5204,11 @@ let parseByGroupOfB64 bin =
   | op0 when op0 &&& 0b1111u = 0b1111u -> parse64Group6 bin
   | _ -> raise ParsingFailureException
 
-let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
+let parse isa lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt32(span, 0)
   let opcode, operands, oprSize = parseByGroupOfB64 bin
+  let struct (opcode, operands, oprSize) =
+    Features.check isa bin opcode operands oprSize
   Instruction(addr, 4u, None, opcode, operands, oprSize, lifter)
 
 // vim: set tw=80 sts=2 sw=2:

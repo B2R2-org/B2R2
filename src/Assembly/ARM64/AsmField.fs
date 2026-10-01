@@ -209,6 +209,9 @@ type Arrangements =
   | ByteAndLong
   /// The ones of floating-point elements.
   | Float
+  /// The same for the instructions with no half-precision form, which
+  /// FEAT_FP16 did not widen.
+  | FloatWide
   /// The ones of single-precision elements.
   | FloatWord
   /// The one arrangement of four single-precision elements.
@@ -225,7 +228,7 @@ let private accepts allowed vec =
   | UpToHalf, (EightB | SixteenB | FourH | EightH) -> true
   | Across, (EightB | SixteenB | FourH | EightH | FourS) -> true
   | ByteAndLong, (EightB | SixteenB | OneD | TwoD) -> true
-  | Float, (TwoS | FourS | TwoD) -> true
+  | (Float | FloatWide), (TwoS | FourS | TwoD) -> true
   | FloatWord, (TwoS | FourS) -> true
   | FloatFourS, FourS -> true
   | _ -> false
@@ -360,6 +363,11 @@ let pstateField = function
   | SPSEL -> 0b000101u
   | DAIFSET -> 0b011110u
   | DAIFCLR -> 0b011111u
+  | UAO -> 0b000011u
+  | PAN -> 0b000100u
+  | SSBS -> 0b011001u
+  | DIT -> 0b011010u
+  | TCO -> 0b011100u
 
 /// The low bits of a value, as many of them as the given width has.
 let private lowBits width (value: uint64) =

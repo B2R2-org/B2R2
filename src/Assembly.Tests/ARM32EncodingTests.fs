@@ -305,3 +305,316 @@ type ARM32EncodingTests() =
       String.concat "\n" accepted,
       "These ask for something no A32 encoding can say."
     )
+
+  /// TSB is written with the one option it has.
+  [<TestMethod>]
+  member _.``TSB CSYNC encodes``() =
+    Assert.AreEqual<string>("12f020e3", encode "tsb csync")
+
+  /// A single-precision VMOV into a doubleword or quadword is the Advanced SIMD
+  /// one, whose eight bits are those of a floating-point move under cmode 1111.
+  [<TestMethod>]
+  member _.``VMOV.F32 (immediate) encodes its constant``() =
+    Assert.AreEqual<string>("140f81f2", encode "vmov.f32 d0, #0x40a00000")
+
+  [<TestMethod>]
+  member _.``VMOV.F32 (immediate) encodes a quadword``() =
+    Assert.AreEqual<string>("540f81f3", encode "vmov.f32 q0, #0xc0a00000")
+
+  /// A byte shifted in over ones is cmode 1100 for eight of them and 1101 for
+  /// sixteen, which only VMOV and VMVN have.
+  [<TestMethod>]
+  member _.``VMOV.I32 (immediate) encodes eight ones``() =
+    Assert.AreEqual<string>("1a0c85f2", encode "vmov.i32 d0, #0x5aff")
+
+  [<TestMethod>]
+  member _.``VMOV.I32 (immediate) encodes sixteen ones``() =
+    Assert.AreEqual<string>("1a0d85f2", encode "vmov.i32 d0, #0x5affff")
+
+  [<TestMethod>]
+  member _.``VMVN.I32 (immediate) encodes eight ones``() =
+    Assert.AreEqual<string>("3a0c85f2", encode "vmvn.i32 d0, #0x5aff")
+
+  [<TestMethod>]
+  member _.``VMVN.I32 (immediate) encodes sixteen ones``() =
+    Assert.AreEqual<string>("3a0d85f2", encode "vmvn.i32 d0, #0x5affff")
+
+  [<TestMethod>]
+  member _.``VORR.I32 (immediate) refuses ones``() =
+    Assert.AreEqual<string>("<unsupported>", encode "vorr.i32 d0, #0x5aff")
+
+  [<TestMethod>]
+  member _.``Thumb VMOV.F32 (immediate) encodes its constant``() =
+    Assert.AreEqual<string>("81ef140f", encodeThumb "vmov.f32 d0, #0x40a00000")
+
+  [<TestMethod>]
+  member _.``Thumb VMOV.I32 (immediate) encodes eight ones``() =
+    Assert.AreEqual<string>("85ef1a0c", encodeThumb "vmov.i32 d0, #0x5aff")
+
+  /// The wide hints, which a halfword cannot hold, and the barriers.
+  [<TestMethod>]
+  member _.``Thumb TSB CSYNC encodes``() =
+    Assert.AreEqual<string>("aff31280", encodeThumb "tsb csync")
+
+  [<TestMethod>]
+  member _.``Thumb ESB encodes``() =
+    Assert.AreEqual<string>("aff31080", encodeThumb "esb.w")
+
+  [<TestMethod>]
+  member _.``Thumb CSDB encodes``() =
+    Assert.AreEqual<string>("aff31480", encodeThumb "csdb.w")
+
+  [<TestMethod>]
+  member _.``Thumb DBG encodes``() =
+    Assert.AreEqual<string>("aff3f480", encodeThumb "dbg #0x4")
+
+  [<TestMethod>]
+  member _.``Thumb SB encodes``() =
+    Assert.AreEqual<string>("bff3708f", encodeThumb "sb")
+
+  [<TestMethod>]
+  member _.``Thumb DSB encodes``() =
+    Assert.AreEqual<string>("bff34f8f", encodeThumb "dsb sy")
+
+  [<TestMethod>]
+  member _.``Thumb DMB encodes``() =
+    Assert.AreEqual<string>("bff35b8f", encodeThumb "dmb ish")
+
+  [<TestMethod>]
+  member _.``Thumb ISB encodes``() =
+    Assert.AreEqual<string>("bff36f8f", encodeThumb "isb sy")
+
+  [<TestMethod>]
+  member _.``Thumb CLREX encodes``() =
+    Assert.AreEqual<string>("bff32f8f", encodeThumb "clrex")
+
+  /// The shifts by an immediate are MOV with Rn = PC, and a halfword holds
+  /// only the form that sets the flags, outside a block.
+  [<TestMethod>]
+  member _.``Thumb LSL (immediate) encodes wide``() =
+    Assert.AreEqual<string>("4feac100", encodeThumb "lsl r0, r1, #0x3")
+
+  [<TestMethod>]
+  member _.``Thumb LSLS.W (immediate) encodes wide``() =
+    Assert.AreEqual<string>("5feac100", encodeThumb "lsls.w r0, r1, #0x3")
+
+  [<TestMethod>]
+  member _.``Thumb LSR (immediate) encodes wide``() =
+    Assert.AreEqual<string>("4fea1100", encodeThumb "lsr r0, r1, #0x20")
+
+  [<TestMethod>]
+  member _.``Thumb LSRS.W (immediate) encodes wide``() =
+    Assert.AreEqual<string>("5fead100", encodeThumb "lsrs.w r0, r1, #0x3")
+
+  [<TestMethod>]
+  member _.``Thumb ASR (immediate) encodes wide``() =
+    Assert.AreEqual<string>("4feae100", encodeThumb "asr r0, r1, #0x3")
+
+  [<TestMethod>]
+  member _.``Thumb ASRS.W (immediate) encodes wide``() =
+    Assert.AreEqual<string>("5feae100", encodeThumb "asrs.w r0, r1, #0x3")
+
+  [<TestMethod>]
+  member _.``Thumb ROR (immediate) encodes wide``() =
+    Assert.AreEqual<string>("4feaf100", encodeThumb "ror r0, r1, #0x3")
+
+  [<TestMethod>]
+  member _.``Thumb RORS.W (immediate) encodes wide``() =
+    Assert.AreEqual<string>("5feaf100", encodeThumb "rors.w r0, r1, #0x3")
+
+  [<TestMethod>]
+  member _.``Thumb RRX encodes wide``() =
+    Assert.AreEqual<string>("4fea3100", encodeThumb "rrx r0, r1")
+
+  [<TestMethod>]
+  member _.``Thumb RRXS encodes wide``() =
+    Assert.AreEqual<string>("5fea3100", encodeThumb "rrxs r0, r1")
+
+  /// The shifts by a register are an encoding of their own.
+  [<TestMethod>]
+  member _.``Thumb LSL (register) encodes wide``() =
+    Assert.AreEqual<string>("01fa02f0", encodeThumb "lsl r0, r1, r2")
+
+  [<TestMethod>]
+  member _.``Thumb LSLS.W (register) encodes wide``() =
+    Assert.AreEqual<string>("11fa02f0", encodeThumb "lsls.w r0, r1, r2")
+
+  [<TestMethod>]
+  member _.``Thumb LSR (register) encodes wide``() =
+    Assert.AreEqual<string>("21fa02f0", encodeThumb "lsr r0, r1, r2")
+
+  [<TestMethod>]
+  member _.``Thumb LSRS.W (register) encodes wide``() =
+    Assert.AreEqual<string>("31fa02f0", encodeThumb "lsrs.w r0, r1, r2")
+
+  [<TestMethod>]
+  member _.``Thumb ASR (register) encodes wide``() =
+    Assert.AreEqual<string>("41fa02f0", encodeThumb "asr r0, r1, r2")
+
+  [<TestMethod>]
+  member _.``Thumb ASRS.W (register) encodes wide``() =
+    Assert.AreEqual<string>("51fa02f0", encodeThumb "asrs.w r0, r1, r2")
+
+  [<TestMethod>]
+  member _.``Thumb ROR (register) encodes wide``() =
+    Assert.AreEqual<string>("61fa02f0", encodeThumb "ror r0, r1, r2")
+
+  [<TestMethod>]
+  member _.``Thumb RORS.W (register) encodes wide``() =
+    Assert.AreEqual<string>("71fa02f0", encodeThumb "rors.w r0, r1, r2")
+
+  /// The wide moves are ORR and ORN with Rn = PC.
+  [<TestMethod>]
+  member _.``Thumb MOV.W (register) encodes wide``() =
+    Assert.AreEqual<string>("4fea0100", encodeThumb "mov.w r0, r1")
+
+  [<TestMethod>]
+  member _.``Thumb MOVS.W (register) encodes wide``() =
+    Assert.AreEqual<string>("5fea0100", encodeThumb "movs.w r0, r1")
+
+  [<TestMethod>]
+  member _.``Thumb MOV (immediate) encodes wide``() =
+    Assert.AreEqual<string>("4ff03408", encodeThumb "mov r8, #0x34")
+
+  [<TestMethod>]
+  member _.``Thumb MOVS (immediate) encodes wide``() =
+    Assert.AreEqual<string>("5ff03408", encodeThumb "movs r8, #0x34")
+
+  [<TestMethod>]
+  member _.``Thumb MVN (register) encodes wide``() =
+    Assert.AreEqual<string>("6fea0100", encodeThumb "mvn r0, r1")
+
+  [<TestMethod>]
+  member _.``Thumb MVNS.W (register) encodes wide``() =
+    Assert.AreEqual<string>("7fea0100", encodeThumb "mvns.w r0, r1")
+
+  [<TestMethod>]
+  member _.``Thumb MVN (shifted register) encodes wide``() =
+    Assert.AreEqual<string>("6fea0140", encodeThumb "mvn r0, r1, lsl #0x10")
+
+  [<TestMethod>]
+  member _.``Thumb MVNS (rotated through carry) encodes wide``() =
+    Assert.AreEqual<string>("7fea3100", encodeThumb "mvns r0, r1, rrx")
+
+  [<TestMethod>]
+  member _.``Thumb MVN (immediate) encodes wide``() =
+    Assert.AreEqual<string>("6ff03400", encodeThumb "mvn r0, #0x34")
+
+  [<TestMethod>]
+  member _.``Thumb MVNS (immediate) encodes wide``() =
+    Assert.AreEqual<string>("7ff03408", encodeThumb "mvns r8, #0x34")
+
+  /// VMOVL is VSHLL by nothing: the shift field's top bit is what says how wide
+  /// an element is.
+  [<TestMethod>]
+  member _.``VMOVL encodes``() =
+    Assert.AreEqual<string>("100a90f2", encode "vmovl.s16 q0, d0")
+
+  [<TestMethod>]
+  member _.``VMOVL (unsigned) encodes``() =
+    Assert.AreEqual<string>("110aa0f3", encode "vmovl.u32 q0, d1")
+
+  /// The long multiplies write elements twice as wide as the ones they read.
+  [<TestMethod>]
+  member _.``VMULL (signed) encodes``() =
+    Assert.AreEqual<string>("000c91f2", encode "vmull.s16 q0, d1, d0")
+
+  [<TestMethod>]
+  member _.``VMULL (unsigned) encodes``() =
+    Assert.AreEqual<string>("000c81f3", encode "vmull.u8 q0, d1, d0")
+
+  [<TestMethod>]
+  member _.``VMULL (polynomial) encodes``() =
+    Assert.AreEqual<string>("000e81f2", encode "vmull.p8 q0, d1, d0")
+
+  /// The product of two doubleword polynomials keeps the size field of words.
+  [<TestMethod>]
+  member _.``VMULL.P64 encodes``() =
+    Assert.AreEqual<string>("000ea1f2", encode "vmull.p64 q0, d1, d0")
+
+  [<TestMethod>]
+  member _.``VMLAL encodes``() =
+    Assert.AreEqual<string>("000891f2", encode "vmlal.s16 q0, d1, d0")
+
+  [<TestMethod>]
+  member _.``VMLSL encodes``() =
+    Assert.AreEqual<string>("000aa1f3", encode "vmlsl.u32 q0, d1, d0")
+
+  /// By an element, a long multiply keeps U where the others keep Q.
+  [<TestMethod>]
+  member _.``VMULL by an element encodes``() =
+    Assert.AreEqual<string>("4f0a91f2", encode "vmull.s16 q0, d1, d7[1]")
+
+  [<TestMethod>]
+  member _.``VMULL (unsigned) by an element encodes``() =
+    Assert.AreEqual<string>("4f0a91f3", encode "vmull.u16 q0, d1, d7[1]")
+
+  [<TestMethod>]
+  member _.``VMLAL by an element encodes``() =
+    Assert.AreEqual<string>("4f0291f2", encode "vmlal.s16 q0, d1, d7[1]")
+
+  [<TestMethod>]
+  member _.``VMLSL by an element encodes``() =
+    Assert.AreEqual<string>("4f0691f2", encode "vmlsl.s16 q0, d1, d7[1]")
+
+  [<TestMethod>]
+  member _.``VMUL by an element encodes``() =
+    Assert.AreEqual<string>("4f0891f2", encode "vmul.i16 d0, d1, d7[1]")
+
+  [<TestMethod>]
+  member _.``VMUL.F32 by an element encodes``() =
+    Assert.AreEqual<string>("6709a2f3", encode "vmul.f32 q0, q1, d7[1]")
+
+  [<TestMethod>]
+  member _.``VQDMULH by an element encodes``() =
+    Assert.AreEqual<string>("4f0c91f2", encode "vqdmulh.s16 d0, d1, d7[1]")
+
+  [<TestMethod>]
+  member _.``VQRDMULH by an element encodes``() =
+    Assert.AreEqual<string>("6f0da2f3", encode "vqrdmulh.s32 q0, q1, d15[1]")
+
+  [<TestMethod>]
+  member _.``VQRDMLAH by an element encodes``() =
+    Assert.AreEqual<string>("4f0e91f2", encode "vqrdmlah.s16 d0, d1, d7[1]")
+
+  [<TestMethod>]
+  member _.``VQRDMLSH by an element encodes``() =
+    Assert.AreEqual<string>("4f0f91f2", encode "vqrdmlsh.s16 d0, d1, d7[1]")
+
+  /// The rounding narrowing shifts are the plain ones with bit 6 set.
+  [<TestMethod>]
+  member _.``VRSHRN encodes``() =
+    Assert.AreEqual<string>("700889f2", encode "vrshrn.i16 d0, q8, #0x7")
+
+  [<TestMethod>]
+  member _.``VQRSHRUN encodes``() =
+    Assert.AreEqual<string>("700889f3", encode "vqrshrun.s16 d0, q8, #0x7")
+
+  [<TestMethod>]
+  member _.``VQRSHRN encodes``() =
+    Assert.AreEqual<string>("700989f2", encode "vqrshrn.s16 d0, q8, #0x7")
+
+  [<TestMethod>]
+  member _.``Thumb VMOVL encodes``() =
+    Assert.AreEqual<string>("90ef100a", encodeThumb "vmovl.s16 q0, d0")
+
+  [<TestMethod>]
+  member _.``Thumb VMULL.P64 encodes``() =
+    Assert.AreEqual<string>("a1ef000e", encodeThumb "vmull.p64 q0, d1, d0")
+
+  [<TestMethod>]
+  member _.``Thumb VQDMULH by an element encodes``() =
+    Assert.AreEqual<string>("91ef4f0c", encodeThumb "vqdmulh.s16 d0, d1, d7[1]")
+
+  /// MSR to SPSR sets the R bit, which is all that tells it from MSR to CPSR.
+  [<TestMethod>]
+  member _.``MSR (register) to SPSR encodes``() =
+    Assert.AreEqual<string>("01f06fe1", encode "msr spsr_fsxc, r1")
+
+  [<TestMethod>]
+  member _.``MSR (immediate) to SPSR encodes``() =
+    Assert.AreEqual<string>("fff068e3", encode "msr spsr_f, #0xff")
+
+  [<TestMethod>]
+  member _.``Thumb MSR to SPSR encodes``() =
+    Assert.AreEqual<string>("91f3008f", encodeThumb "msr spsr_fsxc, r1")

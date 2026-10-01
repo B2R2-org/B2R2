@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.MIPS
 
+open System.Collections.Generic
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
@@ -109,6 +110,39 @@ type RegisterFactory(isa: ISA) =
   let exMonVal = AST.var rt (Register.toRegID ExMonVal) "ExMonVal"
   let ulr = AST.var rt (Register.toRegID ULR) "ULR"
 
+  (* Eight bits, which is what MD00101 recommends and the least it allows.
+     The width is what PPERM shifts the accumulator through and what MFLHXU
+     zero-extends into HI, so it is part of the answer rather than a detail. *)
+  let acx = AST.var 8<rt> (Register.toRegID ACX) "ACX"
+
+  (* The CP0 registers, keyed by the RegisterID CP0.fs derives from the
+     (rd, sel) pair. They live in the same flat RegisterID space as everything
+     above and start past the highest architectural one, so nothing that walks
+     that space has to know they are a different kind of register. *)
+  let cp0Vars =
+    CP0.modelled
+    |> Array.map (fun reg ->
+      let id = RegisterID.create (int reg)
+      (* Sixty-four bits whatever the machine is: a coprocessor 0 register is
+         as wide as the ARCHITECTURE makes it, and the extended physical
+         addressing makes EntryLo wider than a thirty-two bit machine. That is
+         what MFHC0 and MTHC0 exist to reach. *)
+      KeyValuePair(int reg, AST.var 64<rt> id (CP0.toString reg)))
+    |> Dictionary
+
+  /// The CP0 variable a RegisterID names, where it names one.
+  let cp0Var (id: RegisterID) =
+    match cp0Vars.TryGetValue(int id) with
+    | true, v -> v
+    | _ -> raise InvalidRegisterException
+
+  /// The name a RegisterID is printed under, CP0 registers included.
+  let nameOf (rid: RegisterID) =
+    if cp0Vars.ContainsKey(int rid) then
+      CP0.toString (LanguagePrimitives.EnumOfValue(int rid): CP0Register)
+    else
+      Register.toString (Register.ofRegID rid) isa.WordSize
+
   interface IRegisterFactory with
     member _.ISA = isa
 
@@ -193,7 +227,8 @@ type RegisterFactory(isa: ISA) =
       | R.ExMonAddr -> exMonAddr
       | R.ExMonVal -> exMonVal
       | R.ULR -> ulr
-      | _ -> raise InvalidRegisterException
+      | R.ACX -> acx
+      | _ -> cp0Var id
 
     member this.GetRegVar name =
       Register.ofString name isa.WordSize
@@ -319,8 +354,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterIDAliases rid = [| rid |]
 
-    member _.GetRegisterName rid =
-      Register.toString (Register.ofRegID rid) isa.WordSize
+    member _.GetRegisterName rid = nameOf rid
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory

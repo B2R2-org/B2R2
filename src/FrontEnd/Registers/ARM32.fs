@@ -453,6 +453,80 @@ type Register =
   /// single-observer, per-thread reservation model a store-exclusive is already
   /// governed by this value comparison, so there is no monitor to tear down.
   | ExMonVal = 0xCD
+  /// MIDR, Main ID Register.
+  | MIDR = 0xCE
+  /// CTR, Cache Type Register.
+  | CTR = 0xCF
+  /// MPIDR, Multiprocessor Affinity Register.
+  | MPIDR = 0xD0
+  /// ID_PFR0, Processor Feature Register 0.
+  | IDPFR0 = 0xD1
+  /// ID_PFR1, Processor Feature Register 1.
+  | IDPFR1 = 0xD2
+  /// ID_DFR0, Debug Feature Register 0.
+  | IDDFR0 = 0xD3
+  /// ID_AFR0, Auxiliary Feature Register 0.
+  | IDAFR0 = 0xD4
+  /// ID_MMFR0, Memory Model Feature Register 0.
+  | IDMMFR0 = 0xD5
+  /// ID_MMFR1, Memory Model Feature Register 1.
+  | IDMMFR1 = 0xD6
+  /// ID_MMFR2, Memory Model Feature Register 2.
+  | IDMMFR2 = 0xD7
+  /// ID_MMFR3, Memory Model Feature Register 3.
+  | IDMMFR3 = 0xD8
+  /// ID_ISAR0, Instruction Set Attribute Register 0.
+  | IDISAR0 = 0xD9
+  /// ID_ISAR1, Instruction Set Attribute Register 1.
+  | IDISAR1 = 0xDA
+  /// ID_ISAR2, Instruction Set Attribute Register 2.
+  | IDISAR2 = 0xDB
+  /// ID_ISAR3, Instruction Set Attribute Register 3.
+  | IDISAR3 = 0xDC
+  /// ID_ISAR4, Instruction Set Attribute Register 4.
+  | IDISAR4 = 0xDD
+  /// ID_ISAR5, Instruction Set Attribute Register 5.
+  | IDISAR5 = 0xDE
+  /// CLIDR, Cache Level ID Register.
+  | CLIDR = 0xDF
+  /// CSSELR, Cache Size Selection Register.
+  | CSSELR = 0xE0
+  /// CPACR, Coprocessor Access Control Register.
+  | CPACR = 0xE1
+  /// TTBR0, Translation Table Base Register 0.
+  | TTBR0 = 0xE2
+  /// TTBR1, Translation Table Base Register 1.
+  | TTBR1 = 0xE3
+  /// TTBCR, Translation Table Base Control Register.
+  | TTBCR = 0xE4
+  /// DACR, Domain Access Control Register.
+  | DACR = 0xE5
+  /// DFSR, Data Fault Status Register.
+  | DFSR = 0xE6
+  /// IFSR, Instruction Fault Status Register.
+  | IFSR = 0xE7
+  /// DFAR, Data Fault Address Register.
+  | DFAR = 0xE8
+  /// IFAR, Instruction Fault Address Register.
+  | IFAR = 0xE9
+  /// PAR, Physical Address Register.
+  | PAR = 0xEA
+  /// PRRR, Primary Region Remap Register.
+  | PRRR = 0xEB
+  /// NMRR, Normal Memory Remap Register.
+  | NMRR = 0xEC
+  /// VBAR, Vector Base Address Register.
+  | VBAR = 0xED
+  /// FCSEIDR, FCSE Process ID Register.
+  | FCSEIDR = 0xEE
+  /// CONTEXTIDR, Context ID Register.
+  | CONTEXTIDR = 0xEF
+  /// TPIDRURW, SW Thread ID Register, readable and writable at PL0.
+  | TPIDRURW = 0xF0
+  /// TPIDRPRW, SW Thread ID Register, accessible only at PL1.
+  | TPIDRPRW = 0xF1
+  /// CNTFRQ, Counter-timer Frequency Register.
+  | CNTFRQ = 0xF2
 
 /// Provides functions to handle ARM32 registers.
 [<RequireQualifiedAccess>]
@@ -672,6 +746,43 @@ module Register =
     | "tpidruro" -> Register.TPIDRURO
     | "exmonaddr" -> Register.ExMonAddr
     | "exmonval" -> Register.ExMonVal
+    | "midr" -> Register.MIDR
+    | "ctr" -> Register.CTR
+    | "mpidr" -> Register.MPIDR
+    | "id_pfr0" -> Register.IDPFR0
+    | "id_pfr1" -> Register.IDPFR1
+    | "id_dfr0" -> Register.IDDFR0
+    | "id_afr0" -> Register.IDAFR0
+    | "id_mmfr0" -> Register.IDMMFR0
+    | "id_mmfr1" -> Register.IDMMFR1
+    | "id_mmfr2" -> Register.IDMMFR2
+    | "id_mmfr3" -> Register.IDMMFR3
+    | "id_isar0" -> Register.IDISAR0
+    | "id_isar1" -> Register.IDISAR1
+    | "id_isar2" -> Register.IDISAR2
+    | "id_isar3" -> Register.IDISAR3
+    | "id_isar4" -> Register.IDISAR4
+    | "id_isar5" -> Register.IDISAR5
+    | "clidr" -> Register.CLIDR
+    | "csselr" -> Register.CSSELR
+    | "cpacr" -> Register.CPACR
+    | "ttbr0" -> Register.TTBR0
+    | "ttbr1" -> Register.TTBR1
+    | "ttbcr" -> Register.TTBCR
+    | "dacr" -> Register.DACR
+    | "dfsr" -> Register.DFSR
+    | "ifsr" -> Register.IFSR
+    | "dfar" -> Register.DFAR
+    | "ifar" -> Register.IFAR
+    | "par" -> Register.PAR
+    | "prrr" -> Register.PRRR
+    | "nmrr" -> Register.NMRR
+    | "vbar" -> Register.VBAR
+    | "fcseidr" -> Register.FCSEIDR
+    | "contextidr" -> Register.CONTEXTIDR
+    | "tpidrurw" -> Register.TPIDRURW
+    | "tpidrprw" -> Register.TPIDRPRW
+    | "cntfrq" -> Register.CNTFRQ
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an ARM32 register.
@@ -889,4 +1000,41 @@ module Register =
     | Register.SPSRfiq -> "spsr_fiq"
     | Register.ExMonAddr -> "exmonaddr"
     | Register.ExMonVal -> "exmonval"
+    | Register.MIDR -> "midr"
+    | Register.CTR -> "ctr"
+    | Register.MPIDR -> "mpidr"
+    | Register.IDPFR0 -> "id_pfr0"
+    | Register.IDPFR1 -> "id_pfr1"
+    | Register.IDDFR0 -> "id_dfr0"
+    | Register.IDAFR0 -> "id_afr0"
+    | Register.IDMMFR0 -> "id_mmfr0"
+    | Register.IDMMFR1 -> "id_mmfr1"
+    | Register.IDMMFR2 -> "id_mmfr2"
+    | Register.IDMMFR3 -> "id_mmfr3"
+    | Register.IDISAR0 -> "id_isar0"
+    | Register.IDISAR1 -> "id_isar1"
+    | Register.IDISAR2 -> "id_isar2"
+    | Register.IDISAR3 -> "id_isar3"
+    | Register.IDISAR4 -> "id_isar4"
+    | Register.IDISAR5 -> "id_isar5"
+    | Register.CLIDR -> "clidr"
+    | Register.CSSELR -> "csselr"
+    | Register.CPACR -> "cpacr"
+    | Register.TTBR0 -> "ttbr0"
+    | Register.TTBR1 -> "ttbr1"
+    | Register.TTBCR -> "ttbcr"
+    | Register.DACR -> "dacr"
+    | Register.DFSR -> "dfsr"
+    | Register.IFSR -> "ifsr"
+    | Register.DFAR -> "dfar"
+    | Register.IFAR -> "ifar"
+    | Register.PAR -> "par"
+    | Register.PRRR -> "prrr"
+    | Register.NMRR -> "nmrr"
+    | Register.VBAR -> "vbar"
+    | Register.FCSEIDR -> "fcseidr"
+    | Register.CONTEXTIDR -> "contextidr"
+    | Register.TPIDRURW -> "tpidrurw"
+    | Register.TPIDRPRW -> "tpidrprw"
+    | Register.CNTFRQ -> "cntfrq"
     | _ -> Terminator.impossible ()

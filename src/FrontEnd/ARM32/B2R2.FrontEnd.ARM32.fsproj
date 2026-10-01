@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="RegisterHelper.fs" />
     <Compile Include="RegisterFactory.fs" />
+    <Compile Include="CP15.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />
     <Compile Include="SIMDDataTypes.fs" />
@@ -19,11 +20,13 @@
     <Compile Include="LiftingUtils.fs" />
     <Compile Include="GeneralLifter.fs" />
     <Compile Include="NEONLifter.fs" />
+    <Compile Include="SystemLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="OperandParsingHelper.fs" />
     <Compile Include="Validator.fs" />
     <Compile Include="ARMParser.fs" />
     <Compile Include="ThumbParser.fs" />
+    <Compile Include="Features.fs" />
     <Compile Include="Parser.fs" />
   </ItemGroup>
 

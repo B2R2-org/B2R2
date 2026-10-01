@@ -99,6 +99,22 @@ let branchOffset (distance: int64) =
   if distance % 4L = 0L then signed 16 ((distance - 4L) / 4L)
   else fail "a branch cannot reach a place that is not a whole word away"
 
+/// The same for the Release 6 branches whose offset is wider than sixteen
+/// bits. Narrowing to sixteen first, as branchOffset does, would throw away
+/// the reach those instructions exist to have.
+let branchOffsetOf width (distance: int64) =
+  if distance % 4L = 0L then signed width ((distance - 4L) / 4L)
+  else fail "a branch cannot reach a place that is not a whole word away"
+
+/// The offset a PC-relative instruction holds. Its base is the address of
+/// the instruction ITSELF, not the one after it -- Release 6 has no delay
+/// slot for a `- 4` to account for -- and LDPC steps in doublewords where
+/// the rest step in words.
+let pcRelOffset width shift (distance: int64) =
+  let step = 1L <<< shift
+  if distance % step = 0L then signed width (distance / step)
+  else fail "a PC-relative operand must be a whole step away"
+
 /// <summary>
 /// The twenty-six bits a jump holds, which name one word of the region the
 /// jump sits in. What lies above those bits is taken from the address the

@@ -314,10 +314,6 @@ let chkPCRnRegsImm bin =
 
 (* if size == '01' && cond != '1110' then UNPREDICTABLE
    if n == 15 && CurrentInstrSet() != InstrSet_A32 then UNPREDICTABLE *)
-let chkSzCondPCRn bin cond =
-  (((extract bin 9 8 = 0b01u) && (cond <> Condition.AL)) ||
-   (extract bin 19 16 = 15u (* && != InstrSet_A32 *))) |> checkUnpred
-
 (* if size == '01' && cond != '1110' then UNPREDICTABLE *)
 let chkSzCond bin cond =
   checkUnpred ((extract bin 9 8 = 0b01u) && (cond <> Condition.AL))
@@ -411,10 +407,7 @@ let chkAlignPCRnDregs bin =
    if n == 15 || d2+regs > 32 then UNPREDICTABLE *)
 let chkAlignPCRnD2regs bin =
   let d = concat (pickBit bin 22) (extract bin 15 12) 4 (* D:Vd *)
-  let inc =
-    match extract bin 11 8 (* itype *) with
-    | 0b0000u | 0b0100u -> 1u
-    | _ -> 2u
+  let inc = if extract bin 11 8 (* itype *) = 0b1000u then 1u else 2u
   let d2 = d + inc
   checkUndef ((extract bin 5 4 = 0b11u) || (extract bin 7 6 = 0b11u))
   checkUnpred ((extract bin 19 16 = 15u) || (d2 + 1u > 32u))
@@ -451,6 +444,12 @@ let chkVd0 bin = checkUndef (pickBit bin 12 = 1u)
 let chkSzQVdVn bin =
   ((extract bin 21 20 = 0b00u) ||
    ((pickBit bin 24 = 1u) && (pickBit bin 12 = 1u || pickBit bin 16 = 1u)))
+   |> checkUndef
+
+/// chkSzQVdVn in a T32 word, whose Q is bit 28 where an A32 word's is bit 24.
+let chkSzQVdVnT32 bin =
+  ((extract bin 21 20 = 0b00u) ||
+   ((pickBit bin 28 = 1u) && (pickBit bin 12 = 1u || pickBit bin 16 = 1u)))
    |> checkUndef
 
 (* if size == '11' || (size == '00' && a == '1') then UNDEFINED
@@ -888,14 +887,14 @@ let chkQVdVmSzIT bin itstate =
 let chkPolySzITVd bin itstate =
   (pickBit bin 9 = 1u && extract bin 21 20 = 0b10u && inITBlock itstate)
   |> checkUnpred
-  (pickBit bin 16 = 1u) |> checkUndef
+  (pickBit bin 12 = 1u) |> checkUndef
 
 (* if size == '00' then UNDEFINED
    if F == '1' && size == '01' && InITBlock() then UNPREDICTABLE
    if Q == '1' && (Vd<0> == '1' || Vn<0> == '1') then UNDEFINED *)
 let chkSzFSzITQVdVn bin itstate =
   ((extract bin 21 20 = 0b00u) ||
-   ((pickBit bin 24 = 1u) && (pickBit bin 12 = 1u || pickBit bin 16 = 1u)))
+   ((pickBit bin 28 = 1u) && (pickBit bin 12 = 1u || pickBit bin 16 = 1u)))
    |> checkUndef
   (pickBit bin 8 = 1u && extract bin 21 20 = 0b01u && inITBlock itstate)
   |> checkUnpred

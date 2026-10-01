@@ -580,6 +580,60 @@ let private wideData op s ins =
   | _ ->
     wrongOperands ins
 
+/// <summary>
+/// The wide moves, which are ORR and ORN with the program counter in place of
+/// the register they would read first.
+///
+/// What they move is an immediate, a register, or a register shifted by an
+/// immediate, the same three things those two read second.
+/// </summary>
+let private wideMove op s ins =
+  let viaPC operands = wideData op s { ins with Operands = operands }
+  match ins.Operands with
+  | TwoOperands(rd, src) ->
+    viaPC (ThreeOperands(rd, OprReg Register.PC, src))
+  | ThreeOperands(rd, rm, shift) ->
+    viaPC (FourOperands(rd, OprReg Register.PC, rm, shift))
+  | _ ->
+    wrongOperands ins
+
+/// The two bits a shift by a register keeps its kind in.
+let private shiftType shift =
+  match shift with
+  | ShiftOp.LSL -> 0b00u
+  | ShiftOp.LSR -> 0b01u
+  | ShiftOp.ASR -> 0b10u
+  | ShiftOp.ROR -> 0b11u
+  | ShiftOp.RRX -> fail "a rotation through carry is by one place only"
+
+/// <summary>
+/// The wide shifts, by an immediate or by a register.
+///
+/// By an immediate a shift is a move of the register shifted by it. By a
+/// register it is an encoding of its own, which keeps the register it shifts
+/// in the first halfword and the register holding the amount in the second.
+/// </summary>
+let private wideShiftBy shift s ins =
+  match ins.Operands with
+  | ThreeOperands(rd, rm, OprImm amount) ->
+    let shifted = OprShift(shift, Imm(uint32 amount))
+    wideMove 0b0010u s { ins with Operands = ThreeOperands(rd, rm, shifted) }
+  | ThreeOperands(OprReg rd, OprReg rm, OprReg rs) ->
+    wide ((0b11111010u <<< 24) ||| (shiftType shift <<< 21) ||| (s <<< 20)
+          ||| (coreReg rm <<< 16) ||| (0xfu <<< 12) ||| (coreReg rd <<< 8)
+          ||| coreReg rs)
+  | _ ->
+    wrongOperands ins
+
+/// RRX, which rotates through the carry by one place and so names no amount.
+let private wideRotateExtend s ins =
+  match ins.Operands with
+  | TwoOperands(rd, rm) ->
+    let shifted = OprShift(ShiftOp.RRX, Imm 1u)
+    wideMove 0b0010u s { ins with Operands = ThreeOperands(rd, rm, shifted) }
+  | _ ->
+    wrongOperands ins
+
 /// The wide comparisons, which set the flags and name no destination.
 let private wideCompare op ins =
   let head = wideDataHead
@@ -919,12 +973,35 @@ let private wideBranchExchangeJazelle ins =
 
 /// The wide hints, which do nothing a program can see and are told apart by
 /// their low byte.
+let private wideHintWord value =
+  wideWord ((0b11110011101u <<< 5) ||| 0xfu) ((0b1000u <<< 12) ||| value)
+
 let private wideHint value ins =
   match ins.Operands with
-  | NoOperand ->
-    wideWord ((0b11110011101u <<< 5) ||| 0xfu) ((0b1000u <<< 12) ||| value)
-  | _ ->
-    wrongOperands ins
+  | NoOperand -> wideHintWord value
+  | _ -> wrongOperands ins
+
+/// TSB, the one hint written with an option, CSYNC being the only one it has.
+let private wideTraceSync ins =
+  match ins.Operands with
+  | OneOperand(OprHintOpt CSYNC) -> wideHintWord 0x12u
+  | _ -> wrongOperands ins
+
+/// DBG, the one hint that names how much to say.
+let private wideDebugHint ins =
+  match ins.Operands with
+  | OneOperand(OprImm imm) -> wideHintWord (0xf0u ||| unsignedImm 4 imm)
+  | _ -> wrongOperands ins
+
+/// The barriers, which share a halfword and are told apart by the four bits
+/// above their option.
+let private wideBarrier op defaultOption ins =
+  let word option = wideWord 0xf3bfu ((0x8fu <<< 8) ||| (op <<< 4) ||| option)
+  match ins.Operands with
+  | NoOperand -> word defaultOption
+  | OneOperand(OprOption option) -> word (uint32 (int option) &&& 0xfu)
+  | OneOperand(OprImm imm) -> word (unsignedImm 4 imm)
+  | _ -> wrongOperands ins
 
 /// The narrow Thumb instructions, which are what a halfword on its own can say.
 let thumbNarrowEncoders () =
@@ -1038,6 +1115,20 @@ let thumbWideEncoders () =
     Opcode.SUBS, wideData 0b1101u 1u
     Opcode.RSB, wideData 0b1110u 0u
     Opcode.RSBS, wideData 0b1110u 1u
+    Opcode.MOV, wideMove 0b0010u 0u
+    Opcode.MOVS, wideMove 0b0010u 1u
+    Opcode.MVN, wideMove 0b0011u 0u
+    Opcode.MVNS, wideMove 0b0011u 1u
+    Opcode.LSL, wideShiftBy ShiftOp.LSL 0u
+    Opcode.LSLS, wideShiftBy ShiftOp.LSL 1u
+    Opcode.LSR, wideShiftBy ShiftOp.LSR 0u
+    Opcode.LSRS, wideShiftBy ShiftOp.LSR 1u
+    Opcode.ASR, wideShiftBy ShiftOp.ASR 0u
+    Opcode.ASRS, wideShiftBy ShiftOp.ASR 1u
+    Opcode.ROR, wideShiftBy ShiftOp.ROR 0u
+    Opcode.RORS, wideShiftBy ShiftOp.ROR 1u
+    Opcode.RRX, wideRotateExtend 0u
+    Opcode.RRXS, wideRotateExtend 1u
     Opcode.TST, wideCompare 0b0000u
     Opcode.TEQ, wideCompare 0b0100u
     Opcode.CMN, wideCompare 0b1000u
@@ -1102,6 +1193,15 @@ let thumbWideEncoders () =
     Opcode.WFI, wideHint 0x03u
     Opcode.SEV, wideHint 0x04u
     Opcode.SEVL, wideHint 0x05u
+    Opcode.ESB, wideHint 0x10u
+    Opcode.TSB, wideTraceSync
+    Opcode.CSDB, wideHint 0x14u
+    Opcode.DBG, wideDebugHint
+    Opcode.CLREX, wideBarrier 0b0010u 0xfu
+    Opcode.DSB, wideBarrier 0b0100u 0xfu
+    Opcode.DMB, wideBarrier 0b0101u 0xfu
+    Opcode.ISB, wideBarrier 0b0110u 0xfu
+    Opcode.SB, wideBarrier 0b0111u 0x0u
     Opcode.MRS, wideStatusMove true
     Opcode.MSR, wideStatusMove false
     Opcode.CPSIE, wideChangeState 0b10u

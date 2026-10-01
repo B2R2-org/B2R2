@@ -106,6 +106,35 @@ let private threeSame allowed u opcode ins =
   | _ ->
     wrongOperands ins
 
+/// <summary>
+/// The bits FEAT_FP16's three-same class shares, which is the class the
+/// halves go in because the one above has no size field left to name them
+/// with.
+///
+/// It spends on the opcode the two bits the wider class spends on the size,
+/// so what is written there is the wider opcode's lowest three bits. That
+/// correspondence is exact across the class -- FADD's 11010 is 00010 here,
+/// FABD's 11010 with the high bit set is 00010 with it set -- so one encoder
+/// serves both and the arrangement alone picks between them.
+/// </summary>
+let private threeSameHalfWith u hi opcode q rd rn rm =
+  (q <<< 30) ||| (u <<< 29) ||| (0b01110u <<< 24) ||| (hi <<< 23)
+  ||| (0b10u <<< 21) ||| (vectorReg rm <<< 16)
+  ||| ((opcode &&& 0b00111u) <<< 11) ||| (1u <<< 10)
+  ||| (vectorReg rn <<< 5) ||| vectorReg rd
+
+/// The same, for the class that compares against zero.
+let private twoRegHalfWith u hi opcode q rd rn =
+  (q <<< 30) ||| (u <<< 29) ||| (0b01110u <<< 24) ||| (hi <<< 23)
+  ||| (0b111100u <<< 17) ||| (opcode <<< 12) ||| (0b10u <<< 10)
+  ||| (vectorReg rn <<< 5) ||| vectorReg rd
+
+/// The half arrangements, which name their width by Q alone.
+let private halfArrangement = function
+  | FourH -> Some 0u
+  | EightH -> Some 1u
+  | _ -> None
+
 /// The same, for the operations on floating-point elements: only one bit of
 /// the size field is theirs, and the other says which half of the family the
 /// instruction belongs to.
@@ -114,8 +143,78 @@ let private threeSameFP u hi opcode ins =
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm)) ->
     sameArrangement ins t tn
     sameArrangement ins t tm
-    let sz, q = floatArrangement t
-    threeSameWith u ((hi <<< 1) ||| sz) opcode q rd rn rm
+    match halfArrangement t with
+    | Some q ->
+      threeSameHalfWith u hi opcode q rd rn rm
+    | None ->
+      let sz, q = floatArrangement t
+      threeSameWith u ((hi <<< 1) ||| sz) opcode q rd rn rm
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// FEAT_RDM's accumulating doubling multiplies, which sit in the
+/// three-register extension class and take their element width from the
+/// size field rather than from Q.
+/// </summary>
+let private rdmAccumulate opcode ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm)) when t = tn && t = tm ->
+    let size, q =
+      match t with
+      | FourH -> 0b01u, 0u
+      | EightH -> 0b01u, 1u
+      | TwoS -> 0b10u, 0u
+      | FourS -> 0b10u, 1u
+      | vec -> fail $"{vec} is not an arrangement FEAT_RDM takes"
+    (q <<< 30) ||| (1u <<< 29) ||| (0b01110u <<< 24) ||| (size <<< 22)
+    ||| (vectorReg rm <<< 16) ||| (opcode <<< 11) ||| (1u <<< 10)
+    ||| (vectorReg rn <<< 5) ||| vectorReg rd
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// BFMLALB and BFMLALT, whose arrangements are fixed and whose Q bit picks
+/// which bfloat16 of each word is read rather than how many lanes there are.
+/// </summary>
+let private bfMulAddLong isTop ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(rd, FourS), Vec(rn, EightH), Vec(rm, EightH)) ->
+    ((if isTop then 1u else 0u) <<< 30) ||| (1u <<< 29)
+    ||| (0b01110u <<< 24) ||| (0b11u <<< 22) ||| (vectorReg rm <<< 16)
+    ||| (0b11111u <<< 11) ||| (1u <<< 10) ||| (vectorReg rn <<< 5)
+    ||| vectorReg rd
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// FEAT_I8MM's integer matrix multiplies, whose arrangements are fixed: a
+/// destination of four words and sources of sixteen bytes.
+/// </summary>
+let private matrixMultiply u opcode ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(rd, FourS), Vec(rn, SixteenB), Vec(rm, SixteenB)) ->
+    (1u <<< 30) ||| (u <<< 29) ||| (0b01110u <<< 24) ||| (0b10u <<< 22)
+    ||| (vectorReg rm <<< 16) ||| (opcode <<< 11) ||| (1u <<< 10)
+    ||| (vectorReg rn <<< 5) ||| vectorReg rd
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// FEAT_FHM's long multiply-accumulate, whose sources are halves and whose
+/// destination is words. Q names both: two halves into two words, or four
+/// into four.
+/// </summary>
+let private mulAddLong u size opcode ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(rd, td), Vec(rn, tn), Vec(rm, tm)) ->
+    sameArrangement ins tn tm
+    let q =
+      match td, tn with
+      | TwoS, TwoH -> 0u
+      | FourS, FourH -> 1u
+      | _ -> fail $"{td} and {tn} are not a long multiply-accumulate's widths"
+    threeSameWith u size opcode q rd rn rm
   | _ ->
     wrongOperands ins
 
@@ -360,14 +459,42 @@ let private twoRegLogical u size opcode ins =
   | _ ->
     wrongOperands ins
 
+/// <summary>
+/// BFCVTN and BFCVTN2, the vector narrowing convert to BFloat16.
+///
+/// They are an ordinary two-register miscellaneous encoding, and the only
+/// thing unusual about them is that the two sides carry different
+/// arrangements -- the source is four words whichever half the destination
+/// names, so Q comes from the destination alone.
+/// </summary>
+let private bfConvertNarrow ins =
+  match ins.Operands with
+  | TwoOperands(Vec(rd, td), Vec(rn, FourS)) ->
+    let q =
+      match td with
+      | FourH -> 0u
+      | EightH -> 1u
+      | vec -> fail $"{vec} is not an arrangement BFCVTN writes"
+    twoRegWith 0u 0b10u 0b10110u q rd rn
+  | _ ->
+    wrongOperands ins
+
 /// The same, for floating-point elements.
 let private twoRegFP allowed u hi opcode ins =
   match ins.Operands with
   | TwoOperands(Vec(rd, t), Vec(rn, tn)) ->
     sameArrangement ins t tn
-    checkArrangement ins allowed t
-    let sz, q = floatArrangement t
-    twoRegWith u ((hi <<< 1) ||| sz) opcode q rd rn
+    (* FEAT_FP16 widened the floating-point set to the halves, and only that
+       set: URECPE and URSQRTE read words whatever else they resemble, and
+       the arrangements they accept say so. *)
+    let half = if allowed = Float then halfArrangement t else None
+    match half with
+    | Some q ->
+      twoRegHalfWith u hi opcode q rd rn
+    | None ->
+      checkArrangement ins allowed t
+      let sz, q = floatArrangement t
+      twoRegWith u ((hi <<< 1) ||| sz) opcode q rd rn
   | _ ->
     wrongOperands ins
 
@@ -387,8 +514,12 @@ let private compareZeroFP u hi opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), OprFPImm 0.0) ->
     sameArrangement ins t tn
-    let sz, q = floatArrangement t
-    twoRegWith u ((hi <<< 1) ||| sz) opcode q rd rn
+    match halfArrangement t with
+    | Some q ->
+      twoRegHalfWith u hi opcode q rd rn
+    | None ->
+      let sz, q = floatArrangement t
+      twoRegWith u ((hi <<< 1) ||| sz) opcode q rd rn
   | _ ->
     wrongOperands ins
 
@@ -490,9 +621,14 @@ let private acrossWidening u opcode ins =
 let private acrossFP u hi opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Vec(rn, tn)) ->
-    checkArrangement ins FloatFourS tn
-    let sz, q = floatArrangement tn
-    acrossWith u ((hi <<< 1) ||| sz) opcode q (simdReg 32 rd) rn
+    match halfArrangement tn with
+    | Some q ->
+      (* FEAT_FP16's, told from the single-precision forms by U reading 0 *)
+      acrossWith 0u (hi <<< 1) opcode q (simdReg 16 rd) rn
+    | None ->
+      checkArrangement ins FloatFourS tn
+      let sz, q = floatArrangement tn
+      acrossWith u ((hi <<< 1) ||| sz) opcode q (simdReg 32 rd) rn
   | _ ->
     wrongOperands ins
 
@@ -656,6 +792,10 @@ let moveFloatImm ins =
   match ins.Operands with
   | TwoOperands(Vec(rd, TwoD), OprFPImm value) ->
     modImmWith 1u 1u 0b1111u (floatImm value) (vectorReg rd)
+  | TwoOperands(Vec(rd, t), OprFPImm value) when t = FourH || t = EightH ->
+    (* FEAT_FP16's form, the one modified immediate with o2 set *)
+    let q = if t = EightH then 1u else 0u
+    modImmWith q 0u 0b1111u (floatImm value) (vectorReg rd) ||| (1u <<< 11)
   | TwoOperands(Vec(rd, t), OprFPImm value) ->
     checkArrangement ins Float t
     let _, q = arrangement t
@@ -728,7 +868,8 @@ let private convertFixed u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Im amount) ->
     sameArrangement ins t tn
-    checkArrangement ins Float t
+    (* a half arrangement is FEAT_FP16's, and needs nothing but its immh *)
+    if (halfArrangement t).IsNone then checkArrangement ins Float t else ()
     let _, q = arrangement t
     shiftImmWith u opcode q (rightShift ins t amount) rd rn
   | _ ->
@@ -784,10 +925,165 @@ let private indexedFP u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Elem(rm, vec, index)) ->
     sameArrangement ins t tn
-    let sz, q = floatArrangement t
     let selected, source = indexedSource ins vec rm index
-    if selected <> (0b10u ||| sz) then wrongOperands ins
-    else indexedWith u opcode q (0b10u ||| sz) source rd rn
+    match halfArrangement t with
+    | Some q ->
+      (* FEAT_FP16's forms lay the element out as an integer form of size 01
+         does, and say they read halves with a size of 00 *)
+      if selected <> 0b01u then wrongOperands ins
+      else indexedWith u opcode q 0b00u source rd rn
+    | None ->
+      let sz, q = floatArrangement t
+      if selected <> (0b10u ||| sz) then wrongOperands ins
+      else indexedWith u opcode q (0b10u ||| sz) source rd rn
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// FEAT_FHM's long multiply-accumulates by element, whose one half is laid out
+/// as an integer form of size 01 lays it out while the size field reads 10.
+/// </summary>
+let private mulAddLongIndexed u opcode ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(rd, td), Vec(rn, tn), Elem(rm, VecH, index)) ->
+    let q =
+      match td, tn with
+      | TwoS, TwoH -> 0u
+      | FourS, FourH -> 1u
+      | _ -> fail $"{td} and {tn} are not a long multiply-accumulate's widths"
+    let _, source = indexedSource ins VecH rm index
+    indexedWith u opcode q 0b10u source rd rn
+  | _ ->
+    wrongOperands ins
+
+/// BFMLALB and BFMLALT by element, whose Q bit still picks the bfloat16.
+let private bfMulAddLongIndexed isTop ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(rd, FourS), Vec(rn, EightH), Elem(rm, VecH, index)) ->
+    let q = if isTop then 1u else 0u
+    let _, source = indexedSource ins VecH rm index
+    indexedWith 0u 0b1111u q 0b11u source rd rn
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// BFDOT, whose destination is words and whose sources are pairs of
+/// bfloat16s: another vector of them, or by element one pair, named by a
+/// register of five bits and an index of two.
+/// </summary>
+let private bfDot ins =
+  let q ta tb =
+    match ta, tb with
+    | TwoS, FourH -> 0u
+    | FourS, EightH -> 1u
+    | _ -> fail "BFDOT reads bfloat16s and writes words"
+  match ins.Operands with
+  | ThreeOperands(Vec(rd, ta), Vec(rn, tb), Vec(rm, tc)) when tb = tc ->
+    (q ta tb <<< 30) ||| (1u <<< 29) ||| (0b01110u <<< 24) ||| (0b01u <<< 22)
+    ||| (vectorReg rm <<< 16) ||| (0b11111u <<< 11) ||| (1u <<< 10)
+    ||| (vectorReg rn <<< 5) ||| vectorReg rd
+  | ThreeOperands(Vec(rd, ta), Vec(rn, tb), Elem(rm, TwoH, index))
+    when index < 4uy ->
+    let i = uint32 index
+    let source =
+      ((i &&& 1u) <<< 21) ||| (vectorReg rm <<< 16) ||| ((i >>> 1) <<< 11)
+    indexedWith 0u 0b1111u (q ta tb) 0b01u source rd rn
+  | _ ->
+    wrongOperands ins
+
+/// BFMMLA, whose arrangements are fixed as the integer matrix multiplies'
+/// are: four words from eight halves on each side.
+let private bfMatMul ins =
+  match ins.Operands with
+  | ThreeOperands(Vec(rd, FourS), Vec(rn, EightH), Vec(rm, EightH)) ->
+    (1u <<< 30) ||| (1u <<< 29) ||| (0b01110u <<< 24) ||| (0b01u <<< 22)
+    ||| (vectorReg rm <<< 16) ||| (0b11101u <<< 11) ||| (1u <<< 10)
+    ||| (vectorReg rn <<< 5) ||| vectorReg rd
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// The size field and Q of FEAT_FCMA's arrangements: halves or singles
+/// either way, doubles only as a pair.
+/// </summary>
+let private complexArrangement ins t =
+  match t with
+  | FourH -> 0b01u, 0u
+  | EightH -> 0b01u, 1u
+  | TwoS -> 0b10u, 0u
+  | FourS -> 0b10u, 1u
+  | TwoD -> 0b11u, 1u
+  | _ -> wrongOperands ins
+
+/// The quarter turns a rotation in degrees stands for, of those allowed.
+let private turnsOf ins allowed rot =
+  if List.contains rot allowed then uint32 (rot / 90L) else wrongOperands ins
+
+/// <summary>
+/// FCADD, whose one bit of rotation says 90 or 270.
+/// </summary>
+let private complexAdd ins =
+  match ins.Operands with
+  | FourOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm), Im rot) ->
+    sameArrangement ins t tn
+    sameArrangement ins t tm
+    let size, q = complexArrangement ins t
+    let r = turnsOf ins [ 90L; 270L ] rot >>> 1
+    (q <<< 30) ||| (1u <<< 29) ||| (0b01110u <<< 24) ||| (size <<< 22)
+    ||| (vectorReg rm <<< 16) ||| (0b111u <<< 13) ||| (r <<< 12)
+    ||| (0b01u <<< 10) ||| (vectorReg rn <<< 5) ||| vectorReg rd
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// The size field, Q and the H and L bits of FCMLA by element's arrangement
+/// and index: halves with an index the arrangement reaches, H:L for them, or
+/// four singles with H alone.
+/// </summary>
+let private complexIndex ins t vec index =
+  let i = uint32 index
+  match t, vec with
+  | FourH, VecH when i < 2u ->
+    0b01u, 0u, (i <<< 21)
+  | EightH, VecH when i < 4u ->
+    0b01u, 1u, ((i >>> 1) <<< 11) ||| ((i &&& 1u) <<< 21)
+  | FourS, VecS when i < 2u ->
+    0b10u, 1u, (i <<< 11)
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// FCMLA by element, whose second source names a PAIR: a register of five
+/// bits whatever the size, and the index complexIndex lays out.
+/// </summary>
+let private complexMulAddIndexed ins =
+  match ins.Operands with
+  | FourOperands(Vec(rd, t), Vec(rn, tn), Elem(rm, vec, index), Im rot) ->
+    sameArrangement ins t tn
+    let size, q, hl = complexIndex ins t vec index
+    let r = turnsOf ins [ 0L; 90L; 180L; 270L ] rot
+    (q <<< 30) ||| (1u <<< 29) ||| (0b01111u <<< 24) ||| (size <<< 22) ||| hl
+    ||| (vectorReg rm <<< 16) ||| (r <<< 13) ||| (1u <<< 12)
+    ||| (vectorReg rn <<< 5) ||| vectorReg rd
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// FCMLA, whose two bits of rotation count quarter turns, on whole vectors
+/// or with a pair of the second source named by index.
+/// </summary>
+let private complexMulAdd ins =
+  match ins.Operands with
+  | FourOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm), Im rot) ->
+    sameArrangement ins t tn
+    sameArrangement ins t tm
+    let size, q = complexArrangement ins t
+    let r = turnsOf ins [ 0L; 90L; 180L; 270L ] rot
+    (q <<< 30) ||| (1u <<< 29) ||| (0b01110u <<< 24) ||| (size <<< 22)
+    ||| (vectorReg rm <<< 16) ||| (0b110u <<< 13) ||| (r <<< 11)
+    ||| (1u <<< 10) ||| (vectorReg rn <<< 5) ||| vectorReg rd
+  | FourOperands(_, _, Elem _, _) ->
+    complexMulAddIndexed ins
   | _ ->
     wrongOperands ins
 
@@ -871,6 +1167,20 @@ let private multiplyFP u hi opcode indexU indexOpcode =
                 (indexedFP indexU indexOpcode)
                 wrongOperands
 
+/// The long multiply-accumulates, by vector or by element.
+let private mulAddLongBy u size opcode indexOpcode =
+  byLastOperand (mulAddLong u size opcode)
+                (mulAddLongIndexed u indexOpcode)
+                wrongOperands
+
+/// BFMLALB and BFMLALT, by vector or by element.
+let private bfMulAddLongBy isTop =
+  byLastOperand (bfMulAddLong isTop) (bfMulAddLongIndexed isTop) wrongOperands
+
+/// SQRDMLAH and SQRDMLSH, by vector or by element.
+let private rdmAccumulateBy opcode indexOpcode =
+  byLastOperand (rdmAccumulate opcode) (indexed 1u indexOpcode) wrongOperands
+
 /// ORR and BIC, which read either another vector or a byte placed somewhere in
 /// each of their elements.
 let private inclusiveOr =
@@ -946,11 +1256,28 @@ let vectorEncoders () =
     Opcode.UMAXP, threeSame NotLong 1u 0b10100u
     Opcode.UMINP, threeSame NotLong 1u 0b10101u
     Opcode.SQRDMULH, threeSame HalfAndWord 1u 0b10110u
+    Opcode.BFCVTN, bfConvertNarrow
+    Opcode.BFCVTN2, bfConvertNarrow
+    Opcode.SQRDMLAH, rdmAccumulateBy 0b10000u 0b1101u
+    Opcode.SQRDMLSH, rdmAccumulateBy 0b10001u 0b1111u
+    Opcode.SMMLA, matrixMultiply 0u 0b10100u
+    Opcode.UMMLA, matrixMultiply 1u 0b10100u
+    Opcode.USMMLA, matrixMultiply 0u 0b10101u
+    Opcode.BFMLALB, bfMulAddLongBy false
+    Opcode.BFMLALT, bfMulAddLongBy true
+    Opcode.BFDOT, bfDot
+    Opcode.BFMMLA, bfMatMul
     Opcode.FMAXNM, threeSameFP 0u 0u 0b11000u
     Opcode.FADD, threeSameFP 0u 0u 0b11010u
     Opcode.FMULX, threeSameFP 0u 0u 0b11011u
+    Opcode.FCADD, complexAdd
+    Opcode.FCMLA, complexMulAdd
     Opcode.FMAX, threeSameFP 0u 0u 0b11110u
     Opcode.FRECPS, threeSameFP 0u 0u 0b11111u
+    Opcode.FMLAL, mulAddLongBy 0u 0b00u 0b11101u 0b0000u
+    Opcode.FMLAL2, mulAddLongBy 1u 0b00u 0b11001u 0b1000u
+    Opcode.FMLSL, mulAddLongBy 0u 0b10u 0b11101u 0b0100u
+    Opcode.FMLSL2, mulAddLongBy 1u 0b10u 0b11001u 0b1100u
     Opcode.FMINNM, threeSameFP 0u 1u 0b11000u
     Opcode.FSUB, threeSameFP 0u 1u 0b11010u
     Opcode.FMIN, threeSameFP 0u 1u 0b11110u
@@ -980,9 +1307,9 @@ let vectorEncoders () =
     Opcode.SMOV, moveToGeneral true 0b0101u
     Opcode.UMOV, moveToGeneral false 0b0111u
     Opcode.INS, insert
-    Opcode.REV64, twoReg NotLone 0u 0b00000u
+    Opcode.REV64, twoReg NotLong 0u 0b00000u
     Opcode.REV16, twoReg ByteOnly 0u 0b00001u
-    Opcode.SUQADD, twoReg NotLong 0u 0b00011u
+    Opcode.SUQADD, twoReg NotLone 0u 0b00011u
     Opcode.CLS, twoReg NotLong 0u 0b00100u
     Opcode.CNT, twoReg ByteOnly 0u 0b00101u
     Opcode.SQABS, twoReg NotLone 0u 0b00111u
@@ -1019,6 +1346,8 @@ let vectorEncoders () =
     Opcode.FCVTNS, twoRegFP Float 0u 0u 0b11010u
     Opcode.FCVTMS, twoRegFP Float 0u 0u 0b11011u
     Opcode.FCVTAS, twoRegFP Float 0u 0u 0b11100u
+    Opcode.FRINT32Z, twoRegFP FloatWide 0u 0u 0b11110u
+    Opcode.FRINT64Z, twoRegFP FloatWide 0u 0u 0b11111u
     Opcode.FABS, twoRegFP Float 0u 1u 0b01111u
     Opcode.FRINTP, twoRegFP Float 0u 1u 0b11000u
     Opcode.FRINTZ, twoRegFP Float 0u 1u 0b11001u
@@ -1030,6 +1359,8 @@ let vectorEncoders () =
     Opcode.FCVTNU, twoRegFP Float 1u 0u 0b11010u
     Opcode.FCVTMU, twoRegFP Float 1u 0u 0b11011u
     Opcode.FCVTAU, twoRegFP Float 1u 0u 0b11100u
+    Opcode.FRINT32X, twoRegFP FloatWide 1u 0u 0b11110u
+    Opcode.FRINT64X, twoRegFP FloatWide 1u 0u 0b11111u
     Opcode.FNEG, twoRegFP Float 1u 1u 0b01111u
     Opcode.FRINTI, twoRegFP Float 1u 1u 0b11001u
     Opcode.FCVTPU, twoRegFP Float 1u 1u 0b11010u

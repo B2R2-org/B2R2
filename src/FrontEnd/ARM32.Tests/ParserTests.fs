@@ -157,6 +157,22 @@ type ParserTests() =
       parse (ISA(Architecture.ARMv7, Endian.Big)) bytes |> ignore)
     |> ignore
 
+  /// The disassembly of a word under the ISA a name gives, or nothing where
+  /// that ISA leaves the word UNDEFINED.
+  let under (isaName: string) (byteString: string) =
+    let parser = ARM32Parser(ISA isaName, false, BinReader.Init Endian.Big)
+    let bytes = ByteArray.ofHexString byteString
+    try Some(((parser :> IInstructionParsable).Parse(bytes, 0UL)).Disasm())
+    with :? ParsingFailureException -> None
+
+  /// Checks that a word reads under each ISA of one list and is refused under
+  /// each of the other, which is what a version and its extensions decide.
+  let readsOnlyUnder word (reads: string list) (refuses: string list) =
+    for name in reads do
+      Assert.AreEqual<bool>(true, (under name word).IsSome, $"{word} {name}")
+    for name in refuses do
+      Assert.AreEqual<string option>(None, under name word, $"{word} {name}")
+
   let testNoQNoSimd pref wback (bytes: byte[]) (opcode, operands) =
     test pref opcode wback None operands bytes
 
@@ -399,6 +415,146 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Miscellaneous data-processing Parse Test (6)``() =
     testRefused "e7c1231f" (* bfc, msb = 1, lsb = 6 *)
+#endif
+
+  /// The element and structure loads and stores are 1111 0100 with bit 20
+  /// clear; the same word with bit 24 set is no instruction.
+  [<TestMethod>]
+  member _.``[ARMv7] VLD1 of four registers steps by a register``() =
+    testDisasm "f42af2d2" "vld1.64 {d15, d16, d17, d18}, [sl:64], r2"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Advanced SIMD element load/store needs bit 24 clear``() =
+    testRefused "f52af2d2"
+
+  /// An A32 VSTR may take the PC as its base: the manual's UNPREDICTABLE is
+  /// for every other instruction set.
+  [<TestMethod>]
+  member _.``[ARMv7] VSTR may take the PC as its base``() =
+    testDisasm "adcf7bcc" "vstrge.64 d23, [pc, #0x330]"
+
+  /// VLD2 of one register a structure steps by one, so d30 and d31 are the
+  /// last pair it can name.
+  [<TestMethod>]
+  member _.``[ARMv7] VLD2 of the last two D registers``() =
+    testDisasm "f46be812" "vld2.8 {d30, d31}, [fp:64], r2"
+
+  /// <summary>
+  /// Which ISAs read each word, and which refuse it. An ARMv7 ISA naming a
+  /// version reads the instructions of the extensions it has and no others:
+  /// the moves and loads of the extension registers are either unit's, the
+  /// fused multiply-adds need VFPv4 and the half-precision conversions FP16
+  /// on top, and what Armv8 added no ARMv7 version reads.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 is either unit's``() =
+    readsOnlyUnder "ee300a81" [ "armv7-v7+fp"; "armv7-v7+simd" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.I32 is Advanced SIMD's``() =
+    readsOnlyUnder "f2210802" [ "armv7-v7+simd" ] [ "armv7-v7+fp"; "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VFMA.F32 is VFPv4's``() =
+    readsOnlyUnder "eea00a81" [ "armv7-v7+vfpv4" ]
+      [ "armv7-v7+fp"; "armv7-v7+simd" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VFMA of vectors needs SIMD and VFPv4``() =
+    readsOnlyUnder "f2010c12" [ "armv7-v7+simd+vfpv4" ] [ "armv7-v7+simd" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTB is the half-precision extension's``() =
+    readsOnlyUnder "eeb20a60" [ "armv7-v7+fp+fp16"; "armv7-v7+vfpv4" ]
+      [ "armv7-v7+fp" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT of halves needs SIMD and FP16``() =
+    readsOnlyUnder "f3b60602" [ "armv7-v7+simd+fp16" ] [ "armv7-v7+simd" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] SDIV is the divide extension's``() =
+    readsOnlyUnder "e710f211" [ "armv7-v7+idiv"; "armv7-v7+virt" ]
+      [ "armv7-v7+mp" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] SDIV comes with ARMv7VE``() =
+    readsOnlyUnder "e710f211" [ "armv7-v7ve" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] PLDW is the multiprocessing extension's``() =
+    readsOnlyUnder "f590f000" [ "armv7-v7+mp"; "armv7-v7ve" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] SMC is the security extension's``() =
+    readsOnlyUnder "e1600070" [ "armv7-v7+sec"; "armv7-v7ve" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] HVC is the virtualization extension's``() =
+    readsOnlyUnder "e1400070" [ "armv7-v7+virt"; "armv7-v7ve" ]
+      [ "armv7-v7+idiv" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] MRS (banked) is the virtualization extension's``() =
+    readsOnlyUnder "e1000200" [ "armv7-v7+virt" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VLDM is either unit's``() =
+    readsOnlyUnder "ec900b04" [ "armv7-v7+fp"; "armv7-v7+simd" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VLD1 is Advanced SIMD's``() =
+    readsOnlyUnder "f420070f" [ "armv7-v7+simd" ] [ "armv7-v7+fp" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV of a word to a core register is either unit's``() =
+    readsOnlyUnder "ee300b10" [ "armv7-v7+fp"; "armv7-v7+simd" ] [ "armv7-v7" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV of a byte to a core register is Advanced SIMD's``() =
+    readsOnlyUnder "eed00b30" [ "armv7-v7+simd" ] [ "armv7-v7+fp" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] CRC32B is Armv8's``() =
+    readsOnlyUnder "e1010042" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMAXNM is Armv8's``() =
+    readsOnlyUnder "f3010f12" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] LDA is Armv8's``() =
+    readsOnlyUnder "e1910c9f" [ "armv7" ] [ "armv7-v7ve" ]
+
+  [<TestMethod>]
+  member _.``[ARMv7] ADD is every version's``() =
+    readsOnlyUnder "e0810002" [ "armv7-v7" ] []
+
+  /// Armv8's hints are NOPs to an ARMv7 processor, as its unallocated hints
+  /// are, so an ARMv7 version reads them as NOP.
+  [<TestMethod>]
+  member _.``[ARMv7] SEVL reads as NOP under an ARMv7 version``() =
+    Assert.AreEqual<string option>(Some "nop", under "armv7-v7" "e320f005")
+
+  /// An ISA that names no version reads every instruction.
+  [<TestMethod>]
+  member _.``[ARMv7] SEVL reads as SEVL without a version``() =
+    Assert.AreEqual<string option>(Some "sevl", under "armv7" "e320f005")
+
+  /// A register list of no registers is UNPREDICTABLE. A build that checks
+  /// refuses it, and one that does not reads the empty list it names; either
+  /// way the word comes back, rather than being read as every register there
+  /// is.
+  [<TestMethod>]
+  [<Timeout(10000)>]
+  member _.``[ARMv7] VLDM with no registers``() =
+#if EMULATION
+    let bytes = ByteArray.ofHexString "7cba0b00" (* vldmiavc r10!, {} *)
+    let ins = parse (ISA(Architecture.ARMv7, Endian.Big)) bytes
+    let expected = TwoOperands(O.Reg SL, O.RegList [])
+    Assert.AreEqual<Operands>(expected, ins.Operands)
+#else
+    testRefused "7cba0b00" (* vldmiavc r10!, {} *)
 #endif
 
   [<TestMethod>]
@@ -782,6 +938,74 @@ type ParserTests() =
                  O.MemPostIdxReg(LR, None, R3) ]
     ||> testNoQ Condition.UN true (Some(OneDT SIMDTyp32))
 
+  /// VLD2, VST2, VLD3 and VST3 of multiple structures are the types a pair
+  /// or a triple spaced one or two apart, and two pairs; the one-lane VLD1
+  /// and VST1 name their register with the D bit, and the one-lane and
+  /// all-lane VLD3 and VST3 read their memory operand as the others do.
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (1)``() =
+    testDisasm "f4e110e2" "vld1.8 {d17[7]}, [r1], r2"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (2)``() =
+    testDisasm "f4c110e2" "vst1.8 {d17[7]}, [r1], r2"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (3)``() =
+    testDisasm "f421080f" "vld2.8 {d0, d1}, [r1]"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (4)``() =
+    testDisasm "f4210942" "vld2.16 {d0, d2}, [r1], r2"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (5)``() =
+    testDisasm "f421038d" "vld2.32 {d0, d1, d2, d3}, [r1]!"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (6)``() =
+    testDisasm "f461080f" "vld2.8 {d16, d17}, [r1]"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (7)``() =
+    testDisasm "f4010942" "vst2.16 {d0, d2}, [r1], r2"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (8)``() =
+    testDisasm "f401038d" "vst2.32 {d0, d1, d2, d3}, [r1]!"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (9)``() =
+    testDisasm "f421040f" "vld3.8 {d0, d1, d2}, [r1]"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (10)``() =
+    testDisasm "f4210542" "vld3.16 {d0, d2, d4}, [r1], r2"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (11)``() =
+    testDisasm "f4613582" "vld3.32 {d19, d21, d23}, [r1], r2"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (12)``() =
+    testDisasm "f401050d" "vst3.8 {d0, d2, d4}, [r1]!"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (13)``() =
+    testDisasm "f4a1026f" "vld3.8 {d0[3], d1[3], d2[3]}, [r1]"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (14)``() =
+    testDisasm "f4a10e6d" "vld3.16 {d0[], d2[], d4[]}, [r1]!"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (15)``() =
+    testDisasm "f48106ad" "vst3.16 {d0[2], d2[2], d4[2]}, [r1]!"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Element and structure load/store Disasm test (16)``() =
+    testDisasm "f421004d" "vld4.16 {d0, d1, d2, d3}, [r1]!"
+
   [<TestMethod>]
   member _.``[ARMv7] Advanced SIMD and FP register transfer Parse test (1)``() =
     "ee82ebb0"
@@ -1010,3 +1234,135 @@ type ParserTests() =
                  O.SimdVectorReg Q1
                  O.SimdScalarReg(D0, Some 2uy) ]
     ||> testNoWbackNoQ Condition.UN (Some(OneDT SIMDTypI16))
+
+  /// The narrowing moves are the I<size> forms of the manual: the size names
+  /// the elements READ, which are twice as wide as the ones written, and it
+  /// carries no signedness because the move keeps the low half either way.
+  [<TestMethod>]
+  member _.``[ARMv7] VMOVN names the width it reads``() =
+    "f3b20202"
+    ++ VMOVN ** [ O.SimdVectorReg D0; O.SimdVectorReg Q1 ]
+    ||> testNoWbackNoQ Condition.UN (Some(OneDT SIMDTypI16))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VQSUB names quadwords in its Q form``() =
+    "f2020254"
+    ++ VQSUB ** [ O.SimdVectorReg Q0; O.SimdVectorReg Q1; O.SimdVectorReg Q2 ]
+    ||> testNoWbackNoQ Condition.UN (Some(OneDT SIMDTypS8))
+
+  /// VQSHLU reads signed elements and saturates into unsigned ones, so the U
+  /// bit its encoding sets says which instruction this is and not how the
+  /// elements are read.
+  [<TestMethod>]
+  member _.``[ARMv7] VQSHLU keeps a signed data type``() =
+    "f3890611"
+    ++ VQSHLU ** [ O.SimdVectorReg D0; O.SimdVectorReg D1; O.Imm 1L ]
+    ||> testNoWbackNoQ Condition.UN (Some(OneDT SIMDTypS8))
+
+  /// TSB CSYNC names its option, which is part of what it is written as.
+  [<TestMethod>]
+  member _.``[ARMv7] TSB CSYNC names its option``() =
+    testDisasm "e320f012" "tsb csync"
+
+  /// RRX rotates by exactly one place and is written with no amount.
+  [<TestMethod>]
+  member _.``[ARMv7] An RRX operand takes no amount``() =
+    testDisasm "e0010064" "and r0, r1, r4, rrx"
+
+  /// VMOV.F32 builds a single-precision number from its eight bits the way
+  /// AdvSIMDExpandImm does (J1-7926): sign, an exponent whose top bit is the
+  /// inverse of the bit below it, and four bits of fraction.
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV.F32 (immediate) expands its constant``() =
+    testDisasm "f2810f14" "vmov.f32 d0, #0x40a00000"
+
+  /// The sign is the i bit, bit 24 of an A32 word.
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV.F32 (immediate) takes its sign from i``() =
+    testDisasm "f3810f14" "vmov.f32 d0, #0xc0a00000"
+
+  /// With the bit the exponent is built from set, the inverted one is clear.
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV.F32 (immediate) inverts its exponent bit``() =
+    testDisasm "f2850f10" "vmov.f32 d0, #0x3e800000"
+
+  /// The quadword form holds the same constant, all four bytes of it.
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV.F32 (immediate) to a quadword keeps the constant``() =
+    testDisasm "f2810f54" "vmov.f32 q0, #0x40a00000"
+
+  /// cmode 1100 shifts the byte in over eight ones, and 1101 over sixteen.
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV.I32 (immediate) shifts in eight ones``() =
+    testDisasm "f2850c1a" "vmov.i32 d0, #0x5aff"
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMOV.I32 (immediate) shifts in sixteen ones``() =
+    testDisasm "f2850d1a" "vmov.i32 d0, #0x5affff"
+
+  /// VMVN builds the same two constants: which one cmode names does not
+  /// depend on op.
+  [<TestMethod>]
+  member _.``[ARMv7] VMVN.I32 (immediate) shifts in eight ones``() =
+    testDisasm "f2850c3a" "vmvn.i32 d0, #0x5aff"
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMVN.I32 (immediate) shifts in sixteen ones``() =
+    testDisasm "f2850d3a" "vmvn.i32 d0, #0x5affff"
+
+  /// DBG names the option it passes to the debug system (F5-4385).
+  [<TestMethod>]
+  member _.``[ARMv7] DBG names its option``() =
+    testDisasm "e320f0f4" "dbg #0x4"
+
+  /// SHA256H2 is written as one word with its data type, as every other SHA
+  /// instruction is.
+  [<TestMethod>]
+  member _.``[ARMv7] SHA256H2 is written as one word``() =
+    testDisasm "f3100c40" "sha256h2.32 q0, q0, q0"
+
+  /// The floating-point instructions are the coprocessor space with 10 in bits
+  /// 11:10: coprocessors 10 and 11, and 9 for half precision. The four above
+  /// them are ordinary coprocessors to ARMv7, so their data-processing words
+  /// are CDP, whatever their low bits would mean to the floating-point unit.
+  [<TestMethod>]
+  member _.``[ARMv7] CDP to coprocessor 12 is not floating-point``() =
+    testDisasm "ee000c00" "cdp p12, #0x0, c0, c0, c0, #0x0"
+
+  [<TestMethod>]
+  member _.``[ARMv7] CDP to coprocessor 13 is not floating-point``() =
+    testDisasm "ee000d00" "cdp p13, #0x0, c0, c0, c0, #0x0"
+
+  [<TestMethod>]
+  member _.``[ARMv7] CDP to coprocessor 14 is not floating-point``() =
+    testDisasm "ee000e00" "cdp p14, #0x0, c0, c0, c0, #0x0"
+
+  [<TestMethod>]
+  member _.``[ARMv7] CDP to coprocessor 15 is not floating-point``() =
+    testDisasm "ee000f00" "cdp p15, #0x0, c0, c0, c0, #0x0"
+
+  /// Coprocessor 9 is where Armv8.2 put the half-precision arithmetic.
+  [<TestMethod>]
+  member _.``[ARMv7] VMLA.F16 is coprocessor 9's``() =
+    testDisasm "ee000900" "vmla.f16 s0, s0, s0"
+
+  /// A register list that runs past the last register names registers that do
+  /// not exist. The manual calls it UNPREDICTABLE, but there is nothing for any
+  /// build to read, so every build refuses it: here d31 and the one after it.
+  [<TestMethod>]
+  member _.``[ARMv7] VLDM past D31 is refused in every build``() =
+    testRefused "ecd0fb04"
+
+  /// The same for the single-precision list, s31 and the one after it.
+  [<TestMethod>]
+  member _.``[ARMv7] VLDM past S31 is refused in every build``() =
+    testRefused "ecd0fa02"
+
+  /// MSR names SPSR with its R bit, bit 22, as MRS does.
+  [<TestMethod>]
+  member _.``[ARMv7] MSR (register) can name SPSR``() =
+    testDisasm "e16ff001" "msr spsr_fsxc, r1"
+
+  [<TestMethod>]
+  member _.``[ARMv7] MSR (immediate) can name SPSR``() =
+    testDisasm "e368f0ff" "msr spsr_f, #0xff"

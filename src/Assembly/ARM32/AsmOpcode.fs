@@ -377,6 +377,14 @@ let private dbg ins =
   | _ ->
     wrongOperands ins
 
+/// TSB, the one hint written with an option, CSYNC being the only one it has.
+let private tsb ins =
+  match ins.Operands with
+  | OneOperand(OprHintOpt CSYNC) ->
+    cond ins ||| (0b00110010u <<< 20) ||| (0xfu <<< 12) ||| 0x12u
+  | _ ->
+    wrongOperands ins
+
 /// <summary>
 /// The barriers and CLREX, which share one encoding in the unconditional
 /// space and differ in the four bits above their option.
@@ -1439,6 +1447,18 @@ let private splitSimdImm8 (imm8: uint32) =
   ||| (imm8 &&& 0xfu)
 
 /// <summary>
+/// The two words VMOV and VMVN can build that the instructions which also read
+/// their register cannot: a byte shifted in over eight ones, or over sixteen.
+/// </summary>
+let private onesShifted (value: uint32) =
+  if value >>> 16 = 0u && value &&& 0xffu = 0xffu then
+    (0b1100u <<< 8) ||| splitSimdImm8 (value >>> 8)
+  elif value >>> 24 = 0u && value &&& 0xffffu = 0xffffu then
+    (0b1101u <<< 8) ||| splitSimdImm8 (value >>> 16)
+  else
+    fail $"#{value} is not a SIMD immediate"
+
+/// <summary>
 /// The immediate a SIMD instruction builds each of its elements from, which is
 /// one byte together with a code saying where in the element it sits and what
 /// fills the rest.
@@ -1459,6 +1479,8 @@ let private simdImmediate ins withRegister (value: int64) =
     | None ->
       fail $"#{value} is not a SIMD immediate"
   match elementSize ins with
+  | 2u when not withRegister && value > 0xffu && value &&& 0xffu = 0xffu ->
+    onesShifted value
   | 2u ->
     placed [ 0; 8; 16; 24 ] 0b0000u
   | 1u ->
@@ -1485,6 +1507,11 @@ let private wideSimdImmediate (value: int64) =
   else
     fail $"#{value} is not a SIMD immediate of that width"
 
+/// The immediate a single-precision VMOV fills its elements with: the eight
+/// bits of a floating-point move, under a code of their own.
+let private floatSimdImmediate (value: int64) =
+  (0b1111u <<< 8) ||| splitSimdImm8 (fpImm8 32 value)
+
 /// The instructions that build every element of a register out of one
 /// immediate, either on its own or together with what the register held.
 let private neonImmediate withRegister op ins =
@@ -1493,6 +1520,7 @@ let private neonImmediate withRegister op ins =
     let q = if isQuadReg dd then 1u else 0u
     let bits, op =
       if elementSize ins = 3u then wideSimdImmediate imm, 1u
+      elif dataType ins = SIMDTypF32 then floatSimdImmediate imm, 0u
       else simdImmediate ins withRegister imm, op
     neonHead ins ||| (1u <<< 23) ||| bits ||| (q <<< 6) ||| (op <<< 5)
     ||| (1u <<< 4) ||| vd dd
@@ -1527,8 +1555,9 @@ let private vmov ins =
     cond ins ||| (0b1100u <<< 24) ||| (0b010u <<< 21) ||| (op <<< 20)
     ||| (size <<< 8) ||| (1u <<< 4)
   match ins.Operands with
-  | TwoOperands(OprSIMD(SFReg(Vector dd)), OprImm imm) ->
+  | TwoOperands(OprSIMD(SFReg(Vector dd)), OprImm _) ->
     (match dataType ins with
+     | SIMDTypF32 when not (isSingleReg dd) -> neonImmediate false 0u ins
      | SIMDTypF32 | SIMDTypF64 -> fpMoveImm ins
      | _ -> neonImmediate false 0u ins)
   | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))) ->
@@ -1573,11 +1602,16 @@ let private vmov ins =
 
 /// VMLA and VMLS, which both the floating-point unit and the SIMD unit have.
 /// Only the SIMD ones multiply by one element of a register, so what the third
-/// operand names is what says which unit is meant.
+/// operand names is what says which unit is meant; by an element, bit 8 says
+/// whether the elements are floating-point.
 let private mulAccumulate opcode op scalarOpcode variant ins =
   match ins.Operands with
   | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
-    neonScalar true scalarOpcode ins
+    let isFloat =
+      match dataType ins with
+      | SIMDTypF16 | SIMDTypF32 -> 1u
+      | _ -> 0u
+    neonScalar true (scalarOpcode ||| isFloat) ins
   | _ ->
     eitherUnit (fp3 opcode op) (neon3FloatDt 0u variant 0b1101u) ins
 
@@ -1758,26 +1792,46 @@ let private structureLane l ins =
 /// <summary>
 /// The loads that read one element into every lane of the registers they name,
 /// which the source writes as an element with no number.
+///
+/// Bits 9:8 say how many elements a structure has, which is the mnemonic's
+/// number and not the count of registers: VLD1 fills one register or two, and
+/// says which with T, where the others say with T how far apart theirs are.
+/// VLD4 of words promises a quadword with a size field of 11, the one
+/// alignment the field has no other room for.
 /// </summary>
 let private structureAllLanes ins =
   match ins.Operands with
   | ThreeOperands(OprSIMD list, OprMemory mode, _)
   | TwoOperands(OprSIMD list, OprMemory mode) ->
     let named = simdListRegs list
+    let structure =
+      match ins.Opcode with
+      | Opcode.VLD1 -> 1
+      | Opcode.VLD2 -> 2
+      | Opcode.VLD3 -> 3
+      | _ -> 4
     let spacing =
       match named |> List.map int with
       | first :: second :: _ -> second - first
       | _ -> 1
+    let t =
+      if structure = 1 then uint32 (List.length named - 1)
+      elif spacing = 2 then 1u
+      else 0u
     let align =
       match mode with
       | OffsetMode(AlignOffset(_, Some align, _))
       | PreIdxMode(AlignOffset(_, Some align, _))
-      | PostIdxMode(AlignOffset(_, Some align, _)) -> 1u
-      | _ -> 0u
+      | PostIdxMode(AlignOffset(_, Some align, _)) -> align
+      | _ -> 0L
+    let size, a =
+      match structure, elementSize ins, align with
+      | _, size, 0L -> size, 0u
+      | 4, 0b10u, 128L -> 0b11u, 1u
+      | _, size, _ -> size, 1u
     structureHead 1u 1u ins ||| (0b11u <<< 10)
-    ||| (uint32 (List.length named - 1) <<< 8) ||| (elementSize ins <<< 6)
-    ||| ((if spacing = 2 then 1u else 0u) <<< 5) ||| (align <<< 4)
-    ||| vd (List.head named) ||| laneMemory ins mode
+    ||| (uint32 (structure - 1) <<< 8) ||| (size <<< 6) ||| (t <<< 5)
+    ||| (a <<< 4) ||| vd (List.head named) ||| laneMemory ins mode
   | _ ->
     wrongOperands ins
 
@@ -1925,6 +1979,7 @@ let hintEncoders () =
     Opcode.SEVL, hint 0x05u
     Opcode.ESB, hint 0x10u
     Opcode.CSDB, hint 0x14u
+    Opcode.TSB, tsb
     Opcode.DBG, dbg
     Opcode.CLREX, barrier 0b0001u 0xfu
     Opcode.DSB, barrier 0b0100u 0xfu
@@ -2168,6 +2223,55 @@ let private neonMultiply ins =
   | SIMDTypF16 | SIMDTypF32 -> neon3FloatDt 1u 0u 0b1101u ins
   | _ -> neon3 0u 0b1001u 1u ins
 
+/// VMUL by one element of a register, whose F bit says the elements are
+/// floating-point.
+let private neonMultiplyScalar ins =
+  match dataType ins with
+  | SIMDTypF16 | SIMDTypF32 -> neonScalar true 0b1001u ins
+  | _ -> neonScalar true 0b1000u ins
+
+/// The multiplies that have a form by one element of a register as well as
+/// one of three registers, which the last operand tells apart.
+let private orByScalar byScalar threeRegisters ins =
+  match ins.Operands with
+  | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) -> byScalar ins
+  | _ -> threeRegisters ins
+
+/// The long multiplies by one element, which are always wide and so keep U
+/// where the others keep Q.
+let private neonScalarLong opcode ins =
+  neonScalar false opcode ins ||| (unsignedBit ins <<< 24)
+
+/// <summary>
+/// VMULL, which multiplies integers or polynomials into elements twice as
+/// wide, and says which in its data type.
+///
+/// The product of two doubleword polynomials is written with the size field
+/// of words.
+/// </summary>
+let private neonMultiplyLong ins =
+  match dataType ins with
+  | SIMDTypP8 ->
+    neon3Long 0u 0b1110u ins
+  | SIMDTypP64 ->
+    (neon3Long 0u 0b1110u ins &&& ~~~(0b11u <<< 20)) ||| (0b10u <<< 20)
+  | _ ->
+    orByScalar (neonScalarLong 0b1010u) (neon3LongSigned 0b1100u) ins
+
+/// VMOVL, which is VSHLL by nothing: the shift field's top bit is what says how
+/// wide an element is.
+let private neonMoveLong ins =
+  match ins.Operands with
+  | TwoOperands(qd, dm) ->
+    let ins = { ins with Operands = ThreeOperands(qd, dm, OprImm 0L) }
+    neonShiftWith (unsignedBit ins) true false 0b1010u ins
+  | _ ->
+    wrongOperands ins
+
+/// The rounding form of a narrowing shift, which is the plain one with bit 6
+/// set.
+let private rounding encode ins = encode ins ||| (1u <<< 6)
+
 /// <summary>
 /// The dot products, which multiply four bytes of each source and add the four
 /// results into one word of the destination.
@@ -2240,28 +2344,39 @@ let private fpStatusMove l ins =
 /// The Advanced SIMD instructions that read and write whole registers.
 let advancedSIMDEncoders () =
   let vshll = fun ins -> neonShiftWith (unsignedBit ins) true false 0b1010u ins
+  let vmul = orByScalar neonMultiplyScalar neonMultiply
   [ Opcode.VHADD, neon3Signed 0b0000u 0u
     Opcode.VQADD, neon3Signed 0b0000u 1u
     Opcode.VCGT, neon3Signed 0b0011u 0u
     Opcode.VCGE, neon3Signed 0b0011u 1u
-    Opcode.VQDMULH, neon3 0u 0b1011u 0u
+    Opcode.VQDMULH, orByScalar (neonScalar true 0b1100u) (neon3 0u 0b1011u 0u)
     Opcode.VPADD, neon3 0u 0b1011u 1u
-    Opcode.VQRDMULH, neon3 1u 0b1011u 0u
-    Opcode.VQRDMLAH, neon3 1u 0b1011u 1u
+    Opcode.VQRDMULH, orByScalar (neonScalar true 0b1101u) (neon3 1u 0b1011u 0u)
+    Opcode.VQRDMLAH, orByScalar (neonScalar true 0b1110u) (neon3 1u 0b1011u 1u)
     Opcode.VADDL, neon3LongSigned 0b0000u
+    Opcode.VMLAL, orByScalar (neonScalarLong 0b0010u) (neon3LongSigned 0b1000u)
+    Opcode.VMLSL, orByScalar (neonScalarLong 0b0110u) (neon3LongSigned 0b1010u)
+    Opcode.VMULL, neonMultiplyLong
     Opcode.VQDMLSL, neon3Long 0u 0b1011u
     Opcode.VSHR, neonShift 0b0000u
     Opcode.VSRA, neonShift 0b0001u
     Opcode.VRSHR, neonShift 0b0010u
     Opcode.VRSRA, neonShift 0b0011u
     Opcode.VSRI, neonShiftWith 1u false false 0b0100u
-    Opcode.VSHL, neonShiftWith 0u false false 0b0101u
+    Opcode.VSHL, neonShiftWith 0u true false 0b0101u
     Opcode.VSLI, neonShiftWith 1u true false 0b0101u
     Opcode.VQSHLU, neonShiftWith 1u true false 0b0110u
     Opcode.VSHRN, neonShiftNarrow 0b1000u
-    Opcode.VQSHRUN, neonShiftNarrow 0b1000u
+    Opcode.VRSHRN, rounding (neonShiftNarrow 0b1000u)
+    (* U says which of the two the opcode field stands for, and it is not the
+       sign of the data type here: VQSHRUN reads signed elements and writes
+       unsigned ones, so U is set while its type names a signed size. *)
+    Opcode.VQSHRUN, neonShiftWith 1u false true 0b1000u
+    Opcode.VQRSHRUN, rounding (neonShiftWith 1u false true 0b1000u)
     Opcode.VQSHRN, neonShiftNarrow 0b1001u
+    Opcode.VQRSHRN, rounding (neonShiftNarrow 0b1001u)
     Opcode.VSHLL, vshll
+    Opcode.VMOVL, neonMoveLong
     Opcode.VMOV, vmov
     Opcode.VMVN, neonImmediate false 1u
     Opcode.VQDMLAL, neonScalar false 0b0011u
@@ -2290,10 +2405,10 @@ let advancedSIMDEncoders () =
     Opcode.VABA, neon3Signed 0b0111u 1u
     Opcode.VTST, neon3 0u 0b1000u 1u
     Opcode.VCEQ, neon3 1u 0b1000u 1u
-    Opcode.VMUL, eitherUnit (fp3 0b010u 0u) neonMultiply
+    Opcode.VMUL, eitherUnit (fp3 0b010u 0u) vmul
     Opcode.VPMAX, neon3Signed 0b1010u 0u
     Opcode.VPMIN, neon3Signed 0b1010u 1u
-    Opcode.VQRDMLSH, neon3 1u 0b1100u 1u
+    Opcode.VQRDMLSH, orByScalar (neonScalar true 0b1111u) (neon3 1u 0b1100u 1u)
     Opcode.VACGE, neon3FloatDt 1u 0u 0b1110u
     Opcode.VACGT, neon3FloatDt 1u 1u 0b1110u
     Opcode.VRECPS, neon3FloatDt 0u 0u 0b1111u

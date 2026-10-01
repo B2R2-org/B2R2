@@ -27,6 +27,271 @@ namespace B2R2
 /// Raised when an invalid ISA is given as a parameter.
 exception InvalidISAException
 
+/// Represents which of the two instruction sets a 32-bit ARM ISA means. A
+/// 32-bit ARM processor runs both, and nothing but the mode it is in says
+/// which one a word belongs to.
+type ARM32Mode =
+  /// The A32 instruction set, whose instructions are one word each.
+  | ARM = 0
+  /// The T32 instruction set, whose instructions are one or two halfwords.
+  | Thumb = 1
+
+/// <summary>
+/// Represents which version of the ARM architecture an ARM ISA means.
+///
+/// "ARMv8" is not one instruction set: each version adds instructions that the
+/// versions below it leave UNDEFINED, and what a processor reads is what its
+/// version makes mandatory plus the OPTIONAL features it has, which the
+/// extensions name. Any names no version and reads every encoding the front
+/// end knows, which is what an ARM ISA without one has always meant.
+/// </summary>
+type ARMArchVersion =
+  /// No version named: every encoding is read.
+  | Any = 0
+  /// ARMv7-A.
+  | V7 = 1
+  /// ARMv7-A with the Virtualization Extensions, which bring the integer
+  /// divides, the Security Extensions and the Multiprocessing Extensions with
+  /// them.
+  | V7VE = 2
+  /// Armv8.0-A.
+  | V8 = 3
+  /// Armv8.1-A.
+  | V8_1 = 4
+  /// Armv8.2-A.
+  | V8_2 = 5
+  /// Armv8.3-A.
+  | V8_3 = 6
+  /// Armv8.4-A.
+  | V8_4 = 7
+  /// Armv8.5-A.
+  | V8_5 = 8
+  /// Armv8.6-A.
+  | V8_6 = 9
+
+/// <summary>
+/// Represents the OPTIONAL features an AArch64 ISA has beyond what its version
+/// makes mandatory, named as GCC's -march extensions name them. Each value is
+/// the bit it takes in an ISA's flags.
+/// </summary>
+[<System.Flags>]
+type AArch64Extension =
+  /// Nothing beyond the version.
+  | None = 0
+  /// FEAT_CRC32.
+  | CRC = 0x100
+  /// FEAT_AES and FEAT_PMULL.
+  | AES = 0x200
+  /// FEAT_SHA1 and FEAT_SHA256.
+  | SHA2 = 0x400
+  /// FEAT_SHA512 and FEAT_SHA3.
+  | SHA3 = 0x800
+  /// FEAT_SM3 and FEAT_SM4.
+  | SM4 = 0x1000
+  /// FEAT_FP16.
+  | FP16 = 0x2000
+  /// FEAT_FHM, which cannot be had without FEAT_FP16.
+  | FP16FML = 0x4000
+  /// FEAT_DotProd.
+  | DotProd = 0x8000
+  /// FEAT_LSE.
+  | LSE = 0x10000
+  /// FEAT_RDM.
+  | RDMA = 0x20000
+  /// FEAT_LRCPC.
+  | RCPC = 0x40000
+  /// FEAT_I8MM.
+  | I8MM = 0x80000
+  /// FEAT_BF16.
+  | BF16 = 0x100000
+  /// FEAT_MTE.
+  | MemTag = 0x200000
+  /// FEAT_SB.
+  | SB = 0x400000
+  /// FEAT_FlagM.
+  | FlagM = 0x800000
+  /// FEAT_PAuth.
+  | PAuth = 0x1000000
+  /// FEAT_SSBS.
+  | SSBS = 0x2000000
+  /// FEAT_RAS.
+  | RAS = 0x4000000
+  /// FEAT_SPE, the statistical profiling extension.
+  | SPE = 0x8000000
+  /// FEAT_TRF, the self-hosted trace extensions.
+  | TRF = 0x10000000
+
+/// <summary>
+/// Represents the extensions an ARMv7 ISA has beyond its version, named as
+/// GCC's -march and -mfpu name them. Each value is the bit it takes in an
+/// ISA's flags.
+/// </summary>
+[<System.Flags>]
+type ARMv7Extension =
+  /// Nothing beyond the version.
+  | None = 0
+  /// VFPv3, the floating-point instructions.
+  | FP = 0x100
+  /// Advanced SIMD.
+  | SIMD = 0x200
+  /// VFPv4, the fused multiply-adds.
+  | VFPv4 = 0x400
+  /// The half-precision conversions.
+  | FP16 = 0x800
+  /// SDIV and UDIV.
+  | IDIV = 0x1000
+  /// The Multiprocessing Extensions, which add PLDW.
+  | MP = 0x2000
+  /// The Security Extensions, which add SMC.
+  | Sec = 0x4000
+  /// The Virtualization Extensions, which add HVC and ERET and bring the
+  /// integer divides.
+  | Virt = 0x8000
+
+/// <summary>
+/// Reads and writes the ARM names that say which version they mean: a base
+/// name, the version after a dash and each extension after a plus, as in
+/// "aarch64-v8.2+fp16" or "thumb-v7ve+simd". GCC's -march names are read as
+/// well, as the little-endian base of their architecture: "armv8.2-a+fp16" is
+/// "aarch64-v8.2+fp16" and "armv7ve" is "armv7-v7ve".
+/// </summary>
+module internal ARMVersionName =
+  let private thumb = int ARM32Mode.Thumb
+
+  let private bases =
+    [ "aarch64", (Architecture.ARMv8, Endian.Little, WordSize.Bit64, 0)
+      "aarch64be", (Architecture.ARMv8, Endian.Big, WordSize.Bit64, 0)
+      "armv7", (Architecture.ARMv7, Endian.Little, WordSize.Bit32, 0)
+      "armv7be", (Architecture.ARMv7, Endian.Big, WordSize.Bit32, 0)
+      "thumb", (Architecture.ARMv7, Endian.Little, WordSize.Bit32, thumb)
+      "thumbbe", (Architecture.ARMv7, Endian.Big, WordSize.Bit32, thumb) ]
+
+  let private aarch64Versions =
+    [ "v8", ARMArchVersion.V8
+      "v8.1", ARMArchVersion.V8_1
+      "v8.2", ARMArchVersion.V8_2
+      "v8.3", ARMArchVersion.V8_3
+      "v8.4", ARMArchVersion.V8_4
+      "v8.5", ARMArchVersion.V8_5
+      "v8.6", ARMArchVersion.V8_6 ]
+
+  let private armv7Versions =
+    [ "v7", ARMArchVersion.V7
+      "v7ve", ARMArchVersion.V7VE ]
+
+  let private aarch64Extensions =
+    [ "crc", int AArch64Extension.CRC
+      "aes", int AArch64Extension.AES
+      "sha2", int AArch64Extension.SHA2
+      "sha3", int AArch64Extension.SHA3
+      "sm4", int AArch64Extension.SM4
+      "fp16", int AArch64Extension.FP16
+      "fp16fml", int AArch64Extension.FP16FML
+      "dotprod", int AArch64Extension.DotProd
+      "lse", int AArch64Extension.LSE
+      "rdma", int AArch64Extension.RDMA
+      "rcpc", int AArch64Extension.RCPC
+      "i8mm", int AArch64Extension.I8MM
+      "bf16", int AArch64Extension.BF16
+      "memtag", int AArch64Extension.MemTag
+      "sb", int AArch64Extension.SB
+      "flagm", int AArch64Extension.FlagM
+      "pauth", int AArch64Extension.PAuth
+      "ssbs", int AArch64Extension.SSBS
+      "ras", int AArch64Extension.RAS
+      "profile", int AArch64Extension.SPE
+      "trf", int AArch64Extension.TRF ]
+
+  let private armv7Extensions =
+    [ "fp", int ARMv7Extension.FP
+      "simd", int ARMv7Extension.SIMD
+      "vfpv4", int ARMv7Extension.VFPv4
+      "fp16", int ARMv7Extension.FP16
+      "idiv", int ARMv7Extension.IDIV
+      "mp", int ARMv7Extension.MP
+      "sec", int ARMv7Extension.Sec
+      "virt", int ARMv7Extension.Virt ]
+
+  (* GCC's name for the Armv8.0 Cryptographic Extension, which is two of the
+     features above; it is read but never printed. *)
+  let private crypto =
+    "crypto", int (AArch64Extension.AES ||| AArch64Extension.SHA2)
+
+  let private lookup key pairs =
+    List.tryFind (fun (k, _) -> k = key) pairs |> Option.map snd
+
+  let private fromGCC (head: string) =
+    match head with
+    | "armv7-a" ->
+      Some("armv7", "v7")
+    | "armv7ve" ->
+      Some("armv7", "v7ve")
+    | "armv8-a" ->
+      Some("aarch64", "v8")
+    | _ when head.StartsWith "armv8." && head.EndsWith "-a" ->
+      Some("aarch64", "v" + head.Substring(4, head.Length - 6))
+    | _ ->
+      None
+
+  let private splitBase (head: string) =
+    match fromGCC head, head.LastIndexOf '-' with
+    | Some pair, _ -> Some pair
+    | None, i when i > 0 -> Some(head.Substring(0, i), head.Substring(i + 1))
+    | None, _ -> None
+
+  let private versionsOf arch =
+    if arch = Architecture.ARMv8 then aarch64Versions else armv7Versions
+
+  let private extensionsOf arch =
+    if arch = Architecture.ARMv8 then crypto :: aarch64Extensions
+    else armv7Extensions
+
+  let private extensionBits arch (names: string[]) =
+    let bits = names |> Array.map (fun n -> lookup n (extensionsOf arch))
+    if Array.forall Option.isSome bits then
+      Some(Array.fold (fun acc b -> acc ||| Option.get b) 0 bits)
+    else
+      None
+
+  let private flagsOf arch mode verName extNames =
+    match lookup verName (versionsOf arch), extensionBits arch extNames with
+    | Some version, Some exts -> Some(mode ||| (int version <<< 4) ||| exts)
+    | _ -> None
+
+  /// <summary>
+  /// What a name that says its version means: the architecture, endianness
+  /// and word size of its base, and flags holding the instruction set, the
+  /// version and the extensions. Nothing for any other name.
+  /// </summary>
+  let tryParse (name: string) =
+    let parts = name.Split '+'
+    match splitBase parts[0] with
+    | Some(baseName, verName) ->
+      match lookup baseName bases with
+      | Some(arch, endian, wordSize, mode) ->
+        flagsOf arch mode verName parts[1..]
+        |> Option.map (fun flags -> arch, endian, wordSize, flags)
+      | None ->
+        None
+    | None ->
+      None
+
+  [<return: Struct>]
+  let (|Versioned|_|) name =
+    match tryParse name with
+    | Some isa -> ValueSome isa
+    | None -> ValueNone
+
+  /// The name an ARM ISA with a version prints as: its base name, the version
+  /// after a dash, and each extension after a plus, in the order above.
+  let print baseName arch (version: ARMArchVersion) exts =
+    let verName = versionsOf arch |> List.find (fun (_, v) -> v = version)
+    let named =
+      extensionsOf arch
+      |> List.filter (fun (n, bit) -> n <> fst crypto && (exts &&& bit) = bit)
+    baseName + "-" + fst verName
+    + String.concat "" [ for n, _ in named -> "+" + n ]
+
 /// <summary>
 /// Represents the Instruction Set Architecture (ISA).
 /// </summary>
@@ -235,7 +500,15 @@ type ISA(arch, endian, wordSize, flags) =
   /// "x86-64", "aarch64", "mips32le", etc. Raises <see
   /// cref='T:B2R2.InvalidISAException'/> if the string is not recognized.
   new(isaName: string) =
+    (* The three MIPS encodings sit in the same flags word as the release, so
+       a name that says both hands over both. Named here because the arms
+       below are one line each. *)
+    let umips = int MIPSISAMode.MicroMIPS
+    let umips6 = int MIPSRelease.R6 ||| int MIPSISAMode.MicroMIPS
+    let m16 = int MIPSISAMode.MIPS16
     match isaName.ToLowerInvariant() with
+    | ARMVersionName.Versioned(arch, endian, wordSize, flags) ->
+      ISA(arch, endian, wordSize, flags)
     | "x86" | "i386" ->
       ISA(Architecture.Intel, WordSize.Bit32)
     | "x64" | "x86-64" | "amd64" ->
@@ -268,6 +541,38 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64)
     | "mips64be" ->
       ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    | "mipsr6el" | "mips32r6el" | "mips32r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, int MIPSRelease.R6)
+    | "mips32r6" | "mips32r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, int MIPSRelease.R6)
+    | "mips64r6el" | "mips64r6" | "mips64r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, int MIPSRelease.R6)
+    | "mips64r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    | "micromipsel" | "micromips32le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, umips)
+    | "micromips" | "micromips32" | "micromips32be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, umips)
+    | "micromips64el" | "micromips64le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, umips)
+    | "micromips64" | "micromips64be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, umips)
+    | "micromipsr6el" | "micromips32r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, umips6)
+    | "micromips32r6" | "micromips32r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, umips6)
+    | "micromips64r6el" | "micromips64r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, umips6)
+    | "micromips64r6" | "micromips64r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, umips6)
+    | "mips16el" | "mips16le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, m16)
+    | "mips16" | "mips16be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, m16)
+    | "mips16-64el" | "mips16-64le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, m16)
+    | "mips16-64" | "mips16-64be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, m16)
     | "ppc32le" ->
       ISA(Architecture.PPC, Endian.Little, WordSize.Bit32)
     | "ppc32" | "ppc32be" ->
@@ -384,7 +689,49 @@ type ISA(arch, endian, wordSize, flags) =
   /// say otherwise. Only 32-bit ARM has two of them, so this says nothing about
   /// any other architecture.
   member _.ARM32Mode with get(): ARM32Mode =
-    LanguagePrimitives.EnumOfValue flags
+    LanguagePrimitives.EnumOfValue(flags &&& 1)
+
+  /// <summary>
+  /// Which version of the ARM architecture an ARM ISA means, which is Any --
+  /// every encoding the front end knows -- unless the flags say otherwise.
+  /// It sits above the instruction set in the flags, so a Thumb ISA can name
+  /// one as well.
+  /// </summary>
+  member _.ARMArchVersion with get(): ARMArchVersion =
+    LanguagePrimitives.EnumOfValue((flags >>> 4) &&& 0xf)
+
+  /// The OPTIONAL features an AArch64 ISA names beyond what its version makes
+  /// mandatory.
+  member _.AArch64Extensions with get(): AArch64Extension =
+    LanguagePrimitives.EnumOfValue(flags &&& ~~~0xff)
+
+  /// The extensions an ARMv7 ISA names beyond what its version includes.
+  member _.ARMv7Extensions with get(): ARMv7Extension =
+    LanguagePrimitives.EnumOfValue(flags &&& ~~~0xff)
+
+  /// Which release of the MIPS architecture a MIPS ISA means, which is one
+  /// of Release 1 to 5 unless the flags say otherwise. Release 6 is not a
+  /// superset: it reassigned primary opcodes that earlier releases had given
+  /// to ADDI and DADDI, and replaced the multiply and divide families with
+  /// instructions that write a general register instead of HI and LO. So a
+  /// word of MIPS code cannot be decoded without knowing which release it
+  /// belongs to, and an ELF image says so in its processor-specific flags.
+  member _.MIPSRelease with get(): MIPSRelease =
+    LanguagePrimitives.EnumOfValue(flags &&& 1)
+
+  /// <summary>
+  /// Which of the MIPS encodings a MIPS ISA begins in.
+  ///
+  /// Neither microMIPS nor MIPS16e is an extension: each is the same
+  /// instruction set written another way, with its own opcode map and
+  /// instructions one halfword or two where the older encoding always takes a
+  /// word. Which one a processor reads is a bit of its own that code flips as
+  /// it runs, so this says where decoding starts and no more. An ELF image
+  /// says so in the part of its processor-specific flags that names the
+  /// extensions it uses.
+  /// </summary>
+  member _.MIPSISAMode with get(): MIPSISAMode =
+    LanguagePrimitives.EnumOfValue(flags &&& 6)
 
   /// The member of the 68000 family an m68k ISA means, which is the 68020
   /// unless the flags say otherwise. The family shares one encoding space and a
@@ -499,31 +846,54 @@ type ISA(arch, endian, wordSize, flags) =
 
   override this.ToString() =
     let thumb = this.ARM32Mode = ARM32Mode.Thumb
+    (* A version is part of what an ARM ISA reads, so a name that left it out
+       would read back as every encoding rather than the version's. *)
+    let armName baseName =
+      match this.ARMArchVersion with
+      | ARMArchVersion.Any -> baseName
+      | v -> ARMVersionName.print baseName arch v (flags &&& ~~~0xff)
+    let r6 = this.MIPSRelease = MIPSRelease.R6
+    (* Which encoding a MIPS ISA is read in belongs in its name for the same
+       reason the release does: the three have separate opcode maps, so a name
+       that left it out would print an ISA that reads a different instruction
+       set from the one it names.
+       MIPS16e has no Release 6 spelling because Release 6 removed the ASE. *)
+    let mipsName () =
+      let le = endian = Endian.Little
+      let w64 = wordSize = WordSize.Bit64
+      let width = if w64 then "64" else "32"
+      let rel = if r6 then "r6" else ""
+      match this.MIPSISAMode with
+      | MIPSISAMode.MicroMIPS ->
+        "micromips" + width + rel + (if le then "le" else "")
+      | MIPSISAMode.MIPS16 ->
+        (if w64 then "mips16-64" else "mips16") + (if le then "le" else "")
+      | _ ->
+        (* The big-endian 64-bit name carries its "be" where the 32-bit one
+           does not, because "mips64" already names the LITTLE-endian one in
+           the table above: printing a big-endian MIPS64 as "mips64" made it
+           read back as a different ISA. The Release 6 arm never had that. *)
+        "mips" + width + rel + (if le then "le" elif w64 then "be" else "")
     match arch, endian, wordSize with
     | Architecture.Intel, _, WordSize.Bit32 ->
       "x86"
     | Architecture.Intel, _, WordSize.Bit64 ->
       "x86-64"
     | Architecture.ARMv7, Endian.Little, _ ->
-      if thumb then "thumb" else "armv7"
+      armName (if thumb then "thumb" else "armv7")
     | Architecture.ARMv7, Endian.Big, _ ->
-      if thumb then "thumbbe" else "armv7be"
+      armName (if thumb then "thumbbe" else "armv7be")
     | Architecture.ARMv8, Endian.Little, WordSize.Bit32 ->
       if thumb then "aarch32t" else "aarch32"
     | Architecture.ARMv8, Endian.Big, WordSize.Bit32 ->
       if thumb then "aarch32tbe" else "aarch32be"
     | Architecture.ARMv8, Endian.Little, WordSize.Bit64 ->
-      "aarch64"
+      armName "aarch64"
     | Architecture.ARMv8, Endian.Big, WordSize.Bit64 ->
-      "aarch64be"
-    | Architecture.MIPS, Endian.Little, WordSize.Bit32 ->
-      "mips32le"
-    | Architecture.MIPS, Endian.Big, WordSize.Bit32 ->
-      "mips32"
-    | Architecture.MIPS, Endian.Little, WordSize.Bit64 ->
-      "mips64le"
-    | Architecture.MIPS, Endian.Big, WordSize.Bit64 ->
-      "mips64"
+      armName "aarch64be"
+    | Architecture.MIPS, _, WordSize.Bit32
+    | Architecture.MIPS, _, WordSize.Bit64 ->
+      mipsName ()
     | Architecture.PPC, Endian.Little, WordSize.Bit32 ->
       "ppc32le"
     | Architecture.PPC, Endian.Big, WordSize.Bit32 ->
@@ -599,14 +969,42 @@ type ISA(arch, endian, wordSize, flags) =
     | _ ->
       raise InvalidISAException
 
-/// Represents which of the two instruction sets a 32-bit ARM ISA means. A
-/// 32-bit ARM processor runs both, and nothing but the mode it is in says
-/// which one a word belongs to.
-and ARM32Mode =
-  /// The A32 instruction set, whose instructions are one word each.
-  | ARM = 0
-  /// The T32 instruction set, whose instructions are one or two halfwords.
-  | Thumb = 1
+/// Represents which release of the MIPS architecture a MIPS ISA means.
+/// Release 6 is a different encoding space, not an extension of the earlier
+/// ones, so nothing but this says what a word of MIPS code belongs to.
+and MIPSRelease =
+  /// Release 1 through 5, which share one encoding space.
+  | PreR6 = 0
+  /// Release 6.
+  | R6 = 1
+
+/// <summary>
+/// Represents which encoding of the MIPS instruction set a MIPS ISA means.
+///
+/// All three stand for the same instructions and a processor reads whichever
+/// its ISA Mode bit names, so nothing but that bit says what a halfword of
+/// MIPS code belongs to. They sit beside the release in the same flags word,
+/// which is why this counts from the second bit.
+///
+/// The bit is ONE bit on the processor: MD00076 gives it as "0: the
+/// processor is executing 32-bit MIPS instructions, 1: the processor is
+/// executing MIPS16e or microMIPS instructions". Which of the two compressed
+/// encodings a 1 means is a property of the processor rather than of the
+/// code, and no implementation has both -- so the two occupy separate values
+/// here, where what is being said is which decoder to use.
+/// </summary>
+and MIPSISAMode =
+  /// The MIPS32 and MIPS64 encoding, whose instructions are one word each.
+  | MIPS = 0
+  /// The microMIPS encoding, whose instructions are one halfword or two.
+  | MicroMIPS = 2
+  /// <summary>
+  /// The MIPS16e encoding, whose instructions are one halfword, or two where
+  /// an EXTEND prefix widens the immediate. It is an Application-Specific
+  /// Extension rather than a base encoding -- MD00076 and MD00077, Volume
+  /// IV-a of each architecture -- and Release 6 removes it.
+  /// </summary>
+  | MIPS16 = 4
 
 /// Represents which member of the 68000 family an m68k ISA means. The family
 /// shares one encoding space, and a later model reads encodings an earlier one

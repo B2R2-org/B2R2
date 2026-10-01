@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="RegisterHelper.fs" />
+    <Compile Include="SysReg.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />
@@ -17,6 +18,7 @@
     <Compile Include="GeneralLifter.fs" />
     <Compile Include="SIMDLifter.fs" />
     <Compile Include="Lifter.fs" />
+    <Compile Include="Features.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />
   </ItemGroup>

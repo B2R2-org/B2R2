@@ -358,6 +358,12 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | None -> fail $"'{name}' is not a barrier option")
     <|> (pNumber |>> (barrierOptionOfValue >> OprOption))
 
+  let pOprHintOpt =
+    pName >>= fun name ->
+      match Map.tryFind name hintOptions with
+      | Some opt -> preturn (OprHintOpt opt)
+      | None -> fail $"'{name}' is not a hint's operand"
+
   let pOprEndian =
     (pstringCI "le" >>. preturn (OprEndian Endian.Little))
     <|> (pstringCI "be" >>. preturn (OprEndian Endian.Big))
@@ -375,11 +381,12 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | None -> fail $"'{name}' is not a condition"
 
   /// The operands only one family takes, and that would read as something else
-  /// anywhere else: a barrier option, an endianness, the interrupt flags, and
-  /// the condition an IT instruction names.
+  /// anywhere else: a barrier option, the option of a hint, an endianness, the
+  /// interrupt flags, and the condition an IT instruction names.
   let pOpcodeSpecificOperand opcode =
     match opcode with
     | Opcode.DMB | Opcode.DSB | Opcode.ISB -> pOprBarrierOption
+    | Opcode.TSB -> pOprHintOpt
     | Opcode.SETEND -> pOprEndian
     | Opcode.CPS | Opcode.CPSIE | Opcode.CPSID -> pOprIflag
     | opcode when isITInstruction opcode -> pOprCondition

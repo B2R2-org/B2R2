@@ -386,6 +386,143 @@ type RegisterFactory(isa: ISA) =
   /// EL0 Read/Write Software Thread ID ARM64.
   let tpidrel0 = AST.var 64<rt> (Register.toRegID TPIDREL0) "TPIDR_EL0"
 
+  (* Every system register the decoder can produce needs one of these, or
+     lifting a program that merely MENTIONS it raises rather than running:
+     the operand parser answers with the register and the factory then has no
+     variable to give back. `mrs x0, esr_el1` did exactly that. *)
+  let actlrel1 =
+    AST.var 64<rt> (Register.toRegID ACTLREL1) "actlr_el1"
+  let actlrel2 =
+    AST.var 64<rt> (Register.toRegID ACTLREL2) "actlr_el2"
+  let actlrel3 =
+    AST.var 64<rt> (Register.toRegID ACTLREL3) "actlr_el3"
+  let afsr0el1 =
+    AST.var 64<rt> (Register.toRegID AFSR0EL1) "afsr0_el1"
+  let afsr0el2 =
+    AST.var 64<rt> (Register.toRegID AFSR0EL2) "afsr0_el2"
+  let afsr0el3 =
+    AST.var 64<rt> (Register.toRegID AFSR0EL3) "afsr0_el3"
+  let afsr1el1 =
+    AST.var 64<rt> (Register.toRegID AFSR1EL1) "afsr1_el1"
+  let afsr1el2 =
+    AST.var 64<rt> (Register.toRegID AFSR1EL2) "afsr1_el2"
+  let afsr1el3 =
+    AST.var 64<rt> (Register.toRegID AFSR1EL3) "afsr1_el3"
+  let aidrel1 =
+    AST.var 64<rt> (Register.toRegID AIDREL1) "aidr_el1"
+  let amairel1 =
+    AST.var 64<rt> (Register.toRegID AMAIREL1) "amair_el1"
+  let amairel2 =
+    AST.var 64<rt> (Register.toRegID AMAIREL2) "amair_el2"
+  let amairel3 =
+    AST.var 64<rt> (Register.toRegID AMAIREL3) "amair_el3"
+  let ccsidrel1 =
+    AST.var 64<rt> (Register.toRegID CCSIDREL1) "ccsidr_el1"
+  let clidrel1 =
+    AST.var 64<rt> (Register.toRegID CLIDREL1) "clidr_el1"
+  let contextidrel1 =
+    AST.var 64<rt> (Register.toRegID CONTEXTIDREL1) "contextidr_el1"
+  let cpacrel1 =
+    AST.var 64<rt> (Register.toRegID CPACREL1) "cpacr_el1"
+  let cptrel2 =
+    AST.var 64<rt> (Register.toRegID CPTREL2) "cptr_el2"
+  let cptrel3 =
+    AST.var 64<rt> (Register.toRegID CPTREL3) "cptr_el3"
+  let csselrel1 =
+    AST.var 64<rt> (Register.toRegID CSSELREL1) "csselr_el1"
+  let ctrel0 =
+    AST.var 64<rt> (Register.toRegID CTREL0) "ctr_el0"
+  let dacr32el2 =
+    AST.var 64<rt> (Register.toRegID DACR32EL2) "dacr32_el2"
+  let esrel1 =
+    AST.var 64<rt> (Register.toRegID ESREL1) "esr_el1"
+  let esrel2 =
+    AST.var 64<rt> (Register.toRegID ESREL2) "esr_el2"
+  let esrel3 =
+    AST.var 64<rt> (Register.toRegID ESREL3) "esr_el3"
+  let hpfarel2 =
+    AST.var 64<rt> (Register.toRegID HPFAREL2) "hpfar_el2"
+
+  /// System Control Register (EL1).
+  let sctlrel1 =
+    AST.var 64<rt> (Register.toRegID SCTLREL1) "SCTLR_EL1"
+
+  /// Translation Table Base Register 0 (EL1).
+  let ttbr0el1 =
+    AST.var 64<rt> (Register.toRegID TTBR0EL1) "TTBR0_EL1"
+
+  /// Translation Table Base Register 1 (EL1).
+  let ttbr1el1 =
+    AST.var 64<rt> (Register.toRegID TTBR1EL1) "TTBR1_EL1"
+
+  /// Translation Control Register (EL1).
+  let tcrel1 =
+    AST.var 64<rt> (Register.toRegID TCREL1) "TCR_EL1"
+
+  /// Memory Attribute Indirection Register (EL1).
+  let mairel1 =
+    AST.var 64<rt> (Register.toRegID MAIREL1) "MAIR_EL1"
+
+  /// Vector Base Address Register (EL1).
+  let vbarel1 =
+    AST.var 64<rt> (Register.toRegID VBAREL1) "VBAR_EL1"
+
+  /// Fault Address Register (EL1).
+  let farel1 =
+    AST.var 64<rt> (Register.toRegID FAREL1) "FAR_EL1"
+
+  /// Exception Link Register (EL1).
+  let elrel1 =
+    AST.var 64<rt> (Register.toRegID ELREL1) "ELR_EL1"
+
+  /// Saved Program Status Register (EL1).
+  let spsrel1 =
+    AST.var 64<rt> (Register.toRegID SPSREL1) "SPSR_EL1"
+
+  /// Stack Pointer (EL0), as EL1 names it.
+  let spel0 =
+    AST.var 64<rt> (Register.toRegID SPEL0) "SP_EL0"
+
+  /// EL1 Read/Write Software Thread ID.
+  let tpidrel1 =
+    AST.var 64<rt> (Register.toRegID TPIDREL1) "TPIDR_EL1"
+
+  /// Current Exception Level, which is read-only.
+  let currentel =
+    AST.var 64<rt> (Register.toRegID CURRENTEL) "CURRENTEL"
+
+  /// The interrupt mask bits.
+  let daif =
+    AST.var 64<rt> (Register.toRegID DAIF) "DAIF"
+
+  /// Which stack pointer SP names.
+  let spsel =
+    AST.var 64<rt> (Register.toRegID SPSEL) "SPSel"
+
+  /// Privileged Access Never.
+  let pan =
+    AST.var 64<rt> (Register.toRegID PAN) "PAN"
+
+  /// User Access Override.
+  let uao =
+    AST.var 64<rt> (Register.toRegID UAO) "UAO"
+
+  /// Data Independent Timing.
+  let dit =
+    AST.var 64<rt> (Register.toRegID DIT) "DIT"
+
+  /// Speculative Store Bypass Safe.
+  let ssbs =
+    AST.var 64<rt> (Register.toRegID SSBS) "SSBS"
+
+  /// Tag Check Override.
+  let tco =
+    AST.var 64<rt> (Register.toRegID TCO) "TCO"
+
+  /// Stack Pointer (EL1).
+  let spel1 =
+    AST.var 64<rt> (Register.toRegID SPEL1) "SP_EL1"
+
   (* S<op0>_<op1>_<Cn>_<Cm>_<op2> *)
   let s35c3c20 = AST.var 64<rt> (Register.toRegID S3_5_C3_C2_0) "S3_5_C3_C2_0"
   let s37c2c27 = AST.var 64<rt> (Register.toRegID S3_7_C2_C2_7) "S3_7_C2_C2_7"
@@ -614,6 +751,52 @@ type RegisterFactory(isa: ISA) =
       | R.DCZIDEL0 -> dczidel0
       | R.MIDREL1 -> midrel1
       | R.TPIDREL0 -> tpidrel0
+      | R.ACTLREL1 -> actlrel1
+      | R.ACTLREL2 -> actlrel2
+      | R.ACTLREL3 -> actlrel3
+      | R.AFSR0EL1 -> afsr0el1
+      | R.AFSR0EL2 -> afsr0el2
+      | R.AFSR0EL3 -> afsr0el3
+      | R.AFSR1EL1 -> afsr1el1
+      | R.AFSR1EL2 -> afsr1el2
+      | R.AFSR1EL3 -> afsr1el3
+      | R.AIDREL1 -> aidrel1
+      | R.AMAIREL1 -> amairel1
+      | R.AMAIREL2 -> amairel2
+      | R.AMAIREL3 -> amairel3
+      | R.CCSIDREL1 -> ccsidrel1
+      | R.CLIDREL1 -> clidrel1
+      | R.CONTEXTIDREL1 -> contextidrel1
+      | R.CPACREL1 -> cpacrel1
+      | R.CPTREL2 -> cptrel2
+      | R.CPTREL3 -> cptrel3
+      | R.CSSELREL1 -> csselrel1
+      | R.CTREL0 -> ctrel0
+      | R.DACR32EL2 -> dacr32el2
+      | R.ESREL1 -> esrel1
+      | R.ESREL2 -> esrel2
+      | R.ESREL3 -> esrel3
+      | R.HPFAREL2 -> hpfarel2
+      | R.SCTLREL1 -> sctlrel1
+      | R.TTBR0EL1 -> ttbr0el1
+      | R.TTBR1EL1 -> ttbr1el1
+      | R.TCREL1 -> tcrel1
+      | R.MAIREL1 -> mairel1
+      | R.VBAREL1 -> vbarel1
+      | R.FAREL1 -> farel1
+      | R.ELREL1 -> elrel1
+      | R.SPSREL1 -> spsrel1
+      | R.SPEL0 -> spel0
+      | R.TPIDREL1 -> tpidrel1
+      | R.CURRENTEL -> currentel
+      | R.DAIF -> daif
+      | R.SPSEL -> spsel
+      | R.PAN -> pan
+      | R.UAO -> uao
+      | R.DIT -> dit
+      | R.SSBS -> ssbs
+      | R.TCO -> tco
+      | R.SPEL1 -> spel1
       | R.S3_5_C3_C2_0 -> s35c3c20
       | R.S3_7_C2_C2_7 -> s37c2c27
       | R.S0_0_C2_C9_3 -> s00c2c93

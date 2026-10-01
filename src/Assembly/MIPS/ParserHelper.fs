@@ -126,10 +126,29 @@ let private irregularNames =
   [ Opcode.CVTD, "cvt.d"
     Opcode.CVTS, "cvt.s"
     Opcode.CVTW, "cvt.w"
+    Opcode.CVTL, "cvt.l"
+    Opcode.CEILL, "ceil.l"
+    Opcode.CEILW, "ceil.w"
+    Opcode.FLOORL, "floor.l"
+    Opcode.FLOORW, "floor.w"
+    Opcode.ROUNDL, "round.l"
+    Opcode.ROUNDW, "round.w"
     Opcode.TRUNCL, "trunc.l"
     Opcode.TRUNCW, "trunc.w"
     Opcode.JALRHB, "jalr.hb"
-    Opcode.JRHB, "jr.hb" ]
+    Opcode.JALRSHB, "jalrs.hb"
+    Opcode.JRHB, "jr.hb"
+    (* The paired-single names carry the format in the name rather than in a
+       suffix, because neither half of a pair is written in any other format
+       and PL and PU are halves rather than formats of their own. *)
+    Opcode.CVTPSS, "cvt.ps.s"
+    Opcode.CVTSPL, "cvt.s.pl"
+    Opcode.CVTSPU, "cvt.s.pu"
+    Opcode.PLLPS, "pll.ps"
+    Opcode.PLUPS, "plu.ps"
+    Opcode.PULPS, "pul.ps"
+    Opcode.PUUPS, "puu.ps"
+    Opcode.ALNVPS, "alnv.ps" ]
   |> Map.ofList
 
 /// Every mnemonic, paired with the opcode it names. Each opcode has exactly
@@ -157,19 +176,50 @@ let private suffixNames<'T when 'T: comparison> () =
 /// Every condition a floating-point compare tests.
 let conditions = suffixNames<Condition> ()
 
+/// <summary>
+/// The same conditions under the names Release 6 writes them by.
+///
+/// They cannot simply be added to the map above, because three of them mean
+/// something else there: <c>lt</c>, <c>le</c> and <c>seq</c> name the
+/// signalling predicates for C.cond.fmt and the quiet ones for CMP.cond.fmt.
+/// Which table to read is therefore the OPCODE's to say.
+/// </summary>
+let r6Conditions =
+  [ "af", Condition.F
+    "un", Condition.UN
+    "eq", Condition.EQ
+    "ueq", Condition.UEQ
+    "lt", Condition.OLT
+    "ult", Condition.ULT
+    "le", Condition.OLE
+    "ule", Condition.ULE
+    "saf", Condition.SF
+    "sun", Condition.NGLE
+    "seq", Condition.SEQ
+    "sueq", Condition.NGL
+    "slt", Condition.LT
+    "sult", Condition.NGE
+    "sle", Condition.LE
+    "sule", Condition.NGT ]
+  |> Map.ofList
+
+/// The condition names the instruction is written with.
+let conditionsFor opcode =
+  if opcode = Opcode.CMP then r6Conditions else conditions
+
 /// Every format the operands of a floating-point instruction are read in.
 let formats = suffixNames<FPRFormat> ()
 
 /// The condition and the format a mnemonic hangs off its name, which is at
 /// most one of each and in that order.
-let private trySuffixes (parts: string[]) =
+let private trySuffixes opcode (parts: string[]) =
   match parts with
   | [||] ->
     Some(None, None)
   | [| fmt |] ->
     Map.tryFind fmt formats |> Option.map (fun fmt -> None, Some fmt)
   | [| cond; fmt |] ->
-    match Map.tryFind cond conditions, Map.tryFind fmt formats with
+    match Map.tryFind cond (conditionsFor opcode), Map.tryFind fmt formats with
     | Some cond, Some fmt -> Some(Some cond, Some fmt)
     | _ -> None
   | _ ->
@@ -190,10 +240,34 @@ let decomposeMnemonic (mnemonic: string) =
     else
       let name = String.Join('.', parts[..length - 1])
       match Map.tryFind name opcodes |> Option.map (fun opcode ->
-              opcode, trySuffixes parts[length..]) with
+              opcode, trySuffixes opcode parts[length..]) with
       | Some(opcode, Some(cond, fmt)) -> Some(opcode, cond, fmt)
       | Some(_, None) | None -> tryPrefix (length - 1)
   tryPrefix parts.Length
+
+/// <summary>
+/// Whether the instruction names a whole list of registers rather than one.
+///
+/// The list is written as the registers one after another, so how many
+/// operands the instruction has depends on how many are in it, and the
+/// opcode is what says to read them as one operand instead of several.
+/// </summary>
+let takesRegList = function
+  | Opcode.LWM | Opcode.SWM | Opcode.LDM | Opcode.SDM -> true
+  | _ -> false
+
+/// <summary>
+/// Whether the instruction names a frame size and then a set of registers,
+/// which is what MIPS16e writes a whole prologue or epilogue as.
+///
+/// Not the same shape as the list above: there the registers come first and
+/// the memory they move to or from last, here a number comes first and the
+/// set is whatever follows it -- and the set may be empty, the shortest
+/// prologue being one that moves the stack pointer and saves nothing.
+/// </summary>
+let takesFrameList = function
+  | Opcode.SAVE | Opcode.RESTORE -> true
+  | _ -> false
 
 /// <summary>
 /// Whether the instruction names a place, which is the operand the
@@ -205,9 +279,38 @@ let decomposeMnemonic (mnemonic: string) =
 /// so a source writes them as a value and they are not places here.
 /// </summary>
 let takesPlace = function
-  | Opcode.B | Opcode.BAL | Opcode.BEQ | Opcode.BEQL | Opcode.BNE
+  | Opcode.B | Opcode.BAL | Opcode.NAL | Opcode.BEQ | Opcode.BEQL | Opcode.BNE
   | Opcode.BNEL | Opcode.BGEZ | Opcode.BGEZAL | Opcode.BGTZ | Opcode.BLEZ
-  | Opcode.BLTZ | Opcode.BLTZAL | Opcode.BC1F | Opcode.BC1T -> true
+  | Opcode.BLTZ | Opcode.BLTZAL | Opcode.BC1F | Opcode.BC1T
+  (* The branch-likely forms name a place the same way the ordinary ones do;
+     nullifying the delay slot changes what runs, not how far it reaches. *)
+  | Opcode.BGEZL | Opcode.BGTZL | Opcode.BLEZL | Opcode.BLTZL
+  | Opcode.BGEZALL | Opcode.BLTZALL | Opcode.BC1FL | Opcode.BC1TL
+  (* The two the second encoding adds, which branch and leave a return
+     address behind for a short delay slot. They name a place the way the
+     ones above them do; how long the slot is changes what runs in it. *)
+  | Opcode.BGEZALS | Opcode.BLTZALS
+  (* The Release 6 compact branches. Having no delay slot changes what
+     runs after them, not how they name where to go. The PC-relative loads
+     name a place too -- what they fetch is at a distance from here -- while
+     JIC and JIALC do not: their offset is added to a register. *)
+  | Opcode.BC | Opcode.BALC | Opcode.BEQC | Opcode.BNEC
+  | Opcode.BLTC | Opcode.BGEC | Opcode.BLTUC | Opcode.BGEUC
+  | Opcode.BOVC | Opcode.BNVC
+  | Opcode.BEQZC | Opcode.BNEZC | Opcode.BLEZC | Opcode.BGEZC
+  | Opcode.BGTZC | Opcode.BLTZC
+  | Opcode.BEQZALC | Opcode.BNEZALC | Opcode.BLEZALC | Opcode.BGEZALC
+  | Opcode.BGTZALC | Opcode.BLTZALC
+  | Opcode.BC1EQZ | Opcode.BC1NEZ
+  | Opcode.ADDIUPC | Opcode.LWPC | Opcode.LWUPC | Opcode.LDPC
+  (* MIPS16e. Its branches name a place the way every other branch does, and
+     its two PC-relative address instructions do too. The loads that read
+     relative to the program counter are LW and LD here rather than opcodes of
+     their own, and naming them costs nothing: what makes an operand a place
+     is that it is the LAST one and an immediate, which a load written against
+     a register never is. *)
+  | Opcode.BEQZ | Opcode.BNEZ | Opcode.BTEQZ | Opcode.BTNEZ
+  | Opcode.DADDIUPC | Opcode.LW | Opcode.LD -> true
   | _ -> false
 
 /// Whether the instruction names a word of the region it sits in, which is how
@@ -224,7 +327,8 @@ let accessLength opcode wordSize =
   | Opcode.LB | Opcode.LBU | Opcode.SB -> 8<rt>
   | Opcode.LH | Opcode.LHU | Opcode.SH -> 16<rt>
   | Opcode.LD | Opcode.LDL | Opcode.LDR | Opcode.LLD | Opcode.SCD
-  | Opcode.SD | Opcode.SDL | Opcode.SDR | Opcode.LDXC1 | Opcode.SDXC1 -> 64<rt>
+  | Opcode.SD | Opcode.SDL | Opcode.SDR | Opcode.LDXC1 | Opcode.SDXC1
+  | Opcode.LUXC1 | Opcode.SUXC1 -> 64<rt>
   | Opcode.LDC1 | Opcode.SDC1 -> WordSize.toRegType wordSize
   | _ -> 32<rt>
 

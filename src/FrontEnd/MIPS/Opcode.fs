@@ -234,6 +234,12 @@ type Opcode =
   | DBITSWAP = 101
   /// Count Leading Zeros in Doubleword.
   | DCLZ = 102
+  /// Count Leading Ones in Doubleword.
+  | DCLO = 345
+  /// Doubleword Move from Coprocessor 0.
+  | DMFC0 = 346
+  /// Doubleword Move to Coprocessor 0.
+  | DMTC0 = 347
   /// Doubleword Divide.
   | DDIV = 103
   /// Doubleword Divide Unsigned.
@@ -686,5 +692,169 @@ type Opcode =
   | InvalOP = 327
   /// Add Dword.
   | DADD = 328
+  /// Doubleword Subtract.
+  | DSUB = 329
+  /// Doubleword Add Immediate.
+  | DADDI = 330
+  /// Doubleword Multiply Low (Release 6).
+  | DMUL = 331
+  /// Doubleword Multiply High (Release 6).
+  | DMUH = 332
+  /// Doubleword Multiply Low Unsigned (Release 6).
+  | DMULU = 333
+  /// Doubleword Multiply High Unsigned (Release 6).
+  | DMUHU = 334
+  /// Doubleword Modulo (Release 6).
+  | DMOD = 335
+  /// Doubleword Modulo Unsigned (Release 6).
+  | DMODU = 336
+  /// Doubleword Load Scaled Address (Release 6).
+  | DLSA = 337
+  /// Doubleword Add Upper Immediate (Release 6).
+  | DAUI = 338
+  /// Doubleword Add Higher Immediate (Release 6).
+  | DAHI = 339
+  /// Doubleword Add Top Immediate (Release 6).
+  | DATI = 340
+  /// Load Word Unsigned PC-relative (Release 6).
+  | LWUPC = 341
+  /// Load Doubleword PC-relative (Release 6).
+  | LDPC = 342
+  /// Load Linked Doubleword Paired (Release 6).
+  | LLDP = 343
+  /// Store Conditional Doubleword Paired (Release 6).
+  | SCDP = 344
+  /// Jump Register Compact (microMIPS).
+  | JRC = 353
+  /// Jump and Link Register, Short Delay Slot (microMIPS).
+  | JALRS = 354
+  /// Jump and Link Register Compact (microMIPS Release 6).
+  | JALRC = 355
+  /// Jump Register, Adjust Stack Pointer (microMIPS).
+  | JRADDIUSP = 356
+  /// Jump Register Compact, Adjust Stack Pointer (microMIPS Release 6).
+  | JRCADDIUSP = 357
+  /// Load Word Multiple (microMIPS).
+  | LWM = 358
+  /// Store Word Multiple (microMIPS).
+  | SWM = 359
+  /// Move a Pair of Registers (microMIPS).
+  | MOVEP = 360
+  /// Jump and Link, Short Delay Slot (microMIPS).
+  | JALS = 361
+  /// Jump and Link Register with Hazard Barrier, Short Delay Slot
+  /// (microMIPS).
+  | JALRSHB = 362
+  /// Branch on Less Than Zero and Link, Short Delay Slot (microMIPS).
+  | BLTZALS = 363
+  /// Branch on Greater Than or Equal to Zero and Link, Short Delay Slot
+  /// (microMIPS).
+  | BGEZALS = 364
+  /// Load Word Pair (microMIPS).
+  | LWP = 365
+  /// Store Word Pair (microMIPS).
+  | SWP = 366
+  /// Load Doubleword Pair (microMIPS).
+  | LDP = 367
+  /// Store Doubleword Pair (microMIPS).
+  | SDP = 368
+  /// Load Doubleword Multiple (microMIPS).
+  | LDM = 369
+  /// Store Doubleword Multiple (microMIPS).
+  | SDM = 370
+  /// Load Word Indexed, Scaled (microMIPS).
+  | LWXS = 371
+  /// Generate CRC with reversed polynomial 0xEDB88320, over a doubleword.
+  | CRC32D = 372
+  /// Generate CRC with reversed polynomial 0x82F63B78, over a doubleword.
+  | CRC32CD = 373
+  /// Branch on Equal to Zero (MIPS16e). The base architecture writes this as
+  /// BEQ against the zero register, which a three-bit register field cannot
+  /// name, so it is its own instruction here.
+  | BEQZ = 374
+  /// Branch on Not Equal to Zero (MIPS16e), for the same reason.
+  | BNEZ = 375
+  /// Branch on T Equal to Zero (MIPS16e). T is $24, which the comparisons of
+  /// this encoding write instead of naming a destination.
+  | BTEQZ = 376
+  /// Branch on T Not Equal to Zero (MIPS16e).
+  | BTNEZ = 377
+  /// <summary>
+  /// Compare (MIPS16e): T gets the exclusive-or of two registers.
+  ///
+  /// Not <c>CMP</c>, which is the floating-point compare Release 6 added.
+  /// The two share a name in their manuals and nothing else, and one enum
+  /// holding both would leave the lifter unable to tell which it had.
+  /// </summary>
+  | CMP16 = 378
+  /// Compare Immediate (MIPS16e): T gets the exclusive-or of a register and
+  /// a zero-extended immediate.
+  | CMPI = 379
+  /// Negate (MIPS16e): the integer one, which subtracts from zero. Not
+  /// <c>NEG</c>, which is the floating-point negate, for the reason
+  /// <c>CMP16</c> gives.
+  | NEG16 = 380
+  /// Not (MIPS16e): the one's complement, which the base architecture writes
+  /// as NOR against the zero register.
+  | NOT = 381
+  /// Load Immediate (MIPS16e). The base architecture writes this as ADDIU
+  /// from the zero register, which a three-bit field cannot name.
+  | LI = 382
+  /// <summary>
+  /// Move (MIPS16e), which is the only way this encoding reaches the
+  /// twenty-four registers its three-bit fields cannot name: one side of it
+  /// is a full five-bit register number.
+  /// </summary>
+  | MOVE = 383
+  /// Save registers and set up the stack frame (MIPS16e), which replaced the
+  /// ENTRY of the earlier MIPS16.
+  | SAVE = 384
+  /// Restore registers and tear the frame down (MIPS16e), which replaced
+  /// EXIT.
+  | RESTORE = 385
+  /// Zero-Extend Byte (MIPS16e).
+  | ZEB = 386
+  /// Zero-Extend Halfword (MIPS16e).
+  | ZEH = 387
+  /// Sign-Extend Word (MIPS16e), MIPS64 only.
+  | SEW = 388
+  /// Zero-Extend Word (MIPS16e), MIPS64 only.
+  | ZEW = 389
+  /// <summary>
+  /// The implementation-definable macro instruction (MIPS16e).
+  ///
+  /// What it does is not the architecture's to say -- MD00076 section 3.12
+  /// leaves it to the implementation -- so it decodes to its fields and no
+  /// further, and there is nothing for a lifter to do with it.
+  /// </summary>
+  | ASMACRO = 390
+  /// Doubleword Add Immediate Unsigned relative to the PC (MIPS16e), MIPS64
+  /// only.
+  | DADDIUPC = 391
+  /// <summary>
+  /// Multiply Binary Polynomial Basis Word (SmartMIPS).
+  ///
+  /// The same operation as MULTU with the multiplication done over GF(2):
+  /// MD00101 calls both operands "binary polynomial values", so the partial
+  /// products are exclusive-ORed together rather than added. It is written
+  /// with MULTU's function code and tells itself apart by the shift-amount
+  /// field, which the base architecture holds to zero.
+  /// </summary>
+  | MULTP = 392
+  /// Multiply and Add Polynomial Basis Word to HI and LO (SmartMIPS).
+  | MADDP = 393
+  /// <summary>
+  /// Partial Permutation into the ACX-HI-LO accumulator (SmartMIPS).
+  ///
+  /// Six bits of one register chosen by six five-bit fields of another,
+  /// shifted into the bottom of an accumulator that is 72 bits wide. It is
+  /// the instruction the ASE exists for: a substitution box is a permutation
+  /// of bits and this does six of them at a time.
+  /// </summary>
+  | PPERM = 394
+  /// Extract Extended HI/LO State (SmartMIPS).
+  | MFLHXU = 395
+  /// Set Extended HI/LO State (SmartMIPS).
+  | MTLHX = 396
 
 type internal Op = Opcode

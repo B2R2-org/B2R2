@@ -153,20 +153,56 @@ let getControlRegister = function (* 1:op0:op1:CRn:CRm:op2 *)
     R.MIDREL1
   | 0b1101101000010000u ->
     R.NZCV
+  | 0b1100000010000000u ->
+    R.SCTLREL1
+  | 0b1100000100000000u ->
+    R.TTBR0EL1
+  | 0b1100000100000001u ->
+    R.TTBR1EL1
+  | 0b1100000100000010u ->
+    R.TCREL1
+  | 0b1100010100010000u ->
+    R.MAIREL1
+  | 0b1100011000000000u ->
+    R.VBAREL1
+  | 0b1100001100000000u ->
+    R.FAREL1
+  | 0b1100001000000001u ->
+    R.ELREL1
+  | 0b1100001000000000u ->
+    R.SPSREL1
+  | 0b1100001000001000u ->
+    R.SPEL0
+  | 0b1100011010000100u ->
+    R.TPIDREL1
+  | 0b1100001000010010u ->
+    R.CURRENTEL
+  | 0b1101101000010001u ->
+    R.DAIF
+  | 0b1100001000010000u ->
+    R.SPSEL
+  | 0b1100001000010011u ->
+    R.PAN
+  | 0b1100001000010100u ->
+    R.UAO
+  | 0b1101101000010101u ->
+    R.DIT
+  | 0b1101101000010110u ->
+    R.SSBS
+  | 0b1101101000010111u ->
+    R.TCO
   | 0b1110100110010000u ->
     R.S3_5_C3_C2_0
-  | 0b1011100100010111u ->
+  | 0b1111100100010111u ->
     R.S3_7_C2_C2_7
-  | 0b0000000101001011u ->
-    R.S0_0_C2_C9_3
   | 0b1011111000111110u ->
     R.S2_7_C12_C7_6
   | 0b1101111100000010u ->
     R.CNTVCT_EL0 (* S3_3_C14_C0_2 *)
   | _ ->
     (* D13.2 General system control registers. The table above covers only part
-       of them, so the encoding may well be valid and simply undecodable here.
-       That is a parsing failure, not a claim that this cannot happen. *)
+       of them, so the encoding may well be valid and simply unnamed here; the
+       caller names it by its encoding instead. *)
     raise ParsingFailureException
 
 let getCoprocCRegister = function
@@ -372,6 +408,14 @@ let getSIMDVectorByQ2 value = if value = 0b0u then TwoS else FourS
 
 let getSIMDVectorByQ3 value = if value = 0b0u then FourH else EightH
 
+/// <summary>
+/// The halves a long multiply-accumulate names: two of them where the
+/// destination holds two words, four where it holds four. The count comes
+/// from the DESTINATION, which is why this is not the ordinary half
+/// arrangement.
+/// </summary>
+let getSIMDVectorByQ4 value = if value = 0b0u then TwoH else FourH
+
 let getSIMDVectorBySizeWithIdx = function
   | 0b00u -> VecB
   | 0b01u -> VecH
@@ -506,11 +550,18 @@ let getExtend = function
   | 0b111u -> SXTX
   | _ -> raise InvalidOperandException
 
+/// The field of PSTATE an MSR (immediate) names by op1:op2. The encodings no
+/// field takes are reserved, and the instruction is UNDEFINED there.
 let getPstate = function
+  | 0b000011u -> UAO
+  | 0b000100u -> PAN
   | 0b000101u -> SPSEL
+  | 0b011001u -> SSBS
+  | 0b011010u -> DIT
+  | 0b011100u -> TCO
   | 0b011110u -> DAIFSET
   | 0b011111u -> DAIFCLR
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
 
 let getPrefetchOperation = function
   | 0b00000uy -> OprPrfOp PLDL1KEEP
@@ -880,6 +931,8 @@ let tq2 value = getSIMDVectorByQ2 value          (* Q *)
 
 let tq3 value = getSIMDVectorByQ3 value          (* Q *)
 
+let tq4 value = getSIMDVectorByQ4 value          (* Q *)
+
 let ti5 value = getSIMDVectorByImm5 value        (* imm5 *)
 
 let ti5q value = getSIMDVectorByImm5Q value      (* imm5:Q *)
@@ -1006,6 +1059,18 @@ let vdtq2 bin = vtq2 bin valD
 
 let vdtq3 bin = vtq3 bin valD
 
+let vtq4 bin v = getSIMDFPVecReg (v bin) (tq4 (valQ bin))
+
+let vdtq4 bin = vtq4 bin valD
+
+let vntq4 bin = vtq4 bin valN
+
+let vmtq4 bin = vtq4 bin valM
+
+let vntq3 bin = vtq3 bin valN
+
+let vmtq3 bin = vtq3 bin valM
+
 let vdtih bin = vtih bin valD
 
 let vdtihq bin = vtihq bin valD
@@ -1054,6 +1119,39 @@ let vmtsidx1 bin =
 let vmtsidx2 bin =
   getSIMDFPRegWithIdx (valM bin) (tsz2 (valSz bin)) (index2 bin)
 
+/// <summary>
+/// The indexed operand of a FEAT_FP16 by-element form. Its size field reads
+/// 00, but its register and its index are laid out as an integer form's of
+/// size 01: four bits of register, and H:L:M for the index.
+/// </summary>
+let vmHidx bin =
+  let reg = getRmBySize (valM1 bin) (valM2 bin) 0b01u
+  let idx = getIdxBySize (valL bin) (valH bin) (valM1 bin) 0b01u |> uint8
+  getSIMDFPRegWithIdx reg (ts3 0b01u) idx
+
+/// <summary>
+/// The indexed operand of FCMLA by element, which names a PAIR: its register
+/// is M:Rm whatever the size, and its index is H:L for halves and H alone for
+/// singles.
+/// </summary>
+let vmComplexIdx bin =
+  let size = valSize1 bin
+  let idx = if size = 0b01u then (valH bin <<< 1) ||| valL bin else valH bin
+  getSIMDFPRegWithIdx (valM bin) (ts3 size) (uint8 idx)
+
+/// <summary>
+/// The indexed operand of a dot product by element, which names a group of
+/// four bytes: its register is M:Rm, and its index H:L.
+/// </summary>
+let vm4Bidx bin =
+  let idx = (valH bin <<< 1) ||| valL bin
+  getSIMDFPRegWithIdx (valM bin) FourB (uint8 idx)
+
+/// The same for BFDOT, whose group is a pair of bfloat16s.
+let vm2Hidx bin =
+  let idx = (valH bin <<< 1) ||| valL bin
+  getSIMDFPRegWithIdx (valM bin) TwoH (uint8 idx)
+
 let vtsidx1 bin value =
   let idx = getIdxByImm5 (valImm5 bin) |> uint8
   getSIMDFPRegWithIdx (value bin) (ti5 (valImm5 bin)) idx
@@ -1089,6 +1187,14 @@ let vnD1 bin = getSIMDFPRegWithIdx (valN bin) VecD 1uy
 let vd16B bin = getSIMDFPVecReg (valD bin) SixteenB
 
 let vn16B bin = getSIMDFPVecReg (valN bin) SixteenB
+
+let vm16B bin = getSIMDFPVecReg (valM bin) SixteenB
+
+let va16B bin = getSIMDFPVecReg (valA bin) SixteenB
+
+let vn2D bin = getSIMDFPVecReg (valN bin) TwoD
+
+let vm2D bin = getSIMDFPVecReg (valM bin) TwoD
 
 let vn116B bin = v1t bin vn SixteenB
 
@@ -1135,6 +1241,10 @@ let dt2 bin = d (valT2 bin)
 let hd bin = h (valD bin)
 
 let hn bin = h (valN bin)
+
+let hm bin = h (valM bin)
+
+let ha bin = h (valA bin)
 
 let ht bin = h (valT1 bin)
 
@@ -1191,6 +1301,8 @@ let xn bin = x (valN bin) |> OprRegister
 let xs bin = x (valS1 bin) |> OprRegister
 
 let xsd bin = xsr (valD bin) |> OprRegister
+
+let xsm bin = xsr (valM bin) |> OprRegister
 
 let xsn bin = xsr (valN bin) |> OprRegister
 
@@ -1415,7 +1527,13 @@ let pstatefield bin = getPstate (conOp1Op2 bin) |> OprPstate
 
 let optionOrimm bin = getOption64 (valCrm bin |> byte) |> getOptOrImm bin
 
-let systemregOrctrl bin = getControlRegister (extract bin 20u 5u) |> OprRegister
+/// The system register an MRS or MSR names: by name where this front end has
+/// one, and otherwise by its encoding, which is still a register -- the
+/// IMPLEMENTATION DEFINED ones at CRn 11 and 15 are all of that kind.
+let systemregOrctrl bin =
+  let key = extract bin 20u 5u
+  try OprRegister(getControlRegister key)
+  with :? ParsingFailureException -> OprSysReg key
 
 /// Reserved check function
 let resNone _ = ()
@@ -1474,7 +1592,7 @@ let szL11 bin = chkReserved [ 0b11u ] (conSzL bin)
 let immh0000 bin = chkReserved [ 0b0000u ] (valImmh bin)
 
 (* immh = 0b00xx *)
-let immh00xx bin = chkReserved [ 0b0000u .. 0b0011u ] (valImmh bin)
+let immh000x bin = chkReserved [ 0b0000u; 0b0001u ] (valImmh bin)
 
 (* immh = 0b1xxx *)
 let immh1xxx bin = chkReserved [ 0b1000u .. 0b1111u ] (valImmh bin)
@@ -1489,8 +1607,8 @@ let immh00001xxx bin =
 (* immh = 0b0001, 0b001x *)
 let immh2 bin = chkReserved [ 0b0001u; 0b0010u; 0b0011u ] (valImmh bin)
 
-(* immh:Q = 0b0001x, 0b001xx, 0b1xxx0 *)
-let immhQ1 bin = chkReserved ([ 0b00010u .. 0b00111u ] @
+(* immh:Q = 0b0001x, 0b1xxx0 -- an immh of 001x is FEAT_FP16's halves *)
+let immhQ1 bin = chkReserved ([ 0b00010u; 0b00011u ] @
                               [ for i in 0u .. 7u do yield 16u + (i * 2u) ])
                               (conImmhQ bin)
 

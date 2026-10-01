@@ -1562,8 +1562,10 @@ let simdVectorToString = function
   | VecH -> "h"
   | VecS -> "s"
   | VecD -> "d"
+  | FourB -> "4b"
   | EightB -> "8b"
   | SixteenB -> "16b"
+  | TwoH -> "2h"
   | FourH -> "4h"
   | EightH -> "8h"
   | TwoS -> "2s"
@@ -1765,10 +1767,30 @@ let optToString = function
   | OSHST -> "oshst"
   | OSHLD -> "oshld"
 
+/// The name the manual gives a system register it does not name otherwise,
+/// S<op0>_<op1>_C<n>_C<m>_<op2>, here in lower case like every register.
+let sysRegName (key: uint32) =
+  let op0 = 2u + ((key >>> 14) &&& 1u)
+  let op1 = (key >>> 11) &&& 7u
+  let crn = (key >>> 7) &&& 0xfu
+  let crm = (key >>> 3) &&& 0xfu
+  $"s{op0}_{op1}_c{crn}_c{crm}_{key &&& 7u}"
+
+let hintOptToString = function
+  | BTIC -> "c"
+  | BTIJ -> "j"
+  | BTIJC -> "jc"
+  | CSYNC -> "csync"
+
 let pStToString = function
   | SPSEL -> "spsel"
   | DAIFSET -> "daifset"
   | DAIFCLR -> "daifclr"
+  | UAO -> "uao"
+  | PAN -> "pan"
+  | SSBS -> "ssbs"
+  | DIT -> "dit"
+  | TCO -> "tco"
 
 let prfOpToString = function
   | PLDL1KEEP -> "pldl1keep"
@@ -1808,6 +1830,12 @@ let oprToString i addr opr delim builder =
   | OprRegister reg ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+  | OprSysReg key ->
+    prependDelimiter delim builder
+    builder.Accumulate(AsmWordKind.Variable, sysRegName key)
+  | OprHintOpt opt ->
+    prependDelimiter delim builder
+    builder.Accumulate(AsmWordKind.Variable, hintOptToString opt)
   | OprSIMD simd ->
     prependDelimiter delim builder
     simdToString simd builder
