@@ -65,8 +65,8 @@ Useful environment variables:
 Generates the Intel opcode maps as straight-line F# code from
 `InstructionTable`: `src/FrontEnd/Intel/LegacyOpcodeMap.fs` (legacy maps) and
 `src/FrontEnd/Intel/VEXOpcodeMap.fs` (VEX and EVEX maps). The generated files
-are checked in; rerun the generator whenever `Intel.fs`, `InstructionTable.fs`
-or the generator changes, and commit the result.
+are checked in; rerun the generator whenever `InstructionArrays.fs`,
+`InstructionTable.fs` or the generator changes, and commit the result.
 
 ```bash
 dotnet build scripts/IntelParserGen -c Release \

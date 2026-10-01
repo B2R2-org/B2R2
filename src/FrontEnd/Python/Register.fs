@@ -46,11 +46,11 @@ type Register =
   /// Keyword argument names set by KW_NAMES, consumed by CALL.
   | KW_NAMES = 0x3
 
+/// Represents an Operation Size.
+and OperationSize = int
+
 /// Shortcut for Register type.
 type internal R = Register
-
-/// Represents an Operation Size.
-type OperationSize = int
 
 module internal OperationSize =
   let [<Literal>] RegType = 64<rt>

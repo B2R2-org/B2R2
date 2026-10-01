@@ -93,8 +93,7 @@ type FileHelperTests() =
 
 /// Tests for the hex-string reader, which decides whether a file is a hex dump
 /// by looking at its raw bytes.
-[<TestClass>]
-type HexStringTests() =
+and [<TestClass>] HexStringTests() =
   static let parse (str: string) =
     FileHelper.tryParseHexBytes (Text.Encoding.ASCII.GetBytes str)
 

@@ -29,53 +29,6 @@ open System.Collections.Generic
 open System.Runtime.CompilerServices
 open B2R2
 
-/// Represents the scaling factor used in index addressing.
-type Scale =
-  /// Times 1
-  | X1 = 1
-  /// Times 2
-  | X2 = 2
-  /// Times 4
-  | X4 = 4
-  /// Times 8
-  | X8 = 8
-
-/// Represents a scaled index composed of a register and a scaling factor.
-type ScaledIndex = (struct (Register * Scale))
-
-/// Represents a displacement value used for memory offset calculations.
-type Displacement = int64
-
-/// Represents operand size.
-type OperandSize = RegType
-
-/// Represents a segment selector used in intel architecture.
-type SegmentSelector = int16
-
-/// Represents an offset value used for relative jump instructions.
-type Offset = int64
-
-/// Represents the target of a jump instruction.
-[<Struct>]
-type JumpTarget =
-  | Absolute of selector: SegmentSelector * address: Addr * size: OperandSize
-  | Relative of offset: Offset
-
-/// Which case an operand holds.
-type OperandKind =
-  /// A register.
-  | Reg = 0uy
-  /// A memory reference.
-  | Mem = 1uy
-  /// An immediate.
-  | Imm = 2uy
-  /// A relative branch target.
-  | Relative = 3uy
-  /// An absolute (far) branch target.
-  | Absolute = 4uy
-  /// A label, which only the assembler makes.
-  | Label = 5uy
-
 /// The names of the label operands made so far. A label operand keeps an
 /// index into this table rather than the string, so that an operand holds no
 /// reference and an instruction can carry its operands inline.
@@ -99,6 +52,89 @@ module internal LabelNames =
   /// The name at the index.
   let name (id: int) = lock names (fun () -> names[id])
 
+/// Represents the operands of an intel instruction: up to four, kept inline
+/// in the order they are written. Read through the NoOperand, OneOperand,
+/// TwoOperands, ThreeOperands and FourOperands patterns, or by position, and
+/// made with the static members of the same names (open type Operands brings
+/// them into scope unqualified).
+[<Struct; CustomEquality; NoComparison>]
+type Operands =
+  /// How many operands the value holds.
+  val Count: int
+  val internal O1: Operand
+  val internal O2: Operand
+  val internal O3: Operand
+  val internal O4: Operand
+
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+  internal new(count, o1, o2, o3, o4) =
+    { Count = count; O1 = o1; O2 = o2; O3 = o3; O4 = o4 }
+
+  /// No operand at all.
+  static member NoOperand =
+    Operands(0, Operand(), Operand(), Operand(), Operand())
+
+  /// The operand at the given position, counting from the one written first.
+  /// Reading them by position is what lets a caller relate an operand to
+  /// something outside the list -- an EVEX decoration attaches to a position,
+  /// not to a shape.
+  member this.Item
+    with get(i: int) =
+      match i with
+      | 0 when this.Count > 0 -> this.O1
+      | 1 when this.Count > 1 -> this.O2
+      | 2 when this.Count > 2 -> this.O3
+      | 3 when this.Count > 3 -> this.O4
+      | _ -> raise (IndexOutOfRangeException())
+
+  /// One operand.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+  static member OneOperand(a: Operand) =
+    Operands(1, a, Operand(), Operand(), Operand())
+
+  /// Two operands, in the order they are written.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+  static member TwoOperands(a: Operand, b: Operand) =
+    Operands(2, a, b, Operand(), Operand())
+
+  /// Three operands, in the order they are written.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+  static member ThreeOperands(a: Operand, b: Operand, c: Operand) =
+    Operands(3, a, b, c, Operand())
+
+  /// Four operands, in the order they are written.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+  static member FourOperands(a: Operand, b: Operand, c: Operand, d: Operand) =
+    Operands(4, a, b, c, d)
+
+  member this.Equals(o: Operands) =
+    this.Count = o.Count && this.O1.Equals o.O1 && this.O2.Equals o.O2
+    && this.O3.Equals o.O3 && this.O4.Equals o.O4
+
+  override this.Equals(o: obj) =
+    match o with
+    | :? Operands as x -> this.Equals x
+    | _ -> false
+
+  override this.GetHashCode() =
+    HashCode.Combine(this.Count, this.O1, this.O2, this.O3, this.O4)
+
+  override this.ToString() =
+    match this.Count with
+    | 0 ->
+      "NoOperand"
+    | 1 ->
+      sprintf "OneOperand (%O)" this.O1
+    | 2 ->
+      sprintf "TwoOperands (%O, %O)" this.O1 this.O2
+    | 3 ->
+      sprintf "ThreeOperands (%O, %O, %O)" this.O1 this.O2 this.O3
+    | _ ->
+      sprintf "FourOperands (%O, %O, %O, %O)" this.O1 this.O2 this.O3 this.O4
+
+  interface IEquatable<Operands> with
+    member this.Equals(o: Operands) = this.Equals o
+
 /// Represents four different types of intel operands: register, memory,
 /// direct address, and immediate, plus the label the assembler uses before
 /// it knows an address. An operand is a 16-byte value holding no reference,
@@ -110,8 +146,7 @@ module internal LabelNames =
 /// them into scope unqualified), as when they were union cases. It has three
 /// fields on purpose: the JIT keeps a struct of up to four primitive fields
 /// in registers, and one with more is copied through memory at every step.
-[<Struct; CustomEquality; NoComparison>]
-type Operand =
+and [<Struct; CustomEquality; NoComparison>] Operand =
   /// The displacement, the immediate, the branch offset or address, or the
   /// label's index, by kind. Zero where the kind has none.
   val internal Value: int64
@@ -275,88 +310,51 @@ type Operand =
   interface IEquatable<Operand> with
     member this.Equals(o: Operand) = this.Equals o
 
-/// Represents the operands of an intel instruction: up to four, kept inline
-/// in the order they are written. Read through the NoOperand, OneOperand,
-/// TwoOperands, ThreeOperands and FourOperands patterns, or by position, and
-/// made with the static members of the same names (open type Operands brings
-/// them into scope unqualified).
-[<Struct; CustomEquality; NoComparison>]
-type Operands =
-  /// How many operands the value holds.
-  val Count: int
-  val internal O1: Operand
-  val internal O2: Operand
-  val internal O3: Operand
-  val internal O4: Operand
+/// Which case an operand holds.
+and OperandKind =
+  /// A register.
+  | Reg = 0uy
+  /// A memory reference.
+  | Mem = 1uy
+  /// An immediate.
+  | Imm = 2uy
+  /// A relative branch target.
+  | Relative = 3uy
+  /// An absolute (far) branch target.
+  | Absolute = 4uy
+  /// A label, which only the assembler makes.
+  | Label = 5uy
 
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  internal new(count, o1, o2, o3, o4) =
-    { Count = count; O1 = o1; O2 = o2; O3 = o3; O4 = o4 }
+/// Represents the target of a jump instruction.
+and [<Struct>] JumpTarget =
+  | Absolute of selector: SegmentSelector * address: Addr * size: OperandSize
+  | Relative of offset: Offset
 
-  /// No operand at all.
-  static member NoOperand =
-    Operands(0, Operand(), Operand(), Operand(), Operand())
+/// Represents an offset value used for relative jump instructions.
+and Offset = int64
 
-  /// The operand at the given position, counting from the one written first.
-  /// Reading them by position is what lets a caller relate an operand to
-  /// something outside the list -- an EVEX decoration attaches to a position,
-  /// not to a shape.
-  member this.Item
-    with get(i: int) =
-      match i with
-      | 0 when this.Count > 0 -> this.O1
-      | 1 when this.Count > 1 -> this.O2
-      | 2 when this.Count > 2 -> this.O3
-      | 3 when this.Count > 3 -> this.O4
-      | _ -> raise (IndexOutOfRangeException())
+/// Represents a segment selector used in intel architecture.
+and SegmentSelector = int16
 
-  /// One operand.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  static member OneOperand(a: Operand) =
-    Operands(1, a, Operand(), Operand(), Operand())
+/// Represents operand size.
+and OperandSize = RegType
 
-  /// Two operands, in the order they are written.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  static member TwoOperands(a: Operand, b: Operand) =
-    Operands(2, a, b, Operand(), Operand())
+/// Represents a displacement value used for memory offset calculations.
+and Displacement = int64
 
-  /// Three operands, in the order they are written.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  static member ThreeOperands(a: Operand, b: Operand, c: Operand) =
-    Operands(3, a, b, c, Operand())
+/// Represents a scaled index composed of a register and a scaling factor.
+and ScaledIndex = (struct (Register * Scale))
 
-  /// Four operands, in the order they are written.
-  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-  static member FourOperands(a: Operand, b: Operand, c: Operand, d: Operand) =
-    Operands(4, a, b, c, d)
-
-  member this.Equals(o: Operands) =
-    this.Count = o.Count && this.O1.Equals o.O1 && this.O2.Equals o.O2
-    && this.O3.Equals o.O3 && this.O4.Equals o.O4
-
-  override this.Equals(o: obj) =
-    match o with
-    | :? Operands as x -> this.Equals x
-    | _ -> false
-
-  override this.GetHashCode() =
-    HashCode.Combine(this.Count, this.O1, this.O2, this.O3, this.O4)
-
-  override this.ToString() =
-    match this.Count with
-    | 0 ->
-      "NoOperand"
-    | 1 ->
-      sprintf "OneOperand (%O)" this.O1
-    | 2 ->
-      sprintf "TwoOperands (%O, %O)" this.O1 this.O2
-    | 3 ->
-      sprintf "ThreeOperands (%O, %O, %O)" this.O1 this.O2 this.O3
-    | _ ->
-      sprintf "FourOperands (%O, %O, %O, %O)" this.O1 this.O2 this.O3 this.O4
-
-  interface IEquatable<Operands> with
-    member this.Equals(o: Operands) = this.Equals o
+/// Represents the scaling factor used in index addressing.
+and Scale =
+  /// Times 1
+  | X1 = 1
+  /// Times 2
+  | X2 = 2
+  /// Times 4
+  | X4 = 4
+  /// Times 8
+  | X8 = 8
 
 /// The cases of an operand and of an operand list as patterns, under the
 /// names the union cases had: code written for the unions reads the values

@@ -24,20 +24,6 @@
 
 namespace B2R2.FrontEnd.ARM32
 
-/// Represents what an MRC or an MCR to coprocessor 15 reaches.
-type CP15Access =
-  /// A register this front end keeps a value in.
-  | Held of Register
-  /// One whose value is fixed at zero, which a write may not change.
-  | FixedZero
-  /// One that reads as zero and takes no notice of a write.
-  | ReadAsZero
-  /// An encoding that reads as MIDR, because the register it names is not
-  /// implemented.
-  | MainIDAlias
-  /// A barrier, which is written and does nothing a program can see.
-  | Barrier
-
 /// <summary>
 /// The coprocessor 15 registers this front end models, and what MRC and MCR
 /// do with each: which register an encoding names, what it holds out of

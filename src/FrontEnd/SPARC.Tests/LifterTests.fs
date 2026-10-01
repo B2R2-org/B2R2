@@ -34,7 +34,7 @@ open B2R2.FrontEnd.SPARC
 open type Register
 
 [<TestClass>]
-type LifterTest() =
+type LifterTests() =
   let num (v: int64) = BitVector(v, 64<rt>) |> AST.num
 
   let t64 id = AST.tmpvar 64<rt> id

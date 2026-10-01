@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="Exceptions.fs" />
+    <Compile Include="IBinReader.fs" />
     <Compile Include="BinReader.fs" />
     <Compile Include="ConditionCodeOp.fs" />
     <Compile Include="IRegisterFactory.fs" />

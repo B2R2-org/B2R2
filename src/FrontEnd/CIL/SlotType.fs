@@ -21,6 +21,7 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 *)
+
 namespace B2R2.FrontEnd.CIL
 
 /// <summary>
@@ -79,66 +80,5 @@ type SlotType =
   /// A variable of type float32, holding single-precision bits in its low four
   /// bytes, which loads widened as an F4.
   | R4 = 12
-
-/// <summary>
-/// Represents an exception the machine raises of its own accord, which the
-/// lifter names to the runtime through the external call "raise" with the
-/// value as its one argument. A program's own throw carries an object instead
-/// and goes through the external call "throw".
-/// </summary>
-type CILException =
-  /// An integer division or remainder by zero.
-  | DivideByZero = 1
-  /// A checked arithmetic or conversion instruction whose result does not fit,
-  /// or an integer division of the most negative value by minus one.
-  | Overflow = 2
-  /// An array instruction handed a null reference.
-  | NullReference = 3
-  /// An array instruction handed an index at or past the length.
-  | IndexOutOfRange = 4
-  /// A ckfinite handed a NaN or an infinity. ECMA-335 names
-  /// ArithmeticException for it; the runtime throws that class's subclass
-  /// OverflowException, which a runtime naming the exception has to know.
-  | Arithmetic = 5
-
-/// <summary>
-/// Provides the layout of a slot, which the lifter and a runtime holding the
-/// stack agree on.
-///
-/// The evaluation stack grows downwards: SP holds the address of the slot on
-/// top, and a push moves it down by one slot. The arguments and the local
-/// variables are kept in slots too, and are counted downwards from AP and FP
-/// respectively, so that argument n sits at AP - n * Size. That order is the
-/// order a call finds them in: the caller pushed the arguments first to last,
-/// so the first sits deepest, and a callee's AP is where the caller's stack
-/// had that one. The frame of a callee is laid out by the runtime below the
-/// arguments: the local variables, and below them the evaluation stack.
-/// </summary>
-[<RequireQualifiedAccess>]
-module Slot =
-  /// The size of a slot in bytes: a quadword for the value and one for the
-  /// tag, which is the SlotType of what the value is.
-  let [<Literal>] Size = 16
-
-  /// Where within a slot the tag word sits.
-  let [<Literal>] TagOffset = 8
-
-/// <summary>
-/// Provides the layout of an array object, which the array instructions the
-/// lifter translates on its own -- ldlen, and the ldelem and stelem forms whose
-/// element type is in the opcode -- read, and which a runtime allocating one
-/// through newarr therefore has to lay out. It follows the runtime this
-/// instruction set is most often run by: a type word, a 32-bit length, and the
-/// elements from the next quadword boundary on.
-/// </summary>
-[<RequireQualifiedAccess>]
-module ArrayLayout =
-  /// Where the length of an array sits, counted from the reference to it, as
-  /// an unsigned 32-bit integer.
-  let [<Literal>] LengthOffset = 8
-
-  /// Where the first element of an array sits, counted from the reference to
-  /// it.
-  let [<Literal>] DataOffset = 16
 
 // vim: set tw=80 sts=2 sw=2:

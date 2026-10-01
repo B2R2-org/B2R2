@@ -6,7 +6,10 @@
 
   <ItemGroup>
     <Compile Include="Register.fs" />
-    <Compile Include="Model.fs" />
+    <Compile Include="SlotType.fs" />
+    <Compile Include="CILException.fs" />
+    <Compile Include="Slot.fs" />
+    <Compile Include="ArrayLayout.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />

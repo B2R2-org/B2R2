@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 open type Opcode
 open type Register
 
-type O =
+type private O =
   static member Reg r = OpReg r
 
   static member Imm v = OpImm v

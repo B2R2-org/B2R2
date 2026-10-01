@@ -33,52 +33,49 @@ open B2R2
 /// </namespacedoc>
 ///
 /// <summary>
-/// Represents the type of PyObject used when marshalling Python objects.
-/// (currently from Python 3.12).
+/// PyObject is the base type of all Python objects, including integers,
+/// strings, etc.
 /// </summary>
-type MarshalledType =
-  | TYPE_NULL = 0x60 (* '0' *)
-  | TYPE_NONE = 0x4E (* 'N' *)
-  | TYPE_FALSE = 0x46 (* 'F' *)
-  | TYPE_TRUE = 0x54 (* 'T' *)
-  | TYPE_STOPITER = 0x53 (* 'S' *)
-  | TYPE_ELLIPSIS = 0x2E (* '.' *)
-  | TYPE_INT = 0x69 (* 'i' *)
-  | TYPE_INT64 = 0x49 (* 'I' *)
-  | TYPE_FLOAT = 0x66 (* 'f' *)
-  | TYPE_BINARY_FLOAT = 0x67 (* 'g' *)
-  | TYPE_COMPLEX = 0x78 (* 'x' *)
-  | TYPE_BINARY_COMPLEX = 0x79 (* 'y' *)
-  | TYPE_LONG = 0x6C (* 'l' *)
-  | TYPE_STRING = 0x73 (* 's' *)
-  | TYPE_INTERNED = 0x74 (* 't' *)
-  | TYPE_REF = 0x72 (* 'r' *)
-  | TYPE_TUPLE = 0x28 (* '(' *)
-  | TYPE_LIST = 0x5B (* '[' *)
-  | TYPE_DICT = 0x7B (* '{' *)
-  | TYPE_CODE = 0x63 (* 'c' *)
-  | TYPE_UNICODE = 0x75 (* 'u' *)
-  | TYPE_UNKNOWN = 0x3F (* '?' *)
-  /// A slice constant, marshalled since 3.14: `a[1:2]` folds the slice
-  /// itself into co_consts rather than building it at run time.
-  | TYPE_SLICE = 0x3A (* ':' *)
-  | TYPE_SET = 0x3C (* '<' *)
-  | TYPE_FROZENSET = 0x3E (* '>' *)
-  | FLAG_REF = 0x80 (* '\x80' *)
-  | TYPE_ASCII = 0x61 (* 'a' *)
-  | TYPE_ASCII_INTERNED = 0x41 (* 'A' *)
-  | TYPE_SMALL_TUPLE = 0x29 (* ')' *)
-  | TYPE_SHORT_ASCII = 0x7A (* 'z' *)
-  | TYPE_SHORT_ASCII_INTERNED = 0x5A (* 'Z' *)
-  | WFERR_OK = 0x0
-  | WFERR_UNMARSHALLABLE = 0x1
-  | WFERR_NESTEDTOODEEP = 0x2
-  | WFERR_NOMEMORY = 0x3
+type PyObject =
+  | PyString of byte[]
+  | PyCode of PyCodeObject
+  | PyTuple of PyObject[]
+  | PyFrozenSet of PyObject[]
+  /// start, stop and step of a marshalled slice constant.
+  | PySlice of PyObject * PyObject * PyObject
+  | PyInt of int
+  (* Arbitrary-precision int (TYPE_LONG) -- stored pre-rendered as its
+     decimal repr string, mirroring PyFloat's own string-based storage,
+     so nothing downstream needs bignum arithmetic. CPython's marshal
+     writer emits every Python `int` this way except those that fit a
+     signed 32-bit C `long`, which use the fixed-width PyInt/TYPE_INT
+     case above instead. *)
+  | PyLong of string
+  | PyFloat of string
+  | PyBinaryFloat of double
+  (* real, imag -- each a repr-style string, mirroring PyFloat's own
+     string-based storage (see TYPE_COMPLEX in marshal). *)
+  | PyComplex of string * string
+  (* real, imag -- mirroring PyBinaryFloat (see TYPE_BINARY_COMPLEX). *)
+  | PyBinaryComplex of double * double
+  | PyAscii of string
+  (* A str CPython marshalled with surrogatepass, with the positions of the
+     lone surrogates in it. Kept apart from PyAscii because UTF-16 cannot
+     tell two adjacent lone surrogates from the one astral character they
+     spell, and repr writes those two differently. *)
+  | PySurrogateText of string * int[]
+  | PyShortAsciiInterned of string
+  | PyShortAscii of string
+  | PyREF of int * PyObject
+  | PyTrue
+  | PyFalse
+  | PyNone
+  | PyEllipsis
 
 /// <summary>
 /// PyCodeObject is a compiled piece of Python code.
 /// </summary>
-type PyCodeObject =
+and PyCodeObject =
   { FileName: string
     Name: string
     QualName: string
@@ -117,41 +114,44 @@ type PyCodeObject =
     CellVarCount: int }
 
 /// <summary>
-/// PyObject is the base type of all Python objects, including integers,
-/// strings, etc.
+/// Represents the type of PyObject used when marshalling Python objects.
+/// (currently from Python 3.12).
 /// </summary>
-and PyObject =
-  | PyString of byte[]
-  | PyCode of PyCodeObject
-  | PyTuple of PyObject[]
-  | PyFrozenSet of PyObject[]
-  /// start, stop and step of a marshalled slice constant.
-  | PySlice of PyObject * PyObject * PyObject
-  | PyInt of int
-  (* Arbitrary-precision int (TYPE_LONG) -- stored pre-rendered as its
-     decimal repr string, mirroring PyFloat's own string-based storage,
-     so nothing downstream needs bignum arithmetic. CPython's marshal
-     writer emits every Python `int` this way except those that fit a
-     signed 32-bit C `long`, which use the fixed-width PyInt/TYPE_INT
-     case above instead. *)
-  | PyLong of string
-  | PyFloat of string
-  | PyBinaryFloat of double
-  (* real, imag -- each a repr-style string, mirroring PyFloat's own
-     string-based storage (see TYPE_COMPLEX in marshal). *)
-  | PyComplex of string * string
-  (* real, imag -- mirroring PyBinaryFloat (see TYPE_BINARY_COMPLEX). *)
-  | PyBinaryComplex of double * double
-  | PyAscii of string
-  (* A str CPython marshalled with surrogatepass, with the positions of the
-     lone surrogates in it. Kept apart from PyAscii because UTF-16 cannot
-     tell two adjacent lone surrogates from the one astral character they
-     spell, and repr writes those two differently. *)
-  | PySurrogateText of string * int[]
-  | PyShortAsciiInterned of string
-  | PyShortAscii of string
-  | PyREF of int * PyObject
-  | PyTrue
-  | PyFalse
-  | PyNone
-  | PyEllipsis
+and MarshalledType =
+  | TYPE_NULL = 0x60 (* '0' *)
+  | TYPE_NONE = 0x4E (* 'N' *)
+  | TYPE_FALSE = 0x46 (* 'F' *)
+  | TYPE_TRUE = 0x54 (* 'T' *)
+  | TYPE_STOPITER = 0x53 (* 'S' *)
+  | TYPE_ELLIPSIS = 0x2E (* '.' *)
+  | TYPE_INT = 0x69 (* 'i' *)
+  | TYPE_INT64 = 0x49 (* 'I' *)
+  | TYPE_FLOAT = 0x66 (* 'f' *)
+  | TYPE_BINARY_FLOAT = 0x67 (* 'g' *)
+  | TYPE_COMPLEX = 0x78 (* 'x' *)
+  | TYPE_BINARY_COMPLEX = 0x79 (* 'y' *)
+  | TYPE_LONG = 0x6C (* 'l' *)
+  | TYPE_STRING = 0x73 (* 's' *)
+  | TYPE_INTERNED = 0x74 (* 't' *)
+  | TYPE_REF = 0x72 (* 'r' *)
+  | TYPE_TUPLE = 0x28 (* '(' *)
+  | TYPE_LIST = 0x5B (* '[' *)
+  | TYPE_DICT = 0x7B (* '{' *)
+  | TYPE_CODE = 0x63 (* 'c' *)
+  | TYPE_UNICODE = 0x75 (* 'u' *)
+  | TYPE_UNKNOWN = 0x3F (* '?' *)
+  /// A slice constant, marshalled since 3.14: `a[1:2]` folds the slice
+  /// itself into co_consts rather than building it at run time.
+  | TYPE_SLICE = 0x3A (* ':' *)
+  | TYPE_SET = 0x3C (* '<' *)
+  | TYPE_FROZENSET = 0x3E (* '>' *)
+  | FLAG_REF = 0x80 (* '\x80' *)
+  | TYPE_ASCII = 0x61 (* 'a' *)
+  | TYPE_ASCII_INTERNED = 0x41 (* 'A' *)
+  | TYPE_SMALL_TUPLE = 0x29 (* ')' *)
+  | TYPE_SHORT_ASCII = 0x7A (* 'z' *)
+  | TYPE_SHORT_ASCII_INTERNED = 0x5A (* 'Z' *)
+  | WFERR_OK = 0x0
+  | WFERR_UNMARSHALLABLE = 0x1
+  | WFERR_NESTEDTOODEEP = 0x2
+  | WFERR_NOMEMORY = 0x3

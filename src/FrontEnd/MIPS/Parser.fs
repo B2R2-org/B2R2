@@ -28,20 +28,8 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// <summary>
-/// Represents a parser whose encoding a running program can move between.
-///
-/// MIPS keeps which of its encodings it is reading in a bit of its own, and
-/// what moves that bit is the code -- a JALX, or a jump to an address with
-/// the low bit set. So a decoder following along has to be told, and the
-/// caller doing the telling is not the one that built it.
-/// </summary>
-type IEncodingSwitchable =
-  /// Which encoding this parser is currently reading.
-  abstract ISAMode: MIPSISAMode with get, set
-
 /// Represents a parser for MIPS instructions.
-and MIPSParser(isa: ISA, reader) =
+type MIPSParser(isa: ISA, reader) =
   let wordSize = isa.WordSize
   let arch = isa.Arch
   let release = isa.MIPSRelease
@@ -104,3 +92,15 @@ and MIPSParser(isa: ISA, reader) =
           :> IInstruction
       with e when not (Terminator.isCritical e) ->
         raise ParsingFailureException
+
+/// <summary>
+/// Represents a parser whose encoding a running program can move between.
+///
+/// MIPS keeps which of its encodings it is reading in a bit of its own, and
+/// what moves that bit is the code -- a JALX, or a jump to an address with
+/// the low bit set. So a decoder following along has to be told, and the
+/// caller doing the telling is not the one that built it.
+/// </summary>
+and IEncodingSwitchable =
+  /// Which encoding this parser is currently reading.
+  abstract ISAMode: MIPSISAMode with get, set

@@ -129,7 +129,7 @@
     <Compile Include="Mach\Image.fs" />
     <Compile Include="Mach\Layout.fs" />
     <Compile Include="Mach\Emitter.fs" />
-    <Compile Include="Python\Types.fs" />
+    <Compile Include="Python\PyObject.fs" />
     <Compile Include="Python\PyExceptionEntry.fs" />
     <Compile Include="Python\PyExceptionTable.fs" />
     <Compile Include="Python\Helper.fs" />

@@ -29,26 +29,6 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
-/// Which of the services the Linux/PA-RISC gateway page offers a transfer of
-/// control entered, if any. PA-RISC has no instruction for a system call, nor
-/// for an atomic exchange, nor for reaching the one control register a thread
-/// owns; what it has instead is a page at a fixed address whose entry points
-/// the kernel fills in, and a branch through space register 2 is how each is
-/// reached. The offset branched to says which, so it is decided when the branch
-/// is lifted, while the argument each takes -- the call number, the operation
-/// number, the pointer -- is placed by that branch's delay slot and so is only
-/// there once the slot has run.
-type Gateway =
-  /// A transfer that goes somewhere other than the gateway page.
-  | NotGateway
-  /// A system call, whose number GR20 carries.
-  | SystemCall
-  /// A light-weight call: a compare-and-exchange, selected by GR20.
-  | LightWeightCall
-  /// The write of the thread pointer GR26 carries into the control register a
-  /// thread's own storage is reached through.
-  | SetThreadPointer
-
 /// The LowUIR builder for PARISC. Beyond the plain register/stream builder it
 /// carries the two pieces of cross-instruction state PA-RISC needs.
 ///
@@ -171,3 +151,23 @@ type LowUIRBuilder(isa: ISA,
     member _.IsProgramCounter id = regFactory.IsProgramCounter id
     member _.IsStackPointer id = regFactory.IsStackPointer id
     member _.IsFramePointer id = regFactory.IsFramePointer id
+
+/// Which of the services the Linux/PA-RISC gateway page offers a transfer of
+/// control entered, if any. PA-RISC has no instruction for a system call, nor
+/// for an atomic exchange, nor for reaching the one control register a thread
+/// owns; what it has instead is a page at a fixed address whose entry points
+/// the kernel fills in, and a branch through space register 2 is how each is
+/// reached. The offset branched to says which, so it is decided when the branch
+/// is lifted, while the argument each takes -- the call number, the operation
+/// number, the pointer -- is placed by that branch's delay slot and so is only
+/// there once the slot has run.
+and Gateway =
+  /// A transfer that goes somewhere other than the gateway page.
+  | NotGateway
+  /// A system call, whose number GR20 carries.
+  | SystemCall
+  /// A light-weight call: a compare-and-exchange, selected by GR20.
+  | LightWeightCall
+  /// The write of the thread pointer GR26 carries into the control register a
+  /// thread's own storage is reached through.
+  | SetThreadPointer

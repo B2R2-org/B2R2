@@ -90,7 +90,7 @@ module private Shortcut =
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
 [<TestClass>]
-type ArithmeticClass() =
+type ParserTests() =
   [<TestMethod>]
   member _.``[PARISC64] ADD Instruction Test (1)``() =
     "0855AA3C"
@@ -169,8 +169,6 @@ type ArithmeticClass() =
         None)
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type LoadStoreClass() =
   [<TestMethod>]
   member _.``[PARISC64] LDWA Instruction Test (1)``() =
     "0CAA5584"
@@ -222,8 +220,6 @@ type LoadStoreClass() =
     ++ (STDA ** [ O.Reg GR31; O.Mem(GR23, 2L, 64<rt>) ], [| MB |], None, None)
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type LoadStoreOffsetClass() =
   [<TestMethod>]
   member _.``[PARISC64] LDO Instruction Test (1)``() =
     "36AAFFFB"
@@ -269,8 +265,6 @@ type LoadStoreOffsetClass() =
         None)
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type LoadStoreWordClass() =
   [<TestMethod>]
   member _.``[PARISC64] FLDW Instruction Test (1)``() =
     "5AFF000C"
@@ -286,8 +280,6 @@ type LoadStoreWordClass() =
     ++ (FSTD ** [ O.Reg FPR21L; O.Mem(GR2, 8L, 64<rt>, SR0) ], [||], None, None)
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type CorpLoadClass() =
   [<TestMethod>]
   member _.``[PARISC64] CLDD Instruction Test (1)``() =
     "2D0010FE"
@@ -315,8 +307,6 @@ type CorpLoadClass() =
         Some [| 1UL |])
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type CorpFPClass() =
   [<TestMethod>]
   member _.``[PARISC64] FCNV Instruction Test (1)``() =
     "3055AA06"
@@ -353,8 +343,6 @@ type CorpFPClass() =
     ++ (FCMP ** [ O.Reg FPR16L; O.Reg FPR0R ], [| SGL |], Some FLT, None)
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type SpecialClass() =
   [<TestMethod>]
   member _.``[PARISC64] SPOP1 Instruction Test (1)``() =
     "1000AAF7"
@@ -415,8 +403,6 @@ type SpecialClass() =
         Some [| 5UL; 1014UL |])
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type MultipleClass() =
   [<TestMethod>]
   member _.``[PARISC64] FMPYADD Instruction Test (1)``() =
     "180000D7"
@@ -457,8 +443,6 @@ type MultipleClass() =
                      O.Reg FPR26L ], [| SGL |], None, None)
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type FPFusedClass() =
   [<TestMethod>]
   member _.``[PARISC64] FMPYFADD Instruction Test (1)``() =
     "B80000C8"
@@ -495,8 +479,6 @@ type FPFusedClass() =
         None)
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type ShiftDepositClass() =
   [<TestMethod>]
   member _.``[PARISC64] SHRPW Instruction Test (1)``() =
     "D05500F5"
@@ -578,8 +560,6 @@ type ShiftDepositClass() =
                    O.Reg GR15 ], [| Z |], Some DNEQ, None)
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type MultimediaClass() =
   [<TestMethod>]
   member _.``[PARISC64] PERMH Instruction Test (1)``() =
     "F85500E9"
@@ -598,8 +578,6 @@ type MultimediaClass() =
     ++ (PERMH ** [ O.Reg GR5; O.Reg GR17 ], [||], None, Some [| 0UL |])
     ||> testPARISC WordSize.Bit64
 
-[<TestClass>]
-type CondBranchClass() =
   [<TestMethod>]
   member _.``[PARISC64] CMPB Instruction Test (1)``() =
     "8A55FFFF"
@@ -624,18 +602,13 @@ type CondBranchClass() =
     ++ (ADDB ** [ O.Reg GR29; O.Reg GR23; O.Imm 8UL ], [| TR |], Some N, None)
     ||> testPARISC WordSize.Bit64
 
-/// <summary>
-/// Pins down the readings that once came out wrong.
-///
-/// Each of these is a word whose disassembly once said something the encoding
-/// does not: a condition read out of the wrong table, a condition said to be
-/// read off a doubleword by an instruction working on a word alone, a length
-/// no field could hold, a branch said to throw away what follows it whether it
-/// does or not, and a branch read as the instruction that pushes onto the
-/// stack of addresses the processor guesses from, and the other way round.
-/// </summary>
-[<TestClass>]
-type UndecodableClass() =
+  (* The tests below pin down the readings that once came out wrong. Each of
+     these is a word whose disassembly once said something the encoding does
+     not: a condition read out of the wrong table, a condition said to be read
+     off a doubleword by an instruction working on a word alone, a length no
+     field could hold, a branch said to throw away what follows it whether it
+     does or not, and a branch read as the instruction that pushes onto the
+     stack of addresses the processor guesses from, and the other way round. *)
   [<TestMethod>]
   member _.``[PARISC64] FCMP reads a comparison, not a test (1)``() =
     "38A30401"

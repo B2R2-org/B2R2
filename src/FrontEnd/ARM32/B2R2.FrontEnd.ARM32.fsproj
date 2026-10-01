@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="RegisterHelper.fs" />
     <Compile Include="RegisterFactory.fs" />
+    <Compile Include="CP15Access.fs" />
     <Compile Include="CP15.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />

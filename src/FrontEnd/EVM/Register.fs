@@ -46,11 +46,11 @@ type Register =
   /// Stack pointer.
   | SP = 0x3
 
+/// Represents an Operation Size.
+and OperationSize = int
+
 /// Shortcut for Register type.
 type internal R = Register
-
-/// Represents an Operation Size.
-type OperationSize = int
 
 module internal OperationSize =
   let regType = 256<rt>
