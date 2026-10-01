@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for TMS320C6000 instructions.
-type TMS320C6000Parser(reader) =
+type Parser(reader) =
   let mutable inParallel = false
 
   let lifter =

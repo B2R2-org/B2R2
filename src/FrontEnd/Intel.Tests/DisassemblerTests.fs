@@ -34,9 +34,9 @@ open type Opcode
 type DisassemblerTests() =
   let test wordSize (bytes: byte[]) (instruction: string[]) =
     let reader = BinReader.Init Endian.Little
-    let parser = IntelParser(wordSize, reader) :> IInstructionParsable
+    let parser = Parser(wordSize, reader) :> IInstructionParsable
     let actualInstruction (syntax: DisasmSyntax) =
-      (parser :?> IntelParser).SetDisassemblySyntax syntax
+      (parser :?> Parser).SetDisassemblySyntax syntax
       parser.Parse(bytes, 0UL)
       |> fun instruction -> (instruction.Disasm()).ToLowerInvariant()
     Assert.AreEqual<string>(instruction[0], actualInstruction DefaultSyntax)

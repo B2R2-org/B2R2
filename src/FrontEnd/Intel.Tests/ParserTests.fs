@@ -74,7 +74,7 @@ module private Shortcut =
 type ParserTests() =
   let test prefs segment wordSize opcode (oprs: Operands) bytes =
     let reader = BinReader.Init Endian.Little
-    let parser = IntelParser(wordSize, reader) :> IInstructionParsable
+    let parser = Parser(wordSize, reader) :> IInstructionParsable
     let ins = parser.Parse(bs = bytes, addr = 0UL) :?> Instruction
     Assert.AreEqual<Prefix>(ins.Prefixes, prefs)
     Assert.AreEqual<Register option>(Prefix.getSegment ins.Prefixes, segment)
@@ -102,7 +102,7 @@ type ParserTests() =
   /// reports a plausible-looking disassembly of bytes the processor refuses.
   let testX64Invalid (byteString: string) =
     let reader = BinReader.Init Endian.Little
-    let parser = IntelParser(WordSize.Bit64, reader) :> IInstructionParsable
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
     let bytes = ByteArray.ofHexString byteString
     Assert.ThrowsExactly<ParsingFailureException>(fun () ->
       parser.Parse(bs = bytes, addr = 0UL) |> ignore)
@@ -112,7 +112,7 @@ type ParserTests() =
   /// not carry: the EVEX decorations live beside the operands, not in them.
   let parseX64 (byteString: string) =
     let reader = BinReader.Init Endian.Little
-    let parser = IntelParser(WordSize.Bit64, reader) :> IInstructionParsable
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
     let bytes = ByteArray.ofHexString byteString
     parser.Parse(bs = bytes, addr = 0UL) :?> Instruction
 

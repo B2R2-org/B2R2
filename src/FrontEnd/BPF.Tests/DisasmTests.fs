@@ -34,7 +34,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 type DisasmTests() =
   static let isa = ISA Architecture.BPF
 
-  static let parser = BPFParser(BinReader.Init isa.Endian)
+  static let parser = Parser(BinReader.Init isa.Endian)
 
   static let disasm hex =
     let bytes = ByteArray.ofHexString hex

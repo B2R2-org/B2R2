@@ -34,7 +34,7 @@ type DisasmTests() =
   static let isa = ISA(Architecture.S390, endian = Endian.Big)
 
   static let parser =
-    S390Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
 
   /// The address the instructions below are parsed at, so that the branch
   /// targets are checkable constants.

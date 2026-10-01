@@ -48,7 +48,7 @@ type ParserTests() =
   let test (funit: FunctionalUnit) (bytes: byte[]) (opcode, oprs: Operands) =
     let reader = BinReader.Init Endian.Little
     let span = System.ReadOnlySpan bytes
-    let parser = TMS320C6000Parser(reader) :> IInstructionParsable
+    let parser = Parser(reader) :> IInstructionParsable
     let ins = parser.Parse(span, 0UL) :?> Instruction
     Assert.AreEqual<Opcode>(opcode, ins.Opcode)
     Assert.AreEqual<FunctionalUnit>(funit, ins.FunctionalUnit)

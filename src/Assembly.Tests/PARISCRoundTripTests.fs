@@ -65,7 +65,7 @@ type PARISCRoundTripTests() =
   /// One parser, reused across the whole sweep. The sweep asks for millions of
   /// decodings, so building one each time would dominate the run.
   static let parser =
-    PARISCParser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
 
   static let assembler = Assembler(isa, 0UL) :> ILowerable
 

@@ -47,7 +47,7 @@ module private Shortcut =
 
   let test (isa: ISA) opcode (opr: Operands) bytes =
     let reader = BinReader.Init isa.Endian
-    let parser = PPCParser(isa.WordSize, reader) :> IInstructionParsable
+    let parser = Parser(isa.WordSize, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan(bytes: byte[])
     let ins = parser.Parse(span, 0UL) :?> Instruction
     Assert.AreEqual<Opcode>(opcode, ins.Opcode)
@@ -62,7 +62,7 @@ module private Shortcut =
   let testUnsupported wordSz (byteString: string) =
     let isa = ISA(Architecture.PPC, Endian.Big, wordSz)
     let reader = BinReader.Init isa.Endian
-    let parser = PPCParser(isa.WordSize, reader) :> IInstructionParsable
+    let parser = Parser(isa.WordSize, reader) :> IInstructionParsable
     let bytes = ByteArray.ofHexString byteString
     Assert.Throws<ParsingFailureException>(fun () ->
       parser.Parse(System.ReadOnlySpan(bytes: byte[]), 0UL) |> ignore)

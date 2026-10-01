@@ -56,13 +56,13 @@ type LifterTests() =
   /// The statements one encoding lifts to, for a test whose claim is that
   /// the encoding lifts at all rather than what it lifts to.
   let lifted (hex: string) =
-    let parser = ARM64Parser reader :> IInstructionParsable
+    let parser = Parser reader :> IInstructionParsable
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     ins.Translate builder
 
   let test (bytes: byte[], givenStmts) =
-    let parser = ARM64Parser reader :> IInstructionParsable
+    let parser = Parser reader :> IInstructionParsable
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)

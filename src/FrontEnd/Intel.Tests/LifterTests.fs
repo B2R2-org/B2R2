@@ -35,7 +35,7 @@ open B2R2.FrontEnd.Intel
 type LifterTests() =
   let test builder wordSize (expectedStmts: string[]) (bytes: byte[]) =
     let reader = BinReader.Init Endian.Little
-    let parser = IntelParser(wordSize, reader) :> IInstructionParsable
+    let parser = Parser(wordSize, reader) :> IInstructionParsable
     let ins = parser.Parse(bytes, 0UL)
     let actual = ins.Translate builder |> Array.map PrettyPrinter.ToString
     CollectionAssert.AreEqual(expectedStmts, actual)
@@ -175,7 +175,7 @@ type EVEXDecorationLifterTests() =
     let regFactory = RegisterFactory isa
     let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
     let reader = BinReader.Init Endian.Little
-    let parser = IntelParser(WordSize.Bit64, reader) :> IInstructionParsable
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     let actual = ins.Translate builder |> Array.map PrettyPrinter.ToString
     CollectionAssert.AreEqual(expectedStmts, actual)
@@ -256,7 +256,7 @@ type OpMaskLifterTests() =
     let regFactory = RegisterFactory isa
     let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
     let reader = BinReader.Init Endian.Little
-    let parser = IntelParser(WordSize.Bit64, reader) :> IInstructionParsable
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     let actual =
       ins.Translate builder

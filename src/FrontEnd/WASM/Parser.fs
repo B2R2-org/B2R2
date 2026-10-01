@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for WASM instructions.
-type WASMParser(reader) =
+type Parser(reader) =
   let lifter =
     { new ILiftable with
         member _.Lift(_ins, _builder) = Terminator.futureFeature ()

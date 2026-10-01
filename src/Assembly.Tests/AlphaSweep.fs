@@ -190,7 +190,7 @@ module internal AlphaSweep =
   /// distinct operand shape.
   let probes () =
     let reader = BinReader.Init Endian.Little
-    let parser = AlphaParser reader :> IInstructionParsable
+    let parser = Parser reader :> IInstructionParsable
     let shape (probe: AlphaProbe) = keyOf shapeOfPart probe.Text
     let byForm =
       survey parser (fun probe -> keyOf kindOfPart probe.Text) formWords

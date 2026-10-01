@@ -37,7 +37,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 type UndecodableTests() =
   static let reader = BinReader.Init (ISA Architecture.SPARC).Endian
 
-  static let parser = SPARCParser(reader) :> IInstructionParsable
+  static let parser = Parser(reader) :> IInstructionParsable
 
   [<TestMethod>]
   member _.``[SPARC] Undecodable Bytes Do Not Parse Test``() =

@@ -160,7 +160,7 @@ module internal IntelSweep =
   /// instruction per distinct operand shape.
   let probes wordSize =
     let parser =
-      IntelParser(wordSize, BinReader.Init Endian.Little)
+      Parser(wordSize, BinReader.Init Endian.Little)
       :> IInstructionParsable
     [ for map in [ OneByte; TwoByte; ThreeByte38; ThreeByte3A ] do
         for bytes in patterns map wordSize do

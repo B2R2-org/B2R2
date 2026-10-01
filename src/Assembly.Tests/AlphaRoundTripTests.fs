@@ -65,7 +65,7 @@ type AlphaRoundTripTests() =
   /// One parser, reused across the whole sweep. The sweep asks for hundreds of
   /// thousands of decodings, so building one each time would dominate the run.
   static let parser =
-    AlphaParser(BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let assembler = Assembler(isa, 0UL) :> ILowerable
 

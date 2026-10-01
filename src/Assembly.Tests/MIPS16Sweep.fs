@@ -108,7 +108,7 @@ module internal MIPS16Sweep =
     let flags = int MIPSISAMode.MIPS16
     let isa = ISA(Architecture.MIPS, Endian.Little, wordSize, flags)
     let parser =
-      MIPSParser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+      Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
     [ 0u .. 0xFFFFu ]
     |> List.choose (decode parser)
     |> List.distinctBy (fun probe -> keyOf probe.Text)

@@ -67,7 +67,7 @@ type MicroMIPSParserTests() =
         int MIPSISAMode.MicroMIPS)
 
   let parser =
-    MIPSParser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
 
   let operandsFromArray oprList =
     let oprArray = Array.ofList oprList
@@ -590,7 +590,7 @@ type MicroMIPSParserTests() =
           WordSize.Bit64,
           int MIPSISAMode.MicroMIPS ||| int MIPSRelease.R6)
     let parser =
-      MIPSParser(r6, BinReader.Init Endian.Little) :> IInstructionParsable
+      Parser(r6, BinReader.Init Endian.Little) :> IInstructionParsable
     let here = O.Addr(Relative 36L)
     let cases =
       [ "80103412", (LUI, [ O.Reg R4; O.Imm 0x1234UL ])
@@ -646,7 +646,7 @@ type MicroMIPSParserTests() =
           WordSize.Bit64,
           int MIPSISAMode.MicroMIPS ||| int MIPSRelease.R6)
     let r6Parser =
-      MIPSParser(r6, BinReader.Init Endian.Little) :> IInstructionParsable
+      Parser(r6, BinReader.Init Endian.Little) :> IInstructionParsable
     let refuses (p: IInstructionParsable) hex =
       let bytes = ByteArray.ofHexString hex
       Assert.ThrowsExactly<ParsingFailureException>(fun () ->
@@ -680,7 +680,7 @@ type MicroMIPSParserTests() =
           WordSize.Bit64,
           int MIPSISAMode.MicroMIPS ||| int MIPSRelease.R6)
     let parser =
-      MIPSParser(r6, BinReader.Init Endian.Little) :> IInstructionParsable
+      Parser(r6, BinReader.Init Endian.Little) :> IInstructionParsable
     let cases =
       [ "04800800", (JIC, [ O.Reg R4; O.Imm 8UL ])
         "80801000", (BEQZC, [ O.Reg R4; O.Addr(Relative 36L) ])
@@ -705,7 +705,7 @@ type MicroMIPSParserTests() =
   member _.``[microMIPS] JALX carries the encoding it crosses into``() =
     let kindOf (isa: ISA) (jump: string) (slot: string) =
       let bld = LowUIRBuilder(isa, RegisterFactory isa, LowUIRStream())
-      let p = MIPSParser(isa, BinReader.Init isa.Endian)
+      let p = Parser(isa, BinReader.Init isa.Endian)
       let p = p :> IInstructionParsable
       (p.Parse(ByteArray.ofHexString jump, 0UL)).Translate bld |> ignore
       (p.Parse(ByteArray.ofHexString slot, 4UL)).Translate bld
@@ -811,7 +811,7 @@ type MicroMIPSParserTests() =
           WordSize.Bit64,
           int MIPSISAMode.MicroMIPS ||| int MIPSRelease.R6)
     let parser =
-      MIPSParser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+      Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
     let cases =
       [ "3045", (NOR, [ O.Reg R2; O.Reg R3; O.Reg R0 ])
         "3145", (AND, [ O.Reg R2; O.Reg R2; O.Reg R3 ])

@@ -61,7 +61,7 @@ type EVMRoundTripTests() =
   static let isa = ISA Architecture.EVM
 
   /// One parser, reused across the whole sweep.
-  static let parser = EVMParser isa :> IInstructionParsable
+  static let parser = Parser isa :> IInstructionParsable
 
   static let assembler = Assembler(isa, 0UL) :> ILowerable
 

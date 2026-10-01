@@ -38,7 +38,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 [<TestClass>]
 type UndecodableTests() =
   static let parser =
-    WASMParser(BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(BinReader.Init Endian.Little) :> IInstructionParsable
 
   [<TestMethod>]
   member _.``[WASM] Unassigned Opcode Does Not Parse Test``() =

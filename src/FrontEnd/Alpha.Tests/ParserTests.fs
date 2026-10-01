@@ -38,7 +38,7 @@ type ParserTests() =
 
   static let parse hex =
     let bytes = ByteArray.ofHexString hex
-    let parser = AlphaParser(BinReader.Init isa.Endian)
+    let parser = Parser(BinReader.Init isa.Endian)
     (parser :> IInstructionParsable).Parse(ReadOnlySpan bytes, 0UL)
     :?> Instruction
 

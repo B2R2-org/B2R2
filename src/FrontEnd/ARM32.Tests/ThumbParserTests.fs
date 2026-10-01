@@ -45,7 +45,7 @@ type ThumbParserTests() =
   let test c op (wback: bool) q (s: SIMDDataTypes option) (oprs: Operands) bs =
     let isa = ISA(Architecture.ARMv7, Endian.Big)
     let reader = BinReader.Init Endian.Big
-    let parser = ARM32Parser(isa, true, reader) :> IInstructionParsable
+    let parser = Parser(isa, true, reader) :> IInstructionParsable
     let ins = parser.Parse(bs = bs, addr = 0UL) :?> Instruction
     let cond' = ins.Condition
     let opcode' = ins.Opcode
@@ -80,7 +80,7 @@ type ThumbParserTests() =
   let testDisasm (byteString: string) (expected: string) =
     let bytes = ByteArray.ofHexString byteString
     let isa = ISA(Architecture.ARMv7, Endian.Big)
-    let parser = ARM32Parser(isa, true, BinReader.Init Endian.Big)
+    let parser = Parser(isa, true, BinReader.Init Endian.Big)
     let ins = (parser :> IInstructionParsable).Parse(bytes, 0UL)
     Assert.AreEqual<string>(expected, ins.Disasm())
 
@@ -90,7 +90,7 @@ type ThumbParserTests() =
     let bytes = ByteArray.ofHexString byteString
     let isa = ISA(Architecture.ARMv7, Endian.Big)
     let reader = BinReader.Init Endian.Big
-    let parser = ARM32Parser(isa, true, reader) :> IInstructionParsable
+    let parser = Parser(isa, true, reader) :> IInstructionParsable
     Assert.ThrowsExactly<ParsingFailureException>(fun () ->
       parser.Parse(bs = bytes, addr = 0UL) |> ignore)
     |> ignore
@@ -98,7 +98,7 @@ type ThumbParserTests() =
   /// The disassembly of a word under the ISA a name gives, or nothing where
   /// that ISA leaves the word UNDEFINED.
   let under (isaName: string) (byteString: string) =
-    let parser = ARM32Parser(ISA isaName, true, BinReader.Init Endian.Big)
+    let parser = Parser(ISA isaName, true, BinReader.Init Endian.Big)
     let bytes = ByteArray.ofHexString byteString
     try Some(((parser :> IInstructionParsable).Parse(bytes, 0UL)).Disasm())
     with :? ParsingFailureException -> None

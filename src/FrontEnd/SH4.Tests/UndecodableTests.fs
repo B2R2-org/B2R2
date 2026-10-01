@@ -37,7 +37,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 type UndecodableTests() =
   static let reader = BinReader.Init Endian.Little
 
-  static let parser = SH4Parser(reader) :> IInstructionParsable
+  static let parser = Parser(reader) :> IInstructionParsable
 
   [<TestMethod>]
   member _.``[SH4] Undecodable Bytes Do Not Parse Test``() =

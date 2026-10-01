@@ -51,7 +51,7 @@ module private Shortcut =
 type ParserTests() =
   let test (bytes: byte[]) (opcode, oprs: Operands) =
     let reader = BinReader.Init Endian.Little
-    let parser = AVRParser(reader) :> IInstructionParsable
+    let parser = Parser(reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
     let ins = parser.Parse(span, 0UL) :?> Instruction
     Assert.AreEqual<Opcode>(opcode, ins.Opcode)

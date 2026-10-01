@@ -114,7 +114,7 @@ module private Shortcut =
 type ParserTests() =
   let parse (isa: ISA) (bytes: byte[]) =
     let reader = BinReader.Init Endian.Big
-    let parser = ARM32Parser(isa, false, reader) :> IInstructionParsable
+    let parser = Parser(isa, false, reader) :> IInstructionParsable
     parser.Parse(bytes, 0UL) :?> Instruction
 
   let assertIns cond op wback simd oprs (ins: Instruction) =
@@ -160,7 +160,7 @@ type ParserTests() =
   /// The disassembly of a word under the ISA a name gives, or nothing where
   /// that ISA leaves the word UNDEFINED.
   let under (isaName: string) (byteString: string) =
-    let parser = ARM32Parser(ISA isaName, false, BinReader.Init Endian.Big)
+    let parser = Parser(ISA isaName, false, BinReader.Init Endian.Big)
     let bytes = ByteArray.ofHexString byteString
     try Some(((parser :> IInstructionParsable).Parse(bytes, 0UL)).Disasm())
     with :? ParsingFailureException -> None

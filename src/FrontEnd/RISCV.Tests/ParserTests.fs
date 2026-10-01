@@ -47,7 +47,7 @@ module private Shortcut =
 
   let parserFor wordSize =
     let isa = ISA(Architecture.RISCV, Endian.Little, wordSize)
-    RISCVParser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
 
   let parse wordSize (bytes: byte[]) =
     (parserFor wordSize).Parse(System.ReadOnlySpan bytes, 0UL)

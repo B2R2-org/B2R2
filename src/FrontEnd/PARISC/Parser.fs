@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for PARISC instructions.
-type PARISCParser(isa: ISA, reader) =
+type Parser(isa: ISA, reader) =
   let wordSize = isa.WordSize
 
   let lifter =

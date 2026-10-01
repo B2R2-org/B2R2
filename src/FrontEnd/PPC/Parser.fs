@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 /// Represents a parser for PPC instructions. The word size selects the PowerPC
 /// variant, which decides both the width of a register and whether the 64-bit
 /// forms (ld/std, the rotate-doubleword family, and so on) are recognized.
-type PPCParser(wordSize: WordSize, reader) =
+type Parser(wordSize: WordSize, reader) =
 
   let rt = WordSize.toRegType wordSize
 

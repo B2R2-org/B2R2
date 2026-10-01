@@ -108,7 +108,7 @@ module internal ARM32Sweep =
   let probes () =
     let isa = ISA(Architecture.ARMv7, WordSize.Bit32)
     let parser =
-      ARM32Parser(isa, false, BinReader.Init Endian.Little)
+      Parser(isa, false, BinReader.Init Endian.Little)
       :> IInstructionParsable
     [ for word in words do
         match decode parser word with
@@ -126,7 +126,7 @@ module internal ARM32Sweep =
   /// </summary>
   let thumbProbes () =
     let isa = ISA(Architecture.ARMv7, WordSize.Bit32)
-    let parser = ARM32Parser(isa, true, BinReader.Init Endian.Little)
+    let parser = Parser(isa, true, BinReader.Init Endian.Little)
     let switch = parser :> IModeSwitchable
     let parsable = parser :> IInstructionParsable
     let decodeThumb (halfword: uint16) =

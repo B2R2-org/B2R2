@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for MIPS instructions.
-type MIPSParser(isa: ISA, reader) =
+type Parser(isa: ISA, reader) =
   let wordSize = isa.WordSize
   let arch = isa.Arch
   let release = isa.MIPSRelease

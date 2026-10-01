@@ -100,7 +100,7 @@ module internal AVRSweep =
   /// that changed rather than as text that happened to agree.
   /// </summary>
   let probes () =
-    let parser = AVRParser(BinReader.Init Endian.Little) :> IInstructionParsable
+    let parser = Parser(BinReader.Init Endian.Little) :> IInstructionParsable
     let short = words |> Seq.choose (fun w -> decode parser w 0x1234us)
     let wide =
       seq { for first in wideWords do

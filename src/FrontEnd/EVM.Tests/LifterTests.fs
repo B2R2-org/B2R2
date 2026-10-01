@@ -50,7 +50,7 @@ type LifterTests() =
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
   let test (bytes: byte[], givenStmts) =
-    let parser = EVMParser isa :> IInstructionParsable
+    let parser = Parser isa :> IInstructionParsable
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)

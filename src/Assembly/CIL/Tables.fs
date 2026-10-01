@@ -88,7 +88,7 @@ let private mnemonicOf (ins: Instruction) =
 /// Walks the whole candidate space and writes down what the decoder made of
 /// each one. No two instructions share a name, so a name finds one encoding.
 let private build () =
-  let parser = CILParser(BinReader.Init Endian.Little) :> IInstructionParsable
+  let parser = Parser(BinReader.Init Endian.Little) :> IInstructionParsable
   let dict = Dictionary<string, Encoding>()
   for code in candidates do
     match probe parser code with

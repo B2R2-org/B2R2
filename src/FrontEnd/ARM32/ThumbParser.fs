@@ -28,7 +28,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM32.ParseUtils
 open B2R2.FrontEnd.ARM32.OperandHelper
 #if !EMULATION
-open B2R2.FrontEnd.ARM32.ARMValidator
+open B2R2.FrontEnd.ARM32.Validator
 #endif
 open OperandParsingHelper
 

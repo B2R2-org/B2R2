@@ -178,7 +178,7 @@ module internal RISCVSweep =
   let probes wordSize =
     let isa = ISA(Architecture.RISCV, Endian.Little, wordSize)
     let parser =
-      RISCVParser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+      Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
     let byForm = List.choose (decode parser) formWords
     let forms =
       byForm

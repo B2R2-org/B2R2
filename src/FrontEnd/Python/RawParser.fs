@@ -44,7 +44,7 @@ open B2R2.FrontEnd.BinLifter
 /// back out of that, which costs a marshal per call and is what makes it a
 /// parser for tools rather than for a corpus.
 /// </summary>
-type PythonRawParser(isa: ISA, reader: IBinReader) =
+type RawParser(isa: ISA, reader: IBinReader) =
   let version = LanguagePrimitives.EnumOfValue<int, PythonVersion> isa.Flags
 
   let magic = try Builder.magicOf version with _ -> raise InvalidISAException
@@ -52,7 +52,7 @@ type PythonRawParser(isa: ISA, reader: IBinReader) =
   let parse (bs: byte[]) =
     let pyc = Builder.build version magic (Builder.codeOf bs)
     let file = PythonBinFile("", pyc)
-    let parser = PythonParser(file, reader) :> IInstructionParsable
+    let parser = Parser(file, reader) :> IInstructionParsable
     (* Each call builds a file of its own, so the bytes always begin where
        that file put them. The caller's address names a place in its own
        stream, which this file knows nothing about, and B2R2 addresses a

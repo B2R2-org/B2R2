@@ -74,7 +74,7 @@ type IntelRoundTripTests() =
 
   static let disasm wordSize (bytes: byte[]) =
     let parser =
-      IntelParser(wordSize, BinReader.Init Endian.Little)
+      Parser(wordSize, BinReader.Init Endian.Little)
       :> IInstructionParsable
     (parser.Parse(bytes, 0UL).Disasm()).ToLowerInvariant()
 
@@ -279,7 +279,7 @@ type IntelRoundTripTests() =
   /// the decoder believes it has.
   let decodedLength wordSize (bytes: byte[]) =
     let parser =
-      IntelParser(wordSize, BinReader.Init Endian.Little)
+      Parser(wordSize, BinReader.Init Endian.Little)
       :> IInstructionParsable
     try
       let ins = parser.Parse(Array.append bytes (Array.zeroCreate 16), 0UL)

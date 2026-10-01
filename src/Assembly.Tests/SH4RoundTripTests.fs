@@ -63,7 +63,7 @@ type SH4RoundTripTests() =
   /// One parser, reused across the whole sweep. The sweep asks for tens of
   /// thousands of decodings, so building one each time would dominate the run.
   static let parser =
-    SH4Parser(BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let assembler = Assembler(isa, 0UL) :> ILowerable
 

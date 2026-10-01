@@ -69,10 +69,10 @@ type RISCVRoundTripTests() =
   /// asks for millions of decodings, so building one each time would dominate
   /// the run.
   static let parser32 =
-    RISCVParser(isa32, BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(isa32, BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let parser64 =
-    RISCVParser(isa64, BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(isa64, BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let assembler32 = Assembler(isa32, 0UL) :> ILowerable
 

@@ -191,7 +191,7 @@ module internal S390Sweep =
   /// none of what z/Architecture added.
   let parserFor wordSize =
     let isa = ISA(Architecture.S390, Endian.Big, wordSize)
-    S390Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
 
   /// The instructions of the given probes that a target of the given word size
   /// reads. A 32-bit target reads only the part of the instruction set ESA/390

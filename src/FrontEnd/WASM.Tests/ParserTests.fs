@@ -41,7 +41,7 @@ open type Opcode
 [<TestClass>]
 type ParserTests() =
   static let parser =
-    WASMParser(BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(BinReader.Init Endian.Little) :> IInstructionParsable
 
   let test hex (opcode, oprs: Operands, len: uint32) =
     let bytes = ByteArray.ofHexString hex

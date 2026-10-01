@@ -30,14 +30,14 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for 64-bit ARM instructions, which reads what the
 /// version the ISA names has and refuses the rest.
-type ARM64Parser(isa: ISA, reader) =
+type Parser(isa: ISA, reader) =
   let lifter =
     { new ILiftable with
         member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   /// A parser that reads every encoding, whichever version it belongs to.
-  new(reader: IBinReader) = ARM64Parser(ISA Architecture.ARMv8, reader)
+  new(reader: IBinReader) = Parser(ISA Architecture.ARMv8, reader)
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4

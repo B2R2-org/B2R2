@@ -68,7 +68,7 @@ type LifterTests() =
   /// branch handling, and the two are able to disagree.
   let branchTargetAt (isa: ISA) (hex: string) (addr: uint64) =
     let reader = BinReader.Init isa.Endian
-    let parser = ARM32Parser(isa, true, reader) :> IInstructionParsable
+    let parser = Parser(isa, true, reader) :> IInstructionParsable
     let ins = parser.Parse(ByteArray.ofHexString hex, addr)
     let mutable target = 0UL
     let ok = ins.DirectBranchTarget(&target)
@@ -78,7 +78,7 @@ type LifterTests() =
     ByteArray.ofHexString byteStr, givenStmts
 
   let test isThumb (bytes: byte[]) (givenStmts: Stmt[]) =
-    let parser = ARM32Parser(isa, isThumb, reader) :> IInstructionParsable
+    let parser = Parser(isa, isThumb, reader) :> IInstructionParsable
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
     let ins = parser.Parse(bytes, 0UL)
     let liftInstr = ins.Translate builder
@@ -90,7 +90,7 @@ type LifterTests() =
 
   /// The statements one encoding lifts to.
   let liftedBy isThumb (hex: string) =
-    let parser = ARM32Parser(isa, isThumb, reader) :> IInstructionParsable
+    let parser = Parser(isa, isThumb, reader) :> IInstructionParsable
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     ins.Translate builder

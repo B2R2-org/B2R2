@@ -52,7 +52,7 @@ type MIPS32ParserTests() =
   let test endian opcode cond fmt (oprs: Operands) (bytes: byte[]) =
     let isa = ISA(Architecture.MIPS, endian, WordSize.Bit32)
     let reader = BinReader.Init endian
-    let parser = MIPSParser(isa, reader) :> IInstructionParsable
+    let parser = Parser(isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
     let ins = parser.Parse(span, 0UL) :?> Instruction
     let opcode' = ins.Opcode
@@ -108,7 +108,7 @@ type MIPS32ParserTests() =
         "9d290000", LWU ]
     let parserAt wordSize =
       let isa = ISA(Architecture.MIPS, Endian.Big, wordSize)
-      MIPSParser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+      Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
     let parser32 = parserAt WordSize.Bit32
     let parser64 = parserAt WordSize.Bit64
     for hex, opcode in words do
@@ -141,7 +141,7 @@ type MIPS32ParserTests() =
         "46c4102f", PUUPS
         "4d2a0001", LDXC1 ]
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
-    let parser = MIPSParser(isa, BinReader.Init Endian.Big)
+    let parser = Parser(isa, BinReader.Init Endian.Big)
                  :> IInstructionParsable
     for hex, opcode in words do
       let bytes = ByteArray.ofHexString hex

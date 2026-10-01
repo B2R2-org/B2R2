@@ -154,7 +154,7 @@ let private add (dict: Dictionary<_, _>) name encoding =
 /// Walks the whole candidate space and writes down what the decoder made of
 /// each one.
 let private build () =
-  let parser = WASMParser(BinReader.Init Endian.Little) :> IInstructionParsable
+  let parser = Parser(BinReader.Init Endian.Little) :> IInstructionParsable
   let dict = Dictionary<string, Encoding list>()
   for code in candidates do
     match probe parser code with

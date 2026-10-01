@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for m68k instructions.
-type M68KParser(isa: ISA, reader) =
+type Parser(isa: ISA, reader) =
   let model = isa.M68KModel
 
   let lifter =

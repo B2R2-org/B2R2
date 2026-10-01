@@ -39,7 +39,7 @@ open type Opcode
 [<TestClass>]
 type ParserTests() =
   static let parser =
-    CILParser(BinReader.Init Endian.Little) :> IInstructionParsable
+    Parser(BinReader.Init Endian.Little) :> IInstructionParsable
 
   let parseAt addr hex =
     let bytes = ByteArray.ofHexString hex
