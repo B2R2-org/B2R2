@@ -296,3 +296,43 @@ type DisassemblerTests() =
     "c4e2635cca"
     ++ [| "tdpfp16ps tmm1, tmm2, tmm3"; "tdpfp16ps %tmm3, %tmm2, %tmm1" |]
     |> testX64
+
+  (* AMD SSE4a. The Intel manual does not cover these, so their rows are the
+     ones Intel.json carries with a note rather than ones read from the SDM;
+     pinning every encoding here keeps a regeneration from dropping them
+     without a word. AMD64 APM Vol. 4. *)
+  [<TestMethod>]
+  member _.``X64 SSE4a non-temporal store test (1)``() =
+    "f30f2b08"
+    ++ [| "movntss dword ptr [rax], xmm1"; "movntssl %xmm1, (%rax)" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 SSE4a non-temporal store test (2)``() =
+    "f20f2b08"
+    ++ [| "movntsd qword ptr [rax], xmm1"; "movntsdq %xmm1, (%rax)" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 SSE4a field extract test (1)``() =
+    "660f78c10408"
+    ++ [| "extrq xmm1, 0x4, 0x8"; "extrq $0x8, $0x4, %xmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 SSE4a field extract test (2)``() =
+    "660f79ca"
+    ++ [| "extrq xmm1, xmm2"; "extrq %xmm2, %xmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 SSE4a field insert test (1)``() =
+    "f20f78ca0408"
+    ++ [| "insertq xmm1, xmm2, 0x4, 0x8"; "insertq $0x8, $0x4, %xmm2, %xmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 SSE4a field insert test (2)``() =
+    "f20f79ca"
+    ++ [| "insertq xmm1, xmm2"; "insertq %xmm2, %xmm1" |]
+    |> testX64
