@@ -168,6 +168,80 @@ type RegisterFactory(isa: ISA) =
   let exMonAddr = AST.var 32<rt> (Register.toRegID ExMonAddr) "ExMonAddr"
   let exMonVal = AST.var 32<rt> (Register.toRegID ExMonVal) "ExMonVal"
 
+  (* Banked registers *)
+  let r8usr = AST.var 32<rt> (Register.toRegID R8usr) "R8usr"
+  let r9usr = AST.var 32<rt> (Register.toRegID R9usr) "R9usr"
+  let r10usr = AST.var 32<rt> (Register.toRegID R10usr) "R10usr"
+  let r11usr = AST.var 32<rt> (Register.toRegID R11usr) "R11usr"
+  let r12usr = AST.var 32<rt> (Register.toRegID R12usr) "R12usr"
+  let spusr = AST.var 32<rt> (Register.toRegID SPusr) "SPusr"
+  let lrusr = AST.var 32<rt> (Register.toRegID LRusr) "LRusr"
+  let sphyp = AST.var 32<rt> (Register.toRegID SPhyp) "SPhyp"
+  let spsrhyp = AST.var 32<rt> (Register.toRegID SPSRhyp) "SPSRhyp"
+  let elrhyp = AST.var 32<rt> (Register.toRegID ELRhyp) "ELRhyp"
+  let spsvc = AST.var 32<rt> (Register.toRegID SPsvc) "SPsvc"
+  let lrsvc = AST.var 32<rt> (Register.toRegID LRsvc) "LRsvc"
+  let spsrsvc = AST.var 32<rt> (Register.toRegID SPSRsvc) "SPSRsvc"
+  let spabt = AST.var 32<rt> (Register.toRegID SPabt) "SPabt"
+  let lrabt = AST.var 32<rt> (Register.toRegID LRabt) "LRabt"
+  let spsrabt = AST.var 32<rt> (Register.toRegID SPSRabt) "SPSRabt"
+  let spund = AST.var 32<rt> (Register.toRegID SPund) "SPund"
+  let lrund = AST.var 32<rt> (Register.toRegID LRund) "LRund"
+  let spsrund = AST.var 32<rt> (Register.toRegID SPSRund) "SPSRund"
+  let spmon = AST.var 32<rt> (Register.toRegID SPmon) "SPmon"
+  let lrmon = AST.var 32<rt> (Register.toRegID LRmon) "LRmon"
+  let spsrmon = AST.var 32<rt> (Register.toRegID SPSRmon) "SPSRmon"
+  let spirq = AST.var 32<rt> (Register.toRegID SPirq) "SPirq"
+  let lrirq = AST.var 32<rt> (Register.toRegID LRirq) "LRirq"
+  let spsrirq = AST.var 32<rt> (Register.toRegID SPSRirq) "SPSRirq"
+  let r8fiq = AST.var 32<rt> (Register.toRegID R8fiq) "R8fiq"
+  let r9fiq = AST.var 32<rt> (Register.toRegID R9fiq) "R9fiq"
+  let r10fiq = AST.var 32<rt> (Register.toRegID R10fiq) "R10fiq"
+  let r11fiq = AST.var 32<rt> (Register.toRegID R11fiq) "R11fiq"
+  let r12fiq = AST.var 32<rt> (Register.toRegID R12fiq) "R12fiq"
+  let spfiq = AST.var 32<rt> (Register.toRegID SPfiq) "SPfiq"
+  let lrfiq = AST.var 32<rt> (Register.toRegID LRfiq) "LRfiq"
+  let spsrfiq = AST.var 32<rt> (Register.toRegID SPSRfiq) "SPSRfiq"
+
+  (* Coprocessor 15 registers *)
+  let midr = AST.var 32<rt> (Register.toRegID MIDR) "MIDR"
+  let ctr = AST.var 32<rt> (Register.toRegID CTR) "CTR"
+  let mpidr = AST.var 32<rt> (Register.toRegID MPIDR) "MPIDR"
+  let idpfr0 = AST.var 32<rt> (Register.toRegID IDPFR0) "IDPFR0"
+  let idpfr1 = AST.var 32<rt> (Register.toRegID IDPFR1) "IDPFR1"
+  let iddfr0 = AST.var 32<rt> (Register.toRegID IDDFR0) "IDDFR0"
+  let idafr0 = AST.var 32<rt> (Register.toRegID IDAFR0) "IDAFR0"
+  let idmmfr0 = AST.var 32<rt> (Register.toRegID IDMMFR0) "IDMMFR0"
+  let idmmfr1 = AST.var 32<rt> (Register.toRegID IDMMFR1) "IDMMFR1"
+  let idmmfr2 = AST.var 32<rt> (Register.toRegID IDMMFR2) "IDMMFR2"
+  let idmmfr3 = AST.var 32<rt> (Register.toRegID IDMMFR3) "IDMMFR3"
+  let idisar0 = AST.var 32<rt> (Register.toRegID IDISAR0) "IDISAR0"
+  let idisar1 = AST.var 32<rt> (Register.toRegID IDISAR1) "IDISAR1"
+  let idisar2 = AST.var 32<rt> (Register.toRegID IDISAR2) "IDISAR2"
+  let idisar3 = AST.var 32<rt> (Register.toRegID IDISAR3) "IDISAR3"
+  let idisar4 = AST.var 32<rt> (Register.toRegID IDISAR4) "IDISAR4"
+  let idisar5 = AST.var 32<rt> (Register.toRegID IDISAR5) "IDISAR5"
+  let clidr = AST.var 32<rt> (Register.toRegID CLIDR) "CLIDR"
+  let csselr = AST.var 32<rt> (Register.toRegID CSSELR) "CSSELR"
+  let cpacr = AST.var 32<rt> (Register.toRegID CPACR) "CPACR"
+  let ttbr0 = AST.var 32<rt> (Register.toRegID TTBR0) "TTBR0"
+  let ttbr1 = AST.var 32<rt> (Register.toRegID TTBR1) "TTBR1"
+  let ttbcr = AST.var 32<rt> (Register.toRegID TTBCR) "TTBCR"
+  let dacr = AST.var 32<rt> (Register.toRegID DACR) "DACR"
+  let dfsr = AST.var 32<rt> (Register.toRegID DFSR) "DFSR"
+  let ifsr = AST.var 32<rt> (Register.toRegID IFSR) "IFSR"
+  let dfar = AST.var 32<rt> (Register.toRegID DFAR) "DFAR"
+  let ifar = AST.var 32<rt> (Register.toRegID IFAR) "IFAR"
+  let par = AST.var 32<rt> (Register.toRegID PAR) "PAR"
+  let prrr = AST.var 32<rt> (Register.toRegID PRRR) "PRRR"
+  let nmrr = AST.var 32<rt> (Register.toRegID NMRR) "NMRR"
+  let vbar = AST.var 32<rt> (Register.toRegID VBAR) "VBAR"
+  let fcseidr = AST.var 32<rt> (Register.toRegID FCSEIDR) "FCSEIDR"
+  let contextidr = AST.var 32<rt> (Register.toRegID CONTEXTIDR) "CONTEXTIDR"
+  let tpidrurw = AST.var 32<rt> (Register.toRegID TPIDRURW) "TPIDRURW"
+  let tpidrprw = AST.var 32<rt> (Register.toRegID TPIDRPRW) "TPIDRPRW"
+  let cntfrq = AST.var 32<rt> (Register.toRegID CNTFRQ) "CNTFRQ"
+
   interface IRegisterFactory with
     member _.ISA = isa
 
@@ -269,6 +343,76 @@ type RegisterFactory(isa: ISA) =
       | R.TPIDRURO -> tpidruro
       | R.ExMonAddr -> exMonAddr
       | R.ExMonVal -> exMonVal
+      | R.R8usr -> r8usr
+      | R.R9usr -> r9usr
+      | R.R10usr -> r10usr
+      | R.R11usr -> r11usr
+      | R.R12usr -> r12usr
+      | R.SPusr -> spusr
+      | R.LRusr -> lrusr
+      | R.SPhyp -> sphyp
+      | R.SPSRhyp -> spsrhyp
+      | R.ELRhyp -> elrhyp
+      | R.SPsvc -> spsvc
+      | R.LRsvc -> lrsvc
+      | R.SPSRsvc -> spsrsvc
+      | R.SPabt -> spabt
+      | R.LRabt -> lrabt
+      | R.SPSRabt -> spsrabt
+      | R.SPund -> spund
+      | R.LRund -> lrund
+      | R.SPSRund -> spsrund
+      | R.SPmon -> spmon
+      | R.LRmon -> lrmon
+      | R.SPSRmon -> spsrmon
+      | R.SPirq -> spirq
+      | R.LRirq -> lrirq
+      | R.SPSRirq -> spsrirq
+      | R.R8fiq -> r8fiq
+      | R.R9fiq -> r9fiq
+      | R.R10fiq -> r10fiq
+      | R.R11fiq -> r11fiq
+      | R.R12fiq -> r12fiq
+      | R.SPfiq -> spfiq
+      | R.LRfiq -> lrfiq
+      | R.SPSRfiq -> spsrfiq
+      | R.MIDR -> midr
+      | R.CTR -> ctr
+      | R.MPIDR -> mpidr
+      | R.IDPFR0 -> idpfr0
+      | R.IDPFR1 -> idpfr1
+      | R.IDDFR0 -> iddfr0
+      | R.IDAFR0 -> idafr0
+      | R.IDMMFR0 -> idmmfr0
+      | R.IDMMFR1 -> idmmfr1
+      | R.IDMMFR2 -> idmmfr2
+      | R.IDMMFR3 -> idmmfr3
+      | R.IDISAR0 -> idisar0
+      | R.IDISAR1 -> idisar1
+      | R.IDISAR2 -> idisar2
+      | R.IDISAR3 -> idisar3
+      | R.IDISAR4 -> idisar4
+      | R.IDISAR5 -> idisar5
+      | R.CLIDR -> clidr
+      | R.CSSELR -> csselr
+      | R.CPACR -> cpacr
+      | R.TTBR0 -> ttbr0
+      | R.TTBR1 -> ttbr1
+      | R.TTBCR -> ttbcr
+      | R.DACR -> dacr
+      | R.DFSR -> dfsr
+      | R.IFSR -> ifsr
+      | R.DFAR -> dfar
+      | R.IFAR -> ifar
+      | R.PAR -> par
+      | R.PRRR -> prrr
+      | R.NMRR -> nmrr
+      | R.VBAR -> vbar
+      | R.FCSEIDR -> fcseidr
+      | R.CONTEXTIDR -> contextidr
+      | R.TPIDRURW -> tpidrurw
+      | R.TPIDRPRW -> tpidrprw
+      | R.CNTFRQ -> cntfrq
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar name =
@@ -551,7 +695,77 @@ type RegisterFactory(isa: ISA) =
          sctlr
          scr
          nsacr
-         tpidruro |]
+         tpidruro
+         r8usr
+         r9usr
+         r10usr
+         r11usr
+         r12usr
+         spusr
+         lrusr
+         sphyp
+         spsrhyp
+         elrhyp
+         spsvc
+         lrsvc
+         spsrsvc
+         spabt
+         lrabt
+         spsrabt
+         spund
+         lrund
+         spsrund
+         spmon
+         lrmon
+         spsrmon
+         spirq
+         lrirq
+         spsrirq
+         r8fiq
+         r9fiq
+         r10fiq
+         r11fiq
+         r12fiq
+         spfiq
+         lrfiq
+         spsrfiq
+         midr
+         ctr
+         mpidr
+         idpfr0
+         idpfr1
+         iddfr0
+         idafr0
+         idmmfr0
+         idmmfr1
+         idmmfr2
+         idmmfr3
+         idisar0
+         idisar1
+         idisar2
+         idisar3
+         idisar4
+         idisar5
+         clidr
+         csselr
+         cpacr
+         ttbr0
+         ttbr1
+         ttbcr
+         dacr
+         dfsr
+         ifsr
+         dfar
+         ifar
+         par
+         prrr
+         nmrr
+         vbar
+         fcseidr
+         contextidr
+         tpidrurw
+         tpidrprw
+         cntfrq |]
 
     member _.GetGeneralRegVars() =
       [| r0

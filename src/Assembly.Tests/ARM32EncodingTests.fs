@@ -605,3 +605,16 @@ type ARM32EncodingTests() =
   [<TestMethod>]
   member _.``Thumb VQDMULH by an element encodes``() =
     Assert.AreEqual<string>("91ef4f0c", encodeThumb "vqdmulh.s16 d0, d1, d7[1]")
+
+  /// MSR to SPSR sets the R bit, which is all that tells it from MSR to CPSR.
+  [<TestMethod>]
+  member _.``MSR (register) to SPSR encodes``() =
+    Assert.AreEqual<string>("01f06fe1", encode "msr spsr_fsxc, r1")
+
+  [<TestMethod>]
+  member _.``MSR (immediate) to SPSR encodes``() =
+    Assert.AreEqual<string>("fff068e3", encode "msr spsr_f, #0xff")
+
+  [<TestMethod>]
+  member _.``Thumb MSR to SPSR encodes``() =
+    Assert.AreEqual<string>("91f3008f", encodeThumb "msr spsr_fsxc, r1")

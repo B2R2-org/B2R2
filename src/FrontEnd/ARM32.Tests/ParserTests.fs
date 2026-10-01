@@ -1357,3 +1357,12 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] VLDM past S31 is refused in every build``() =
     testRefused "ecd0fa02"
+
+  /// MSR names SPSR with its R bit, bit 22, as MRS does.
+  [<TestMethod>]
+  member _.``[ARMv7] MSR (register) can name SPSR``() =
+    testDisasm "e16ff001" "msr spsr_fsxc, r1"
+
+  [<TestMethod>]
+  member _.``[ARMv7] MSR (immediate) can name SPSR``() =
+    testDisasm "e368f0ff" "msr spsr_f, #0xff"

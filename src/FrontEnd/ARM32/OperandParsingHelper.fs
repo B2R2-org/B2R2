@@ -1332,7 +1332,9 @@ type internal OprRdSregA() =
 type internal OprSregRnA() =
   inherit OperandParser()
   override _.Render bin =
-    let struct (sreg, flag) = getCPSR (extract bin 19 16)
+    let mask = extract bin 19 16
+    let struct (sreg, flag) =
+      if pickBit bin 22 = 0u then getCPSR mask else getSPSR mask
     let rn = extract bin 3 0 |> getRegister |> OprReg
     struct (TwoOperands(OprSpecReg(sreg, flag), rn), false, None, 32<rt>)
 
@@ -1882,7 +1884,9 @@ type internal OprRdImm16A() =
 type internal OprSregImm() =
   inherit OperandParser()
   override _.Render bin =
-    let struct (sreg, flag) = getCPSR (extract bin 19 16)
+    let mask = extract bin 19 16
+    let struct (sreg, flag) =
+      if pickBit bin 22 = 0u then getCPSR mask else getSPSR mask
     let imm = expandImmediate bin |> int64 |> OprImm
     struct (TwoOperands(OprSpecReg(sreg, flag), imm), false, None, 32<rt>)
 
@@ -3872,7 +3876,9 @@ type internal OprRnRegsW() =
 type internal OprSregRnT() =
   inherit OperandParser()
   override _.Render bin =
-    let struct (sreg, flag) = getCPSR (extract bin 11 8) (* mask *)
+    let mask = extract bin 11 8
+    let struct (sreg, flag) =
+      if pickBit bin 20 = 0u then getCPSR mask else getSPSR mask
     let rn = extract bin 19 16 |> getRegister |> OprReg
     struct (TwoOperands(OprSpecReg(sreg, flag), rn), false, None, 32<rt>)
 

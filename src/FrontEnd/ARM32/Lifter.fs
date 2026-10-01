@@ -36,6 +36,7 @@ open B2R2.FrontEnd.ARM32.IRHelper
 open B2R2.FrontEnd.ARM32.LiftingUtils
 open B2R2.FrontEnd.ARM32.GeneralLifter
 open B2R2.FrontEnd.ARM32.NEONLifter
+open B2R2.FrontEnd.ARM32.SystemLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -82,7 +83,7 @@ let translate (ins: Instruction) bld =
     cbz true ins bld
   | Op.CBZ ->
     cbz false ins bld
-  | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR | Op.MCR2
+  | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR2
   | Op.MCRR | Op.MCRR2 | Op.MRC2 | Op.MRRC | Op.MRRC2 | Op.STC
   | Op.STC2 | Op.STC2L | Op.STCL ->
     (* coprocessor instructions *)
@@ -93,6 +94,8 @@ let translate (ins: Instruction) bld =
     cmn ins bld
   | Op.CMP ->
     cmp ins bld
+  | Op.CPS | Op.CPSID | Op.CPSIE ->
+    cps ins bld
   | Op.CLREX | Op.DMB | Op.DSB | Op.ISB | Op.PLD | Op.PLI | Op.PLDW ->
     nop ins bld
   | Op.EOR ->
@@ -171,6 +174,8 @@ let translate (ins: Instruction) bld =
     msr ins bld
   | Op.MRC ->
     mrc ins bld
+  | Op.MCR ->
+    mcr ins bld
   | Op.MUL ->
     mul false ins bld
   | Op.MULS ->

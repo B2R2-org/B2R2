@@ -1271,3 +1271,8 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[T32] VLDM past S31 is refused in every build``() =
     testRefused "ecd0fa02"
+
+  /// MSR names SPSR with its R bit, bit 20 of the first halfword.
+  [<TestMethod>]
+  member _.``[T32] MSR can name SPSR``() =
+    testDisasm "f3918f00" "msr spsr_fsxc, r1"

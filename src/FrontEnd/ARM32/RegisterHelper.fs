@@ -44,7 +44,18 @@ module internal RegisterHelper =
     | R.S18 | R.S19 | R.S20 | R.S21 | R.S22 | R.S23 | R.S24 | R.S25
     | R.S26 | R.S27 | R.S28 | R.S29 | R.S30 | R.S31
     | R.APSR | R.CPSR | R.SPSR | R.SCR | R.SCTLR | R.NSACR | R.FPSCR
-    | R.TPIDRURO | R.ExMonAddr | R.ExMonVal -> 32<rt>
+    | R.TPIDRURO | R.ExMonAddr | R.ExMonVal
+    | R.R8usr | R.R9usr | R.R10usr | R.R11usr | R.R12usr | R.SPusr | R.LRusr
+    | R.SPhyp | R.SPSRhyp | R.ELRhyp | R.SPsvc | R.LRsvc | R.SPSRsvc | R.SPabt
+    | R.LRabt | R.SPSRabt | R.SPund | R.LRund | R.SPSRund | R.SPmon | R.LRmon
+    | R.SPSRmon | R.SPirq | R.LRirq | R.SPSRirq | R.R8fiq | R.R9fiq | R.R10fiq
+    | R.R11fiq | R.R12fiq | R.SPfiq | R.LRfiq | R.SPSRfiq | R.MIDR | R.CTR
+    | R.MPIDR | R.IDPFR0 | R.IDPFR1 | R.IDDFR0 | R.IDAFR0 | R.IDMMFR0
+    | R.IDMMFR1 | R.IDMMFR2 | R.IDMMFR3 | R.IDISAR0 | R.IDISAR1 | R.IDISAR2
+    | R.IDISAR3 | R.IDISAR4 | R.IDISAR5 | R.CLIDR | R.CSSELR | R.CPACR
+    | R.TTBR0 | R.TTBR1 | R.TTBCR | R.DACR | R.DFSR | R.IFSR | R.DFAR | R.IFAR
+    | R.PAR | R.PRRR | R.NMRR | R.VBAR | R.FCSEIDR | R.CONTEXTIDR | R.TPIDRURW
+    | R.TPIDRPRW | R.CNTFRQ -> 32<rt>
     | R.D0 | R.D1 | R.D2 | R.D3 | R.D4 | R.D5 | R.D6 | R.D7 | R.D8 | R.D9
     | R.D10 | R.D11 | R.D12 | R.D13 | R.D14 | R.D15 | R.D16 | R.D17
     | R.D18 | R.D19 | R.D20 | R.D21 | R.D22 | R.D23 | R.D24 | R.D25

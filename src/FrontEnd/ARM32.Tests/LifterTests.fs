@@ -102,6 +102,21 @@ type LifterTests() =
       | Put(dst, _) -> Some dst
       | _ -> None)
 
+  /// What the statements of one encoding assign to a register, if anything.
+  let assignedBy isThumb hex dst =
+    liftedBy isThumb hex
+    |> Array.tryPick (function
+      | Put(d, src) when d = dst -> Some src
+      | _ -> None)
+
+  /// Whether the statements of one encoding raise an Undefined Instruction
+  /// exception on some path through them.
+  let canBeUndefined isThumb hex =
+    liftedBy isThumb hex
+    |> Array.exists (function
+      | SideEffect BinIR.SideEffect.UndefinedInstruction -> true
+      | _ -> false)
+
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =
     let shiftAmt = AST.zext 32<rt> (AST.xtlo 8<rt> !.R8)
@@ -297,20 +312,21 @@ type LifterTests() =
     |> testARM
 
   (* MSR names which fields it writes, so it is a read-modify-write and not an
-     assignment: everything outside the named field has to survive it. Only the
-     flag field is modelled, which in user mode is the whole of what a program
-     owns of CPSR. *)
+     assignment: everything outside the named field has to survive it. The flag
+     field is the same in every mode, so its write needs no look at the one
+     running. *)
   [<TestMethod>]
   member _.``[ARMv7] MSR writes the flag field and leaves the rest``() =
-    let mask = num 0xf0000000u .| num 0x8000000u
     "e128f000"
-    ++ [| !.CPSR := (!.CPSR .& AST.not mask) .| (!.R0 .& mask) |]
+    ++ [| !.CPSR := (!.CPSR .& num 0x07ffffffu) .| (!.R0 .& num 0xf8000000u) |]
     |> testARM
 
+  /// MRS of CPSR reads every field but the execution state -- the IT, J and T
+  /// bits -- which read as zero (F5-4571).
   [<TestMethod>]
-  member _.``[ARMv7] MRS reads CPSR``() =
+  member _.``[ARMv7] MRS of CPSR hides the execution state``() =
     "e10f0000"
-    ++ [| !.R0 := !.CPSR |]
+    ++ [| !.R0 := !.CPSR .& num 0xf80f03dfu |]
     |> testARM
 
   [<TestMethod>]
@@ -546,3 +562,134 @@ type LifterTests() =
   member _.``[Thumb] RRXS (wide) writes its destination``() =
     let written = writtenBy true "ea5f0831"
     Assert.AreEqual<bool>(true, Array.contains !.R8 written)
+
+  /// MRC reads a coprocessor 15 register into a core register: here MIDR, the
+  /// processor's main ID.
+  [<TestMethod>]
+  member _.``[ARMv7] MRC reads MIDR``() =
+    Assert.AreEqual<Expr option>(Some !.MIDR, assignedBy false "ee101f10" !.R1)
+
+  /// REVIDR is not implemented, so its encoding reads as MIDR.
+  [<TestMethod>]
+  member _.``[ARMv7] MRC reads REVIDR as MIDR``() =
+    Assert.AreEqual<Expr option>(Some !.MIDR, assignedBy false "ee101fd0" !.R1)
+
+  /// TLBTR describes a TLB this processor does not have, and reads as zero.
+  [<TestMethod>]
+  member _.``[ARMv7] MRC reads TLBTR as zero``() =
+    Assert.AreEqual<Expr option>(Some(num 0u), assignedBy false "ee101f70" !.R1)
+
+  /// MCR writes a core register into one, keeping the bits it has.
+  [<TestMethod>]
+  member _.``[ARMv7] MCR writes TTBR0``() =
+    Assert.AreEqual<Expr option>(Some !.R1, assignedBy false "ee021f10" !.TTBR0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MCR keeps VBAR aligned``() =
+    let kept = !.R1 .& num 0xffffffe0u
+    Assert.AreEqual<Expr option>(Some kept, assignedBy false "ee0c1f10" !.VBAR)
+
+  /// TTBCR keeps the fields of the format its own EAE bit selects.
+  [<TestMethod>]
+  member _.``[ARMv7] MCR to TTBCR keeps its format's fields``() =
+    let r1 = !.R1
+    let kept =
+      AST.ite (AST.xthi 1<rt> r1) (r1 .& num 0xffc73f87u) (r1 .& num 0x7u)
+    Assert.AreEqual<Expr option>(Some kept, assignedBy false "ee021f50" !.TTBCR)
+
+  /// The identification registers are the processor's, and writing one is
+  /// UNDEFINED.
+  [<TestMethod>]
+  member _.``[ARMv7] MCR to MIDR is undefined``() =
+    Assert.AreEqual<bool>(true, canBeUndefined false "ee001f10")
+
+  /// The barriers are writes that change nothing a program can see.
+  [<TestMethod>]
+  member _.``[ARMv7] MCR of CP15DSB lifts to nothing``() =
+    "ee071f9a" ++ [||] |> testARM
+
+  /// Every register but the two thread IDs is PL1's, so reading one from User
+  /// mode is UNDEFINED; TPIDRURO is the one User mode may read.
+  [<TestMethod>]
+  member _.``[ARMv7] MRC of SCTLR is refused in User mode``() =
+    Assert.AreEqual<bool>(true, canBeUndefined false "ee111f10")
+
+  [<TestMethod>]
+  member _.``[ARMv7] MRC of TPIDRURO is allowed in User mode``() =
+    Assert.AreEqual<bool>(false, canBeUndefined false "ee1d1f70")
+
+  /// CCSIDR describes the cache CSSELR selects, which is not modelled.
+  [<TestMethod>]
+  member _.``[ARMv7] MRC of CCSIDR is unsupported``() =
+    "ee301f10" ++ [| AST.sideEffect BinIR.SideEffect.UnsupportedInstruction |]
+    |> testARM
+
+  /// The cache maintenance operations need a memory system this front end
+  /// does not have.
+  [<TestMethod>]
+  member _.``[ARMv7] MCR of DCCIMVAC is unsupported``() =
+    "ee071f3e" ++ [| AST.sideEffect BinIR.SideEffect.UnsupportedInstruction |]
+    |> testARM
+
+  [<TestMethod>]
+  member _.``[Thumb] MRC reads MIDR``() =
+    Assert.AreEqual<Expr option>(Some !.MIDR, assignedBy true "ee101f10" !.R1)
+
+  /// MRS of SPSR reads the current mode's SPSR, which User mode does not have.
+  [<TestMethod>]
+  member _.``[ARMv7] MRS of SPSR reads SPSR``() =
+    Assert.AreEqual<Expr option>(Some !.SPSR, assignedBy false "e14f1000" !.R1)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MRS of SPSR is refused in User mode``() =
+    Assert.AreEqual<bool>(true, canBeUndefined false "e14f1000")
+
+  /// MSR of SPSR writes the bytes it names and keeps the others.
+  [<TestMethod>]
+  member _.``[ARMv7] MSR of SPSR keeps the bytes it does not name``() =
+    let kept = (!.SPSR .& num 0xffffff00u) .| (!.R1 .& num 0xffu)
+    Assert.AreEqual<Expr option>(Some kept, assignedBy false "e161f001" !.SPSR)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MSR of SPSR is refused in User mode``() =
+    Assert.AreEqual<bool>(true, canBeUndefined false "e161f001")
+
+  /// A write to CPSR.M changes mode, and a mode change swaps the banked
+  /// registers: the old mode's SP goes back to its copy, and the new mode's
+  /// copy becomes SP.
+  [<TestMethod>]
+  member _.``[ARMv7] MSR of CPSR_c swaps the banked registers``() =
+    let written = writtenBy false "e121f001"
+    Assert.AreEqual<bool>(true, Array.contains !.SPsvc written)
+
+  [<TestMethod>]
+  member _.``[ARMv7] CPS #mode swaps the banked registers``() =
+    let written = writtenBy false "f1020012"
+    Assert.AreEqual<bool>(true, Array.contains !.SPirq written)
+
+  /// FIQ mode has copies of R8 to R12 as well.
+  [<TestMethod>]
+  member _.``[ARMv7] CPS to FIQ mode swaps R8``() =
+    let written = writtenBy false "f1020011"
+    Assert.AreEqual<bool>(true, Array.contains !.R8fiq written)
+
+  /// CPSIE and CPSID clear and set the masks they name, at PL1; in User mode
+  /// CPS does nothing at all.
+  [<TestMethod>]
+  member _.``[ARMv7] CPSIE I clears I at PL1``() =
+    let user = (!.CPSR .& num 0x1fu) == num 0x10u
+    let cleared = AST.ite user !.CPSR (!.CPSR .& num 0xffffff7fu)
+    let written = assignedBy false "f1080080" !.CPSR
+    Assert.AreEqual<Expr option>(Some cleared, written)
+
+  [<TestMethod>]
+  member _.``[ARMv7] CPSID F sets F at PL1``() =
+    let user = (!.CPSR .& num 0x1fu) == num 0x10u
+    let set = AST.ite user !.CPSR (!.CPSR .| num 0x40u)
+    Assert.AreEqual<Expr option>(Some set, assignedBy false "f10c0040" !.CPSR)
+
+  [<TestMethod>]
+  member _.``[Thumb] CPSIE I (narrow) clears I at PL1``() =
+    let user = (!.CPSR .& num 0x1fu) == num 0x10u
+    let cleared = AST.ite user !.CPSR (!.CPSR .& num 0xffffff7fu)
+    Assert.AreEqual<Expr option>(Some cleared, assignedBy true "b662" !.CPSR)

@@ -354,28 +354,6 @@ let vcmp ins bld =
     putEndLabel bld lblIgnore
   }
 
-let mrc (ins: Instruction) bld =
-  match ins.Operands with
-  (* MRC p15, #0, <Rt>, c13, c0, #3 reads TPIDRURO, the PL0 read-only
-     software thread ID register -- the body of Linux's __kuser_get_tls.
-     Rt = PC is UNPREDICTABLE for this encoding, so it is excluded. Every
-     other system-register access stays unsupported. *)
-  | SixOperands(OprReg R.P15,
-                OprImm 0L,
-                OprReg rt,
-                OprReg R.C13,
-                OprReg R.C0,
-                OprImm 3L) when rt <> R.PC ->
-    let rt = regVar bld rt
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    lift bld ins {
-      let lblIgnore = checkCondition ins bld isUnconditional
-      rt := regVar bld R.TPIDRURO
-      putEndLabel bld lblIgnore
-    }
-  | _ ->
-    unsupported ins bld
-
 type ParsingInfo =
   { EBytes: int
     ESize: int
