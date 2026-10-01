@@ -107,7 +107,7 @@ let ofArchEndian arch endian =
   | Architecture.EVM ->
     arch, endian, WordSize.Bit256, 0
   | Architecture.Python ->
-    arch, endian, WordSize.Bit64, 0
+    arch, endian, WordSize.Bit64, int PythonVersion.Python312
   | Architecture.WASM ->
     arch, endian, WordSize.Bit32, 0
   | Architecture.CIL ->
@@ -165,7 +165,7 @@ let ofArchWordSize arch wordSize =
   | Architecture.EVM when wordSize = WordSize.Bit256 ->
     arch, Endian.Big, wordSize, 0
   | Architecture.Python ->
-    arch, Endian.Little, wordSize, 0
+    arch, Endian.Little, wordSize, int PythonVersion.Python312
   | Architecture.WASM ->
     arch, Endian.Little, wordSize, 0
   | Architecture.CIL ->

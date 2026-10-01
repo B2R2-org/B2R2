@@ -145,7 +145,7 @@ type PythonBinFile(path, inputBytes: byte[]) =
 
     member _.Kind with get() = BinFileKind.Unknown
 
-    member _.ISA with get() = ISA(Architecture.Python, Endian.Little)
+    member _.ISA with get() = ISA version
 
     (* A code object runs wherever an interpreter reads it, so it names no
        operating system. *)

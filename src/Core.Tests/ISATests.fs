@@ -234,6 +234,21 @@ type ISATests() =
       Assert.AreEqual<M68KModel>(M68KModel.M68020, isa.M68KModel)
       Assert.AreEqual<string>("m68020", isa.ToString())
 
+  /// A bare "python" has to name a version all the same, and 3.12 is the one
+  /// it takes. Every constructor that leaves the flags to a default has to
+  /// agree, or an ISA built without a version named would hold no version at
+  /// all -- a value no decoder reads and no name prints.
+  [<TestMethod>]
+  member _.``A Python ISA without a named version is 3.12``() =
+    let isas =
+      [ ISA "python"
+        ISA Architecture.Python
+        ISA(Architecture.Python, Endian.Little)
+        ISA(Architecture.Python, WordSize.Bit64) ]
+    for isa in isas do
+      Assert.AreEqual<int>(int PythonVersion.Python312, isa.Flags)
+      Assert.AreEqual<string>("python3.12", isa.ToString())
+
   /// Alpha is little-endian and sixty-four bits and comes in no other form, so
   /// every way of asking for one has to reach the same ISA.
   [<TestMethod>]

@@ -48,6 +48,17 @@ type PythonTests() =
   member _.``[Python] ISA test``() =
     Assert.AreEqual(Architecture.Python, (file :> IBinFile).ISA.Arch)
 
+  /// A .pyc says which version wrote it, and the ISA the file reports has to
+  /// carry it: a Python instruction belongs to the opcode map of its version,
+  /// so an ISA taking the default instead would name a file nobody wrote.
+  [<TestMethod>]
+  member _.``[Python] ISA version test``() =
+    let ver = PythonVersion.Python311
+    let code = Python.Builder.codeOf (Array.zeroCreate 8)
+    let pyc = Python.Builder.build ver (Python.Builder.magicOf ver) code
+    let built = PythonBinFile("", pyc) :> IBinFile
+    Assert.AreEqual<string>("python3.11", built.ISA.ToString())
+
   [<TestMethod>]
   member _.``[Python] OS test``() =
     Assert.AreEqual<OS>(OS.UnknownOS, (file :> IBinFile).OS)
