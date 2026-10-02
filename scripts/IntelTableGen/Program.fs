@@ -516,7 +516,10 @@ let private maps =
     "EVEX", "MAP5", "evexMap5"
     "EVEX", "MAP6", "evexMap6"
     "EVEX", "MAP4", "evexMap4"
-    "EVEX", "MAP7", "evexMap7" ]
+    "EVEX", "MAP7", "evexMap7"
+    "XOP", "MAP8", "xopMap8"
+    "XOP", "MAP9", "xopMap9"
+    "XOP", "MAP10", "xopMap10" ]
 
 /// Reports entries that no emitted table claims. An opcode map we do not
 /// handle yet must not go missing without a word.
@@ -747,7 +750,8 @@ let private opEns =
      "VM1"
      "VMC"
      "VMRI"
-     "VMRC" |]
+     "VMRC"
+     "RVRM" |]
 
 let private mode64s =
   [| "None"

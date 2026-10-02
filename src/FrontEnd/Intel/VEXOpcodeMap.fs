@@ -41670,11 +41670,11 @@ let private v8x38 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNA (oprs) (8<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -41768,11 +41768,11 @@ let private v8x38 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPGE (oprs) (8<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -41796,11 +41796,11 @@ let private v8x38 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNLE (oprs) (8<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (8<rt>) false true
     else
       raise ParsingFailureException
   | _ ->
@@ -41903,11 +41903,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNA (oprs) (32<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -42001,11 +42001,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPGE (oprs) (32<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -42029,11 +42029,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNLE (oprs) (32<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (32<rt>) false true
     else
       raise ParsingFailureException
   | 28 | 30 | 36 | 38 ->
@@ -42130,11 +42130,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNA (oprs) (16<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -42228,11 +42228,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPGE (oprs) (16<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -42256,11 +42256,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNLE (oprs) (16<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (16<rt>) false true
     else
       raise ParsingFailureException
   | 40 ->
@@ -42357,11 +42357,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNA (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -42455,11 +42455,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPGE (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -42483,11 +42483,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNLE (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (64<rt>) false true
     else
       raise ParsingFailureException
   | 44 | 46 ->
@@ -42584,11 +42584,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNA (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -42682,11 +42682,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPGE (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -42710,11 +42710,11 @@ let private v8x39 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CCMPNLE (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (64<rt>) false true
     else
       raise ParsingFailureException
   | _ ->
@@ -42817,11 +42817,11 @@ let private v8x3a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 8<rt>
       if isReg m then
         let o2 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNA (oprs) (8<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -42915,11 +42915,11 @@ let private v8x3a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 8<rt>
       if isReg m then
         let o2 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPGE (oprs) (8<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -42943,11 +42943,11 @@ let private v8x3a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 8<rt>
       if isReg m then
         let o2 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o2 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNLE (oprs) (8<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (8<rt>) false true
     else
       raise ParsingFailureException
   | _ ->
@@ -43050,11 +43050,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 32<rt>
       if isReg m then
         let o2 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNA (oprs) (32<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -43148,11 +43148,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 32<rt>
       if isReg m then
         let o2 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPGE (oprs) (32<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -43176,11 +43176,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 32<rt>
       if isReg m then
         let o2 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNLE (oprs) (32<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (32<rt>) false true
     else
       raise ParsingFailureException
   | 28 | 30 | 36 | 38 ->
@@ -43277,11 +43277,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 16<rt>
       if isReg m then
         let o2 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNA (oprs) (16<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -43375,11 +43375,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 16<rt>
       if isReg m then
         let o2 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPGE (oprs) (16<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -43403,11 +43403,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 16<rt>
       if isReg m then
         let o2 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNLE (oprs) (16<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (16<rt>) false true
     else
       raise ParsingFailureException
   | 40 ->
@@ -43504,11 +43504,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNA (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -43602,11 +43602,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPGE (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -43630,11 +43630,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNLE (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (64<rt>) false true
     else
       raise ParsingFailureException
   | 44 | 46 ->
@@ -43731,11 +43731,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPNA (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNA (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -43829,11 +43829,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPGE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPGE (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -43857,11 +43857,11 @@ let private v8x3b (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CCMPNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CCMPG (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CCMPNLE (oprs) (64<rt>) false true
+        finishA &st Opcode.CCMPG (oprs) (64<rt>) false true
     else
       raise ParsingFailureException
   | _ ->
@@ -44477,8 +44477,7 @@ let private v8x42 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
-      let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CMOVNAE (oprs) (32<rt>) false false
+      finishA &st Opcode.CMOVB (ThreeOperands(o1, o2, o3)) (32<rt>) false false
     else
       raise ParsingFailureException
   | 25 | 29 | 33 | 37 | 41 | 45 ->
@@ -44563,8 +44562,7 @@ let private v8x42 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
-      let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CMOVNAE (oprs) (16<rt>) false false
+      finishA &st Opcode.CMOVB (ThreeOperands(o1, o2, o3)) (16<rt>) false false
     else
       raise ParsingFailureException
   | 40 ->
@@ -44624,8 +44622,7 @@ let private v8x42 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CMOVNAE (oprs) (64<rt>) false false
+      finishA &st Opcode.CMOVB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | 44 | 46 ->
@@ -44685,8 +44682,7 @@ let private v8x42 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CMOVNAE (oprs) (64<rt>) false false
+      finishA &st Opcode.CMOVB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | _ ->
@@ -44709,11 +44705,11 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (32<rt>) false false
       else
         let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44727,11 +44723,11 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (32<rt>) false false
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44743,7 +44739,7 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVAE (oprs) (32<rt>) false false
+      finishA &st Opcode.CFCMOVNB (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44754,7 +44750,7 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNC (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      finishA &st Opcode.CMOVNB (ThreeOperands(o1, o2, o3)) (32<rt>) false false
     else
       raise ParsingFailureException
   | 25 | 29 | 33 | 37 | 41 | 45 ->
@@ -44768,7 +44764,7 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
        st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETAE (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETNB (Operands.oneOperand o1) (8<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44796,11 +44792,11 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (16<rt>) false false
       else
         let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44814,11 +44810,11 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (16<rt>) false false
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44830,7 +44826,7 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVAE (oprs) (16<rt>) false false
+      finishA &st Opcode.CFCMOVNB (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44841,7 +44837,7 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNC (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      finishA &st Opcode.CMOVNB (ThreeOperands(o1, o2, o3)) (16<rt>) false false
     else
       raise ParsingFailureException
   | 40 ->
@@ -44858,11 +44854,11 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44876,11 +44872,11 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44892,7 +44888,7 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44903,7 +44899,7 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVNB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | 44 | 46 ->
@@ -44920,11 +44916,11 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44938,11 +44934,11 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44954,7 +44950,7 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVAE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVNB (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -44965,7 +44961,7 @@ let private v8x43 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNC (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVNB (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | _ ->
@@ -45031,7 +45027,7 @@ let private v8x44 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVE (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      finishA &st Opcode.CMOVZ (ThreeOperands(o1, o2, o3)) (32<rt>) false false
     else
       raise ParsingFailureException
   | 25 | 29 | 33 | 37 | 41 | 45 ->
@@ -45116,7 +45112,7 @@ let private v8x44 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVE (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      finishA &st Opcode.CMOVZ (ThreeOperands(o1, o2, o3)) (16<rt>) false false
     else
       raise ParsingFailureException
   | 40 ->
@@ -45176,7 +45172,7 @@ let private v8x44 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVZ (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | 44 | 46 ->
@@ -45236,7 +45232,7 @@ let private v8x44 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVZ (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | _ ->
@@ -45259,11 +45255,11 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (32<rt>) false false
       else
         let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45277,11 +45273,11 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (32<rt>) false false
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45293,7 +45289,7 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVNE (oprs) (32<rt>) false false
+      finishA &st Opcode.CFCMOVNZ (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45304,7 +45300,7 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNE (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      finishA &st Opcode.CMOVNZ (ThreeOperands(o1, o2, o3)) (32<rt>) false false
     else
       raise ParsingFailureException
   | 25 | 29 | 33 | 37 | 41 | 45 ->
@@ -45329,7 +45325,7 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
          st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETZUNE (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETZUNZ (Operands.oneOperand o1) (8<rt>) false false
     else
       raise ParsingFailureException
   | 28 | 30 | 36 | 38 ->
@@ -45346,11 +45342,11 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (16<rt>) false false
       else
         let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45364,11 +45360,11 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (16<rt>) false false
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45380,7 +45376,7 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVNE (oprs) (16<rt>) false false
+      finishA &st Opcode.CFCMOVNZ (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45391,7 +45387,7 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNE (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      finishA &st Opcode.CMOVNZ (ThreeOperands(o1, o2, o3)) (16<rt>) false false
     else
       raise ParsingFailureException
   | 40 ->
@@ -45408,11 +45404,11 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45426,11 +45422,11 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45442,7 +45438,7 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45453,7 +45449,7 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVNZ (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | 44 | 46 ->
@@ -45470,11 +45466,11 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45488,11 +45484,11 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45504,7 +45500,7 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVNE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVNZ (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45515,7 +45511,7 @@ let private v8x45 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVNZ (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | _ ->
@@ -45583,7 +45579,7 @@ let private v8x46 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNA (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      finishA &st Opcode.CMOVBE (ThreeOperands(o1, o2, o3)) (32<rt>) false false
     else
       raise ParsingFailureException
   | 25 | 29 | 33 | 37 | 41 | 45 ->
@@ -45608,7 +45604,7 @@ let private v8x46 (span: ByteSpan) (st: byref<ParsingState>) =
          st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETZUNA (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETZUBE (Operands.oneOperand o1) (8<rt>) false false
     else
       raise ParsingFailureException
   | 28 | 30 | 36 | 38 ->
@@ -45670,7 +45666,7 @@ let private v8x46 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNA (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      finishA &st Opcode.CMOVBE (ThreeOperands(o1, o2, o3)) (16<rt>) false false
     else
       raise ParsingFailureException
   | 40 ->
@@ -45732,7 +45728,7 @@ let private v8x46 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNA (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVBE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | 44 | 46 ->
@@ -45794,7 +45790,7 @@ let private v8x46 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVNA (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVBE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | _ ->
@@ -45816,12 +45812,11 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 32<rt>
       if isReg m then
         let o2 = rmRegV &st m 32<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVA (Operands.twoRegs o1 o2) (32<rt>) false false
       else
         let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVA (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45834,12 +45829,11 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVA (Operands.twoRegs o1 o2) (32<rt>) false false
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVA (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45851,7 +45845,7 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVNBE (oprs) (32<rt>) false false
+      finishA &st Opcode.CFCMOVA (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45876,7 +45870,7 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
        st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETNBE (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETA (Operands.oneOperand o1) (8<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45903,12 +45897,11 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 16<rt>
       if isReg m then
         let o2 = rmRegV &st m 16<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVA (Operands.twoRegs o1 o2) (16<rt>) false false
       else
         let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVA (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45921,12 +45914,11 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVA (Operands.twoRegs o1 o2) (16<rt>) false false
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVA (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45938,7 +45930,7 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVNBE (oprs) (16<rt>) false false
+      finishA &st Opcode.CFCMOVA (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45965,12 +45957,11 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVA (Operands.twoRegs o1 o2) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVA (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -45983,12 +45974,11 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVA (Operands.twoRegs o1 o2) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVA (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46000,7 +45990,7 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVA (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46027,12 +46017,11 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVA (Operands.twoRegs o1 o2) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVA (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46045,12 +46034,11 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVA (Operands.twoRegs o1 o2) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVA (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46062,7 +46050,7 @@ let private v8x47 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVNBE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVA (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46645,12 +46633,11 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 32<rt>
       if isReg m then
         let o2 = rmRegV &st m 32<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVP (Operands.twoRegs o1 o2) (32<rt>) false false
       else
         let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVP (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46663,12 +46650,11 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVP (Operands.twoRegs o1 o2) (32<rt>) false false
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVP (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46680,7 +46666,7 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVPE (oprs) (32<rt>) false false
+      finishA &st Opcode.CFCMOVP (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46691,7 +46677,7 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVPE (ThreeOperands(o1, o2, o3)) (32<rt>) false false
+      finishA &st Opcode.CMOVP (ThreeOperands(o1, o2, o3)) (32<rt>) false false
     else
       raise ParsingFailureException
   | 25 | 29 | 33 | 37 | 41 | 45 ->
@@ -46716,7 +46702,7 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
          st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETZUPE (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETZUP (Operands.oneOperand o1) (8<rt>) false false
     else
       raise ParsingFailureException
   | 28 | 30 | 36 | 38 ->
@@ -46732,12 +46718,11 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 16<rt>
       if isReg m then
         let o2 = rmRegV &st m 16<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVP (Operands.twoRegs o1 o2) (16<rt>) false false
       else
         let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVP (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46750,12 +46735,11 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVP (Operands.twoRegs o1 o2) (16<rt>) false false
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVP (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46767,7 +46751,7 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVPE (oprs) (16<rt>) false false
+      finishA &st Opcode.CFCMOVP (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46778,7 +46762,7 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 16<rt>)
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVPE (ThreeOperands(o1, o2, o3)) (16<rt>) false false
+      finishA &st Opcode.CMOVP (ThreeOperands(o1, o2, o3)) (16<rt>) false false
     else
       raise ParsingFailureException
   | 40 ->
@@ -46794,12 +46778,11 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVP (Operands.twoRegs o1 o2) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVP (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46812,12 +46795,11 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVP (Operands.twoRegs o1 o2) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVP (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46829,7 +46811,7 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVP (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46840,7 +46822,7 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVPE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVP (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | 44 | 46 ->
@@ -46856,12 +46838,11 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = regRegV &st m 64<rt>
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVP (Operands.twoRegs o1 o2) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVP (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46874,12 +46855,11 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVP (Operands.twoRegs o1 o2) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVP (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46891,7 +46871,7 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVPE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVP (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -46902,7 +46882,7 @@ let private v8x4a (span: ByteSpan) (st: byref<ParsingState>) =
       let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.CMOVPE (ThreeOperands(o1, o2, o3)) (64<rt>) false false
+      finishA &st Opcode.CMOVP (ThreeOperands(o1, o2, o3)) (64<rt>) false false
     else
       raise ParsingFailureException
   | _ ->
@@ -46984,7 +46964,7 @@ let private v8x4b (span: ByteSpan) (st: byref<ParsingState>) =
        st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETPO (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETNP (Operands.oneOperand o1) (8<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47261,7 +47241,7 @@ let private v8x4c (span: ByteSpan) (st: byref<ParsingState>) =
        st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETNGE (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETL (Operands.oneOperand o1) (8<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47475,11 +47455,11 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (32<rt>) false false
       else
         let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47493,11 +47473,11 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (32<rt>) false false
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47509,7 +47489,7 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 32<rt>)
       let o3 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVGE (oprs) (32<rt>) false false
+      finishA &st Opcode.CFCMOVNL (oprs) (32<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47534,7 +47514,7 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
        st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETGE (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETNL (Operands.oneOperand o1) (8<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47562,11 +47542,11 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (16<rt>) false false
       else
         let o2 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47580,11 +47560,11 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (16<rt>) false false
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47596,7 +47576,7 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 16<rt>)
       let o3 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVGE (oprs) (16<rt>) false false
+      finishA &st Opcode.CFCMOVNL (oprs) (16<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47624,11 +47604,11 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47642,11 +47622,11 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47658,7 +47638,7 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47686,11 +47666,11 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
       else
         let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          not st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47704,11 +47684,11 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+        finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47720,7 +47700,7 @@ let private v8x4d (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = Operands.oprReg (regRegV &st m 64<rt>)
       let o3 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
       let oprs = ThreeOperands(o1, o2, o3)
-      finishA &st Opcode.CFCMOVGE (oprs) (64<rt>) false false
+      finishA &st Opcode.CFCMOVNL (oprs) (64<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47813,7 +47793,7 @@ let private v8x4e (span: ByteSpan) (st: byref<ParsingState>) =
        st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETNG (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETLE (Operands.oneOperand o1) (8<rt>) false false
     elif not st.Zeroing &&
          st.ND &&
          (st.AAA &&& 3) = 0 &&
@@ -47824,7 +47804,7 @@ let private v8x4e (span: ByteSpan) (st: byref<ParsingState>) =
          st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
-      finishA &st Opcode.SETZUNG (Operands.oneOperand o1) (8<rt>) false false
+      finishA &st Opcode.SETZULE (Operands.oneOperand o1) (8<rt>) false false
     else
       raise ParsingFailureException
   | 28 | 30 | 36 | 38 ->
@@ -49149,7 +49129,7 @@ let private v8x80 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CCMPBE (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -49212,7 +49192,7 @@ let private v8x80 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CCMPNL (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -49230,7 +49210,7 @@ let private v8x80 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CCMPG (TwoOperands(o1, o2)) (8<rt>) false true
       else
         raise ParsingFailureException
     | _ ->
@@ -50062,7 +50042,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CCMPBE (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -50125,7 +50105,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CCMPNL (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -50143,7 +50123,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CCMPG (TwoOperands(o1, o2)) (32<rt>) false true
       else
         raise ParsingFailureException
     | 28 | 30 | 36 | 38 ->
@@ -50209,7 +50189,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CCMPBE (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -50272,7 +50252,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CCMPNL (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -50290,7 +50270,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CCMPG (TwoOperands(o1, o2)) (16<rt>) false true
       else
         raise ParsingFailureException
     | 40 ->
@@ -50356,7 +50336,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -50419,7 +50399,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -50437,7 +50417,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPG (TwoOperands(o1, o2)) (64<rt>) false true
       else
         raise ParsingFailureException
     | 44 | 46 ->
@@ -50503,7 +50483,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -50566,7 +50546,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -50584,7 +50564,7 @@ let private v8x81 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPG (TwoOperands(o1, o2)) (64<rt>) false true
       else
         raise ParsingFailureException
     | _ ->
@@ -51416,7 +51396,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CCMPBE (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -51479,7 +51459,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CCMPNL (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -51497,7 +51477,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CCMPG (TwoOperands(o1, o2)) (32<rt>) false true
       else
         raise ParsingFailureException
     | 28 | 30 | 36 | 38 ->
@@ -51563,7 +51543,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CCMPBE (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -51626,7 +51606,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CCMPNL (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -51644,7 +51624,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CCMPG (TwoOperands(o1, o2)) (16<rt>) false true
       else
         raise ParsingFailureException
     | 40 ->
@@ -51710,7 +51690,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -51773,7 +51753,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -51791,7 +51771,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPG (TwoOperands(o1, o2)) (64<rt>) false true
       else
         raise ParsingFailureException
     | 44 | 46 ->
@@ -51857,7 +51837,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPNA (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPBE (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -51920,7 +51900,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPNL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -51938,7 +51918,7 @@ let private v8x83 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 8<rt>
-        finishA &st Opcode.CCMPNLE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CCMPG (TwoOperands(o1, o2)) (64<rt>) false true
       else
         raise ParsingFailureException
     | _ ->
@@ -51987,11 +51967,11 @@ let private v8x84 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CTESTB (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNAE (oprs) (8<rt>) false true
+        finishA &st Opcode.CTESTB (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 3 &&
@@ -52001,11 +51981,11 @@ let private v8x84 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CTESTNB (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNC (oprs) (8<rt>) false true
+        finishA &st Opcode.CTESTNB (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 4 &&
@@ -52015,11 +51995,11 @@ let private v8x84 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CTESTZ (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTE (oprs) (8<rt>) false true
+        finishA &st Opcode.CTESTZ (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 5 &&
@@ -52043,11 +52023,11 @@ let private v8x84 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CTESTBE (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNA (oprs) (8<rt>) false true
+        finishA &st Opcode.CTESTBE (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -52127,11 +52107,11 @@ let private v8x84 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CTESTL (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNGE (oprs) (8<rt>) false true
+        finishA &st Opcode.CTESTL (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 13 &&
@@ -52141,11 +52121,11 @@ let private v8x84 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CTESTNL (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTGE (oprs) (8<rt>) false true
+        finishA &st Opcode.CTESTNL (oprs) (8<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -52169,11 +52149,11 @@ let private v8x84 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 8<rt>
       if isReg m then
         let o1 = rmRegV &st m 8<rt>
-        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (8<rt>) false true
+        finishA &st Opcode.CTESTG (Operands.twoRegs o1 o2) (8<rt>) false true
       else
         let o1 = memV span &st m 8<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNLE (oprs) (8<rt>) false true
+        finishA &st Opcode.CTESTG (oprs) (8<rt>) false true
     else
       raise ParsingFailureException
   | _ ->
@@ -52220,11 +52200,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CTESTB (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNAE (oprs) (32<rt>) false true
+        finishA &st Opcode.CTESTB (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 3 &&
@@ -52234,11 +52214,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CTESTNB (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNC (oprs) (32<rt>) false true
+        finishA &st Opcode.CTESTNB (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 4 &&
@@ -52248,11 +52228,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CTESTZ (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTE (oprs) (32<rt>) false true
+        finishA &st Opcode.CTESTZ (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 5 &&
@@ -52276,11 +52256,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CTESTBE (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNA (oprs) (32<rt>) false true
+        finishA &st Opcode.CTESTBE (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -52360,11 +52340,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CTESTL (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNGE (oprs) (32<rt>) false true
+        finishA &st Opcode.CTESTL (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 13 &&
@@ -52374,11 +52354,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CTESTNL (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTGE (oprs) (32<rt>) false true
+        finishA &st Opcode.CTESTNL (oprs) (32<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -52402,11 +52382,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 32<rt>
       if isReg m then
         let o1 = rmRegV &st m 32<rt>
-        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (32<rt>) false true
+        finishA &st Opcode.CTESTG (Operands.twoRegs o1 o2) (32<rt>) false true
       else
         let o1 = memV span &st m 32<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNLE (oprs) (32<rt>) false true
+        finishA &st Opcode.CTESTG (oprs) (32<rt>) false true
     else
       raise ParsingFailureException
   | 28 | 30 | 36 | 38 ->
@@ -52447,11 +52427,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CTESTB (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNAE (oprs) (16<rt>) false true
+        finishA &st Opcode.CTESTB (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 3 &&
@@ -52461,11 +52441,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CTESTNB (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNC (oprs) (16<rt>) false true
+        finishA &st Opcode.CTESTNB (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 4 &&
@@ -52475,11 +52455,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CTESTZ (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTE (oprs) (16<rt>) false true
+        finishA &st Opcode.CTESTZ (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 5 &&
@@ -52503,11 +52483,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CTESTBE (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNA (oprs) (16<rt>) false true
+        finishA &st Opcode.CTESTBE (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -52587,11 +52567,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CTESTL (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNGE (oprs) (16<rt>) false true
+        finishA &st Opcode.CTESTL (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 13 &&
@@ -52601,11 +52581,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CTESTNL (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTGE (oprs) (16<rt>) false true
+        finishA &st Opcode.CTESTNL (oprs) (16<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -52629,11 +52609,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 16<rt>
       if isReg m then
         let o1 = rmRegV &st m 16<rt>
-        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (16<rt>) false true
+        finishA &st Opcode.CTESTG (Operands.twoRegs o1 o2) (16<rt>) false true
       else
         let o1 = memV span &st m 16<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNLE (oprs) (16<rt>) false true
+        finishA &st Opcode.CTESTG (oprs) (16<rt>) false true
     else
       raise ParsingFailureException
   | 40 ->
@@ -52674,11 +52654,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTB (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNAE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTB (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 3 &&
@@ -52688,11 +52668,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTNB (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNC (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTNB (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 4 &&
@@ -52702,11 +52682,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTZ (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTZ (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 5 &&
@@ -52730,11 +52710,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTBE (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNA (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTBE (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -52814,11 +52794,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTL (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNGE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTL (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 13 &&
@@ -52828,11 +52808,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTNL (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTGE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTNL (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -52856,11 +52836,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTG (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNLE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTG (oprs) (64<rt>) false true
     else
       raise ParsingFailureException
   | 44 | 46 ->
@@ -52901,11 +52881,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNAE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTB (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNAE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTB (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 3 &&
@@ -52915,11 +52895,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNC (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTNB (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNC (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTNB (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 4 &&
@@ -52929,11 +52909,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTZ (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTZ (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 5 &&
@@ -52957,11 +52937,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNA (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTBE (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNA (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTBE (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 7 &&
@@ -53041,11 +53021,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNGE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTL (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNGE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTL (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 13 &&
@@ -53055,11 +53035,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTGE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTNL (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTGE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTNL (oprs) (64<rt>) false true
     elif not st.Zeroing &&
          not st.ND &&
          scc &st = 14 &&
@@ -53083,11 +53063,11 @@ let private v8x85 (span: ByteSpan) (st: byref<ParsingState>) =
       let o2 = regRegV &st m 64<rt>
       if isReg m then
         let o1 = rmRegV &st m 64<rt>
-        finishA &st Opcode.CTESTNLE (Operands.twoRegs o1 o2) (64<rt>) false true
+        finishA &st Opcode.CTESTG (Operands.twoRegs o1 o2) (64<rt>) false true
       else
         let o1 = memV span &st m 64<rt> TupleType.NA 0<rt>
         let oprs = TwoOperands(o1, Operands.oprReg o2)
-        finishA &st Opcode.CTESTNLE (oprs) (64<rt>) false true
+        finishA &st Opcode.CTESTG (oprs) (64<rt>) false true
     else
       raise ParsingFailureException
   | _ ->
@@ -57613,7 +57593,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -57622,7 +57602,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -57631,7 +57611,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -57649,7 +57629,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -57703,7 +57683,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -57712,7 +57692,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -57730,7 +57710,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (8<rt>) false true
       else
         raise ParsingFailureException
     | _ ->
@@ -57764,7 +57744,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -57773,7 +57753,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -57782,7 +57762,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -57800,7 +57780,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -57854,7 +57834,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -57863,7 +57843,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (8<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -57881,7 +57861,7 @@ let private v8xf6 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 8<rt> 8<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 8<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (8<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (8<rt>) false true
       else
         raise ParsingFailureException
     | _ ->
@@ -58059,7 +58039,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -58068,7 +58048,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -58077,7 +58057,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -58095,7 +58075,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -58149,7 +58129,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -58158,7 +58138,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -58176,7 +58156,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (32<rt>) false true
       else
         raise ParsingFailureException
     | 28 | 30 | 36 | 38 ->
@@ -58206,7 +58186,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -58215,7 +58195,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -58224,7 +58204,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -58242,7 +58222,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -58296,7 +58276,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -58305,7 +58285,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -58323,7 +58303,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (16<rt>) false true
       else
         raise ParsingFailureException
     | 40 ->
@@ -58353,7 +58333,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -58362,7 +58342,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -58371,7 +58351,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -58389,7 +58369,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -58443,7 +58423,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -58452,7 +58432,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -58470,7 +58450,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (64<rt>) false true
       else
         raise ParsingFailureException
     | 44 | 46 ->
@@ -58500,7 +58480,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -58509,7 +58489,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -58518,7 +58498,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -58536,7 +58516,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -58590,7 +58570,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -58599,7 +58579,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -58617,7 +58597,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (64<rt>) false true
       else
         raise ParsingFailureException
     | _ ->
@@ -58651,7 +58631,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -58660,7 +58640,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -58669,7 +58649,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -58687,7 +58667,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -58741,7 +58721,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -58750,7 +58730,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (32<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -58768,7 +58748,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 32<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (32<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (32<rt>) false true
       else
         raise ParsingFailureException
     | 28 | 30 | 36 | 38 ->
@@ -58798,7 +58778,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -58807,7 +58787,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -58816,7 +58796,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -58834,7 +58814,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -58888,7 +58868,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -58897,7 +58877,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (16<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -58915,7 +58895,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 16<rt> 16<rt> TupleType.NA 0<rt>
         let o2 = uimm span &st 16<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (16<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (16<rt>) false true
       else
         raise ParsingFailureException
     | 40 ->
@@ -58945,7 +58925,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -58954,7 +58934,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -58963,7 +58943,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -58981,7 +58961,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -59035,7 +59015,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -59044,7 +59024,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -59062,7 +59042,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (64<rt>) false true
       else
         raise ParsingFailureException
     | 44 | 46 ->
@@ -59092,7 +59072,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNAE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTB (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 3 &&
@@ -59101,7 +59081,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNC (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTNB (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 4 &&
@@ -59110,7 +59090,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTZ (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 5 &&
@@ -59128,7 +59108,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNA (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTBE (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 7 &&
@@ -59182,7 +59162,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 13 &&
@@ -59191,7 +59171,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTGE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTNL (TwoOperands(o1, o2)) (64<rt>) false true
       elif not st.Zeroing &&
            not st.ND &&
            scc &st = 14 &&
@@ -59209,7 +59189,7 @@ let private v8xf7 (span: ByteSpan) (st: byref<ParsingState>) =
         st.Pos <- st.Pos + 1
         let o1 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
         let o2 = simm span &st 32<rt>
-        finishA &st Opcode.CTESTNLE (TwoOperands(o1, o2)) (64<rt>) false true
+        finishA &st Opcode.CTESTG (TwoOperands(o1, o2)) (64<rt>) false true
       else
         raise ParsingFailureException
     | _ ->
@@ -60387,6 +60367,1634 @@ let private v9xf8 (span: ByteSpan) (st: byref<ParsingState>) =
   | _ ->
     raise ParsingFailureException
 
+let private v10x85 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSSWW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10x86 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSSWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10x87 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSSDQL (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10x8e (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSSDD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10x8f (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSSDQH (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10x95 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSWW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10x96 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10x97 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSDQL (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10x9e (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSDD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10x9f (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMACSDQH (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xa2 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCMOV (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    elif st.VL = 256<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 256<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 256<rt>)
+      let o3 = rmOprV span &st m 256<rt> 256<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 256<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCMOV (oprs) (256<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o4 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCMOV (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    elif st.VL = 256<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 256<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 256<rt>)
+      let o4 = rmOprV span &st m 256<rt> 256<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (is4Reg span &st 256<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCMOV (oprs) (256<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xa3 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPPERM (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o4 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPPERM (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xa6 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMADCSSWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xb6 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = Operands.oprReg (is4Reg span &st 128<rt>)
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPMADCSWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xc0 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTB (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xc1 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xc2 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xc3 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 8<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xcc (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCOMB (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xcd (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCOMW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xce (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCOMD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xcf (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCOMQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xec (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCOMUB (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xed (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCOMUW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xee (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCOMUD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v10xef (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o4 = uimm span &st 8<rt>
+      let oprs = FourOperands(o1, o2, o3, o4)
+      finishV &st Opcode.VPCOMUQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x01 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 1 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCFILL (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCFILL (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCFILL (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCFILL (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 2 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLSFILL (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLSFILL (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLSFILL (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLSFILL (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 3 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCS (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCS (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCS (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCS (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 4 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.TZMSK (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.TZMSK (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.TZMSK (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.TZMSK (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 5 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCIC (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCIC (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCIC (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCIC (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLSIC (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLSIC (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLSIC (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLSIC (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 7 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.T1MSKC (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.T1MSKC (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.T1MSKC (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.T1MSKC (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x02 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 1 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCMSK (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCMSK (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCMSK (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCMSK (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 6 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 32<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 32<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCI (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCI (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = vvvvReg &st 64<rt>
+        if isReg m then
+          let o2 = rmRegV &st m 64<rt>
+          let oprs = Operands.twoRegs o1 o2
+          finishV &st Opcode.BLCI (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+        else
+          let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+          let oprs = TwoOperands(Operands.oprReg o1, o2)
+          finishV &st Opcode.BLCI (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x12 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if isReg m &&
+         st.VL = 128<rt> &&
+         not (st.IsEVEX && st.AAA <> 0) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.oneReg o1
+        finishV &st Opcode.LLWPCB (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if isReg m &&
+         st.VL = 128<rt> &&
+         not (st.IsEVEX && st.AAA <> 0) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.oneReg o1
+        finishV &st Opcode.LLWPCB (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if isReg m &&
+         st.VL = 128<rt> &&
+         not (st.IsEVEX && st.AAA <> 0) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmRegV &st m 32<rt>
+        let oprs = Operands.oneReg o1
+        finishV &st Opcode.SLWPCB (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if isReg m &&
+         st.VL = 128<rt> &&
+         not (st.IsEVEX && st.AAA <> 0) &&
+         st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = rmRegV &st m 64<rt>
+        let oprs = Operands.oneReg o1
+        finishV &st Opcode.SLWPCB (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x80 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VFRCZPS (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VFRCZPS (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    elif st.VL = 256<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 256<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 256<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VFRCZPS (oprs) (256<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 256<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VFRCZPS (oprs) (256<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x81 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VFRCZPD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VFRCZPD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    elif st.VL = 256<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 256<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 256<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VFRCZPD (oprs) (256<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 256<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VFRCZPD (oprs) (256<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x82 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VFRCZSS (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 32<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VFRCZSS (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x83 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VFRCZSD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 64<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VFRCZSD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x90 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTB (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTB (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x91 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x92 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x93 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPROTQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x94 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHLB (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHLB (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x95 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHLW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHLW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x96 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHLD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHLD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x97 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHLQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHLQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x98 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHAB (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHAB (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x99 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHAW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHAW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x9a (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHAD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHAD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11x9b (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let o3 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHAQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 16 | 20 | 40 | 44 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 128<rt>)
+      let o2 = Operands.oprReg (vvvvReg &st 128<rt>)
+      let o3 = rmOprV span &st m 128<rt> 128<rt> TupleType.NA 0<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.VPSHAQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xc1 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDBW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDBW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xc2 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDBD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDBD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xc3 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDBQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDBQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xc6 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xc7 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDWQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDWQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xcb (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDDQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDDQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xd1 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDUBW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDUBW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xd2 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDUBD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDUBD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xd3 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDUBQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDUBQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xd6 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDUWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDUWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xd7 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDUWQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDUWQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xdb (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHADDUDQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHADDUDQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xe1 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHSUBBW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHSUBBW (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xe2 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHSUBWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHSUBWD (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v11xe3 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = regRegV &st m 128<rt>
+      if isReg m then
+        let o2 = rmRegV &st m 128<rt>
+        let oprs = Operands.twoRegs o1 o2
+        finishV &st Opcode.VPHSUBDQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+      else
+        let o2 = memV span &st m 128<rt> TupleType.NA 0<rt>
+        let oprs = TwoOperands(Operands.oprReg o1, o2)
+        finishV &st Opcode.VPHSUBDQ (oprs) (128<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v12x10 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+    if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 32<rt>)
+      let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 32<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.BEXTR (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | 40 | 44 ->
+    if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 64<rt>)
+      let o2 = rmOprV span &st m 64<rt> 64<rt> TupleType.NA 0<rt>
+      let o3 = uimm span &st 32<rt>
+      let oprs = ThreeOperands(o1, o2, o3)
+      finishV &st Opcode.BEXTR (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
+let private v12x12 (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match reg m with
+  | 0 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishV &st Opcode.LWPINS (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishV &st Opcode.LWPINS (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | 1 ->
+    match st.Ctx with
+    | 0 | 4 | 8 | 12 | 24 | 28 | 32 | 36 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 32<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishV &st Opcode.LWPVAL (oprs) (32<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | 40 | 44 ->
+      if st.VL = 128<rt> && not (st.IsEVEX && st.AAA <> 0) && st.NoLock then
+        st.Pos <- st.Pos + 1
+        let o1 = Operands.oprReg (vvvvReg &st 64<rt>)
+        let o2 = rmOprV span &st m 32<rt> 32<rt> TupleType.NA 0<rt>
+        let o3 = uimm span &st 32<rt>
+        let oprs = ThreeOperands(o1, o2, o3)
+        finishV &st Opcode.LWPVAL (oprs) (64<rt>) 0<rt> NoRounding (isReg m)
+      else
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
 let private map0 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
   match b with
   | 0x10 -> v0x10 span &st
@@ -61241,6 +62849,80 @@ let private map9 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
   | 0xF8 -> v9xf8 span &st
   | _ -> raise ParsingFailureException
 
+let private map10 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
+  match b with
+  | 0x85 -> v10x85 span &st
+  | 0x86 -> v10x86 span &st
+  | 0x87 -> v10x87 span &st
+  | 0x8E -> v10x8e span &st
+  | 0x8F -> v10x8f span &st
+  | 0x95 -> v10x95 span &st
+  | 0x96 -> v10x96 span &st
+  | 0x97 -> v10x97 span &st
+  | 0x9E -> v10x9e span &st
+  | 0x9F -> v10x9f span &st
+  | 0xA2 -> v10xa2 span &st
+  | 0xA3 -> v10xa3 span &st
+  | 0xA6 -> v10xa6 span &st
+  | 0xB6 -> v10xb6 span &st
+  | 0xC0 -> v10xc0 span &st
+  | 0xC1 -> v10xc1 span &st
+  | 0xC2 -> v10xc2 span &st
+  | 0xC3 -> v10xc3 span &st
+  | 0xCC -> v10xcc span &st
+  | 0xCD -> v10xcd span &st
+  | 0xCE -> v10xce span &st
+  | 0xCF -> v10xcf span &st
+  | 0xEC -> v10xec span &st
+  | 0xED -> v10xed span &st
+  | 0xEE -> v10xee span &st
+  | 0xEF -> v10xef span &st
+  | _ -> raise ParsingFailureException
+
+let private map11 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
+  match b with
+  | 0x01 -> v11x01 span &st
+  | 0x02 -> v11x02 span &st
+  | 0x12 -> v11x12 span &st
+  | 0x80 -> v11x80 span &st
+  | 0x81 -> v11x81 span &st
+  | 0x82 -> v11x82 span &st
+  | 0x83 -> v11x83 span &st
+  | 0x90 -> v11x90 span &st
+  | 0x91 -> v11x91 span &st
+  | 0x92 -> v11x92 span &st
+  | 0x93 -> v11x93 span &st
+  | 0x94 -> v11x94 span &st
+  | 0x95 -> v11x95 span &st
+  | 0x96 -> v11x96 span &st
+  | 0x97 -> v11x97 span &st
+  | 0x98 -> v11x98 span &st
+  | 0x99 -> v11x99 span &st
+  | 0x9A -> v11x9a span &st
+  | 0x9B -> v11x9b span &st
+  | 0xC1 -> v11xc1 span &st
+  | 0xC2 -> v11xc2 span &st
+  | 0xC3 -> v11xc3 span &st
+  | 0xC6 -> v11xc6 span &st
+  | 0xC7 -> v11xc7 span &st
+  | 0xCB -> v11xcb span &st
+  | 0xD1 -> v11xd1 span &st
+  | 0xD2 -> v11xd2 span &st
+  | 0xD3 -> v11xd3 span &st
+  | 0xD6 -> v11xd6 span &st
+  | 0xD7 -> v11xd7 span &st
+  | 0xDB -> v11xdb span &st
+  | 0xE1 -> v11xe1 span &st
+  | 0xE2 -> v11xe2 span &st
+  | 0xE3 -> v11xe3 span &st
+  | _ -> raise ParsingFailureException
+
+let private map12 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
+  match b with
+  | 0x10 -> v12x10 span &st
+  | 0x12 -> v12x12 span &st
+  | _ -> raise ParsingFailureException
+
 /// Parses the instruction whose opcode byte is b in the given map.
 let parse (span: ByteSpan) (st: byref<ParsingState>) (map: int) (b: int) =
   match map with
@@ -61253,4 +62935,7 @@ let parse (span: ByteSpan) (st: byref<ParsingState>) (map: int) (b: int) =
   | 6 -> map6 span &st b
   | 7 -> map7 span &st b
   | 8 -> map8 span &st b
-  | _ -> map9 span &st b
+  | 9 -> map9 span &st b
+  | 10 -> map10 span &st b
+  | 11 -> map11 span &st b
+  | _ -> map12 span &st b

@@ -53,6 +53,14 @@ and VEXType =
   | Map4 = 0x40
   /// EVEX map 7, the immediate forms of the MSR instructions.
   | Map7 = 0x80
+  /// AMD's XOP prefix (8Fh) selecting its map 8, the vector forms that carry
+  /// an immediate byte or an /is4 register beside their operands.
+  | XOPMap8 = 0x100
+  /// XOP map 9: the remaining vector forms, TBM, and the LWP control block
+  /// instructions.
+  | XOPMap9 = 0x200
+  /// XOP map 0Ah: BEXTR with an immediate, LWPINS and LWPVAL.
+  | XOPMap10 = 0x400
 
 /// Represents the zeroing or merging behavior of the destination result
 /// (P[23] in EVEX encoding).

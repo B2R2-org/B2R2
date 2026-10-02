@@ -2788,7 +2788,7 @@ let private m0x72 (span: ByteSpan) (st: byref<ParsingState>) =
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JC (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JB (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2833,7 +2833,7 @@ let private m0x75 (span: ByteSpan) (st: byref<ParsingState>) =
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JNZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2848,7 +2848,7 @@ let private m0x76 (span: ByteSpan) (st: byref<ParsingState>) =
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNA (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JBE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2908,7 +2908,7 @@ let private m0x7a (span: ByteSpan) (st: byref<ParsingState>) =
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JPE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -12791,11 +12791,11 @@ let private m1x42 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNAE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVB (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNAE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVB (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -12805,11 +12805,11 @@ let private m1x42 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNAE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVB (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNAE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVB (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -12819,11 +12819,11 @@ let private m1x42 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNAE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVB (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNAE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVB (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -12839,11 +12839,11 @@ let private m1x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNC (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVNB (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNC (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVNB (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -12853,11 +12853,11 @@ let private m1x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNC (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVNB (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNC (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVNB (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -12867,11 +12867,11 @@ let private m1x43 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNC (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVNB (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNC (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVNB (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -12887,11 +12887,11 @@ let private m1x44 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVZ (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVZ (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -12901,11 +12901,11 @@ let private m1x44 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVZ (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVZ (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -12915,11 +12915,11 @@ let private m1x44 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVZ (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVZ (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -12935,11 +12935,11 @@ let private m1x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVNZ (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVNZ (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -12949,11 +12949,11 @@ let private m1x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVNZ (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVNZ (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -12963,11 +12963,11 @@ let private m1x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVNZ (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVNZ (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -12983,11 +12983,11 @@ let private m1x46 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNA (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVBE (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNA (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVBE (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -12997,11 +12997,11 @@ let private m1x46 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNA (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVBE (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNA (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVBE (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -13011,11 +13011,11 @@ let private m1x46 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNA (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVBE (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNA (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVBE (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -13175,11 +13175,11 @@ let private m1x4a (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVPE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVP (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVPE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVP (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -13189,11 +13189,11 @@ let private m1x4a (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVPE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVP (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVPE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVP (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -13203,11 +13203,11 @@ let private m1x4a (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVPE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVP (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVPE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVP (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15557,14 +15557,14 @@ let private m1x82 (span: ByteSpan) (st: byref<ParsingState>) =
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JC (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JB (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JC (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JB (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15620,14 +15620,14 @@ let private m1x85 (span: ByteSpan) (st: byref<ParsingState>) =
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JNZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JNZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15641,14 +15641,14 @@ let private m1x86 (span: ByteSpan) (st: byref<ParsingState>) =
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNA (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JBE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNA (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JBE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15725,14 +15725,14 @@ let private m1x8a (span: ByteSpan) (st: byref<ParsingState>) =
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JPE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
     if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JPE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15901,7 +15901,7 @@ let private m1x93 (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETAE (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      finish &st Opcode.SETNB (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15965,8 +15965,7 @@ let private m1x97 (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      let oprs = Operands.oneOperand o1
-      finish &st Opcode.SETNBE (oprs) (8<rt>) false Prefix.None
+      finish &st Opcode.SETA (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -16030,7 +16029,7 @@ let private m1x9b (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETPO (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      finish &st Opcode.SETNP (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -16046,8 +16045,7 @@ let private m1x9c (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      let oprs = Operands.oneOperand o1
-      finish &st Opcode.SETNGE (oprs) (8<rt>) false Prefix.None
+      finish &st Opcode.SETL (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -16063,7 +16061,7 @@ let private m1x9d (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETGE (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      finish &st Opcode.SETNL (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -16079,7 +16077,7 @@ let private m1x9e (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETNG (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      finish &st Opcode.SETLE (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->

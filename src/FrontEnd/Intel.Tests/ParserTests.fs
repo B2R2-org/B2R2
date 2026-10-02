@@ -3207,6 +3207,238 @@ type ParserTests() =
   member _.``APX EVEX ParsingFailure Test (8)``() =
     testX64Invalid "62f47c08fff3" (* PUSH2 with ND clear *)
 
+  (* AMD XOP. The 8Fh prefix carries a three-byte payload laid out as the
+     three-byte VEX's and selects maps 8, 9 and 0Ah of its own; where an /is4
+     register is among the sources, W says which of the last two the ModRM
+     byte names. AMD64 APM Vol. 3, "VEX and XOP Prefixes", and Vol. 4. *)
+  [<TestMethod>]
+  member _.``XOP map 8 (1)``() = (* a four-register multiply-accumulate *)
+    "8fe86885cb40"
+    ++ VPMACSSWW ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3; O.Reg R.XMM4 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 8 (2)``() = (* VPCMOV with W clear: ModRM is the third *)
+    "8fe868a20b40"
+    ++ VPCMOV **
+      [ O.Reg R.XMM1; O.Reg R.XMM2; O.Mem(R.RBX, 128<rt>); O.Reg R.XMM4 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 8 (3)``() = (* W set: ModRM is the fourth, 256 bits *)
+    "8fe8eca20b40"
+    ++ VPCMOV **
+      [ O.Reg R.YMM1; O.Reg R.YMM2; O.Reg R.YMM4; O.Mem(R.RBX, 256<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 8 (4)``() = (* the /is4 byte follows the SIB and disp8 *)
+    "8fe8e8a34c241050"
+    ++ VPPERM **
+      [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM5; O.Mem(R.RSP, 0x10L, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 8 (5)``() = (* a rotate by an immediate *)
+    "8fe878c0ca07"
+    ++ VPROTB ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Imm(7L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 8 (6)``() = (* the condition of a compare is imm8 *)
+    "8fe868eecb03"
+    ++ VPCOMUD **
+      [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3; O.Imm(3L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 8 (7)``() = (* R and B inverted, and all four is4 bits *)
+    "8f486885cbf0"
+    ++ VPMACSSWW **
+      [ O.Reg R.XMM9; O.Reg R.XMM2; O.Reg R.XMM11; O.Reg R.XMM15 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 9 (1)``() = (* VPROTD with W clear: the count is vvvv *)
+    "8fe96892cb"
+    ++ VPROTD ** [ O.Reg R.XMM1; O.Reg R.XMM3; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 9 (2)``() = (* W set: the count is what ModRM names *)
+    "8fe9e892cb"
+    ++ VPROTD ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 9 (3)``() =
+    "8fe9e89b0b"
+    ++ VPSHAQ ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Mem(R.RBX, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 9 (4)``() =
+    "8fe978d1ca"
+    ++ VPHADDUBW ** [ O.Reg R.XMM1; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 9 (5)``() = (* the scalar form reads one element *)
+    "8fe978820b"
+    ++ VFRCZSS ** [ O.Reg R.XMM1; O.Mem(R.RBX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP map 9 (6)``() =
+    "8fe97c81ca"
+    ++ VFRCZPD ** [ O.Reg R.YMM1; O.Reg R.YMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* TBM: the groups at 01h and 02h of map 9 name the destination in vvvv,
+     and W picks the 64-bit form. *)
+  [<TestMethod>]
+  member _.``XOP TBM (1)``() =
+    "8fe96801cb"
+    ++ BLCFILL ** [ O.Reg R.EDX; O.Reg R.EBX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP TBM (2)``() =
+    "8fe9e801cb"
+    ++ BLCFILL ** [ O.Reg R.RDX; O.Reg R.RBX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP TBM (3)``() =
+    "8fe96802f3"
+    ++ BLCI ** [ O.Reg R.EDX; O.Reg R.EBX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP TBM (4)``() =
+    "8fe978013b"
+    ++ T1MSKC ** [ O.Reg R.EAX; O.Mem(R.RBX, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP TBM (5)``() = (* BEXTR with an immediate control, map 0Ah *)
+    "8fea7810cb78563412"
+    ++ BEXTR ** [ O.Reg R.ECX; O.Reg R.EBX; O.Imm(0x12345678L, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP TBM (6)``() =
+    "8feaf810cb78563412"
+    ++ BEXTR ** [ O.Reg R.RCX; O.Reg R.RBX; O.Imm(0x12345678L, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  (* LWP: the control block instructions take a register alone, and the
+     ring buffer inserts keep a 32-bit source under W. *)
+  [<TestMethod>]
+  member _.``XOP LWP (1)``() =
+    "8fe97812c3"
+    ++ LLWPCB ** [ O.Reg R.EBX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP LWP (2)``() =
+    "8fe9f812cb"
+    ++ SLWPCB ** [ O.Reg R.RBX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP LWP (3)``() =
+    "8fea6812c378563412"
+    ++ LWPINS ** [ O.Reg R.EDX; O.Reg R.EBX; O.Imm(0x12345678L, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP LWP (4)``() =
+    "8feae812cb78563412"
+    ++ LWPVAL ** [ O.Reg R.RDX; O.Reg R.EBX; O.Imm(0x12345678L, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  (* XOP is valid outside 64-bit mode, where the top bit of /is4 is ignored
+     as the VEX one is. *)
+  [<TestMethod>]
+  member _.``XOP in 32-bit mode (1)``() =
+    "8fe86885cb40"
+    ++ VPMACSSWW ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3; O.Reg R.XMM4 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP in 32-bit mode (2)``() =
+    "8fe86885cbc0"
+    ++ VPMACSSWW ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3; O.Reg R.XMM4 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP in 32-bit mode (3)``() =
+    "8fe96801cb"
+    ++ BLCFILL ** [ O.Reg R.EDX; O.Reg R.EBX ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP in 32-bit mode (4)``() = (* R, X and B are ignored *)
+    "8f0878cc3a2e"
+    ++ VPCOMB **
+      [ O.Reg R.XMM7; O.Reg R.XMM0; O.Mem(R.EDX, 128<rt>); O.Imm(0x2eL, 8<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP in 32-bit mode (5)``() = (* so is the top bit of vvvv *)
+    "8fe820ccc103"
+    ++ VPCOMB **
+      [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM1; O.Imm(3L, 8<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  (* 8Fh with ModRM.reg clear is still POP r/m. *)
+  [<TestMethod>]
+  member _.``XOP leaves POP alone (1)``() =
+    "8fc0"
+    ++ POP ** [ O.Reg R.RAX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``XOP leaves POP alone (2)``() =
+    "8f00"
+    ++ POP ** [ O.Mem(R.RAX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  (* The payload fields XOP reserves, and the forms each map leaves
+     undefined. *)
+  [<TestMethod>]
+  member _.``XOP ParsingFailure Test (1)``() =
+    testX64Invalid "8fe86985cb40" (* pp is not zero *)
+
+  [<TestMethod>]
+  member _.``XOP ParsingFailure Test (2)``() =
+    testX64Invalid "8fd078850000" (* map selector 10h *)
+
+  [<TestMethod>]
+  member _.``XOP ParsingFailure Test (3)``() =
+    testX64Invalid "8feb7810cb78563412" (* map selector 0Bh *)
+
+  [<TestMethod>]
+  member _.``XOP ParsingFailure Test (4)``() =
+    testX64Invalid "8fe8e885cb40" (* W on VPMACSSWW, which has no W1 form *)
+
+  [<TestMethod>]
+  member _.``XOP ParsingFailure Test (5)``() =
+    testX64Invalid "8fe86ca3cb40" (* VPPERM at 256 bits *)
+
+  [<TestMethod>]
+  member _.``XOP ParsingFailure Test (6)``() =
+    testX64Invalid "8fe96c01cb" (* BLCFILL with L set *)
+
+  [<TestMethod>]
+  member _.``XOP ParsingFailure Test (7)``() =
+    testX64Invalid "8fe96801c3" (* map 9 01h /0, which TBM leaves empty *)
+
+  [<TestMethod>]
+  member _.``XOP ParsingFailure Test (8)``() =
+    testX64Invalid "8fe9781203" (* LLWPCB with a memory operand *)
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Size cond ParsingFailure Test (1)``() =

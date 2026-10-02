@@ -79,6 +79,34 @@ let getThreeVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
     VPrefixes = getVPrefs b2
     EVEXPrx = None }
 
+/// The map an XOP payload selects, P0[4:0]: AMD defined 08h, 09h and 0Ah
+/// and reserved the rest, which are #UD.
+let pickXOPMap b1 =
+  match b1 &&& 0b11111uy with
+  | 0x08uy -> VEXType.XOPMap8
+  | 0x09uy -> VEXType.XOPMap9
+  | 0x0Auy -> VEXType.XOPMap10
+  | _ -> raise ParsingFailureException
+
+/// Reads the two payload bytes of AMD's XOP prefix (8Fh), which are laid out
+/// as the three-byte VEX's: R, X and B inverted above the map selector in
+/// the first, and W, vvvv, L and pp in the second. No XOP instruction takes
+/// an implied 66h, F3h or F2h, so pp has to be zero. Outside 64-bit mode
+/// there are eight registers of each kind, so R, X, B and the top bit of
+/// vvvv are ignored there; W still picks the form. AMD64 APM Vol. 3, "VEX
+/// and XOP Prefixes".
+let getXOPInfo (span: ByteSpan) (rex: byref<REXPrefix>) is64 pos =
+  let b1 = if is64 then span[pos] else span[pos] ||| 0b11100000uy
+  let b2 = span[pos + 1]
+  if b2 &&& 0b11uy <> 0uy then raise ParsingFailureException else ()
+  let vLen = if ((b2 >>> 2) &&& 0b000001uy) = 0uy then 128<rt> else 256<rt>
+  rex <- rex ||| getVREXPref b1 b2
+  { VVVV = if is64 then getVVVV b2 else getVVVV b2 &&& 0b0111uy
+    VectorLength = vLen
+    VEXType = pickXOPMap b1
+    VPrefixes = Prefix.None
+    EVEXPrx = None }
+
 let getVLen = function
   | 0b00uy -> 128<rt>
   | 0b01uy -> 256<rt>
