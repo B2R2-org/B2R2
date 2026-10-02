@@ -1183,93 +1183,57 @@ let powerOfTwoOf srcSz k =
     else k
   (numI32 bias srcSz .+ k) << numI32 mBits srcSz
 
+/// The fraction's top bit, which is what makes a NaN quiet.
+let private fpQuietBit eSize =
+  match eSize with
+  | 64<rt> -> numU64 0x8000000000000UL 64<rt>
+  | 32<rt> -> numU64 0x400000UL 32<rt>
+  | 16<rt> -> numU64 0x200UL 16<rt>
+  | _ -> raise InvalidOperandException
+
 /// shared/functions/float/fpprocessnan/FPProcessNaN
 /// FPProcessNaN()
 let fpProcessNan bld eSize element =
   let struct (res, tf) = tmpVars2 bld eSize
   let fpcr = regVar bld R.FPCR
   let dnBit = AST.extract fpcr 1<rt> 25
-  let topfrac =
-    match eSize with
-    | 64<rt> -> numU64 0x8000000000000UL 64<rt>
-    | 32<rt> -> numU64 0x400000UL 32<rt>
-    | 16<rt> -> numU64 0x200UL 16<rt>
-    | _ -> raise InvalidOperandException
   append bld {
-    direct tf := AST.ite (isSNaN eSize element) (element .| topfrac) element
+    direct tf :=
+      AST.ite (isSNaN eSize element) (element .| fpQuietBit eSize) element
     direct res := AST.ite dnBit (fpDefaultNan eSize) tf
   }
   res
 
-let fpProcessNaNs bld dataSize e1 e2 =
-  let struct (isSNaN1, isSNaN2, isQNaN1, isQNaN2) = tmpVars4 bld 1<rt>
-  let isNaN = tmpVar bld 1<rt>
-  let resNaN = tmpVar bld dataSize
-  append bld {
-    direct isSNaN1 := isSNaN dataSize e1
-    direct isSNaN2 := isSNaN dataSize e2
-    direct isQNaN1 := isQNaN dataSize e1
-    direct isQNaN2 := isQNaN dataSize e2
-    direct isNaN := isSNaN1 .| isSNaN2 .| isQNaN1 .| isQNaN2
-  }
-  let fpNaN expr = fpProcessNan bld dataSize expr
-  let lblSFT = label bld "isSFT" (* SNaN1 Fall Through *)
-  let lblQNaN = label bld "isQNaN"
-  let lblSNaN1 = label bld "isSNaN1"
-  let lblSNaN2 = label bld "isSNaN2"
-  let lblQNaN1 = label bld "isQNaN1"
-  let lblQNaN2 = label bld "isQNaN2"
-  let lblEnd = label bld "End"
-  append bld {
-    AST.cjmp isSNaN1 (AST.jmpDest lblSNaN1) (AST.jmpDest lblSFT)
-    AST.lmark lblSNaN1
-    direct resNaN := fpNaN e1
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblSFT
-    AST.cjmp isSNaN2 (AST.jmpDest lblSNaN2) (AST.jmpDest lblQNaN)
-    AST.lmark lblSNaN2
-    direct resNaN := fpNaN e2
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblQNaN
-    AST.cjmp isQNaN1 (AST.jmpDest lblQNaN1) (AST.jmpDest lblQNaN2)
-    AST.lmark lblQNaN1
-    direct resNaN := fpNaN e1
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblQNaN2
-    direct resNaN := AST.ite isQNaN2 (fpNaN e2) (AST.num0 dataSize)
-    AST.lmark lblEnd
-  }
-  struct (isNaN, resNaN)
-
-/// shared/functions/float/fpprocessnans3/FPProcessNaNs3
-/// FPProcessNaNs3()
+/// <summary>
+/// shared/functions/float/fpprocessnans/FPProcessNaNs and FPProcessNaNs3
 ///
-/// The NaN a three-operand operation answers with. The order is the
-/// pseudocode's: a signalling NaN ahead of a quiet one, and within each the
-/// operands in the order they are written, which for a fused multiply-add puts
-/// the addend first. Every candidate is quieted up front and the choice made
-/// with a select rather than with branches -- the quieting is two statements
-/// per operand and reaching it through six labels would be the longer way to
-/// say the same thing.
-let fpProcessNaNs3 bld dataSize e1 e2 e3 =
-  let anyNaN = tmpVar bld 1<rt>
-  let resNaN = tmpVar bld dataSize
-  let n1 = fpProcessNan bld dataSize e1
-  let n2 = fpProcessNan bld dataSize e2
-  let n3 = fpProcessNan bld dataSize e3
-  let candidates =
-    [ isSNaN dataSize e1, n1
-      isSNaN dataSize e2, n2
-      isSNaN dataSize e3, n3
-      isQNaN dataSize e1, n1
-      isQNaN dataSize e2, n2
-      isQNaN dataSize e3, n3 ]
+/// The NaN an operation answers with, where it answers with one. That is the
+/// one part of an answer the host's arithmetic does not already give the way
+/// AArch64 does: a host propagates the first NaN operand where FPProcessNaNs
+/// puts a signalling NaN ahead of a quiet one whichever operand each is, and
+/// an x86 host's default NaN is negative where FPDefaultNaN is positive. An
+/// infinity and a signed zero the host already gets right.
+///
+/// The first signalling NaN in the order the operands are written wins, then
+/// the first quiet one, and it comes back quiet. A NaN that no operand brought
+/// in is an invalid operation's, which answers the default NaN, as every NaN
+/// does under FPCR.DN. It is a chain of selects, which an evaluator only
+/// reaches for an answer that is a NaN.
+/// </summary>
+let fpNaNResult bld dSz operands =
+  let dn = AST.extract (regVar bld R.FPCR) 1<rt> 25
+  let anyNaN = operands |> List.map (isNaN dSz) |> List.reduce (.|)
+  let first kind = operands |> List.map (fun e -> kind dSz e, e)
+  let candidates = first isSNaN @ first isNaN
   let pick = List.foldBack (fun (c, v) acc -> AST.ite c v acc) candidates
+  let chosen = pick (AST.num0 dSz) .| fpQuietBit dSz
+  AST.ite (dn .| AST.not anyNaN) (fpDefaultNan dSz) chosen
+
+/// Puts AArch64's NaN in place of the host's, where the arithmetic made one.
+let private fpSettleNaN bld dSz operands res =
   append bld {
-    direct anyNaN := isNaN dataSize e1 .| isNaN dataSize e2 .| isNaN dataSize e3
-    direct resNaN := pick (AST.num0 dataSize)
+    direct res := AST.ite (isNaN dSz res) (fpNaNResult bld dSz operands) res
   }
-  struct (anyNaN, resNaN)
 
 /// <summary>
 /// A fused multiply-add: x times y plus z, rounded once.
@@ -1305,69 +1269,11 @@ type FPArith =
   | FPDiv
   | FPSqrt
 
-/// Everything below the sign bit, which is the magnitude.
-let private magnitudeOfWidth oprSz =
-  if oprSz = 32<rt> then numU32 0x7fffffffu 32<rt>
-  else numU64 0x7fffffff_ffffffffUL 64<rt>
-
-/// The biased exponent as a number, which is zero for a subnormal and for a
-/// zero, and all ones for an infinity and for a NaN.
-let private biasedExponent oprSz v =
-  if oprSz = 32<rt> then (v >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
-  else (v >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
-
 /// <summary>
 /// An expression with a rounding direction of its own in force, whatever
 /// FPCR.RMode names.
 /// </summary>
 let private roundedIn mode e = AST.roundCtrl (AST.roundingMode mode) e
-
-/// <summary>
-/// The arithmetic of an operation, bare: what it rounds when its operands are
-/// finite, with none of the pseudocode's case analysis around it. The square
-/// root reads one operand.
-/// </summary>
-let private fpArith op a b =
-  match op with
-  | FPAdd -> AST.fadd a b
-  | FPSub -> AST.fsub a b
-  | FPMul -> AST.fmul a b
-  | FPDiv -> AST.fdiv a b
-  | FPSqrt -> AST.fsqrt a
-
-/// One half, at a width.
-let private fpOneHalf oprSz =
-  if oprSz = 32<rt> then numU32 0x3f000000u 32<rt>
-  else numU64 0x3fe0000000000000UL 64<rt>
-
-/// <summary>
-/// The same arithmetic with its answer halved, by halving what it scales
-/// with: both operands of a sum, the first of the others.
-/// </summary>
-let private fpHalved oprSz op a b =
-  let half e = AST.fmul e (fpOneHalf oprSz)
-  match op with
-  | FPAdd | FPSub -> fpArith op (half a) (half b)
-  | FPMul | FPDiv | FPSqrt -> fpArith op (half a) b
-
-/// <summary>
-/// Whether the exact answer is at least two to the power one past the largest
-/// exponent, which FPRound overflows on whichever way it rounds.
-///
-/// Rounding to nearest, or toward the infinity of the answer's own sign,
-/// makes such an answer infinite. Rounding the other way makes it the largest
-/// finite number, which an answer below that power can round to as well, so
-/// the question is asked of the answer halved and rounded toward zero -- which
-/// cannot overflow, and reaches two to the largest exponent exactly when the
-/// whole answer reaches the next power. An operand too small to halve exactly
-/// makes an answer too small for that to matter.
-/// </summary>
-let private fpIsBeyondRange oprSz halved =
-  let top =
-    if oprSz = 32<rt> then numU32 0x7f000000u 32<rt>
-    else numU64 0x7fe0000000000000UL 64<rt>
-  let magnitude = roundedIn RoundingMode.TowardZero halved
-  (magnitude .& magnitudeOfWidth oprSz) .>= top
 
 /// <summary>
 /// Whether the arithmetic lost nothing to rounding.
@@ -1388,16 +1294,6 @@ let fpIsExact arith =
   let up = roundedIn RoundingMode.TowardPositive arith
   let down = roundedIn RoundingMode.TowardNegative arith
   AST.feq up down
-
-/// <summary>
-/// Whether the exact answer is below the smallest normal number, which is
-/// where FPRound detects tininess: BEFORE rounding, so an answer that rounds
-/// up to the smallest normal was tiny. Rounded toward zero, the answer is
-/// below the smallest normal exactly when the exact one is.
-/// </summary>
-let private fpIsTinyBeforeRounding oprSz arith =
-  biasedExponent oprSz (roundedIn RoundingMode.TowardZero arith)
-  == AST.num0 oprSz
 
 /// The five exceptions as the bits FPSR keeps them in -- Invalid lowest and
 /// Inexact highest -- from one-bit conditions.
@@ -1430,57 +1326,45 @@ let fpRecord bld raised =
   }
 
 /// <summary>
+/// What AArch64 asks of the evaluator's exception query beyond the operation:
+/// tininess decided BEFORE rounding (0x40), as FPRound does, so that an answer
+/// rounding up to the smallest normal underflows all the same; and the flags
+/// in FPSR's order (0x80), invalid lowest, which is the reverse of the fflags
+/// order the query answers in otherwise. They ride in the byte the operation
+/// code does, or with the sign flags of the fused form.
+/// </summary>
+let private fpExcAArch64 = 0xC0UL
+
+/// The operation codes of the query, which are the evaluator's contract.
+let private fpExcCode = function
+  | FPAdd -> 0UL
+  | FPSub -> 1UL
+  | FPMul -> 2UL
+  | FPDiv -> 3UL
+  | FPSqrt -> 4UL
+
+let private fpExcName oprSz = if oprSz = 32<rt> then "FEXC32" else "FEXC64"
+
+/// <summary>
 /// The exceptions an arithmetic operation raised, as the five bits FPSR
 /// keeps them in.
 ///
-/// Invalid and Divide-by-zero are read off the operands and the result. The
-/// other three are about the rounding, and each is asked of the arithmetic
-/// again, rounded in a direction of its own: whether it lost anything,
-/// whether its exact answer was tiny, whether it was out of range. Losing
-/// something is also what makes a tiny answer an underflow rather than merely
-/// small, and an overflow always loses something.
+/// Three of the five are about the rounding -- whether it lost anything,
+/// whether the exact answer was tiny, whether it was past the range -- and an
+/// answer does not say: an inexact sum and an exact one look the same. So the
+/// question goes to the evaluator as a named call, which works the operation
+/// out a second time with its exact error in hand. Asking the IR instead means
+/// the arithmetic again in three more rounding directions, which is what this
+/// used to do, at four directed operations an instruction.
 ///
 /// The square root reads one operand, and its caller passes that one twice.
 /// </summary>
-let fpRaised bld oprSz op src1 src2 result =
-  let struct (invalid, divZero, overflow) = tmpVars3 bld 1<rt>
-  let struct (underflow, inexact, special) = tmpVars3 bld 1<rt>
-  let finiteIn = tmpVar bld 1<rt>
-  let raised = tmpVar bld 64<rt>
-  let nanIn = isNaN oprSz src1 .| isNaN oprSz src2
-  let infIn = isInfinity oprSz src1 .| isInfinity oprSz src2
-  let divZeroCond =
-    if op = FPDiv then
-      isZero oprSz src2 .& AST.not (isZero oprSz src1) .& finiteIn
-    else
-      AST.num0 1<rt>
-  let arith = fpArith op src1 src2
-  let beyond = fpIsBeyondRange oprSz (fpHalved oprSz op src1 src2)
-  append bld {
-    direct finiteIn := AST.not (nanIn .| infIn)
-    (* A NaN nothing brought in is one the operation manufactured, which is
-       what Invalid means: zero over zero, infinity less infinity, the square
-       root of a negative. *)
-    direct invalid :=
-      isSNaN oprSz src1 .| isSNaN oprSz src2
-      .| (isNaN oprSz result .& AST.not nanIn)
-    direct divZero := divZeroCond
-    direct special := isNaN oprSz result .| invalid .| divZero
-    direct overflow :=
-      AST.not special .& finiteIn .& (isInfinity oprSz result .| beyond)
-    (* An infinite operand gives an exact answer -- infinity plus a finite is
-       that infinity, and a finite over an infinity is zero -- so only an
-       overflow makes an infinite RESULT inexact. *)
-    direct inexact :=
-      AST.not special .& finiteIn .& (overflow .| AST.not (fpIsExact arith))
-    direct underflow :=
-      inexact .& AST.not overflow .& fpIsTinyBeforeRounding oprSz arith
-    direct raised := fpBits invalid divZero overflow underflow inexact
-  }
-  raised
+let fpRaised oprSz op src1 src2 =
+  let code = numU64 (fpExcCode op ||| fpExcAArch64) 8<rt>
+  AST.app (fpExcName oprSz) [ code; src1; src2 ] 32<rt> |> AST.zext 64<rt>
 
-let fpExceptions bld oprSz op src1 src2 result =
-  fpRecord bld (fpRaised bld oprSz op src1 src2 result)
+let fpExceptions bld oprSz op src1 src2 =
+  fpRecord bld (fpRaised oprSz op src1 src2)
 
 /// <summary>
 /// What a conversion to an INTEGER raises, which is two of the five and
@@ -1520,48 +1404,20 @@ let fpExceptionsCompare bld oprSz signalsOnQuiet a b =
   fpRecord bld (fpBits invalid fpNone fpNone fpNone fpNone)
 
 /// <summary>
-/// What a FUSED multiply-add raised.
+/// What a FUSED multiply-add raised: x times y plus z, the product negated
+/// first where asked.
 ///
 /// It is one operation with one rounding, so it is not the union of a
 /// multiply's exceptions and an add's -- an intermediate product that would
 /// have overflowed on its own does not overflow here, because there is no
-/// intermediate product. Its rounding is asked about as an operation's is, of
-/// the multiply-add itself, whose answer halves with the multiplicand and the
-/// addend.
-///
-/// Invalid has a case the arithmetic does not: FPMulAdd raises it for a zero
-/// times an infinity even with a quiet NaN to add, before it lets that NaN
-/// through. The step instructions pass their own answer for such a product,
-/// which is a number and raises nothing.
+/// intermediate product. And FPMulAdd raises Invalid for a zero times an
+/// infinity even with a quiet NaN to add, before it lets that NaN through.
+/// The query's fused form answers for both.
 /// </summary>
-let fpExceptionsFused bld oprSz negProduct src1 src2 addend result =
-  let struct (invalid, overflow, underflow) = tmpVars3 bld 1<rt>
-  let struct (inexact, finiteIn) = tmpVars2 bld 1<rt>
-  let b, d = src2, addend
-  let anyNaN = isNaN oprSz src1 .| isNaN oprSz b .| isNaN oprSz d
-  let anyInf =
-    isInfinity oprSz src1 .| isInfinity oprSz b .| isInfinity oprSz d
-  let badProduct =
-    (isInfinity oprSz src1 .& isZero oprSz b)
-    .| (isZero oprSz src1 .& isInfinity oprSz b)
-  let fused = fma oprSz negProduct false src1 b d
-  let half e = AST.fmul e (fpOneHalf oprSz)
-  let halved = fma oprSz negProduct false (half src1) b (half d)
-  append bld {
-    direct finiteIn := AST.not (anyNaN .| anyInf)
-    direct invalid :=
-      isSNaN oprSz src1 .| isSNaN oprSz b .| isSNaN oprSz d
-      .| (isQNaN oprSz d .& badProduct)
-      .| (isNaN oprSz result .& AST.not anyNaN)
-    direct overflow :=
-      AST.not invalid .& finiteIn
-      .& (isInfinity oprSz result .| fpIsBeyondRange oprSz halved)
-    direct inexact :=
-      AST.not invalid .& finiteIn .& (overflow .| AST.not (fpIsExact fused))
-    direct underflow :=
-      inexact .& AST.not overflow .& fpIsTinyBeforeRounding oprSz fused
-  }
-  fpRecord bld (fpBits invalid fpNone overflow underflow inexact)
+let fpFusedRaised oprSz negProduct x y z =
+  let flags = (if negProduct then 1UL else 0UL) ||| fpExcAArch64
+  let args = [ numU64 8UL 8<rt>; x; y; z; numU64 flags 8<rt> ]
+  AST.app (fpExcName oprSz) args 32<rt> |> AST.zext 64<rt>
 
 /// What an operation raises where rounding is all it can lose: Invalid for a
 /// signalling operand and Inexact for a result that was rounded. Nothing it
@@ -1949,203 +1805,82 @@ let viaDouble bld (op: Expr[] -> Expr) (halves: Expr[]) =
   }
   h
 
-/// The seven labels every floating-point arithmetic primitive branches
-/// through, in the order they are reached.
-let private fpArithLabels bld =
-  let lblNan = label bld "NaN"
-  let lblCond = label bld "Cond"
-  let lblInvalid = label bld "Invalidop"
-  let lblInf = label bld "Inf"
-  let lblChkInf = label bld "CheckInf"
-  let lblChkZero = label bld "CheckZero"
-  let lblEnd = label bld "End"
-  struct (lblNan, lblCond, lblInvalid, lblInf, lblChkInf, lblChkZero, lblEnd)
-
-/// shared/functions/float/fpadd/FPAdd
-/// FPAdd()
-let private fpAddWide bld dSz src1 src2 =
-  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
-  let struct (sign1, sign2) = tmpVars2 bld 1<rt>
-  let res = tmpVar bld dSz
-  let struct (lblNan, lblCond, lblInvalid, lblInf, lblChkInf, lblChkZero,
-              lblEnd) = fpArithLabels bld
-  let cond1 = isInf1 .& isInf2 .& (sign1 == AST.not sign2)
-  let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& (AST.not sign2))
-  let cond3 = (isInf1 .& sign1) .| (isInf2 .& sign2)
-  let cond4 = isZero1 .& isZero2 .& (sign1 == sign2)
-  let struct (isNaN, resNaN) = fpProcessNaNs bld dSz src1 src2
-  append bld {
-    AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond)
-    AST.lmark lblNan
-    direct res := resNaN
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblCond
-    direct sign1 := AST.xthi 1<rt> src1
-    direct sign2 := AST.xthi 1<rt> src2
-    direct isZero1 := isZero dSz src1
-    direct isZero2 := isZero dSz src2
-    direct isInf1 := isInfinity dSz src1
-    direct isInf2 := isInfinity dSz src2
-    AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf)
-    AST.lmark lblInvalid
-    direct res := fpDefaultNan dSz
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblChkInf
-    AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)
-                              (AST.jmpDest lblChkZero)
-    AST.lmark lblInf
-    direct res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz)
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblChkZero
-    direct res := AST.ite cond4 (fpZero src1 dSz) (AST.fadd src1 src2)
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblEnd
-  }
-  fpExceptions bld dSz FPAdd src1 src2 res
-  res
-
-/// FPAdd at every width: a half's goes through doubles.
-let fpAdd bld dSz src1 src2 =
-  if dSz = 16<rt> then
-    viaDouble bld (fun w -> fpAddWide bld 64<rt> w[0] w[1]) [| src1; src2 |]
-  else
-    fpAddWide bld dSz src1 src2
-
-/// shared/functions/float/fpadd/FPSub
-/// FPSub()
-let private fpSubWide bld dSz src1 src2 =
-  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
-  let struct (sign1, sign2) = tmpVars2 bld 1<rt>
-  let res = tmpVar bld dSz
-  let struct (lblNan, lblCond, lblInvalid, lblInf, lblChkInf, lblChkZero,
-              lblEnd) = fpArithLabels bld
-  let cond1 = isInf1 .& isInf2 .& (sign1 == sign2)
-  let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& sign2)
-  let cond3 = (isInf1 .& sign1) .| (isInf2 .& (AST.not sign2))
-  let cond4 = isZero1 .& isZero2 .& (sign1 == (AST.not sign2))
-  let struct (isNaN, resNaN) = fpProcessNaNs bld dSz src1 src2
-  append bld {
-    AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond)
-    AST.lmark lblNan
-    direct res := resNaN
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblCond
-    direct sign1 := AST.xthi 1<rt> src1
-    direct sign2 := AST.xthi 1<rt> src2
-    direct isZero1 := isZero dSz src1
-    direct isZero2 := isZero dSz src2
-    direct isInf1 := isInfinity dSz src1
-    direct isInf2 := isInfinity dSz src2
-    AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf)
-    AST.lmark lblInvalid
-    direct res := fpDefaultNan dSz
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblChkInf
-    AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)
-                              (AST.jmpDest lblChkZero)
-    AST.lmark lblInf
-    direct res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz)
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblChkZero
-    direct res := AST.ite cond4 (fpZero src1 dSz) (AST.fsub src1 src2)
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblEnd
-  }
-  fpExceptions bld dSz FPSub src1 src2 res
-  res
-
-/// FPSub at every width: a half's goes through doubles.
-let fpSub bld dSz src1 src2 =
-  if dSz = 16<rt> then
-    viaDouble bld (fun w -> fpSubWide bld 64<rt> w[0] w[1]) [| src1; src2 |]
-  else
-    fpSubWide bld dSz src1 src2
-
 /// <summary>
-/// FPMul and FPMulX, which differ in one answer.
+/// shared/functions/float/fpadd/FPAdd, FPSub, fpmul/FPMul, fpdiv/FPDiv and
+/// fpsqrt/FPSqrt, over singles or doubles.
 ///
-/// Zero times infinity is an invalid operation for the ordinary multiply and
-/// answers the default NaN. FMULX answers two, with the sign the product
-/// would have had -- the value that makes it useful for a reciprocal step,
-/// where an infinity and a zero are the two ends of the same estimate.
+/// The host's own operation is the answer to every pair of operands but the
+/// ones it answers with a NaN. IEEE 754 already decides the infinities and
+/// the zeros as the pseudocode's case analysis does -- infinity less infinity
+/// and zero times infinity are invalid, the sign of an exact zero follows the
+/// rounding in force, and the square root of minus zero is minus zero -- so
+/// that analysis need not be spelled out again ahead of the arithmetic. Which
+/// NaN comes back IEEE leaves open, and the host settles otherwise, so that
+/// one is put right after the fact. What the operation raised goes to FPSR.
+///
+/// The square root has one operand; the others two.
 /// </summary>
-let private fpMultiplyCases bld dataSize extended src1 src2 res =
-  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
-  let struct (sign1, sign2) = tmpVars2 bld 1<rt>
-  let lblNan = label bld "NaN"
-  let lblCond = label bld "Cond"
-  let lblInvalid = label bld "Invalidop"
-  let lblInf = label bld "Inf"
-  let lblMul = label bld "Mul"
-  let lblChkInf = label bld "CheckInf"
-  let lblEnd = label bld "End"
-  let cond1 = (isInf1 .& isZero2) .| (isZero1 .& isInf2)
-  let cond2 = isInf1 .| isInf2
-  let cond3 = isZero1 .| isZero2
-  let struct (isNaN, resNaN) = fpProcessNaNs bld dataSize src1 src2
-  append bld {
-    AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond)
-    AST.lmark lblNan
-    direct res := resNaN
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblCond
-    direct sign1 := AST.xthi 1<rt> src1
-    direct sign2 := AST.xthi 1<rt> src2
-    direct isZero1 := isZero dataSize src1
-    direct isZero2 := isZero dataSize src2
-    direct isInf1 := isInfinity dataSize src1
-    direct isInf2 := isInfinity dataSize src2
-    AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf)
-    AST.lmark lblInvalid
-    direct res :=
-      if extended then fpTwo (sign1 <+> sign2) dataSize
-      else fpDefaultNan dataSize
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblChkInf
-    AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf) (AST.jmpDest lblMul)
-    AST.lmark lblInf
-    direct res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
-                                (fpZero (src1 <+> src2) dataSize)
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblMul
-    direct res := AST.fmul src1 src2
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblEnd
-  }
-
-/// FPMul and FPMulX, which differ only in what they answer for a zero times
-/// an infinity: a default NaN, or the two that a reciprocal step wants.
-let private fpMultiplyWide bld dataSize extended src1 src2 =
-  let res = tmpVar bld dataSize
-  fpMultiplyCases bld dataSize extended src1 src2 res
-  fpExceptions bld dataSize FPMul src1 src2 res
+let private fpArithWide bld dSz op (operands: Expr list) =
+  let res = tmpVar bld dSz
+  let a, b = List.head operands, List.last operands
+  let arith =
+    match op with
+    | FPAdd -> AST.fadd a b
+    | FPSub -> AST.fsub a b
+    | FPMul -> AST.fmul a b
+    | FPDiv -> AST.fdiv a b
+    | FPSqrt -> AST.fsqrt a
+  append bld { direct res := arith }
+  fpSettleNaN bld dSz operands res
+  fpExceptions bld dSz op a b
   res
 
 /// The same at every width: a half's goes through doubles.
-let private fpMultiply bld dSz extended src1 src2 =
+let private fpArith bld dSz op operands =
   if dSz = 16<rt> then
-    let op (w: Expr[]) = fpMultiplyWide bld 64<rt> extended w[0] w[1]
-    viaDouble bld op [| src1; src2 |]
+    let wide (w: Expr[]) = fpArithWide bld 64<rt> op (List.ofArray w)
+    viaDouble bld wide (Array.ofList operands)
   else
-    fpMultiplyWide bld dSz extended src1 src2
+    fpArithWide bld dSz op operands
 
-/// shared/functions/float/fpmul/FPMul
+/// FPAdd()
+let fpAdd bld dSz src1 src2 = fpArith bld dSz FPAdd [ src1; src2 ]
+
+/// FPSub()
+let fpSub bld dSz src1 src2 = fpArith bld dSz FPSub [ src1; src2 ]
+
 /// FPMul()
-let fpMul bld dataSize src1 src2 = fpMultiply bld dataSize false src1 src2
+let fpMul bld dSz src1 src2 = fpArith bld dSz FPMul [ src1; src2 ]
 
-let fpMulX bld dataSize src1 src2 = fpMultiply bld dataSize true src1 src2
-
-/// The three facts about an operand that FPMulAdd's case analysis turns on,
-/// each in a temporary of its own so that the conditions below can be written
-/// once and read three times.
-let private fpClassify bld dSz src =
-  let struct (sign, isZ, isI) = tmpVars3 bld 1<rt>
+/// <summary>
+/// shared/functions/float/fpmulx/FPMulX
+///
+/// FPMul but for one answer. Zero times infinity is an invalid operation for
+/// the ordinary multiply and answers the default NaN. FMULX answers two, with
+/// the sign the product would have had, and raises nothing -- the value that
+/// makes it useful for a reciprocal step, where an infinity and a zero are the
+/// two ends of the same estimate.
+/// </summary>
+let private fpMulXWide bld dSz src1 src2 =
+  let res = tmpVar bld dSz
+  let two = tmpVar bld 1<rt>
+  let sign = AST.xthi 1<rt> src1 <+> AST.xthi 1<rt> src2
   append bld {
-    direct sign := AST.xthi 1<rt> src
-    direct isZ := isZero dSz src
-    direct isI := isInfinity dSz src
+    direct two :=
+      (isInfinity dSz src1 .& isZero dSz src2)
+      .| (isZero dSz src1 .& isInfinity dSz src2)
+    direct res := AST.ite two (fpTwo sign dSz) (AST.fmul src1 src2)
   }
-  struct (sign, isZ, isI)
+  fpSettleNaN bld dSz [ src1; src2 ] res
+  fpRecord bld (AST.ite two (AST.num0 64<rt>) (fpRaised dSz FPMul src1 src2))
+  res
+
+/// FPMulX at every width: a half's goes through doubles.
+let fpMulX bld dSz src1 src2 =
+  if dSz = 16<rt> then
+    viaDouble bld (fun w -> fpMulXWide bld 64<rt> w[0] w[1]) [| src1; src2 |]
+  else
+    fpMulXWide bld dSz src1 src2
 
 /// shared/functions/float/fpmuladd/FPMulAdd
 /// FPMulAdd()
@@ -2157,49 +1892,29 @@ let private fpClassify bld dSz src =
 /// operands where the discarded bits would have decided the sum. So the
 /// arithmetic here is the evaluator's own single-rounding multiply-add,
 /// reached through an APP node, which rounds once in whatever direction FPCR
-/// names; everything around it is the pseudocode's case analysis, which the
-/// composition of two operations would have got right on its own.
+/// names. As for the other operations, it already answers the infinities and
+/// zeros as the pseudocode does, and only a NaN answer is put right.
 ///
 /// The four multiply-add instructions negate their operands before arriving,
 /// exactly as the pseudocode does, so no sign flag is passed along: the fourth
 /// argument of the primitive, which the Intel FMA forms use to say which of
 /// the product and the addend to negate, is always zero here.
 let private fpMulAddWide bld dSz addend src1 src2 =
-  let struct (signA, isZeroA, isInfA) = fpClassify bld dSz addend
-  let struct (sign1, isZero1, isInf1) = fpClassify bld dSz src1
-  let struct (sign2, isZero2, isInf2) = fpClassify bld dSz src2
   let res = tmpVar bld dSz
-  let signP = sign1 <+> sign2
-  let isInfP = isInf1 .| isInf2
-  let isZeroP = isZero1 .| isZero2
-  (* Zero times infinity: the product is what is invalid, whatever the addend
-     turns out to be. *)
-  let badProduct = (isInf1 .& isZero2) .| (isZero1 .& isInf2)
-  let product = fma dSz false false src1 src2 addend
-  let struct (isNaN, resNaN) = fpProcessNaNs3 bld dSz addend src1 src2
   (* A quiet NaN addend does not win over an invalid product: zero times
      infinity makes the answer the default NaN however the addend read. A
      signalling one still comes back as itself, quieted. *)
-  let nan = AST.ite (isQNaN dSz addend .& badProduct) (fpDefaultNan dSz) resNaN
-  (* The answers, in the order the pseudocode decides them. Unlike the
-     primitives above, this one is a chain of selects rather than a ladder of
-     labels: every arm here is a value and none of them is a statement, so
-     there is nothing to branch around. *)
-  let invalid = badProduct .| (isInfA .& isInfP .& (signA <+> signP))
-  let plusInf = (isInfA .& AST.not signA) .| (isInfP .& AST.not signP)
-  let minusInf = (isInfA .& signA) .| (isInfP .& signP)
-  let zero = isZeroA .& isZeroP .& (signA == signP)
-  let answers =
-    [ isNaN, nan
-      invalid, fpDefaultNan dSz
-      plusInf, fpInfinity AST.b0 dSz
-      minusInf, fpInfinity AST.b1 dSz
-      zero, fpZero addend dSz ]
+  let badProduct =
+    (isInfinity dSz src1 .& isZero dSz src2)
+    .| (isZero dSz src1 .& isInfinity dSz src2)
+  let processed = fpNaNResult bld dSz [ addend; src1; src2 ]
+  let qNaNLoses = isQNaN dSz addend .& badProduct
+  let nan = AST.ite qNaNLoses (fpDefaultNan dSz) processed
   append bld {
-    direct res :=
-      List.foldBack (fun (c, v) acc -> AST.ite c v acc) answers product
+    direct res := fma dSz false false src1 src2 addend
+    direct res := AST.ite (isNaN dSz res) nan res
   }
-  fpExceptionsFused bld dSz false src1 src2 addend res
+  fpRecord bld (fpFusedRaised dSz false src1 src2 addend)
   res
 
 /// FPMulAdd at every width. A half's goes through doubles, which is the
@@ -2212,100 +1927,11 @@ let fpMulAdd bld dSz addend src1 src2 =
   else
     fpMulAddWide bld dSz addend src1 src2
 
-/// shared/functions/float/fpdiv/FPDiv
 /// FPDiv()
-let private fpDivCases bld dataSize src1 src2 res =
-  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
-  let struct (sign1, sign2) = tmpVars2 bld 1<rt>
-  let lblNan = label bld "NaN"
-  let lblCond = label bld "Cond"
-  let lblInvalid = label bld "Invalidop"
-  let lblInf = label bld "Inf"
-  let lblDiv = label bld "Div"
-  let lblChkInf = label bld "CheckInf"
-  let lblEnd = label bld "End"
-  let cond1 = (isInf1 .& isInf2) .| (isZero1 .& isZero2)
-  let cond2 = isInf1 .| isZero2
-  let cond3 = isZero1 .| isInf2
-  let struct (isNaN, resNaN) = fpProcessNaNs bld dataSize src1 src2
-  append bld {
-    AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond)
-    AST.lmark lblNan
-    direct res := resNaN
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblCond
-    direct sign1 := AST.xthi 1<rt> src1
-    direct sign2 := AST.xthi 1<rt> src2
-    direct isZero1 := isZero dataSize src1
-    direct isZero2 := isZero dataSize src2
-    direct isInf1 := isInfinity dataSize src1
-    direct isInf2 := isInfinity dataSize src2
-    AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf)
-    AST.lmark lblInvalid
-    direct res := fpDefaultNan dataSize
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblChkInf
-    AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf) (AST.jmpDest lblDiv)
-    AST.lmark lblInf
-    direct res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
-                                (fpZero (src1 <+> src2) dataSize)
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblDiv
-    direct res := AST.fdiv src1 src2
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblEnd
-  }
+let fpDiv bld dSz src1 src2 = fpArith bld dSz FPDiv [ src1; src2 ]
 
-/// FPDiv, which the case analysis above answers for every operand pair that
-/// does not reach the division itself.
-let private fpDivWide bld dataSize src1 src2 =
-  let res = tmpVar bld dataSize
-  fpDivCases bld dataSize src1 src2 res
-  fpExceptions bld dataSize FPDiv src1 src2 res
-  res
-
-/// FPDiv at every width: a half's goes through doubles.
-let fpDiv bld dSz src1 src2 =
-  if dSz = 16<rt> then
-    viaDouble bld (fun w -> fpDivWide bld 64<rt> w[0] w[1]) [| src1; src2 |]
-  else
-    fpDivWide bld dSz src1 src2
-
-/// <summary>
-/// shared/functions/float/fpsqrt/FPSqrt
-///
-/// FPSqrt(). A NaN operand is propagated; a negative operand that is not a
-/// zero is an invalid operation and answers the default NaN; everything else,
-/// including minus zero and positive infinity, is what the arithmetic already
-/// gives.
-///
-/// The negative arm is the reason this is written out rather than left to a
-/// bare <c>AST.fsqrt</c>. IEEE 754 does not say which NaN an invalid
-/// operation produces, so an evaluator answers with its host's -- and the one
-/// x86 produces has its sign bit set where AArch64's FPDefaultNaN has not.
-/// Nothing but the front end knows which of the two the architecture means.
-/// </summary>
-let private fpSqrtWide bld dSz src =
-  let res = tmpVar bld dSz
-  let struct (nan, zero, sign) = tmpVars3 bld 1<rt>
-  let resNaN = fpProcessNan bld dSz src
-  append bld {
-    direct nan := isNaN dSz src
-    direct zero := isZero dSz src
-    direct sign := AST.xthi 1<rt> src
-    let negative = sign .& AST.not zero
-    let ofNumber = AST.ite negative (fpDefaultNan dSz) (AST.fsqrt src)
-    direct res := AST.ite nan resNaN ofNumber
-  }
-  fpExceptions bld dSz FPSqrt src src res
-  res
-
-/// FPSqrt at every width: a half's goes through doubles.
-let fpSqrt bld dSz src =
-  if dSz = 16<rt> then
-    viaDouble bld (fun w -> fpSqrtWide bld 64<rt> w[0]) [| src |]
-  else
-    fpSqrtWide bld dSz src
+/// FPSqrt()
+let fpSqrt bld dSz src = fpArith bld dSz FPSqrt [ src ]
 
 /// <summary>
 /// shared/functions/float/fpmax/FPMax and shared/functions/float/fpmin/FPMin
@@ -2325,7 +1951,7 @@ let fpSqrt bld dSz src =
 /// </summary>
 let private fpMaxMinWide bld dSz isMax src1 src2 =
   let res = tmpVar bld dSz
-  let struct (isNaN, resNaN) = fpProcessNaNs bld dSz src1 src2
+  let anyNaN = isNaN dSz src1 .| isNaN dSz src2
   let cmp = if isMax then AST.fgt src1 src2 else AST.flt src1 src2
   let zeroSign =
     if isMax then fpZero src1 dSz .& fpZero src2 dSz
@@ -2333,7 +1959,7 @@ let private fpMaxMinWide bld dSz isMax src1 src2 =
   append bld {
     direct res := AST.ite cmp src1 src2
     direct res := AST.ite (isZero dSz res) zeroSign res
-    direct res := AST.ite isNaN resNaN res
+    direct res := AST.ite anyNaN (fpNaNResult bld dSz [ src1; src2 ]) res
   }
   fpExceptionsInvalidOnly bld (isSNaN dSz src1 .| isSNaN dSz src2)
   res

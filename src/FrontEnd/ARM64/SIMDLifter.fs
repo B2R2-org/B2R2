@@ -1449,26 +1449,30 @@ let private recipStep bld eSize isSqrt a b =
   let negA = tmpVar bld eSize
   let top = numI32 (int eSize - 1) eSize
   append bld { direct negA := a <+> (AST.num1 eSize << top) }
-  let struct (isNaN, resNaN) = fpProcessNaNs bld eSize negA b
+  let anyNaN = isNaN eSize a .| isNaN eSize b
   let struct (x, y, addend, halving) =
     if isSqrt then sqrtStepTerms bld eSize a b
     else struct (a, b, two, AST.b0)
   let fused = tmpVar bld eSize
-  append bld { direct fused := fma eSize true false x y addend }
+  let degenerate = tmpVar bld 1<rt>
+  append bld {
+    direct fused := fma eSize true false x y addend
+    direct degenerate :=
+      (isInfinity eSize a .& isZero eSize b)
+      .| (isZero eSize a .& isInfinity eSize b)
+  }
   let ordinary = AST.ite halving (AST.fmul fused half) fused
-  let degenerate =
-    (isInfinity eSize a .& isZero eSize b)
-    .| (isZero eSize a .& isInfinity eSize b)
   let anyInf = isInfinity eSize a .| isInfinity eSize b
   let res = tmpVar bld eSize
   let infOrOrdinary = AST.ite anyInf (stepInfinity eSize a b) ordinary
   let named = if isSqrt then onePointFive else two
   let finite = AST.ite degenerate named infOrOrdinary
-  append bld { direct res := AST.ite isNaN resNaN finite }
-  (* what the one rounding raised: the degenerate product raises nothing, so
-     it is asked of the constant the manual answers with and not of the NaN
-     the arithmetic would make of it *)
-  fpExceptionsFused bld eSize true x y addend (AST.ite degenerate addend fused)
+  let nan = fpNaNResult bld eSize [ negA; b ]
+  append bld { direct res := AST.ite anyNaN nan finite }
+  (* what the one rounding raised: the degenerate product raises nothing,
+     where the fused operation it would have been is invalid *)
+  let raised = fpFusedRaised eSize true x y addend
+  fpRecord bld (AST.ite degenerate (AST.num0 64<rt>) raised)
   res
 
 /// <summary>
