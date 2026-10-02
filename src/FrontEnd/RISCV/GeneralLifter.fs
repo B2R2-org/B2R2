@@ -204,12 +204,20 @@ let nop (ins: Instruction) bld =
   lift bld ins {
   }
 
+/// The kind of jump a jal is: a call, since it saves the address after it in
+/// its link register -- unless that register is x0, which saves nothing, and
+/// the jal is the plain unconditional jump the ISA defines j to be.
+let private jalKind (ins: Instruction) =
+  match getTwoOprs ins with
+  | OpReg Register.X0, _ -> InterJmpKind.Base
+  | _ -> InterJmpKind.IsCall
+
 let jal ins bld =
   lift bld ins {
     let rd, jumpTarget = transTwoOprs ins bld
     let r = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     rd := r
-    AST.interjmp jumpTarget InterJmpKind.IsCall
+    AST.interjmp jumpTarget (jalKind ins)
   }
 
 let jalr ins bld =
