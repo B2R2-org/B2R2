@@ -2872,6 +2872,341 @@ type ParserTests() =
   member _.``AMX ParsingFailure Test (7)``() =
     testX64Invalid "c4e23b5eca" (* TDPBSSD with vvvv naming a ninth tile *)
 
+  (* INTEL ADVANCED PERFORMANCE EXTENSIONS (APX). Intel APX spec 355828-007.
+     The REX2 prefix (D5h) carries REX's bits and a fifth bit for each of the
+     R, X and B register identifiers, which reach R16 to R31; its M0 bit picks
+     the one-byte or the 0Fh map. Section 3.1.2.1. *)
+  [<TestMethod>]
+  member _.``APX REX2 (1)``() = (* B4 names R16D in ModRM.rm *)
+    "d51001c0"
+    ++ ADD ** [ O.Reg R.R16D; O.Reg R.EAX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX REX2 (2)``() = (* W, R4 and B4 together *)
+    "d55901cf"
+    ++ ADD ** [ O.Reg R.R31; O.Reg R.R17 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX REX2 (3)``() = (* the byte registers past R15B *)
+    "d55000ec"
+    ++ ADD ** [ O.Reg R.R20B; O.Reg R.R21B ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX REX2 (4)``() = (* SPL under REX2, as under REX *)
+    "d50000c4"
+    ++ ADD ** [ O.Reg R.SPL; O.Reg R.AL ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX REX2 (5)``() = (* B4 and X4 on a base and an index *)
+    "d53a8b0478"
+    ++ MOV ** [ O.Reg R.RAX; O.Mem(R.R16, R.R31, Scale.X2, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX REX2 (6)``() = (* M0 selects the 0Fh map *)
+    "d5d044c1"
+    ++ CMOVZ ** [ O.Reg R.R16D; O.Reg R.R17D ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX REX2 (7)``() = (* a vector instruction's base register *)
+    "d590280b"
+    ++ MOVAPS ** [ O.Reg R.XMM1; O.Mem(R.R19, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX REX2 (8)``() = (* R4 is ignored on a vector register *)
+    "d5c028ca"
+    ++ MOVAPS ** [ O.Reg R.XMM1; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* JMPABS, the one instruction a REX2 prefix encodes rather than extends:
+     A1h of the one-byte map with REX2.W clear, followed by the 64-bit target.
+     Section 3.1.3.3. *)
+  [<TestMethod>]
+  member _.``APX JMPABS (1)``() =
+    "d500a18877665544332211"
+    ++ JMPABS ** [ O.Imm(0x1122334455667788L, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  (* The push-pop acceleration hint: REX2.W on PUSH and POP r64, which no
+     other prefix can set there. Section 3.1.3.1.2. *)
+  [<TestMethod>]
+  member _.``APX PUSHP and POPP (1)``() =
+    "d50850"
+    ++ PUSHP ** [ O.Reg R.RAX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX PUSHP and POPP (2)``() =
+    "d51857"
+    ++ PUSHP ** [ O.Reg R.R23 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX PUSHP and POPP (3)``() =
+    "d5085b"
+    ++ POPP ** [ O.Reg R.RBX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX PUSHP and POPP (4)``() = (* without W it is PUSH itself *)
+    "d51050"
+    ++ PUSH ** [ O.Reg R.R16 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* The rows REX2 reserves, the prefixes it refuses, and the instructions
+     that may not reach the extended GPRs. Sections 3.1.2.1 and 3.1.3.3. *)
+  [<TestMethod>]
+  member _.``APX REX2 ParsingFailure Test (1)``() =
+    testX64Invalid "d5007000" (* JO rel8, in the reserved row 7x *)
+
+  [<TestMethod>]
+  member _.``APX REX2 ParsingFailure Test (2)``() =
+    testX64Invalid "d500e800000000" (* CALL rel32, in the reserved row Ex *)
+
+  [<TestMethod>]
+  member _.``APX REX2 ParsingFailure Test (3)``() =
+    testX64Invalid "d58031" (* RDTSC, in the reserved row 3x of the 0Fh map *)
+
+  [<TestMethod>]
+  member _.``APX REX2 ParsingFailure Test (4)``() =
+    testX64Invalid "d500a08877665544332211" (* MOV AL, moffs8; only A1h stays *)
+
+  [<TestMethod>]
+  member _.``APX REX2 ParsingFailure Test (5)``() =
+    testX64Invalid "d508a18877665544332211" (* JMPABS with REX2.W *)
+
+  [<TestMethod>]
+  member _.``APX REX2 ParsingFailure Test (6)``() =
+    testX64Invalid "66d500a18877665544332211" (* JMPABS with 66h *)
+
+  [<TestMethod>]
+  member _.``APX REX2 ParsingFailure Test (7)``() =
+    testX64Invalid "48d50001c0" (* a REX ahead of REX2 *)
+
+  [<TestMethod>]
+  member _.``APX REX2 ParsingFailure Test (8)``() =
+    testX64Invalid "d580ae20" (* XSAVE *)
+
+  [<TestMethod>]
+  member _.``APX REX2 ParsingFailure Test (9)``() =
+    testX64Invalid "f0d51001c0" (* LOCK with a register destination *)
+
+  (* The extended EVEX prefix: map 4 holds the legacy instructions APX
+     promotes, with a new data destination in vvvv (EVEX.ND), a no-flags bit
+     (EVEX.NF), and the OSIZE in W and pp. Section 3.1.2.3.1. *)
+  [<TestMethod>]
+  member _.``APX EVEX map 4 (1)``() = (* ADD r/m32, r32 with ND clear *)
+    "62f47c0801c8"
+    ++ ADD ** [ O.Reg R.EAX; O.Reg R.ECX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX EVEX map 4 (2)``() = (* the NDD form *)
+    "62f4741801d3"
+    ++ ADD ** [ O.Reg R.ECX; O.Reg R.EBX; O.Reg R.EDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX EVEX map 4 (3)``() = (* pp = 66 picks 16 bits *)
+    "62f47d0801c8"
+    ++ ADD ** [ O.Reg R.AX; O.Reg R.CX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX EVEX map 4 (4)``() = (* W outranks pp = 66 *)
+    "62f4fd0801c8"
+    ++ ADD ** [ O.Reg R.RAX; O.Reg R.RCX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX EVEX map 4 (5)``() = (* B4 and R4 reach R16 and R17 *)
+    "62ecfc0801c8"
+    ++ ADD ** [ O.Reg R.R16; O.Reg R.R17 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX EVEX map 4 (6)``() = (* X4 is the inverted U on memory *)
+    "62fc7808010408"
+    ++ ADD ** [ O.Mem(R.R16, R.R17, Scale.X1, 32<rt>); O.Reg R.EAX ]
+    ||> testX64NoPrefixNoSeg
+
+  (* ND sits where EVEX.b does, and a promoted instruction's memory operand
+     is never a broadcast: it keeps the operand's own width. *)
+  [<TestMethod>]
+  member _.``APX EVEX map 4 (8)``() = (* ADD r8_n, m8, r8 *)
+    "62f46c18000b"
+    ++ ADD ** [ O.Reg R.DL; O.Mem(R.RBX, 8<rt>); O.Reg R.CL ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX EVEX map 4 (9)``() = (* SHLD r16_n, m16, r16, imm8 *)
+    "62f46d18240b11"
+    ++ SHLD **
+      [ O.Reg R.DX; O.Mem(R.RBX, 16<rt>); O.Reg R.CX; O.Imm(0x11L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX EVEX map 4 (7)``() = (* NF and ND, recorded in the prefix *)
+    let ins = parseX64 "62f4741c01d3"
+    Assert.AreEqual<Opcode>(ADD, ins.Opcode)
+    Assert.AreEqual<bool>(true, ins.VEXInfo.Value.EVEXPrx.Value.NF)
+    Assert.AreEqual<bool>(true, ins.VEXInfo.Value.EVEXPrx.Value.ND)
+    Assert.AreEqual<Register voption>(ValueNone, ins.OpMask)
+
+  (* CCMPscc and CTESTscc: CMP and TEST promoted with a source condition code
+     in P2[3:0] and a default flags value in vvvv. Section 3.1.3.2.1. *)
+  [<TestMethod>]
+  member _.``APX conditional compare (1)``() = (* CCMPB {dfv=of} eax, ecx *)
+    let ins = parseX64 "62f4440239c8"
+    Assert.AreEqual<Opcode>(CCMPB, ins.Opcode)
+    let oprs = TwoOperands(O.Reg R.EAX, O.Reg R.ECX)
+    Assert.AreEqual<Operands>(oprs, ins.Operands)
+    Assert.AreEqual<uint8>(2uy, ins.VEXInfo.Value.EVEXPrx.Value.SCC)
+    Assert.AreEqual<uint8>(8uy, ins.VEXInfo.Value.EVEXPrx.Value.DFV)
+
+  [<TestMethod>]
+  member _.``APX conditional compare (2)``() = (* CCMPT, always true *)
+    "62f4040a39c8"
+    ++ CCMPT ** [ O.Reg R.EAX; O.Reg R.ECX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX conditional compare (3)``() = (* CTESTZ with an immediate *)
+    "62f41c04f7c078563412"
+    ++ CTESTZ ** [ O.Reg R.EAX; O.Imm(0x12345678L, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  (* CMOVcc promoted: ND and NF pick one of four forms, three of them the
+     conditionally faulting CFCMOVcc. Section 3.1.3.2.2. *)
+  [<TestMethod>]
+  member _.``APX conditional move (1)``() = (* ND = 0, NF = 0: reg, r/m *)
+    "62f47c0842c1"
+    ++ CFCMOVB ** [ O.Reg R.EAX; O.Reg R.ECX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX conditional move (2)``() = (* ND = 0, NF = 1: r/m, reg *)
+    "62f47c0c42c1"
+    ++ CFCMOVB ** [ O.Reg R.ECX; O.Reg R.EAX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX conditional move (3)``() = (* ND = 1, NF = 0: CMOVcc ndd *)
+    "62f46c1842c1"
+    ++ CMOVB ** [ O.Reg R.EDX; O.Reg R.EAX; O.Reg R.ECX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX conditional move (4)``() = (* ND = 1, NF = 1 *)
+    "62f46c1c42c1"
+    ++ CFCMOVB ** [ O.Reg R.EDX; O.Reg R.EAX; O.Reg R.ECX ]
+    ||> testX64NoPrefixNoSeg
+
+  (* SETcc, moved to row 4 of map 4 under F2, and its zero-upper form, which
+     EVEX.ND selects. Section 3.1.3.2.3. *)
+  [<TestMethod>]
+  member _.``APX SETcc (1)``() =
+    "62f47f0842c0"
+    ++ SETB ** [ O.Reg R.AL ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX SETcc (2)``() =
+    "62f47f1842c0"
+    ++ SETZUB ** [ O.Reg R.AL ]
+    ||> testX64NoPrefixNoSeg
+
+  (* PUSH2 and POP2: the register forms of PUSH FFh /6 and POP 8Fh /0 with
+     EVEX.ND set and the second register in vvvv; W is the acceleration hint.
+     Section 3.1.3.1.1. *)
+  [<TestMethod>]
+  member _.``APX PUSH2 and POP2 (1)``() =
+    "62f47c18fff3"
+    ++ PUSH2 ** [ O.Reg R.RAX; O.Reg R.RBX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX PUSH2 and POP2 (2)``() =
+    "62f4fc18fff3"
+    ++ PUSH2P ** [ O.Reg R.RAX; O.Reg R.RBX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX PUSH2 and POP2 (3)``() =
+    "62f47c188fc3"
+    ++ POP2 ** [ O.Reg R.RAX; O.Reg R.RBX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX zero-upper multiply (1)``() = (* IMUL with ND set *)
+    "62f47d186bc110"
+    ++ IMULZU ** [ O.Reg R.AX; O.Reg R.CX; O.Imm(0x10L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  (* VEX instructions promoted into the EVEX space keep their maps and
+     opcodes; the BMI ones gain NF and all of them the extended GPRs. Section
+     3.1.2.3.2. *)
+  [<TestMethod>]
+  member _.``APX promoted VEX (1)``() = (* KMOVW k1, r16d *)
+    "62f97c0892c8"
+    ++ KMOVW ** [ O.Reg R.K1; O.Reg R.R16D ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``APX promoted VEX (2)``() = (* ANDN with NF *)
+    let ins = parseX64 "62f2740cf2c2"
+    Assert.AreEqual<Opcode>(ANDN, ins.Opcode)
+    let oprs = ThreeOperands(O.Reg R.EAX, O.Reg R.ECX, O.Reg R.EDX)
+    Assert.AreEqual<Operands>(oprs, ins.Operands)
+    Assert.AreEqual<bool>(true, ins.VEXInfo.Value.EVEXPrx.Value.NF)
+
+  (* Map 7: the immediate forms of the user-mode MSR instructions. *)
+  [<TestMethod>]
+  member _.``APX map 7 (1)``() = (* URDMSR rax, 0x1b00 *)
+    "62f77f08f8c0001b0000"
+    ++ URDMSR ** [ O.Reg R.RAX; O.Imm(0x1B00L, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  (* The bits of the extended EVEX prefix the spec keeps clear or gives one
+     reading, and the prefixes it refuses ahead of it. *)
+  [<TestMethod>]
+  member _.``APX EVEX ParsingFailure Test (1)``() =
+    testX64Invalid "62f47c8801c8" (* EVEX.z set in map 4 *)
+
+  [<TestMethod>]
+  member _.``APX EVEX ParsingFailure Test (2)``() =
+    testX64Invalid "62f47c2801c8" (* EVEX.L'L set in map 4 *)
+
+  [<TestMethod>]
+  member _.``APX EVEX ParsingFailure Test (3)``() =
+    testX64Invalid "62f4740801c8" (* vvvv names a register with ND clear *)
+
+  [<TestMethod>]
+  member _.``APX EVEX ParsingFailure Test (4)``() =
+    testX64Invalid "62f4780801c8" (* EVEX.U clear on a register form *)
+
+  [<TestMethod>]
+  member _.``APX EVEX ParsingFailure Test (5)``() =
+    testX64Invalid "6662f47c0801c8" (* 66h ahead of the prefix *)
+
+  [<TestMethod>]
+  member _.``APX EVEX ParsingFailure Test (6)``() =
+    testX64Invalid "4862f47c0801c8" (* a REX ahead of the prefix *)
+
+  [<TestMethod>]
+  member _.``APX EVEX ParsingFailure Test (7)``() =
+    testX64Invalid "62f47c0c11c8" (* NF on ADC, which has no NF form *)
+
+  [<TestMethod>]
+  member _.``APX EVEX ParsingFailure Test (8)``() =
+    testX64Invalid "62f47c08fff3" (* PUSH2 with ND clear *)
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Size cond ParsingFailure Test (1)``() =

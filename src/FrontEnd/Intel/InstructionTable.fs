@@ -122,6 +122,23 @@ type internal OprShape =
   | RelOnly = 5
   | RegOpRdOnly = 6
 
+/// What a row asks of Intel APX's REX2 prefix, whose presence the legacy
+/// maps are otherwise indifferent to.
+type internal REX2Need =
+  | Any = 0
+  /// Only under a REX2 prefix with W clear: JMPABS.
+  | REX2 = 1
+  /// Only under a REX2 prefix with W set: PUSHP and POPP.
+  | REX2W = 2
+  /// Never under a REX2 prefix: the rows the spec reserves under it, and the
+  /// XSAVE family, which may not reach the extended GPRs.
+  | NoREX2 = 3
+  /// Not under a REX2 prefix with W clear, which a row sharing the slot
+  /// claims.
+  | NotREX2 = 4
+  /// Not under a REX2 prefix with W set, which a row sharing the slot claims.
+  | NotREX2W = 5
+
 /// One operand descriptor laid out flat, so that reading it costs no pointer
 /// hop: the generated table describes an operand with a union value, which
 /// sits in an object of its own.
@@ -224,6 +241,18 @@ type internal Row =
     /// A row of the slot offers one of the two readings of EVEX.b, so the bit
     /// may have spent L'L before a variant has been picked.
     SlotDeclaresRC: bool
+    /// What the row asks of a REX2 prefix.
+    REX2: REX2Need
+    /// The row is an EVEX-promoted one of Intel APX, reading ND, NF and the
+    /// source condition code from the prefix (see InstructionCore.APXInfo).
+    IsAPX: bool
+    ND: BitNeed
+    NF: BitNeed
+    /// The source condition code the row answers, or -1.
+    SCC: int
+    /// An APX row with no register in vvvv and no default flags value there
+    /// either, so the field has to read as zero.
+    NeedsZeroVVVV: bool
     Opcode: Opcode
     /// The low byte of the opcode, which an OpRd operand reads a register from.
     OpcodeByte: byte
@@ -572,8 +601,8 @@ module internal InstructionTable =
   let private supportsSignExtendedImmediate = function
     | Opcode.ADC | Opcode.ADD | Opcode.AND | Opcode.CMP | Opcode.IMUL
     | Opcode.MOV | Opcode.OR | Opcode.SBB | Opcode.SUB | Opcode.TEST
-    | Opcode.XOR | Opcode.PUSH -> true
-    | _ -> false
+    | Opcode.XOR | Opcode.PUSH | Opcode.IMULZU -> true
+    | op -> Opcode.isCondCmpOrTest op
 
   /// Returns true when the immediate is narrower than the effective operand
   /// width and must be sign-extended (includes PUSH imm8).
@@ -634,6 +663,10 @@ module internal InstructionTable =
       else Some(struct (OpWidthKind.FixedRegister, 0<rt>, 0<rt>, reg))
     | RegAddr ->
       Some(struct (OpWidthKind.EffectiveAddress, 0<rt>, 0<rt>, Register.EAX))
+    (* A 64-bit immediate alone is JMPABS's target, and nothing but a 64-bit
+       operation reads one: the prefixes have no say in its width. *)
+    | Imm 64<rt> ->
+      Some(struct (OpWidthKind.Fixed, 64<rt>, 0<rt>, Register.EAX))
     | _ ->
       None
 
@@ -676,7 +709,8 @@ module internal InstructionTable =
   /// memory operand, which is what it also writes XSAVE's with, so the
   /// opcode is what separates the two.
   let private readsSibMem = function
-    | Opcode.TILELOADD | Opcode.TILELOADDT1 | Opcode.TILESTORED -> true
+    | Opcode.TILELOADD | Opcode.TILELOADDT1 | Opcode.TILESTORED
+    | Opcode.TILELOADDRS | Opcode.TILELOADDRST1 -> true
     | _ -> false
 
   /// The flat form of one operand descriptor. LDDQU is the one instruction
@@ -796,7 +830,11 @@ module internal InstructionTable =
       Has66F2: bool
       HasF3: bool
       HasF2: bool
-      DeclaresRC: bool }
+      DeclaresRC: bool
+      /// A row of the slot is reached only under REX2 with W clear.
+      HasREX2: bool
+      /// A row of the slot is reached only under REX2 with W set.
+      HasREX2W: bool }
 
   let private slotFacts (slot: InstructionCore[]) =
     let mutable has66 = false
@@ -804,6 +842,8 @@ module internal InstructionTable =
     let mutable hasF3 = false
     let mutable hasF2 = false
     let mutable rc = false
+    let mutable rex2 = false
+    let mutable rex2W = false
     for core in slot do
       match prefixSel core.PrefixType with
       | PrefixSel.Mandatory66 -> has66 <- true
@@ -812,11 +852,70 @@ module internal InstructionTable =
       | PrefixSel.MandatoryF2 -> hasF2 <- true
       | _ -> ()
       rc <- rc || roundingDecorOf core <> NoRounding
+      rex2 <- rex2 || core.REXPrefixType = REXPrefixType.REX2
+      rex2W <- rex2W || core.REXPrefixType = REXPrefixType.REX2W
     { Has66 = has66
       Has66F2 = has66F2
       HasF3 = hasF3
       HasF2 = hasF2
-      DeclaresRC = rc }
+      DeclaresRC = rc
+      HasREX2 = rex2
+      HasREX2W = rex2W }
+
+  /// The opcode rows the spec reserves under REX2, which trigger #UD there:
+  /// none of them names a register through the fields REX2 extends. A1h is
+  /// the exception, where REX2 encodes JMPABS. Intel APX spec 355828-007,
+  /// 3.1.2.1.
+  let private isREX2Reserved map (opcodeByte: uint32) =
+    let row = opcodeByte &&& 0xF0u
+    match map with
+    | OpcodeClass.Normal OpcodeMap.OneByte ->
+      row = 0x40u || row = 0x70u || row = 0xA0u || row = 0xE0u
+    | OpcodeClass.Normal OpcodeMap.TwoBytes ->
+      row = 0x30u || row = 0x80u
+    | _ ->
+      false
+
+  /// XSAVE and XRSTOR may not use the extended GPRs, so a REX2 ahead of them
+  /// is #UD. Intel APX spec 355828-007, 3.1.2.1.
+  let private refusesREX2 = function
+    | Opcode.XSAVE | Opcode.XSAVE64 | Opcode.XSAVEC | Opcode.XSAVEC64
+    | Opcode.XSAVEOPT | Opcode.XSAVEOPT64 | Opcode.XSAVES | Opcode.XSAVES64
+    | Opcode.XRSTOR | Opcode.XRSTOR64 | Opcode.XRSTORS
+    | Opcode.XRSTORS64 -> true
+    | _ -> false
+
+  /// What the row asks of a REX2 prefix: the rows only REX2 reaches ask for
+  /// it, and the other rows of their slots refuse the state those claim.
+  let private rex2NeedOf map (facts: SlotFacts) (core: InstructionCore) =
+    match core.REXPrefixType with
+    | REXPrefixType.REX2 ->
+      REX2Need.REX2
+    | REXPrefixType.REX2W ->
+      REX2Need.REX2W
+    | _ ->
+      if isREX2Reserved map core.OpcodeByte || refusesREX2 core.Opcode then
+        REX2Need.NoREX2
+      elif facts.HasREX2 then
+        REX2Need.NotREX2
+      elif facts.HasREX2W then
+        REX2Need.NotREX2W
+      else
+        REX2Need.Any
+
+  /// Returns true when an operand is read from (E)VEX.vvvv.
+  let private readsVVVV (operands: OperandType[]) =
+    let mutable found = false
+    for o in operands do
+      found <-
+        found
+        || (match o with
+            | Reg(_, VVVV) | OpMaskReg VVVV | MMXReg VVVV -> true
+            | _ -> false)
+    found
+
+  /// The APX bits of a row that is not an APX one: nothing is asked.
+  let private noAPX = { ND = BitNeed.Either; NF = BitNeed.Either; SCC = -1 }
 
   /// The facts about a row and its slot that the REX and mandatory-prefix
   /// checks read.
@@ -849,7 +948,9 @@ module internal InstructionTable =
   /// declares (NOREX / W0 / W1 / WIG / REXW). An all-8-bit row answers
   /// whatever REX says, because there is no wider form for W to select. VEX
   /// and EVEX carry a W of their own, so a REX.W that nothing asks for is
-  /// inert only where there is no VEX prefix.
+  /// inert only where there is no VEX prefix. A REX2 row answers the state
+  /// its W asks for; that the prefix is REX2 rather than REX is asked at
+  /// parse time (see REX2Need).
   let private acceptsREX (asks: Asks) rexState vexPresent =
     let insREX = asks.REXType
     match rexState with
@@ -858,7 +959,7 @@ module internal InstructionTable =
       || insREX = REXPrefixType.NOREX || asks.AllOpr8
     | 2 ->
       insREX = REXPrefixType.WIG || insREX = REXPrefixType.W1
-      || insREX = REXPrefixType.REXW
+      || insREX = REXPrefixType.REXW || insREX = REXPrefixType.REX2W
       || (insREX = REXPrefixType.NOREX
           && vexPresent = 0 && asks.NoRivalAsksForW)
       || asks.AllOpr8
@@ -869,7 +970,7 @@ module internal InstructionTable =
          opcode byte with nothing but table order to tell them apart. *)
       insREX = REXPrefixType.WIG || insREX = REXPrefixType.W0
       || insREX = REXPrefixType.NOREX || insREX = REXPrefixType.REX
-      || asks.AllOpr8
+      || insREX = REXPrefixType.REX2 || asks.AllOpr8
 
   /// Returns true when a repeat prefix is naming the instruction rather than
   /// repeating it. It names one where a row asks for it, and it names one on
@@ -973,10 +1074,13 @@ module internal InstructionTable =
   let private asksOf map slot (facts: SlotFacts) widths core =
     { PrefixSel = prefixSel (core: InstructionCore).PrefixType
       REXType = core.REXPrefixType
+      (* An APX row's 66h is EVEX.pp, which its prefix type already asks
+         for; the legacy 66h ahead of the prefix is #UD there. *)
       Requires66h =
         core.OpEn <> OpEn.None
         && needs66hPrefix widths core.Opcode
         && is66hSelector slot core
+        && core.APX.IsNone
       AllOpr8 = isAllOprSize8 core.Operands
       NoRivalAsksForW = noRivalAsksForW slot core
       NamesVector = namesAVectorRegister core
@@ -1017,6 +1121,7 @@ module internal InstructionTable =
     let struct (opWidthKind, opWidth, opWidthMem, opWidthReg) =
       operationWidth core
     let specs = oprSpecsOf core
+    let apx = defaultArg core.APX noAPX
     { MatchWord = matchWordOf core isE3 isPlainNop
       Accept = 0UL
       Accept32 = if okIn32 core then accept else 0UL
@@ -1032,6 +1137,13 @@ module internal InstructionTable =
       DestIsMaskReg = destIsMaskRegister core.Operands
       DestRegCanBeMasked = destRegCanBeMasked core.Operands
       SlotDeclaresRC = facts.DeclaresRC
+      REX2 = rex2NeedOf map facts core
+      IsAPX = core.APX.IsSome
+      ND = apx.ND
+      NF = apx.NF
+      SCC = apx.SCC
+      NeedsZeroVVVV =
+        core.APX.IsSome && apx.SCC < 0 && not (readsVVVV core.Operands)
       Opcode = core.Opcode
       OpcodeByte = byte core.OpcodeByte
       OprSpecs = specs
@@ -1165,6 +1277,12 @@ module internal InstructionTable =
   let private evexMap6Rows =
     lazy (buildTable (OpcodeClass.EVEX MAP6) InstructionArrays.evexMap6)
 
+  let private evexMap4Rows =
+    lazy (buildTable (OpcodeClass.EVEX MAP4) InstructionArrays.evexMap4)
+
+  let private evexMap7Rows =
+    lazy (buildTable (OpcodeClass.EVEX MAP7) InstructionArrays.evexMap7)
+
   /// Returns true when the two rows put the same questions to an encoding
   /// beyond its REX and mandatory-prefix state: the same ModRM constraint and
   /// the same rare constraints (see Parser.matchRareConstraints). Of two such
@@ -1185,6 +1303,11 @@ module internal InstructionTable =
     (* The legacy 66h ahead of a VEX prefix is asked about under VEX alone. *)
     && (vexPresent = 0 || a.Requires66h = b.Requires66h)
     && a.SlotDeclaresRC = b.SlotDeclaresRC
+    && a.REX2 = b.REX2
+    && a.IsAPX = b.IsAPX
+    && a.ND = b.ND
+    && a.NF = b.NF
+    && a.SCC = b.SCC
 
   /// The accept masks of the rows in the given mode, each stripped of the
   /// states an earlier row that asks the same questions already claims. The
@@ -1292,9 +1415,9 @@ module internal InstructionTable =
 
   /// The VEX and EVEX maps, in the order VEXType numbers them: the two-byte
   /// map, 0F 38, 0F 3A, map 5 and map 6, with the EVEX-only maps after the
-  /// VEX ones. One copy per mode, carrying the mode's accept masks, and each
-  /// built the first time a prefix selects it: a process rarely meets more
-  /// than two of the eight.
+  /// VEX ones, and the two maps Intel APX added, 4 and 7, last. One copy per
+  /// mode, carrying the mode's accept masks, and each built the first time a
+  /// prefix selects it: a process rarely meets more than two of the ten.
   let private vex is64 =
     [| lazy (chains is64 1 [| vexTwoRows.Value |])
        lazy (chains is64 1 [| vexThree38Rows.Value |])
@@ -1303,7 +1426,9 @@ module internal InstructionTable =
        lazy (chains is64 1 [| evexThree38Rows.Value |])
        lazy (chains is64 1 [| evexThree3ARows.Value |])
        lazy (chains is64 1 [| evexMap5Rows.Value |])
-       lazy (chains is64 1 [| evexMap6Rows.Value |]) |]
+       lazy (chains is64 1 [| evexMap6Rows.Value |])
+       lazy (chains is64 1 [| evexMap4Rows.Value |])
+       lazy (chains is64 1 [| evexMap7Rows.Value |]) |]
 
   /// The VEX and EVEX maps as a 32-bit parser reads them, each built when
   /// first asked for.

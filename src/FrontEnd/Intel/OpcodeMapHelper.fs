@@ -57,9 +57,15 @@ type ParsingState =
     mutable VVVV: int
     mutable IsEVEX: bool
     /// EVEX.b, EVEX.aaa and EVEX.z; zero and false without an EVEX prefix.
+    /// In the Intel APX maps the bit that is EVEX.b elsewhere is ND, and
+    /// EvexB stays false there: a memory operand of a promoted instruction
+    /// is never a broadcast.
     mutable EvexB: bool
     mutable AAA: int
-    mutable Zeroing: bool }
+    mutable Zeroing: bool
+    /// P2[4] as the APX rows read it: EVEX.ND, a new data destination or
+    /// zero-upper. False without an EVEX prefix.
+    mutable ND: bool }
 
 let inline isReg (m: byte) = m &&& 0b11000000uy = 0b11000000uy
 
@@ -70,6 +76,23 @@ let inline reg (m: byte) = (int m >>> 3) &&& 0b111
 let inline rm (m: byte) = int m &&& 0b111
 
 let inline regv (v: int): Register = LanguagePrimitives.EnumOfValue v
+
+/// The 16 a fifth register bit adds to a three-bit field, or 0.
+let inline private hi16 (b: bool) = if b then 16 else 0
+
+/// The general-purpose register a three-bit base or rm field names at the
+/// address size, with REX.B and the fifth bit Intel APX added to it, REX2.B4
+/// or EVEX.B4.
+let inline private baseReg (st: byref<ParsingState>) (n: int) =
+  let rex = st.REX
+  let n = n + hi16 (REXPrefix.hasB4 rex)
+  OperandParsers.findRegRmAndSIBBase st.AddrSz rex n
+
+/// The register a SIB index field names at the address size, with REX.X and
+/// its fifth bit, REX2.X4 or the inverted EVEX.U.
+let inline private indexReg (st: byref<ParsingState>) (n: int) =
+  let rex = st.REX
+  OperandParsers.findRegSIBIdx st.AddrSz rex (n + hi16 (REXPrefix.hasX4 rex))
 
 /// The byte at the current position, or 0 where the bytes end: a row that
 /// needs it then fails to read it where it is consumed.
@@ -209,12 +232,12 @@ let private memSIB span (st: byref<ParsingState>) (m: byte) dispSz memSz =
   let noIdx = i = 0b100 && not (REXPrefix.hasX rex)
   let idxBits =
     if noIdx then 0xFFFF0000u
-    else uint32 (int (OperandParsers.findRegSIBIdx st.AddrSz rex i)) <<< 16
+    else uint32 (int (indexReg &st i)) <<< 16
   let sc = if noIdx then 0uy else byte s
   let modVal = m &&& 0b11000000uy
   let baseBits =
     if b = 0b101 && modVal = 0uy then 0xFFFFu
-    else uint32 (int (OperandParsers.findRegRmAndSIBBase st.AddrSz rex b))
+    else uint32 (int (baseReg &st b))
   let dispSz =
     if dispSz > 0 then dispSz
     elif (modVal = 0uy || modVal = 0b10000000uy) && b = 0b101 then 4
@@ -235,7 +258,7 @@ let private mem32 span (st: byref<ParsingState>) (m: byte) memSz =
     else
       oprMem span &st noRegs 0uy 4 memSz
   else
-    let b = OperandParsers.findRegRmAndSIBBase st.AddrSz st.REX r
+    let b = baseReg &st r
     oprMem span &st (regsOf b) 0uy dispSz memSz
 
 /// The memory operand ModRM names, of the given width.
@@ -243,17 +266,25 @@ let mem (span: ByteSpan) (st: byref<ParsingState>) (m: byte) (memSz: RegType) =
   if st.AddrSz = 16<rt> then mem16 span &st m memSz
   else mem32 span &st m memSz
 
-/// The register ModRM.rm names, at the given width.
+/// The register ModRM.rm names, at the given width. A general-purpose one
+/// takes its fifth bit from REX2.B4; a vector register has none to take.
 let inline rmReg (st: byref<ParsingState>) (m: byte) (sz: RegType) =
-  OperandParsers.findRegRmAndSIBBase sz st.REX (rm m)
+  let rex = st.REX
+  let hi = hi16 (sz <= 64<rt> && REXPrefix.hasB4 rex)
+  OperandParsers.findRegRmAndSIBBase sz rex (rm m + hi)
 
-/// The register ModRM.reg names, at the given width.
+/// The register ModRM.reg names, at the given width, with REX2.R4 as the
+/// fifth bit of a general-purpose one.
 let inline regReg (st: byref<ParsingState>) (m: byte) (sz: RegType) =
-  OperandParsers.findRegRBits sz st.REX (reg m)
+  let rex = st.REX
+  let hi = hi16 (sz <= 64<rt> && REXPrefix.hasEVEXR rex)
+  OperandParsers.findRegRBits sz rex (reg m + hi)
 
-/// The register the low three bits of the opcode byte name.
+/// The register the low three bits of the opcode byte name, with REX2.B4 as
+/// its fifth bit.
 let inline opReg (st: byref<ParsingState>) (rd: int) (sz: RegType) =
-  OperandParsers.findRegRmAndSIBBase sz st.REX rd
+  let rex = st.REX
+  OperandParsers.findRegRmAndSIBBase sz rex (rd + hi16 (REXPrefix.hasB4 rex))
 
 /// Register or memory, of one width.
 let inline rmOpr span (st: byref<ParsingState>) (m: byte) (sz: RegType) =
@@ -268,8 +299,6 @@ let inline finish (st: byref<ParsingState>) opcode oprs opsz isFar sel =
     Instruction.Pack(len, wsz, pref, st.REX, opcode, opsz, st.AddrSz, isFar)
   Instruction(st.Addr, packed, None, oprs, st.Lifter)
 
-let inline private hi16 (b: bool) = if b then 16 else 0
-
 /// The register ModRM.reg names, widened by EVEX.R' where the prefix carries
 /// one.
 let inline regRegV (st: byref<ParsingState>) (m: byte) (sz: RegType) =
@@ -277,18 +306,21 @@ let inline regRegV (st: byref<ParsingState>) (m: byte) (sz: RegType) =
   OperandParsers.findRegRBits sz rex (reg m + hi16 (REXPrefix.hasEVEXR rex))
 
 /// The register ModRM.rm names. In a register form EVEX spends X on the fifth
-/// bit of rm.
+/// bit of a vector rm, and B4 on that of a general-purpose one.
 let inline rmRegV (st: byref<ParsingState>) (m: byte) (sz: RegType) =
   let rex = st.REX
-  let hi = hi16 (st.IsEVEX && REXPrefix.hasX rex)
+  let hi =
+    if sz <= 64<rt> then hi16 (REXPrefix.hasB4 rex)
+    else hi16 (st.IsEVEX && REXPrefix.hasX rex)
   OperandParsers.findRegRmAndSIBBase sz rex (rm m + hi)
 
 /// The register (E)VEX.vvvv names: a general-purpose register at a GPR width
-/// (BMI, CMPccXADD), a vector register otherwise, widened by EVEX.V'.
+/// (BMI, CMPccXADD, the new data destination of Intel APX), a vector
+/// register otherwise, either widened by EVEX.V'.
 let vvvvReg (st: byref<ParsingState>) (sz: RegType) =
   if sz <= 64<rt> then
-    int (RegGroup.grpEAX sz) + (st.VVVV &&& 0b1111)
-    |> LanguagePrimitives.EnumOfValue<int, Register>
+    let n = (st.VVVV &&& 0b1111) + hi16 (REXPrefix.hasEVEXV st.REX)
+    OperandParsers.findGPR sz n
   else
     let n = st.VVVV + hi16 (REXPrefix.hasEVEXV st.REX)
     match sz with
@@ -447,12 +479,12 @@ let memSIBE span (st: byref<ParsingState>) (m: byte) dispSz memSz tt bcst =
   let noIdx = i = 0b100 && not (REXPrefix.hasX rex)
   let idxBits =
     if noIdx then 0xFFFF0000u
-    else uint32 (int (OperandParsers.findRegSIBIdx st.AddrSz rex i)) <<< 16
+    else uint32 (int (indexReg &st i)) <<< 16
   let sc = if noIdx then 0uy else byte s
   let modVal = m &&& 0b11000000uy
   let baseBits =
     if b = 0b101 && modVal = 0uy then 0xFFFFu
-    else uint32 (int (OperandParsers.findRegRmAndSIBBase st.AddrSz rex b))
+    else uint32 (int (baseReg &st b))
   let dispSz =
     if dispSz > 0 then dispSz
     elif (modVal = 0uy || modVal = 0b10000000uy) && b = 0b101 then 4
@@ -473,7 +505,7 @@ let private mem32E span (st: byref<ParsingState>) (m: byte) memSz tt bcst =
     else
       oprMemE span &st noRegs 0uy 4 memSz tt bcst
   else
-    let b = OperandParsers.findRegRmAndSIBBase st.AddrSz st.REX r
+    let b = baseReg &st r
     oprMemE span &st (regsOf b) 0uy dispSz memSz tt bcst
 
 /// The memory operand ModRM names under a VEX or EVEX prefix. tt is the
@@ -519,7 +551,7 @@ let memVSIB (span: ByteSpan) (st: byref<ParsingState>) (m: byte) elemSz tt =
   let modVal = m &&& 0b11000000uy
   let baseBits =
     if b = 0b101 && modVal = 0uy then 0xFFFFu
-    else uint32 (int (OperandParsers.findRegRmAndSIBBase st.AddrSz rex b))
+    else uint32 (int (baseReg &st b))
   let regs = baseBits ||| idxBits
   let dispSz =
     match modVal with
@@ -545,6 +577,42 @@ let finishV (st: byref<ParsingState>) opcode oprs opsz bcst rc isRegForm =
       Some { v with EVEXPrx = Some { e with BcstElemSize = bcst } }
     | Some({ EVEXPrx = Some e } as v) when e.B = 1uy && isRegForm ->
       Some { v with EVEXPrx = Some { e with RCDecor = rc } }
+    | v ->
+      v
+  Instruction(st.Addr, packed, vex, oprs, st.Lifter)
+
+/// The source condition code of a CCMPscc or CTESTscc encoding, P2[3:0]. The
+/// low three bits are where the opmask field sits; the fourth is where V' is,
+/// stored inverted, so the bit is set where V' is not.
+let inline scc (st: byref<ParsingState>) =
+  st.AAA ||| (if REXPrefix.hasEVEXV st.REX then 0 else 8)
+
+/// The instruction of an Intel APX row. The EVEX bits the vector
+/// instructions read as the opmask, zeroing and broadcast controls are the
+/// ND, NF and source-condition-code fields here, so the prefix the
+/// instruction keeps names them as such and reads as unmasked. nf is whether
+/// the row's NF bit means "no flags": on CFCMOVcc it picks the form instead.
+/// hasScc marks a CCMPscc or CTESTscc row, whose vvvv is the default flags
+/// value rather than a register.
+let finishA (st: byref<ParsingState>) opcode oprs opsz (nf: bool) hasScc =
+  let pref = st.Pref &&& ~~~(Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ)
+  let len = uint32 st.Pos
+  let wsz = wordSize &st
+  let packed =
+    Instruction.Pack(len, wsz, pref, st.REX, opcode, opsz, st.AddrSz, false)
+  let vex =
+    match st.Vex with
+    | Some({ EVEXPrx = Some e } as v) ->
+      let e =
+        { e with
+            AAA = 0uy
+            Z = Merging
+            B = 0uy
+            ND = st.ND
+            NF = nf
+            SCC = if hasScc then byte (scc &st) else 0uy
+            DFV = if hasScc then byte (~~~st.VVVV &&& 0b1111) else 0uy }
+      Some { v with EVEXPrx = Some e }
     | v ->
       v
   Instruction(st.Addr, packed, vex, oprs, st.Lifter)

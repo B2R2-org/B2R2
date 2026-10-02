@@ -93,6 +93,7 @@ module internal RegisterHelper = begin
     elif regNum <= 0xc1 then Kind.Unclassified
     elif regNum <= 0x159 then Kind.PseudoRegister
     elif regNum <= 0x161 then Kind.OpMaskRegister
+    elif regNum >= 0x22D && regNum <= 0x26C then Kind.GP
     else Kind.Unclassified
 
   /// Get the ST(n) register from the given index.
@@ -148,10 +149,25 @@ module internal RegisterHelper = begin
     if n > 7 then raise ParsingFailureException
     else 0x225 + n |> LanguagePrimitives.EnumOfValue<int, Register>
 
+  /// Get the general-purpose register of the given width at the given
+  /// index, 16 to 31: the extended GPRs of Intel APX, which sit apart from
+  /// the first sixteen in the enum.
+  let egpr (sz: RegType) (n: int) =
+    let first =
+      match sz with
+      | 64<rt> -> 0x22D
+      | 32<rt> -> 0x23D
+      | 16<rt> -> 0x24D
+      | 8<rt> -> 0x25D
+      | _ -> raise ParsingFailureException
+    first + n - 16 |> LanguagePrimitives.EnumOfValue<int, Register>
+
   let toRegType wordSize = function
     | R.MM0 | R.MM1 | R.MM2 | R.MM3 | R.MM4 | R.MM5 | R.MM6 | R.MM7
     | R.ST0A | R.ST1A | R.ST2A | R.ST3A | R.ST4A | R.ST5A | R.ST6A | R.ST7A
     | R.RIP | R.R8 | R.R9 | R.R10 | R.R11 | R.R12 | R.R13 | R.R14 | R.R15
+    | R.R16 | R.R17 | R.R18 | R.R19 | R.R20 | R.R21 | R.R22 | R.R23
+    | R.R24 | R.R25 | R.R26 | R.R27 | R.R28 | R.R29 | R.R30 | R.R31
     | R.RAX | R.RBX | R.RCX | R.RDX | R.RSP | R.RBP | R.RSI | R.RDI
     | R.ZMM0A | R.ZMM1A | R.ZMM2A | R.ZMM3A
     | R.ZMM4A | R.ZMM5A | R.ZMM6A | R.ZMM7A
@@ -221,6 +237,10 @@ module internal RegisterHelper = begin
     | R.K0 | R.K1 | R.K2 | R.K3 | R.K4 | R.K5 | R.K6 | R.K7 -> 64<rt>
     | R.R8D | R.R9D | R.R10D | R.R11D
     | R.R12D | R.R13D | R.R14D | R.R15D
+    | R.R16D | R.R17D | R.R18D | R.R19D
+    | R.R20D | R.R21D | R.R22D | R.R23D
+    | R.R24D | R.R25D | R.R26D | R.R27D
+    | R.R28D | R.R29D | R.R30D | R.R31D
     | R.DR0 | R.DR1 | R.DR2 | R.DR3 | R.DR6 | R.DR7
     | R.EAX | R.EBX | R.ECX | R.EDX
     | R.ESP | R.EBP | R.ESI | R.EDI | R.EIP | R.PKRU
@@ -230,6 +250,10 @@ module internal RegisterHelper = begin
     | R.MXCSR | R.MXCSRMASK -> 32<rt>
     | R.R8W | R.R9W | R.R10W | R.R11W
     | R.R12W | R.R13W | R.R14W | R.R15W
+    | R.R16W | R.R17W | R.R18W | R.R19W
+    | R.R20W | R.R21W | R.R22W | R.R23W
+    | R.R24W | R.R25W | R.R26W | R.R27W
+    | R.R28W | R.R29W | R.R30W | R.R31W
     | R.ST0B | R.ST1B | R.ST2B | R.ST3B | R.ST4B | R.ST5B | R.ST6B | R.ST7B
     | R.ES | R.CS | R.SS | R.DS | R.FS | R.GS
     | R.AX | R.BX | R.CX | R.DX | R.SP | R.BP | R.SI | R.DI
@@ -239,6 +263,10 @@ module internal RegisterHelper = begin
     | R.FCW | R.FSW | R.FTW | R.FOP | R.FCS | R.FDS -> 16<rt>
     | R.R8B | R.R9B | R.R10B | R.R11B
     | R.R12B | R.R13B | R.R14B | R.R15B
+    | R.R16B | R.R17B | R.R18B | R.R19B
+    | R.R20B | R.R21B | R.R22B | R.R23B
+    | R.R24B | R.R25B | R.R26B | R.R27B
+    | R.R28B | R.R29B | R.R30B | R.R31B
     | R.SPL | R.BPL | R.SIL | R.DIL
 #if EMULATION
     | R.CCOP | R.CCDSTB | R.CCSRC1B | R.CCSRC2B
@@ -341,6 +369,22 @@ module internal RegisterHelper = begin
     | R.R13 | R.R13D | R.R13B | R.R13W -> R.R13
     | R.R14 | R.R14D | R.R14B | R.R14W -> R.R14
     | R.R15 | R.R15D | R.R15B | R.R15W -> R.R15
+    | R.R16 | R.R16D | R.R16B | R.R16W -> R.R16
+    | R.R17 | R.R17D | R.R17B | R.R17W -> R.R17
+    | R.R18 | R.R18D | R.R18B | R.R18W -> R.R18
+    | R.R19 | R.R19D | R.R19B | R.R19W -> R.R19
+    | R.R20 | R.R20D | R.R20B | R.R20W -> R.R20
+    | R.R21 | R.R21D | R.R21B | R.R21W -> R.R21
+    | R.R22 | R.R22D | R.R22B | R.R22W -> R.R22
+    | R.R23 | R.R23D | R.R23B | R.R23W -> R.R23
+    | R.R24 | R.R24D | R.R24B | R.R24W -> R.R24
+    | R.R25 | R.R25D | R.R25B | R.R25W -> R.R25
+    | R.R26 | R.R26D | R.R26B | R.R26W -> R.R26
+    | R.R27 | R.R27D | R.R27B | R.R27W -> R.R27
+    | R.R28 | R.R28D | R.R28B | R.R28W -> R.R28
+    | R.R29 | R.R29D | R.R29B | R.R29W -> R.R29
+    | R.R30 | R.R30D | R.R30B | R.R30W -> R.R30
+    | R.R31 | R.R31D | R.R31B | R.R31W -> R.R31
     | R.XMM0 | R.YMM0 | R.ZMM0 -> R.YMM0
     | R.XMM1 | R.YMM1 | R.ZMM1 -> R.YMM1
     | R.XMM2 | R.YMM2 | R.ZMM2 -> R.YMM2
@@ -417,6 +461,38 @@ module internal RegisterHelper = begin
       [| R.R14; R.R14D; R.R14B; R.R14W |]
     | R.R15  | R.R15D | R.R15B | R.R15W ->
       [| R.R15; R.R15D; R.R15B; R.R15W |]
+    | R.R16 | R.R16D | R.R16B | R.R16W ->
+      [| R.R16; R.R16D; R.R16B; R.R16W |]
+    | R.R17 | R.R17D | R.R17B | R.R17W ->
+      [| R.R17; R.R17D; R.R17B; R.R17W |]
+    | R.R18 | R.R18D | R.R18B | R.R18W ->
+      [| R.R18; R.R18D; R.R18B; R.R18W |]
+    | R.R19 | R.R19D | R.R19B | R.R19W ->
+      [| R.R19; R.R19D; R.R19B; R.R19W |]
+    | R.R20 | R.R20D | R.R20B | R.R20W ->
+      [| R.R20; R.R20D; R.R20B; R.R20W |]
+    | R.R21 | R.R21D | R.R21B | R.R21W ->
+      [| R.R21; R.R21D; R.R21B; R.R21W |]
+    | R.R22 | R.R22D | R.R22B | R.R22W ->
+      [| R.R22; R.R22D; R.R22B; R.R22W |]
+    | R.R23 | R.R23D | R.R23B | R.R23W ->
+      [| R.R23; R.R23D; R.R23B; R.R23W |]
+    | R.R24 | R.R24D | R.R24B | R.R24W ->
+      [| R.R24; R.R24D; R.R24B; R.R24W |]
+    | R.R25 | R.R25D | R.R25B | R.R25W ->
+      [| R.R25; R.R25D; R.R25B; R.R25W |]
+    | R.R26 | R.R26D | R.R26B | R.R26W ->
+      [| R.R26; R.R26D; R.R26B; R.R26W |]
+    | R.R27 | R.R27D | R.R27B | R.R27W ->
+      [| R.R27; R.R27D; R.R27B; R.R27W |]
+    | R.R28 | R.R28D | R.R28B | R.R28W ->
+      [| R.R28; R.R28D; R.R28B; R.R28W |]
+    | R.R29 | R.R29D | R.R29B | R.R29W ->
+      [| R.R29; R.R29D; R.R29B; R.R29W |]
+    | R.R30 | R.R30D | R.R30B | R.R30W ->
+      [| R.R30; R.R30D; R.R30B; R.R30W |]
+    | R.R31 | R.R31D | R.R31B | R.R31W ->
+      [| R.R31; R.R31D; R.R31B; R.R31W |]
     | R.XMM0 | R.YMM0 | R.ZMM0 ->
       [| R.XMM0; R.YMM0; R.ZMM0 |]
     | R.XMM1 | R.YMM1 | R.ZMM1 ->

@@ -33,36 +33,58 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// The register of the given width at the given index. The general-purpose
-/// widths come first, being asked for most; the vector registers go through
-/// the helpers because 16 to 31 sit outside the 0 to 15 run.
+/// widths come first, being asked for most; the registers from 16 up sit
+/// outside the 0 to 15 run and go through the helpers, the extended GPRs of
+/// Intel APX among them.
 let inline private regOfIndex sz (n: int) =
   match sz with
-  | 32<rt> -> int R.EAX + n |> LanguagePrimitives.EnumOfValue<int, Register>
-  | 64<rt> -> int R.RAX + n |> LanguagePrimitives.EnumOfValue<int, Register>
-  | 8<rt> -> int R.AL + n |> LanguagePrimitives.EnumOfValue<int, Register>
-  | 16<rt> -> int R.AX + n |> LanguagePrimitives.EnumOfValue<int, Register>
-  | 128<rt> -> RegisterHelper.xmm n
-  | 256<rt> -> RegisterHelper.ymm n
-  | 512<rt> -> RegisterHelper.zmm n
+  | 32<rt> when n < 16 ->
+    int R.EAX + n |> LanguagePrimitives.EnumOfValue<int, Register>
+  | 64<rt> when n < 16 ->
+    int R.RAX + n |> LanguagePrimitives.EnumOfValue<int, Register>
+  | 8<rt> when n < 16 ->
+    int R.AL + n |> LanguagePrimitives.EnumOfValue<int, Register>
+  | 16<rt> when n < 16 ->
+    int R.AX + n |> LanguagePrimitives.EnumOfValue<int, Register>
+  | 8<rt> | 16<rt> | 32<rt> | 64<rt> ->
+    RegisterHelper.egpr sz n
+  | 128<rt> ->
+    RegisterHelper.xmm n
+  | 256<rt> ->
+    RegisterHelper.ymm n
+  | 512<rt> ->
+    RegisterHelper.zmm n
   (* The width the AMX rows give a tile operand. It is not a width a tile has
      -- the manual writes these operands tmm1, tmm2 and tmm3, with no size at
      all -- but the table has no other way to say which register file the
      field names, and 1024 is the one it spends on saying so. *)
-  | 1024<rt> -> RegisterHelper.tmm n
-  | _ -> raise ParsingFailureException
+  | 1024<rt> ->
+    RegisterHelper.tmm n
+  | _ ->
+    raise ParsingFailureException
 
 /// Find a specific reg. The bitmask will be used to extract a specific REX
-/// bit (R/X/B). The index is settled first and mapped to a register once:
+/// bit (R/X/B); a fifth bit, where the encoding carries one, arrives added
+/// to n as 16. The index is settled first and mapped to a register once:
 /// mapping it on every branch had the compiler split the match into
 /// continuation methods, and a call for every register read.
 let inline private findReg sz rex bitmask (n: int) =
-  let n =
-    if rex = REXPrefix.NOREX then n
-    elif (int rex &&& bitmask) > 0 then n + 8
-    elif sz > 8<rt> || ((n &&& 4) = 0) then n
-    (* SPL/BPL/SIL/DIL displace AH/CH/DH/BH once a REX byte is present. *)
-    else n + 12
-  regOfIndex sz n
+  if rex = REXPrefix.NOREX then
+    regOfIndex sz n
+  elif (int rex &&& bitmask) > 0 then
+    regOfIndex sz (n + 8)
+  elif sz = 8<rt> && (n &&& 0b10100) = 0b100 then
+    (* SPL/BPL/SIL/DIL displace AH/CH/DH/BH once a REX byte is present; with
+       the fifth bit set the same codes name R20B to R23B instead. *)
+    int R.SPL + n - 4 |> LanguagePrimitives.EnumOfValue<int, Register>
+  else
+    regOfIndex sz n
+
+/// The general-purpose register of the given width at the given index, 0 to
+/// 31, as a field that no REX bit extends names it: (E)VEX.vvvv, with
+/// EVEX.V4 as its fifth bit.
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+let findGPR sz (n: int) = regOfIndex sz n
 
 /// Registers defined by the SIB index field.
 [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

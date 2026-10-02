@@ -39,7 +39,10 @@ type InstructionCore =
     Mode64: Mode64
     Compat: CompatLegMode
     TupleType: TupleType
-    SzCond: SzCond }
+    SzCond: SzCond
+    /// The APX payload bits the row answers to; None for every row that is
+    /// not an EVEX-promoted one.
+    APX: APXInfo option }
 
 and PrefixType =
   | Legacy of PrefixKind
@@ -62,6 +65,14 @@ and REXPrefixType =
   | W1 = 3
   | REX = 4
   | REXW = 5
+  /// The row is reached only through a REX2 prefix with W clear: JMPABS,
+  /// which the prefix turns A1h of the one-byte map into. Intel APX spec
+  /// 355828-007, 3.1.3.3.
+  | REX2 = 6
+  /// The row is reached only through a REX2 prefix with W set, the push-pop
+  /// acceleration hint that turns PUSH and POP r64 into PUSHP and POPP.
+  /// Intel APX spec 355828-007, 3.1.3.1.2.
+  | REX2W = 7
 
 and VectorLength =
   | None = 0
@@ -194,6 +205,15 @@ and OpEn =
   | VM = 34
   | VMI = 35
   | ZO = 36
+  | RI = 37
+  | IR = 38
+  | VR = 39
+  | VMR = 40
+  | VRM = 41
+  | VM1 = 42
+  | VMC = 43
+  | VMRI = 44
+  | VMRC = 45
 
 and Mode64 =
   | None = 0
@@ -263,3 +283,23 @@ and OpcodeMap =
   | MAP5
   | MAP6
   | MAP7
+
+/// What a row asks of an EVEX bit that Intel APX gave a meaning: that it be
+/// clear, that it be set, or nothing.
+and BitNeed =
+  | Clear = 0
+  | Set = 1
+  | Either = 2
+
+/// The APX payload bits an EVEX-promoted row answers to. Intel APX spec
+/// 355828-007, 3.1.2.3.
+and APXInfo =
+  { /// EVEX.ND: a new data destination in vvvv, or zero-upper where the
+    /// instruction has no destination to add.
+    ND: BitNeed
+    /// EVEX.NF: the status flags are left alone, or the form selector it is
+    /// on CFCMOVcc.
+    NF: BitNeed
+    /// The source condition code of a CCMPscc or CTESTscc row, which sits in
+    /// P2[3:0]; negative where the row carries none.
+    SCC: int }

@@ -139,6 +139,70 @@ type RegisterFactory(isa: ISA) =
   let r13b = regL8ext wordSize "R13B" r13
   let r14b = regL8ext wordSize "R14B" r14
   let r15b = regL8ext wordSize "R15B" r15
+  let r16 = reg64 wordSize (Register.toRegID R16) "R16"
+  let r17 = reg64 wordSize (Register.toRegID R17) "R17"
+  let r18 = reg64 wordSize (Register.toRegID R18) "R18"
+  let r19 = reg64 wordSize (Register.toRegID R19) "R19"
+  let r20 = reg64 wordSize (Register.toRegID R20) "R20"
+  let r21 = reg64 wordSize (Register.toRegID R21) "R21"
+  let r22 = reg64 wordSize (Register.toRegID R22) "R22"
+  let r23 = reg64 wordSize (Register.toRegID R23) "R23"
+  let r24 = reg64 wordSize (Register.toRegID R24) "R24"
+  let r25 = reg64 wordSize (Register.toRegID R25) "R25"
+  let r26 = reg64 wordSize (Register.toRegID R26) "R26"
+  let r27 = reg64 wordSize (Register.toRegID R27) "R27"
+  let r28 = reg64 wordSize (Register.toRegID R28) "R28"
+  let r29 = reg64 wordSize (Register.toRegID R29) "R29"
+  let r30 = reg64 wordSize (Register.toRegID R30) "R30"
+  let r31 = reg64 wordSize (Register.toRegID R31) "R31"
+  let r16d = reg32ext wordSize "R16D" r16
+  let r17d = reg32ext wordSize "R17D" r17
+  let r18d = reg32ext wordSize "R18D" r18
+  let r19d = reg32ext wordSize "R19D" r19
+  let r20d = reg32ext wordSize "R20D" r20
+  let r21d = reg32ext wordSize "R21D" r21
+  let r22d = reg32ext wordSize "R22D" r22
+  let r23d = reg32ext wordSize "R23D" r23
+  let r24d = reg32ext wordSize "R24D" r24
+  let r25d = reg32ext wordSize "R25D" r25
+  let r26d = reg32ext wordSize "R26D" r26
+  let r27d = reg32ext wordSize "R27D" r27
+  let r28d = reg32ext wordSize "R28D" r28
+  let r29d = reg32ext wordSize "R29D" r29
+  let r30d = reg32ext wordSize "R30D" r30
+  let r31d = reg32ext wordSize "R31D" r31
+  let r16w = reg16ext wordSize "R16W" r16
+  let r17w = reg16ext wordSize "R17W" r17
+  let r18w = reg16ext wordSize "R18W" r18
+  let r19w = reg16ext wordSize "R19W" r19
+  let r20w = reg16ext wordSize "R20W" r20
+  let r21w = reg16ext wordSize "R21W" r21
+  let r22w = reg16ext wordSize "R22W" r22
+  let r23w = reg16ext wordSize "R23W" r23
+  let r24w = reg16ext wordSize "R24W" r24
+  let r25w = reg16ext wordSize "R25W" r25
+  let r26w = reg16ext wordSize "R26W" r26
+  let r27w = reg16ext wordSize "R27W" r27
+  let r28w = reg16ext wordSize "R28W" r28
+  let r29w = reg16ext wordSize "R29W" r29
+  let r30w = reg16ext wordSize "R30W" r30
+  let r31w = reg16ext wordSize "R31W" r31
+  let r16b = regL8ext wordSize "R16B" r16
+  let r17b = regL8ext wordSize "R17B" r17
+  let r18b = regL8ext wordSize "R18B" r18
+  let r19b = regL8ext wordSize "R19B" r19
+  let r20b = regL8ext wordSize "R20B" r20
+  let r21b = regL8ext wordSize "R21B" r21
+  let r22b = regL8ext wordSize "R22B" r22
+  let r23b = regL8ext wordSize "R23B" r23
+  let r24b = regL8ext wordSize "R24B" r24
+  let r25b = regL8ext wordSize "R25B" r25
+  let r26b = regL8ext wordSize "R26B" r26
+  let r27b = regL8ext wordSize "R27B" r27
+  let r28b = regL8ext wordSize "R28B" r28
+  let r29b = regL8ext wordSize "R29B" r29
+  let r30b = regL8ext wordSize "R30B" r30
+  let r31b = regL8ext wordSize "R31B" r31
   let spl = regL8ext wordSize "SPL" rsp
   let bpl = regL8ext wordSize "BPL" rbp
   let sil = regL8ext wordSize "SIL" rsi
@@ -859,6 +923,326 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         r15b
+      | R.R16 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r16
+      | R.R17 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r17
+      | R.R18 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r18
+      | R.R19 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r19
+      | R.R20 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r20
+      | R.R21 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r21
+      | R.R22 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r22
+      | R.R23 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r23
+      | R.R24 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r24
+      | R.R25 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r25
+      | R.R26 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r26
+      | R.R27 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r27
+      | R.R28 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r28
+      | R.R29 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r29
+      | R.R30 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r30
+      | R.R31 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r31
+      | R.R16D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r16d
+      | R.R17D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r17d
+      | R.R18D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r18d
+      | R.R19D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r19d
+      | R.R20D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r20d
+      | R.R21D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r21d
+      | R.R22D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r22d
+      | R.R23D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r23d
+      | R.R24D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r24d
+      | R.R25D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r25d
+      | R.R26D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r26d
+      | R.R27D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r27d
+      | R.R28D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r28d
+      | R.R29D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r29d
+      | R.R30D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r30d
+      | R.R31D ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r31d
+      | R.R16W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r16w
+      | R.R17W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r17w
+      | R.R18W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r18w
+      | R.R19W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r19w
+      | R.R20W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r20w
+      | R.R21W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r21w
+      | R.R22W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r22w
+      | R.R23W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r23w
+      | R.R24W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r24w
+      | R.R25W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r25w
+      | R.R26W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r26w
+      | R.R27W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r27w
+      | R.R28W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r28w
+      | R.R29W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r29w
+      | R.R30W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r30w
+      | R.R31W ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r31w
+      | R.R16B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r16b
+      | R.R17B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r17b
+      | R.R18B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r18b
+      | R.R19B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r19b
+      | R.R20B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r20b
+      | R.R21B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r21b
+      | R.R22B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r22b
+      | R.R23B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r23b
+      | R.R24B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r24b
+      | R.R25B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r25b
+      | R.R26B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r26b
+      | R.R27B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r27b
+      | R.R28B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r28b
+      | R.R29B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r29b
+      | R.R30B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r30b
+      | R.R31B ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        r31b
       | R.SPL ->
 #if DEBUG
         assert64Bit wordSize
@@ -1332,6 +1716,70 @@ type RegisterFactory(isa: ISA) =
       | "R13B" -> r13b
       | "R14B" -> r14b
       | "R15B" -> r15b
+      | "R16" -> r16
+      | "R17" -> r17
+      | "R18" -> r18
+      | "R19" -> r19
+      | "R20" -> r20
+      | "R21" -> r21
+      | "R22" -> r22
+      | "R23" -> r23
+      | "R24" -> r24
+      | "R25" -> r25
+      | "R26" -> r26
+      | "R27" -> r27
+      | "R28" -> r28
+      | "R29" -> r29
+      | "R30" -> r30
+      | "R31" -> r31
+      | "R16D" -> r16d
+      | "R17D" -> r17d
+      | "R18D" -> r18d
+      | "R19D" -> r19d
+      | "R20D" -> r20d
+      | "R21D" -> r21d
+      | "R22D" -> r22d
+      | "R23D" -> r23d
+      | "R24D" -> r24d
+      | "R25D" -> r25d
+      | "R26D" -> r26d
+      | "R27D" -> r27d
+      | "R28D" -> r28d
+      | "R29D" -> r29d
+      | "R30D" -> r30d
+      | "R31D" -> r31d
+      | "R16W" -> r16w
+      | "R17W" -> r17w
+      | "R18W" -> r18w
+      | "R19W" -> r19w
+      | "R20W" -> r20w
+      | "R21W" -> r21w
+      | "R22W" -> r22w
+      | "R23W" -> r23w
+      | "R24W" -> r24w
+      | "R25W" -> r25w
+      | "R26W" -> r26w
+      | "R27W" -> r27w
+      | "R28W" -> r28w
+      | "R29W" -> r29w
+      | "R30W" -> r30w
+      | "R31W" -> r31w
+      | "R16B" -> r16b
+      | "R17B" -> r17b
+      | "R18B" -> r18b
+      | "R19B" -> r19b
+      | "R20B" -> r20b
+      | "R21B" -> r21b
+      | "R22B" -> r22b
+      | "R23B" -> r23b
+      | "R24B" -> r24b
+      | "R25B" -> r25b
+      | "R26B" -> r26b
+      | "R27B" -> r27b
+      | "R28B" -> r28b
+      | "R29B" -> r29b
+      | "R30B" -> r30b
+      | "R31B" -> r31b
       | "SPL" -> spl
       | "BPL" -> bpl
       | "SIL" -> sil
@@ -3868,6 +4316,22 @@ type RegisterFactory(isa: ISA) =
            r13
            r14
            r15
+           r16
+           r17
+           r18
+           r19
+           r20
+           r21
+           r22
+           r23
+           r24
+           r25
+           r26
+           r27
+           r28
+           r29
+           r30
+           r31
            rip
            idtrbase
            idtrlimit
@@ -4105,6 +4569,22 @@ type RegisterFactory(isa: ISA) =
            r13
            r14
            r15
+           r16
+           r17
+           r18
+           r19
+           r20
+           r21
+           r22
+           r23
+           r24
+           r25
+           r26
+           r27
+           r28
+           r29
+           r30
+           r31
            rip
            oFlag
            dFlag

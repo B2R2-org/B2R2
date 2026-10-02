@@ -1638,13 +1638,13 @@ let private m0x3f (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x40 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 0 32<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 0 16<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1655,13 +1655,13 @@ let private m0x40 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x41 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 1 32<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 1 16<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1672,13 +1672,13 @@ let private m0x41 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x42 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 2 32<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 2 16<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1689,13 +1689,13 @@ let private m0x42 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x43 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 3 32<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 3 16<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1706,13 +1706,13 @@ let private m0x43 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x44 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 4 32<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 4 16<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1723,13 +1723,13 @@ let private m0x44 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x45 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 5 32<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 5 16<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1740,13 +1740,13 @@ let private m0x45 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x46 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 6 32<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 6 16<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1757,13 +1757,13 @@ let private m0x46 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x47 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 7 32<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 7 16<rt>
       finish &st Opcode.INC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1774,13 +1774,13 @@ let private m0x47 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x48 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 0 32<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 0 16<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1791,13 +1791,13 @@ let private m0x48 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x49 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 1 32<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 1 16<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1808,13 +1808,13 @@ let private m0x49 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x4a (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 2 32<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 2 16<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1825,13 +1825,13 @@ let private m0x4a (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x4b (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 3 32<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 3 16<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1842,13 +1842,13 @@ let private m0x4b (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x4c (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 4 32<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 4 16<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1859,13 +1859,13 @@ let private m0x4c (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x4d (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 5 32<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 5 16<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1876,13 +1876,13 @@ let private m0x4d (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x4e (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 6 32<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 6 16<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1893,13 +1893,13 @@ let private m0x4e (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x4f (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 7 32<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = opReg &st 7 16<rt>
       finish &st Opcode.DEC (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
@@ -1910,22 +1910,30 @@ let private m0x4f (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x50 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 0 32<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 0 16<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 0 64<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 0 64<rt>
+      finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 0 64<rt>
+      finish &st Opcode.PUSHP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -1934,22 +1942,30 @@ let private m0x50 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x51 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 1 32<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 1 16<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 1 64<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 1 64<rt>
+      finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 1 64<rt>
+      finish &st Opcode.PUSHP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -1958,22 +1974,30 @@ let private m0x51 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x52 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 2 32<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 2 16<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 2 64<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 2 64<rt>
+      finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 2 64<rt>
+      finish &st Opcode.PUSHP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -1982,22 +2006,30 @@ let private m0x52 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x53 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 3 32<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 3 16<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 3 64<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 3 64<rt>
+      finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 3 64<rt>
+      finish &st Opcode.PUSHP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2006,22 +2038,30 @@ let private m0x53 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x54 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 4 32<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 4 16<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 4 64<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 4 64<rt>
+      finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 4 64<rt>
+      finish &st Opcode.PUSHP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2030,22 +2070,30 @@ let private m0x54 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x55 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 5 32<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 5 16<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 5 64<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 5 64<rt>
+      finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 5 64<rt>
+      finish &st Opcode.PUSHP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2054,22 +2102,30 @@ let private m0x55 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x56 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 6 32<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 6 16<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 6 64<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 6 64<rt>
+      finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 6 64<rt>
+      finish &st Opcode.PUSHP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2078,22 +2134,30 @@ let private m0x56 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x57 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 7 32<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 7 16<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 7 64<rt>
       finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 7 64<rt>
+      finish &st Opcode.PUSH (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 7 64<rt>
+      finish &st Opcode.PUSHP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2102,22 +2166,30 @@ let private m0x57 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x58 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 0 32<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 0 16<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 0 64<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 0 64<rt>
+      finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 0 64<rt>
+      finish &st Opcode.POPP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2126,22 +2198,30 @@ let private m0x58 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x59 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 1 32<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 1 16<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 1 64<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 1 64<rt>
+      finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 1 64<rt>
+      finish &st Opcode.POPP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2150,22 +2230,30 @@ let private m0x59 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x5a (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 2 32<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 2 16<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 2 64<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 2 64<rt>
+      finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 2 64<rt>
+      finish &st Opcode.POPP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2174,22 +2262,30 @@ let private m0x5a (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x5b (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 3 32<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 3 16<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 3 64<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 3 64<rt>
+      finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 3 64<rt>
+      finish &st Opcode.POPP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2198,22 +2294,30 @@ let private m0x5b (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x5c (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 4 32<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 4 16<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 4 64<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 4 64<rt>
+      finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 4 64<rt>
+      finish &st Opcode.POPP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2222,22 +2326,30 @@ let private m0x5c (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x5d (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 5 32<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 5 16<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 5 64<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 5 64<rt>
+      finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 5 64<rt>
+      finish &st Opcode.POPP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2246,22 +2358,30 @@ let private m0x5d (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x5e (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 6 32<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 6 16<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 6 64<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 6 64<rt>
+      finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 6 64<rt>
+      finish &st Opcode.POPP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2270,22 +2390,30 @@ let private m0x5e (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0x5f (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 7 32<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 7 16<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
-  | 47 ->
-    if st.NoLock then
+  | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
       let o1 = opReg &st 7 64<rt>
       finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
+    if not (REXPrefix.isREX2 st.REX && REXPrefix.hasW st.REX) && st.NoLock then
+      let o1 = opReg &st 7 64<rt>
+      finish &st Opcode.POP (Operands.oneReg o1) (64<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = opReg &st 7 64<rt>
+      finish &st Opcode.POPP (Operands.oneReg o1) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2627,7 +2755,7 @@ let private m0x70 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JO (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2642,7 +2770,7 @@ let private m0x71 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNO (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2657,10 +2785,10 @@ let private m0x72 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JB (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JC (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2672,7 +2800,7 @@ let private m0x73 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNB (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2687,7 +2815,7 @@ let private m0x74 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2702,7 +2830,7 @@ let private m0x75 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2717,10 +2845,10 @@ let private m0x76 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JBE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JNA (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2732,7 +2860,7 @@ let private m0x77 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JA (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2747,7 +2875,7 @@ let private m0x78 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JS (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2762,7 +2890,7 @@ let private m0x79 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNS (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2777,7 +2905,7 @@ let private m0x7a (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JPE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2792,7 +2920,7 @@ let private m0x7b (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2807,7 +2935,7 @@ let private m0x7c (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JL (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2822,7 +2950,7 @@ let private m0x7d (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNL (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -2837,10 +2965,10 @@ let private m0x7e (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNG (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JLE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -2852,10 +2980,10 @@ let private m0x7f (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNLE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JG (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -4428,14 +4556,14 @@ let private m0xa0 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 24
   | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 48))
       let o2 = moffs span &st 8<rt>
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 48))
       let o2 = moffs span &st 8<rt>
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (8<rt>) false Prefix.None
@@ -4446,22 +4574,42 @@ let private m0xa0 (span: ByteSpan) (st: byref<ParsingState>) =
 
 let private m0xa1 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
-  | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
-    if st.NoLock then
+  | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 24 | 25 | 26 | 27 ->
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 16))
       let o2 = moffs span &st 32<rt>
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
-  | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+  | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 ->
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 32))
       let o2 = moffs span &st 16<rt>
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
+  | 32 | 33 | 34 | 35 ->
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
+      let o1 = Operands.oprReg ((regv 16))
+      let o2 = moffs span &st 32<rt>
+      finish &st Opcode.MOV (TwoOperands(o1, o2)) (32<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = uimm span &st 64<rt>
+      finish &st Opcode.JMPABS (OneOperand o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
+  | 36 | 37 | 38 | 39 ->
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
+      let o1 = Operands.oprReg ((regv 32))
+      let o2 = moffs span &st 16<rt>
+      finish &st Opcode.MOV (TwoOperands(o1, o2)) (16<rt>) false Prefix.None
+    elif REXPrefix.isREX2 st.REX && st.NoLock then
+      let o1 = uimm span &st 64<rt>
+      finish &st Opcode.JMPABS (OneOperand o1) (64<rt>) false Prefix.None
+    else
+      raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 0))
       let o2 = moffs span &st 64<rt>
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (64<rt>) false Prefix.None
@@ -4474,14 +4622,14 @@ let private m0xa2 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 24
   | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = moffs span &st 8<rt>
       let o2 = Operands.oprReg ((regv 48))
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = moffs span &st 8<rt>
       let o2 = Operands.oprReg ((regv 48))
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (8<rt>) false Prefix.None
@@ -4493,21 +4641,21 @@ let private m0xa2 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0xa3 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = moffs span &st 32<rt>
       let o2 = Operands.oprReg ((regv 16))
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = moffs span &st 16<rt>
       let o2 = Operands.oprReg ((regv 32))
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = moffs span &st 64<rt>
       let o2 = Operands.oprReg ((regv 0))
       finish &st Opcode.MOV (TwoOperands(o1, o2)) (64<rt>) false Prefix.None
@@ -4522,7 +4670,7 @@ let private m0xa4 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish &st Opcode.MOVSB (NoOperand) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
@@ -4532,7 +4680,7 @@ let private m0xa4 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0xa5 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.MOVSD
@@ -4543,7 +4691,7 @@ let private m0xa5 (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.MOVSW
@@ -4554,7 +4702,7 @@ let private m0xa5 (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.MOVSQ
@@ -4573,7 +4721,7 @@ let private m0xa6 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish &st Opcode.CMPSB (NoOperand) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
@@ -4583,7 +4731,7 @@ let private m0xa6 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0xa7 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.CMPSD
@@ -4594,7 +4742,7 @@ let private m0xa7 (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.CMPSW
@@ -4605,7 +4753,7 @@ let private m0xa7 (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.CMPSQ
@@ -4624,7 +4772,7 @@ let private m0xa8 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 48))
       let o2 = uimm span &st 8<rt>
       finish &st Opcode.TEST (TwoOperands(o1, o2)) (8<rt>) false Prefix.None
@@ -4636,21 +4784,21 @@ let private m0xa8 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0xa9 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 16))
       let o2 = simm span &st 32<rt>
       finish &st Opcode.TEST (TwoOperands(o1, o2)) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 32))
       let o2 = uimm span &st 16<rt>
       finish &st Opcode.TEST (TwoOperands(o1, o2)) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 0))
       let o2 = simm span &st 32<rt>
       finish &st Opcode.TEST (TwoOperands(o1, o2)) (64<rt>) false Prefix.None
@@ -4665,7 +4813,7 @@ let private m0xaa (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish &st Opcode.STOSB (NoOperand) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
@@ -4675,7 +4823,7 @@ let private m0xaa (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0xab (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.STOSD
@@ -4686,7 +4834,7 @@ let private m0xab (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.STOSW
@@ -4697,7 +4845,7 @@ let private m0xab (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.STOSQ
@@ -4716,7 +4864,7 @@ let private m0xac (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish &st Opcode.LODSB (NoOperand) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
@@ -4726,7 +4874,7 @@ let private m0xac (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0xad (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.LODSD
@@ -4737,7 +4885,7 @@ let private m0xad (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.LODSW
@@ -4748,7 +4896,7 @@ let private m0xad (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.LODSQ
@@ -4767,7 +4915,7 @@ let private m0xae (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish &st Opcode.SCASB (NoOperand) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
@@ -4777,7 +4925,7 @@ let private m0xae (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0xaf (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.SCASD
@@ -4788,7 +4936,7 @@ let private m0xaf (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.SCASW
@@ -4799,7 +4947,7 @@ let private m0xaf (span: ByteSpan) (st: byref<ParsingState>) =
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.SCASQ
@@ -8775,7 +8923,7 @@ let private m0xe0 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish
@@ -8796,7 +8944,7 @@ let private m0xe1 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.LOOPE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -8811,7 +8959,7 @@ let private m0xe2 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.LOOP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -8824,11 +8972,11 @@ let private m0xe3 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.AddrSz = 16<rt> && st.NoLock then
+    if st.AddrSz = 16<rt> && not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JCXZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
-    elif st.AddrSz = 32<rt> && st.NoLock then
+    elif st.AddrSz = 32<rt> && not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JECXZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -8836,11 +8984,11 @@ let private m0xe3 (span: ByteSpan) (st: byref<ParsingState>) =
       raise ParsingFailureException
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.AddrSz = 32<rt> && st.NoLock then
+    if st.AddrSz = 32<rt> && not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JECXZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
-    elif st.AddrSz = 64<rt> && st.NoLock then
+    elif st.AddrSz = 64<rt> && not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JRCXZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -8855,7 +9003,7 @@ let private m0xe4 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 48))
       let o2 = uimm span &st 8<rt>
       finish &st Opcode.IN (TwoOperands(o1, o2)) (8<rt>) false Prefix.None
@@ -8869,14 +9017,14 @@ let private m0xe5 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 16))
       let o2 = uimm span &st 8<rt>
       finish &st Opcode.IN (TwoOperands(o1, o2)) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = Operands.oprReg ((regv 32))
       let o2 = uimm span &st 8<rt>
       finish &st Opcode.IN (TwoOperands(o1, o2)) (16<rt>) false Prefix.None
@@ -8891,7 +9039,7 @@ let private m0xe6 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = uimm span &st 8<rt>
       let o2 = Operands.oprReg ((regv 48))
       finish &st Opcode.OUT (TwoOperands(o1, o2)) (8<rt>) false Prefix.None
@@ -8905,14 +9053,14 @@ let private m0xe7 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = uimm span &st 8<rt>
       let o2 = Operands.oprReg ((regv 16))
       finish &st Opcode.OUT (TwoOperands(o1, o2)) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = uimm span &st 8<rt>
       let o2 = Operands.oprReg ((regv 32))
       finish &st Opcode.OUT (TwoOperands(o1, o2)) (16<rt>) false Prefix.None
@@ -8926,14 +9074,14 @@ let private m0xe8 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.CALL (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.CALL (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -8947,14 +9095,14 @@ let private m0xe9 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JMP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JMP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -8966,13 +9114,13 @@ let private m0xe9 (span: ByteSpan) (st: byref<ParsingState>) =
 let private m0xea (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = farPtr span &st 32<rt>
       finish &st Opcode.JMP (OneOperand o1) (48<rt>) true Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = farPtr span &st 16<rt>
       finish &st Opcode.JMP (OneOperand o1) (32<rt>) true Prefix.None
     else
@@ -8986,7 +9134,7 @@ let private m0xeb (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 8<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JMP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -9001,7 +9149,7 @@ let private m0xec (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = (regv 48)
       let o2 = (regv 34)
       finish &st Opcode.IN (Operands.twoRegs o1 o2) (8<rt>) false Prefix.None
@@ -9015,14 +9163,14 @@ let private m0xed (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = (regv 16)
       let o2 = (regv 34)
       finish &st Opcode.IN (Operands.twoRegs o1 o2) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = (regv 32)
       let o2 = (regv 34)
       finish &st Opcode.IN (Operands.twoRegs o1 o2) (16<rt>) false Prefix.None
@@ -9037,7 +9185,7 @@ let private m0xee (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = (regv 34)
       let o2 = (regv 48)
       finish &st Opcode.OUT (Operands.twoRegs o1 o2) (16<rt>) false Prefix.None
@@ -9051,14 +9199,14 @@ let private m0xef (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 32 | 33 | 34 | 35 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = (regv 34)
       let o2 = (regv 16)
       finish &st Opcode.OUT (Operands.twoRegs o1 o2) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = (regv 34)
       let o2 = (regv 32)
       finish &st Opcode.OUT (Operands.twoRegs o1 o2) (16<rt>) false Prefix.None
@@ -12400,7 +12548,7 @@ let private m1x30 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.WRMSR
@@ -12419,7 +12567,7 @@ let private m1x31 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.RDTSC
@@ -12438,7 +12586,7 @@ let private m1x32 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.RDMSR
@@ -12457,7 +12605,7 @@ let private m1x33 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.RDPMC
@@ -12476,7 +12624,7 @@ let private m1x34 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.SYSENTER
@@ -12493,7 +12641,7 @@ let private m1x35 (span: ByteSpan) (st: byref<ParsingState>) =
   match st.Ctx with
   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 24
   | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.SYSEXIT
@@ -12505,7 +12653,7 @@ let private m1x35 (span: ByteSpan) (st: byref<ParsingState>) =
       raise ParsingFailureException
   | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.SYSEXIT
@@ -12524,7 +12672,7 @@ let private m1x37 (span: ByteSpan) (st: byref<ParsingState>) =
   | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31
   | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46
   | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       finish
         &st
         Opcode.GETSEC
@@ -12787,11 +12935,11 @@ let private m1x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNZ (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVNE (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNZ (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVNE (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -12801,11 +12949,11 @@ let private m1x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNZ (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVNE (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNZ (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVNE (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -12815,11 +12963,11 @@ let private m1x45 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNZ (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVNE (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNZ (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVNE (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -12883,11 +13031,11 @@ let private m1x47 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNBE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVA (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNBE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVA (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -12897,11 +13045,11 @@ let private m1x47 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNBE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVA (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNBE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVA (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -12911,11 +13059,11 @@ let private m1x47 (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNBE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVA (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNBE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVA (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -13027,11 +13175,11 @@ let private m1x4a (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVP (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVPE (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVP (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVPE (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -13041,11 +13189,11 @@ let private m1x4a (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVP (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVPE (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVP (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVPE (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -13055,11 +13203,11 @@ let private m1x4a (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVP (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVPE (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVP (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVPE (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -13075,11 +13223,11 @@ let private m1x4b (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVPO (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVNP (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVPO (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVNP (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -13089,11 +13237,11 @@ let private m1x4b (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVPO (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVNP (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVPO (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVNP (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -13103,11 +13251,11 @@ let private m1x4b (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVPO (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVNP (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVPO (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVNP (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -13123,11 +13271,11 @@ let private m1x4c (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 32<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNGE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVL (oprs) (32<rt>) false Prefix.None
       else
         let o2 = mem span &st m 32<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNGE (oprs) (32<rt>) false Prefix.None
+        finish &st Opcode.CMOVL (oprs) (32<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 28 | 29 | 30 | 31 | 36 | 37 | 38 | 39 ->
@@ -13137,11 +13285,11 @@ let private m1x4c (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 16<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNGE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVL (oprs) (16<rt>) false Prefix.None
       else
         let o2 = mem span &st m 16<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNGE (oprs) (16<rt>) false Prefix.None
+        finish &st Opcode.CMOVL (oprs) (16<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
@@ -13151,11 +13299,11 @@ let private m1x4c (span: ByteSpan) (st: byref<ParsingState>) =
       if isReg m then
         let o2 = rmReg &st m 64<rt>
         let oprs = Operands.twoRegs o1 o2
-        finish &st Opcode.CMOVNGE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVL (oprs) (64<rt>) false Prefix.None
       else
         let o2 = mem span &st m 64<rt>
         let oprs = TwoOperands(Operands.oprReg o1, o2)
-        finish &st Opcode.CMOVNGE (oprs) (64<rt>) false Prefix.None
+        finish &st Opcode.CMOVL (oprs) (64<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15364,14 +15512,14 @@ let private m1x80 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JO (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JO (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15385,14 +15533,14 @@ let private m1x81 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNO (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNO (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15406,17 +15554,17 @@ let private m1x82 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JB (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JC (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JB (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JC (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15427,14 +15575,14 @@ let private m1x83 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNB (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNB (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15448,14 +15596,14 @@ let private m1x84 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JZ (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15469,14 +15617,14 @@ let private m1x85 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15490,17 +15638,17 @@ let private m1x86 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JBE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JNA (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JBE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JNA (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15511,14 +15659,14 @@ let private m1x87 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JA (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JA (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15532,14 +15680,14 @@ let private m1x88 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JS (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JS (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15553,14 +15701,14 @@ let private m1x89 (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNS (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNS (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15574,14 +15722,14 @@ let private m1x8a (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JPE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JPE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15595,14 +15743,14 @@ let private m1x8b (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNP (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15616,14 +15764,14 @@ let private m1x8c (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JL (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JL (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15637,14 +15785,14 @@ let private m1x8d (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNL (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
       finish &st Opcode.JNL (oprs) (effOprSz &st SzCond.F64) false Prefix.None
@@ -15658,17 +15806,17 @@ let private m1x8e (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNG (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JLE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNG (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JLE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15679,17 +15827,17 @@ let private m1x8f (span: ByteSpan) (st: byref<ParsingState>) =
   | 0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23
   | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38
   | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 32<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNLE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JG (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | 4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 ->
-    if st.NoLock then
+    if not (REXPrefix.isREX2 st.REX) && st.NoLock then
       let o1 = rel span &st 16<rt>
       let oprs = OneOperand o1
-      finish &st Opcode.JNLE (oprs) (effOprSz &st SzCond.F64) false Prefix.None
+      finish &st Opcode.JG (oprs) (effOprSz &st SzCond.F64) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15737,7 +15885,7 @@ let private m1x92 (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETC (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      finish &st Opcode.SETB (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15753,7 +15901,7 @@ let private m1x93 (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETNB (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      finish &st Opcode.SETAE (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15801,7 +15949,7 @@ let private m1x96 (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETNA (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      finish &st Opcode.SETBE (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15817,7 +15965,8 @@ let private m1x97 (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETA (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      let oprs = Operands.oneOperand o1
+      finish &st Opcode.SETNBE (oprs) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15865,7 +16014,7 @@ let private m1x9a (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETPE (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      finish &st Opcode.SETP (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -15881,7 +16030,7 @@ let private m1x9b (span: ByteSpan) (st: byref<ParsingState>) =
     if st.NoLock then
       st.Pos <- st.Pos + 1
       let o1 = rmOpr span &st m 8<rt>
-      finish &st Opcode.SETNP (Operands.oneOperand o1) (8<rt>) false Prefix.None
+      finish &st Opcode.SETPO (Operands.oneOperand o1) (8<rt>) false Prefix.None
     else
       raise ParsingFailureException
   | _ ->
@@ -16415,7 +16564,7 @@ let private m1xae (span: ByteSpan) (st: byref<ParsingState>) =
   | 4 ->
     match st.Ctx with
     | 0 | 8 | 24 | 32 ->
-      if isMem m && st.NoLock then
+      if isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XSAVE (OneOperand o1) (0<rt>) false Prefix.None
@@ -16430,7 +16579,7 @@ let private m1xae (span: ByteSpan) (st: byref<ParsingState>) =
       else
         raise ParsingFailureException
     | 40 ->
-      if isMem m && st.NoLock then
+      if isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XSAVE64 (OneOperand o1) (0<rt>) false Prefix.None
@@ -16458,7 +16607,7 @@ let private m1xae (span: ByteSpan) (st: byref<ParsingState>) =
           (effOprSz &st SzCond.Normal)
           false
           Prefix.None
-      elif isMem m && st.NoLock then
+      elif isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XRSTOR (OneOperand o1) (0<rt>) false Prefix.None
@@ -16494,7 +16643,7 @@ let private m1xae (span: ByteSpan) (st: byref<ParsingState>) =
           (effOprSz &st SzCond.Normal)
           false
           Prefix.None
-      elif isMem m && st.NoLock then
+      elif isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XRSTOR64 (OneOperand o1) (0<rt>) false Prefix.None
@@ -16522,7 +16671,7 @@ let private m1xae (span: ByteSpan) (st: byref<ParsingState>) =
           (effOprSz &st SzCond.Normal)
           false
           Prefix.None
-      elif isMem m && st.NoLock then
+      elif isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XSAVEOPT (OneOperand o1) (0<rt>) false Prefix.None
@@ -16575,7 +16724,7 @@ let private m1xae (span: ByteSpan) (st: byref<ParsingState>) =
           (effOprSz &st SzCond.Normal)
           false
           Prefix.None
-      elif isMem m && st.NoLock then
+      elif isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XSAVEOPT64 (OneOperand o1) (0<rt>) false Prefix.None
@@ -17742,14 +17891,14 @@ let private m1xc7 (span: ByteSpan) (st: byref<ParsingState>) =
   | 3 ->
     match st.Ctx with
     | 0 | 1 | 4 | 5 | 8 | 9 | 12 | 13 | 24 | 25 | 28 | 29 | 32 | 33 | 36 | 37 ->
-      if isMem m && st.NoLock then
+      if isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XRSTORS (OneOperand o1) (0<rt>) false Prefix.None
       else
         raise ParsingFailureException
     | 40 | 41 | 44 | 45 ->
-      if isMem m && st.NoLock then
+      if isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XRSTORS64 (OneOperand o1) (0<rt>) false Prefix.None
@@ -17760,14 +17909,14 @@ let private m1xc7 (span: ByteSpan) (st: byref<ParsingState>) =
   | 4 ->
     match st.Ctx with
     | 0 | 1 | 4 | 5 | 8 | 9 | 12 | 13 | 24 | 25 | 28 | 29 | 32 | 33 | 36 | 37 ->
-      if isMem m && st.NoLock then
+      if isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XSAVEC (OneOperand o1) (0<rt>) false Prefix.None
       else
         raise ParsingFailureException
     | 40 | 41 | 44 | 45 ->
-      if isMem m && st.NoLock then
+      if isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XSAVEC64 (OneOperand o1) (0<rt>) false Prefix.None
@@ -17778,14 +17927,14 @@ let private m1xc7 (span: ByteSpan) (st: byref<ParsingState>) =
   | 5 ->
     match st.Ctx with
     | 0 | 1 | 4 | 5 | 8 | 9 | 12 | 13 | 24 | 25 | 28 | 29 | 32 | 33 | 36 | 37 ->
-      if isMem m && st.NoLock then
+      if isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XSAVES (OneOperand o1) (0<rt>) false Prefix.None
       else
         raise ParsingFailureException
     | 40 | 41 | 44 | 45 ->
-      if isMem m && st.NoLock then
+      if isMem m && not (REXPrefix.isREX2 st.REX) && st.NoLock then
         st.Pos <- st.Pos + 1
         let o1 = mem span &st m (effOprSz &st SzCond.Normal)
         finish &st Opcode.XSAVES64 (OneOperand o1) (0<rt>) false Prefix.None

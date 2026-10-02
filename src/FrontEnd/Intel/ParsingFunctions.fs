@@ -55,8 +55,10 @@ let pickVEXType b1 =
   | 0b001uy -> VEXType.TwoByteOp
   | 0b010uy -> VEXType.ThreeByteOpOne
   | 0b011uy -> VEXType.ThreeByteOpTwo
+  | 0b100uy -> VEXType.Map4
   | 0b101uy -> VEXType.Map5
   | 0b110uy -> VEXType.Map6
+  | 0b111uy -> VEXType.Map7
   | _ -> raise ParsingFailureException
 
 let getVREXPref (b1: byte) b2 =
@@ -91,34 +93,70 @@ let getRC = function
   | 0b11uy -> RZ
   | _ -> raise ParsingFailureException
 
-let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
-  let b1 = span[pos]
-  (* P0[3] is the only reserved bit left; P0[2] belongs to the map selector. *)
-  if ((b1 >>> 3) &&& 0b1uy) <> 0uy then raise ParsingFailureException
+/// The maps Intel APX added: 4, where the promoted legacy instructions sit,
+/// and 7.
+let inline private isAPXMap vt = vt = VEXType.Map4 || vt = VEXType.Map7
+
+/// The register bits Intel APX added to the EVEX prefix. P0[3], which was
+/// reserved, is B4, the fifth bit of the B register identifier; P1[2], which
+/// was fixed at one, is X4 inverted, the fifth bit of the SIB index, where
+/// ModRM names memory, and stays one on a register form. Both are 64-bit
+/// mode's alone: outside it the old reservations hold. Intel APX spec
+/// 355828-007, 3.1.2.3.
+let private evexHighRegBits (span: ByteSpan) is64 pos =
+  let b4 = (span[pos] >>> 3) &&& 0b1uy <> 0uy
+  let x4 = (span[pos + 1] >>> 2) &&& 0b1uy = 0uy
+  let isRegForm = span[pos + 4] >= 0xC0uy
+  if (b4 || x4) && not is64 then raise ParsingFailureException
+  elif x4 && isRegForm then raise ParsingFailureException
   else ()
-  let b2 = span[pos + 1]
-  if ((b2 >>> 2) &&& 0b1uy) <> 1uy then raise ParsingFailureException
-  else ()
-  let l'l = span[pos + 2] >>> 5 &&& 0b011uy
-  let vLen = getVLen l'l
-  let rc = getRC l'l
-  let aaa = span[pos + 2] &&& 0b111uy
-  let z = if (span[pos + 2] >>> 7 &&& 0b1uy) = 1uy then Zeroing else Merging
+  (if b4 then REXPrefix.REXB4 else REXPrefix.NOREX)
+  ||| (if x4 then REXPrefix.REXX4 else REXPrefix.NOREX)
+
+/// In the APX maps the third payload byte is mostly reserved: its top three
+/// bits, the vector instructions' z and L'L, have to be clear, and no REX
+/// may sit ahead of the prefix. The bits below them are ND, V4, NF and the
+/// low two bits of a source condition code, which the rows read.
+let private checkAPXPayload (span: ByteSpan) (rex: REXPrefix) pos =
+  if span[pos + 2] &&& 0b11100000uy <> 0uy || rex <> REXPrefix.NOREX then
+    raise ParsingFailureException
+  else
+    ()
+
+/// The third payload byte as the vector instructions read it: the vector
+/// length or rounding mode in L'L, the opmask in aaa, and the zeroing and
+/// broadcast bits. The APX fields of the prefix are filled in by the row
+/// that reads them (see OpcodeMapHelper.finishA).
+let private getEVEXPrefix (span: ByteSpan) pos =
+  let b3 = span[pos + 2]
+  let l'l = b3 >>> 5 &&& 0b011uy
+  let aaa = b3 &&& 0b111uy
+  let z = if (b3 >>> 7 &&& 0b1uy) = 1uy then Zeroing else Merging
   (* Zeroing with no mask to zero under. The manual gives this as one of the
      #UD conditions of the opmask encoding fields (Vol. 2A, Table 2-42), and it
      holds of every instruction, so it is settled here beside the reserved bits
      rather than asked of a row. *)
   if z = Zeroing && aaa = 0uy then raise ParsingFailureException else ()
-  let b = (span[pos + 2] >>> 4) &&& 0b1uy
   (* The broadcast width is the operand's, so it is filled in once the operands
      have been parsed; see Parser.recordBroadcastWidth. *)
-  let e =
-    Some { AAA = aaa
-           Z = z
-           B = b
-           RC = rc
-           BcstElemSize = 0<rt>
-           RCDecor = NoRounding }
+  { AAA = aaa
+    Z = z
+    B = (b3 >>> 4) &&& 0b1uy
+    RC = getRC l'l
+    BcstElemSize = 0<rt>
+    RCDecor = NoRounding
+    ND = false
+    NF = false
+    SCC = 0uy
+    DFV = 0uy }
+
+let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) is64 pos =
+  let b1 = span[pos]
+  let b2 = span[pos + 1]
+  let vt = pickVEXType b1
+  if isAPXMap vt then checkAPXPayload span rex pos else ()
+  let highBits = evexHighRegBits span is64 pos
+  let e = getEVEXPrefix span pos
   (* R' (P0[4]) and V' (P2[3]) are stored inverted, like R, X and B. They
      carry the fifth bit of ModRM.reg and of vvvv / the VSIB index. *)
   let r' =
@@ -127,11 +165,26 @@ let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
   let v' =
     if ((span[pos + 2] >>> 3) &&& 0b1uy) = 0uy then REXPrefix.EVEXV
     else REXPrefix.NOREX
-  rex <- rex ||| getVREXPref b1 b2 ||| r' ||| v'
+  rex <- rex ||| getVREXPref b1 b2 ||| r' ||| v' ||| highBits
   { VVVV = getVVVV b2
-    VectorLength = vLen
-    VEXType = pickVEXType b1 ||| VEXType.EVEX
+    VectorLength = getVLen (span[pos + 2] >>> 5 &&& 0b011uy)
+    VEXType = vt ||| VEXType.EVEX
     VPrefixes = getVPrefs b2
-    EVEXPrx = e }
+    EVEXPrx = Some e }
+
+/// Reads the payload byte of a REX2 prefix (D5h) into the REX and returns
+/// the legacy map its M0 bit selects: 0 for the one-byte map, 1 for the 0Fh
+/// map. The low four bits are REX's W, R, X and B; above them sit the fifth
+/// register bits B4, X4 and R4, which read as the EVEX ones do. Intel APX
+/// spec 355828-007, 3.1.2.1.
+let getREX2Info (span: ByteSpan) (rex: byref<REXPrefix>) pos =
+  let b = span[pos]
+  let low = EnumOfValue<int, REXPrefix>(int b &&& 0b1111)
+  let none = REXPrefix.NOREX
+  let b4 = if b &&& 0b00010000uy <> 0uy then REXPrefix.REXB4 else none
+  let x4 = if b &&& 0b00100000uy <> 0uy then REXPrefix.REXX4 else none
+  let r4 = if b &&& 0b01000000uy <> 0uy then REXPrefix.EVEXR else none
+  rex <- REXPrefix.REX ||| REXPrefix.REX2 ||| low ||| b4 ||| x4 ||| r4
+  int (b >>> 7)
 
 // vim: set tw=80 sts=2 sw=2:

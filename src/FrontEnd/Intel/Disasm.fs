@@ -102,6 +102,33 @@ let private evexPrefixOf (ins: Instruction) =
   | Some { EVEXPrx = Some ePrx } -> ValueSome ePrx
   | _ -> ValueNone
 
+/// The {nf} marker of an Intel APX instruction whose status-flags update is
+/// suppressed. It opens the line, as a prefix does; XED and LLVM write it
+/// so.
+let private buildNF (ins: Instruction) (builder: IDisasmBuilder) =
+  match evexPrefixOf ins with
+  | ValueSome ePrx when ePrx.NF ->
+    builder.Accumulate(AsmWordKind.String, "{nf} ")
+  | _ ->
+    ()
+
+/// The default flags value of CCMPscc and CTESTscc, the flags the instruction
+/// sets when its source condition fails, written after the mnemonic as XED
+/// and LLVM write it: {dfv=of,sf,zf,cf}, naming the ones that are set.
+let private buildDFV (ins: Instruction) (builder: IDisasmBuilder) =
+  match evexPrefixOf ins with
+  | ValueSome ePrx when Opcode.isCondCmpOrTest ins.Opcode ->
+    let dfv = int ePrx.DFV
+    let names =
+      [ "of", 8; "sf", 4; "zf", 2; "cf", 1 ]
+      |> List.filter (fun (_, bit) -> dfv &&& bit <> 0)
+      |> List.map fst
+    builder.Accumulate(AsmWordKind.String, " {dfv=")
+    builder.Accumulate(AsmWordKind.String, String.concat "," names)
+    builder.Accumulate(AsmWordKind.String, "}")
+  | _ ->
+    ()
+
 /// Whether an operand is an immediate, which is the one kind a static rounding
 /// decoration never attaches to.
 let private isImmediate = function
@@ -315,7 +342,9 @@ module IntelSyntax = begin
   let disasm (builder: IDisasmBuilder) (ins: Instruction) =
     builder.AccumulateAddrMarker ins.Address
     buildPref ins.Prefixes builder
+    buildNF ins builder
     buildOpcode ins.Opcode builder
+    buildDFV ins builder
     buildOprs ins builder
 
 end
@@ -502,6 +531,7 @@ module ATTSyntax = begin
     let wordSize = builder.WordSize
     builder.AccumulateAddrMarker ins.Address
     buildPref ins.Prefixes builder
+    buildNF ins builder
     match ins.Opcode with
     | Opcode.MOVSX ->
       builder.Accumulate(AsmWordKind.Mnemonic, "movs")
@@ -611,6 +641,7 @@ module ATTSyntax = begin
     | opcode ->
       buildOpcode opcode builder
       buildOpSuffix ins.Operands builder
+    buildDFV ins builder
     buildOprs ins builder
 
 end

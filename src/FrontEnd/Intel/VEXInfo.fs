@@ -49,6 +49,10 @@ and VEXType =
   | EVEX = 0x10
   /// EVEX that refers to map 6, the AVX512-FP16 counterpart of the 0F38 map.
   | Map6 = 0x20
+  /// EVEX map 4, where Intel APX puts the legacy instructions it promotes.
+  | Map4 = 0x40
+  /// EVEX map 7, the immediate forms of the MSR instructions.
+  | Map7 = 0x80
 
 /// Represents the zeroing or merging behavior of the destination result
 /// (P[23] in EVEX encoding).
@@ -98,4 +102,18 @@ and EVEXPrefix =
     BcstElemSize: RegType
     /// Which reading of B applies here, which likewise only the matched
     /// instruction settles. NoRounding whenever B is clear.
-    RCDecor: RoundingDecor }
+    RCDecor: RoundingDecor
+    /// EVEX.ND of an Intel APX instruction: a new data destination in vvvv,
+    /// or zero-upper where the instruction has no destination to add. False
+    /// where the prefix is not APX's.
+    ND: bool
+    /// EVEX.NF of an Intel APX instruction: the status flags are left as
+    /// they were. False where the bit picks a form instead (CFCMOVcc) and
+    /// where the prefix is not APX's.
+    NF: bool
+    /// The source condition code of CCMPscc and CTESTscc, P2[3:0]; zero on
+    /// every other instruction.
+    SCC: uint8
+    /// The default flags value of CCMPscc and CTESTscc, EVEX.[OF,SF,ZF,CF]
+    /// in P1[6:3]; zero on every other instruction.
+    DFV: uint8 }

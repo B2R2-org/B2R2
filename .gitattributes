@@ -1,0 +1,33 @@
+# Line-ending policy: these are text and are stored with LF. (These rules
+# sat in a file named .gitattribute, without the s, which git never read.)
+*.sln text
+*.fs text
+*.fsi text
+*.fsproj text
+*.js text
+*.css text
+*.html text
+
+# GitHub's language bar counts every programming-language file it finds, so
+# the few here that are not F# -- the Mach fixture generator, the packaging
+# scripts, the docs template and the VB sample -- show up beside it. Marking
+# them vendored keeps them out of the count, so that the bar reports what the
+# project is written in. Data and prose formats (JSON, XML, YAML, Markdown,
+# SVG) are not counted to begin with; they are listed all the same so that
+# the list is complete.
+*.md linguist-vendored
+*.json linguist-vendored
+*.xml linguist-vendored
+*.yml linguist-vendored
+*.yaml linguist-vendored
+*.svg linguist-vendored
+*.fsproj linguist-vendored
+*.vbproj linguist-vendored
+*.props linguist-vendored
+*.targets linguist-vendored
+*.slnx linguist-vendored
+*.sh linguist-vendored
+*.py linguist-vendored
+*.html linguist-vendored
+*.vb linguist-vendored
+*.template linguist-vendored
