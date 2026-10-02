@@ -144,7 +144,7 @@ type Parser(wordSz, reader: IBinReader) =
       vex <- Some(getTwoVEXInfo bs &rex (pos + 1))
       pos + 2
     | 0xC4uy when bs[pos + 1] >= 0xC0uy || is64 ->
-      vex <- Some(getThreeVEXInfo bs &rex (pos + 1))
+      vex <- Some(getThreeVEXInfo bs &rex is64 (pos + 1))
       pos + 3
     | 0x62uy when bs[pos + 1] >= 0xC0uy || is64 ->
       vex <- Some(getEVEXInfo bs &rex is64 (pos + 1))

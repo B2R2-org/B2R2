@@ -316,13 +316,16 @@ let inline rmRegV (st: byref<ParsingState>) (m: byte) (sz: RegType) =
 
 /// The register (E)VEX.vvvv names: a general-purpose register at a GPR width
 /// (BMI, CMPccXADD, the new data destination of Intel APX), a vector
-/// register otherwise, either widened by EVEX.V'.
+/// register otherwise, either widened by EVEX.V'. Outside 64-bit mode the top
+/// bit of vvvv is ignored in naming the register, though a row that wants
+/// vvvv unused still sees it.
 let vvvvReg (st: byref<ParsingState>) (sz: RegType) =
+  let vvvv = st.VVVV &&& (if st.Is64 then 0b1111 else 0b0111)
   if sz <= 64<rt> then
-    let n = (st.VVVV &&& 0b1111) + hi16 (REXPrefix.hasEVEXV st.REX)
+    let n = vvvv + hi16 (REXPrefix.hasEVEXV st.REX)
     OperandParsers.findGPR sz n
   else
-    let n = st.VVVV + hi16 (REXPrefix.hasEVEXV st.REX)
+    let n = vvvv + hi16 (REXPrefix.hasEVEXV st.REX)
     match sz with
     | 512<rt> -> RegisterHelper.zmm n
     | 256<rt> -> RegisterHelper.ymm n

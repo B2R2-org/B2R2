@@ -2461,6 +2461,71 @@ type ParserTests() =
     ++ BOUND ** [ O.Reg R.EAX; O.Mem(R.ECX, 64<rt>) ]
     ||> testX86NoPrefixNoSeg
 
+  (* Outside 64-bit mode there are eight registers of each kind, so the
+     prefix bits that reach the upper ones are ignored there: VEX.B and the
+     top bit of VEX.vvvv here (R and X are set wherever C4h is VEX at all).
+     Intel SDM Vol. 2A, 2.3. Capstone and objdump read these the same way. *)
+  [<TestMethod>]
+  member _.``VEX register bits ignored outside 64-bit mode (1)``() =
+    "c4c17828c1"
+    ++ VMOVAPS ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VEX register bits ignored outside 64-bit mode (2)``() =
+    "c4e12058c1"
+    ++ VADDPS ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Reg R.XMM1 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VEX register bits ignored outside 64-bit mode (3)``() =
+    "c4c1205801"
+    ++ VADDPS ** [ O.Reg R.XMM0; O.Reg R.XMM3; O.Mem(R.ECX, 128<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VEX register bits ignored outside 64-bit mode (4)``() =
+    "c4c230f2c2"
+    ++ ANDN ** [ O.Reg R.EAX; O.Reg R.ECX; O.Reg R.EDX ]
+    ||> testX86NoPrefixNoSeg
+
+  (* The same for EVEX, which adds R' and V' to the bits ignored. *)
+  [<TestMethod>]
+  member _.``EVEX register bits ignored outside 64-bit mode (1)``() =
+    "62d16c4858cb"
+    ++ VADDPS ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX register bits ignored outside 64-bit mode (2)``() =
+    "62e16c4858cb"
+    ++ VADDPS ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX register bits ignored outside 64-bit mode (3)``() =
+    "62f16c4058cb"
+    ++ VADDPS ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX register bits ignored outside 64-bit mode (4)``() =
+    "62f12c4858cb"
+    ++ VADDPS ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX register bits ignored outside 64-bit mode (5)``() =
+    "62d16c485809"
+    ++ VADDPS ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Mem(R.ECX, 512<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX register bits ignored outside 64-bit mode (6)``() =
+    "62f27d41920c08"
+    ++ VGATHERDPS ** [ O.Reg R.ZMM1; O.Mem(R.EAX, R.ZMM1, Scale.X1, 512<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
   [<TestMethod>]
   member _.``ModRM byte spelled out after a VEX opcode (1)``() =
     "c4e27849c0"
