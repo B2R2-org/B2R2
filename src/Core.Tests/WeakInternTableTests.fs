@@ -49,9 +49,15 @@ type WeakInternTableKey(value: int, text: string, made: int ref) =
 module private WeakInternTableTestHelper =
   let key value text = WeakInternTableKey(value, text, ref 0)
 
+  /// Interns, under hash, the item k describes in table, which takes its keys
+  /// by reference.
+  let intern (table: WeakInternTable<WeakInternTableItem>) k hash =
+    let k: WeakInternTableKey = k
+    table.Intern(&k, hash)
+
   [<MethodImpl(MethodImplOptions.NoInlining)>]
   let addWeakEntry (table: WeakInternTable<WeakInternTableItem>) =
-    let item = table.Intern(key 1 "item", 1)
+    let item = intern table (key 1 "item") 1
     WeakReference<WeakInternTableItem>(item)
 
   let collect () =
@@ -66,8 +72,8 @@ type WeakInternTableTests() =
   [<TestMethod>]
   member _.``InternReturnsLiveCanonicalValue``() =
     let table = WeakInternTable<WeakInternTableItem>()
-    let interned1 = table.Intern(key 1 "first", 1)
-    let interned2 = table.Intern(key 1 "second", 1)
+    let interned1 = intern table (key 1 "first") 1
+    let interned2 = intern table (key 1 "second") 1
     Assert.AreEqual<bool>(true, Object.ReferenceEquals(interned1, interned2))
     Assert.AreEqual<string>("first", interned2.Text)
     Assert.AreEqual<int>(1, table.Count)
@@ -75,8 +81,8 @@ type WeakInternTableTests() =
   [<TestMethod>]
   member _.``InternHandlesHashCollisions``() =
     let table = WeakInternTable<WeakInternTableItem>()
-    let interned1 = table.Intern(key 1 "one", 10)
-    let interned2 = table.Intern(key 2 "two", 10)
+    let interned1 = intern table (key 1 "one") 10
+    let interned2 = intern table (key 2 "two") 10
     Assert.AreEqual<bool>(false, Object.ReferenceEquals(interned1, interned2))
     Assert.AreEqual<int>(1, interned1.Value)
     Assert.AreEqual<int>(2, interned2.Value)
@@ -86,21 +92,21 @@ type WeakInternTableTests() =
   member _.``InternMakesOnlyMissingValues``() =
     let table = WeakInternTable<WeakInternTableItem>()
     let made = ref 0
-    table.Intern(WeakInternTableKey(1, "first", made), 7) |> ignore
-    table.Intern(WeakInternTableKey(1, "second", made), 7) |> ignore
+    intern table (WeakInternTableKey(1, "first", made)) 7 |> ignore
+    intern table (WeakInternTableKey(1, "second", made)) 7 |> ignore
     Assert.AreEqual<int>(1, made.Value)
 
   [<TestMethod>]
   member _.``InternMakesAValueUnderItsHash``() =
     let table = WeakInternTable<WeakInternTableItem>()
-    Assert.AreEqual<int>(7, (table.Intern(key 1 "item", 7)).Hash)
+    Assert.AreEqual<int>(7, (intern table (key 1 "item") 7).Hash)
 
   [<TestMethod>]
   member _.``InternIsThreadSafe``() =
     let table = WeakInternTable<WeakInternTableItem>()
     let values =
       [| for _ in 0 .. 99 ->
-           Task.Run(fun () -> table.Intern(key 1 "item", 1)) |]
+           Task.Run(fun () -> intern table (key 1 "item") 1) |]
       |> Task.WhenAll
       |> fun task -> task.Result
     let first = values[0]
@@ -114,9 +120,9 @@ type WeakInternTableTests() =
     (* Enough values for the table to grow many times over, with only a few
        hashes among them, so that every probe runs past others. *)
     let table = WeakInternTable<WeakInternTableItem>()
-    let items = Array.init 20000 (fun i -> table.Intern(key i "item", i % 64))
+    let items = Array.init 20000 (fun i -> intern table (key i "item") (i % 64))
     let same (item: WeakInternTableItem) =
-      let again = table.Intern(key item.Value "again", item.Value % 64)
+      let again = intern table (key item.Value "again") (item.Value % 64)
       Object.ReferenceEquals(item, again)
     Assert.AreEqual<bool>(true, Array.forall same items)
     Assert.AreEqual<int>(items.Length, table.Count)
@@ -124,11 +130,11 @@ type WeakInternTableTests() =
   [<TestMethod>]
   member _.``ClearRemovesEntries``() =
     let table = WeakInternTable<WeakInternTableItem>()
-    let old = table.Intern(key 1 "one", 1)
-    table.Intern(key 2 "two", 2) |> ignore
+    let old = intern table (key 1 "one") 1
+    intern table (key 2 "two") 2 |> ignore
     table.Clear()
     Assert.AreEqual<int>(0, table.Count)
-    let interned = table.Intern(key 1 "new", 1)
+    let interned = intern table (key 1 "new") 1
     Assert.AreEqual<bool>(false, Object.ReferenceEquals(old, interned))
     Assert.AreEqual<int>(1, table.Count)
 
@@ -154,5 +160,5 @@ type WeakInternTableTests() =
       Assert.Inconclusive("GC kept the weakly referenced item alive")
     | false, _ ->
       let made = ref 0
-      table.Intern(WeakInternTableKey(1, "next", made), 1) |> ignore
+      intern table (WeakInternTableKey(1, "next", made)) 1 |> ignore
       Assert.AreEqual<int>(1, made.Value)

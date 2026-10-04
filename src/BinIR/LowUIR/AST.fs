@@ -358,7 +358,8 @@ module Raw =
 #if ! HASHCONS
     UnOp(op, e)
 #else
-    exprs.Intern(UnOpKey(op, e), Expr.HashUnOp(op, e))
+    let key = UnOpKey(op, e)
+    exprs.Intern(&key, Expr.HashUnOp(op, e))
 #endif
 
   /// Construct a binary operator (BinOp) of the given type as it is.
@@ -367,7 +368,8 @@ module Raw =
 #if ! HASHCONS
     BinOp(op, t, e1, e2)
 #else
-    exprs.Intern(BinOpKey(op, t, e1, e2), Expr.HashBinOp(op, t, e1, e2))
+    let key = BinOpKey(op, t, e1, e2)
+    exprs.Intern(&key, Expr.HashBinOp(op, t, e1, e2))
 #endif
 
   /// Construct a relative operator (RelOp) as it is.
@@ -376,7 +378,8 @@ module Raw =
 #if ! HASHCONS
     RelOp(op, e1, e2)
 #else
-    exprs.Intern(RelOpKey(op, e1, e2), Expr.HashRelOp(op, e1, e2))
+    let key = RelOpKey(op, e1, e2)
+    exprs.Intern(&key, Expr.HashRelOp(op, e1, e2))
 #endif
 
   /// Construct an ITE (if-then-else) expression (Ite) as it is.
@@ -385,7 +388,8 @@ module Raw =
 #if ! HASHCONS
     Ite(cond, e1, e2)
 #else
-    exprs.Intern(IteKey(cond, e1, e2), Expr.HashIte(cond, e1, e2))
+    let key = IteKey(cond, e1, e2)
+    exprs.Intern(&key, Expr.HashIte(cond, e1, e2))
 #endif
 
   /// Construct a cast expression (Cast) as it is.
@@ -394,7 +398,8 @@ module Raw =
 #if ! HASHCONS
     Cast(kind, rt, e)
 #else
-    exprs.Intern(CastKey(kind, rt, e), Expr.HashCast(kind, rt, e))
+    let key = CastKey(kind, rt, e)
+    exprs.Intern(&key, Expr.HashCast(kind, rt, e))
 #endif
 
   /// Construct a body evaluated in a rounding direction (RoundCtrl) as it is.
@@ -403,7 +408,8 @@ module Raw =
 #if ! HASHCONS
     RoundCtrl(mode, body)
 #else
-    exprs.Intern(RoundCtrlKey(mode, body), Expr.HashRoundCtrl(mode, body))
+    let key = RoundCtrlKey(mode, body)
+    exprs.Intern(&key, Expr.HashRoundCtrl(mode, body))
 #endif
 
   /// Construct an extraction (Extract) as it is.
@@ -412,7 +418,8 @@ module Raw =
 #if ! HASHCONS
     Extract(expr, rt, pos)
 #else
-    exprs.Intern(ExtractKey(expr, rt, pos), Expr.HashExtract(expr, rt, pos))
+    let key = ExtractKey(expr, rt, pos)
+    exprs.Intern(&key, Expr.HashExtract(expr, rt, pos))
 #endif
 
 /// Construct a number (Num).
@@ -421,7 +428,8 @@ let num bv =
 #if ! HASHCONS
   Num bv
 #else
-  exprs.Intern(NumKey(bv), bv.GetHashCode())
+  let key = NumKey(bv)
+  exprs.Intern(&key, bv.GetHashCode())
 #endif
 
 /// Construct a variable (Var).
@@ -430,7 +438,8 @@ let var t id name =
 #if ! HASHCONS
   Var(t, id, name)
 #else
-  exprs.Intern(VarKey(t, id, name), Expr.HashVar(t, id))
+  let key = VarKey(t, id, name)
+  exprs.Intern(&key, Expr.HashVar(t, id))
 #endif
 
 /// Construct a pc variable (PCVar).
@@ -439,7 +448,8 @@ let pcvar t name =
 #if ! HASHCONS
   PCVar(t, name)
 #else
-  exprs.Intern(PCVarKey(t, name), Expr.HashPCVar t)
+  let key = PCVarKey(t, name)
+  exprs.Intern(&key, Expr.HashPCVar t)
 #endif
 
 /// Construct a temporary variable (TempVar) with the given ID.
@@ -448,7 +458,8 @@ let tmpvar t id =
 #if ! HASHCONS
   TempVar(t, id)
 #else
-  exprs.Intern(TempVarKey(t, id), Expr.HashTempVar(t, id))
+  let key = TempVarKey(t, id)
+  exprs.Intern(&key, Expr.HashTempVar(t, id))
 #endif
 
 /// Construct a symbol (for a label) from a string and a IDCounter.
@@ -472,7 +483,8 @@ let jmpDest symb =
 #if ! HASHCONS
   JmpDest symb
 #else
-  exprs.Intern(JmpDestKey(symb), Expr.HashJmpDest symb)
+  let key = JmpDestKey(symb)
+  exprs.Intern(&key, Expr.HashJmpDest symb)
 #endif
 
 let private binopWithType op t e1 e2 =
@@ -504,7 +516,8 @@ let exprList lst =
 #if ! HASHCONS
   ExprList lst
 #else
-  exprs.Intern(ExprListKey(lst), Expr.HashExprList lst)
+  let key = ExprListKey(lst)
+  exprs.Intern(&key, Expr.HashExprList lst)
 #endif
 
 /// Function name.
@@ -513,7 +526,8 @@ let funcName name =
 #if ! HASHCONS
   FuncName name
 #else
-  exprs.Intern(FuncNameKey(name), Expr.HashFuncName name)
+  let key = FuncNameKey(name)
+  exprs.Intern(&key, Expr.HashFuncName name)
 #endif
 
 /// Construct a function application.
@@ -545,7 +559,8 @@ let load endian rt addr =
 #if ! HASHCONS
     Load(endian, rt, addr)
 #else
-    exprs.Intern(LoadKey(endian, rt, addr), Expr.HashLoad(endian, rt, addr))
+    let key = LoadKey(endian, rt, addr)
+    exprs.Intern(&key, Expr.HashLoad(endian, rt, addr))
 #endif
 
 /// Construct a load expression in little-endian.
@@ -657,7 +672,8 @@ let undef rt s =
 #if ! HASHCONS
   Undefined(rt, s)
 #else
-  exprs.Intern(UndefinedKey(rt, s), Expr.HashUndef(rt, s))
+  let key = UndefinedKey(rt, s)
+  exprs.Intern(&key, Expr.HashUndef(rt, s))
 #endif
 
 /// Num expression for a one-bit number zero.
@@ -1092,7 +1108,8 @@ let ismark nBytes =
 #if ! HASHCONS
   ISMark nBytes
 #else
-  stmts.Intern(ISMarkKey(nBytes), Stmt.HashISMark nBytes)
+  let key = ISMarkKey(nBytes)
+  stmts.Intern(&key, Stmt.HashISMark nBytes)
 #endif
 
 /// An IEMark statement.
@@ -1101,7 +1118,8 @@ let iemark nBytes =
 #if ! HASHCONS
   IEMark nBytes
 #else
-  stmts.Intern(IEMarkKey(nBytes), Stmt.HashIEMark nBytes)
+  let key = IEMarkKey(nBytes)
+  stmts.Intern(&key, Stmt.HashIEMark nBytes)
 #endif
 
 /// An LMark statement.
@@ -1110,7 +1128,8 @@ let lmark label =
 #if ! HASHCONS
   LMark label
 #else
-  stmts.Intern(LMarkKey(label), Stmt.HashLMark label)
+  let key = LMarkKey(label)
+  stmts.Intern(&key, Stmt.HashLMark label)
 #endif
 
 /// A Put statement.
@@ -1119,7 +1138,8 @@ let put dst src =
 #if ! HASHCONS
   Put(dst, src)
 #else
-  stmts.Intern(PutKey(dst, src), Stmt.HashPut(dst, src))
+  let key = PutKey(dst, src)
+  stmts.Intern(&key, Stmt.HashPut(dst, src))
 #endif
 
 let private assignForExtractDst e1 e2 =
@@ -1156,7 +1176,8 @@ let store endian addr v =
 #if ! HASHCONS
   Store(endian, addr, v)
 #else
-  stmts.Intern(StoreKey(endian, addr, v), Stmt.HashStore(endian, addr, v))
+  let key = StoreKey(endian, addr, v)
+  stmts.Intern(&key, Stmt.HashStore(endian, addr, v))
 #endif
 
 /// An assignment statement.
@@ -1177,7 +1198,8 @@ let jmp target =
 #if ! HASHCONS
   Jmp target
 #else
-  stmts.Intern(JmpKey(target), Stmt.HashJmp target)
+  let key = JmpKey(target)
+  stmts.Intern(&key, Stmt.HashJmp target)
 #endif
 
 /// A CJmp statement.
@@ -1186,7 +1208,8 @@ let cjmp cond dst1 dst2 =
 #if ! HASHCONS
   CJmp(cond, dst1, dst2)
 #else
-  stmts.Intern(CJmpKey(cond, dst1, dst2), Stmt.HashCJmp(cond, dst1, dst2))
+  let key = CJmpKey(cond, dst1, dst2)
+  stmts.Intern(&key, Stmt.HashCJmp(cond, dst1, dst2))
 #endif
 
 /// An InterJmp statement.
@@ -1195,7 +1218,8 @@ let interjmp dst kind =
 #if ! HASHCONS
   InterJmp(dst, kind)
 #else
-  stmts.Intern(InterJmpKey(dst, kind), Stmt.HashInterJmp(dst, kind))
+  let key = InterJmpKey(dst, kind)
+  stmts.Intern(&key, Stmt.HashInterJmp(dst, kind))
 #endif
 
 /// A InterCJmp statement.
@@ -1204,7 +1228,8 @@ let intercjmp cond d1 d2 =
 #if ! HASHCONS
   InterCJmp(cond, d1, d2)
 #else
-  stmts.Intern(InterCJmpKey(cond, d1, d2), Stmt.HashInterCJmp(cond, d1, d2))
+  let key = InterCJmpKey(cond, d1, d2)
+  stmts.Intern(&key, Stmt.HashInterCJmp(cond, d1, d2))
 #endif
 
 /// External call.
@@ -1213,7 +1238,8 @@ let extCall appExpr =
 #if ! HASHCONS
   ExternalCall appExpr
 #else
-  stmts.Intern(ExternalCallKey(appExpr), Stmt.HashExtCall appExpr)
+  let key = ExternalCallKey(appExpr)
+  stmts.Intern(&key, Stmt.HashExtCall appExpr)
 #endif
 
 /// A SideEffect statement.
@@ -1222,7 +1248,8 @@ let sideEffect eff =
 #if ! HASHCONS
   SideEffect eff
 #else
-  stmts.Intern(SideEffectKey(eff), Stmt.HashSideEffect eff)
+  let key = SideEffectKey(eff)
+  stmts.Intern(&key, Stmt.HashSideEffect eff)
 #endif
 
 /// Record the use of vars and tempvars from the given expression.

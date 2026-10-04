@@ -66,7 +66,7 @@ type private InternStripe<'T when 'T: not struct>() =
   /// The live value the key describes among the slots hash leads to, if any,
   /// and the slot the probe ended at. Only values of type 'T are ever put in,
   /// so a live target needs no type test.
-  let probe (key: #IInternKey<'T>) hash mixed =
+  let probe (key: inref<#IInternKey<'T>>) hash mixed =
     let mask = handles.Length - 1
     let mutable i = slotOf mixed
     let mutable found = Unchecked.defaultof<'T>
@@ -119,7 +119,7 @@ type private InternStripe<'T when 'T: not struct>() =
   /// again once three slots in four hold a handle. A probe compares hashes
   /// before it touches a handle, so the longer runs cost little next to the
   /// slots, twelve bytes each, that a sparser stripe would keep.
-  let add (key: #IInternKey<'T>) hash i =
+  let add (key: inref<#IInternKey<'T>>) hash i =
     let value = key.Create hash
     hashes[i] <- hash
     handles[i] <- GCHandle.Alloc(value, GCHandleType.Weak)
@@ -135,11 +135,11 @@ type private InternStripe<'T when 'T: not struct>() =
   member _.Count = Volatile.Read &used
 
   /// The live value the key describes, made by the key if there is none yet.
-  member _.Intern(key: #IInternKey<'T>, hash, mixed) =
+  member _.Intern(key: inref<#IInternKey<'T>>, hash, mixed) =
     gate.Enter()
     try
-      let struct (found, i) = probe key hash mixed
-      if isNull (box found) then add key hash i else found
+      let struct (found, i) = probe &key hash mixed
+      if isNull (box found) then add &key hash i else found
     finally
       gate.Exit()
 
@@ -182,10 +182,10 @@ type WeakInternTable<'T when 'T: not struct>() =
   /// Finds the live value <paramref name="key"/> describes, or makes it with
   /// the key and keeps it, under <paramref name="hash"/>. Keys that describe
   /// one value must come with one hash.
-  member _.Intern(key: #IInternKey<'T>, hash) =
+  member _.Intern(key: inref<#IInternKey<'T>>, hash) =
     let mixed = uint32 hash * 0x9E3779B9u
     let stripe = stripes[int (mixed >>> (32 - InternTableShape.StripeBits))]
-    stripe.Intern(key, hash, mixed)
+    stripe.Intern(&key, hash, mixed)
 
   /// Drops the handles of the values that have been collected.
   member _.Compact() =
