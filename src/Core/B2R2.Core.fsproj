@@ -56,6 +56,8 @@
     <Compile Include="Collections\LRUCache.fs" />
     <Compile Include="Collections\ConcurrentLRUCache.fs" />
     <Compile Include="Collections\WeakBucketTable.fs" />
+    <Compile Include="Collections\IInternKey.fs" />
+    <Compile Include="Collections\WeakInternTable.fs" />
     <Compile Include="Collections\UniqueQueue.fs" />
     <Compile Include="Collections\PersistentQueue.fs" />
     <Compile Include="Collections\RegisterSet.fs" />
