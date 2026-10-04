@@ -529,12 +529,7 @@ let add e1 e2 =
 #else
     Expr.typeOf e1
 #endif
-#if ! HASHCONS
   binopWithType BinOpType.ADD t e1 e2
-#else
-  if e1 < e2 then binopWithType BinOpType.ADD t e1 e2
-  else binopWithType BinOpType.ADD t e2 e1
-#endif
 
 /// Subtract two expressions.
 [<CompiledName("Sub")>]
@@ -556,12 +551,7 @@ let mul e1 e2 =
 #else
     Expr.typeOf e1
 #endif
-#if ! HASHCONS
   binopWithType BinOpType.MUL t e1 e2
-#else
-  if e1 < e2 then binopWithType BinOpType.MUL t e1 e2
-  else binopWithType BinOpType.MUL t e2 e1
-#endif
 
 /// Unsigned division.
 [<CompiledName("Div")>]
@@ -610,20 +600,12 @@ let smod e1 e2 =
 /// Equal.
 [<CompiledName("Eq")>]
 let eq e1 e2 =
-#if ! HASHCONS
   relop RelOpType.EQ e1 e2
-#else
-  if e1 < e2 then relop RelOpType.EQ e1 e2 else relop RelOpType.EQ e2 e1
-#endif
 
 /// Not equal.
 [<CompiledName("Neq")>]
 let neq e1 e2 =
-#if ! HASHCONS
   relop RelOpType.NEQ e1 e2
-#else
-  if e1 < e2 then relop RelOpType.NEQ e1 e2 else relop RelOpType.NEQ e2 e1
-#endif
 
 /// Unsigned greater than.
 [<CompiledName("Gt")>]
@@ -677,12 +659,7 @@ let ``or`` e1 e2 =
 #else
     Expr.typeOf e1
 #endif
-#if ! HASHCONS
   binopWithType BinOpType.OR t e1 e2
-#else
-  if e1 < e2 then binopWithType BinOpType.OR t e1 e2
-  else binopWithType BinOpType.OR t e2 e1
-#endif
 
 /// Bitwise XOR.
 [<CompiledName("Xor")>]
@@ -693,12 +670,7 @@ let xor e1 e2 =
 #else
     Expr.typeOf e1
 #endif
-#if ! HASHCONS
   binopWithType BinOpType.XOR t e1 e2
-#else
-  if e1 < e2 then binopWithType BinOpType.XOR t e1 e2
-  else binopWithType BinOpType.XOR t e2 e1
-#endif
 
 /// Shift arithmetic right.
 [<CompiledName("Sar")>]
@@ -750,12 +722,7 @@ let fadd e1 e2 =
 #else
     Expr.typeOf e1
 #endif
-#if ! HASHCONS
   binopWithType BinOpType.FADD t e1 e2
-#else
-  if e1 < e2 then binopWithType BinOpType.FADD t e1 e2
-  else binopWithType BinOpType.FADD t e2 e1
-#endif
 
 /// Floating point subtract two expressions.
 [<CompiledName("FSub")>]
@@ -777,12 +744,7 @@ let fmul e1 e2 =
 #else
     Expr.typeOf e1
 #endif
-#if ! HASHCONS
   binopWithType BinOpType.FMUL t e1 e2
-#else
-  if e1 < e2 then binopWithType BinOpType.FMUL t e1 e2
-  else binopWithType BinOpType.FMUL t e2 e1
-#endif
 
 /// Floating point division.
 [<CompiledName("FDiv")>]

@@ -47,12 +47,7 @@ type BinIRTests() =
     let n2 = AST.tmpvar 32<rt> 1
     let e1 = AST.add n1 n2
     let e2 = AST.add n2 n1
-#if ! HASHCONS
     Assert.AreNotEqual(e1, e2)
-#else
-    Assert.AreEqual(e1, e2)
-    Assert.AreEqual<int>(e1.GetHashCode(), e2.GetHashCode())
-#endif
 
   [<TestMethod>]
   member _.``Expr Commutative Equivalence Test 2``() =
@@ -61,12 +56,32 @@ type BinIRTests() =
     let n3 = AST.tmpvar 32<rt> 2
     let e1 = AST.mul n3 (AST.div n1 n2)
     let e2 = AST.mul (AST.div n1 n2) n3
-#if ! HASHCONS
     Assert.AreNotEqual(e1, e2)
-#else
-    Assert.AreEqual(e1, e2)
-    Assert.AreEqual<int>(e1.GetHashCode(), e2.GetHashCode())
-#endif
+
+  [<TestMethod>]
+  member _.``Operand Order Test``() =
+    (* Lifters take an operation apart by position -- the base register of an
+       address is the left of its sum -- and which of two NaNs a float sum
+       gives back depends on the order, so no commutative operation may have
+       its operands reordered; one of the two orders here would be. *)
+    let a = AST.tmpvar 64<rt> 0
+    let b = AST.tmpvar 64<rt> 1
+    let leftOf e =
+      match e with
+      | BinOp(Left = l)
+      | RelOp(Left = l) -> l
+      | _ -> Terminator.impossible ()
+    [ AST.add
+      AST.mul
+      AST.``or``
+      AST.xor
+      AST.fadd
+      AST.fmul
+      AST.eq
+      AST.neq ]
+    |> List.iter (fun op ->
+      Assert.AreEqual<bool>(true, obj.ReferenceEquals(a, leftOf (op a b)))
+      Assert.AreEqual<bool>(true, obj.ReferenceEquals(b, leftOf (op b a))))
 
   [<TestMethod>]
   member _.``Side Effect Register Clobbering Test``() =

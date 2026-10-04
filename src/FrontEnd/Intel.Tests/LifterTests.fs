@@ -30,7 +30,7 @@ open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
 
-#if !EMULATION && !HASHCONS
+#if !EMULATION
 [<TestClass>]
 type LifterTests() =
   let test builder wordSize (expectedStmts: string[]) (bytes: byte[]) =
@@ -167,7 +167,6 @@ type LifterTests() =
 /// the operands, so these check what the operand list cannot say. They are
 /// outside the guard above because nothing on this path is conditional on the
 /// emulation build: no flag is written, and no operand is RIP-relative.
-#if !HASHCONS
 [<TestClass>]
 type EVEXDecorationLifterTests() =
   let testX64 (hex: string) (expectedStmts: string[]) =
@@ -242,13 +241,11 @@ type EVEXDecorationLifterTests() =
           "ZMM1G := 0x0:I64"
           "ZMM1H := 0x0:I64"
           "} // 6" |]
-#endif
 
 /// The AVX-512 opmask instructions. Each writes only its own width and clears
 /// the rest of the 64-bit mask register, which is what the zext in almost
 /// every expectation below is; the Q forms have nothing to clear and so have
 /// no zext at all.
-#if !HASHCONS
 [<TestClass>]
 type OpMaskLifterTests() =
   let test (hex: string) (expectedStmts: string[]) =
@@ -394,4 +391,3 @@ type OpMaskLifterTests() =
           "AF := 0x0:I1"
           "PF := 0x0:I1"
           "SF := 0x0:I1" |]
-#endif
