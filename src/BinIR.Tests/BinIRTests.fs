@@ -83,6 +83,23 @@ type BinIRTests() =
       Assert.AreEqual<bool>(true, obj.ReferenceEquals(a, leftOf (op a b)))
       Assert.AreEqual<bool>(true, obj.ReferenceEquals(b, leftOf (op b a))))
 
+#if HASHCONS
+  [<TestMethod>]
+  member _.``Hash Consing Hash Test``() =
+    (* A node is interned under the hash its operands give, the one its own
+       GetHashCode works out; any other would put nodes over different
+       operands under one hash. *)
+    let x = AST.tmpvar 32<rt> 0
+    let y = AST.tmpvar 32<rt> 1
+    [ AST.zext 64<rt> x
+      AST.zext 64<rt> y
+      AST.neg x
+      AST.neg y
+      AST.extract (AST.extract x 16<rt> 8) 8<rt> 4
+      AST.extract (AST.extract y 16<rt> 8) 8<rt> 4 ]
+    |> List.iter (fun e -> Assert.AreEqual<int>(e.GetHashCode(), e.Hash))
+#endif
+
   [<TestMethod>]
   member _.``Side Effect Register Clobbering Test``() =
     let check expected eff =

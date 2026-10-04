@@ -154,8 +154,8 @@ let unop op e =
 #else
   | _ ->
     let hc = HashConsingInfo()
-    let e = UnOp(op, e, hc)
-    internExpr e hc (Expr.HashUnOp(op, e))
+    let u = UnOp(op, e, hc)
+    internExpr u hc (Expr.HashUnOp(op, e))
 #endif
 
 /// Construct a jump target (JmpDest).
@@ -311,8 +311,8 @@ let cast kind rt e =
       Cast(kind, rt, e)
 #else
       let hc = HashConsingInfo()
-      let e = Cast(kind, rt, e, hc)
-      internExpr e hc (Expr.HashCast(kind, rt, e))
+      let c = Cast(kind, rt, e, hc)
+      internExpr c hc (Expr.HashCast(kind, rt, e))
 #endif
     else
       e (* Remove unnecessary casting . *)
@@ -394,8 +394,8 @@ let extract expr rt pos =
     Extract(e, rt, pos)
 #else
     let hc = HashConsingInfo()
-    let e = Extract(e, rt, pos, hc)
-    internExpr e hc (Expr.HashExtract(e, rt, pos))
+    let x = Extract(e, rt, pos, hc)
+    internExpr x hc (Expr.HashExtract(e, rt, pos))
 #endif
   | _ ->
 #if ! HASHCONS
