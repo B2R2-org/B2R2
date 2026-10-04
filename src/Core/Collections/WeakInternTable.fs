@@ -100,13 +100,13 @@ type private InternStripe<'T when 'T: not struct>() =
     live
 
   /// Drops the handles of collected values and lays the rest out again, in
-  /// about four times the slots they need: a stripe grows, and shrinks, with
-  /// what it holds, so the cost of laying it out is spread over the values
-  /// added since it last was.
+  /// about twice the slots they need: a stripe grows, and shrinks, with what
+  /// it holds, so the cost of laying it out is spread over the values added
+  /// since it last was.
   let relayout () =
     let oldHashes, oldHandles = hashes, handles
     let live = dropCollected oldHandles
-    let wanted = uint32 (max InternTableShape.MinCapacity (live * 4))
+    let wanted = uint32 (max InternTableShape.MinCapacity (live * 2))
     let capacity = int (BitOperations.RoundUpToPowerOf2 wanted)
     hashes <- Array.zeroCreate capacity
     handles <- Array.zeroCreate capacity
@@ -115,12 +115,16 @@ type private InternStripe<'T when 'T: not struct>() =
     for i in 0 .. oldHandles.Length - 1 do
       if oldHandles[i].IsAllocated then place oldHashes[i] oldHandles[i] else ()
 
+  /// Makes the value the key describes into slot i, laying the stripe out
+  /// again once three slots in four hold a handle. A probe compares hashes
+  /// before it touches a handle, so the longer runs cost little next to the
+  /// slots, twelve bytes each, that a sparser stripe would keep.
   let add (key: #IInternKey<'T>) hash i =
     let value = key.Create hash
     hashes[i] <- hash
     handles[i] <- GCHandle.Alloc(value, GCHandleType.Weak)
     used <- used + 1
-    if used * 2 > handles.Length then relayout () else ()
+    if used * 4 > handles.Length * 3 then relayout () else ()
     value
 
   let freeAll () =
