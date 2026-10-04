@@ -45,51 +45,299 @@ let private sTagCnt = ref 0u
 let private newEID () = System.Threading.Interlocked.Increment eTagCnt
 let private newSID () = System.Threading.Interlocked.Increment sTagCnt
 
-let inline private initExpr e hash =
-  match e with
-  | Num(_, hc)
-  | Var(_, _, _, hc)
-  | PCVar(_, _, hc)
-  | TempVar(_, _, hc)
-  | ExprList(_, hc)
-  | UnOp(_, _, hc)
-  | JmpDest(_, hc)
-  | FuncName(_, hc)
-  | BinOp(_, _, _, _, hc)
-  | RelOp(_, _, _, hc)
-  | Load(_, _, _, hc)
-  | Ite(_, _, _, hc)
-  | Cast(_, _, _, hc)
-  | RoundCtrl(_, _, hc)
-  | Extract(_, _, _, hc)
-  | Undefined(_, _, hc) ->
-    hc.ID <- newEID ()
-    hc.Hash <- hash
+/// The hash-consing information of a new expression kept under hash.
+let private exprInfo hash = HashConsingInfo(newEID (), hash)
 
-let inline private initStmt s hash =
-  match s with
-  | ISMark(_, hc)
-  | IEMark(_, hc)
-  | LMark(_, hc)
-  | Put(_, _, hc)
-  | Store(_, _, _, hc)
-  | Jmp(_, hc)
-  | CJmp(_, _, _, hc)
-  | InterJmp(_, _, hc)
-  | InterCJmp(_, _, _, hc)
-  | ExternalCall(_, hc)
-  | SideEffect(_, hc) ->
-    hc.ID <- newSID ()
-    hc.Hash <- hash
+/// The hash-consing information of a new statement kept under hash.
+let private stmtInfo hash = HashConsingInfo(newSID (), hash)
 
-let private exprs = WeakBucketTable<Expr>((fun l r -> l.Equals r), initExpr)
-let private stmts = WeakBucketTable<Stmt>((fun l r -> l.Equals r), initStmt)
+/// Checks whether two lists hold the same expressions.
+let rec private sameExprs (lhs: Expr list) (rhs: Expr list) =
+  match lhs, rhs with
+  | [], [] -> true
+  | e1 :: lhs, e2 :: rhs -> e1 === e2 && sameExprs lhs rhs
+  | _ -> false
 
-let inline private internExpr e (_: HashConsingInfo) (hash: int) =
-  exprs.Intern(e, hash)
+(* The keys a node is interned by, one per kind: the parts of the node, which
+   match an existing one as Expr.Equals and Stmt.Equals would, and how to make
+   the node when there is none. A lookup that finds its node allocates
+   nothing. *)
 
-let inline private internStmt s (_: HashConsingInfo) (hash: int) =
-  stmts.Intern(s, hash)
+[<Struct>]
+type private NumKey(n: BitVector) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | Num(m, _) -> m = n
+      | _ -> false
+
+    member _.Create hash = Num(n, exprInfo hash)
+
+[<Struct>]
+type private VarKey(t: RegType, r: RegisterID, name: string) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | Var(t', r', _, _) -> t' = t && r' = r
+      | _ -> false
+
+    member _.Create hash = Var(t, r, name, exprInfo hash)
+
+[<Struct>]
+type private PCVarKey(t: RegType, name: string) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | PCVar(t', _, _) -> t' = t
+      | _ -> false
+
+    member _.Create hash = PCVar(t, name, exprInfo hash)
+
+[<Struct>]
+type private TempVarKey(t: RegType, n: int) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | TempVar(t', n', _) -> t' = t && n' = n
+      | _ -> false
+
+    member _.Create hash = TempVar(t, n, exprInfo hash)
+
+[<Struct>]
+type private ExprListKey(es: Expr list) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | ExprList(es', _) -> sameExprs es' es
+      | _ -> false
+
+    member _.Create hash = ExprList(es, exprInfo hash)
+
+[<Struct>]
+type private UnOpKey(op: UnOpType, e: Expr) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | UnOp(op', e', _) -> op' = op && e' === e
+      | _ -> false
+
+    member _.Create hash = UnOp(op, e, exprInfo hash)
+
+[<Struct>]
+type private JmpDestKey(l: Label) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | JmpDest(l', _) -> l' = l
+      | _ -> false
+
+    member _.Create hash = JmpDest(l, exprInfo hash)
+
+[<Struct>]
+type private FuncNameKey(name: string) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | FuncName(name', _) -> name' = name
+      | _ -> false
+
+    member _.Create hash = FuncName(name, exprInfo hash)
+
+[<Struct>]
+type private BinOpKey(op: BinOpType, t: RegType, e1: Expr, e2: Expr) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | BinOp(op', t', e1', e2', _) ->
+        op' = op && t' = t && e1' === e1 && e2' === e2
+      | _ ->
+        false
+
+    member _.Create hash = BinOp(op, t, e1, e2, exprInfo hash)
+
+[<Struct>]
+type private RelOpKey(op: RelOpType, e1: Expr, e2: Expr) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | RelOp(op', e1', e2', _) -> op' = op && e1' === e1 && e2' === e2
+      | _ -> false
+
+    member _.Create hash = RelOp(op, e1, e2, exprInfo hash)
+
+[<Struct>]
+type private LoadKey(en: Endian, t: RegType, a: Expr) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | Load(en', t', a', _) -> en' = en && t' = t && a' === a
+      | _ -> false
+
+    member _.Create hash = Load(en, t, a, exprInfo hash)
+
+[<Struct>]
+type private IteKey(c: Expr, e1: Expr, e2: Expr) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | Ite(c', e1', e2', _) -> c' === c && e1' === e1 && e2' === e2
+      | _ -> false
+
+    member _.Create hash = Ite(c, e1, e2, exprInfo hash)
+
+[<Struct>]
+type private CastKey(k: CastKind, t: RegType, e: Expr) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | Cast(k', t', e', _) -> k' = k && t' = t && e' === e
+      | _ -> false
+
+    member _.Create hash = Cast(k, t, e, exprInfo hash)
+
+[<Struct>]
+type private RoundCtrlKey(m: Expr, b: Expr) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | RoundCtrl(m', b', _) -> m' === m && b' === b
+      | _ -> false
+
+    member _.Create hash = RoundCtrl(m, b, exprInfo hash)
+
+[<Struct>]
+type private ExtractKey(e: Expr, t: RegType, p: int) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | Extract(e', t', p', _) -> e' === e && t' = t && p' = p
+      | _ -> false
+
+    member _.Create hash = Extract(e, t, p, exprInfo hash)
+
+[<Struct>]
+type private UndefinedKey(t: RegType, why: string) =
+  interface IInternKey<Expr> with
+    member _.Matches x =
+      match x with
+      | Undefined(t', why', _) -> t' = t && why' = why
+      | _ -> false
+
+    member _.Create hash = Undefined(t, why, exprInfo hash)
+
+[<Struct>]
+type private ISMarkKey(len: uint32) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | ISMark(len', _) -> len' = len
+      | _ -> false
+
+    member _.Create hash = ISMark(len, stmtInfo hash)
+
+[<Struct>]
+type private IEMarkKey(len: uint32) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | IEMark(len', _) -> len' = len
+      | _ -> false
+
+    member _.Create hash = IEMark(len, stmtInfo hash)
+
+[<Struct>]
+type private LMarkKey(l: Label) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | LMark(l', _) -> l' = l
+      | _ -> false
+
+    member _.Create hash = LMark(l, stmtInfo hash)
+
+[<Struct>]
+type private PutKey(d: Expr, v: Expr) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | Put(d', v', _) -> d' === d && v' === v
+      | _ -> false
+
+    member _.Create hash = Put(d, v, stmtInfo hash)
+
+[<Struct>]
+type private StoreKey(en: Endian, a: Expr, v: Expr) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | Store(en', a', v', _) -> en' = en && a' === a && v' === v
+      | _ -> false
+
+    member _.Create hash = Store(en, a, v, stmtInfo hash)
+
+[<Struct>]
+type private JmpKey(t: Expr) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | Jmp(t', _) -> t' === t
+      | _ -> false
+
+    member _.Create hash = Jmp(t, stmtInfo hash)
+
+[<Struct>]
+type private CJmpKey(c: Expr, t: Expr, f: Expr) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | CJmp(c', t', f', _) -> c' === c && t' === t && f' === f
+      | _ -> false
+
+    member _.Create hash = CJmp(c, t, f, stmtInfo hash)
+
+[<Struct>]
+type private InterJmpKey(t: Expr, k: InterJmpKind) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | InterJmp(t', k', _) -> t' === t && k' = k
+      | _ -> false
+
+    member _.Create hash = InterJmp(t, k, stmtInfo hash)
+
+[<Struct>]
+type private InterCJmpKey(c: Expr, t: Expr, f: Expr) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | InterCJmp(c', t', f', _) -> c' === c && t' === t && f' === f
+      | _ -> false
+
+    member _.Create hash = InterCJmp(c, t, f, stmtInfo hash)
+
+[<Struct>]
+type private ExternalCallKey(e: Expr) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | ExternalCall(e', _) -> e' === e
+      | _ -> false
+
+    member _.Create hash = ExternalCall(e, stmtInfo hash)
+
+[<Struct>]
+type private SideEffectKey(eff: SideEffect) =
+  interface IInternKey<Stmt> with
+    member _.Matches x =
+      match x with
+      | SideEffect(eff', _) -> eff' = eff
+      | _ -> false
+
+    member _.Create hash = SideEffect(eff, stmtInfo hash)
+
+let private exprs = WeakInternTable<Expr>()
+
+let private stmts = WeakInternTable<Stmt>()
 #endif
 
 /// Construct a number (Num).
@@ -98,9 +346,7 @@ let num bv =
 #if ! HASHCONS
   Num bv
 #else
-  let hc = HashConsingInfo()
-  let e = Num(bv, hc)
-  internExpr e hc (bv.GetHashCode())
+  exprs.Intern(NumKey(bv), bv.GetHashCode())
 #endif
 
 /// Construct a variable (Var).
@@ -109,9 +355,7 @@ let var t id name =
 #if ! HASHCONS
   Var(t, id, name)
 #else
-  let hc = HashConsingInfo()
-  let e = Var(t, id, name, hc)
-  internExpr e hc (Expr.HashVar(t, id))
+  exprs.Intern(VarKey(t, id, name), Expr.HashVar(t, id))
 #endif
 
 /// Construct a pc variable (PCVar).
@@ -120,9 +364,7 @@ let pcvar t name =
 #if ! HASHCONS
   PCVar(t, name)
 #else
-  let hc = HashConsingInfo()
-  let e = PCVar(t, name, hc)
-  internExpr e hc (Expr.HashPCVar t)
+  exprs.Intern(PCVarKey(t, name), Expr.HashPCVar t)
 #endif
 
 /// Construct a temporary variable (TempVar) with the given ID.
@@ -131,9 +373,7 @@ let tmpvar t id =
 #if ! HASHCONS
   TempVar(t, id)
 #else
-  let hc = HashConsingInfo()
-  let e = TempVar(t, id, hc)
-  internExpr e hc (Expr.HashTempVar(t, id))
+  exprs.Intern(TempVarKey(t, id), Expr.HashTempVar(t, id))
 #endif
 
 /// Construct a symbol (for a label) from a string and a IDCounter.
@@ -153,9 +393,7 @@ let unop op e =
     UnOp(op, e)
 #else
   | _ ->
-    let hc = HashConsingInfo()
-    let u = UnOp(op, e, hc)
-    internExpr u hc (Expr.HashUnOp(op, e))
+    exprs.Intern(UnOpKey(op, e), Expr.HashUnOp(op, e))
 #endif
 
 /// Construct a jump target (JmpDest).
@@ -164,9 +402,7 @@ let jmpDest symb =
 #if ! HASHCONS
   JmpDest symb
 #else
-  let hc = HashConsingInfo()
-  let e = JmpDest(symb, hc)
-  internExpr e hc (Expr.HashJmpDest symb)
+  exprs.Intern(JmpDestKey(symb), Expr.HashJmpDest symb)
 #endif
 
 let private binopWithType op t e1 e2 =
@@ -179,9 +415,7 @@ let private binopWithType op t e1 e2 =
     BinOp(op, t, e1, e2)
 #else
   | _ ->
-    let hc = HashConsingInfo()
-    let e = BinOp(op, t, e1, e2, hc)
-    internExpr e hc (Expr.HashBinOp(op, t, e1, e2))
+    exprs.Intern(BinOpKey(op, t, e1, e2), Expr.HashBinOp(op, t, e1, e2))
 #endif
 
 /// Construct a binary operator (BinOp).
@@ -205,9 +439,7 @@ let exprList lst =
 #if ! HASHCONS
   ExprList lst
 #else
-  let hc = HashConsingInfo()
-  let e = ExprList(lst, hc)
-  internExpr e hc (Expr.HashExprList lst)
+  exprs.Intern(ExprListKey(lst), Expr.HashExprList lst)
 #endif
 
 /// Function name.
@@ -216,9 +448,7 @@ let funcName name =
 #if ! HASHCONS
   FuncName name
 #else
-  let hc = HashConsingInfo()
-  let e = FuncName(name, hc)
-  internExpr e hc (Expr.HashFuncName name)
+  exprs.Intern(FuncNameKey(name), Expr.HashFuncName name)
 #endif
 
 /// Construct a function application.
@@ -231,9 +461,8 @@ let app name args retType =
     BinOp(BinOpType.APP, retType, fnName, cons)
 #else
   |> fun cons ->
-    let hc = HashConsingInfo()
-    let e = BinOp(BinOpType.APP, retType, fnName, cons, hc)
-    internExpr e hc (Expr.HashBinOp(BinOpType.APP, retType, fnName, cons))
+    let key = BinOpKey(BinOpType.APP, retType, fnName, cons)
+    exprs.Intern(key, Expr.HashBinOp(BinOpType.APP, retType, fnName, cons))
 #endif
 
 /// Construct a relative operator (RelOp).
@@ -250,9 +479,7 @@ let relop op e1 e2 =
     RelOp(op, e1, e2)
 #else
   | _ ->
-    let hc = HashConsingInfo()
-    let e = RelOp(op, e1, e2, hc)
-    internExpr e hc (Expr.HashRelOp(op, e1, e2))
+    exprs.Intern(RelOpKey(op, e1, e2), Expr.HashRelOp(op, e1, e2))
 #endif
 
 /// Construct a load expression (Load).
@@ -267,9 +494,7 @@ let load endian rt addr =
 #if ! HASHCONS
     Load(endian, rt, addr)
 #else
-    let hc = HashConsingInfo()
-    let e = Load(endian, rt, addr, hc)
-    internExpr e hc (Expr.HashLoad(endian, rt, addr))
+    exprs.Intern(LoadKey(endian, rt, addr), Expr.HashLoad(endian, rt, addr))
 #endif
 
 /// Construct a load expression in little-endian.
@@ -294,9 +519,7 @@ let ite cond e1 e2 =
 #if ! HASHCONS
     Ite(cond, e1, e2)
 #else
-    let hc = HashConsingInfo()
-    let e = Ite(cond, e1, e2, hc)
-    internExpr e hc (Expr.HashIte(cond, e1, e2))
+    exprs.Intern(IteKey(cond, e1, e2), Expr.HashIte(cond, e1, e2))
 #endif
 
 /// Construct a cast expression (Cast).
@@ -310,9 +533,7 @@ let cast kind rt e =
 #if ! HASHCONS
       Cast(kind, rt, e)
 #else
-      let hc = HashConsingInfo()
-      let c = Cast(kind, rt, e, hc)
-      internExpr c hc (Expr.HashCast(kind, rt, e))
+      exprs.Intern(CastKey(kind, rt, e), Expr.HashCast(kind, rt, e))
 #endif
     else
       e (* Remove unnecessary casting . *)
@@ -348,9 +569,7 @@ let roundCtrl mode body =
 #if ! HASHCONS
     RoundCtrl(mode, body)
 #else
-    let hc = HashConsingInfo()
-    let e = RoundCtrl(mode, body, hc)
-    internExpr e hc (Expr.HashRoundCtrl(mode, body))
+    exprs.Intern(RoundCtrlKey(mode, body), Expr.HashRoundCtrl(mode, body))
 #endif
 
 /// <summary>
@@ -393,17 +612,13 @@ let extract expr rt pos =
 #if ! HASHCONS
     Extract(e, rt, pos)
 #else
-    let hc = HashConsingInfo()
-    let x = Extract(e, rt, pos, hc)
-    internExpr x hc (Expr.HashExtract(e, rt, pos))
+    exprs.Intern(ExtractKey(e, rt, pos), Expr.HashExtract(e, rt, pos))
 #endif
   | _ ->
 #if ! HASHCONS
     Extract(expr, rt, pos)
 #else
-    let hc = HashConsingInfo()
-    let e = Extract(expr, rt, pos, hc)
-    internExpr e hc (Expr.HashExtract(expr, rt, pos))
+    exprs.Intern(ExtractKey(expr, rt, pos), Expr.HashExtract(expr, rt, pos))
 #endif
 
 /// Undefined expression.
@@ -412,9 +627,7 @@ let undef rt s =
 #if ! HASHCONS
   Undefined(rt, s)
 #else
-  let hc = HashConsingInfo()
-  let e = Undefined(rt, s, hc)
-  internExpr e hc (Expr.HashUndef(rt, s))
+  exprs.Intern(UndefinedKey(rt, s), Expr.HashUndef(rt, s))
 #endif
 
 /// Num expression for a one-bit number zero.
@@ -849,9 +1062,7 @@ let ismark nBytes =
 #if ! HASHCONS
   ISMark nBytes
 #else
-  let hc = HashConsingInfo()
-  let s = ISMark(nBytes, hc)
-  internStmt s hc (Stmt.HashISMark nBytes)
+  stmts.Intern(ISMarkKey(nBytes), Stmt.HashISMark nBytes)
 #endif
 
 /// An IEMark statement.
@@ -860,9 +1071,7 @@ let iemark nBytes =
 #if ! HASHCONS
   IEMark nBytes
 #else
-  let hc = HashConsingInfo()
-  let s = IEMark(nBytes, hc)
-  internStmt s hc (Stmt.HashIEMark nBytes)
+  stmts.Intern(IEMarkKey(nBytes), Stmt.HashIEMark nBytes)
 #endif
 
 /// An LMark statement.
@@ -871,9 +1080,7 @@ let lmark label =
 #if ! HASHCONS
   LMark label
 #else
-  let hc = HashConsingInfo()
-  let s = LMark(label, hc)
-  internStmt s hc (Stmt.HashLMark label)
+  stmts.Intern(LMarkKey(label), Stmt.HashLMark label)
 #endif
 
 /// A Put statement.
@@ -882,9 +1089,7 @@ let put dst src =
 #if ! HASHCONS
   Put(dst, src)
 #else
-  let hc = HashConsingInfo()
-  let s = Put(dst, src, hc)
-  internStmt s hc (Stmt.HashPut(dst, src))
+  stmts.Intern(PutKey(dst, src), Stmt.HashPut(dst, src))
 #endif
 
 let private assignForExtractDst e1 e2 =
@@ -921,9 +1126,7 @@ let store endian addr v =
 #if ! HASHCONS
   Store(endian, addr, v)
 #else
-  let hc = HashConsingInfo()
-  let s = Store(endian, addr, v, hc)
-  internStmt s hc (Stmt.HashStore(endian, addr, v))
+  stmts.Intern(StoreKey(endian, addr, v), Stmt.HashStore(endian, addr, v))
 #endif
 
 /// An assignment statement.
@@ -944,9 +1147,7 @@ let jmp target =
 #if ! HASHCONS
   Jmp target
 #else
-  let hc = HashConsingInfo()
-  let s = Jmp(target, hc)
-  internStmt s hc (Stmt.HashJmp target)
+  stmts.Intern(JmpKey(target), Stmt.HashJmp target)
 #endif
 
 /// A CJmp statement.
@@ -955,9 +1156,7 @@ let cjmp cond dst1 dst2 =
 #if ! HASHCONS
   CJmp(cond, dst1, dst2)
 #else
-  let hc = HashConsingInfo()
-  let s = CJmp(cond, dst1, dst2, hc)
-  internStmt s hc (Stmt.HashCJmp(cond, dst1, dst2))
+  stmts.Intern(CJmpKey(cond, dst1, dst2), Stmt.HashCJmp(cond, dst1, dst2))
 #endif
 
 /// An InterJmp statement.
@@ -966,9 +1165,7 @@ let interjmp dst kind =
 #if ! HASHCONS
   InterJmp(dst, kind)
 #else
-  let hc = HashConsingInfo()
-  let s = InterJmp(dst, kind, hc)
-  internStmt s hc (Stmt.HashInterJmp(dst, kind))
+  stmts.Intern(InterJmpKey(dst, kind), Stmt.HashInterJmp(dst, kind))
 #endif
 
 /// A InterCJmp statement.
@@ -977,9 +1174,7 @@ let intercjmp cond d1 d2 =
 #if ! HASHCONS
   InterCJmp(cond, d1, d2)
 #else
-  let hc = HashConsingInfo()
-  let s = InterCJmp(cond, d1, d2, hc)
-  internStmt s hc (Stmt.HashInterCJmp(cond, d1, d2))
+  stmts.Intern(InterCJmpKey(cond, d1, d2), Stmt.HashInterCJmp(cond, d1, d2))
 #endif
 
 /// External call.
@@ -988,9 +1183,7 @@ let extCall appExpr =
 #if ! HASHCONS
   ExternalCall appExpr
 #else
-  let hc = HashConsingInfo()
-  let s = ExternalCall(appExpr, hc)
-  internStmt s hc (Stmt.HashExtCall appExpr)
+  stmts.Intern(ExternalCallKey(appExpr), Stmt.HashExtCall appExpr)
 #endif
 
 /// A SideEffect statement.
@@ -999,9 +1192,7 @@ let sideEffect eff =
 #if ! HASHCONS
   SideEffect eff
 #else
-  let hc = HashConsingInfo()
-  let s = SideEffect(eff, hc)
-  internStmt s hc (Stmt.HashSideEffect eff)
+  stmts.Intern(SideEffectKey(eff), Stmt.HashSideEffect eff)
 #endif
 
 /// Record the use of vars and tempvars from the given expression.

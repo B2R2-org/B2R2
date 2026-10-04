@@ -29,20 +29,11 @@ namespace B2R2.BinIR
 /// expressions and statements only when hash consing is enabled; otherwise the
 /// metadata field is null.
 [<AllowNullLiteral>]
-type HashConsingInfo(id, hash) =
-  let mutable id = id
-  let mutable hash = hash
-
-  /// <summary>
-  /// Creates a new instance of HashConsingInfo with placeholder values. The
-  /// AST constructor assigns the actual ID and hash before using it.
-  /// </summary>
-  new() = HashConsingInfo(0u, 0)
-
+type HashConsingInfo(id: uint32, hash: int) =
   /// Unique ID of the hash-consed object.
-  member _.ID with get(): uint32 = id and internal set(v) = id <- v
+  member _.ID with get() = id
   /// Precomputed hash value of the hash-consed object.
-  member _.Hash with get(): int = hash and internal set(v) = hash <- v
+  member _.Hash with get() = hash
 
 [<AutoOpen>]
 module internal HashConsingInfo =
