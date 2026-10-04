@@ -44,7 +44,9 @@ module private InternTableShape =
 /// handles to the values interned in it, each beside the hash it was interned
 /// under, probed linearly from the slot the hash picks. A handle whose value
 /// has been collected stays in its slot, passed over by every probe, until
-/// the stripe is next laid out again.
+/// the stripe is next laid out again. A search goes through Candidate, Next
+/// and Add, between Enter and Exit; none of them knows the key, so the code
+/// specialized for each type of key is only the loop that runs them.
 [<Sealed>]
 type private InternStripe<'T when 'T: not struct>() =
   let mutable hashes = Array.zeroCreate<int> InternTableShape.MinCapacity
@@ -62,21 +64,6 @@ type private InternStripe<'T when 'T: not struct>() =
 
   let slotOf (mixed: uint32) =
     int ((mixed <<< InternTableShape.StripeBits) >>> shift)
-
-  /// The live value the key describes among the slots hash leads to, if any,
-  /// and the slot the probe ended at. Only values of type 'T are ever put in,
-  /// so a live target needs no type test.
-  let probe (key: inref<#IInternKey<'T>>) hash mixed =
-    let mask = handles.Length - 1
-    let mutable i = slotOf mixed
-    let mutable found = Unchecked.defaultof<'T>
-    while isNull (box found) && handles[i].IsAllocated do
-      let target = if hashes[i] = hash then handles[i].Target else null
-      if not (isNull target) && key.Matches(Unsafe.As<'T> target) then
-        found <- Unsafe.As<'T> target
-      else
-        i <- (i + 1) &&& mask
-    struct (found, i)
 
   /// Puts a handle into the first empty slot from the one its hash picks.
   let place hash (handle: GCHandle) =
@@ -115,18 +102,6 @@ type private InternStripe<'T when 'T: not struct>() =
     for i in 0 .. oldHandles.Length - 1 do
       if oldHandles[i].IsAllocated then place oldHashes[i] oldHandles[i] else ()
 
-  /// Makes the value the key describes into slot i, laying the stripe out
-  /// again once three slots in four hold a handle. A probe compares hashes
-  /// before it touches a handle, so the longer runs cost little next to the
-  /// slots, twelve bytes each, that a sparser stripe would keep.
-  let add (key: inref<#IInternKey<'T>>) hash i =
-    let value = key.Create hash
-    hashes[i] <- hash
-    handles[i] <- GCHandle.Alloc(value, GCHandleType.Weak)
-    used <- used + 1
-    if used * 4 > handles.Length * 3 then relayout () else ()
-    value
-
   let freeAll () =
     for i in 0 .. handles.Length - 1 do
       if handles[i].IsAllocated then handles[i].Free() else ()
@@ -134,14 +109,40 @@ type private InternStripe<'T when 'T: not struct>() =
   /// How many slots hold a handle, whether its value is still alive or not.
   member _.Count = Volatile.Read &used
 
-  /// The live value the key describes, made by the key if there is none yet.
-  member _.Intern(key: inref<#IInternKey<'T>>, hash, mixed) =
-    gate.Enter()
-    try
-      let struct (found, i) = probe &key hash mixed
-      if isNull (box found) then add &key hash i else found
-    finally
-      gate.Exit()
+  /// Takes the stripe's lock, which a search holds throughout.
+  member _.Enter() = gate.Enter()
+
+  /// Releases the stripe's lock.
+  member _.Exit() = gate.Exit()
+
+  /// The slot a search for a mixed hash starts at.
+  member _.SlotOf(mixed: uint32) = slotOf mixed
+
+  /// The slot after slot i.
+  member _.Next(i) = (i + 1) &&& (handles.Length - 1)
+
+  /// The live value in the first slot from slot i on that holds one under
+  /// hash, i moved to that slot; or null, i moved to the empty slot that ends
+  /// the run, where a value made for hash goes.
+  member _.Candidate(hash, i: byref<int>) =
+    let mask = handles.Length - 1
+    let mutable found = null
+    while isNull found && handles[i].IsAllocated do
+      if hashes[i] = hash then found <- handles[i].Target else ()
+      if isNull found then i <- (i + 1) &&& mask else ()
+    found
+
+  /// Puts value, made for hash, into slot i, where a search for it ended,
+  /// laying the stripe out again once three slots in four hold a handle. A
+  /// probe compares hashes before it touches a handle, so the longer runs
+  /// cost little next to the slots, twelve bytes each, that a sparser stripe
+  /// would keep.
+  member _.Add(value: 'T, hash, i) =
+    hashes[i] <- hash
+    handles[i] <- GCHandle.Alloc(value, GCHandleType.Weak)
+    used <- used + 1
+    if used * 4 > handles.Length * 3 then relayout () else ()
+    value
 
   /// Drops the handles of collected values.
   member _.Compact() =
@@ -181,11 +182,21 @@ type WeakInternTable<'T when 'T: not struct>() =
 
   /// Finds the live value <paramref name="key"/> describes, or makes it with
   /// the key and keeps it, under <paramref name="hash"/>. Keys that describe
-  /// one value must come with one hash.
+  /// one value must come with one hash. Only values of type 'T are ever put
+  /// in, so a candidate needs no type test.
   member _.Intern(key: inref<#IInternKey<'T>>, hash) =
     let mixed = uint32 hash * 0x9E3779B9u
     let stripe = stripes[int (mixed >>> (32 - InternTableShape.StripeBits))]
-    stripe.Intern(&key, hash, mixed)
+    stripe.Enter()
+    try
+      let mutable i = stripe.SlotOf mixed
+      let mutable c = stripe.Candidate(hash, &i)
+      while not (isNull c) && not (key.Matches(Unsafe.As<'T> c)) do
+        i <- stripe.Next i
+        c <- stripe.Candidate(hash, &i)
+      if isNull c then stripe.Add(key.Create hash, hash, i) else Unsafe.As<'T> c
+    finally
+      stripe.Exit()
 
   /// Drops the handles of the values that have been collected.
   member _.Compact() =
