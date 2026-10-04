@@ -68,7 +68,7 @@ type LifterTests() =
     ins.Translate builder |> ignore
     (p.Parse(ByteArray.ofHexString slot, uint64 ins.Length)).Translate builder
     |> Array.choose (function
-      | InterJmp(_, kind) -> Some kind
+      | InterJmp(Kind = kind) -> Some kind
       | _ -> None)
 
   let test (isa: ISA) (bytes: byte[], givenStmts) =
@@ -382,7 +382,7 @@ type LifterTests() =
       let effects =
         stmts
         |> Array.choose (function
-          | SideEffect(e) -> Some e
+          | SideEffect(Effect = e) -> Some e
           | _ -> None)
       Assert.AreEqual<int>(0, effects.Length, hex)
       let puts = stmts |> Array.filter (function Put _ -> true | _ -> false)
@@ -404,7 +404,7 @@ type LifterTests() =
     let written =
       lifted isa "42000006"
       |> Array.exists (function
-        | Put(Var(_, rid, _), _) -> rid = random
+        | Put(Dst = Var(RegisterID = rid)) -> rid = random
         | _ -> false)
     Assert.AreEqual<bool>(true, written)
 
@@ -437,7 +437,7 @@ type LifterTests() =
       let written =
         lifted isa hex
         |> Array.exists (function
-          | Put(Var(_, rid, _), _) -> rid = fcsr
+          | Put(Dst = Var(RegisterID = rid)) -> rid = fcsr
           | _ -> false)
       if written then () else Assert.Fail hex
 
@@ -471,7 +471,7 @@ type LifterTests() =
       let written =
         lifted isa hex
         |> Array.exists (function
-          | Put(Var(_, rid, _), _) -> rid = fcsr
+          | Put(Dst = Var(RegisterID = rid)) -> rid = fcsr
           | _ -> false)
       if written then Assert.Fail hex else ()
 
@@ -493,7 +493,7 @@ type LifterTests() =
     let widensBySign hex =
       lifted isa hex
       |> Array.exists (function
-        | Put(_, Cast(CastKind.SignExt, 64<rt>, _)) -> true
+        | Put(Src = Cast(Kind = CastKind.SignExt; Type = 64<rt>)) -> true
         | _ -> false)
     (* Config is thirty-two bits wide; EntryHi is not. *)
     if widensBySign "40228000" then () else Assert.Fail "40228000"

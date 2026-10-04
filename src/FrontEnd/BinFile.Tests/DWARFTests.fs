@@ -60,7 +60,9 @@ type DWARFTests() =
   /// Asserts that the given expression is the DWARF register `reg` plus `n`.
   static let assertRegPlusNum reg n (expr: Expr) =
     match expr with
-    | BinOp(BinOpType.ADD, _, Var(_, rid, _), Num bv) ->
+    | BinOp(Op = BinOpType.ADD
+            Left = Var(RegisterID = rid)
+            Right = Num(Value = bv)) ->
       Assert.AreEqual(DWRegister.toRegID isa reg, rid)
       Assert.AreEqual<uint64>(n, bv.ToUInt64())
     | _ ->

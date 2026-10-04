@@ -710,7 +710,7 @@ type MicroMIPSParserTests() =
       (p.Parse(ByteArray.ofHexString jump, 0UL)).Translate bld |> ignore
       (p.Parse(ByteArray.ofHexString slot, 4UL)).Translate bld
       |> Array.pick (function
-        | InterJmp(_, kind) -> Some kind
+        | InterJmp(Kind = kind) -> Some kind
         | _ -> None)
     let word = ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64)
     (* JALX 0x123458 with a NOP after it, in each of the two encodings. The

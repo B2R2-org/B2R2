@@ -99,14 +99,14 @@ type LifterTests() =
   let writtenBy isThumb hex =
     liftedBy isThumb hex
     |> Array.choose (function
-      | Put(dst, _) -> Some dst
+      | Put(Dst = dst) -> Some dst
       | _ -> None)
 
   /// What the statements of one encoding assign to a register, if anything.
   let assignedBy isThumb hex dst =
     liftedBy isThumb hex
     |> Array.tryPick (function
-      | Put(d, src) when d = dst -> Some src
+      | Put(Dst = d; Src = src) when d = dst -> Some src
       | _ -> None)
 
   /// Whether the statements of one encoding raise an Undefined Instruction
@@ -114,7 +114,7 @@ type LifterTests() =
   let canBeUndefined isThumb hex =
     liftedBy isThumb hex
     |> Array.exists (function
-      | SideEffect BinIR.SideEffect.UndefinedInstruction -> true
+      | SideEffect(Effect = BinIR.SideEffect.UndefinedInstruction) -> true
       | _ -> false)
 
   [<TestMethod>]

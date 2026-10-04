@@ -79,7 +79,7 @@ type LifterTests() =
   /// Whether a statement jumps to the given expression.
   let jumpsTo target (stmt: Stmt) =
     match stmt with
-    | InterJmp(t, _) -> t = target
+    | InterJmp(Target = t) -> t = target
     | _ -> false
 
   (* NGC, NGCS and a BFC with a non-zero lsb all reached the raising
