@@ -83,7 +83,52 @@ type BinIRTests() =
       Assert.AreEqual<bool>(true, obj.ReferenceEquals(a, leftOf (op a b)))
       Assert.AreEqual<bool>(true, obj.ReferenceEquals(b, leftOf (op b a))))
 
+  [<TestMethod>]
+  member _.``Raw Constructor Test``() =
+    (* Each of these the AST would simplify away: an operation on constants
+       folded, a cast to the type its operand has dropped, the arm a constant
+       condition names taken. A pass that rebuilds a node around new operands
+       needs the node it names. *)
+    let n1 = AST.num <| BitVector(1, 32<rt>)
+    let n2 = AST.num <| BitVector(2, 32<rt>)
+    let x = AST.tmpvar 32<rt> 0
+    let mode = AST.roundingMode RoundingMode.TowardZero
+    let kindOf e =
+      match e with
+      | UnOp _ -> "UnOp"
+      | BinOp _ -> "BinOp"
+      | RelOp _ -> "RelOp"
+      | Ite _ -> "Ite"
+      | Cast _ -> "Cast"
+      | Extract _ -> "Extract"
+      | RoundCtrl _ -> "RoundCtrl"
+      | _ -> "simplified"
+    [ "UnOp", AST.Raw.unop UnOpType.NEG n1
+      "BinOp", AST.Raw.binop BinOpType.ADD 32<rt> n1 n2
+      "RelOp", AST.Raw.relop RelOpType.EQ n1 n2
+      "Ite", AST.Raw.ite AST.b1 x n2
+      "Cast", AST.Raw.cast CastKind.ZeroExt 32<rt> x
+      "Extract", AST.Raw.extract n1 8<rt> 0
+      "RoundCtrl", AST.Raw.roundCtrl mode n1 ]
+    |> List.iter (fun (kind, e) -> Assert.AreEqual<string>(kind, kindOf e))
+
 #if HASHCONS
+  [<TestMethod>]
+  member _.``Raw Constructor Sharing Test``() =
+    (* A node built raw is the very node the AST builds where the AST
+       simplifies nothing: one table holds both. *)
+    let x = AST.tmpvar 32<rt> 0
+    let y = AST.tmpvar 32<rt> 1
+    let c = AST.lt x y
+    [ AST.neg x, AST.Raw.unop UnOpType.NEG x
+      AST.add x y, AST.Raw.binop BinOpType.ADD 32<rt> x y
+      c, AST.Raw.relop RelOpType.LT x y
+      AST.ite c x y, AST.Raw.ite c x y
+      AST.zext 64<rt> x, AST.Raw.cast CastKind.ZeroExt 64<rt> x
+      AST.extract x 8<rt> 8, AST.Raw.extract x 8<rt> 8 ]
+    |> List.iter (fun (e, raw) ->
+      Assert.AreEqual<bool>(true, obj.ReferenceEquals(e, raw)))
+
   [<TestMethod>]
   member _.``Hash Consing Hash Test``() =
     (* A node is interned under the hash its operands give, the one its own

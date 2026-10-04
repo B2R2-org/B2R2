@@ -340,6 +340,81 @@ let private exprs = WeakInternTable<Expr>()
 let private stmts = WeakInternTable<Stmt>()
 #endif
 
+/// <summary>
+/// Provides the constructors of this module that simplify, in a form that
+/// builds exactly the node asked for.
+/// </summary>
+/// <remarks>
+/// <c>AST.binop</c> and its kin fold an operation on constants, drop a cast
+/// that changes nothing, and take the arm of an if-then-else on a constant. A
+/// pass that rebuilds a node around new operands means the node it names, and
+/// these give it that node, interned as any other where HASHCONS is defined.
+/// </remarks>
+[<RequireQualifiedAccess>]
+module Raw =
+  /// Construct a unary operator (UnOp) as it is.
+  [<CompiledName("UnOp")>]
+  let unop op e =
+#if ! HASHCONS
+    UnOp(op, e)
+#else
+    exprs.Intern(UnOpKey(op, e), Expr.HashUnOp(op, e))
+#endif
+
+  /// Construct a binary operator (BinOp) of the given type as it is.
+  [<CompiledName("BinOp")>]
+  let binop op t e1 e2 =
+#if ! HASHCONS
+    BinOp(op, t, e1, e2)
+#else
+    exprs.Intern(BinOpKey(op, t, e1, e2), Expr.HashBinOp(op, t, e1, e2))
+#endif
+
+  /// Construct a relative operator (RelOp) as it is.
+  [<CompiledName("RelOp")>]
+  let relop op e1 e2 =
+#if ! HASHCONS
+    RelOp(op, e1, e2)
+#else
+    exprs.Intern(RelOpKey(op, e1, e2), Expr.HashRelOp(op, e1, e2))
+#endif
+
+  /// Construct an ITE (if-then-else) expression (Ite) as it is.
+  [<CompiledName("Ite")>]
+  let ite cond e1 e2 =
+#if ! HASHCONS
+    Ite(cond, e1, e2)
+#else
+    exprs.Intern(IteKey(cond, e1, e2), Expr.HashIte(cond, e1, e2))
+#endif
+
+  /// Construct a cast expression (Cast) as it is.
+  [<CompiledName("Cast")>]
+  let cast kind rt e =
+#if ! HASHCONS
+    Cast(kind, rt, e)
+#else
+    exprs.Intern(CastKey(kind, rt, e), Expr.HashCast(kind, rt, e))
+#endif
+
+  /// Construct a body evaluated in a rounding direction (RoundCtrl) as it is.
+  [<CompiledName("RoundCtrl")>]
+  let roundCtrl mode body =
+#if ! HASHCONS
+    RoundCtrl(mode, body)
+#else
+    exprs.Intern(RoundCtrlKey(mode, body), Expr.HashRoundCtrl(mode, body))
+#endif
+
+  /// Construct an extraction (Extract) as it is.
+  [<CompiledName("Extract")>]
+  let extract expr rt pos =
+#if ! HASHCONS
+    Extract(expr, rt, pos)
+#else
+    exprs.Intern(ExtractKey(expr, rt, pos), Expr.HashExtract(expr, rt, pos))
+#endif
+
 /// Construct a number (Num).
 [<CompiledName("Num")>]
 let num bv =
@@ -388,13 +463,8 @@ let unop op e =
      settled until a direction is, and the folding here has none. *)
   | Num(Value = n) when not (UnOpType.isRoundingDependent op) ->
     ValueOptimizer.unop n op |> num
-#if ! HASHCONS
   | _ ->
-    UnOp(op, e)
-#else
-  | _ ->
-    exprs.Intern(UnOpKey(op, e), Expr.HashUnOp(op, e))
-#endif
+    Raw.unop op e
 
 /// Construct a jump target (JmpDest).
 [<CompiledName("JmpDest")>]
@@ -410,13 +480,8 @@ let private binopWithType op t e1 e2 =
   | Num(Value = n1), Num(Value = n2)
     when not (BinOpType.isRoundingDependent op) ->
     ValueOptimizer.binop n1 n2 op |> num
-#if ! HASHCONS
   | _ ->
-    BinOp(op, t, e1, e2)
-#else
-  | _ ->
-    exprs.Intern(BinOpKey(op, t, e1, e2), Expr.HashBinOp(op, t, e1, e2))
-#endif
+    Raw.binop op t e1 e2
 
 /// Construct a binary operator (BinOp).
 [<CompiledName("BinOp")>]
@@ -454,16 +519,7 @@ let funcName name =
 /// Construct a function application.
 [<CompiledName("App")>]
 let app name args retType =
-  let fnName = funcName name
-  exprList args
-#if ! HASHCONS
-  |> fun cons ->
-    BinOp(BinOpType.APP, retType, fnName, cons)
-#else
-  |> fun cons ->
-    let key = BinOpKey(BinOpType.APP, retType, fnName, cons)
-    exprs.Intern(key, Expr.HashBinOp(BinOpType.APP, retType, fnName, cons))
-#endif
+  Raw.binop BinOpType.APP retType (funcName name) (exprList args)
 
 /// Construct a relative operator (RelOp).
 [<CompiledName("RelOp")>]
@@ -474,13 +530,8 @@ let relop op e1 e2 =
   match e1, e2 with
   | Num(Value = n1), Num(Value = n2) ->
     ValueOptimizer.relop n1 n2 op |> num
-#if ! HASHCONS
   | _ ->
-    RelOp(op, e1, e2)
-#else
-  | _ ->
-    exprs.Intern(RelOpKey(op, e1, e2), Expr.HashRelOp(op, e1, e2))
-#endif
+    Raw.relop op e1 e2
 
 /// Construct a load expression (Load).
 [<CompiledName("Load")>]
@@ -516,11 +567,7 @@ let ite cond e1 e2 =
   | Num(Value = n) ->
     if n.IsZero then e2 else e1
   | _ ->
-#if ! HASHCONS
-    Ite(cond, e1, e2)
-#else
-    exprs.Intern(IteKey(cond, e1, e2), Expr.HashIte(cond, e1, e2))
-#endif
+    Raw.ite cond e1 e2
 
 /// Construct a cast expression (Cast).
 [<CompiledName("Cast")>]
@@ -530,11 +577,7 @@ let cast kind rt e =
     ValueOptimizer.cast rt n kind |> num
   | _ ->
     if TypeCheck.canCast kind rt e then
-#if ! HASHCONS
-      Cast(kind, rt, e)
-#else
-      exprs.Intern(CastKey(kind, rt, e), Expr.HashCast(kind, rt, e))
-#endif
+      Raw.cast kind rt e
     else
       e (* Remove unnecessary casting . *)
 
@@ -566,11 +609,7 @@ let roundCtrl mode body =
   | RoundCtrl _ ->
     body
   | _ ->
-#if ! HASHCONS
-    RoundCtrl(mode, body)
-#else
-    exprs.Intern(RoundCtrlKey(mode, body), Expr.HashRoundCtrl(mode, body))
-#endif
+    Raw.roundCtrl mode body
 
 /// <summary>
 /// Construct a float-to-signed-integer conversion in a direction the
@@ -608,18 +647,9 @@ let extract expr rt pos =
   | Num(Value = n) ->
     ValueOptimizer.extract n rt pos |> num
   | Extract(Operand = e; StartPos = p) ->
-    let pos = p + pos
-#if ! HASHCONS
-    Extract(e, rt, pos)
-#else
-    exprs.Intern(ExtractKey(e, rt, pos), Expr.HashExtract(e, rt, pos))
-#endif
+    Raw.extract e rt (p + pos)
   | _ ->
-#if ! HASHCONS
-    Extract(expr, rt, pos)
-#else
-    exprs.Intern(ExtractKey(expr, rt, pos), Expr.HashExtract(expr, rt, pos))
-#endif
+    Raw.extract expr rt pos
 
 /// Undefined expression.
 [<CompiledName("Undef")>]
