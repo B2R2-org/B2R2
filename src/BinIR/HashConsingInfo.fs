@@ -25,10 +25,10 @@
 namespace B2R2.BinIR
 
 /// Represents the hash-consing metadata of an object, which includes a unique
-/// ID (tag) and a precomputed hash value. This value is attached to LowUIR
-/// expressions and statements only when hash consing is enabled; otherwise the
-/// metadata field is null.
-[<AllowNullLiteral>]
+/// ID (tag) and a precomputed hash value. LowUIR expressions and statements
+/// carry it only when hash consing is enabled, inline: a struct costs a node
+/// no object of its own to allocate, keep, or reach through.
+[<Struct>]
 type HashConsingInfo(id: uint32, hash: int) =
   /// Unique ID of the hash-consed object.
   member _.ID with get() = id
