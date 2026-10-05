@@ -455,13 +455,26 @@ type ParserTests() =
      agree both with the addressing mode and with the direction of the move. *)
   [<TestMethod>]
   member _.``[M68K] an fmovem walks memory one way test``() =
-    let regs = OpRegList [| FP0; FP1 |]
-    let load = TwoOperands(OpMem(PostInc A7), regs)
+    let load = TwoOperands(OpMem(PostInc A7), OpRegList [| FP6; FP7 |])
     assertIns FMOVEM Sz.Extended load 4u "f21fd003"
-    let store = TwoOperands(OpRegList [| FP6; FP7 |], OpMem(PreDec A7))
+    let store = TwoOperands(OpRegList [| FP0; FP1 |], OpMem(PreDec A7))
     assertIns FMOVEM Sz.Extended store 4u "f227e003"
     assertFails m68020 "f21fe003"
     assertFails m68020 "f227d003"
+
+  (* An FMOVEM runs its mask the other way round from a MOVEM: FP0 stands at
+     bit 7, except under predecrement addressing, where it stands at bit 0. The
+     first two are how gcc saves FP2, FP4, and FP6 on entry to a function and
+     restores them on the way out, which have to name the same registers. *)
+  [<TestMethod>]
+  member _.``[M68K] an fmovem mask runs forwards under predecrement test``() =
+    let regs = OpRegList [| FP2; FP4; FP6 |]
+    let save = TwoOperands(regs, OpMem(PreDec A7))
+    assertIns FMOVEM Sz.Extended save 4u "f227e054"
+    let restore = TwoOperands(OpMem(PostInc A7), regs)
+    assertIns FMOVEM Sz.Extended restore 4u "f21fd02a"
+    let store = TwoOperands(OpRegList [| FP0 |], OpMem(Direct A0))
+    assertIns FMOVEM Sz.Extended store 4u "f210f080"
 
   (* The 68040 spells the scope of a cache operation into the mnemonic and names
      the caches themselves as an operand. *)

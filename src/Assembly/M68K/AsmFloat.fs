@@ -211,8 +211,9 @@ let private isFloatListLike opr =
 /// Which way it goes and which addressing mode it uses have to agree: a
 /// predecrement address walks memory downwards, which is what writing the
 /// registers out to it does, and a postincrement one walks upwards, which is
-/// what reading them back in does. Predecrement addressing runs a written-out
-/// list the other way round, as it does for an integer MOVEM.
+/// what reading them back in does. A written-out list runs the other way round
+/// from an integer MOVEM's: FP0 stands at bit 7, except under predecrement
+/// addressing, where it stands at bit 0.
 /// </summary>
 let private floatMovem ins list ea toMem =
   requireOnlySize ins Sz.Extended
@@ -227,7 +228,7 @@ let private floatMovem ins list ea toMem =
   let bits =
     match list with
     | AsmReg dn when dynamic -> dataNum dn <<< 4
-    | _ -> regMask Register.FP0 8 (mmode = 0us) (regsOf ins list)
+    | _ -> regMask Register.FP0 8 (mmode <> 0us) (regsOf ins list)
   let dir = if toMem then 0x2000us else 0us
   let cmd = 0xc000us ||| dir ||| (mmode <<< 11) ||| bits
   eaWord 0xf200us mode reg :: (cmd :: exts)

@@ -246,6 +246,16 @@ type M68KRoundTripTests() =
       "move.l ([0x12345678,a0],0x11223344), d1", 12
       "fmove.x #0x111122223333444455556666, fp0", 16 ]
 
+  /// Lists of registers, each paired with the encoding GNU as gives it. Which
+  /// bit of the mask stands for which register turns on the addressing mode,
+  /// and it runs one way for a MOVEM and the other way for an FMOVEM.
+  let masks =
+    [ "movem.l d2-d3/a2, -(a7)", "48e73020"
+      "movem.l (a7)+, d2-d3/a2", "4cdf040c"
+      "fmovem.x fp2/fp4/fp6, -(a7)", "f227e054"
+      "fmovem.x (a7)+, fp2/fp4/fp6", "f21fd02a"
+      "fmovem.x fp0, (a0)", "f210f080" ]
+
   [<TestMethod>]
   [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
@@ -440,6 +450,33 @@ type M68KRoundTripTests() =
       "",
       String.concat "\n" wrong,
       "These are no longer as long as their encoding is."
+    )
+
+  /// <summary>
+  /// Checks that a list of registers is encoded as the mask the manual lays it
+  /// out in.
+  ///
+  /// A decoder and an encoder that both read a mask the wrong way round still
+  /// agree with each other, so the round trip cannot tell. The bytes the list
+  /// comes out as are therefore pinned to another assembler's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A register list is the mask the manual lays it out in``() =
+    let wrong =
+      masks
+      |> List.choose (fun (source, expected) ->
+        match (try encodeFirst assembler source with _ -> None) with
+        | None ->
+          Some $"'{source}' does not assemble"
+        | Some bytes ->
+          let actual = Convert.ToHexStringLower bytes
+          if actual = expected then None
+          else Some $"'{source}' encoded as {actual}")
+      |> List.sort
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" wrong,
+      "These no longer encode their register list as the manual does."
     )
 
   /// Checks that a source the assembler refuses leaves it able to read the next

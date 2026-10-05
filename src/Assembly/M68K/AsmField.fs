@@ -379,9 +379,10 @@ let eaWord (head: uint16) mode reg = head ||| (mode <<< 3) ||| reg
 /// <summary>
 /// The mask naming a list of registers.
 ///
-/// Which bit stands for which register depends on the addressing mode:
-/// predecrement runs the mask the other way round, so that its lowest bit
-/// stands for the last register of the bank rather than the first.
+/// Which bit stands for which register depends on the instruction and on its
+/// addressing mode, so the caller says whether the mask runs the other way
+/// round, its lowest bit standing for the last register of the bank rather
+/// than the first.
 /// </summary>
 let regMask (first: Register) count reversed regs =
   regs

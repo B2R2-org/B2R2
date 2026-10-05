@@ -103,9 +103,10 @@ let private condOpcodes =
 
 /// <summary>
 /// Returns the registers that a register list mask names, lowest first. Which
-/// bit stands for which register depends on the addressing mode: predecrement
-/// runs the mask the other way round, so that its bit 0 stands for the last
-/// register of the bank rather than the first.
+/// bit stands for which register depends on the instruction and on its
+/// addressing mode, so the caller says whether the mask runs the other way
+/// round, its bit 0 standing for the last register of the bank rather than the
+/// first.
 /// </summary>
 let private maskToRegs (mask: uint16) isReversed (first: Register) count =
   let baseNum = LanguagePrimitives.EnumToValue first
@@ -1165,8 +1166,9 @@ let private isFmovemMode mmode toMem mode reg =
   else mmode >= 0b10u && (not toMem || isAlterable mode reg)
 
 /// Parses an FMOVEM of the data registers, whose list is either the eight bits
-/// of the command word or a data register holding them. Predecrement addressing
-/// runs a static list the other way round, as it does for an integer MOVEM.
+/// of the command word or a data register holding them. A static list runs the
+/// other way round from an integer MOVEM's: FP0 stands at bit 7, except under
+/// predecrement addressing, where it stands at bit 0.
 let private parseFmovem (phlp: Phlp) span (cmd: uint16) mode reg =
   require (Bits.extract (uint32 cmd) 10u 8u = 0u)
   let mmode = Bits.extract (uint32 cmd) 12u 11u
@@ -1176,7 +1178,7 @@ let private parseFmovem (phlp: Phlp) span (cmd: uint16) mode reg =
       require (cmd &&& 0x8fus = 0us)
       OpReg(RegisterHelper.toDataReg (Bits.extract (uint32 cmd) 6u 4u))
     else
-      let reversed = mmode = 0b00u
+      let reversed = mmode <> 0b00u
       OpRegList(maskToRegs (cmd &&& 0xffus) reversed R.FP0 8)
   let ea = parseFloatEA phlp span Sz.Extended mode reg
   if cmd &&& 0x2000us = 0us then Op.FMOVEM, Sz.Extended, TwoOperands(ea, list)
