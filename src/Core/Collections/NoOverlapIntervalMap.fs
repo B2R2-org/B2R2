@@ -163,15 +163,22 @@ module NoOverlapIntervalMap =
   [<CompiledName("Replace")>]
   let replace k v tree = fnAdd k v tree true
 
+  /// Finds the node holding k, or the one whose range covers it unless
+  /// isExact.
   let rec private findLoop isExact k = function
     | RBLeaf _ ->
       Error ErrorCase.ItemNotFound
     | RBNode(_, k', v', l, r) ->
-      if k = k' then Ok(k', v')
-      elif k.Min < k'.Min && k.Max < k'.Min then findLoop isExact k l
-      elif k.Min > k'.Max && k.Max > k'.Max then findLoop isExact k r
-      elif (not isExact) && k.Min >= k'.Min && k.Max <= k'.Max then Ok(k', v')
-      else Error ErrorCase.ItemNotFound
+      if k = k' then
+        Ok(struct (k', v'))
+      elif k.Min < k'.Min && k.Max < k'.Min then
+        findLoop isExact k l
+      elif k.Min > k'.Max && k.Max > k'.Max then
+        findLoop isExact k r
+      elif (not isExact) && k.Min >= k'.Min && k.Max <= k'.Max then
+        Ok(struct (k', v'))
+      else
+        Error ErrorCase.ItemNotFound
 
   let rec private del isExact k = function
     | RBLeaf _ ->
@@ -288,7 +295,7 @@ module NoOverlapIntervalMap =
   [<CompiledName("Find")>]
   let find range tree =
     match findLoop true range tree with
-    | Ok(_, v) -> v
+    | Ok(struct (_, v)) -> v
     | _ -> raise (KeyNotFoundException())
 
   /// <summary>
@@ -303,7 +310,7 @@ module NoOverlapIntervalMap =
   [<CompiledName("FindRangeByAddr")>]
   let findRangeByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
-    | Ok(k, _) -> k
+    | Ok(struct (k, _)) -> k
     | _ -> raise (KeyNotFoundException())
 
   /// <summary>
@@ -318,7 +325,7 @@ module NoOverlapIntervalMap =
   [<CompiledName("TryFindRangeByAddr")>]
   let tryFindRangeByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
-    | Ok(k, _) -> Some k
+    | Ok(struct (k, _)) -> Some k
     | _ -> None
 
   /// <summary>
@@ -333,7 +340,7 @@ module NoOverlapIntervalMap =
   [<CompiledName("TryFind")>]
   let tryFind range tree =
     match findLoop true range tree with
-    | Ok(_, v) -> Some v
+    | Ok(struct (_, v)) -> Some v
     | _ -> None
 
   /// <summary>
@@ -348,7 +355,7 @@ module NoOverlapIntervalMap =
   [<CompiledName("TryFindByAddr")>]
   let tryFindByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
-    | Ok(_, v) -> Some v
+    | Ok(struct (_, v)) -> Some v
     | _ -> None
 
   let rec private findPreviousByAddrLoop addr candidate = function
@@ -403,7 +410,7 @@ module NoOverlapIntervalMap =
   [<CompiledName("FindByAddr")>]
   let findByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
-    | Ok(_, v) -> v
+    | Ok(struct (_, v)) -> v
     | _ -> raise (KeyNotFoundException())
 
   let rec private sizeAux acc tree =
