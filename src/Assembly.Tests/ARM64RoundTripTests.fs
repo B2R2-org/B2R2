@@ -399,6 +399,7 @@ type ARM64RoundTripTests() =
       "svc #0x1"
       "brk #0x0"
       "hlt #0xffff"
+      "udf #0xabcd"
       "mrs x0, nzcv"
       "msr nzcv, x0"
       "msr spsel, #0x1"

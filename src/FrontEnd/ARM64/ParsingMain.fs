@@ -838,6 +838,14 @@ let getSIMDScalarOprSize o size (op, oprs) =
   | 0b11u -> op, oprs, getVectorWidthBySize2 size
   | _ -> raise ParsingFailureException
 
+/// Reserved on page C4-266, where 0x0000_imm16 is UDF, permanently undefined
+/// (C6.2.335), and the rest is unallocated.
+let parseReserved bin =
+  if bin &&& 0xffff0000u = 0u then
+    Op.UDF, OneOperand(OprImm(extract bin 15u 0u |> int64)), 16<rt>
+  else
+    unallocated ()
+
 let changeToAliasOfAddSubImm bin instr =
   let isImm12Zero = valImm12 bin = 0b000000000000u
   match instr with
@@ -5189,6 +5197,7 @@ let parse64Group6 bin =
 let parseByGroupOfB64 bin =
   let op0 = extract bin 28u 25u
   match op0 with
+  | 0b0000u -> parseReserved bin
   | op0 when op0 &&& 0b1100u = 0b0000u -> unallocated ()
   (* Data Processing -- Immediate on page C4-266 *)
   | op0 when op0 &&& 0b1110u = 0b1000u -> parse64Group1 bin

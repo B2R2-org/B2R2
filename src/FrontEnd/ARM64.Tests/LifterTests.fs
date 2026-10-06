@@ -365,3 +365,9 @@ type LifterTests() =
     let read = IRRunner.run (lifted "4e021020") inputs
     Assert.AreEqual<uint64>(0x4a48ee45eeee4f40UL, (read !@(Q0, 1)).ToUInt64())
     Assert.AreEqual<uint64>(0xee47ee43ee4eee41UL, (read !@(Q0, 2)).ToUInt64())
+
+  /// UDF raises an Undefined Instruction exception wherever it runs.
+  [<TestMethod>]
+  member _.``[AArch64] UDF lifts to an undefined instruction``() =
+    let undefined = AST.sideEffect BinIR.SideEffect.UndefinedInstruction
+    "0000abcd" ++ [| undefined |] |> test

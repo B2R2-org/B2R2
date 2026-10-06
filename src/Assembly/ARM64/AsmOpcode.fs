@@ -704,6 +704,12 @@ let private exceptionGen opc ll ins =
   | _ ->
     wrongOperands ins
 
+/// UDF, whose word is its immediate alone (C6.2.335).
+let private permanentlyUndefined ins =
+  match ins.Operands with
+  | OneOperand(Im imm) -> unsignedImm 16 imm
+  | _ -> wrongOperands ins
+
 /// The bits every instruction in the system space shares.
 let private systemHead l = (0b1101010100u <<< 22) ||| (l <<< 21)
 
@@ -1951,6 +1957,7 @@ let systemEncoders () =
     Opcode.DCPS1, exceptionGen 0b101u 0b01u
     Opcode.DCPS2, exceptionGen 0b101u 0b10u
     Opcode.DCPS3, exceptionGen 0b101u 0b11u
+    Opcode.UDF, permanentlyUndefined
     Opcode.NOP, namedHint 0b0000u 0b000u
     Opcode.YIELD, namedHint 0b0000u 0b001u
     Opcode.WFE, namedHint 0b0000u 0b010u

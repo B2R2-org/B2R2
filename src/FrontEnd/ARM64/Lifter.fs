@@ -1106,6 +1106,8 @@ let translate (ins: Instruction) bld =
     ubfx ins bld
   | Opcode.UCVTF ->
     icvtf ins bld true
+  | Opcode.UDF ->
+    sideEffects ins bld UndefinedInstruction
   | Opcode.UDIV ->
     udiv ins bld
   | Opcode.UMADDL ->

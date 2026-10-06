@@ -6162,3 +6162,14 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[AArch64] CSDB reads by name at every version``() =
     Assert.AreEqual<string option>(Some "csdb", under "armv8-a" "d503229f")
+
+  /// 0x0000_imm16 is UDF, permanently undefined (DDI0487F.c C6.2.335); the
+  /// rest of the reserved space is unallocated.
+  [<TestMethod>]
+  member _.``[AArch64] UDF decodes``() =
+    testDisasm "00000000" "udf #0x0"
+    testDisasm "0000abcd" "udf #0xabcd"
+
+  [<TestMethod>]
+  member _.``[AArch64] The rest of the reserved space is refused``() =
+    testRefused "00010000"
