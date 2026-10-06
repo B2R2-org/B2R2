@@ -133,16 +133,16 @@ let parseDataProc (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin op None N OD.OprRdnRdnRm
   | 0b0010u ->
     let op =
-      if inITBlock itstate then Op.MOV else phlp.Cond <- Condition.UN; Op.MOVS
-    render phlp &itstate 0 isInIT bin op None N OD.OprRdmRdmLSLRs
+      if inITBlock itstate then Op.LSL else phlp.Cond <- Condition.UN; Op.LSLS
+    render phlp &itstate 0 isInIT bin op None N OD.OprRnRm
   | 0b0011u ->
     let op =
-      if inITBlock itstate then Op.MOV else phlp.Cond <- Condition.UN; Op.MOVS
-    render phlp &itstate 0 isInIT bin op None N OD.OprRdmRdmLSRRs
+      if inITBlock itstate then Op.LSR else phlp.Cond <- Condition.UN; Op.LSRS
+    render phlp &itstate 0 isInIT bin op None N OD.OprRnRm
   | 0b0100u ->
     let op =
-      if inITBlock itstate then Op.MOV else phlp.Cond <- Condition.UN; Op.MOVS
-    render phlp &itstate 0 isInIT bin op None N OD.OprRdmRdmASRRs
+      if inITBlock itstate then Op.ASR else phlp.Cond <- Condition.UN; Op.ASRS
+    render phlp &itstate 0 isInIT bin op None N OD.OprRnRm
   | 0b0101u ->
     let op =
       if inITBlock itstate then Op.ADC else phlp.Cond <- Condition.UN; Op.ADCS
@@ -153,8 +153,8 @@ let parseDataProc (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin op None N OD.OprRdnRdnRm
   | 0b0111u ->
     let op =
-      if inITBlock itstate then Op.MOV else phlp.Cond <- Condition.UN; Op.MOVS
-    render phlp &itstate 0 isInIT bin op None N OD.OprRdmRdmRORRs
+      if inITBlock itstate then Op.ROR else phlp.Cond <- Condition.UN; Op.RORS
+    render phlp &itstate 0 isInIT bin op None N OD.OprRnRm
   | 0b1000u ->
     render phlp &itstate 0 isInIT bin Op.TST None N OD.OprRnRm
   | 0b1001u ->
@@ -7405,7 +7405,7 @@ let parseHints32 phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.NOP None W OD.OprNo
   | 0b00010000u -> (* Armv8.2 *)
     inITBlock itstate |> checkUndef
-    render phlp &itstate 0 isInIT bin Op.ESB None W OD.OprNo
+    render phlp &itstate 0 isInIT bin Op.ESB None N OD.OprNo
   | 0b00010001u ->
     render phlp &itstate 0 isInIT bin Op.NOP None W OD.OprNo
   | 0b00010010u -> (* TSB CSYNC Armv8.4 *)
@@ -7415,7 +7415,7 @@ let parseHints32 phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.NOP None W OD.OprNo
   | 0b00010100u ->
     inITBlock itstate |> checkUndef
-    render phlp &itstate 0 isInIT bin Op.CSDB None W OD.OprNo
+    render phlp &itstate 0 isInIT bin Op.CSDB None N OD.OprNo
   | 0b00010101u ->
     render phlp &itstate 0 isInIT bin Op.NOP None W OD.OprNo
   | 0b00010110u | 0b00010111u (* 0001011x *) ->

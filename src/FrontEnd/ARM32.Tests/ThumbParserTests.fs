@@ -1272,7 +1272,24 @@ type ThumbParserTests() =
   member _.``[T32] VLDM past S31 is refused in every build``() =
     testRefused "ecd0fa02"
 
+  /// ESB and CSDB have no narrow encoding, so they take no .w (DDI0487F.c
+  /// F5.1.52 and F5.1.41); the hints that do have one keep it.
+  [<TestMethod>]
+  member _.``[T32] ESB and CSDB read without a width``() =
+    testDisasm "f3af8010" "esb"
+    testDisasm "f3af8014" "csdb"
+    testDisasm "f3af8004" "sev.w"
+
   /// MSR names SPSR with its R bit, bit 20 of the first halfword.
   [<TestMethod>]
   member _.``[T32] MSR can name SPSR``() =
     testDisasm "f3918f00" "msr spsr_fsxc, r1"
+
+  /// The narrow MOVS with a register-shifted register reads as the shift it
+  /// names, its preferred disassembly (DDI0487F.c F5.1.113).
+  [<TestMethod>]
+  member _.``[T32] Narrow MOVS by register reads as the shift``() =
+    testDisasm "4088" "lsls r0, r1"
+    testDisasm "40c8" "lsrs r0, r1"
+    testDisasm "4108" "asrs r0, r1"
+    testDisasm "41c8" "rors r0, r1"
