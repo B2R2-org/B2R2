@@ -1216,6 +1216,9 @@ let parseMovSpecReg11 (phlp: ParsingHelper) bin =
 let parseMoveSpecialRegisterAndHints (phlp: ParsingHelper) bin =
   let rimm4 = concat (pickBit bin 22) (pickFour bin 16) 4
   checkUndef (pickFour bin 12 <> 0b1111u)
+#if !EMULATION
+  checkUnpred (rimm4 = 0b10000u) (* SPSR with no field, B9.3.11 *)
+#endif
   match pickTwo bin 6 (* imm12<7:6> *) with
   | _ when rimm4 <> 0b00000u -> render phlp bin Op.MSR None OD.OprSregImm
   | 0b00u -> parseMovSpecReg00 phlp bin
@@ -2512,13 +2515,13 @@ let parseFloatingPointDirectedConvertToInteger (phlp: ParsingHelper) bin =
   let struct (dt2, oprs2) =
     match pickThree bin 7 (* size:op *) with
     | 0b000u | 0b001u -> undefined ()
-    | 0b010u -> struct (twoDt (SIMDTypF16, SIMDTypU32), OD.OprSdSm)
-    | 0b011u -> struct (twoDt (SIMDTypF16, SIMDTypS32), OD.OprSdSm)
-    | 0b100u -> struct (twoDt (SIMDTypF32, SIMDTypU32), OD.OprSdSm)
-    | 0b101u -> struct (twoDt (SIMDTypF32, SIMDTypS32), OD.OprSdSm)
-    | 0b110u -> struct (twoDt (SIMDTypF64, SIMDTypU32), OD.OprSdDm)
+    | 0b010u -> struct (twoDt (SIMDTypU32, SIMDTypF16), OD.OprSdSm)
+    | 0b011u -> struct (twoDt (SIMDTypS32, SIMDTypF16), OD.OprSdSm)
+    | 0b100u -> struct (twoDt (SIMDTypU32, SIMDTypF32), OD.OprSdSm)
+    | 0b101u -> struct (twoDt (SIMDTypS32, SIMDTypF32), OD.OprSdSm)
+    | 0b110u -> struct (twoDt (SIMDTypU32, SIMDTypF64), OD.OprSdDm)
     (* 111 *)
-    | _ -> struct (twoDt (SIMDTypF64, SIMDTypS32), OD.OprSdDm)
+    | _ -> struct (twoDt (SIMDTypS32, SIMDTypF64), OD.OprSdDm)
   match pickThree bin 16 (* o1:RM *) with
   | 0b000u -> render phlp bin Op.VRINTA dt1 oprs1
   | 0b001u -> render phlp bin Op.VRINTN dt1 oprs1
@@ -2772,7 +2775,7 @@ let parseAdvSIMDAndFPLdSt (phlp: ParsingHelper) bin =
   let decodeFields = (* P:U:W:L:size *)
     (pickTwo bin 23 <<< 4) + (pickTwo bin 20 <<< 2) + (pickTwo bin 8)
   let isxxxxxxx0 bin = pickBit bin 0 = 0u
-  let isxxxxxxx1 bin = pickBit bin 1 = 1u
+  let isxxxxxxx1 bin = pickBit bin 0 = 1u
   let isRn1111 bin = pickFour bin 16 = 0b1111u
   match decodeFields (* P:U:W:L:size *) with
   (* 001xxx *)
@@ -2833,8 +2836,12 @@ let parseAdvSIMDAndFPLdSt (phlp: ParsingHelper) bin =
     render phlp bin Op.VSTR (oneDt SIMDTyp64) OD.OprDdMem
   | 0b100100u | 0b110100u when phlp.Cond <> Condition.UN ->
     undefined ()
-  | 0b100101u | 0b110101u | 0b100110u | 0b110110u
-    when phlp.Cond <> Condition.UN ->
+  | 0b100101u | 0b110101u when phlp.Cond <> Condition.UN ->
+#if !EMULATION
+    chkSzCond bin phlp.Cond
+#endif
+    render phlp bin Op.VLDR (oneDt SIMDTyp16) OD.OprSdMem
+  | 0b100110u | 0b110110u when phlp.Cond <> Condition.UN ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
 #endif
@@ -3044,9 +3051,9 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypF64, SIMDTypF16)
     render phlp bin Op.VCVTT dt OD.OprDdSm
   | 0b0011010u -> (* Armv8.6 *)
-    render phlp bin Op.VCVTB (twoDt (BF16, SIMDTypF16)) OD.OprSdSm
+    render phlp bin Op.VCVTB (twoDt (BF16, SIMDTypF32)) OD.OprSdSm
   | 0b0011011u -> (* Armv8.6 *)
-    render phlp bin Op.VCVTT (twoDt (BF16, SIMDTypF16)) OD.OprSdSm
+    render phlp bin Op.VCVTT (twoDt (BF16, SIMDTypF32)) OD.OprSdSm
   | 0b0011100u ->
     let dt = twoDt (SIMDTypF16, SIMDTypF32)
     render phlp bin Op.VCVTB dt OD.OprSdSm
@@ -6239,6 +6246,9 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     raise ParsingFailureException
   (* xx1011000 VCVT *)
   | 0b011011000u ->
+#if !EMULATION
+    chkOpVdVm bin
+#endif
     let dt = twoDt (SIMDTypF16, SIMDTypF32)
     render phlp bin Op.VCVT dt OD.OprDdQm
   | 0b001011000u | 0b101011000u | 0b111011000u -> (* size != 01 *)
@@ -6271,7 +6281,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
   (* xx1011100 VCVT *)
   | 0b011011100u ->
 #if !EMULATION
-    chkVdVm bin
+    chkOpVdVm bin
 #endif
     let dt = twoDt (SIMDTypF32, SIMDTypF16)
     render phlp bin Op.VCVT dt OD.OprQdDm
@@ -6605,7 +6615,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkQVdVm bin
 #endif
-    let dt = twoDt (SIMDTypU32, SIMDTypF16)
+    let dt = twoDt (SIMDTypU16, SIMDTypF16)
     render phlp bin Op.VCVT dt OD.OprDdDm
   | 0b101111000u ->
 #if !EMULATION
@@ -6653,7 +6663,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkQVdVm bin
 #endif
-    let dt = twoDt (SIMDTypU32, SIMDTypF16)
+    let dt = twoDt (SIMDTypU16, SIMDTypF16)
     render phlp bin Op.VCVT dt OD.OprQdQm
   | 0b101111001u ->
 #if !EMULATION

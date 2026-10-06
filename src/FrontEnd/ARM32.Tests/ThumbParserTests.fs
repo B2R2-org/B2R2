@@ -1325,3 +1325,71 @@ type ThumbParserTests() =
     testDisasm "fd310802" "vcmla.f32 d0, d1, d2, #0xb4"
     testDisasm "fdb20844" "vcmla.f32 q0, q1, q2, #0x10e"
     testDisasm "fca10802" "vcmla.f16 d0, d1, d2, #0x5a"
+
+  /// The directed conversions name the integer they write first in T32 too.
+  [<TestMethod>]
+  member _.``[T32] VCVTA names the integer it writes first``() =
+    testDisasm "febc0ac0" "vcvta.s32.f32 s0, s0"
+    testDisasm "febf0b41" "vcvtm.u32.f64 s0, d1"
+
+  [<TestMethod>]
+  member _.``[T32] VCVTB.BF16 converts from a single``() =
+    testDisasm "eeb30941" "vcvtb.bf16.f32 s0, s2"
+
+  [<TestMethod>]
+  member _.``[T32] VFMAL by an element names a single``() =
+    testDisasm "fe000819" "vfmal.f16 d0, s0, s2[1]"
+
+  /// VMINNM names single-precision registers for halves and singles in T32 as
+  /// in A32, and its Advanced SIMD form on halves says so.
+  [<TestMethod>]
+  member _.``[T32] VMINNM names the registers and type it reads``() =
+    testDisasm "fe800a4f" "vminnm.f32 s0, s0, s30"
+    testDisasm "fe80094f" "vminnm.f16 s0, s0, s30"
+    testDisasm "ff300f10" "vminnm.f16 d0, d0, d0"
+
+  /// A fixed-point VCVT that counts more fraction bits than its integer holds
+  /// is UNPREDICTABLE (DDI0406C A8.8.309), and is refused.
+  [<TestMethod>]
+  member _.``[T32] VCVT to fixed point refuses negative fraction bits``() =
+    testDisasm "eeba0a40" "vcvt.f32.s16 s0, s0, #0x10"
+    testRefused "eeba0a4f"
+
+  /// VDUP of one element fills a quadword where Q says so.
+  [<TestMethod>]
+  member _.``[T32] VDUP of an element names a quadword``() =
+    testDisasm "ffbe0c41" "vdup.16 q0, d1[3]"
+
+  /// VSHLL by the width of an element widens into a quadword, which is the
+  /// register that must be even; the doubleword it reads need not be.
+  [<TestMethod>]
+  member _.``[T32] VSHLL by the element width reads an odd doubleword``() =
+    testDisasm "ffb60301" "vshll.i16 q0, d1, #0x10"
+    testRefused "ffb61300"
+
+  /// VCEQ #0 compares integers of a size, which it names I8, I16 and I32.
+  [<TestMethod>]
+  member _.``[T32] VCEQ #0 names integers``() =
+    testDisasm "ffb5c109" "vceq.i16 d12, d9, #0x0"
+
+  /// <summary>
+  /// The multiplies by one element read Q from bit 28 in T32, so a
+  /// doubleword form may name odd registers and a quadword form refuses them;
+  /// VEXT of quadwords refuses odd ones; and VMOV.F16 refuses the PC, as their
+  /// A32 forms do.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[T32] VMUL by an element reads Q from bit 28``() =
+    testDisasm "ef99694d" "vmul.f16 d6, d9, d5[1]"
+    testDisasm "ff98694d" "vmul.f16 q3, q4, d5[1]"
+    testRefused "ff99694d"
+    testRefused "ff98794d"
+
+  [<TestMethod>]
+  member _.``[T32] VEXT of quadwords refuses an odd register``() =
+    testDisasm "efb2a7ce" "vext.8 q5, q9, q7, #0x7"
+    testRefused "efb2a7cf"
+
+  [<TestMethod>]
+  member _.``[T32] VMOV.F16 refuses the PC``() =
+    testRefused "ee04f9b2"

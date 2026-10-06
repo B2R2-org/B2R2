@@ -1367,6 +1367,12 @@ type ParserTests() =
   member _.``[ARMv7] MSR (immediate) can name SPSR``() =
     testDisasm "e368f0ff" "msr spsr_f, #0xff"
 
+  /// An immediate MSR to SPSR that names no field is UNPREDICTABLE (DDI0406C
+  /// B9.3.11); the same encoding for CPSR is a hint.
+  [<TestMethod>]
+  member _.``[ARMv7] MSR (immediate) to SPSR with no field is refused``() =
+    testRefused "e360f004"
+
   /// VMRS and VMSR name the floating-point system register their reg field
   /// selects (DDI0406C B9.3.21 and B9.3.22; DDI0487F.c F6.1.144 adds MVFR2).
   [<TestMethod>]
@@ -1457,3 +1463,59 @@ type ParserTests() =
     testDisasm "fc010d02" "vdot.bf16 d0, d1, d2"
     testDisasm "fc220c44" "vsmmla.s8 q0, q1, q2"
     testDisasm "fc020c44" "vmmla.bf16 q0, q1, q2"
+
+  /// VCVTA and the other directed conversions name the integer they write
+  /// first, as every conversion names its result first (DDI0487F.c F6.1.66).
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTA names the integer it writes first``() =
+    testDisasm "febc0ac0" "vcvta.s32.f32 s0, s0"
+    testDisasm "febf0b41" "vcvtm.u32.f64 s0, d1"
+
+  /// The brain floating-point VCVTB narrows a single (DDI0487F.c F6.1.68).
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTB.BF16 converts from a single``() =
+    testDisasm "eeb30941" "vcvtb.bf16.f32 s0, s2"
+
+  /// VFMAL by one element writes a doubleword from single-precision registers,
+  /// so the element is one of a single's halves (DDI0487F.c F6.1.90).
+  [<TestMethod>]
+  member _.``[ARMv7] VFMAL by an element names a single``() =
+    testDisasm "fe000819" "vfmal.f16 d0, s0, s2[1]"
+
+  /// A fixed-point VCVT that counts more fraction bits than its integer holds
+  /// is UNPREDICTABLE (DDI0406C A8.8.309), and is refused.
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT to fixed point refuses negative fraction bits``() =
+    testDisasm "eeba0a40" "vcvt.f32.s16 s0, s0, #0x10"
+    testRefused "eeba0a4f"
+
+  /// FLDMX and FSTMX are told from VLDM and VSTM by imm8<0>, so a list of
+  /// two registers, imm8 = 5, is FLDMIAX (DDI0406C A8.8.51).
+  [<TestMethod>]
+  member _.``[ARMv7] FLDMIAX of an even count decodes``() =
+    testDisasm "ecb00b05" "fldmiax r0!, {d0, d1}"
+    testDisasm "eca00b05" "fstmiax r0!, {d0, d1}"
+
+  /// <summary>
+  /// The Advanced SIMD VCVT between halves and singles checks the register
+  /// it reads a quadword from or writes one to, and only that one (DDI0406C
+  /// A8.8.311): an odd Qm is UNDEFINED when it narrows, an odd Qd when it
+  /// widens, and the doubleword on the other side may be odd.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT between halves and singles checks the quadword``() =
+    testDisasm "f3b60701" "vcvt.f32.f16 q0, d1"
+    testDisasm "f3b61600" "vcvt.f16.f32 d1, q0"
+    testRefused "f3b60601"
+    testRefused "f3b61700"
+
+  /// The Advanced SIMD VCVT between halves and integers converts to and from
+  /// 16-bit integers (DDI0487F.c F6.1.60).
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.U16.F16 names 16-bit integers``() =
+    testDisasm "f3b7478f" "vcvt.u16.f16 d4, d15"
+
+  /// VLDR of a half names its size, which tells it from VLDR of a single.
+  [<TestMethod>]
+  member _.``[ARMv7] VLDR.16 names its size``() =
+    testDisasm "ed1b7947" "vldr.16 s14, [fp, #-0x8e]"

@@ -968,13 +968,13 @@ module OperandParsingHelper =
   let getDTFSU bin =
     match extract bin 9 7 (* size:op *) with
     | 0b000u | 0b001u -> undefined ()
-    | 0b010u -> SIMDTypF16, SIMDTypU32
-    | 0b011u -> SIMDTypF16, SIMDTypS32
-    | 0b100u -> SIMDTypF32, SIMDTypU32
-    | 0b101u -> SIMDTypF32, SIMDTypS32
-    | 0b110u -> SIMDTypF64, SIMDTypU32
+    | 0b010u -> SIMDTypU32, SIMDTypF16
+    | 0b011u -> SIMDTypS32, SIMDTypF16
+    | 0b100u -> SIMDTypU32, SIMDTypF32
+    | 0b101u -> SIMDTypS32, SIMDTypF32
+    | 0b110u -> SIMDTypU32, SIMDTypF64
     (* 111 *)
-    | _ -> SIMDTypF64, SIMDTypS32
+    | _ -> SIMDTypS32, SIMDTypF64
     |> twoDt
 
   let getDTOpU bin =
@@ -2373,7 +2373,7 @@ type internal OprDdSnSmidx() =
       concat (extract bin 19 16) (pickBit bin 7) 1 |> getVecSReg |> toSVReg
     let sm = concat (extract bin 2 0) (pickBit bin 5) 1 (* Vm<2:0>:M *)
     let smidx =
-      toSSReg (sm |> getVecDReg, Some(pickBit bin 3 |> uint8)) (* Vm<3> *)
+      toSSReg (sm |> getVecSReg, Some(pickBit bin 3 |> uint8)) (* Vm<3> *)
     struct (ThreeOperands(dd, sn, smidx), false, None, 64<rt>)
 
 (* <Sd>, <Sn>, <Sm> *)
@@ -3039,16 +3039,25 @@ type internal OprP14C5Label() =
     let oprs = ThreeOperands(OprReg R.P14, OprReg R.C5, label)
     struct (oprs, false, None, 32<rt>)
 
+/// The fraction bits of a fixed-point VCVT on the floating-point unit, which
+/// the encoding counts down from the fixed-point number's width. A count past
+/// that width leaves fewer than none, which is UNPREDICTABLE (DDI0406C
+/// A8.8.309), and being UNDEFINED is one behavior DDI0487F.c F6.1.64 allows.
+let private getFixedPointFbits bin =
+  let imm4i = concat (extract bin 3 0) (pickBit bin 5) 1 (* imm4:i *)
+  let size = if pickBit bin 7 = 0u then 16u else 32u
+#if !EMULATION
+  checkUnpred (imm4i > size)
+#endif
+  int64 size - int64 imm4i |> OprImm
+
 (* <Sdm>, <Sdm>, #<fbits> *)
 type internal OprSdmSdmFbits() =
   inherit OperandParser()
   override _.Render bin =
     let sdm = (* Vd:D *)
       concat (extract bin 15 12) (pickBit bin 22) 1 |> getVecSReg |> toSVReg
-    let fbits =
-      let imm4i = concat (extract bin 3 0) (pickBit bin 5) 1 (* imm4:i *)
-      if pickBit bin 7 = 0u then 16u - imm4i else 32u - imm4i
-      |> int64 |> OprImm
+    let fbits = getFixedPointFbits bin
     struct (ThreeOperands(sdm, sdm, fbits), false, None, 32<rt>)
 
 (* <Ddm>, <Ddm>, #<fbits> *)
@@ -3057,10 +3066,7 @@ type internal OprDdmDdmFbits() =
   override _.Render bin =
     let ddm = (* D:Vd *)
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
-    let fbits =
-      let imm4i = concat (extract bin 3 0) (pickBit bin 5) 1 (* imm4:i *)
-      if pickBit bin 7 = 0u then 16u - imm4i else 32u - imm4i
-      |> int64 |> OprImm
+    let fbits = getFixedPointFbits bin
     struct (ThreeOperands(ddm, ddm, fbits), false, None, 64<rt>)
 
 (* <Dd>, <Dm>, #<fbits> *)
