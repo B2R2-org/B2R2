@@ -2117,3 +2117,45 @@ type LifterTests() =
     let ds = [ 1, 0x4400420040003c00UL; 2, 0x3400380000000000UL ]
     let d0, _, _ = fpRun "fe010822" 0u ds
     Assert.AreEqual<uint64>(0x3a003e0034003800UL, d0)
+
+  /// <summary>
+  /// VLDR.16 and VSTR.16 move a halfword, the bottom half of the
+  /// single-precision register, which a load clears the top of (DDI0487F.c
+  /// F6.1.113 and F6.1.245).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VLDR.16 loads a halfword``() =
+    let loads =
+      liftedBy false "ed1b7947"
+      |> Array.choose (function
+        | Put(Src = Load(Type = rt; Addr = addr)) -> Some(rt, addr)
+        | _ -> None)
+    CollectionAssert.AreEqual([| 16<rt>, !.FP .- num 0x8eu |], loads)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VSTR.16 stores a halfword``() =
+    let sizes =
+      liftedBy false "ed0b7947"
+      |> Array.choose (function
+        | Store(Value = value) -> Some(Expr.typeOf value)
+        | _ -> None)
+    CollectionAssert.AreEqual([| 16<rt> |], sizes)
+
+  /// <summary>
+  /// The PC as a base reads ahead of the instruction, eight bytes in A32 and
+  /// four in T32: VLDR aligns what it reads to a word (DDI0487F.c F6.1.113),
+  /// and VSTR, which only A32 allows it in, takes it as it reads (F6.1.245).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VLDR and VSTR count from the PC as it reads``() =
+    let addresses isThumb hex =
+      liftedBy isThumb hex
+      |> Array.choose (function
+        | Put(Src = Load(Addr = addr)) -> Some addr
+        | Store(Addr = addr) -> Some addr
+        | _ -> None)
+    let alignedPC = num 4u .* ((!.PC .+ num 4u) ./ num 4u)
+    let ldr = addresses true "ed9f0a01"
+    CollectionAssert.AreEqual([| alignedPC .+ num 4u |], ldr)
+    let str = addresses false "ed8f0a01"
+    CollectionAssert.AreEqual([| !.PC .+ num 8u .+ num 4u |], str)

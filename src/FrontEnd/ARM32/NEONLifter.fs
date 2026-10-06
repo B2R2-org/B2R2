@@ -43,22 +43,35 @@ let checkSingleReg = function
   | R.S28 | R.S29 | R.S30 | R.S31 -> true
   | _ -> false
 
+/// The register a VLDR loads and the address it reads, which counts from the
+/// program counter aligned to a word, or from any other base as it stands.
 let parseOprOfVLDR (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector d)),
                 OprMemory(OffsetMode(ImmOffset(rn, s, imm)))) ->
-    let pc = regVar bld rn |> convertPCOpr ins bld
-    let baseAddr = align pc (numI32 4 32<rt>)
+    let baseAddr =
+      if rn = R.PC then
+        align (regVar bld rn |> convertPCOpr ins bld) (numI32 4 32<rt>)
+      else
+        regVar bld rn
     regVar bld d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ ->
     raise InvalidOperandException
+
+/// Whether a VLDR or VSTR moves a halfword, the bottom half of its register.
+let private isHalfTransfer (ins: Instruction) =
+  ins.SIMDTyp = Some(OneDT SIMDTyp16)
 
 let vldr ins bld =
   lift bld ins {
     let rd, addr, isSReg = parseOprOfVLDR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    if isSReg then
+    if isHalfTransfer ins then
+      let data = tmpVar bld 16<rt>
+      data := loadNative bld 16<rt> addr
+      rd := AST.zext 32<rt> data
+    elif isSReg then
       let data = tmpVar bld 32<rt>
       data := loadNative bld 32<rt> addr
       rd := data
@@ -71,11 +84,14 @@ let vldr ins bld =
     putEndLabel bld lblIgnore
   }
 
+/// The register a VSTR stores and the address it writes, which counts from
+/// the base as it reads: the program counter, which only A32 allows here,
+/// reads ahead of the instruction and is not aligned.
 let parseOprOfVSTR (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector d)),
                 OprMemory(OffsetMode(ImmOffset(rn, s, imm)))) ->
-    let baseAddr = regVar bld rn
+    let baseAddr = regVar bld rn |> convertPCOpr ins bld
     regVar bld d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ ->
     raise InvalidOperandException
@@ -85,7 +101,9 @@ let vstr (ins: Instruction) bld =
     let rd, addr, isSReg = parseOprOfVSTR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    if isSReg then
+    if isHalfTransfer ins then
+      loadNative bld 16<rt> addr := AST.xtlo 16<rt> rd
+    elif isSReg then
       loadNative bld 32<rt> addr := rd
     else
       let mem1 = loadNative bld 32<rt> addr
