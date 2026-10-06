@@ -295,8 +295,8 @@ let translate (ins: Instruction) bld =
     rev16 ins bld
   | Op.REVSH ->
     revsh ins bld
-  | Op.RFEDB ->
-    rfedb ins bld
+  | Op.RFEDA | Op.RFEDB | Op.RFEIA | Op.RFEIB ->
+    rfe ins bld
   | Op.ROR ->
     shiftInstr false ins ShiftOp.ROR bld
   | Op.RORS ->
@@ -401,6 +401,8 @@ let translate (ins: Instruction) bld =
     smulhalf ins bld true false
   | Op.SMULTT ->
     smulhalf ins bld true true
+  | Op.SRSDA | Op.SRSDB | Op.SRSIA | Op.SRSIB ->
+    srs ins bld
   | Op.STM ->
     stm Op.STM ins bld (.+)
   | Op.STMDA ->

@@ -24,8 +24,9 @@
 
 /// <summary>
 /// The processor modes, what a change of mode does to the registers, the
-/// return from an exception, which changes mode as it branches, and the User
-/// mode registers, which LDM and STM with ^ reach from any mode.
+/// return from an exception, which changes mode as it branches, the User
+/// mode registers, which LDM and STM with ^ reach from any mode, and the SP
+/// of the mode SRS names.
 ///
 /// <para>The mode is CPSR.M, and each mode but User and System keeps its own
 /// SP, LR and SPSR -- FIQ mode R8 to R12 as well. A mode change does not copy
@@ -162,22 +163,24 @@ let private switchMode bld oldMode newMode =
   swapBanks bld lrBanks R.LR oldMode newMode
   swapBanks bld spsrBanks R.SPSR oldMode newMode
 
+/// The modes PL1 software runs in: all but Monitor and Hyp, which a processor
+/// without the Security and the Virtualization Extensions does not have, and
+/// which one with them enters only by an exception.
+let private plainModes =
+  [ Mode.User
+    Mode.FIQ
+    Mode.IRQ
+    Mode.Supervisor
+    Mode.Abort
+    Mode.Undefined
+    Mode.System ]
+
 /// <summary>
-/// Whether a write to CPSR at PL1 may change to a mode. Any but Monitor and
-/// Hyp may be entered this way: a processor without the Security and the
-/// Virtualization Extensions has neither, and one with them enters each only
-/// by an exception. Staying in the mode running is always allowed.
+/// Whether a write to CPSR at PL1 may change to a mode: any PL1 software runs
+/// in. Staying in the mode running is always allowed.
 /// </summary>
 let private isReachable mode current =
-  let modes =
-    [ Mode.User
-      Mode.FIQ
-      Mode.IRQ
-      Mode.Supervisor
-      Mode.Abort
-      Mode.Undefined
-      Mode.System ]
-  isOneOf mode modes .| (mode == current)
+  isOneOf mode plainModes .| (mode == current)
 
 /// <summary>
 /// Changes mode to the one a write names, where the write may: at PL1, and to
@@ -198,14 +201,27 @@ let changeMode bld (named: Expr) =
 /// Raises an Undefined Instruction exception in Hyp mode and in User mode, as
 /// a return from an exception and a transfer of the User mode registers do.
 /// Each is UNDEFINED in Hyp mode, which returns by ERET alone (DDI0406C
-/// B9.3.5, B9.3.6, B9.3.17, B9.3.19 and B9.3.20), and UNPREDICTABLE in User
-/// and System mode (B9.1.1): User mode, which has no SPSR or registers of
-/// another mode to reach, takes it as UNDEFINED, and System mode runs it, as
-/// the reference does.
+/// B9.3.5, B9.3.6, B9.3.13, B9.3.17, B9.3.19 and B9.3.20), and UNPREDICTABLE
+/// in User mode and -- all but RFE -- in System mode (B9.1.1): User mode,
+/// which has no SPSR or registers of another mode to reach, takes it as
+/// UNDEFINED, and System mode runs it, as the reference does.
 /// </summary>
 let undefinedInUserOrHypMode bld =
   let hyp = modeOf (regVar bld R.CPSR) == modeNum Mode.Hyp
   _when bld "UserOrHypMode" (inUserMode bld .| hyp) (block {
+    AST.sideEffect UndefinedInstruction
+  })
+
+/// <summary>
+/// Raises an Undefined Instruction exception in User, System and Hyp mode, as
+/// SRS does: UNDEFINED in Hyp mode and UNPREDICTABLE in the other two
+/// (DDI0406C B9.3.16), which the reference takes as UNDEFINED in System mode
+/// too -- unlike RFE, which it runs there.
+/// </summary>
+let undefinedInUserSystemOrHypMode bld =
+  let mode = modeOf (regVar bld R.CPSR)
+  let refused = isOneOf mode [ Mode.User; Mode.System; Mode.Hyp ]
+  _when bld "UserSystemOrHypMode" refused (block {
     AST.sideEffect UndefinedInstruction
   })
 
@@ -224,7 +240,7 @@ let private restoredBits = 0xff0fffe0u
 /// belong to the Security and the Virtualization Extensions, which this
 /// model of the processor does not have.
 /// </summary>
-let private exceptionReturn bld (target: Expr) (saved: Expr) =
+let exceptionReturn bld (target: Expr) (saved: Expr) =
   let newMode = changeMode bld (modeOf saved)
   let cpsr = regVar bld R.CPSR
   let toThumb = (saved .& numU32 0x20u 32<rt>) != AST.num0 32<rt>
@@ -299,3 +315,35 @@ let writeUserRegister bld reg value =
     }
   | None ->
     append bld { regVar bld reg := value }
+
+/// Whether a number names a mode SRS may store to: any PL1 software runs in.
+/// Hyp and Monitor mode are UNPREDICTABLE there (DDI0406C B9.3.16) and taken
+/// as UNDEFINED, as the reference takes them, and so is a number that names
+/// no mode at all.
+let isStackOfPlainMode (mode: uint32) =
+  plainModes |> List.exists (fun m -> uint32 m = mode)
+
+/// <summary>
+/// The SP of the mode a number names, with whether it is the live SP: it is
+/// when the mode running keeps its SP in the same copy, and the copy is the
+/// SP otherwise.
+/// </summary>
+let private spOfMode bld (mode: uint32) =
+  let mode: Mode = LanguagePrimitives.EnumOfValue mode
+  let modes, copy = spBanks |> List.find (fun (ms, _) -> List.contains mode ms)
+  let isLive = isOneOf (modeOf (regVar bld R.CPSR)) modes
+  struct (isLive, regVar bld copy)
+
+/// What the SP of the mode a number names holds.
+let readSPOf bld mode =
+  let struct (isLive, copy) = spOfMode bld mode
+  AST.ite isLive (regVar bld R.SP) copy
+
+/// Writes the SP of the mode a number names.
+let writeSPOf bld mode value =
+  let struct (isLive, copy) = spOfMode bld mode
+  let sp = regVar bld R.SP
+  append bld {
+    sp := AST.ite isLive value sp
+    copy := AST.ite isLive copy value
+  }

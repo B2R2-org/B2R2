@@ -196,6 +196,13 @@ type LifterTests() =
       | Store(Value = value) -> Some value
       | _ -> None)
 
+  /// Where the statements of one encoding store and what, in order.
+  let storesBy isThumb hex =
+    liftedBy isThumb hex
+    |> Array.choose (function
+      | Store(Addr = addr; Value = value) -> Some(addr, value)
+      | _ -> None)
+
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =
     let shiftAmt = AST.zext 32<rt> (AST.xtlo 8<rt> !.R8)
@@ -926,6 +933,127 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[ARMv7] LDM without ^ is allowed in User mode``() =
     Assert.AreEqual<bool>(false, canBeUndefined false "e8906000")
+
+  /// SRS stores on the stack of the mode it names (DDI0406C B9.3.16): that
+  /// mode's SP, which is the live SP when it is the mode running.
+  [<TestMethod>]
+  member _.``[ARMv7] SRS stores on the named mode's stack``() =
+    let irqSP = AST.ite (modeIsOneOf [ 0x12u ]) !.SP !.SPirq
+    let start = assignedBy false "f96d0512" (t32 1)
+    Assert.AreEqual<Expr option>(Some irqSP, start)
+
+  /// The two words go where the addressing mode puts them, LR below SPSR.
+  [<TestMethod>]
+  member _.``[ARMv7] SRS stores LR and SPSR where its mode says``() =
+    let sp = t32 1
+    let expected =
+      [ "f84d0512", sp .- num 4u
+        "f96d0512", sp .- num 8u
+        "f8cd0512", sp
+        "f9cd0512", sp .+ num 4u ]
+    for hex, address in expected do
+      Assert.AreEqual<Expr option>(Some address, assignedBy false hex (t32 2))
+    let stores = [| t32 2, !.LR; t32 2 .+ num 4u, !.SPSR |]
+    CollectionAssert.AreEqual(stores, storesBy false "f96d0512")
+
+  /// User and System mode share one SP, and FIQ mode has its own.
+  [<TestMethod>]
+  member _.``[ARMv7] SRS reads the SP of the mode it names``() =
+    let usrSP = AST.ite (modeIsOneOf [ 0x10u; 0x1fu ]) !.SP !.SPusr
+    let fiqSP = AST.ite (modeIsOneOf [ 0x11u ]) !.SP !.SPfiq
+    let start hex = assignedBy false hex (t32 1)
+    Assert.AreEqual<Expr option>(Some usrSP, start "f96d0510")
+    Assert.AreEqual<Expr option>(Some fiqSP, start "f96d0511")
+
+  [<TestMethod>]
+  member _.``[ARMv7] SRS writes the named mode's SP back``() =
+    let isIRQ = modeIsOneOf [ 0x12u ]
+    let down = AST.ite isIRQ !.SPirq (t32 1 .- num 8u)
+    let up = AST.ite isIRQ !.SPirq (t32 1 .+ num 8u)
+    Assert.AreEqual<Expr option>(Some down, assignedBy false "f96d0512" !.SPirq)
+    Assert.AreEqual<Expr option>(Some up, assignedBy false "f8ed0512" !.SPirq)
+
+  [<TestMethod>]
+  member _.``[ARMv7] SRS without writeback leaves the SP``() =
+    let written = writtenBy false "f8cd0512"
+    Assert.AreEqual<bool>(false, Array.contains !.SPirq written)
+
+  /// SRS is UNDEFINED in Hyp mode and UNPREDICTABLE in User and System mode,
+  /// where the reference refuses it, unlike RFE (B9.3.16).
+  [<TestMethod>]
+  member _.``[ARMv7] SRS is refused in User, System and Hyp mode``() =
+    let refused = modeIsOneOf [ 0x10u; 0x1fu; 0x1au ]
+    Assert.AreEqual<Expr option>(Some refused, undefinedWhen false "f96d0512")
+
+  /// Hyp mode's SP is not SRS's to name: UNPREDICTABLE, taken as UNDEFINED.
+  [<TestMethod>]
+  member _.``[ARMv7] SRS to Hyp mode's stack is undefined``() =
+    "f96d051a" ++ [| AST.sideEffect BinIR.SideEffect.UndefinedInstruction |]
+    |> testARM
+
+  /// RFE loads the PC from the word at the address and CPSR from the one
+  /// above it (B9.3.13), and the address is where its mode says: RFEDA and
+  /// RFEIB had no lifter, and RFEDB loaded both words and used neither.
+  [<TestMethod>]
+  member _.``[ARMv7] RFE reads its two words where its mode says``() =
+    let expected =
+      [ "f8100a00", !.R0 .- num 4u
+        "f9100a00", !.R0 .- num 8u
+        "f8b00a00", !.R0
+        "f9900a00", !.R0 .+ num 4u ]
+    for hex, address in expected do
+      Assert.AreEqual<Expr option>(Some address, assignedBy false hex (t32 1))
+    let assigned = assignedBy false "f9100a00"
+    let pc = AST.loadBE 32<rt> (t32 1)
+    let cpsr = AST.loadBE 32<rt> (t32 1 .+ num 4u)
+    Assert.AreEqual<Expr option>(Some pc, assigned (t32 2))
+    Assert.AreEqual<Expr option>(Some cpsr, assigned (t32 3))
+
+  /// CPSR takes the second word, and the T bit in it picks the instruction
+  /// set the return goes on in.
+  [<TestMethod>]
+  member _.``[ARMv7] RFE restores CPSR from the word it loads``() =
+    let text = liftedText false "f9100a00"
+    StringAssert.Contains(text, "CPSR := ((T_3:I32 & 0xff0fffe0:I32) | ")
+    StringAssert.Contains(text, "if ((T_3:I32 & 0x20:I32) != 0x0:I32) then")
+
+  [<TestMethod>]
+  member _.``[ARMv7] RFE writes its base back``() =
+    let up = assignedBy false "f8b00a00" !.R0
+    let down = assignedBy false "f9300a00" !.R0
+    Assert.AreEqual<Expr option>(Some(!.R0 .+ num 8u), up)
+    Assert.AreEqual<Expr option>(Some(!.R0 .- num 8u), down)
+
+  /// The base is written back before the change of mode: an SP base is the
+  /// running mode's SP, not the one the restored mode brings in.
+  [<TestMethod>]
+  member _.``[ARMv7] RFE writes SP back before changing mode``() =
+    let first = assignedBy false "f8bd0a00" !.SP
+    Assert.AreEqual<Expr option>(Some(!.SP .+ num 8u), first)
+
+  [<TestMethod>]
+  member _.``[ARMv7] RFE without writeback leaves its base``() =
+    let written = writtenBy false "f9100a00"
+    Assert.AreEqual<bool>(false, Array.contains !.R0 written)
+
+  /// RFE is UNDEFINED in Hyp mode, and User mode takes its UNPREDICTABLE as
+  /// UNDEFINED; the manual lets System mode run it, alone among the returns.
+  [<TestMethod>]
+  member _.``[ARMv7] RFE is refused in User and Hyp mode``() =
+    let guard = undefinedWhen false "f9100a00"
+    Assert.AreEqual<Expr option>(Some userOrHyp, guard)
+
+  [<TestMethod>]
+  member _.``[Thumb] RFE restores CPSR from the word it loads``() =
+    let text = liftedText true "e9b0c000"
+    StringAssert.Contains(text, "CPSR := ((T_3:I32 & 0xff0fffe0:I32) | ")
+
+  [<TestMethod>]
+  member _.``[Thumb] SRS stores on the named mode's stack``() =
+    let irqSP = AST.ite (modeIsOneOf [ 0x12u ]) !.SP !.SPirq
+    let assigned = assignedBy true "e82dc012"
+    Assert.AreEqual<Expr option>(Some irqSP, assigned (t32 1))
+    Assert.AreEqual<Expr option>(Some(t32 1 .- num 8u), assigned (t32 2))
 
   /// A write to CPSR.M changes mode, and a mode change swaps the banked
   /// registers: the old mode's SP goes back to its copy, and the new mode's

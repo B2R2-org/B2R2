@@ -2283,22 +2283,6 @@ let revsh ins bld =
     putEndLabel bld lblIgnore
   }
 
-let rfedb (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let dst = transOneOpr ins bld
-    let wback = ins.WriteBack
-    let struct (addr, newPcValue, spsr) = tmpVars3 bld 32<rt>
-    addr := dst .- numI32 8 32<rt>
-    newPcValue := loadNative bld 32<rt> addr
-    spsr := loadNative bld 32<rt> (addr .+ numI32 4 32<rt>)
-    match wback with
-    | true -> append bld { dst := dst .- numI32 8 32<rt> }
-    | _ -> append bld { dst := dst }
-    putEndLabel bld lblIgnore
-  }
-
 /// Store register.
 let str ins bld size =
   lift bld ins {

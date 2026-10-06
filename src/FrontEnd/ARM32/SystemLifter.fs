@@ -321,3 +321,88 @@ let vmsr (ins: Instruction) bld =
       append bld { regVar bld sreg := src .& mask })
   | _ ->
     unsupported ins bld
+
+/// <summary>
+/// Where RFE reads its two words and SRS writes them, from the base and the
+/// addressing mode the opcode names: decrement after ends at the base,
+/// decrement before one word below it, increment after starts at it and
+/// increment before one word above it (DDI0406C B9.3.13 and B9.3.16).
+/// </summary>
+let private frameAddress opcode (start: Expr) =
+  match opcode with
+  | Op.RFEDA | Op.SRSDA -> start .- numI32 4 32<rt>
+  | Op.RFEDB | Op.SRSDB -> start .- numI32 8 32<rt>
+  | Op.RFEIA | Op.SRSIA -> start
+  | _ -> start .+ numI32 4 32<rt>
+
+/// The base RFE or SRS writes back: past the two words, in the direction its
+/// addressing mode goes.
+let private frameEnd opcode (start: Expr) =
+  match opcode with
+  | Op.RFEDA | Op.SRSDA | Op.RFEDB | Op.SRSDB -> start .- numI32 8 32<rt>
+  | _ -> start .+ numI32 8 32<rt>
+
+/// <summary>
+/// RFE, which returns from an exception with two words from memory: the PC
+/// takes the first and CPSR the second, and the base is written back before
+/// the change of mode that CPSR may make (DDI0406C B9.3.13). It is UNDEFINED
+/// in Hyp mode; User mode takes its UNPREDICTABLE as UNDEFINED, and System
+/// mode, alone among the returns, may run it.
+/// </summary>
+let rfe (ins: Instruction) bld =
+  match ins.Operands with
+  | OneOperand(OprReg rn) ->
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    lift bld ins {
+      let struct (address, target, saved) = tmpVars3 bld 32<rt>
+      let rn = regVar bld rn
+      let lblIgnore = checkCondition ins bld isUnconditional
+      undefinedInUserOrHypMode bld
+      address := frameAddress ins.Opcode rn
+      target := loadNative bld 32<rt> address
+      saved := loadNative bld 32<rt> (address .+ numI32 4 32<rt>)
+      if ins.WriteBack then rn := frameEnd ins.Opcode rn else ()
+      exceptionReturn bld target saved
+      putEndLabel bld lblIgnore
+    }
+  | _ ->
+    unsupported ins bld
+
+/// Stores LR and SPSR of the mode running on the stack of the mode a number
+/// names, and writes that mode's SP back if the instruction says so.
+let private storeReturnState (ins: Instruction) bld mode =
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let struct (start, address) = tmpVars2 bld 32<rt>
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedInUserSystemOrHypMode bld
+    start := readSPOf bld mode
+    address := frameAddress ins.Opcode start
+    loadNative bld 32<rt> address := regVar bld R.LR
+    loadNative bld 32<rt> (address .+ numI32 4 32<rt>) := regVar bld R.SPSR
+    if ins.WriteBack then writeSPOf bld mode (frameEnd ins.Opcode start)
+    else ()
+    putEndLabel bld lblIgnore
+  }
+
+/// An Undefined Instruction exception, taken only where the instruction's
+/// condition passes: a T32 SRS in an IT block whose condition fails does
+/// nothing, whatever mode it names.
+let private undefinedWhenRun (ins: Instruction) bld =
+  underCondition ins bld true (fun () ->
+    append bld { AST.sideEffect UndefinedInstruction })
+
+/// <summary>
+/// SRS, which stores LR and SPSR of the mode running on the stack of the mode
+/// it names, and can write that mode's SP back (DDI0406C B9.3.15 and B9.3.16).
+/// It is UNDEFINED in Hyp, User and System mode, and so is a mode SRS may not
+/// name.
+/// </summary>
+let srs (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(OprReg R.SP, OprImm mode) ->
+    let mode = uint32 mode
+    if isStackOfPlainMode mode then storeReturnState ins bld mode
+    else undefinedWhenRun ins bld
+  | _ ->
+    unsupported ins bld
