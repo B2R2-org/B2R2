@@ -414,12 +414,16 @@ let loadTag ins bld =
 /// whole block.
 ///
 /// The tag memory they write is not addressable and nothing here reads it
-/// back, so what they leave behind is nothing. The zeroing forms below are
-/// the ones with an effect a program can see.
+/// back, so what they leave behind is the base register alone, which the
+/// post-index and pre-index forms write the address back to as any store
+/// does. The zeroing forms below have an effect on memory too.
 /// </summary>
 let storeTag ins bld =
   lift bld ins {
-    ()
+    let struct (_, mem) = getTwoOprs ins
+    let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
+    if isWBack then direct bReg := bReg .+ offset else ()
   }
 
 /// <summary>
@@ -434,11 +438,13 @@ let storeTagZeroing ins bld granules =
   lift bld ins {
     let struct (_, mem) = getTwoOprs ins
     let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     let address = tmpVar bld 64<rt>
-    direct address := bReg .+ offset
+    direct address := if isPostIndex then bReg else bReg .+ offset
     for i in 0 .. granules * 2 - 1 do
       direct (AST.loadLE 64<rt> (address .+ numI32 (i * 8) 64<rt>)) :=
         AST.num0 64<rt>
+    writeBack bld isWBack isPostIndex bReg address offset
   }
 
 /// <summary>
@@ -453,10 +459,12 @@ let storeTagPair ins bld =
     let src1 = transOpr ins bld o1
     let src2 = transOpr ins bld o2
     let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     let address = tmpVar bld 64<rt>
-    direct address := bReg .+ offset
+    direct address := if isPostIndex then bReg else bReg .+ offset
     direct (AST.loadLE 64<rt> address) := src1
     direct (AST.loadLE 64<rt> (address .+ numI32 8 64<rt>)) := src2
+    writeBack bld isWBack isPostIndex bReg address offset
   }
 
 /// <summary>
