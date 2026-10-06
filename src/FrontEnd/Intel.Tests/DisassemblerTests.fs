@@ -419,3 +419,75 @@ type DisassemblerTests() =
     "f20f79ca"
     ++ [| "insertq xmm1, xmm2"; "insertq %xmm2, %xmm1" |]
     |> testX64
+
+  (* AMD XOP, TBM and LWP. The Intel manual does not cover these either; the
+     encodings are AMD64 APM Vol. 3's and Vol. 4's. *)
+  [<TestMethod>]
+  member _.``X64 XOP four-operand test (1)``() =
+    "8fe86885cb40"
+    ++ [| "vpmacssww xmm1, xmm2, xmm3, xmm4"
+          "vpmacssww %xmm4, %xmm3, %xmm2, %xmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 XOP four-operand test (2)``() =
+    "8fe8eca20b40"
+    ++ [| "vpcmov ymm1, ymm2, ymm4, ymmword ptr [rbx]"
+          "vpcmov (%rbx), %ymm4, %ymm2, %ymm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 XOP immediate test (1)``() =
+    "8fe878c0ca07"
+    ++ [| "vprotb xmm1, xmm2, 0x7"; "vprotb $0x7, %xmm2, %xmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 XOP immediate test (2)``() =
+    "8fe868eecb03"
+    ++ [| "vpcomud xmm1, xmm2, xmm3, 0x3"
+          "vpcomud $0x3, %xmm3, %xmm2, %xmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 XOP shift test (1)``() =
+    "8fe9e89b0b"
+    ++ [| "vpshaq xmm1, xmm2, xmmword ptr [rbx]"
+          "vpshaq (%rbx), %xmm2, %xmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 XOP scalar test (1)``() =
+    "8fe978820b"
+    ++ [| "vfrczss xmm1, dword ptr [rbx]"; "vfrczssl (%rbx), %xmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 TBM test (1)``() =
+    "8fe9e801cb"
+    ++ [| "blcfill rdx, rbx"; "blcfill %rbx, %rdx" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 TBM test (2)``() =
+    "8fe978013b"
+    ++ [| "t1mskc eax, dword ptr [rbx]"; "t1mskcl (%rbx), %eax" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 TBM test (3)``() =
+    "8feaf810cb78563412"
+    ++ [| "bextr rcx, rbx, 0x12345678"; "bextr $0x12345678, %rbx, %rcx" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 LWP test (1)``() =
+    "8fe97812c3"
+    ++ [| "llwpcb ebx"; "llwpcb %ebx" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 LWP test (2)``() =
+    "8feae812cb78563412"
+    ++ [| "lwpval rdx, ebx, 0x12345678"; "lwpval $0x12345678, %ebx, %rdx" |]
+    |> testX64

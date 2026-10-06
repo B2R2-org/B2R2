@@ -24,7 +24,7 @@
 
 /// Generates the Intel parser's straight-line opcode code from the rows and
 /// chains of B2R2.FrontEnd.Intel.InstructionTable: LegacyOpcodeMap.fs for the
-/// four legacy maps and VEXOpcodeMap.fs for the eight VEX and EVEX maps. One
+/// four legacy maps and VEXOpcodeMap.fs for the VEX, EVEX and XOP maps. One
 /// function per (map, opcode byte) slot; inside it a switch on the ModRM.reg
 /// digit where
 /// the slot needs one, a switch on the REX and mandatory-prefix state, and
@@ -215,7 +215,11 @@ let private ident (r: Row) =
 
 let private rt (sz: RegType) = sprintf "%d<rt>" (int sz)
 
-let private opc (o: Opcode) = sprintf "Opcode.%s" (o.ToString())
+/// The enum's own name for an opcode. Enum.ToString picks any of the names
+/// an alias group shares, and which one moves as names are added, so the
+/// representative Opcode.toString answers with is uppercased instead.
+let private opc (o: Opcode) =
+  sprintf "Opcode.%s" ((Opcode.toString o).ToUpperInvariant())
 
 let private pfx (p: Prefix) =
   if p = Prefix.None then
@@ -368,6 +372,9 @@ type private Opr =
   { Expr: string
     IsRegStatic: bool
     NotReg: bool
+    /// The register imm8[7:4] names, which sits after the ModRM, SIB and
+    /// displacement bytes however early the manual lists it.
+    IsIS4: bool
     /// For a register-or-memory operand: its register width and memory width.
     RM: (RegType * RegType) option
     /// The broadcast element width the memory form declares, or 0<rt>.
@@ -377,7 +384,12 @@ type private Opr =
 /// the row's constants folded in.
 let private operand (em: Emitter) (r: Row) (o: OprSpec) =
   let mk e =
-    { Expr = e; IsRegStatic = false; NotReg = false; RM = None; Bcst = 0<rt> }
+    { Expr = e
+      IsRegStatic = false
+      NotReg = false
+      IsIS4 = false
+      RM = None
+      Bcst = 0<rt> }
   let reg e = { mk e with IsRegStatic = true }
   let nonReg e = { mk e with NotReg = true }
   let rmk e rsz msz bcst = { mk e with RM = Some(rsz, msz); Bcst = bcst }
@@ -421,7 +433,7 @@ let private operand (em: Emitter) (r: Row) (o: OprSpec) =
     | OprRegType.VVVV ->
       reg (sprintf "vvvvReg &st %s" (rt o.Size))
     | OprRegType.IS4 ->
-      reg (sprintf "is4Reg span &st %s" (rt o.Size))
+      { reg (sprintf "is4Reg span &st %s" (rt o.Size)) with IsIS4 = true }
     | f ->
       failwithf "unsupported reg field %A in row %A" f r.Opcode
   | OprKind.Mem ->
@@ -643,7 +655,12 @@ let private body (em: Emitter) (ind: string) (r: Row) =
         else "Operands.twoOperands o1 o2"
       addFinish em add ind r oprs bcst
     | _ ->
-      ops |> Array.iteri (fun i o -> bindOpr add o (sprintf "o%d" (i + 1)))
+      (* The bytes are read in encoding order, which is the operand order
+         except where an /is4 register is listed ahead of the one ModRM
+         names: VPCMOV's and VPPERM's W1 forms. *)
+      let indexed = Array.indexed ops
+      let is4, rest = indexed |> Array.partition (fun (_, o) -> o.IsIS4)
+      for i, o in Array.append rest is4 do bindOpr add o (sprintf "o%d" (i + 1))
       let es = ops |> Array.mapi (fun i _ -> sprintf "o%d" (i + 1))
       let es = String.Join(", ", es)
       let oprs =

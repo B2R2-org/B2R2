@@ -129,10 +129,11 @@ module internal IntelSweep =
       mnemonic + " " + String.concat "," kinds
 
   /// C4 and C5 are the three- and two-byte VEX prefixes as well as LES and LDS,
-  /// so a probe there can decode an AVX instruction whose opcode comes out of
-  /// the padding rather than out of the probe. The VEX and EVEX spaces want a
-  /// sweep of their own; this one covers the legacy maps, so anything that
-  /// arrived through a VEX prefix is out of scope.
+  /// and 8F is AMD's XOP prefix as well as POP r/m, so a probe there can decode
+  /// an AVX or XOP instruction whose opcode comes out of the padding rather
+  /// than out of the probe. The VEX, EVEX and XOP spaces want a sweep of their
+  /// own; this one covers the legacy maps, so anything that arrived through
+  /// one of those prefixes is out of scope.
   let private isVexEncoded (ins: Instruction) = ins.VEXInfo |> Option.isSome
 
   /// D5h is the REX2 prefix of Intel APX in 64-bit mode, so a probe there

@@ -31,10 +31,10 @@ open B2R2.FrontEnd.Intel.ParsingFunctions
 open LanguagePrimitives
 
 /// Represents a parser for Intel (x86 or x86-64) instructions. The prefixes,
-/// the REX byte and the VEX or EVEX prefix are read here; the opcode maps are
-/// the generated straight-line code of LegacyOpcodeMap and VEXOpcodeMap, which
-/// IntelParserGen writes from InstructionTable, so that nothing about an
-/// instruction is looked up at parse time.
+/// the REX byte and the VEX, EVEX or XOP prefix are read here; the opcode
+/// maps are the generated straight-line code of LegacyOpcodeMap and
+/// VEXOpcodeMap, which IntelParserGen writes from InstructionTable, so that
+/// nothing about an instruction is looked up at parse time.
 type Parser(wordSz, reader: IBinReader) =
   /// Split a byte value into two fileds (high 3 bits; low 5 bits), and
   /// categorize prefix values into 8 groups based on the high 3 bits (= 2^3).
@@ -119,8 +119,8 @@ type Parser(wordSz, reader: IBinReader) =
       else
         pos
 
-  /// Reads a VEX or EVEX prefix where one sits, or else the escape bytes that
-  /// select a legacy map, whose number is left in map.
+  /// Reads a VEX, EVEX or XOP prefix where one sits, or else the escape bytes
+  /// that select a legacy map, whose number is left in map.
   member inline private _.ParseVEX(bs: ByteSpan,
                                    pos,
                                    rex: REXPrefix byref,
@@ -144,7 +144,7 @@ type Parser(wordSz, reader: IBinReader) =
       vex <- Some(getTwoVEXInfo bs &rex (pos + 1))
       pos + 2
     | 0xC4uy when bs[pos + 1] >= 0xC0uy || is64 ->
-      vex <- Some(getThreeVEXInfo bs &rex (pos + 1))
+      vex <- Some(getThreeVEXInfo bs &rex is64 (pos + 1))
       pos + 3
     | 0x62uy when bs[pos + 1] >= 0xC0uy || is64 ->
       vex <- Some(getEVEXInfo bs &rex is64 (pos + 1))
@@ -156,6 +156,13 @@ type Parser(wordSz, reader: IBinReader) =
       if rex <> REXPrefix.NOREX then raise ParsingFailureException else ()
       map <- getREX2Info bs &rex (pos + 1)
       pos + 2
+    (* AMD's XOP prefix, in every mode. 8Fh is POP r/m where ModRM.reg is
+       zero, and the map selector an XOP payload carries sets bit 3 of the
+       same byte, so the two never meet; a nonzero reg field over a map below
+       8 is #UD either way. AMD64 APM Vol. 3, "VEX and XOP Prefixes". *)
+    | 0x8Fuy when bs[pos + 1] &&& 0b00111000uy <> 0uy ->
+      vex <- Some(getXOPInfo bs &rex is64 (pos + 1))
+      pos + 3
     | _ ->
       pos
 
@@ -170,9 +177,9 @@ type Parser(wordSz, reader: IBinReader) =
     if is64 then (if Prefix.hasAddrSz pref then 32<rt> else 64<rt>)
     else (if Prefix.hasAddrSz pref then 16<rt> else 32<rt>)
 
-  /// The generated map a VEX or EVEX prefix selects: the VEX maps first, in
-  /// the order VEXType numbers them, then the EVEX ones, with the two maps
-  /// Intel APX added last.
+  /// The generated map a VEX, EVEX or XOP prefix selects: the VEX maps
+  /// first, in the order VEXType numbers them, then the EVEX ones, with the
+  /// two maps Intel APX added after them, and AMD's three XOP maps last.
   member private _.VexMapIndex(vInfo: VEXInfo) =
     let evex = vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX
     match vInfo.VEXType &&& (~~~VEXType.EVEX), evex with
@@ -186,6 +193,9 @@ type Parser(wordSz, reader: IBinReader) =
     | VEXType.Map6, true -> 7
     | VEXType.Map4, true -> 8
     | VEXType.Map7, true -> 9
+    | VEXType.XOPMap8, false -> 10
+    | VEXType.XOPMap9, false -> 11
+    | VEXType.XOPMap10, false -> 12
     | _ -> raise ParsingFailureException
 
 #if NoOpcodeMaps
@@ -236,7 +246,8 @@ type Parser(wordSz, reader: IBinReader) =
     st.Lifter <- lifter
     LegacyOpcodeMap.parse span &st map (int span[pos]) :> IInstruction
 
-  /// Parses a VEX or EVEX instruction with the generated code (VEXOpcodeMap).
+  /// Parses a VEX, EVEX or XOP instruction with the generated code
+  /// (VEXOpcodeMap).
   member private this.ParseVex(span: ByteSpan,
                                addr,
                                pref,
@@ -252,7 +263,7 @@ type Parser(wordSz, reader: IBinReader) =
     (* The APX maps take only address-size and segment prefixes ahead of the
        EVEX prefix; the others are #UD. Intel APX spec 355828-007, 3.1.2.3.
        There P2[4] is ND rather than a broadcast. *)
-    let isAPXMap = map >= 8
+    let isAPXMap = map = 8 || map = 9
     if isAPXMap && pref &&& apxForbiddenPrefixes <> Prefix.None then
       raise ParsingFailureException
     else

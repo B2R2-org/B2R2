@@ -1283,6 +1283,15 @@ module internal InstructionTable =
   let private evexMap7Rows =
     lazy (buildTable (OpcodeClass.EVEX MAP7) InstructionArrays.evexMap7)
 
+  let private xopMap8Rows =
+    lazy (buildTable (OpcodeClass.XOP MAP8) InstructionArrays.xopMap8)
+
+  let private xopMap9Rows =
+    lazy (buildTable (OpcodeClass.XOP MAP9) InstructionArrays.xopMap9)
+
+  let private xopMap10Rows =
+    lazy (buildTable (OpcodeClass.XOP MAP10) InstructionArrays.xopMap10)
+
   /// Returns true when the two rows put the same questions to an encoding
   /// beyond its REX and mandatory-prefix state: the same ModRM constraint and
   /// the same rare constraints (see Parser.matchRareConstraints). Of two such
@@ -1413,11 +1422,13 @@ module internal InstructionTable =
   /// The legacy maps as a 64-bit parser reads them.
   let legacy64 = lazy (legacy true)
 
-  /// The VEX and EVEX maps, in the order VEXType numbers them: the two-byte
-  /// map, 0F 38, 0F 3A, map 5 and map 6, with the EVEX-only maps after the
-  /// VEX ones, and the two maps Intel APX added, 4 and 7, last. One copy per
-  /// mode, carrying the mode's accept masks, and each built the first time a
-  /// prefix selects it: a process rarely meets more than two of the ten.
+  /// The VEX, EVEX and XOP maps, in the order VEXType numbers them: the
+  /// two-byte map, 0F 38, 0F 3A, map 5 and map 6, with the EVEX-only maps
+  /// after the VEX ones, the two maps Intel APX added, 4 and 7, after those,
+  /// and the three maps AMD's XOP prefix selects, 8, 9 and 0Ah, last. One
+  /// copy per mode, carrying the mode's accept masks, and each built the
+  /// first time a prefix selects it: a process rarely meets more than two of
+  /// the thirteen.
   let private vex is64 =
     [| lazy (chains is64 1 [| vexTwoRows.Value |])
        lazy (chains is64 1 [| vexThree38Rows.Value |])
@@ -1428,13 +1439,16 @@ module internal InstructionTable =
        lazy (chains is64 1 [| evexMap5Rows.Value |])
        lazy (chains is64 1 [| evexMap6Rows.Value |])
        lazy (chains is64 1 [| evexMap4Rows.Value |])
-       lazy (chains is64 1 [| evexMap7Rows.Value |]) |]
+       lazy (chains is64 1 [| evexMap7Rows.Value |])
+       lazy (chains is64 1 [| xopMap8Rows.Value |])
+       lazy (chains is64 1 [| xopMap9Rows.Value |])
+       lazy (chains is64 1 [| xopMap10Rows.Value |]) |]
 
-  /// The VEX and EVEX maps as a 32-bit parser reads them, each built when
-  /// first asked for.
+  /// The VEX, EVEX and XOP maps as a 32-bit parser reads them, each built
+  /// when first asked for.
   let vex32 = vex false
 
-  /// The VEX and EVEX maps as a 64-bit parser reads them.
+  /// The VEX, EVEX and XOP maps as a 64-bit parser reads them.
   let vex64 = vex true
 
 // vim: set tw=80 sts=2 sw=2:

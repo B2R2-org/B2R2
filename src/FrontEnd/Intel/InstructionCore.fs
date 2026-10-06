@@ -214,6 +214,9 @@ and OpEn =
   | VMC = 43
   | VMRI = 44
   | VMRC = 45
+  /// ModRM:reg, vvvv, imm8[7:4], ModRM:r/m: the W1 forms of VPCMOV and
+  /// VPPERM, where REX.W swaps the last two sources.
+  | RVRM = 46
 
 and Mode64 =
   | None = 0
@@ -273,6 +276,8 @@ and [<RequireQualifiedAccess>] OpcodeClass =
   | Normal of OpcodeMap
   | VEX of OpcodeMap
   | EVEX of OpcodeMap
+  /// AMD's XOP prefix, which selects maps of its own.
+  | XOP of OpcodeMap
 
 and OpcodeMap =
   | OneByte
@@ -283,6 +288,10 @@ and OpcodeMap =
   | MAP5
   | MAP6
   | MAP7
+  /// The three maps AMD's XOP prefix selects: 08h, 09h and 0Ah.
+  | MAP8
+  | MAP9
+  | MAP10
 
 /// What a row asks of an EVEX bit that Intel APX gave a meaning: that it be
 /// clear, that it be set, or nothing.
