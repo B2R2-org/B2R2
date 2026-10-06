@@ -1961,3 +1961,43 @@ type LifterTests() =
   member _.``[ARMv7] VRSQRTE.F32 estimates reciprocal square roots``() =
     let d0, _, _ = fpRun "f3bb0582" 0u [ 2, 0x3f80000040800000UL ]
     Assert.AreEqual<uint64>(0x3f7f80003eff8000UL, d0)
+
+  /// <summary>
+  /// The Advanced SIMD VCVT between singles and 32-bit integers rounds toward
+  /// zero and saturates, lane by lane, to an integer, and to nearest from one
+  /// (A8.8.306): -2.5 is -2 and 3e9 is 0x7fffffff; 16777217 is 16777216.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.S32.F32 on D registers converts both lanes``() =
+    let d0, _, fpscr = fpRun "f3bb0702" 0u [ 2, 0x4f32d05ec0200000UL ]
+    Assert.AreEqual<uint64 * uint32>((0x7ffffffffffffffeUL, 0x11u),
+                                     (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.F32.S32 on D registers converts both lanes``() =
+    let d0, _, fpscr = fpRun "f3bb0602" 0u [ 2, 0xffffffff01000001UL ]
+    Assert.AreEqual<uint64 * uint32>((0xbf8000004b800000UL, 0x10u),
+                                     (d0, fpscr))
+
+  /// <summary>
+  /// The fixed-point form saturates an unsigned result at zero: with one
+  /// fraction bit, 1.75 is 3, rounded toward zero, and -1.0 is 0 (A8.8.308).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.U32.F32 to fixed point saturates at zero``() =
+    let d0, _, fpscr = fpRun "f3bf0f12" 0u [ 2, 0xbf8000003fe00000UL ]
+    Assert.AreEqual<uint64 * uint32>((3UL, 0x11u), (d0, fpscr))
+
+  /// The Advanced SIMD VCVT between singles and halves narrows a quadword of
+  /// singles into a doubleword of halves, and widens one back (A8.8.311).
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.F16.F32 narrows four singles``() =
+    let ds = [ 2, 0xc00000003f800000UL; 3, 0x478000003f000000UL ]
+    let d0, _, fpscr = fpRun "f3b60602" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x7c003800c0003c00UL, 0x14u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.F32.F16 widens four halves``() =
+    let d0, d1, fpscr = fpRun "f3b60702" 0u [ 2, 0x00017c00c0003c00UL ]
+    let expected = 0xc00000003f800000UL, 0x338000007f800000UL, 0u
+    Assert.AreEqual<uint64 * uint64 * uint32>(expected, (d0, d1, fpscr))

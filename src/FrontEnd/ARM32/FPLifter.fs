@@ -615,6 +615,37 @@ let private vfpFixedConvert (ins: Instruction) bld dst src fbits =
       else AST.sext sz word
   append bld { reg := r }
 
+/// <summary>
+/// The Advanced SIMD VCVT between singles and 32-bit integers or fixed-point
+/// numbers, lane by lane on the standard value: toward zero to an integer,
+/// to nearest from one.
+/// </summary>
+let private neonIntConvert (ins: Instruction) bld dst src fbits =
+  let struct (d, s) =
+    match ins.Operands with
+    | TwoOperands(d, s)
+    | ThreeOperands(d, s, _) -> struct (d, s)
+    | _ -> raise InvalidOperandException
+  let lane e =
+    if isFloatDt dst then
+      fixedToFP bld StandardValue 32<rt> 32 fbits (isUnsignedDt src) true e
+    else
+      fpToFixed bld StandardValue 32<rt> 32 fbits (isUnsignedDt dst) true e
+  readLanes bld 32 s |> Array.map lane |> writeLanes bld d
+
+/// The Advanced SIMD VCVT between four singles in a quadword and four halves
+/// in a doubleword, on the standard value, which keeps FPSCR.AHP.
+let private neonHalfConvert (ins: Instruction) bld toHalf =
+  let struct (d, s) = getTwoOprs ins
+  if toHalf then
+    readLanes bld 32 s
+    |> Array.map (fpWideToHalf bld StandardValue 32<rt>)
+    |> writeLanes bld d
+  else
+    readLanes bld 16 s
+    |> Array.map (fpHalfToWide bld StandardValue 32<rt>)
+    |> writeLanes bld d
+
 let private fbitsOf (ins: Instruction) =
   match ins.Operands with
   | ThreeOperands(_, _, OprImm fbits) -> int fbits
@@ -636,6 +667,12 @@ let private convert (ins: Instruction) bld towardZero dst src =
     vfpScalar ins bld (fun _ _ e _ -> fpSingleToDouble bld FPSCRValue e)
   | SIMDTypF32, SIMDTypF64 ->
     vfpScalar ins bld (fun _ _ e _ -> fpDoubleToSingle bld FPSCRValue e)
+  | SIMDTypF16, SIMDTypF32 ->
+    neonHalfConvert ins bld true
+  | SIMDTypF32, SIMDTypF16 ->
+    neonHalfConvert ins bld false
+  | _ when isAdvSIMDConvert ins dst src ->
+    neonIntConvert ins bld dst src (fbitsOf ins)
   | _ ->
     match ins.Operands with
     | ThreeOperands _ -> vfpFixedConvert ins bld dst src (fbitsOf ins)
@@ -646,13 +683,15 @@ let private isConvertible = function
   | SIMDTypU16 -> true
   | _ -> false
 
-/// Whether a conversion is one this lifts: the VFP ones, between singles or
-/// doubles and integers or fixed-point numbers, and between singles and
-/// doubles. The Advanced SIMD ones are not, nor the Armv8 half-precision
-/// conversions to and from integers.
+/// Whether a conversion is one this lifts: between singles or doubles and
+/// integers or fixed-point numbers, between singles and doubles, and the
+/// Advanced SIMD one between singles and halves. The Armv8 half-precision
+/// conversions to and from integers are not.
 let private isLifted (ins: Instruction) dst src =
-  isConvertible dst && isConvertible src
-  && not (isAdvSIMDConvert ins dst src)
+  match dst, src, ins.Operands with
+  | SIMDTypF16, SIMDTypF32, TwoOperands(d, _)
+  | SIMDTypF32, SIMDTypF16, TwoOperands(d, _) -> not (isSingle d)
+  | _ -> isConvertible dst && isConvertible src
 
 /// <summary>
 /// VCVT and VCVTR. A conversion to an integer rounds toward zero for VCVT and
