@@ -107,6 +107,20 @@ type LifterTests() =
     let read = IRRunner.run (lifted hex) inputs
     (read !.FPSR).ToUInt64() >>> 27 &&& 1UL
 
+  (* FPCR.FZ, FPCR.FZ16 and FPCR.AHP, as FPCR holds them *)
+  let fz = 1UL <<< 24
+
+  let fz16 = 1UL <<< 19
+
+  let ahp = 1UL <<< 26
+
+  /// What one encoding leaves in the low half of V0 and in FPSR, run with
+  /// FPCR and the low half of V1 set to the given words.
+  let fpAfter hex fpcr v1 =
+    let inputs = [ !.FPCR, bv64 fpcr; !@(Q1, 1), bv64 v1 ]
+    let read = IRRunner.run (lifted hex) inputs
+    (read !@(Q0, 1)).ToUInt64(), (read !.FPSR).ToUInt64()
+
   (* NGC, NGCS and a BFC with a non-zero lsb all reached the raising
      fall-through in `translate`, so a block containing one did not lift at
      all. The claim these pin is exactly that -- each encoding produces
@@ -365,6 +379,115 @@ type LifterTests() =
     let read = IRRunner.run (lifted "4e021020") inputs
     Assert.AreEqual<uint64>(0x4a48ee45eeee4f40UL, (read !@(Q0, 1)).ToUInt64())
     Assert.AreEqual<uint64>(0xee47ee43ee4eee41UL, (read !@(Q0, 2)).ToUInt64())
+
+  /// FPUnpackCV flushes a denormal single under FPCR.FZ and raises Input
+  /// Denormal alone (DDI0487F.c J1.3): what is left converts exactly.
+  [<TestMethod>]
+  member _.``[AArch64] FCVT flushes a denormal single under FZ``() =
+    Assert.AreEqual<uint64 * uint64>((0UL, 0x80UL), fpAfter "1e23c020" fz 1UL)
+
+  /// The alternative half-precision format FPCR.AHP selects has no infinity
+  /// and no NaN (J1.3 FPConvert): an infinity becomes the largest magnitude
+  /// and a NaN a zero of its own sign, each raising Invalid.
+  [<TestMethod>]
+  member _.``[AArch64] FCVT under AHP saturates an infinity``() =
+    Assert.AreEqual<uint64 * uint64>((0x7fffUL, 1UL),
+                                     fpAfter "1e23c020" ahp 0x7f800000UL)
+
+  [<TestMethod>]
+  member _.``[AArch64] FCVT under AHP makes a NaN a zero``() =
+    Assert.AreEqual<uint64 * uint64>((0x8000UL, 1UL),
+                                     fpAfter "1e23c020" ahp 0xffc00000UL)
+
+  /// Its top exponent is an ordinary one, so 131008 converts exactly, and
+  /// anything past it saturates with Invalid and without Inexact (J1.3
+  /// FPRoundBase).
+  [<TestMethod>]
+  member _.``[AArch64] FCVT under AHP reaches the top exponent``() =
+    Assert.AreEqual<uint64 * uint64>((0x7fffUL, 0UL),
+                                     fpAfter "1e23c020" ahp 0x47ffe000UL)
+
+  [<TestMethod>]
+  member _.``[AArch64] FCVT under AHP saturates past 2^17 as Invalid``() =
+    Assert.AreEqual<uint64 * uint64>((0x7fffUL, 1UL),
+                                     fpAfter "1e23c020" ahp 0x48000001UL)
+
+  /// Read back, the top exponent is a number too: 7c01 is 65600, not a
+  /// signalling NaN.
+  [<TestMethod>]
+  member _.``[AArch64] FCVT from a half under AHP reads 7c01 as 65600``() =
+    Assert.AreEqual<uint64 * uint64>((0x47802000UL, 0UL),
+                                     fpAfter "1ee24020" ahp 0x7c01UL)
+
+  /// FPConvertBF unpacks its operand, so FZ flushes a denormal single that
+  /// would otherwise round up to the smallest normal bfloat16.
+  [<TestMethod>]
+  member _.``[AArch64] BFCVT flushes a denormal single under FZ``() =
+    Assert.AreEqual<uint64 * uint64>((0UL, 0x80UL),
+                                     fpAfter "1e634020" fz 0x7fffffUL)
+
+  /// FPToFixedJS clears Z for a denormal flushed to zero, though the zero
+  /// it converts to is exact (J1.3: `!IsZero(op<51:0>)`).
+  [<TestMethod>]
+  member _.``[AArch64] FJCVTZS clears Z for a flushed denormal``() =
+    let inputs =
+      [ !.FPCR, bv64 fz
+        !@(Q1, 1), bv64 1UL
+        !.Z, BitVector.One 1<rt> ]
+    let read = IRRunner.run (lifted "1e7e0020") inputs
+    Assert.AreEqual<uint64>(0UL, (read !.Z).ToUInt64())
+    Assert.AreEqual<uint64>(0x80UL, (read !.FPSR).ToUInt64())
+
+  /// The flush keeps the operand's sign: a negative denormal is minus zero.
+  [<TestMethod>]
+  member _.``[AArch64] FCVT flushes a negative denormal to minus zero``() =
+    Assert.AreEqual<uint64 * uint64>((0x8000UL, 0x80UL),
+                                     fpAfter "1e23c020" fz 0x80000001UL)
+
+  /// A negative half with the top exponent reads back as a negative number.
+  [<TestMethod>]
+  member _.``[AArch64] FCVT from a half under AHP reads fc01 as -65600``() =
+    Assert.AreEqual<uint64 * uint64>((0xc7802000UL, 0UL),
+                                     fpAfter "1ee24020" ahp 0xfc01UL)
+
+  /// FixedToFP rounds by FPRound, so FZ16 flushes a half result that was
+  /// tiny before rounding, raising Underflow alone, even an exact one: 1 with
+  /// 20 fraction bits is 2^-20, a subnormal half (J1.3 FPRoundBase).
+  [<TestMethod>]
+  member _.``[AArch64] SCVTF to a half flushes 2^-20 under FZ16``() =
+    let inputs = [ !.FPCR, bv64 fz16; !.X1, bv64 1UL ]
+    let read = IRRunner.run (lifted "1ec2b020") inputs
+    Assert.AreEqual<uint64>(0UL, (read !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(8UL, (read !.FPSR).ToUInt64())
+
+  /// The flushed zero keeps the result's sign: -1 gives minus zero.
+  [<TestMethod>]
+  member _.``[AArch64] SCVTF to a half flushes -2^-20 to minus zero``() =
+    let inputs = [ !.FPCR, bv64 fz16; !.X1, bv64 0xffffffffUL ]
+    let read = IRRunner.run (lifted "1ec2b020") inputs
+    Assert.AreEqual<uint64>(0x8000UL, (read !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(8UL, (read !.FPSR).ToUInt64())
+
+  /// Without FZ16 the same subnormal half is written as it is.
+  [<TestMethod>]
+  member _.``[AArch64] SCVTF to a half keeps 2^-20 without FZ16``() =
+    let read = IRRunner.run (lifted "1ec2b020") [ !.X1, bv64 1UL ]
+    Assert.AreEqual<uint64>(0x10UL, (read !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(0UL, (read !.FPSR).ToUInt64())
+
+  /// FZ16 is a half's FZ: FRECPE of 2^14 is under the smallest normal half
+  /// and gives a zero, raising Underflow alone.
+  [<TestMethod>]
+  member _.``[AArch64] FRECPE of the half 2^14 is zero under FZ16``() =
+    Assert.AreEqual<uint64 * uint64>((0UL, 8UL),
+                                     fpAfter "5ef9d820" fz16 0x7400UL)
+
+  /// FPRecipEstimate gives a zero, raising Underflow alone, for a reciprocal
+  /// FZ would flush: 2^127's is under the smallest normal.
+  [<TestMethod>]
+  member _.``[AArch64] FRECPE of 2^127 is zero under FZ``() =
+    Assert.AreEqual<uint64 * uint64>((0UL, 8UL),
+                                     fpAfter "5ea1d820" fz 0x7f000000UL)
 
   /// UDF raises an Undefined Instruction exception wherever it runs.
   [<TestMethod>]

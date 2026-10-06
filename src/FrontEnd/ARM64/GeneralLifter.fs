@@ -1199,44 +1199,19 @@ let dczva ins bld =
     zeroBlock bld src
   }
 
-let checkZero bld dataSize fpVal =
-  let isFZ = (regVar bld R.FPCR >> numI32 24 64<rt>) |> AST.xtlo 1<rt>
-  let struct (n0, f0) = tmpVars2 bld dataSize
-  append bld {
-    direct n0 := AST.num0 dataSize
-    direct f0 := fpZero fpVal dataSize
-  }
-  let inline isOnes exp =
-    match dataSize with
-    | 32<rt> -> exp == numI32 0xFF 32<rt>
-    | 64<rt> -> exp == numI32 0x7FF 64<rt>
-    | _ -> raise InvalidOperandSizeException
-  let struct (exp, frac) = tmpVars2 bld dataSize
-  match dataSize with
-  | 32<rt> ->
-    append bld {
-      direct exp := (fpVal >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
-      direct frac := fpVal .& numU32 0x7fffffu 32<rt>
-    }
-  | 64<rt> ->
-    append bld {
-      direct exp := (fpVal >> numI64 52L 64<rt>) .& numI64 0x7ffL 64<rt>
-      direct frac := fpVal .& numU64 0xfffffffffffffUL 64<rt>
-    }
-  | _ ->
-    raise InvalidOperandSizeException
-  AST.ite ((exp == n0) .& (frac == n0 .| isFZ))
-    f0
-    (AST.ite ((isOnes exp) .& (frac != n0)) f0 fpVal)
-
+/// <summary>
+/// FPCompare's answer as NZCV, and whether unpacking flushed an operand. Both
+/// operands are unpacked first, which flushes a denormal one to zero under
+/// FPCR.FZ: an operand that was a half was flushed under FZ16 before it was
+/// widened, and widened halves are never denormal doubles. The Input Denormal
+/// the flush raises is the caller's to record, since FCCMP compares only
+/// where its condition holds.
+/// </summary>
 let private fpCompare bld oprSz src1 src2 =
-  let struct (v1, v2) = tmpVars2 bld oprSz
+  let struct (v1, d1) = fpFlushOperand bld oprSz src1
+  let struct (v2, d2) = fpFlushOperand bld oprSz src2
   let isOpNaN = tmpVar bld 1<rt>
   let result = tmpVar bld 8<rt>
-  append bld {
-    direct v1 := checkZero bld oprSz src1
-    direct v2 := checkZero bld oprSz src2
-  }
   let lblOpNaN = label bld "OpNaN"
   let lblCmp = label bld "Cmp"
   let lblEq = label bld "Eq"
@@ -1260,17 +1235,18 @@ let private fpCompare bld oprSz src1 src2 =
     direct result := AST.ite cond (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>)
     AST.lmark lblEnd
   }
-  result
+  struct (result, d1 .| d2)
 
 /// <summary>
-/// The comparison at the operands' own width: a half's in doubles, which
-/// hold every half exactly and so order them the same way.
+/// The comparison at the operands' own width -- a half's in doubles, which
+/// hold every half exactly and so order them the same way -- and whether
+/// unpacking flushed an operand, as <see cref="fpCompare"/> gives it.
 /// </summary>
 let private fpCompareAt bld oprSz src1 src2 =
   if oprSz = 16<rt> then
     let struct (w1, w2) = tmpVars2 bld 64<rt>
-    let e1 = halfToWide false 64<rt> bld src1
-    let e2 = halfToWide false 64<rt> bld src2
+    let e1 = halfToWide false 64<rt> bld (fpFlushIn bld 16<rt> src1)
+    let e2 = halfToWide false 64<rt> bld (fpFlushIn bld 16<rt> src2)
     append bld {
       direct w1 := e1
       direct w2 := e2
@@ -1293,7 +1269,9 @@ let fcmp (ins: Instruction) bld =
   lift bld ins {
     let src1, src2 = transTwoOprs ins bld
     let flags = tmpVar bld 8<rt>
-    direct flags := fpCompareAt bld ins.OprSize src1 src2
+    let struct (comp, denormal) = fpCompareAt bld ins.OprSize src1 src2
+    direct flags := comp
+    fpInputDenormal bld ins.OprSize denormal
     fpExceptionsInvalidOnly bld (compareInvalid ins src1 src2)
     direct (regVar bld R.N) := AST.extract flags 1<rt> 3
     direct (regVar bld R.Z) := AST.extract flags 1<rt> 2
@@ -1307,9 +1285,10 @@ let fccmp (ins: Instruction) bld =
     let flags = tmpVar bld 8<rt>
     let holds = tmpVar bld 1<rt>
     direct holds := conditionHolds bld cond
-    let comp = fpCompareAt bld ins.OprSize src1 src2
+    let struct (comp, denormal) = fpCompareAt bld ins.OprSize src1 src2
     direct flags := AST.ite holds comp (AST.xtlo 8<rt> nzcv)
     (* nothing is compared where the condition fails, so nothing is raised *)
+    fpInputDenormal bld ins.OprSize (holds .& denormal)
     fpExceptionsInvalidOnly bld (holds .& compareInvalid ins src1 src2)
     direct (regVar bld R.N) := AST.extract flags 1<rt> 3
     direct (regVar bld R.Z) := AST.extract flags 1<rt> 2

@@ -91,7 +91,7 @@ let private fpType bld mode eSize element =
 /// </summary>
 let private roundLane bld eSize round e =
   if eSize = 16<rt> then viaDouble bld (fun w -> round 64<rt> w[0]) [| e |]
-  else round eSize e
+  else round eSize (fpFlushIn bld eSize e)
 
 let private isVecIdxOrLD1ST1 (ins: Instruction) opr =
   let isVecIdx =
@@ -525,8 +525,13 @@ let private bfRoundsUp mode src =
 /// the rounding lost: Inexact, Overflow where it made an infinity, Underflow
 /// for a subnormal single -- tiny before rounding -- and Invalid for a
 /// signalling NaN.
+///
+/// The operand is unpacked first, so FPCR.FZ flushes a subnormal one to a
+/// zero of its sign, raising Input Denormal. Nothing a normal single rounds
+/// to is tiny, so the flush on the way out never has anything to do.
 /// </summary>
 let private toBFloat bld src =
+  let src = fpFlushIn bld 32<rt> src
   let fpcr = regVar bld R.FPCR
   let rounded = tmpVar bld 16<rt>
   let up = bfRoundsUp (AST.extract fpcr 2<rt> 22) src
@@ -1173,7 +1178,7 @@ let private compareWidth bld eSize e =
     e
   else
     let t = tmpVar bld 32<rt>
-    let w = halfToSingleAsIs bld e
+    let w = halfToSingleAsIs bld (fpFlushIn bld 16<rt> e)
     append bld { direct t := w }
     t
 
@@ -1192,8 +1197,7 @@ let private compareLane bld wSize cmp absolute signals ones zeros e1 e2 =
     | 64<rt> -> numU64 0x8000000000000000UL 64<rt>
     | _ -> numU64 0x80000000UL 32<rt>
   let mag e = if absolute then e .& AST.not signBit else e
-  let holds =
-    cmp (checkZero bld wSize (mag e1)) (checkZero bld wSize (mag e2))
+  let holds = cmp (fpFlushIn bld wSize (mag e1)) (fpFlushIn bld wSize (mag e2))
   let anyNaN = (isNaN wSize e1) .| (isNaN wSize e2)
   fpExceptionsCompare bld wSize signals e1 e2
   AST.ite anyNaN zeros (AST.ite holds ones zeros)
@@ -1447,7 +1451,9 @@ let private sqrtStepTerms bld eSize a b =
 /// however the operands were signed. An infinity anywhere else gives an
 /// infinity whose sign is the two operands' exclusive or.
 /// </summary>
-let private recipStep bld eSize isSqrt a b =
+let private recipStep bld eSize flushes isSqrt a b =
+  let flushIn x = if flushes then fpFlushIn bld eSize x else x
+  let a, b = flushIn a, flushIn b
   let struct (two, _, onePointFive, half) = stepConstants eSize
   (* the NaN that propagates is the NEGATED first operand's, because the
      negation is the first thing the manual does -- which is why a NaN comes
@@ -1477,8 +1483,9 @@ let private recipStep bld eSize isSqrt a b =
   append bld { direct res := AST.ite anyNaN nan finite }
   (* what the one rounding raised: the degenerate product raises nothing,
      where the fused operation it would have been is invalid *)
-  let raised = fpFusedRaised eSize true x y addend
-  fpRecord bld (AST.ite degenerate (AST.num0 64<rt>) raised)
+  let raised =
+    AST.ite degenerate (AST.num0 64<rt>) (fpFusedRaised eSize true x y addend)
+  fpRecord bld (if flushes then fpFlushOut bld eSize res raised else raised)
   res
 
 /// <summary>
@@ -1492,7 +1499,7 @@ let private recipStep bld eSize isSqrt a b =
 /// In a double the step on two halves is exact, so it rounds once.
 /// </summary>
 let private recipStepHalf bld isSqrt a b =
-  let op (w: Expr[]) = recipStep bld 64<rt> isSqrt w[0] w[1]
+  let op (w: Expr[]) = recipStep bld 64<rt> false isSqrt w[0] w[1]
   viaDouble bld op [| a; b |]
 
 /// <summary>
@@ -1505,7 +1512,7 @@ let private recipStepOp (ins: Instruction) bld isSqrt =
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let lane a b =
       if eSize = 16<rt> then recipStepHalf bld isSqrt a b
-      else recipStep bld eSize isSqrt a b
+      else recipStep bld eSize true isSqrt a b
     match dst with
     | OprSIMD(ScalarReg _) ->
       let _, s1, s2 = transThreeOprs ins bld
@@ -1539,7 +1546,9 @@ let frsqrts ins bld = recipStepOp ins bld true
 ///
 /// The widening must not quiet a signalling NaN, because FPProcessNaNs3
 /// picks a signalling one ahead of a quiet one and the accumulator can be
-/// either -- see <see cref="halfToSingleAsIs"/>.
+/// either -- see <see cref="halfToSingleAsIs"/>. FPMulAddH unpacks the
+/// halves as halves, so FPCR.FZ16 flushes a denormal one, raising nothing;
+/// FZ is the accumulator's and the result's, as in any single operation.
 ///
 /// By element, every lane's second operand is the one half the index names.
 /// </summary>
@@ -1560,13 +1569,14 @@ let private mulAddLong (ins: Instruction) bld isSub isUpper =
       | _ ->
         part (halves src2)
     let acc = transSIMDOprToExpr bld 32<rt> dataSize elements dst
+    let unpack h = halfToSingleAsIs bld (fpFlushIn bld 16<rt> h)
     let lane a b addend =
       let x = tmpVar bld 32<rt>
-      let widened = halfToSingleAsIs bld a
+      let widened = unpack a
       let sign = numU32 0x80000000u 32<rt>
       append bld { direct x := if isSub then widened <+> sign else widened }
       let y = tmpVar bld 32<rt>
-      let other = halfToSingleAsIs bld b
+      let other = unpack b
       append bld { direct y := other }
       fpMulAdd bld 32<rt> addend x y
     let result = Array.init elements (fun i -> lane n[i] m[i] acc[i])
@@ -2128,6 +2138,7 @@ let private rintBound eSize intSize =
 /// FPRoundInt.
 /// </summary>
 let private rintFitLane bld eSize intSize round e =
+  let e = fpFlushIn bld eSize e
   let rounded = tmpVar bld eSize
   append bld { direct rounded := round eSize e }
   let most = rintOverflow eSize intSize
@@ -2222,7 +2233,8 @@ let fjcvtzs (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let d = transOpr ins bld dst
-    let s = transOpr ins bld src
+    let given = transOpr ins bld src
+    let s = fpFlushIn bld 64<rt> given
     let struct (magnitude, dropped, gone) = jsIntegerPart bld s
     let negative = AST.xthi 1<rt> s
     let signed = AST.ite negative (AST.neg magnitude) magnitude
@@ -2235,7 +2247,9 @@ let fjcvtzs (ins: Instruction) bld =
     let noInteger = (biased .>= numI32 (1023 + 64) 64<rt>) .| AST.not inRange
     let fitted =
       (dropped == AST.num0 64<rt>) .& AST.not (noInteger .| gone)
-    let exact = AST.ite isZero (AST.not negative) fitted
+    let givenBits = given .& numU64 0x7fffffffffffffffUL 64<rt>
+    let wasZero = givenBits == AST.num0 64<rt>
+    let exact = AST.ite isZero (AST.not negative .& wasZero) fitted
     fpExceptionsToInt bld 64<rt> s noInteger
     direct (regVar bld R.N) := AST.b0
     direct (regVar bld R.Z) := exact
@@ -2951,9 +2965,10 @@ let private toWidth eSize x = if eSize = 64<rt> then x else AST.xtlo eSize x
 ///
 /// A zero or a denormal has no exponent to complement, so both answer with
 /// the largest finite one. A NaN is processed -- made quiet, or the default
-/// one under DN -- and a signalling one raises Invalid, the only exception
-/// this can raise. Nothing else about the value survives -- that is the point
-/// of the instruction: it is the part of a reciprocal that cannot overflow.
+/// one under DN -- and a signalling one raises Invalid; a denormal FZ flushes
+/// raises Input Denormal, though the answer is read off its bits all the same.
+/// Nothing else about the value survives -- that is the point of the
+/// instruction: it is the part of a reciprocal that cannot overflow.
 /// </summary>
 let frecpx (ins: Instruction) bld =
   lift bld ins {
@@ -2969,6 +2984,7 @@ let frecpx (ins: Instruction) bld =
     let flipped = AST.ite (e == AST.num0 eSize) maxExp (AST.not e .& expMask)
     let ordinary = sign .| (flipped << numI32 mantBits eSize)
     let nan = fpProcessNan bld eSize src
+    fpInputDenormal bld eSize (fpFlushes bld eSize .& isDenormal eSize src)
     fpExceptionsInvalidOnly bld (isSNaN eSize src)
     dstAssignScalar ins bld dst (AST.ite (isNaN eSize src) nan ordinary) eSize
   }
@@ -3029,6 +3045,7 @@ let private recipBody eSize frac exp =
   .| ((fracF >> numI32 (52 - mBits) 64<rt>) .& mMask)
 
 let private recipEstimate bld eSize e =
+  let e = fpFlushIn bld eSize e
   let struct (mBits, eBits, _, _) = estimateLayout eSize
   let struct (sign, mant, rawExp, started) = estimateParts eSize e
   let isDen = rawExp == AST.num0 64<rt>
@@ -3052,9 +3069,18 @@ let private recipEstimate bld eSize e =
   let toInf = fpOverflowsToInfinity bld (sign != AST.num0 64<rt>)
   let overflow = AST.ite toInf infinity largest
   let small = AST.ite isZero infinity (AST.ite tiny overflow body)
+  (* a reciprocal under the smallest normal, of an operand at 2^(emax-1) or
+     above, is flushed to zero under FZ and raises Underflow alone *)
+  let large = rawExp .>= numI32 ((1 <<< eBits) - 3) 64<rt>
+  let flushed = tmpVar bld 1<rt>
+  append bld {
+    direct flushed := fpFlushes bld eSize .& large .& AST.not isTop
+  }
   let nan = fpProcessNan bld eSize e
   fpExceptionsEstimate bld (isSNaN eSize e) isZero tiny
-  AST.ite isNaN nan (toWidth eSize (AST.ite isInf sign small))
+  fpRecord bld (AST.ite flushed (numU64 0x8UL 64<rt>) (AST.num0 64<rt>))
+  let finite = AST.ite (isInf .| flushed) sign small
+  AST.ite isNaN nan (toWidth eSize finite)
 
 let frecpe (ins: Instruction) bld =
   lift bld ins {
@@ -3091,6 +3117,7 @@ let frecpe (ins: Instruction) bld =
 /// payload is thrown away rather than carried.
 /// </summary>
 let private rsqrtEstimate bld eSize e =
+  let e = fpFlushIn bld eSize e
   let struct (mBits, eBits, _, rsqrtBase) = estimateLayout eSize
   let struct (sign, mant, rawExp, started) = estimateParts eSize e
   let isDen = rawExp == AST.num0 64<rt>

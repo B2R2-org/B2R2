@@ -31,7 +31,9 @@ open B2R2.BinIR.LowUIR
 
 /// Runs the statements an instruction lifts to over registers given values,
 /// for a test whose claim is the value an instruction computes. It knows the
-/// straight-line integer LowUIR a lane of SIMD arithmetic lifts to, and fails
+/// straight-line integer LowUIR a lane of SIMD arithmetic lifts to, and of
+/// doubles the rounding to an integral value an exactness check asks for and
+/// the conversion and scaling a fixed-point operand goes through, and fails
 /// on anything else rather than guess what it means.
 module internal IRRunner =
   /// The register a register variable names.
@@ -73,6 +75,25 @@ module internal IRRunner =
     | RelOpType.SLE -> BitVector.SLe(a, b)
     | _ -> failwith $"IRRunner: no {op}"
 
+  /// The double a 64-bit pattern holds.
+  let private toDouble (x: BitVector) =
+    System.BitConverter.UInt64BitsToDouble(x.ToUInt64())
+
+  /// A double's 64-bit pattern.
+  let private ofDouble (d: float) =
+    BitVector(System.BitConverter.DoubleToUInt64Bits(d), 64<rt>)
+
+  /// A double rounded to an integral value in a direction of the
+  /// RoundingMode encoding.
+  let private roundToIntegral (mode: BitVector) (x: BitVector) =
+    let d = toDouble x
+    match enum<RoundingMode> (int (mode.ToUInt64())) with
+    | RoundingMode.ToNearestEven -> ofDouble (System.Math.Round(d))
+    | RoundingMode.TowardNegative -> ofDouble (System.Math.Floor(d))
+    | RoundingMode.TowardPositive -> ofDouble (System.Math.Ceiling(d))
+    | RoundingMode.TowardZero -> ofDouble (System.Math.Truncate(d))
+    | m -> failwith $"IRRunner: no {m}"
+
   let rec private eval regs (temps: Dictionary<int, BitVector>) e =
     let eval = eval regs temps
     match e with
@@ -82,6 +103,9 @@ module internal IRRunner =
       readReg regs r t
     | TempVar(Index = n) ->
       temps[n]
+    | BinOp(Op = BinOpType.FMUL; Left = l; Right = r)
+      when Expr.typeOf l = 64<rt> ->
+      ofDouble (toDouble (eval l) * toDouble (eval r))
     | BinOp(Op = op; Left = l; Right = r) ->
       binOp op (eval l) (eval r)
     | RelOp(Op = op; Left = l; Right = r) ->
@@ -94,10 +118,16 @@ module internal IRRunner =
       BitVector.ZExt(eval x, t)
     | Cast(Kind = CastKind.SignExt; Type = t; Operand = x) ->
       BitVector.SExt(eval x, t)
+    | Cast(Kind = CastKind.SIntToFloat; Type = 64<rt>; Operand = x)
+      when Expr.typeOf x = 64<rt> ->
+      ofDouble (float (int64 ((eval x).ToUInt64())))
     | Extract(Operand = x; Type = t; StartPos = p) ->
       BitVector.Extract(eval x, t, p)
     | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
       if (eval c).IsTrue then eval a else eval b
+    | RoundCtrl(Mode = mode; Body = Cast(Kind = kind; Operand = x))
+      when kind = CastKind.RoundToIntegral && Expr.typeOf x = 64<rt> ->
+      roundToIntegral (eval mode) (eval x)
     | _ ->
       failwith $"IRRunner: no {e}"
 
