@@ -3100,8 +3100,11 @@ let private satLane bld srcUnsigned dstUnsigned wide (eSize: int<rt>) value =
       numU64 allOnes wide
     else
       numI64 ((1L <<< (width - 1)) - 1L) wide
+  (* The sign bit of the element, sign-extended: -(1L <<< 63) overflows back
+     to Int64.MinValue, which a wider constant built from it does not hold. *)
   let minV =
-    if dstUnsigned then AST.num0 wide else numI64 (-(1L <<< (width - 1))) wide
+    if dstUnsigned then AST.num0 wide
+    else numU64 (1UL <<< (width - 1)) eSize |> AST.sext wide
   let t = tmpVar bld wide
   append bld { t := value }
   let tooHigh = if srcUnsigned then t .> maxV else t ?> maxV

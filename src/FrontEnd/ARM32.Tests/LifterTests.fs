@@ -893,3 +893,40 @@ type LifterTests() =
     let read = IRRunner.run (liftedBy false "f38f0952") q1
     Assert.AreEqual<uint64>(0xffUL, (read !@(Q0, 1)).ToUInt64() &&& 0xffUL)
     Assert.AreEqual<uint64>(1UL, (read !.FPSCR).ToUInt64() >>> 27 &&& 1UL)
+
+  /// SignedSatQ clamps a 64-bit result to [-2^63, 2^63 - 1] (DDI0406C A2.2.1),
+  /// so one in range comes out as it is (A8.8.371 VQADD, A8.8.383 VQSUB,
+  /// A8.8.374 VQDMULL).
+  [<TestMethod>]
+  member _.``[ARMv7] VQADD.S64 keeps a negative sum in range``() =
+    let inputs =
+      [ !@(Q3, 1), BitVector(0xfffffffffffffffbUL, 64<rt>)
+        !@(Q3, 2), BitVector(3UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f2360017") inputs
+    Assert.AreEqual<uint64>(0xfffffffffffffffeUL, (read !@(Q0, 1)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``[ARMv7] VQSUB.S64 keeps a negative difference in range``() =
+    let inputs =
+      [ !@(Q3, 1), BitVector(0xfffffffffffffffbUL, 64<rt>)
+        !@(Q3, 2), BitVector(3UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f2360217") inputs
+    Assert.AreEqual<uint64>(0xfffffffffffffff8UL, (read !@(Q0, 1)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``[ARMv7] VQDMULL.S32 keeps products in range``() =
+    let inputs =
+      [ !@(Q2, 1), BitVector(0x00000005fffffffdUL, 64<rt>)
+        !@(Q2, 2), BitVector(0x0000000700000005UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f2a40d05") inputs
+    Assert.AreEqual<uint64>(0xffffffffffffffe2UL, (read !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(70UL, (read !@(Q0, 2)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``[ARMv7] VQADD.S64 saturates past the largest value``() =
+    let inputs =
+      [ !@(Q1, 1), BitVector(0x7fffffffffffffffUL, 64<rt>)
+        !@(Q1, 2), BitVector(1UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f2320013") inputs
+    Assert.AreEqual<uint64>(0x7fffffffffffffffUL, (read !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(1UL, (read !.FPSCR).ToUInt64() >>> 27 &&& 1UL)
