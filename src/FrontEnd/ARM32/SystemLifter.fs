@@ -25,14 +25,8 @@
 /// <summary>
 /// The instructions only PL1 has: the ones that read and write the system
 /// registers of coprocessor 15 and of the floating-point unit, change mode,
-/// and return from an exception.
-///
-/// <para>The mode is CPSR.M, and each mode but User and System keeps its own
-/// SP, LR and SPSR -- FIQ mode R8 to R12 as well. A mode change does not copy
-/// them: it changes which copy each register names. That is modelled the way
-/// a processor without a register file per mode would do it, by swapping: the
-/// live registers are the running mode's, and a change of mode puts each one
-/// back in the old mode's copy and takes the new mode's out.</para>
+/// and return from an exception. What a change of mode does to the registers
+/// is in Modes.
 /// </summary>
 module internal B2R2.FrontEnd.ARM32.SystemLifter
 
@@ -46,34 +40,7 @@ open B2R2.FrontEnd.ARM32
 open B2R2.FrontEnd.ARM32.IRHelper
 open B2R2.FrontEnd.ARM32.LiftingUtils
 open B2R2.FrontEnd.ARM32.GeneralLifter
-
-/// The modes, as CPSR.M names them.
-type private Mode =
-  | User = 0x10u
-  | FIQ = 0x11u
-  | IRQ = 0x12u
-  | Supervisor = 0x13u
-  | Monitor = 0x16u
-  | Abort = 0x17u
-  | Hyp = 0x1au
-  | Undefined = 0x1bu
-  | System = 0x1fu
-
-/// The mode field of CPSR.
-let private modeOf (psr: Expr) = psr .& numU32 0x1fu 32<rt>
-
-let private modeNum (mode: Mode) = numU32 (uint32 mode) 32<rt>
-
-/// Whether the processor is in User mode, which is PL0.
-let private inUserMode bld =
-  modeOf (regVar bld R.CPSR) == modeNum Mode.User
-
-/// Raises an Undefined Instruction exception in User mode, for an access only
-/// PL1 may make, and carries on otherwise.
-let private undefinedInUserMode bld =
-  _when bld "UserMode" (inUserMode bld) (block {
-    AST.sideEffect UndefinedInstruction
-  })
+open B2R2.FrontEnd.ARM32.Modes
 
 /// Runs the body under the instruction's condition, after checking that the
 /// mode running may do what it does.
@@ -85,129 +52,6 @@ let private underCondition (ins: Instruction) bld userMay body =
     body ()
     putEndLabel bld lblIgnore
   }
-
-/// Whether a mode is one of the given ones.
-let private isOneOf (mode: Expr) modes =
-  modes
-  |> List.map (fun m -> mode == modeNum m)
-  |> List.reduce (.|)
-
-/// Where each mode keeps its own SP. User and System mode share one.
-let private spBanks =
-  [ [ Mode.User; Mode.System ], R.SPusr
-    [ Mode.FIQ ], R.SPfiq
-    [ Mode.IRQ ], R.SPirq
-    [ Mode.Supervisor ], R.SPsvc
-    [ Mode.Monitor ], R.SPmon
-    [ Mode.Abort ], R.SPabt
-    [ Mode.Hyp ], R.SPhyp
-    [ Mode.Undefined ], R.SPund ]
-
-/// Where each mode keeps its own LR. Hyp mode has none, and uses User mode's;
-/// what it returns to is in ELR_hyp.
-let private lrBanks =
-  [ [ Mode.User; Mode.System; Mode.Hyp ], R.LRusr
-    [ Mode.FIQ ], R.LRfiq
-    [ Mode.IRQ ], R.LRirq
-    [ Mode.Supervisor ], R.LRsvc
-    [ Mode.Monitor ], R.LRmon
-    [ Mode.Abort ], R.LRabt
-    [ Mode.Undefined ], R.LRund ]
-
-/// Where each mode keeps its own SPSR. User and System mode have none.
-let private spsrBanks =
-  [ [ Mode.FIQ ], R.SPSRfiq
-    [ Mode.IRQ ], R.SPSRirq
-    [ Mode.Supervisor ], R.SPSRsvc
-    [ Mode.Monitor ], R.SPSRmon
-    [ Mode.Abort ], R.SPSRabt
-    [ Mode.Hyp ], R.SPSRhyp
-    [ Mode.Undefined ], R.SPSRund ]
-
-/// R8 to R12, with the copy every other mode shares and FIQ mode's own.
-let private fiqBanks =
-  [ R.R8, R.R8usr, R.R8fiq
-    R.SB, R.R9usr, R.R9fiq
-    R.SL, R.R10usr, R.R10fiq
-    R.FP, R.R11usr, R.R11fiq
-    R.IP, R.R12usr, R.R12fiq ]
-
-/// Swaps R8 to R12 on a change into or out of FIQ mode, and leaves them alone
-/// on any other.
-let private swapFiqBanks bld oldMode newMode =
-  let fiq = modeNum Mode.FIQ
-  let leaves = (oldMode == fiq) .& (newMode != fiq)
-  let enters = (newMode == fiq) .& (oldMode != fiq)
-  append bld {
-    for live, usrCopy, fiqCopy in fiqBanks do
-      let live = regVar bld live
-      let usrCopy = regVar bld usrCopy
-      let fiqCopy = regVar bld fiqCopy
-      fiqCopy := AST.ite leaves live fiqCopy
-      usrCopy := AST.ite enters live usrCopy
-      live := AST.ite leaves usrCopy (AST.ite enters fiqCopy live)
-  }
-
-/// Puts a banked register back in the copy the old mode keeps, and takes the
-/// one the new mode keeps out. A mode with no copy of its own leaves it as it
-/// is.
-let private swapBanks bld banks live oldMode newMode =
-  let live = regVar bld live
-  let fromNewMode =
-    banks
-    |> List.fold (fun acc (modes, bank) ->
-      AST.ite (isOneOf newMode modes) (regVar bld bank) acc) live
-  append bld {
-    for modes, bank in banks do
-      let bank = regVar bld bank
-      bank := AST.ite (isOneOf oldMode modes) live bank
-    live := fromNewMode
-  }
-
-/// <summary>
-/// Changes mode, the way a write to CPSR.M does: each register the old mode
-/// banks goes back to its copy, and the new mode's copies become the live
-/// registers. The two modes are temporaries, so that nothing written here
-/// moves either; when they are the same, everything goes back where it came
-/// from.
-/// </summary>
-let private switchMode bld oldMode newMode =
-  swapFiqBanks bld oldMode newMode
-  swapBanks bld spBanks R.SP oldMode newMode
-  swapBanks bld lrBanks R.LR oldMode newMode
-  swapBanks bld spsrBanks R.SPSR oldMode newMode
-
-/// <summary>
-/// Whether a write to CPSR at PL1 may change to a mode. Any but Monitor and
-/// Hyp may be entered this way: a processor without the Security and the
-/// Virtualization Extensions has neither, and one with them enters each only
-/// by an exception. Staying in the mode running is always allowed.
-/// </summary>
-let private isReachable mode current =
-  let modes =
-    [ Mode.User
-      Mode.FIQ
-      Mode.IRQ
-      Mode.Supervisor
-      Mode.Abort
-      Mode.Undefined
-      Mode.System ]
-  isOneOf mode modes .| (mode == current)
-
-/// <summary>
-/// Changes mode to the one a write names, where the write may: at PL1, and to
-/// a mode it may reach. Returns the mode CPSR.M is to hold afterwards.
-/// </summary>
-let private changeMode bld (named: Expr) =
-  let struct (oldMode, newMode) = tmpVars2 bld 32<rt>
-  let privileged = AST.not (inUserMode bld)
-  append bld {
-    oldMode := modeOf (regVar bld R.CPSR)
-    newMode :=
-      AST.ite (privileged .& isReachable named oldMode) named oldMode
-  }
-  switchMode bld oldMode newMode
-  newMode
 
 (* The interrupt masks CPSIE and CPSID name, at A, I and F. *)
 let private iflagBits = function

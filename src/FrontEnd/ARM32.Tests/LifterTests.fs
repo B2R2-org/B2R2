@@ -148,6 +148,36 @@ type LifterTests() =
     | Some i -> Array.exists reads stmts[i + 1..]
     | None -> false
 
+  /// The statements of one encoding as the text they print as, a line each.
+  let liftedText isThumb hex =
+    liftedBy isThumb hex |> Array.map string |> String.concat "\n"
+
+  /// The kinds of the inter-jumps one encoding lifts to.
+  let jumpKindsOf isThumb hex =
+    liftedBy isThumb hex
+    |> Array.choose (function
+      | InterJmp(Kind = kind) -> Some kind
+      | _ -> None)
+
+  /// The condition under which the statements of one encoding raise an
+  /// Undefined Instruction exception: what the jump guarding it tests.
+  let undefinedWhen isThumb hex =
+    let stmts = liftedBy isThumb hex
+    stmts
+    |> Array.tryFindIndex (function
+      | SideEffect(Effect = BinIR.SideEffect.UndefinedInstruction) -> true
+      | _ -> false)
+    |> Option.bind (fun i ->
+      match stmts[i - 2] with
+      | CJmp(Cond = cond) -> Some cond
+      | _ -> None)
+
+  /// The test of CPSR.M for User or Hyp mode, where the returns from an
+  /// exception and the transfers of the User mode registers are refused.
+  let userOrHyp =
+    let mode = !.CPSR .& num 0x1fu
+    (mode == num 0x10u) .| (mode == num 0x1au)
+
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =
     let shiftAmt = AST.zext 32<rt> (AST.xtlo 8<rt> !.R8)
@@ -741,6 +771,78 @@ type LifterTests() =
   member _.``[ARMv7] VMSR to FPSID writes nothing``() =
     let written = writtenBy false "eee00a10"
     Assert.AreEqual<bool>(false, Array.contains !.FPSID written)
+
+  /// At PL1 an instruction that writes the PC and sets the flags returns from
+  /// an exception: CPSR takes SPSR's value, which is read before the change of
+  /// mode it may make moves the register SPSR names (DDI0406C B9.3.20).
+  [<TestMethod>]
+  member _.``[ARMv7] SUBS PC, LR restores CPSR from SPSR``() =
+    StringAssert.Contains(liftedText false "e25ef004", ":= SPSR\n")
+
+  /// Hyp mode returns by ERET, and SUBS PC, LR is UNDEFINED there; User mode,
+  /// which has no SPSR to return with, takes its UNPREDICTABLE as UNDEFINED.
+  /// The guard names those two modes and no other.
+  [<TestMethod>]
+  member _.``[ARMv7] SUBS PC, LR is refused in User and Hyp mode``() =
+    let guard = undefinedWhen false "e25ef004"
+    Assert.AreEqual<Expr option>(Some userOrHyp, guard)
+
+  /// A return whose condition fails does nothing at all, so its mode is
+  /// checked behind the condition's own jump.
+  [<TestMethod>]
+  member _.``[ARMv7] SUBSNE PC, LR checks the mode only when it runs``() =
+    let text = liftedText false "125ef004"
+    let runs = text.IndexOf ":NeedToExec"
+    Assert.AreEqual<bool>(true, runs >= 0 && runs < text.IndexOf "UserOrHyp")
+
+  /// SPSR is read before the change of mode replaces it with the new mode's.
+  [<TestMethod>]
+  member _.``[ARMv7] SUBS PC, LR reads SPSR before changing mode``() =
+    let lines = (liftedText false "e25ef004").Split '\n'
+    let read = lines |> Array.findIndex (fun l -> l.EndsWith ":= SPSR")
+    let swap = lines |> Array.findIndex (fun l -> l.StartsWith "SPSR :=")
+    Assert.AreEqual<bool>(true, read < swap)
+
+  /// The return goes to LR less the immediate.
+  [<TestMethod>]
+  member _.``[ARMv7] SUBS PC, LR returns to LR less the immediate``() =
+    let result = "((LR + 0xfffffffb:I32) + 0x1:I32)"
+    StringAssert.Contains(liftedText false "e25ef004", result)
+
+  /// Where the return goes on is the instruction set the restored T bit
+  /// names: Thumb, with bit 0 of the target clear, when T is set, and A32,
+  /// with bits 1:0 clear, when it is not.
+  [<TestMethod>]
+  member _.``[ARMv7] SUBS PC, LR returns to the set its T bit names``() =
+    let text = liftedText false "e25ef004"
+    let thumb = BinIR.InterJmpKind.SwitchToThumb
+    let arm = BinIR.InterJmpKind.SwitchToARM
+    CollectionAssert.AreEqual([| thumb; arm |], jumpKindsOf false "e25ef004")
+    StringAssert.Contains(text, "& 0x20:I32) != 0x0:I32) then jmp ReturnTo")
+    StringAssert.Contains(text, ":ReturnToThumb\nijmp (T_2:I32 & 0xfffffffe")
+    StringAssert.Contains(text, ":NotReturnToThumb\nijmp (T_2:I32 & 0xfffffffc")
+
+  [<TestMethod>]
+  member _.``[ARMv7] MOVS PC, LR restores CPSR from SPSR``() =
+    StringAssert.Contains(liftedText false "e1b0f00e", ":= SPSR\n")
+
+  /// Without S the same write of the PC is a branch and nothing more.
+  [<TestMethod>]
+  member _.``[ARMv7] SUB PC, LR leaves CPSR alone``() =
+    let text = liftedText false "e24ef004"
+    Assert.AreEqual<bool>(false, text.Contains ":= SPSR\n")
+
+  /// SUBS PC, LR, #imm is an encoding of its own in T32 (B9.3.19).
+  [<TestMethod>]
+  member _.``[Thumb] SUBS PC, LR restores CPSR from SPSR``() =
+    StringAssert.Contains(liftedText true "f3de8f04", ":= SPSR\n")
+
+  /// It returns where the A32 SUBS PC, LR does, to LR less the immediate --
+  /// not to the PC less it.
+  [<TestMethod>]
+  member _.``[Thumb] SUBS PC, LR returns where the A32 one does``() =
+    let a32 = liftedText false "e25ef004"
+    Assert.AreEqual<string>(a32, liftedText true "f3de8f04")
 
   /// A write to CPSR.M changes mode, and a mode change swaps the banked
   /// registers: the old mode's SP goes back to its copy, and the new mode's

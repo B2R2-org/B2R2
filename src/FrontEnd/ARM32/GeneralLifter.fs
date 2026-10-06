@@ -34,6 +34,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.ARM32
 open B2R2.FrontEnd.ARM32.IRHelper
 open B2R2.FrontEnd.ARM32.LiftingUtils
+open B2R2.FrontEnd.ARM32.Modes
 
 let transShiftOprs ins bld opr1 opr2 =
   match opr1, opr2 with
@@ -670,19 +671,6 @@ let sub isSetFlags ins bld =
     putEndLabel bld lblIgnore
   }
 
-/// B9.3.19 SUBS R.PC, R.LR (Thumb), on page B9-2008
-let subsPCLRThumb ins bld =
-  lift bld ins {
-    let struct (_, _, src2) = parseOprOfADD ins bld
-    let pc = getPC bld
-    let struct (result, _, _, _) =
-      addWithCarry pc (AST.not src2) (AST.num1 32<rt>) bld
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    branchWritePC result InterJmpKind.IsRet
-    putEndLabel bld lblIgnore
-  }
-
 let parseResultOfSUBAndRela (ins: Instruction) bld =
   match ins.Opcode with
   | Op.ANDS ->
@@ -740,14 +728,16 @@ let parseResultOfSUBAndRela (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-/// B9.3.20 SUBS R.PC, R.LR and related instruction (ARM), on page B9-2010
+/// SUBS PC, LR and the instructions related to it, which return from an
+/// exception to the result with the state SPSR holds (DDI0406C B9.3.19 for
+/// T32's SUBS PC, LR, B9.3.20 for A32's).
 let subsAndRelatedInstr (ins: Instruction) bld =
   lift bld ins {
     let result = tmpVar bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     result := parseResultOfSUBAndRela ins bld
-    branchWritePC result InterJmpKind.IsRet
+    returnWithSPSR bld result
     putEndLabel bld lblIgnore
   }
 
@@ -1244,8 +1234,6 @@ let shiftInstr isSetFlags ins typ bld =
 
 let subs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(OprReg R.PC, _, _) when ins.IsThumb ->
-    subsPCLRThumb ins bld
   | ThreeOperands(OprReg R.PC, _, _)
   | FourOperands(OprReg R.PC, _, _, _) ->
     subsAndRelatedInstr ins bld
