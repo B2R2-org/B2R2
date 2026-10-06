@@ -179,7 +179,10 @@ let private usatQRShl bld expr amt eSize =
   let h = highestSetBitForIR rExpr (int eSize) eSize bld
   append bld {
     direct hBit := AST.ite isOver (eESz .+ n1) h
-    direct isSat := AST.ite isNeg (hBit .< nAmt) (eESz .< (hBit .+ amt))
+    (* A right shift cannot saturate, even when it drops every set bit, and
+       nor can a zero, which has no highest set bit to move. *)
+    direct isSat :=
+      AST.not isNeg .& (rExpr != n0) .& (eESz .< (hBit .+ amt))
     direct bitQC := bitQC .| isSat
   }
   let rShf = rExpr >> nAmt
@@ -198,7 +201,10 @@ let private usatQShl bld expr amt eSize =
   let eESz = numI32 (int eSize - 1) eSize
   append bld {
     direct isNeg := amt ?< AST.num0 eSize
-    direct isSat := AST.ite isNeg (hBit .< AST.neg amt) (eESz .< (hBit .+ amt))
+    (* A right shift cannot saturate, even when it drops every set bit, and
+       nor can a zero, which has no highest set bit to move. *)
+    direct isSat :=
+      AST.not isNeg .& (expr != AST.num0 eSize) .& (eESz .< (hBit .+ amt))
     direct bitQC := bitQC .| isSat
   }
   let sat = AST.ite isNeg min max
@@ -5367,18 +5373,21 @@ let bfmmla (ins: Instruction) bld =
 /// to half its width, saturating.
 ///
 /// The shift is of the SOURCE element, which is twice as wide as what is
-/// written, so the rounding constant and the shift both belong at the source
-/// width and only the saturation looks at the narrow one.
+/// written, and only the saturation looks at the narrow width. The rounding
+/// constant is added to the element's integer value, which no width bounds:
+/// added at the source width it wraps an element near the top. (x + 2^(n-1))
+/// >> n is (x >> n) + x<n-1>, which needs no wider operand.
 /// </summary>
 let sqshrn (ins: Instruction) bld isPart2 isRound srcUnsigned dstUnsigned =
   lift bld ins {
     let struct (dst, src, amt) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-    let shift = numI64 (shiftAmountOf amt) eSize
-    let rnd = AST.num1 eSize << (shift .- AST.num1 eSize)
+    let amount = shiftAmountOf amt |> int
+    let shift = numI32 amount eSize
     let shifted e =
-      let e = if isRound then e .+ rnd else e
-      if srcUnsigned then e >> shift else e ?>> shift
+      let e' = if srcUnsigned then e >> shift else e ?>> shift
+      if isRound then e' .+ AST.zext eSize (AST.extract e 1<rt> (amount - 1))
+      else e'
     let narrowed e = satNarrow bld (shifted e) eSize srcUnsigned dstUnsigned
     match ins.Operands with
     | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->

@@ -38,6 +38,8 @@ type LifterTests() =
 
   let num64 (v: uint64) = BitVector(v, 64<rt>) |> AST.num
 
+  let bv64 (v: uint64) = BitVector(v, 64<rt>)
+
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
   let isa = ISA(Architecture.ARMv8, Endian.Big)
@@ -47,6 +49,11 @@ type LifterTests() =
   let regFactory = RegisterFactory isa :> IRegisterFactory
 
   let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+
+  (* The halves of a vector register are pseudo registers: V0A is Q0's
+     first, V0B its second. *)
+  let ( !@ ) (name, pos) =
+    regFactory.GetPseudoRegVar(Register.toRegID name, pos)
 
   let ( ++ ) (byteStr: string) (givenStmts: Stmt[]) =
     ByteArray.ofHexString byteStr, givenStmts
@@ -88,6 +95,17 @@ type LifterTests() =
     |> Array.tryPick (function
       | Put(Dst = d; Src = src) when d = dst -> Some src
       | _ -> None)
+
+  /// QC after one encoding ran on both halves of V1 and V2 set to the given
+  /// words.
+  let qcAfter hex v1 v2 =
+    let inputs =
+      [ !@(Q1, 1), bv64 v1
+        !@(Q1, 2), bv64 v1
+        !@(Q2, 1), bv64 v2
+        !@(Q2, 2), bv64 v2 ]
+    let read = IRRunner.run (lifted hex) inputs
+    (read !.FPSR).ToUInt64() >>> 27 &&& 1UL
 
   (* NGC, NGCS and a BFC with a non-zero lsb all reached the raising
      fall-through in `translate`, so a block containing one did not lift at
@@ -288,3 +306,47 @@ type LifterTests() =
     let cleared = Some(num64 0xffffffffffffffffUL)
     Assert.AreEqual<Expr option>(cleared, assigned "d5033f5f" !.ExMonAddr)
     Assert.AreEqual<Expr option>(cleared, assigned "d503355f" !.ExMonAddr)
+
+  /// The rounding narrows add the rounding constant to the integer value of
+  /// the element, which no width bounds (DDI0487F.c C7.2.300 SQRSHRN), so a
+  /// lane at the top of its range rounds up and saturates instead of wrapping.
+  [<TestMethod>]
+  member _.``[AArch64] SQRSHRN rounds 0x7fff to the largest byte``() =
+    let read = IRRunner.run (lifted "0f0f9c20") [ !@(Q1, 1), bv64 0x7fffUL ]
+    Assert.AreEqual<uint64>(0x7fUL, (read !@(Q0, 1)).ToUInt64() &&& 0xffUL)
+
+  [<TestMethod>]
+  member _.``[AArch64] SQRSHRUN rounds 0x7fff to the largest byte``() =
+    let read = IRRunner.run (lifted "2f0f8c20") [ !@(Q1, 1), bv64 0x7fffUL ]
+    Assert.AreEqual<uint64>(0xffUL, (read !@(Q0, 1)).ToUInt64() &&& 0xffUL)
+
+  [<TestMethod>]
+  member _.``[AArch64] UQRSHRN rounds 0xffff to the largest byte``() =
+    let read = IRRunner.run (lifted "2f0f9c20") [ !@(Q1, 1), bv64 0xffffUL ]
+    Assert.AreEqual<uint64>(0xffUL, (read !@(Q0, 1)).ToUInt64() &&& 0xffUL)
+    Assert.AreEqual<uint64>(1UL, (read !.FPSR).ToUInt64() >>> 27 &&& 1UL)
+
+  /// A negative amount shifts right, which cannot saturate (C7.2.378 UQSHL,
+  /// C7.2.375 UQRSHL), even when every set bit goes; nor can a zero element.
+  [<TestMethod>]
+  member _.``[AArch64] UQSHL by -1 leaves QC``() =
+    Assert.AreEqual<uint64>(0UL, qcAfter "6e224c20" 0x0101010101010101UL
+                                   0xffffffffffffffffUL)
+
+  [<TestMethod>]
+  member _.``[AArch64] UQSHL of zero leaves QC``() =
+    Assert.AreEqual<uint64>(0UL, qcAfter "6e224c20" 0UL 0UL)
+
+  [<TestMethod>]
+  member _.``[AArch64] UQSHL of 0x80 by 1 sets QC``() =
+    Assert.AreEqual<uint64>(1UL, qcAfter "6e224c20" 0x8080808080808080UL
+                                   0x0101010101010101UL)
+
+  [<TestMethod>]
+  member _.``[AArch64] UQRSHL by -2 leaves QC``() =
+    Assert.AreEqual<uint64>(0UL, qcAfter "6e225c20" 0x0101010101010101UL
+                                   0xfefefefefefefefeUL)
+
+  [<TestMethod>]
+  member _.``[AArch64] UQRSHL of zero leaves QC``() =
+    Assert.AreEqual<uint64>(0UL, qcAfter "6e225c20" 0UL 0UL)

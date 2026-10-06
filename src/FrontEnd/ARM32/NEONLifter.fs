@@ -3376,9 +3376,11 @@ let vqshl (ins: Instruction) bld =
 /// VQSHRN, VQSHRUN and their rounding pair: each element shifted right by an
 /// immediate, narrowed to half its width and clamped to what that holds.
 ///
-/// The shift is of the WIDE element and happens before the narrowing. The
-/// UN forms read a signed element and write an unsigned one, so the source's
-/// signedness and the destination's are given separately.
+/// The shift is of the WIDE element and happens before the narrowing, and
+/// the rounding constant is added to the element's integer value, which no
+/// width bounds. The UN forms read a signed element and write an unsigned
+/// one, so the source's signedness and the destination's are given
+/// separately.
 /// </summary>
 let private vqshrnarrow (ins: Instruction) bld isRound dstUnsigned =
   lift bld ins {
@@ -3399,10 +3401,10 @@ let private vqshrnarrow (ins: Instruction) bld isRound dstUnsigned =
     hi := srcB
     let lane v e =
       let x = elem v e (2 * esize)
-      let x =
-        if isRound then x .+ (AST.num1 wide << numI32 (amount - 1) wide)
-        else x
-      let x = if srcUnsigned then x >> shift else x ?>> shift
+      let shifted = if srcUnsigned then x >> shift else x ?>> shift
+      (* (x + 2^(n-1)) >> n, without the add that wraps at x's width. *)
+      let roundBit = AST.extract x 1<rt> (amount - 1) |> AST.zext wide
+      let x = if isRound then shifted .+ roundBit else shifted
       satLane bld srcUnsigned dstUnsigned wide narrow x
     for e in 0 .. perReg - 1 do
       elem dst e esize := lane lo e

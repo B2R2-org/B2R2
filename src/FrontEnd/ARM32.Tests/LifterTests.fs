@@ -871,3 +871,25 @@ type LifterTests() =
     let cleared = Some(num 0xffffffffu)
     Assert.AreEqual<Expr option>(cleared, reservedBy false "f57ff01f")
     Assert.AreEqual<Expr option>(cleared, reservedBy true "f3bf8f2f")
+
+  /// VQRSHRN and VQRSHRUN add the rounding constant to the element's integer
+  /// value, which no width bounds (DDI0406C A8.8.379), so a lane at the top of
+  /// its range rounds up and saturates instead of wrapping.
+  [<TestMethod>]
+  member _.``[ARMv7] VQRSHRN.S16 rounds 0x7fff to the largest byte``() =
+    let q1 = [ !@(Q1, 1), BitVector(0x7fffUL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f28f0952") q1
+    Assert.AreEqual<uint64>(0x7fUL, (read !@(Q0, 1)).ToUInt64() &&& 0xffUL)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VQRSHRUN.S16 rounds 0x7fff to the largest byte``() =
+    let q1 = [ !@(Q1, 1), BitVector(0x7fffUL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f38f0852") q1
+    Assert.AreEqual<uint64>(0xffUL, (read !@(Q0, 1)).ToUInt64() &&& 0xffUL)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VQRSHRN.U16 rounds 0xffff to the largest byte``() =
+    let q1 = [ !@(Q1, 1), BitVector(0xffffUL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f38f0952") q1
+    Assert.AreEqual<uint64>(0xffUL, (read !@(Q0, 1)).ToUInt64() &&& 0xffUL)
+    Assert.AreEqual<uint64>(1UL, (read !.FPSCR).ToUInt64() >>> 27 &&& 1UL)
