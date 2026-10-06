@@ -105,7 +105,7 @@ let translate (ins: Instruction) bld =
   | Op.EORS ->
     eors true ins bld
   | Op.ERET ->
-    unsupported ins bld
+    eret ins bld
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
   | Op.ITEEE ->

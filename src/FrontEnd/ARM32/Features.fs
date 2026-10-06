@@ -255,12 +255,38 @@ let private asNOP (ins: Instruction) lifter =
               ins.IsAdd,
               lifter)
 
+/// T32's ERET, whose encoding is SUBS PC, LR, #0's (DDI0406C B9.3.19): an
+/// instruction every ARMv7 processor has, which only the Virtualization
+/// Extensions name ERET.
+let private isSubsPCLR (ins: Instruction) =
+  ins.IsThumb && ins.Opcode = Opcode.ERET
+
+/// The SUBS PC, LR, #0 a T32 ERET is to a processor without the
+/// Virtualization Extensions, where the ERET was and as long as it was.
+let private asSubsPCLR (ins: Instruction) lifter =
+  Instruction(ins.Address,
+              ins.Length,
+              ins.Condition,
+              Opcode.SUBS,
+              ThreeOperands(OprReg Register.PC, OprReg Register.LR, OprImm 0L),
+              ins.ITState,
+              false,
+              false,
+              ins.Qualifier,
+              None,
+              ins.IsThumb,
+              ins.Cflag,
+              ins.OprSize,
+              ins.IsAdd,
+              lifter)
+
 /// <summary>
 /// The instruction a word is under the ISA: itself where the ISA has what it
-/// needs; a NOP where it is one of Armv8's hints and the ISA is ARMv7's; and
-/// otherwise nothing, as the ISA leaves the word UNDEFINED. An ISA naming no
-/// version has everything. The word is the instruction's bits, a 32-bit T32
-/// one with its first halfword on top.
+/// needs; a NOP where it is one of Armv8's hints and the ISA is ARMv7's;
+/// SUBS PC, LR, #0 where it is T32's ERET and the ISA has no Virtualization
+/// Extensions; and otherwise nothing, as the ISA leaves the word UNDEFINED.
+/// An ISA naming no version has everything. The word is the instruction's
+/// bits, a 32-bit T32 one with its first halfword on top.
 /// </summary>
 let check (isa: ISA) bin (ins: Instruction) lifter =
   let unitOf () =
@@ -272,5 +298,7 @@ let check (isa: ISA) bin (ins: Instruction) lifter =
     ins
   elif isLaterHint ins then
     asNOP ins lifter
+  elif isSubsPCLR ins then
+    asSubsPCLR ins lifter
   else
     raise ParsingFailureException

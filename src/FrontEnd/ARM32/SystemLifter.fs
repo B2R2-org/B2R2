@@ -101,7 +101,21 @@ let cps (ins: Instruction) bld =
 /// J and T bits -- which read as zero (F5-4571).
 let private readableCPSR = 0xf80f03dfu
 
-/// MRS, which reads CPSR or, at PL1, the current mode's SPSR.
+/// MRS (banked register), which reads another mode's copy of a register, or
+/// ELR_hyp (DDI0406C B9.3.9).
+let private mrsBanked (ins: Instruction) bld rd banked =
+  let struct (holder, refused) = bankedAccess bld banked
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let rd = regVar bld rd
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedIf bld refused
+    rd := holder
+    putEndLabel bld lblIgnore
+  }
+
+/// MRS, which reads CPSR or, at PL1, the current mode's SPSR or another
+/// mode's register.
 let mrs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg rd, OprReg R.SPSR) ->
@@ -111,6 +125,8 @@ let mrs (ins: Instruction) bld =
     underCondition ins bld true (fun () ->
       let cpsr = regVar bld R.CPSR
       append bld { regVar bld rd := cpsr .& numU32 readableCPSR 32<rt> })
+  | TwoOperands(OprReg rd, OprReg banked) ->
+    mrsBanked ins bld rd banked
   | _ ->
     unsupported ins bld
 
@@ -176,8 +192,21 @@ let private msrCPSR ins bld bytes src =
       let written = writeMasked cpsr mask value
       append bld { cpsr := (written .& numU32 0xffffffe0u 32<rt>) .| newMode })
 
+/// MSR (banked register), which writes another mode's copy of a register, or
+/// ELR_hyp (DDI0406C B9.3.10).
+let private msrBanked (ins: Instruction) bld banked rn =
+  let struct (holder, refused) = bankedAccess bld banked
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let rn = regVar bld rn
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedIf bld refused
+    holder := rn
+    putEndLabel bld lblIgnore
+  }
+
 /// MSR, which writes the bytes of CPSR or, at PL1, of the current mode's SPSR
-/// that it names.
+/// that it names, or another mode's register.
 let msr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSpecReg(R.SPSR, Some flag), src) ->
@@ -188,6 +217,8 @@ let msr (ins: Instruction) bld =
       append bld { spsr := writeMasked spsr mask src })
   | TwoOperands(OprSpecReg((R.CPSR | R.APSR), Some flag), src) ->
     msrCPSR ins bld (namedBytes flag) (transOpr ins bld src)
+  | TwoOperands(OprReg banked, OprReg rn) ->
+    msrBanked ins bld banked rn
   | _ ->
     unsupported ins bld
 
@@ -406,3 +437,22 @@ let srs (ins: Instruction) bld =
     else undefinedWhenRun ins bld
   | _ ->
     unsupported ins bld
+
+/// <summary>
+/// ERET, which returns from an exception with SPSR (DDI0406C B9.3.3): from Hyp
+/// mode to ELR_hyp, and from any other PL1 mode to LR, as MOVS PC, LR does --
+/// in T32 it is that very encoding, SUBS PC, LR, #0. User mode, which has no
+/// SPSR, takes its UNPREDICTABLE as UNDEFINED, and System mode runs it, as the
+/// reference does.
+/// </summary>
+let eret (ins: Instruction) bld =
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let struct (target, saved) = tmpVars2 bld 32<rt>
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedInUserMode bld
+    target := AST.ite (inHypMode bld) (regVar bld R.ELRhyp) (regVar bld R.LR)
+    saved := regVar bld R.SPSR
+    exceptionReturn bld target saved
+    putEndLabel bld lblIgnore
+  }

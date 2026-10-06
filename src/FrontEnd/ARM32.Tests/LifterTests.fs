@@ -178,6 +178,22 @@ type LifterTests() =
     let mode = !.CPSR .& num 0x1fu
     (mode == num 0x10u) .| (mode == num 0x1au)
 
+  /// The modes in which the statements of one encoding raise an Undefined
+  /// Instruction exception, worked out by running the guard for every mode
+  /// CPSR.M can name, so that the answer does not hang on how it is written.
+  let refusedModes isThumb hex =
+    let modes =
+      [| 0x10u; 0x11u; 0x12u; 0x13u; 0x16u; 0x17u; 0x1au; 0x1bu; 0x1fu |]
+    match undefinedWhen isThumb hex with
+    | Some guard ->
+      let refused (mode: uint32) =
+        let stmts = [| !.R0 := AST.zext 32<rt> guard |]
+        let read = IRRunner.run stmts [ !.CPSR, BitVector(mode, 32<rt>) ]
+        not (read !.R0).IsZero
+      Array.filter refused modes
+    | None ->
+      [||]
+
   /// Whether CPSR.M names one of the given modes, as the lifter tests it.
   let modeIsOneOf (modes: uint32 list) =
     let mode = !.CPSR .& num 0x1fu
@@ -1054,6 +1070,109 @@ type LifterTests() =
     let assigned = assignedBy true "e82dc012"
     Assert.AreEqual<Expr option>(Some irqSP, assigned (t32 1))
     Assert.AreEqual<Expr option>(Some(t32 1 .- num 8u), assigned (t32 2))
+
+  /// ERET returns from an exception with SPSR (DDI0406C B9.3.3): from Hyp mode
+  /// to ELR_hyp, and from any other PL1 mode to LR, as MOVS PC, LR does.
+  [<TestMethod>]
+  member _.``[ARMv7] ERET returns to ELR_hyp or to LR``() =
+    let target = AST.ite (modeIsOneOf [ 0x1au ]) !.ELRhyp !.LR
+    let assigned = assignedBy false "e160006e" (t32 1)
+    Assert.AreEqual<Expr option>(Some target, assigned)
+
+  [<TestMethod>]
+  member _.``[ARMv7] ERET restores CPSR from SPSR``() =
+    StringAssert.Contains(liftedText false "e160006e", ":= SPSR\n")
+
+  /// User mode has no SPSR; ERET there is UNPREDICTABLE, taken as UNDEFINED.
+  [<TestMethod>]
+  member _.``[ARMv7] ERET is refused in User mode``() =
+    let guard = undefinedWhen false "e160006e"
+    Assert.AreEqual<Expr option>(Some(modeIsOneOf [ 0x10u ]), guard)
+
+  [<TestMethod>]
+  member _.``[ARMv7] ERETNE checks the mode only when it runs``() =
+    let text = liftedText false "1160006e"
+    let runs = text.IndexOf ":NeedToExec"
+    Assert.AreEqual<bool>(true, runs >= 0 && runs < text.IndexOf "UserMode")
+
+  /// SPSR is read before the change of mode replaces it with the new mode's.
+  [<TestMethod>]
+  member _.``[ARMv7] ERET reads SPSR before changing mode``() =
+    let lines = (liftedText false "e160006e").Split '\n'
+    let read = lines |> Array.findIndex (fun l -> l.EndsWith ":= SPSR")
+    let swap = lines |> Array.findIndex (fun l -> l.StartsWith "SPSR :=")
+    Assert.AreEqual<bool>(true, read < swap)
+
+  /// T32's ERET is SUBS PC, LR, #0's encoding, and returns as A32's does.
+  [<TestMethod>]
+  member _.``[Thumb] ERET returns as the A32 one does``() =
+    let a32 = liftedText false "e160006e"
+    Assert.AreEqual<string>(a32, liftedText true "f3de8f00")
+
+  /// MRS and MSR (banked register) reach another mode's copy of a register
+  /// (B9.3.9 and B9.3.10). Naming the copy that is the live register in the
+  /// mode running is UNPREDICTABLE (B9.2.4), as is any of them in User mode,
+  /// and both are taken as UNDEFINED.
+  [<TestMethod>]
+  member _.``[ARMv7] MRS (banked) reads IRQ mode's SP``() =
+    let refused = modeIsOneOf [ 0x10u ] .| modeIsOneOf [ 0x12u ]
+    Assert.AreEqual<Expr option>(Some !.SPirq, assignedBy false "e1010300" !.R0)
+    Assert.AreEqual<Expr option>(Some refused, undefinedWhen false "e1010300")
+
+  [<TestMethod>]
+  member _.``[ARMv7] MSR (banked) writes IRQ mode's SP``() =
+    Assert.AreEqual<Expr option>(Some !.R0, assignedBy false "e121f300" !.SPirq)
+    CollectionAssert.AreEqual([| 0x10u; 0x12u |], refusedModes false "e121f300")
+
+  [<TestMethod>]
+  member _.``[ARMv7] MRS (banked) reads FIQ mode's SPSR``() =
+    let assigned = assignedBy false "e14e0200" !.R0
+    Assert.AreEqual<Expr option>(Some !.SPSRfiq, assigned)
+
+  /// R8_usr to R12_usr are copies in FIQ mode alone: R8 to R12 are User
+  /// mode's own in every other mode.
+  [<TestMethod>]
+  member _.``[ARMv7] MRS (banked) of R8_usr is FIQ mode's alone``() =
+    let others = [| 0x10u; 0x12u; 0x13u; 0x16u; 0x17u; 0x1au; 0x1bu; 0x1fu |]
+    CollectionAssert.AreEqual(others, refusedModes false "e1000200")
+
+  /// SP_usr is the live SP in User and System mode, and LR_usr the live LR
+  /// in those and Hyp mode, whose LR is User mode's (B9.2.4).
+  [<TestMethod>]
+  member _.``[ARMv7] SP_usr and LR_usr are refused where live``() =
+    CollectionAssert.AreEqual([| 0x10u; 0x1fu |], refusedModes false "e1050200")
+    let lrLive = [| 0x10u; 0x1au; 0x1fu |]
+    CollectionAssert.AreEqual(lrLive, refusedModes false "e1060200")
+
+  /// ELR_hyp and SPSR_hyp are Hyp mode's, which reaches SPSR_hyp as its own.
+  [<TestMethod>]
+  member _.``[ARMv7] MRS (banked) of ELR_hyp is Hyp mode's alone``() =
+    let notHyp = (!.CPSR .& num 0x1fu) != num 0x1au
+    let assigned = assignedBy false "e10e0300" !.R0
+    Assert.AreEqual<Expr option>(Some !.ELRhyp, assigned)
+    Assert.AreEqual<Expr option>(Some notHyp, undefinedWhen false "e10e0300")
+
+  [<TestMethod>]
+  member _.``[ARMv7] MSR (banked) of SPSR_hyp writes Hyp mode's SPSR``() =
+    let notHyp = (!.CPSR .& num 0x1fu) != num 0x1au
+    Assert.AreEqual<Expr option>(Some !.R0, assignedBy false "e16ef300" !.SPSR)
+    Assert.AreEqual<Expr option>(Some notHyp, undefinedWhen false "e16ef300")
+
+  /// Monitor mode's registers belong to the Security Extensions, which this
+  /// model of the processor does not have: refused in every mode, but behind
+  /// the condition, so that MRSEQ with Z clear does nothing.
+  [<TestMethod>]
+  member _.``[ARMv7] MRS (banked) of SP_mon is refused in every mode``() =
+    let all =
+      [| 0x10u; 0x11u; 0x12u; 0x13u; 0x16u; 0x17u; 0x1au; 0x1bu; 0x1fu |]
+    CollectionAssert.AreEqual(all, refusedModes false "e10d0300")
+    let text = liftedText false "010d0300"
+    let runs = text.IndexOf ":NeedToExec"
+    Assert.AreEqual<bool>(true, runs >= 0 && runs < text.IndexOf "Refused")
+
+  [<TestMethod>]
+  member _.``[Thumb] MRS (banked) reads IRQ mode's SP``() =
+    Assert.AreEqual<Expr option>(Some !.SPirq, assignedBy true "f3e18030" !.R0)
 
   /// A write to CPSR.M changes mode, and a mode change swaps the banked
   /// registers: the old mode's SP goes back to its copy, and the new mode's

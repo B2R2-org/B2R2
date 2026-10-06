@@ -1308,3 +1308,11 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[T32] VMRS can move FPSCR's flags to APSR``() =
     testDisasm "eef1fa10" "vmrs apsr, fpscr"
+
+  /// ERET's T32 encoding is SUBS PC, LR, #0's, which every ARMv7 processor
+  /// has; only the Virtualization Extensions call it ERET (DDI0406C B9.3.19).
+  [<TestMethod>]
+  member _.``[T32] ERET is SUBS PC, LR, #0 without Virt``() =
+    let subs = Some "subs pc, lr, #0x0"
+    Assert.AreEqual<string option>(subs, under "armv7-v7" "f3de8f00")
+    Assert.AreEqual<string option>(Some "eret", under "armv7-v7ve" "f3de8f00")

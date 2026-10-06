@@ -25,8 +25,9 @@
 /// <summary>
 /// The processor modes, what a change of mode does to the registers, the
 /// return from an exception, which changes mode as it branches, the User
-/// mode registers, which LDM and STM with ^ reach from any mode, and the SP
-/// of the mode SRS names.
+/// mode registers, which LDM and STM with ^ reach from any mode, the SP of the
+/// mode SRS names, and the registers of another mode MRS and MSR (banked
+/// register) name.
 ///
 /// <para>The mode is CPSR.M, and each mode but User and System keeps its own
 /// SP, LR and SPSR -- FIQ mode R8 to R12 as well. A mode change does not copy
@@ -64,6 +65,10 @@ let private modeNum (mode: Mode) = numU32 (uint32 mode) 32<rt>
 /// Whether the processor is in User mode, which is PL0.
 let inUserMode bld =
   modeOf (regVar bld R.CPSR) == modeNum Mode.User
+
+/// Whether the processor is in Hyp mode, which is PL2.
+let inHypMode bld =
+  modeOf (regVar bld R.CPSR) == modeNum Mode.Hyp
 
 /// Raises an Undefined Instruction exception in User mode, for an access only
 /// PL1 may make, and carries on otherwise.
@@ -207,8 +212,7 @@ let changeMode bld (named: Expr) =
 /// UNDEFINED, and System mode runs it, as the reference does.
 /// </summary>
 let undefinedInUserOrHypMode bld =
-  let hyp = modeOf (regVar bld R.CPSR) == modeNum Mode.Hyp
-  _when bld "UserOrHypMode" (inUserMode bld .| hyp) (block {
+  _when bld "UserOrHypMode" (inUserMode bld .| inHypMode bld) (block {
     AST.sideEffect UndefinedInstruction
   })
 
@@ -347,3 +351,64 @@ let writeSPOf bld mode value =
     sp := AST.ite isLive value sp
     copy := AST.ite isLive copy value
   }
+
+/// Raises an Undefined Instruction exception where the condition holds, and
+/// carries on otherwise.
+let undefinedIf bld cond =
+  _when bld "Refused" cond (block {
+    AST.sideEffect UndefinedInstruction
+  })
+
+/// The modes but FIQ mode, in each of which R8 to R12 are User mode's own.
+let private allButFIQ =
+  [ Mode.User
+    Mode.IRQ
+    Mode.Supervisor
+    Mode.Monitor
+    Mode.Abort
+    Mode.Hyp
+    Mode.Undefined
+    Mode.System ]
+
+/// The modes in which a copy a bank keeps is the live register, or nothing
+/// for a register no bank keeps.
+let private liveIn copy =
+  let inBanks banks =
+    banks
+    |> List.tryPick (fun (modes, bank) ->
+      if bank = copy then Some modes else None)
+  let inFIQBanks =
+    fiqBanks
+    |> List.tryPick (fun (_, usrCopy, fiqCopy) ->
+      if usrCopy = copy then Some allButFIQ
+      elif fiqCopy = copy then Some [ Mode.FIQ ]
+      else None)
+  match inFIQBanks with
+  | Some modes -> Some modes
+  | None -> [ spBanks; lrBanks; spsrBanks ] |> List.tryPick inBanks
+
+/// <summary>
+/// Where an MRS or MSR (banked register) finds the register it names, and the
+/// test under which naming it is refused (DDI0406C B9.2.4): in User mode, and
+/// in a mode in which the copy named is the live register -- UNPREDICTABLE,
+/// which the reference takes as UNDEFINED. ELR_hyp and SPSR_hyp are Hyp
+/// mode's, which holds SPSR_hyp as its own SPSR. Monitor mode's registers,
+/// and SP_hyp, which only Monitor mode may name, have nowhere to be in a
+/// processor without the Security Extensions, and are refused in every mode.
+/// </summary>
+let bankedAccess bld reg =
+  let mode = modeOf (regVar bld R.CPSR)
+  match reg with
+  | R.ELRhyp ->
+    struct (regVar bld R.ELRhyp, mode != modeNum Mode.Hyp)
+  | R.SPSRhyp ->
+    struct (regVar bld R.SPSR, mode != modeNum Mode.Hyp)
+  | R.SPmon | R.LRmon | R.SPSRmon | R.SPhyp ->
+    struct (regVar bld reg, AST.b1)
+  | _ ->
+    match liveIn reg with
+    | Some modes ->
+      let user = mode == modeNum Mode.User
+      struct (regVar bld reg, user .| isOneOf mode modes)
+    | None ->
+      Terminator.impossible ()
