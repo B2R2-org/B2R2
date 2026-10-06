@@ -24,8 +24,10 @@
 
 namespace B2R2.FrontEnd.ARM32.Tests
 
+open System.Collections.Generic
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.Collections
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM32
@@ -126,6 +128,25 @@ type LifterTests() =
   /// Whether the statements of one encoding set C to the constant given.
   let writesCarry isThumb hex set =
     liftedBy isThumb hex |> Array.contains (carryPut set)
+
+  /// Whether a statement after the one that writes a register reads it: the
+  /// new value, where the instruction reads its operands before it writes.
+  let readsAfterWriting isThumb hex reg =
+    let stmts = liftedBy isThumb hex
+    let rid = int (Register.toRegID reg)
+    let writes = function
+      | Put(Dst = Var(RegisterID = r)) -> int r = rid
+      | _ -> false
+    let reads = function
+      | Put(Src = src) ->
+        let regs = RegisterSet 0x10000
+        AST.updateAllVarsUses regs (HashSet<int>()) src
+        regs.Contains rid
+      | _ ->
+        false
+    match Array.tryFindIndex writes stmts with
+    | Some i -> Array.exists reads stmts[i + 1..]
+    | None -> false
 
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =
@@ -742,3 +763,42 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[ARMv7] MVNS (immediate) takes C from a rotated constant``() =
     Assert.AreEqual<bool>(true, writesCarry false "e3f004ff" true)
+
+  /// Shift_C (DDI0406C A8.4.3) reads the operands as they were before the
+  /// instruction, so where the destination is also the amount register the
+  /// carry must not come from the result.
+  [<TestMethod>]
+  member _.``[ARMv7] LSLS (register) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1b01110" R1)
+
+  [<TestMethod>]
+  member _.``[Thumb] LSLS.W (register) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting true "fa10f101" R1)
+
+  [<TestMethod>]
+  member _.``[Thumb] LSLS (register, narrow) with Rdn = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting true "4080" R0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MVNS (immediate shift) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1f00080" R0)
+
+  [<TestMethod>]
+  member _.``[Thumb] MVNS.W (immediate shift) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting true "ea7f0040" R0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MVNS (register shift) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1f00110" R0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MVNS (register shift) with Rd = Rs reads Rs first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1f01110" R1)
+
+  [<TestMethod>]
+  member _.``[ARMv7] ANDS (register shift) with Rd = Rs reads Rs first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e0101110" R1)
+
+  [<TestMethod>]
+  member _.``[ARMv7] ORRS (register shift) with Rd = Rs reads Rs first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1901130" R1)
