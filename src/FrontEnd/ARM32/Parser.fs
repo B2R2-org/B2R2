@@ -328,10 +328,6 @@ type Parser(isa: ISA, isThumb, reader) =
        OprRdLabelT() :> OperandParser
        OprRdlRdhRnRmT() :> OperandParser
        OprRdLsbWidthT() :> OperandParser
-       OprRdmRdmASRRs() :> OperandParser
-       OprRdmRdmLSLRs() :> OperandParser
-       OprRdmRdmLSRRs() :> OperandParser
-       OprRdmRdmRORRs() :> OperandParser
        OprRdmRnRdm() :> OperandParser
        OprRdmSPRdm() :> OperandParser
        OprRdnImm8() :> OperandParser

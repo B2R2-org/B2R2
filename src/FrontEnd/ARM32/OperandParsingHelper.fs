@@ -270,80 +270,76 @@ type OprDesc =
   | OprRdLabelT = 236
   | OprRdlRdhRnRmT = 237
   | OprRdLsbWidthT = 238
-  | OprRdmRdmASRRs = 239
-  | OprRdmRdmLSLRs = 240
-  | OprRdmRdmLSRRs = 241
-  | OprRdmRdmRORRs = 242
-  | OprRdmRnRdm = 243
-  | OprRdmSPRdm = 244
-  | OprRdnImm8 = 245
-  | OprRdnRdnRm = 246
-  | OprRdnRm = 247
-  | OprRdRmExt = 248
-  | OprRdRmImmT16 = 249
-  | OprRdRmImmT32 = 250
-  | OprRdRmRnT = 251
-  | OprRdRmRorT = 252
-  | OprRdRmRsT = 253
-  | OprRdRmShfT16 = 254
-  | OprRdRmShfT32 = 255
-  | OprRdRmT16 = 256
-  | OprRdRmT32 = 257
-  | OprRdRn0 = 258
-  | OprRdRn0T32 = 259
-  | OprRdRnConstT = 260
-  | OprRdRnImm12 = 261
-  | OprRdRnImm3 = 262
-  | OprRdRnLsbWidthM1T = 263
-  | OprRdRnLsbWidthT = 264
-  | OprRdRnRmRaT = 265
-  | OprRdRnRmRorT = 266
-  | OprRdRnRmShfT = 267
-  | OprRdRnRmT16 = 268
-  | OprRdRnRmT32 = 269
-  | OprRdRtMemImmT = 270
-  | OprRdRtMemT = 271
-  | OprRdRtRt2MemT = 272
-  | OprRdSPConstT = 273
-  | OprRdSPImm12 = 274
-  | OprRdSPImm8 = 275
-  | OprRdSPRmShf = 276
-  | OprRdSregT = 277
-  | OprRegsM = 278
-  | OprRegsP = 279
-  | OprRmT16 = 280
-  | OprRmT32 = 281
-  | OprRnConstT = 282
-  | OprRnLabel = 283
-  | OprRnRegsT16 = 284
-  | OprRnRegsT32 = 285
-  | OprRnRegsW = 286
-  | OprRnRm = 287
-  | OprRnRmExt = 288
-  | OprRnRmShfT = 289
-  | OprRtLabel12 = 290
-  | OprRtLabelT = 291
-  | OprRtMemImm0T = 292
-  | OprRtMemImm1 = 293
-  | OprRtMemImm12T = 294
-  | OprRtMemImm2 = 295
-  | OprRtMemImm8 = 296
-  | OprRtMemImm8M = 297
-  | OprRtMemImm8P = 298
-  | OprRtMemImmPr = 299
-  | OprRtMemImmPs = 300
-  | OprRtMemReg16 = 301
-  | OprRtMemReg32 = 302
-  | OprRtMemRegLSL = 303
-  | OprRtMemSP = 304
-  | OprRtRt2LabelT = 305
-  | OprRtRt2MemImmT = 306
-  | OprRtRt2MemT = 307
-  | OprSingleRegsT = 308
-  | OprSPSPImm7 = 309
-  | OprSPSPRm = 310
-  | OprSregRnT = 311
-  | OprCsync = 312
+  | OprRdmRnRdm = 239
+  | OprRdmSPRdm = 240
+  | OprRdnImm8 = 241
+  | OprRdnRdnRm = 242
+  | OprRdnRm = 243
+  | OprRdRmExt = 244
+  | OprRdRmImmT16 = 245
+  | OprRdRmImmT32 = 246
+  | OprRdRmRnT = 247
+  | OprRdRmRorT = 248
+  | OprRdRmRsT = 249
+  | OprRdRmShfT16 = 250
+  | OprRdRmShfT32 = 251
+  | OprRdRmT16 = 252
+  | OprRdRmT32 = 253
+  | OprRdRn0 = 254
+  | OprRdRn0T32 = 255
+  | OprRdRnConstT = 256
+  | OprRdRnImm12 = 257
+  | OprRdRnImm3 = 258
+  | OprRdRnLsbWidthM1T = 259
+  | OprRdRnLsbWidthT = 260
+  | OprRdRnRmRaT = 261
+  | OprRdRnRmRorT = 262
+  | OprRdRnRmShfT = 263
+  | OprRdRnRmT16 = 264
+  | OprRdRnRmT32 = 265
+  | OprRdRtMemImmT = 266
+  | OprRdRtMemT = 267
+  | OprRdRtRt2MemT = 268
+  | OprRdSPConstT = 269
+  | OprRdSPImm12 = 270
+  | OprRdSPImm8 = 271
+  | OprRdSPRmShf = 272
+  | OprRdSregT = 273
+  | OprRegsM = 274
+  | OprRegsP = 275
+  | OprRmT16 = 276
+  | OprRmT32 = 277
+  | OprRnConstT = 278
+  | OprRnLabel = 279
+  | OprRnRegsT16 = 280
+  | OprRnRegsT32 = 281
+  | OprRnRegsW = 282
+  | OprRnRm = 283
+  | OprRnRmExt = 284
+  | OprRnRmShfT = 285
+  | OprRtLabel12 = 286
+  | OprRtLabelT = 287
+  | OprRtMemImm0T = 288
+  | OprRtMemImm1 = 289
+  | OprRtMemImm12T = 290
+  | OprRtMemImm2 = 291
+  | OprRtMemImm8 = 292
+  | OprRtMemImm8M = 293
+  | OprRtMemImm8P = 294
+  | OprRtMemImmPr = 295
+  | OprRtMemImmPs = 296
+  | OprRtMemReg16 = 297
+  | OprRtMemReg32 = 298
+  | OprRtMemRegLSL = 299
+  | OprRtMemSP = 300
+  | OprRtRt2LabelT = 301
+  | OprRtRt2MemImmT = 302
+  | OprRtRt2MemT = 303
+  | OprSingleRegsT = 304
+  | OprSPSPImm7 = 305
+  | OprSPSPRm = 306
+  | OprSregRnT = 307
+  | OprCsync = 308
 
 type OD = OprDesc
 
@@ -4437,42 +4433,6 @@ type internal OprRdSPRmShf() =
       decodeImmShift (extract b 5 4) ((extract b 14 12 <<< 2) + (extract b 7 6))
     let shf = OprShift(shift, Imm amount)
     struct (FourOperands(rd, OprReg R.SP, rm, shf), false, None, 32<rt>)
-
-(* <Rdm>, <Rdm>, LSL <Rs> *)
-type internal OprRdmRdmLSLRs() =
-  inherit OperandParser()
-  override _.Render bin =
-    let rdm = extract bin 2 0 |> getRegister |> OprReg
-    let shift =
-      OprRegShift(ShiftOp.LSL, extract bin 5 3 |> getRegister) (* Rs *)
-    struct (ThreeOperands(rdm, rdm, shift), false, None, 32<rt>)
-
-(* <Rdm>, <Rdm>, LSR <Rs> *)
-type internal OprRdmRdmLSRRs() =
-  inherit OperandParser()
-  override _.Render bin =
-    let rdm = extract bin 2 0 |> getRegister |> OprReg
-    let shift =
-      OprRegShift(ShiftOp.LSR, extract bin 5 3 |> getRegister) (* Rs *)
-    struct (ThreeOperands(rdm, rdm, shift), false, None, 32<rt>)
-
-(* <Rdm>, <Rdm>, ASR <Rs> *)
-type internal OprRdmRdmASRRs() =
-  inherit OperandParser()
-  override _.Render bin =
-    let rdm = extract bin 2 0 |> getRegister |> OprReg
-    let shift =
-      OprRegShift(ShiftOp.ASR, extract bin 5 3 |> getRegister) (* Rs *)
-    struct (ThreeOperands(rdm, rdm, shift), false, None, 32<rt>)
-
-(* <Rdm>, <Rdm>, ROR <Rs> *)
-type internal OprRdmRdmRORRs() =
-  inherit OperandParser()
-  override _.Render bin =
-    let rdm = extract bin 2 0 |> getRegister |> OprReg
-    let shift =
-      OprRegShift(ShiftOp.ROR, extract bin 5 3 |> getRegister) (* Rs *)
-    struct (ThreeOperands(rdm, rdm, shift), false, None, 32<rt>)
 
 (* {<Rd>,} <Rn>, <Rm> {, ROR #<amount>} *)
 type internal OprRdRnRmRorT() =

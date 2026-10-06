@@ -693,3 +693,10 @@ type LifterTests() =
     let user = (!.CPSR .& num 0x1fu) == num 0x10u
     let cleared = AST.ite user !.CPSR (!.CPSR .& num 0xffffff7fu)
     Assert.AreEqual<Expr option>(Some cleared, assignedBy true "b662" !.CPSR)
+
+  /// A narrow shift by register is the wide one in sixteen bits, C included
+  /// (DDI0487F.c F5.1.113).
+  [<TestMethod>]
+  member _.``[Thumb] LSLS (register, narrow) lifts as LSLS.W does``() =
+    CollectionAssert.AreEqual(unwrapStmts (liftedBy true "fa10f001"),
+                              unwrapStmts (liftedBy true "4088"))
