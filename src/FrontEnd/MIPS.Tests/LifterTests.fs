@@ -57,6 +57,23 @@ type LifterTests() =
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     ins.Translate builder
 
+  /// What one floating-point encoding leaves in $f0 and in FCSR, run on a
+  /// processor an ISA names from the FCSR and the registers given, with the
+  /// exception query answering the given flags.
+  let fpRunAnswering flags (isa: ISA) hex (fcsr: uint32) fprs =
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let fpr (r, v: uint64) = var r, BitVector(v, Expr.typeOf (var r))
+    let inputs = (var FCSR, BitVector(fcsr, 32<rt>)) :: List.map fpr fprs
+    let read = IRRunner.runAnswering flags (lifted isa hex) inputs
+    (read (var F0)).ToUInt64(), uint32 ((read (var FCSR)).ToUInt64())
+
+  /// The same with the query answering that nothing was raised.
+  let fpRun isa hex fcsr fprs = fpRunAnswering 0u isa hex fcsr fprs
+
+  /// FCSR.FS, flush subnormal results to zero.
+  let fs = 0x01000000u
+
   /// The kinds of the jumps a branch and its delay slot lift to, the parser
   /// reading the encoding a mode names on the processor an ISA names.
   let jumpKinds (isa: ISA) mode branch slot =
@@ -432,7 +449,11 @@ type LifterTests() =
         "46041003"   (* DIV.S *)
         "46241003"   (* DIV.D *)
         "46001004"   (* SQRT.S *)
-        "46201004" ] (* SQRT.D *)
+        "46201004"   (* SQRT.D *)
+        "46001015"   (* RECIP.S *)
+        "46201015"   (* RECIP.D *)
+        "46001016"   (* RSQRT.S *)
+        "46201016" ] (* RSQRT.D *)
     for hex in encodings do
       let written =
         lifted isa hex
@@ -474,6 +495,95 @@ type LifterTests() =
           | Put(Dst = Var(RegisterID = rid)) -> rid = fcsr
           | _ -> false)
       if written then Assert.Fail hex else ()
+
+  /// <summary>
+  /// FCSR.FS flushes a result whose exact value is below the smallest normal
+  /// to a zero of its own sign: 2^-126 times a half is 2^-127, a subnormal,
+  /// which comes out +0, and -0 from -2^-126. With FS clear it is the
+  /// subnormal itself.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] FS flushes a subnormal product to zero``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let mul fcsr a = fpRun isa "46041002" fcsr [ F2, a; F4, 0x3f000000UL ]
+    Assert.AreEqual<uint64 * uint32>((0UL, fs), mul fs 0x00800000UL)
+    Assert.AreEqual<uint64 * uint32>((0x80000000UL, fs), mul fs 0x80800000UL)
+    Assert.AreEqual<uint64 * uint32>((0x00400000UL, 0u), mul 0u 0x00800000UL)
+
+  /// <summary>
+  /// What FS asks of is the exact value, and what goes with a flush is
+  /// everything the operation raised. (2 - 2^-23) 2^-126 times a half is
+  /// 2^-126 (1 - 2^-24), which rounds to nearest up to the smallest normal,
+  /// and the evaluator, asked before rounding and after, answers Underflow
+  /// and Inexact for it. Under FS the answer is +0 and Cause is clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] FS flushes on the exact value and drops the flags``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let fprs = [ F2, 0x00ffffffUL; F4, 0x3f000000UL ]
+    let mul fcsr = fpRunAnswering 0x3u isa "46041002" fcsr fprs
+    Assert.AreEqual<uint64 * uint32>((0UL, fs), mul fs)
+    Assert.AreEqual<uint64 * uint32>((0x00800000UL, 0x300cu), mul 0u)
+
+  /// FS flushes what an operation answers and not what it is given: the
+  /// reference reads a subnormal operand as it is, so 2^-127 times 2^23 is
+  /// 2^-104 under FS as well.
+  [<TestMethod>]
+  member _.``[MIPS32] FS leaves a subnormal operand alone``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let fprs = [ F2, 0x00400000UL; F4, 0x4b000000UL ]
+    let mul = fpRun isa "46041002" fs fprs
+    Assert.AreEqual<uint64 * uint32>((0x0b800000UL, fs), mul)
+
+  /// <summary>
+  /// CVT.S.D flushes under FS as the arithmetic does, on the operand, which is
+  /// the exact value, and drops what it raised: 2^-140 is a subnormal single,
+  /// exactly, and a hair above it the same rounded, Underflow and Inexact;
+  /// 2^-126 (1 - 2^-25) rounds up to the smallest normal, Inexact alone,
+  /// tininess being judged after rounding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] FS flushes a narrowing to a subnormal``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let cvt fcsr hi lo = fpRun isa "46201020" fcsr [ F2, lo; F3, hi ]
+    Assert.AreEqual<uint64 * uint32>((0UL, fs), cvt fs 0x37300000UL 0UL)
+    Assert.AreEqual<uint64 * uint32>((0x200UL, 0u), cvt 0u 0x37300000UL 0UL)
+    Assert.AreEqual<uint64 * uint32>((0x80000000UL, fs),
+                                     cvt fs 0xb7300000UL 0UL)
+    Assert.AreEqual<uint64 * uint32>((0UL, fs), cvt fs 0x37300000UL 1UL)
+    Assert.AreEqual<uint64 * uint32>((0x200UL, 0x300cu),
+                                     cvt 0u 0x37300000UL 1UL)
+    Assert.AreEqual<uint64 * uint32>((0UL, fs),
+                                     cvt fs 0x380fffffUL 0xf0000000UL)
+    Assert.AreEqual<uint64 * uint32>((0x00800000UL, 0x1004u),
+                                     cvt 0u 0x380fffffUL 0xf0000000UL)
+
+  /// <summary>
+  /// An unfused MADD.fmt flushes its product before the sum reads it, and the
+  /// sum after: 2^-127 is flushed to +0, so less 2^-127 the sum is -2^-127,
+  /// flushed to -0, where with FS clear the two cancel to +0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] FS flushes MADD's product before the sum``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let fprs = [ F2, 0x00800000UL; F4, 0x3f000000UL; F6, 0x80400000UL ]
+    let madd fcsr = fpRun isa "4cc41020" fcsr fprs
+    Assert.AreEqual<uint64 * uint32>((0x80000000UL, fs), madd fs)
+    Assert.AreEqual<uint64 * uint32>((0UL, 0u), madd 0u)
+
+  /// MAX.fmt answers one of its operands rather than rounding anything, and
+  /// the reference still flushes a subnormal one under FS.
+  [<TestMethod>]
+  member _.``[MIPS64R6] FS flushes a subnormal MAX``() =
+    let r6 =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let negative = [ F2, 0x8000000000000001UL; F4, 0xbff0000000000000UL ]
+    let negativeMax = fpRun r6 "4624101e" fs negative
+    Assert.AreEqual<uint64 * uint32>((0x8000000000000000UL, fs), negativeMax)
+    let fprs = [ F2, 0x1UL; F4, 0x8000000000000000UL ]
+    let max fcsr = fpRun r6 "4624101e" fcsr fprs
+    Assert.AreEqual<uint64 * uint32>((0UL, fs), max fs)
+    Assert.AreEqual<uint64 * uint32>((1UL, 0u), max 0u)
 
   /// <summary>
   /// DMFC0 widens a thirty-two bit coprocessor 0 register by its sign.

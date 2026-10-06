@@ -8,6 +8,7 @@
     <Compile Include="MIPS64ParserTests.fs" />
     <Compile Include="MIPS32ParserTests.fs" />
     <Compile Include="MicroMIPSParserTests.fs" />
+    <Compile Include="IRRunner.fs" />
     <Compile Include="LifterTests.fs" />
   </ItemGroup>
 
