@@ -4278,11 +4278,12 @@ let private tableRegsOf ins bld src1 =
 /// The byte the destination already holds at one lane, which TBX keeps where
 /// TBL writes zero. The lane is a byte index into the pair of doublewords a
 /// vector register is kept as, so which half it comes from is fixed at lift
-/// time rather than decided in the IR.
+/// time rather than decided in the IR, and the byte's place within that half
+/// is the lane's place among the half's eight.
 let private tblDstByte dstA dstB i =
   let nFF = numI32 -1 8<rt> |> AST.zext 64<rt>
   let half = if i < 8 then dstA else dstB
-  ((half >> (numI32 (i * 8) 64<rt>)) .& nFF) |> AST.xtlo 8<rt>
+  ((half >> (numI32 (i % 8 * 8) 64<rt>)) .& nFF) |> AST.xtlo 8<rt>
 
 /// The byte one table register holds at an index, counting from its bottom.
 /// The index is taken modulo eight because the caller has already decided

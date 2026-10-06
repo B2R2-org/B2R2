@@ -350,3 +350,18 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[AArch64] UQRSHL of zero leaves QC``() =
     Assert.AreEqual<uint64>(0UL, qcAfter "6e225c20" 0UL 0UL)
+
+  /// TBX keeps the destination's byte where the index is past the table, in
+  /// the top eight lanes as in the bottom eight (DDI0487F.c C7.2.336).
+  [<TestMethod>]
+  member _.``[AArch64] TBX of sixteen bytes keeps the top lanes``() =
+    let inputs =
+      [ !@(Q0, 1), bv64 0xeeeeeeeeeeeeeeeeUL
+        !@(Q0, 2), bv64 0xeeeeeeeeeeeeeeeeUL
+        !@(Q1, 1), bv64 0x4746454443424140UL
+        !@(Q1, 2), bv64 0x4f4e4d4c4b4a4948UL
+        !@(Q2, 1), bv64 0x0a082005ff100f00UL
+        !@(Q2, 2), bv64 0x40071003800e1101UL ]
+    let read = IRRunner.run (lifted "4e021020") inputs
+    Assert.AreEqual<uint64>(0x4a48ee45eeee4f40UL, (read !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(0xee47ee43ee4eee41UL, (read !@(Q0, 2)).ToUInt64())

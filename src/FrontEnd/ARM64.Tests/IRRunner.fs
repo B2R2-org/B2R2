@@ -49,6 +49,7 @@ module internal IRRunner =
     | BinOpType.ADD -> BitVector.Add(a, b)
     | BinOpType.SUB -> BitVector.Sub(a, b)
     | BinOpType.MUL -> BitVector.Mul(a, b)
+    | BinOpType.MOD -> BitVector.Modulo(a, b)
     | BinOpType.AND -> BitVector.And(a, b)
     | BinOpType.OR -> BitVector.Or(a, b)
     | BinOpType.XOR -> BitVector.Xor(a, b)
