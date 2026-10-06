@@ -124,8 +124,8 @@ let private pairedArith op arith (dst, src1, src2) bld =
     tLo := AST.xtlo 32<rt> ft
     hi := op sHi tHi
     lo := op sLo tLo
-    normalizeNaN 32<rt> hi bld
-    normalizeNaN 32<rt> lo bld
+    fpSettleNaN bld 32<rt> [ sHi; tHi ] hi
+    fpSettleNaN bld 32<rt> [ sLo; tLo ] lo
     (* One record for the pair, not one each: the two halves are two
        operations and the register that holds what was raised is one. Cause
        is rewritten whole by every instruction, so recording each half in
@@ -161,7 +161,7 @@ let add (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fadd tSrc1 tSrc2
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPAdd tSrc1 tSrc2 result
       fd := result
     | Some Fmt.PS ->
@@ -172,7 +172,7 @@ let add (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fadd tSrc1 tSrc2
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPAdd tSrc1 tSrc2 result
       writeFPResult fdB fdA result bld
   }
@@ -746,7 +746,7 @@ let cvtd ins bld =
     result :=
       if fromInt then AST.cast CastKind.SIntToFloat 64<rt> src
       else AST.cast CastKind.FloatCast 64<rt> src
-    normalizeNaN 64<rt> result bld
+    fpSettleConvertedNaN bld 64<rt> result
     if fromInt then
       let back = AST.floatToSInt RoundingMode.TowardZero srcSz result
       fpExceptionsFromInt bld src back
@@ -755,13 +755,26 @@ let cvtd ins bld =
     writeFPResult fdB fdA result bld
   }
 
-/// The word a floating-point value converts to. MD00087 names one default
-/// result for an operand that cannot be represented -- the largest positive
-/// value, on a core with FCSR_NAN2008=0, whatever the operand's sign -- and
-/// the range has to be decided BEFORE the result is narrowed. A value already
-/// narrowed to the destination width is never outside that width's range, so
-/// a comparison made after the narrowing is constant false and the default is
-/// never chosen.
+/// <summary>
+/// The integer a conversion answers for an operand that has none, where
+/// MD00087 names a default result. Before NAN2008 it is the largest positive
+/// one whatever the operand's sign. With NAN2008 -- always, on Release 6 --
+/// it is what IEEE-2008 saturates to, as the reference has it: zero for a
+/// NaN, and the end of the range the operand's sign points at for an
+/// infinity or a magnitude too large.
+/// </summary>
+let private noIntegerResult bld sz src nan =
+  let largest, smallest =
+    if sz = 32<rt> then numI32 0x7fffffff sz, numU32 0x80000000u sz
+    else numI64 0x7fffffffffffffffL sz, numU64 0x8000000000000000UL sz
+  let towardSign = AST.ite (AST.xthi 1<rt> src) smallest largest
+  let saturated = AST.ite nan (AST.num0 sz) towardSign
+  AST.ite (fpNaN2008 bld) saturated largest
+
+/// The word a floating-point value converts to. The range has to be decided
+/// BEFORE the result is narrowed: a value already narrowed to the destination
+/// width is never outside that width's range, so a comparison made after the
+/// narrowing is constant false and the default is never chosen.
 let private wordOfFP bld convert src inf nan =
   let wide = tmpVar bld 64<rt>
   append bld {
@@ -772,7 +785,8 @@ let private wordOfFP bld convert src inf nan =
     .| AST.slt wide (numI64 -0x80000000L 64<rt>)
   let narrowed = AST.xtlo 32<rt> wide
   let noInteger = outOfRange .| inf .| nan
-  struct (AST.ite noInteger (numI32 0x7fffffff 32<rt>) narrowed, noInteger)
+  let fallback = noIntegerResult bld 32<rt> src nan
+  struct (AST.ite noInteger fallback narrowed, noInteger)
 
 /// The doubleword one converts to. There is no wider integer to convert into,
 /// so the range is decided on the operand itself: a magnitude of 2^63 or more
@@ -790,8 +804,8 @@ let private longOfFP bld convert srcSz src inf nan =
   }
   let outOfRange = AST.fge src upper .| AST.flt src lower
   let noInteger = outOfRange .| inf .| nan
-  struct (AST.ite noInteger (numI64 0x7fffffffffffffffL 64<rt>) eval,
-          noInteger)
+  let fallback = noIntegerResult bld 64<rt> src nan
+  struct (AST.ite noInteger fallback eval, noInteger)
 
 /// Rounds the way the instruction's own name says, which is what every
 /// conversion but CVT does.
@@ -893,7 +907,7 @@ let cvts ins bld =
     result :=
       if fromInt then AST.cast CastKind.SIntToFloat 32<rt> src
       else AST.cast CastKind.FloatCast 32<rt> src
-    normalizeNaN 32<rt> result bld
+    fpSettleConvertedNaN bld 32<rt> result
     if fromInt then
       let back = AST.floatToSInt RoundingMode.TowardZero srcSz result
       fpExceptionsFromInt bld src back
@@ -1202,7 +1216,7 @@ let div (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
       result := AST.fdiv tSrc1 tSrc2
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPDiv tSrc1 tSrc2 result
       writeFPResult fdB fdA result bld
     | _ ->
@@ -1211,7 +1225,7 @@ let div (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
       result := AST.fdiv tSrc1 tSrc2
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPDiv tSrc1 tSrc2 result
       dst := result
   }
@@ -2290,36 +2304,16 @@ let fpClass ins bld =
 /// flipping the multiplicand's sign: a NaN's sign is not the arithmetic's to
 /// change, so a sign flip would have needed a guard, and the guard would have
 /// been wrong for a NaN whose sign the operation is supposed to keep.
+///
+/// Which NaN comes out is the architecture's to say, not the host's: the
+/// reference asks the addend first and the multiplicands after it, a
+/// signalling one before any quiet one, which is fpSettleNaN's rule over the
+/// destination, fs and ft in that order.
 /// </summary>
 let private fusedMultiplyAdd add ins bld =
-  fpR6BinaryWith ins bld true (fun sz d a b ->
-    let mantBits = if sz = 32<rt> then 23 else 52
-    let expMask = numU64 ((((1UL <<< (int sz - mantBits - 1)) - 1UL))
-                          <<< mantBits) sz
-    let mantMask = numU64 ((1UL <<< mantBits) - 1UL) sz
-    let isNaN v =
-      ((v .& expMask) == expMask) .& ((v .& mantMask) != AST.num0 sz)
-    let result = fma sz (not add) false a b d
-    (* Which NaN comes out is the architecture's to say, not the host's. A
-       SIGNALLING operand wins over a quiet one wherever it sits -- that is
-       what the reference does when one operand is a quiet NaN and a later one
-       is signalling -- and it comes out quieted. Failing that a quiet operand
-       propagates as it is, and a NaN no operand carried is one this operation
-       manufactured, which Release 6 gives the IEEE-2008 default: the quiet bit
-       set, the rest of the mantissa clear, and positive whatever the operands
-       were. *)
-    let quietBit = numU64 (1UL <<< (mantBits - 1)) sz
-    let defaultNaN = quietBit .| expMask
-    let isSNaN v = isNaN v .& ((v .& quietBit) == AST.num0 sz)
-    let isQNaN v = isNaN v .& ((v .& quietBit) != AST.num0 sz)
-    let manufactured = AST.ite (isNaN result) defaultNaN result
-    let quietD = AST.ite (isQNaN d) d manufactured
-    let quietB = AST.ite (isQNaN b) b quietD
-    let quietA = AST.ite (isQNaN a) a quietB
-    let signalD = AST.ite (isSNaN d) (d .| quietBit) quietA
-    let signalB = AST.ite (isSNaN b) (b .| quietBit) signalD
-    AST.ite (isSNaN a) (a .| quietBit) signalB)
+  fpR6BinaryWith ins bld true (fun sz d a b -> fma sz (not add) false a b d)
     (fun sz d a b result ->
+      fpSettleNaN bld sz [ d; a; b ] result
       fpExceptionsFused bld sz (not add) a b d result)
 
 /// MADDF.fmt: the destination plus the product.
@@ -2674,12 +2668,12 @@ let private unfusedMulAdd bld sz combine arith addendFirst a b c =
   append bld {
     product := AST.fmul a b
   }
-  normalizeNaN sz product bld
+  fpSettleNaN bld sz [ a; b ] product
   let rMul = fpRaised bld sz FPMul a b product
   append bld {
     result := combine product c
   }
-  normalizeNaN sz result bld
+  fpSettleNaN bld sz [ product; c ] result
   let rAdd =
     if addendFirst then fpRaised bld sz arith c product result
     else fpRaised bld sz arith product c result
@@ -3016,7 +3010,7 @@ let mul ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fmul tSrc1 tSrc2
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPMul tSrc1 tSrc2 result
       dst := result
     | Some Fmt.D ->
@@ -3025,7 +3019,7 @@ let mul ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fmul tSrc1 tSrc2
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPMul tSrc1 tSrc2 result
       writeFPResult dstB dstA result bld
     | Some Fmt.PS ->
@@ -3649,7 +3643,7 @@ let sqrt ins bld =
       let cond = fs == numU32 0x80000000u 32<rt>
       let result = tmpVar bld 32<rt>
       result := AST.ite cond (numU32 0x80000000u 32<rt>) (AST.fsqrt fs)
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ fs ] result
       fpExceptions bld 32<rt> FPSqrt fs fs result
       fd := result
     | _ ->
@@ -3659,7 +3653,7 @@ let sqrt ins bld =
       let cond = src == numU64 0x8000000000000000UL 64<rt>
       result :=
         AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt src)
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ src ] result
       fpExceptions bld 64<rt> FPSqrt src src result
       writeFPResult fdB fdA result bld
   }
@@ -3807,8 +3801,8 @@ let private pairedSub (dst, src1, src2) bld =
     loB := AST.xtlo 32<rt> ft
     hi := AST.fsub hiA hiB
     lo := AST.fsub loA loB
-    normalizeNaN 32<rt> hi bld
-    normalizeNaN 32<rt> lo bld
+    fpSettleNaN bld 32<rt> [ hiA; hiB ] hi
+    fpSettleNaN bld 32<rt> [ loA; loB ] lo
     (* One record for the pair: see the note in pairedArith. *)
     let raisedHi = fpRaised bld 32<rt> FPSub hiA hiB hi
     let raisedLo = fpRaised bld 32<rt> FPSub loA loB lo
@@ -3849,7 +3843,7 @@ let sub ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fsub tSrc1 tSrc2
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPSub tSrc1 tSrc2 result
       dst := result
     | Some Fmt.D ->
@@ -3858,7 +3852,7 @@ let sub ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fsub tSrc1 tSrc2
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPSub tSrc1 tSrc2 result
       writeFPResult dstB dstA result bld
     | Some Fmt.PS ->
@@ -4101,14 +4095,14 @@ let private reciprocalOf bld sz root a =
   }
   let rootRaised =
     if root then
-      normalizeNaN sz divisor bld
+      fpSettleNaN bld sz [ a ] divisor
       fpRaised bld sz FPSqrt a a divisor
     else
       AST.num0 32<rt>
   append bld {
     result := AST.fdiv one divisor
   }
-  normalizeNaN sz result bld
+  fpSettleNaN bld sz [ one; divisor ] result
   fpRecord bld (rootRaised .| fpRaised bld sz FPDiv one divisor result)
   result
 

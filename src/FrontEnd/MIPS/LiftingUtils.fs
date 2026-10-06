@@ -328,24 +328,6 @@ let private getSignalBit src oprSz =
   if oprSz = 32<rt> then src .& numU32 (1u <<< 22) 32<rt>
   else src .& numU64 (1UL <<< 51) 64<rt>
 
-/// The NaN a floating-point result normalizes to.
-///
-/// MIPS in its legacy NaN encoding -- the one this port uses -- answers with a
-/// single value wherever an operation is invalid or has met a NaN: 0x7fbfffff
-/// at single precision and 0x7ff7ffffffffffff at double. It is that value
-/// whatever the operands were, and it is positive, so this is a replacement
-/// rather than a propagation: both the payload and the sign of whatever NaN
-/// the host arithmetic produced are discarded.
-let normalizeNaN oprSz result bld =
-  let defaultNaN =
-    if oprSz = 32<rt> then numU32 0x7fbfffffu 32<rt>
-    else numU64 0x7ff7ffffffffffffUL 64<rt>
-  let nan =
-    isNaN oprSz (getExponentFull result oprSz) (getMantissa result oprSz)
-  append bld {
-    result := AST.ite nan defaultNaN result
-  }
-
 /// <summary>
 /// The kind of a jump into the compressed encoding of the processor an ISA
 /// names: MIPS16e where it names MIPS16e, and microMIPS otherwise. No processor
@@ -653,7 +635,7 @@ let private fpIsZero oprSz v =
   (v .& magnitudeOfWidth oprSz) == AST.num0 oprSz
 
 /// <summary>
-/// Whether the value is a NaN this guest reads as signalling.
+/// Whether the guest is on the IEEE-2008 side of the NaN encoding.
 ///
 /// Which leading mantissa bit means which is not fixed. IEEE-2008 reads a set
 /// bit as quiet; MIPS before that release read it the other way round, its
@@ -664,14 +646,59 @@ let private fpIsZero oprSz v =
 /// Earlier releases leave it to the processor, and there FCSR bit 18 is what
 /// says which side the guest is on.
 /// </summary>
-let private fpIsSignalling (bld: ILowUIRBuilder) oprSz v =
+let fpNaN2008 (bld: ILowUIRBuilder) =
+  if bld.ISA.MIPSRelease = MIPSRelease.R6 then AST.b1
+  else (regVar bld R.FCSR .& numU32 0x40000u 32<rt>) != AST.num0 32<rt>
+
+/// Whether the value is a NaN this guest reads as signalling.
+let private fpIsSignalling bld oprSz v =
   let quiet = (v .& quietBitOfWidth oprSz) != AST.num0 oprSz
-  if bld.ISA.MIPSRelease = MIPSRelease.R6 then
-    fpIsNaN oprSz v .& AST.not quiet
-  else
-    let nan2008 =
-      (regVar bld R.FCSR .& numU32 0x40000u 32<rt>) != AST.num0 32<rt>
-    fpIsNaN oprSz v .& AST.ite nan2008 (AST.not quiet) quiet
+  fpIsNaN oprSz v .& AST.ite (fpNaN2008 bld) (AST.not quiet) quiet
+
+/// <summary>
+/// The NaN MIPS answers before NAN2008, wherever an operation is invalid or
+/// has met a NaN: 0x7fbfffff at single precision and 0x7ff7ffffffffffff at
+/// double. It is that value whatever the operands were, and it is positive,
+/// so it replaces whatever NaN the host arithmetic produced.
+/// </summary>
+let private fpLegacyNaN oprSz =
+  if oprSz = 32<rt> then numU32 0x7fbfffffu 32<rt>
+  else numU64 0x7ff7ffffffffffffUL 64<rt>
+
+/// <summary>
+/// The NaN an arithmetic operation answers, put in place of whatever NaN the
+/// host's arithmetic made: the default one before NAN2008, and with NAN2008,
+/// which Release 6 always has, what IEEE-2008 propagates -- the first
+/// signalling operand quieted, else the first quiet one as it is, and the
+/// default NaN, 0x7fc00000 or 0x7ff8000000000000, only where no operand
+/// brought one. The host picks among NaN operands by a rule of its own, so
+/// the choice is made here.
+/// </summary>
+let fpSettleNaN bld oprSz operands result =
+  let quietBit = quietBitOfWidth oprSz
+  let fresh =
+    if oprSz = 32<rt> then numU32 0x7fc00000u 32<rt>
+    else numU64 0x7ff8000000000000UL 64<rt>
+  let signalling v = fpIsNaN oprSz v .& ((v .& quietBit) == AST.num0 oprSz)
+  let pickQuiet v rest = AST.ite (fpIsNaN oprSz v) v rest
+  let pickSignalling v rest = AST.ite (signalling v) (v .| quietBit) rest
+  let quiet = List.foldBack pickQuiet operands fresh
+  let propagated = List.foldBack pickSignalling operands quiet
+  let settled = AST.ite (fpNaN2008 bld) propagated (fpLegacyNaN oprSz)
+  append bld {
+    result := AST.ite (fpIsNaN oprSz result) settled result
+  }
+
+/// <summary>
+/// The NaN a conversion between the two formats answers: the default one
+/// before NAN2008, and with it the operand's own, quieted, with its payload
+/// cut or extended -- which is what the host's conversion makes of it.
+/// </summary>
+let fpSettleConvertedNaN bld oprSz result =
+  let replaced = fpIsNaN oprSz result .& AST.not (fpNaN2008 bld)
+  append bld {
+    result := AST.ite replaced (fpLegacyNaN oprSz) result
+  }
 
 /// The operation codes of the exception query, which are the evaluator's
 /// contract.

@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.MIPS.Tests
 
+open System
 open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
@@ -32,8 +33,9 @@ open B2R2.BinIR.LowUIR
 /// <summary>
 /// Runs the statements an instruction lifts to over registers given values,
 /// for a test whose claim is the value an instruction computes. It knows the
-/// straight-line LowUIR of the floating-point arithmetic, rounded to nearest,
-/// and fails on anything else rather than guess what it means.
+/// straight-line LowUIR of the floating-point arithmetic, rounded to nearest
+/// unless a RoundCtrl names a direction for a rounding to an integer, and
+/// fails on anything else rather than guess what it means.
 ///
 /// <para>The exception query answers what a test names, nothing unless it
 /// names something: the query works out what an operation raised, which this
@@ -76,17 +78,63 @@ module internal IRRunner =
     | RelOpType.GE -> BitVector.Ge(a, b)
     | RelOpType.LT -> BitVector.Lt(a, b)
     | RelOpType.LE -> BitVector.Le(a, b)
+    | RelOpType.SGT -> BitVector.SGt(a, b)
+    | RelOpType.SLT -> BitVector.SLt(a, b)
     | RelOpType.FEQ -> BitVector.FEq(a, b)
     | RelOpType.FGT -> BitVector.FGt(a, b)
+    | RelOpType.FGE -> BitVector.FGe(a, b)
     | RelOpType.FLT -> BitVector.FLt(a, b)
     | _ -> failwith $"IRRunner: no {op}"
 
-  /// The named calls the lifters make: the exception query, which answers
-  /// the flags it is given.
-  let private app answer name =
-    match name with
-    | "FEXC32" | "FEXC64" -> answer
-    | _ -> failwith $"IRRunner: no {name}"
+  /// The value a single or a double holds, which a double holds exactly.
+  let private toDouble (x: BitVector) =
+    if x.Length = 32<rt> then
+      float (BitConverter.UInt32BitsToSingle(uint32 (x.ToUInt64())))
+    else
+      BitConverter.UInt64BitsToDouble(x.ToUInt64())
+
+  /// A value as a single or a double, which it must be exactly.
+  let private ofDouble rt (d: float) =
+    if rt = 32<rt> then
+      BitVector(uint64 (BitConverter.SingleToUInt32Bits(float32 d)), 32<rt>)
+    else
+      BitVector(BitConverter.DoubleToUInt64Bits(d), 64<rt>)
+
+  /// A value rounded to an integral one in a direction of the RoundingMode
+  /// encoding.
+  let private integral mode (d: float) =
+    match mode with
+    | RoundingMode.ToNearestEven -> Math.Round(d)
+    | RoundingMode.TowardNegative -> Math.Floor(d)
+    | RoundingMode.TowardPositive -> Math.Ceiling(d)
+    | RoundingMode.TowardZero -> Math.Truncate(d)
+    | m -> failwith $"IRRunner: no {m}"
+
+  /// A float rounded to an integer in a direction, the low bits of it kept.
+  let private toInt mode rt x =
+    let v = int64 (integral mode (toDouble x))
+    BitVector.Cast(BitVector(uint64 v, 64<rt>), rt)
+
+  /// The named calls the lifters make: the fused multiply-add, with bit 0 of
+  /// its flags negating the product and bit 1 the addend, and the exception
+  /// query, which answers the flags it is given.
+  let private app answer name (args: BitVector list) =
+    match name, args with
+    | ("FEXC32" | "FEXC64"), _ ->
+      answer
+    | ("FMA32" | "FMA64"), [ x; y; z; flags ] ->
+      let f = flags.ToUInt64()
+      let product = if f &&& 1UL = 0UL then toDouble x else -(toDouble x)
+      let addend = if f &&& 2UL = 0UL then toDouble z else -(toDouble z)
+      if x.Length = 32<rt> then
+        let p, m, a = float32 product, float32 (toDouble y), float32 addend
+        let r = MathF.FusedMultiplyAdd(p, m, a)
+        BitVector(uint64 (BitConverter.SingleToUInt32Bits(r)), 32<rt>)
+      else
+        let r = Math.FusedMultiplyAdd(product, toDouble y, addend)
+        BitVector(BitConverter.DoubleToUInt64Bits(r), 64<rt>)
+    | _ ->
+      failwith $"IRRunner: no {name}"
 
   let rec private eval answer regs (temps: Dictionary<int, BitVector>) e =
     let eval = eval answer regs temps
@@ -97,8 +145,10 @@ module internal IRRunner =
       readReg regs r t
     | TempVar(Index = n) ->
       temps[n]
-    | BinOp(Op = BinOpType.APP; Left = FuncName(Name = n)) ->
-      app answer n
+    | BinOp(Op = BinOpType.APP; Left = FuncName(Name = n); Right = es) ->
+      match es with
+      | ExprList(Elements = args) -> app answer n (List.map eval args)
+      | _ -> failwith $"IRRunner: no {e}"
     | BinOp(Op = op; Left = l; Right = r) ->
       binOp op (eval l) (eval r)
     | RelOp(Op = op; Left = l; Right = r) ->
@@ -113,6 +163,17 @@ module internal IRRunner =
       BitVector.SExt(eval x, t)
     | Cast(Kind = CastKind.FloatCast; Type = t; Operand = x) ->
       BitVector.FCast(eval x, t)
+    | Cast(Kind = CastKind.FloatToSInt; Type = t; Operand = x) ->
+      toInt RoundingMode.ToNearestEven t (eval x)
+    | RoundCtrl(Mode = m; Body = Cast(Kind = k; Type = t; Operand = x)) ->
+      let mode = enum<RoundingMode> (int ((eval m).ToUInt64()))
+      match k with
+      | CastKind.RoundToIntegral ->
+        ofDouble t (integral mode (toDouble (eval x)))
+      | CastKind.FloatToSInt ->
+        toInt mode t (eval x)
+      | _ ->
+        failwith $"IRRunner: no {e}"
     | Extract(Operand = x; Type = t; StartPos = p) ->
       BitVector.Extract(eval x, t, p)
     | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->

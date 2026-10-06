@@ -605,6 +605,44 @@ type LifterTests() =
     Assert.AreEqual<uint64>(ones, cmp "46841011" two)
 
   /// <summary>
+  /// Release 6 reads a NaN as IEEE-2008 does, and so does the reference: an
+  /// operation hands back the first signalling operand quieted, ahead of any
+  /// quiet one, where the host hands back its first NaN operand; and a NaN no
+  /// operand brought is the positive default, where the host's is negative.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64R6] The arithmetic answers IEEE-2008's NaN``() =
+    let r6 =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let qnan, snan = 0x7ff8000000000001UL, 0x7ff0000000000002UL
+    let add, _ = fpRun r6 "46241000" 0u [ F2, qnan; F4, snan ]
+    Assert.AreEqual<uint64>(0x7ff8000000000002UL, add)
+    let sqrt, _ = fpRun r6 "46001004" 0u [ F2, 0xbf800000UL ]
+    Assert.AreEqual<uint64>(0x7fc00000UL, sqrt &&& 0xffffffffUL)
+
+  /// MADDF.fmt asks the addend about a NaN first, and the multiplicands after
+  /// it.
+  [<TestMethod>]
+  member _.``[MIPS64R6] MADDF takes the addend's NaN first``() =
+    let r6 =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let fprs = [ F0, 0xffc00000UL; F2, 0x7fc00000UL; F4, 0x3f800000UL ]
+    let maddf, _ = fpRun r6 "46041018" 0u fprs
+    Assert.AreEqual<uint64>(0xffc00000UL, maddf &&& 0xffffffffUL)
+
+  /// With NAN2008 a conversion to an integer saturates as IEEE-2008 does: a
+  /// NaN is zero and a negative magnitude too large the smallest word, where
+  /// before it every such operand answered the largest.
+  [<TestMethod>]
+  member _.``[MIPS64R6] CVT.W.S saturates as IEEE-2008 does``() =
+    let r6 =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let cvt v = fst (fpRun r6 "46001024" 0u [ F2, v ]) &&& 0xffffffffUL
+    Assert.AreEqual<uint64>(0UL, cvt 0x7fc00000UL)
+    Assert.AreEqual<uint64>(0x80000000UL, cvt 0xcf800000UL)
+    Assert.AreEqual<uint64>(0x7fffffffUL, cvt 0x4f800000UL)
+
+  /// <summary>
   /// DMFC0 widens a thirty-two bit coprocessor 0 register by its sign.
   ///
   /// A MIPS64 processor keeps the registers that carry an address or a page
