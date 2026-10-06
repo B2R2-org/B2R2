@@ -1883,6 +1883,31 @@ let fpConvertNarrow bld src =
   fpConvertNarrowWith bld (AST.cast CastKind.FloatCast 32<rt>) src
 
 /// <summary>
+/// A 64-bit integer cut to what rounding it to a half can tell from it, and
+/// how many places it was shifted right. From 2^23 up, rounding to a half
+/// keeps nothing below bit 13 and asks of the bits below bit 12 only whether
+/// any is set, so bits 0 to 10 are folded into bit 11 and dropped, which
+/// leaves 53 bits at most, and a double holds them exactly. Rounded to a
+/// half, the cut integer gives what the whole one would, and is inexact
+/// where it is; a double of the whole one would have rounded first, past
+/// 2^53, and could tip the half the other way.
+/// </summary>
+let private cutForHalf bld unsigned wide =
+  let rt = 64<rt>
+  let neg = if unsigned then AST.b0 else AST.xthi 1<rt> wide
+  let mag = tmpVar bld rt
+  let big = tmpVar bld 1<rt>
+  let low = mag .& numI32 0x7ff rt
+  let folded = (mag >> numI32 11 rt) .| AST.zext rt (low != AST.num0 rt)
+  append bld {
+    direct mag := AST.ite neg (AST.neg wide) wide
+    direct big := AST.ge mag (numI32 0x800000 rt)
+    direct mag := AST.ite big folded mag
+  }
+  let places = AST.ite big (numI32 11 rt) (AST.num0 rt)
+  struct (AST.ite neg (AST.neg mag) mag, places)
+
+/// <summary>
 /// FPRoundBase's flush of a half that was tiny before rounding to a zero of
 /// its own sign under FPCR.FZ16, and what it raises with it: Underflow and
 /// nothing else, in place of what the narrowing raised.
@@ -1899,9 +1924,9 @@ let private halfFlushOut bld h tiny raised =
 /// An integer, or a fixed-point number with <c>fbits</c> of fraction,
 /// converted to a half.
 ///
-/// It goes through a double, which holds every integer a half can tell apart
-/// exactly: past 2^53 a double rounds, but anything that large is far past
-/// the largest half and overflows the same whichever way the double went.
+/// It goes through a double, which holds the integer exactly once it is cut
+/// to what a half can tell from it -- with as many fraction bits as a 64-bit
+/// one may have, an integer past 2^53 can be a half well inside its range.
 /// Scaling by a power of two is exact as well, so the narrowing is the only
 /// rounding, and what it raised is what the conversion raised -- but for a
 /// result tiny before rounding, which FPCR.FZ16 flushes to zero (FixedToFP
@@ -1917,9 +1942,10 @@ let intToHalf bld unsigned fbits src =
   let kind = if unsigned then CastKind.UIntToFloat else CastKind.SIntToFloat
   let places =
     if Expr.typeOf fbits = 64<rt> then fbits else AST.zext 64<rt> fbits
-  let scale = (numI32 1023 64<rt> .- places) << numI32 52 64<rt>
+  let struct (cut, shifted) = cutForHalf bld unsigned wide
+  let scale = (numI32 1023 64<rt> .- (places .- shifted)) << numI32 52 64<rt>
   let w = tmpVar bld 64<rt>
-  append bld { direct w := AST.fmul (AST.cast kind 64<rt> wide) scale }
+  append bld { direct w := AST.fmul (AST.cast kind 64<rt> cut) scale }
   let struct (h, inexact, overflow, tiny) = narrowToHalf bld 64<rt> w
   let raised = fpBits fpNone fpNone overflow (tiny .& inexact) inexact
   fpRecord bld (halfFlushOut bld h tiny raised)

@@ -475,6 +475,33 @@ type LifterTests() =
     Assert.AreEqual<uint64>(0x10UL, (read !@(Q0, 1)).ToUInt64())
     Assert.AreEqual<uint64>(0UL, (read !.FPSR).ToUInt64())
 
+  /// <summary>
+  /// A 64-bit integer with 64 fraction bits is a half inside its range, and
+  /// rounds to it once (DDI0487F.c C7.2.235, FixedToFP): (2^62 + 2^51 + 1) /
+  /// 2^64 is just past the middle of two halves and rounds up to 0.25 +
+  /// 2^-12, where a double of the integer, rounded first, lands on the middle
+  /// and rounds to the even one; and (2^63 - 1) / 2^64 is inexact however
+  /// close a double of it comes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] SCVTF of a 64-bit integer to a half rounds once``() =
+    let run x = IRRunner.run (lifted "9ec20020") [ !.X1, bv64 x ]
+    let up = run 0x4008000000000001UL
+    Assert.AreEqual<uint64>(0x3401UL, (up !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(0x10UL, (up !.FPSR).ToUInt64())
+    let near = run 0x7fffffffffffffffUL
+    Assert.AreEqual<uint64>(0x3800UL, (near !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(0x10UL, (near !.FPSR).ToUInt64())
+
+  /// The same for UCVTF (C7.2.354): (2^63 + 2^52 + 1) / 2^64 rounds up to
+  /// 0.5 + 2^-11.
+  [<TestMethod>]
+  member _.``[AArch64] UCVTF of a 64-bit integer to a half rounds once``() =
+    let inputs = [ !.X1, bv64 0x8010000000000001UL ]
+    let read = IRRunner.run (lifted "9ec30020") inputs
+    Assert.AreEqual<uint64>(0x3801UL, (read !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(0x10UL, (read !.FPSR).ToUInt64())
+
   /// FZ16 is a half's FZ: FRECPE of 2^14 is under the smallest normal half
   /// and gives a zero, raising Underflow alone.
   [<TestMethod>]

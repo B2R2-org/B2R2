@@ -121,6 +121,9 @@ module internal IRRunner =
     | Cast(Kind = CastKind.SIntToFloat; Type = 64<rt>; Operand = x)
       when Expr.typeOf x = 64<rt> ->
       ofDouble (float (int64 ((eval x).ToUInt64())))
+    | Cast(Kind = CastKind.UIntToFloat; Type = 64<rt>; Operand = x)
+      when Expr.typeOf x = 64<rt> ->
+      ofDouble (float ((eval x).ToUInt64()))
     | Extract(Operand = x; Type = t; StartPos = p) ->
       BitVector.Extract(eval x, t, p)
     | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
