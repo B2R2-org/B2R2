@@ -243,9 +243,29 @@ let aas (ins: Instruction) bld =
 #endif
   }
 
-let adc (ins: Instruction) bld =
+/// AADD, AAND, AOR and AXOR, the remote atomic operations: each one updates
+/// its memory operand atomically with the register beside it, and none of
+/// them touches the flags.
+let private remoteAtomic (ins: Instruction) bld op =
   lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld true
+    let oprSize = getOperationSize ins
+    AST.sideEffect AtomicBegin
+    sized oprSize dst := op dst src
+    AST.sideEffect AtomicEnd
+  }
+
+let aadd ins bld = remoteAtomic ins bld (.+)
+
+let aand ins bld = remoteAtomic ins bld (.&)
+
+let aor ins bld = remoteAtomic ins bld (.|)
+
+let axor ins bld = remoteAtomic ins bld (<+>)
+
+let adc (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     let cf = regVar bld R.CF
     let struct (t1, t2, t3, t4) = tmpVars4 bld oprSize
@@ -262,6 +282,7 @@ let adc (ins: Instruction) bld =
     let struct (ofl, sf) = osfOnAdd t1 t2 t4 bld
     direct (regVar bld R.OF) := ofl
     enumASZPFlags bld t1 t2 t4 oprSize sf
+    writeNDD ins bld dst
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -273,7 +294,7 @@ let adc (ins: Instruction) bld =
 /// two independent chains at once, ADCX through CF and ADOX through OF.
 let adcx (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld true
+    let struct (dst, src) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     let cf = regVar bld R.CF
 #if EMULATION
@@ -296,6 +317,7 @@ let adcx (ins: Instruction) bld =
        wrapped, or adding the destination to that did. Never both -- the first
        can only wrap to zero, which leaves the second sum exact. *)
     direct cf := (t3 .< t2) .| (t4 .< t1)
+    writeNDD ins bld dst
   }
 
 let private atomicBeginIfLocked (ins: Instruction) bld =
@@ -308,6 +330,18 @@ let private atomicEndIfLocked (ins: Instruction) bld =
     if Prefix.hasLock ins.Prefixes then AST.sideEffect AtomicEnd else ()
   }
 
+#if EMULATION
+/// Sets the condition codes an ADD of an operation size leaves for the
+/// emulator to work the flags out of, should anything read them.
+let private setAddCCOp (bld: ILowUIRBuilder) oprSize =
+  match oprSize with
+  | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDB
+  | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDW
+  | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDD
+  | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDQ
+  | _ -> raise InvalidRegTypeException
+#endif
+
 /// Adds a value to itself, which is what an ADD whose two operands are the
 /// same comes down to.
 let private addSameOprs (ins: Instruction) bld oprSize o1 =
@@ -319,28 +353,27 @@ let private addSameOprs (ins: Instruction) bld oprSize o1 =
     direct t1 := dst
     direct t2 := t1 .+ t1
     sized oprSize dst := t2
-    let struct (ofl, sf) = osfOnAdd t1 t1 t2 bld
-    enumEFLAGS bld t1 t1 t2 oprSize (cfOnAdd t1 t2) ofl sf
+    if hasNF ins then
+      ()
+    else
+      let struct (ofl, sf) = osfOnAdd t1 t1 t2 bld
+      enumEFLAGS bld t1 t1 t2 oprSize (cfOnAdd t1 t2) ofl sf
 #else
     let t = tmpVar bld oprSize
     direct t := dst
     sized oprSize dst := t .+ t
-    setCCOperands2 bld t dst
-    match oprSize with
-    | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDB
-    | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDW
-    | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDD
-    | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDQ
-    | _ -> raise InvalidRegTypeException
+    if hasNF ins then
+      ()
+    else
+      setCCOperands2 bld t dst
+      setAddCCOp bld oprSize
 #endif
   }
 
 /// Adds the source to the destination, which is what every other ADD comes
 /// down to.
-let private addTwoOprs (ins: Instruction) bld oprSize o1 o2 =
+let private addTwoOprs (ins: Instruction) bld oprSize dst src =
   append bld {
-    let dst = transOpr ins bld true o1
-    let src = transOpr ins bld false o2 |> transReg bld true
     atomicBeginIfLocked ins bld
 #if !EMULATION
     let isSrcConst = isConst src
@@ -351,8 +384,11 @@ let private addTwoOprs (ins: Instruction) bld oprSize o1 o2 =
     if isSrcConst then () else direct t2 := src
     direct t3 := t1 .+ t2
     sized oprSize dst := t3
-    let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
-    enumEFLAGS bld t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf
+    if hasNF ins then
+      ()
+    else
+      let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
+      enumEFLAGS bld t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf
 #else
     let src =
       if isConst src then
@@ -362,13 +398,11 @@ let private addTwoOprs (ins: Instruction) bld oprSize o1 o2 =
         append bld { direct t := src }
         t
     sized oprSize dst := dst .+ src
-    setCCOperands2 bld src dst
-    match oprSize with
-    | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDB
-    | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDW
-    | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDD
-    | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDQ
-    | _ -> raise InvalidRegTypeException
+    if hasNF ins then
+      ()
+    else
+      setCCOperands2 bld src dst
+      setAddCCOp bld oprSize
 #endif
   }
 
@@ -378,10 +412,10 @@ let add (ins: Instruction) bld =
     match ins.Operands with
     | TwoOperands(o1, o2) when o1 = o2 ->
       addSameOprs ins bld oprSize o1
-    | TwoOperands(o1, o2) ->
-      addTwoOprs ins bld oprSize o1 o2
     | _ ->
-      raise InvalidOperandException
+      let struct (dst, src) = transDstSrc ins bld
+      addTwoOprs ins bld oprSize dst src
+      writeNDD ins bld dst
     atomicEndIfLocked ins bld
   }
 
@@ -391,7 +425,7 @@ let add (ins: Instruction) bld =
 /// which is why neither may disturb the other's flag.
 let adox (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld true
+    let struct (dst, src) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     let ofl = regVar bld R.OF
 #if EMULATION
@@ -412,30 +446,35 @@ let adox (ins: Instruction) bld =
     direct t4 := t1 .+ t3
     sized oprSize dst := t4
     direct ofl := (t3 .< t2) .| (t4 .< t1)
+    writeNDD ins bld dst
   }
 
 let ``and`` (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld true
+    let struct (dst, src) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     let t = tmpVar bld oprSize
     atomicBeginIfLocked ins bld
     sized oprSize dst := dst .& AST.sext oprSize src
+    if hasNF ins then
+      ()
+    else
 #if EMULATION
-    setCCDst bld dst
-    match oprSize with
-    | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICB
-    | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICW
-    | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICD
-    | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICQ
-    | _ -> raise InvalidRegTypeException
+      setCCDst bld dst
+      match oprSize with
+      | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICB
+      | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICW
+      | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICD
+      | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICQ
+      | _ -> raise InvalidRegTypeException
 #else
-    let sf = AST.xthi 1<rt> dst
-    direct (regVar bld R.OF) := AST.b0
-    direct (regVar bld R.CF) := AST.b0
-    enumSZPFlags bld dst oprSize sf
-    direct (regVar bld R.AF) := undefAF
+      let sf = AST.xthi 1<rt> dst
+      direct (regVar bld R.OF) := AST.b0
+      direct (regVar bld R.CF) := AST.b0
+      enumSZPFlags bld dst oprSize sf
+      direct (regVar bld R.AF) := undefAF
 #endif
+    writeNDD ins bld dst
     atomicEndIfLocked ins bld
   }
 
@@ -446,15 +485,18 @@ let andn (ins: Instruction) bld =
     let t = tmpVar bld oprSize
     direct t := (AST.not src1) .& src2
     sized oprSize dst := t
-    direct (regVar bld R.SF) := AST.extract dst 1<rt> (int oprSize - 1)
-    direct (regVar bld R.ZF) := AST.eq dst (AST.num0 oprSize)
-    direct (regVar bld R.OF) := AST.b0
-    direct (regVar bld R.CF) := AST.b0
+    if hasNF ins then
+      ()
+    else
+      direct (regVar bld R.SF) := AST.extract dst 1<rt> (int oprSize - 1)
+      direct (regVar bld R.ZF) := AST.eq dst (AST.num0 oprSize)
+      direct (regVar bld R.OF) := AST.b0
+      direct (regVar bld R.CF) := AST.b0
 #if !EMULATION
-    direct (regVar bld R.AF) := undefAF
-    direct (regVar bld R.PF) := undefPF
+      direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.PF) := undefPF
 #else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
 
@@ -488,15 +530,18 @@ let bextr (ins: Instruction) bld =
     direct tmp := AST.zext oprSize src1
     direct tmp := (tmp >> start) .& AST.not (mask)
     sized oprSize dst := tmp
-    direct zF := (dst == AST.num0 oprSize)
-    direct (regVar bld R.CF) := AST.b0
-    direct (regVar bld R.OF) := AST.b0
+    if hasNF ins then
+      ()
+    else
+      direct zF := (dst == AST.num0 oprSize)
+      direct (regVar bld R.CF) := AST.b0
+      direct (regVar bld R.OF) := AST.b0
 #if !EMULATION
-    direct (regVar bld R.AF) := undefAF
-    direct (regVar bld R.SF) := undefSF
-    direct (regVar bld R.PF) := undefPF
+      direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.SF) := undefSF
+      direct (regVar bld R.PF) := undefPF
 #else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
 
@@ -506,17 +551,20 @@ let blsi (ins: Instruction) bld =
     let struct (dst, src) = transTwoOprs ins bld false
     let tmp = tmpVar bld oprSize
     direct tmp := AST.neg src .& src
-    direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
-    direct (regVar bld R.ZF) := tmp == AST.num0 oprSize
-    direct (regVar bld R.CF) := src != AST.num0 oprSize
-    sized oprSize dst := tmp
-    direct (regVar bld R.OF) := AST.b0
+    if hasNF ins then
+      ()
+    else
+      direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
+      direct (regVar bld R.ZF) := tmp == AST.num0 oprSize
+      direct (regVar bld R.CF) := src != AST.num0 oprSize
+      direct (regVar bld R.OF) := AST.b0
 #if !EMULATION
-    direct (regVar bld R.AF) := undefAF
-    direct (regVar bld R.PF) := undefPF
+      direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.PF) := undefPF
 #else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
+    sized oprSize dst := tmp
   }
 
 /// BLSR clears the lowest set bit of the source. Like the rest of its family
@@ -528,17 +576,20 @@ let blsr (ins: Instruction) bld =
     let struct (dst, src) = transTwoOprs ins bld false
     let tmp = tmpVar bld oprSize
     direct tmp := (src .- AST.num1 oprSize) .& src
-    direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
-    direct (regVar bld R.ZF) := tmp == AST.num0 oprSize
-    direct (regVar bld R.CF) := src == AST.num0 oprSize
-    sized oprSize dst := tmp
-    direct (regVar bld R.OF) := AST.b0
+    if hasNF ins then
+      ()
+    else
+      direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
+      direct (regVar bld R.ZF) := tmp == AST.num0 oprSize
+      direct (regVar bld R.CF) := src == AST.num0 oprSize
+      direct (regVar bld R.OF) := AST.b0
 #if !EMULATION
-    direct (regVar bld R.AF) := undefAF
-    direct (regVar bld R.PF) := undefPF
+      direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.PF) := undefPF
 #else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
+    sized oprSize dst := tmp
   }
 
 /// BLSMSK fills every bit below the lowest set one, and that bit too: the mask
@@ -549,9 +600,41 @@ let blsmsk (ins: Instruction) bld =
     let struct (dst, src) = transTwoOprs ins bld false
     let tmp = tmpVar bld oprSize
     direct tmp := (src .- AST.num1 oprSize) <+> src
+    if hasNF ins then
+      ()
+    else
+      direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
+      direct (regVar bld R.ZF) := AST.b0
+      direct (regVar bld R.CF) := src == AST.num0 oprSize
+      direct (regVar bld R.OF) := AST.b0
+#if !EMULATION
+      direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.PF) := undefPF
+#else
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+    sized oprSize dst := tmp
+  }
+
+/// AMD's TBM instructions each join the source to its increment or to its
+/// decrement, and take CF from that step alone: an increment carries out only
+/// from a source of all ones, a decrement borrows only from zero. SF and ZF
+/// follow the result, OF is cleared and AF and PF are left undefined, as the
+/// BMI instructions above leave them (AMD64 APM Vol. 3). The source is read
+/// once, so that one in memory is loaded once.
+let private tbm (ins: Instruction) bld isInc op =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let struct (dst, src) = transTwoOprs ins bld false
+    let struct (s, tmp) = tmpVars2 bld oprSize
+    let one = AST.num1 oprSize
+    let step = if isInc then s .+ one else s .- one
+    let edge = if isInc then maxNum oprSize else AST.num0 oprSize
+    direct s := src
+    direct tmp := op s step
     direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
-    direct (regVar bld R.ZF) := AST.b0
-    direct (regVar bld R.CF) := src == AST.num0 oprSize
+    direct (regVar bld R.ZF) := tmp == AST.num0 oprSize
+    direct (regVar bld R.CF) := s == edge
     sized oprSize dst := tmp
     direct (regVar bld R.OF) := AST.b0
 #if !EMULATION
@@ -561,6 +644,33 @@ let blsmsk (ins: Instruction) bld =
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
+
+/// BLCFILL clears every bit below the lowest clear one.
+let blcfill ins bld = tbm ins bld true (fun src inc -> src .& inc)
+
+/// BLCI sets every bit but the lowest clear one.
+let blci ins bld = tbm ins bld true (fun src inc -> src .| AST.not inc)
+
+/// BLCIC isolates the lowest clear bit, as a set one.
+let blcic ins bld = tbm ins bld true (fun src inc -> AST.not src .& inc)
+
+/// BLCMSK masks the lowest clear bit and every bit below it.
+let blcmsk ins bld = tbm ins bld true (fun src inc -> src <+> inc)
+
+/// BLCS sets the lowest clear bit.
+let blcs ins bld = tbm ins bld true (fun src inc -> src .| inc)
+
+/// BLSFILL sets every bit below the lowest set one.
+let blsfill ins bld = tbm ins bld false (fun src dec -> src .| dec)
+
+/// BLSIC clears the lowest set bit and sets every other.
+let blsic ins bld = tbm ins bld false (fun src dec -> AST.not src .| dec)
+
+/// T1MSKC clears the trailing ones and sets every other bit.
+let t1mskc ins bld = tbm ins bld true (fun src inc -> AST.not src .| inc)
+
+/// TZMSK masks the trailing zeros.
+let tzmsk ins bld = tbm ins bld false (fun src dec -> AST.not src .& dec)
 
 let private bndmov64 (ins: Instruction) bld =
   lift bld ins {
@@ -787,15 +897,18 @@ let bzhi (ins: Instruction) bld =
     let tmp = AST.zext oprSize (numI32 (RegType.toBitWidth oprSize) 8<rt> .- n)
     let cf = regVar bld R.CF
     sized oprSize dst := AST.ite cond1 ((src1 << tmp) >> tmp) src1
-    direct cf := AST.ite cond2 AST.b1 AST.b0
-    direct (regVar bld R.SF) := AST.xthi 1<rt> dst
-    direct (regVar bld R.ZF) := dst == (AST.num0 oprSize)
-    direct (regVar bld R.OF) := AST.b0
+    if hasNF ins then
+      ()
+    else
+      direct cf := AST.ite cond2 AST.b1 AST.b0
+      direct (regVar bld R.SF) := AST.xthi 1<rt> dst
+      direct (regVar bld R.ZF) := dst == (AST.num0 oprSize)
+      direct (regVar bld R.OF) := AST.b0
 #if !EMULATION
-    direct (regVar bld R.AF) := undefAF
-    direct (regVar bld R.PF) := undefPF
+      direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.PF) := undefPF
 #else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
 
@@ -854,8 +967,8 @@ let cmc (ins: Instruction) bld =
 #endif
   }
 
-let private getCondOfCMov (ins: Instruction) bld =
-  match ins.Opcode with
+let private getCondOfCMov opcode bld =
+  match opcode with
   | Opcode.CMOVO ->
     regVar bld R.OF
   | Opcode.CMOVNO ->
@@ -892,8 +1005,8 @@ let private getCondOfCMov (ins: Instruction) bld =
     raise InvalidOpcodeException
 
 #if EMULATION
-let private getCondOfCMovLazy (ins: Instruction) bld =
-  match ins.Opcode with
+let private getCondOfCMovLazy opcode bld =
+  match opcode with
   | Opcode.CMOVO ->
     getOFLazy bld
   | Opcode.CMOVNO ->
@@ -966,15 +1079,108 @@ let private getCondOfCMovLazy (ins: Instruction) bld =
     raise InvalidOpcodeException
 #endif
 
+/// The condition a conditional instruction tests, read off the flags as they
+/// stand: through the lazy flags under emulation, and directly otherwise. It
+/// is named by the CMOVcc that tests the same one.
+let private getCondOf cmovOpcode bld =
+#if EMULATION
+  getCondOfCMovLazy cmovOpcode bld
+#else
+  getCondOfCMov cmovOpcode bld
+#endif
+
+/// CMOVcc. Its Intel APX form with a new data destination picks between its
+/// two sources and writes the whole destination register either way, where
+/// the legacy form leaves a 16-bit destination's upper part alone. Intel APX
+/// spec 355828, 3.1.3.2.2.
 let cmovcc (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
-#if EMULATION
-    sized oprSize dst := AST.ite (getCondOfCMovLazy ins bld) src dst
-#else
-    sized oprSize dst := AST.ite (getCondOfCMov ins bld) src dst
-#endif
+    match ins.Operands with
+    | ThreeOperands(o1, o2, o3) ->
+      let src1 = transOpr ins bld false o2
+      let src2 = transOpr ins bld false o3
+      let cond = getCondOf ins.Opcode bld
+      assignZeroUpper (transOpr ins bld false o1) (AST.ite cond src2 src1)
+    | _ ->
+      let struct (dst, src) = transTwoOprs ins bld false
+      sized oprSize dst := AST.ite (getCondOf ins.Opcode bld) src dst
+  }
+
+/// The x86 condition code (Intel SDM Vol. 1, Appendix B) a CFCMOVcc or a
+/// SETcc.zu of Intel APX tests.
+let private condCodeOf = function
+  | Opcode.CFCMOVO | Opcode.SETZUO -> 0
+  | Opcode.CFCMOVNO | Opcode.SETZUNO -> 1
+  | Opcode.CFCMOVB | Opcode.CFCMOVC | Opcode.CFCMOVNAE
+  | Opcode.SETZUB | Opcode.SETZUC | Opcode.SETZUNAE -> 2
+  | Opcode.CFCMOVAE | Opcode.CFCMOVNB | Opcode.CFCMOVNC
+  | Opcode.SETZUAE | Opcode.SETZUNB | Opcode.SETZUNC -> 3
+  | Opcode.CFCMOVE | Opcode.CFCMOVZ | Opcode.SETZUE | Opcode.SETZUZ -> 4
+  | Opcode.CFCMOVNE | Opcode.CFCMOVNZ | Opcode.SETZUNE | Opcode.SETZUNZ -> 5
+  | Opcode.CFCMOVBE | Opcode.CFCMOVNA | Opcode.SETZUBE | Opcode.SETZUNA -> 6
+  | Opcode.CFCMOVA | Opcode.CFCMOVNBE | Opcode.SETZUA | Opcode.SETZUNBE -> 7
+  | Opcode.CFCMOVS | Opcode.SETZUS -> 8
+  | Opcode.CFCMOVNS | Opcode.SETZUNS -> 9
+  | Opcode.CFCMOVP | Opcode.CFCMOVPE | Opcode.SETZUP | Opcode.SETZUPE -> 10
+  | Opcode.CFCMOVNP | Opcode.CFCMOVPO | Opcode.SETZUNP | Opcode.SETZUPO -> 11
+  | Opcode.CFCMOVL | Opcode.CFCMOVNGE | Opcode.SETZUL | Opcode.SETZUNGE -> 12
+  | Opcode.CFCMOVGE | Opcode.CFCMOVNL | Opcode.SETZUGE | Opcode.SETZUNL -> 13
+  | Opcode.CFCMOVLE | Opcode.CFCMOVNG | Opcode.SETZULE | Opcode.SETZUNG -> 14
+  | Opcode.CFCMOVG | Opcode.CFCMOVNLE | Opcode.SETZUG | Opcode.SETZUNLE -> 15
+  | _ -> raise InvalidOpcodeException
+
+/// The CMOVcc that tests the x86 condition code given.
+let private cmovOfCondCode = function
+  | 0 -> Opcode.CMOVO
+  | 1 -> Opcode.CMOVNO
+  | 2 -> Opcode.CMOVB
+  | 3 -> Opcode.CMOVAE
+  | 4 -> Opcode.CMOVZ
+  | 5 -> Opcode.CMOVNZ
+  | 6 -> Opcode.CMOVBE
+  | 7 -> Opcode.CMOVA
+  | 8 -> Opcode.CMOVS
+  | 9 -> Opcode.CMOVNS
+  | 10 -> Opcode.CMOVP
+  | 11 -> Opcode.CMOVNP
+  | 12 -> Opcode.CMOVL
+  | 13 -> Opcode.CMOVGE
+  | 14 -> Opcode.CMOVLE
+  | _ -> Opcode.CMOVG
+
+/// CFCMOVcc, the conditionally faulting CMOVcc of Intel APX: an operand in
+/// memory is touched only where the condition holds, so a fault it would raise
+/// otherwise never happens. A register it writes takes the whole register,
+/// and where the condition fails a register with nothing else to take is
+/// cleared: the first source of the three-operand form, and zero otherwise.
+/// A store to memory is simply left out. Intel APX spec 355828, 3.1.3.2.2.
+let cfcmovcc (ins: Instruction) bld =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let cond = getCondOf (cmovOfCondCode (condCodeOf ins.Opcode)) bld
+    match ins.Operands with
+    | TwoOperands(o1, o2) when isMemOpr o1 ->
+      let src = transOpr ins bld false o2
+      _when bld "Store" cond
+        (block {
+          direct (transOpr ins bld false o1) := src })
+    | TwoOperands(o1, o2) ->
+      let t = tmpVar bld oprSize
+      direct t := AST.num0 oprSize
+      _when bld "Move" cond
+        (block {
+          direct t := transOpr ins bld false o2 })
+      assignZeroUpper (transOpr ins bld false o1) t
+    | ThreeOperands(o1, o2, o3) ->
+      let t = tmpVar bld oprSize
+      direct t := transOpr ins bld false o2
+      _when bld "Move" cond
+        (block {
+          direct t := transOpr ins bld false o3 })
+      assignZeroUpper (transOpr ins bld false o1) t
+    | _ ->
+      raise InvalidOperandException
   }
 
 let cmp (ins: Instruction) bld =
@@ -1001,6 +1207,92 @@ let cmp (ins: Instruction) bld =
     enumEFLAGS bld t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf
 #endif
   }
+
+/// The source condition of CCMPscc and CTESTscc. It is an x86 condition code,
+/// save that the two which would test PF read always and never instead.
+let private getSourceCond bld scc =
+  match scc with
+  | 0b1010 -> AST.b1
+  | 0b1011 -> AST.b0
+  | cc -> getCondOf (cmovOfCondCode cc) bld
+
+/// Sets the flags a CMP sets, whether or not the emulator works its flags out
+/// lazily: CCMPscc decides which flags to set only as it runs.
+let private setCmpFlags bld oprSize src1 src2 =
+  let struct (t1, t2, t3) = tmpVars3 bld oprSize
+  append bld {
+    direct t1 := src1
+    direct t2 := AST.sext oprSize src2
+    direct t3 := t1 .- t2
+  }
+  let sf = AST.xthi 1<rt> t3
+  enumEFLAGS bld t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf
+
+/// Sets the flags a TEST sets, as setCmpFlags does those of a CMP.
+let private setTestFlags bld oprSize src1 src2 =
+  let t = tmpVar bld oprSize
+  append bld {
+    direct t := src1 .& AST.sext oprSize src2
+    direct (regVar bld R.SF) := AST.xthi 1<rt> t
+    direct (regVar bld R.ZF) := t == (AST.num0 oprSize)
+    buildPF bld t oprSize None
+    direct (regVar bld R.CF) := AST.b0
+    direct (regVar bld R.OF) := AST.b0
+#if !EMULATION
+    direct (regVar bld R.AF) := undefAF
+#endif
+  }
+
+/// Sets the default flags value a CCMPscc or CTESTscc carries: OF, SF, ZF and
+/// CF from the bits of EVEX.[OF,SF,ZF,CF], PF from the one for CF, and AF
+/// clear.
+let private setDefaultFlags bld (dfv: uint8) =
+  let bit n = if (dfv >>> n) &&& 1uy = 1uy then AST.b1 else AST.b0
+  append bld {
+    direct (regVar bld R.OF) := bit 3
+    direct (regVar bld R.SF) := bit 2
+    direct (regVar bld R.ZF) := bit 1
+    direct (regVar bld R.CF) := bit 0
+    direct (regVar bld R.PF) := bit 0
+    direct (regVar bld R.AF) := AST.b0
+  }
+
+/// CCMPscc and CTESTscc, the conditional CMP and TEST of Intel APX. Where the
+/// source condition holds they compare or test as CMP and TEST do; where it
+/// does not, the flags take the default value the instruction carries. An
+/// operand in memory is read either way, so the sources are read before the
+/// condition picks. Intel APX spec 355828, 3.1.3.2.1.
+let private condCompare (ins: Instruction) bld setFlags =
+  lift bld ins {
+    let struct (src1, src2) = transTwoOprs ins bld false
+    let oprSize = getOperationSize ins
+    let evex = ins.VEXInfo.Value.EVEXPrx.Value
+    let struct (t1, t2) = tmpVars2 bld oprSize
+    direct t1 := src1
+    direct t2 := AST.sext oprSize src2
+#if EMULATION
+    (* Each branch below settles the flags it writes, and the CTEST one leaves
+       AF alone; settle the lazy ones first, so that what it leaves is AF as
+       the operation before left it. *)
+    if bld.ConditionCodeOp <> ConditionCodeOp.EFlags then
+      genDynamicFlagsUpdate bld
+    else
+      ()
+#endif
+    let cond = getSourceCond bld (int evex.SCC)
+    _if bld "Compare" cond
+      (block {
+        setFlags bld oprSize t1 t2 })
+      (block {
+        setDefaultFlags bld evex.DFV })
+#if EMULATION
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+  }
+
+let ccmp ins bld = condCompare ins bld setCmpFlags
+
+let ctest ins bld = condCompare ins bld setTestFlags
 
 let private cmpsBody ins bld =
   let oprSize = getOperationSize ins
@@ -1359,7 +1651,7 @@ let das (ins: Instruction) bld =
 
 let dec (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr ins bld
+    let dst = transDst ins bld
     let oprSize = getOperationSize ins
     let struct (t1, t2) = tmpVars2 bld oprSize
     let sf = AST.xthi 1<rt> t2
@@ -1367,19 +1659,23 @@ let dec (ins: Instruction) bld =
     direct t1 := dst
     direct t2 := (t1 .- AST.num1 oprSize)
     sized oprSize dst := t2
-    direct (regVar bld R.OF) := ofOnSub t1 (AST.num1 oprSize) t2
-    enumASZPFlags bld t1 (AST.num1 oprSize) t2 oprSize sf
-    atomicEndIfLocked ins bld
+    if hasNF ins then
+      ()
+    else
+      direct (regVar bld R.OF) := ofOnSub t1 (AST.num1 oprSize) t2
+      enumASZPFlags bld t1 (AST.num1 oprSize) t2 oprSize sf
 #if EMULATION
-    direct (regVar bld R.CF) := getCFLazy bld
-    setCCOperands2 bld (AST.num1 oprSize) t2
-    match oprSize with
-    | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECB
-    | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECW
-    | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECD
-    | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECQ
-    | _ -> raise InvalidRegTypeException
+      direct (regVar bld R.CF) := getCFLazy bld
+      setCCOperands2 bld (AST.num1 oprSize) t2
+      match oprSize with
+      | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECB
+      | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECW
+      | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECD
+      | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECQ
+      | _ -> raise InvalidRegTypeException
 #endif
+    writeNDD ins bld dst
+    atomicEndIfLocked ins bld
   }
 
 let private getDividend bld = function
@@ -1458,15 +1754,18 @@ let div (ins: Instruction) bld =
     AST.sideEffect (Exception DivideError)
     AST.lmark lblChk
     divideWithConcat ins.Opcode oprSize divisor lblAssign lblErr bld
+    if hasNF ins then
+      ()
+    else
 #if !EMULATION
-    direct (regVar bld R.CF) := undefCF
-    direct (regVar bld R.OF) := undefOF
-    direct (regVar bld R.AF) := undefAF
-    direct (regVar bld R.SF) := undefSF
-    direct (regVar bld R.ZF) := undefZF
-    direct (regVar bld R.PF) := undefPF
+      direct (regVar bld R.CF) := undefCF
+      direct (regVar bld R.OF) := undefOF
+      direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.SF) := undefSF
+      direct (regVar bld R.ZF) := undefZF
+      direct (regVar bld R.PF) := undefPF
 #else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
 
@@ -1514,7 +1813,7 @@ let enter ins bld =
     direct sp := sp .- AST.zext bld.RegType allocSize
   }
 
-let private oneOperandImul bld oprSize src =
+let private oneOperandImul ins bld oprSize src =
   match oprSize with
   | 8<rt> ->
     let mulSize = oprSize * 2
@@ -1523,8 +1822,11 @@ let private oneOperandImul bld oprSize src =
     append bld {
       direct t := AST.sext mulSize (regVar bld R.AL) .* AST.sext mulSize src
       sized oprSize (regVar bld R.AX) := t
-      direct (regVar bld R.CF) := cond == AST.b0
-      direct (regVar bld R.OF) := cond == AST.b0
+      if hasNF ins then
+        ()
+      else
+        direct (regVar bld R.CF) := cond == AST.b0
+        direct (regVar bld R.OF) := cond == AST.b0
     }
   | 16<rt> | 32<rt> | 64<rt> ->
     (* The double-width product now includes 64x64->128 (mulSize = 128<rt>),
@@ -1539,13 +1841,19 @@ let private oneOperandImul bld oprSize src =
       direct t := AST.sext mulSize r2 .* AST.sext mulSize src
       sized oprSize r1 := AST.xthi oprSize t
       sized oprSize r2 := AST.xtlo oprSize t
-      direct (regVar bld R.CF) := cond == AST.b0
-      direct (regVar bld R.OF) := cond == AST.b0
+      if hasNF ins then
+        ()
+      else
+        direct (regVar bld R.CF) := cond == AST.b0
+        direct (regVar bld R.OF) := cond == AST.b0
     }
   | _ ->
     raise InvalidOperandSizeException
 
-let private operandsImul bld oprSize dst src1 src2 =
+/// IMUL with an explicit destination. Intel APX gives one form a new data
+/// destination and another a zeroed upper part (IMULZU); either way the
+/// product is written to the whole register.
+let private operandsImul ins bld oprSize dst src1 src2 =
   match oprSize with
   | 8<rt> | 16<rt> | 32<rt> | 64<rt> ->
     (* doubleWidth reaches 128<rt> for the 64-bit form, which the evaluator now
@@ -1555,9 +1863,15 @@ let private operandsImul bld oprSize dst src1 src2 =
     let cond = (AST.sext doubleWidth dst) != t
     append bld {
       direct t := AST.sext doubleWidth src1 .* AST.sext doubleWidth src2
-      sized oprSize dst := AST.xtlo oprSize t
-      direct (regVar bld R.CF) := cond
-      direct (regVar bld R.OF) := cond
+      if hasND ins then
+        assignZeroUpper dst (AST.xtlo oprSize t)
+      else
+        sized oprSize dst := AST.xtlo oprSize t
+      if hasNF ins then
+        ()
+      else
+        direct (regVar bld R.CF) := cond
+        direct (regVar bld R.OF) := cond
     }
   | _ ->
     raise InvalidOperandSizeException
@@ -1567,35 +1881,38 @@ let private buildMulBody ins bld =
   match ins.Operands with
   | OneOperand op ->
     let src = transOpr ins bld false op
-    oneOperandImul bld oprSize src
+    oneOperandImul ins bld oprSize src
   | TwoOperands(o1, o2) ->
     let dst = transOpr ins bld false o1
     let src = transOpr ins bld false o2
-    operandsImul bld oprSize dst dst src
+    operandsImul ins bld oprSize dst dst src
   | ThreeOperands(o1, o2, o3) ->
     let dst = transOpr ins bld false o1
     let src1 = transOpr ins bld false o2
     let src2 = transOpr ins bld false o3
-    operandsImul bld oprSize dst src1 src2
+    operandsImul ins bld oprSize dst src1 src2
   | _ ->
     raise InvalidOperandException
 
 let imul (ins: Instruction) bld =
   lift bld ins {
     buildMulBody ins bld
+    if hasNF ins then
+      ()
+    else
 #if !EMULATION
-    direct (regVar bld R.SF) := undefSF
-    direct (regVar bld R.ZF) := undefZF
-    direct (regVar bld R.AF) := undefAF
-    direct (regVar bld R.PF) := undefPF
+      direct (regVar bld R.SF) := undefSF
+      direct (regVar bld R.ZF) := undefZF
+      direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.PF) := undefPF
 #else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
 
 let inc (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr ins bld
+    let dst = transDst ins bld
     let oprSize = getOperationSize ins
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
     atomicBeginIfLocked ins bld
@@ -1603,20 +1920,24 @@ let inc (ins: Instruction) bld =
     direct t2 := AST.num1 oprSize
     direct t3 := (t1 .+ t2)
     sized oprSize dst := t3
-    let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
-    direct (regVar bld R.OF) := ofl
-    enumASZPFlags bld t1 t2 t3 oprSize sf
-    atomicEndIfLocked ins bld
+    if hasNF ins then
+      ()
+    else
+      let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
+      direct (regVar bld R.OF) := ofl
+      enumASZPFlags bld t1 t2 t3 oprSize sf
 #if EMULATION
-    direct (regVar bld R.CF) := getCFLazy bld
-    setCCOperands2 bld t1 t3
-    match oprSize with
-    | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.INCB
-    | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.INCW
-    | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.INCD
-    | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.INCQ
-    | _ -> raise InvalidRegTypeException
+      direct (regVar bld R.CF) := getCFLazy bld
+      setCCOperands2 bld t1 t3
+      match oprSize with
+      | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.INCB
+      | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.INCW
+      | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.INCD
+      | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.INCQ
+      | _ -> raise InvalidRegTypeException
 #endif
+    writeNDD ins bld dst
+    atomicEndIfLocked ins bld
   }
 
 let interrupt ins bld =
@@ -1928,16 +2249,19 @@ let lzcnt ins bld =
     sumByteCounts bld oprSize x
     let ones = x .& numI32 (bits * 2 - 1) oprSize
     sized oprSize dst := numI32 bits oprSize .- ones
-    let width = numI32 bits oprSize
-    direct (regVar bld R.CF) := dst == width
-    direct (regVar bld R.ZF) := dst == n
+    if hasNF ins then
+      ()
+    else
+      let width = numI32 bits oprSize
+      direct (regVar bld R.CF) := dst == width
+      direct (regVar bld R.ZF) := dst == n
 #if !EMULATION
-    direct (regVar bld R.OF) := undefOF
-    direct (regVar bld R.SF) := undefSF
-    direct (regVar bld R.PF) := undefPF
-    direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.OF) := undefOF
+      direct (regVar bld R.SF) := undefSF
+      direct (regVar bld R.PF) := undefPF
+      direct (regVar bld R.AF) := undefAF
 #else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
 
@@ -2031,7 +2355,7 @@ let mul ins bld =
       direct t := src1 .* src2
       let cond = tmpVar bld 1<rt>
       direct (regVar bld R.AX) := t
-      setMulFlags bld oprSize t cond
+      if hasNF ins then () else setMulFlags bld oprSize t cond
     | 16<rt> | 32<rt> | 64<rt> ->
       (* dblWidth reaches 128<rt> for the 64-bit form, which the evaluator holds
          directly, so one zero-extended multiply replaces the former hand-rolled
@@ -2046,7 +2370,7 @@ let mul ins bld =
       let cond = tmpVar bld 1<rt>
       sized oprSize edx := AST.xthi oprSize t
       sized oprSize eax := AST.xtlo oprSize t
-      setMulFlags bld oprSize t cond
+      if hasNF ins then () else setMulFlags bld oprSize t cond
     | _ ->
       raise InvalidOperandSizeException
   }
@@ -2094,26 +2418,30 @@ let mulx ins bld =
 
 let neg (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr ins bld
+    let dst = transDst ins bld
     let oprSize = getOperationSize ins
     let t = tmpVar bld oprSize
     let zero = AST.num0 oprSize
     direct t := dst
     sized oprSize dst := AST.neg t
+    if hasNF ins then
+      ()
+    else
 #if EMULATION
-    setCCOperands2 bld t dst
-    match oprSize with
-    | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBB
-    | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBW
-    | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBD
-    | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBQ
-    | _ -> raise InvalidRegTypeException
+      setCCOperands2 bld t dst
+      match oprSize with
+      | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBB
+      | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBW
+      | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBD
+      | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBQ
+      | _ -> raise InvalidRegTypeException
 #else
-    let sf = AST.xthi 1<rt> dst
-    let cf = cfOnSub zero t
-    let ofl = ofOnSub zero t dst
-    enumEFLAGS bld zero t dst oprSize cf ofl sf
+      let sf = AST.xthi 1<rt> dst
+      let cf = cfOnSub zero t
+      let ofl = ofOnSub zero t dst
+      enumEFLAGS bld zero t dst oprSize cf ofl sf
 #endif
+    writeNDD ins bld dst
   }
 
 let nop (ins: Instruction) bld =
@@ -2121,32 +2449,37 @@ let nop (ins: Instruction) bld =
 
 let not (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr ins bld
+    let dst = transDst ins bld
     let oprSize = getOperationSize ins
     sized oprSize dst := AST.unop UnOpType.NOT dst
+    writeNDD ins bld dst
   }
 
 let logOr (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld true
+    let struct (dst, src) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     atomicBeginIfLocked ins bld
     sized oprSize dst := dst .| src
+    if hasNF ins then
+      ()
+    else
 #if EMULATION
-    setCCDst bld dst
-    match oprSize with
-    | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICB
-    | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICW
-    | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICD
-    | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICQ
-    | _ -> raise InvalidRegTypeException
+      setCCDst bld dst
+      match oprSize with
+      | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICB
+      | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICW
+      | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICD
+      | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICQ
+      | _ -> raise InvalidRegTypeException
 #else
-    let sf = AST.xthi 1<rt> dst
-    direct (regVar bld R.CF) := AST.b0
-    direct (regVar bld R.OF) := AST.b0
-    enumSZPFlags bld dst oprSize sf
-    direct (regVar bld R.AF) := undefAF
+      let sf = AST.xthi 1<rt> dst
+      direct (regVar bld R.CF) := AST.b0
+      direct (regVar bld R.OF) := AST.b0
+      enumSZPFlags bld dst oprSize sf
+      direct (regVar bld R.AF) := undefAF
 #endif
+    writeNDD ins bld dst
     atomicEndIfLocked ins bld
   }
 
@@ -2194,6 +2527,15 @@ let pop (ins: Instruction) bld =
     auxPop oprSize bld dst
   }
 
+/// POP2 of Intel APX pops two registers at once, the first operand first.
+/// Intel APX spec 355828, 3.1.3.1.1.
+let pop2 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst1, dst2) = transTwoOprs ins bld false
+    auxPop 64<rt> bld dst1
+    auxPop 64<rt> bld dst2
+  }
+
 let popa (ins: Instruction) bld oprSize =
   lift bld ins {
     let sp = regVar bld R.ESP
@@ -2235,14 +2577,17 @@ let popcnt (ins: Instruction) bld =
     AST.jmp (AST.jmpDest lblLoopCond)
     AST.lmark lblExit
     sized oprSize dst := count
-    direct (regVar bld R.OF) := AST.b0
-    direct (regVar bld R.SF) := AST.b0
-    direct (regVar bld R.ZF) := orgSrc == AST.num0 oprSize
-    direct (regVar bld R.AF) := AST.b0
-    direct (regVar bld R.CF) := AST.b0
-    direct (regVar bld R.PF) := AST.b0
+    if hasNF ins then
+      ()
+    else
+      direct (regVar bld R.OF) := AST.b0
+      direct (regVar bld R.SF) := AST.b0
+      direct (regVar bld R.ZF) := orgSrc == AST.num0 oprSize
+      direct (regVar bld R.AF) := AST.b0
+      direct (regVar bld R.CF) := AST.b0
+      direct (regVar bld R.PF) := AST.b0
 #if EMULATION
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
 
@@ -2284,6 +2629,15 @@ let push (ins: Instruction) bld =
       auxPush oprSize bld (padPushExpr oprSize t)
     else
       auxPush oprSize bld (padPushExpr oprSize src)
+  }
+
+/// PUSH2 of Intel APX pushes two registers at once, the first operand first,
+/// which POP2 undoes. Intel APX spec 355828, 3.1.3.1.1.
+let push2 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (src1, src2) = transTwoOprs ins bld false
+    auxPush 64<rt> bld src1
+    auxPush 64<rt> bld src2
   }
 
 let pusha (ins: Instruction) bld oprSize =
@@ -2353,7 +2707,7 @@ let private rotateThroughCarryCount oprSize count =
 
 let rcl (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, count) = transTwoOprs ins bld true
+    let struct (dst, count) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     let cF = regVar bld R.CF
     let oF = regVar bld R.OF
@@ -2377,6 +2731,7 @@ let rcl (ins: Instruction) bld =
         direct tmpCnt := tmpCnt .- AST.num1 oprSize })
       (block {
         sized oprSize dst := dst })
+    writeNDD ins bld dst
 #if !EMULATION
     direct oF := AST.ite cond2 (AST.xthi 1<rt> dst <+> cF) undefOF
 #else
@@ -2387,7 +2742,7 @@ let rcl (ins: Instruction) bld =
 
 let rcr (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, count) = transTwoOprs ins bld true
+    let struct (dst, count) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     let cF = regVar bld R.CF
     let oF = regVar bld R.OF
@@ -2412,6 +2767,7 @@ let rcr (ins: Instruction) bld =
         direct tmpCnt := tmpCnt .- AST.num1 oprSize })
       (block {
         sized oprSize dst := dst })
+    writeNDD ins bld dst
 #if !EMULATION
     direct oF := AST.ite cond2 tmpOF undefOF
 #else
@@ -2459,7 +2815,7 @@ let ret (ins: Instruction) bld =
 
 let rotate (ins: Instruction) bld lfn hfn cfFn ofFn =
   lift bld ins {
-    let struct (dst, count) = transTwoOprs ins bld true
+    let struct (dst, count) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     let cF = regVar bld R.CF
     let oF = regVar bld R.OF
@@ -2472,15 +2828,19 @@ let rotate (ins: Instruction) bld lfn hfn cfFn ofFn =
     let cond2 = maskedCnt == AST.num1 oprSize
     let value = (lfn dst orgCount) .| (hfn dst (size .- orgCount))
     sized oprSize dst := value
+    if hasNF ins then
+      ()
+    else
 #if !EMULATION
-    direct cF := AST.ite cond1 cF (cfFn 1<rt> dst)
-    direct oF := AST.ite cond2 (ofFn dst cF) undefOF
+      direct cF := AST.ite cond1 cF (cfFn 1<rt> dst)
+      direct oF := AST.ite cond2 (ofFn dst cF) undefOF
 #else
-    genDynamicFlagsUpdate bld
-    direct cF := AST.ite cond1 cF (cfFn 1<rt> dst)
-    direct oF := AST.ite cond2 (ofFn dst cF) oF
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      genDynamicFlagsUpdate bld
+      direct cF := AST.ite cond1 cF (cfFn 1<rt> dst)
+      direct oF := AST.ite cond2 (ofFn dst cF) oF
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
+    writeNDD ins bld dst
   }
 
 let rol ins bld =
@@ -2646,13 +3006,9 @@ let private sarLazily bld oprSize dst cnt tDst =
   }
 #endif
 
-let shift (ins: Instruction) bld =
-  lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld true
-    let oprSize = getOperationSize ins
-    let countMask =
-      if is64REXW bld ins then numU32 0x3Fu oprSize else numU32 0x1Fu oprSize
-    let cnt = (AST.zext oprSize src) .& countMask
+/// Shifts the destination and sets the flags the shift leaves behind.
+let private shiftAndSetFlags (ins: Instruction) bld oprSize dst src cnt =
+  append bld {
     let tDst = tmpVar bld oprSize
 #if !EMULATION
     let parts = shiftFlagParts bld oprSize src cnt
@@ -2687,9 +3043,34 @@ let shift (ins: Instruction) bld =
 #endif
   }
 
+/// Shifts the destination and leaves the flags alone, as an Intel APX shift
+/// with EVEX.NF does.
+let private shiftWithoutFlagUpdate (ins: Instruction) bld oprSize dst cnt =
+  let shifted =
+    match ins.Opcode with
+    | Opcode.SHL -> dst << cnt
+    | Opcode.SHR -> dst >> cnt
+    | Opcode.SAR -> dst ?>> cnt
+    | _ -> raise InvalidOpcodeException
+  append bld { sized oprSize dst := shifted }
+
+let shift (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = transDstSrc ins bld
+    let oprSize = getOperationSize ins
+    let countMask =
+      if oprSize = 64<rt> then numU32 0x3Fu oprSize else numU32 0x1Fu oprSize
+    let cnt = (AST.zext oprSize src) .& countMask
+    if hasNF ins then
+      shiftWithoutFlagUpdate ins bld oprSize dst cnt
+    else
+      shiftAndSetFlags ins bld oprSize dst src cnt
+    writeNDD ins bld dst
+  }
+
 let sbb (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld true
+    let struct (dst, src) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     let struct (t1, t2, t3, t4) = tmpVars4 bld oprSize
     let cf = regVar bld R.CF
@@ -2706,6 +3087,7 @@ let sbb (ins: Instruction) bld =
     direct cf := (t1 .< t3) .| (t3 .< t2)
     direct (regVar bld R.OF) := ofOnSub t1 t2 t4
     enumASZPFlags bld t1 t2 t4 oprSize sf
+    writeNDD ins bld dst
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -2838,6 +3220,19 @@ let setcc (ins: Instruction) bld =
     sized oprSize dst := cond
   }
 
+/// SETcc.zu, which sets a register whole -- one or zero in all 64 bits --
+/// where SETcc writes only the low byte. A byte in memory is written the same
+/// way by both. Intel APX spec 355828, 3.1.3.2.3.
+let setzucc (ins: Instruction) bld =
+  lift bld ins {
+    let dst = transOneOpr ins bld
+    let cond = getCondOf (cmovOfCondCode (condCodeOf ins.Opcode)) bld
+    if isMemOpr ins.Operands[0] then
+      direct dst := AST.zext 8<rt> cond
+    else
+      assignZeroUpper dst cond
+  }
+
 /// The carry a double-precision shift leaves behind: the last bit shifted out
 /// of the original destination, or the old carry where no place was shifted.
 let private setShiftDblPrecCF bld org amount cond1 cond2 =
@@ -2899,16 +3294,29 @@ let private setShiftDblPrecFlags bld oprSz dst org count size conds isShl =
   setShiftDblPrecSZ bld oprSz dst cond1 cond2
   buildPF bld dst oprSz (Some(cond1 .| cond2))
 
+/// The destination, source and count of a double-precision shift. With a new
+/// data destination the shift computes into a temporary, as transDstSrc has
+/// it.
+let private transShiftDblPrecOprs (ins: Instruction) bld =
+  match ins.Operands with
+  | ThreeOperands _ ->
+    transThreeOprs ins bld false
+  | FourOperands(_, o2, o3, o4) ->
+    let dst = seedNDD ins bld o2
+    struct (dst, transOpr ins bld false o3, transOpr ins bld false o4)
+  | _ ->
+    raise InvalidOperandException
+
 let shiftDblPrec (ins: Instruction) bld fnDst fnSrc isShl =
   lift bld ins {
     let oprSz = getOperationSize ins
     let exprOprSz = numI32 (int oprSz) oprSz
-    let struct (dst, src, cnt) = transThreeOprs ins bld false
+    let struct (dst, src, cnt) = transShiftDblPrecOprs ins bld
     let struct (count, size, tDst, tSrc) = tmpVars4 bld oprSz
     let struct (cond1, cond2, cond3) = tmpVars3 bld 1<rt>
     let conds = cond1, cond2, cond3
     let org = tmpVar bld oprSz
-    let wordBits = if REXPrefix.hasW ins.REXPrefix then 64 else 32
+    let wordBits = if oprSz = 64<rt> then 64 else 32
     let wordSize = numI32 wordBits oprSz
     direct count := (AST.zext oprSz cnt .% wordSize)
     direct size := exprOprSz
@@ -2927,7 +3335,11 @@ let shiftDblPrec (ins: Instruction) bld fnDst fnSrc isShl =
 #else
     sized oprSz dst := AST.ite (cond1 .| cond2) org (tDst .| tSrc)
 #endif
-    setShiftDblPrecFlags bld oprSz dst org count size conds isShl
+    if hasNF ins then
+      ()
+    else
+      setShiftDblPrecFlags bld oprSz dst org count size conds isShl
+    writeNDD ins bld dst
   }
 
 let shld ins bld = shiftDblPrec ins bld (<<) (>>) true
@@ -2987,7 +3399,7 @@ let stos (ins: Instruction) bld =
 
 let sub (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld true
+    let struct (dst, src) = transDstSrc ins bld
     let oprSize = getOperationSize ins
     atomicBeginIfLocked ins bld
 #if !EMULATION
@@ -2999,8 +3411,11 @@ let sub (ins: Instruction) bld =
     if isSrcConst then () else direct t2 := src
     direct t3 := t1 .- t2
     sized oprSize dst := t3
-    let sf = AST.xthi 1<rt> t3
-    enumEFLAGS bld t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf
+    if hasNF ins then
+      ()
+    else
+      let sf = AST.xthi 1<rt> t3
+      enumEFLAGS bld t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf
 #else
     let src =
       if isConst src then
@@ -3010,14 +3425,18 @@ let sub (ins: Instruction) bld =
         append bld { direct t := src }
         t
     sized oprSize dst := dst .- src
-    setCCOperands2 bld src dst
-    match oprSize with
-    | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBB
-    | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBW
-    | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBD
-    | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBQ
-    | _ -> raise InvalidRegTypeException
+    if hasNF ins then
+      ()
+    else
+      setCCOperands2 bld src dst
+      match oprSize with
+      | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBB
+      | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBW
+      | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBD
+      | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBQ
+      | _ -> raise InvalidRegTypeException
 #endif
+    writeNDD ins bld dst
     atomicEndIfLocked ins bld
   }
 
@@ -3087,15 +3506,18 @@ let tzcnt ins bld =
     let v = (res .+ ((t1 >> numI32 1 oprSize) .- (t1 >> numI32 3 oprSize)))
     sized oprSize dst := v
     AST.lmark lblEnd
-    direct (regVar bld R.CF) := dst == max
-    direct (regVar bld R.ZF) := dst == z
+    if hasNF ins then
+      ()
+    else
+      direct (regVar bld R.CF) := dst == max
+      direct (regVar bld R.ZF) := dst == z
 #if !EMULATION
-    direct (regVar bld R.OF) := undefOF
-    direct (regVar bld R.SF) := undefSF
-    direct (regVar bld R.PF) := undefPF
-    direct (regVar bld R.AF) := undefAF
+      direct (regVar bld R.OF) := undefOF
+      direct (regVar bld R.SF) := undefSF
+      direct (regVar bld R.PF) := undefPF
+      direct (regVar bld R.AF) := undefAF
 #else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
 
@@ -3226,46 +3648,59 @@ let xlatb ins bld =
     direct (regVar bld R.AL) := AST.loadLE 8<rt> (al .+ bx)
   }
 
+/// Sets the flags of an XOR that zeroes its destination, which come out the
+/// same whatever was in it.
+let private setXorZeroFlags bld oprSize =
+  append bld {
+#if EMULATION
+    setCCDst bld (AST.num0 oprSize)
+    bld.ConditionCodeOp <- ConditionCodeOp.XORXX
+#else
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.CF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
+    direct (regVar bld R.ZF) := AST.b1
+    direct (regVar bld R.PF) := AST.b1
+    direct (regVar bld R.AF) := undefAF
+#endif
+  }
+
+/// Sets the flags of an XOR: OF and CF clear, SF, ZF and PF off the result,
+/// and AF undefined.
+let private setXorFlags bld oprSize dst =
+  append bld {
+#if EMULATION
+    setCCDst bld dst
+    match oprSize with
+    | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICB
+    | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICW
+    | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICD
+    | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICQ
+    | _ -> raise InvalidRegTypeException
+#else
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.CF) := AST.b0
+    direct (regVar bld R.SF) := AST.xthi 1<rt> dst
+    direct (regVar bld R.ZF) := dst == (AST.num0 oprSize)
+    buildPF bld dst oprSize None
+    direct (regVar bld R.AF) := undefAF
+#endif
+  }
+
 let xor (ins: Instruction) bld =
   lift bld ins {
     let oprSize = getOperationSize ins
     match ins.Operands with
     | TwoOperands(o1, o2) when o1 = o2 ->
       let dst = transOpr ins bld false o1
-      let r = AST.num0 oprSize
-      sized oprSize dst := r
-#if EMULATION
-      setCCDst bld r
-      bld.ConditionCodeOp <- ConditionCodeOp.XORXX
-#else
-      direct (regVar bld R.OF) := AST.b0
-      direct (regVar bld R.CF) := AST.b0
-      direct (regVar bld R.SF) := AST.b0
-      direct (regVar bld R.ZF) := AST.b1
-      direct (regVar bld R.PF) := AST.b1
-#endif
-    | TwoOperands(o1, o2) ->
-      let dst = transOpr ins bld false o1
-      let src = transOpr ins bld false o2 |> transReg bld true
-      sized oprSize dst := dst <+> src
-#if EMULATION
-      setCCDst bld dst
-      match oprSize with
-      | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICB
-      | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICW
-      | 32<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICD
-      | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICQ
-      | _ -> raise InvalidRegTypeException
-#else
-      direct (regVar bld R.OF) := AST.b0
-      direct (regVar bld R.CF) := AST.b0
-      direct (regVar bld R.SF) := AST.xthi 1<rt> dst
-      direct (regVar bld R.ZF) := dst == (AST.num0 oprSize)
-      buildPF bld dst oprSize None
-#endif
+      sized oprSize dst := AST.num0 oprSize
+      if hasNF ins then () else setXorZeroFlags bld oprSize
+    | ThreeOperands(o1, o2, o3) when o2 = o3 ->
+      assignZeroUpper (transOpr ins bld false o1) (AST.num0 oprSize)
+      if hasNF ins then () else setXorZeroFlags bld oprSize
     | _ ->
-      raise InvalidOperandException
-#if !EMULATION
-    direct (regVar bld R.AF) := undefAF
-#endif
+      let struct (dst, src) = transDstSrc ins bld
+      sized oprSize dst := dst <+> src
+      if hasNF ins then () else setXorFlags bld oprSize dst
+      writeNDD ins bld dst
   }

@@ -1246,6 +1246,10 @@ type Register =
   | R30B = 0x26B
   /// General-Purpose Register of Intel APX (Byte Register).
   | R31B = 0x26C
+  /// Tile configuration of Intel AMX: the 64 bytes LDTILECFG loads, which
+  /// give the palette, the row a restarted tile load resumes at, and every
+  /// tile's rows and bytes per row.
+  | TILECFG = 0x26D
   /// Unknown Register.
   | UnknownReg = 0x162
 #if EMULATION
@@ -1770,6 +1774,7 @@ module Register =
     | "r29b" -> Register.R29B
     | "r30b" -> Register.R30B
     | "r31b" -> Register.R31B
+    | "tilecfg" -> Register.TILECFG
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an Intel register.
@@ -2378,6 +2383,7 @@ module Register =
     | Register.R29B -> "R29B"
     | Register.R30B -> "R30B"
     | Register.R31B -> "R31B"
+    | Register.TILECFG -> "TILECFG"
     | Register.PKRU -> "PKRU"
     | Register.XCR0 -> "XCR0"
 #if EMULATION

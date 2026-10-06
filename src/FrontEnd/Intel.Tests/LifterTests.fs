@@ -161,6 +161,220 @@ type LifterTests() =
           "!!UndefinedInstruction"
           "} // 2" |]
 
+  (* AMD TBM: the source joined to its increment, CF set by the carry out of
+     that increment alone, which only a source of all ones makes. *)
+  [<TestMethod>]
+  member _.``[X64] BLCFILL instruction lift Test (1)``() =
+    testX64 "8fe96801cb" (* blcfill edx, ebx *)
+    <| [| "(5) {"
+          "T_1:I32 := (RBX[31:0])"
+          "T_2:I32 := (T_1:I32 & (T_1:I32 + 0x1:I32))"
+          "SF := (T_2:I32[31:31])"
+          "ZF := (T_2:I32 = 0x0:I32)"
+          "CF := (T_1:I32 = 0xffffffff:I32)"
+          "RDX := zext:I64(T_2:I32)"
+          "OF := 0x0:I1"
+          "AF := ?? (AF is undefined.)"
+          "PF := ?? (PF is undefined.)"
+          "} // 5" |]
+
+  (* A decrement borrows only from zero, and a source in memory is loaded
+     once however many times the operation reads it. *)
+  [<TestMethod>]
+  member _.``[X64] TZMSK instruction lift Test (1)``() =
+    testX64 "8fe9f80123" (* tzmsk rax, qword ptr [rbx] *)
+    <| [| "(5) {"
+          "T_1:I64 := [RBX]:I64"
+          "T_2:I64 := ((~ T_1:I64) & (T_1:I64 - 0x1:I64))"
+          "SF := (T_2:I64[63:63])"
+          "ZF := (T_2:I64 = 0x0:I64)"
+          "CF := (T_1:I64 = 0x0:I64)"
+          "RAX := T_2:I64"
+          "OF := 0x0:I1"
+          "AF := ?? (AF is undefined.)"
+          "PF := ?? (PF is undefined.)"
+          "} // 5" |]
+
+  (* The immediate form of BEXTR goes through the same lifter as the VEX one,
+     the control word now a constant. *)
+  [<TestMethod>]
+  member _.``[X64] BEXTR immediate form lift Test (1)``() =
+    testX64 "8fea7810cb04080000" (* bextr ecx, ebx, 0x804 *)
+    <| [| "(9) {"
+          "T_3:I32 := 0x4:I32"
+          "T_4:I32 := 0x8:I32"
+          "T_2:I32 := (0xffffffff:I32 << T_4:I32)"
+          "T_1:I32 := (RBX[31:0])"
+          "T_1:I32 := ((T_1:I32 >> T_3:I32) & (~ T_2:I32))"
+          "RCX := zext:I64(T_1:I32)"
+          "ZF := ((RCX[31:0]) = 0x0:I32)"
+          "CF := 0x0:I1"
+          "OF := 0x0:I1"
+          "AF := ?? (AF is undefined.)"
+          "SF := ?? (SF is undefined.)"
+          "PF := ?? (PF is undefined.)"
+          "} // 9" |]
+
+  (* Intel APX. A new data destination takes the whole register whatever the
+     operand size, and EVEX.NF leaves every status flag as it was. Intel APX
+     spec 355828, 3.1.2.3 and 3.1.2.4. *)
+  [<TestMethod>]
+  member _.``[X64] APX ADD with NF writes no flag (1)``() =
+    testX64 "62f4741c01d3" (* {nf} add ecx, ebx, edx *)
+    <| [| "(6) {"
+          "T_1:I32 := (RBX[31:0])"
+          "T_2:I32 := (RDX[31:0])"
+          "T_3:I32 := T_1:I32"
+          "T_4:I32 := T_2:I32"
+          "T_5:I32 := (T_3:I32 + T_4:I32)"
+          "T_1:I32 := T_5:I32"
+          "RCX := zext:I64(T_1:I32)"
+          "} // 6" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX INC zeroes above a byte destination (1)``() =
+    testX64 "62f47c1cfec3" (* {nf} inc al, bl *)
+    <| [| "(6) {"
+          "T_1:I8 := (RBX[7:0])"
+          "T_2:I8 := T_1:I8"
+          "T_3:I8 := 0x1:I8"
+          "T_4:I8 := (T_2:I8 + T_3:I8)"
+          "T_1:I8 := T_4:I8"
+          "RAX := zext:I64(T_1:I8)"
+          "} // 6" |]
+
+  (* Where the source condition fails, the flags take the default value:
+     here OF alone set, PF following CF, and AF clear. *)
+  [<TestMethod>]
+  member _.``[X64] APX CCMPB falls back to its default flags (1)``() =
+    testX64 "62f4440239c8" (* ccmpb {dfv=of} eax, ecx *)
+    <| [| "(6) {"
+          "T_1:I32 := (RAX[31:0])"
+          "T_2:I32 := (RCX[31:0])"
+          "if CF then jmp Compare else jmp NotCompare"
+          ":Compare"
+          "T_3:I32 := T_1:I32"
+          "T_4:I32 := T_2:I32"
+          "T_5:I32 := (T_3:I32 - T_4:I32)"
+          "CF := (T_3:I32 < T_4:I32)"
+          "OF := (((T_3:I32 ^ T_4:I32) & (T_3:I32 ^ T_5:I32))[31:31])"
+          "AF := ((((T_5:I32 ^ T_3:I32) ^ T_4:I32) & 0x10:I32) = 0x10:I32)"
+          "SF := (T_5:I32[31:31])"
+          "ZF := (T_5:I32 = 0x0:I32)"
+          "T_6:I32 := (T_5:I32 ^ (T_5:I32 >> 0x4:I32))"
+          "T_7:I32 := (T_6:I32 ^ (T_6:I32 >> 0x2:I32))"
+          "PF := (~ ((T_7:I32 ^ (T_7:I32 >> 0x1:I32))[0:0]))"
+          "jmp CompareEnd"
+          ":NotCompare"
+          "OF := 0x1:I1"
+          "SF := 0x0:I1"
+          "ZF := 0x0:I1"
+          "CF := 0x0:I1"
+          "PF := 0x0:I1"
+          "AF := 0x0:I1"
+          ":CompareEnd"
+          "} // 6" |]
+
+  (* CFCMOVcc touches its memory operand only where the condition holds, so
+     a fault the access would raise is suppressed otherwise. *)
+  [<TestMethod>]
+  member _.``[X64] APX CFCMOVB loads only when it moves (1)``() =
+    testX64 "62f47c084203" (* cfcmovb eax, dword ptr [rbx] *)
+    <| [| "(6) {"
+          "T_1:I32 := 0x0:I32"
+          "if CF then jmp Move else jmp MoveEnd"
+          ":Move"
+          "T_1:I32 := [RBX]:I32"
+          ":MoveEnd"
+          "RAX := zext:I64(T_1:I32)"
+          "} // 6" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX CFCMOVB stores only when it moves (1)``() =
+    testX64 "62f47c0c4203" (* cfcmovb dword ptr [rbx], eax *)
+    <| [| "(6) {"
+          "if CF then jmp Store else jmp StoreEnd"
+          ":Store"
+          "[RBX] := (RAX[31:0])"
+          ":StoreEnd"
+          "} // 6" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX CFCMOVB keeps its first source otherwise (1)``() =
+    testX64 "62f46c1c42c1" (* cfcmovb edx, eax, ecx *)
+    <| [| "(6) {"
+          "T_1:I32 := (RAX[31:0])"
+          "if CF then jmp Move else jmp MoveEnd"
+          ":Move"
+          "T_1:I32 := (RCX[31:0])"
+          ":MoveEnd"
+          "RDX := zext:I64(T_1:I32)"
+          "} // 6" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX CMOVB picks between its two sources (1)``() =
+    testX64 "62f4741842c3" (* cmovb ecx, eax, ebx *)
+    <| [| "(6) {"
+          "RCX := zext:I64(((CF) ? ((RBX[31:0])) : ((RAX[31:0]))))"
+          "} // 6" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX SETZUB writes the whole register (1)``() =
+    testX64 "62f47f1842c0" (* setzub al *)
+    <| [| "(6) {"
+          "RAX := zext:I64(CF)"
+          "} // 6" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX IMULZU zeroes above a word destination (1)``() =
+    testX64 "62f47d186bc105" (* imulzu ax, cx, 0x5 *)
+    <| [| "(7) {"
+          "T_1:I32 := (sext:I32((RCX[15:0])) * 0x5:I32)"
+          "RAX := zext:I64((T_1:I32[15:0]))"
+          "CF := (sext:I32((RAX[15:0])) != T_1:I32)"
+          "OF := (sext:I32((RAX[15:0])) != T_1:I32)"
+          "SF := ?? (SF is undefined.)"
+          "ZF := ?? (ZF is undefined.)"
+          "AF := ?? (AF is undefined.)"
+          "PF := ?? (PF is undefined.)"
+          "} // 7" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX POP2 pops its first operand first (1)``() =
+    testX64 "62fc7c108fc1" (* pop2 r16, r17 *)
+    <| [| "(6) {"
+          "R16 := [RSP]:I64"
+          "RSP := (RSP + 0x8:I64)"
+          "R17 := [RSP]:I64"
+          "RSP := (RSP + 0x8:I64)"
+          "} // 6" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX PUSH2P pushes its first operand first (1)``() =
+    testX64 "62f4fc18fff3" (* push2p rax, rbx *)
+    <| [| "(6) {"
+          "RSP := (RSP - 0x8:I64)"
+          "[RSP] := RAX"
+          "RSP := (RSP - 0x8:I64)"
+          "[RSP] := RBX"
+          "} // 6" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX JMPABS jumps to its immediate (1)``() =
+    testX64 "d500a18877665544332211" (* jmpabs 0x1122334455667788 *)
+    <| [| "(11) {"
+          "ijmp 0x1122334455667788:I64" |]
+
+  [<TestMethod>]
+  member _.``[X64] APX AADD adds atomically and sets no flag (1)``() =
+    testX64 "62f47c08fc03" (* aadd dword ptr [rbx], eax *)
+    <| [| "(6) {"
+          "T_1:I32 := (RAX[31:0])"
+          "!!AtomicBegin"
+          "[RBX] := ([RBX]:I32 + T_1:I32)"
+          "!!AtomicEnd"
+          "} // 6" |]
+
 #endif
 
 /// The lifter reads the EVEX decorations off the instruction rather than off
@@ -391,3 +605,250 @@ type OpMaskLifterTests() =
           "AF := 0x0:I1"
           "PF := 0x0:I1"
           "SF := 0x0:I1" |]
+
+/// AMD's XOP instructions. Every one of them writes a 128-bit or a 256-bit
+/// result and clears the register above it, which is the run of zeros that
+/// closes each expectation; XOP.W only swaps which source ModRM names, and the
+/// parser has already put the operands in the order the operation reads them.
+[<TestClass>]
+type XOPLifterTests() =
+  let lift (hex: string) =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let regFactory = RegisterFactory isa
+    let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
+    let reader = BinReader.Init Endian.Little
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
+    let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+    ins.Translate builder
+    |> Array.map PrettyPrinter.ToString
+    |> Array.filter (fun l -> not (l.StartsWith "(" || l.StartsWith "}"))
+
+  let test hex (expectedStmts: string[]) =
+    CollectionAssert.AreEqual(expectedStmts, lift hex)
+
+  let zeroAbove128 =
+    [| "ZMM1C := 0x0:I64"
+       "ZMM1D := 0x0:I64"
+       "ZMM1E := 0x0:I64"
+       "ZMM1F := 0x0:I64"
+       "ZMM1G := 0x0:I64"
+       "ZMM1H := 0x0:I64" |]
+
+  let zeroAbove256 =
+    [| "ZMM1E := 0x0:I64"
+       "ZMM1F := 0x0:I64"
+       "ZMM1G := 0x0:I64"
+       "ZMM1H := 0x0:I64" |]
+
+  [<TestMethod>]
+  member _.``[X64] VPCMOV selects bitwise (1)``() =
+    test "8fe868a20b40" (* vpcmov xmm1, xmm2, xmmword ptr [rbx], xmm4 *)
+    <| Array.append
+      [| "T_2:I64 := [RBX]:I64"
+         "T_1:I64 := [(RBX + 0x8:I64)]:I64"
+         "ZMM1A := (((ZMM2A[63:0]) & (ZMM4A[63:0]))"
+         + " | ((T_2:I64[63:0]) & (~ (ZMM4A[63:0]))))"
+         "ZMM1B := (((ZMM2B[63:0]) & (ZMM4B[63:0]))"
+         + " | ((T_1:I64[63:0]) & (~ (ZMM4B[63:0]))))" |] zeroAbove128
+
+  (* Only the low three bits of the immediate name the test: 0xfd is 5, NEQ. *)
+  [<TestMethod>]
+  member _.``[X64] VPCOMQ reads three bits of its immediate (1)``() =
+    test "8fe868cfcbfd" (* vpcomq xmm1, xmm2, xmm3, 0xfd *)
+    <| Array.append
+      [| "ZMM1A := ((((ZMM2A[63:0]) != (ZMM3A[63:0])))"
+         + " ? (0xffffffffffffffff:I64) : (0x0:I64))"
+         "ZMM1B := ((((ZMM2B[63:0]) != (ZMM3B[63:0])))"
+         + " ? (0xffffffffffffffff:I64) : (0x0:I64))" |] zeroAbove128
+
+  [<TestMethod>]
+  member _.``[X64] VPHADDWQ sums four sign-extended words (1)``() =
+    test "8fe978c7ca" (* vphaddwq xmm1, xmm2 *)
+    <| Array.append
+      [| "ZMM1A := (((sext:I64((ZMM2A[15:0])) + sext:I64((ZMM2A[31:16])))"
+         + " + sext:I64((ZMM2A[47:32]))) + sext:I64((ZMM2A[63:48])))"
+         "ZMM1B := (((sext:I64((ZMM2B[15:0])) + sext:I64((ZMM2B[31:16])))"
+         + " + sext:I64((ZMM2B[47:32]))) + sext:I64((ZMM2B[63:48])))" |]
+      zeroAbove128
+
+  (* The upper element of each pair is taken from the lower one. *)
+  [<TestMethod>]
+  member _.``[X64] VPHSUBDQ subtracts the upper element (1)``() =
+    test "8fe978e3ca" (* vphsubdq xmm1, xmm2 *)
+    <| Array.append
+      [| "ZMM1A := (sext:I64((ZMM2A[31:0])) - sext:I64((ZMM2A[63:32])))"
+         "ZMM1B := (sext:I64((ZMM2B[31:0])) - sext:I64((ZMM2B[63:32])))" |]
+      zeroAbove128
+
+  (* The H form multiplies the odd doublewords, and wraps. *)
+  [<TestMethod>]
+  member _.``[X64] VPMACSDQH accumulates the odd doublewords (1)``() =
+    test "8fe8689fcb40" (* vpmacsdqh xmm1, xmm2, xmm3, xmm4 *)
+    <| Array.append
+      [| "ZMM1A := ((sext:I128((ZMM4A[63:0]))"
+         + " + (sext:I128((ZMM2A[63:32])) * sext:I128((ZMM3A[63:32]))))"
+         + "[63:0])"
+         "ZMM1B := ((sext:I128((ZMM4B[63:0]))"
+         + " + (sext:I128((ZMM2B[63:32])) * sext:I128((ZMM3B[63:32]))))"
+         + "[63:0])" |] zeroAbove128
+
+  (* The saturating form keeps the sum at twice the width and clamps it. *)
+  [<TestMethod>]
+  member _.``[X64] VPMACSSDQH saturates the sum (1)``() =
+    test "8fe8688fcb40" (* vpmacssdqh xmm1, xmm2, xmm3, xmm4 *)
+    <| Array.append
+      [| "T_1:I128 := (sext:I128((ZMM4A[63:0]))"
+         + " + (sext:I128((ZMM2A[63:32])) * sext:I128((ZMM3A[63:32]))))"
+         "T_2:I128 := (sext:I128((ZMM4B[63:0]))"
+         + " + (sext:I128((ZMM2B[63:32])) * sext:I128((ZMM3B[63:32]))))"
+         "ZMM1A := (((sext:I128((T_1:I128[63:0])) = T_1:I128))"
+         + " ? ((T_1:I128[63:0])) : ((((T_1:I128[127:127]))"
+         + " ? (0x8000000000000000:I64) : (0x7fffffffffffffff:I64))))"
+         "ZMM1B := (((sext:I128((T_2:I128[63:0])) = T_2:I128))"
+         + " ? ((T_2:I128[63:0])) : ((((T_2:I128[127:127]))"
+         + " ? (0x8000000000000000:I64) : (0x7fffffffffffffff:I64))))" |]
+      zeroAbove128
+
+  (* The selector's low five bits index the 32 bytes of the two sources, the
+     first source's sixteen first. *)
+  [<TestMethod>]
+  member _.``[X64] VPPERM picks from both sources (1)``() =
+    let stmts = lift "8fe868a3cb40" (* vpperm xmm1, xmm2, xmm3, xmm4 *)
+    let expected =
+      [| "T_1:I256 := (((ZMM3B[63:0]) ++ (ZMM3A[63:0]))"
+         + " ++ ((ZMM2B[63:0]) ++ (ZMM2A[63:0])))"
+         "T_2:I8 := ((T_1:I256 >> (zext:I256(((ZMM4A[7:0]) & 0x1f:I8))"
+         + " << 0x3:I256))[7:0])"
+         "T_17:I8 := ((T_1:I256 >> (zext:I256(((ZMM4B[63:56]) & 0x1f:I8))"
+         + " << 0x3:I256))[7:0])" |]
+      |> Array.append zeroAbove128
+    Assert.AreEqual<int>(25, stmts.Length)
+    CollectionAssert.IsSubsetOf(expected, stmts)
+
+  [<TestMethod>]
+  member _.``[X64] VPROTQ rotates by its immediate (1)``() =
+    test "8fe878c3ca07" (* vprotq xmm1, xmm2, 7 *)
+    <| Array.append
+      [| "ZMM1A := (((ZMM2A[63:0]) << 0x7:I64)"
+         + " | ((ZMM2A[63:0]) >> 0x39:I64))"
+         "ZMM1B := (((ZMM2B[63:0]) << 0x7:I64)"
+         + " | ((ZMM2B[63:0]) >> 0x39:I64))" |] zeroAbove128
+
+  (* XOP.W set: the count is what ModRM names, and a negative one rotates
+     right, which is a left rotate by the count modulo the width. *)
+  [<TestMethod>]
+  member _.``[X64] VPROTQ rotates by a signed count (1)``() =
+    test "8fe9e893cb" (* vprotq xmm1, xmm2, xmm3 *)
+    <| Array.append
+      [| "ZMM1A := (((ZMM2A[63:0]) << zext:I64(((ZMM3A[7:0]) & 0x3f:I8)))"
+         + " | ((ZMM2A[63:0]) >> zext:I64(((- (ZMM3A[7:0])) & 0x3f:I8))))"
+         "ZMM1B := (((ZMM2B[63:0]) << zext:I64(((ZMM3B[7:0]) & 0x3f:I8)))"
+         + " | ((ZMM2B[63:0]) >> zext:I64(((- (ZMM3B[7:0])) & 0x3f:I8))))" |]
+      zeroAbove128
+
+  (* A negative count shifts right, arithmetically for VPSHA. *)
+  [<TestMethod>]
+  member _.``[X64] VPSHAQ shifts by a signed count (1)``() =
+    test "8fe9e89b0b" (* vpshaq xmm1, xmm2, xmmword ptr [rbx] *)
+    <| Array.append
+      [| "T_2:I64 := [RBX]:I64"
+         "T_1:I64 := [(RBX + 0x8:I64)]:I64"
+         "ZMM1A := (((T_2:I64[7:7]))"
+         + " ? (((ZMM2A[63:0]) ?>> zext:I64(((- (T_2:I64[7:0])) & 0x3f:I8))))"
+         + " : (((ZMM2A[63:0]) << zext:I64(((T_2:I64[7:0]) & 0x3f:I8)))))"
+         "ZMM1B := (((T_1:I64[7:7]))"
+         + " ? (((ZMM2B[63:0]) ?>> zext:I64(((- (T_1:I64[7:0])) & 0x3f:I8))))"
+         + " : (((ZMM2B[63:0]) << zext:I64(((T_1:I64[7:0]) & 0x3f:I8)))))" |]
+      zeroAbove128
+
+  [<TestMethod>]
+  member _.``[X64] VPSHLQ shifts logically (1)``() =
+    test "8fe9e897cb" (* vpshlq xmm1, xmm2, xmm3 *)
+    <| Array.append
+      [| "ZMM1A := (((ZMM3A[7:7]))"
+         + " ? (((ZMM2A[63:0]) >> zext:I64(((- (ZMM3A[7:0])) & 0x3f:I8))))"
+         + " : (((ZMM2A[63:0]) << zext:I64(((ZMM3A[7:0]) & 0x3f:I8)))))"
+         "ZMM1B := (((ZMM3B[7:7]))"
+         + " ? (((ZMM2B[63:0]) >> zext:I64(((- (ZMM3B[7:0])) & 0x3f:I8))))"
+         + " : (((ZMM2B[63:0]) << zext:I64(((ZMM3B[7:0]) & 0x3f:I8)))))" |]
+      zeroAbove128
+
+  [<TestMethod>]
+  member _.``[X64] VFRCZPD takes away the truncated part (1)``() =
+    test "8fe97c81ca" (* vfrczpd ymm1, ymm2 *)
+    <| Array.append
+      [| "ZMM1A := ((ZMM2A[63:0]) -. rnd(0x3:I8, rint:I64((ZMM2A[63:0]))))"
+         "ZMM1B := ((ZMM2B[63:0]) -. rnd(0x3:I8, rint:I64((ZMM2B[63:0]))))"
+         "ZMM1C := ((ZMM2C[63:0]) -. rnd(0x3:I8, rint:I64((ZMM2C[63:0]))))"
+         "ZMM1D := ((ZMM2D[63:0]) -. rnd(0x3:I8, rint:I64((ZMM2D[63:0]))))" |]
+      zeroAbove256
+
+  (* The scalar form clears the rest of the low 128 bits too, and reads its
+     memory operand once. *)
+  [<TestMethod>]
+  member _.``[X64] VFRCZSS clears the upper elements (1)``() =
+    test "8fe978820b" (* vfrczss xmm1, dword ptr [rbx] *)
+    <| Array.append
+      [| "T_1:I32 := [RBX]:I32"
+         "ZMM1A := zext:I64((T_1:I32 -. rnd(0x3:I8, rint:I32(T_1:I32))))"
+         "ZMM1B := 0x0:I64" |] zeroAbove128
+
+  (* LWP keeps its state in a facility this lifter does not model. *)
+  [<TestMethod>]
+  member _.``[X64] LWPVAL is unsupported (1)``() =
+    test "8feae812cb78563412" (* lwpval rdx, ebx, 0x12345678 *)
+    <| [| "!!UnsupportedInstruction" |]
+
+/// Intel AMX. The tile state lives in TILECFG and the eight TMM registers;
+/// what an instruction does with it depends on the shapes TILECFG holds at run
+/// time, so these check the instructions whose IR does not loop over them.
+[<TestClass>]
+type AMXLifterTests() =
+  let lift (hex: string) =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let regFactory = RegisterFactory isa
+    let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
+    let reader = BinReader.Init Endian.Little
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
+    let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+    ins.Translate builder
+    |> Array.map PrettyPrinter.ToString
+    |> Array.filter (fun l -> not (l.StartsWith "(" || l.StartsWith "}"))
+
+  let test hex (expectedStmts: string[]) =
+    CollectionAssert.AreEqual(expectedStmts, lift hex)
+
+  [<TestMethod>]
+  member _.``[X64] TILERELEASE clears the configuration and every tile (1)``() =
+    test "c4e27849c0" (* tilerelease *)
+    <| [| "TILECFG := 0x0:I512"
+          "TMM0 := 0x0:I8192"
+          "TMM1 := 0x0:I8192"
+          "TMM2 := 0x0:I8192"
+          "TMM3 := 0x0:I8192"
+          "TMM4 := 0x0:I8192"
+          "TMM5 := 0x0:I8192"
+          "TMM6 := 0x0:I8192"
+          "TMM7 := 0x0:I8192" |]
+
+  [<TestMethod>]
+  member _.``[X64] STTILECFG stores the configuration (1)``() =
+    test "c4e2794900" (* sttilecfg [rax] *)
+    <| [| "[RAX] := TILECFG" |]
+
+  (* TILEZERO faults on a tile the configuration leaves unused: palette 0, or
+     no rows, or no bytes per row (TMM1's are bytes 49 and 18-19). *)
+  [<TestMethod>]
+  member _.``[X64] TILEZERO faults on an unused tile (1)``() =
+    let check =
+      "if (((TILECFG[7:0]) = 0x0:I8) | ((zext:I32((TILECFG[399:392])) = "
+      + "0x0:I32) | (zext:I32((TILECFG[159:144])) = 0x0:I32))) then jmp "
+      + "BadTile else jmp BadTileEnd"
+    let mask = "0x" + String.replicate 124 "f" + "00ff:I512"
+    test "c4e27b49c8" (* tilezero tmm1 *)
+    <| [| check
+          ":BadTile"
+          "!!UndefinedInstruction"
+          ":BadTileEnd"
+          "TMM1 := 0x0:I8192"
+          "TILECFG := (TILECFG & " + mask + ")" |]

@@ -304,6 +304,7 @@ module internal RegisterHelper = begin
        is the only width that is always true of it. *)
     | R.TMM0 | R.TMM1 | R.TMM2 | R.TMM3
     | R.TMM4 | R.TMM5 | R.TMM6 | R.TMM7 -> 8192<rt>
+    | R.TILECFG -> 512<rt>
     | R.ST0 | R.ST1 | R.ST2 | R.ST3 | R.ST4 | R.ST5 | R.ST6 | R.ST7 -> 80<rt>
     | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF | R.IF | R.TF
     | R.FSWC0 | R.FSWC1 | R.FSWC2 | R.FSWC3 -> 1<rt>

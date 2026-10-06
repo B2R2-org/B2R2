@@ -231,6 +231,15 @@ type RegisterFactory(isa: ISA) =
   let cr4 = regBasic (Register.toRegID CR4) "CR4"
   let cr8 = regBasic (Register.toRegID CR8) "CR8"
   let xcr0 = AST.var 64<rt> (Register.toRegID XCR0) "XCR0"
+  let tmm0 = AST.var 8192<rt> (Register.toRegID TMM0) "TMM0"
+  let tmm1 = AST.var 8192<rt> (Register.toRegID TMM1) "TMM1"
+  let tmm2 = AST.var 8192<rt> (Register.toRegID TMM2) "TMM2"
+  let tmm3 = AST.var 8192<rt> (Register.toRegID TMM3) "TMM3"
+  let tmm4 = AST.var 8192<rt> (Register.toRegID TMM4) "TMM4"
+  let tmm5 = AST.var 8192<rt> (Register.toRegID TMM5) "TMM5"
+  let tmm6 = AST.var 8192<rt> (Register.toRegID TMM6) "TMM6"
+  let tmm7 = AST.var 8192<rt> (Register.toRegID TMM7) "TMM7"
+  let tilecfg = AST.var 512<rt> (Register.toRegID TILECFG) "TILECFG"
   let oFlag = AST.var 1<rt> (Register.toRegID OF) "OF"
   let dFlag = AST.var 1<rt> (Register.toRegID DF) "DF"
   let iFlag = AST.var 1<rt> (Register.toRegID IF) "IF"
@@ -1243,6 +1252,24 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         r31b
+      | R.TMM0 ->
+        tmm0
+      | R.TMM1 ->
+        tmm1
+      | R.TMM2 ->
+        tmm2
+      | R.TMM3 ->
+        tmm3
+      | R.TMM4 ->
+        tmm4
+      | R.TMM5 ->
+        tmm5
+      | R.TMM6 ->
+        tmm6
+      | R.TMM7 ->
+        tmm7
+      | R.TILECFG ->
+        tilecfg
       | R.SPL ->
 #if DEBUG
         assert64Bit wordSize
@@ -1780,6 +1807,15 @@ type RegisterFactory(isa: ISA) =
       | "R29B" -> r29b
       | "R30B" -> r30b
       | "R31B" -> r31b
+      | "TMM0" -> tmm0
+      | "TMM1" -> tmm1
+      | "TMM2" -> tmm2
+      | "TMM3" -> tmm3
+      | "TMM4" -> tmm4
+      | "TMM5" -> tmm5
+      | "TMM6" -> tmm6
+      | "TMM7" -> tmm7
+      | "TILECFG" -> tilecfg
       | "SPL" -> spl
       | "BPL" -> bpl
       | "SIL" -> sil
