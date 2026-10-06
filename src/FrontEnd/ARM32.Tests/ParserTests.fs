@@ -1446,3 +1446,14 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] VCMLA (vector) is Armv8.3's``() =
     readsOnlyUnder "fcb10802" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]
+
+  /// The dot products and the matrix multiplies leave bit 20 clear in
+  /// coprocessors 12 and 13, which ARMv7's STC2 decoder used to take: those
+  /// are reserved to ARMv7 as 8 and 9 are (A2.9).
+  [<TestMethod>]
+  member _.``[ARMv7] The dot products are not STC2``() =
+    testDisasm "fc210d02" "vsdot.s8 d0, d1, d2"
+    testDisasm "fca10d02" "vusdot.s8 d0, d1, d2"
+    testDisasm "fc010d02" "vdot.bf16 d0, d1, d2"
+    testDisasm "fc220c44" "vsmmla.s8 q0, q1, q2"
+    testDisasm "fc020c44" "vmmla.bf16 q0, q1, q2"
