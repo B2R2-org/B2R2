@@ -993,3 +993,29 @@ type LifterTests() =
                     unzip "f3b20101" !@(Q0, 1) !@(Q0, 2))
     Assert.AreEqual((0x0d0c090805040100UL, 0x0f0e0b0a07060302UL),
                     unzip "f3f6012f" !@(Q8, 1) !@(Q15, 2))
+
+  /// <summary>
+  /// The shifts by a register shift right for a negative amount (DDI0406C
+  /// A8.8.397, A8.8.380, A8.8.389): VSHL.S16 takes -1, 3, -16 and -20 and
+  /// leaves -1, 8, 0 and -1; a right shift of the element's width or more
+  /// leaves nothing of an unsigned element, so VQSHL.U16 by -16 and -17
+  /// gives zero; and rounding by the width itself carries an unsigned
+  /// element's top bit, so VRSHL.U32 of 2^31 by -32 gives one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] Shifts by a register go right for a negative amount``() =
+    let shifted hex (dst, src, amounts) (vs: uint64) (ns: uint64) =
+      let inputs =
+        [ src, BitVector(vs, 64<rt>); amounts, BitVector(ns, 64<rt>) ]
+      (IRRunner.run (liftedBy false hex) inputs dst).ToUInt64()
+    let d0d1d2 = !@(Q0, 1), !@(Q0, 2), !@(Q1, 1)
+    let d3d4d5 = !@(Q1, 2), !@(Q2, 1), !@(Q2, 2)
+    let vshl = shifted "f2120401" d0d1d2
+    let vqshl = shifted "f3153414" d3d4d5
+    let vrshl = shifted "f3253504" d3d4d5
+    Assert.AreEqual<uint64>(0xffff00000008ffffUL,
+                            vshl 0x80007fff0001ffffUL 0x00ec00f0000300ffUL)
+    Assert.AreEqual<uint64>(0x8000000100000000UL,
+                            vqshl 0x00018000ffffffffUL 0x000f00f100ef00f0UL)
+    Assert.AreEqual<uint64>(0x0000000000000001UL,
+                            vrshl 0x7fffffff80000000UL 0x000000e0000000e0UL)

@@ -1718,40 +1718,6 @@ let vshlImm (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
-let vshlReg (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let p = getParsingInfo ins
-    let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
-    match ins.OprSize with
-    | 128<rt> ->
-      let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOpr128 bld dst
-      let struct (src1B, src1A) = transOpr128 bld src1
-      let struct (src2B, src2A) = transOpr128 bld src2
-      for e in 0 .. p.Elements - 1 do
-        let shift1 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2B e p.ESize))
-        let shift2 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2A e p.ESize))
-        let result1 = extend 64<rt> (elem src1B e p.ESize) << shift1
-        let result2 = extend 64<rt> (elem src1A e p.ESize) << shift2
-        elem dstB e p.ESize := AST.xtlo p.RtESize result1
-        elem dstA e p.ESize := AST.xtlo p.RtESize result2
-    | _ ->
-      let struct (dst, src1, src2) = transThreeOprs ins bld
-      for e in 0 .. p.Elements - 1 do
-        let shift = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2 e p.ESize))
-        let result = extend 64<rt> (elem src1 e p.ESize) << shift
-        elem dst e p.ESize := AST.xtlo p.RtESize result
-    putEndLabel bld lblIgnore
-  }
-
-let vshl (ins: Instruction) bld =
-  match ins.Operands with
-  | ThreeOperands(_, _, OprImm _) -> vshlImm ins bld
-  | ThreeOperands(_, _, OprSIMD _) -> vshlReg ins bld
-  | _ -> raise InvalidOperandException
-
 let vshr (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -3248,28 +3214,28 @@ let vqmovun ins bld = vqmovnarrow ins bld false true
 /// The amount is split into a left half and a right half so that neither
 /// computation is ever run at the other's distance, and both are done at
 /// twice the element's width, where a left shift of a whole element still
-/// has somewhere to go.
+/// has somewhere to go, and a right shift of one leaves nothing of an
+/// unsigned element and the sign of a signed one -- what any longer right
+/// shift leaves, so a longer one is taken as one of the width.
 ///
-/// A rounding right shift adds half of what it is about to discard. At or
-/// beyond the element's width that constant is larger than the whole
-/// element, so every value rounds to zero -- which is why the amount is not
-/// simply clamped there: a clamped amount would add the constant for a
-/// shorter shift than the one being taken.
+/// A rounding right shift adds half of what it is about to discard first.
+/// By the width itself, that half can carry an unsigned element's top bit
+/// into a one; past it, the half is larger than any element, and everything
+/// rounds to zero.
 /// </summary>
 let private shiftByRegLane bld p unsigned isRound saturate e amt =
   let rt = p.RtESize
   let wide = RegType.fromBitWidth (p.ESize * 2)
   let n0 = AST.num0 rt
   let widest = numI32 p.ESize rt
-  let deepest = numI32 (p.ESize - 1) rt
   let struct (isNeg, left, right) = tmpVars3 bld rt
   let struct (over, capped) = tmpVars2 bld rt
   append bld {
     isNeg := AST.ite (amt ?< n0) (AST.num1 rt) n0
     left := AST.ite (amt ?< n0) n0 (AST.ite (amt ?> widest) widest amt)
     right := AST.ite (amt ?< n0) (AST.neg amt) n0
-    over := AST.ite (right .>= widest) (AST.num1 rt) n0
-    capped := AST.ite (right .>= widest) deepest right
+    over := AST.ite (right .> widest) (AST.num1 rt) n0
+    capped := AST.ite (right .> widest) widest right
   }
   let ext = if unsigned then AST.zext wide else AST.sext wide
   let wideE = ext e
@@ -3288,8 +3254,8 @@ let private shiftByRegLane bld p unsigned isRound saturate e amt =
   if saturate then satLane bld unsigned unsigned wide rt answer
   else AST.xtlo rt answer
 
-/// VQSHL, VQRSHL and VRSHL in their register forms: the amount is the low
-/// byte of each element of the second source, read as signed so that a
+/// VSHL, VQSHL, VQRSHL and VRSHL in their register forms: the amount is the
+/// low byte of each element of the second source, read as signed so that a
 /// negative one shifts the other way.
 let private vshiftByReg (ins: Instruction) bld isRound saturate =
   lift bld ins {
@@ -3323,6 +3289,15 @@ let private vshiftByReg (ins: Instruction) bld isRound saturate =
         elem dst e p.ESize := lane op1 op2
     putEndLabel bld lblIgnore
   }
+
+/// VSHL by an immediate, or by a register, which shifts the other way for a
+/// negative amount as the other register forms do, without rounding or
+/// saturating (DDI0406C A8.8.396 and A8.8.397).
+let vshl (ins: Instruction) bld =
+  match ins.Operands with
+  | ThreeOperands(_, _, OprImm _) -> vshlImm ins bld
+  | ThreeOperands(_, _, OprSIMD _) -> vshiftByReg ins bld false false
+  | _ -> raise InvalidOperandException
 
 let vqshlReg ins bld = vshiftByReg ins bld false true
 
