@@ -862,3 +862,12 @@ type LifterTests() =
   member _.``[Thumb] STREX adds its offset``() =
     Assert.AreEqual<Expr option>(Some(!.R1 .+ num 16u),
                                  assignedBy true "e8410204" (t32 1))
+
+  /// CLREX clears the reservation, leaving it on the last byte of memory, so
+  /// that a store-exclusive after it fails (DDI0406C A8.8.32).
+  [<TestMethod>]
+  member _.``[ARMv7] CLREX clears the reservation``() =
+    let reservedBy isThumb hex = assignedBy isThumb hex !.ExMonAddr
+    let cleared = Some(num 0xffffffffu)
+    Assert.AreEqual<Expr option>(cleared, reservedBy false "f57ff01f")
+    Assert.AreEqual<Expr option>(cleared, reservedBy true "f3bf8f2f")

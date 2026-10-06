@@ -2390,6 +2390,18 @@ let strexd ins bld =
     putEndLabel bld lblIgnore
   }
 
+/// CLREX, which clears the reservation a load-exclusive made, so that a
+/// store-exclusive after it fails (DDI0406C A8.8.32). The reservation is left
+/// naming the last byte of memory, which no store-exclusive of a halfword or
+/// more can name, as each is aligned.
+let clrex (ins: Instruction) bld =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    regVar bld R.ExMonAddr := numU32 0xFFFFFFFFu 32<rt>
+    putEndLabel bld lblIgnore
+  }
+
 let strd ins bld =
   lift bld ins {
     let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins bld

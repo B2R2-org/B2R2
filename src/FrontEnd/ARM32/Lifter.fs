@@ -88,6 +88,8 @@ let translate (ins: Instruction) bld =
   | Op.STC2 | Op.STC2L | Op.STCL ->
     (* coprocessor instructions *)
     unsupported ins bld
+  | Op.CLREX ->
+    clrex ins bld
   | Op.CLZ ->
     clz ins bld
   | Op.CMN ->
@@ -96,7 +98,7 @@ let translate (ins: Instruction) bld =
     cmp ins bld
   | Op.CPS | Op.CPSID | Op.CPSIE ->
     cps ins bld
-  | Op.CLREX | Op.DMB | Op.DSB | Op.ISB | Op.PLD | Op.PLI | Op.PLDW ->
+  | Op.DMB | Op.DSB | Op.ISB | Op.PLD | Op.PLI | Op.PLDW ->
     nop ins bld
   | Op.EOR ->
     eor false ins bld
