@@ -1321,25 +1321,18 @@ type ParserTests() =
   member _.``[ARMv7] SHA256H2 is written as one word``() =
     testDisasm "f3100c40" "sha256h2.32 q0, q0, q0"
 
+  /// <summary>
   /// The floating-point instructions are the coprocessor space with 10 in bits
   /// 11:10: coprocessors 10 and 11, and 9 for half precision. The four above
-  /// them are ordinary coprocessors to ARMv7, so their data-processing words
-  /// are CDP, whatever their low bits would mean to the floating-point unit.
+  /// them are not floating-point either, and hold no CDP: ARMv7 reserves 12
+  /// and 13 (A2.9) and makes every CDP to 14 and 15 UNDEFINED (B3.15.2).
+  /// </summary>
   [<TestMethod>]
-  member _.``[ARMv7] CDP to coprocessor 12 is not floating-point``() =
-    testDisasm "ee000c00" "cdp p12, #0x0, c0, c0, c0, #0x0"
-
-  [<TestMethod>]
-  member _.``[ARMv7] CDP to coprocessor 13 is not floating-point``() =
-    testDisasm "ee000d00" "cdp p13, #0x0, c0, c0, c0, #0x0"
-
-  [<TestMethod>]
-  member _.``[ARMv7] CDP to coprocessor 14 is not floating-point``() =
-    testDisasm "ee000e00" "cdp p14, #0x0, c0, c0, c0, #0x0"
-
-  [<TestMethod>]
-  member _.``[ARMv7] CDP to coprocessor 15 is not floating-point``() =
-    testDisasm "ee000f00" "cdp p15, #0x0, c0, c0, c0, #0x0"
+  member _.``[ARMv7] CDP to coprocessors 12 to 15 is UNDEFINED``() =
+    testRefused "ee000c00"
+    testRefused "ee000d00"
+    testRefused "ee000e00"
+    testRefused "ee000f00"
 
   /// Coprocessor 9 is where Armv8.2 put the half-precision arithmetic.
   [<TestMethod>]
@@ -1519,3 +1512,58 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] VLDR.16 names its size``() =
     testDisasm "ed1b7947" "vldr.16 s14, [fp, #-0x8e]"
+
+  /// <summary>
+  /// ARMv7 leaves coprocessors 0 to 7 to implementations: CDP, MCR and MRC,
+  /// MCRR and MRRC, LDC and STC, and in the unconditional encoding the forms
+  /// named 2 (DDI0406C A5.6 and A5.7). Bit 4 tells a transfer to a core
+  /// register from a CDP, and D a long transfer.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] The ordinary coprocessors take every instruction``() =
+    testDisasm "ee000010" "mcr p0, #0x0, r0, c0, c0, #0x0"
+    testDisasm "ee100010" "mrc p0, #0x0, r0, c0, c0, #0x0"
+    testDisasm "ee0b41e5" "cdp p1, #0x0, c4, c11, c5, #0x7"
+    testDisasm "ee2b41e5" "cdp p1, #0x2, c4, c11, c5, #0x7"
+    testDisasm "ed911100" "ldc p1, c1, [r1]"
+    testDisasm "edd11100" "ldcl p1, c1, [r1]"
+    testDisasm "ed811100" "stc p1, c1, [r1]"
+    testDisasm "edc11100" "stcl p1, c1, [r1]"
+    testDisasm "ec410203" "mcrr p2, #0x0, r0, r1, c3"
+    testDisasm "ec510203" "mrrc p2, #0x0, r0, r1, c3"
+
+  [<TestMethod>]
+  member _.``[ARMv7] The unconditional coprocessor forms are named 2``() =
+    testDisasm "fe000300" "cdp2 p3, #0x0, c0, c0, c0, #0x0"
+    testDisasm "fe2b41e5" "cdp2 p1, #0x2, c4, c11, c5, #0x7"
+    testDisasm "fe000310" "mcr2 p3, #0x0, r0, c0, c0, #0x0"
+    testDisasm "fe100310" "mrc2 p3, #0x0, r0, c0, c0, #0x0"
+    testDisasm "fd911100" "ldc2 p1, c1, [r1]"
+    testDisasm "fc410203" "mcrr2 p2, #0x0, r0, r1, c3"
+    testDisasm "fc510203" "mrrc2 p2, #0x0, r0, r1, c3"
+    testDisasm "fdd11100" "ldc2l p1, c1, [r1]"
+    testDisasm "fc6485df" "stc2l p5, c8, [r4], #-0x37c"
+
+  /// STC2 is UNDEFINED on the floating-point coprocessors and on 14 and 15.
+  [<TestMethod>]
+  member _.``[ARMv7] STC2 to coprocessors 10 and 14 is UNDEFINED``() =
+    testRefused "fc200a00"
+    testRefused "fc200e00"
+
+  /// <summary>
+  /// What the manual makes UNPREDICTABLE in them is refused: an MCR from the
+  /// PC, an MCRR from it, an MRRC to one register twice, and an STC that
+  /// writes its address back to the PC (DDI0406C A8.8.99, A8.8.100, A8.8.109
+  /// and A8.8.199).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] The ordinary coprocessors refuse UNPREDICTABLE forms``() =
+    testRefused "ee00f010"
+    testRefused "ec4f0000"
+    testRefused "ec511100"
+    testRefused "ed2f1100"
+
+  /// Armv8 keeps none of the ordinary coprocessors.
+  [<TestMethod>]
+  member _.``[ARMv7] The ordinary coprocessors are ARMv7's alone``() =
+    readsOnlyUnder "ee000010" [ "armv7-v7" ] [ "aarch32" ]

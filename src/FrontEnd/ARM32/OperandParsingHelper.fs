@@ -3416,7 +3416,7 @@ type internal OprCpOpc1CRdCRnCRmOpc2() =
   inherit OperandParser()
   override _.Render bin =
     let coproc = extract bin 11 8 |> getCoprocDReg |> OprReg
-    let opc1 = extract bin 23 21 |> int64 |> OprImm
+    let opc1 = extract bin 23 20 |> int64 |> OprImm
     let crd = extract bin 15 12 |> getCoprocCReg |> OprReg
     let crn = extract bin 19 16 |> getCoprocCReg |> OprReg
     let crm = extract bin 3 0 |> getCoprocCReg |> OprReg

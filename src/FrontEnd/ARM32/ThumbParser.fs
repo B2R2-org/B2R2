@@ -4712,6 +4712,49 @@ let parseAdvSIMDShfsAndImmGen phlp (itstate: byref<BL>) isInIT bin =
   else
     parseAdvSIMDTwoRegsAndShfAmt phlp &itstate isInIT bin
 
+/// <summary>
+/// The coprocessor instructions ARMv7 leaves to implementations, on
+/// coprocessors 0 to 7 alone, as parseARMv7Coprocessor reads them in A32;
+/// bit 28 marks the form named 2.
+/// </summary>
+let parseARMv7Coprocessor phlp (itstate: byref<BL>) isInIT bin =
+  let isTwo = pickBit bin 28 = 1u
+  let pick op op2 = if isTwo then op2 else op
+  match pickTwo bin 24, pickBit bin 4 (* op1<5:4>, op *) with
+  | 0b10u, 0b0u ->
+    let op = pick Op.CDP Op.CDP2
+    render phlp &itstate 0 isInIT bin op None N OD.OprCpOpc1CRdCRnCRmOpc2
+  | 0b10u, _ ->
+#if !EMULATION
+    (pickBit bin 20 = 0u && extract bin 15 12 = 15u) |> checkUnpred
+#endif
+    let op =
+      if pickBit bin 20 = 0u then pick Op.MCR Op.MCR2 else pick Op.MRC Op.MRC2
+    render phlp &itstate 0 isInIT bin op None N OD.OprCpOpc1RtCRnCRmOpc2
+  | _ ->
+    match extract bin 24 20 (* op1<4:0> *) with
+    | 0b00000u | 0b00001u ->
+      raise ParsingFailureException
+    | 0b00100u ->
+#if !EMULATION
+      chkPCRtRt2 bin
+#endif
+      let op = pick Op.MCRR Op.MCRR2
+      render phlp &itstate 0 isInIT bin op None N OD.OprCpOpc1RtRt2CRm
+    | 0b00101u ->
+#if !EMULATION
+      chkPCRtRt2Eq bin
+#endif
+      let op = pick Op.MRRC Op.MRRC2
+      render phlp &itstate 0 isInIT bin op None N OD.OprCpOpc1RtRt2CRm
+    | _ ->
+#if !EMULATION
+      chkPUDWCopPCRn bin
+#endif
+      let isLoad = pickBit bin 20 = 1u
+      let op = coprocTransferOp isTwo isLoad (pickBit bin 22 = 1u)
+      render phlp &itstate 0 isInIT bin op None N OD.OprCoprocCRdMem
+
 /// Advanced SIMD data-processing on page F3-4165.
 let parseAdvSIMDDataProcess phlp (itstate: byref<BL>) isInIT bin =
   match concat (pickBit bin 23) (pickBit bin 4) 1 (* op0:op1 *) with
@@ -6698,6 +6741,10 @@ let parseSystemRegAccessAdvSIMDAndFP phlp (itstate: byref<BL>) isInIT bin =
     (pickBit bin 28 <<< 4) + (pickTwo bin 24 <<< 2) + (pickBit bin 11 <<< 1)
     + (pickBit bin 4)
   match decodeFields with
+  (* coprocessors 0 to 7 *)
+  | b when (b &&& 0b01010u = 0b00000u || b &&& 0b01110u = 0b01000u)
+           && (phlp: ParsingHelper).IsARMv7 ->
+    parseARMv7Coprocessor phlp &itstate isInIT bin
   | b when b &&& 0b01010u = 0b00000u (* x0x0x *) ->
     raise ParsingFailureException
   | b when b &&& 0b01110u = 0b01000u (* x100x *) ->

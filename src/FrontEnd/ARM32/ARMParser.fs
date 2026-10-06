@@ -2265,6 +2265,49 @@ let parseCase10 (phlp: ParsingHelper) bin =
   | 0b0u -> parseCase100 phlp bin
   | _ -> parseCase101 phlp bin
 
+/// <summary>
+/// The coprocessor instructions ARMv7 leaves to implementations, which reach
+/// coprocessors 0 to 7 alone: 8, 9, 12 and 13 are reserved (A2.9), 10 and 11
+/// are the floating-point unit, and on 14 and 15 every CDP, LDC and STC but
+/// the debug data transfers, and every form named 2, is UNDEFINED (B3.15.2).
+/// The unconditional encoding of each is its form named 2. Armv8 has none of
+/// them.
+/// </summary>
+let parseARMv7Coprocessor (phlp: ParsingHelper) bin =
+  let isTwo = phlp.Cond = Condition.UN
+  let pick op op2 = if isTwo then op2 else op
+  match pickTwo bin 24, pickBit bin 4 (* op1<5:4>, op *) with
+  | 0b10u, 0b0u ->
+    render phlp bin (pick Op.CDP Op.CDP2) None OD.OprCpOpc1CRdCRnCRmOpc2
+  | 0b10u, _ ->
+#if !EMULATION
+    (pickBit bin 20 = 0u && extract bin 15 12 = 15u) |> checkUnpred
+#endif
+    let op =
+      if pickBit bin 20 = 0u then pick Op.MCR Op.MCR2 else pick Op.MRC Op.MRC2
+    render phlp bin op None OD.OprCpOpc1RtCRnCRmOpc2
+  | _ ->
+    match extract bin 24 20 (* op1<4:0> *) with
+    | 0b00000u | 0b00001u ->
+      undefined ()
+    | 0b00100u ->
+#if !EMULATION
+      chkPCRtRt2 bin
+#endif
+      render phlp bin (pick Op.MCRR Op.MCRR2) None OD.OprCpOpc1RtRt2CRm
+    | 0b00101u ->
+#if !EMULATION
+      chkPCRtRt2Eq bin
+#endif
+      render phlp bin (pick Op.MRRC Op.MRRC2) None OD.OprCpOpc1RtRt2CRm
+    | _ ->
+#if !EMULATION
+      chkPUDWCopPCRn bin
+#endif
+      let isLoad = pickBit bin 20 = 1u
+      let op = coprocTransferOp isTwo isLoad (pickBit bin 22 = 1u)
+      render phlp bin op None OD.OprCoprocCRdMem
+
 /// Supervisor call on page F4-4247.
 let parseSupervisorCall (phlp: ParsingHelper) bin =
   if phlp.Cond = Condition.UN then raise ParsingFailureException
@@ -3940,23 +3983,12 @@ let parseCase11 (phlp: ParsingHelper) bin =
   let op0op1op2 =
     (pickTwo bin 24 <<< 2) + (pickBit bin 11 <<< 1) + (pickBit bin 4)
   match op0op1op2 (* op0:op1:op2 *) with
-  (* coprocessors 8, 9, 12 and 13 are reserved to ARMv7, an access to them
-     UNDEFINED (A2.9), and Armv8 puts its SIMD extensions among them: VCADD
-     and VCMLA, the dot products and the matrix multiplies, which the
-     extension decoder below reads *)
-  | _ when phlp.IsARMv7
-           && phlp.Cond = Condition.UN
-           && (pickBit bin 25 = 0u)
-           && (pickBit bin 20 = 0u)
-           && ((extract bin 11 9 &&& 0b101u) <> 0b100u) -> (* ARMv7 A8-663 *)
-#if !EMULATION
-    chkPUDWCopPCRn bin
-#endif
-    render phlp bin Op.STC2 None OD.OprCoprocCRdMem
+  (* coprocessors 0 to 7 *)
+  | 0b0000u | 0b0001u | 0b0100u | 0b0101u | 0b1000u | 0b1001u
+    when phlp.IsARMv7 ->
+    parseARMv7Coprocessor phlp bin
   | 0b0000u | 0b0001u | 0b0100u | 0b0101u -> (* 0x0x *)
     raise ParsingFailureException
-  | 0b1000u | 0b1001u (* 100x *) when phlp.IsARMv7 -> (* ARMv7 A8-356 *)
-    render phlp bin Op.CDP None OD.OprCpOpc1CRdCRnCRmOpc2
   (* 100x *)
   | 0b1000u | 0b1001u ->
     raise ParsingFailureException
@@ -3968,9 +4000,7 @@ let parseCase11 (phlp: ParsingHelper) bin =
   | 0b0010u | 0b0011u | 0b0110u | 0b0111u ->
     parseAdvSIMDAndSysRegLdStAnd64bitMove phlp bin
   (* Floating point is the coprocessors with 10 in bits 11:10; the four above
-     them are ordinary coprocessors to ARMv7 and nothing to Armv8. *)
-  | 0b1010u when pickTwo bin 10 = 0b11u && phlp.IsARMv7 ->
-    render phlp bin Op.CDP None OD.OprCpOpc1CRdCRnCRmOpc2
+     them hold no CDP in either version. *)
   | 0b1010u when pickTwo bin 10 = 0b11u ->
     raise ParsingFailureException
   | 0b1010u ->

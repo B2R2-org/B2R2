@@ -1393,3 +1393,24 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[T32] VMOV.F16 refuses the PC``() =
     testRefused "ee04f9b2"
+
+  /// The ordinary coprocessors read in T32 as in A32, bit 28 naming the forms
+  /// called 2, and refuse what A32 refuses.
+  [<TestMethod>]
+  member _.``[T32] The ordinary coprocessors take every instruction``() =
+    testDisasm "ee000010" "mcr p0, #0x0, r0, c0, c0, #0x0"
+    testDisasm "ee0b41e5" "cdp p1, #0x0, c4, c11, c5, #0x7"
+    testDisasm "ee2b41e5" "cdp p1, #0x2, c4, c11, c5, #0x7"
+    testDisasm "ed911100" "ldc p1, c1, [r1]"
+    testDisasm "ec410203" "mcrr p2, #0x0, r0, r1, c3"
+    testDisasm "fe000300" "cdp2 p3, #0x0, c0, c0, c0, #0x0"
+    testDisasm "fe2b41e5" "cdp2 p1, #0x2, c4, c11, c5, #0x7"
+    testDisasm "fc510203" "mrrc2 p2, #0x0, r0, r1, c3"
+    testDisasm "fdd11100" "ldc2l p1, c1, [r1]"
+    testDisasm "fc6485df" "stc2l p5, c8, [r4], #-0x37c"
+    testRefused "ee000e00"
+    testRefused "ee00f010"
+    testRefused "ec4f0000"
+    testRefused "ec511100"
+    testRefused "ed2f1100"
+    readsOnlyUnder "ee000010" [ "armv7-v7" ] [ "aarch32" ]
