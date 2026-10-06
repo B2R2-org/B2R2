@@ -23,8 +23,9 @@
 *)
 
 /// <summary>
-/// The processor modes, what a change of mode does to the registers, and the
-/// return from an exception, which changes mode as it branches.
+/// The processor modes, what a change of mode does to the registers, the
+/// return from an exception, which changes mode as it branches, and the User
+/// mode registers, which LDM and STM with ^ reach from any mode.
 ///
 /// <para>The mode is CPSR.M, and each mode but User and System keeps its own
 /// SP, LR and SPSR -- FIQ mode R8 to R12 as well. A mode change does not copy
@@ -194,13 +195,15 @@ let changeMode bld (named: Expr) =
   newMode
 
 /// <summary>
-/// Raises an Undefined Instruction exception in Hyp mode, which returns by
-/// ERET alone (DDI0406C B9.3.19 and B9.3.20), and in User mode, which has no
-/// SPSR to return with. A return in User or System mode is UNPREDICTABLE
-/// (B9.1.1): User mode takes it as UNDEFINED and System mode runs it, as the
-/// reference does.
+/// Raises an Undefined Instruction exception in Hyp mode and in User mode, as
+/// a return from an exception and a transfer of the User mode registers do.
+/// Each is UNDEFINED in Hyp mode, which returns by ERET alone (DDI0406C
+/// B9.3.5, B9.3.6, B9.3.17, B9.3.19 and B9.3.20), and UNPREDICTABLE in User
+/// and System mode (B9.1.1): User mode, which has no SPSR or registers of
+/// another mode to reach, takes it as UNDEFINED, and System mode runs it, as
+/// the reference does.
 /// </summary>
-let private undefinedInUserOrHypMode bld =
+let undefinedInUserOrHypMode bld =
   let hyp = modeOf (regVar bld R.CPSR) == modeNum Mode.Hyp
   _when bld "UserOrHypMode" (inUserMode bld .| hyp) (block {
     AST.sideEffect UndefinedInstruction
@@ -236,14 +239,63 @@ let private exceptionReturn bld (target: Expr) (saved: Expr) =
 
 /// <summary>
 /// Returns from an exception to the given address with the state SPSR holds,
-/// which is what an instruction that writes the PC and sets the flags does at
-/// PL1: SUBS PC, LR and the instructions related to it.
+/// which is what SUBS PC, LR and the instructions related to it do at PL1,
+/// and LDM with the PC and ^. The caller has checked the mode it runs in.
 /// </summary>
 let returnWithSPSR bld (target: Expr) =
   let struct (address, saved) = tmpVars2 bld 32<rt>
-  undefinedInUserOrHypMode bld
   append bld {
     address := target
     saved := regVar bld R.SPSR
   }
   exceptionReturn bld address saved
+
+/// <summary>
+/// The User mode copy of a register, which an LDM or STM with ^ moves
+/// whatever mode is running, with the modes that bank the register away
+/// from it: FIQ mode has its own R8 to R12, and every mode but User and
+/// System its own SP and LR -- but for Hyp mode's LR, which is User mode's.
+/// </summary>
+let private userCopyOf reg =
+  let banksSPLR =
+    [ Mode.FIQ
+      Mode.IRQ
+      Mode.Supervisor
+      Mode.Monitor
+      Mode.Abort
+      Mode.Undefined ]
+  match reg with
+  | R.R8 -> Some(R.R8usr, [ Mode.FIQ ])
+  | R.SB -> Some(R.R9usr, [ Mode.FIQ ])
+  | R.SL -> Some(R.R10usr, [ Mode.FIQ ])
+  | R.FP -> Some(R.R11usr, [ Mode.FIQ ])
+  | R.IP -> Some(R.R12usr, [ Mode.FIQ ])
+  | R.SP -> Some(R.SPusr, Mode.Hyp :: banksSPLR)
+  | R.LR -> Some(R.LRusr, banksSPLR)
+  | _ -> None
+
+/// What the User mode copy of a register holds, in the mode running: the
+/// copy where that mode banks the register away, and the register itself
+/// where it does not.
+let readUserRegister bld reg =
+  match userCopyOf reg with
+  | Some(copy, banked) ->
+    let elsewhere = isOneOf (modeOf (regVar bld R.CPSR)) banked
+    AST.ite elsewhere (regVar bld copy) (regVar bld reg)
+  | None ->
+    regVar bld reg
+
+/// Writes the User mode copy of a register, and leaves the running mode's
+/// own copy as it was.
+let writeUserRegister bld reg value =
+  match userCopyOf reg with
+  | Some(copy, banked) ->
+    let elsewhere = isOneOf (modeOf (regVar bld R.CPSR)) banked
+    let copy = regVar bld copy
+    let reg = regVar bld reg
+    append bld {
+      copy := AST.ite elsewhere value copy
+      reg := AST.ite elsewhere reg value
+    }
+  | None ->
+    append bld { regVar bld reg := value }

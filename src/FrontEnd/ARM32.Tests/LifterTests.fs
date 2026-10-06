@@ -178,6 +178,24 @@ type LifterTests() =
     let mode = !.CPSR .& num 0x1fu
     (mode == num 0x10u) .| (mode == num 0x1au)
 
+  /// Whether CPSR.M names one of the given modes, as the lifter tests it.
+  let modeIsOneOf (modes: uint32 list) =
+    let mode = !.CPSR .& num 0x1fu
+    modes |> List.map (fun m -> mode == num m) |> List.reduce (.|)
+
+  /// The modes that bank SP away from User mode's: all but User and System.
+  let spAway = modeIsOneOf [ 0x1au; 0x11u; 0x12u; 0x13u; 0x16u; 0x17u; 0x1bu ]
+
+  /// The modes that bank LR away from it: those but Hyp, whose LR is User's.
+  let lrAway = modeIsOneOf [ 0x11u; 0x12u; 0x13u; 0x16u; 0x17u; 0x1bu ]
+
+  /// What the statements of one encoding store, in order.
+  let storedBy isThumb hex =
+    liftedBy isThumb hex
+    |> Array.choose (function
+      | Store(Value = value) -> Some value
+      | _ -> None)
+
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =
     let shiftAmt = AST.zext 32<rt> (AST.xtlo 8<rt> !.R8)
@@ -843,6 +861,71 @@ type LifterTests() =
   member _.``[Thumb] SUBS PC, LR returns where the A32 one does``() =
     let a32 = liftedText false "e25ef004"
     Assert.AreEqual<string>(a32, liftedText true "f3de8f04")
+
+  /// LDM with the PC in its list and ^ returns from an exception too, with
+  /// the state SPSR holds (DDI0406C B9.3.5).
+  [<TestMethod>]
+  member _.``[ARMv7] LDM with PC and ^ restores CPSR from SPSR``() =
+    StringAssert.Contains(liftedText false "e8f08002", ":= SPSR\n")
+
+  [<TestMethod>]
+  member _.``[ARMv7] LDM with PC and ^ writes its base back``() =
+    let written = writtenBy false "e8f08002"
+    Assert.AreEqual<bool>(true, Array.contains !.R0 written)
+
+  /// The registers that return loads are the running mode's own: SP takes the
+  /// word itself, not a User mode copy.
+  [<TestMethod>]
+  member _.``[ARMv7] LDM with PC and ^ loads the running mode's SP``() =
+    let word = AST.loadBE 32<rt> (t32 2 .+ num 4u)
+    Assert.AreEqual<Expr option>(Some word, assignedBy false "e8f0e002" !.SP)
+
+  /// Each form with ^ is UNDEFINED in Hyp mode, and User mode takes its
+  /// UNPREDICTABLE as UNDEFINED (B9.3.5, B9.3.6 and B9.3.17).
+  [<TestMethod>]
+  member _.``[ARMv7] LDM and STM with ^ are refused in User and Hyp mode``() =
+    for hex in [ "e8f08002"; "e8d06000"; "e8c06000" ] do
+      let guard = undefinedWhen false hex
+      Assert.AreEqual<Expr option>(Some userOrHyp, guard, hex)
+
+  [<TestMethod>]
+  member _.``[ARMv7] LDMNE with ^ checks the mode only when it runs``() =
+    let text = liftedText false "18d06000"
+    let runs = text.IndexOf ":NeedToExec"
+    Assert.AreEqual<bool>(true, runs >= 0 && runs < text.IndexOf "UserOrHyp")
+
+  /// Without the PC, ^ means the User mode registers, whatever mode runs
+  /// (B9.3.6): the copy where the mode running banks the register away, and
+  /// the live register where it does not. Every mode but User and System
+  /// banks SP away, and every one but those and Hyp, whose LR is User mode's,
+  /// banks LR.
+  [<TestMethod>]
+  member _.``[ARMv7] LDM with ^ loads User mode's SP and LR``() =
+    let sp, lr = t32 3, t32 4
+    let expected =
+      [ !.SPusr, AST.ite spAway sp !.SPusr
+        !.SP, AST.ite spAway !.SP sp
+        !.LRusr, AST.ite lrAway lr !.LRusr
+        !.LR, AST.ite lrAway !.LR lr ]
+    for dst, value in expected do
+      Assert.AreEqual<Expr option>(Some value, assignedBy false "e8d06000" dst)
+
+  /// STM with ^ stores the same copies (B9.3.17).
+  [<TestMethod>]
+  member _.``[ARMv7] STM with ^ stores User mode's SP and LR``() =
+    let stored = [| AST.ite spAway !.SPusr !.SP; AST.ite lrAway !.LRusr !.LR |]
+    CollectionAssert.AreEqual(stored, storedBy false "e8c06000")
+
+  /// FIQ mode alone banks R8 to R12 away.
+  [<TestMethod>]
+  member _.``[ARMv7] STM with ^ stores User mode's R8``() =
+    let stored = [| AST.ite (modeIsOneOf [ 0x11u ]) !.R8usr !.R8 |]
+    CollectionAssert.AreEqual(stored, storedBy false "e8c00100")
+
+  /// Without ^ the same LDM is anyone's.
+  [<TestMethod>]
+  member _.``[ARMv7] LDM without ^ is allowed in User mode``() =
+    Assert.AreEqual<bool>(false, canBeUndefined false "e8906000")
 
   /// A write to CPSR.M changes mode, and a mode change swaps the banked
   /// registers: the old mode's SP goes back to its copy, and the new mode's

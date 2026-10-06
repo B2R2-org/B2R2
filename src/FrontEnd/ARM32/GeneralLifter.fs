@@ -736,6 +736,7 @@ let subsAndRelatedInstr (ins: Instruction) bld =
     let result = tmpVar bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedInUserOrHypMode bld
     result := parseResultOfSUBAndRela ins bld
     returnWithSPSR bld result
     putEndLabel bld lblIgnore
@@ -2002,7 +2003,36 @@ let getLDMStartAddr rn stackWidth = function
   | Op.LDMIB -> rn .+ (numI32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
 
-let ldm opcode ins bld wbackop =
+/// Loads User mode's registers, the way popLoop loads the running mode's: an
+/// LDM with ^ and without the PC (DDI0406C B9.3.6).
+let private userPopLoop bld numOfReg addr =
+  let loop addr count =
+    if (numOfReg >>> count) &&& 1u = 1u then
+      let reg = count |> uint32 |> OperandHelper.getRegister
+      let value = tmpVar bld 32<rt>
+      append bld { value := loadNative bld 32<rt> addr }
+      writeUserRegister bld reg value
+      addr .+ (numI32 4 32<rt>)
+    else
+      addr
+  List.fold loop addr [ 0 .. 14 ]
+
+/// The registers an LDM loads: User mode's for one with ^ and without the
+/// PC, and the running mode's otherwise.
+let private loadRegisters bld (ins: Instruction) numOfReg addr =
+  if ins.Caret && (numOfReg >>> 15 &&& 1u) = 0u then
+    userPopLoop bld numOfReg addr
+  else
+    popLoop bld numOfReg addr
+
+/// The PC an LDM loads. With ^ it returns from an exception (DDI0406C
+/// B9.3.5); without it, it branches as LoadWritePC does.
+let private loadPC bld (ins: Instruction) isUnconditional addr =
+  let value = loadNative bld 32<rt> addr
+  if ins.Caret then returnWithSPSR bld value
+  else loadWritePC bld isUnconditional value
+
+let ldm opcode (ins: Instruction) bld wbackop =
   lift bld ins {
     let struct (t0, t1) = tmpVars2 bld 32<rt>
     let struct (rn, numOfRn, numOfReg) = parseOprOfLDM ins bld
@@ -2011,9 +2041,10 @@ let ldm opcode ins bld wbackop =
     let addr = getLDMStartAddr t0 stackWidth opcode
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
+    if ins.Caret then undefinedInUserOrHypMode bld else ()
     t0 := rn
     t1 := addr
-    let addr = popLoop bld numOfReg t1
+    let addr = loadRegisters bld ins numOfReg t1
     if wback && (numOfReg &&& numOfRn) = 0u then
       rn := wbackop t0 (numI32 stackWidth 32<rt>)
     else
@@ -2023,7 +2054,7 @@ let ldm opcode ins bld wbackop =
     else
       ()
     if (numOfReg >>> 15 &&& 1u) = 1u then
-      loadNative bld 32<rt> addr |> loadWritePC bld isUnconditional
+      loadPC bld ins isUnconditional addr
     else
       ()
     putEndLabel bld lblIgnore
@@ -2435,7 +2466,25 @@ let stmLoop bld regs wback rn addr =
       addr
   List.fold loop addr [ 0 .. 14 ]
 
-let stm opcode ins bld wbop =
+/// Stores User mode's registers, the way stmLoop stores the running mode's:
+/// an STM with ^ (DDI0406C B9.3.17), which never writes its base back.
+let private userStmLoop bld regs addr =
+  let loop addr count =
+    if (regs >>> count) &&& 1u = 1u then
+      let reg = count |> uint32 |> OperandHelper.getRegister
+      append bld { loadNative bld 32<rt> addr := readUserRegister bld reg }
+      addr .+ (numI32 4 32<rt>)
+    else
+      addr
+  List.fold loop addr [ 0 .. 14 ]
+
+/// The registers an STM stores: User mode's for one with ^, and the running
+/// mode's otherwise.
+let private storeRegisters bld (ins: Instruction) regs wback rn addr =
+  if ins.Caret then userStmLoop bld regs addr
+  else stmLoop bld regs wback rn addr
+
+let stm opcode (ins: Instruction) bld wbop =
   lift bld ins {
     let taddr = tmpVar bld 32<rt>
     let rn, regs = parseOprOfSTM ins bld
@@ -2444,8 +2493,9 @@ let stm opcode ins bld wbop =
     let addr = getSTMStartAddr rn msize opcode
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
+    if ins.Caret then undefinedInUserOrHypMode bld else ()
     taddr := addr
-    let addr = stmLoop bld regs wback rn taddr
+    let addr = storeRegisters bld ins regs wback rn taddr
     if (regs >>> 15 &&& 1u) = 1u then
       loadNative bld 32<rt> addr := pcStoreValue bld
     else
