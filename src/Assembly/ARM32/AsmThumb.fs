@@ -130,6 +130,12 @@ let private shift immOp regOp ins =
   | None, ThreeOperands(_, _, OprImm _) -> wrongOperands ins
   | _ -> dataProc regOp ins
 
+/// RSBS, whose narrow encoding subtracts from zero and from nothing else.
+let private negate ins =
+  match ins.Operands with
+  | ThreeOperands(OprReg _, OprReg _, OprImm 0L) -> dataProc 0b1001u ins
+  | _ -> wrongOperands ins
+
 /// MULS, which names the register it reads and writes on either side of the one
 /// it only reads.
 let private multiply ins =
@@ -184,6 +190,12 @@ let private loadStoreReg op ins =
   | _ ->
     wrongOperands ins
 
+/// The offset of a narrow load or store, which only counts up from its base.
+let private upwardOffset sign imm =
+  match signedOffset sign (defaultArg imm 0L) with
+  | 1u, value -> value
+  | _ -> fail "a narrow offset only counts up"
+
 /// <summary>
 /// The loads and stores whose offset is an immediate, which counts in whatever
 /// the instruction transfers rather than in bytes.
@@ -194,22 +206,23 @@ let private loadStoreReg op ins =
 /// </summary>
 let private loadStoreImm head scale l ins =
   match ins.Operands with
-  | TwoOperands(OprReg rt, OprMemory(LiteralMode offset)) when l = 1u ->
+  | TwoOperands(OprReg rt, OprMemory(LiteralMode offset))
+    when l = 1u && scale = 4u ->
     noCondition ins
     narrow ((0b01001u <<< 11) ||| (lowReg rt <<< 8)
             ||| literalOffset ins offset)
   | TwoOperands(OprReg rt,
-                OprMemory(OffsetMode(ImmOffset(Register.SP, _, imm))))
+                OprMemory(OffsetMode(ImmOffset(Register.SP, sign, imm))))
     when scale = 4u ->
-    let imm = defaultArg imm 0L
+    let imm = upwardOffset sign imm
     if imm % 4L <> 0L then
       fail "a stack offset counts in words"
     else
       noCondition ins
       narrow ((0b1001u <<< 12) ||| (l <<< 11) ||| (lowReg rt <<< 8)
               ||| unsignedImm 8 (imm / 4L))
-  | TwoOperands(OprReg rt, OprMemory(OffsetMode(ImmOffset(rn, _, imm)))) ->
-    let imm = defaultArg imm 0L
+  | TwoOperands(OprReg rt, OprMemory(OffsetMode(ImmOffset(rn, sign, imm)))) ->
+    let imm = upwardOffset sign imm
     if imm % int64 scale <> 0L then
       fail $"an offset of {scale} bytes at a time cannot be #{imm}"
     else
@@ -375,17 +388,8 @@ let private ifThen letters ins =
 let private changeState disable ins =
   match ins.Operands with
   | OneOperand(OprIflag flags) ->
-    let bits =
-      match flags with
-      | A -> 0b100u
-      | I -> 0b010u
-      | F -> 0b001u
-      | AI -> 0b110u
-      | AF -> 0b101u
-      | IF -> 0b011u
-      | AIF -> 0b111u
     noCondition ins
-    narrow ((0b10110110011u <<< 5) ||| (disable <<< 4) ||| bits)
+    narrow ((0b10110110011u <<< 5) ||| (disable <<< 4) ||| iflagBits flags)
   | _ ->
     wrongOperands ins
 
@@ -588,6 +592,14 @@ let private wideData op s ins =
     register rn rd rm shift
   | _ ->
     wrongOperands ins
+
+/// SUBS PC, LR, which returns from an exception, and every other SUBS.
+let private wideSubtractFlags ins =
+  match ins.Operands with
+  | ThreeOperands(OprReg Register.PC, OprReg Register.LR, OprImm imm) ->
+    wide (0xf3de8f00u ||| unsignedImm 8 imm)
+  | _ ->
+    wideData 0b1101u 1u ins
 
 /// <summary>
 /// The wide moves, which are ORR and ORN with the program counter in place of
@@ -809,6 +821,10 @@ let private widePairMemory ins mode =
     else
       let fstVal = (p <<< 8) ||| (u <<< 7) ||| (w <<< 5) ||| coreReg rn
       fstVal, unsignedImm 8 (value / 4L)
+  | LiteralMode offset, _ ->
+    let u, value = signedOffset None offset
+    if value % 4L <> 0L then fail "a paired offset counts in words"
+    else (1u <<< 8) ||| (u <<< 7) ||| 0xfu, unsignedImm 8 (value / 4L)
   | _ ->
     wrongOperands ins
 
@@ -885,19 +901,52 @@ let private wideBranch link exchange ins =
   | _ ->
     wrongOperands ins
 
-/// The signed multiplies that read half of each source, which name the halves
-/// in the two bits below their opcode.
-let private wideHalfMul op1 op2 ins =
-  let head rn = (0b111110110u <<< 7) ||| (op1 <<< 4) ||| coreReg rn
+/// The bits the multiplies that write one register share: op1 names the kind
+/// of multiply, and op2 which halves of the sources it reads or which variant
+/// of the kind it is. ra is the field of the register to add.
+let private wideMultiplyWord op1 op2 rd rn rm ra =
+  wideWord ((0b111110110u <<< 7) ||| (op1 <<< 4) ||| coreReg rn)
+           ((ra <<< 12) ||| (coreReg rd <<< 8) ||| (op2 <<< 4) ||| coreReg rm)
+
+/// The multiplies that add nothing to the product, which name the program
+/// counter where the register to add would be.
+let private wideMultiply op1 op2 ins =
+  match ins.Operands with
+  | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
+    wideMultiplyWord op1 op2 rd rn rm 0xfu
+  | _ ->
+    wrongOperands ins
+
+/// The multiplies that add a fourth register to the product.
+let private wideMultiplyAdd op1 op2 ins =
   match ins.Operands with
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprReg ra) ->
-    wideWord (head rn)
-             ((coreReg ra <<< 12) ||| (coreReg rd <<< 8) ||| (op2 <<< 4)
-              ||| coreReg rm)
+    wideMultiplyWord op1 op2 rd rn rm (coreReg ra)
+  | _ ->
+    wrongOperands ins
+
+/// The bits the long multiplies share with the divides, which sit in their
+/// space: lo and hi are the fields of the two registers a long multiply
+/// writes.
+let private wideLongWord op1 op2 lo hi rn rm =
+  wideWord ((0b111110111u <<< 7) ||| (op1 <<< 4) ||| coreReg rn)
+           ((lo <<< 12) ||| (hi <<< 8) ||| (op2 <<< 4) ||| coreReg rm)
+
+/// The long multiplies, which write a doubleword across the two registers they
+/// name first.
+let private wideLongMultiply op1 op2 ins =
+  match ins.Operands with
+  | FourOperands(OprReg rdLo, OprReg rdHi, OprReg rn, OprReg rm) ->
+    wideLongWord op1 op2 (coreReg rdLo) (coreReg rdHi) rn rm
+  | _ ->
+    wrongOperands ins
+
+/// SDIV and UDIV, which write one register where a long multiply's high half
+/// would go and name the program counter where its low half would.
+let private wideDivide op1 ins =
+  match ins.Operands with
   | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
-    wideWord (head rn)
-             ((0xfu <<< 12) ||| (coreReg rd <<< 8) ||| (op2 <<< 4)
-              ||| coreReg rm)
+    wideLongWord op1 0b1111u 0xfu (coreReg rd) rn rm
   | _ ->
     wrongOperands ins
 
@@ -925,13 +974,13 @@ let private wideStatusMove read ins =
     let r, selector = banked reg
     wideWord ((0b1111001111u <<< 6) ||| (1u <<< 5) ||| (r <<< 4)
               ||| (selector &&& 0xfu))
-             (0x8000u ||| (coreReg rd <<< 8) ||| ((selector >>> 4) <<< 5)
-              ||| (1u <<< 4))
+             (0x8000u ||| (coreReg rd <<< 8) ||| (1u <<< 5)
+              ||| ((selector >>> 4) <<< 4))
   | TwoOperands(OprReg reg, OprReg rn), false when isBankedReg reg ->
     let r, selector = banked reg
     wideWord ((0b1111001110u <<< 6) ||| (r <<< 4) ||| coreReg rn)
-             (0x8000u ||| ((selector &&& 0xfu) <<< 8)
-              ||| ((selector >>> 4) <<< 5) ||| (1u <<< 4))
+             (0x8000u ||| ((selector &&& 0xfu) <<< 8) ||| (1u <<< 5)
+              ||| ((selector >>> 4) <<< 4))
   | TwoOperands(OprReg rd, OprReg sreg), true ->
     wideWord ((0b1111001111u <<< 6) ||| (1u <<< 5) ||| (statusRegBit sreg <<< 4)
               ||| 0xfu)
@@ -943,24 +992,19 @@ let private wideStatusMove read ins =
   | _ ->
     wrongOperands ins
 
-/// CPS, which turns the interrupts its operand names on or off and may say
-/// which mode to change to at the same time.
+/// CPS, which turns the interrupts its operand names on or off, changes to the
+/// mode it names, or both.
 let private wideChangeState imod ins =
-  let flagBits = function
-    | A -> 0b100u
-    | I -> 0b010u
-    | F -> 0b001u
-    | AI -> 0b110u
-    | AF -> 0b101u
-    | IF -> 0b011u
-    | AIF -> 0b111u
   let head = (0b11110011101u <<< 5) ||| 0xfu
   match ins.Operands with
   | OneOperand(OprIflag flags) ->
-    wideWord head (0x8000u ||| (imod <<< 9) ||| (flagBits flags <<< 5))
+    wideWord head (0x8000u ||| (imod <<< 9) ||| (iflagBits flags <<< 5))
   | TwoOperands(OprIflag flags, OprImm mode) ->
     wideWord head (0x8000u ||| (imod <<< 9) ||| (1u <<< 8)
-                   ||| (flagBits flags <<< 5) ||| unsignedImm 5 mode)
+                   ||| (iflagBits flags <<< 5) ||| unsignedImm 5 mode)
+  | OneOperand(OprImm mode) ->
+    wideWord head (0x8000u ||| (imod <<< 9) ||| (1u <<< 8)
+                   ||| unsignedImm 5 mode)
   | _ ->
     wrongOperands ins
 
@@ -1012,6 +1056,152 @@ let private wideBarrier op defaultOption ins =
   | OneOperand(OprImm imm) -> word (unsignedImm 4 imm)
   | _ -> wrongOperands ins
 
+/// DCPS1, DCPS2 and DCPS3, which name the exception level they change to.
+let private wideDebugState level ins =
+  match ins.Operands with
+  | NoOperand -> wideWord 0xf78fu (0x8000u ||| level)
+  | _ -> wrongOperands ins
+
+/// The rotation an extend applies first, in bytes: it reads its source rotated
+/// right by a whole number of them.
+let private extendRotation shift =
+  match shift with
+  | ShiftOp.ROR, Imm amount when amount % 8u = 0u && amount < 32u ->
+    amount / 8u
+  | shift, Imm amount ->
+    fail $"an extend cannot {shift} by #{amount}"
+
+/// <summary>
+/// The extends, which may add what they extend to a register and may rotate
+/// what they read by a whole number of bytes first. One that adds nothing
+/// names the program counter where the register to add would be.
+/// </summary>
+let private wideExtend op1 ins =
+  let word rn rd rm rotation =
+    wideWord ((0b11111010u <<< 8) ||| (op1 <<< 4) ||| rn)
+             ((0xf08u <<< 4) ||| (coreReg rd <<< 8) ||| (rotation <<< 4)
+              ||| coreReg rm)
+  match ins.Operands with
+  | TwoOperands(OprReg rd, OprReg rm) ->
+    word 0xfu rd rm 0u
+  | ThreeOperands(OprReg rd, OprReg rm, OprShift shift) ->
+    word 0xfu rd rm (extendRotation shift)
+  | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
+    word (coreReg rn) rd rm 0u
+  | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprShift shift) ->
+    word (coreReg rn) rd rm (extendRotation shift)
+  | _ ->
+    wrongOperands ins
+
+/// The bits the operations of the register data-processing space share: op1
+/// beside the first source and op2 below the destination.
+let private wideRegisterWord op1 op2 first rd rm =
+  wideWord ((0b111110101u <<< 7) ||| (op1 <<< 4) ||| coreReg first)
+           ((0xfu <<< 12) ||| (coreReg rd <<< 8) ||| (op2 <<< 4) ||| coreReg rm)
+
+/// The operations of that space on three registers: the parallel additions
+/// and subtractions, whose op2 is their U, H and S bits, SEL and the CRC32s.
+let private wideRegister op1 op2 ins =
+  match ins.Operands with
+  | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
+    wideRegisterWord op1 op2 rn rd rm
+  | _ ->
+    wrongOperands ins
+
+/// The saturating additions and subtractions, which name the register they
+/// may double after the one they add it to.
+let private wideSaturating op2 ins =
+  match ins.Operands with
+  | ThreeOperands(OprReg rd, OprReg rm, OprReg rn) ->
+    wideRegisterWord 0b000u op2 rn rd rm
+  | _ ->
+    wrongOperands ins
+
+/// The operations of that space on one register, the reversals and CLZ, which
+/// name it in both halfwords.
+let private wideRegisterUnary op1 op2 ins =
+  match ins.Operands with
+  | TwoOperands(OprReg rd, OprReg rm) -> wideRegisterWord op1 op2 rm rd rm
+  | _ -> wrongOperands ins
+
+/// PKHBT and PKHTB, which build one register out of a halfword from each
+/// source; the shift of the second says which of its halves.
+let private widePack tb ins =
+  let rd, rn, rm, shift = packOperands tb ins
+  wideWord ((0b1110101011u <<< 6) ||| coreReg rn)
+           ((coreReg rd <<< 8) ||| wideShift shift ||| coreReg rm)
+
+/// The base register of an access that takes no offset.
+let private bareBase ins = function
+  | OffsetMode(ImmOffset(rn, _, None)) -> rn
+  | _ -> wrongOperands ins
+
+/// <summary>
+/// The exclusive accesses of bytes, halfwords and doublewords, and the
+/// load-acquires and store-releases, whose kind is the four bits op3. Those of
+/// doublewords name a second register, and the exclusive stores one that says
+/// whether they stored; each such field an access leaves unused holds ones.
+/// None of them takes an offset.
+/// </summary>
+let private wideOrdered l op3 ins =
+  let isPair = (op3 &&& 0b11u) = 0b11u
+  let hasStatus = l = 0u && (op3 &&& 0b100u) <> 0u
+  let word m rt rt2 rd =
+    let rn = bareBase ins m
+    wideWord ((0b1110100011u <<< 6) ||| (l <<< 4) ||| coreReg rn)
+             ((rt <<< 12) ||| (rt2 <<< 8) ||| (op3 <<< 4) ||| rd)
+  match ins.Operands, isPair, hasStatus with
+  | TwoOperands(OprReg rt, OprMemory m), false, false ->
+    word m (coreReg rt) 0xfu 0xfu
+  | ThreeOperands(OprReg rt, OprReg rt2, OprMemory m), true, false ->
+    word m (coreReg rt) (coreReg rt2) 0xfu
+  | ThreeOperands(OprReg rd, OprReg rt, OprMemory m), false, true ->
+    word m (coreReg rt) 0xfu (coreReg rd)
+  | FourOperands(OprReg rd, OprReg rt, OprReg rt2, OprMemory m), true, true ->
+    word m (coreReg rt) (coreReg rt2) (coreReg rd)
+  | _ ->
+    wrongOperands ins
+
+/// TBB and TBH, which branch forward by twice the byte or the halfword a table
+/// holds at the index a register names; TBH writes that index shifted left by
+/// one, as it counts halfwords, and TBB writes no shift.
+let private wideTableBranch h ins =
+  let shift = if h = 0u then None else Some(ShiftOp.LSL, Imm 1u)
+  match ins.Operands with
+  | OneOperand(OprMemory(OffsetMode(RegOffset(rn, (None | Some Plus), rm, s))))
+    when s = shift ->
+    wideWord ((0b111010001101u <<< 4) ||| coreReg rn)
+             ((0xfu <<< 12) ||| (h <<< 4) ||| coreReg rm)
+  | _ ->
+    wrongOperands ins
+
+/// ADR as an addition to or a subtraction from the aligned program counter,
+/// which reaches twelve bits either way and any register.
+let private wideAddress ins =
+  match ins.Operands with
+  | TwoOperands(rd, OprMemory(LiteralMode offset)) ->
+    let opcode = if offset < 0L then 0b01010u else 0b00000u
+    let operands = ThreeOperands(rd, OprReg Register.PC, OprImm(abs offset))
+    widePlainImm opcode { ins with Operands = operands }
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// PUSH and POP of any registers, which are STMDB and LDMIA of the stack
+/// pointer that write it back. One register on its own is stored or loaded
+/// by the encoding that steps the stack pointer by a word instead.
+/// </summary>
+let private wideStack l ins =
+  match ins.Operands with
+  | OneOperand(OprRegList [ reg ]) ->
+    let hw1, index = if l = 1u then 0xf85du, 0xb04u else 0xf84du, 0xd04u
+    wideWord hw1 ((coreReg reg <<< 12) ||| index)
+  | OneOperand(OprRegList regs) ->
+    let hw1 = if l = 1u then 0xe8bdu else 0xe92du
+    wideWord hw1 (regList regs)
+  | _ ->
+    wrongOperands ins
+
 /// The narrow Thumb instructions, which are what a halfword on its own can say.
 let thumbNarrowEncoders () =
   [ Opcode.LSLS, shift (Some 0b00u) 0b0010u
@@ -1025,7 +1215,7 @@ let thumbNarrowEncoders () =
     Opcode.ADCS, dataProc 0b0101u
     Opcode.SBCS, dataProc 0b0110u
     Opcode.TST, dataProc 0b1000u
-    Opcode.RSBS, dataProc 0b1001u
+    Opcode.RSBS, negate
     Opcode.CMN, dataProc 0b1011u
     Opcode.ORRS, dataProc 0b1100u
     Opcode.BICS, dataProc 0b1110u
@@ -1122,7 +1312,7 @@ let thumbWideEncoders () =
     Opcode.SBC, wideData 0b1011u 0u
     Opcode.SBCS, wideData 0b1011u 1u
     Opcode.SUB, wideData 0b1101u 0u
-    Opcode.SUBS, wideData 0b1101u 1u
+    Opcode.SUBS, wideSubtractFlags
     Opcode.RSB, wideData 0b1110u 0u
     Opcode.RSBS, wideData 0b1110u 1u
     Opcode.MOV, wideMove 0b0010u 0u
@@ -1192,8 +1382,52 @@ let thumbWideEncoders () =
     Opcode.BL, wideBranch 1u 1u
     Opcode.BLX, wideBranch 1u 0u
     Opcode.BXJ, wideBranchExchangeJazelle
-    Opcode.SMLATT, wideHalfMul 0b001u 0b11u
-    Opcode.SMULTT, wideHalfMul 0b001u 0b11u
+    Opcode.MUL, wideMultiply 0b000u 0b00u
+    Opcode.MLA, wideMultiplyAdd 0b000u 0b00u
+    Opcode.MLS, wideMultiplyAdd 0b000u 0b01u
+    Opcode.SMLABB, wideMultiplyAdd 0b001u 0b00u
+    Opcode.SMLABT, wideMultiplyAdd 0b001u 0b01u
+    Opcode.SMLATB, wideMultiplyAdd 0b001u 0b10u
+    Opcode.SMLATT, wideMultiplyAdd 0b001u 0b11u
+    Opcode.SMULBB, wideMultiply 0b001u 0b00u
+    Opcode.SMULBT, wideMultiply 0b001u 0b01u
+    Opcode.SMULTB, wideMultiply 0b001u 0b10u
+    Opcode.SMULTT, wideMultiply 0b001u 0b11u
+    Opcode.SMLAD, wideMultiplyAdd 0b010u 0b00u
+    Opcode.SMLADX, wideMultiplyAdd 0b010u 0b01u
+    Opcode.SMUAD, wideMultiply 0b010u 0b00u
+    Opcode.SMUADX, wideMultiply 0b010u 0b01u
+    Opcode.SMLAWB, wideMultiplyAdd 0b011u 0b00u
+    Opcode.SMLAWT, wideMultiplyAdd 0b011u 0b01u
+    Opcode.SMULWB, wideMultiply 0b011u 0b00u
+    Opcode.SMULWT, wideMultiply 0b011u 0b01u
+    Opcode.SMLSD, wideMultiplyAdd 0b100u 0b00u
+    Opcode.SMLSDX, wideMultiplyAdd 0b100u 0b01u
+    Opcode.SMUSD, wideMultiply 0b100u 0b00u
+    Opcode.SMUSDX, wideMultiply 0b100u 0b01u
+    Opcode.SMMLA, wideMultiplyAdd 0b101u 0b00u
+    Opcode.SMMLAR, wideMultiplyAdd 0b101u 0b01u
+    Opcode.SMMUL, wideMultiply 0b101u 0b00u
+    Opcode.SMMULR, wideMultiply 0b101u 0b01u
+    Opcode.SMMLS, wideMultiplyAdd 0b110u 0b00u
+    Opcode.SMMLSR, wideMultiplyAdd 0b110u 0b01u
+    Opcode.USADA8, wideMultiplyAdd 0b111u 0b00u
+    Opcode.USAD8, wideMultiply 0b111u 0b00u
+    Opcode.SMULL, wideLongMultiply 0b000u 0b0000u
+    Opcode.SDIV, wideDivide 0b001u
+    Opcode.UMULL, wideLongMultiply 0b010u 0b0000u
+    Opcode.UDIV, wideDivide 0b011u
+    Opcode.SMLAL, wideLongMultiply 0b100u 0b0000u
+    Opcode.SMLALBB, wideLongMultiply 0b100u 0b1000u
+    Opcode.SMLALBT, wideLongMultiply 0b100u 0b1001u
+    Opcode.SMLALTB, wideLongMultiply 0b100u 0b1010u
+    Opcode.SMLALTT, wideLongMultiply 0b100u 0b1011u
+    Opcode.SMLALD, wideLongMultiply 0b100u 0b1100u
+    Opcode.SMLALDX, wideLongMultiply 0b100u 0b1101u
+    Opcode.SMLSLD, wideLongMultiply 0b101u 0b1100u
+    Opcode.SMLSLDX, wideLongMultiply 0b101u 0b1101u
+    Opcode.UMLAL, wideLongMultiply 0b110u 0b0000u
+    Opcode.UMAAL, wideLongMultiply 0b110u 0b0110u
     Opcode.HVC, wideException 0xf7e0u 0x8000u 16
     Opcode.SMC, wideSecureMonitor
     Opcode.UDF, wideException 0xf7f0u 0xa000u 16
@@ -1214,8 +1448,103 @@ let thumbWideEncoders () =
     Opcode.SB, wideBarrier 0b0111u 0x0u
     Opcode.MRS, wideStatusMove true
     Opcode.MSR, wideStatusMove false
+    Opcode.CPS, wideChangeState 0b00u
     Opcode.CPSIE, wideChangeState 0b10u
-    Opcode.CPSID, wideChangeState 0b11u ]
+    Opcode.CPSID, wideChangeState 0b11u
+    Opcode.DCPS1, wideDebugState 0b01u
+    Opcode.DCPS2, wideDebugState 0b10u
+    Opcode.DCPS3, wideDebugState 0b11u
+    Opcode.SXTAH, wideExtend 0b000u
+    Opcode.SXTH, wideExtend 0b000u
+    Opcode.UXTAH, wideExtend 0b001u
+    Opcode.UXTH, wideExtend 0b001u
+    Opcode.SXTAB16, wideExtend 0b010u
+    Opcode.SXTB16, wideExtend 0b010u
+    Opcode.UXTAB16, wideExtend 0b011u
+    Opcode.UXTB16, wideExtend 0b011u
+    Opcode.SXTAB, wideExtend 0b100u
+    Opcode.SXTB, wideExtend 0b100u
+    Opcode.UXTAB, wideExtend 0b101u
+    Opcode.UXTB, wideExtend 0b101u
+    Opcode.SADD8, wideRegister 0b000u 0b0000u
+    Opcode.QADD8, wideRegister 0b000u 0b0001u
+    Opcode.SHADD8, wideRegister 0b000u 0b0010u
+    Opcode.UADD8, wideRegister 0b000u 0b0100u
+    Opcode.UQADD8, wideRegister 0b000u 0b0101u
+    Opcode.UHADD8, wideRegister 0b000u 0b0110u
+    Opcode.SADD16, wideRegister 0b001u 0b0000u
+    Opcode.QADD16, wideRegister 0b001u 0b0001u
+    Opcode.SHADD16, wideRegister 0b001u 0b0010u
+    Opcode.UADD16, wideRegister 0b001u 0b0100u
+    Opcode.UQADD16, wideRegister 0b001u 0b0101u
+    Opcode.UHADD16, wideRegister 0b001u 0b0110u
+    Opcode.SASX, wideRegister 0b010u 0b0000u
+    Opcode.QASX, wideRegister 0b010u 0b0001u
+    Opcode.SHASX, wideRegister 0b010u 0b0010u
+    Opcode.UASX, wideRegister 0b010u 0b0100u
+    Opcode.UQASX, wideRegister 0b010u 0b0101u
+    Opcode.UHASX, wideRegister 0b010u 0b0110u
+    Opcode.SSUB8, wideRegister 0b100u 0b0000u
+    Opcode.QSUB8, wideRegister 0b100u 0b0001u
+    Opcode.SHSUB8, wideRegister 0b100u 0b0010u
+    Opcode.USUB8, wideRegister 0b100u 0b0100u
+    Opcode.UQSUB8, wideRegister 0b100u 0b0101u
+    Opcode.UHSUB8, wideRegister 0b100u 0b0110u
+    Opcode.SSUB16, wideRegister 0b101u 0b0000u
+    Opcode.QSUB16, wideRegister 0b101u 0b0001u
+    Opcode.SHSUB16, wideRegister 0b101u 0b0010u
+    Opcode.USUB16, wideRegister 0b101u 0b0100u
+    Opcode.UQSUB16, wideRegister 0b101u 0b0101u
+    Opcode.UHSUB16, wideRegister 0b101u 0b0110u
+    Opcode.SSAX, wideRegister 0b110u 0b0000u
+    Opcode.QSAX, wideRegister 0b110u 0b0001u
+    Opcode.SHSAX, wideRegister 0b110u 0b0010u
+    Opcode.USAX, wideRegister 0b110u 0b0100u
+    Opcode.UQSAX, wideRegister 0b110u 0b0101u
+    Opcode.UHSAX, wideRegister 0b110u 0b0110u
+    Opcode.QADD, wideSaturating 0b1000u
+    Opcode.QDADD, wideSaturating 0b1001u
+    Opcode.QSUB, wideSaturating 0b1010u
+    Opcode.QDSUB, wideSaturating 0b1011u
+    Opcode.REV, wideRegisterUnary 0b001u 0b1000u
+    Opcode.REV16, wideRegisterUnary 0b001u 0b1001u
+    Opcode.RBIT, wideRegisterUnary 0b001u 0b1010u
+    Opcode.REVSH, wideRegisterUnary 0b001u 0b1011u
+    Opcode.SEL, wideRegister 0b010u 0b1000u
+    Opcode.CLZ, wideRegisterUnary 0b011u 0b1000u
+    Opcode.CRC32B, wideRegister 0b100u 0b1000u
+    Opcode.CRC32H, wideRegister 0b100u 0b1001u
+    Opcode.CRC32W, wideRegister 0b100u 0b1010u
+    Opcode.CRC32CB, wideRegister 0b101u 0b1000u
+    Opcode.CRC32CH, wideRegister 0b101u 0b1001u
+    Opcode.CRC32CW, wideRegister 0b101u 0b1010u
+    Opcode.PKHBT, widePack 0u
+    Opcode.PKHTB, widePack 1u
+    Opcode.LDREXB, wideOrdered 1u 0b0100u
+    Opcode.LDREXH, wideOrdered 1u 0b0101u
+    Opcode.LDREXD, wideOrdered 1u 0b0111u
+    Opcode.STREXB, wideOrdered 0u 0b0100u
+    Opcode.STREXH, wideOrdered 0u 0b0101u
+    Opcode.STREXD, wideOrdered 0u 0b0111u
+    Opcode.LDAB, wideOrdered 1u 0b1000u
+    Opcode.LDAH, wideOrdered 1u 0b1001u
+    Opcode.LDA, wideOrdered 1u 0b1010u
+    Opcode.LDAEXB, wideOrdered 1u 0b1100u
+    Opcode.LDAEXH, wideOrdered 1u 0b1101u
+    Opcode.LDAEX, wideOrdered 1u 0b1110u
+    Opcode.LDAEXD, wideOrdered 1u 0b1111u
+    Opcode.STLB, wideOrdered 0u 0b1000u
+    Opcode.STLH, wideOrdered 0u 0b1001u
+    Opcode.STL, wideOrdered 0u 0b1010u
+    Opcode.STLEXB, wideOrdered 0u 0b1100u
+    Opcode.STLEXH, wideOrdered 0u 0b1101u
+    Opcode.STLEX, wideOrdered 0u 0b1110u
+    Opcode.STLEXD, wideOrdered 0u 0b1111u
+    Opcode.TBB, wideTableBranch 0u
+    Opcode.TBH, wideTableBranch 1u
+    Opcode.ADR, wideAddress
+    Opcode.PUSH, wideStack 0u
+    Opcode.POP, wideStack 1u ]
 
 /// The SIMD, floating-point and coprocessor instructions, whose Thumb
 /// encodings are the A32 ones with different bits above them.

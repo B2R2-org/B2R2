@@ -325,6 +325,21 @@ let private msr ins =
   | _ ->
     wrongOperands ins
 
+/// CPS, which masks or unmasks the interrupts its operand names, changes to
+/// the mode it names, or both; imod says which way the flags go, and M that a
+/// mode is named.
+let private changeState imod ins =
+  let head = unconditional ins ||| (0b0001u <<< 24) ||| (imod <<< 18)
+  match ins.Operands with
+  | OneOperand(OprIflag flags) ->
+    head ||| (iflagBits flags <<< 6)
+  | TwoOperands(OprIflag flags, OprImm mode) ->
+    head ||| (1u <<< 17) ||| (iflagBits flags <<< 6) ||| unsignedImm 5 mode
+  | OneOperand(OprImm mode) ->
+    head ||| (1u <<< 17) ||| unsignedImm 5 mode
+  | _ ->
+    wrongOperands ins
+
 /// <summary>
 /// B and BL, whose target is written as a word offset from the program
 /// counter. The offset itself was worked out before encoding, so what arrives
@@ -722,15 +737,9 @@ let private sel ins =
 /// PKHBT and PKHTB, which build one register out of a halfword from each
 /// source. Which halves they take is what the shift below them says.
 let private pack tb ins =
-  match ins.Operands with
-  | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
-    cond ins ||| (0b01101000u <<< 20) ||| (coreReg rn <<< 16)
-    ||| (coreReg rd <<< 12) ||| (tb <<< 6) ||| (1u <<< 4) ||| coreReg rm
-  | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprShift shift) ->
-    cond ins ||| (0b01101000u <<< 20) ||| (coreReg rn <<< 16)
-    ||| (coreReg rd <<< 12) ||| immShift shift ||| (1u <<< 4) ||| coreReg rm
-  | _ ->
-    wrongOperands ins
+  let rd, rn, rm, shift = packOperands tb ins
+  cond ins ||| (0b01101000u <<< 20) ||| (coreReg rn <<< 16)
+  ||| (coreReg rd <<< 12) ||| immShift shift ||| (1u <<< 4) ||| coreReg rm
 
 /// The saturating moves, which clamp a value to the width their immediate
 /// names. The signed one counts from one, so what it encodes is one less.
@@ -967,15 +976,33 @@ let private loadStoreCoproc two n l ins =
     wrongOperands ins
 
 (* The floating-point instructions. *)
-/// The register fields of a floating-point instruction, which sit at either end
-/// of their register's number depending on how wide it is, and the size bit
-/// that says which of the two this is.
-let private fpFields dd dn dm =
-  if isSingleReg dd then sd dd ||| sn dn ||| sm dm
-  else (1u <<< 8) ||| vd dd ||| vn dn ||| vm dm
+/// <summary>
+/// Bits 11:8 of a floating-point instruction, which name the floating-point
+/// unit and the precision: 0b1001 for halves, 0b1010 for singles and 0b1011
+/// for doubles. A half is held in a single-precision register, so it is the
+/// data type that tells the two apart.
+/// </summary>
+let private fpSize ins dd =
+  match ins.SIMDTyp with
+  | Some(OneDT SIMDTypF16) -> 0b1001u <<< 8
+  | _ -> if isSingleReg dd then 0b1010u <<< 8 else 0b1011u <<< 8
 
-let private fpFields2 dd dm =
-  if isSingleReg dd then sd dd ||| sm dm else (1u <<< 8) ||| vd dd ||| vm dm
+/// The register fields of a floating-point instruction, which sit at either end
+/// of their register's number depending on how wide it is, and the size field
+/// that says which width this is.
+let private fpFields ins dd dn dm =
+  if isSingleReg dd then fpSize ins dd ||| sd dd ||| sn dn ||| sm dm
+  else fpSize ins dd ||| vd dd ||| vn dn ||| vm dm
+
+/// The destination and source fields of an operation on two floating-point
+/// registers, each placed by its own width: a conversion's two need not be as
+/// wide as each other.
+let private fpDestination reg = if isSingleReg reg then sd reg else vd reg
+
+let private fpSource reg = if isSingleReg reg then sm reg else vm reg
+
+let private fpFields2 ins dd dm =
+  fpSize ins dd ||| fpDestination dd ||| fpSource dm
 
 /// <summary>
 /// The bits every floating-point operation on three registers shares.
@@ -985,14 +1012,14 @@ let private fpFields2 dd dm =
 /// </summary>
 let private fpHead opcode op ins =
   cond ins ||| (0b1110u <<< 24) ||| ((opcode >>> 2) <<< 23)
-  ||| ((opcode &&& 0b11u) <<< 20) ||| (0b101u <<< 9) ||| (op <<< 6)
+  ||| ((opcode &&& 0b11u) <<< 20) ||| (op <<< 6)
 
 let private fp3 opcode op ins =
   match ins.Operands with
   | ThreeOperands(OprSIMD(SFReg(Vector dd)),
                   OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Vector dm))) ->
-    fpHead opcode op ins ||| fpFields dd dn dm
+    fpHead opcode op ins ||| fpFields ins dd dn dm
   | _ ->
     wrongOperands ins
 
@@ -1003,8 +1030,8 @@ let private fpSelect cc ins =
   | ThreeOperands(OprSIMD(SFReg(Vector dd)),
                   OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Vector dm))) ->
-    unconditional ins ||| (0b1110u <<< 24) ||| (cc <<< 20) ||| (0b101u <<< 9)
-    ||| fpFields dd dn dm
+    unconditional ins ||| (0b1110u <<< 24) ||| (cc <<< 20)
+    ||| fpFields ins dd dn dm
   | _ ->
     wrongOperands ins
 
@@ -1015,16 +1042,15 @@ let private fpMinMax op ins =
   | ThreeOperands(OprSIMD(SFReg(Vector dd)),
                   OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Vector dm))) ->
-    unconditional ins ||| (0b1110u <<< 24) ||| (1u <<< 23) ||| (0b101u <<< 9)
-    ||| (op <<< 6) ||| fpFields dd dn dm
+    unconditional ins ||| (0b1110u <<< 24) ||| (1u <<< 23) ||| (op <<< 6)
+    ||| fpFields ins dd dn dm
   | _ ->
     wrongOperands ins
 
 /// The bits the floating-point operations on two registers share, whose second
 /// opcode names which one this is.
-let private fpTwoRegHead opcode2 op3 ins =
-  (0b1110u <<< 24) ||| (0b1011u <<< 20) ||| (opcode2 <<< 16) ||| (0b101u <<< 9)
-  ||| (op3 <<< 6)
+let private fpTwoRegHead opcode2 op3 =
+  (0b1110u <<< 24) ||| (0b1011u <<< 20) ||| (opcode2 <<< 16) ||| (op3 <<< 6)
 
 /// VRINT, which rounds to an integer in the way its mnemonic names. The modes
 /// that name a rounding of their own are an ARMv8 addition, so they sit in the
@@ -1032,8 +1058,16 @@ let private fpTwoRegHead opcode2 op3 ins =
 let private fpRoundInt mode ins =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))) ->
-    unconditional ins ||| fpTwoRegHead (0b1000u ||| mode) 0b01u ins
-    ||| fpFields2 dd dm
+    unconditional ins ||| fpTwoRegHead (0b1000u ||| mode) 0b01u
+    ||| fpFields2 ins dd dm
+  | _ ->
+    wrongOperands ins
+
+/// VABS, VNEG and VSQRT on one floating-point register.
+let private fp2 opcode2 op3 ins =
+  match ins.Operands with
+  | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))) ->
+    cond ins ||| fpTwoRegHead opcode2 op3 ||| fpFields2 ins dd dm
   | _ ->
     wrongOperands ins
 
@@ -1042,21 +1076,194 @@ let private fpRoundInt mode ins =
 let private fpJavaConvert ins =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector sdd)), OprSIMD(SFReg(Vector dm))) ->
-    cond ins ||| fpTwoRegHead 0b1001u 0b11u ins ||| (1u <<< 8) ||| sd sdd
+    cond ins ||| fpTwoRegHead 0b1001u 0b11u ||| (0b1011u <<< 8) ||| sd sdd
     ||| vm dm
   | _ ->
     wrongOperands ins
 
+/// VCMP and VCMPE, which compare two floating-point registers or one with zero
+/// and set FPSCR's flags; E says a quiet NaN signals as well.
+let private fpCompare e ins =
+  let op3 = (e <<< 1) ||| 1u
+  match ins.Operands with
+  | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))) ->
+    cond ins ||| fpTwoRegHead 0b0100u op3 ||| fpFields2 ins dd dm
+  | TwoOperands(OprSIMD(SFReg(Vector dd)), OprImm 0L) ->
+    cond ins ||| fpTwoRegHead 0b0101u op3 ||| fpSize ins dd
+    ||| fpDestination dd
+  | _ ->
+    wrongOperands ins
+
+/// Bits 9:8 of a conversion, which name the width of the floating-point number
+/// on one side of it: 0b01 for a half, 0b10 for a single, 0b11 for a double.
+let private fpWidthBits dt =
+  match dt with
+  | SIMDTypF16 -> 0b01u
+  | SIMDTypF32 -> 0b10u
+  | _ -> 0b11u
+
+/// Whether one side of a conversion is a floating-point number and the other
+/// an integer the given test accepts.
+let private floatAndInt isInt dst src =
+  (isFloatType dst && isInt src) || (isInt dst && isFloatType src)
+
+/// Whether a data type names a 32-bit integer.
+let private isWord dt = dt = SIMDTypS32 || dt = SIMDTypU32
+
+/// The register of one side of a conversion, which must be as wide as the
+/// number its data type names: a double fills a doubleword register, and any
+/// narrower number a single-precision one.
+let private typedReg dt reg =
+  if (dt = SIMDTypF64) = isSingleReg reg then
+    fail $"{Register.toString reg} is the wrong width for its data type"
+  else
+    reg
+
+/// <summary>
+/// VCVT and VCVTR between a floating-point number and a 32-bit integer.
+///
+/// To an integer, the second opcode says whether it is signed, and op whether
+/// to round toward zero rather than the way FPSCR says, which is VCVTR's way.
+/// From one, op says whether it is signed, and the width is the result's.
+/// </summary>
+let private fpIntConvert towardZero ins =
+  match ins.Operands, ins.SIMDTyp with
+  | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))),
+    Some(TwoDT(dst, src)) when floatAndInt isWord dst src ->
+    let signed dt = 1u - unsignedOf dt
+    let head opcode2 op width =
+      cond ins ||| fpTwoRegHead opcode2 ((op <<< 1) ||| 1u) ||| (0b10u <<< 10)
+      ||| (fpWidthBits width <<< 8)
+    let dd, dm = typedReg dst dd, typedReg src dm
+    if isFloatType dst then
+      head 0b1000u (signed src) dst ||| fpDestination dd ||| sm dm
+    else
+      head (0b1100u ||| signed dst) towardZero src ||| sd dd ||| fpSource dm
+  | _ ->
+    wrongOperands ins
+
+/// Whether a conversion goes between a single and a double, either way.
+let private isWidthConversion dst src =
+  match dst, src with
+  | SIMDTypF32, SIMDTypF64 | SIMDTypF64, SIMDTypF32 -> true
+  | _ -> false
+
+/// VCVT between a single and a double, whose sz bit says the source is the
+/// double.
+let private fpWidthConvert ins =
+  match ins.Operands, ins.SIMDTyp with
+  | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))),
+    Some(TwoDT(dst, src)) when isWidthConversion dst src ->
+    let sz = if src = SIMDTypF64 then 1u else 0u
+    cond ins ||| fpTwoRegHead 0b0111u 0b11u ||| (0b101u <<< 9) ||| (sz <<< 8)
+    ||| fpDestination (typedReg dst dd) ||| fpSource (typedReg src dm)
+  | _ ->
+    wrongOperands ins
+
+/// Whether a data type names an integer a fixed-point VCVT converts, of 16 or
+/// 32 bits.
+let private isFixed dt = isWord dt || dt = SIMDTypS16 || dt = SIMDTypU16
+
+/// The U and sx bits of a fixed-point number, which say whether it is unsigned
+/// and whether it is 32 bits wide rather than 16, and that width.
+let private fixedPointBits dt =
+  match dt with
+  | SIMDTypS32 | SIMDTypU32 -> unsignedOf dt, 1u, 32L
+  | _ -> unsignedOf dt, 0u, 16L
+
+/// <summary>
+/// VCVT between a floating-point number and a fixed-point one held in the same
+/// register, which it names twice, and whose op bit says which way it
+/// converts.
+///
+/// The immediate names how many of the fixed-point number's bits are fraction,
+/// which the encoding counts down from its width, splitting the count across
+/// the bottom four bits and bit 5.
+/// </summary>
+let private fpFixedConvert ins =
+  match ins.Operands, ins.SIMDTyp with
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dm)),
+                  OprImm fbits),
+    Some(TwoDT(dst, src)) when dd = dm && floatAndInt isFixed dst src ->
+    let toFixed = if isFloatType dst then 0u else 1u
+    let fixedType, floatType = if toFixed = 1u then dst, src else src, dst
+    let u, sx, width = fixedPointBits fixedType
+    let imm5 = unsignedImm 5 (width - fbits)
+    let opcode2 = 0b1010u ||| (toFixed <<< 2) ||| u
+    cond ins ||| fpTwoRegHead opcode2 ((sx <<< 1) ||| 1u) ||| (0b10u <<< 10)
+    ||| (fpWidthBits floatType <<< 8) ||| ((imm5 &&& 1u) <<< 5)
+    ||| (imm5 >>> 1) ||| fpDestination (typedReg floatType dd)
+  | _ ->
+    wrongOperands ins
+
+/// Whether a conversion goes between a half and a single or a double.
+let private isHalfConversion dst src =
+  let isWider dt = dt = SIMDTypF32 || dt = SIMDTypF64
+  (dst = SIMDTypF16 && isWider src) || (isWider dst && src = SIMDTypF16)
+
+/// <summary>
+/// VCVTB and VCVTT, which convert to or from the half-precision number in the
+/// bottom or the top half of a single-precision register; T says which half.
+///
+/// The op bit says the half is what it writes, and sz that the number on the
+/// other side is a double. The brain floating-point form only narrows singles,
+/// and is written in coprocessor 9's space.
+/// </summary>
+let private fpHalfConvert t ins =
+  let op3 = (t <<< 1) ||| 1u
+  match ins.Operands, ins.SIMDTyp with
+  | TwoOperands(OprSIMD(SFReg(Vector sdd)), OprSIMD(SFReg(Vector sdm))),
+    Some(TwoDT(BF16, SIMDTypF32)) ->
+    cond ins ||| fpTwoRegHead 0b0011u op3 ||| (0b1001u <<< 8)
+    ||| sd (typedReg BF16 sdd) ||| sm (typedReg SIMDTypF32 sdm)
+  | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))),
+    Some(TwoDT(dst, src)) when isHalfConversion dst src ->
+    let op = if dst = SIMDTypF16 then 1u else 0u
+    let sz = if dst = SIMDTypF64 || src = SIMDTypF64 then 1u else 0u
+    cond ins ||| fpTwoRegHead (0b0010u ||| op) op3 ||| (0b101u <<< 9)
+    ||| (sz <<< 8) ||| fpDestination (typedReg dst dd)
+    ||| fpSource (typedReg src dm)
+  | _ ->
+    wrongOperands ins
+
+/// VCVTA, VCVTN, VCVTP and VCVTM on one floating-point register, which round to
+/// an integer the way their mnemonic says rather than the way FPSCR does; RM
+/// names that way and op says the integer is signed.
+let private fpDirectedConvert rm ins =
+  match ins.Operands, ins.SIMDTyp with
+  | TwoOperands(OprSIMD(SFReg(Vector sdd)), OprSIMD(SFReg(Vector dm))),
+    Some(TwoDT(dst, src)) when isWord dst && isFloatType src ->
+    let op3 = ((1u - unsignedOf dst) <<< 1) ||| 1u
+    unconditional ins ||| fpTwoRegHead (0b1100u ||| rm) op3 ||| (0b10u <<< 10)
+    ||| (fpWidthBits src <<< 8) ||| sd sdd ||| fpSource (typedReg src dm)
+  | _ ->
+    wrongOperands ins
+
+/// VMOVX and VINS, which move the top half of a single-precision register to
+/// the bottom of another, or the bottom of one into the top of another.
+let private fpHalfMove t ins =
+  match ins.Operands with
+  | TwoOperands(OprSIMD(SFReg(Vector sdd)), OprSIMD(SFReg(Vector sdm))) ->
+    unconditional ins ||| fpTwoRegHead 0b0000u ((t <<< 1) ||| 1u)
+    ||| (0b1010u <<< 8) ||| sd sdd ||| sm sdm
+  | _ ->
+    wrongOperands ins
+
 /// The floating-point move of an immediate, whose eight bits stand for a sign,
-/// a short exponent and four bits of significand.
+/// a short exponent and four bits of significand; the width it stands for is
+/// the one the data type names.
 let private fpMoveImm ins =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector dd)), OprImm imm) ->
-    let width = if isSingleReg dd then 32 else 64
+    let width =
+      if ins.SIMDTyp = Some(OneDT SIMDTypF16) then 16
+      elif isSingleReg dd then 32
+      else 64
     let imm8 = fpImm8 width imm
-    cond ins ||| (0b1110u <<< 24) ||| (0b1011u <<< 20) ||| (0b101u <<< 9)
-    ||| ((imm8 >>> 4) <<< 16) ||| (imm8 &&& 0xfu)
-    ||| (if width = 64 then (1u <<< 8) ||| vd dd else sd dd)
+    cond ins ||| (0b1110u <<< 24) ||| (0b1011u <<< 20)
+    ||| ((imm8 >>> 4) <<< 16) ||| (imm8 &&& 0xfu) ||| fpSize ins dd
+    ||| fpDestination dd
   | _ ->
     wrongOperands ins
 
@@ -1122,6 +1329,15 @@ let private fpBlockTransfer p u l ins =
   | _ ->
     wrongOperands ins
 
+/// FLDMX and FSTMX, which move doubleword registers as VLDM and VSTM do and
+/// tell themselves apart by a word count one more than the registers fill.
+let private fpBlockTransferX p u l ins =
+  match ins.Operands with
+  | TwoOperands(_, OprRegList(first :: _)) when not (isSingleReg first) ->
+    fpBlockTransfer p u l ins ||| 1u
+  | _ ->
+    wrongOperands ins
+
 (* The Advanced SIMD instructions. *)
 /// The Q bit, which says whether the operands are quadword registers, and the
 /// three register fields. Both widths are written the same way, so which one an
@@ -1174,6 +1390,20 @@ let private neon3FloatDt u variant opcode ins =
   let half = if elementSize ins = 1u then 1u else 0u
   neon3With u ((variant <<< 1) ||| half) opcode 1u ins
 
+/// The floating-point operations on three registers whose op bit, bit 4, is
+/// the row's own: the low size bit says the width and the high one which of a
+/// pair of operations this is.
+let private neon3FloatOp u variant opcode op ins =
+  let half = if elementSize ins = 1u then 1u else 0u
+  neon3With u ((variant <<< 1) ||| half) opcode op ins
+
+/// The operations whose floating-point form is encoded elsewhere than their
+/// integer one, which the data type tells apart.
+let private byType float integer ins =
+  match dataType ins with
+  | SIMDTypF16 | SIMDTypF32 -> float ins
+  | _ -> integer ins
+
 /// The bitwise operations, which name no data type, and the two that also read
 /// an immediate instead of a register.
 let private neonBitwise u size withImmediate ins =
@@ -1201,7 +1431,8 @@ let private neon3Reversed opcode op ins =
 /// </summary>
 let private eitherUnit vfp neon ins =
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector reg)), _, _) ->
+  | ThreeOperands(OprSIMD(SFReg(Vector reg)), _, _)
+  | TwoOperands(OprSIMD(SFReg(Vector reg)), _) ->
     if isSingleReg reg then
       vfp ins
     elif isQuadReg reg then
@@ -1229,6 +1460,21 @@ let private neon3Long u opcode ins =
     wrongOperands ins
 
 let private neon3LongSigned opcode ins = neon3Long (unsignedBit ins) opcode ins
+
+/// The operations on three registers that write elements half as wide as the
+/// ones they read; the size field names the narrow width, one less than the
+/// data type's.
+let private neon3Narrow u opcode ins =
+  let head =
+    neonHead ins ||| (u <<< 24) ||| (1u <<< 23)
+    ||| ((elementSize ins - 1u) <<< 20) ||| (opcode <<< 8)
+  match ins.Operands with
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector qn)),
+                  OprSIMD(SFReg(Vector qm))) ->
+    head ||| vd dd ||| vn qn ||| vm qm
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The immediate field of a shift by an amount, which the manual writes as a
@@ -1390,6 +1636,80 @@ let private neonTwoReg a b ins =
   | _ ->
     wrongOperands ins
 
+/// The operations on two registers whose bit 6 is the last bit of their opcode
+/// rather than the Q bit, and whose size field the caller names.
+let private neonTwoRegOp size a op ins =
+  match ins.Operands with
+  | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))) ->
+    neonHead ins ||| (1u <<< 24) ||| (1u <<< 23) ||| (0b11u <<< 20)
+    ||| (size <<< 18) ||| (a <<< 16) ||| (op <<< 6) ||| vd dd ||| vm dm
+  | _ ->
+    wrongOperands ins
+
+/// The operations on two registers whose size field is fixed rather than read
+/// from a data type, which some of them do not name.
+let private neonTwoRegSized size a b ins =
+  match ins.Operands with
+  | TwoOperands(OprSIMD(SFReg(Vector dd)), _) ->
+    let q = if isQuadReg dd then 1u else 0u
+    neonTwoRegOp size a ((b <<< 1) ||| q) ins
+  | _ ->
+    wrongOperands ins
+
+/// The pairwise adds into wider elements, whose U bit sits in the opcode.
+let private pairwiseLong b ins = neonTwoReg 0b00u (b ||| unsignedBit ins) ins
+
+/// <summary>
+/// The cryptographic operations on two quadword registers, AES and SHA, whose
+/// bit 6 is the last bit of the opcode rather than the Q bit.
+/// </summary>
+let private neonCrypto2 a op ins = neonTwoRegOp (elementSize ins) a op ins
+
+/// VMOVN, VQMOVUN and VQMOVN, which narrow every element of a quadword into a
+/// doubleword; the size field names the width they write, one step below the
+/// one their data type names.
+let private neonMoveNarrow op ins =
+  neonTwoRegOp (elementSize ins - 1u) 0b10u (0b01000u ||| op) ins
+
+/// VQMOVN, whose last opcode bit says the elements are unsigned.
+let private saturatingMoveNarrow ins =
+  neonMoveNarrow (0b10u ||| unsignedBit ins) ins
+
+/// VRECPE and VRSQRTE, which estimate a reciprocal or a reciprocal square root
+/// of each element; F says the elements are floating-point.
+let private neonEstimate op ins =
+  let f = if isFloatType (dataType ins) then 1u else 0u
+  neonTwoReg 0b11u (0b1000u ||| (f <<< 1) ||| op) ins
+
+/// The compares with zero, which name a register and #0; bit 10, F, says the
+/// elements are floating-point.
+let private neonCompareZero op ins =
+  let f =
+    match dataType ins with
+    | SIMDTypF16 | SIMDTypF32 -> 1u
+    | _ -> 0u
+  match ins.Operands with
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dm)),
+                  OprImm _) ->
+    let q = if isQuadReg dd then 1u else 0u
+    neonTwoRegHead 0b01u ((f <<< 3) ||| op) ins ||| (q <<< 6) ||| vd dd
+    ||| vm dm
+  | _ ->
+    wrongOperands ins
+
+/// The compares that name a register or #0 to compare with.
+let private orZero op threeRegisters ins =
+  match ins.Operands with
+  | ThreeOperands(_, _, OprImm _) -> neonCompareZero op ins
+  | _ -> threeRegisters ins
+
+/// VABS and VNEG on Advanced SIMD registers, whose F bit says the elements are
+/// floating-point, or on one floating-point register.
+let private absNeg neonOp fpOpcode2 fpOp3 ins =
+  let f = if isFloatType (dataType ins) then 0b1000u else 0u
+  eitherUnit (fp2 fpOpcode2 fpOp3) (neonTwoReg 0b01u (f ||| neonOp)) ins
+
 /// The registers of a SIMD list, which a table lookup reads as one table.
 let private simdListRegs list =
   let named = function
@@ -1421,22 +1741,38 @@ let private neonTableLookup op ins =
   | _ ->
     wrongOperands ins
 
-/// VDUP, which fills every element of a SIMD register with one core register.
-/// Its two size bits sit far apart, and its destination is written where an
-/// instruction of the same shape would write its first source.
+/// The imm4 field of a VDUP of one element, whose lowest set bit says how
+/// wide the element is and whose bits above it say which one it is.
+let private duplicateIndex ins (index: uint32) =
+  match elementSize ins with
+  | 0u when index < 8u -> (index <<< 1) ||| 0b1u
+  | 1u when index < 4u -> (index <<< 2) ||| 0b10u
+  | 2u when index < 2u -> (index <<< 3) ||| 0b100u
+  | _ -> fail $"a doubleword has no element {index} of that width"
+
+/// VDUP, which fills every element of a SIMD register with one core register
+/// or with one element of a doubleword. From a core register, its two size
+/// bits sit far apart, and its destination is written where an instruction of
+/// the same shape would write its first source.
 let private neonDuplicate ins =
-  let b, e =
-    match elementSize ins with
-    | 0u -> 1u, 0u
-    | 1u -> 0u, 1u
-    | 2u -> 0u, 0u
-    | _ -> fail $"{ins.Opcode} cannot duplicate into elements that wide"
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector dd)), OprReg rt) ->
+    let b, e =
+      match elementSize ins with
+      | 0u -> 1u, 0u
+      | 1u -> 0u, 1u
+      | 2u -> 0u, 0u
+      | _ -> fail $"{ins.Opcode} cannot duplicate into elements that wide"
     let q = if isQuadReg dd then 1u else 0u
     cond ins ||| (0b1110u <<< 24) ||| (1u <<< 23) ||| (b <<< 22) ||| (q <<< 21)
     ||| (coreReg rt <<< 12) ||| (0b1011u <<< 8) ||| (e <<< 5) ||| (1u <<< 4)
     ||| vn dd
+  | TwoOperands(OprSIMD(SFReg(Vector dd)),
+                OprSIMD(SFReg(Scalar(dm, Some index)))) ->
+    let q = if isQuadReg dd then 1u else 0u
+    neonHead ins ||| (1u <<< 24) ||| (1u <<< 23) ||| (0b11u <<< 20)
+    ||| (duplicateIndex ins (uint32 index) <<< 16) ||| (0b11000u <<< 7)
+    ||| (q <<< 6) ||| vd dd ||| vm dm
   | _ ->
     wrongOperands ins
 
@@ -1557,12 +1893,11 @@ let private vmov ins =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector dd)), OprImm _) ->
     (match dataType ins with
-     | SIMDTypF32 when not (isSingleReg dd) -> neonImmediate false 0u ins
-     | SIMDTypF32 | SIMDTypF64 -> fpMoveImm ins
+     | SIMDTypF16 | SIMDTypF32 when isSingleReg dd -> fpMoveImm ins
+     | SIMDTypF64 -> fpMoveImm ins
      | _ -> neonImmediate false 0u ins)
   | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))) ->
-    cond ins ||| (0b1110u <<< 24) ||| (0b1011u <<< 20) ||| (0b101u <<< 9)
-    ||| (0b01u <<< 6) ||| fpFields2 dd dm
+    cond ins ||| fpTwoRegHead 0b0000u 0b01u ||| fpFields2 ins dd dm
   | TwoOperands(OprReg rt, OprSIMD(SFReg(Scalar(dn, Some index)))) ->
     head ||| (unsignedBit ins <<< 23) ||| (1u <<< 20)
     ||| scalarIndexFields ins (uint32 index) ||| (coreReg rt <<< 12) ||| vn dn
@@ -1613,7 +1948,8 @@ let private mulAccumulate opcode op scalarOpcode variant ins =
       | _ -> 0u
     neonScalar true (scalarOpcode ||| isFloat) ins
   | _ ->
-    eitherUnit (fp3 opcode op) (neon3FloatDt 0u variant 0b1101u) ins
+    let float = neon3FloatDt 0u variant 0b1101u
+    eitherUnit (fp3 opcode op) (byType float (neon3 variant 0b1001u 0u)) ins
 
 /// <summary>
 /// Where a SIMD access that names whole structures reads, which is the only
@@ -1966,7 +2302,10 @@ let miscellaneousEncoders () =
     Opcode.CRC32W, crc32 0b10u 0u
     Opcode.CRC32CW, crc32 0b10u 1u
     Opcode.MRS, mrs
-    Opcode.MSR, msr ]
+    Opcode.MSR, msr
+    Opcode.CPS, changeState 0b00u
+    Opcode.CPSIE, changeState 0b10u
+    Opcode.CPSID, changeState 0b11u ]
 
 /// The hints, the barriers, and the two instructions that change how the
 /// processor reads memory rather than reading any itself.
@@ -2174,16 +2513,86 @@ let coprocessorEncoders () =
     Opcode.LDC2, loadStoreCoproc 1u 0u 1u
     Opcode.LDC2L, loadStoreCoproc 1u 1u 1u ]
 
+/// VCVT between floating-point numbers and integers as wide as each other on
+/// the SIMD unit; op says which way and whether the integers are unsigned.
+let private neonIntConvert ins =
+  match ins.SIMDTyp with
+  | Some(TwoDT(dst, src)) ->
+    let toInteger = if isFloatType dst then 0u else 1u
+    let floatType, intType = if toInteger = 1u then src, dst else dst, src
+    let op = (toInteger <<< 1) ||| unsignedOf intType
+    neonTwoRegSized (fpWidthBits floatType) 0b11u (0b1100u ||| op) ins
+  | _ ->
+    wrongOperands ins
+
+/// VCVT on the SIMD unit: between halves and singles, which write a
+/// doubleword from a quadword or the other way round, to brain floating-point,
+/// between floating-point numbers and integers, and to and from fixed point.
+let private neonConvert ins =
+  match ins.Operands, ins.SIMDTyp with
+  | ThreeOperands _, _ ->
+    neonConvertFixed ins
+  | _, Some(TwoDT(BF16, SIMDTypF32)) ->
+    neonTwoRegOp 0b01u 0b10u 0b11001u ins
+  | _, Some(TwoDT(SIMDTypF16, SIMDTypF32)) ->
+    neonTwoRegOp 0b01u 0b10u 0b11000u ins
+  | _, Some(TwoDT(SIMDTypF32, SIMDTypF16)) ->
+    neonTwoRegOp 0b01u 0b10u 0b11100u ins
+  | _ ->
+    neonIntConvert ins
+
+/// VCVT on the floating-point unit: between a single and a double, to and from
+/// an integer, and to and from fixed point.
+let private fpConvert ins =
+  match ins.Operands, ins.SIMDTyp with
+  | ThreeOperands _, _ ->
+    fpFixedConvert ins
+  | _, Some(TwoDT(dst, src)) when isFloatType dst && isFloatType src ->
+    fpWidthConvert ins
+  | _ ->
+    fpIntConvert 1u ins
+
+/// Whether a conversion is the floating-point unit's, which names a
+/// single-precision register or converts to or from a double; the SIMD unit
+/// does neither.
+let private isFPConversion ins =
+  match ins.Operands, ins.SIMDTyp with
+  | TwoOperands(OprSIMD(SFReg(Vector reg)), _), Some(TwoDT(dst, src))
+  | ThreeOperands(OprSIMD(SFReg(Vector reg)), _, _), Some(TwoDT(dst, src)) ->
+    isSingleReg reg || dst = SIMDTypF64 || src = SIMDTypF64
+  | _ ->
+    false
+
+/// VCVT, which converts between the number formats its two data types name;
+/// as for the other operations both units have, the registers say which unit
+/// converts.
+let private convert ins =
+  if isFPConversion ins then fpConvert ins else neonConvert ins
+
+/// VCVTA, VCVTN, VCVTP and VCVTM, which the floating-point unit writes to a
+/// single-precision register and the SIMD unit to a doubleword or quadword;
+/// RM says which way they round, and on the SIMD unit op that the integers are
+/// unsigned.
+let private directedConvert rm ins =
+  match ins.Operands with
+  | TwoOperands(OprSIMD(SFReg(Vector reg)), _) when isSingleReg reg ->
+    fpDirectedConvert rm ins
+  | _ ->
+    neonTwoReg 0b11u ((rm <<< 1) ||| unsignedBit ins) ins
+
 /// The floating-point instructions, which share one encoding space with the
 /// coprocessor ones and are told from them by the number they name.
 let floatingPointEncoders () =
+  let vadd = byType (neon3FloatOp 0u 0u 0b1101u 0u) (neon3 0u 0b1000u 0u)
+  let vsub = byType (neon3FloatOp 0u 1u 0b1101u 0u) (neon3 1u 0b1000u 0u)
   [ Opcode.VMLA, mulAccumulate 0b000u 0u 0b0000u 0u
     Opcode.VMLS, mulAccumulate 0b000u 1u 0b0100u 1u
     Opcode.VNMLS, fp3 0b001u 0u
     Opcode.VNMLA, fp3 0b001u 1u
     Opcode.VNMUL, fp3 0b010u 1u
-    Opcode.VADD, fp3 0b011u 0u
-    Opcode.VSUB, fp3 0b011u 1u
+    Opcode.VADD, eitherUnit (fp3 0b011u 0u) vadd
+    Opcode.VSUB, eitherUnit (fp3 0b011u 1u) vsub
+    Opcode.VSQRT, fp2 0b0001u 0b11u
     Opcode.VDIV, fp3 0b100u 0u
     Opcode.VFNMS, fp3 0b101u 0u
     Opcode.VFNMA, fp3 0b101u 1u
@@ -2195,17 +2604,36 @@ let floatingPointEncoders () =
     Opcode.VSELGT, fpSelect 0b11u
     Opcode.VMAXNM, eitherUnit (fpMinMax 0u) (neon3FloatDt 1u 0u 0b1111u)
     Opcode.VMINNM, eitherUnit (fpMinMax 1u) (neon3FloatDt 1u 1u 0b1111u)
-    Opcode.VRINTA, fpRoundInt 0b000u
-    Opcode.VRINTN, fpRoundInt 0b001u
-    Opcode.VRINTP, fpRoundInt 0b010u
-    Opcode.VRINTM, fpRoundInt 0b011u
+    Opcode.VRINTA, eitherUnit (fpRoundInt 0b000u) (neonTwoReg 0b10u 0b1010u)
+    Opcode.VRINTN, eitherUnit (fpRoundInt 0b001u) (neonTwoReg 0b10u 0b1000u)
+    Opcode.VRINTP, eitherUnit (fpRoundInt 0b010u) (neonTwoReg 0b10u 0b1111u)
+    Opcode.VRINTM, eitherUnit (fpRoundInt 0b011u) (neonTwoReg 0b10u 0b1101u)
+    Opcode.VRINTR, fp2 0b0110u 0b01u
+    Opcode.VRINTZ, eitherUnit (fp2 0b0110u 0b11u) (neonTwoReg 0b10u 0b1011u)
+    Opcode.VRINTX, eitherUnit (fp2 0b0111u 0b01u) (neonTwoReg 0b10u 0b1001u)
+    Opcode.VCMP, fpCompare 0u
+    Opcode.VCMPE, fpCompare 1u
+    Opcode.VCVT, convert
+    Opcode.VCVTR, fpIntConvert 0u
+    Opcode.VCVTB, fpHalfConvert 0u
+    Opcode.VCVTT, fpHalfConvert 1u
+    Opcode.VCVTA, directedConvert 0b00u
+    Opcode.VCVTN, directedConvert 0b01u
+    Opcode.VCVTP, directedConvert 0b10u
+    Opcode.VCVTM, directedConvert 0b11u
+    Opcode.VMOVX, fpHalfMove 0u
+    Opcode.VINS, fpHalfMove 1u
     Opcode.VJCVT, fpJavaConvert
     Opcode.VLDR, fpLoadStore 1u
     Opcode.VSTR, fpLoadStore 0u
     Opcode.VLDMIA, fpBlockTransfer 0u 1u 1u
     Opcode.VLDMDB, fpBlockTransfer 1u 0u 1u
     Opcode.VSTMIA, fpBlockTransfer 0u 1u 0u
-    Opcode.VSTMDB, fpBlockTransfer 1u 0u 0u ]
+    Opcode.VSTMDB, fpBlockTransfer 1u 0u 0u
+    Opcode.FLDMIAX, fpBlockTransferX 0u 1u 1u
+    Opcode.FLDMDBX, fpBlockTransferX 1u 0u 1u
+    Opcode.FSTMIAX, fpBlockTransferX 0u 1u 0u
+    Opcode.FSTMDBX, fpBlockTransferX 1u 0u 0u ]
 
 /// VQSHL, which shifts by an amount held in a register or written as one.
 let private saturatingShift ins =
@@ -2237,6 +2665,12 @@ let private orByScalar byScalar threeRegisters ins =
   | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) -> byScalar ins
   | _ -> threeRegisters ins
 
+/// The shifts that name a register holding how far, or an immediate.
+let private orShiftByImmediate byImmediate byRegister ins =
+  match ins.Operands with
+  | ThreeOperands(_, _, OprImm _) -> byImmediate ins
+  | _ -> byRegister ins
+
 /// The long multiplies by one element, which are always wide and so keep U
 /// where the others keep Q.
 let private neonScalarLong opcode ins =
@@ -2258,6 +2692,18 @@ let private neonMultiplyLong ins =
   | _ ->
     orByScalar (neonScalarLong 0b1010u) (neon3LongSigned 0b1100u) ins
 
+/// VSHLL, whose shift by the whole width of an element has an encoding of its
+/// own among the operations on two registers, since the shift field cannot
+/// hold that amount.
+let private neonShiftLeftLong ins =
+  match ins.Operands with
+  | ThreeOperands(qd, dm, OprImm amount)
+    when amount = (8L <<< int (elementSize ins)) ->
+    let ins = { ins with Operands = TwoOperands(qd, dm) }
+    neonTwoRegOp (elementSize ins) 0b10u 0b01100u ins
+  | _ ->
+    neonShiftWith (unsignedBit ins) true false 0b1010u ins
+
 /// VMOVL, which is VSHLL by nothing: the shift field's top bit is what says how
 /// wide an element is.
 let private neonMoveLong ins =
@@ -2267,6 +2713,12 @@ let private neonMoveLong ins =
     neonShiftWith (unsignedBit ins) true false 0b1010u ins
   | _ ->
     wrongOperands ins
+
+/// VMVN, of an immediate or of a register.
+let private neonNot ins =
+  match ins.Operands with
+  | TwoOperands(_, OprImm _) -> neonImmediate false 1u ins
+  | _ -> neonTwoRegSized 0u 0b00u 0b1011u ins
 
 /// The rounding form of a narrowing shift, which is the plain one with bit 6
 /// set.
@@ -2299,6 +2751,26 @@ let private neonDotProduct u op size ins =
   | _ ->
     wrongOperands ins
 
+/// A source of a widening multiply, which is a single-precision register when
+/// it writes a doubleword and a doubleword when it writes a quadword.
+let private fusedLongSource doubleField singleField reg =
+  if isSingleReg reg then singleField reg else doubleField reg
+
+/// <summary>
+/// The element a widening multiply reads, named by one bit above the register
+/// number. A single-precision register keeps its lowest bit apart, in M, as
+/// any does; a doubleword, read by the quadword form, fits in three bits and
+/// leaves M for the index's top bit.
+/// </summary>
+let private fusedLongElement reg index =
+  let number = simdReg reg
+  if isSingleReg reg && number < 16u && index < 2u then
+    ((index &&& 1u) <<< 3) ||| (number >>> 1) ||| ((number &&& 1u) <<< 5)
+  elif not (isSingleReg reg) && number < 8u && index < 4u then
+    ((index &&& 1u) <<< 3) ||| number ||| ((index >>> 1) <<< 5)
+  else
+    fail $"{Register.toString reg}[{index}] is not a scalar"
+
 /// <summary>
 /// The half-precision multiplies that accumulate into single-precision numbers,
 /// which read half as much as they write.
@@ -2313,18 +2785,119 @@ let private neonFusedLong op ins =
                   OprSIMD(SFReg(Vector sourceM))) ->
     let q = if isQuadReg dd then 1u else 0u
     head ||| (op <<< 23) ||| (0b10u <<< 20) ||| (q <<< 6) ||| vd dd
-    ||| sn sourceN ||| sm sourceM
+    ||| fusedLongSource vn sn sourceN ||| fusedLongSource vm sm sourceM
   | ThreeOperands(OprSIMD(SFReg(Vector dd)),
                   OprSIMD(SFReg(Vector sourceN)),
                   OprSIMD(SFReg(Scalar(sourceM, Some index)))) ->
-    (* The element is named by the bit above the register's own number, and
-       what is left of that number keeps its lowest bit apart as a
-       single-precision register does. *)
-    let number = simdReg sourceM
     let q = if isQuadReg dd then 1u else 0u
     head ||| (1u <<< 25) ||| (op <<< 20) ||| (q <<< 6) ||| vd dd
-    ||| sn sourceN ||| ((uint32 index &&& 1u) <<< 3) ||| (number >>> 1)
-    ||| ((number &&& 1u) <<< 5)
+    ||| fusedLongSource vn sn sourceN
+    ||| fusedLongElement sourceM (uint32 index)
+  | _ ->
+    wrongOperands ins
+
+/// The rotation a complex operation names, in quarter turns.
+let private quarterTurns (degrees: int64) =
+  match degrees with
+  | 0L | 90L | 180L | 270L -> uint32 (degrees / 90L)
+  | _ -> fail $"#{degrees} is not a rotation by a multiple of ninety degrees"
+
+/// The element VCMLA reads: a pair of halves among the two a doubleword holds,
+/// named by M, or the one pair of singles there is, which leaves M to the
+/// register number.
+let private complexElement s reg index =
+  let number = simdReg reg
+  if s = 0u && number < 16u && index < 2u then number ||| (index <<< 5)
+  elif s = 1u && index = 0u then vm reg
+  else fail $"{Register.toString reg}[{index}] is not a scalar"
+
+/// <summary>
+/// VCMLA, which multiplies complex numbers held as pairs of elements and
+/// accumulates, the second operand rotated by the multiple of ninety degrees it
+/// names; S says the elements are singles rather than halves.
+///
+/// By one element, a pair of halves is named by four bits of register and M,
+/// and a pair of singles, the whole doubleword, by five bits.
+/// </summary>
+let private complexMulAdd ins =
+  let s = if dataType ins = SIMDTypF32 then 1u else 0u
+  match ins.Operands with
+  | FourOperands(OprSIMD(SFReg(Vector dd)),
+                 OprSIMD(SFReg(Vector dn)),
+                 OprSIMD(SFReg(Vector dm)),
+                 OprImm rotation) ->
+    let q = if isQuadReg dd then 1u else 0u
+    unconditional ins ||| (0b110u <<< 25) ||| (quarterTurns rotation <<< 23)
+    ||| (1u <<< 21) ||| (s <<< 20) ||| (0b1000u <<< 8) ||| neonFields q dd dn dm
+  | FourOperands(OprSIMD(SFReg(Vector dd)),
+                 OprSIMD(SFReg(Vector dn)),
+                 OprSIMD(SFReg(Scalar(dm, Some index))),
+                 OprImm rotation) ->
+    let q = if isQuadReg dd then 1u else 0u
+    unconditional ins ||| (0b1110u <<< 24) ||| (s <<< 23)
+    ||| (quarterTurns rotation <<< 20) ||| (0b1000u <<< 8) ||| (q <<< 6)
+    ||| vd dd ||| vn dn ||| complexElement s dm (uint32 index)
+  | _ ->
+    wrongOperands ins
+
+/// VCADD, which adds complex numbers held as pairs of elements, the second
+/// rotated by ninety degrees one way or the other; S says the elements are
+/// singles.
+let private complexAdd ins =
+  let s = if dataType ins = SIMDTypF32 then 1u else 0u
+  match ins.Operands with
+  | FourOperands(OprSIMD(SFReg(Vector dd)),
+                 OprSIMD(SFReg(Vector dn)),
+                 OprSIMD(SFReg(Vector dm)),
+                 OprImm rotation) ->
+    let rot =
+      match rotation with
+      | 90L -> 0u
+      | 270L -> 1u
+      | _ -> fail $"#{rotation} is not a rotation VCADD makes"
+    let q = if isQuadReg dd then 1u else 0u
+    unconditional ins ||| (0b110u <<< 25) ||| (rot <<< 24) ||| (1u <<< 23)
+    ||| (s <<< 20) ||| (0b1000u <<< 8) ||| neonFields q dd dn dm
+  | _ ->
+    wrongOperands ins
+
+/// VFMAB and VFMAT, which multiply the even or the odd brain floating-point
+/// elements and accumulate into singles; T says which. By one element, the
+/// register fits in three bits and the index takes M and the bit above them.
+let private bfloatMulAdd t ins =
+  let head =
+    unconditional ins ||| (0b1100u <<< 24) ||| (0b11u <<< 20)
+    ||| (0b1000u <<< 8) ||| (t <<< 6) ||| (1u <<< 4)
+  match ins.Operands with
+  | ThreeOperands(OprSIMD(SFReg(Vector qd)),
+                  OprSIMD(SFReg(Vector qn)),
+                  OprSIMD(SFReg(Vector qm))) ->
+    head ||| vd qd ||| vn qn ||| vm qm
+  | ThreeOperands(OprSIMD(SFReg(Vector qd)),
+                  OprSIMD(SFReg(Vector qn)),
+                  OprSIMD(SFReg(Scalar(dm, Some index)))) ->
+    head ||| (1u <<< 25) ||| vd qd ||| vn qn
+    ||| fusedLongElement dm (uint32 index)
+  | _ ->
+    wrongOperands ins
+
+/// VUSDOT, which multiplies unsigned bytes by signed ones; by one element it
+/// is written with the size field of bytes, and of three registers with that
+/// of words.
+let private mixedDotProduct ins =
+  orByScalar (neonDotProduct 0u 1u 0b00u) (neonDotProduct 0u 1u 0b10u) ins
+
+/// The matrix multiplies, which read two quadwords as matrices and accumulate
+/// their product into a third; bits 23 and 21:20 and U say which kind of
+/// elements they hold.
+let private neonMatrixMultiply op size u ins =
+  match ins.Operands with
+  | ThreeOperands(OprSIMD(SFReg(Vector qd)),
+                  OprSIMD(SFReg(Vector qn)),
+                  OprSIMD(SFReg(Vector qm))) ->
+    unconditional ins ||| (0b1100u <<< 24) ||| (op <<< 23) ||| (size <<< 20)
+    ||| (0b1100u <<< 8) ||| (1u <<< 6) ||| (u <<< 4) ||| vd qd ||| vn qn
+    ||| vm qm
   | _ ->
     wrongOperands ins
 
@@ -2365,27 +2938,38 @@ let private fpStatusMove l ins =
 
 /// The Advanced SIMD instructions that read and write whole registers.
 let advancedSIMDEncoders () =
-  let vshll = fun ins -> neonShiftWith (unsignedBit ins) true false 0b1010u ins
   let vmul = orByScalar neonMultiplyScalar neonMultiply
+  let vcgt = byType (neon3FloatOp 1u 1u 0b1110u 0u) (neon3Signed 0b0011u 0u)
+  let vcge = byType (neon3FloatOp 1u 0u 0b1110u 0u) (neon3Signed 0b0011u 1u)
+  let vceq = byType (neon3FloatOp 0u 0u 0b1110u 0u) (neon3 1u 0b1000u 1u)
+  let vpmax = byType (neon3FloatOp 1u 0u 0b1111u 0u) (neon3Signed 0b1010u 0u)
+  let vpmin = byType (neon3FloatOp 1u 1u 0b1111u 0u) (neon3Signed 0b1010u 1u)
+  let vmax = byType (neon3FloatOp 0u 0u 0b1111u 0u) (neon3Signed 0b0110u 0u)
+  let vmin = byType (neon3FloatOp 0u 1u 0b1111u 0u) (neon3Signed 0b0110u 1u)
+  let vabd = byType (neon3FloatOp 1u 1u 0b1101u 0u) (neon3Signed 0b0111u 0u)
+  let shiftByImmediate = neonShiftWith 0u true false 0b0101u
+  let vshl = orShiftByImmediate shiftByImmediate (neon3Reversed 0b0100u 0u)
   [ Opcode.VHADD, neon3Signed 0b0000u 0u
     Opcode.VQADD, neon3Signed 0b0000u 1u
-    Opcode.VCGT, neon3Signed 0b0011u 0u
-    Opcode.VCGE, neon3Signed 0b0011u 1u
+    Opcode.VCGT, orZero 0b000u vcgt
+    Opcode.VCGE, orZero 0b001u vcge
+    Opcode.VCLE, orZero 0b011u wrongOperands
+    Opcode.VCLT, orZero 0b100u wrongOperands
     Opcode.VQDMULH, orByScalar (neonScalar true 0b1100u) (neon3 0u 0b1011u 0u)
-    Opcode.VPADD, neon3 0u 0b1011u 1u
+    Opcode.VPADD, byType (neon3FloatOp 1u 0u 0b1101u 0u) (neon3 0u 0b1011u 1u)
     Opcode.VQRDMULH, orByScalar (neonScalar true 0b1101u) (neon3 1u 0b1011u 0u)
     Opcode.VQRDMLAH, orByScalar (neonScalar true 0b1110u) (neon3 1u 0b1011u 1u)
     Opcode.VADDL, neon3LongSigned 0b0000u
     Opcode.VMLAL, orByScalar (neonScalarLong 0b0010u) (neon3LongSigned 0b1000u)
     Opcode.VMLSL, orByScalar (neonScalarLong 0b0110u) (neon3LongSigned 0b1010u)
     Opcode.VMULL, neonMultiplyLong
-    Opcode.VQDMLSL, neon3Long 0u 0b1011u
+    Opcode.VQDMLSL, orByScalar (neonScalar false 0b0111u) (neon3Long 0u 0b1011u)
     Opcode.VSHR, neonShift 0b0000u
     Opcode.VSRA, neonShift 0b0001u
     Opcode.VRSHR, neonShift 0b0010u
     Opcode.VRSRA, neonShift 0b0011u
     Opcode.VSRI, neonShiftWith 1u false false 0b0100u
-    Opcode.VSHL, neonShiftWith 0u true false 0b0101u
+    Opcode.VSHL, vshl
     Opcode.VSLI, neonShiftWith 1u true false 0b0101u
     Opcode.VQSHLU, neonShiftWith 1u true false 0b0110u
     Opcode.VSHRN, neonShiftNarrow 0b1000u
@@ -2397,18 +2981,18 @@ let advancedSIMDEncoders () =
     Opcode.VQRSHRUN, rounding (neonShiftWith 1u false true 0b1000u)
     Opcode.VQSHRN, neonShiftNarrow 0b1001u
     Opcode.VQRSHRN, rounding (neonShiftNarrow 0b1001u)
-    Opcode.VSHLL, vshll
+    Opcode.VSHLL, neonShiftLeftLong
     Opcode.VMOVL, neonMoveLong
     Opcode.VMOV, vmov
-    Opcode.VMVN, neonImmediate false 1u
-    Opcode.VQDMLAL, neonScalar false 0b0011u
-    Opcode.VQDMULL, neonScalar false 0b1011u
+    Opcode.VMVN, neonNot
+    Opcode.VQDMLAL, orByScalar (neonScalar false 0b0011u) (neon3Long 0u 0b1001u)
+    Opcode.VQDMULL, orByScalar (neonScalar false 0b1011u) (neon3Long 0u 0b1101u)
     Opcode.VEXT, neonExtract
     Opcode.VREV64, neonTwoReg 0b00u 0b0000u
     Opcode.VREV32, neonTwoReg 0b00u 0b0001u
     Opcode.VREV16, neonTwoReg 0b00u 0b0010u
-    Opcode.VABS, neonTwoReg 0b01u 0b0110u
-    Opcode.VNEG, neonTwoReg 0b01u 0b0111u
+    Opcode.VABS, absNeg 0b0110u 0b0000u 0b11u
+    Opcode.VNEG, absNeg 0b0111u 0b0001u 0b01u
     Opcode.VTBL, neonTableLookup 0u
     Opcode.VTBX, neonTableLookup 1u
     Opcode.VAND, neon3With 0u 0b00u 0b0001u 1u
@@ -2422,20 +3006,19 @@ let advancedSIMDEncoders () =
     Opcode.VQSUB, neon3Signed 0b0010u 1u
     Opcode.VQSHL, saturatingShift
     Opcode.VQRSHL, neon3Reversed 0b0101u 1u
-    Opcode.VMAX, neon3Signed 0b0110u 0u
-    Opcode.VMIN, neon3Signed 0b0110u 1u
+    Opcode.VMAX, vmax
+    Opcode.VMIN, vmin
     Opcode.VABA, neon3Signed 0b0111u 1u
     Opcode.VTST, neon3 0u 0b1000u 1u
-    Opcode.VCEQ, neon3 1u 0b1000u 1u
+    Opcode.VCEQ, orZero 0b010u vceq
     Opcode.VMUL, eitherUnit (fp3 0b010u 0u) vmul
-    Opcode.VPMAX, neon3Signed 0b1010u 0u
-    Opcode.VPMIN, neon3Signed 0b1010u 1u
+    Opcode.VPMAX, vpmax
+    Opcode.VPMIN, vpmin
     Opcode.VQRDMLSH, orByScalar (neonScalar true 0b1111u) (neon3 1u 0b1100u 1u)
     Opcode.VACGE, neon3FloatDt 1u 0u 0b1110u
     Opcode.VACGT, neon3FloatDt 1u 1u 0b1110u
     Opcode.VRECPS, neon3FloatDt 0u 0u 0b1111u
     Opcode.VRSQRTS, neon3FloatDt 0u 1u 0b1111u
-    Opcode.VCVT, neonConvertFixed
     Opcode.VUDOT, neonDotProduct 1u 0u 0b10u
     Opcode.VSDOT, neonDotProduct 0u 0u 0b10u
     Opcode.VSUDOT, neonDotProduct 1u 1u 0b00u
@@ -2451,4 +3034,57 @@ let advancedSIMDEncoders () =
     Opcode.VST1, structureAccess 0u
     Opcode.VST2, structureAccess 0u
     Opcode.VST3, structureAccess 0u
-    Opcode.VST4, structureAccess 0u ]
+    Opcode.VST4, structureAccess 0u
+    Opcode.VRHADD, neon3Signed 0b0001u 0u
+    Opcode.VHSUB, neon3Signed 0b0010u 0u
+    Opcode.VRSHL, neon3Reversed 0b0101u 0u
+    Opcode.VABD, vabd
+    Opcode.VADDW, neon3LongSigned 0b0001u
+    Opcode.VSUBL, neon3LongSigned 0b0010u
+    Opcode.VSUBW, neon3LongSigned 0b0011u
+    Opcode.VABAL, neon3LongSigned 0b0101u
+    Opcode.VABDL, neon3LongSigned 0b0111u
+    Opcode.VADDHN, neon3Narrow 0u 0b0100u
+    Opcode.VRADDHN, neon3Narrow 1u 0b0100u
+    Opcode.VSUBHN, neon3Narrow 0u 0b0110u
+    Opcode.VRSUBHN, neon3Narrow 1u 0b0110u
+    Opcode.VPADDL, pairwiseLong 0b0100u
+    Opcode.VPADAL, pairwiseLong 0b1100u
+    Opcode.VCLS, neonTwoReg 0b00u 0b1000u
+    Opcode.VCLZ, neonTwoReg 0b00u 0b1001u
+    Opcode.VCNT, neonTwoReg 0b00u 0b1010u
+    Opcode.VQABS, neonTwoReg 0b00u 0b1110u
+    Opcode.VQNEG, neonTwoReg 0b00u 0b1111u
+    Opcode.AESE, neonCrypto2 0b00u 0b01100u
+    Opcode.AESD, neonCrypto2 0b00u 0b01101u
+    Opcode.AESMC, neonCrypto2 0b00u 0b01110u
+    Opcode.AESIMC, neonCrypto2 0b00u 0b01111u
+    Opcode.SHA1H, neonCrypto2 0b01u 0b01011u
+    Opcode.SHA1SU1, neonCrypto2 0b10u 0b01110u
+    Opcode.SHA256SU0, neonCrypto2 0b10u 0b01111u
+    Opcode.SHA1C, neon3With 0u 0b00u 0b1100u 0u
+    Opcode.SHA1P, neon3With 0u 0b01u 0b1100u 0u
+    Opcode.SHA1M, neon3With 0u 0b10u 0b1100u 0u
+    Opcode.SHA1SU0, neon3With 0u 0b11u 0b1100u 0u
+    Opcode.SHA256H, neon3With 1u 0b00u 0b1100u 0u
+    Opcode.SHA256H2, neon3With 1u 0b01u 0b1100u 0u
+    Opcode.SHA256SU1, neon3With 1u 0b10u 0b1100u 0u
+    Opcode.VSWP, neonTwoRegSized 0b00u 0b10u 0b0000u
+    Opcode.VTRN, neonTwoReg 0b10u 0b0001u
+    Opcode.VUZP, neonTwoReg 0b10u 0b0010u
+    Opcode.VZIP, neonTwoReg 0b10u 0b0011u
+    Opcode.VMOVN, neonMoveNarrow 0b00u
+    Opcode.VQMOVUN, neonMoveNarrow 0b01u
+    Opcode.VQMOVN, saturatingMoveNarrow
+    Opcode.VRECPE, neonEstimate 0u
+    Opcode.VRSQRTE, neonEstimate 1u
+    Opcode.VCMLA, complexMulAdd
+    Opcode.VCADD, complexAdd
+    Opcode.VFMAB, bfloatMulAdd 0u
+    Opcode.VFMAT, bfloatMulAdd 1u
+    Opcode.VDOT, neonDotProduct 0u 0u 0b00u
+    Opcode.VUSDOT, mixedDotProduct
+    Opcode.VMMLA, neonMatrixMultiply 0u 0b00u 0u
+    Opcode.VSMMLA, neonMatrixMultiply 0u 0b10u 0u
+    Opcode.VUMMLA, neonMatrixMultiply 0u 0b10u 1u
+    Opcode.VUSMMLA, neonMatrixMultiply 1u 0b10u 0u ]

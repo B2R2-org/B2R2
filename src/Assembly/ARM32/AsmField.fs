@@ -322,12 +322,21 @@ let elementSizeOrNone (ins: AsmInsInfo) =
   | Some(OneDT dt) | Some(TwoDT(dt, _)) -> Some(sizeOfType dt)
   | None -> None
 
-/// The U bit, which says whether the elements are read as unsigned. Only the
-/// types that name a sign carry one; the rest are read as signed.
-let unsignedBit ins =
-  match dataType ins with
+/// The U bit of a data type, which says whether it is read as unsigned. Only
+/// the types that name a sign carry one; the rest are read as signed.
+let unsignedOf dt =
+  match dt with
   | SIMDTypU8 | SIMDTypU16 | SIMDTypU32 | SIMDTypU64 -> 1u
   | _ -> 0u
+
+/// The U bit of the data type an instruction was written with.
+let unsignedBit ins = unsignedOf (dataType ins)
+
+/// Whether a data type names a floating-point number.
+let isFloatType dt =
+  match dt with
+  | SIMDTypF16 | SIMDTypF32 | SIMDTypF64 -> true
+  | _ -> false
 
 /// <summary>
 /// The eight bits that stand for a floating-point immediate, which hold a sign,
@@ -338,23 +347,38 @@ let unsignedBit ins =
 /// fifty-six of them, and no other byte can expand to the same value.
 /// </summary>
 let fpImm8 width (value: int64) =
+  let exponentWidth, fractionWidth =
+    match width with
+    | 64 -> 11, 52
+    | 32 -> 8, 23
+    | _ -> 5, 10
   let expand (imm8: uint32) =
-    let sign = (imm8 >>> 7) &&& 1u
+    let sign = uint64 ((imm8 >>> 7) &&& 1u)
     let b6 = (imm8 >>> 6) &&& 1u
-    let exponentBits = if width = 64 then 8 else 5
-    let repeated = if b6 = 1u then (1UL <<< exponentBits) - 1UL else 0UL
+    let repeated =
+      if b6 = 1u then (1UL <<< (exponentWidth - 3)) - 1UL else 0UL
     let exponent =
-      (uint64 (1u - b6) <<< (exponentBits + 2)) ||| (repeated <<< 2)
+      (uint64 (1u - b6) <<< (exponentWidth - 1)) ||| (repeated <<< 2)
       ||| uint64 ((imm8 >>> 4) &&& 0b11u)
     let fraction = uint64 (imm8 &&& 0xfu)
-    if width = 64 then
-      (uint64 sign <<< 63) ||| (exponent <<< 52) ||| (fraction <<< 48)
-    else
-      (uint64 sign <<< 31) ||| (exponent <<< 23) ||| (fraction <<< 19)
+    (sign <<< (width - 1)) ||| (exponent <<< fractionWidth)
+    ||| (fraction <<< (fractionWidth - 4))
   let matches imm8 = expand imm8 = uint64 value
   match [ 0u .. 255u ] |> List.tryFind matches with
   | Some imm8 -> imm8
   | None -> fail $"#{value} is not a floating-point immediate"
+
+/// The A, I and F bits of a CPS, which say which of the asynchronous abort,
+/// the interrupt and the fast interrupt it masks or unmasks.
+let iflagBits flags =
+  match flags with
+  | A -> 0b100u
+  | I -> 0b010u
+  | F -> 0b001u
+  | AI -> 0b110u
+  | AF -> 0b101u
+  | IF -> 0b011u
+  | AIF -> 0b111u
 
 /// The P and W bits an addressing mode sets, which together say whether the
 /// base register is updated and whether the offset applies before or after the
@@ -436,6 +460,26 @@ let immShift = function
     0b11u <<< 5
   | shift, Imm amount ->
     fail $"{shift} by #{amount} is not encodable"
+
+/// <summary>
+/// The registers and the shift of PKHBT or PKHTB, which take the bottom
+/// halfword of one source and the top of the other; tb says which it is. The
+/// second source shifts left for PKHBT and right for PKHTB, and a PKHTB that
+/// names no shift would shift by 32, which is the PKHBT of the two sources
+/// the other way round (DDI0406C A8.8.125).
+/// </summary>
+let packOperands tb (ins: AsmInsInfo) =
+  let noShift = ShiftOp.LSL, Imm 0u
+  match ins.Operands with
+  | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) when tb = 0u ->
+    rd, rn, rm, noShift
+  | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
+    rd, rm, rn, noShift
+  | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprShift shift)
+    when fst shift = (if tb = 0u then ShiftOp.LSL else ShiftOp.ASR) ->
+    rd, rn, rm, shift
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The shift a MOV alias carries, whose amount is written differently from the
