@@ -831,3 +831,34 @@ type LifterTests() =
   member _.``[ARMv7] VPUSH of singles moves SP a word a register``() =
     Assert.AreEqual<Expr option>(Some(!.SP .- num 8u),
                                  assignedBy false "ed2d0a02" !.SP)
+
+  /// T32's unprivileged loads and stores and its exclusives add their
+  /// unsigned offset to Rn (DDI0406C A8.8.93 LDRT, A8.8.76 LDREX, A8.8.213
+  /// STREX).
+  [<TestMethod>]
+  member _.``[Thumb] LDRT adds its offset``() =
+    let addrs =
+      liftedBy true "f8510e03"
+      |> Array.choose (function
+        | Put(Src = Load(Addr = addr)) -> Some addr
+        | _ -> None)
+    CollectionAssert.AreEqual([| !.R1 .+ num 3u |], addrs)
+
+  [<TestMethod>]
+  member _.``[Thumb] STRT adds its offset``() =
+    let addrs =
+      liftedBy true "f8410e03"
+      |> Array.choose (function
+        | Store(Addr = addr) -> Some addr
+        | _ -> None)
+    CollectionAssert.AreEqual([| !.R1 .+ num 3u |], addrs)
+
+  [<TestMethod>]
+  member _.``[Thumb] LDREX adds its offset``() =
+    Assert.AreEqual<Expr option>(Some(!.R1 .+ num 16u),
+                                 assignedBy true "e8510f04" (t32 1))
+
+  [<TestMethod>]
+  member _.``[Thumb] STREX adds its offset``() =
+    Assert.AreEqual<Expr option>(Some(!.R1 .+ num 16u),
+                                 assignedBy true "e8410204" (t32 1))
