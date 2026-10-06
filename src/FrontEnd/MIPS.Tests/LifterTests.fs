@@ -585,6 +585,25 @@ type LifterTests() =
     Assert.AreEqual<uint64 * uint32>((0UL, fs), max fs)
     Assert.AreEqual<uint64 * uint32>((1UL, 0u), max 0u)
 
+  /// The comparisons Release 6 adds as negations answer what their names
+  /// say: NE is ordered and unequal, UNE unordered or unequal, OR ordered.
+  [<TestMethod>]
+  member _.``[MIPS64R6] CMP.NE, CMP.UNE and CMP.OR compare``() =
+    let r6 =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let cmp hex b =
+      let fprs = [ F2, 0x3f800000UL; F4, b ]
+      fst (fpRun r6 hex 0u fprs) &&& 0xffffffffUL
+    let one, two, nan = 0x3f800000UL, 0x40000000UL, 0x7fc00000UL
+    let ones = 0xffffffffUL
+    Assert.AreEqual<uint64>(ones, cmp "46841013" two)
+    Assert.AreEqual<uint64>(0UL, cmp "46841013" one)
+    Assert.AreEqual<uint64>(0UL, cmp "46841013" nan)
+    Assert.AreEqual<uint64>(ones, cmp "46841012" nan)
+    Assert.AreEqual<uint64>(0UL, cmp "46841012" one)
+    Assert.AreEqual<uint64>(0UL, cmp "46841011" nan)
+    Assert.AreEqual<uint64>(ones, cmp "46841011" two)
+
   /// <summary>
   /// DMFC0 widens a thirty-two bit coprocessor 0 register by its sign.
   ///

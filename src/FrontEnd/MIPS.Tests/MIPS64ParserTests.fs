@@ -299,3 +299,27 @@ type MIPS64ParserTests() =
       let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
       Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
       Assert.AreEqual<Fmt option>(Some fmt, ins.Fmt, hex)
+
+  /// <summary>
+  /// Release 6 defines six comparisons above the sixteen C.cond.fmt has: OR,
+  /// UNE and NE at 17 to 19, the negations of UN, EQ and UEQ, and their
+  /// signalling forms at 25 to 27. They were refused as undefined.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64R6] CMP.cond.fmt reads the negated conditions``() =
+    let words =
+      [ "46841011", Condition.OR
+        "46841012", Condition.UNE
+        "46841013", Condition.NE
+        "46841019", Condition.SOR
+        "4684101a", Condition.SUNE
+        "4684101b", Condition.SNE ]
+    let isa =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let parser = Parser(isa, BinReader.Init Endian.Big)
+                 :> IInstructionParsable
+    for hex, condition in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+      Assert.AreEqual<Opcode>(CMP, ins.Opcode, hex)
+      Assert.AreEqual<Condition option>(Some condition, ins.Condition, hex)

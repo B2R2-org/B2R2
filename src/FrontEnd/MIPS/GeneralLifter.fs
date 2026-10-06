@@ -519,14 +519,15 @@ let private condNaNOf bld oprSz (mantissa, exponent) sameReg tFs tFt =
     AST.xtlo 1<rt> (src1Exponent .& (src1Mantissa != AST.num0 oprSz)) .|
     AST.xtlo 1<rt> (src2Exponent .& (src2Mantissa != AST.num0 oprSz))
 
-/// Whether the predicate is one of the signalling half. The manual's
-/// condition field is four bits and the top one is what separates the two
-/// spellings of each comparison: the signalling one raises Invalid for a
-/// quiet NaN as well, which is how a program asks to be told about an
-/// unordered comparison it did not expect.
+/// Whether the predicate is one of the signalling half. Bit 3 of the
+/// condition field is what separates the two spellings of each comparison --
+/// in C.cond.fmt's four bits and in the five of CMP.cond.fmt, whose 25 to 27
+/// are 17 to 19 signalling: the signalling one raises Invalid for a quiet NaN
+/// as well, which is how a program asks to be told about an unordered
+/// comparison it did not expect.
 let private conditionSignals (condition: Condition option) =
   match condition with
-  | Some c -> int c >= 8
+  | Some c -> (int c &&& 8) <> 0
   | None -> false
 
 /// Writes the answer of one comparison into one condition code, and hands
@@ -2327,45 +2328,45 @@ let maddf ins bld = fusedMultiplyAdd true ins bld
 /// MSUBF.fmt: the destination less the product.
 let msubf ins bld = fusedMultiplyAdd false ins bld
 
+/// <summary>
+/// What CMP.cond.fmt's condition says of its two operands. Unordered is
+/// "neither less, nor equal, nor greater", which is what a NaN operand makes
+/// true.
+///
+/// The signalling forms test the same thing as the quiet ones; what they
+/// differ in is what an unordered comparison does to FCSR, which is recorded
+/// apart from this.
+/// </summary>
+let private r6Predicate condition a b =
+  let less, equal = AST.flt a b, AST.feq a b
+  let unordered = AST.not less .& AST.not equal .& AST.not (AST.fgt a b)
+  match condition with
+  | Some Condition.F | Some Condition.SF -> AST.b0
+  | Some Condition.UN | Some Condition.NGLE -> unordered
+  | Some Condition.EQ | Some Condition.SEQ -> equal
+  | Some Condition.UEQ | Some Condition.NGL -> unordered .| equal
+  | Some Condition.OLT | Some Condition.LT -> less
+  | Some Condition.ULT | Some Condition.NGE -> unordered .| less
+  | Some Condition.OLE | Some Condition.LE -> less .| equal
+  | Some Condition.ULE | Some Condition.NGT -> unordered .| less .| equal
+  | Some Condition.OR | Some Condition.SOR -> AST.not unordered
+  | Some Condition.UNE | Some Condition.SUNE -> AST.not equal
+  | Some Condition.NE | Some Condition.SNE -> less .| AST.fgt a b
+  | _ -> raise InvalidOperandException
+
 /// CMP.cond.fmt -- the comparison Release 6 replaced C.cond.fmt with. The
 /// answer goes into an FPR as all-ones or all-zeros rather than into a
 /// condition-code bit, which is why BC1EQZ and BC1NEZ test a register.
 let fpCmpR6 (ins: Instruction) bld =
   fpR6BinaryWith ins bld false (fun sz _ a b ->
-    (* Unordered is "neither less, nor equal, nor greater", which is what a
-       NaN operand makes true. *)
-    let unordered =
-      AST.not (AST.flt a b) .& AST.not (AST.feq a b) .& AST.not (AST.fgt a b)
-    let cond =
-      match ins.Condition with
-      | Some Condition.F -> AST.b0
-      | Some Condition.UN -> unordered
-      | Some Condition.EQ -> AST.feq a b
-      | Some Condition.UEQ -> unordered .| AST.feq a b
-      | Some Condition.OLT -> AST.flt a b
-      | Some Condition.ULT -> unordered .| AST.flt a b
-      | Some Condition.OLE -> AST.flt a b .| AST.feq a b
-      | Some Condition.ULE -> unordered .| AST.flt a b .| AST.feq a b
-      (* The signalling eight test the same thing as the quiet eight; what
-         they differ in is what an unordered comparison does to FCSR, which
-         is recorded below and not decided here. *)
-      | Some Condition.SF -> AST.b0
-      | Some Condition.NGLE -> unordered
-      | Some Condition.SEQ -> AST.feq a b
-      | Some Condition.NGL -> unordered .| AST.feq a b
-      | Some Condition.LT -> AST.flt a b
-      | Some Condition.NGE -> unordered .| AST.flt a b
-      | Some Condition.LE -> AST.flt a b .| AST.feq a b
-      | Some Condition.NGT -> unordered .| AST.flt a b .| AST.feq a b
-      | _ -> raise InvalidOperandException
     let ones =
       if sz = 32<rt> then numU64 0xFFFFFFFFUL sz
       else numU64 0xFFFFFFFFFFFFFFFFUL sz
-    AST.ite cond ones (AST.num0 sz))
+    AST.ite (r6Predicate ins.Condition a b) ones (AST.num0 sz))
     (fun sz _ a b _ ->
       (* A signalling operand always raises; a QUIET one raises only where
-         the predicate is one of the signalling eight, which is the whole of
-         what separates them from the eight below. *)
+         the predicate is one of the signalling half, which is the whole of
+         what separates them from the quiet half. *)
       let signals = conditionSignals ins.Condition
       fpExceptionsInvalidOnly bld (fpCompareInvalid bld sz signals a b))
 

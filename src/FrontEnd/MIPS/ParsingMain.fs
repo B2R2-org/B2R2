@@ -852,13 +852,13 @@ let private parsePOP76R6 bin =
 /// names that say what they are rather than what they are not. So they share
 /// the Condition type, and the spelling is the disassembler's to choose.
 ///
-/// Above 15 is not a condition: the field is five bits and only sixteen of
-/// the thirty-two are defined.
+/// Above 15 Release 6 has six more, the negations of UN, EQ and UEQ -- OR,
+/// UNE and NE at 17 to 19 -- and their signalling forms eight above, at 25
+/// to 27. The other ten values the five bits can hold are not conditions.
 /// </summary>
 let private parseCMPR6 fmt binary =
   let cond = Bits.extract binary 4u 0u
-  if cond > 0xFu then raise ParsingFailureException
-  else Op.CMP, Some(getCondition cond), Some fmt, getFdFsFt binary
+  Op.CMP, Some(getCondition cond), Some fmt, getFdFsFt binary
 
 /// Table A.18 MIPS64 COP1 Encoding of Function Field When rs=S, Revision 6.06
 let private parseCOP1WhenRsS release binary =

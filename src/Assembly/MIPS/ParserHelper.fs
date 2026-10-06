@@ -173,8 +173,10 @@ let private suffixNames<'T when 'T: comparison> () =
   |> Seq.distinctBy fst
   |> Map.ofSeq
 
-/// Every condition a floating-point compare tests.
-let conditions = suffixNames<Condition> ()
+/// Every condition C.cond.fmt tests, which is the sixteen its four bits can
+/// name; the six above them are Release 6's, and CMP.cond.fmt's alone.
+let conditions =
+  suffixNames<Condition> () |> Map.filter (fun _ c -> int c < 16)
 
 /// <summary>
 /// The same conditions under the names Release 6 writes them by.
@@ -200,7 +202,13 @@ let r6Conditions =
     "slt", Condition.LT
     "sult", Condition.NGE
     "sle", Condition.LE
-    "sule", Condition.NGT ]
+    "sule", Condition.NGT
+    "or", Condition.OR
+    "une", Condition.UNE
+    "ne", Condition.NE
+    "sor", Condition.SOR
+    "sune", Condition.SUNE
+    "sne", Condition.SNE ]
   |> Map.ofList
 
 /// The condition names the instruction is written with.

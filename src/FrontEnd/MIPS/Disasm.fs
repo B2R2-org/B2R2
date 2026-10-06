@@ -48,7 +48,7 @@ let condToString = function
 
 /// <summary>
 /// The names Release 6 gives the same sixteen conditions when CMP.cond.fmt
-/// writes them.
+/// writes them, and the six it adds.
 ///
 /// The encodings are the ones above and so are the meanings; only the
 /// spelling differs. Three of the quiet eight lose a letter that said which
@@ -73,6 +73,12 @@ let r6CondToString = function
   | Condition.NGE -> ".sult"
   | Condition.LE -> ".sle"
   | Condition.NGT -> ".sule"
+  | Condition.OR -> ".or"
+  | Condition.UNE -> ".une"
+  | Condition.NE -> ".ne"
+  | Condition.SOR -> ".sor"
+  | Condition.SUNE -> ".sune"
+  | Condition.SNE -> ".sne"
   | _ -> raise ParsingFailureException
 
 let fmtToString = function

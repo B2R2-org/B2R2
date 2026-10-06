@@ -114,6 +114,12 @@ let getCondition = function
   | 0xDu -> Condition.NGE
   | 0xEu -> Condition.LE
   | 0xFu -> Condition.NGT
+  | 0x11u -> Condition.OR
+  | 0x12u -> Condition.UNE
+  | 0x13u -> Condition.NE
+  | 0x19u -> Condition.SOR
+  | 0x1Au -> Condition.SUNE
+  | 0x1Bu -> Condition.SNE
   | _ -> raise ParsingFailureException
 
 /// The nine-bit offset a SPECIAL3 load or store holds, which the manual reads
