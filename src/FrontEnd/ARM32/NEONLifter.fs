@@ -1492,7 +1492,10 @@ let vecMulByScalar (ins: Instruction) bld opFn =
     let p = getParsingInfo ins
     let struct (dst, src1, src2) = getThreeOprs ins
     let src2, index = transOprToScalar bld src2
-    let op2val = elem src2 index p.ESize
+    let op2val = tmpVar bld p.RtESize
+    (* The scalar is read once, before any lane is written: it can be a lane
+       of the destination itself. *)
+    op2val := elem src2 index p.ESize
     match ins.OprSize with
     | 128<rt> ->
       let struct (dstB, dstA) = transOpr128 bld dst
@@ -3439,6 +3442,17 @@ let private doubledProduct bld p e1 e2 =
   let prod = AST.sext room e1 .* AST.sext room e2
   satLane bld false false room wide (prod << AST.num1 room)
 
+/// The doubled product of two elements with only its top half kept, saturated,
+/// and for the rounding form with half of the discarded part added before it
+/// is discarded.
+let private doubledHigh bld p isRound e1 e2 =
+  let room = RegType.fromBitWidth (p.ESize * 4)
+  let prod = (AST.sext room e1 .* AST.sext room e2) << AST.num1 room
+  let prod =
+    if isRound then prod .+ (AST.num1 room << numI32 (p.ESize - 1) room)
+    else prod
+  satLane bld false false room p.RtESize (prod ?>> numI32 p.ESize room)
+
 /// <summary>
 /// VQDMULH and VQRDMULH: the doubled product with only its TOP half kept,
 /// saturated, and for the rounding form with half of the discarded part
@@ -3449,15 +3463,7 @@ let private vqdmulhigh (ins: Instruction) bld isRound =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
-    let room = RegType.fromBitWidth (p.ESize * 4)
-    let lane e1 e2 =
-      let prod = (AST.sext room e1 .* AST.sext room e2) << AST.num1 room
-      let prod =
-        if isRound then
-          prod .+ (AST.num1 room << numI32 (p.ESize - 1) room)
-        else
-          prod
-      satLane bld false false room p.RtESize (prod ?>> numI32 p.ESize room)
+    let lane = doubledHigh bld p isRound
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
@@ -3482,9 +3488,59 @@ let private vqdmulhigh (ins: Instruction) bld isRound =
     putEndLabel bld lblIgnore
   }
 
-let vqdmulh ins bld = vqdmulhigh ins bld false
+/// VQDMULH and VQRDMULH by scalar: every element times the one lane Dm[x],
+/// read before anything is written, since Dm can be a part of Qd.
+let private vqdmulhighByScalar (ins: Instruction) bld isRound =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let p = getParsingInfo ins
+    let lane = doubledHigh bld p isRound
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let reg, index = transOprToScalar bld src2
+    let scalar = tmpVar bld p.RtESize
+    scalar := elem reg index p.ESize
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (op1B, op1A) = tmpVars2 bld p.RtESize
+      for e in 0 .. p.Elements - 1 do
+        op1B := elem src1B e p.ESize
+        op1A := elem src1A e p.ESize
+        elem dstB e p.ESize := lane op1B scalar
+        elem dstA e p.ESize := lane op1A scalar
+    | _ ->
+      let dst = transOpr ins bld dst
+      let src1 = transOpr ins bld src1
+      let op1 = tmpVar bld p.RtESize
+      for e in 0 .. p.Elements - 1 do
+        op1 := elem src1 e p.ESize
+        elem dst e p.ESize := lane op1 scalar
+    putEndLabel bld lblIgnore
+  }
 
-let vqrdmulh ins bld = vqdmulhigh ins bld true
+let private isByScalar (ins: Instruction) =
+  match ins.Operands with
+  | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) -> true
+  | _ -> false
+
+let vqdmulh ins bld =
+  if isByScalar ins then vqdmulhighByScalar ins bld false
+  else vqdmulhigh ins bld false
+
+let vqrdmulh ins bld =
+  if isByScalar ins then vqdmulhighByScalar ins bld true
+  else vqdmulhigh ins bld true
+
+/// The second operand of a long multiply as a doubleword: the register, or by
+/// scalar the one lane Dm[x], alone in the bottom element.
+let private longSecond (ins: Instruction) bld p src =
+  if isByScalar ins then
+    let reg, index = transOprToScalar bld src
+    AST.zext 64<rt> (elem reg index p.ESize)
+  else
+    transOpr ins bld src
 
 /// <summary>
 /// VQDMULL, VQDMLAL and VQDMLSL: the doubled product written long, on its
@@ -3504,12 +3560,13 @@ let private vqdmullong (ins: Instruction) bld combine =
     let struct (dstB, dstA) = transOpr128 bld dst
     let struct (op1, op2) = tmpVars2 bld 64<rt>
     op1 := transOpr ins bld src1
-    op2 := transOpr ins bld src2
+    op2 := longSecond ins bld p src2
     let room = RegType.fromBitWidth (p.ESize * 4)
     let wide = p.RtESize * 2
     let half = p.Elements / 2
+    let second e = elem op2 (if isByScalar ins then 0 else e) p.ESize
     let answer old e =
-      let prod = doubledProduct bld p (elem op1 e p.ESize) (elem op2 e p.ESize)
+      let prod = doubledProduct bld p (elem op1 e p.ESize) (second e)
       match combine with
       | Some opFn ->
         let sum = opFn (AST.sext room old) (AST.sext room prod)

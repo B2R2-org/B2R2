@@ -930,3 +930,50 @@ type LifterTests() =
     let read = IRRunner.run (liftedBy false "f2320013") inputs
     Assert.AreEqual<uint64>(0x7fffffffffffffffUL, (read !@(Q0, 1)).ToUInt64())
     Assert.AreEqual<uint64>(1UL, (read !.FPSCR).ToUInt64() >>> 27 &&& 1UL)
+
+  /// A by-scalar operation multiplies every element by the one lane Dm[x],
+  /// read before any element is written (DDI0406C A8.8.373 VQDMULH, A8.8.377
+  /// VQRDMULH, A8.8.374 VQDMULL, A8.8.353 VMUL (by scalar)).
+  [<TestMethod>]
+  member _.``[ARMv7] VQDMULH.S16 by scalar takes one lane``() =
+    let inputs =
+      [ !@(Q0, 2), BitVector(0x0400030002000100UL, 64<rt>)
+        !@(Q1, 1), BitVector(0x4000300020001000UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f2910c4a") inputs
+    Assert.AreEqual<uint64>(0x010000c000800040UL, (read !@(Q0, 1)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``[ARMv7] VQRDMULH.S16 by scalar takes one lane``() =
+    let inputs =
+      [ !@(Q0, 2), BitVector(0x0400030002000100UL, 64<rt>)
+        !@(Q1, 1), BitVector(0x4000300020001000UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f2910d4a") inputs
+    Assert.AreEqual<uint64>(0x010000c000800040UL, (read !@(Q0, 1)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``[ARMv7] VQDMULL.S16 by scalar takes one lane``() =
+    let inputs =
+      [ !@(Q1, 1), BitVector(0x4000300020001000UL, 64<rt>)
+        !@(Q1, 2), BitVector(0x7fff8000c000e000UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f2920b4b") inputs
+    Assert.AreEqual<uint64>(0xf0000000f8000000UL, (read !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(0xe0000000e8000000UL, (read !@(Q0, 2)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``[ARMv7] VQDMULH.S16 by scalar works on Q registers``() =
+    let inputs =
+      [ !@(Q1, 1), BitVector(0x4000300020001000UL, 64<rt>)
+        !@(Q1, 2), BitVector(0x7fff8000c000e000UL, 64<rt>)
+        !@(Q2, 1), BitVector(0x0011002200330044UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f3920c4c") inputs
+    Assert.AreEqual<uint64>(0x00190013000c0006UL, (read !@(Q0, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(0x0032ffcdffe6fff3UL, (read !@(Q0, 2)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMUL.I32 by a scalar inside Qd reads it first``() =
+    let inputs =
+      [ !@(Q1, 1), BitVector(0x4000000010000000UL, 64<rt>)
+        !@(Q1, 2), BitVector(0x7fffffff80000000UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "f3a22863") inputs
+    Assert.AreEqual<uint64>(0xc0000000f0000000UL, (read !@(Q1, 1)).ToUInt64())
+    Assert.AreEqual<uint64>(0x0000000180000000UL, (read !@(Q1, 2)).ToUInt64())
