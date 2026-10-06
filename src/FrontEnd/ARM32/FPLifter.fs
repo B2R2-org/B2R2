@@ -465,6 +465,73 @@ let vcompare ins bld pred swapped absolute =
   conditional ins bld (fun () -> neonCompare ins bld pred swapped absolute)
 
 /// <summary>
+/// FPRecipEstimate on a single (A2.7): the operand flushed, its fraction's
+/// top eight bits looked up, and the exponent reflected. An infinity gives a
+/// zero and a zero an infinity, raising Divide-by-zero; an operand of 2^126
+/// or more a zero, raising Underflow.
+/// </summary>
+let private recipEstimate bld e =
+  let rt = 32<rt>
+  let e = fpFlushIn bld StandardValue rt e
+  let exp = (e >> numI32 23 rt) .& numI32 0xff rt
+  let sign = e .& signOf rt
+  let q = numI32 0x100 rt .| ((e >> numI32 15 rt) .& numI32 0xff rt)
+  let s = AST.xtlo rt (recipEstimate9 (AST.zext 64<rt> q))
+  let body =
+    sign .| ((numI32 253 rt .- exp) << numI32 23 rt)
+    .| ((s .- numI32 256 rt) << numI32 15 rt)
+  let struct (nan, inf, zero, huge) = tmpVars4 bld 1<rt>
+  let res = tmpVar bld rt
+  append bld {
+    nan := isNaN rt e
+    inf := isInfinity rt e
+    zero := isZero rt e
+    huge := AST.not nan .& AST.not inf .& (exp .>= numI32 253 rt)
+    res := AST.ite (inf .| huge) sign body
+    res := AST.ite zero (fpInfinity rt (AST.xthi 1<rt> e)) res
+    res := AST.ite nan (fpProcessNaN bld StandardValue rt e) res
+  }
+  fpRecord bld (fpBits (isSNaN rt e) zero fpNone huge fpNone)
+  res
+
+/// <summary>
+/// FPRSqrtEstimate on a single (A2.7): the operand flushed, scaled into
+/// [0.25, 1) with its exponent's parity kept, its top bits looked up, and the
+/// exponent halved. A zero gives an infinity, raising Divide-by-zero; a
+/// negative number the default NaN, raising Invalid; plus infinity zero.
+/// </summary>
+let private rsqrtEstimate bld e =
+  let rt = 32<rt>
+  let e = fpFlushIn bld StandardValue rt e
+  let exp = (e >> numI32 23 rt) .& numI32 0xff rt
+  let odd = AST.extract e 1<rt> 23
+  let even = numI32 0x100 rt .| ((e >> numI32 15 rt) .& numI32 0xff rt)
+  let oddQ = numI32 0x80 rt .| ((e >> numI32 16 rt) .& numI32 0x7f rt)
+  let q = AST.zext 64<rt> (AST.ite odd oddQ even)
+  let s = AST.xtlo rt (recipSqrtEstimate9 bld q)
+  let body =
+    (((numI32 380 rt .- exp) >> AST.num1 rt) << numI32 23 rt)
+    .| ((s .- numI32 256 rt) << numI32 15 rt)
+  let struct (nan, zero, negative) = tmpVars3 bld 1<rt>
+  let res = tmpVar bld rt
+  append bld {
+    nan := isNaN rt e
+    zero := isZero rt e
+    negative := AST.xthi 1<rt> e .& AST.not nan .& AST.not zero
+    res := AST.ite (isInfinity rt e) (AST.num0 rt) body
+    res := AST.ite negative (fpDefaultNaN rt) res
+    res := AST.ite zero (fpInfinity rt (AST.xthi 1<rt> e)) res
+    res := AST.ite nan (fpProcessNaN bld StandardValue rt e) res
+  }
+  fpRecord bld (fpBits (isSNaN rt e .| negative) zero fpNone fpNone fpNone)
+  res
+
+/// VRECPE and VRSQRTE (floating-point).
+let vestimateF32 ins bld isSqrt =
+  let estimate = if isSqrt then rsqrtEstimate else recipEstimate
+  conditional ins bld (fun () -> neonUnary ins bld (estimate bld))
+
+/// <summary>
 /// FPRecipStep and FPRSqrtStep (A2.7), which are not fused: two minus the
 /// product, or three minus it halved, the product rounded first. One operand
 /// an infinity and the other a zero gives the constant itself, 2.0 or 1.5,

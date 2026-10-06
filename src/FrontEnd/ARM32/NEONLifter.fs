@@ -1807,7 +1807,7 @@ let vrsqrts ins bld = vrecpstep ins bld true
 /// the middle of its interval by doubling and adding one, the reciprocal is
 /// taken at nineteen bits, and the answer is rounded back to nine.
 /// </summary>
-let private recipEstimate9 a =
+let recipEstimate9 a =
   let rounded = (a .* numI32 2 64<rt>) .+ AST.num1 64<rt>
   let b = numI32 0x80000 64<rt> ./ rounded
   (b .+ AST.num1 64<rt>) ./ numI32 2 64<rt>
@@ -1821,7 +1821,7 @@ let private recipEstimate9 a =
 /// one bit at a time from the top. Nine steps rather than up to five hundred,
 /// and no table.
 /// </summary>
-let private recipSqrtEstimate9 bld a =
+let recipSqrtEstimate9 bld a =
   let limit = numI32 0x10000000 64<rt>
   let struct (rounded, b) = tmpVars2 bld 64<rt>
   let low = (a .* numI32 2 64<rt>) .+ AST.num1 64<rt>

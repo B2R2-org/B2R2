@@ -575,8 +575,12 @@ let translate (ins: Instruction) bld =
     FPLifter.vcompare ins bld FloatingPoint.FPGreater true true
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT ->
     unsupported ins bld
+  | Op.VRECPE when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vestimateF32 ins bld false
   | Op.VRECPE ->
     vrecpe ins bld
+  | Op.VRSQRTE when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vestimateF32 ins bld true
   | Op.VRSQRTE ->
     vrsqrte ins bld
   | Op.VRECPS when isF32orF64 ins.SIMDTyp ->

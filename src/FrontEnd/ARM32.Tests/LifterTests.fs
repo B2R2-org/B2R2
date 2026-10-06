@@ -1924,3 +1924,40 @@ type LifterTests() =
     let read = IRRunner.run (liftedBy false "ee277aa1") inputs
     Assert.AreEqual<uint64>(0x3f80000040000000UL, (read (dReg 7)).ToUInt64())
     Assert.AreEqual<uint64>(0x3f80000040000000UL, (read (dReg 4)).ToUInt64())
+
+  /// <summary>
+  /// VRECPE.F32 and VRSQRTE.F32 are FPRecipEstimate and FPRSqrtEstimate
+  /// (A2.7, A8.8.385, A8.8.392), not the unsigned integer estimates: the
+  /// reciprocal of {3.0, -0.5} is {0.333, -1.996} and the reciprocal square
+  /// root of {4.0, 1.0} is {0.499, 0.998}, to eight bits.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VRECPE.F32 estimates reciprocals``() =
+    let d0, _, _ = fpRun "f3bb0502" 0u [ 2, 0xbf00000040400000UL ]
+    Assert.AreEqual<uint64>(0xbfff80003eaa8000UL, d0)
+
+  /// <summary>
+  /// The estimates' special cases: the reciprocal of a zero is an infinity of
+  /// its sign, raising Division by Zero; of a magnitude of 2^126 or more it is
+  /// a zero of its sign, raising Underflow; and the reciprocal square root of
+  /// a negative number is the default NaN, raising Invalid.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VRECPE.F32 of a zero is an infinity``() =
+    let d0, _, fpscr = fpRun "f3bb0502" 0u [ 2, 0x8000000000000000UL ]
+    Assert.AreEqual<uint64 * uint32>((0xff8000007f800000UL, 2u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VRECPE.F32 of 2^126 is a zero``() =
+    let d0, _, fpscr = fpRun "f3bb0502" 0u [ 2, 0xfe8000007e800000UL ]
+    Assert.AreEqual<uint64 * uint32>((0x8000000000000000UL, 8u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VRSQRTE.F32 of a negative number is the default NaN``() =
+    let d0, _, fpscr = fpRun "f3bb0582" 0u [ 2, 0xbf800000bf800000UL ]
+    Assert.AreEqual<uint64 * uint32>((0x7fc000007fc00000UL, 1u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VRSQRTE.F32 estimates reciprocal square roots``() =
+    let d0, _, _ = fpRun "f3bb0582" 0u [ 2, 0x3f80000040800000UL ]
+    Assert.AreEqual<uint64>(0x3f7f80003eff8000UL, d0)

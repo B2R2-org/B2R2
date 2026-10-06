@@ -68,6 +68,7 @@ module internal IRRunner =
     | BinOpType.SHR -> BitVector.Shr(a, b)
     | BinOpType.SAR -> BitVector.Sar(a, b)
     | BinOpType.CONCAT -> BitVector.Concat(a, b)
+    | BinOpType.DIV -> BitVector.Div(a, b)
     | BinOpType.FADD -> BitVector.FAdd(a, b)
     | BinOpType.FSUB -> BitVector.FSub(a, b)
     | BinOpType.FMUL -> BitVector.FMul(a, b)
