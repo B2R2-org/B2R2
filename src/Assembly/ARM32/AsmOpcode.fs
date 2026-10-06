@@ -2328,16 +2328,38 @@ let private neonFusedLong op ins =
   | _ ->
     wrongOperands ins
 
-/// VMRS and VMSR, which move a floating-point status register to or from a core
-/// register, and name that register rather than encoding it.
+/// The reg field of a floating-point system register: VMRS reads any of these,
+/// and VMSR writes FPSID, FPSCR and FPEXC alone (DDI0406C B9.3.21 and B9.3.22;
+/// DDI0487F.c F6.1.144 adds MVFR2).
+let private fpSystemReg l reg =
+  match reg with
+  | Register.FPSID -> 0b0000u
+  | Register.FPSCR -> 0b0001u
+  | Register.MVFR2 when l = 1u -> 0b0101u
+  | Register.MVFR1 when l = 1u -> 0b0110u
+  | Register.MVFR0 when l = 1u -> 0b0111u
+  | Register.FPEXC -> 0b1000u
+  | _ -> fail $"{Register.toString reg} is not a register this move reaches"
+
+/// The Rt field of a VMRS: a core register, or APSR as 0b1111, which only
+/// FPSCR's flags go to (DDI0406C A8.8.349).
+let private vmrsTarget sreg rt =
+  match rt with
+  | Register.APSR when sreg = Register.FPSCR -> 0b1111u
+  | _ -> coreReg rt
+
+/// VMRS and VMSR, which move a floating-point system register to or from a
+/// core register.
 let private fpStatusMove l ins =
   let head = cond ins ||| (0b11101110u <<< 20) ||| (0b111u <<< 21)
+  let fields sreg rt =
+    head ||| (l <<< 20) ||| (fpSystemReg l sreg <<< 16) ||| (rt <<< 12)
+    ||| (0b1010u <<< 8) ||| (1u <<< 4)
   match ins.Operands with
-  | TwoOperands(OprReg rt, OprReg _) when l = 1u ->
-    head ||| (1u <<< 20) ||| (coreReg rt <<< 12) ||| (0b1010u <<< 8)
-    ||| (1u <<< 4)
-  | TwoOperands(OprReg _, OprReg rt) ->
-    head ||| (coreReg rt <<< 12) ||| (0b1010u <<< 8) ||| (1u <<< 4)
+  | TwoOperands(OprReg rt, OprReg sreg) when l = 1u ->
+    fields sreg (vmrsTarget sreg rt)
+  | TwoOperands(OprReg sreg, OprReg rt) when l = 0u ->
+    fields sreg (coreReg rt)
   | _ ->
     wrongOperands ins
 

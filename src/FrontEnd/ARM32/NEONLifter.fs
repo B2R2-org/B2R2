@@ -294,51 +294,6 @@ let vand (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
-let vmrs ins bld =
-  lift bld ins {
-    let struct (rt, fpscr) = transTwoOprs ins bld
-    let cpsr = regVar bld R.CPSR
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    match ins.Operands with
-    | TwoOperands(OprReg R.APSR, _) | TwoOperands(OprReg R.CPSR, _) ->
-      cpsr := disablePSRBits bld R.CPSR PSR.Cond .|
-                  getPSR bld R.FPSCR PSR.Cond
-    | _ ->
-      rt := fpscr
-    putEndLabel bld lblIgnore
-  }
-
-/// <summary>
-/// VMSR, which does not keep every bit it is handed.
-///
-/// FPSCR has two bits that are RES0, 6 and 5, and a row of trap enables --
-/// IDE at 15 and IXE through IOE at 12:8 -- that an implementation without
-/// trapped floating-point exceptions leaves read-as-zero, write-ignored.
-/// There is no FP trapping anywhere in this front end, so storing those bits
-/// would let a program read back a mode nothing here can enter; the reference
-/// answers 0xffff009f to all ones written and read straight back, and the
-/// bits that vanish are exactly these.
-///
-/// Length and stride, 21:20 and 18:16, are NOT among them: short vectors are
-/// part of VFPv4 and the field is writable there.
-///
-/// The mask is FPSCR's alone, so a VMSR naming another system register --
-/// FPEXC is the one an implementation may allow -- stores what it was given.
-/// </summary>
-let vmsr ins bld =
-  lift bld ins {
-    let struct (dst, rt) = transTwoOprs ins bld
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    match ins.Operands with
-    | TwoOperands(OprReg R.FPSCR, _) ->
-      dst := rt .& numU32 0xffff009fu 32<rt>
-    | _ ->
-      dst := rt
-    putEndLabel bld lblIgnore
-  }
-
 let vcmp ins bld =
   lift bld ins {
     let struct (op1, op2) = transTwoOprs ins bld

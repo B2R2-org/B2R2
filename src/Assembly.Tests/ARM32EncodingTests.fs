@@ -628,3 +628,43 @@ type ARM32EncodingTests() =
   [<TestMethod>]
   member _.``Thumb RORS by a register encodes narrow``() =
     Assert.AreEqual<string>("c841", encodeThumb "rors r0, r1")
+
+  /// VMRS and VMSR encode the system register they name in the reg field, and
+  /// FPSCR is reg 0b0001 (DDI0406C B9.3.21 and B9.3.22).
+  [<TestMethod>]
+  member _.``VMRS of FPSCR encodes``() =
+    Assert.AreEqual<string>("100af1ee", encode "vmrs r0, fpscr")
+
+  [<TestMethod>]
+  member _.``VMRS of FPSID encodes``() =
+    Assert.AreEqual<string>("100af0ee", encode "vmrs r0, fpsid")
+
+  [<TestMethod>]
+  member _.``VMSR to FPEXC encodes``() =
+    Assert.AreEqual<string>("100ae8ee", encode "vmsr fpexc, r0")
+
+  [<TestMethod>]
+  member _.``Thumb VMRS of MVFR0 encodes``() =
+    Assert.AreEqual<string>("f7ee100a", encodeThumb "vmrs r0, mvfr0")
+
+  [<TestMethod>]
+  member _.``VMRS of MVFR2 encodes``() =
+    Assert.AreEqual<string>("100af5ee", encode "vmrs r0, mvfr2")
+
+  [<TestMethod>]
+  member _.``VMSR to FPSCR encodes``() =
+    Assert.AreEqual<string>("100ae1ee", encode "vmsr fpscr, r0")
+
+  /// The MVFRs are read-only, and VMSR has no encoding that names one.
+  [<TestMethod>]
+  member _.``VMSR to MVFR0 is refused``() =
+    Assert.AreEqual<string>("<unsupported>", encode "vmsr mvfr0, r0")
+
+  /// APSR as VMRS's destination is Rt 0b1111: FPSCR's flags (A8.8.349).
+  [<TestMethod>]
+  member _.``VMRS to APSR encodes``() =
+    Assert.AreEqual<string>("10faf1ee", encode "vmrs apsr, fpscr")
+
+  [<TestMethod>]
+  member _.``Thumb VMRS to APSR encodes``() =
+    Assert.AreEqual<string>("f1ee10fa", encodeThumb "vmrs apsr, fpscr")

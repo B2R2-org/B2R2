@@ -168,6 +168,12 @@ let private namesBanked (ins: Instruction) =
   | TwoOperands(o1, o2) -> isBanked o1 || isBanked o2
   | _ -> false
 
+/// MVFR2, the feature register Armv8 added (DDI0487F.c F6.1.144).
+let private readsMVFR2 (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(_, OprReg Register.MVFR2) -> true
+  | _ -> false
+
 /// <summary>
 /// What an instruction needs beyond its unit, by its opcode and, where that
 /// is not enough, its data type and operands.
@@ -218,6 +224,8 @@ let private requirementOf unit (ins: Instruction) =
     Needs ARMv7Extension.Virt
   | Opcode.MRS | Opcode.MSR when namesBanked ins ->
     Needs ARMv7Extension.Virt
+  | Opcode.VMRS when readsMVFR2 ins ->
+    Later
   | _ ->
     unit
 

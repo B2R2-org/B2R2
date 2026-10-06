@@ -685,6 +685,63 @@ type LifterTests() =
   member _.``[ARMv7] MSR of SPSR is refused in User mode``() =
     Assert.AreEqual<bool>(true, canBeUndefined false "e161f001")
 
+  /// VMRS reads the floating-point system register it names. Every one but
+  /// FPSCR is PL1's, so User mode may not read it (DDI0406C B9.3.21).
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS reads FPSID``() =
+    Assert.AreEqual<Expr option>(Some !.FPSID, assignedBy false "eef00a10" !.R0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS of FPSID is refused in User mode``() =
+    Assert.AreEqual<bool>(true, canBeUndefined false "eef00a10")
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS of FPSCR is allowed in User mode``() =
+    Assert.AreEqual<bool>(false, canBeUndefined false "eef10a10")
+
+  [<TestMethod>]
+  member _.``[Thumb] VMRS reads MVFR0``() =
+    Assert.AreEqual<Expr option>(Some !.MVFR0, assignedBy true "eef70a10" !.R0)
+
+  /// APSR_nzcv takes FPSCR's flags, and the rest of CPSR stays as it was.
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS APSR_nzcv takes FPSCR's flags``() =
+    let others = !.CPSR .& AST.not (num 0xf0000000u)
+    let flags = others .| (!.FPSCR .& num 0xf0000000u)
+    Assert.AreEqual<Expr option>(Some flags, assignedBy false "eef1fa10" !.CPSR)
+
+  [<TestMethod>]
+  member _.``[Thumb] VMRS APSR_nzcv lifts as the A32 one does``() =
+    CollectionAssert.AreEqual(unwrapStmts (liftedBy false "eef1fa10"),
+                              unwrapStmts (liftedBy true "eef1fa10"))
+
+  /// FPEXC keeps EN alone. What a write does to EX and to bits 29:0 is the
+  /// subarchitecture's (DDI0406C B4.1.57), and nothing here traps a
+  /// floating-point exception, so there is no state for them to hold; the
+  /// reference keeps EN of all ones written.
+  [<TestMethod>]
+  member _.``[ARMv7] VMSR to FPEXC keeps EN``() =
+    let kept = !.R0 .& num 0x40000000u
+    Assert.AreEqual<Expr option>(Some kept, assignedBy false "eee80a10" !.FPEXC)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMSR to FPEXC is refused in User mode``() =
+    Assert.AreEqual<bool>(true, canBeUndefined false "eee80a10")
+
+  /// FPSCR keeps what VMSR has always kept of it: not the RES0 bits, nor the
+  /// trap enables nothing here can take.
+  [<TestMethod>]
+  member _.``[ARMv7] VMSR to FPSCR keeps the bits FPSCR holds``() =
+    let kept = !.R0 .& num 0xffff009fu
+    Assert.AreEqual<Expr option>(Some kept, assignedBy false "eee10a10" !.FPSCR)
+
+  /// FPSID is read-only, and PL1 writing it changes nothing (DDI0406C
+  /// B9.3.22).
+  [<TestMethod>]
+  member _.``[ARMv7] VMSR to FPSID writes nothing``() =
+    let written = writtenBy false "eee00a10"
+    Assert.AreEqual<bool>(false, Array.contains !.FPSID written)
+
   /// A write to CPSR.M changes mode, and a mode change swaps the banked
   /// registers: the old mode's SP goes back to its copy, and the new mode's
   /// copy becomes SP.

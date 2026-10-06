@@ -1293,3 +1293,18 @@ type ThumbParserTests() =
     testDisasm "40c8" "lsrs r0, r1"
     testDisasm "4108" "asrs r0, r1"
     testDisasm "41c8" "rors r0, r1"
+
+  /// T1 VMRS and VMSR have A1's reg field (DDI0406C B9.3.21 and B9.3.22).
+  [<TestMethod>]
+  member _.``[T32] VMRS can name FPEXC``() =
+    testDisasm "eef80a10" "vmrs r0, fpexc"
+
+  [<TestMethod>]
+  member _.``[T32] VMSR can name FPEXC``() =
+    testDisasm "eee80a10" "vmsr fpexc, r0"
+
+  /// Rt = 15 moves FPSCR's flags to APSR, in T32 as in A32: what the manual
+  /// refuses is Rt = 15 with any other register (DDI0406C B9.3.21).
+  [<TestMethod>]
+  member _.``[T32] VMRS can move FPSCR's flags to APSR``() =
+    testDisasm "eef1fa10" "vmrs apsr, fpscr"

@@ -1366,3 +1366,53 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] MSR (immediate) can name SPSR``() =
     testDisasm "e368f0ff" "msr spsr_f, #0xff"
+
+  /// VMRS and VMSR name the floating-point system register their reg field
+  /// selects (DDI0406C B9.3.21 and B9.3.22; DDI0487F.c F6.1.144 adds MVFR2).
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS can name FPSID``() =
+    testDisasm "eef00a10" "vmrs r0, fpsid"
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS can name FPSCR``() =
+    testDisasm "eef10a10" "vmrs r0, fpscr"
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS can name MVFR2``() =
+    testDisasm "eef50a10" "vmrs r0, mvfr2"
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS can name MVFR1``() =
+    testDisasm "eef60a10" "vmrs r0, mvfr1"
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS can name MVFR0``() =
+    testDisasm "eef70a10" "vmrs r0, mvfr0"
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS can name FPEXC``() =
+    testDisasm "eef80a10" "vmrs r0, fpexc"
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMSR can name FPSID``() =
+    testDisasm "eee00a10" "vmsr fpsid, r0"
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMSR can name FPEXC``() =
+    testDisasm "eee80a10" "vmsr fpexc, r0"
+
+  /// A reg field that names no register is UNPREDICTABLE, and there is no
+  /// register for any build to read.
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS of no register is refused in every build``() =
+    testRefused "eef20a10"
+
+  /// VMSR names only FPSID, FPSCR and FPEXC; the MVFRs are read-only.
+  [<TestMethod>]
+  member _.``[ARMv7] VMSR to MVFR0 is refused in every build``() =
+    testRefused "eee70a10"
+
+  /// MVFR2 is Armv8's, which no ARMv7 version has.
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS of MVFR2 is Armv8's``() =
+    readsOnlyUnder "eef50a10" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]

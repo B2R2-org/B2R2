@@ -5854,7 +5854,7 @@ let parseFPMoveSpecialReg phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.VMSR None N OD.OprSregRt
   | _ (* 0b1u *) ->
 #if !EMULATION
-    chkPCRt bin
+    chkPCRtR1 bin
 #endif
     render phlp &itstate 0 isInIT bin Op.VMRS None N OD.OprRtSreg
 

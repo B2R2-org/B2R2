@@ -24,7 +24,8 @@
 
 /// <summary>
 /// The instructions only PL1 has: the ones that read and write the system
-/// registers of coprocessor 15, change mode, and return from an exception.
+/// registers of coprocessor 15 and of the floating-point unit, change mode,
+/// and return from an exception.
 ///
 /// <para>The mode is CPSR.M, and each mode but User and System keeps its own
 /// SP, LR and SPSR -- FIQ mode R8 to R12 as well. A mode change does not copy
@@ -42,6 +43,7 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.ARM32
+open B2R2.FrontEnd.ARM32.IRHelper
 open B2R2.FrontEnd.ARM32.LiftingUtils
 open B2R2.FrontEnd.ARM32.GeneralLifter
 
@@ -419,5 +421,59 @@ let mcr (ins: Instruction) bld =
       undefined ins bld
     | None ->
       unsupported ins bld
+  | _ ->
+    unsupported ins bld
+
+/// VMRS, which reads a floating-point system register into a core register,
+/// or FPSCR's flags into APSR's. Every one but FPSCR is PL1's (DDI0406C
+/// B9.3.21).
+let vmrs (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(OprReg R.APSR, OprReg sreg) ->
+    underCondition ins bld (sreg = R.FPSCR) (fun () ->
+      let cpsr = regVar bld R.CPSR
+      let flags = disablePSRBits bld R.CPSR PSR.Cond .| getPSR bld sreg PSR.Cond
+      append bld { cpsr := flags })
+  | TwoOperands(dst, OprReg sreg) ->
+    underCondition ins bld (sreg = R.FPSCR) (fun () ->
+      let dst = transOpr ins bld dst
+      append bld { dst := regVar bld sreg })
+  | _ ->
+    unsupported ins bld
+
+/// <summary>
+/// The bits of a floating-point system register a VMSR writes.
+///
+/// FPSCR has two bits that are RES0, 6 and 5, and a row of trap enables --
+/// IDE at 15 and IXE through IOE at 12:8 -- that an implementation without
+/// trapped floating-point exceptions leaves read-as-zero, write-ignored.
+/// There is no FP trapping anywhere in this front end, so storing those bits
+/// would let a program read back a mode nothing here can enter; the reference
+/// answers 0xffff009f to all ones written and read straight back, and the
+/// bits that vanish are exactly these.
+///
+/// Length and stride, 21:20 and 18:16, are NOT among them: short vectors are
+/// part of VFPv4 and the field is writable there.
+///
+/// FPEXC keeps EN alone. What a write does to EX and to bits 29:0 is the
+/// subarchitecture's (DDI0406C B4.1.57), and with nothing trapped there is no
+/// state for them to hold; the reference keeps 0x40000000 of all ones.
+/// </summary>
+let private writableFPBits = function
+  | R.FPSCR -> 0xffff009fu
+  | _ (* FPEXC *) -> 0x40000000u
+
+/// VMSR, which writes a core register to a floating-point system register.
+/// Every one but FPSCR is PL1's, and FPSID is read-only, so PL1 writing it
+/// changes nothing (DDI0406C B9.3.22).
+let vmsr (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(OprReg R.FPSID, _) ->
+    underCondition ins bld false ignore
+  | TwoOperands(OprReg(R.FPSCR | R.FPEXC as sreg), src) ->
+    let mask = numU32 (writableFPBits sreg) 32<rt>
+    underCondition ins bld (sreg = R.FPSCR) (fun () ->
+      let src = transOpr ins bld src
+      append bld { regVar bld sreg := src .& mask })
   | _ ->
     unsupported ins bld

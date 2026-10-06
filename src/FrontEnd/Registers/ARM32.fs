@@ -527,6 +527,12 @@ type Register =
   | TPIDRPRW = 0xF1
   /// CNTFRQ, Counter-timer Frequency Register.
   | CNTFRQ = 0xF2
+  /// FPSID, Floating-point System ID Register.
+  | FPSID = 0xF3
+  /// FPEXC, Floating-Point Exception Control register.
+  | FPEXC = 0xF4
+  /// MVFR2, Media and VFP Feature Register 2.
+  | MVFR2 = 0xF5
 
 /// Provides functions to handle ARM32 registers.
 [<RequireQualifiedAccess>]
@@ -783,6 +789,9 @@ module Register =
     | "tpidrurw" -> Register.TPIDRURW
     | "tpidrprw" -> Register.TPIDRPRW
     | "cntfrq" -> Register.CNTFRQ
+    | "fpsid" -> Register.FPSID
+    | "fpexc" -> Register.FPEXC
+    | "mvfr2" -> Register.MVFR2
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an ARM32 register.
@@ -1037,4 +1046,7 @@ module Register =
     | Register.TPIDRURW -> "tpidrurw"
     | Register.TPIDRPRW -> "tpidrprw"
     | Register.CNTFRQ -> "cntfrq"
+    | Register.FPSID -> "fpsid"
+    | Register.FPEXC -> "fpexc"
+    | Register.MVFR2 -> "mvfr2"
     | _ -> Terminator.impossible ()

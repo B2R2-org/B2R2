@@ -776,6 +776,27 @@ module OperandParsingHelper =
       List.init (int rNum) (fun i -> getVecSReg (fReg + uint32 i))
       |> OprRegList
 
+  /// The floating-point system register a VMRS reads, by its reg field
+  /// (DDI0406C B9.3.21; DDI0487F.c F6.1.144 adds MVFR2). Any other value is
+  /// UNPREDICTABLE, and names no register for a build to read.
+  let getFPSysRegRead bin =
+    match extract bin 19 16 with
+    | 0b0000u -> R.FPSID
+    | 0b0001u -> R.FPSCR
+    | 0b0101u -> R.MVFR2
+    | 0b0110u -> R.MVFR1
+    | 0b0111u -> R.MVFR0
+    | 0b1000u -> R.FPEXC
+    | _ -> raise ParsingFailureException
+
+  /// The one a VMSR writes: FPSID, FPSCR or FPEXC (DDI0406C B9.3.22).
+  let getFPSysRegWritten bin =
+    match extract bin 19 16 with
+    | 0b0000u -> R.FPSID
+    | 0b0001u -> R.FPSCR
+    | 0b1000u -> R.FPEXC
+    | _ -> raise ParsingFailureException
+
   let toMemAlign rn align = function
     | R.PC -> memOffsetAlign (rn, align, None)
     | R.SP -> memPreIdxAlign (rn, align, None)
@@ -1313,8 +1334,9 @@ type internal OprQdDm() =
 type internal OprSregRt() =
   inherit OperandParser()
   override _.Render bin =
+    let sreg = getFPSysRegWritten bin |> OprReg
     let rt = extract bin 15 12 |> getRegister |> OprReg
-    struct (TwoOperands(OprReg R.FPSCR, rt), false, None, 32<rt>)
+    struct (TwoOperands(sreg, rt), false, None, 32<rt>)
 
 (* <Rt>, <spec_reg> *)
 type internal OprRtSreg() =
@@ -1322,7 +1344,8 @@ type internal OprRtSreg() =
   override _.Render bin =
     let rt = extract bin 15 12
     let rt = if rt = 15u then R.APSR |> OprReg else rt |> getRegister |> OprReg
-    struct (TwoOperands(rt, OprReg R.FPSCR), false, None, 32<rt>)
+    let sreg = getFPSysRegRead bin |> OprReg
+    struct (TwoOperands(rt, sreg), false, None, 32<rt>)
 
 (* <Rd>, <spec_reg> *)
 type internal OprRdSregA() =

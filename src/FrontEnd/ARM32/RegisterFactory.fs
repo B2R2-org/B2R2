@@ -151,6 +151,11 @@ type RegisterFactory(isa: ISA) =
   let spsr = AST.var 32<rt> (Register.toRegID SPSR) "SPSR"
   let cpsr = AST.var 32<rt> (Register.toRegID CPSR) "CPSR"
   let fpscr = AST.var 32<rt> (Register.toRegID FPSCR) "FPSCR"
+  let fpsid = AST.var 32<rt> (Register.toRegID FPSID) "FPSID"
+  let fpexc = AST.var 32<rt> (Register.toRegID FPEXC) "FPEXC"
+  let mvfr0 = AST.var 32<rt> (Register.toRegID MVFR0) "MVFR0"
+  let mvfr1 = AST.var 32<rt> (Register.toRegID MVFR1) "MVFR1"
+  let mvfr2 = AST.var 32<rt> (Register.toRegID MVFR2) "MVFR2"
 
   (* System control register *)
   let sctlr = AST.var 32<rt> (Register.toRegID SCTLR) "SCTLR"
@@ -340,6 +345,11 @@ type RegisterFactory(isa: ISA) =
       | R.SCTLR -> sctlr
       | R.NSACR -> nsacr
       | R.FPSCR -> fpscr
+      | R.FPSID -> fpsid
+      | R.FPEXC -> fpexc
+      | R.MVFR0 -> mvfr0
+      | R.MVFR1 -> mvfr1
+      | R.MVFR2 -> mvfr2
       | R.TPIDRURO -> tpidruro
       | R.ExMonAddr -> exMonAddr
       | R.ExMonVal -> exMonVal
@@ -692,6 +702,11 @@ type RegisterFactory(isa: ISA) =
          spsr
          cpsr
          fpscr
+         fpsid
+         fpexc
+         mvfr0
+         mvfr1
+         mvfr2
          sctlr
          scr
          nsacr
