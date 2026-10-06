@@ -1416,3 +1416,33 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] VMRS of MVFR2 is Armv8's``() =
     readsOnlyUnder "eef50a10" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]
+
+  /// <summary>
+  /// VCMLA (vector) takes its rotation from op1, so it is every word of the
+  /// extension space's xx1x00x0 (DDI0487F.c F6.1.52), not only rotation 0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA (vector) decodes at every rotation``() =
+    testDisasm "fc310802" "vcmla.f32 d0, d1, d2, #0x0"
+    testDisasm "fcb10802" "vcmla.f32 d0, d1, d2, #0x5a"
+    testDisasm "fd310802" "vcmla.f32 d0, d1, d2, #0xb4"
+    testDisasm "fdb20844" "vcmla.f32 q0, q1, q2, #0x10e"
+    testDisasm "fca10802" "vcmla.f16 d0, d1, d2, #0x5a"
+
+  /// The half-precision VCADD and VCMLA leave bit 20 clear, which ARMv7's
+  /// STC2 decoder used to take: coprocessor 8 is reserved to ARMv7.
+  [<TestMethod>]
+  member _.``[ARMv7] VCADD.F16 is not STC2``() =
+    testDisasm "fc810802" "vcadd.f16 d0, d1, d2, #0x5a"
+    readsOnlyUnder "fc810802" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]
+
+  /// A quadword by element names an even destination and first source; an
+  /// odd one is UNDEFINED, as it is for the doubleword form's Q check.
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA.F16 by element refuses an odd quadword``() =
+    testRefused "fe021842"
+
+  /// It is Armv8.3's, which no ARMv7 version has.
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA (vector) is Armv8.3's``() =
+    readsOnlyUnder "fcb10802" [ "armv7" ] [ "armv7-v7ve+simd+vfpv4" ]

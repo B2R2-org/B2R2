@@ -2001,3 +2001,119 @@ type LifterTests() =
     let d0, d1, fpscr = fpRun "f3b60702" 0u [ 2, 0x00017c00c0003c00UL ]
     let expected = 0xc00000003f800000UL, 0x338000007f800000UL, 0u
     Assert.AreEqual<uint64 * uint64 * uint32>(expected, (d0, d1, fpscr))
+
+  /// <summary>
+  /// VCADD adds the second operand rotated: with d1 = 1 + 2i and d2 = 3 + 4i,
+  /// #90 gives (1 - 4) + (2 + 3)i and #270 (1 + 4) + (2 - 3)i (DDI0487F.c
+  /// F6.1.39).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCADD.F32 rotates by 90``() =
+    let ds = [ 1, 0x400000003f800000UL; 2, 0x4080000040400000UL ]
+    let d0, _, _ = fpRun "fc910802" 0u ds
+    Assert.AreEqual<uint64>(0x40a00000c0400000UL, d0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCADD.F32 rotates by 270``() =
+    let ds = [ 1, 0x400000003f800000UL; 2, 0x4080000040400000UL ]
+    let d0, _, _ = fpRun "fd910802" 0u ds
+    Assert.AreEqual<uint64>(0xbf80000040a00000UL, d0)
+
+  /// On halves, pair by pair: (1 + 2i) + i(0.5 + i) and (3 + 4i) + i(2 +
+  /// 0.25i).
+  [<TestMethod>]
+  member _.``[ARMv7] VCADD.F16 rotates every pair``() =
+    let ds = [ 1, 0x4400420040003c00UL; 2, 0x340040003c003800UL ]
+    let d0, _, _ = fpRun "fc810802" 0u ds
+    Assert.AreEqual<uint64>(0x4600418041000000UL, d0)
+
+  /// <summary>
+  /// VCMLA accumulates one part of the complex product per rotation: with
+  /// d1 = 1 + 2i and d2 = 3 + 4i into zero, #0 gives 1 * (3 + 4i), #90
+  /// 2i * (3 + 4i) = -8 + 6i, #180 -(3 + 4i) and #270 the negation of #90's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA.F32 accumulates at every rotation``() =
+    let ds = [ 1, 0x400000003f800000UL; 2, 0x4080000040400000UL ]
+    let run hex = let d0, _, _ = fpRun hex 0u ds in d0
+    Assert.AreEqual<uint64>(0x4080000040400000UL, run "fc310802")
+    Assert.AreEqual<uint64>(0x40c00000c1000000UL, run "fcb10802")
+    Assert.AreEqual<uint64>(0xc0800000c0400000UL, run "fd310802")
+    Assert.AreEqual<uint64>(0xc0c0000041000000UL, run "fdb10802")
+
+  /// By element, every pair meets the one pair the index names, and adds to
+  /// what the destination held.
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA.F32 by element accumulates``() =
+    let ds =
+      [ 0, 0x3f0000003f000000UL
+        1, 0x400000003f800000UL
+        2, 0x4080000040400000UL ]
+    let d0, _, _ = fpRun "fe810802" 0u ds
+    Assert.AreEqual<uint64>(0x4090000040600000UL, d0)
+
+  /// <summary>
+  /// On a quadword by element, both pairs meet the one pair the index names,
+  /// and the second doubleword is written too: (1 + 0i) and (3 + 0i) times
+  /// (2 + 5i) at #0 are 2 + 5i and 6 + 15i.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA.F32 by element on a quadword writes both``() =
+    let ds = [ 2, 0x3f800000UL; 3, 0x40400000UL; 4, 0x40a0000040000000UL ]
+    let d0, d1, _ = fpRun "fe820844" 0u ds
+    let expected = 0x40a0000040000000UL, 0x4170000040c00000UL
+    Assert.AreEqual<uint64 * uint64>(expected, (d0, d1))
+
+  /// <summary>
+  /// On halves at #90 into 1 + 1i: (1 - 3 * 5) + (1 + 3 * 4)i is -14 + 13i,
+  /// with d1 = 2 + 3i and d2 = 4 + 5i.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA.F16 accumulates at 90``() =
+    let ds = [ 0, 0x3c003c00UL; 1, 0x42004000UL; 2, 0x45004400UL ]
+    let d0, _, _ = fpRun "fca10802" 0u ds
+    Assert.AreEqual<uint64>(0x4a80cb00UL, d0)
+
+  /// <summary>
+  /// The product is fused into the sum: (1 + 2^-12)^2 - (1 + 2^-11) is 2^-24,
+  /// where a product rounded first to a single would leave nothing.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA.F32 fuses the product``() =
+    let ds = [ 0, 0xbf801000UL; 1, 0x3f800800UL; 2, 0x3f800800UL ]
+    let d0, _, _ = fpRun "fc310802" 0u ds
+    Assert.AreEqual<uint64>(0x33800000UL, d0)
+
+  /// <summary>
+  /// The rotation negates the factor itself, a minus zero included: at #180,
+  /// -0 plus 2 * -(+0) is -0 in both lanes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA.F32 keeps a negative zero``() =
+    let ds = [ 0, 0x8000000080000000UL; 1, 0x40000000UL ]
+    let d0, _, _ = fpRun "fd310802" 0u ds
+    Assert.AreEqual<uint64>(0x8000000080000000UL, d0)
+
+  /// <summary>
+  /// A half result below the smallest normal is a zero under FPSCR.FZ16,
+  /// raising Underflow alone, and is kept without it: 2^-14 (1 + 2^-10) less
+  /// 2^-14 is 2^-24, at VCADD.F16 #90.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCADD.F16 flushes a tiny result under FZ16``() =
+    let ds = [ 1, 0x0401UL; 2, 0x04000000UL ]
+    let d0, _, fpscr = fpRun "fc810802" 0x00080000u ds
+    Assert.AreEqual<uint64 * uint32>((0UL, 0x00080008u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCADD.F16 keeps a tiny result without FZ16``() =
+    let ds = [ 1, 0x0401UL; 2, 0x04000000UL ]
+    let d0, _, fpscr = fpRun "fc810802" 0u ds
+    Assert.AreEqual<uint64 * uint32>((1UL, 0u), (d0, fpscr))
+
+  /// On halves by element the index picks the second pair of d2.
+  [<TestMethod>]
+  member _.``[ARMv7] VCMLA.F16 by element takes the pair indexed``() =
+    let ds = [ 1, 0x4400420040003c00UL; 2, 0x3400380000000000UL ]
+    let d0, _, _ = fpRun "fe010822" 0u ds
+    Assert.AreEqual<uint64>(0x3a003e0034003800UL, d0)

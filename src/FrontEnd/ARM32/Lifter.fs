@@ -619,8 +619,10 @@ let translate (ins: Instruction) bld =
     vrev64 ins bld
   | Op.VCLZ ->
     vclz ins bld
+  | Op.VCADD ->
+    FPLifter.vcadd ins bld
   | Op.VCMLA ->
-    unsupported ins bld
+    FPLifter.vcmla ins bld
   | Op.VCVTR ->
     FPLifter.vcvt ins bld false
   (* The four fused forms, which differ only in which of Sn and Sd they pass

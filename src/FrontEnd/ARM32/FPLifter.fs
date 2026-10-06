@@ -24,14 +24,15 @@
 
 /// <summary>
 /// The floating-point instructions on singles and doubles, VFP and Advanced
-/// SIMD alike, lifted on the model in FloatingPoint and FPConversion.
+/// SIMD alike, and the complex arithmetic of Armv8.3, VCADD and VCMLA, on
+/// lanes of halves as well, lifted on the model in FloatingPoint and
+/// FPConversion.
 ///
 /// <para>A VFP instruction works on one S or D register and reads FPSCR. An
-/// Advanced SIMD one works on every single-precision lane of a D or a Q
-/// register and reads the standard value; it is told apart by its operands,
-/// lanes of singles in a register that is not an S register. Every lane of a
-/// source is read before any lane of the destination is written, since the
-/// two can be the same register.</para>
+/// Advanced SIMD one works on every lane of a D or a Q register and reads the
+/// standard value; it is told apart by its operands, lanes in a register that
+/// is not an S register. Every lane of a source is read before any lane of
+/// the destination is written, since the two can be the same register.</para>
 /// </summary>
 module internal B2R2.FrontEnd.ARM32.FPLifter
 
@@ -732,3 +733,89 @@ let vcvtHalf (ins: Instruction) bld isTop =
     conditional ins bld (fun () -> convertHalf ins bld isTop dst)
   | _ ->
     unsupported ins bld
+
+/// The rotation an instruction names, in degrees.
+let private rotationOf = function
+  | OprImm r -> int r
+  | _ -> raise InvalidOperandException
+
+/// FPAdd of two Advanced SIMD lanes of halves or singles.
+let private laneAdd bld esize a b =
+  if esize = 16 then
+    let op (w: Expr[]) =
+      fpArithRaised bld StandardValue 64<rt> false FPAdd [ w[0]; w[1] ]
+    viaDouble bld op [| a; b |]
+  else
+    fpArith bld StandardValue 32<rt> FPAdd [ a; b ]
+
+/// <summary>
+/// VCADD (DDI0487F.c F6.1.39): each pair of lanes is a complex number, the
+/// real part in the lower lane, and the second operand rotated by 90 or 270
+/// degrees -- its two parts swapped and one of them negated -- is added to
+/// the first, lane by lane on the standard value.
+/// </summary>
+let vcadd (ins: Instruction) bld =
+  conditional ins bld (fun () ->
+    let struct (dst, src1, src2, rot) = getFourOprs ins
+    let esize = (getParsingInfo ins).ESize
+    let sz = RegType.fromBitWidth esize
+    let n = readLanes bld esize src1
+    let m = readLanes bld esize src2
+    let by270 = rotationOf rot = 270
+    let lane i =
+      let e = i &&& ~~~1
+      if i = e then
+        let im = if by270 then m[e + 1] else fpNeg sz m[e + 1]
+        laneAdd bld esize n[e] im
+      else
+        let re = if by270 then fpNeg sz m[e] else m[e]
+        laneAdd bld esize n[e + 1] re
+    Array.init n.Length lane |> writeLanes bld dst)
+
+/// The complex number a VCMLA's second operand gives every pair: its own
+/// pairs, or, by element, the one pair the index names.
+let private complexOperand bld esize count opr =
+  match opr with
+  | OprSIMD(SFReg(Scalar(r, Some idx))) ->
+    let pair = readLanes bld esize (OprSIMD(SFReg(Vector r)))
+    let i = int idx * 2
+    Array.init count (fun k -> pair[i + (k &&& 1)])
+  | _ ->
+    readLanes bld esize opr
+
+/// FPMulAdd of three Advanced SIMD lanes of halves or singles.
+let private laneMulAdd bld esize addend a b =
+  if esize = 16 then
+    let op (w: Expr[]) =
+      fpMulAddRaised bld StandardValue 64<rt> false w[0] w[1] w[2]
+    viaDouble bld op [| addend; a; b |]
+  else
+    fpMulAdd bld StandardValue 32<rt> addend a b
+
+/// <summary>
+/// VCMLA, by vector and by element (DDI0487F.c F6.1.52 and F6.1.53): each
+/// pair of lanes of the destination accumulates, by FPMulAdd on the standard
+/// value, the product of one part of the first operand's pair with the
+/// second's rotated by 0, 90, 180 or 270 degrees. Two of them make the whole
+/// complex product: 0 and 90, or 180 and 270.
+/// </summary>
+let vcmla (ins: Instruction) bld =
+  conditional ins bld (fun () ->
+    let struct (dst, src1, src2, rot) = getFourOprs ins
+    let esize = (getParsingInfo ins).ESize
+    let sz = RegType.fromBitWidth esize
+    let d = readLanes bld esize dst
+    let n = readLanes bld esize src1
+    let m = complexOperand bld esize n.Length src2
+    let rotation = rotationOf rot
+    let part = if rotation = 0 || rotation = 180 then 0 else 1
+    let negLow = rotation = 90 || rotation = 180
+    let negHigh = rotation = 180 || rotation = 270
+    let lane i =
+      let e = i &&& ~~~1
+      let other = if part = 0 then 1 else 0
+      let factor, negate =
+        if i = e then m[e + part], negLow else m[e + other], negHigh
+      let factor = if negate then fpNeg sz factor else factor
+      laneMulAdd bld esize d[i] n[e + part] factor
+    Array.init n.Length lane |> writeLanes bld dst)

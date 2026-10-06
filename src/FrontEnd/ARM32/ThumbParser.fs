@@ -6334,31 +6334,15 @@ let parseAdvSIMDThreeRegSameLenExt phlp (itstate: byref<BL>) isInIT bin =
     raise ParsingFailureException
   | 0b01111100u | 0b01111101u | 0b01111110u | 0b01111111u (* 011111xx *) ->
     raise ParsingFailureException
-  (* VCMLA Armv8.3 *)
-  | 0b00100000u ->
+  (* VCMLA Armv8.3, xx1x00x0: op1 is the rotation *)
+  | fields when fields &&& 0b00101101u = 0b00100000u ->
 #if !EMULATION
     chkITQVdVnVm bin itstate
 #endif
-    let dt = oneDt SIMDTypF16
-    render phlp &itstate 0 isInIT bin Op.VCMLA dt N OD.OprDdDnDmRotate
-  | 0b00100010u ->
-#if !EMULATION
-    chkITQVdVnVm bin itstate
-#endif
-    let dt = oneDt SIMDTypF16
-    render phlp &itstate 0 isInIT bin Op.VCMLA dt N OD.OprQdQnQmRotate
-  | 0b00110000u ->
-#if !EMULATION
-    chkITQVdVnVm bin itstate
-#endif
-    let dt = oneDt SIMDTypF32
-    render phlp &itstate 0 isInIT bin Op.VCMLA dt N OD.OprDdDnDmRotate
-  | 0b00110010u ->
-#if !EMULATION
-    chkITQVdVnVm bin itstate
-#endif
-    let dt = oneDt SIMDTypF32
-    render phlp &itstate 0 isInIT bin Op.VCMLA dt N OD.OprQdQnQmRotate
+    let dt = oneDt (if pickBit bin 20 = 0u then SIMDTypF16 else SIMDTypF32)
+    let oprs =
+      if pickBit bin 6 = 0u then OD.OprDdDnDmRotate else OD.OprQdQnQmRotate
+    render phlp &itstate 0 isInIT bin Op.VCMLA dt N oprs
   | 0b10110100u | 0b10110101u | 0b10110110u | 0b10110111u (* 101101xx *) ->
     raise ParsingFailureException
   | 0b10111000u | 0b10111001u | 0b10111010u | 0b10111011u (* 101110xx *) ->

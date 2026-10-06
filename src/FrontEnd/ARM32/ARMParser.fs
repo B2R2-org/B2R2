@@ -2438,27 +2438,15 @@ let parseAdvSIMDThreeRegSameLenExt (phlp: ParsingHelper) bin =
   (* 011111xx *)
   | 0b01111100u | 0b01111101u | 0b01111110u | 0b01111111u ->
     raise ParsingFailureException
-  (* VCMLA Armv8.3 *)
-  | 0b00100000u ->
+  (* VCMLA Armv8.3, xx1x00x0: op1 is the rotation *)
+  | fields when fields &&& 0b00101101u = 0b00100000u ->
 #if !EMULATION
     chkQVdVnVm bin
 #endif
-    render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprDdDnDmRotate
-  | 0b00100010u ->
-#if !EMULATION
-    chkQVdVnVm bin
-#endif
-    render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprQdQnQmRotate
-  | 0b00110000u ->
-#if !EMULATION
-    chkQVdVnVm bin
-#endif
-    render phlp bin Op.VCMLA (oneDt SIMDTypF32) OD.OprDdDnDmRotate
-  | 0b00110010u ->
-#if !EMULATION
-    chkQVdVnVm bin
-#endif
-    render phlp bin Op.VCMLA (oneDt SIMDTypF32) OD.OprQdQnQmRotate
+    let dt = oneDt (if pickBit bin 20 = 0u then SIMDTypF16 else SIMDTypF32)
+    let oprs =
+      if pickBit bin 6 = 0u then OD.OprDdDnDmRotate else OD.OprQdQnQmRotate
+    render phlp bin Op.VCMLA dt oprs
   (* 101101xx *)
   | 0b10110100u | 0b10110101u | 0b10110110u | 0b10110111u ->
     raise ParsingFailureException
@@ -2556,6 +2544,9 @@ let parseAdvSIMDAndFPMulWithAccumulate (phlp: ParsingHelper) bin =
     render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprDdDnDmidxRotate
   (* 0xx10 *)
   | 0b00010u | 0b00110u | 0b01010u | 0b01110u -> (* Armv8.3 *)
+#if !EMULATION
+    chkQVdVn bin
+#endif
     render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprQdQnDmidxRotate
   | 0b00001u -> (* Armv8.2 *)
 #if !EMULATION
@@ -3942,10 +3933,14 @@ let parseCase11 (phlp: ParsingHelper) bin =
   let op0op1op2 =
     (pickTwo bin 24 <<< 2) + (pickBit bin 11 <<< 1) + (pickBit bin 4)
   match op0op1op2 (* op0:op1:op2 *) with
+  (* coprocessors 8 and 9 are reserved to ARMv7, an access to them UNDEFINED
+     (A2.9), and Armv8.3 puts VCADD and VCMLA among them, which the extension
+     decoder below reads *)
   | _ when phlp.IsARMv7
            && phlp.Cond = Condition.UN
            && (pickBit bin 25 = 0u)
-           && (pickBit bin 20 = 0u) -> (* ARMv7 A8-663 *)
+           && (pickBit bin 20 = 0u)
+           && (extract bin 11 9 <> 0b100u) -> (* ARMv7 A8-663 *)
 #if !EMULATION
     chkPUDWCopPCRn bin
 #endif

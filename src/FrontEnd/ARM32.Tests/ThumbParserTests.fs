@@ -1316,3 +1316,12 @@ type ThumbParserTests() =
     let subs = Some "subs pc, lr, #0x0"
     Assert.AreEqual<string option>(subs, under "armv7-v7" "f3de8f00")
     Assert.AreEqual<string option>(Some "eret", under "armv7-v7ve" "f3de8f00")
+
+  /// VCMLA (vector) takes its rotation from op1 in T32 as in A32.
+  [<TestMethod>]
+  member _.``[T32] VCMLA (vector) decodes at every rotation``() =
+    testDisasm "fc310802" "vcmla.f32 d0, d1, d2, #0x0"
+    testDisasm "fcb10802" "vcmla.f32 d0, d1, d2, #0x5a"
+    testDisasm "fd310802" "vcmla.f32 d0, d1, d2, #0xb4"
+    testDisasm "fdb20844" "vcmla.f32 q0, q1, q2, #0x10e"
+    testDisasm "fca10802" "vcmla.f16 d0, d1, d2, #0x5a"

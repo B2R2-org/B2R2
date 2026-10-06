@@ -26,7 +26,8 @@
 /// The floating-point conversions of DDI0406C A2.7: between halves and
 /// singles, FPHalfToSingle and FPSingleToHalf, under FPSCR.AHP as well; between
 /// singles and doubles, FPSingleToDouble and FPDoubleToSingle; and between
-/// floats and integers or fixed-point numbers, FPToFixed and FixedToFP.
+/// floats and integers or fixed-point numbers, FPToFixed and FixedToFP. And
+/// the arithmetic on halves, which is done on doubles and narrowed back.
 ///
 /// <para>Narrowing to a half is FPRound done on the bits, since the IR has no
 /// half-precision type to round into; everything else is the host's
@@ -54,10 +55,11 @@ let private leadingOne wSz m =
 /// <summary>
 /// One half widened to a single or a double, exactly: the exponent rebiased
 /// and the fraction moved up, a subnormal half written as the normal number
-/// it is in the wider format, and an infinity or a NaN carried across, a NaN
-/// made quiet with its payload kept.
+/// it is in the wider format, and an infinity or a NaN carried across with
+/// its payload. A conversion makes the NaN quiet; an operation carried out
+/// in the wider format must not, or a signalling operand raises nothing.
 /// </summary>
-let private halfToWide wSz bld h =
+let private halfToWide quieting wSz bld h =
   let mBits, bias = if wSz = 32<rt> then 23, 127 else 52, 1023
   let sign = AST.zext wSz (h >> numI32 15 16<rt>) << numI32 (int wSz - 1) wSz
   let e = AST.zext wSz ((h >> numI32 10 16<rt>) .& numU32 0x1fu 16<rt>)
@@ -66,8 +68,8 @@ let private halfToWide wSz bld h =
   let up = m << numI32 (mBits - 10) wSz
   let normal = ((e .+ numI32 (bias - 15) wSz) << numI32 mBits wSz) .| up
   let infOrNaN = (numI32 (2 * bias + 1) wSz << numI32 mBits wSz) .| up
-  let special =
-    AST.ite (m == AST.num0 wSz) infOrNaN (infOrNaN .| quietBit wSz)
+  let nan = if quieting then infOrNaN .| quietBit wSz else infOrNaN
+  let special = AST.ite (m == AST.num0 wSz) infOrNaN nan
   (* the leading one of a subnormal's fraction sets the exponent: its position
      less the twenty-four the half's smallest step is *)
   let k = leadingOne wSz m
@@ -98,7 +100,7 @@ let private altTopHalfToWide wSz h =
 let fpHalfToWide bld ctl wSz h =
   let ahp = altHalfPrecision bld
   let topExp = (h .& numU32 0x7c00u 16<rt>) == numU32 0x7c00u 16<rt>
-  let ieee = halfToWide wSz bld h
+  let ieee = halfToWide true wSz bld h
   let nan = AST.not ahp .& isNaN 16<rt> h
   let w = tmpVar bld wSz
   append bld {
@@ -418,3 +420,36 @@ let fixedToFP bld ctl dstSz size fbits unsigned nearest src =
   append bld { r := inForce ctl scaled }
   fpRecord bld (fpBits fpNone fpNone fpNone fpNone (AST.not (isExact integer)))
   r
+
+/// <summary>
+/// A half-precision Advanced SIMD operation (Armv8.2), carried out on
+/// doubles and rounded back once, on the standard value: round to nearest,
+/// the default NaN, and FPSCR.FZ16, which flushes a denormal operand to a
+/// zero of its sign, raising nothing, and a result tiny before rounding the
+/// same way, raising Underflow alone. A double holds every half exactly, and
+/// the operation hands back its double and what it raised: Invalid and
+/// Divide-by-zero are the half operation's too, Inexact is the double's or
+/// the narrowing's, and Overflow and Underflow are the narrowing's.
+/// </summary>
+let viaDouble bld (op: Expr[] -> struct (Expr * Expr)) (halves: Expr[]) =
+  let fz16 = AST.extract (regVar bld R.FPSCR) 1<rt> 19
+  let widen h =
+    let w = tmpVar bld 64<rt>
+    let flushed = AST.ite (fz16 .& isDenormal 16<rt> h) (fpZero 16<rt> h) h
+    append bld { w := halfToWide false 64<rt> bld flushed }
+    w
+  let struct (r, opRaised) = op (Array.map widen halves)
+  let raised = tmpVar bld 32<rt>
+  append bld { raised := opRaised }
+  let mode = AST.num0 2<rt>
+  let struct (h, inexact, overflow, tiny) = narrowToHalf bld mode 64<rt> r
+  let ixc = AST.extract raised 1<rt> 4 .| inexact
+  let invalid, divZero = AST.extract raised 1<rt> 0, AST.extract raised 1<rt> 1
+  let narrowed = fpBits invalid divZero overflow (tiny .& ixc) ixc
+  let flush = tmpVar bld 1<rt>
+  append bld {
+    flush := fz16 .& tiny
+    h := AST.ite flush (fpZero 16<rt> h) h
+  }
+  fpRecord bld (AST.ite flush (numU32 0x8u 32<rt>) narrowed)
+  h

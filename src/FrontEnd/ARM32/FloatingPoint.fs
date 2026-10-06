@@ -285,34 +285,45 @@ let private arithOf op a b =
   | FPSqrt -> AST.fsqrt a
 
 /// <summary>
-/// FPAdd, FPSub, FPMul, FPDiv and FPSqrt (A2.7). The operands are unpacked
-/// and the operation done by the host in the direction the controls name,
-/// which already answers the infinities and the zeros as the pseudocode's
-/// case analysis does; the NaN, which IEEE leaves open, is put right after
-/// it, a tiny result flushed, and what the operation raised recorded. The
-/// square root has one operand and the others two.
+/// FPAdd, FPSub, FPMul, FPDiv and FPSqrt (A2.7), and what the operation
+/// raised, for the caller to record. The operands are unpacked and the
+/// operation done by the host in the direction the controls name, which
+/// already answers the infinities and the zeros as the pseudocode's case
+/// analysis does; the NaN, which IEEE leaves open, is put right after it.
+/// FZ flushes the operands and a tiny result where the operation is the
+/// instruction's own, and not where it is the double a half-precision one is
+/// carried out on. The square root has one operand and the others two.
 /// </summary>
-let fpArith bld ctl sz op operands =
-  let operands = List.map (fpFlushIn bld ctl sz) operands
+let fpArithRaised bld ctl sz flushes op operands =
+  let operands =
+    if flushes then List.map (fpFlushIn bld ctl sz) operands else operands
   let a, b = List.head operands, List.last operands
   let res = tmpVar bld sz
   append bld {
     res := inForce ctl (arithOf op a b)
     res := AST.ite (isNaN sz res) (fpNaNResult bld ctl sz operands) res
   }
-  fpRecord bld (fpFlushOut bld ctl sz res (fpRaised ctl sz op a b))
+  let raised = fpRaised ctl sz op a b
+  struct (res, if flushes then fpFlushOut bld ctl sz res raised else raised)
+
+/// FPAdd, FPSub, FPMul, FPDiv and FPSqrt, with what they raised recorded.
+let fpArith bld ctl sz op operands =
+  let struct (res, raised) = fpArithRaised bld ctl sz true op operands
+  fpRecord bld raised
   res
 
 /// <summary>
-/// FPMulAdd: the addend plus the product, rounded once by the evaluator's own
-/// fused operation. A quiet NaN addend does not win over an invalid product
-/// -- zero times infinity answers the default NaN however the addend read --
-/// while a signalling one still comes back as itself, quieted.
+/// FPMulAdd, the addend plus the product rounded once by the evaluator's own
+/// fused operation, and what it raised, flushing as fpArithRaised does. A
+/// quiet NaN addend does not win over an invalid product -- zero times
+/// infinity answers the default NaN however the addend read -- while a
+/// signalling one still comes back as itself, quieted.
 /// </summary>
-let fpMulAdd bld ctl sz addend a b =
-  let addend = fpFlushIn bld ctl sz addend
-  let a = fpFlushIn bld ctl sz a
-  let b = fpFlushIn bld ctl sz b
+let fpMulAddRaised bld ctl sz flushes addend a b =
+  let flushIn e = if flushes then fpFlushIn bld ctl sz e else e
+  let addend = flushIn addend
+  let a = flushIn a
+  let b = flushIn b
   let res = tmpVar bld sz
   let badProduct =
     (isInfinity sz a .& isZero sz b) .| (isZero sz a .& isInfinity sz b)
@@ -322,7 +333,13 @@ let fpMulAdd bld ctl sz addend a b =
     res := inForce ctl (fma sz false false a b addend)
     res := AST.ite (isNaN sz res) nan res
   }
-  fpRecord bld (fpFlushOut bld ctl sz res (fpFusedRaised ctl sz a b addend))
+  let raised = fpFusedRaised ctl sz a b addend
+  struct (res, if flushes then fpFlushOut bld ctl sz res raised else raised)
+
+/// FPMulAdd, with what it raised recorded.
+let fpMulAdd bld ctl sz addend a b =
+  let struct (res, raised) = fpMulAddRaised bld ctl sz true addend a b
+  fpRecord bld raised
   res
 
 /// <summary>
