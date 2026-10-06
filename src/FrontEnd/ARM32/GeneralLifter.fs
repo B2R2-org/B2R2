@@ -848,6 +848,13 @@ let mov isSetFlags ins bld =
         let cpsr = regVar bld R.CPSR
         cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
         cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
+        (* A rotated immediate carries out its top bit; anything else keeps
+           C as it was. *)
+        if ins.Cflag.IsSome then
+          let carry = computeCarryOutFromImmCflag ins bld
+          cpsr := carry |> setPSR bld R.CPSR PSR.C
+        else
+          ()
       else
         ()
     putEndLabel bld lblIgnore
@@ -1091,7 +1098,7 @@ let transTwoOprsOfMVN (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    struct (e1, e2, getCarryFlag bld)
+    struct (e1, e2, computeCarryOutFromImmCflag ins bld)
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     let shifted, carryOut = shiftC e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
@@ -1526,7 +1533,7 @@ let transOprsOfTEQ (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     let struct (rn, imm) = transTwoOprs ins bld
-    rn, imm, getCarryFlag bld
+    rn, imm, computeCarryOutFromImmCflag ins bld
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
     let rn = transOpr ins bld opr1

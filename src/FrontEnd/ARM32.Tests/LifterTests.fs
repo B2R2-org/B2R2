@@ -117,6 +117,16 @@ type LifterTests() =
       | SideEffect(Effect = BinIR.SideEffect.UndefinedInstruction) -> true
       | _ -> false)
 
+  /// The statement that sets C to a constant, as a flag-setting logical
+  /// instruction does from a rotated immediate: imm32<31>.
+  let carryPut set =
+    let bit = if set then AST.num1 1<rt> else AST.num0 1<rt>
+    !.CPSR := (!.CPSR .& num 0xdfffffffu) .| (AST.zext 32<rt> bit << num 29u)
+
+  /// Whether the statements of one encoding set C to the constant given.
+  let writesCarry isThumb hex set =
+    liftedBy isThumb hex |> Array.contains (carryPut set)
+
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =
     let shiftAmt = AST.zext 32<rt> (AST.xtlo 8<rt> !.R8)
@@ -700,3 +710,35 @@ type LifterTests() =
   member _.``[Thumb] LSLS (register, narrow) lifts as LSLS.W does``() =
     CollectionAssert.AreEqual(unwrapStmts (liftedBy true "fa10f001"),
                               unwrapStmts (liftedBy true "4088"))
+
+  /// ThumbExpandImm_C (DDI0406C A6.3.2): a rotated constant gives
+  /// carry_out = imm32<31>.
+  [<TestMethod>]
+  member _.``[Thumb] TST (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry true "f0114f7f" true)
+
+  [<TestMethod>]
+  member _.``[Thumb] MOVS (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry true "f45f007f" false)
+
+  [<TestMethod>]
+  member _.``[Thumb] ORNS (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry true "f071407f" true)
+
+  /// ARMExpandImm_C (DDI0406C A5.2.4), whose carry the parser already passes
+  /// and A32 TST already takes.
+  [<TestMethod>]
+  member _.``[ARMv7] TST (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry false "e31104ff" true)
+
+  [<TestMethod>]
+  member _.``[ARMv7] TEQ (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry false "e33104ff" true)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MOVS (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry false "e3b008ff" false)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MVNS (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry false "e3f004ff" true)

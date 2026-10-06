@@ -340,6 +340,9 @@ type OprDesc =
   | OprSPSPRm = 306
   | OprSregRnT = 307
   | OprCsync = 308
+  | OprRnConstCFT = 309
+  | OprRdConstCFT = 310
+  | OprRdRnConstCFT = 311
 
 type OD = OprDesc
 
@@ -820,6 +823,13 @@ module OperandParsingHelper =
       let rotation = (extract imm12 11 7) % 32u |> int
       if rotation = 0 then value
       else (value >>> rotation) ||| (value <<< (32 - rotation))
+
+  (* ThumbExpandImm_C: an unrotated pattern keeps the carry, a rotated constant
+     gives imm32<31>. *)
+  let t32ExpandImmCF imm12 =
+    let imm32 = t32ExpandImm imm12
+    if extract imm12 11 10 = 0b00u then struct (imm32 |> int64 |> OprImm, None)
+    else struct (imm32 |> int64 |> OprImm, Some(pickBit imm32 31 = 1u))
 
   (* W == '1' *)
   let wbackW8 bin = pickBit bin 8 = 0b1u
@@ -3830,6 +3840,16 @@ type internal OprRnConstT() =
     let cons = t32ExpandImm imm12 |> int64 |> OprImm
     struct (TwoOperands(rn, cons), false, None, 32<rt>)
 
+(* <Rn>, #<const> with carry *)
+type internal OprRnConstCFT() =
+  inherit OperandParser()
+  override _.Render bin =
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let imm12 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+    let struct (cons, carryOut) = t32ExpandImmCF imm12
+    struct (TwoOperands(rn, cons), false, carryOut, 32<rt>)
+
 (* <Rd>, #<const> *)
 type internal OprRdConstT() =
   inherit OperandParser()
@@ -3839,6 +3859,16 @@ type internal OprRdConstT() =
       (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
     let cons = t32ExpandImm imm12 |> int64 |> OprImm
     struct (TwoOperands(rn, cons), false, None, 32<rt>)
+
+(* <Rd>, #<const> with carry *)
+type internal OprRdConstCFT() =
+  inherit OperandParser()
+  override _.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let imm12 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+    let struct (cons, carryOut) = t32ExpandImmCF imm12
+    struct (TwoOperands(rd, cons), false, carryOut, 32<rt>)
 
 (* <Rn>!, <registers> *)
 type internal OprRnRegsT16() =
@@ -4370,6 +4400,17 @@ type internal OprRdRnConstT() =
       (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
     let cons = t32ExpandImm imm12 |> int64 |> OprImm
     struct (ThreeOperands(rd, rn, cons), false, None, 32<rt>)
+
+(* <Rd>, <Rn>, #<const> with carry *)
+type internal OprRdRnConstCFT() =
+  inherit OperandParser()
+  override _.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let imm12 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+    let struct (cons, carryOut) = t32ExpandImmCF imm12
+    struct (ThreeOperands(rd, rn, cons), false, carryOut, 32<rt>)
 
 (* {<Rd>,} SP, #<const> *)
 type internal OprRdSPConstT() =

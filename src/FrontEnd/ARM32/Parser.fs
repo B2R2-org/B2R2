@@ -397,7 +397,10 @@ type Parser(isa: ISA, isThumb, reader) =
        OprSPSPImm7() :> OperandParser
        OprSPSPRm() :> OperandParser
        OprSregRnT() :> OperandParser
-       OprCsync() :> OperandParser |]
+       OprCsync() :> OperandParser
+       OprRnConstCFT() :> OperandParser
+       OprRdConstCFT() :> OperandParser
+       OprRdRnConstCFT() :> OperandParser |]
 
   let mutable isThumb: bool = isThumb
 
