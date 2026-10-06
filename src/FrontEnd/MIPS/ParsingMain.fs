@@ -1190,14 +1190,16 @@ let private parseCOP1 arch release binary =
      a whole-register mask into an FPR and these branches test that
      register, so the condition travels in a register rather than in
      FCSR. The conditions themselves are in the low five bits of the
-     function field. *)
+     function field, with bit 5 clear: the W and L rows the comparisons
+     take over still hold CVT.S and CVT.D from a word or a long, at 32 and
+     33. *)
   | 0b01001u when release = MIPSRelease.R6 ->
     Op.BC1EQZ, None, None, getFtRel16 binary
   | 0b01101u when release = MIPSRelease.R6 ->
     Op.BC1NEZ, None, None, getFtRel16 binary
-  | 0b10100u when release = MIPSRelease.R6 ->
+  | 0b10100u when release = MIPSRelease.R6 && Bits.pick binary 5u = 0u ->
     parseCMPR6 Fmt.S binary
-  | 0b10101u when release = MIPSRelease.R6 ->
+  | 0b10101u when release = MIPSRelease.R6 && Bits.pick binary 5u = 0u ->
     parseCMPR6 Fmt.D binary
   | 0b01000u ->
     (* bit 17 is nd, the nullify bit, and bit 16 is tf. The two likely

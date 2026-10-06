@@ -277,3 +277,25 @@ type MIPS64ParserTests() =
       Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
       Assert.AreEqual<Operands>(expected, ins.Operands, hex)
 
+  /// <summary>
+  /// Release 6 puts CMP.cond.fmt in the rows of the W and L formats, with its
+  /// condition in function bits 4 to 0 and bit 5 clear. CVT.S and CVT.D from
+  /// a word or a long stay in the same rows, at 32 and 33, and were read as
+  /// CMP.AF and CMP.UN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64R6] CVT from a word or a long is not a CMP``() =
+    let words =
+      [ "46801020", CVTS, Fmt.W
+        "46801021", CVTD, Fmt.W
+        "46a01020", CVTS, Fmt.L
+        "46a01021", CVTD, Fmt.L ]
+    let isa =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let parser = Parser(isa, BinReader.Init Endian.Big)
+                 :> IInstructionParsable
+    for hex, opcode, fmt in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
+      Assert.AreEqual<Fmt option>(Some fmt, ins.Fmt, hex)
