@@ -4318,13 +4318,14 @@ let vuzp (ins: Instruction) bld =
         dst := AST.undef ins.OprSize "UNKNOWN"
         src := AST.undef ins.OprSize "UNKNOWN"
       else
+        (* the lanes unzipped are D[m]:D[d], the destination's first *)
         zip1B := src
         zip1A := dst
         for e in 0 .. elements do
           let pos = e + p.Elements / 2
-          elem dst e p.ESize := elem zip1B (e * 2) p.ESize
-          elem src e p.ESize := elem zip1B (e * 2 + 1) p.ESize
-          elem dst pos p.ESize := elem zip1A (e * 2) p.ESize
-          elem src pos p.ESize := elem zip1A (e * 2 + 1) p.ESize
+          elem dst e p.ESize := elem zip1A (e * 2) p.ESize
+          elem src e p.ESize := elem zip1A (e * 2 + 1) p.ESize
+          elem dst pos p.ESize := elem zip1B (e * 2) p.ESize
+          elem src pos p.ESize := elem zip1B (e * 2 + 1) p.ESize
     putEndLabel bld lblIgnore
   }

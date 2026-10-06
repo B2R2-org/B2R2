@@ -977,3 +977,19 @@ type LifterTests() =
     let read = IRRunner.run (liftedBy false "f3a22863") inputs
     Assert.AreEqual<uint64>(0xc0000000f0000000UL, (read !@(Q1, 1)).ToUInt64())
     Assert.AreEqual<uint64>(0x0000000180000000UL, (read !@(Q1, 2)).ToUInt64())
+
+  /// VUZP of doublewords unzips D[m]:D[d], so the destination's lanes come
+  /// first: its even lanes, then the source's, land in the destination
+  /// (DDI0406C A8.8.423).
+  [<TestMethod>]
+  member _.``[ARMv7] VUZP of doublewords reads the destination first``() =
+    let unzip hex dd dm =
+      let inputs =
+        [ dd, BitVector(0x0706050403020100UL, 64<rt>)
+          dm, BitVector(0x0f0e0d0c0b0a0908UL, 64<rt>) ]
+      let read = IRRunner.run (liftedBy false hex) inputs
+      (read dd).ToUInt64(), (read dm).ToUInt64()
+    Assert.AreEqual((0x0e0c0a0806040200UL, 0x0f0d0b0907050301UL),
+                    unzip "f3b20101" !@(Q0, 1) !@(Q0, 2))
+    Assert.AreEqual((0x0d0c090805040100UL, 0x0f0e0b0a07060302UL),
+                    unzip "f3f6012f" !@(Q8, 1) !@(Q15, 2))
