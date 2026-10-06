@@ -1926,6 +1926,15 @@ let stlxp ins bld =
       sized 32<rt> src1 := status
   }
 
+/// CLREX, which clears the reservation a load-exclusive made, so that a
+/// store-exclusive after it fails (DDI0487F.c C6.2.54). The reservation is
+/// left naming the last byte of memory, which no store-exclusive of a
+/// halfword or more can name, as each is aligned.
+let clrex ins bld =
+  lift bld ins {
+    direct (regVar bld R.ExMonAddr) := numU64 0xffffffffffffffffUL 64<rt>
+  }
+
 let strb ins bld =
   lift bld ins {
     let src, (bReg, offset) = transTwoOprsSepMem ins bld

@@ -280,3 +280,11 @@ type LifterTests() =
   member _.``[AArch64] STGP (post-index) stores at the base``() =
     Assert.AreEqual<Expr option>(Some !.X1,
                                  assigned "68808c22" (AST.tmpvar 64<rt> 1))
+
+  /// CLREX clears the reservation, leaving it on the last byte of memory, so
+  /// that a store-exclusive after it fails (DDI0487F.c C6.2.54).
+  [<TestMethod>]
+  member _.``[AArch64] CLREX clears the reservation``() =
+    let cleared = Some(num64 0xffffffffffffffffUL)
+    Assert.AreEqual<Expr option>(cleared, assigned "d5033f5f" !.ExMonAddr)
+    Assert.AreEqual<Expr option>(cleared, assigned "d503355f" !.ExMonAddr)

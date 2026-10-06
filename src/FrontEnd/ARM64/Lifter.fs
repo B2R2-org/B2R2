@@ -413,6 +413,8 @@ let translate (ins: Instruction) bld =
     ccmn ins bld
   | Opcode.CCMP ->
     ccmp ins bld
+  | Opcode.CLREX ->
+    clrex ins bld
   | Opcode.CLS ->
     cls ins bld
   | Opcode.FRSQRTE ->
@@ -553,7 +555,6 @@ let translate (ins: Instruction) bld =
     ctz ins bld
   | Opcode.DCZVA ->
     dczva ins bld
-  | Opcode.CLREX
   | Opcode.DMB | Opcode.DSB | Opcode.ISB | Opcode.SB ->
     nop ins bld
   | Opcode.DUP ->
