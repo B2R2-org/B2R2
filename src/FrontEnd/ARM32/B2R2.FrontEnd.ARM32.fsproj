@@ -22,6 +22,9 @@
     <Compile Include="Modes.fs" />
     <Compile Include="GeneralLifter.fs" />
     <Compile Include="NEONLifter.fs" />
+    <Compile Include="FloatingPoint.fs" />
+    <Compile Include="FPConversion.fs" />
+    <Compile Include="FPLifter.fs" />
     <Compile Include="SystemLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="OperandParsingHelper.fs" />

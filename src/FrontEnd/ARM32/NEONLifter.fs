@@ -571,22 +571,6 @@ let vabsf (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
-let vnegf (ins: Instruction) bld =
-  lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    match (getParsingInfo ins).ESize with
-    | 16 ->
-      dst :=
-        AST.zext 32<rt> (AST.xtlo 16<rt> src <+> numU32 0x8000u 16<rt>)
-    | 32 ->
-      dst := src <+> numU32 0x80000000u 32<rt>
-    | _ ->
-      dst := src <+> numU64 0x8000000000000000UL 64<rt>
-    putEndLabel bld lblIgnore
-  }
-
 /// <summary>
 /// The NaN a VFP operation answers with where it had no operand to propagate.
 ///
@@ -801,103 +785,6 @@ let vaddl (ins: Instruction) bld =
     for e in 0 .. (p.Elements - 1) / 2 do
       elem dstA e (2 * p.ESize) := sum e
       elem dstB e (2 * p.ESize) := sum (e + p.Elements / 2)
-    putEndLabel bld lblIgnore
-  }
-
-/// The conversion VCVT names, as the function that performs it and the width
-/// it leaves its result in.
-let vcvtCastKind =
-  let fext = AST.cast CastKind.FloatCast
-  let ofSInt = AST.cast CastKind.SIntToFloat
-  let ofUInt = AST.cast CastKind.UIntToFloat
-  let toInt = AST.floatToSInt RoundingMode.TowardZero
-  function
-  (* float <-> float *)
-  | Some(TwoDT(SIMDTypF32, SIMDTypF64)) -> struct (fext, 32<rt>)
-  | Some(TwoDT(SIMDTypF64, SIMDTypF32)) -> struct (fext, 64<rt>)
-  (* int -> float *)
-  | Some(TwoDT(SIMDTypF32, SIMDTypS32)) -> struct (ofSInt, 32<rt>)
-  | Some(TwoDT(SIMDTypF64, SIMDTypS32)) -> struct (ofSInt, 64<rt>)
-  | Some(TwoDT(SIMDTypF32, SIMDTypU32)) -> struct (ofUInt, 32<rt>)
-  | Some(TwoDT(SIMDTypF64, SIMDTypU32)) -> struct (ofUInt, 64<rt>)
-  (* float -> int (round toward zero) *)
-  | Some(TwoDT(SIMDTypS32, SIMDTypF32))
-  | Some(TwoDT(SIMDTypU32, SIMDTypF32)) -> struct (toInt, 32<rt>)
-  | Some(TwoDT(SIMDTypS32, SIMDTypF64))
-  | Some(TwoDT(SIMDTypU32, SIMDTypF64)) -> struct (toInt, 32<rt>)
-  | _ -> raise InvalidOperandException
-
-let parseOprOfVCVT (ins: Instruction) bld =
-  (* FIXME *)
-  match ins.Operands with
-  | TwoOperands(OprSIMD _, OprSIMD _) ->
-    match ins.OprSize with
-    (* FIXME *)
-    (* VCVT (between half-precision and single-precision, Advanced SIMD) *)
-    | 128<rt> ->
-      let struct (dst, src) = getTwoOprs ins
-      let struct (dstB, dstA) = transOpr128 bld dst
-      let src = transOpr ins bld src
-      let p = getParsingInfo ins
-      let struct (tdstB, tdstA) = tmpVars2 bld 64<rt>
-      append bld {
-        tdstA := (dstB << numI32 63 64<rt>) .| (dstA >> AST.num1 64<rt>)
-        tdstB := dstB >> AST.num1 64<rt>
-      }
-      for e in 0 .. (p.Elements - 1) / 2 do
-        append bld {
-          elem tdstB e 32 :=
-            AST.cast CastKind.FloatCast 32<rt> (elem src (e + 2) 16)
-          elem tdstA e 32 :=
-            AST.cast CastKind.FloatCast 32<rt> (elem src e 16)
-        }
-      append bld {
-        dstB := tdstB
-        dstA := tdstA
-      }
-    | 64<rt> ->
-      let struct (dst, src) = getTwoOprs ins
-      let dst = transOpr ins bld dst
-      let struct (srcB, srcA) = transOpr128 bld src
-      let p = getParsingInfo ins
-      let struct (tsrcB, tsrcA) = tmpVars2 bld 64<rt>
-      append bld {
-        tsrcA := (srcB << numI32 63 64<rt>) .| (srcA >> AST.num1 64<rt>)
-        tsrcB := srcB >> AST.num1 64<rt>
-      }
-      for e in 0 .. (p.Elements - 1) / 2 do
-        append bld {
-          elem dst (e + 2) 16 :=
-            AST.cast CastKind.FloatCast 16<rt> (elem tsrcB e 32)
-          elem dst e 16 :=
-            AST.cast CastKind.FloatCast 16<rt> (elem tsrcA e 32)
-        }
-    (* VCVT (between double-precision and single-precision) *)
-    | _ ->
-      let struct (dst, src) = transTwoOprs ins bld
-      match ins.SIMDTyp with
-      | Some(TwoDT(SIMDTypU32, SIMDTypF32))
-      | Some(TwoDT(SIMDTypU32, SIMDTypF64)) ->
-        (* LowUIR has no unsigned float-to-int cast; widen to a signed 64-bit
-           integer (values in [0, 2^32) are exact) and keep the low 32 bits. *)
-        append bld {
-          dst :=
-            AST.xtlo 32<rt>
-              (AST.floatToSInt RoundingMode.TowardZero 64<rt> src)
-        }
-      | _ ->
-        let struct (conv, size) = vcvtCastKind ins.SIMDTyp
-        append bld {
-          dst := conv size src
-        }
-  | _ ->
-    raise InvalidOperandException
-
-let vcvt (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    parseOprOfVCVT ins bld
     putEndLabel bld lblIgnore
   }
 
@@ -1831,27 +1718,6 @@ let vclt (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-/// <summary>
-/// VACGE, VACGT, VACLE and VACLT: the floating-point compares taken on the
-/// MAGNITUDES.
-///
-/// An absolute value is the sign bit cleared and nothing else, so it needs no
-/// arithmetic -- and doing it that way leaves a NaN a NaN, which the compare
-/// then answers false about, as the manual requires. The LE and LT forms are
-/// the GE and GT ones with the operands the other way round.
-/// </summary>
-let private vabscmp (ins: Instruction) bld cmp =
-  let bare e = e .& numU32 0x7fffffffu 32<rt>
-  vectorCompareReg ins bld (fun a b -> cmp (bare a) (bare b))
-
-let vacge ins bld = vabscmp ins bld AST.fge
-
-let vacgt ins bld = vabscmp ins bld AST.fgt
-
-let vacle ins bld = vabscmp ins bld (fun a b -> AST.fge b a)
-
-let vaclt ins bld = vabscmp ins bld (fun a b -> AST.fgt b a)
-
 /// Whether a single-precision value is an infinity: every exponent bit set
 /// and a mantissa of zero, the sign ignored.
 let private isInf32 e =
@@ -2020,76 +1886,6 @@ let private vestimate (ins: Instruction) bld isSqrt =
 let vrecpe ins bld = vestimate ins bld false
 
 let vrsqrte ins bld = vestimate ins bld true
-
-/// <summary>
-/// One half-precision value widened to single or double, written out of its
-/// bits rather than cast -- the IR has no half-precision type to cast from.
-///
-/// Three cases, and the middle one is the only one with work in it. A zero
-/// exponent with a zero significand is a signed zero. A zero exponent with
-/// anything else is a DENORMAL, and the wider format has room to write it as
-/// an ordinary number -- so the leading one has to be found and the exponent
-/// derived from where it was. Every exponent bit set is an infinity or a NaN
-/// and carries across as one. Everything else is the exponent rebiased and
-/// the significand moved up.
-/// </summary>
-let private halfToWide bld (rt: int<rt>) h =
-  let mantBits = if rt = 32<rt> then 23 else 52
-  let bias = if rt = 32<rt> then 112 else 1008
-  let expMax = if rt = 32<rt> then 0xff else 0x7ff
-  let sign = AST.zext rt (h >> numI32 15 16<rt>) << numI32 (int rt - 1) rt
-  let e = AST.zext rt ((h >> numI32 10 16<rt>) .& numU32 0x1fu 16<rt>)
-  let m = AST.zext rt (h .& numU32 0x3ffu 16<rt>)
-  let up = m << numI32 (mantBits - 10) rt
-  let normal = ((e .+ numI32 bias rt) << numI32 mantBits rt) .| up
-  (* an infinity carries across as it is, but a NaN comes out QUIET: the
-     manual's FPProcessNaN sets the top significand bit, and VFP is not in
-     default-NaN mode, so the payload is kept rather than replaced *)
-  let quiet = AST.num1 rt << numI32 (mantBits - 1) rt
-  let infOrNaN = (numI32 expMax rt << numI32 mantBits rt) .| up
-  let special =
-    AST.ite (m == AST.num0 rt) infOrNaN (infOrNaN .| quiet)
-  let lz = tmpVar bld rt
-  countLeadingZeroBitsForIR lz m rt bld
-  (* the leading one sits where the count says it does, and the exponent is
-     that position less the twenty-four the format's smallest step is *)
-  let k = numI32 (int rt - 1) rt .- lz
-  let denExp = (k .+ numI32 (bias - 9) rt) << numI32 mantBits rt
-  let mantMask = (AST.num1 rt << numI32 mantBits rt) .- AST.num1 rt
-  let denMant = (m << (numI32 mantBits rt .- k)) .& mantMask
-  let subnormal =
-    AST.ite (m == AST.num0 rt) (AST.num0 rt) (denExp .| denMant)
-  (* thirty-one, not the target's own maximum: the exponent being tested is
-     the HALF's, and five bits is all it has *)
-  let ordinary = AST.ite (e == AST.num0 rt) subnormal normal
-  let body = AST.ite (e == numI32 31 rt) special ordinary
-  sign .| body
-
-/// <summary>
-/// VCVTB and VCVTT: a half-precision value taken from the bottom or the top
-/// half of the source and widened.
-///
-/// The destination's width is what the first of the two data types names,
-/// and the source is a word either way -- which is why the half is picked
-/// out of it rather than read as a register of its own.
-/// </summary>
-let private vcvtHalfWiden (ins: Instruction) bld isTop =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let struct (dst, src) = transTwoOprs ins bld
-    let rt =
-      match ins.SIMDTyp with
-      | Some(TwoDT(SIMDTypF64, SIMDTypF16)) -> 64<rt>
-      | _ -> 32<rt>
-    let h = if isTop then AST.xthi 16<rt> src else AST.xtlo 16<rt> src
-    dst := halfToWide bld rt h
-    putEndLabel bld lblIgnore
-  }
-
-let vcvtb ins bld = vcvtHalfWiden ins bld false
-
-let vcvtt ins bld = vcvtHalfWiden ins bld true
 
 let vtst (ins: Instruction) bld =
   lift bld ins {

@@ -97,6 +97,28 @@ type LifterTests() =
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     ins.Translate builder
 
+  (* Dn is the half n % 2 of Q(n / 2), and S(2n) and S(2n + 1) are the low
+     and the high word of Dn *)
+  let dReg n = !@(enum<Register> (int Q0 + n / 2), n % 2 + 1)
+
+  /// What an A32 encoding leaves in D0, D1 and FPSCR, run with FPSCR and the
+  /// D registers given.
+  let fpRun hex (fpscr: uint32) (ds: (int * uint64) list) =
+    let inputs =
+      (!.FPSCR, BitVector(fpscr, 32<rt>))
+      :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false hex) inputs
+    let d n = (read (dReg n)).ToUInt64()
+    d 0, d 1, uint32 ((read !.FPSCR).ToUInt64())
+
+  /// Whether an A32 encoding lifts to something other than a refusal.
+  let liftsToIR hex =
+    liftedBy false hex
+    |> Array.exists (function
+      | SideEffect _ -> true
+      | _ -> false)
+    |> not
+
   /// The registers the statements of one encoding write.
   let writtenBy isThumb hex =
     liftedBy isThumb hex
@@ -328,19 +350,13 @@ type LifterTests() =
             (!.CPSR .& num 0xfff0ffffu) .| ((geLo .| geHi) << num 0x10u) |]
     |> testARM
 
+  /// VNMLA is FPAdd(FPNeg(Sd), FPNeg(product)), not FPNeg(FPAdd(Sd,
+  /// product)): the two part company on zeros, where +0 accumulating -1 * +0
+  /// is +0 the first way and -0 the second.
   [<TestMethod>]
   member _.``[ARMv7] VNMLA sums the negated addends``() =
-    let sign = num 0x80000000u
-    let s0 = AST.xtlo 32<rt> !@(Q0, 1)
-    let s1 = AST.xthi 32<rt> !@(Q0, 1)
-    let s2 = AST.xtlo 32<rt> !@(Q0, 2)
-    "ee100ac1"
-    ++ [| !@(Q0, 1) :=
-            (!@(Q0, 1) .& num64 0xffffffff00000000UL)
-              .| AST.zext 64<rt>
-                   (AST.fadd (s0 <+> sign)
-                             (AST.fmul s1 s2 <+> sign)) |]
-    |> testARM
+    let d0, _, _ = fpRun "ee100ac1" 0u [ 0, 0xbf80000000000000UL ]
+    Assert.AreEqual<uint64>(0xbf80000000000000UL, d0)
 
   (* DDI0406C: a plain Thumb B is `BranchWritePC(PC + imm32)` with no
      alignment, and BL/BLX align the base only `if targetInstrSet ==
@@ -516,19 +532,9 @@ type LifterTests() =
   /// </summary>
   [<TestMethod>]
   member _.``[ARMv7] VFNMA negates its operands, not its product``() =
-    let low = num64 0xffffffff00000000UL
-    let sign = num 0x80000000u
-    let s0 = AST.xtlo 32<rt> !@(Q0, 1)
-    let s1 = AST.xthi 32<rt> !@(Q0, 1)
-    let s2 = AST.xtlo 32<rt> !@(Q0, 2)
-    let flags = BitVector(0u, 8<rt>) |> AST.num
-    "ee900ac1"
-    ++ [| !@(Q0, 1) :=
-            (!@(Q0, 1) .& low)
-              .| AST.zext 64<rt>
-                   (AST.app "FMA32" [ s1 <+> sign; s2; s0 <+> sign; flags ]
-                      32<rt>) |]
-    |> testARM
+    let ds = [ 0, 0x7fc000003f800000UL; 1, 0x3f800000UL ]
+    let d0, _, _ = fpRun "ee900ac1" 0u ds
+    Assert.AreEqual<uint64>(0x7fc00000ffc00000UL, d0)
 
   /// A hint changes nothing a program can see: with one thread and nothing
   /// to wait for, each of these lifts to no statement at all.
@@ -1508,3 +1514,413 @@ type LifterTests() =
                             vqshl 0x00018000ffffffffUL 0x000f00f100ef00f0UL)
     Assert.AreEqual<uint64>(0x0000000000000001UL,
                             vrshl 0x7fffffff80000000UL 0x000000e0000000e0UL)
+
+  /// <summary>
+  /// A VFP operation rounds in the direction FPSCR.RMode names, which is what
+  /// an expression no RoundCtrl encloses rounds by; an Advanced SIMD one
+  /// rounds to nearest whatever FPSCR says (DDI0406C A2.7), so a RoundCtrl
+  /// naming nearest encloses it.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 on S registers rounds as FPSCR says``() =
+    let text = liftedBy false "ee320a04" |> Array.map string |> String.concat ""
+    Assert.AreEqual<bool>(false, text.Contains "rnd(", text)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 on D registers rounds to nearest``() =
+    let text = liftedBy false "f2010d02" |> Array.map string |> String.concat ""
+    Assert.AreEqual<bool>(true, text.Contains "rnd(0x0:I8", text)
+
+  /// FPSCR.FZ flushes a result tiny before rounding to zero, raising
+  /// Underflow alone: 2^-126 times a half is 2^-127, a subnormal.
+  [<TestMethod>]
+  member _.``[ARMv7] VMUL.F32 flushes a tiny product under FZ``() =
+    let ds = [ 2, 0x00800000UL; 4, 0x3f000000UL ]
+    let d0, _, fpscr = fpRun "ee220a04" 0x01000000u ds
+    Assert.AreEqual<uint64 * uint32>((0UL, 0x01000008u), (d0, fpscr))
+
+  /// And a denormal operand is a zero of its sign, raising Input Denormal.
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 flushes a denormal operand under FZ``() =
+    let ds = [ 2, 0x80000001UL; 4, 0x3f800000UL ]
+    let d0, _, fpscr = fpRun "ee320a04" 0x01000000u ds
+    Assert.AreEqual<uint64 * uint32>((0x3f800000UL, 0x01000080u), (d0, fpscr))
+
+  /// Advanced SIMD flushes whatever FPSCR.FZ says, and still sets the flags.
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 on D registers always flushes``() =
+    let ds = [ 1, 0x3f80000000000001UL; 2, 0x3f8000003f800000UL ]
+    let d0, _, fpscr = fpRun "f2010d02" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x400000003f800000UL, 0x80u), (d0, fpscr))
+
+  /// <summary>
+  /// VCVTB.F16.F32 writes the half it narrows to into the bottom of Sd and
+  /// leaves the top: 1 + 2^-11 is a tie, and goes to the even 1.0. VCVTT
+  /// writes the top and leaves the bottom.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTB.F16.F32 keeps the top of Sd``() =
+    let ds = [ 0, 0x3f800000UL; 2, 0x3f801000UL ]
+    let d0, _, fpscr = fpRun "eeb30a42" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x3f803c00UL, 0x10u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTT.F16.F32 keeps the bottom of Sd``() =
+    let ds = [ 0, 0x3f800000UL; 2, 0x3f801000UL ]
+    let d0, _, fpscr = fpRun "eeb30ac2" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x3c000000UL, 0x10u), (d0, fpscr))
+
+  /// VCVTB.F32.F16 reads the bottom half of Sm, a NaN coming back quiet.
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTB.F32.F16 widens the bottom of Sm``() =
+    let d0, _, fpscr = fpRun "eeb20a42" 0u [ 2, 0x3c007d00UL ]
+    Assert.AreEqual<uint64 * uint32>((0x7fe00000UL, 1u), (d0, fpscr))
+
+  /// <summary>
+  /// VCMP sets FPSCR's NZCV to 0011 for an unordered pair and raises Invalid
+  /// for a signalling NaN; VCMPE raises it for a quiet one too, and VCMP does
+  /// not.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCMP of a signalling NaN raises Invalid``() =
+    let _, _, fpscr = fpRun "eeb42a44" 0u [ 2, 0x7fa00000UL ]
+    Assert.AreEqual<uint32>(0x30000001u, fpscr)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCMP of a quiet NaN raises nothing``() =
+    let _, _, fpscr = fpRun "eeb42a44" 0u [ 2, 0x7fc00000UL ]
+    Assert.AreEqual<uint32>(0x30000000u, fpscr)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCMPE of a quiet NaN raises Invalid``() =
+    let _, _, fpscr = fpRun "eeb42ac4" 0u [ 2, 0x7fc00000UL ]
+    Assert.AreEqual<uint32>(0x30000001u, fpscr)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCMP orders less than``() =
+    let _, _, fpscr = fpRun "eeb42a44" 0u [ 2, 0x3f800000UL; 4, 0x40000000UL ]
+    Assert.AreEqual<uint32>(0x80000000u, fpscr)
+
+  /// The Advanced SIMD floating-point forms the issue found unlifted, or
+  /// throwing, or rejected by a Debug build's type check, which these tests
+  /// run under.
+  [<TestMethod>]
+  member _.``[ARMv7] The Advanced SIMD F32 forms lift``() =
+    [ "f2020e44"
+      "f2020f44"
+      "f3020d04"
+      "f3220d04"
+      "f3b90742"
+      "f2020c54"
+      "f3b90702"
+      "f2020c14"
+      "eebd0a42"
+      "eebe0aef" ]
+    |> List.iter (fun hex -> Assert.AreEqual<bool>(true, liftsToIR hex, hex))
+
+  /// VCEQ.F32 compares lane by lane: all ones where equal, which a zero of
+  /// either sign is, and never with a NaN.
+  [<TestMethod>]
+  member _.``[ARMv7] VCEQ.F32 compares every lane``() =
+    let ds =
+      [ 2, 0x800000003f800000UL
+        3, 0x7fc000003f800000UL
+        4, 0x000000003f800000UL
+        5, 0x7fc0000040000000UL ]
+    let d0, d1, _ = fpRun "f2020e44" 0u ds
+    Assert.AreEqual<uint64 * uint64>((0xffffffffffffffffUL, 0UL), (d0, d1))
+
+  /// VMAX.F32 answers the default NaN for a NaN operand, Advanced SIMD being
+  /// in default-NaN mode, and raises Invalid for a signalling one.
+  [<TestMethod>]
+  member _.``[ARMv7] VMAX.F32 answers the default NaN``() =
+    let ds = [ 1, 0x7f80000140000000UL; 2, 0x3f8000003f800000UL ]
+    let d0, _, fpscr = fpRun "f2010f02" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x7fc0000040000000UL, 1u), (d0, fpscr))
+
+  /// VABS.F32 on a quadword clears the sign of all four lanes.
+  [<TestMethod>]
+  member _.``[ARMv7] VABS.F32 on Q registers clears every sign``() =
+    let ds = [ 2, 0x80000000bf800000UL; 3, 0xffc00000c0000000UL ]
+    let d0, d1, _ = fpRun "f3b90742" 0u ds
+    Assert.AreEqual<uint64 * uint64>((0x3f800000UL, 0x7fc0000040000000UL),
+                                     (d0, d1))
+
+  /// VNEG.F32 on a doubleword negates both lanes.
+  [<TestMethod>]
+  member _.``[ARMv7] VNEG.F32 on D registers negates both lanes``() =
+    let d0, _, _ = fpRun "f3b90782" 0u [ 2, 0x3f800000bf800000UL ]
+    Assert.AreEqual<uint64>(0xbf8000003f800000UL, d0)
+
+  /// <summary>
+  /// VMUL, VMLA and VMLS work lane by lane on singles (A8.8.352, A8.8.338,
+  /// A8.8.339): with d0 = {1.0, 1.0}, d1 = {1.5, 2.0} and d2 = {3.0, -0.5}.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VMUL.F32 on D registers multiplies lanes``() =
+    let ds =
+      [ 0, 0x3f8000003f800000UL
+        1, 0x400000003fc00000UL
+        2, 0xbf00000040400000UL ]
+    let d0, _, _ = fpRun "f3010d12" 0u ds
+    Assert.AreEqual<uint64>(0xbf80000040900000UL, d0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMLA.F32 on D registers accumulates lanes``() =
+    let ds =
+      [ 0, 0x3f8000003f800000UL
+        1, 0x400000003fc00000UL
+        2, 0xbf00000040400000UL ]
+    let d0, _, _ = fpRun "f2010d12" 0u ds
+    Assert.AreEqual<uint64>(0x0000000040b00000UL, d0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMLA.F32 by scalar accumulates lanes``() =
+    let ds =
+      [ 0, 0x3f8000003f800000UL
+        1, 0x400000003fc00000UL
+        2, 0xbf00000040400000UL ]
+    let d0, _, _ = fpRun "f2a10162" 0u ds
+    Assert.AreEqual<uint64>(0x000000003e800000UL, d0)
+
+  /// VFMA.F32 on a doubleword is fused lane by lane.
+  [<TestMethod>]
+  member _.``[ARMv7] VFMA.F32 on D registers fuses every lane``() =
+    let ds =
+      [ 0, 0x3f8000003f800000UL
+        2, 0x400000003fc00000UL
+        4, 0xbf00000040400000UL ]
+    let d0, _, _ = fpRun "f2020c14" 0u ds
+    Assert.AreEqual<uint64>(0x0000000040b00000UL, d0)
+
+  /// <summary>
+  /// VCVT to an integer is FPToFixed, which saturates and raises Invalid for
+  /// what does not fit: 5e9 is 0x7fffffff signed and 0xffffffff unsigned
+  /// (A8.8.307).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.S32.F32 saturates 5e9``() =
+    let d0, _, fpscr = fpRun "eebd0ac1" 0u [ 1, 0x4f9502f9UL ]
+    Assert.AreEqual<uint64 * uint32>((0x7fffffffUL, 1u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.U32.F32 saturates 5e9``() =
+    let d0, _, fpscr = fpRun "eebc0ac1" 0u [ 1, 0x4f9502f9UL ]
+    Assert.AreEqual<uint64 * uint32>((0xffffffffUL, 1u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.U32.F32 of -1.5 is zero``() =
+    let d0, _, fpscr = fpRun "eebc0ac1" 0u [ 1, 0xbfc00000UL ]
+    Assert.AreEqual<uint64 * uint32>((0UL, 1u), (d0, fpscr))
+
+  /// VCVTR rounds as FPSCR names, to nearest here, and VCVT toward zero.
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTR.S32.F32 rounds 3.5 to 4``() =
+    let d0, _, fpscr = fpRun "eebd0a42" 0u [ 2, 0x40600000UL ]
+    Assert.AreEqual<uint64 * uint32>((4UL, 0x10u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.S32.F32 rounds 3.5 to 3``() =
+    let d0, _, fpscr = fpRun "eebd0ac2" 0u [ 2, 0x40600000UL ]
+    Assert.AreEqual<uint64 * uint32>((3UL, 0x10u), (d0, fpscr))
+
+  /// The fixed-point VCVT scales by its fraction bits and rounds toward zero:
+  /// 1.75 with one fraction bit is 3.
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT.S32.F32 with a fraction bit gives 3``() =
+    let d0, _, fpscr = fpRun "eebe0aef" 0u [ 0, 0x3fe00000UL ]
+    Assert.AreEqual<uint64 * uint32>((3UL, 0x10u), (d0, fpscr))
+
+  /// <summary>
+  /// What each arithmetic form computes, one value apiece: VSUB takes its
+  /// second operand from its first, VDIV divides, VSQRT takes the root, VMLS
+  /// and VFMS subtract the product from the destination, and VABS clears the
+  /// sign.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VSUB.F32 takes the second operand from the first``() =
+    let d0, _, fpscr = fpRun "ee320a44" 0u [ 2, 0x40400000UL; 4, 0x3f800000UL ]
+    Assert.AreEqual<uint64 * uint32>((0x40000000UL, 0u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VDIV.F32 divides``() =
+    let d0, _, fpscr = fpRun "ee820a04" 0u [ 2, 0x40c00000UL; 4, 0x40000000UL ]
+    Assert.AreEqual<uint64 * uint32>((0x40400000UL, 0u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VSQRT.F32 takes the square root``() =
+    let d0, _, fpscr = fpRun "eeb10ac2" 0u [ 2, 0x40800000UL ]
+    Assert.AreEqual<uint64 * uint32>((0x40000000UL, 0u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMLS.F32 subtracts the product``() =
+    let ds = [ 0, 0x41200000UL; 2, 0x40000000UL; 4, 0x40400000UL ]
+    let d0, _, fpscr = fpRun "ee020a44" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x40800000UL, 0u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VFMS.F32 subtracts the fused product``() =
+    let ds = [ 0, 0x41200000UL; 2, 0x40000000UL; 4, 0x40400000UL ]
+    let d0, _, fpscr = fpRun "eea20a44" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x40800000UL, 0u), (d0, fpscr))
+
+  [<TestMethod>]
+  member _.``[ARMv7] VABS.F32 on S registers clears the sign``() =
+    let d0, _, fpscr = fpRun "eeb00ac2" 0u [ 2, 0xc0000000UL ]
+    Assert.AreEqual<uint64 * uint32>((0x40000000UL, 0u), (d0, fpscr))
+
+  /// <summary>
+  /// The Advanced SIMD compares and the lane operations, one value apiece:
+  /// VCLT #0 is false for zero, which tells it from VCLE; VACGT compares
+  /// magnitudes; VABD is the absolute difference; and VPADD adds the pairs of
+  /// its first operand into the low lane and of its second into the high.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCLT.F32 #0 is false for zero``() =
+    let d0, _, _ = fpRun "f3b90602" 0u [ 2, 0xbf80000000000000UL ]
+    Assert.AreEqual<uint64>(0xffffffff00000000UL, d0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VACGT.F32 compares magnitudes``() =
+    let ds = [ 1, 0x3f800000c0400000UL; 2, 0x4000000040000000UL ]
+    let d0, _, _ = fpRun "f3210e12" 0u ds
+    Assert.AreEqual<uint64>(0x00000000ffffffffUL, d0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VABD.F32 is the absolute difference``() =
+    let ds = [ 1, 0x40a000003f800000UL; 2, 0x4000000040800000UL ]
+    let d0, _, _ = fpRun "f3210d02" 0u ds
+    Assert.AreEqual<uint64>(0x4040000040400000UL, d0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VPADD.F32 adds the pairs of each operand``() =
+    let ds = [ 1, 0x400000003f800000UL; 2, 0x4080000040400000UL ]
+    let d0, _, _ = fpRun "f3010d02" 0u ds
+    Assert.AreEqual<uint64>(0x40e0000040400000UL, d0)
+
+  /// VRECPS of an infinity and a zero is 2.0, whichever is which.
+  [<TestMethod>]
+  member _.``[ARMv7] VRECPS.F32 of an infinity and a zero is two``() =
+    let ds = [ 1, 0x000000007f800000UL; 2, 0x7f80000000000000UL ]
+    let d0, _, _ = fpRun "f2010f12" 0u ds
+    Assert.AreEqual<uint64>(0x4000000040000000UL, d0)
+
+  /// <summary>
+  /// A signalling NaN is the result before a quiet one, and of two signalling
+  /// NaNs the first operand's, made quiet (FPProcessNaNs, DDI0406C A2.7.6).
+  /// The Invalid it raises comes from the exception query, which the runner
+  /// answers with nothing.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 answers a signalling NaN first``() =
+    let ds = [ 2, 0x7fc00000UL; 4, 0x7f800001UL ]
+    let d0, _, _ = fpRun "ee320a04" 0u ds
+    Assert.AreEqual<uint64>(0x7fc00001UL, d0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 answers the first of two signalling NaNs``() =
+    let ds = [ 2, 0x7f800002UL; 4, 0x7f800001UL ]
+    let d0, _, _ = fpRun "ee320a04" 0u ds
+    Assert.AreEqual<uint64>(0x7fc00002UL, d0)
+
+  /// VMAX takes +0 over -0 and VMIN -0 over +0, whichever operand holds which.
+  [<TestMethod>]
+  member _.``[ARMv7] VMAX.F32 takes plus zero over minus zero``() =
+    let ds = [ 1, 0x8000000000000000UL; 2, 0x0000000080000000UL ]
+    let d0, _, _ = fpRun "f2010f02" 0u ds
+    Assert.AreEqual<uint64>(0UL, d0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VMIN.F32 takes minus zero over plus zero``() =
+    let ds = [ 1, 0x8000000000000000UL; 2, 0x0000000080000000UL ]
+    let d0, _, _ = fpRun "f2210f02" 0u ds
+    Assert.AreEqual<uint64>(0x8000000080000000UL, d0)
+
+  /// <summary>
+  /// FPSCR.AHP picks the alternative half format, which has no infinity: a
+  /// single past its largest magnitude, 131008.0, such as 2^17, saturates to
+  /// 0x7fff and raises Invalid alone (DDI0406C A2.7.4).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTB.F16.F32 saturates under AHP``() =
+    let d0, _, fpscr = fpRun "eeb30a42" 0x04000000u [ 2, 0x48000000UL ]
+    Assert.AreEqual<uint64 * uint32>((0x7fffUL, 0x04000001u), (d0, fpscr))
+
+  /// FPSCR.DN makes the NaN a half widens to the default one.
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTB.F32.F16 answers the default NaN under DN``() =
+    let d0, _, fpscr = fpRun "eeb20a42" 0x02000000u [ 2, 0x7d00UL ]
+    Assert.AreEqual<uint64 * uint32>((0x7fc00000UL, 0x02000001u), (d0, fpscr))
+
+  /// <summary>
+  /// The narrowing to a half rounds the way FPSCR.RMode names, which it does
+  /// itself: toward plus infinity, 1 + 2^-11 is 1 + 2^-10 rather than 1.0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTB.F16.F32 rounds as RMode names``() =
+    let ds = [ 0, 0x3f800000UL; 2, 0x3f801000UL ]
+    let d0, _, fpscr = fpRun "eeb30a42" 0x00400000u ds
+    Assert.AreEqual<uint64 * uint32>((0x3f803c01UL, 0x00400010u), (d0, fpscr))
+
+  /// <summary>
+  /// A short vector of doubles wraps round its bank of four: VADD.F64 d7, d5,
+  /// d6 with Len = 1 is d7 = d5 + d6, then d4 = d6 + d7. A destination in the
+  /// first bank of the upper half, D16-D19, keeps the instruction scalar.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F64 wraps round its bank of four``() =
+    let ds = [ 5, 0x3ff0000000000000UL; 6, 0x4000000000000000UL ]
+    let inputs =
+      (!.FPSCR, BitVector(0x10000u, 32<rt>))
+      :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "ee357b06") inputs
+    Assert.AreEqual<uint64>(0x4008000000000000UL, (read (dReg 7)).ToUInt64())
+    Assert.AreEqual<uint64>(0x4014000000000000UL, (read (dReg 4)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F64 into d16 stays scalar under Len 1``() =
+    let ds = [ 17, 0x3ff0000000000000UL; 18, 0x4000000000000000UL ]
+    let inputs =
+      (!.FPSCR, BitVector(0x10000u, 32<rt>))
+      :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "ee710ba2") inputs
+    Assert.AreEqual<uint64>(0x4008000000000000UL, (read (dReg 16)).ToUInt64())
+    Assert.AreEqual<uint64>(0x3ff0000000000000UL, (read (dReg 17)).ToUInt64())
+
+  /// <summary>
+  /// With FPSCR.Len = 1, VADD.F32 s8, s16, s24 is two additions: s8 and s9,
+  /// from s16 and s17 and from s24 and s25 (DDI0406C Appendix D11). With a
+  /// destination in the first bank, s0-s7, it stays scalar.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 adds a short vector of two under Len 1``() =
+    let one, two = 0x3f800000UL, 0x40000000UL
+    let ds = [ 8, (two <<< 32) ||| one; 12, (one <<< 32) ||| one ]
+    let inputs =
+      (!.FPSCR, BitVector(0x10000u, 32<rt>))
+      :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "ee384a0c") inputs
+    Assert.AreEqual<uint64>(0x4040000040000000UL, (read (dReg 4)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 into s0 stays scalar under Len 1``() =
+    let one = 0x3f800000UL
+    let ds = [ 2, one; 4, (one <<< 32) ||| one ]
+    let d0, _, _ = fpRun "ee320a04" 0x10000u ds
+    Assert.AreEqual<uint64>(0x40000000UL, d0)
+
+  /// <summary>
+  /// A second operand in the first bank is a scalar to every step, and the
+  /// steps wrap round inside the bank: VMUL.F32 s14, s15, s3 with Len = 1
+  /// and a stride of two is s14 = s15 * s3, then s8 = s9 * s3.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VMUL.F32 wraps round its bank with a scalar``() =
+    let one, two = 0x3f800000UL, 0x40000000UL
+    let ds = [ 7, one <<< 32; 4, one <<< 32; 1, two <<< 32 ]
+    let inputs =
+      (!.FPSCR, BitVector(0x310000u, 32<rt>))
+      :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "ee277aa1") inputs
+    Assert.AreEqual<uint64>(0x3f80000040000000UL, (read (dReg 7)).ToUInt64())
+    Assert.AreEqual<uint64>(0x3f80000040000000UL, (read (dReg 4)).ToUInt64())
