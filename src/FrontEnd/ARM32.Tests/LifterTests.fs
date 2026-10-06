@@ -802,3 +802,32 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[ARMv7] ORRS (register shift) with Rd = Rs reads Rs first``() =
     Assert.AreEqual<bool>(false, readsAfterWriting false "e1901130" R1)
+
+  /// The registers of a list of singles take a word each (DDI0406C A8.8.413
+  /// VSTM, A8.8.333 VLDM); VPUSH and VPOP are those on SP.
+  [<TestMethod>]
+  member _.``[ARMv7] VSTM of singles stores one word a register``() =
+    let sizes =
+      liftedBy false "ec800a04"
+      |> Array.choose (function
+        | Store(Value = value) -> Some(Expr.typeOf value)
+        | _ -> None)
+    CollectionAssert.AreEqual([| 32<rt>; 32<rt>; 32<rt>; 32<rt> |], sizes)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VSTM of singles writes back a word a register``() =
+    Assert.AreEqual<Expr option>(Some(!.R0 .+ num 8u),
+                                 assignedBy false "eca00a02" !.R0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VLDM of singles loads one word a register``() =
+    let halves = [ !@(Q0, 1); !@(Q0, 2) ]
+    let writes =
+      writtenBy false "ec900a04"
+      |> Array.filter (fun d -> List.contains d halves)
+    Assert.AreEqual<int>(4, writes.Length)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VPUSH of singles moves SP a word a register``() =
+    Assert.AreEqual<Expr option>(Some(!.SP .- num 8u),
+                                 assignedBy false "ed2d0a02" !.SP)
