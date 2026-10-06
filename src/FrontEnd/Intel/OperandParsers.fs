@@ -82,9 +82,15 @@ let inline private findReg sz rex bitmask (n: int) =
 
 /// The general-purpose register of the given width at the given index, 0 to
 /// 31, as a field that no REX bit extends names it: (E)VEX.vvvv, with
-/// EVEX.V4 as its fifth bit.
+/// EVEX.V4 as its fifth bit. Only an EVEX prefix reaches a byte register
+/// here, and it stands in for REX, so codes 4 to 7 name SPL, BPL, SIL and DIL
+/// rather than AH, CH, DH and BH.
 [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-let findGPR sz (n: int) = regOfIndex sz n
+let findGPR sz (n: int) =
+  if sz = 8<rt> && (n &&& 0b11100) = 0b100 then
+    int R.SPL + n - 4 |> LanguagePrimitives.EnumOfValue<int, Register>
+  else
+    regOfIndex sz n
 
 /// Registers defined by the SIB index field.
 [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

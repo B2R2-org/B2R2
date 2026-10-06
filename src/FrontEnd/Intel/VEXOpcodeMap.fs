@@ -7036,6 +7036,44 @@ let private v1x49 (span: ByteSpan) (st: byref<ParsingState>) =
   | _ ->
     raise ParsingFailureException
 
+let private v1x4a (span: ByteSpan) (st: byref<ParsingState>) =
+  let m = peek span &st
+  match st.Ctx with
+  | 25 | 29 | 33 | 37 ->
+    if isMem m && st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 1024<rt>)
+      let o2 = memSib span &st m
+      let oprs = TwoOperands(o1, o2)
+      finishV
+        &st
+        Opcode.TILELOADDRS
+        (oprs)
+        (1024<rt>)
+        0<rt>
+        NoRounding
+        (isReg m)
+    else
+      raise ParsingFailureException
+  | 28 | 30 | 36 | 38 ->
+    if isMem m && st.VL = 128<rt> && st.NoLock then
+      st.Pos <- st.Pos + 1
+      let o1 = Operands.oprReg (regRegV &st m 1024<rt>)
+      let o2 = memSib span &st m
+      let oprs = TwoOperands(o1, o2)
+      finishV
+        &st
+        Opcode.TILELOADDRST1
+        (oprs)
+        (1024<rt>)
+        0<rt>
+        NoRounding
+        (isReg m)
+    else
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
 let private v1x4b (span: ByteSpan) (st: byref<ParsingState>) =
   let m = peek span &st
   match st.Ctx with
@@ -62188,6 +62226,7 @@ let private map1 (span: ByteSpan) (st: byref<ParsingState>) (b: int) =
   | 0x46 -> v1x46 span &st
   | 0x47 -> v1x47 span &st
   | 0x49 -> v1x49 span &st
+  | 0x4A -> v1x4a span &st
   | 0x4B -> v1x4b span &st
   | 0x50 -> v1x50 span &st
   | 0x51 -> v1x51 span &st
