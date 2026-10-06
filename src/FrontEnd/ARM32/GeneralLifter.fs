@@ -785,15 +785,16 @@ let translateLogicOp (ins: Instruction) bld =
     let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
   | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
-    let t = tmpVar bld 32<rt>
+    let struct (t, amount) = tmpVars2 bld 32<rt>
     let carryIn = getCarryFlag bld
     let dst = transOpr ins bld opr1
     let src1 = transOpr ins bld opr2
     let rm = transOpr ins bld opr3
+    (* The amount register can be the destination, so it is read first too. *)
     append bld {
       t := rm
+      amount := AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     }
-    let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount t 32<rt> typ amount carryIn
     dst, src1, shifted, carryOut
   | _ ->
@@ -1109,17 +1110,23 @@ let transTwoOprsOfMVN (ins: Instruction) bld =
 let transThreeOprsOfMVN (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
+    let t = tmpVar bld 32<rt>
     let carryIn = getCarryFlag bld
     let dst = transOpr ins bld opr1
-    let src = transOpr ins bld opr2
-    let shifted, carryOut = shiftC src 32<rt> typ imm carryIn
+    (* Rd can be the shifted register, whose bits C is taken from. *)
+    append bld { t := transOpr ins bld opr2 }
+    let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     struct (dst, shifted, carryOut)
   | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
+    let struct (t, amount) = tmpVars2 bld 32<rt>
     let carryIn = getCarryFlag bld
     let dst = transOpr ins bld opr1
-    let src = transOpr ins bld opr2
-    let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
-    let shifted, carryOut = shiftCForRegAmount src 32<rt> typ amount carryIn
+    (* Rd can be the shifted register or the amount register. *)
+    append bld {
+      t := transOpr ins bld opr2
+      amount := AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
+    }
+    let shifted, carryOut = shiftCForRegAmount t 32<rt> typ amount carryIn
     struct (dst, shifted, carryOut)
   | _ ->
     raise InvalidOperandException
@@ -1205,11 +1212,14 @@ let parseOprOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
 let shiftInstr isSetFlags ins typ bld =
   lift bld ins {
     let struct (srcTmp, result) = tmpVars2 bld 32<rt>
+    let carry = tmpVar bld 1<rt>
     let dst, src, res, carryOut = parseOprOfShiftInstr ins typ bld srcTmp
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     srcTmp := src
     result := res
+    (* The amount register can be the destination: take the carry first. *)
+    if isSetFlags then carry := carryOut else ()
     if dst = getPC bld then
       aluWritePC bld ins isUnconditional result
     else
@@ -1218,7 +1228,7 @@ let shiftInstr isSetFlags ins typ bld =
         let cpsr = regVar bld R.CPSR
         cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
         cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-        cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+        cpsr := carry |> setPSR bld R.CPSR PSR.C
       else
         ()
     putEndLabel bld lblIgnore
