@@ -7634,12 +7634,12 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkPCRdSRn bin
 #endif
-    render phlp &itstate 0 isInIT bin Op.ANDS None N OD.OprRdRnConstT
+    render phlp &itstate 0 isInIT bin Op.ANDS None N OD.OprRdRnConstCFT
   | 0b00001u when rd = 0b1111u ->
 #if !EMULATION
     chkPCRn bin
 #endif
-    render phlp &itstate 0 isInIT bin Op.TST None N OD.OprRnConstT
+    render phlp &itstate 0 isInIT bin Op.TST None N OD.OprRnConstCFT
   | 0b00010u ->
 #if !EMULATION
     chkThumbPCRdRn bin
@@ -7649,7 +7649,7 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkThumbPCRdRn bin
 #endif
-    render phlp &itstate 0 isInIT bin Op.BICS None N OD.OprRdRnConstT
+    render phlp &itstate 0 isInIT bin Op.BICS None N OD.OprRdRnConstCFT
   | 0b00100u when rn <> 0b1111u ->
 #if !EMULATION
     chkThumbPCRd bin
@@ -7665,13 +7665,13 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkThumbPCRd bin
 #endif
-    render phlp &itstate 0 isInIT bin Op.ORRS None N OD.OprRdRnConstT
+    render phlp &itstate 0 isInIT bin Op.ORRS None N OD.OprRdRnConstCFT
   | 0b00101u when rn = 0b1111u ->
 #if !EMULATION
     chkThumbPCRd bin
 #endif
     let q = if inITBlock itstate then W else N
-    render phlp &itstate 0 isInIT bin Op.MOVS None q OD.OprRdConstT
+    render phlp &itstate 0 isInIT bin Op.MOVS None q OD.OprRdConstCFT
   | 0b00110u when rn <> 0b1111u ->
 #if !EMULATION
     chkThumbPCRd bin
@@ -7686,12 +7686,12 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkThumbPCRd bin
 #endif
-    render phlp &itstate 0 isInIT bin Op.ORNS None N OD.OprRdRnConstT
+    render phlp &itstate 0 isInIT bin Op.ORNS None N OD.OprRdRnConstCFT
   | 0b00111u when rn = 0b1111u ->
 #if !EMULATION
     chkThumbPCRd bin
 #endif
-    render phlp &itstate 0 isInIT bin Op.MVNS None N OD.OprRdConstT
+    render phlp &itstate 0 isInIT bin Op.MVNS None N OD.OprRdConstCFT
   | 0b01000u ->
 #if !EMULATION
     chkPCRdSRn bin
@@ -7701,12 +7701,12 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkPCRdSRn bin
 #endif
-    render phlp &itstate 0 isInIT bin Op.EORS None N OD.OprRdRnConstT
+    render phlp &itstate 0 isInIT bin Op.EORS None N OD.OprRdRnConstCFT
   | 0b01001u when rd = 0b1111u ->
 #if !EMULATION
     chkPCRn bin
 #endif
-    render phlp &itstate 0 isInIT bin Op.TEQ None N OD.OprRnConstT
+    render phlp &itstate 0 isInIT bin Op.TEQ None N OD.OprRnConstCFT
   | 0b01010u | 0b01011u (* 0101x *) ->
     raise ParsingFailureException
   | 0b01100u | 0b01101u | 0b01110u | 0b01111u (* 011xx *) ->
