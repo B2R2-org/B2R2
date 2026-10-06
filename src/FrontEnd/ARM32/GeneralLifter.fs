@@ -2035,11 +2035,13 @@ let ldm opcode ins bld wbackop =
 
 let getOffAddrWithExpr s r e = if s = Some Plus then r .+ e else r .- e
 
+/// The address an immediate offset names. An offset with no sign is one an
+/// encoding only ever adds (T32's LDRT family, LDREX and STREX).
 let getOffAddrWithImm s r imm =
   match s, imm with
-  | Some Plus, Some i -> r .+ (numI64 i 32<rt>)
+  | (Some Plus | None), Some i -> r .+ (numI64 i 32<rt>)
   | Some Minus, Some i -> r .- (numI64 i 32<rt>)
-  | _, _ -> r
+  | _, None -> r
 
 let parseMemOfLDR ins bld = function
   | OprMemory(OffsetMode(ImmOffset(rn, s, imm))) ->
