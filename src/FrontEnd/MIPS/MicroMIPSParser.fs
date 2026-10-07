@@ -1589,6 +1589,8 @@ let parse lifter span (reader: IBinReader) wordSize release addr =
       4u, parseWord release addr w
   if wordSize = WordSize.Bit32 && ParsingMain.isMIPS64Only opcode then
     raise ParsingFailureException
+  elif ParsingMain.isBadBitfield opcode oprs then
+    raise ParsingFailureException
   else
     ()
   let sz = ParsingMain.getOperationSize opcode wordSize

@@ -1601,10 +1601,29 @@ let isMIPS64Only = function
   | Op.CRC32D | Op.CRC32CD -> true
   | _ -> false
 
+/// <summary>
+/// Whether a bitfield instruction's field runs past its register or ends
+/// before it begins, which MD00087 leaves UNPREDICTABLE for EXT, DEXTM,
+/// DEXTU, INS, DINS and DINSU and which the reference takes as a Reserved
+/// Instruction. A field that ends before it begins comes out of the operand
+/// helpers as a size of zero or one that wrapped round.
+/// </summary>
+let isBadBitfield opcode oprs =
+  match opcode, oprs with
+  | (Op.EXT | Op.INS), FourOperands(_, _, OpImm pos, OpImm size) ->
+    size = 0UL || pos + size > 32UL
+  | (Op.DEXT | Op.DEXTM | Op.DEXTU | Op.DINS | Op.DINSM | Op.DINSU),
+    FourOperands(_, _, OpImm pos, OpImm size) ->
+    size = 0UL || size > 64UL || pos + size > 64UL
+  | _ ->
+    false
+
 let parse lifter span (reader: IBinReader) arch wordSize release addr =
   let bin = reader.ReadUInt32(span = span, offset = 0)
   let opcode, cond, fmt, oprs = parseOpcodeField arch bin wordSize release
   if wordSize = WordSize.Bit32 && isMIPS64Only opcode then
+    raise ParsingFailureException
+  elif isBadBitfield opcode oprs then
     raise ParsingFailureException
   else
     ()

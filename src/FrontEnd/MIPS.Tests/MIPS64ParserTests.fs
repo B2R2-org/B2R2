@@ -323,3 +323,29 @@ type MIPS64ParserTests() =
       let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
       Assert.AreEqual<Opcode>(CMP, ins.Opcode, hex)
       Assert.AreEqual<Condition option>(Some condition, ins.Condition, hex)
+
+  /// <summary>
+  /// A bitfield whose fields run past the register, or end before they
+  /// begin, is UNPREDICTABLE (MD00087 EXT, INS, DEXTM, DEXTU, DINS and
+  /// DINSU), and the reference takes it as a Reserved Instruction: the
+  /// decoder refuses it, and reads the widest field that fits.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] Bitfields past the register are refused``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let parser = Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    let parse hex =
+      parser.Parse(System.ReadOnlySpan(ByteArray.ofHexString hex), 0UL)
+    for hex in [ "7c623780" (* ext, 30 + 7 *)
+                 "7c62f7c4" (* ins, lsb 31 > msb 30 *)
+                 "7c620047" (* dins, lsb 1 > msb 0 *)
+                 "7c620046" (* dinsu, lsb 33 > msb 32 *)
+                 "7c62f841" (* dextm, 1 + 64 *)
+                 "7c62f842" (* dextu, 33 + 32 *) ] do
+      Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+        parse hex |> ignore) |> ignore
+    for hex in [ "7c62f040" (* ext, 1 + 31 *)
+                 "7c62f804" (* ins, 0 to 31 *)
+                 "7c62f001" (* dextm, 0 + 63 *)
+                 "7c62f002" (* dextu, 32 + 31 *) ] do
+      parse hex |> ignore
