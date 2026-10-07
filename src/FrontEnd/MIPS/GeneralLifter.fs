@@ -835,7 +835,7 @@ let cvtw ins bld =
         let nan = isNaN 32<rt> exponent mantissa
         dst, src, inf, nan
       | _ ->
-        let dst = transOprToFPConvert ins bld fd
+        let dst = transOprToSingleFP bld fd
         let src = transOprToFPPairConcat bld fs
         append bld {
           exponent := getExponentFull src 64<rt>

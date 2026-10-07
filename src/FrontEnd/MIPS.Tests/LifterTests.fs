@@ -510,6 +510,17 @@ type LifterTests() =
     Assert.AreEqual<uint64 * uint32>((0x80000000UL, fs), mul fs 0x80800000UL)
     Assert.AreEqual<uint64 * uint32>((0x00400000UL, 0u), mul 0u 0x00800000UL)
 
+  /// CVT.W.D writes a word into the low half of a 64-bit FPR, as the rounding
+  /// conversions to a word do. On a 64-bit FPU it took the destination at the
+  /// width of the source, which is an assignment of a word to a doubleword.
+  [<TestMethod>]
+  member _.``[MIPS64] CVT.W.D writes the low word``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let fprs = [ F0, 0xdeadbeef00000000UL; F2, 0x4004000000000000UL ]
+    let cvt = fpRun isa "46201024" 0u fprs
+    (* 2.5 rounds to 2, which is inexact: the cause and the flag *)
+    Assert.AreEqual<uint64 * uint32>((0xdeadbeef00000002UL, 0x1004u), cvt)
+
   /// <summary>
   /// What FS asks of is the exact value, and what goes with a flush is
   /// everything the operation raised. (2 - 2^-23) 2^-126 times a half is
