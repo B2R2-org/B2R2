@@ -110,6 +110,13 @@ let translate (ins: Instruction) bld =
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
   | Op.ITEEE ->
     it ins bld
+  (* Load-acquire: with one observer, the order it promises shows nowhere *)
+  | Op.LDA ->
+    ldr ins bld 32<rt> AST.zext
+  | Op.LDAB ->
+    ldr ins bld 8<rt> AST.zext
+  | Op.LDAH ->
+    ldr ins bld 16<rt> AST.zext
   | Op.LDM ->
     ldm Op.LDM ins bld (.+)
   | Op.LDMDA ->
@@ -403,6 +410,13 @@ let translate (ins: Instruction) bld =
     smulhalf ins bld true true
   | Op.SRSDA | Op.SRSDB | Op.SRSIA | Op.SRSIB ->
     srs ins bld
+  (* Store-release, for the same reason a plain store *)
+  | Op.STL ->
+    str ins bld 32<rt>
+  | Op.STLB ->
+    str ins bld 8<rt>
+  | Op.STLH ->
+    str ins bld 16<rt>
   | Op.STM ->
     stm Op.STM ins bld (.+)
   | Op.STMDA ->

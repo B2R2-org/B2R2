@@ -241,6 +241,26 @@ type LifterTests() =
       | Store(Addr = addr; Value = value) -> Some(addr, value)
       | _ -> None)
 
+  /// What an address expression comes to with R1 = 0x1000.
+  let atR1 (addr: Expr) =
+    let r1 = !.R1, BitVector(0x1000u, 32<rt>)
+    let read = IRRunner.run [| !.R2 := addr |] [ r1 ]
+    (read !.R2).ToUInt64()
+
+  /// The width and the address, with R1 = 0x1000, of every load and every
+  /// store one encoding lifts to, in order. A load narrower than a word is
+  /// extended to one, so it is found under its cast.
+  let accessesBy isThumb hex =
+    liftedBy isThumb hex
+    |> Array.choose (function
+      | Put(Src = Load(Type = rt; Addr = addr))
+      | Put(Src = Cast(Operand = Load(Type = rt; Addr = addr))) ->
+        Some("load", rt, atR1 addr)
+      | Store(Addr = addr; Value = v) ->
+        Some("store", Expr.typeOf v, atR1 addr)
+      | _ ->
+        None)
+
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =
     let shiftAmt = AST.zext 32<rt> (AST.xtlo 8<rt> !.R8)
@@ -2117,6 +2137,35 @@ type LifterTests() =
     let ds = [ 1, 0x4400420040003c00UL; 2, 0x3400380000000000UL ]
     let d0, _, _ = fpRun "fe010822" 0u ds
     Assert.AreEqual<uint64>(0x3a003e0034003800UL, d0)
+
+  /// <summary>
+  /// LDA, LDAB and LDAH load with acquire order, and STL, STLB and STLH store
+  /// with release order (DDI0487F.c F5.1.57, F5.1.58, F5.1.63, F5.1.217,
+  /// F5.1.218 and F5.1.223). A lone observer sees no order, so each is the
+  /// access of its size through the base, with no offset and no writeback.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] LDA, LDAB and LDAH load their size at the base``() =
+    let one = accessesBy false
+    CollectionAssert.AreEqual([| "load", 32<rt>, 0x1000UL |], one "e1910c9f")
+    CollectionAssert.AreEqual([| "load", 8<rt>, 0x1000UL |], one "e1d10c9f")
+    CollectionAssert.AreEqual([| "load", 16<rt>, 0x1000UL |], one "e1f10c9f")
+    let thumb = accessesBy true "e8d10faf"
+    CollectionAssert.AreEqual([| "load", 32<rt>, 0x1000UL |], thumb)
+
+  [<TestMethod>]
+  member _.``[ARMv7] STL, STLB and STLH store their size at the base``() =
+    let one = accessesBy false
+    CollectionAssert.AreEqual([| "store", 32<rt>, 0x1000UL |], one "e181fc90")
+    CollectionAssert.AreEqual([| "store", 8<rt>, 0x1000UL |], one "e1c1fc90")
+    CollectionAssert.AreEqual([| "store", 16<rt>, 0x1000UL |], one "e1e1fc90")
+    let thumb = accessesBy true "e8c10f9f"
+    CollectionAssert.AreEqual([| "store", 16<rt>, 0x1000UL |], thumb)
+
+  [<TestMethod>]
+  member _.``[ARMv7] LDA writes the loaded word to Rt``() =
+    let written = writtenBy false "e1910c9f"
+    Assert.AreEqual<bool>(true, Array.contains !.R0 written)
 
   /// <summary>
   /// VLDR.16 and VSTR.16 move a halfword, the bottom half of the
