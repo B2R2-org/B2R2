@@ -1032,3 +1032,14 @@ type X87LifterTests() =
   [<TestMethod>]
   member _.``[X64] FWAIT leaves the last instruction alone (1)``() =
     CollectionAssert.AreEqual([||], fipWrites "9b" (* fwait *))
+
+  (* FNCLEX clears the exception flags, SF among them, and with nothing
+     flagged neither summary bit, ES or B, has anything to say (Intel SDM
+     Vol. 2A, FCLEX/FNCLEX). *)
+  [<TestMethod>]
+  member _.``[X64] FNCLEX clears the summary with the flags (1)``() =
+    let actual =
+      lift "dbe2" (* fnclex *)
+      |> Array.filter (fun l ->
+        l.StartsWith "FSW :=" && not (l.Contains "undefined"))
+    CollectionAssert.AreEqual([| "FSW := (FSW & 0x7f00:I16)" |], actual)

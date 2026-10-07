@@ -1755,8 +1755,8 @@ let fninit (ins: Instruction) bld =
 let fclex (ins: Instruction) bld =
   lift bld ins {
     let stsWrd = regVar bld R.FSW
-    direct stsWrd := stsWrd .& (numI32 0xFF80 16<rt>)
-    direct (AST.xthi 1<rt> stsWrd) := AST.b0
+    (* The flags in bits 6:0, and ES and B with nothing left to sum up. *)
+    direct stsWrd := stsWrd .& (numI32 0x7F00 16<rt>)
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
     direct (regVar bld R.FSWC1) := undefC1
