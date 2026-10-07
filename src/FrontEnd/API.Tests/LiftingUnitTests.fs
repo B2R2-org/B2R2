@@ -109,8 +109,7 @@ type LiftingUnitTests() =
   /// unwritten longest -- the privileged forms and the newest vector
   /// extensions.
   static let unlifted =
-    [| Architecture.ARMv7, "000201f1", "setend"
-       Architecture.ARMv8, "207608d5", "dcivac"
+    [| Architecture.ARMv8, "207608d5", "dcivac"
        Architecture.Intel, "c4e27fccc1", "vsha512msg1"
        Architecture.Intel, "c4e26edac1", "vsm4key4" |]
 

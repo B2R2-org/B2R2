@@ -2441,6 +2441,29 @@ let clrex (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
+/// <summary>
+/// SETEND, which writes CPSR.E -- bit 9, the byte order of data accesses --
+/// in any mode and cannot be conditional (DDI0406C A8.8.168). A load or a
+/// store is lifted in the byte order of the ISA it is lifted for, not in the
+/// one E names when it runs, so SETEND ends the block with a jump to the
+/// instruction after it: what follows has to be lifted again, in the order E
+/// now names. Armv8 makes it UNDEFINED where SCTLR.SED is set (DDI0487F.c
+/// F5.1.182, AArch32.CheckSETENDEnabled); SED is not checked here.
+/// </summary>
+let setend (ins: Instruction) bld =
+  let e =
+    match ins.Operands with
+    | OneOperand(OprEndian Endian.Big) -> 0x200u
+    | OneOperand(OprEndian _) -> 0u
+    | _ -> raise InvalidOperandException
+  lift bld ins {
+    let cpsr = regVar bld R.CPSR
+    cpsr := (cpsr .& numU32 0xfffffdffu 32<rt>) .| numU32 e 32<rt>
+    let next = numU64 (ins.Address + uint64 ins.Length) 32<rt>
+    AST.interjmp next InterJmpKind.Base
+    return NoEndMark
+  }
+
 let strd ins bld =
   lift bld ins {
     let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins bld

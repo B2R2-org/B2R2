@@ -261,6 +261,8 @@ module internal IRRunner =
         pc <- target at t
       | CJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
         pc <- target at (if (eval regs temps c).IsTrue then t else f)
+      | InterJmp _ ->
+        pc <- stmts.Length
       | _ ->
         failwith $"IRRunner: no {stmt}"
     fun reg -> readReg regs (idOf reg) (Expr.typeOf reg)

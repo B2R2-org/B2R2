@@ -1635,6 +1635,32 @@ type LifterTests() =
     for hex in [ "f78f8001"; "f78f8002"; "f78f8003" ] do
       hex ++ undefined |> testThumb
 
+  /// <summary>
+  /// SETEND writes CPSR.E, bit 9, in any mode (DDI0406C A8.8.168), and ends
+  /// the block with a jump to the instruction after it.
+  ///
+  /// A load or a store is lifted in the byte order of the ISA it is lifted
+  /// for, not in the one E names when it runs, so what follows a SETEND has
+  /// to be lifted again, in the order it set.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] SETEND writes CPSR.E and ends the block``() =
+    let after isThumb hex (cpsr: uint32) =
+      let inputs = [ !.CPSR, BitVector(cpsr, 32<rt>) ]
+      let read = IRRunner.run (liftedBy isThumb hex) inputs
+      uint32 ((read !.CPSR).ToUInt64())
+    Assert.AreEqual<uint32>(0x60000210u, after false "f1010200" 0x60000010u)
+    Assert.AreEqual<uint32>(0x60000010u, after false "f1010000" 0x60000210u)
+    Assert.AreEqual<uint32>(0x60000230u, after true "b658" 0x60000030u)
+    Assert.AreEqual<uint32>(0x60000030u, after true "b650" 0x60000230u)
+    let targets isThumb hex =
+      liftedBy isThumb hex
+      |> Array.choose (function
+        | InterJmp(Target = Num(Value = v)) -> Some(v.ToUInt64())
+        | _ -> None)
+    CollectionAssert.AreEqual([| 4UL |], targets false "f1010200")
+    CollectionAssert.AreEqual([| 2UL |], targets true "b650")
+
   /// SETPAN writes PSTATE.PAN, which is CPSR bit 22, and does nothing in User
   /// mode (DDI0487F.c F5.1.183).
   [<TestMethod>]

@@ -392,6 +392,8 @@ let translate (ins: Instruction) bld =
     sbcs true ins bld
   | Op.SBFX ->
     bfx ins bld true
+  | Op.SETEND ->
+    setend ins bld
   | Op.SETPAN ->
     setpan ins bld
   | Op.SEL ->
