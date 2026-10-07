@@ -272,6 +272,20 @@ type DisassemblerTests() =
     ++ [| "tileloadd tmm1, [rax+rbx]"; "tileloadd (%rax, %rbx), %tmm1" |]
     |> testX64
 
+  (* AMX-MOVRS: the VEX forms, beside the EVEX ones of Intel APX. *)
+  [<TestMethod>]
+  member _.``X64 AMX read-shared tile load test (1)``() =
+    "c4e27b4a0418"
+    ++ [| "tileloaddrs tmm0, [rax+rbx]"; "tileloaddrs (%rax, %rbx), %tmm0" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AMX read-shared tile load test (2)``() =
+    "c4e2794a0418"
+    ++ [| "tileloaddrst1 tmm0, [rax+rbx]"
+          "tileloaddrst1 (%rax, %rbx), %tmm0" |]
+    |> testX64
+
   [<TestMethod>]
   member _.``X64 AMX tile load test (2)``() =
     "c4e27b4b4c9820"
@@ -341,6 +355,31 @@ type DisassemblerTests() =
   member _.``X64 APX new data destination test (2)``() =
     "62f46c18000b"
     ++ [| "add dl, byte ptr [rbx], cl"; "addb %cl, (%rbx), %dl" |]
+    |> testX64
+
+  (* EVEX stands in for REX, so a byte-sized vvvv of 4 to 7 names SPL, BPL,
+     SIL or DIL, never AH, CH, DH or BH. *)
+  [<TestMethod>]
+  member _.``X64 APX new data destination test (3)``() =
+    "62cc5018101e"
+    ++ [| "adc bpl, byte ptr [r30], r19b"; "adcb %r19b, (%r30), %bpl" |]
+    |> testX64
+
+  (* The same holds of ModRM's fields: an EVEX prefix in map 4 is a REX one
+     too, whether or not any of its R, X and B bits is set. *)
+  [<TestMethod>]
+  member _.``X64 APX byte register test (1)``() =
+    "62f47c0800e6"
+    ++ [| "add sil, spl"; "add %spl, %sil" |]
+    |> testX64
+
+  (* A SIB index of 100 means no index only while X4 is clear as well: with
+     it set, the field names R20. *)
+  [<TestMethod>]
+  member _.``X64 APX SIB index test (1)``() =
+    "62ec4014091c61"
+    ++ [| "{nf} or r23d, dword ptr [r17+r20*2], r19d"
+          "{nf} orl %r19d, (%r17, %r20, 2), %r23d" |]
     |> testX64
 
   [<TestMethod>]

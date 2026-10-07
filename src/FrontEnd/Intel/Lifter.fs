@@ -41,6 +41,14 @@ let translate (ins: Instruction) bld =
     GeneralLifter.aam ins bld
   | OP.AAS ->
     GeneralLifter.aas ins bld
+  | OP.AADD ->
+    GeneralLifter.aadd ins bld
+  | OP.AAND ->
+    GeneralLifter.aand ins bld
+  | OP.AOR ->
+    GeneralLifter.aor ins bld
+  | OP.AXOR ->
+    GeneralLifter.axor ins bld
   | OP.ADC ->
     GeneralLifter.adc ins bld
   | OP.ADCX ->
@@ -87,6 +95,24 @@ let translate (ins: Instruction) bld =
     GeneralLifter.blsr ins bld
   | OP.BLSMSK ->
     GeneralLifter.blsmsk ins bld
+  | OP.BLCFILL ->
+    GeneralLifter.blcfill ins bld
+  | OP.BLCI ->
+    GeneralLifter.blci ins bld
+  | OP.BLCIC ->
+    GeneralLifter.blcic ins bld
+  | OP.BLCMSK ->
+    GeneralLifter.blcmsk ins bld
+  | OP.BLCS ->
+    GeneralLifter.blcs ins bld
+  | OP.BLSFILL ->
+    GeneralLifter.blsfill ins bld
+  | OP.BLSIC ->
+    GeneralLifter.blsic ins bld
+  | OP.T1MSKC ->
+    GeneralLifter.t1mskc ins bld
+  | OP.TZMSK ->
+    GeneralLifter.tzmsk ins bld
   | OP.RDFSBASE ->
     GeneralLifter.rdfsbase ins bld
   | OP.RDGSBASE ->
@@ -112,25 +138,55 @@ let translate (ins: Instruction) bld =
   (* A prefix the parser met with nothing it can prefix, which faults. *)
   | OP.LOCK | OP.XACQUIRE | OP.XRELEASE ->
     LiftingUtils.undefined ins bld
-  (* Extensions whose architectural state this emulator does not keep: the
-     tile registers of AMX, Key Locker's internal wrapping key, the user
-     interrupt state, and the bounds registers of MPX. Every one of them needs
-     a design decision before a lifter would mean anything, so each says so
-     rather than being quietly wrong. *)
-  | OP.LDTILECFG | OP.STTILECFG | OP.TILELOADD | OP.TILELOADDT1
-  | OP.TILERELEASE | OP.TILESTORED | OP.TILEZERO
-  | OP.TDPBF16PS | OP.TDPBSSD | OP.TDPBSUD | OP.TDPBUSD | OP.TDPBUUD
-  | OP.TDPFP16PS
+  | OP.LDTILECFG ->
+    AMXLifter.ldtilecfg ins bld
+  | OP.STTILECFG ->
+    AMXLifter.sttilecfg ins bld
+  | OP.TILERELEASE ->
+    AMXLifter.tilerelease ins bld
+  | OP.TILEZERO ->
+    AMXLifter.tilezero ins bld
+  (* The hints of the other forms, to the caches and to read sharing, change
+     nothing a tile holds. *)
+  | OP.TILELOADD | OP.TILELOADDT1 | OP.TILELOADDRS | OP.TILELOADDRST1 ->
+    AMXLifter.tileloadd ins bld
+  | OP.TILESTORED ->
+    AMXLifter.tilestored ins bld
+  | OP.TDPBSSD ->
+    AMXLifter.tdpbssd ins bld
+  | OP.TDPBSUD ->
+    AMXLifter.tdpbsud ins bld
+  | OP.TDPBUSD ->
+    AMXLifter.tdpbusd ins bld
+  | OP.TDPBUUD ->
+    AMXLifter.tdpbuud ins bld
+  | OP.TDPBF16PS ->
+    AMXLifter.tdpbf16ps ins bld
+  | OP.TDPFP16PS ->
+    AMXLifter.tdpfp16ps ins bld
+  (* Extensions whose architectural state this emulator does not keep: Key
+     Locker's internal wrapping key, the user interrupt state, and the bounds
+     registers of MPX. Every one of them needs a design decision before a
+     lifter would mean anything, so each says so rather than being quietly
+     wrong. *)
   | OP.AESDEC128KL | OP.AESDEC256KL | OP.AESDECWIDE128KL | OP.AESDECWIDE256KL
   | OP.AESENC128KL | OP.AESENC256KL | OP.AESENCWIDE128KL | OP.AESENCWIDE256KL
   | OP.ENCODEKEY128 | OP.ENCODEKEY256 | OP.LOADIWKEY
   | OP.CLUI | OP.STUI | OP.TESTUI | OP.SENDUIPI | OP.UIRET
   | OP.BNDCL | OP.BNDCN | OP.BNDCU | OP.BNDLDX | OP.BNDMK | OP.BNDSTX ->
     LiftingUtils.unsupported ins bld
+  (* AMD's lightweight profiling, likewise: LLWPCB and SLWPCB load and store
+     the control block of a hardware facility -- event counters, and a ring
+     buffer they fill -- that this emulator does not keep, and LWPINS and
+     LWPVAL write their records into that same buffer, LWPINS reporting in CF
+     whether it did. Without the facility none of them has an answer. *)
+  | OP.LLWPCB | OP.SLWPCB | OP.LWPINS | OP.LWPVAL ->
+    LiftingUtils.unsupported ins bld
   (* Privileged, or resting on a platform facility with no model here: the
      MSR list forms, the accelerator enqueue stores, the configuration and
      history-reset leaves, and the monitor-wait family. *)
   | OP.RDMSRLIST | OP.WRMSRLIST | OP.WRMSRNS | OP.PCONFIG | OP.HRESET
+  | OP.URDMSR | OP.UWRMSR
   | OP.WBNOINVD | OP.ENQCMD | OP.ENQCMDS | OP.MOVDIR64B
   | OP.TPAUSE | OP.UMONITOR | OP.UMWAIT ->
     LiftingUtils.unsupported ins bld
@@ -199,8 +255,35 @@ let translate (ins: Instruction) bld =
   | OP.CMOVE | OP.CMOVNA | OP.CMOVNAE | OP.CMOVNBE
   | OP.CMOVNC | OP.CMOVNGE | OP.CMOVNL | OP.CMOVPO ->
     GeneralLifter.cmovcc ins bld
+  | OP.CFCMOVO | OP.CFCMOVNO | OP.CFCMOVB | OP.CFCMOVAE
+  | OP.CFCMOVZ | OP.CFCMOVNZ | OP.CFCMOVBE | OP.CFCMOVA
+  | OP.CFCMOVS | OP.CFCMOVNS | OP.CFCMOVP | OP.CFCMOVNP
+  | OP.CFCMOVL | OP.CFCMOVGE | OP.CFCMOVLE | OP.CFCMOVG
+  | OP.CFCMOVC | OP.CFCMOVE | OP.CFCMOVNA | OP.CFCMOVNAE
+  | OP.CFCMOVNB | OP.CFCMOVNBE | OP.CFCMOVNC | OP.CFCMOVNE
+  | OP.CFCMOVNG | OP.CFCMOVNGE | OP.CFCMOVNL | OP.CFCMOVNLE
+  | OP.CFCMOVPE | OP.CFCMOVPO ->
+    GeneralLifter.cfcmovcc ins bld
   | OP.CMP ->
     GeneralLifter.cmp ins bld
+  (* The source condition of these sits in EVEX.SCC rather than in the
+     mnemonic, so every one of them reads it from there. *)
+  | OP.CCMPO | OP.CCMPNO | OP.CCMPB | OP.CCMPNB
+  | OP.CCMPZ | OP.CCMPNZ | OP.CCMPBE | OP.CCMPNBE
+  | OP.CCMPS | OP.CCMPNS | OP.CCMPT | OP.CCMPF
+  | OP.CCMPL | OP.CCMPNL | OP.CCMPLE | OP.CCMPNLE
+  | OP.CCMPA | OP.CCMPAE | OP.CCMPC | OP.CCMPE | OP.CCMPG | OP.CCMPGE
+  | OP.CCMPNA | OP.CCMPNAE | OP.CCMPNC | OP.CCMPNE | OP.CCMPNG
+  | OP.CCMPNGE ->
+    GeneralLifter.ccmp ins bld
+  | OP.CTESTO | OP.CTESTNO | OP.CTESTB | OP.CTESTNB
+  | OP.CTESTZ | OP.CTESTNZ | OP.CTESTBE | OP.CTESTNBE
+  | OP.CTESTS | OP.CTESTNS | OP.CTESTT | OP.CTESTF
+  | OP.CTESTL | OP.CTESTNL | OP.CTESTLE | OP.CTESTNLE
+  | OP.CTESTA | OP.CTESTAE | OP.CTESTC | OP.CTESTE | OP.CTESTG
+  | OP.CTESTGE | OP.CTESTNA | OP.CTESTNAE | OP.CTESTNC | OP.CTESTNE
+  | OP.CTESTNG | OP.CTESTNGE ->
+    GeneralLifter.ctest ins bld
   | OP.CMPSB | OP.CMPSW | OP.CMPSQ ->
     GeneralLifter.cmps ins bld
   | OP.CMPXCHG ->
@@ -227,7 +310,7 @@ let translate (ins: Instruction) bld =
     GeneralLifter.enter ins bld
   | OP.HLT ->
     LiftingUtils.sideEffects ins bld Terminate
-  | OP.IMUL ->
+  | OP.IMUL | OP.IMULZU ->
     GeneralLifter.imul ins bld
   | OP.INC ->
     GeneralLifter.inc ins bld
@@ -239,7 +322,7 @@ let translate (ins: Instruction) bld =
     GeneralLifter.interrupt ins bld
   | OP.INT3 ->
     LiftingUtils.sideEffects ins bld Breakpoint
-  | OP.JMP ->
+  | OP.JMP | OP.JMPABS ->
     GeneralLifter.jmp ins bld
   | OP.JO | OP.JNO | OP.JB | OP.JNB
   | OP.JZ | OP.JNZ | OP.JBE | OP.JA
@@ -364,7 +447,7 @@ let translate (ins: Instruction) bld =
     GeneralLifter.lzcnt ins bld
   | OP.LDS | OP.LES | OP.LFS | OP.LGS | OP.LSS ->
     LiftingUtils.unsupported ins bld
-  | OP.MOV ->
+  | OP.MOV | OP.MOVRS ->
     GeneralLifter.mov ins bld
   | OP.MOVBE ->
     GeneralLifter.movbe ins bld
@@ -392,8 +475,10 @@ let translate (ins: Instruction) bld =
     GeneralLifter.pdep ins bld
   | OP.PEXT ->
     GeneralLifter.pext ins bld
-  | OP.POP ->
+  | OP.POP | OP.POPP ->
     GeneralLifter.pop ins bld
+  | OP.POP2 | OP.POP2P ->
+    GeneralLifter.pop2 ins bld
   | OP.POPA ->
     GeneralLifter.popa ins bld 16<rt>
   | OP.POPAD ->
@@ -402,8 +487,10 @@ let translate (ins: Instruction) bld =
     GeneralLifter.popcnt ins bld
   | OP.POPF | OP.POPFD | OP.POPFQ ->
     GeneralLifter.popf ins bld
-  | OP.PUSH ->
+  | OP.PUSH | OP.PUSHP ->
     GeneralLifter.push ins bld
+  | OP.PUSH2 | OP.PUSH2P ->
+    GeneralLifter.push2 ins bld
   | OP.PUSHA ->
     GeneralLifter.pusha ins bld 16<rt>
   | OP.PUSHAD ->
@@ -456,6 +543,15 @@ let translate (ins: Instruction) bld =
   | OP.SETL | OP.SETNL | OP.SETLE | OP.SETG
   | OP.SETAE | OP.SETNAE | OP.SETNLE ->
     GeneralLifter.setcc ins bld
+  | OP.SETZUO | OP.SETZUNO | OP.SETZUB | OP.SETZUAE
+  | OP.SETZUZ | OP.SETZUNZ | OP.SETZUBE | OP.SETZUA
+  | OP.SETZUS | OP.SETZUNS | OP.SETZUP | OP.SETZUNP
+  | OP.SETZUL | OP.SETZUGE | OP.SETZULE | OP.SETZUG
+  | OP.SETZUC | OP.SETZUE | OP.SETZUNA | OP.SETZUNAE
+  | OP.SETZUNB | OP.SETZUNBE | OP.SETZUNC | OP.SETZUNE
+  | OP.SETZUNG | OP.SETZUNGE | OP.SETZUNL | OP.SETZUNLE
+  | OP.SETZUPE | OP.SETZUPO ->
+    GeneralLifter.setzucc ins bld
   | OP.SETSSBSY ->
     GeneralLifter.nop ins bld
   | OP.SHLD ->
@@ -537,7 +633,8 @@ let translate (ins: Instruction) bld =
      Lifting them to a side effect says exactly that. Letting them fall through
      to the catch-all instead raises out of the lifter, which is no answer for
      a tool that is only disassembling a kernel image. *)
-  | OP.CLAC | OP.GETSEC | OP.IN | OP.INVD | OP.INVLPG | OP.INVPCID
+  | OP.CLAC | OP.GETSEC | OP.IN | OP.INVD | OP.INVEPT | OP.INVLPG
+  | OP.INVPCID | OP.INVVPID
   | OP.IRET | OP.IRETQ | OP.IRETW | OP.IRETD
   | OP.LAR | OP.LGDT | OP.LIDT | OP.LLDT
   | OP.LMSW | OP.LSL | OP.LTR | OP.MONITOR | OP.MWAIT | OP.OUT
@@ -2732,5 +2829,112 @@ let translate (ins: Instruction) bld =
     AVXLifter.v4fmaddss ins bld
   | OP.V4FNMADDSS ->
     AVXLifter.v4fnmaddss ins bld
+  (* AMD XOP. *)
+  | OP.VFRCZPD ->
+    XOPLifter.vfrczpd ins bld
+  | OP.VFRCZPS ->
+    XOPLifter.vfrczps ins bld
+  | OP.VFRCZSD ->
+    XOPLifter.vfrczsd ins bld
+  | OP.VFRCZSS ->
+    XOPLifter.vfrczss ins bld
+  | OP.VPCMOV ->
+    XOPLifter.vpcmov ins bld
+  | OP.VPCOMB ->
+    XOPLifter.vpcomb ins bld
+  | OP.VPCOMD ->
+    XOPLifter.vpcomd ins bld
+  | OP.VPCOMQ ->
+    XOPLifter.vpcomq ins bld
+  | OP.VPCOMUB ->
+    XOPLifter.vpcomub ins bld
+  | OP.VPCOMUD ->
+    XOPLifter.vpcomud ins bld
+  | OP.VPCOMUQ ->
+    XOPLifter.vpcomuq ins bld
+  | OP.VPCOMUW ->
+    XOPLifter.vpcomuw ins bld
+  | OP.VPCOMW ->
+    XOPLifter.vpcomw ins bld
+  | OP.VPHADDBD ->
+    XOPLifter.vphaddbd ins bld
+  | OP.VPHADDBQ ->
+    XOPLifter.vphaddbq ins bld
+  | OP.VPHADDBW ->
+    XOPLifter.vphaddbw ins bld
+  | OP.VPHADDDQ ->
+    XOPLifter.vphadddq ins bld
+  | OP.VPHADDUBD ->
+    XOPLifter.vphaddubd ins bld
+  | OP.VPHADDUBQ ->
+    XOPLifter.vphaddubq ins bld
+  | OP.VPHADDUBW ->
+    XOPLifter.vphaddubw ins bld
+  | OP.VPHADDUDQ ->
+    XOPLifter.vphaddudq ins bld
+  | OP.VPHADDUWD ->
+    XOPLifter.vphadduwd ins bld
+  | OP.VPHADDUWQ ->
+    XOPLifter.vphadduwq ins bld
+  | OP.VPHADDWD ->
+    XOPLifter.vphaddwd ins bld
+  | OP.VPHADDWQ ->
+    XOPLifter.vphaddwq ins bld
+  | OP.VPHSUBBW ->
+    XOPLifter.vphsubbw ins bld
+  | OP.VPHSUBDQ ->
+    XOPLifter.vphsubdq ins bld
+  | OP.VPHSUBWD ->
+    XOPLifter.vphsubwd ins bld
+  | OP.VPMACSDD ->
+    XOPLifter.vpmacsdd ins bld
+  | OP.VPMACSDQH ->
+    XOPLifter.vpmacsdqh ins bld
+  | OP.VPMACSDQL ->
+    XOPLifter.vpmacsdql ins bld
+  | OP.VPMACSSDD ->
+    XOPLifter.vpmacssdd ins bld
+  | OP.VPMACSSDQH ->
+    XOPLifter.vpmacssdqh ins bld
+  | OP.VPMACSSDQL ->
+    XOPLifter.vpmacssdql ins bld
+  | OP.VPMACSSWD ->
+    XOPLifter.vpmacsswd ins bld
+  | OP.VPMACSSWW ->
+    XOPLifter.vpmacssww ins bld
+  | OP.VPMACSWD ->
+    XOPLifter.vpmacswd ins bld
+  | OP.VPMACSWW ->
+    XOPLifter.vpmacsww ins bld
+  | OP.VPMADCSSWD ->
+    XOPLifter.vpmadcsswd ins bld
+  | OP.VPMADCSWD ->
+    XOPLifter.vpmadcswd ins bld
+  | OP.VPPERM ->
+    XOPLifter.vpperm ins bld
+  | OP.VPROTB ->
+    XOPLifter.vprotb ins bld
+  | OP.VPROTD ->
+    XOPLifter.vprotd ins bld
+  | OP.VPROTQ ->
+    XOPLifter.vprotq ins bld
+  | OP.VPROTW ->
+    XOPLifter.vprotw ins bld
+  | OP.VPSHAB ->
+    XOPLifter.vpshab ins bld
+  | OP.VPSHAD ->
+    XOPLifter.vpshad ins bld
+  | OP.VPSHAQ ->
+    XOPLifter.vpshaq ins bld
+  | OP.VPSHAW ->
+    XOPLifter.vpshaw ins bld
+  | OP.VPSHLB ->
+    XOPLifter.vpshlb ins bld
+  | OP.VPSHLD ->
+    XOPLifter.vpshld ins bld
+  | OP.VPSHLQ ->
+    XOPLifter.vpshlq ins bld
+  | OP.VPSHLW ->
+    XOPLifter.vpshlw ins bld
   | o ->
     raise <| NotImplementedIRException(Opcode.toString o)

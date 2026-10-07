@@ -229,7 +229,8 @@ let private memSIB span (st: byref<ParsingState>) (m: byte) dispSz memSz =
   let i = (sib >>> 3) &&& 0b111
   let b = sib &&& 0b111
   let rex = st.REX
-  let noIdx = i = 0b100 && not (REXPrefix.hasX rex)
+  let noIdx =
+    i = 0b100 && not (REXPrefix.hasX rex) && not (REXPrefix.hasX4 rex)
   let idxBits =
     if noIdx then 0xFFFF0000u
     else uint32 (int (indexReg &st i)) <<< 16
@@ -479,7 +480,8 @@ let memSIBE span (st: byref<ParsingState>) (m: byte) dispSz memSz tt bcst =
   let i = (sib >>> 3) &&& 0b111
   let b = sib &&& 0b111
   let rex = st.REX
-  let noIdx = i = 0b100 && not (REXPrefix.hasX rex)
+  let noIdx =
+    i = 0b100 && not (REXPrefix.hasX rex) && not (REXPrefix.hasX4 rex)
   let idxBits =
     if noIdx then 0xFFFF0000u
     else uint32 (int (indexReg &st i)) <<< 16

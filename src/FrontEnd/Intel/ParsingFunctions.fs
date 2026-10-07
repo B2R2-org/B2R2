@@ -200,7 +200,11 @@ let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) is64 pos =
   let v' =
     if is64 && ((span[pos + 2] >>> 3) &&& 0b1uy) = 0uy then REXPrefix.EVEXV
     else REXPrefix.NOREX
-  rex <- rex ||| getVREXPref b1 b2 ||| r' ||| v' ||| highBits
+  (* An APX map holds the legacy instructions, and the EVEX prefix stands in
+     for REX there: a byte register of 4 to 7 is SPL, BPL, SIL or DIL even
+     where no R, X or B bit is set. *)
+  let apxREX = if isAPXMap vt then REXPrefix.REX else REXPrefix.NOREX
+  rex <- rex ||| getVREXPref b1 b2 ||| r' ||| v' ||| highBits ||| apxREX
   { VVVV = getVVVV b2
     VectorLength = getVLen (span[pos + 2] >>> 5 &&& 0b011uy)
     VEXType = vt ||| VEXType.EVEX

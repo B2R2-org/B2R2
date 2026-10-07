@@ -343,6 +343,9 @@ let transJumpTargetOpr ins (bld: ILowUIRBuilder) useTmpVar pc =
   match o.Kind with
   | OperandKind.Absolute ->
     struct (numU64 (uint64 o.Value) bld.RegType, false)
+  (* JMPABS of Intel APX, the one branch whose target is an immediate. *)
+  | OperandKind.Imm ->
+    struct (numU64 (uint64 o.Value) bld.RegType, false)
   | OperandKind.Relative ->
     let wordSize = bld.RegType
     let offset = numI64 o.Value wordSize |> AST.sext wordSize
@@ -677,6 +680,76 @@ let transThreeOprs (ins: Instruction) bld useTmpVar =
     struct (opr1, opr2, opr3)
   | _ ->
     raise InvalidOperandException
+
+/// The EVEX prefix of the instruction, where it has one.
+let private getEVEXPrefix (ins: Instruction) =
+  match ins.VEXInfo with
+  | Some v -> v.EVEXPrx
+  | None -> None
+
+/// Whether an Intel APX instruction leaves the status flags as they were
+/// (EVEX.NF). Intel APX spec 355828, 3.1.2.3.1.
+let hasNF ins =
+  match getEVEXPrefix ins with
+  | Some e -> e.NF
+  | None -> false
+
+/// Whether an Intel APX instruction writes a new data destination, or, where
+/// it has no destination to add, zeroes its destination above the operand
+/// (EVEX.ND). Intel APX spec 355828, 3.1.2.3.1.
+let hasND ins =
+  match getEVEXPrefix ins with
+  | Some e -> e.ND
+  | None -> false
+
+/// Writes a value to the whole register under the given destination,
+/// zero-extended. That is how Intel APX writes a new data destination, and a
+/// destination it zeroes the upper part of: unlike a legacy 8- or 16-bit
+/// write, it never merges with the bits above the operand. Intel APX spec
+/// 355828, 3.1.2.4.
+let assignZeroUpper dst src =
+  let reg = AST.unwrap dst
+  AST.assign reg (AST.zext (Expr.typeOf reg) src)
+
+/// A temporary holding the first source of an instruction with a new data
+/// destination. The legacy form computes into that source; this one must
+/// leave it alone, so the result builds up here until writeNDD moves it out.
+let seedNDD ins bld o =
+  let t = tmpVar bld (getOperationSize ins)
+  append bld { direct t := transOpr ins bld false o }
+  t
+
+/// The destination a one-operand instruction computes into: its operand, or,
+/// where Intel APX adds a new data destination, a temporary seeded with the
+/// source.
+let transDst (ins: Instruction) bld =
+  match ins.Operands with
+  | OneOperand o -> transOpr ins bld true o
+  | TwoOperands(_, o) -> seedNDD ins bld o
+  | _ -> raise InvalidOperandException
+
+/// The destination a two-operand instruction computes into, read as transDst
+/// reads it, and the source beside it.
+let transDstSrc (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(o1, o2) ->
+    let dst = transOpr ins bld true o1
+    struct (dst, transOpr ins bld false o2 |> transReg bld true)
+  | ThreeOperands(_, o2, o3) ->
+    let dst = seedNDD ins bld o2
+    struct (dst, transOpr ins bld false o3 |> transReg bld true)
+  | _ ->
+    raise InvalidOperandException
+
+/// Moves what an instruction with a new data destination computed into the
+/// destination itself. Every other instruction has already written its result
+/// in place, so this does nothing for them.
+let writeNDD (ins: Instruction) bld result =
+  if hasND ins then
+    let ndd = transOpr ins bld false ins.Operands[0]
+    append bld { assignZeroUpper ndd result }
+  else
+    ()
 
 /// For x87 FPU Top register or x87 FPU Tag word sections.
 let extractDstAssign e1 e2 =
