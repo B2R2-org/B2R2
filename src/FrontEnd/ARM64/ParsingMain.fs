@@ -1154,6 +1154,8 @@ let private getDCInstruction bin =
   | 0b01101111010001u -> Op.DCCVAC
   | 0b00001111010010u -> Op.DCCSW
   | 0b01101111011001u -> Op.DCCVAU
+  | 0b01101111100001u -> Op.DCCVAP
+  | 0b01101111101001u -> Op.DCCVADP
   | 0b01101111110001u -> Op.DCCIVAC
   | 0b00001111110010u -> Op.DCCISW
   (* C5.3 A64 system instructions for cache maintenance *)

@@ -425,6 +425,8 @@ type ARM64RoundTripTests() =
       "psb csync"
       "tsb csync"
       "csdb"
+      "dccvap x1"
+      "dccvadp x2"
       "sys #0x0, c8, c3, #0x1, x0"
       "sysl x0, #0x3, c7, c4, #0x1"
       "ret"

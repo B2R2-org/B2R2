@@ -278,6 +278,13 @@ type ParserTests() =
     ++ DCZVA ** [ O.Reg X3 ]
     ||> test
 
+  /// DC CVAP and DC CVADP clean to the points of persistence and of deep
+  /// persistence (DDI0487F.c C5.3.18 and C5.3.17).
+  [<TestMethod>]
+  member _.``[AArch64] DC CVAP and DC CVADP decode``() =
+    testDisasm "d50b7c21" "dccvap x1"
+    testDisasm "d50b7d22" "dccvadp x2"
+
   [<TestMethod>]
   member _.``C4.3.4 System (6)``() =
     "d528f4d8"

@@ -1985,6 +1985,8 @@ let systemEncoders () =
     Opcode.DCCVAC, cacheInstruction 0b011u 0b0111u 0b1010u 0b001u
     Opcode.DCCSW, cacheInstruction 0b000u 0b0111u 0b1010u 0b010u
     Opcode.DCCVAU, cacheInstruction 0b011u 0b0111u 0b1011u 0b001u
+    Opcode.DCCVAP, cacheInstruction 0b011u 0b0111u 0b1100u 0b001u
+    Opcode.DCCVADP, cacheInstruction 0b011u 0b0111u 0b1101u 0b001u
     Opcode.DCCIVAC, cacheInstruction 0b011u 0b0111u 0b1110u 0b001u
     Opcode.DCCISW, cacheInstruction 0b000u 0b0111u 0b1110u 0b010u
     Opcode.CFINV, flagManipulation 0b000u

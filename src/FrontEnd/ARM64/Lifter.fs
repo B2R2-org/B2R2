@@ -559,6 +559,13 @@ let translate (ins: Instruction) bld =
     ctz ins bld
   | Opcode.DCZVA ->
     dczva ins bld
+  (* the cleaning EL0 may do, and IC IVAU: no cache stands between the
+     processor and memory here, so none of them has an effect to show *)
+  | Opcode.DCCVAU | Opcode.DCCVAC | Opcode.DCCIVAC | Opcode.DCCVAP
+  | Opcode.DCCVADP ->
+    nop ins bld
+  | Opcode.SYS when isICIVAU ins ->
+    nop ins bld
   | Opcode.DMB | Opcode.DSB | Opcode.ISB | Opcode.SB ->
     nop ins bld
   | Opcode.DUP ->

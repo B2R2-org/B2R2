@@ -542,3 +542,22 @@ type LifterTests() =
         "d4000003" (* SMC #0 *) ]
     for hex in words do
       hex ++ [| undefined |] |> test
+
+  /// <summary>
+  /// The cache maintenance EL0 may run under SCTLR_EL1.UCI, which Linux sets:
+  /// DC CVAU, CVAC, CIVAC, CVAP and CVADP, and IC IVAU (DDI0487F.c C5.3.19,
+  /// C5.3.16, C5.3.14, C5.3.18, C5.3.17 and C5.3.31). Nothing in this model
+  /// stands between the processor and memory, so none of them has an effect
+  /// to show.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] The cache maintenance EL0 runs lifts to nothing``() =
+    let words =
+      [ "d50b7b21" (* DC CVAU *)
+        "d50b7a21" (* DC CVAC *)
+        "d50b7e21" (* DC CIVAC *)
+        "d50b7c21" (* DC CVAP *)
+        "d50b7d21" (* DC CVADP *)
+        "d50b7520" (* IC IVAU *) ]
+    for hex in words do
+      hex ++ [||] |> test
