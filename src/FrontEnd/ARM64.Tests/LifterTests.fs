@@ -521,3 +521,24 @@ type LifterTests() =
   member _.``[AArch64] UDF lifts to an undefined instruction``() =
     let undefined = AST.sideEffect BinIR.SideEffect.UndefinedInstruction
     "0000abcd" ++ [| undefined |] |> test
+
+  /// <summary>
+  /// This model runs one exception level, with no EL2 or EL3 above it, and is
+  /// never in Debug state, so what would leave for one of those is UNDEFINED:
+  /// HVC and SMC (DDI0487F.c C6.2.94 and C6.2.240), HLT with halting not
+  /// allowed (C6.2.93), and DCPS1 to DCPS3 and DRPS outside Debug state
+  /// (C6.2.76 to C6.2.78 and C6.2.81).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] HLT, DCPS, DRPS, HVC and SMC are undefined``() =
+    let undefined = AST.sideEffect BinIR.SideEffect.UndefinedInstruction
+    let words =
+      [ "d4400020" (* HLT #1 *)
+        "d4a00001" (* DCPS1 *)
+        "d4a00002" (* DCPS2 *)
+        "d4a00003" (* DCPS3 *)
+        "d6bf03e0" (* DRPS *)
+        "d4000002" (* HVC #0 *)
+        "d4000003" (* SMC #0 *) ]
+    for hex in words do
+      hex ++ [| undefined |] |> test

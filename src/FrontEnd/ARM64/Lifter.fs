@@ -129,6 +129,10 @@ let translate (ins: Instruction) bld =
     eret ins bld
   | Opcode.BRK ->
     sideEffects ins bld Breakpoint
+  (* one exception level, no EL2 or EL3, never Debug state: nowhere to go *)
+  | Opcode.HLT | Opcode.DCPS1 | Opcode.DCPS2 | Opcode.DCPS3 | Opcode.DRPS
+  | Opcode.HVC | Opcode.SMC ->
+    sideEffects ins bld UndefinedInstruction
   | Opcode.BSL ->
     bsl ins bld
   | Opcode.BVC ->
