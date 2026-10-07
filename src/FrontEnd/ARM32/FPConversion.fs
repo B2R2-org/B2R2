@@ -441,6 +441,17 @@ let halfToDouble bld h =
   w
 
 /// <summary>
+/// A half unpacked into a single the same way, for FPMulAddH, which takes
+/// halves into an operation on singles.
+/// </summary>
+let halfToSingle bld h =
+  let fz16 = AST.extract (regVar bld R.FPSCR) 1<rt> 19
+  let w = tmpVar bld 32<rt>
+  let flushed = AST.ite (fz16 .& isDenormal 16<rt> h) (fpZero 16<rt> h) h
+  append bld { w := halfToWide false 32<rt> bld flushed }
+  w
+
+/// <summary>
 /// A double rounded once to a half in the direction the controls name, with
 /// what the operation that made it raised: Invalid and Divide-by-zero are the
 /// operation's, Inexact the operation's or the narrowing's, and Overflow and

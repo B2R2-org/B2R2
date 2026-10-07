@@ -67,7 +67,7 @@ let private isLifted = function
   | Op.VCVT | Op.VCVTR | Op.VCVTA | Op.VCVTN | Op.VCVTP | Op.VCVTM | Op.VINS
   | Op.VMOVX | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT | Op.VACGE
   | Op.VACGT | Op.VACLE | Op.VACLT | Op.VRECPE | Op.VRSQRTE | Op.VRECPS
-  | Op.VRSQRTS -> true
+  | Op.VRSQRTS | Op.VFMAL | Op.VFMSL -> true
   | _ -> false
 
 /// Whether this module lifts an instruction.
@@ -468,6 +468,43 @@ let private recipStep16 bld isSqrt a b =
   fpInvalidOnly bld (isSNaN 16<rt> a .| isSNaN 16<rt> b)
   AST.ite anyNaN (fpDefaultNaN 16<rt>) r
 
+/// Every half of a register: a single's two, or a doubleword's four.
+let private allHalves bld opr =
+  if isSingle opr then
+    let s = regVar bld (regOf opr)
+    let struct (lo, hi) = tmpVars2 bld 16<rt>
+    append bld { lo := AST.xtlo 16<rt> s }
+    append bld { hi := AST.xthi 16<rt> s }
+    [| lo; hi |]
+  else
+    readLanes bld 16 opr
+
+/// <summary>
+/// VFMAL and VFMSL, by vector and by scalar (DDI0487F.c F6.1.89, F6.1.90,
+/// F6.1.92 and F6.1.93): every word of Dd or Qd accumulates the product of
+/// the halves of Sn and Sm, or Dn and Dm, in the same place, by FPMulAddH on
+/// the standard value -- the halves widened exactly, the product exact in a
+/// single and the sum rounded once -- VFMSL negating the first half before
+/// anything else. By scalar, every word takes the one half the index names.
+/// </summary>
+let private vfmal (ins: Instruction) bld isSub =
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let acc = readLanes bld 32 dst
+  let a = allHalves bld src1
+  let b =
+    match src2 with
+    | OprSIMD(SFReg(Scalar(r, Some idx))) ->
+      let t = tmpVar bld 16<rt>
+      append bld { t := AST.extract (regVar bld r) 16<rt> (int idx * 16) }
+      Array.create acc.Length t
+    | _ ->
+      allHalves bld src2
+  Array.init acc.Length (fun e ->
+    let x = halfToSingle bld (if isSub then neg16 a[e] else a[e])
+    let y = halfToSingle bld b[e]
+    fpMulAdd bld StandardValue 32<rt> acc[e] x y)
+  |> writeLanes bld dst
+
 let private body (ins: Instruction) bld =
   match ins.Opcode with
   | Op.VADD ->
@@ -548,6 +585,10 @@ let private body (ins: Instruction) bld =
     binary ins bld (fun _ a b -> recipStep16 bld false a b)
   | Op.VRSQRTS ->
     binary ins bld (fun _ a b -> recipStep16 bld true a b)
+  | Op.VFMAL ->
+    vfmal ins bld false
+  | Op.VFMSL ->
+    vfmal ins bld true
   | Op.VINS ->
     vins ins bld
   | Op.VMOVX ->

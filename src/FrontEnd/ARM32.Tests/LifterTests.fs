@@ -2487,6 +2487,32 @@ type LifterTests() =
     let d0, _, _ = fpRun "f3110f12" 0u ds
     Assert.AreEqual<uint64>(0x00003c003c004000UL, d0)
 
+  /// <summary>
+  /// VCVTB from a single to a bfloat16 rounds its top half as FPSCR says and
+  /// writes the bottom half of Sd: 0x3f808000 is a tie and stays 0x3f80 at
+  /// nearest, an even last bit, where 0x3f818000 goes up to 0x3f82, both
+  /// raising Inexact (DDI0487F.c F6.1.68).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTB to a bfloat16 rounds to even``() =
+    Assert.AreEqual<uint32 * uint32>((0x3f80u, 0x10u),
+                                     s0After "eeb30960" 0u 0x3f808000u 0u)
+    Assert.AreEqual<uint32 * uint32>((0x3f82u, 0x10u),
+                                     s0After "eeb30960" 0u 0x3f818000u 0u)
+
+  /// <summary>
+  /// VFMAL and VFMSL add to each single of Dd the product of the halves of Sn
+  /// and Sm under it (F6.1.89 and F6.1.92): 1 + 1 * 3 and 2 + 2 * 0.5, and
+  /// with the first halves negated, 1 - 3 and 2 - 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VFMAL and VFMSL widen the halves into singles``() =
+    let ds = [ 0, 0x400000003f800000UL; 1, 0x3800420040003c00UL ]
+    let add, _, _ = fpRun "fc210831" 0u ds
+    Assert.AreEqual<uint64>(0x4040000040800000UL, add)
+    let sub, _, _ = fpRun "fca10831" 0u ds
+    Assert.AreEqual<uint64>(0x3f800000c0000000UL, sub)
+
   [<TestMethod>]
   member _.``[ARMv7] LDA writes the loaded word to Rt``() =
     let written = writtenBy false "e1910c9f"

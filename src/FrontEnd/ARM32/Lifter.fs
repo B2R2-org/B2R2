@@ -43,6 +43,20 @@ let translate (ins: Instruction) bld =
   match ins.Opcode with
   | _ when FP16Lifter.handles ins ->
     FP16Lifter.translate ins bld
+  | Op.VCVT when BF16Lifter.converts ins ->
+    BF16Lifter.vcvt ins bld
+  | Op.VCVTB when BF16Lifter.converts ins ->
+    BF16Lifter.vcvtHalf ins bld false
+  | Op.VCVTT when BF16Lifter.converts ins ->
+    BF16Lifter.vcvtHalf ins bld true
+  | Op.VDOT ->
+    BF16Lifter.vdot ins bld
+  | Op.VMMLA ->
+    BF16Lifter.vmmla ins bld
+  | Op.VFMAB ->
+    BF16Lifter.vfmaLong ins bld false
+  | Op.VFMAT ->
+    BF16Lifter.vfmaLong ins bld true
   | Op.ADC ->
     adc false ins bld
   | Op.ADCS ->
