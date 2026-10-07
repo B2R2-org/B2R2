@@ -1345,7 +1345,15 @@ let vpbroadcastd ins bld = vpbroadcast ins bld 32<rt>
 
 let vpbroadcastw ins bld = vpbroadcast ins bld 16<rt>
 
-let vpcmpeqb ins bld = buildPackedInstr ins bld true 8<rt> opPcmpeqb
+let vpcmpeqb (ins: Instruction) bld =
+#if EMULATION
+  if haveEVEXPrx ins.VEXInfo then
+    buildPackedInstr ins bld true 8<rt> opPcmpeqb
+  else
+    vexLaneCall ins bld "PCMPEQB"
+#else
+  buildPackedInstr ins bld true 8<rt> opPcmpeqb
+#endif
 
 let vpcmpeqd ins bld =
   buildPackedInstr ins bld true 32<rt> opPcmpeqd
@@ -2060,8 +2068,15 @@ let vrsqrtss ins bld = vapproxRecipScalar ins bld true
 let vpmaxsd ins bld =
   buildPackedInstr ins bld true 32<rt> SSELifter.opPmaxs
 
-let vpminub ins bld =
+let vpminub (ins: Instruction) bld =
+#if EMULATION
+  if haveEVEXPrx ins.VEXInfo then
+    buildPackedInstr ins bld true 8<rt> SSELifter.opPminu
+  else
+    vexLaneCall ins bld "PMINUB"
+#else
   buildPackedInstr ins bld true 8<rt> SSELifter.opPminu
+#endif
 
 let vpminud ins bld =
   buildPackedInstr ins bld true 32<rt> SSELifter.opPminu
@@ -2137,7 +2152,8 @@ let vpmulld ins bld =
 
 let vpor ins bld = buildPackedInstr ins bld true 64<rt> opPor
 
-let vpshufb (ins: Instruction) bld =
+/// VPSHUFB's bytes picked one at a time, each from its own 128-bit lane.
+let private shuffleLaneBytes (ins: Instruction) bld =
   lift bld ins {
     let oprSz = getOperationSize ins
     let packSz = 8<rt>
@@ -2176,6 +2192,16 @@ let vpshufb (ins: Instruction) bld =
     assignPackedInstr ins bld false packNum oprSz dst result
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
+
+let vpshufb (ins: Instruction) bld =
+#if EMULATION
+  if haveEVEXPrx ins.VEXInfo then
+    shuffleLaneBytes ins bld
+  else
+    vexLaneCall ins bld "PSHUFB"
+#else
+  shuffleLaneBytes ins bld
+#endif
 
 let vpshufd (ins: Instruction) bld =
   lift bld ins {

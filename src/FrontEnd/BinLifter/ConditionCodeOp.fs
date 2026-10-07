@@ -98,3 +98,21 @@ type ConditionCodeOp =
   | DECQ = 0x22
   /// XOR of the same operands.
   | XORXX = 0x23
+  /// Addition with carry of byte-size operands. As in each group of four
+  /// above, the operand size follows from the offset from SUBB, modulo four,
+  /// which is why 0x24 to 0x26 go unused.
+  | ADCB = 0x27
+  /// Addition with carry of word-size operands.
+  | ADCW = 0x28
+  /// Addition with carry of doubleword-size operands.
+  | ADCD = 0x29
+  /// Addition with carry of quadword-size operands.
+  | ADCQ = 0x2A
+  /// Subtraction with borrow of byte-size operands.
+  | SBBB = 0x2B
+  /// Subtraction with borrow of word-size operands.
+  | SBBW = 0x2C
+  /// Subtraction with borrow of doubleword-size operands.
+  | SBBD = 0x2D
+  /// Subtraction with borrow of quadword-size operands.
+  | SBBQ = 0x2E

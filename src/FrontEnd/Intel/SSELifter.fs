@@ -1553,7 +1553,15 @@ let pmaxsd ins bld = buildPackedInstr ins bld false 32<rt> opPmaxs
 
 let pmaxsw ins bld = buildPackedInstr ins bld false 16<rt> opPmaxs
 
-let pminub ins bld = buildPackedInstr ins bld false 8<rt> opPminu
+let pminub ins bld =
+#if EMULATION
+  if getOperationSize ins = 128<rt> then
+    MMXLifter.packedBinIntrinsic ins bld "PMINUB"
+  else
+    buildPackedInstr ins bld false 8<rt> opPminu
+#else
+  buildPackedInstr ins bld false 8<rt> opPminu
+#endif
 
 let pminud ins bld = buildPackedInstr ins bld false 32<rt> opPminu
 
@@ -1621,8 +1629,16 @@ let pmovmskb (ins: Instruction) bld =
       let dst = transOpr ins bld false dst
       let struct (srcD, srcC, srcB, srcA) =
         transOpr256 ins bld false src
+#if EMULATION
+      (* The same intrinsic over each 128-bit lane, the high lane's mask in
+         the high 16 bits. *)
+      let lo = AST.app "PMOVMSKB" [ AST.concat srcB srcA ] 16<rt>
+      let hi = AST.app "PMOVMSKB" [ AST.concat srcD srcC ] 16<rt>
+      sized oprSize dst := AST.zext oprSize (AST.concat hi lo)
+#else
       let tmps = byteMask [| srcA; srcB; srcC; srcD |]
       sized oprSize dst := AST.zext oprSize tmps
+#endif
     | _ ->
       raise InvalidOperandException
   }
@@ -1882,7 +1898,8 @@ let pshuflw ins bld = shuffleHalfWords ins bld false
 
 let pshufhw ins bld = shuffleHalfWords ins bld true
 
-let pshufb (ins: Instruction) bld =
+/// PSHUFB's bytes picked one at a time.
+let private shuffleBytes (ins: Instruction) bld =
   lift bld ins {
     let oprSize = getOperationSize ins
     let packSize = 8<rt>
@@ -1921,6 +1938,19 @@ let pshufb (ins: Instruction) bld =
     | _ ->
       raise InvalidOperandSizeException
   }
+
+/// PSHUFB. An emulator runs the 128-bit form as one intrinsic, a byte
+/// shuffle the host has an instruction for, where the picks one at a time
+/// come to several hundred IR nodes.
+let pshufb (ins: Instruction) bld =
+#if EMULATION
+  if getOperationSize ins = 128<rt> then
+    MMXLifter.packedBinIntrinsic ins bld "PSHUFB"
+  else
+    shuffleBytes ins bld
+#else
+  shuffleBytes ins bld
+#endif
 
 let movdqa ins bld = buildMove ins bld
 
@@ -2816,6 +2846,38 @@ let private negatePcmpstrResult bld
         }
   done
 
+/// Writes the result bits to XMM0 as a mask, one bit or one whole element wide
+/// per element: `packed` holds the bits side by side, `bits` one by one. The
+/// VEX forms clear the rest of the register, as every VEX.128 write does; the
+/// legacy ones leave it.
+let private writePcmpstrMask bld ins ctrl (bits: Expr[]) packed =
+  append bld {
+    let packSize = ctrl.PackSize
+    let pNum = 64<rt> / packSize
+    let n0 = AST.num0 packSize
+    let struct (dstB, dstA) = pseudoRegVar128 bld R.XMM0
+    match ctrl.OutSelect with
+    | Least (* Bit mask *) ->
+      direct dstA := AST.zext 64<rt> packed
+      direct dstB := AST.num0 64<rt>
+    | Most (* Byte/word mask *) ->
+      let nFF = numI32 (if packSize = 8<rt> then 0xFF else 0xFFFF) packSize
+      let res = Array.init bits.Length (fun _ -> tmpVar bld packSize)
+      for i in 0 .. bits.Length - 1 do
+        direct (res[i]) := AST.ite bits[i] nFF n0
+      done
+      direct dstA := Array.sub res 0 pNum |> AST.revConcat
+      direct dstB := Array.sub res pNum pNum |> AST.revConcat
+  }
+  if isVexEncoded ins then
+    fillZeroFromVLToMaxVL bld (Operand.OprReg R.XMM0) 128<rt> 512
+  else
+    ()
+
+/// The register an index form writes its index to, and its width.
+let private pcmpstrIndexReg (ins: Instruction) =
+  if REXPrefix.hasW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX
+
 /// Writes the bits out the way the opcode asks: as a mask in XMM0, one bit or
 /// one whole element wide, or as the index of the first or the last bit set,
 /// which is the element count where nothing matched at all.
@@ -2824,35 +2886,14 @@ let private writePcmpstrResult bld
                                ctrl
                                (intRes2: Expr[])
                                iRes2 =
-  append bld {
-    let packSize = ctrl.PackSize
-    let nElem = int ctrl.NumElems
-    let elemSz = RegType.fromBitWidth nElem
-    let upperBound = nElem - 1
-    let pNum = 64<rt> / packSize
-    let n0 = AST.num0 packSize
-    match ctrl.Ret with
-    | Mask ->
-      let struct (dstB, dstA) = pseudoRegVar128 bld R.XMM0
-      match ctrl.OutSelect with
-      | Least (* Bit mask *) ->
-        let res = tmpVar bld elemSz
-        direct res := combineBits elemSz intRes2
-        direct dstA := AST.zext 64<rt> res
-        direct dstB := AST.num0 64<rt>
-      | Most (* Byte/word mask *) ->
-        let nFF =
-          numI32 (if ctrl.PackSize = 8<rt> then 0xFF else 0xFFFF) packSize
-        let res = Array.init nElem (fun _ -> tmpVar bld packSize)
-        for i in 0 .. upperBound do
-          direct (res[i]) := AST.ite intRes2[i] nFF n0
-        done
-        direct dstA := Array.sub res 0 pNum |> AST.revConcat
-        direct dstB := Array.sub res pNum pNum |> AST.revConcat
-    | Index ->
-      let outSz, cx =
-        if REXPrefix.hasW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX
-      let cx = regVar bld cx
+  match ctrl.Ret with
+  | Mask ->
+    writePcmpstrMask bld ins ctrl intRes2 iRes2
+  | Index ->
+    append bld {
+      let nElem = int ctrl.NumElems
+      let elemSz = RegType.fromBitWidth nElem
+      let outSz, cx = pcmpstrIndexReg ins
       let n0 = AST.num0 elemSz
       let idx =
         match ctrl.OutSelect with
@@ -2860,8 +2901,8 @@ let private writePcmpstrResult bld
         | Most -> mostSign bld iRes2 elemSz nElem
         |> AST.zext 32<rt>
       let idx = AST.ite (iRes2 == n0) (numI32 nElem 32<rt>) idx
-      sized outSz cx := idx
-  }
+      sized outSz (regVar bld cx) := idx
+    }
 
 /// The lengths a compare works to, beside the width the REX prefix gave them.
 /// An implicit-length compare reads no length register at all, so the pair is
@@ -2891,7 +2932,9 @@ let private setFlagsOfPcmpstr bld ctrl src1 src2 regs intRes2 iRes2 elemSz =
     direct (regVar bld R.PF) := AST.b0
   }
 
-let pcmpstr (ins: Instruction) bld =
+/// A string compare spelled out in IR: every element of one string compared
+/// against every element of the other, then aggregated, as the SDM gives it.
+let private pcmpstrByIR (ins: Instruction) bld =
   lift bld ins {
     let struct (s1, s2, imm) = getThreeOprs ins
     let imm = transOpr ins bld false imm
@@ -2919,7 +2962,71 @@ let pcmpstr (ins: Instruction) bld =
     direct iRes2 := combineBits elemSz intRes2
     writePcmpstrResult bld ins ctrl intRes2 iRes2
     setFlagsOfPcmpstr bld ctrl src1 src2 regs intRes2 iRes2 elemSz
-#if EMULATION
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
   }
+
+#if EMULATION
+/// The lengths an explicit-length compare is handed: rAX and rDX at the width
+/// the REX prefix gives them, sign-extended to a quadword, so that the sign
+/// means to the callee what it means to the instruction.
+let private pcmpstrLengthArgs (ins: Instruction) bld =
+  if REXPrefix.hasW ins.REXPrefix then
+    [ regVar bld R.RAX; regVar bld R.RDX ]
+  else
+    [ AST.sext 64<rt> (regVar bld R.EAX); AST.sext 64<rt> (regVar bld R.EDX) ]
+
+/// Writes what an emulator's answer word says the way the opcode asks: the
+/// index from bits 24 to 28, or a mask from the result bits.
+let private writePcmpstrWord bld (ins: Instruction) ctrl word =
+  let nElem = int ctrl.NumElems
+  match ctrl.Ret with
+  | Mask ->
+    let bits = Array.init nElem (fun i -> AST.extract word 1<rt> i)
+    let packed = AST.xtlo (RegType.fromBitWidth nElem) word
+    writePcmpstrMask bld ins ctrl bits packed
+  | Index ->
+    let outSz, cx = pcmpstrIndexReg ins
+    let idx = AST.extract word 5<rt> 24
+    append bld {
+      sized outSz (regVar bld cx) := AST.zext outSz idx
+    }
+
+/// A string compare as one call, which an emulator answers with a word: the
+/// result bits, one per element, in its low 16 bits, ZF in bit 16, SF in bit
+/// 17, and the index the index forms write in bits 24 to 28. Every output
+/// follows from it. Spelled out in IR the compare came to some nine thousand
+/// nodes, which ran for some 700 ns, and glibc's strcspn, strspn and strpbrk
+/// run it on every 16 bytes.
+let private pcmpstrByCall (ins: Instruction) bld =
+  lift bld ins {
+    let struct (s1, s2, imm) = getThreeOprs ins
+    let ctrl = getPcmpstrInfo ins.Opcode (transOpr ins bld false imm)
+    let struct (aB, aA) = transOpr128 ins bld false s1
+    let struct (bB, bA) = transOpr128 ins bld false s2
+    let control = numU64 (uint64 (getImmValue imm) &&& 0xFFUL) 8<rt>
+    let strings = [ AST.concat aB aA; AST.concat bB bA; control ]
+    let word = tmpVar bld 64<rt>
+    match ctrl.Len with
+    | Implicit ->
+      direct word := AST.app "PCMPISTR" strings 64<rt>
+    | Explicit ->
+      let args = strings @ pcmpstrLengthArgs ins bld
+      direct word := AST.app "PCMPESTR" args 64<rt>
+    writePcmpstrWord bld ins ctrl word
+    direct (regVar bld R.CF) := AST.xtlo 16<rt> word != AST.num0 16<rt>
+    direct (regVar bld R.ZF) := AST.extract word 1<rt> 16
+    direct (regVar bld R.SF) := AST.extract word 1<rt> 17
+    direct (regVar bld R.OF) := AST.xtlo 1<rt> word
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.PF) := AST.b0
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+  }
+#endif
+
+/// PCMPESTRI, PCMPESTRM, PCMPISTRI and PCMPISTRM, and their VEX forms. An
+/// emulator answers them with a call; static analysis gets the IR.
+let pcmpstr (ins: Instruction) bld =
+#if EMULATION
+  pcmpstrByCall ins bld
+#else
+  pcmpstrByIR ins bld
+#endif

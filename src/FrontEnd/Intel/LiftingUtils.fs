@@ -1176,6 +1176,67 @@ let genDynamicFlagsUpdate bld =
   }
   bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 
+/// The EFLAGS bit a flag register stands for, which is how X86FLAG names it.
+let private flagBit flag =
+  match flag with
+  | R.CF -> 0
+  | R.PF -> 2
+  | R.AF -> 4
+  | R.ZF -> 6
+  | R.SF -> 7
+  | R.OF -> 11
+  | _ -> Terminator.impossible ()
+
+/// One flag where a block starts, where only what CCOP holds says which
+/// operation the flags are owed by: worked out alone from that operation's
+/// operands by the emulator's X86FLAG, rather than all six materialized for
+/// the one read. The flag's own register goes along, as the value an
+/// operation that leaves the flag alone, or no operation, leaves it with.
+let lazyFlag bld flag =
+  let args =
+    [ numI32 (flagBit flag) 8<rt>
+      regVar bld R.CCOP
+      regVar bld R.CCDST
+      regVar bld R.CCSRC1
+      regVar bld R.CCSRC2
+      regVar bld flag ]
+  AST.app "X86FLAG" args 1<rt>
+
+/// The carry out of an addition of a and b, a carry in or not, from its
+/// result r: the majority of the two top bits and the carry into the top bit,
+/// which the result's top bit gives away.
+let cfOnAdc a b r = AST.xthi 1<rt> ((a .& b) .| ((a .| b) .& AST.not r))
+
+/// The overflow of an addition of a and b, a carry in or not, from its result
+/// r: the two addends agree in sign and the result does not.
+let ofOnAdc a b r = AST.xthi 1<rt> ((a <+> r) .& (b <+> r))
+
+/// The borrow out of a subtraction of b from a, a borrow in or not, from its
+/// result r, as cfOnAdc works out a carry.
+let cfOnSbb a b r =
+  AST.xthi 1<rt> ((AST.not a .& b) .| ((AST.not a .| b) .& r))
+
+/// The width an ADC or SBB worked at, and the three values it left: the
+/// destination as it was, the source, and the result.
+let private carryOperands bld ccOp =
+  let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
+  let rt = RegType.fromByteWidth size
+  struct (rt, getCCSrc1 bld rt, getCCSrc2 bld rt, getCCDst bld rt)
+
+/// Works out every flag an ADC or SBB left owed, into their registers.
+let private settleCarryOp bld isAdc ccOp =
+  let struct (rt, a, b, r) = carryOperands bld ccOp
+  let struct (t1, t2, t3) = tmpVars3 bld rt
+  append bld {
+    direct t1 := a
+    direct t2 := b
+    direct t3 := r
+  }
+  let cf = if isAdc then cfOnAdc t1 t2 t3 else cfOnSbb t1 t2 t3
+  let ofl = if isAdc then ofOnAdc t1 t2 t3 else ofOnSub t1 t2 t3
+  enumEFLAGS bld t1 t2 t3 rt cf ofl (AST.xthi 1<rt> t3)
+  bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+
 let getOFLazy (bld: ILowUIRBuilder) =
   let ccOp = bld.ConditionCodeOp
   match ccOp with
@@ -1360,9 +1421,20 @@ let getOFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.LOGICQ
   | ConditionCodeOp.XORXX ->
     AST.b0
-  | ConditionCodeOp.TraceStart ->
-    genDynamicFlagsUpdate bld
+  | ConditionCodeOp.ADCB
+  | ConditionCodeOp.ADCW
+  | ConditionCodeOp.ADCD
+  | ConditionCodeOp.ADCQ ->
+    settleCarryOp bld true ccOp
     regVar bld R.OF
+  | ConditionCodeOp.SBBB
+  | ConditionCodeOp.SBBW
+  | ConditionCodeOp.SBBD
+  | ConditionCodeOp.SBBQ ->
+    settleCarryOp bld false ccOp
+    regVar bld R.OF
+  | ConditionCodeOp.TraceStart ->
+    lazyFlag bld R.OF
   | ConditionCodeOp.EFlags ->
     regVar bld R.OF
   | _ ->
@@ -1414,9 +1486,18 @@ let getSFLazy (bld: ILowUIRBuilder) =
     AST.ite (cnt == AST.num0 regType) (regVar bld R.SF) (t ?< AST.num0 regType)
   | ConditionCodeOp.XORXX ->
     AST.b0
+  | ConditionCodeOp.ADCB
+  | ConditionCodeOp.ADCW
+  | ConditionCodeOp.ADCD
+  | ConditionCodeOp.ADCQ
+  | ConditionCodeOp.SBBB
+  | ConditionCodeOp.SBBW
+  | ConditionCodeOp.SBBD
+  | ConditionCodeOp.SBBQ ->
+    let struct (rt, _, _, r) = carryOperands bld ccOp
+    r ?< AST.num0 rt
   | ConditionCodeOp.TraceStart ->
-    genDynamicFlagsUpdate bld
-    regVar bld R.SF
+    lazyFlag bld R.SF
   | ConditionCodeOp.EFlags ->
     regVar bld R.SF
   | _ ->
@@ -1468,9 +1549,18 @@ let getZFLazy (bld: ILowUIRBuilder) =
     AST.ite (cnt == AST.num0 regType) (regVar bld R.ZF) (t == AST.num0 regType)
   | ConditionCodeOp.XORXX ->
     AST.b1
+  | ConditionCodeOp.ADCB
+  | ConditionCodeOp.ADCW
+  | ConditionCodeOp.ADCD
+  | ConditionCodeOp.ADCQ
+  | ConditionCodeOp.SBBB
+  | ConditionCodeOp.SBBW
+  | ConditionCodeOp.SBBD
+  | ConditionCodeOp.SBBQ ->
+    let struct (rt, _, _, r) = carryOperands bld ccOp
+    r == AST.num0 rt
   | ConditionCodeOp.TraceStart ->
-    genDynamicFlagsUpdate bld
-    regVar bld R.ZF
+    lazyFlag bld R.ZF
   | ConditionCodeOp.EFlags ->
     regVar bld R.ZF
   | _ ->
@@ -1575,9 +1665,20 @@ let getAFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.LOGICQ
   | ConditionCodeOp.XORXX ->
     regVar bld R.AF
-  | ConditionCodeOp.TraceStart ->
-    genDynamicFlagsUpdate bld
+  | ConditionCodeOp.ADCB
+  | ConditionCodeOp.ADCW
+  | ConditionCodeOp.ADCD
+  | ConditionCodeOp.ADCQ ->
+    settleCarryOp bld true ccOp
     regVar bld R.AF
+  | ConditionCodeOp.SBBB
+  | ConditionCodeOp.SBBW
+  | ConditionCodeOp.SBBD
+  | ConditionCodeOp.SBBQ ->
+    settleCarryOp bld false ccOp
+    regVar bld R.AF
+  | ConditionCodeOp.TraceStart ->
+    lazyFlag bld R.AF
   | ConditionCodeOp.EFlags ->
     regVar bld R.AF
   | _ ->
@@ -1781,9 +1882,20 @@ let getPFLazy (bld: ILowUIRBuilder) =
     regVar bld R.PF
   | ConditionCodeOp.XORXX ->
     AST.b1
-  | ConditionCodeOp.TraceStart ->
-    genDynamicFlagsUpdate bld
+  | ConditionCodeOp.ADCB
+  | ConditionCodeOp.ADCW
+  | ConditionCodeOp.ADCD
+  | ConditionCodeOp.ADCQ ->
+    settleCarryOp bld true ccOp
     regVar bld R.PF
+  | ConditionCodeOp.SBBB
+  | ConditionCodeOp.SBBW
+  | ConditionCodeOp.SBBD
+  | ConditionCodeOp.SBBQ ->
+    settleCarryOp bld false ccOp
+    regVar bld R.PF
+  | ConditionCodeOp.TraceStart ->
+    lazyFlag bld R.PF
   | ConditionCodeOp.EFlags ->
     regVar bld R.PF
   | _ ->
@@ -1864,9 +1976,20 @@ let getCFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.LOGICQ
   | ConditionCodeOp.XORXX ->
     AST.b0
+  | ConditionCodeOp.ADCB
+  | ConditionCodeOp.ADCW
+  | ConditionCodeOp.ADCD
+  | ConditionCodeOp.ADCQ ->
+    let struct (_, a, b, r) = carryOperands bld ccOp
+    cfOnAdc a b r
+  | ConditionCodeOp.SBBB
+  | ConditionCodeOp.SBBW
+  | ConditionCodeOp.SBBD
+  | ConditionCodeOp.SBBQ ->
+    let struct (_, a, b, r) = carryOperands bld ccOp
+    cfOnSbb a b r
   | ConditionCodeOp.TraceStart ->
-    genDynamicFlagsUpdate bld
-    regVar bld R.CF
+    lazyFlag bld R.CF
   | ConditionCodeOp.EFlags ->
     regVar bld R.CF
   | _ ->
