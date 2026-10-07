@@ -820,6 +820,14 @@ type ParserTests() =
     ++ DMB ** [ O.Option BarrierOption.SY ]
     ||> testNoWbackNoQNoSimd Condition.UN
 
+  /// SSBB and PSSBB are DSB with options 0000 and 0100, which the manual
+  /// names apart (DDI0487F.c F5.1.213 and F5.1.141).
+  [<TestMethod>]
+  member _.``[ARMv7] SSBB and PSSBB read apart from DSB``() =
+    testDisasm "f57ff040" "ssbb"
+    testDisasm "f57ff044" "pssbb"
+    testDisasm "f57ff04f" "dsb sy"
+
   [<TestMethod>]
   member _.``[ARMv7] Miscellaneous Parse test (3)``() =
     "e320f000"

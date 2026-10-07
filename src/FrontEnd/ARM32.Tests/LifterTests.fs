@@ -1580,6 +1580,13 @@ type LifterTests() =
     Assert.AreEqual<uint64>(0x0000000000000001UL,
                             vrshl 0x7fffffff80000000UL 0x000000e0000000e0UL)
 
+  /// SSBB and PSSBB, like the other barriers, order nothing a single observer
+  /// can see, so they lift to nothing.
+  [<TestMethod>]
+  member _.``[ARMv7] SSBB and PSSBB lift to nothing``() =
+    "f57ff040" ++ [||] |> testARM
+    "f57ff044" ++ [||] |> testARM
+
   /// <summary>
   /// VSHLL by the element's own width has an encoding of its own, whose data
   /// type has no sign (DDI0487F.c F6.1.226, A2 and T2): either extension

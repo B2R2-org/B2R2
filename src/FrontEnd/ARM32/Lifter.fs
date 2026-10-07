@@ -134,7 +134,8 @@ let translate (ins: Instruction) bld =
     crc32 ins bld true 16<rt>
   | Op.CRC32CW ->
     crc32 ins bld true 32<rt>
-  | Op.DMB | Op.DSB | Op.ISB | Op.PLD | Op.PLI | Op.PLDW ->
+  | Op.DMB | Op.DSB | Op.ISB | Op.SSBB | Op.PSSBB | Op.PLD | Op.PLI
+  | Op.PLDW ->
     nop ins bld
   | Op.EOR ->
     eor false ins bld

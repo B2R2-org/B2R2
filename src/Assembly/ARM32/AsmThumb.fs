@@ -1443,6 +1443,8 @@ let thumbWideEncoders () =
     Opcode.DBG, wideDebugHint
     Opcode.CLREX, wideBarrier 0b0010u 0xfu
     Opcode.DSB, wideBarrier 0b0100u 0xfu
+    Opcode.SSBB, wideBarrier 0b0100u 0x0u
+    Opcode.PSSBB, wideBarrier 0b0100u 0x4u
     Opcode.DMB, wideBarrier 0b0101u 0xfu
     Opcode.ISB, wideBarrier 0b0110u 0xfu
     Opcode.SB, wideBarrier 0b0111u 0x0u

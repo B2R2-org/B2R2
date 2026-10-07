@@ -2322,6 +2322,8 @@ let hintEncoders () =
     Opcode.DBG, dbg
     Opcode.CLREX, barrier 0b0001u 0xfu
     Opcode.DSB, barrier 0b0100u 0xfu
+    Opcode.SSBB, barrier 0b0100u 0x0u
+    Opcode.PSSBB, barrier 0b0100u 0x4u
     Opcode.DMB, barrier 0b0101u 0xfu
     Opcode.ISB, barrier 0b0110u 0xfu
     Opcode.SB, barrier 0b0111u 0x0u

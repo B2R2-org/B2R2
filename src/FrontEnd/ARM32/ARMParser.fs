@@ -7355,7 +7355,7 @@ let parseBarriers (phlp: ParsingHelper) bin =
     render phlp bin Op.CLREX None OD.OprNo
   | 0b0010u | 0b0011u ->
     unpredictable ()
-  | 0b0100u when (option <> 0b0000u) || (option <> 0b0100u) ->
+  | 0b0100u when option <> 0b0000u && option <> 0b0100u ->
     render phlp bin Op.DSB None OD.OprOpt
   | 0b0100u when option = 0b0000u ->
     render phlp bin Op.SSBB None OD.OprNo

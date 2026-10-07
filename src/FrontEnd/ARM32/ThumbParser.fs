@@ -7521,7 +7521,7 @@ let parseMiscSystem phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.CLREX None N OD.OprNo
   | 0b0011u ->
     raise ParsingFailureException
-  | 0b0100u when option <> 0b0000u || option <> 0b0100u (* != 0x00 *) ->
+  | 0b0100u when option <> 0b0000u && option <> 0b0100u ->
     render phlp &itstate 0 isInIT bin Op.DSB None N OD.OprOpt
   | 0b0100u when option = 0b0000u ->
     inITBlock itstate |> checkUndef

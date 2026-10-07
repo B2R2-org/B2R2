@@ -352,6 +352,14 @@ type ARM32EncodingTests() =
       "These ask for something no T32 encoding can say."
     )
 
+  /// SSBB and PSSBB are the DSB options the manual names apart.
+  [<TestMethod>]
+  member _.``SSBB and PSSBB encode``() =
+    Assert.AreEqual<string>("40f07ff5", encode "ssbb")
+    Assert.AreEqual<string>("44f07ff5", encode "pssbb")
+    Assert.AreEqual<string>("bff3408f", encodeThumb "ssbb")
+    Assert.AreEqual<string>("bff3448f", encodeThumb "pssbb")
+
   /// TSB is written with the one option it has.
   [<TestMethod>]
   member _.``TSB CSYNC encodes``() =

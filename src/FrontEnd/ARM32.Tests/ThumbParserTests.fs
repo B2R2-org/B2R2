@@ -1391,6 +1391,12 @@ type ThumbParserTests() =
     testRefused "efb2a7cf"
 
   [<TestMethod>]
+  member _.``[T32] SSBB and PSSBB read apart from DSB``() =
+    testDisasm "f3bf8f40" "ssbb"
+    testDisasm "f3bf8f44" "pssbb"
+    testDisasm "f3bf8f4f" "dsb sy"
+
+  [<TestMethod>]
   member _.``[T32] VMOV.F16 refuses the PC``() =
     testRefused "ee04f9b2"
 
