@@ -396,12 +396,9 @@ type LifterTests() =
         "42000008" ] (* TLBP *)
     for hex in encodings do
       let stmts = lifted isa hex
-      let effects =
-        stmts
-        |> Array.choose (function
-          | SideEffect(Effect = e) -> Some e
-          | _ -> None)
-      Assert.AreEqual<int>(0, effects.Length, hex)
+      (* In Kernel Mode, which a zeroed Status is. *)
+      let effects, _ = IRRunner.follow stmts []
+      Assert.AreEqual<int>(0, List.length effects, hex)
       let puts = stmts |> Array.filter (function Put _ -> true | _ -> false)
       if puts.Length = 0 then Assert.Fail hex else ()
 
@@ -676,6 +673,38 @@ type LifterTests() =
     (* Config is thirty-two bits wide; EntryHi is not. *)
     if widensBySign "40228000" then () else Assert.Fail "40228000"
     if widensBySign "40225000" then Assert.Fail "40225000" else ()
+
+  /// <summary>
+  /// CP0 is refused outside Kernel Mode unless Status.CU0 lets it through.
+  ///
+  /// MD00087 1.2 says where the privileged state may be reached: "in Kernel
+  /// Mode or Debug Mode, or with the CP0 usable bit set in the Status
+  /// register", and every instruction that reaches it -- the EVA loads and
+  /// stores among them -- lists Coprocessor Unusable for everywhere else.
+  /// Kernel Mode is Status.KSU zero, or EXL or ERL set whatever KSU says, so
+  /// Supervisor Mode is refused as User Mode is. A Linux process runs in
+  /// User Mode, and an MFC0 that answered there would hand it a register
+  /// its kernel keeps from it: the processor raises the exception, and
+  /// Linux turns it into SIGILL.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] CP0 is refused outside kernel mode``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let status = regs.GetRegVar(RegisterID.create (int CP0Register.Status))
+    let v0 = regs.GetRegVar(Register.toRegID R2)
+    let run hex (value: uint64) =
+      IRRunner.follow (lifted isa hex) [ status, BitVector(value, 64<rt>) ]
+    let refused hex value = fst (run hex value) = [ UndefinedInstruction ]
+    (* MFC0 v0, Status in User and in Supervisor Mode, and LBE v1, 0(v0). *)
+    if refused "40026000" 0x10UL then () else Assert.Fail "user"
+    if refused "40026000" 0x08UL then () else Assert.Fail "supervisor"
+    if refused "7c43002c" 0x10UL then () else Assert.Fail "lbe"
+    (* Kernel Mode three ways, and User Mode with CU0 set. *)
+    for value in [ 0UL; 0x12UL; 0x14UL; 0x10000010UL ] do
+      let effects, read = run "40026000" value
+      Assert.AreEqual<int>(0, List.length effects, $"{value:x}")
+      Assert.AreEqual<uint64>(value, (read v0).ToUInt64(), $"{value:x}")
 
   /// <summary>
   /// Every name this front end decodes has a lifter arm.

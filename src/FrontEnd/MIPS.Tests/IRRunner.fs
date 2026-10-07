@@ -181,6 +181,16 @@ module internal IRRunner =
     | _ ->
       failwith $"IRRunner: no {e}"
 
+  let private put answer regs (temps: Dictionary<int, BitVector>) stmt =
+    match stmt with
+    | Put(Dst = Var(RegisterID = r); Src = src) ->
+      (regs: Dictionary<RegisterID, BitVector>)[r] <-
+        eval answer regs temps src
+    | Put(Dst = TempVar(Index = n); Src = src) ->
+      temps[n] <- eval answer regs temps src
+    | _ ->
+      failwith $"IRRunner: no {stmt}"
+
   /// What each register holds after the statements ran, starting from the
   /// given values and from zero everywhere else, with the exception query
   /// answering the given flags.
@@ -191,16 +201,48 @@ module internal IRRunner =
     for reg, v in inputs do regs[idOf reg] <- v
     for stmt in stmts do
       match stmt with
-      | ISMark _ | IEMark _ | LMark _ ->
-        ()
-      | Put(Dst = Var(RegisterID = r); Src = src) ->
-        regs[r] <- eval answer regs temps src
-      | Put(Dst = TempVar(Index = n); Src = src) ->
-        temps[n] <- eval answer regs temps src
-      | _ ->
-        failwith $"IRRunner: no {stmt}"
+      | ISMark _ | IEMark _ | LMark _ -> ()
+      | _ -> put answer regs temps stmt
     fun reg -> readReg regs (idOf reg) (Expr.typeOf reg)
 
   /// What each register holds after the statements ran, with the exception
   /// query answering that nothing was raised.
   let run stmts inputs = runAnswering 0u stmts inputs
+
+  /// <summary>
+  /// The side effects the statements raise and what each register holds
+  /// after them, taking each jump between their labels the way the given
+  /// values decide it: for a test whose claim is which way an instruction
+  /// goes. A jump out of the instruction ends the run.
+  /// </summary>
+  let follow (stmts: Stmt[]) inputs =
+    let answer = BitVector(0u, 32<rt>)
+    let regs = Dictionary<RegisterID, BitVector>()
+    let temps = Dictionary<int, BitVector>()
+    for reg, v in inputs do regs[idOf reg] <- v
+    let at label =
+      stmts
+      |> Array.findIndex (function
+        | LMark(Label = l) -> l = label
+        | _ -> false)
+    let rec step i effects =
+      if i >= stmts.Length then
+        List.rev effects
+      else
+        match stmts[i] with
+        | ISMark _ | IEMark _ | LMark _ ->
+          step (i + 1) effects
+        | SideEffect(Effect = e) ->
+          step (i + 1) (e :: effects)
+        | Jmp(Target = JmpDest(Target = l)) ->
+          step (at l) effects
+        | CJmp(c, JmpDest(Target = t), JmpDest(Target = f)) ->
+          let taken = (eval answer regs temps c).IsTrue
+          step (at (if taken then t else f)) effects
+        | InterJmp _ ->
+          List.rev effects
+        | stmt ->
+          put answer regs temps stmt
+          step (i + 1) effects
+    let effects = step 0 []
+    effects, fun reg -> readReg regs (idOf reg) (Expr.typeOf reg)

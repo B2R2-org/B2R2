@@ -410,9 +410,8 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     nop ins bld
   (* The system control coprocessor, and the instructions that reach the
      caches and the other processors. Everything here needs a privilege level
-     to be legal in, which is the one thing this front end has no way to
-     check -- a real implementation takes Coprocessor Unusable on all of them
-     unless Status.CU0 is set or the core is in kernel mode. *)
+     to be legal in, which `lift` checks in front of each of them (see
+     usesCP0). *)
   | Op.MFC0 ->
     moveFromCP0 ins bld false false
   | Op.DMFC0 ->

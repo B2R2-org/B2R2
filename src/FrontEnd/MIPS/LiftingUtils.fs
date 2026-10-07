@@ -485,6 +485,48 @@ let mul64BitReg src1 src2 bld isSign =
   }
   struct (AST.xthi 64<rt> prod, AST.xtlo 64<rt> prod)
 
+/// <summary>
+/// Whether an instruction reaches the privileged state: the CP0 moves, the
+/// TLB, cache and interrupt controls, the exception returns, WAIT, and the
+/// EVA loads and stores, which reach user memory from the kernel. Each lists
+/// Coprocessor Unusable among its exceptions.
+/// </summary>
+let usesCP0 = function
+  | Op.MFC0 | Op.DMFC0 | Op.MFHC0 | Op.MTC0 | Op.DMTC0 | Op.MTHC0
+  | Op.RDPGPR | Op.WRPGPR | Op.DI | Op.EI | Op.DVP | Op.EVP
+  | Op.ERET | Op.ERETNC | Op.DERET | Op.WAIT
+  | Op.CACHE | Op.CACHEE | Op.GINVI | Op.GINVT
+  | Op.TLBWI | Op.TLBR | Op.TLBP | Op.TLBWR | Op.TLBINV | Op.TLBINVF
+  | Op.LBE | Op.LBUE | Op.LHE | Op.LHUE | Op.LWE | Op.LWLE | Op.LWRE
+  | Op.LLE | Op.LLWPE | Op.SBE | Op.SHE | Op.SWE | Op.SWLE | Op.SWRE
+  | Op.SCE | Op.SCWPE | Op.PREFE -> true
+  | _ -> false
+
+/// <summary>
+/// Refuses an instruction that reaches the privileged state where CP0 may
+/// not be used, and returns the label the instruction ends at. MD00087 1.2
+/// lets CP0 be used "in Kernel Mode or Debug Mode, or with the CP0 usable bit
+/// set in the Status register"; Kernel Mode is Status.KSU zero, or EXL or ERL
+/// set, and Debug Mode is never entered here. A refused instruction raises
+/// Coprocessor Unusable and does nothing it would have done.
+/// </summary>
+let refuseOutsideKernel (bld: ILowUIRBuilder) =
+  let status = regVar bld CP0Register.Status
+  let bit n = AST.extract status 1<rt> n
+  let ksu = AST.extract status 2<rt> 3
+  let kernel = (ksu == AST.num0 2<rt>) .| bit 1 .| bit 2
+  let lblRefuse = label bld "CpU"
+  let lblRun = label bld "CP0"
+  let lblEnd = label bld "End"
+  append bld {
+    AST.cjmp (kernel .| bit 28) (AST.jmpDest lblRun) (AST.jmpDest lblRefuse)
+    AST.lmark lblRefuse
+    AST.sideEffect UndefinedInstruction
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblRun
+  }
+  lblEnd
+
 /// Provides the `lift` computation expression for MIPS, which closes an
 /// instruction by advancing the PC rather than with a plain IEMark: an
 /// ordinary instruction ends with an IEMark, and one sitting in the delay slot
@@ -505,12 +547,17 @@ type LiftBuilder =
   /// Whether the instruction arms the delay slot that follows it.
   val ArmsDelaySlot: bool
 
+  /// Whether the instruction reaches the privileged state, and so is refused
+  /// before it does anything where CP0 may not be used.
+  val UsesCP0: bool
+
   /// Creates a lift builder for the instruction at the given address.
-  new(bld, addr, insLen, arms) =
+  new(bld, addr, insLen, arms, cp0) =
     { Bld = bld
       Address = addr
       InsLen = insLen
-      ArmsDelaySlot = arms }
+      ArmsDelaySlot = arms
+      UsesCP0 = cp0 }
 
   member inline _.Zero() = ()
 
@@ -528,19 +575,25 @@ type LiftBuilder =
 
   member inline this.Run([<InlineIfLambda>] f: unit -> unit) =
     this.Bld.Stream.MarkStart(this.Address, this.InsLen)
+    let refused =
+      if this.UsesCP0 then ValueSome(refuseOutsideKernel this.Bld)
+      else ValueNone
     f ()
+    match refused with
+    | ValueSome lblEnd -> this.Bld.Stream.Append(AST.lmark lblEnd)
+    | ValueNone -> ()
     if this.ArmsDelaySlot then this.Bld.Stream.MarkEnd this.InsLen
     else advancePC (this.Bld :?> LowUIRBuilder) this.InsLen
     this.Bld
 
 /// Starts lifting an ordinary instruction, closing it by advancing the PC.
 let inline lift bld (ins: Instruction) =
-  LiftBuilder(bld, ins.Address, ins.Length, false)
+  LiftBuilder(bld, ins.Address, ins.Length, false, usesCP0 ins.Opcode)
 
 /// Starts lifting a branch, which arms the delay slot that follows it. The
 /// transfer belongs to that slot, so this one closes with a plain IEMark.
 let inline liftTransfer bld (ins: Instruction) =
-  LiftBuilder(bld, ins.Address, ins.Length, true)
+  LiftBuilder(bld, ins.Address, ins.Length, true, false)
 
 let sideEffects (ins: Instruction) bld name =
   lift bld ins {
