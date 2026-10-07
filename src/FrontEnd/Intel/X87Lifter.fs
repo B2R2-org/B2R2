@@ -1784,10 +1784,30 @@ let fnstcw (ins: Instruction) bld =
 #endif
   }
 
+/// Neither summary bit of the status word holds state of its own: ES (bit 7)
+/// says an exception is flagged that the control word does not mask, and B
+/// (bit 15) has followed ES on every FPU since the 387. Loading a control word
+/// that unmasks a flagged exception sets both at once, and an environment can
+/// be loaded with the three out of step -- flags masked but ES set, say -- and
+/// the FPU answers the next read with the summary its flags and masks imply,
+/// not the one it was handed. Loading is the only place they can disagree
+/// here, nothing in this lifter raising an exception of its own.
+let private syncSummaryBits bld =
+  append bld {
+    let stsWrd = regVar bld R.FSW
+    let excMask = numI32 0x3F 16<rt>
+    let masked = regVar bld R.FCW .& excMask
+    let pending = (stsWrd .& excMask) .& AST.not masked
+    let quiet = pending == AST.num0 16<rt>
+    let summary = AST.ite quiet (AST.num0 16<rt>) (numI32 0x8080 16<rt>)
+    direct stsWrd := (stsWrd .& numI32 0x7F7F 16<rt>) .| summary
+  }
+
 let fldcw (ins: Instruction) bld =
   lift bld ins {
     let oprExpr = transOneOpr ins bld
     direct (regVar bld R.FCW) := oprExpr
+    syncSummaryBits bld
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
     direct (regVar bld R.FSWC1) := undefC1
@@ -1880,24 +1900,6 @@ let fnstenv (ins: Instruction) bld =
     | 112<rt> -> m14fstenv addrExpr addrSize bld
     | 224<rt> -> m28fstenv addrExpr addrSize bld
     | _ -> raise InvalidOperandSizeException
-  }
-
-/// Neither summary bit of the status word holds state of its own: ES (bit 7)
-/// says an exception is flagged that the control word does not mask, and B
-/// (bit 15) has followed ES on every FPU since the 387. An environment can be
-/// loaded with the three out of step -- flags masked but ES set, say -- and the
-/// FPU answers the next read with the summary its flags and masks imply, not
-/// the one it was handed. Loading is the only place they can disagree here,
-/// nothing in this lifter raising an exception of its own.
-let private syncSummaryBits bld =
-  append bld {
-    let stsWrd = regVar bld R.FSW
-    let excMask = numI32 0x3F 16<rt>
-    let masked = regVar bld R.FCW .& excMask
-    let pending = (stsWrd .& excMask) .& AST.not masked
-    let quiet = pending == AST.num0 16<rt>
-    let summary = AST.ite quiet (AST.num0 16<rt>) (numI32 0x8080 16<rt>)
-    direct stsWrd := (stsWrd .& numI32 0x7F7F 16<rt>) .| summary
   }
 
 let private m14fldenv srcAddr addrSize bld =

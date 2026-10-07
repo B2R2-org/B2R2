@@ -1043,3 +1043,16 @@ type X87LifterTests() =
       |> Array.filter (fun l ->
         l.StartsWith "FSW :=" && not (l.Contains "undefined"))
     CollectionAssert.AreEqual([| "FSW := (FSW & 0x7f00:I16)" |], actual)
+
+  (* A control word that unmasks a flagged exception sets ES and B at once, and
+     one that masks every flagged exception leaves them nothing to say. *)
+  [<TestMethod>]
+  member _.``[X64] FLDCW sums up the flags it unmasks (1)``() =
+    let actual =
+      lift "d928" (* fldcw [rax] *)
+      |> Array.filter (fun l ->
+        l.StartsWith "FSW :=" && not (l.Contains "undefined"))
+    let expected =
+      "FSW := ((FSW & 0x7f7f:I16) | (((((FSW & 0x3f:I16) & "
+      + "(~ (FCW & 0x3f:I16))) = 0x0:I16)) ? (0x0:I16) : (0x8080:I16)))"
+    CollectionAssert.AreEqual([| expected |], actual)
