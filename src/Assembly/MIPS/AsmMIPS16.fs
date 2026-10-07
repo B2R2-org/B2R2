@@ -358,7 +358,9 @@ let private branchT (funct: uint32) ins =
 let private pcRelExt (major: uint32) ins =
   match ins.Operands with
   | TwoOperands(Rg rx, Place distance) ->
-    let v = fits 16 false (uint64 distance)
+    (* The extended forms sign-extend the sixteen bits, so a label behind
+       the instruction is a negative distance and fits. *)
+    let v = fits 16 true (uint64 distance)
     extended (extImm v) (short major ((reg3 rx <<< 8) ||| (v &&& 0x1fu)))
   | _ ->
     wrongOperands ins

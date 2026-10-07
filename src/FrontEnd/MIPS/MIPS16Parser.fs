@@ -154,6 +154,18 @@ let private pcRel (addr: Addr) align (v: uint32) scale =
   OpAddr(Relative(int64 (bse + uint64 v * scale) - int64 addr))
 
 /// <summary>
+/// The address an EXTENDED PC-relative instruction names. Its sixteen-bit
+/// immediate is SIGN-extended and added to the instruction's address with
+/// the low two bits cleared -- "The 16-bit immediate is sign-extended"
+/// (MD00076, extended ADDIU rx, pc and LW rx, offset(pc)) -- where the short
+/// forms zero-extend an eight-bit one and scale it. Read unsigned, a label
+/// behind the instruction came out 64 KiB ahead of it.
+/// </summary>
+let private pcRelExt (addr: Addr) (v: int64) =
+  let bse = addr &&& ~~~3UL
+  OpAddr(Relative(int64 bse + v - int64 addr))
+
+/// <summary>
 /// RR, the pool of two-register operations, which MD00076 Table 3-24 indexes
 /// by bits 4..0 -- and twice over by bits 7..5 as well, for the two function
 /// codes that spend the ry field on a sub-function instead of a register.
@@ -574,7 +586,7 @@ let private parseExtended addr (ext: uint32) (h: uint32) =
   | 0b00000u ->
     Op.ADDIU, ThreeOperands(rx (), oprReg R.R29, imm (uint64 (wideS ())))
   | 0b00001u ->
-    Op.ADDIUPC, TwoOperands(rx (), pcRel addr 4UL (wide ()) 1UL)
+    Op.ADDIUPC, TwoOperands(rx (), pcRelExt addr (wideS ()))
   | 0b00010u ->
     Op.B, OneOperand(branchTo ())
   | 0b00100u ->
@@ -642,7 +654,7 @@ let private parseExtended addr (ext: uint32) (h: uint32) =
   | 0b10101u ->
     load Op.LHU 16<rt>
   | 0b10110u ->
-    Op.LW, TwoOperands(rx (), pcRel addr 4UL (wide ()) 1UL)
+    Op.LW, TwoOperands(rx (), pcRelExt addr (wideS ()))
   | 0b10111u ->
     load Op.LWU 32<rt>
   | 0b11000u ->

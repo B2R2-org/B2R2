@@ -575,6 +575,27 @@ type MIPS32ParserTests() =
     ++ PPERM ** [ O.Reg R2; O.Reg R3 ]
     ||> test32R2NoCondNofmt
 
+  /// <summary>
+  /// MIPS16e's extended PC-relative forms read their sixteen bits signed.
+  ///
+  /// MD00076 says of both extended ADDIU rx, pc and LW rx, offset(pc) that
+  /// "The 16-bit immediate is sign-extended"; read unsigned, the address a
+  /// compiler formed for a label behind the instruction came out 64 KiB
+  /// ahead of it. The word below is the one GCC wrote for a setjmp label,
+  /// which binutils reads as la v1, 0x40061d.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS16e] Extended PC offsets are signed``() =
+    let isa = ISA "mips16el"
+    let parser =
+      Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString "5ff7150b"
+    let ins = parser.Parse(System.ReadOnlySpan bytes, 0x4006caUL)
+    let la = ins :?> Instruction
+    let target = OpAddr(Relative(0x40061dL - 0x4006caL))
+    Assert.AreEqual<Opcode>(ADDIUPC, la.Opcode)
+    Assert.AreEqual<Operands>(TwoOperands(O.Reg R3, target), la.Operands)
+
   /// SYNCI, REGIMM with rt 11111, makes instructions written to memory the
   /// ones fetched, and Release 2 lets every mode run it (MD00087 SYNCI).
   [<TestMethod>]
