@@ -41,6 +41,8 @@ open B2R2.FrontEnd.ARM32.SystemLifter
 /// Translate IR.
 let translate (ins: Instruction) bld =
   match ins.Opcode with
+  | _ when FP16Lifter.handles ins ->
+    FP16Lifter.translate ins bld
   | Op.ADC ->
     adc false ins bld
   | Op.ADCS ->

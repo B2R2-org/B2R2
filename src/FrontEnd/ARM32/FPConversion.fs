@@ -428,26 +428,30 @@ let fixedToFP bld ctl dstSz size fbits unsigned nearest src =
   r
 
 /// <summary>
-/// A half-precision Advanced SIMD operation (Armv8.2), carried out on
-/// doubles and rounded back once, on the standard value: round to nearest,
-/// the default NaN, and FPSCR.FZ16, which flushes a denormal operand to a
-/// zero of its sign, raising nothing, and a result tiny before rounding the
-/// same way, raising Underflow alone. A double holds every half exactly, and
-/// the operation hands back its double and what it raised: Invalid and
-/// Divide-by-zero are the half operation's too, Inexact is the double's or
-/// the narrowing's, and Overflow and Underflow are the narrowing's.
+/// A half unpacked into a double, exactly: flushed to a zero of its sign
+/// under FPSCR.FZ16 where it is denormal, raising nothing, and a signalling
+/// NaN left signalling, since the operation it is unpacked for decides what
+/// a NaN raises.
 /// </summary>
-let viaDouble bld (op: Expr[] -> struct (Expr * Expr)) (halves: Expr[]) =
+let halfToDouble bld h =
   let fz16 = AST.extract (regVar bld R.FPSCR) 1<rt> 19
-  let widen h =
-    let w = tmpVar bld 64<rt>
-    let flushed = AST.ite (fz16 .& isDenormal 16<rt> h) (fpZero 16<rt> h) h
-    append bld { w := halfToWide false 64<rt> bld flushed }
-    w
-  let struct (r, opRaised) = op (Array.map widen halves)
+  let w = tmpVar bld 64<rt>
+  let flushed = AST.ite (fz16 .& isDenormal 16<rt> h) (fpZero 16<rt> h) h
+  append bld { w := halfToWide false 64<rt> bld flushed }
+  w
+
+/// <summary>
+/// A double rounded once to a half in the direction the controls name, with
+/// what the operation that made it raised: Invalid and Divide-by-zero are the
+/// operation's, Inexact the operation's or the narrowing's, and Overflow and
+/// Underflow the narrowing's. A result tiny before rounding is flushed under
+/// FPSCR.FZ16, raising Underflow alone.
+/// </summary>
+let doubleToHalf bld ctl r (opRaised: Expr) =
+  let fz16 = AST.extract (regVar bld R.FPSCR) 1<rt> 19
   let raised = tmpVar bld 32<rt>
   append bld { raised := opRaised }
-  let mode = AST.num0 2<rt>
+  let mode = roundingMode bld ctl
   let struct (h, inexact, overflow, tiny) = narrowToHalf bld mode 64<rt> r
   let ixc = AST.extract raised 1<rt> 4 .| inexact
   let invalid, divZero = AST.extract raised 1<rt> 0, AST.extract raised 1<rt> 1
@@ -459,3 +463,20 @@ let viaDouble bld (op: Expr[] -> struct (Expr * Expr)) (halves: Expr[]) =
   }
   fpRecord bld (AST.ite flush (numU32 0x8u 32<rt>) narrowed)
   h
+
+/// <summary>
+/// A half-precision operation (Armv8.2) carried out on doubles and rounded
+/// back once, under the controls given: a VFP one reads FPSCR's direction and
+/// DN, and an Advanced SIMD one the standard value's, round to nearest and
+/// the default NaN; FPSCR.FZ16 flushes either way, a denormal operand to a
+/// zero of its sign, raising nothing, and a result tiny before rounding the
+/// same way, raising Underflow alone. A double holds every half exactly, and
+/// the operation hands back its double and what it raised.
+/// </summary>
+let viaDoubleIn bld ctl (op: Expr[] -> struct (Expr * Expr)) halves =
+  let struct (r, opRaised) = op (Array.map (halfToDouble bld) halves)
+  doubleToHalf bld ctl r opRaised
+
+/// A half-precision Advanced SIMD operation, on the standard value.
+let viaDouble bld (op: Expr[] -> struct (Expr * Expr)) (halves: Expr[]) =
+  viaDoubleIn bld StandardValue op halves

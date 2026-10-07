@@ -27,6 +27,7 @@
     <Compile Include="FPConversion.fs" />
     <Compile Include="FPLifter.fs" />
     <Compile Include="FPv8Lifter.fs" />
+    <Compile Include="FP16Lifter.fs" />
     <Compile Include="SIMDv8Lifter.fs" />
     <Compile Include="SystemLifter.fs" />
     <Compile Include="Lifter.fs" />

@@ -2447,6 +2447,46 @@ type LifterTests() =
     Assert.AreEqual<uint64 * uint64>(unsigned, mm "fc220c54")
     Assert.AreEqual<uint64 * uint64>(signed, mm "fca20c44")
 
+  /// <summary>
+  /// A VFP half-precision form reads the bottom half of its singles, writes
+  /// its result there with the top cleared, and rounds as FPSCR says: 1 +
+  /// 2^-11 is a tie, to 1 at nearest and to the next half up toward plus
+  /// infinity, raising Inexact either way.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F16 rounds as FPSCR says``() =
+    let nearest = s0After "ee300981" 0u 0xabcd3c00u 0x12341000u
+    Assert.AreEqual<uint32 * uint32>((0x3c00u, 0x10u), nearest)
+    let up = s0After "ee300981" 0x00400000u 0xabcd3c00u 0x12341000u
+    Assert.AreEqual<uint32 * uint32>((0x3c01u, 0x00400010u), up)
+
+  /// VCMP.F16 sets FPSCR's condition flags: +0 against 1 is less.
+  [<TestMethod>]
+  member _.``[ARMv7] VCMP.F16 compares the bottom halves``() =
+    let r = s0After "eeb40960" 0u 0xffff3c00u 0u
+    Assert.AreEqual<uint32>(0x80000000u, snd r)
+
+  /// <summary>
+  /// VCVT between a half and an integer: -5 converts to 0xfffffffb, and 2049,
+  /// a tie between 2048 and 2050, rounds to even at nearest and up toward plus
+  /// infinity, raising Inexact.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVT converts between halves and integers``() =
+    Assert.AreEqual<uint32>(0xfffffffbu, fst (s0After "eebd09e0" 0u 0xc500u 0u))
+    let nearest = s0After "eeb809e0" 0u 2049u 0u
+    Assert.AreEqual<uint32 * uint32>((0x6800u, 0x10u), nearest)
+    let up = s0After "eeb809e0" 0x00400000u 2049u 0u
+    Assert.AreEqual<uint32 * uint32>((0x6801u, 0x00400010u), up)
+
+  /// VMAXNM.F16 by lanes: a number over a quiet NaN, either way round, and
+  /// plus zero over minus zero.
+  [<TestMethod>]
+  member _.``[ARMv7] VMAXNM.F16 takes numbers over quiet NaNs``() =
+    let ds = [ 1, 0x0000bc003c007e00UL; 2, 0x80003c007e004000UL ]
+    let d0, _, _ = fpRun "f3110f12" 0u ds
+    Assert.AreEqual<uint64>(0x00003c003c004000UL, d0)
+
   [<TestMethod>]
   member _.``[ARMv7] LDA writes the loaded word to Rt``() =
     let written = writtenBy false "e1910c9f"

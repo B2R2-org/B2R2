@@ -105,7 +105,7 @@ let private tieAway bld sz e =
   AST.ite (AST.xthi 1<rt> e) negative positive
 
 /// The integral value of e, rounded as an instruction rounds it.
-let private integral bld ctl rounding sz e =
+let integral bld ctl rounding sz e =
   match rounding with
   | Directed mode -> AST.roundToIntegral mode sz e
   | TiesAway -> tieAway bld sz e
@@ -117,7 +117,7 @@ let private integral bld ctl rounding sz e =
 /// in, and a value that rounds to zero keeps its sign. A signalling NaN
 /// raises Invalid, and only the exact form, VRINTX, raises Inexact.
 /// </summary>
-let private roundInt bld ctl rounding exact sz e =
+let roundInt bld ctl rounding exact sz e =
   let e = fpFlushIn bld ctl sz e
   let rounded = integral bld ctl rounding sz e
   let res = tmpVar bld sz
@@ -192,7 +192,7 @@ let vcvtRounding (ins: Instruction) bld rounding =
 /// infinity that loses, so the number wins; anything else is FPMax's or
 /// FPMin's answer.
 /// </summary>
-let private maxMinNum bld ctl isMax sz a b =
+let maxMinNum bld ctl isMax sz a b =
   let losing = fpInfinity sz (if isMax then AST.b1 else AST.b0)
   let qa = isQNaN sz a
   let qb = isQNaN sz b
