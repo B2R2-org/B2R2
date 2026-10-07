@@ -359,19 +359,19 @@ let private roundedToIntegral ctl towardZero sz e =
   else inForce ctl (AST.cast CastKind.RoundToIntegral sz e)
 
 /// <summary>
-/// FPToFixed (A2.7): the operand, unpacked and scaled by two to the number of
-/// fraction bits, rounded to an integer and saturated to a 16- or 32-bit
+/// FPToFixed (A2.7) with the rounding given as a function from a width and
+/// a value to its integral value: the operand, unpacked and scaled by two to
+/// the number of fraction bits, rounded and saturated to a 16- or 32-bit
 /// result, sign- or zero-extended to a word. A NaN gives zero; a NaN and a
 /// value that does not fit raise Invalid, and anything else that lost a
 /// fraction Inexact.
 /// </summary>
-let fpToFixed bld ctl srcSz size fbits unsigned towardZero src =
+let fpToFixedBy bld ctl srcSz size fbits unsigned round src =
   let src = fpFlushIn bld ctl srcSz src
   let struct (scaled, rounded) = tmpVars2 bld srcSz
-  append bld {
-    scaled := inForce ctl (AST.fmul src (powerOfTwo srcSz fbits))
-    rounded := roundedToIntegral ctl towardZero srcSz scaled
-  }
+  append bld { scaled := inForce ctl (AST.fmul src (powerOfTwo srcSz fbits)) }
+  let r = round srcSz scaled
+  append bld { rounded := r }
   let hi = powerOfTwo srcSz (if unsigned then size else size - 1)
   let lo =
     if unsigned then AST.num0 srcSz
@@ -394,6 +394,12 @@ let fpToFixed bld ctl srcSz size fbits unsigned towardZero src =
   let inexact = AST.not invalid .& AST.not (AST.feq rounded scaled)
   fpRecord bld (fpBits invalid fpNone fpNone fpNone inexact)
   res
+
+/// FPToFixed rounding toward zero where the instruction says so, and
+/// otherwise in the direction the controls name.
+let fpToFixed bld ctl srcSz size fbits unsigned towardZero src =
+  let round sz e = roundedToIntegral ctl towardZero sz e
+  fpToFixedBy bld ctl srcSz size fbits unsigned round src
 
 /// Whether an expression loses nothing to rounding: rounded up and down it
 /// gives the same number exactly where it is representable.

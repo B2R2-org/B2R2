@@ -679,6 +679,42 @@ let translate (ins: Instruction) bld =
     FPLifter.vcmla ins bld
   | Op.VCVTR ->
     FPLifter.vcvt ins bld false
+  | Op.VCVTA ->
+    FPv8Lifter.vcvtRounding ins bld FPv8Lifter.TiesAway
+  | Op.VCVTN ->
+    FPv8Lifter.vcvtRounding ins bld FPv8Lifter.toNearest
+  | Op.VCVTP ->
+    FPv8Lifter.vcvtRounding ins bld FPv8Lifter.towardPlus
+  | Op.VCVTM ->
+    FPv8Lifter.vcvtRounding ins bld FPv8Lifter.towardMinus
+  | Op.VJCVT ->
+    FPv8Lifter.vjcvt ins bld
+  | Op.VMAXNM ->
+    FPv8Lifter.vmaxminnm ins bld true
+  | Op.VMINNM ->
+    FPv8Lifter.vmaxminnm ins bld false
+  | Op.VRINTA ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.TiesAway false
+  | Op.VRINTN ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.toNearest false
+  | Op.VRINTP ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.towardPlus false
+  | Op.VRINTM ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.towardMinus false
+  | Op.VRINTZ ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.towardZero false
+  | Op.VRINTR ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.Current false
+  | Op.VRINTX ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.Current true
+  | Op.VSELEQ ->
+    FPv8Lifter.vsel ins bld Condition.EQ
+  | Op.VSELGE ->
+    FPv8Lifter.vsel ins bld Condition.GE
+  | Op.VSELGT ->
+    FPv8Lifter.vsel ins bld Condition.GT
+  | Op.VSELVS ->
+    FPv8Lifter.vsel ins bld Condition.VS
   (* The four fused forms, which differ only in which of Sn and Sd they pass
      through FPNeg. The flip is made on the operand, as the manual makes it,
      so that a NaN operand comes out with its sign turned over. *)
@@ -868,8 +904,6 @@ let translate (ins: Instruction) bld =
     vqmovun ins bld
   | Op.VRHADD ->
     vrhadd ins bld
-  | Op.VRINTP ->
-    unsupported ins bld
   | Op.VRSHR ->
     vrshr ins bld
   | Op.VRSHRN ->

@@ -261,6 +261,22 @@ type LifterTests() =
     let read = IRRunner.run (liftedBy isThumb hex) inputs
     (read (dReg 0)).ToUInt64(), (read (dReg 1)).ToUInt64()
 
+  /// What an A32 encoding leaves in S0 and FPSCR, run with FPSCR, S1 and S2
+  /// given: S1 is the high word of D0, and S2 the low word of D1.
+  let s0After hex (fpscr: uint32) (s1: uint32) (s2: uint32) =
+    let d0, _, fpscr = fpRun hex fpscr [ 0, uint64 s1 <<< 32; 1, uint64 s2 ]
+    uint32 d0, fpscr
+
+  /// What an A32 VSEL leaves in S0, run with CPSR given and with S1 and S2
+  /// holding 0x11111111 and 0x22222222.
+  let selAfter hex (cpsr: uint32) =
+    let inputs =
+      [ !.CPSR, BitVector(cpsr, 32<rt>)
+        dReg 0, BitVector(0x1111111100000000UL, 64<rt>)
+        dReg 1, BitVector(0x22222222UL, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false hex) inputs
+    uint32 ((read (dReg 0)).ToUInt64())
+
   /// The names of the operations one encoding calls, in order.
   let callsBy isThumb hex =
     liftedBy isThumb hex
@@ -2258,6 +2274,105 @@ type LifterTests() =
     CollectionAssert.AreEqual([| "AESDECLAST"; "AESENC" |], calls "f3b00382")
     CollectionAssert.AreEqual([| "AESIMC" |], calls "f3b003c2")
     CollectionAssert.AreEqual([| "AESENCLAST" |], callsBy true "ffb00302")
+
+  /// <summary>
+  /// VRINTA, VRINTN, VRINTP, VRINTM and VRINTZ round in the direction each
+  /// names (DDI0487F.c F6.1.199-F6.1.211): 2.5 goes to 3 away from zero and
+  /// to 2 to even, and -0.5 rounds up to minus zero.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VRINT rounds each way it names``() =
+    let r hex v = fst (s0After hex 0u v 0u)
+    Assert.AreEqual<uint32>(0x40400000u, r "feb80a60" 0x40200000u)
+    Assert.AreEqual<uint32>(0xc0400000u, r "feb80a60" 0xc0200000u)
+    Assert.AreEqual<uint32>(0x40000000u, r "feb90a60" 0x40200000u)
+    Assert.AreEqual<uint32>(0x80000000u, r "feba0a60" 0xbf000000u)
+    Assert.AreEqual<uint32>(0x00000000u, r "febb0a60" 0x3f000000u)
+    Assert.AreEqual<uint32>(0xbf800000u, r "eeb60ae0" 0xbfd9999au)
+
+  /// VRINTR and VRINTX round as FPSCR.RMode says, here to nearest, and only
+  /// VRINTX raises Inexact for the fraction it drops.
+  [<TestMethod>]
+  member _.``[ARMv7] VRINTX alone raises Inexact``() =
+    let r, f = s0After "eeb60a60" 0u 0x3fc00000u 0u
+    Assert.AreEqual<uint32 * uint32>((0x40000000u, 0u), (r, f))
+    let x, g = s0After "eeb70a60" 0u 0x3fc00000u 0u
+    Assert.AreEqual<uint32 * uint32>((0x40000000u, 0x10u), (x, g))
+
+  /// <summary>
+  /// VCVTA, VCVTN, VCVTP and VCVTM convert to an integer rounding as each
+  /// names (F6.1.66, F6.1.72, F6.1.74 and F6.1.70), and an unsigned one of a
+  /// negative number gives zero and raises Invalid.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VCVTA, VCVTN, VCVTP and VCVTM round as named``() =
+    let c hex v = fst (s0After hex 0u v 0u)
+    Assert.AreEqual<uint32>(3u, c "febc0ae0" 0x40200000u)
+    Assert.AreEqual<uint32>(0xfffffffdu, c "febc0ae0" 0xc0200000u)
+    Assert.AreEqual<uint32>(2u, c "febd0ae0" 0x40200000u)
+    Assert.AreEqual<uint32>(3u, c "febe0ae0" 0x40066666u)
+    Assert.AreEqual<uint32>(0xfffffffdu, c "febf0ae0" 0xc0066666u)
+    let u, f = s0After "febc0a60" 0u 0xbf800000u 0u
+    Assert.AreEqual<uint32 * uint32>((0u, 1u), (u, f))
+
+  /// VMAXNM and VMINNM take the number over a quiet NaN, where VMAX and VMIN
+  /// propagate the NaN (F6.1.117 and F6.1.120).
+  [<TestMethod>]
+  member _.``[ARMv7] VMAXNM and VMINNM take a number over a quiet NaN``() =
+    let one, two, nan = 0x3f800000u, 0x40000000u, 0x7fc00000u
+    Assert.AreEqual<uint32>(one, fst (s0After "fe800a81" 0u nan one))
+    Assert.AreEqual<uint32>(one, fst (s0After "fe800ac1" 0u one nan))
+    Assert.AreEqual<uint32>(two, fst (s0After "fe800a81" 0u one two))
+    Assert.AreEqual<uint32>(one, fst (s0After "fe800ac1" 0u one two))
+
+  /// VSELEQ, VSELGE, VSELGT and VSELVS take S1 where the condition holds on
+  /// the flags and S2 where it does not (F6.1.223).
+  [<TestMethod>]
+  member _.``[ARMv7] VSEL picks by the condition it names``() =
+    let s1, s2 = 0x11111111u, 0x22222222u
+    Assert.AreEqual<uint32>(s1, selAfter "fe000a81" 0x40000000u)
+    Assert.AreEqual<uint32>(s2, selAfter "fe000a81" 0u)
+    Assert.AreEqual<uint32>(s1, selAfter "fe200a81" 0x90000000u)
+    Assert.AreEqual<uint32>(s2, selAfter "fe200a81" 0x80000000u)
+    Assert.AreEqual<uint32>(s1, selAfter "fe300a81" 0u)
+    Assert.AreEqual<uint32>(s2, selAfter "fe300a81" 0x40000000u)
+    Assert.AreEqual<uint32>(s1, selAfter "fe100a81" 0x10000000u)
+    Assert.AreEqual<uint32>(s2, selAfter "fe100a81" 0u)
+
+  /// <summary>
+  /// VJCVT truncates and wraps where VCVT saturates, and says in FPSCR.Z
+  /// whether the conversion was exact (F6.1.99): 2^31 + 0.5 comes back as
+  /// 0x80000000 and raises Invalid, 42.0 is exact, and -3.7 gives -3 and
+  /// raises Inexact.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VJCVT wraps and sets Z when exact``() =
+    let run (d: uint64) =
+      let d0, _, fpscr = fpRun "eeb90bc1" 0u [ 1, d ]
+      uint32 d0, fpscr
+    let wrapped = run 0x41e0000000100000UL
+    Assert.AreEqual<uint32 * uint32>((0x80000000u, 0x1u), wrapped)
+    let exact = run 0x4045000000000000UL
+    Assert.AreEqual<uint32 * uint32>((42u, 0x40000000u), exact)
+    let dropped = run 0xc00d99999999999aUL
+    Assert.AreEqual<uint32 * uint32>((0xfffffffdu, 0x10u), dropped)
+
+  /// <summary>
+  /// Under FZ a denormal is flushed to a zero, raising Input Denormal, and
+  /// FPToFixedJS calls the conversion of a flushed one inexact whichever its
+  /// sign (DDI0487F.c J1-7895): Z clear for both, set for a true plus zero.
+  /// QEMU 8.2.2 sets Z for both (optest-arm/probes/vjcvt-z.c).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VJCVT calls a flushed denormal inexact``() =
+    let run (d: uint64) =
+      let d0, _, fpscr = fpRun "eeb90bc1" 0x01000000u [ 1, d ]
+      uint32 d0, fpscr
+    let positive = run 0x0000000000000001UL
+    Assert.AreEqual<uint32 * uint32>((0u, 0x01000080u), positive)
+    let negative = run 0x8000000000000001UL
+    Assert.AreEqual<uint32 * uint32>((0u, 0x01000080u), negative)
+    Assert.AreEqual<uint32 * uint32>((0u, 0x41000000u), run 0UL)
 
   [<TestMethod>]
   member _.``[ARMv7] LDA writes the loaded word to Rt``() =

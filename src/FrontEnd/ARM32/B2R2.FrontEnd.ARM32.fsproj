@@ -26,6 +26,7 @@
     <Compile Include="FloatingPoint.fs" />
     <Compile Include="FPConversion.fs" />
     <Compile Include="FPLifter.fs" />
+    <Compile Include="FPv8Lifter.fs" />
     <Compile Include="SystemLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="OperandParsingHelper.fs" />

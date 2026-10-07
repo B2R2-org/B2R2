@@ -50,7 +50,7 @@ open B2R2.FrontEnd.ARM32.FloatingPoint
 open B2R2.FrontEnd.ARM32.FPConversion
 
 /// Lifts an instruction's body under its condition.
-let private conditional (ins: Instruction) bld body =
+let conditional (ins: Instruction) bld body =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -59,19 +59,19 @@ let private conditional (ins: Instruction) bld body =
   }
 
 /// The register an operand names.
-let private regOf = function
+let regOf = function
   | OprSIMD(SFReg(Vector r)) -> r
   | OprSIMD(SFReg(Scalar(r, _))) -> r
   | _ -> raise InvalidOperandException
 
 /// Whether an operand is a single-precision register, which only a VFP
 /// instruction names.
-let private isSingle opr =
+let isSingle opr =
   let r = regOf opr
   r >= R.S0 && r <= R.S31
 
 /// Whether an operand is a quadword register.
-let private isQuad opr =
+let isQuad opr =
   let r = regOf opr
   r >= R.Q0 && r <= R.Q15
 
@@ -90,7 +90,7 @@ let private isAdvSIMD (ins: Instruction) =
 let private fpNeg sz e = e <+> signOf sz
 
 /// The doublewords of an Advanced SIMD operand, lowest first.
-let private doublewords bld opr =
+let doublewords bld opr =
   let r = regOf opr
   if isQuad opr then
     let struct (hi, lo) = pseudoRegVar128 bld r
@@ -103,7 +103,7 @@ let private doublewords bld opr =
 /// temporaries, so that a destination that is a source as well is read whole
 /// before anything is written to it.
 /// </summary>
-let private readLanes bld esize opr =
+let readLanes bld esize opr =
   let rt = RegType.fromBitWidth esize
   doublewords bld opr
   |> Array.collect (fun dw ->
@@ -113,7 +113,7 @@ let private readLanes bld esize opr =
       t))
 
 /// Writes lanes, lowest first, over an Advanced SIMD destination.
-let private writeLanes bld opr (lanes: Expr[]) =
+let writeLanes bld opr (lanes: Expr[]) =
   let dws = doublewords bld opr
   let per = lanes.Length / dws.Length
   dws
