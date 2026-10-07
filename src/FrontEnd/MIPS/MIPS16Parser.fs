@@ -680,6 +680,13 @@ let private parseExtended addr (ext: uint32) (h: uint32) =
       Op.DSRA, ThreeOperands(ry, ry, imm (uint64 sa))
     | _ ->
       raise ParsingFailureException
+  | 0b11100u ->
+    (* ASMACRO, an EXTEND in front of an RRR. Its six fields -- select and
+       p0 to p4 -- are the implementation's to read (MD00076 ASMACRO), and an
+       instruction here holds four operands at most, so they are kept as the
+       one number the two halfwords make of them, prefix first. *)
+    let fields = (bits ext 10 0 <<< 11) ||| bits h 10 0
+    Op.ASMACRO, OneOperand(imm (uint64 fields))
   | 0b11111u ->
     i64Pool addr h
   | _ ->

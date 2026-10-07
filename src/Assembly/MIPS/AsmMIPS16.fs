@@ -513,8 +513,15 @@ let private nop ins =
   | _ -> wrongOperands ins
 
 /// ASMACRO, whose fields are the implementation's to read and this
-/// assembler's only to carry.
-let private asmacro ins = wrongOperands ins
+/// assembler's only to carry: the one number the decoder makes of them, the
+/// prefix's eleven bits above the RRR's.
+let private asmacro ins =
+  match ins.Operands with
+  | OneOperand(Im fields) ->
+    let v = fits 22 false fields
+    extended (v >>> 11) ((0b11100u <<< 11) ||| (v &&& 0x7ffu))
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// How many bytes an instruction takes.
@@ -535,7 +542,7 @@ let size ins =
   | Opcode.LWU | Opcode.LD | Opcode.SB | Opcode.SH | Opcode.SW | Opcode.SD
   | Opcode.SLL | Opcode.SRL | Opcode.SRA
   | Opcode.DSLL | Opcode.DSRL | Opcode.DSRA
-  | Opcode.SAVE | Opcode.RESTORE ->
+  | Opcode.SAVE | Opcode.RESTORE | Opcode.ASMACRO ->
     4
   | _ ->
     2

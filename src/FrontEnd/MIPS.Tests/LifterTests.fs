@@ -848,6 +848,18 @@ type LifterTests() =
       let kinds = jumpKinds isa MIPSISAMode.MIPS branch "00000000"
       CollectionAssert.AreEqual([| InterJmpKind.Base |], kinds, branch)
 
+  /// ASMACRO's macros are the implementation's, and the processor modelled
+  /// here implements none, for which "a Reserved Instruction exception is
+  /// signaled" (MD00076 ASMACRO); that is the whole of its effect.
+  [<TestMethod>]
+  member _.``[MIPS16e] ASMACRO is a Reserved Instruction``() =
+    let effects =
+      lifted (ISA "mips16el") "fff7ffe7"
+      |> Array.choose (function
+        | SideEffect(Effect = e) -> Some e
+        | _ -> None)
+    CollectionAssert.AreEqual([| UndefinedInstruction |], effects)
+
   /// <summary>
   /// A JALX from MIPS32 code crosses into the compressed encoding of the
   /// processor, and on a MIPS16e processor that is MIPS16e, not microMIPS. No

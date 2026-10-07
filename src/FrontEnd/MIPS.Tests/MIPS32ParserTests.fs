@@ -596,6 +596,22 @@ type MIPS32ParserTests() =
     Assert.AreEqual<Opcode>(ADDIUPC, la.Opcode)
     Assert.AreEqual<Operands>(TwoOperands(O.Reg R3, target), la.Operands)
 
+  /// <summary>
+  /// An EXTEND in front of an RRR is ASMACRO, whose six fields -- select and
+  /// p0 to p4 -- are the implementation's to read (MD00076 ASMACRO). They
+  /// come out as the one number the two halfwords make of them, the
+  /// prefix's eleven bits above the RRR's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS16e] An EXTEND before an RRR is ASMACRO``() =
+    let isa = ISA "mips16el"
+    let parser =
+      Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString "fff7ffe7"
+    let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+    Assert.AreEqual<Opcode>(ASMACRO, ins.Opcode)
+    Assert.AreEqual<Operands>(OneOperand(O.Imm 0x3fffffUL), ins.Operands)
+
   /// SYNCI, REGIMM with rt 11111, makes instructions written to memory the
   /// ones fetched, and Release 2 lets every mode run it (MD00087 SYNCI).
   [<TestMethod>]

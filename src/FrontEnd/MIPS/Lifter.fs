@@ -611,10 +611,11 @@ let private translateOpcode (ins: Instruction) (bld: LowUIRBuilder) =
     restore ins bld
   | Op.DADDIUPC ->
     addiupc ins bld
-  (* What the macro expands to is the implementation's, not the
-     architecture's, so there is nothing here to expand it into. *)
+  (* What the macro expands to is the implementation's, and the processor
+     modelled here implements none, for which "a Reserved Instruction
+     exception is signaled" (MD00076 ASMACRO). *)
   | Op.ASMACRO ->
-    unsupported ins bld
+    sideEffects ins bld UndefinedInstruction
   | Op.MADDF ->
     maddf ins bld
   | Op.MSUBF ->
