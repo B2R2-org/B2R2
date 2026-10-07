@@ -455,17 +455,31 @@ let private signOfST bld reg =
 let private topTagMask top =
   numI32 3 16<rt> << (AST.zext 16<rt> top << AST.num1 16<rt>)
 
+/// The status word bits a stack overflow sets: C1, which tells it from an
+/// underflow, SF, and IE (Intel SDM Vol. 1, 8.5.1.1), with ES and B as well
+/// when the control word leaves IE unmasked.
+let private overflowBits bld =
+  let ieUnmasked = (regVar bld R.FCW .& AST.num1 16<rt>) == AST.num0 16<rt>
+  let summary = AST.ite ieUnmasked (numI32 0x8080 16<rt>) (AST.num0 16<rt>)
+  numI32 0x241 16<rt> .| summary
+
 /// Pushes the stack: TOP moves down a place (Intel SDM Vol. 1, 8.1.2), and
 /// every value moves to the stack register below, which frees ST(0). The
 /// register TOP now names should be empty; if it still holds a value, the push
-/// has overflowed the stack, which C1 reports. Either way it now holds one.
+/// has overflowed the stack, which C1 reports along with the stack fault.
+/// Either way it now holds one. Returns whether the push overflowed, for
+/// fillPushed to settle what the pushed register holds.
 let private pushFPUStack bld =
   let top = regVar bld R.FTOP
   let tags = regVar bld R.FTW
+  let stsWrd = regVar bld R.FSW
+  let overflow = tmpVar bld 1<rt>
   append bld {
     extractDstAssign top (top .- AST.num1 8<rt>)
     let mask = topTagMask top
-    direct (regVar bld R.FSWC1) := (tags .& mask) != mask
+    direct overflow := (tags .& mask) != mask
+    let fault = AST.ite overflow (overflowBits bld) (AST.num0 16<rt>)
+    direct stsWrd := (stsWrd .& numI32 0xFDFF 16<rt>) .| fault
     direct tags := tags .& AST.not mask
   }
   copyST bld R.ST7 R.ST6
@@ -475,6 +489,24 @@ let private pushFPUStack bld =
   copyST bld R.ST3 R.ST2
   copyST bld R.ST2 R.ST1
   copyST bld R.ST1 R.ST0
+  overflow
+
+/// Settles what a push leaves in ST(0) once the pushed value is written: on an
+/// overflow, the FPU answers with the real indefinite in place of the value,
+/// as it does with the exception masked.
+let private fillPushed bld overflow =
+#if EMULATION
+  let st0 = pseudoRegVar bld R.ST0 1
+  append bld {
+    direct st0 := AST.ite overflow (num64 Indefinite) st0
+  }
+#else
+  let struct (b, a) = getFPUPseudoRegVars bld R.ST0
+  append bld {
+    direct b := AST.ite overflow (numI32 0xffff 16<rt>) b
+    direct a := AST.ite overflow (num64 (TopBit ||| ExtQuietBit)) a
+  }
+#endif
 
 /// Pops the stack: the register TOP names is tagged empty, TOP moves up a place
 /// (Intel SDM Vol. 1, 8.1.2), and every value moves to the stack register
@@ -509,8 +541,9 @@ let private asDouble (opr: Expr) =
 /// Pushes a double onto the stack.
 let private pushDouble bld v =
   let stash = stashDouble bld v
-  pushFPUStack bld
+  let overflow = pushFPUStack bld
   unstashST bld R.ST0 stash
+  fillPushed bld overflow
   cflagsAfterLoad bld
 
 /// Records an x87 instruction as the last the FPU has run, the instruction
@@ -548,8 +581,9 @@ let fld (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
     let stash = stashOperand bld (transOneOpr ins bld)
-    pushFPUStack bld
+    let overflow = pushFPUStack bld
     unstashST bld R.ST0 stash
+    fillPushed bld overflow
     cflagsAfterLoad bld
   }
 
@@ -1271,8 +1305,9 @@ let fxtract (ins: Instruction) bld =
     recordInstr ins bld
     let struct (exponent, significand) = splitST bld R.ST0
     unstashST bld R.ST0 exponent
-    pushFPUStack bld
+    let overflow = pushFPUStack bld
     unstashST bld R.ST0 significand
+    fillPushed bld overflow
   }
 
 /// The two doubles a compare weighs, as they stand before anything the compare
@@ -1473,8 +1508,9 @@ let fsincos (ins: Instruction) bld =
     direct tmpcos := trigResult signed (AST.fcos signed)
     direct tmpsin := trigResult signed (AST.fsin signed)
     writeST bld R.ST0 tmpsin
-    pushFPUStack bld
+    let overflow = pushFPUStack bld
     writeST bld R.ST0 tmpcos
+    fillPushed bld overflow
     direct c2 := AST.b0
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
@@ -1506,8 +1542,9 @@ let fptan (ins: Instruction) bld =
     direct tmp := trigResult signed (AST.ftan signed)
     writeST bld R.ST0 tmp
     direct c2 := AST.b0
-    pushFPUStack bld
+    let overflow = pushFPUStack bld
     writeST bld R.ST0 (trigResult signed fone)
+    fillPushed bld overflow
     direct c2 := AST.b0
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
@@ -1627,8 +1664,9 @@ let fld1 ins bld =
 let fldz (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
-    pushFPUStack bld
+    let overflow = pushFPUStack bld
     clearST bld R.ST0
+    fillPushed bld overflow
     cflagsAfterLoad bld
   }
 
@@ -1791,7 +1829,8 @@ let fnstcw (ins: Instruction) bld =
 /// be loaded with the three out of step -- flags masked but ES set, say -- and
 /// the FPU answers the next read with the summary its flags and masks imply,
 /// not the one it was handed. Loading is the only place they can disagree
-/// here, nothing in this lifter raising an exception of its own.
+/// here: a stack fault keeps them in step as it flags, and nothing in this
+/// lifter delivers an exception.
 let private syncSummaryBits bld =
   append bld {
     let stsWrd = regVar bld R.FSW
