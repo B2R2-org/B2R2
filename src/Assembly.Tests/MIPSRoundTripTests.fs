@@ -475,6 +475,19 @@ type MIPSRoundTripTests() =
 
   /// Checks that a source the assembler refuses leaves it able to read the
   /// next one, which a parser keeping state across a failure would not.
+  /// SYNCI and AUIPC, which the decoder read and the disassembler could not
+  /// name: SYNCI at both releases and in microMIPS, AUIPC in Release 6.
+  [<TestMethod>]
+  member _.``SYNCI and AUIPC encode and print``() =
+    let cases =
+      [ assembler32, parser32, "synci 8(a0)"
+        assemblerR6, parserR6, "synci -16(sp)"
+        assemblerMicro, parserMicro, "synci 8(a0)"
+        assemblerR6, parserR6, "auipc v0, 0x1234"
+        assemblerMicroR6, parserMicroR6, "auipc v0, 0x1234" ]
+    for assembler, parser, source in cases do
+      Assert.AreEqual<string option>(None, brokenSource assembler parser source)
+
   [<TestMethod>]
   member _.``A refused source leaves the assembler usable``() =
     for bad in unencodableSources do

@@ -122,6 +122,15 @@ let private sync ins =
   | OneOperand(Im stype) -> word 0u 0u 0u 0u (unsigned 5 stype) 0b001111u
   | _ -> wrongOperands ins
 
+/// Encodes <offset>(<base>): SYNCI, the one REGIMM member that names memory
+/// (MD00087 SYNCI).
+let private synci ins =
+  match ins.Operands with
+  | OneOperand(Mem(baseReg, offset)) ->
+    immWord 0b000001u (gpr baseReg) 0b11111u (signed 16 offset)
+  | _ ->
+    wrongOperands ins
+
 /// Encodes <rs>, <rt>: the multiplies that add what they yield to the pair of
 /// registers a multiply writes rather than replacing it.
 let private multiplyAccumulate func ins =
@@ -308,6 +317,7 @@ let arithmeticEncoders () =
     Opcode.MOVF, moveOnCondition 0u
     Opcode.MOVT, moveOnCondition 1u
     Opcode.SYNC, sync
+    Opcode.SYNCI, synci
     Opcode.MADD, multiplyAccumulate 0b000000u
     Opcode.MADDU, multiplyAccumulate 0b000001u
     Opcode.MSUB, multiplyAccumulate 0b000100u

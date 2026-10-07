@@ -584,6 +584,14 @@ type MIPS32ParserTests() =
   /// moved into SPECIAL. These are read as the ASE's because the ISA under
   /// test is not Release 6.
   /// </summary>
+  /// SYNCI, REGIMM with rt 11111, makes instructions written to memory the
+  /// ones fetched, and Release 2 lets every mode run it (MD00087 SYNCI).
+  [<TestMethod>]
+  member _.``[MIPS32] SYNCI Parse Test``() =
+    "049f0008"
+    ++ SYNCI ** [ O.Mem(R.R4, 8L, 32<rt>) ]
+    ||> test32R2NoCondNofmt
+
   [<TestMethod>]
   member _.``[SmartMIPS] The extended accumulator moves Parse Test``() =
     "00001052"

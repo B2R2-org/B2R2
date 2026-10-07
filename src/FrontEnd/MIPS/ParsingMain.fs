@@ -482,6 +482,9 @@ let private parseREGIMM release binary =
   | 0b10111u when r6 -> Op.SIGRIE, None, None, getImm16 binary
   | 0b10000u -> parseNAL binary
   | 0b10001u -> parseBAL binary
+  (* SYNCI makes instructions written to memory the ones fetched; Release 2
+     lets every mode run it (MD00087 SYNCI). *)
+  | 0b11111u -> Op.SYNCI, None, None, getMemBaseOff binary 32<rt>
   | _ -> raise ParsingFailureException
 
 /// Table A.5 MIPS64 SEPCIAL2 Encoding of Function Field
