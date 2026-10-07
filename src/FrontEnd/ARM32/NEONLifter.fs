@@ -3567,6 +3567,14 @@ let private dstSrcOf (ins: Instruction) =
   | ThreeOperands(d, s, _) -> d, s
   | _ -> raise InvalidOperandException
 
+/// The extension a widening makes: VSHLL by the element's own width has a
+/// data type of no sign, and either extension gives it the same answer
+/// (DDI0487F.c F6.1.226).
+let private extensionOf (ins: Instruction) =
+  match ins.SIMDTyp with
+  | Some(OneDT(SIMDTypI8 | SIMDTypI16 | SIMDTypI32)) -> AST.zext
+  | dt -> if isUnsigned dt then AST.zext else AST.sext
+
 /// <summary>
 /// VMOVL and VSHLL: every element widened, and for VSHLL shifted left as
 /// well.
@@ -3582,7 +3590,7 @@ let private vwidenShift (ins: Instruction) bld amount =
     let p = getParsingInfo ins
     let dst, src = dstSrcOf ins
     let struct (dstB, dstA) = transOpr128 bld dst
-    let ext = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
+    let ext = extensionOf ins
     let wide = p.RtESize * 2
     let op = tmpVar bld 64<rt>
     op := transOpr ins bld src

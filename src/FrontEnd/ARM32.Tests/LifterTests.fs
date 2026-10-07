@@ -1581,6 +1581,22 @@ type LifterTests() =
                             vrshl 0x7fffffff80000000UL 0x000000e0000000e0UL)
 
   /// <summary>
+  /// VSHLL by the element's own width has an encoding of its own, whose data
+  /// type has no sign (DDI0487F.c F6.1.226, A2 and T2): either extension
+  /// gives the same answer, every element landing in the top half of its
+  /// widened lane.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VSHLL by the element width moves it to the top half``() =
+    let cases =
+      [ false, "f3b60302", 0x4b5a000069780000UL, 0x0f1e00002d3c0000UL
+        false, "f3b20303", 0xc300d200e100f000UL, 0x87009600a500b400UL
+        false, "f3ba0303", 0xc3d2e1f000000000UL, 0x8796a5b400000000UL
+        true, "ffb60302", 0x4b5a000069780000UL, 0x0f1e00002d3c0000UL ]
+    for isThumb, hex, lo, hi in cases do
+      Assert.AreEqual<uint64 * uint64>((lo, hi), qRun isThumb hex, hex)
+
+  /// <summary>
   /// A VFP operation rounds in the direction FPSCR.RMode names, which is what
   /// an expression no RoundCtrl encloses rounds by; an Advanced SIMD one
   /// rounds to nearest whatever FPSCR says (DDI0406C A2.7), so a RoundCtrl
