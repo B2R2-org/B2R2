@@ -82,7 +82,7 @@ let buildEncoderTable (release: MIPSRelease) =
   let general =
     if release = MIPSRelease.R6 then
       addEncoders (fun _ -> true) general
-        (release6Encoders () @ privilegedR6Encoders ())
+        (release6Encoders () @ privilegedR6Encoders () @ movedR6Encoders ())
     else
       general
   let withFloat =

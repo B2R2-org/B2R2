@@ -349,3 +349,89 @@ type MIPS64ParserTests() =
                  "7c62f001" (* dextm, 0 + 63 *)
                  "7c62f002" (* dextu, 32 + 31 *) ] do
       parse hex |> ignore
+
+  /// <summary>
+  /// What Release 6 removed is not an instruction there: the likely branches
+  /// BEQL and BNEL, the unaligned and the sixteen-bit-offset LL, SC and PREF
+  /// families, COP1X, SPECIAL2, the condition-code moves and branches and the
+  /// C.cond comparisons, HI and LO, BLTZAL and BGEZAL on a register, and the
+  /// EVA unaligned forms (MD00087, each one's Format line); and DAUI on r0
+  /// and SIGRIE with a register are Reserved Instructions. SDBBP moved into
+  /// SPECIAL, and NAL stayed.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] Release 6 refuses what it removed``() =
+    let isa =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let parser = Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    let parse hex =
+      parser.Parse(System.ReadOnlySpan(ByteArray.ofHexString hex), 0UL)
+    let removed =
+      [ "50000e40" (* beql *)
+        "5400fb80" (* bnel *)
+        "6800e600" (* ldl *)
+        "6c008a40" (* ldr *)
+        "8800b2c0" (* lwl *)
+        "9800aa40" (* lwr *)
+        "a8001880" (* swl *)
+        "b00007c0" (* sdl *)
+        "b400b200" (* sdr *)
+        "b800eec0" (* swr *)
+        "c0005240" (* ll *)
+        "cc006800" (* pref *)
+        "d000ad40" (* lld *)
+        "e0003a80" (* sc *)
+        "f0003e40" (* scd *)
+        "4ffcc721" (* madd.d *)
+        "70a41002" (* mul, SPECIAL2 *)
+        "70a01020" (* clz, SPECIAL2 *)
+        "4500a2c0" (* bc1f *)
+        "46213a92" (* movz.d *)
+        "463c3c11" (* movf.d *)
+        "46201032" (* c.eq.d *)
+        "0014180b" (* movn *)
+        "00000801" (* movf *)
+        "00001010" (* mfhi *)
+        "04308180" (* bltzal *)
+        "0431da00" (* bgezal *)
+        "7c0026d9" (* lwle *)
+        "7400f080" (* daui on r0 *)
+        "04379800" (* sigrie with a register *) ]
+    for hex in removed do
+      Assert.ThrowsExactly<ParsingFailureException>((fun () ->
+        parse hex |> ignore), hex) |> ignore
+    let kept = [ "0000000e", SDBBP; "04100003", NAL ]
+    for hex, opcode in kept do
+      Assert.AreEqual<Opcode>(opcode, (parse hex :?> Instruction).Opcode, hex)
+
+  /// Release 6's own encodings are not instructions before it: AUI, the
+  /// nine-bit LL, SC, LLD, SCD and PREF in SPECIAL3, ALIGN and DALIGN, and
+  /// the three-register DIVU and CLZ and CLO in SPECIAL (MD00087).
+  [<TestMethod>]
+  member _.``[MIPS64] Release 2 refuses Release 6 encodings``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let parser = Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    let parse hex =
+      parser.Parse(System.ReadOnlySpan(ByteArray.ofHexString hex), 0UL)
+    let r6Only =
+      [ "3c202b80" (* aui *)
+        "7c003526" (* sc *)
+        "7c00de35" (* pref *)
+        "7c0002b7" (* lld *)
+        "7c02b736" (* ll *)
+        "7c017927" (* scd *)
+        "7c0bca60" (* align *)
+        "7c10cba4" (* dalign *)
+        "0012b09b" (* divu, three registers *)
+        "00a01050" (* clz, SPECIAL *)
+        "00a01051" (* clo, SPECIAL *) ]
+    for hex in r6Only do
+      Assert.ThrowsExactly<ParsingFailureException>((fun () ->
+        parse hex |> ignore), hex) |> ignore
+    let kept =
+      [ "00001010", MFHI
+        "0005180a", MOVZ
+        "70a41002", MUL
+        "50a40001", BEQL ]
+    for hex, opcode in kept do
+      Assert.AreEqual<Opcode>(opcode, (parse hex :?> Instruction).Opcode, hex)

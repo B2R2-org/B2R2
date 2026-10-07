@@ -473,8 +473,6 @@ type MIPSRoundTripTests() =
       "These are no longer read as the instruction they name."
     )
 
-  /// Checks that a source the assembler refuses leaves it able to read the
-  /// next one, which a parser keeping state across a failure would not.
   /// SYNCI and AUIPC, which the decoder read and the disassembler could not
   /// name: SYNCI at both releases and in microMIPS, AUIPC in Release 6.
   [<TestMethod>]
@@ -488,6 +486,32 @@ type MIPSRoundTripTests() =
     for assembler, parser, source in cases do
       Assert.AreEqual<string option>(None, brokenSource assembler parser source)
 
+  /// <summary>
+  /// Release 6 writes the instructions it moved in the encodings it moved
+  /// them to: the count-leading instructions and SDBBP into SPECIAL, and the
+  /// load-linked and store-conditional instructions and PREF into SPECIAL3.
+  /// The earlier encodings are Reserved Instructions there, so a word written
+  /// the old way would not read back at all.
+  /// </summary>
+  [<TestMethod>]
+  member _.``Release 6 writes what it moved where it moved it``() =
+    let sources =
+      [ "clz v0, v1"
+        "clo v0, v1"
+        "dclz v0, v1"
+        "dclo v0, v1"
+        "sdbbp 0x5"
+        "ll v0, 8(a0)"
+        "sc v0, -8(a0)"
+        "lld v0, 8(a0)"
+        "scd v0, 8(a0)"
+        "pref 0x1, 8(a0)" ]
+    for source in sources do
+      let broken = brokenSource assemblerR6 parserR6 source
+      Assert.AreEqual<string option>(None, broken)
+
+  /// Checks that a source the assembler refuses leaves it able to read the
+  /// next one, which a parser keeping state across a failure would not.
   [<TestMethod>]
   member _.``A refused source leaves the assembler usable``() =
     for bad in unencodableSources do

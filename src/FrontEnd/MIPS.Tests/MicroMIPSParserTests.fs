@@ -629,15 +629,6 @@ type MicroMIPSParserTests() =
       Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
       Assert.AreEqual<Operands>(operandsFromArray oprs, ins.Operands, hex)
 
-  /// <summary>
-  /// A word that belongs to one release alone is refused by the other.
-  ///
-  /// Release 6 removed HI and LO and everything that reads or writes them,
-  /// the short-delay-slot calls, the traps that take a written number, and
-  /// the floating-point comparisons that answer into a condition code. It
-  /// added the scaled address. A decoder that read any of them under the
-  /// wrong release would name an instruction the processor does not have.
-  /// </summary>
   /// LDP, LDM, SDP and SDM move doublewords, and microMIPS64 alone has them
   /// (microMIPS64 Release 5, POOL32B): a 32-bit decoder refuses them, as it
   /// refuses LD.
@@ -661,6 +652,15 @@ type MicroMIPSParserTests() =
         p32.Parse(System.ReadOnlySpan bytes, 0UL) |> ignore
       ) |> ignore
 
+  /// <summary>
+  /// A word that belongs to one release alone is refused by the other.
+  ///
+  /// Release 6 removed HI and LO and everything that reads or writes them,
+  /// the short-delay-slot calls, the traps that take a written number, and
+  /// the floating-point comparisons that answer into a condition code. It
+  /// added the scaled address. A decoder that read any of them under the
+  /// wrong release would name an instruction the processor does not have.
+  /// </summary>
   [<TestMethod>]
   member _.``[microMIPS] A word belonging to one release is refused``() =
     let r6 =

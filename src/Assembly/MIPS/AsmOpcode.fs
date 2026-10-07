@@ -771,10 +771,10 @@ let private jumpAndLink hint ins =
 /// number.
 /// Encodes <code>: SDBBP, whose operand fills every bit above its function
 /// field for a debug handler to read out of the word.
-let private debugBreak ins =
+let private debugBreak op func ins =
   match ins.Operands with
   | OneOperand(Im code) ->
-    (0b011100u <<< 26) ||| (unsigned 20 code <<< 6) ||| 0b111111u
+    (op <<< 26) ||| (unsigned 20 code <<< 6) ||| func
   | _ ->
     wrongOperands ins
 
@@ -840,7 +840,7 @@ let branchEncoders () =
     Opcode.TNEI, trapImm 0b01110u
     (* SDBBP's code fills every bit above its function field; SIGRIE's is the
        lower half of the word, the way a written number usually is. *)
-    Opcode.SDBBP, debugBreak
+    Opcode.SDBBP, debugBreak 0b011100u 0b111111u
     Opcode.SIGRIE, reservedSignal ]
 
 (* The loads and the stores. Every one of them reads memory at a distance from
@@ -902,3 +902,27 @@ let loadStoreEncoders () =
     Opcode.SWC1, memoryFP 0b111001u
     Opcode.SDC1, memoryFP 0b111101u
     Opcode.PREF, prefetch ]
+
+/// Encodes <rd>, <rs>: the Release 6 count-leading instructions, which keep a
+/// one in the field a shift keeps its amount in.
+let private countLeadingR6 func ins =
+  match ins.Operands with
+  | TwoOperands(Rg rd, Rg rs) -> word 0u (gpr rs) 0u (gpr rd) 1u func
+  | _ -> wrongOperands ins
+
+/// The rows Release 6 moved to another encoding, with the name and what the
+/// source writes kept: the count-leading instructions and SDBBP went from
+/// SPECIAL2 to SPECIAL, and the load-linked and store-conditional
+/// instructions and PREF went into SPECIAL3 with a nine-bit offset. The
+/// earlier encodings are Reserved Instructions there.
+let internal movedR6Encoders () =
+  [ Opcode.CLZ, countLeadingR6 0b010000u
+    Opcode.CLO, countLeadingR6 0b010001u
+    Opcode.DCLZ, countLeadingR6 0b010010u
+    Opcode.DCLO, countLeadingR6 0b010011u
+    Opcode.SDBBP, debugBreak 0u 0b001110u
+    Opcode.LL, special3Mem 0b110110u
+    Opcode.SC, special3Mem 0b100110u
+    Opcode.LLD, special3Mem 0b110111u
+    Opcode.SCD, special3Mem 0b100111u
+    Opcode.PREF, special3Hint 0b110101u ]
