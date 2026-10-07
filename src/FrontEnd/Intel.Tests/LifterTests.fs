@@ -862,16 +862,22 @@ type AMXLifterTests() =
 /// exponent halves and marks C0, C2, and C3 undefined).
 [<TestClass>]
 type X87LifterTests() =
-  let lift (hex: string) =
+  let liftAt addr (hex: string) =
     let isa = ISA(Architecture.Intel, WordSize.Bit64)
     let regFactory = RegisterFactory isa
     let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
     let reader = BinReader.Init Endian.Little
     let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
-    let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+    let ins = parser.Parse(ByteArray.ofHexString hex, addr)
     ins.Translate builder
     |> Array.map PrettyPrinter.ToString
     |> Array.filter (fun l -> not (l.StartsWith "(" || l.StartsWith "}"))
+
+  let lift hex = liftAt 0UL hex
+
+  (* The writes to FIP of an instruction at 0x401000. *)
+  let fipWrites hex =
+    liftAt 0x401000UL hex |> Array.filter (fun l -> l.StartsWith "FIP :=")
 
   let test hex (expectedStmts: string[]) =
     CollectionAssert.AreEqual(expectedStmts, lift hex)
@@ -924,7 +930,8 @@ type X87LifterTests() =
   [<TestMethod>]
   member _.``[X64] FFREE empties the tag under ST(i) (1)``() =
     test "ddc1" (* ffree st(1) *)
-    <| [| "T_1:I16 := zext:I16((((FSW & 0x3800:I16) >> 0xb:I16)[7:0]))"
+    <| [| "FIP := 0x0:I64"
+          "T_1:I16 := zext:I16((((FSW & 0x3800:I16) >> 0xb:I16)[7:0]))"
           "T_1:I16 := ((T_1:I16 + 0x1:I16) & 0x7:I16)"
           "T_2:I16 := (0x2:I16 * T_1:I16)"
           "T_3:I16 := (0x3:I16 << T_2:I16)"
@@ -998,3 +1005,30 @@ type X87LifterTests() =
       lift "0fae2c24" (* xrstor [rsp] *)
       |> Array.filter (fun l -> l.StartsWith "FCS :=" || l.StartsWith "FDS :=")
     CollectionAssert.AreEqual([| "FCS := 0x0:I16"; "FDS := 0x0:I16" |], actual)
+
+  (* An x87 instruction other than a control one records where it was as the
+     last instruction, which FNSTENV and FNSAVE report (Intel SDM Vol. 1,
+     8.1.8). FNOP counts, as on the hardware. *)
+  [<TestMethod>]
+  member _.``[X64] FLD1 records itself as the last instruction (1)``() =
+    let actual = fipWrites "d9e8" (* fld1 *)
+    CollectionAssert.AreEqual([| "FIP := 0x401000:I64" |], actual)
+
+  [<TestMethod>]
+  member _.``[X64] FADD records itself as the last instruction (1)``() =
+    let actual = fipWrites "d8c1" (* fadd st(0), st(1) *)
+    CollectionAssert.AreEqual([| "FIP := 0x401000:I64" |], actual)
+
+  [<TestMethod>]
+  member _.``[X64] FNOP records itself as the last instruction (1)``() =
+    let actual = fipWrites "d9d0" (* fnop *)
+    CollectionAssert.AreEqual([| "FIP := 0x401000:I64" |], actual)
+
+  (* A control instruction leaves the pointers to the one before it. *)
+  [<TestMethod>]
+  member _.``[X64] FNSTCW leaves the last instruction alone (1)``() =
+    CollectionAssert.AreEqual([||], fipWrites "d938" (* fnstcw [rax] *))
+
+  [<TestMethod>]
+  member _.``[X64] FWAIT leaves the last instruction alone (1)``() =
+    CollectionAssert.AreEqual([||], fipWrites "9b" (* fwait *))

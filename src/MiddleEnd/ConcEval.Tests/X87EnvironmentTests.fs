@@ -51,12 +51,13 @@ type X87EnvironmentTests() =
       "FDP", 0x7fff_1234_5678UL
       "FDS", 0x2bUL ]
 
-  (* Runs `count` instructions from the state FNINIT leaves, RSP pointing at
-     Env, with `regs` set on top and each (offset, value, type) of `image`
-     written at Env first. *)
-  let run count (hex: string) regs image =
+  (* Runs `count` instructions of code loaded at `base`, from the state FNINIT
+     leaves, RSP pointing at Env, with `regs` set on top and each (offset,
+     value, type) of `image` written at Env first. *)
+  let runAt (``base``: Addr) count (hex: string) regs image =
     let isa = ISA(Architecture.Intel, WordSize.Bit64)
-    let hdl = BinHandle.LoadRawImage(ByteArray.ofHexString hex, isa, OS.Linux)
+    let bytes = ByteArray.ofHexString hex
+    let hdl = BinHandle.LoadRawImage(bytes, isa, ``base``, OS.Linux)
     let rf = hdl.RegisterFactory
     let reg (name: string, v: uint64) =
       let rid = rf.GetRegisterID name
@@ -70,9 +71,11 @@ type X87EnvironmentTests() =
       exec.CreateState { Memory = BinSectionBackedMemory; Registers = regs }
     for off, (v: uint64), typ in image do
       Memory.write (Env + off) (BitVector(v, typ)) Endian.Little st.Memory
-    exec.Run(0UL, st, ConcRunOptions.Default().WithMaxInstructions count)
+    exec.Run(``base``, st, ConcRunOptions.Default().WithMaxInstructions count)
     |> ignore
     hdl, st
+
+  let run count hex regs image = runAt 0UL count hex regs image
 
   (* The field of type `typ` at `off` bytes into what was stored at Env. *)
   let field (st: ConcState) off typ =
@@ -90,6 +93,15 @@ type X87EnvironmentTests() =
   let storedTags count hex =
     let _, st = run count hex [] []
     field st 8UL 16<rt>
+
+  (* Code where a 64-bit process has it, high in the address space. *)
+  let [<Literal>] Code = 0x5555_5555_4000UL
+
+  (* The pointers in the 28-byte image after `count` instructions at Code: the
+     instruction offset, then the word holding the code selector. *)
+  let lastInstr count hex =
+    let _, st = runAt Code count hex [] []
+    field st 12UL 32<rt>, field st 16UL 32<rt>
 
   [<TestMethod>]
   member _.``FNSTENV tags every register of an empty stack empty``() =
@@ -183,3 +195,25 @@ type X87EnvironmentTests() =
     let hdl, st = run 1 "dd3424" (* fnsave [rsp] *) pointers []
     let actual = [| for r, _ in pointers -> regOf hdl st r |]
     CollectionAssert.AreEqual(Array.create 5 0UL, actual)
+
+  (* FNSTENV reports where the last x87 instruction was, in the 32 bits the
+     image has for it, and leaves the selector and opcode after it as they
+     were: the current processors update neither but on an exception. *)
+  [<TestMethod>]
+  member _.``FNSTENV reports the last x87 instruction``() =
+    (* fld1 ; fnstenv [rsp] *)
+    let actual = lastInstr 2 "d9e8d93424"
+    Assert.AreEqual<uint64 * uint64>((0x55554000UL, 0UL), actual)
+
+  (* Control instructions do not count, FNSTENV among them; FNOP does. *)
+  [<TestMethod>]
+  member _.``FNSTENV skips the control instructions``() =
+    (* fld1 ; fwait ; fnstcw [rsp+16] ; fnstenv [rsp] *)
+    let actual = lastInstr 4 "d9e89bd97c2410d93424"
+    Assert.AreEqual<uint64 * uint64>((0x55554000UL, 0UL), actual)
+
+  [<TestMethod>]
+  member _.``FNSTENV counts FNOP as an x87 instruction``() =
+    (* fld1 ; fnop ; fnstenv [rsp] *)
+    let actual = lastInstr 3 "d9e8d9d0d93424"
+    Assert.AreEqual<uint64 * uint64>((0x55554002UL, 0UL), actual)

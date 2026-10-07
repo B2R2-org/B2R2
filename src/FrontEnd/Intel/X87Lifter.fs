@@ -513,8 +513,17 @@ let private pushDouble bld v =
   unstashST bld R.ST0 stash
   cflagsAfterLoad bld
 
+/// Records an x87 instruction as the last the FPU has run, the instruction
+/// pointer FNSTENV and FNSAVE report (Intel SDM Vol. 1, 8.1.8). Every x87
+/// instruction does this but the control ones, which leave it to the one before
+/// them. The current processors keep the operand pointer and the opcode for an
+/// exception alone, so this records the instruction pointer only.
+let private recordInstr (ins: Instruction) bld =
+  append bld { direct (regVar bld R.FIP) := numU64 ins.Address 64<rt> }
+
 let private fpuLoad (ins: Instruction) bld v =
   lift bld ins {
+    recordInstr ins bld
     pushDouble bld v
   }
 
@@ -537,6 +546,7 @@ let private stashOperand bld (opr: Expr) =
 
 let fld (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let stash = stashOperand bld (transOneOpr ins bld)
     pushFPUStack bld
     unstashST bld R.ST0 stash
@@ -562,6 +572,7 @@ let private storeOperand bld (dst: Expr) =
 
 let ffst (ins: Instruction) bld doPop =
   lift bld ins {
+    recordInstr ins bld
     match ins.Operands with
     | OneOperand(OprReg r) ->
       copyST bld r R.ST0
@@ -575,12 +586,14 @@ let ffst (ins: Instruction) bld doPop =
 
 let fild (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     pushDouble bld (AST.cast CastKind.SIntToFloat 64<rt> oprExpr)
   }
 
 let fist (ins: Instruction) bld doPop =
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     let oprSize = Expr.typeOf oprExpr
     (* The stack value is brought down to a double and converted from there,
@@ -599,6 +612,7 @@ let fist (ins: Instruction) bld doPop =
 
 let fisttp (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     let oprSize = Expr.typeOf oprExpr
     let v = readST bld R.ST0
@@ -659,6 +673,7 @@ let private bcdToInt intgr addrExpr addrSize bld =
 
 let fbld (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let src = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     let intgr = tmpVar bld 64<rt>
@@ -703,6 +718,7 @@ let private storeBCD addrExpr addrSize intgr bld =
 
 let fbstp (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let dst = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     let intgr = tmpVar bld 64<rt>
@@ -715,6 +731,7 @@ let fbstp (ins: Instruction) bld =
 
 let fxch (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let other =
       match ins.Operands with
       | OneOperand(OprReg reg) -> reg
@@ -745,6 +762,7 @@ let private fcmov (ins: Instruction) bld cond =
 
 let fcmove (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getZFLazy bld |> fcmov ins bld
 #else
@@ -754,6 +772,7 @@ let fcmove (ins: Instruction) bld =
 
 let fcmovne (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getZFLazy bld |> AST.not |> fcmov ins bld
 #else
@@ -763,6 +782,7 @@ let fcmovne (ins: Instruction) bld =
 
 let fcmovb (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getCFLazy bld |> fcmov ins bld
 #else
@@ -772,6 +792,7 @@ let fcmovb (ins: Instruction) bld =
 
 let fcmovbe (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     (getCFLazy bld .| getZFLazy bld) |> fcmov ins bld
 #else
@@ -781,6 +802,7 @@ let fcmovbe (ins: Instruction) bld =
 
 let fcmovnb (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getCFLazy bld |> AST.not |> fcmov ins bld
 #else
@@ -790,6 +812,7 @@ let fcmovnb (ins: Instruction) bld =
 
 let fcmovnbe (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     let cond1 = getCFLazy bld |> AST.not
     let cond2 = getZFLazy bld |> AST.not
@@ -802,6 +825,7 @@ let fcmovnbe (ins: Instruction) bld =
 
 let fcmovu (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getPFLazy bld |> fcmov ins bld
 #else
@@ -811,6 +835,7 @@ let fcmovu (ins: Instruction) bld =
 
 let fcmovnu (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getPFLazy bld |> AST.not |> fcmov ins bld
 #else
@@ -852,6 +877,7 @@ let private fpuFBinOp (ins: Instruction) bld binOp doPop leftToRight =
   let apply x y =
     orNaNOf x y (if leftToRight then binOp x y else binOp y x)
   lift bld ins {
+    recordInstr ins bld
     match ins.Operands with
     | NoOperand ->
       writeST bld R.ST1 (apply (readST bld R.ST0) (readST bld R.ST1))
@@ -869,6 +895,7 @@ let private fpuFBinOp (ins: Instruction) bld binOp doPop leftToRight =
 let private fpuIntOp (ins: Instruction) bld binOp leftToRight =
   let apply x y = if leftToRight then binOp x y else binOp y x
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     let opr = AST.cast CastKind.SIntToFloat 64<rt> oprExpr
     writeST bld R.ST0 (apply (readST bld R.ST0) opr)
@@ -1049,6 +1076,7 @@ let private remainderOf bld round a b =
 
 let fprem (ins: Instruction) bld round =
   lift bld ins {
+    recordInstr ins bld
     let lblSpecial = label bld "Special"
     let lblOrdered = label bld "Ordered"
     let lblExit = label bld "Exit"
@@ -1070,6 +1098,7 @@ let fprem (ins: Instruction) bld round =
 
 let fabs (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     direct (signOfST bld R.ST0) := AST.b0
     direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
@@ -1081,6 +1110,7 @@ let fabs (ins: Instruction) bld =
 
 let fchs (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let sign = signOfST bld R.ST0
     let tmp = tmpVar bld 1<rt>
     direct tmp := sign
@@ -1112,6 +1142,7 @@ let private quietST bld reg =
 
 let frndint (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let lblSpecial = label bld "Special"
     let lblOrdered = label bld "Ordered"
     let lblExit = label bld "Exit"
@@ -1155,6 +1186,7 @@ let private isInvalidScale v s =
 
 let fscale (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let n = tmpVar bld 64<rt>
     let tmp0 = takeST bld R.ST0
     let tmp1 = takeST bld R.ST1
@@ -1168,6 +1200,7 @@ let fscale (ins: Instruction) bld =
 
 let fsqrt (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     writeST bld R.ST0 (AST.unop UnOpType.FSQRT (readST bld R.ST0))
     updateC1OnStore bld
   }
@@ -1235,6 +1268,7 @@ let private splitST bld reg =
 
 let fxtract (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let struct (exponent, significand) = splitST bld R.ST0
     unstashST bld R.ST0 exponent
     pushFPUStack bld
@@ -1263,6 +1297,7 @@ let private prepareTwoOprsForComparison (ins: Instruction) bld =
 
 let fcom (ins: Instruction) bld nPop unordered =
   lift bld ins {
+    recordInstr ins bld
     let c0 = regVar bld R.FSWC0
     let c2 = regVar bld R.FSWC2
     let c3 = regVar bld R.FSWC3
@@ -1278,6 +1313,7 @@ let fcom (ins: Instruction) bld nPop unordered =
 
 let ficom (ins: Instruction) bld doPop =
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     let tmp1 = tmpVar bld 64<rt>
     let tmp0 = readST bld R.ST0
@@ -1292,6 +1328,7 @@ let ficom (ins: Instruction) bld doPop =
 
 let fcomi (ins: Instruction) bld doPop =
   lift bld ins {
+    recordInstr ins bld
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
@@ -1314,6 +1351,7 @@ let fcomi (ins: Instruction) bld doPop =
 
 let ftst (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let num0V = AST.num0 64<rt>
     let c0 = regVar bld R.FSWC0
     let c2 = regVar bld R.FSWC2
@@ -1354,6 +1392,7 @@ let private classifyST bld reg =
 
 let fxam (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let top = regVar bld R.FTOP
     let struct (isNaN, isInf, isZero, sign) = classifyST bld R.ST0
     let mask = topTagMask top
@@ -1388,6 +1427,7 @@ let private trigResult v r =
 
 let private ftrig (ins: Instruction) bld trigFunc =
   lift bld ins {
+    recordInstr ins bld
     let c0 = regVar bld R.FSWC0
     let c1 = regVar bld R.FSWC1
     let c2 = regVar bld R.FSWC2
@@ -1419,6 +1459,7 @@ let fcos ins bld = ftrig ins bld AST.fcos
 
 let fsincos (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let c0 = regVar bld R.FSWC0
     let c2 = regVar bld R.FSWC2
     let c3 = regVar bld R.FSWC3
@@ -1450,6 +1491,7 @@ let fsincos (ins: Instruction) bld =
 
 let fptan (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let c0 = regVar bld R.FSWC0
     let c2 = regVar bld R.FSWC2
     let c3 = regVar bld R.FSWC3
@@ -1486,6 +1528,7 @@ let fptan (ins: Instruction) bld =
 /// quotient is therefore corrected by the signs of the two operands.
 let fpatan (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let res = tmpVar bld 64<rt>
     let quot = tmpVar bld 64<rt>
     let signMask = numI64 0x8000000000000000L 64<rt>
@@ -1524,6 +1567,7 @@ let fpatan (ins: Instruction) bld =
 
 let f2xm1 (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let f1 = numI32 1 64<rt> |> castToF64
     let f2 = numI32 2 64<rt> |> castToF64
     let c1 = regVar bld R.FSWC1
@@ -1541,6 +1585,7 @@ let f2xm1 (ins: Instruction) bld =
 
 let fyl2x (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let f2 = numI32 2 64<rt> |> castToF64
     let x = readST bld R.ST0
     let y = readST bld R.ST1
@@ -1558,6 +1603,7 @@ let fyl2x (ins: Instruction) bld =
 
 let fyl2xp1 (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let f1 = numI32 1 64<rt> |> castToF64
     let f2 = numI32 2 64<rt> |> castToF64
     let x = readST bld R.ST0
@@ -1580,6 +1626,7 @@ let fld1 ins bld =
 
 let fldz (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     pushFPUStack bld
     clearST bld R.ST0
     cflagsAfterLoad bld
@@ -1607,6 +1654,7 @@ let fldlg2 ins bld =
 
 let fincstp (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let top = regVar bld R.FTOP
     extractDstAssign top (top .+ AST.num1 8<rt>)
     let stash = stashST bld R.ST0
@@ -1628,6 +1676,7 @@ let fincstp (ins: Instruction) bld =
 
 let fdecstp (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let top = regVar bld R.FTOP
     extractDstAssign top (top .- AST.num1 8<rt>)
     let stash = stashST bld R.ST7
@@ -1649,6 +1698,7 @@ let fdecstp (ins: Instruction) bld =
 
 let ffree (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let top = regVar bld R.FTOP
     let tagWord = regVar bld R.FTW
     let struct (top16, shifter, tagValue) = tmpVars3 bld 16<rt>
@@ -1957,6 +2007,7 @@ let wait (ins: Instruction) bld =
 
 let fnop (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
