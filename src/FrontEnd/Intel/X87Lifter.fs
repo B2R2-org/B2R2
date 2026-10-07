@@ -1740,13 +1740,52 @@ let fldcw (ins: Instruction) bld =
 
 let inline private storeLE addr v = AST.store Endian.Little addr v
 
+/// The tag the FPU gives a stack register that holds a value, when it stores
+/// the tag word: 01 for a zero, 10 for a special value, and 00 for any other
+/// (Intel SDM Vol. 1, 8.1.7).
+let private tagOfValue bld reg =
+#if EMULATION
+  (* A double has no encoding the eighty-bit format calls special but its NaNs
+     and infinities: even its denormals widen to normal extended values. *)
+  let v = pseudoRegVar bld reg 1
+  let isZero = (v << AST.num1 64<rt>) == AST.num0 64<rt>
+  let isSpecial = isNonFinite v
+#else
+  (* A normal value has its integer bit set and an exponent neither zero nor
+     the reserved all-ones; one holding anything else that is not a zero is a
+     NaN, an infinity, a denormal, or an encoding the FPU does not support. *)
+  let struct (b, a) = getFPUPseudoRegVars bld reg
+  let exponent = b .& numI32 0x7fff 16<rt>
+  let isZero = (exponent == AST.num0 16<rt>) .& (a == AST.num0 64<rt>)
+  let isSpecial =
+    (exponent == AST.num0 16<rt>) .| (exponent == numI32 0x7fff 16<rt>)
+    .| AST.not (AST.xthi 1<rt> a)
+#endif
+  let special = AST.ite isSpecial (numI32 2 16<rt>) (AST.num0 16<rt>)
+  AST.ite isZero (AST.num1 16<rt>) special
+
+/// The tag word FNSTENV and FNSAVE store. The FPU keeps no more than whether
+/// each register is empty and works out the rest from the values as it stores
+/// the word, so this does the same, ST(i) being physical register (TOP + i)
+/// mod 8.
+let private fineTags bld =
+  let tags = regVar bld R.FTW
+  let top = AST.zext 16<rt> (regVar bld R.FTOP)
+  let three = numI32 3 16<rt>
+  [ for i, st in List.indexed stackRegs ->
+      let phys = (top .+ numI32 i 16<rt>) .& numI32 7 16<rt>
+      let shift = phys << AST.num1 16<rt>
+      let isEmpty = ((tags >> shift) .& three) == three
+      AST.ite isEmpty three (tagOfValue bld st) << shift ]
+  |> List.reduce (.|)
+
 let private m14fstenv dstAddr addrSize bld =
   append bld {
     let fiplo = AST.xtlo 16<rt> (regVar bld R.FIP)
     let fdplo = AST.xtlo 16<rt> (regVar bld R.FDP)
     storeLE (dstAddr) (regVar bld R.FCW)
     storeLE (dstAddr .+ numI32 2 addrSize) (regVar bld R.FSW)
-    storeLE (dstAddr .+ numI32 4 addrSize) (regVar bld R.FTW)
+    storeLE (dstAddr .+ numI32 4 addrSize) (fineTags bld)
     storeLE (dstAddr .+ numI32 6 addrSize) fiplo
     storeLE (dstAddr .+ numI32 8 addrSize) (regVar bld R.FCS)
     storeLE (dstAddr .+ numI32 10 addrSize) fdplo
@@ -1760,7 +1799,7 @@ let private m28fstenv dstAddr addrSize bld =
     storeLE (dstAddr .+ numI32 2 addrSize) n0
     storeLE (dstAddr .+ numI32 4 addrSize) (regVar bld R.FSW)
     storeLE (dstAddr .+ numI32 6 addrSize) n0
-    storeLE (dstAddr .+ numI32 8 addrSize) (regVar bld R.FTW)
+    storeLE (dstAddr .+ numI32 8 addrSize) (fineTags bld)
     storeLE (dstAddr .+ numI32 10 addrSize) n0
     storeLE (dstAddr .+ numI32 12 addrSize) (regVar bld R.FIP)
     storeLE (dstAddr .+ numI32 20 addrSize) (regVar bld R.FDP)
