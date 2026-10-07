@@ -61,26 +61,21 @@ let private cflagsUndefined023 bld =
 let inline private getFPUPseudoRegVars bld r =
   struct (pseudoRegVar bld r 2, pseudoRegVar bld r 1)
 
-let private updateC1OnLoad bld =
-  append bld {
-    let top = regVar bld R.FTOP
-    let c1Flag = regVar bld R.FSWC1
-    (* Top value has been wrapped around, which means stack overflow in B2R2. *)
-    direct c1Flag := (top == AST.num0 8<rt>)
-#if !EMULATION
-    direct (regVar bld R.FSWC0) := undefC0
-    direct (regVar bld R.FSWC2) := undefC2
-    direct (regVar bld R.FSWC3) := undefC3
+/// What a load leaves in C0, C2, and C3, which it does not define. C1 is the
+/// push's to set, as only the push knows whether the stack overflowed.
+let private cflagsAfterLoad bld =
+#if EMULATION
+  ignore bld
+#else
+  cflagsUndefined023 bld
 #endif
-  }
 
 let private updateC1OnStore bld =
   append bld {
-    let top = regVar bld R.FTOP
-    let c1Flag = regVar bld R.FSWC1
-    (* A pop from the empty stack an initialized FPU starts with leaves TOP at
-       1, which B2R2 takes as a stack underflow. *)
-    direct c1Flag := (top != AST.num1 8<rt>)
+    (* C1 is 0 after a stack underflow, and otherwise tells whether the result
+       was rounded up, which this does not model: 0 is what an exact result
+       leaves. *)
+    direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
     direct (regVar bld R.FSWC2) := undefC2
@@ -454,12 +449,24 @@ let private signOfST bld reg =
   AST.xthi 1<rt> (pseudoRegVar bld reg 2)
 #endif
 
+/// The two bits of the tag word that tag the physical register TOP names. The
+/// tag word gives physical register i bits 2i+1:2i, and 11 marks it empty
+/// (Intel SDM Vol. 1, 8.1.7).
+let private topTagMask top =
+  numI32 3 16<rt> << (AST.zext 16<rt> top << AST.num1 16<rt>)
+
 /// Pushes the stack: TOP moves down a place (Intel SDM Vol. 1, 8.1.2), and
-/// every value moves to the stack register below, which frees ST(0).
+/// every value moves to the stack register below, which frees ST(0). The
+/// register TOP now names should be empty; if it still holds a value, the push
+/// has overflowed the stack, which C1 reports. Either way it now holds one.
 let private pushFPUStack bld =
   let top = regVar bld R.FTOP
+  let tags = regVar bld R.FTW
   append bld {
     extractDstAssign top (top .- AST.num1 8<rt>)
+    let mask = topTagMask top
+    direct (regVar bld R.FSWC1) := (tags .& mask) != mask
+    direct tags := tags .& AST.not mask
   }
   copyST bld R.ST7 R.ST6
   copyST bld R.ST6 R.ST5
@@ -469,11 +476,14 @@ let private pushFPUStack bld =
   copyST bld R.ST2 R.ST1
   copyST bld R.ST1 R.ST0
 
-/// Pops the stack: TOP moves up a place (Intel SDM Vol. 1, 8.1.2), and every
-/// value moves to the stack register above, which empties ST(7).
+/// Pops the stack: the register TOP names is tagged empty, TOP moves up a place
+/// (Intel SDM Vol. 1, 8.1.2), and every value moves to the stack register
+/// above, which empties ST(7).
 let private popFPUStack bld =
   let top = regVar bld R.FTOP
+  let tags = regVar bld R.FTW
   append bld {
+    direct tags := tags .| topTagMask top
     extractDstAssign top (top .+ AST.num1 8<rt>)
   }
   copyST bld R.ST0 R.ST1
@@ -501,7 +511,7 @@ let private pushDouble bld v =
   let stash = stashDouble bld v
   pushFPUStack bld
   unstashST bld R.ST0 stash
-  updateC1OnLoad bld
+  cflagsAfterLoad bld
 
 let private fpuLoad (ins: Instruction) bld v =
   lift bld ins {
@@ -530,7 +540,7 @@ let fld (ins: Instruction) bld =
     let stash = stashOperand bld (transOneOpr ins bld)
     pushFPUStack bld
     unstashST bld R.ST0 stash
-    updateC1OnLoad bld
+    cflagsAfterLoad bld
   }
 
 /// Stores ST(0) in the format the memory operand names: as a single or a
@@ -1346,7 +1356,8 @@ let fxam (ins: Instruction) bld =
   lift bld ins {
     let top = regVar bld R.FTOP
     let struct (isNaN, isInf, isZero, sign) = classifyST bld R.ST0
-    let isEmpty = top == numI32 0 8<rt>
+    let mask = topTagMask top
+    let isEmpty = (regVar bld R.FTW .& mask) == mask
     let c3Cond = isZero .| isEmpty
     let c2Cond = AST.not (isNaN .| isZero .| isEmpty)
     let c0Cond = isNaN .| isInf .| isEmpty
@@ -1427,12 +1438,14 @@ let fsincos (ins: Instruction) bld =
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
     direct c2 := AST.b1
+    (* Out of range, nothing is pushed, so nothing overflows. *)
+    direct (regVar bld R.FSWC1) := AST.b0
     AST.lmark lexit
 #if !EMULATION
     direct c0 := undefC0
     direct c3 := undefC3
 #endif
-    updateC1OnLoad bld
+    cflagsAfterLoad bld
   }
 
 let fptan (ins: Instruction) bld =
@@ -1457,12 +1470,14 @@ let fptan (ins: Instruction) bld =
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
     direct c2 := AST.b1
+    (* Out of range, nothing is pushed, so nothing overflows. *)
+    direct (regVar bld R.FSWC1) := AST.b0
     AST.lmark lexit
 #if !EMULATION
     direct c0 := undefC0
     direct c3 := undefC3
 #endif
-    updateC1OnLoad bld
+    cflagsAfterLoad bld
   }
 
 /// FPATAN is atan2(ST(1), ST(0)), not atan of their quotient: the quotient
@@ -1567,7 +1582,7 @@ let fldz (ins: Instruction) bld =
   lift bld ins {
     pushFPUStack bld
     clearST bld R.ST0
-    updateC1OnLoad bld
+    cflagsAfterLoad bld
   }
 
 let fldpi ins bld =
@@ -1910,17 +1925,26 @@ let private xmmRegsOf is64bit =
 let private fieldAt baseAddr addrSize off =
   if off = 0 then baseAddr else baseAddr .+ numI32 off addrSize
 
-/// The x87 half of an FXSAVE-format image: the control, status and tag words,
-/// the opcode and the last instruction and data pointers, and the eight stack
-/// registers, eighty bits each on a sixteen-byte stride from thirty-two bytes
-/// in.
+/// The tag byte of an FXSAVE-format image, which abridges the tag word to a bit
+/// per physical register: set unless the register is empty, its tag 11 (Intel
+/// SDM Vol. 1, 10.5.1.1).
+let private abridgedTags tags =
+  [ for i in 0 .. 7 ->
+      let mask = numI32 (3 <<< (2 * i)) 16<rt>
+      AST.zext 8<rt> ((tags .& mask) != mask) << numI32 i 8<rt> ]
+  |> List.reduce (.|)
+
+/// The x87 half of an FXSAVE-format image: the control and status words, the
+/// abridged tag byte, the opcode and the last instruction and data pointers,
+/// and the eight stack registers, eighty bits each on a sixteen-byte stride
+/// from thirty-two bytes in.
 let private storeX87Area bld baseAddr addrSize =
   let at off = fieldAt baseAddr addrSize off
   let words =
     block {
       yield storeLE (at 0) (regVar bld R.FCW)
       yield storeLE (at 2) (regVar bld R.FSW)
-      yield storeLE (at 4) (regVar bld R.FTW)
+      yield storeLE (at 4) (AST.zext 16<rt> (abridgedTags (regVar bld R.FTW)))
       yield storeLE (at 6) (regVar bld R.FOP)
       yield storeLE (at 8) (regVar bld R.FIP)
       yield storeLE (at 16) (regVar bld R.FDP)
@@ -1943,6 +1967,16 @@ let private storeSseArea bld baseAddr addrSize is64bit =
       yield storeLE (at (168 + 16 * i)) xmmb
   }
 
+/// Expands the abridged tag byte of an FXSAVE-format image back into a tag
+/// word: 11, empty, where its bit is clear, and 00, a valid value, where it is
+/// set. The hardware keeps no more than that; FNSTENV and FNSAVE work out the
+/// finer tags from the registers when they store them.
+let private fullTags abridged =
+  [ for i in 0 .. 7 ->
+      let empty = AST.not (AST.extract abridged 1<rt> i)
+      AST.zext 16<rt> empty .* numI32 (3 <<< (2 * i)) 16<rt> ]
+  |> List.reduce (.|)
+
 /// Reads the x87 half of an FXSAVE-format image back into the registers.
 let private loadX87Area bld baseAddr addrSize =
   let at off = fieldAt baseAddr addrSize off
@@ -1950,7 +1984,7 @@ let private loadX87Area bld baseAddr addrSize =
     block {
       direct (regVar bld R.FCW) := AST.loadLE 16<rt> (at 0)
       direct (regVar bld R.FSW) := AST.loadLE 16<rt> (at 2)
-      direct (regVar bld R.FTW) := AST.loadLE 16<rt> (at 4)
+      direct (regVar bld R.FTW) := fullTags (AST.loadLE 8<rt> (at 4))
       direct (regVar bld R.FOP) := AST.loadLE 16<rt> (at 6)
       direct (regVar bld R.FIP) := AST.loadLE 64<rt> (at 8)
       direct (regVar bld R.FDP) := AST.loadLE 64<rt> (at 16)

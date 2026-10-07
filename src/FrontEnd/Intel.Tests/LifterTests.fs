@@ -888,6 +888,20 @@ type X87LifterTests() =
          + "0xb:I16)[7:0]) " + op + " 0x1:I8)) << 0xb:I16) & 0x3800:I16))" |]
     CollectionAssert.AreEqual(expected, topWrites hex)
 
+  (* The writes to the tag word, and to C1, bit 9 of FSW. *)
+  let tagWrites hex =
+    lift hex
+    |> Array.filter (fun l ->
+      l.StartsWith "FTW :=" || l.StartsWith "FSW := ((FSW & 0xfdff:I16)")
+
+  let testTags hex (expectedStmts: string[]) =
+    CollectionAssert.AreEqual(expectedStmts, tagWrites hex)
+
+  (* The two bits of the tag word that tag the physical register under TOP. *)
+  let topTag =
+    "(0x3:I16 << (zext:I16((((FSW & 0x3800:I16) >> 0xb:I16)[7:0])) << "
+    + "0x1:I16))"
+
   [<TestMethod>]
   member _.``[X64] FLDZ pushes by moving TOP down (1)``() =
     testTop "d9ee" (* fldz *) "-"
@@ -915,3 +929,62 @@ type X87LifterTests() =
           "T_2:I16 := (0x2:I16 * T_1:I16)"
           "T_3:I16 := (0x3:I16 << T_2:I16)"
           "FTW := (FTW | T_3:I16)" |]
+
+  (* The register a push takes over is the one TOP names after it: if that one
+     still held a value, the push overflowed the stack, which C1 reports. *)
+  [<TestMethod>]
+  member _.``[X64] FLDZ tags its new top and flags an overflow (1)``() =
+    let overflow =
+      "FSW := ((FSW & 0xfdff:I16) | (zext:I16(((FTW & " + topTag + ") != "
+      + topTag + ")) << 0x9:I16))"
+    testTags "d9ee" (* fldz *)
+    <| [| overflow; "FTW := (FTW & (~ " + topTag + "))" |]
+
+  (* A pop empties the register TOP names before it moves, and C1 reads 0, as
+     it does after any exact result. *)
+  [<TestMethod>]
+  member _.``[X64] FSTP empties the register it pops (1)``() =
+    testTags "ddd8" (* fstp st(0) *)
+    <| [| "FTW := (FTW | " + topTag + ")"
+          "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+
+  [<TestMethod>]
+  member _.``[X64] FINCSTP leaves the tags alone (1)``() =
+    testTags "d9f7" (* fincstp *)
+    <| [| "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+
+  [<TestMethod>]
+  member _.``[X64] FSQRT leaves C1 clear (1)``() =
+    testTags "d9fa" (* fsqrt *)
+    <| [| "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+
+  (* FXSAVE keeps one bit per physical register, set unless its tag is 11,
+     empty, in the byte at offset 4; the byte after it is reserved. *)
+  [<TestMethod>]
+  member _.``[X64] FXSAVE stores the abridged tag byte (1)``() =
+    let notEmpty p =
+      let mask = sprintf "0x%x:I16" (3 <<< (2 * p))
+      sprintf "(zext:I8(((FTW & %s) != %s)) << 0x%x:I8)" mask mask p
+    let abridged =
+      [ for p in 0 .. 7 -> notEmpty p ]
+      |> List.reduce (fun acc t -> "(" + acc + " | " + t + ")")
+    let actual =
+      lift "0fae00" (* fxsave [rax] *)
+      |> Array.filter (fun l -> l.StartsWith "[(RAX + 0x4:I64)]")
+    let expected = [| "[(RAX + 0x4:I64)] := zext:I16(" + abridged + ")" |]
+    CollectionAssert.AreEqual(expected, actual)
+
+  (* FXRSTOR reads that byte back: a clear bit is an empty register, 11, and a
+     set one a register holding a value, 00. *)
+  [<TestMethod>]
+  member _.``[X64] FXRSTOR expands the abridged tag byte (1)``() =
+    let tagOf p =
+      sprintf "(zext:I16((~ ([(RAX + 0x4:I64)]:I8[%d:%d]))) * 0x%x:I16)"
+        p p (3 <<< (2 * p))
+    let tags =
+      [ for p in 0 .. 7 -> tagOf p ]
+      |> List.reduce (fun acc t -> "(" + acc + " | " + t + ")")
+    let actual =
+      lift "0fae08" (* fxrstor [rax] *)
+      |> Array.filter (fun l -> l.StartsWith "FTW :=")
+    CollectionAssert.AreEqual([| "FTW := " + tags |], actual)
