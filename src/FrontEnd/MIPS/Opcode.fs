@@ -860,5 +860,11 @@ type Opcode =
   | DMFC2 = 397
   /// Doubleword Move to Coprocessor 2, MIPS64 only.
   | DMTC2 = 398
+  /// Branch if Coprocessor 2 Condition Equal to Zero, the compact form
+  /// (microMIPS Release 6).
+  | BC2EQZC = 399
+  /// Branch if Coprocessor 2 Condition Not Equal to Zero, the compact form
+  /// (microMIPS Release 6).
+  | BC2NEZC = 400
 
 type internal Op = Opcode

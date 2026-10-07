@@ -629,6 +629,61 @@ type MicroMIPSParserTests() =
       Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
       Assert.AreEqual<Operands>(operandsFromArray oprs, ins.Operands, hex)
 
+  /// <summary>
+  /// Coprocessor 2, the moves of the upper half of a coprocessor 0 register,
+  /// ERETNC, DADDI, and the four shifts of the zero register that are
+  /// instructions of their own.
+  ///
+  /// Every word before Release 6 is the one binutils writes for the source in
+  /// it. Two of the microMIPS64 pages give a field the wrong value -- DMTC2's
+  /// pool as 000011 and SDC2's major as 110110 -- where the opcode tables and
+  /// binutils agree on POOL32Axf (111100) and POOL32B (001000). Release 6
+  /// keeps bit 11 of a coprocessor 2 load or store clear, with eleven bits of
+  /// offset below it, and moves the branches on a coprocessor 2 condition to
+  /// two compact ones on a condition register (MD00594, POOL32I).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] Coprocessor 2 and the Release 5 additions decode``() =
+    let here = O.Addr(Relative 4L)
+    test
+      [ "43003c4d", (MFC2, [ O.Reg R2; O.Imm 3UL ])
+        "43003c7d", (DMTC2, [ O.Reg R2; O.Imm 3UL ])
+        "44201000", (LWC2, [ O.Imm 2UL; O.Mem(R4, 16L, 32<rt>) ])
+        "4420f08f", (SWC2, [ O.Imm 2UL; O.Mem(R4, -16L, 32<rt>) ])
+        "442010a0", (SDC2, [ O.Imm 2UL; O.Mem(R4, 16L, 64<rt>) ])
+        "80420000", (BC2F, [ O.Imm 0UL; here ])
+        "a8420000", (BC2T, [ O.Imm 2UL; here ])
+        "00001a09", (COP2, [ O.Imm 0x123UL ])
+        "4300f428", (MFHC0, [ O.Reg R2; O.Imm 3UL; O.Imm 5UL ])
+        "4300f42a", (MTHC0, [ O.Reg R2; O.Imm 3UL; O.Imm 5UL ])
+        "01007cf3", (ERETNC, [])
+        "4358dcfe", (DADDI, [ O.Reg R2; O.Reg R3; O.Imm 0xfffffffffffffffbUL ])
+        "00000000", (NOP, [])
+        "00000008", (SSNOP, [])
+        "00000018", (EHB, [])
+        "00000028", (PAUSE, []) ]
+    let r6 =
+      ISA(Architecture.MIPS,
+          Endian.Little,
+          WordSize.Bit64,
+          int MIPSISAMode.MicroMIPS ||| int MIPSRelease.R6)
+    let r6Parser =
+      Parser(r6, BinReader.Init Endian.Little) :> IInstructionParsable
+    let parseR6 hex =
+      let bytes = ByteArray.ofHexString hex
+      r6Parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+    let lwc2 = parseR6 "4420f007"
+    let lwc2Oprs = TwoOperands(O.Imm 2UL, O.Mem(R4, -16L, 32<rt>))
+    Assert.AreEqual<Opcode>(LWC2, lwc2.Opcode)
+    Assert.AreEqual<Operands>(lwc2Oprs, lwc2.Operands)
+    let bc2eqzc = parseR6 "45410300"
+    let bc2eqzcOprs = TwoOperands(O.Imm 5UL, O.Addr(Relative 10L))
+    Assert.AreEqual<Opcode>(BC2EQZC, bc2eqzc.Opcode)
+    Assert.AreEqual<Operands>(bc2eqzcOprs, bc2eqzc.Operands)
+    for hex in [ "4420f00f"; "80420000"; "4358dcfe" ] do
+      Assert.ThrowsExactly<ParsingFailureException>((fun () ->
+        parseR6 hex |> ignore), hex) |> ignore
+
   /// LDP, LDM, SDP and SDM move doublewords, and microMIPS64 alone has them
   /// (microMIPS64 Release 5, POOL32B): a 32-bit decoder refuses them, as it
   /// refuses LD.

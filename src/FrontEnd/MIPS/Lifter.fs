@@ -776,7 +776,8 @@ let private translateOpcode (ins: Instruction) (bld: LowUIRBuilder) =
      Coprocessor Unusable, as each one's Exceptions list it first. *)
   | Op.MFC2 | Op.DMFC2 | Op.CFC2 | Op.MFHC2 | Op.MTC2 | Op.DMTC2 | Op.CTC2
   | Op.MTHC2 | Op.BC2F | Op.BC2T | Op.BC2FL | Op.BC2TL | Op.BC2EQZ
-  | Op.BC2NEZ | Op.COP2 | Op.LWC2 | Op.SWC2 | Op.LDC2 | Op.SDC2 ->
+  | Op.BC2NEZ | Op.BC2EQZC | Op.BC2NEZC | Op.COP2 | Op.LWC2 | Op.SWC2
+  | Op.LDC2 | Op.SDC2 ->
     sideEffects ins bld UndefinedInstruction
   | o ->
 #if DEBUG

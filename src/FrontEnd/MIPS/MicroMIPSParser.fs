@@ -594,6 +594,24 @@ let private posSize w add32Pos add32Size isIns =
   let size = (if isIns then msb - lsb else msb) + (if add32Size then 33 else 1)
   imm (uint64 pos), imm (uint64 size)
 
+/// A move between a general register and coprocessor 2, whose register is a
+/// number of the coprocessor's own.
+let private cop2Move w = TwoOperands(fRt w, imm (uint64 (bits w 20u 16u)))
+
+/// <summary>
+/// POOL32P, which holds the two moves of the upper half of a coprocessor 0
+/// register that the extended physical addressing added (microMIPS Release
+/// 5). The select field sits where it does in MFC0 and MTC0.
+/// </summary>
+let private pool32P w =
+  let rd = bits w 20u 16u |> uint64 |> OpImm
+  let sel = bits w 13u 11u |> uint64 |> OpImm
+  let oprs = ThreeOperands(fRt w, rd, sel)
+  match bits w 15u 14u, bits w 10u 6u with
+  | 0b00u, 0b00011u -> Op.MFHC0, None, None, oprs
+  | 0b00u, 0b01011u -> Op.MTHC0, None, None, oprs
+  | _ -> raise ParsingFailureException
+
 /// <summary>
 /// POOL32Axf, the pool of everything POOL32A has no room for.
 ///
@@ -674,6 +692,24 @@ let private pool32Axf release w =
       Op.MSUB, None, None, TwoOperands(fRs w, fRt w)
     | 0b101u, 0b1111u when release <> MIPSRelease.R6 ->
       Op.MSUBU, None, None, TwoOperands(fRs w, fRt w)
+    (* The coprocessor 2 moves, whose Impl field is five bits here where the
+       older encoding gives it sixteen. *)
+    | 0b110u, 0b0100u ->
+      Op.MFC2, None, None, cop2Move w
+    | 0b110u, 0b0101u ->
+      Op.MTC2, None, None, cop2Move w
+    | 0b110u, 0b0110u ->
+      Op.DMFC2, None, None, cop2Move w
+    | 0b110u, 0b0111u ->
+      Op.DMTC2, None, None, cop2Move w
+    | 0b110u, 0b1000u ->
+      Op.MFHC2, None, None, cop2Move w
+    | 0b110u, 0b1001u ->
+      Op.MTHC2, None, None, cop2Move w
+    | 0b110u, 0b1100u ->
+      Op.CFC2, None, None, cop2Move w
+    | 0b110u, 0b1101u ->
+      Op.CTC2, None, None, cop2Move w
     | _ ->
       raise ParsingFailureException
   | 0b101u ->
@@ -697,8 +733,10 @@ let private pool32Axf release w =
       Op.WAIT, None, None, OneOperand code
     | 0b001u, 0b1110u ->
       Op.DERET, None, None, NoOperand
-    | 0b001u, 0b1111u ->
+    | 0b001u, 0b1111u when bits w 16u 16u = 0u ->
       Op.ERET, None, None, NoOperand
+    | 0b001u, 0b1111u ->
+      Op.ERETNC, None, None, NoOperand
     | 0b011u, 0b0100u ->
       Op.DI, None, None, OneOperand(fRs w)
     | 0b011u, 0b0101u ->
@@ -722,6 +760,17 @@ let private pool32Axf release w =
   | _ ->
     raise ParsingFailureException
 
+/// A shift of the zero register into itself, which four amounts make an
+/// instruction of its own: NOP, SSNOP, EHB and PAUSE, as they are in the
+/// older encoding.
+let private sllOfZero w sa =
+  match bits w 15u 11u with
+  | 0u -> Op.NOP, None, None, NoOperand
+  | 1u -> Op.SSNOP, None, None, NoOperand
+  | 3u -> Op.EHB, None, None, NoOperand
+  | 5u -> Op.PAUSE, None, None, NoOperand
+  | _ -> Op.SLL, None, None, ThreeOperands(fRt w, fRs w, sa)
+
 /// <summary>
 /// POOL32A's own table, which is read as a grid: the three bits above the
 /// pool select a column and the four above those a row.
@@ -729,6 +778,8 @@ let private pool32Axf release w =
 let private pool32AGrid release w =
   let sa = OpShiftAmount(uint64 (bits w 15u 11u))
   match bits w 5u 3u, bits w 9u 6u with
+  | 0b000u, 0b0000u when bits w 25u 16u = 0u ->
+    sllOfZero w sa
   | 0b000u, 0b0000u ->
     Op.SLL, None, None, ThreeOperands(fRt w, fRs w, sa)
   | 0b000u, 0b0001u ->
@@ -796,10 +847,14 @@ let private pool32A release w =
     | 0b101u ->
       let pos, size = posSize w false false false
       Op.EXT, None, None, FourOperands(fRt w, fRs w, pos, size)
+    | 0b110u ->
+      pool32P w
     | 0b111u ->
       pool32Axf release w
     | _ ->
       raise ParsingFailureException
+  | 0b010u ->
+    Op.COP2, None, None, OneOperand(imm (uint64 (bits w 25u 3u)))
   | 0b111u when bits w 5u 3u = 0u ->
     Op.BREAK, None, None, OneOperand(imm (uint64 (bits w 25u 6u)))
   | _ ->
@@ -906,6 +961,9 @@ let private pool32S release w =
       Op.DINS, None, None, oprs false false true
     | 0b010u ->
       Op.DEXTU, None, None, oprs true false false
+    | 0b011u when release <> MIPSRelease.R6 ->
+      let value = imm (uint64 (signed 10 (bits w 15u 6u)))
+      Op.DADDI, None, None, ThreeOperands(fRt w, fRs w, value)
     | 0b100u ->
       Op.DEXTM, None, None, oprs false true false
     | 0b101u ->
@@ -920,13 +978,36 @@ let private pool32S release w =
     raise ParsingFailureException
 
 /// <summary>
+/// The loads and stores of a coprocessor 2 register, which is a number of
+/// the coprocessor's own. Release 6 keeps bit 11 clear and the offset to the
+/// eleven bits below it.
+/// </summary>
+let private cop2Mem release w width =
+  let reg = imm (uint64 (bits w 25u 21u))
+  if release <> MIPSRelease.R6 then
+    TwoOperands(reg, memOff12 w width)
+  elif bits w 11u 11u = 0u then
+    let offset = Imm(signed 11 (bits w 10u 0u))
+    TwoOperands(reg, OpMem(reg5 (bits w 20u 16u), offset, width))
+  else
+    raise ParsingFailureException
+
+/// <summary>
 /// POOL32B, the loads and stores that move more than one register.
 ///
 /// Every member spends four bits on the minor opcode and keeps twelve for
 /// the offset, which is why they are here rather than among the majors.
 /// </summary>
-let private pool32B w =
+let private pool32B release w =
   match bits w 15u 12u with
+  | 0b0000u ->
+    Op.LWC2, None, None, cop2Mem release w 32<rt>
+  | 0b0010u ->
+    Op.LDC2, None, None, cop2Mem release w 64<rt>
+  | 0b1000u ->
+    Op.SWC2, None, None, cop2Mem release w 32<rt>
+  | 0b1010u ->
+    Op.SDC2, None, None, cop2Mem release w 64<rt>
   | 0b0001u ->
     let second = reg5 (bits w 25u 21u + 1u) |> oprReg
     let oprs = ThreeOperands(fRt w, second, memOff12 w 32<rt>)
@@ -1086,6 +1167,16 @@ let private pool32I release w =
     Op.BLTZALS, None, None, TwoOperands(rs, rel16 w)
   | 0b10011u when release <> MIPSRelease.R6 ->
     Op.BGEZALS, None, None, TwoOperands(rs, rel16 w)
+  | 0b01010u when release = MIPSRelease.R6 ->
+    Op.BC2EQZC, None, None, TwoOperands(imm (uint64 (bits w 20u 16u)), rel16 w)
+  | 0b01011u when release = MIPSRelease.R6 ->
+    Op.BC2NEZC, None, None, TwoOperands(imm (uint64 (bits w 20u 16u)), rel16 w)
+  | 0b10100u when release <> MIPSRelease.R6 ->
+    let cc = bits w 20u 18u |> uint64 |> OpImm
+    Op.BC2F, None, None, TwoOperands(cc, rel16 w)
+  | 0b10101u when release <> MIPSRelease.R6 ->
+    let cc = bits w 20u 18u |> uint64 |> OpImm
+    Op.BC2T, None, None, TwoOperands(cc, rel16 w)
   | 0b11100u when release <> MIPSRelease.R6 ->
     let cc = bits w 20u 18u |> uint64 |> OpImm
     Op.BC1F, None, None, TwoOperands(cc, rel16 w)
@@ -1452,7 +1543,7 @@ let private parseWord release addr w =
   | 0b000000u ->
     pool32A release w
   | 0b001000u ->
-    pool32B w
+    pool32B release w
   | 0b010000u ->
     pool32I release w
   | 0b011000u ->

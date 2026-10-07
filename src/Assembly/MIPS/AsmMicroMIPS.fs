@@ -335,6 +335,45 @@ let private sync ins =
   | _ ->
     wrongOperands ins
 
+/// Encodes <rt>, <impl>: a move between a general register and coprocessor
+/// 2, whose register is five bits of the coprocessor's own here.
+let private cop2Move row ins =
+  match ins.Operands with
+  | TwoOperands(Rg rt, Im impl) ->
+    axf 0b000000u (gpr rt) (unsigned 5 impl) row 0b110u 0b100u
+  | _ ->
+    wrongOperands ins
+
+/// Encodes ERETNC, which is ERET with the lowest bit of its zero field set.
+let private eretnc ins =
+  match ins.Operands with
+  | NoOperand -> axf 0b000000u 0u 1u 0b1111u 0b001u 0b101u
+  | _ -> wrongOperands ins
+
+/// Encodes <rt>, <rd>, <sel>: the moves of the upper half of a coprocessor 0
+/// register, which POOL32P holds.
+let private moveHC0 sub ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rt, Im rd, Im sel) ->
+    let low = (unsigned 3 sel <<< 11) ||| (sub <<< 6) ||| 0b110100u
+    word 0b000000u (gpr rt) (unsigned 5 rd) low
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <cofun>: the operation coprocessor 2 is handed, twenty-three bits
+/// of it above the three that name the pool.
+let private cop2Operation ins =
+  match ins.Operands with
+  | OneOperand(Im cofun) -> (unsigned 23 cofun <<< 3) ||| 0b010u
+  | _ -> wrongOperands ins
+
+/// Encodes the four shifts of the zero register into itself that are
+/// instructions of their own, by the amount each is.
+let private sllOfZero amount ins =
+  match ins.Operands with
+  | NoOperand -> amount <<< 11
+  | _ -> wrongOperands ins
+
 /// The rows of POOL32Axf that every release has.
 let private pool32AxfEncoders () =
   [ Opcode.TEQ, trap 0b000u
@@ -366,7 +405,23 @@ let private pool32AxfEncoders () =
     Opcode.EI, oneRegAxf 0b0101u 0b011u
     Opcode.SYNC, sync
     Opcode.SYSCALL, withCode 0b1000u 0b101u
-    Opcode.SDBBP, withCode 0b1101u 0b101u ]
+    Opcode.SDBBP, withCode 0b1101u 0b101u
+    Opcode.MFC2, cop2Move 0b0100u
+    Opcode.MTC2, cop2Move 0b0101u
+    Opcode.DMFC2, cop2Move 0b0110u
+    Opcode.DMTC2, cop2Move 0b0111u
+    Opcode.MFHC2, cop2Move 0b1000u
+    Opcode.MTHC2, cop2Move 0b1001u
+    Opcode.CFC2, cop2Move 0b1100u
+    Opcode.CTC2, cop2Move 0b1101u
+    Opcode.ERETNC, eretnc
+    Opcode.MFHC0, moveHC0 0b00011u
+    Opcode.MTHC0, moveHC0 0b01011u
+    Opcode.COP2, cop2Operation
+    Opcode.NOP, sllOfZero 0u
+    Opcode.SSNOP, sllOfZero 1u
+    Opcode.EHB, sllOfZero 3u
+    Opcode.PAUSE, sllOfZero 5u ]
 
 /// The rows of POOL32Axf that Release 6 took away, which are the multiplies
 /// and divides that write HI and LO and the four that read and write them.
@@ -520,6 +575,37 @@ let private hint9 minor sub ins =
   | _ ->
     wrongOperands ins
 
+/// Encodes <rt>, <offset>(<base>): a load or a store of a coprocessor 2
+/// register before Release 6, with a twelve-bit offset.
+let private cop2Mem12 minor ins =
+  match ins.Operands with
+  | TwoOperands(Im rt, Mem(baseReg, offset)) ->
+    pooledMem 0b001000u (unsigned 5 rt) (gpr baseReg) minor (signed 12 offset)
+  | _ ->
+    wrongOperands ins
+
+/// The same at Release 6, whose offset is eleven bits with bit 11 clear.
+let private cop2Mem11 minor ins =
+  match ins.Operands with
+  | TwoOperands(Im rt, Mem(baseReg, offset)) ->
+    pooledMem 0b001000u (unsigned 5 rt) (gpr baseReg) minor (signed 11 offset)
+  | _ ->
+    wrongOperands ins
+
+/// The coprocessor 2 rows of POOL32B before Release 6.
+let private pool32BCop2Encoders () =
+  [ Opcode.LWC2, cop2Mem12 0b0000u
+    Opcode.LDC2, cop2Mem12 0b0010u
+    Opcode.SWC2, cop2Mem12 0b1000u
+    Opcode.SDC2, cop2Mem12 0b1010u ]
+
+/// The same at Release 6.
+let private pool32BCop2R6Encoders () =
+  [ Opcode.LWC2, cop2Mem11 0b0000u
+    Opcode.LDC2, cop2Mem11 0b0010u
+    Opcode.SWC2, cop2Mem11 0b1000u
+    Opcode.SDC2, cop2Mem11 0b1010u ]
+
 /// The rows of POOL32B, which are the pairs, the lists and the cache hint.
 let private pool32BEncoders () =
   [ Opcode.LWP, memPair 0b001000u 0b0001u
@@ -607,6 +693,15 @@ let private branchFP minor ins =
   | _ ->
     wrongOperands ins
 
+/// Encodes <ct>, <place>: Release 6's compact branches on a condition
+/// register of coprocessor 2.
+let private branchCop2Reg minor ins =
+  match ins.Operands with
+  | TwoOperands(Im ct, Place distance) ->
+    word 0b010000u minor (unsigned 5 ct) (branchOffset 16 distance)
+  | _ ->
+    wrongOperands ins
+
 /// The rows of POOL32I every release has.
 let private pool32IEncoders () =
   [ Opcode.BLTZ, branchZero 0b00000u
@@ -632,7 +727,14 @@ let private pool32IPreR6Encoders () =
     Opcode.BLTZALS, branchZero 0b10001u
     Opcode.BGEZALS, branchZero 0b10011u
     Opcode.BC1F, branchFP 0b11100u
-    Opcode.BC1T, branchFP 0b11101u ]
+    Opcode.BC1T, branchFP 0b11101u
+    Opcode.BC2F, branchFP 0b10100u
+    Opcode.BC2T, branchFP 0b10101u ]
+
+/// The rows of POOL32I Release 6 added.
+let private pool32IR6Encoders () =
+  [ Opcode.BC2EQZC, branchCop2Reg 0b01010u
+    Opcode.BC2NEZC, branchCop2Reg 0b01011u ]
 
 (* POOL32S, which holds the 64-bit members of what POOL32A holds. The layout
    is POOL32A's and so are the minor opcodes: a doubleword instruction sits at
@@ -669,10 +771,21 @@ let private pool32SEncoders () =
     Opcode.DSBH, twoRegAxf 0b010110u 0b0111u 0b101u
     Opcode.DSHD, twoRegAxf 0b010110u 0b1111u 0b101u ]
 
+/// Encodes <rt>, <rs>, <immediate>: DADDI, whose immediate is ten bits
+/// above the six that name it.
+let private daddi ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rt, Rg rs, Im value) ->
+    let low = (signed 10 (int64 value) <<< 6) ||| 0b011100u
+    word 0b010110u (gpr rt) (gpr rs) low
+  | _ ->
+    wrongOperands ins
+
 /// The four of POOL32S that Release 6 took away, which write the pair of
-/// registers a doubleword product needs.
+/// registers a doubleword product needs, and DADDI.
 let private pool32SPreR6Encoders () =
-  [ Opcode.DMULT, mulDiv 0b010110u 0b1000u
+  [ Opcode.DADDI, daddi
+    Opcode.DMULT, mulDiv 0b010110u 0b1000u
     Opcode.DMULTU, mulDiv 0b010110u 0b1001u
     Opcode.DDIV, mulDiv 0b010110u 0b1010u
     Opcode.DDIVU, mulDiv 0b010110u 0b1011u ]
@@ -1319,14 +1432,19 @@ let buildEncoderTable (release: MIPSRelease) =
     |> Map.ofList
   let general =
     if release = MIPSRelease.R6 then
-      addEncoders (fun _ -> true) general (r6Encoders () @ r6BranchEncoders ())
+      addEncoders (fun _ -> true) general
+        (r6Encoders ()
+         @ r6BranchEncoders ()
+         @ pool32IR6Encoders ()
+         @ pool32BCop2R6Encoders ())
     else
       addEncoders (fun _ -> true) general
         (preR6Encoders ()
          @ pool32AMoveEncoders ()
          @ pool32AxfPreR6Encoders ()
          @ pool32IPreR6Encoders ()
-         @ pool32SPreR6Encoders ())
+         @ pool32SPreR6Encoders ()
+         @ pool32BCop2Encoders ())
   let withFloat =
     addEncoders (fun ins -> Option.isSome ins.Fmt) general (pool32FEncoders ())
   let withFloat =
