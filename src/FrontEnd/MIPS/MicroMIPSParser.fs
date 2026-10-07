@@ -664,6 +664,10 @@ let private pool32Axf release w =
       Op.JALRS, None, None, TwoOperands(fRt w, fRs w)
     | 0b111u, 0b0101u when release <> MIPSRelease.R6 ->
       Op.JALRSHB, None, None, TwoOperands(fRt w, fRs w)
+    | 0b101u, 0b0000u when release = MIPSRelease.R6 ->
+      (* BITSWAP writes the LOWER of the two wide fields, which both books
+         name rd, and reads the upper one. *)
+      Op.BITSWAP, None, None, TwoOperands(fRs w, fRt w)
     | 0b101u, 0b0010u ->
       Op.SEB, None, None, TwoOperands(fRt w, fRs w)
     | 0b101u, 0b0011u ->
@@ -729,8 +733,16 @@ let private pool32Axf release w =
       Op.TLBWI, None, None, NoOperand
     | 0b001u, 0b0011u ->
       Op.TLBWR, None, None, NoOperand
+    | 0b001u, 0b0100u when release = MIPSRelease.R6 ->
+      Op.TLBINV, None, None, NoOperand
+    | 0b001u, 0b0101u when release = MIPSRelease.R6 ->
+      Op.TLBINVF, None, None, NoOperand
     | 0b001u, 0b1001u ->
       Op.WAIT, None, None, OneOperand code
+    | 0b100u, 0b0001u when release = MIPSRelease.R6 ->
+      Op.DVP, None, None, OneOperand(fRs w)
+    | 0b100u, 0b0011u when release = MIPSRelease.R6 ->
+      Op.EVP, None, None, OneOperand(fRs w)
     | 0b001u, 0b1110u ->
       Op.DERET, None, None, NoOperand
     | 0b001u, 0b1111u when bits w 16u 16u = 0u ->
@@ -824,11 +836,38 @@ let private pool32AGrid release w =
     Op.MOVZ, None, None, ThreeOperands(fRd w, fRs w, fRt w)
   | 0b011u, 0b0100u ->
     Op.LWXS, None, None, TwoOperands(fRd w, memIdx w 32<rt>)
-  | 0b100u, _ when release = MIPSRelease.R6 ->
-    (* LSA's shift is two bits of what the grid would otherwise read as a
-       row, which is why the row is not matched here. *)
-    let sa2 = imm (uint64 (bits w 7u 6u))
-    Op.LSA, None, None, FourOperands(fRd w, fRs w, fRt w, sa2)
+  | 0b000u, 0b0101u when release = MIPSRelease.R6 ->
+    Op.SELEQZ, None, None, ThreeOperands(fRd w, fRs w, fRt w)
+  | 0b000u, 0b0110u when release = MIPSRelease.R6 ->
+    Op.SELNEZ, None, None, ThreeOperands(fRd w, fRs w, fRt w)
+  | 0b000u, 0b0111u when release = MIPSRelease.R6 && bits w 15u 14u = 0u ->
+    (* MD00582 moves RDHWR here at Release 6, with a select; the revision
+       6.01 microMIPS64 book still gives it the older place in POOL32Axf,
+       which is read too. *)
+    let sel = imm (uint64 (bits w 13u 11u))
+    Op.RDHWR, None, None, ThreeOperands(fRt w, fRs w, sel)
+  | _ ->
+    raise ParsingFailureException
+
+/// <summary>
+/// The column of POOL32A whose low three bits are all set: BREAK at every
+/// release, and LSA, ALIGN and SIGRIE beside it at Release 6 (MD00582, Table
+/// 7.4 and each one's page). LSA's two bits of shift and ALIGN's byte
+/// position sit above the three bits these keep clear.
+/// </summary>
+let private pool32A7 release w =
+  let r6 = release = MIPSRelease.R6
+  match bits w 5u 3u with
+  | 0b000u ->
+    Op.BREAK, None, None, OneOperand(imm (uint64 (bits w 25u 6u)))
+  | 0b001u when r6 && bits w 8u 6u = 0u ->
+    let sa = imm (uint64 (bits w 10u 9u))
+    Op.LSA, None, None, FourOperands(fRd w, fRs w, fRt w, sa)
+  | 0b011u when r6 && bits w 8u 6u = 0u ->
+    let bp = imm (uint64 (bits w 10u 9u))
+    Op.ALIGN, None, None, FourOperands(fRd w, fRs w, fRt w, bp)
+  | 0b111u when r6 && bits w 25u 22u = 0u ->
+    Op.SIGRIE, None, None, OneOperand(imm (uint64 (bits w 21u 6u)))
   | _ ->
     raise ParsingFailureException
 
@@ -855,8 +894,8 @@ let private pool32A release w =
       raise ParsingFailureException
   | 0b010u ->
     Op.COP2, None, None, OneOperand(imm (uint64 (bits w 25u 3u)))
-  | 0b111u when bits w 5u 3u = 0u ->
-    Op.BREAK, None, None, OneOperand(imm (uint64 (bits w 25u 6u)))
+  | 0b111u ->
+    pool32A7 release w
   | _ ->
     raise ParsingFailureException
 
@@ -879,6 +918,8 @@ let private pool32Sxf release w =
       raise ParsingFailureException
   | 0b100u ->
     match bits w 11u 9u, bits w 15u 12u with
+    | 0b101u, 0b0000u when release = MIPSRelease.R6 ->
+      Op.DBITSWAP, None, None, TwoOperands(fRs w, fRt w)
     | 0b101u, 0b0100u ->
       Op.DCLO, None, None, TwoOperands(fRt w, fRs w)
     | 0b101u, 0b0101u ->
@@ -911,6 +952,11 @@ let private pool32Sxf release w =
 let private pool32S release w =
   let sa = OpShiftAmount(uint64 (bits w 15u 11u))
   match bits w 2u 0u with
+  | 0b000u when release = MIPSRelease.R6 && bits w 8u 0u = 0b100000000u ->
+    (* DLSA's two bits of shift are bits 10..9, the top of what the grid
+       below reads as a row (MD00594, Table 7.13). *)
+    let sa2 = imm (uint64 (bits w 10u 9u))
+    Op.DLSA, None, None, FourOperands(fRd w, fRs w, fRt w, sa2)
   | 0b000u when bits w 10u 10u = 0u ->
     match bits w 5u 3u, bits w 9u 6u with
     | 0b000u, 0b0000u ->
@@ -945,9 +991,6 @@ let private pool32S release w =
       Op.DSUB, None, None, ThreeOperands(fRd w, fRs w, fRt w)
     | 0b010u, 0b0111u ->
       Op.DSUBU, None, None, ThreeOperands(fRd w, fRs w, fRt w)
-    | 0b100u, _ when release = MIPSRelease.R6 ->
-      let sa2 = imm (uint64 (bits w 7u 6u))
-      Op.DLSA, None, None, FourOperands(fRd w, fRs w, fRt w, sa2)
     | _ ->
       raise ParsingFailureException
   | 0b100u ->
@@ -964,6 +1007,9 @@ let private pool32S release w =
     | 0b011u when release <> MIPSRelease.R6 ->
       let value = imm (uint64 (signed 10 (bits w 15u 6u)))
       Op.DADDI, None, None, ThreeOperands(fRt w, fRs w, value)
+    | 0b011u when bits w 7u 6u = 0u ->
+      let bp = imm (uint64 (bits w 10u 8u))
+      Op.DALIGN, None, None, FourOperands(fRd w, fRs w, fRt w, bp)
     | 0b100u ->
       Op.DEXTM, None, None, oprs false true false
     | 0b101u ->
@@ -1042,11 +1088,33 @@ let private pool32B release w =
   | _ ->
     raise ParsingFailureException
 
+/// The operands of the paired load-linked and store-conditional forms: two
+/// registers, the second in bits 8..4, and a base with no offset.
+let private pairedLink w =
+  let rd = reg5 (bits w 8u 4u) |> oprReg
+  ThreeOperands(fRt w, rd, OpMem(reg5 (bits w 20u 16u), Imm 0L, 32<rt>))
+
+/// <summary>
 /// The loads and stores that reach the address a user-mode program would
 /// see, which spend three more bits saying which and keep nine for the
-/// offset.
-let private eva w =
+/// offset. Release 6 removed the unaligned ones and put the paired forms of
+/// load-linked and store-conditional where two of them were.
+/// </summary>
+let private eva release w =
+  let r6 = release = MIPSRelease.R6
   match bits w 15u 12u, bits w 11u 9u with
+  | 0b0110u, 0b010u when r6 && bits w 3u 0u = 0u ->
+    Op.LLWPE, None, None, pairedLink w
+  | 0b0110u, 0b010u when r6 ->
+    raise ParsingFailureException
+  | 0b0110u, 0b011u when r6 ->
+    raise ParsingFailureException
+  | 0b1010u, 0b000u when r6 && bits w 3u 0u = 0u ->
+    Op.SCWPE, None, None, pairedLink w
+  | 0b1010u, 0b000u when r6 ->
+    raise ParsingFailureException
+  | 0b1010u, 0b001u when r6 ->
+    raise ParsingFailureException
   | 0b0110u, 0b000u ->
     Op.LBUE, None, None, TwoOperands(fRt w, memOff9 w 8<rt>)
   | 0b0110u, 0b001u ->
@@ -1083,6 +1151,44 @@ let private eva w =
     Op.SWE, None, None, TwoOperands(fRt w, memOff9 w 32<rt>)
 
 /// <summary>
+/// POOL32C at Release 6, which removed the unaligned loads and stores and
+/// gave LL, SC, PREF, LLD and SCD a nine-bit offset with bits 11..9 clear.
+/// LLWP and SCWP sit where LWR and SWR did (MD00582, LLWP and SCWP; the
+/// microMIPS64 book's revision 6.01 names an earlier LLX and SCX there,
+/// which revision 6.04 and MD00087's LLWP and SCWP replace). LLD takes the
+/// nine bits SCD's page gives it, where its own page of that revision still
+/// shows twelve.
+/// </summary>
+let private pool32CR6 w =
+  let nine width =
+    if bits w 11u 9u = 0u then memOff9 w width
+    else raise ParsingFailureException
+  let pair = bits w 11u 9u = 0u && bits w 3u 0u = 0u
+  match bits w 15u 12u with
+  | 0b0001u when pair ->
+    Op.LLWP, None, None, pairedLink w
+  | 0b0010u ->
+    let hint = bits w 25u 21u |> uint64 |> OpImm
+    Op.PREF, None, None, TwoOperands(hint, nine 32<rt>)
+  | 0b0011u ->
+    Op.LL, None, None, TwoOperands(fRt w, nine 32<rt>)
+  | 0b0110u
+  | 0b1010u ->
+    eva MIPSRelease.R6 w
+  | 0b0111u ->
+    Op.LLD, None, None, TwoOperands(fRt w, nine 64<rt>)
+  | 0b1001u when pair ->
+    Op.SCWP, None, None, pairedLink w
+  | 0b1011u ->
+    Op.SC, None, None, TwoOperands(fRt w, nine 32<rt>)
+  | 0b1110u ->
+    Op.LWU, None, None, TwoOperands(fRt w, memOff12 w 32<rt>)
+  | 0b1111u ->
+    Op.SCD, None, None, TwoOperands(fRt w, nine 64<rt>)
+  | _ ->
+    raise ParsingFailureException
+
+/// <summary>
 /// POOL32C, the loads and stores the older encoding gives a major opcode of
 /// its own and this one cannot: they need four bits of minor.
 /// </summary>
@@ -1102,7 +1208,7 @@ let private pool32C w =
   | 0b0101u ->
     Op.LDR, None, None, TwoOperands(fRt w, memOff12 w 64<rt>)
   | 0b0110u ->
-    eva w
+    eva MIPSRelease.PreR6 w
   | 0b0111u ->
     Op.LLD, None, None, TwoOperands(fRt w, memOff12 w 64<rt>)
   | 0b1000u ->
@@ -1110,7 +1216,7 @@ let private pool32C w =
   | 0b1001u ->
     Op.SWR, None, None, TwoOperands(fRt w, memOff12 w 32<rt>)
   | 0b1010u ->
-    eva w
+    eva MIPSRelease.PreR6 w
   | 0b1011u ->
     Op.SC, None, None, TwoOperands(fRt w, memOff12 w 32<rt>)
   | 0b1100u ->
@@ -1167,6 +1273,10 @@ let private pool32I release w =
     Op.BLTZALS, None, None, TwoOperands(rs, rel16 w)
   | 0b10011u when release <> MIPSRelease.R6 ->
     Op.BGEZALS, None, None, TwoOperands(rs, rel16 w)
+  | 0b01000u when release = MIPSRelease.R6 ->
+    Op.BC1EQZC, None, None, TwoOperands(fFs w, rel16 w)
+  | 0b01001u when release = MIPSRelease.R6 ->
+    Op.BC1NEZC, None, None, TwoOperands(fFs w, rel16 w)
   | 0b01010u when release = MIPSRelease.R6 ->
     Op.BC2EQZC, None, None, TwoOperands(imm (uint64 (bits w 20u 16u)), rel16 w)
   | 0b01011u when release = MIPSRelease.R6 ->
@@ -1327,12 +1437,36 @@ let private fmt2 shift w =
   | 2u -> Fmt.PS
   | _ -> raise ParsingFailureException
 
+/// The format of a Release 6 floating-point instruction, which is two bits
+/// above the nine that name it and says single or double alone (MD00582,
+/// Table 7.22).
+let private fmtSD w =
+  match bits w 10u 9u with
+  | 0u -> Fmt.S
+  | 1u -> Fmt.D
+  | _ -> raise ParsingFailureException
+
 /// <summary>
 /// POOL32F's grid, which is read the way POOL32A's is: three bits above the
 /// pool select a column and three more a row.
 /// </summary>
 let private pool32FGrid release w =
+  let r6 = release = MIPSRelease.R6
   match bits w 5u 3u, bits w 8u 6u with
+  | 0b100u, 0b000u when r6 && bits w 15u 11u = 0u ->
+    Op.RINT, None, Some(fmtSD w), TwoOperands(fFs w, fFt w)
+  | 0b100u, 0b001u when r6 && bits w 15u 11u = 0u ->
+    Op.CLASS, None, Some(fmtSD w), TwoOperands(fFs w, fFt w)
+  | 0b111u, 0b000u when r6 ->
+    Op.SELEQZ, None, Some(fmtSD w), ThreeOperands(fFd w, fFs w, fFt w)
+  | 0b111u, 0b001u when r6 ->
+    Op.SELNEQZ, None, Some(fmtSD w), ThreeOperands(fFd w, fFs w, fFt w)
+  | 0b111u, 0b010u when r6 ->
+    Op.SEL, None, Some(fmtSD w), ThreeOperands(fFd w, fFs w, fFt w)
+  | 0b111u, 0b110u when r6 ->
+    Op.MADDF, None, Some(fmtSD w), ThreeOperands(fFd w, fFs w, fFt w)
+  | 0b111u, 0b111u when r6 ->
+    Op.MSUBF, None, Some(fmtSD w), ThreeOperands(fFd w, fFs w, fFt w)
   | 0b000u, 0b010u when release <> MIPSRelease.R6 ->
     Op.PLLPS, None, None, ThreeOperands(fFd w, fFs w, fFt w)
   | 0b000u, 0b011u when release <> MIPSRelease.R6 ->
@@ -1441,6 +1575,25 @@ let private pool32F release w =
         sub2, None, Some Fmt.PS, oprs
       | _ ->
         raise ParsingFailureException
+    | 0b011u when release = MIPSRelease.R6 && bits w 8u 6u = 0u ->
+      let opcode =
+        match bits w 5u 3u with
+        | 0b000u -> Op.MIN
+        | 0b001u -> Op.MAX
+        | 0b100u -> Op.MINA
+        | 0b101u -> Op.MAXA
+        | _ -> raise ParsingFailureException
+      opcode, None, Some(fmtSD w), ThreeOperands(fFd w, fFs w, fFt w)
+    | 0b101u when release = MIPSRelease.R6 ->
+      (* CMP.cond.fmt, whose five bits of condition are the same ones the
+         older encoding's Release 6 gives it. *)
+      let fmt =
+        match bits w 5u 3u with
+        | 0b000u -> Fmt.S
+        | 0b010u -> Fmt.D
+        | _ -> raise ParsingFailureException
+      let cond = Helper.getCondition (bits w 10u 6u)
+      Op.CMP, Some cond, Some fmt, ThreeOperands(fFd w, fFs w, fFt w)
     | _ ->
       raise ParsingFailureException
 
@@ -1547,7 +1700,7 @@ let private parseWord release addr w =
   | 0b010000u ->
     pool32I release w
   | 0b011000u ->
-    pool32C w
+    if release = MIPSRelease.R6 then pool32CR6 w else pool32C w
   | 0b100000u when release = MIPSRelease.R6 ->
     indexedOrBranchR6 w Op.JIC Op.BEQZC
   | 0b101000u when release = MIPSRelease.R6 ->

@@ -619,7 +619,7 @@ type MicroMIPSParserTests() =
         "80782301", (ADDIUPC, [ O.Reg R4; O.Addr(Relative 0x48CL) ])
         "88782301", (LWPC, [ O.Reg R4; O.Addr(Relative 0x48CL) ])
         "9e783412", (AUIPC, [ O.Reg R4; O.Imm 0x1234UL ])
-        "8b016050", (LSA, [ O.Reg R10
+        "8b010f52", (LSA, [ O.Reg R10
                             O.Reg R11
                             O.Reg R12
                             O.Imm 1UL ]) ]
@@ -696,6 +696,95 @@ type MicroMIPSParserTests() =
     Assert.ThrowsExactly<ParsingFailureException>(fun () ->
       parser.Parse(System.ReadOnlySpan bytes, 0UL) |> ignore) |> ignore
 
+  /// <summary>
+  /// Release 6 decodes what its book adds, and LSA and DLSA where the book
+  /// puts them.
+  ///
+  /// Every word below is assembled from MD00582 (microMIPS32, revision 6.04)
+  /// and, for the doubleword forms, MD00594 (microMIPS64, revision 6.01) --
+  /// no assembler or emulator reads microMIPS Release 6, so the books are
+  /// the only witness. LSA is POOL32A's 001111 with its shift in bits 10..9
+  /// and DLSA POOL32S's grid at row 100, where this decoder had read both as
+  /// the older encoding's SPECIAL forms. Where the two books disagree the
+  /// newer revision is followed: LLWP and SCWP where 6.01 has LLX and SCX,
+  /// and RDHWR's select form in POOL32A beside the older place, which 6.01
+  /// keeps and which is still read. POOL32C at Release 6 has no unaligned
+  /// loads and stores, and its LL, SC and PREF take nine bits of offset.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] Release 6 decodes what its book adds``() =
+    let parserAt release =
+      let flags = int MIPSISAMode.MicroMIPS ||| int release
+      let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, flags)
+      Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    let r6, pre = parserAt MIPSRelease.R6, parserAt MIPSRelease.PreR6
+    let parse (p: IInstructionParsable) hex =
+      let bytes = ByteArray.ofHexString hex
+      p.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+    let place = O.Addr(Relative 10L)
+    let pair = [ O.Reg R2; O.Reg R3; O.Mem(R4, 0L, 32<rt>) ]
+    let cases =
+      [ "0083120f", (LSA, None, [ O.Reg R2; O.Reg R3; O.Reg R4; O.Imm 1UL ])
+        "58831300", (DLSA, None, [ O.Reg R2; O.Reg R3; O.Reg R4; O.Imm 1UL ])
+        "0083141f", (ALIGN, None, [ O.Reg R2; O.Reg R3; O.Reg R4; O.Imm 2UL ])
+        "5883151c", (DALIGN, None, [ O.Reg R2; O.Reg R3; O.Reg R4; O.Imm 5UL ])
+        "00048d3f", (SIGRIE, None, [ O.Imm 0x1234UL ])
+        "00831140", (SELEQZ, None, [ O.Reg R2; O.Reg R3; O.Reg R4 ])
+        "00831180", (SELNEZ, None, [ O.Reg R2; O.Reg R3; O.Reg R4 ])
+        "005d19c0", (RDHWR, None, [ O.Reg R2; O.Reg R29; O.Imm 3UL ])
+        "00620b3c", (BITSWAP, None, [ O.Reg R2; O.Reg R3 ])
+        "58620b3c", (DBITSWAP, None, [ O.Reg R2; O.Reg R3 ])
+        "0002197c", (DVP, None, [ O.Reg R2 ])
+        "0002397c", (EVP, None, [ O.Reg R2 ])
+        "0000437c", (TLBINV, None, [])
+        "0000537c", (TLBINVF, None, [])
+        "41020003", (BC1EQZC, None, [ O.Reg F2; place ])
+        "41220003", (BC1NEZC, None, [ O.Reg F2; place ])
+        "54620220", (RINT, Some Fmt.D, [ O.Reg F2; O.Reg F3 ])
+        "54620060", (CLASS, Some Fmt.S, [ O.Reg F2; O.Reg F3 ])
+        "548312b8", (SEL, Some Fmt.D, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "54831038", (SELEQZ, Some Fmt.S, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "54831078", (SELNEQZ, Some Fmt.S, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "548311b8", (MADDF, Some Fmt.S, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "548313f8", (MSUBF, Some Fmt.D, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "54831003", (MIN, Some Fmt.S, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "5483120b", (MAX, Some Fmt.D, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "54831023", (MINA, Some Fmt.S, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "5483122b", (MAXA, Some Fmt.D, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "54831085", (CMP, Some Fmt.S, [ O.Reg F2; O.Reg F3; O.Reg F4 ])
+        "604431f8", (LL, None, [ O.Reg R2; O.Mem(R4, -8L, 32<rt>) ])
+        "6044b008", (SC, None, [ O.Reg R2; O.Mem(R4, 8L, 32<rt>) ])
+        "60242008", (PREF, None, [ O.Imm 1UL; O.Mem(R4, 8L, 32<rt>) ])
+        "60447008", (LLD, None, [ O.Reg R2; O.Mem(R4, 8L, 64<rt>) ])
+        "6044f008", (SCD, None, [ O.Reg R2; O.Mem(R4, 8L, 64<rt>) ])
+        "60441030", (LLWP, None, pair)
+        "60449030", (SCWP, None, pair)
+        "60446430", (LLWPE, None, pair)
+        "6044a030", (SCWPE, None, pair) ]
+    for hex, (opcode, fmt, oprs) in cases do
+      let ins = parse r6 hex
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
+      Assert.AreEqual<Fmt option>(fmt, ins.Fmt, hex)
+      Assert.AreEqual<Operands>(operandsFromArray oprs, ins.Operands, hex)
+    let cmp = parse r6 "54831115"
+    Assert.AreEqual<Condition option>(Some Condition.OLT, cmp.Condition)
+    Assert.AreEqual<Fmt option>(Some Fmt.D, cmp.Fmt)
+    let removed =
+      [ "60440000" (* LWL *)
+        "60444000" (* LDL *)
+        "60449008" (* SCWP with its low bits set *)
+        "60446600" (* LWRE *)
+        "6044a200" (* SWRE *)
+        "60443200" (* LL with a bit of its zero field set *) ]
+    for hex in removed do
+      Assert.ThrowsExactly<ParsingFailureException>((fun () ->
+        parse r6 hex |> ignore), hex) |> ignore
+    (* and what Release 6 added is not an instruction before it *)
+    for hex in [ "0083120f"; "00048d3f"; "54831085" ] do
+      Assert.ThrowsExactly<ParsingFailureException>((fun () ->
+        parse pre hex |> ignore), hex) |> ignore
+    Assert.AreEqual<Opcode>(LWL, (parse pre "60440000").Opcode)
+
   /// LDP, LDM, SDP and SDM move doublewords, and microMIPS64 alone has them
   /// (microMIPS64 Release 5, POOL32B): a 32-bit decoder refuses them, as it
   /// refuses LD.
@@ -744,12 +833,12 @@ type MicroMIPSParserTests() =
       ) |> ignore
     for hex in [ "6a013c8b"   (* mult *)
                  "4b013c4f"   (* jalrs *)
-                 "0a411c23"   (* teqi *)
+                 "ca411c23"   (* teqi *)
                  "c4543c47"   (* c.lt.d *)
                  "4b554820" ] (* lwxc1 *) do
       refuses r6Parser hex
     (* LSA is the other way round: Release 6 brought it in. *)
-    refuses parser "8b016050"
+    refuses parser "8b010f52"
 
   /// <summary>
   /// POP40 and POP50, which the two manuals had to be read together to

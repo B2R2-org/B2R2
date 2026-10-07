@@ -625,6 +625,10 @@ let private translateOpcode (ins: Instruction) (bld: LowUIRBuilder) =
     bc1z ins bld false
   | Op.BC1NEZ ->
     bc1z ins bld true
+  | Op.BC1EQZC ->
+    bc1zCompact ins bld false
+  | Op.BC1NEZC ->
+    bc1zCompact ins bld true
   | Op.ADDIUPC ->
     addiupc ins bld
   | Op.AUIPC ->

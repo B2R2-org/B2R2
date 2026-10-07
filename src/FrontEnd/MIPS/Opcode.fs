@@ -866,5 +866,11 @@ type Opcode =
   /// Branch if Coprocessor 2 Condition Not Equal to Zero, the compact form
   /// (microMIPS Release 6).
   | BC2NEZC = 400
+  /// Branch if Coprocessor 1 Register Bit 0 Equal to Zero, the compact form
+  /// (microMIPS Release 6).
+  | BC1EQZC = 401
+  /// Branch if Coprocessor 1 Register Bit 0 Not Equal to Zero, the compact
+  /// form (microMIPS Release 6).
+  | BC1NEZC = 402
 
 type internal Op = Opcode

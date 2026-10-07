@@ -309,7 +309,7 @@ let takesPlace = function
   | Opcode.BGTZC | Opcode.BLTZC
   | Opcode.BEQZALC | Opcode.BNEZALC | Opcode.BLEZALC | Opcode.BGEZALC
   | Opcode.BGTZALC | Opcode.BLTZALC
-  | Opcode.BC1EQZ | Opcode.BC1NEZ
+  | Opcode.BC1EQZ | Opcode.BC1NEZ | Opcode.BC1EQZC | Opcode.BC1NEZC
   | Opcode.ADDIUPC | Opcode.LWPC | Opcode.LWUPC | Opcode.LDPC
   (* Coprocessor 2's branches, on a condition code before Release 6 and on a
      condition register in it. *)

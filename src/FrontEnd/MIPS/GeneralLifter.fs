@@ -2376,6 +2376,15 @@ let bc1z ins bld nonZero =
     updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
+/// microMIPS's BC1EQZC and BC1NEZC test the same bit and are the compact
+/// ones: Release 6 gave that encoding no delay slot (MD00582 BC1EQZC).
+let bc1zCompact ins bld nonZero =
+  lift bld ins {
+    let ft, offset = transTwoOprs ins bld
+    let bit = AST.xtlo 1<rt> ft
+    updatePCCondCompact ins bld offset (if nonZero then bit else AST.not bit)
+  }
+
 /// The Release 6 PC-relative family.
 ///
 /// `transOpr` turns an OpAddr(Relative off) into the absolute address the
