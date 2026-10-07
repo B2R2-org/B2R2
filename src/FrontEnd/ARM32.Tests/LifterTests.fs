@@ -2374,6 +2374,79 @@ type LifterTests() =
     Assert.AreEqual<uint32 * uint32>((0u, 0x01000080u), negative)
     Assert.AreEqual<uint32 * uint32>((0u, 0x41000000u), run 0UL)
 
+  /// <summary>
+  /// VQRDMLAH and VQRDMLSH accumulate the rounding doubled product into each
+  /// element's high half: 0x1000 with 0x4000 * 0x4000 added is 0x3000 and
+  /// taken away 0xf000, 0x123 with 0xfedc * 0x456 is 0x119, and 0x7fff with
+  /// 0x7fff * 0x7fff added, or 0x8000 with it taken away, saturates and
+  /// raises QC.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VQRDMLAH and VQRDMLSH accumulate and saturate``() =
+    let ds =
+      [ 0, 0x000001237fff1000UL
+        1, 0x0000fedc7fff4000UL
+        2, 0x000004567fff4000UL ]
+    let d0, _, fpscr = fpRun "f3110b12" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x000001197fff3000UL, 0x08000000u),
+                                     (d0, fpscr))
+    let ds =
+      [ 0, 0x0000000080001000UL
+        1, 0x000000007fff4000UL
+        2, 0x000000007fff4000UL ]
+    let d0, _, fpscr = fpRun "f3110c12" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x000000008000f000UL, 0x08000000u),
+                                     (d0, fpscr))
+
+  /// By scalar, every element multiplies the one element named, here D2[1].
+  [<TestMethod>]
+  member _.``[ARMv7] VQRDMLAH by scalar reads the element named``() =
+    let ds = [ 0, 0x1000UL; 1, 0x4000UL; 2, 0x40000000UL ]
+    let d0, _, fpscr = fpRun "f2910e4a" 0u ds
+    Assert.AreEqual<uint64 * uint32>((0x3000UL, 0u), (d0, fpscr))
+
+  /// <summary>
+  /// VSDOT, VUDOT, VUSDOT and VSUDOT add four byte products to each word, each
+  /// byte read with its own operand's signedness: with D1's low word -4, -3,
+  /// -2 and -1 and D2's 4, 3, 2 and 1, the signed sum is -30 and the unsigned
+  /// one 2530; by element every word reads D2's word 1, 8, 7, 6 and 5.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] the dot products sum four byte products a word``() =
+    let ds =
+      [ 0, 0x0000001000000100UL
+        1, 0x01020304fffefdfcUL
+        2, 0x0506070801020304UL ]
+    let dot hex =
+      let d0, _, _ = fpRun hex 0u ds
+      d0
+    Assert.AreEqual<uint64>(0x00000056000000e2UL, dot "fc210d02")
+    Assert.AreEqual<uint64>(0x0000005600000ae2UL, dot "fc210d12")
+    Assert.AreEqual<uint64>(0x00000056000000baUL, dot "fe210d22")
+    Assert.AreEqual<uint64>(0x0000005600000ae2UL, dot "fca10d02")
+    Assert.AreEqual<uint64>(0x00000056000000baUL, dot "fe810d32")
+
+  /// <summary>
+  /// VSMMLA, VUMMLA and VUSMMLA: word (i, j) of Q0 adds the eight byte
+  /// products of row i of Q1 with row j of Q2. Q1's rows are all 1 and all 2,
+  /// Q2's all 3 and all 0xff, which is -1 signed and 255 unsigned.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] the matrix multiplies take rows against rows``() =
+    let ds =
+      [ 2, 0x0101010101010101UL
+        3, 0x0202020202020202UL
+        4, 0x0303030303030303UL
+        5, 0xffffffffffffffffUL ]
+    let mm hex =
+      let d0, d1, _ = fpRun hex 0u ds
+      d0, d1
+    let signed = 0xfffffff800000018UL, 0xfffffff000000030UL
+    Assert.AreEqual<uint64 * uint64>(signed, mm "fc220c44")
+    let unsigned = 0x000007f800000018UL, 0x00000ff000000030UL
+    Assert.AreEqual<uint64 * uint64>(unsigned, mm "fc220c54")
+    Assert.AreEqual<uint64 * uint64>(signed, mm "fca20c44")
+
   [<TestMethod>]
   member _.``[ARMv7] LDA writes the loaded word to Rt``() =
     let written = writtenBy false "e1910c9f"

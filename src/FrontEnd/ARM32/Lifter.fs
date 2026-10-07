@@ -892,6 +892,24 @@ let translate (ins: Instruction) bld =
     vqdmulh ins bld
   | Op.VQRDMULH ->
     vqrdmulh ins bld
+  | Op.VQRDMLAH ->
+    SIMDv8Lifter.vqrdmlah ins bld false
+  | Op.VQRDMLSH ->
+    SIMDv8Lifter.vqrdmlah ins bld true
+  | Op.VSDOT ->
+    SIMDv8Lifter.dotProduct ins bld false false
+  | Op.VUDOT ->
+    SIMDv8Lifter.dotProduct ins bld true true
+  | Op.VUSDOT ->
+    SIMDv8Lifter.dotProduct ins bld true false
+  | Op.VSUDOT ->
+    SIMDv8Lifter.dotProduct ins bld false true
+  | Op.VSMMLA ->
+    SIMDv8Lifter.matMulAdd ins bld false false
+  | Op.VUMMLA ->
+    SIMDv8Lifter.matMulAdd ins bld true true
+  | Op.VUSMMLA ->
+    SIMDv8Lifter.matMulAdd ins bld true false
   | Op.VQDMULL ->
     vqdmull ins bld
   | Op.VQDMLAL ->

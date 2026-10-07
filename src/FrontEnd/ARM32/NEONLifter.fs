@@ -2828,7 +2828,7 @@ let vrhadd ins bld = vhaddsubrnd ins bld (.+) true
 /// design -- a program reads it after a whole block of vector arithmetic to
 /// ask whether ANY of it saturated -- so it is set here and never cleared.
 /// </summary>
-let private satLane bld srcUnsigned dstUnsigned wide (eSize: int<rt>) value =
+let satLane bld srcUnsigned dstUnsigned wide (eSize: int<rt>) value =
   let qc = AST.extract (regVar bld R.FPSCR) 1<rt> 27
   let width = RegType.toBitWidth eSize
   let allOnes =
