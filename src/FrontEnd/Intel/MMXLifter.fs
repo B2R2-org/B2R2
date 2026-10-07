@@ -842,7 +842,12 @@ let private opPsrad oprSize = opShiftPackedDataRightArith oprSize 32<rt>
 
 let psrad ins bld = buildPackedInstr ins bld false 32<rt> opPsrad
 
+/// Empties every x87 register and, as every MMX instruction does, puts TOP at
+/// zero (Intel SDM Vol. 1, 9.5.1). The other MMX instructions also tag every
+/// register valid, which this lifter leaves out: code going back to the x87
+/// runs EMMS first, and that is the state it then finds.
 let emms (ins: Instruction) bld =
   lift bld ins {
+    extractDstAssign (regVar bld R.FTOP) (AST.num0 8<rt>)
     direct (regVar bld R.FTW) := maxNum 16<rt>
   }

@@ -924,6 +924,13 @@ type X87LifterTests() =
   member _.``[X64] FINCSTP moves TOP up (1)``() =
     testTop "d9f7" (* fincstp *) "+"
 
+  (* EMMS puts TOP at zero as it empties the stack, as every MMX instruction
+     does. *)
+  [<TestMethod>]
+  member _.``[X64] EMMS puts TOP at zero (1)``() =
+    test "0f77" (* emms *)
+    <| [| "FSW := ((FSW & 0xc7ff:I16) | 0x0:I16)"; "FTW := 0xffff:I16" |]
+
   (* The tag word is indexed by physical register, and ST(1) is physical
      register (TOP + 1) mod 8: with TOP at 7, an index left unwrapped would
      shift the tag out of the word and empty nothing. *)
