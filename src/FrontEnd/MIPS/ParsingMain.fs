@@ -1594,6 +1594,8 @@ let isMIPS64Only = function
   | Op.DSRLV | Op.DSUB | Op.DSUBU | Op.LD | Op.LDL | Op.LDPC | Op.LDR
   | Op.LLD | Op.LLDP | Op.LWU | Op.LWUPC | Op.SCD | Op.SCDP | Op.SD
   | Op.SDL | Op.SDR
+  (* microMIPS64's doubleword pairs and lists *)
+  | Op.LDP | Op.LDM | Op.SDP | Op.SDM
   (* The two CRC forms over a doubleword. The byte, halfword and word forms
      are MIPS32 as well, and only the element they read is wider here. *)
   | Op.CRC32D | Op.CRC32CD -> true

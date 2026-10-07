@@ -638,6 +638,29 @@ type MicroMIPSParserTests() =
   /// added the scaled address. A decoder that read any of them under the
   /// wrong release would name an instruction the processor does not have.
   /// </summary>
+  /// LDP, LDM, SDP and SDM move doublewords, and microMIPS64 alone has them
+  /// (microMIPS64 Release 5, POOL32B): a 32-bit decoder refuses them, as it
+  /// refuses LD.
+  [<TestMethod>]
+  member _.``[microMIPS] The doubleword pairs and lists are 64-bit only``() =
+    let parserOf wordSize =
+      let isa =
+        ISA(Architecture.MIPS, Endian.Big, wordSize, int MIPSISAMode.MicroMIPS)
+      Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    let p32, p64 = parserOf WordSize.Bit32, parserOf WordSize.Bit64
+    let words =
+      [ "200f4aaf", LDP
+        "20387c1c", LDM
+        "2009c48e", SDP
+        "203af536", SDM ]
+    for hex, opcode in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = p64.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
+      Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+        p32.Parse(System.ReadOnlySpan bytes, 0UL) |> ignore
+      ) |> ignore
+
   [<TestMethod>]
   member _.``[microMIPS] A word belonging to one release is refused``() =
     let r6 =
