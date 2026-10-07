@@ -275,6 +275,8 @@ let private requirementOf opcode operands =
     Needs AArch64Extension.TRF
   | Opcode.BTI ->
     Since ARMArchVersion.V8_5
+  | Opcode.DGH ->
+    Since ARMArchVersion.V8_6
   | Opcode.IRG | Opcode.GMI | Opcode.ADDG | Opcode.SUBG | Opcode.SUBP
   | Opcode.SUBPS | Opcode.CMPP | Opcode.STG | Opcode.STZG | Opcode.ST2G
   | Opcode.STZ2G | Opcode.STGP | Opcode.LDG | Opcode.LDGM | Opcode.STGM

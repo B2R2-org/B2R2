@@ -137,6 +137,14 @@ type LifterTests() =
   member _.``[AArch64] BFC with a non-zero lsb lifts``() =
     Assert.AreEqual<bool>(true, (lifted "b3781fe0").Length > 0, "BFC")
 
+  /// BFC clears the field it names and keeps the rest (C6.2.27): BFC X0, #8,
+  /// #8 on all ones leaves bits 15:8 clear.
+  [<TestMethod>]
+  member _.``[AArch64] BFC clears its field``() =
+    let inputs = [ !.X0, bv64 0xffffffffffffffffUL ]
+    let read = IRRunner.run (lifted "b3781fe0") inputs
+    Assert.AreEqual<uint64>(0xffffffffffff00ffUL, (read !.X0).ToUInt64())
+
   /// BLR X30 goes where X30 pointed, not to the instruction after it: the
   /// target is taken before the link register is written, so the jump is to
   /// that copy and never to X30 itself.

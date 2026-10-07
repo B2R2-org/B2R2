@@ -152,6 +152,15 @@ let bfxil ins bld =
   let imms = (getImmValue lsb) + (getImmValue width) - 1L |> OprImm
   bfm ins bld dst src lsb imms
 
+/// BFC, which is BFI from the zero register: the field it names is cleared
+/// and the rest of the destination kept.
+let bfc ins bld =
+  let struct (dst, lsb, width) = getThreeOprs ins
+  let zero = if ins.OprSize = 64<rt> then R.XZR else R.WZR
+  let immr = ((getImmValue lsb * -1L) &&& 0x3FL) % int64 ins.OprSize |> OprImm
+  let imms = getImmValue width - 1L |> OprImm
+  bfm ins bld dst (OprRegister zero) immr imms
+
 let bics ins bld =
   lift bld ins {
     let dst, src1, src2 = transFourOprsWithBarrelShift ins bld

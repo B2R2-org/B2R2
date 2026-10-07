@@ -82,10 +82,10 @@ let translate (ins: Instruction) bld =
     bCond ins bld EQ
   | Opcode.BFI ->
     bfi ins bld
-  (* A BFC whose lsb is not zero matches neither of the parser's two alias
-     rewrites -- BFI needs Rn <> 31 and BFXIL needs imms >= immr -- so it
-     keeps the raw BFM name and reached the raising fall-through. bfm is
-     already written and takes exactly these operands. *)
+  | Opcode.BFC ->
+    bfc ins bld
+  (* Every BFM word is read as BFI, BFC or BFXIL, so this is for an
+     instruction made by hand; bfm takes exactly these operands. *)
   | Opcode.BFM ->
     let struct (dst, src, immr, imms) = getFourOprs ins
     bfm ins bld dst src immr imms
@@ -566,7 +566,8 @@ let translate (ins: Instruction) bld =
     nop ins bld
   | Opcode.SYS when isICIVAU ins ->
     nop ins bld
-  | Opcode.DMB | Opcode.DSB | Opcode.ISB | Opcode.SB ->
+  | Opcode.DMB | Opcode.DSB | Opcode.ISB | Opcode.SB | Opcode.SSBB
+  | Opcode.PSSBB ->
     nop ins bld
   | Opcode.DUP ->
     dup ins bld
@@ -829,7 +830,8 @@ let translate (ins: Instruction) bld =
   | Opcode.NOP ->
     nop ins bld
   | Opcode.BTI | Opcode.CSDB | Opcode.ESB | Opcode.PSB | Opcode.TSB
-  | Opcode.SEV | Opcode.SEVL | Opcode.WFE | Opcode.WFI | Opcode.YIELD ->
+  | Opcode.SEV | Opcode.SEVL | Opcode.WFE | Opcode.WFI | Opcode.YIELD
+  | Opcode.DGH ->
     nop ins bld
   | Opcode.ORN ->
     orn ins bld

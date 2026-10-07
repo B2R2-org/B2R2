@@ -234,6 +234,8 @@ type ARM64RoundTripTests() =
       "ubfiz x0, x1, #0x8, #0x10"
       "ubfx x0, x1, #0x8, #0x10"
       "bfi w0, w1, #0x2, #0x4"
+      "bfc w0, #0x3, #0x4"
+      "bfc x1, #0x8, #0x10"
       "bfxil x0, x1, #0x2, #0x4"
       "sxtb w0, w1"
       "sxth x0, w1"
@@ -378,7 +380,8 @@ type ARM64RoundTripTests() =
       (* #0x7 used to sit here; it is XPACLRI now, and so are twelve of the
          other hint numbers, so the one left standing for a plain hint is
          #0x6. The named forms are listed below it. *)
-      "hint #0x6"
+      "hint #0x9"
+      "dgh"
       "xpaclri"
       "paciaz"
       "paciasp"
@@ -394,6 +397,10 @@ type ARM64RoundTripTests() =
       "autib1716"
       "clrex #0x5"
       "dsb sy"
+      "ssbb"
+      "pssbb"
+      "dcps1"
+      "dcps3 #0x7"
       "dmb ish"
       "isb sy"
       "svc #0x1"

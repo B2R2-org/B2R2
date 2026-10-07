@@ -919,6 +919,12 @@ let changeToAliasOfBitfield bin instr =
     when (valN bin <> 0b11111u) && (imms < immr) ->
     let lsb = (RegType.toBitWidth oprSize |> int64) - immr
     Op.BFI, FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)), oprSize
+  (* the same insertion from the zero register, which clears the field
+     (C6.2.27 BFC: preferred where Rn is 11111 and imms < immr) *)
+  | Op.BFM, FourOperands(rd, _, OprImm immr, OprImm imms), oprSize
+    when imms < immr ->
+    let lsb = (RegType.toBitWidth oprSize |> int64) - immr
+    Op.BFC, ThreeOperands(rd, OprImm lsb, OprImm(imms + 1L)), oprSize
   | Op.BFM, FourOperands(d, n, OprImm immr, OprImm imms), oprSize
     when imms >= immr ->
     Op.BFXIL, FourOperands(d, n, OprImm immr, OprImm(imms - immr + 1L)), oprSize
@@ -1140,7 +1146,12 @@ let parseExcepGen bin =
     | 0b10100011u -> Op.DCPS3
     | c when c &&& 0b11011100u = 0b11000000u -> unallocated ()
     | _ -> raise ParsingFailureException
-  opCode, OneOperand(OprImm(valImm16 bin |> int64)), 16<rt>
+  let imm = valImm16 bin |> int64
+  (* DCPS1 {#<imm>}: the DCPS immediate is optional and defaults to zero, so
+     a zero one is not written (C6.2.76 to C6.2.78) *)
+  match opCode with
+  | Op.DCPS1 | Op.DCPS2 | Op.DCPS3 when imm = 0L -> opCode, NoOperand, 16<rt>
+  | _ -> opCode, OneOperand(OprImm imm), 16<rt>
 
 let getISBOprs = function
   | 0b1111L -> OneOperand(OprOption SY)
@@ -1270,9 +1281,9 @@ let parseSystem bin =
       Op.SEV, NoOperand, 0<rt>
     | 0b0000110010101u when isCRmZero && isRt1F ->
       Op.SEVL, NoOperand, 0<rt>
-    | c when c &&& 0b1111111111110u = 0b0000110010110u && isCRmZero && isRt1F ->
-      let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
-      Op.HINT, OneOperand(OprImm imm), 0<rt> (* Hints 6 and 7 variant *)
+    (* hint 7 is XPACLRI, above *)
+    | 0b0000110010110u when isCRmZero && isRt1F ->
+      Op.DGH, NoOperand, 0<rt>
     | 0b0000110011000u ->
       unallocated ()
     | 0b0000110011001u ->
@@ -1281,6 +1292,12 @@ let parseSystem bin =
       Op.CLREX, OneOperand(OprImm crm), 0<rt>
     | 0b0000110011011u ->
       unallocated ()
+    (* the two values of CRm DSB does not take are the speculative store
+       bypass barriers (C6.2.245 SSBB, C6.2.217 PSSBB) *)
+    | 0b0000110011100u when isRt1F && isCRmZero ->
+      Op.SSBB, NoOperand, 0<rt>
+    | 0b0000110011100u when isRt1F && crm = 4L ->
+      Op.PSSBB, NoOperand, 0<rt>
     | 0b0000110011100u when isRt1F ->
       Op.DSB, getOptionOrimm bin, 0<rt>
     | 0b0000110011101u when isRt1F ->

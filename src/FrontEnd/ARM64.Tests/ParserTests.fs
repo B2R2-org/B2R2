@@ -260,11 +260,31 @@ type ParserTests() =
     ++ MSR ** [ O.Pstate DAIFSET; O.Imm 0x2L ]
     ||> test
 
+  /// Hint 6 is DGH (C6.2.79), and DSB's word with CRm 0000 and 0100 is SSBB
+  /// and PSSBB (C6.2.245, C6.2.217), not DSB with those options.
   [<TestMethod>]
   member _.``C4.3.4 System (3)``() =
-    "d50320df"
-    ++ HINT ** [ O.Imm 0x6L ]
-    ||> test
+    "d50320df" ++ DGH ** [] ||> test
+    "d503309f" ++ SSBB ** [] ||> test
+    "d503349f" ++ PSSBB ** [] ||> test
+    testDisasm "d503309f" "ssbb"
+    testDisasm "d503349f" "pssbb"
+    testDisasm "d503389f" "dsb #0x8"
+
+  [<TestMethod>]
+  member _.``[AArch64] DGH reads as HINT before Armv8.6``() =
+    readsAs "d50320df" "armv8.5-a" "hint #0x6" "armv8.6-a" "dgh"
+
+  /// BFM from the zero register with imms below immr is BFC (C6.2.27), the
+  /// one bitfield move that had kept its raw name; DCPS's immediate is
+  /// optional and is not written when it is zero (C6.2.76).
+  [<TestMethod>]
+  member _.``[AArch64] BFC and DCPS print as the manual prefers``() =
+    testDisasm "331d0fe0" "bfc w0, #0x3, #0x4"
+    testDisasm "b37d0fe1" "bfc x1, #0x3, #0x4"
+    testDisasm "331d0c20" "bfi w0, w1, #0x3, #0x4"
+    testDisasm "d4a00001" "dcps1"
+    testDisasm "d4a000a2" "dcps2 #0x5"
 
   [<TestMethod>]
   member _.``C4.3.4 System (4)``() =
