@@ -812,7 +812,7 @@ let translate (ins: Instruction) bld =
     vld3 ins bld
   | Op.VLD4 ->
     vld4 ins bld
-  | Op.VLDM | Op.VLDMIA | Op.VLDMDB ->
+  | Op.VLDM | Op.VLDMIA | Op.VLDMDB | Op.FLDMIAX | Op.FLDMDBX ->
     vldm ins bld
   | Op.VLDR ->
     vldr ins bld
@@ -975,7 +975,7 @@ let translate (ins: Instruction) bld =
     vst3 ins bld
   | Op.VST4 ->
     vst4 ins bld
-  | Op.VSTM | Op.VSTMIA | Op.VSTMDB ->
+  | Op.VSTM | Op.VSTMIA | Op.VSTMDB | Op.FSTMIAX | Op.FSTMDBX ->
     vstm ins bld
   | Op.VSTR ->
     vstr ins bld

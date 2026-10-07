@@ -1388,6 +1388,21 @@ type LifterTests() =
       |> Array.filter (fun d -> List.contains d halves)
     Assert.AreEqual<int>(4, writes.Length)
 
+  /// FLDMX and FSTMX are VLDM and VSTM of doublewords whose imm8 is odd, one
+  /// more than twice the registers they transfer, and they step the base
+  /// over that one more word too (DDI0487F.c F6.1.5 and F6.1.6).
+  [<TestMethod>]
+  member _.``[ARMv7] FLDMX and FSTMX step over one more word``() =
+    let expect (e: Expr) got = Assert.AreEqual<Expr option>(Some e, got)
+    expect (!.R0 .+ num 28u) (assignedBy false "ecb00b07" !.R0)
+    expect (!.R1 .- num 20u) (assignedBy false "ed314b05" !.R1)
+    expect (!.R3 .- num 36u) (assignedBy true "ed238b09" !.R3)
+    let ds = [ !@(Q0, 1); !@(Q0, 2); !@(Q1, 1) ]
+    let loaded =
+      writtenBy false "ecb00b07" |> Array.filter (fun d -> List.contains d ds)
+    Assert.AreEqual<int>(3, loaded.Length)
+    Assert.AreEqual<int>(2, (storesBy false "ec821b03").Length)
+
   [<TestMethod>]
   member _.``[ARMv7] VPUSH of singles moves SP a word a register``() =
     Assert.AreEqual<Expr option>(Some(!.SP .- num 8u),

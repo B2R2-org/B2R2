@@ -980,6 +980,20 @@ let parseOprOfVSTLDM (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
+/// <summary>
+/// Whether a VLDM or VSTM steps up from its base, and how many bytes past its
+/// registers it steps over. FLDMX's and FSTMX's imm8 is odd, one more than
+/// twice the doublewords they transfer, and they step over the word that one
+/// more names without touching it (DDI0487F.c F6.1.5 and F6.1.6).
+/// </summary>
+let private multipleShape (ins: Instruction) =
+  match ins.Opcode with
+  | Op.VLDMIA | Op.VSTMIA -> struct (true, 0)
+  | Op.VLDMDB | Op.VSTMDB -> struct (false, 0)
+  | Op.FLDMIAX | Op.FSTMIAX -> struct (true, 4)
+  | Op.FLDMDBX | Op.FSTMDBX -> struct (false, 4)
+  | _ -> raise InvalidOpcodeException
+
 /// One register of a VSTM list, at addr: a single is one word and a double
 /// two, in the order the memory's endianness puts its halves.
 let private vstmReg bld isSingle addr reg =
@@ -1001,14 +1015,10 @@ let vstm (ins: Instruction) bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rn, regList, isSingle = parseOprOfVSTLDM ins bld
-    let add =
-      match ins.Opcode with
-      | Op.VSTMIA -> true
-      | Op.VSTMDB -> false
-      | _ -> raise InvalidOpcodeException
+    let struct (add, extra) = multipleShape ins
     let regs = List.length regList
     let size = if isSingle then 4 else 8
-    let imm32 = numI32 (regs * size) 32<rt>
+    let imm32 = numI32 (regs * size + extra) 32<rt>
     let addr = tmpVar bld 32<rt>
     let updateRn rn =
       if ins.WriteBack then
@@ -1040,14 +1050,10 @@ let vldm (ins: Instruction) bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rn, regList, isSingle = parseOprOfVSTLDM ins bld
-    let add =
-      match ins.Opcode with
-      | Op.VLDMIA -> true
-      | Op.VLDMDB -> false
-      | _ -> raise InvalidOpcodeException
+    let struct (add, extra) = multipleShape ins
     let regs = List.length regList
     let size = if isSingle then 4 else 8
-    let imm32 = numI32 (regs * size) 32<rt>
+    let imm32 = numI32 (regs * size + extra) 32<rt>
     let addr = tmpVar bld 32<rt>
     let updateRn rn =
       if ins.WriteBack then
