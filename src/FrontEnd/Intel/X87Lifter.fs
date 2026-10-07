@@ -457,7 +457,10 @@ let private topTagMask top =
 
 /// The status word bits a stack overflow sets: C1, which tells it from an
 /// underflow, SF, and IE (Intel SDM Vol. 1, 8.5.1.1), with ES and B as well
-/// when the control word leaves IE unmasked.
+/// when the control word leaves IE unmasked. An underflow, an instruction
+/// reading a register tagged empty, goes unflagged here: every read of a stack
+/// register would have to check its tag and answer as its own instruction
+/// does, which costs every arithmetic instruction for code no compiler emits.
 let private overflowBits bld =
   let ieUnmasked = (regVar bld R.FCW .& AST.num1 16<rt>) == AST.num0 16<rt>
   let summary = AST.ite ieUnmasked (numI32 0x8080 16<rt>) (AST.num0 16<rt>)
