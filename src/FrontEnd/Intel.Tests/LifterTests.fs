@@ -1056,3 +1056,13 @@ type X87LifterTests() =
       "FSW := ((FSW & 0x7f7f:I16) | (((((FSW & 0x3f:I16) & "
       + "(~ (FCW & 0x3f:I16))) = 0x0:I16)) ? (0x0:I16) : (0x8080:I16)))"
     CollectionAssert.AreEqual([| expected |], actual)
+
+  (* Once the environment is out, FNSTENV masks every exception, which leaves
+     ES and B nothing to sum up. *)
+  [<TestMethod>]
+  member _.``[X64] FNSTENV masks every exception after the store (1)``() =
+    let actual =
+      lift "d930" (* fnstenv [rax] *)
+      |> Array.filter (fun l -> l.StartsWith "FCW :=" || l.StartsWith "FSW :=")
+    let expected = [| "FCW := (FCW | 0x3f:I16)"; "FSW := (FSW & 0x7f7f:I16)" |]
+    CollectionAssert.AreEqual(expected, actual)

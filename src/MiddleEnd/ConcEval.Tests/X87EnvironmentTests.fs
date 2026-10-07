@@ -180,6 +180,15 @@ type X87EnvironmentTests() =
     let expected = [| 0x55554002UL; 0x33UL; 0x1e8UL; 0x12345678UL; 0x2bUL |]
     CollectionAssert.AreEqual(expected, actual)
 
+  (* FNSTENV stores the control word as it was and then masks every
+     exception. *)
+  [<TestMethod>]
+  member _.``FNSTENV masks every exception once it has stored``() =
+    let unmasked = [ "FCW", 0x37BUL ]
+    let hdl, st = run 1 "d93424" (* fnstenv [rsp] *) unmasked []
+    let actual = [| field st 0UL 16<rt>; regOf hdl st "FCW" |]
+    CollectionAssert.AreEqual([| 0x37BUL; 0x37FUL |], actual)
+
   (* FNINIT gives the FPU its initial state, which has no last instruction or
      operand: both pointers, their selectors, and the opcode go to zero (Intel
      SDM Vol. 2A, FINIT/FNINIT). *)

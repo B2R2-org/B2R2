@@ -1892,6 +1892,17 @@ let private m28fstenv dstAddr addrSize bld =
     storeLE (at 26) ones
   }
 
+/// Masks every exception, as FNSTENV does once the environment is out (Intel
+/// SDM Vol. 2A, FSTENV/FNSTENV). Nothing flagged is left unmasked, so ES and B
+/// go out with it.
+let private maskExceptions bld =
+  append bld {
+    let ctrlWrd = regVar bld R.FCW
+    let stsWrd = regVar bld R.FSW
+    direct ctrlWrd := ctrlWrd .| numI32 0x3F 16<rt>
+    direct stsWrd := stsWrd .& numI32 0x7F7F 16<rt>
+  }
+
 let fnstenv (ins: Instruction) bld =
   lift bld ins {
     let dst = transOneOpr ins bld
@@ -1900,6 +1911,7 @@ let fnstenv (ins: Instruction) bld =
     | 112<rt> -> m14fstenv addrExpr addrSize bld
     | 224<rt> -> m28fstenv addrExpr addrSize bld
     | _ -> raise InvalidOperandSizeException
+    maskExceptions bld
   }
 
 let private m14fldenv srcAddr addrSize bld =
