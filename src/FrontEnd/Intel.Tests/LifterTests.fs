@@ -988,3 +988,13 @@ type X87LifterTests() =
       lift "0fae08" (* fxrstor [rax] *)
       |> Array.filter (fun l -> l.StartsWith "FTW :=")
     CollectionAssert.AreEqual([| "FTW := " + tags |], actual)
+
+  (* XRSTOR puts the x87 state its header marks as not held back in its
+     initial configuration, which has no selector for either pointer: those
+     are zeroed there and nowhere else in it (Intel SDM Vol. 1, 13.6). *)
+  [<TestMethod>]
+  member _.``[X64] XRSTOR clears the selectors of an initial x87 state (1)``() =
+    let actual =
+      lift "0fae2c24" (* xrstor [rsp] *)
+      |> Array.filter (fun l -> l.StartsWith "FCS :=" || l.StartsWith "FDS :=")
+    CollectionAssert.AreEqual([| "FCS := 0x0:I16"; "FDS := 0x0:I16" |], actual)

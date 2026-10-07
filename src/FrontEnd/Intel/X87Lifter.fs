@@ -1674,6 +1674,9 @@ let ffree (ins: Instruction) bld =
 (* FIXME: check all unmasked pending floating point exceptions. *)
 let private checkFPUExceptions bld = ()
 
+/// Puts the FPU in its initial state: the default control word, a clear status
+/// word, every register tagged empty, and no last instruction or operand, their
+/// selectors and the opcode included (Intel SDM Vol. 2A, FINIT/FNINIT).
 let private clearFPU bld =
   append bld {
     let cw = numI32 895 16<rt>
@@ -1681,6 +1684,11 @@ let private clearFPU bld =
     direct (regVar bld R.FCW) := cw
     direct (regVar bld R.FSW) := AST.num0 16<rt>
     direct (regVar bld R.FTW) := tw
+    direct (regVar bld R.FIP) := AST.num0 64<rt>
+    direct (regVar bld R.FCS) := AST.num0 16<rt>
+    direct (regVar bld R.FDP) := AST.num0 64<rt>
+    direct (regVar bld R.FDS) := AST.num0 16<rt>
+    direct (regVar bld R.FOP) := AST.num0 16<rt>
   }
 
 let finit (ins: Instruction) bld =
@@ -1907,12 +1915,8 @@ let fnsave (ins: Instruction) bld =
       stSts addrExpr addrSize 28 bld
     | _ ->
       raise InvalidOperandSizeException
-    direct (regVar bld R.FCW) := numI32 0x037F 16<rt>
-    direct (regVar bld R.FSW) := AST.num0 16<rt>
-    direct (regVar bld R.FTW) := numI32 0xFFFF 16<rt>
-    direct (regVar bld R.FDP) := AST.num0 64<rt>
-    direct (regVar bld R.FIP) := AST.num0 64<rt>
-    direct (regVar bld R.FOP) := AST.num0 16<rt>
+    (* With the state saved, FNSAVE initializes the FPU as FNINIT does. *)
+    clearFPU bld
   }
 
 /// Reads the stack registers back in from where stSts lays them out, as they
@@ -2193,7 +2197,9 @@ let private initX87Area bld =
       direct (regVar bld R.FTW) := numI32 0xFFFF 16<rt>
       direct (regVar bld R.FOP) := AST.num0 16<rt>
       direct (regVar bld R.FIP) := AST.num0 64<rt>
+      direct (regVar bld R.FCS) := AST.num0 16<rt>
       direct (regVar bld R.FDP) := AST.num0 64<rt>
+      direct (regVar bld R.FDS) := AST.num0 16<rt>
     }
   fun b ->
     words b

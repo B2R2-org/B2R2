@@ -167,3 +167,19 @@ type X87EnvironmentTests() =
     let actual = [| for r in regs -> regOf hdl st r |]
     let expected = [| 0x55554002UL; 0x33UL; 0x1e8UL; 0x12345678UL; 0x2bUL |]
     CollectionAssert.AreEqual(expected, actual)
+
+  (* FNINIT gives the FPU its initial state, which has no last instruction or
+     operand: both pointers, their selectors, and the opcode go to zero (Intel
+     SDM Vol. 2A, FINIT/FNINIT). *)
+  [<TestMethod>]
+  member _.``FNINIT clears the pointers``() =
+    let hdl, st = run 1 "dbe3" (* fninit *) pointers []
+    let actual = [| for r, _ in pointers -> regOf hdl st r |]
+    CollectionAssert.AreEqual(Array.create 5 0UL, actual)
+
+  (* Once the state is out, FNSAVE initializes the FPU as FNINIT does. *)
+  [<TestMethod>]
+  member _.``FNSAVE clears the pointers it has saved``() =
+    let hdl, st = run 1 "dd3424" (* fnsave [rsp] *) pointers []
+    let actual = [| for r, _ in pointers -> regOf hdl st r |]
+    CollectionAssert.AreEqual(Array.create 5 0UL, actual)
