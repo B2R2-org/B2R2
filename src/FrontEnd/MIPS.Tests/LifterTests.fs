@@ -831,6 +831,24 @@ type LifterTests() =
       if Array.isEmpty stmts then Assert.Fail hex else ()
 
   /// <summary>
+  /// BC1EQZ and BC1NEZ keep their delay slot.
+  ///
+  /// Release 6 added compact branches with no delay slot, but these two are
+  /// not among them: MD00087 BC1EQZ says to "Execute the instruction in the
+  /// delay slot before the instruction at the target", as BEQ does. Lifted as
+  /// compact, a taken branch skipped its slot. The transfer therefore belongs
+  /// to the slot, the way it does after BEQ.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] BC1EQZ and BC1NEZ keep their delay slot``() =
+    let isa =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    (* BC1EQZ f2, and BC1NEZ f2, each with a NOP in its slot *)
+    for branch in [ "45220001"; "45a20001" ] do
+      let kinds = jumpKinds isa MIPSISAMode.MIPS branch "00000000"
+      CollectionAssert.AreEqual([| InterJmpKind.Base |], kinds, branch)
+
+  /// <summary>
   /// A JALX from MIPS32 code crosses into the compressed encoding of the
   /// processor, and on a MIPS16e processor that is MIPS16e, not microMIPS. No
   /// processor has both, and nothing at the target says which one the words

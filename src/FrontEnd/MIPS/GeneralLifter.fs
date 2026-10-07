@@ -2364,13 +2364,16 @@ let fpCmpR6 (ins: Instruction) bld =
       let signals = conditionSignals ins.Condition
       fpExceptionsInvalidOnly bld (fpCompareInvalid bld sz signals a b))
 
-/// BC1EQZ and BC1NEZ branch on bit 0 of an FPR. They are compact -- Release 6
-/// has no delay slot -- so the transfer is the compact one.
+/// BC1EQZ and BC1NEZ branch on bit 0 of an FPR, and keep a delay slot:
+/// Release 6 did not make them compact, and MD00087 BC1EQZ says to "Execute
+/// the instruction in the delay slot before the instruction at the target",
+/// so the transfer is the slot's, as it is after BEQ.
 let bc1z ins bld nonZero =
-  lift bld ins {
+  liftTransfer bld ins {
     let ft, offset = transTwoOprs ins bld
     let bit = AST.xtlo 1<rt> ft
-    updatePCCondCompact ins bld offset (if nonZero then bit else AST.not bit)
+    let cond = if nonZero then bit else AST.not bit
+    updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
 /// The Release 6 PC-relative family.
