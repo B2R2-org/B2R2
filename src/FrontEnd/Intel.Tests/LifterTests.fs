@@ -852,3 +852,66 @@ type AMXLifterTests() =
           ":BadTileEnd"
           "TMM1 := 0x0:I8192"
           "TILECFG := (TILECFG & " + mask + ")" |]
+
+/// The x87 FPU keeps the index of its stack top, TOP, in bits 13:11 of the
+/// status word: a push decrements it and a pop increments it, so the first
+/// value loaded into an empty stack lands in physical register 7 (Intel SDM
+/// Vol. 1, 8.1.2). Software reads TOP back through FNSTSW, FNSTENV, FNSAVE,
+/// and FXSAVE. These look only at the statements that write TOP, which are the
+/// same in both builds; the rest is not (the analysis build also moves the
+/// exponent halves and marks C0, C2, and C3 undefined).
+[<TestClass>]
+type X87LifterTests() =
+  let lift (hex: string) =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let regFactory = RegisterFactory isa
+    let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
+    let reader = BinReader.Init Endian.Little
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
+    let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+    ins.Translate builder
+    |> Array.map PrettyPrinter.ToString
+    |> Array.filter (fun l -> not (l.StartsWith "(" || l.StartsWith "}"))
+
+  let test hex (expectedStmts: string[]) =
+    CollectionAssert.AreEqual(expectedStmts, lift hex)
+
+  (* A write to TOP first clears bits 13:11 of FSW, which nothing else does. *)
+  let topWrites hex =
+    lift hex
+    |> Array.filter (fun l -> l.StartsWith "FSW := ((FSW & 0xc7ff:I16)")
+
+  (* TOP moved one place by `op`, kept within its three bits. *)
+  let testTop hex op =
+    let expected =
+      [| "FSW := ((FSW & 0xc7ff:I16) | ((zext:I16(((((FSW & 0x3800:I16) >> "
+         + "0xb:I16)[7:0]) " + op + " 0x1:I8)) << 0xb:I16) & 0x3800:I16))" |]
+    CollectionAssert.AreEqual(expected, topWrites hex)
+
+  [<TestMethod>]
+  member _.``[X64] FLDZ pushes by moving TOP down (1)``() =
+    testTop "d9ee" (* fldz *) "-"
+
+  [<TestMethod>]
+  member _.``[X64] FSTP pops by moving TOP up (1)``() =
+    testTop "ddd8" (* fstp st(0) *) "+"
+
+  [<TestMethod>]
+  member _.``[X64] FDECSTP moves TOP down (1)``() =
+    testTop "d9f6" (* fdecstp *) "-"
+
+  [<TestMethod>]
+  member _.``[X64] FINCSTP moves TOP up (1)``() =
+    testTop "d9f7" (* fincstp *) "+"
+
+  (* The tag word is indexed by physical register, and ST(1) is physical
+     register (TOP + 1) mod 8: with TOP at 7, an index left unwrapped would
+     shift the tag out of the word and empty nothing. *)
+  [<TestMethod>]
+  member _.``[X64] FFREE empties the tag under ST(i) (1)``() =
+    test "ddc1" (* ffree st(1) *)
+    <| [| "T_1:I16 := zext:I16((((FSW & 0x3800:I16) >> 0xb:I16)[7:0]))"
+          "T_1:I16 := ((T_1:I16 + 0x1:I16) & 0x7:I16)"
+          "T_2:I16 := (0x2:I16 * T_1:I16)"
+          "T_3:I16 := (0x3:I16 << T_2:I16)"
+          "FTW := (FTW | T_3:I16)" |]

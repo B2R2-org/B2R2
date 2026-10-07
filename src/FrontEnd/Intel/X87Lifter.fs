@@ -78,9 +78,9 @@ let private updateC1OnStore bld =
   append bld {
     let top = regVar bld R.FTOP
     let c1Flag = regVar bld R.FSWC1
-    (* Top value has been wrapped around, which means stack underflow in
-       B2R2. *)
-    direct c1Flag := (top != numI32 7 8<rt>)
+    (* A pop from the empty stack an initialized FPU starts with leaves TOP at
+       1, which B2R2 takes as a stack underflow. *)
+    direct c1Flag := (top != AST.num1 8<rt>)
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
     direct (regVar bld R.FSWC2) := undefC2
@@ -454,12 +454,12 @@ let private signOfST bld reg =
   AST.xthi 1<rt> (pseudoRegVar bld reg 2)
 #endif
 
+/// Pushes the stack: TOP moves down a place (Intel SDM Vol. 1, 8.1.2), and
+/// every value moves to the stack register below, which frees ST(0).
 let private pushFPUStack bld =
   let top = regVar bld R.FTOP
-  (* We increment TOP here (which is the opposite way of what the manual says),
-     because it is more intuitive to consider it as a counter. *)
   append bld {
-    extractDstAssign top (top .+ AST.num1 8<rt>)
+    extractDstAssign top (top .- AST.num1 8<rt>)
   }
   copyST bld R.ST7 R.ST6
   copyST bld R.ST6 R.ST5
@@ -469,13 +469,12 @@ let private pushFPUStack bld =
   copyST bld R.ST2 R.ST1
   copyST bld R.ST1 R.ST0
 
+/// Pops the stack: TOP moves up a place (Intel SDM Vol. 1, 8.1.2), and every
+/// value moves to the stack register above, which empties ST(7).
 let private popFPUStack bld =
   let top = regVar bld R.FTOP
-  (* We decrement TOP here (the opposite way compared to the manual) because it
-     is more intuitive, because it is more intuitive to consider it as a
-     counter. *)
   append bld {
-    extractDstAssign top (top .- AST.num1 8<rt>)
+    extractDstAssign top (top .+ AST.num1 8<rt>)
   }
   copyST bld R.ST0 R.ST1
   copyST bld R.ST1 R.ST2
@@ -1594,11 +1593,7 @@ let fldlg2 ins bld =
 let fincstp (ins: Instruction) bld =
   lift bld ins {
     let top = regVar bld R.FTOP
-    (* TOP in B2R2 is really a counter, so we decrement TOP here (same as
-       pop). *)
-    let cond = top == numI32 0 8<rt>
-    let updatedTOP = AST.ite cond (numI32 7 8<rt>) (top .- AST.num1 8<rt>)
-    extractDstAssign top updatedTOP
+    extractDstAssign top (top .+ AST.num1 8<rt>)
     let stash = stashST bld R.ST0
     copyST bld R.ST0 R.ST1
     copyST bld R.ST1 R.ST2
@@ -1619,10 +1614,7 @@ let fincstp (ins: Instruction) bld =
 let fdecstp (ins: Instruction) bld =
   lift bld ins {
     let top = regVar bld R.FTOP
-    (* TOP in B2R2 is really a counter, so we increment TOP here. *)
-    let cond = top == numI32 7 8<rt>
-    let updatedTOP = AST.ite cond (AST.num0 8<rt>) (top .+ AST.num1 8<rt>)
-    extractDstAssign top updatedTOP
+    extractDstAssign top (top .- AST.num1 8<rt>)
     let stash = stashST bld R.ST7
     copyST bld R.ST7 R.ST6
     copyST bld R.ST6 R.ST5
@@ -1658,7 +1650,7 @@ let ffree (ins: Instruction) bld =
       | OneOperand(OprReg R.ST7) -> numI32 7 16<rt>
       | _ -> raise InvalidOperandException
     direct top16 := AST.cast CastKind.ZeroExt 16<rt> top
-    direct top16 := top16 .+ offset
+    direct top16 := (top16 .+ offset) .& numI32 7 16<rt>
     direct shifter := (numI32 2 16<rt>) .* top16
     direct tagValue := (value3 << shifter)
     direct tagWord := tagWord .| tagValue
