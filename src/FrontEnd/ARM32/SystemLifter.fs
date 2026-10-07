@@ -98,8 +98,9 @@ let cps (ins: Instruction) bld =
   }
 
 /// The bits of CPSR an MRS reads: every one but the execution state -- the IT,
-/// J and T bits -- which read as zero (F5-4571).
-let private readableCPSR = 0xf80f03dfu
+/// J and T bits -- which read as zero (F5-4571), and of the bits Armv8 added
+/// there, PAN, which SETPAN writes (DDI0487F.c F5.1.117).
+let private readableCPSR = 0xf84f03dfu
 
 /// MRS (banked register), which reads another mode's copy of a register, or
 /// ELR_hyp (DDI0406C B9.3.9).
@@ -150,10 +151,11 @@ let private namedBytes = function
 
 /// <summary>
 /// The bits of CPSR an MSR writes at PL1, within the bytes it names: the
-/// flags, GE, E and the three interrupt masks. The execution state is not an
-/// MSR's to write, and the mode is a change of mode rather than a write.
+/// flags, PAN, GE, E and the three interrupt masks (DDI0487F.c J1.2,
+/// CPSRWriteByInstr). The execution state is not an MSR's to write, and the
+/// mode is a change of mode rather than a write.
 /// </summary>
-let private writableCPSR = 0xf80f03c0u
+let private writableCPSR = 0xf84f03c0u
 
 /// The bits it writes in User mode: the flags, GE and E.
 let private userWritableCPSR = 0xf80f0200u
@@ -454,5 +456,35 @@ let eret (ins: Instruction) bld =
     target := AST.ite (inHypMode bld) (regVar bld R.ELRhyp) (regVar bld R.LR)
     saved := regVar bld R.SPSR
     exceptionReturn bld target saved
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// SETPAN, which writes PSTATE.PAN -- CPSR bit 22 -- and does nothing in User
+/// mode (DDI0487F.c F5.1.183). It cannot be conditional.
+/// </summary>
+let setpan (ins: Instruction) bld =
+  let pan =
+    match ins.Operands with
+    | OneOperand(OprImm imm) -> uint32 imm <<< 22
+    | _ -> raise InvalidOperandException
+  lift bld ins {
+    let cpsr = regVar bld R.CPSR
+    let set = (cpsr .& numU32 0xffbfffffu 32<rt>) .| numU32 pan 32<rt>
+    cpsr := AST.ite (inUserMode bld) cpsr set
+  }
+
+/// <summary>
+/// HVC and SMC, the calls to the hypervisor and to the Secure monitor, which
+/// are UNDEFINED in User mode (DDI0487F.c F5.1.54 and F5.1.192). The
+/// exceptions they take into Hyp and Monitor mode are not modelled, so in
+/// every other mode they are unsupported.
+/// </summary>
+let privilegedCall (ins: Instruction) bld =
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedInUserMode bld
+    AST.sideEffect UnsupportedInstruction
     putEndLabel bld lblIgnore
   }

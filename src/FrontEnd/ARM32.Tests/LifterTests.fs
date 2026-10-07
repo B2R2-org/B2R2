@@ -505,11 +505,12 @@ type LifterTests() =
     |> testARM
 
   /// MRS of CPSR reads every field but the execution state -- the IT, J and T
-  /// bits -- which read as zero (F5-4571).
+  /// bits -- which read as zero (F5-4571), and PAN with them, which SETPAN
+  /// writes (DDI0487F.c F5.1.117).
   [<TestMethod>]
   member _.``[ARMv7] MRS of CPSR hides the execution state``() =
     "e10f0000"
-    ++ [| !.R0 := !.CPSR .& num 0xf80f03dfu |]
+    ++ [| !.R0 := !.CPSR .& num 0xf84f03dfu |]
     |> testARM
 
   [<TestMethod>]
@@ -1586,6 +1587,68 @@ type LifterTests() =
   member _.``[ARMv7] SSBB and PSSBB lift to nothing``() =
     "f57ff040" ++ [||] |> testARM
     "f57ff044" ++ [||] |> testARM
+
+  /// Halting and Debug state belong to an external debugger, which this front
+  /// end does not model: with halting not allowed HLT is UNDEFINED, and so
+  /// are DCPS1, DCPS2 and DCPS3 in Non-debug state (DDI0487F.c F5.1.53 and
+  /// F5.1.43 to F5.1.45).
+  [<TestMethod>]
+  member _.``[ARMv7] HLT and DCPS are undefined``() =
+    let undefined = [| AST.sideEffect BinIR.SideEffect.UndefinedInstruction |]
+    "e1000070" ++ undefined |> testARM
+    "ba80" ++ undefined |> testThumb
+    for hex in [ "f78f8001"; "f78f8002"; "f78f8003" ] do
+      hex ++ undefined |> testThumb
+
+  /// SETPAN writes PSTATE.PAN, which is CPSR bit 22, and does nothing in User
+  /// mode (DDI0487F.c F5.1.183).
+  [<TestMethod>]
+  member _.``[ARMv7] SETPAN writes CPSR.PAN outside User mode``() =
+    let after isThumb hex (cpsr: uint32) =
+      let inputs = [ !.CPSR, BitVector(cpsr, 32<rt>) ]
+      let read = IRRunner.run (liftedBy isThumb hex) inputs
+      uint32 ((read !.CPSR).ToUInt64())
+    Assert.AreEqual<uint32>(0x204001d3u, after false "f1100200" 0x200001d3u)
+    Assert.AreEqual<uint32>(0x200001d3u, after false "f1100000" 0x204001d3u)
+    Assert.AreEqual<uint32>(0x6040001fu, after true "b618" 0x6000001fu)
+    Assert.AreEqual<uint32>(0x6000001fu, after true "b610" 0x6040001fu)
+    Assert.AreEqual<uint32>(0x00000010u, after false "f1100200" 0x00000010u)
+    Assert.AreEqual<uint32>(0x00400010u, after true "b610" 0x00400010u)
+
+  /// MSR of CPSR's s field writes PAN outside User mode, and GE in any mode
+  /// (DDI0487F.c J1.2, CPSRWriteByInstr).
+  [<TestMethod>]
+  member _.``[ARMv7] MSR writes CPSR.PAN outside User mode``() =
+    let after isThumb hex (cpsr: uint32) (r0: uint32) =
+      let inputs =
+        [ !.CPSR, BitVector(cpsr, 32<rt>); !.R0, BitVector(r0, 32<rt>) ]
+      let read = IRRunner.run (liftedBy isThumb hex) inputs
+      uint32 ((read !.CPSR).ToUInt64())
+    let check expected isThumb hex cpsr r0 =
+      Assert.AreEqual<uint32>(expected, after isThumb hex cpsr r0, hex)
+    check 0x604501d3u false "e124f000" 0x600001d3u 0x00450000u
+    check 0x600001d3u false "e124f000" 0x604501d3u 0u
+    check 0x6045001fu true "f3808400" 0x6000001fu 0x00450000u
+    check 0x60050010u false "e124f000" 0x60000010u 0x00450000u
+
+  /// HVC and SMC are UNDEFINED in User mode (DDI0487F.c F5.1.54 and
+  /// F5.1.192). The exceptions they take into Hyp and Monitor mode are not
+  /// modelled, so in every other mode they are unsupported.
+  [<TestMethod>]
+  member _.``[ARMv7] HVC and SMC are refused in User mode``() =
+    let unsupported isThumb hex =
+      liftedBy isThumb hex
+      |> Array.exists (function
+        | SideEffect(Effect = BinIR.SideEffect.UnsupportedInstruction) -> true
+        | _ -> false)
+    let calls =
+      [ false, "e14ff070"
+        true, "f7e18234"
+        false, "e1600070"
+        true, "f7f38000" ]
+    for isThumb, hex in calls do
+      CollectionAssert.AreEqual([| 0x10u |], refusedModes isThumb hex, hex)
+      Assert.AreEqual<bool>(true, unsupported isThumb hex, hex)
 
   /// <summary>
   /// VSHLL by the element's own width has an encoding of its own, whose data

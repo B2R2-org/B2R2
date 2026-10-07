@@ -143,6 +143,12 @@ let translate (ins: Instruction) bld =
     eors true ins bld
   | Op.ERET ->
     eret ins bld
+  (* Halting and Debug state are an external debugger's, which is not
+     modelled: HLT and DCPS are UNDEFINED without one *)
+  | Op.HLT | Op.DCPS1 | Op.DCPS2 | Op.DCPS3 ->
+    undefined ins bld
+  | Op.HVC | Op.SMC ->
+    privilegedCall ins bld
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
   | Op.ITEEE ->
@@ -383,6 +389,8 @@ let translate (ins: Instruction) bld =
     sbcs true ins bld
   | Op.SBFX ->
     bfx ins bld true
+  | Op.SETPAN ->
+    setpan ins bld
   | Op.SEL ->
     sel ins bld
   | Op.SMLABB ->
