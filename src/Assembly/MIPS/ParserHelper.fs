@@ -311,6 +311,10 @@ let takesPlace = function
   | Opcode.BGTZALC | Opcode.BLTZALC
   | Opcode.BC1EQZ | Opcode.BC1NEZ
   | Opcode.ADDIUPC | Opcode.LWPC | Opcode.LWUPC | Opcode.LDPC
+  (* Coprocessor 2's branches, on a condition code before Release 6 and on a
+     condition register in it. *)
+  | Opcode.BC2F | Opcode.BC2T | Opcode.BC2FL | Opcode.BC2TL
+  | Opcode.BC2EQZ | Opcode.BC2NEZ
   (* MIPS16e. Its branches name a place the way every other branch does, and
      its two PC-relative address instructions do too. The loads that read
      relative to the program counter are LW and LD here rather than opcodes of

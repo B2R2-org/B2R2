@@ -1371,6 +1371,41 @@ let private parseCOP0WhenCO binary =
 /// Checked against binutils: MFC0 of register 12 into GPR 8 assembles to
 /// 0x40086000, which objdump renders as a read of c0_status.
 /// </summary>
+/// The branches on a condition of coprocessor 2, which Release 6 removed.
+let private parseBC2 binary =
+  match Bits.extract binary 17u 16u with
+  | 0b00u -> Op.BC2F, None, None, getCcOff binary
+  | 0b01u -> Op.BC2T, None, None, getCcOff binary
+  | 0b10u -> Op.BC2FL, None, None, getCcOff binary
+  | _ -> Op.BC2TL, None, None, getCcOff binary
+
+/// <summary>
+/// COP2: the moves between a general register and coprocessor 2, the branches
+/// on its conditions, and the operation it is handed whole. Release 6 removed
+/// the branches on a condition code for two on a condition register, and
+/// moved the loads and stores here from major opcodes of their own.
+/// </summary>
+let private parseCOP2 release binary =
+  let r6 = release = MIPSRelease.R6
+  match Bits.extract binary 25u 21u with
+  | 0b00000u -> Op.MFC2, None, None, getRtImpl binary
+  | 0b00001u -> Op.DMFC2, None, None, getRtImpl binary
+  | 0b00010u -> Op.CFC2, None, None, getRtImpl binary
+  | 0b00011u -> Op.MFHC2, None, None, getRtImpl binary
+  | 0b00100u -> Op.MTC2, None, None, getRtImpl binary
+  | 0b00101u -> Op.DMTC2, None, None, getRtImpl binary
+  | 0b00110u -> Op.CTC2, None, None, getRtImpl binary
+  | 0b00111u -> Op.MTHC2, None, None, getRtImpl binary
+  | 0b01000u when not r6 -> parseBC2 binary
+  | 0b01001u when r6 -> Op.BC2EQZ, None, None, getCtRel16 binary
+  | 0b01101u when r6 -> Op.BC2NEZ, None, None, getCtRel16 binary
+  | 0b01010u when r6 -> Op.LWC2, None, None, getCop2MemBaseOff11 binary 32<rt>
+  | 0b01011u when r6 -> Op.SWC2, None, None, getCop2MemBaseOff11 binary 32<rt>
+  | 0b01110u when r6 -> Op.LDC2, None, None, getCop2MemBaseOff11 binary 64<rt>
+  | 0b01111u when r6 -> Op.SDC2, None, None, getCop2MemBaseOff11 binary 64<rt>
+  | b when b >= 0b10000u -> Op.COP2, None, None, getCofun binary
+  | _ -> raise ParsingFailureException
+
 let private parseCOP0 release binary =
   if Bits.pick binary 25u = 1u then
     parseCOP0WhenCO binary
@@ -1449,7 +1484,7 @@ let private parseOpcodeField arch binary wordSize release =
   | 0b010001u ->
     parseCOP1 arch release binary
   | 0b010010u ->
-    raise ParsingFailureException (* COP2 *)
+    parseCOP2 release binary
   | 0b010011u when not r6 ->
     parseCOP1X binary
   | 0b010100u when not r6 ->
@@ -1537,7 +1572,7 @@ let private parseOpcodeField arch binary wordSize release =
     Op.LWC1, None, None, getFtMemBaseOff binary 32<rt>
   | 0b110010u ->
     if release = MIPSRelease.R6 then Op.BC, None, None, getRel26 binary
-    else raise ParsingFailureException (* LWC2 *)
+    else Op.LWC2, None, None, getCop2MemBaseOff binary 32<rt>
   | 0b110011u when not r6 ->
     Op.PREF, None, None, getHintMemBaseOff binary 32<rt>
   | 0b110100u when not r6 ->
@@ -1546,7 +1581,7 @@ let private parseOpcodeField arch binary wordSize release =
     Op.LDC1, None, None, getFtMemBaseOff binary (WordSize.toRegType wordSize)
   | 0b110110u ->
     if release = MIPSRelease.R6 then parsePOP66R6 binary
-    else raise ParsingFailureException (* LDC2 *)
+    else Op.LDC2, None, None, getCop2MemBaseOff binary 64<rt>
   | 0b110111u ->
     Op.LD, None, None, getRtMemBaseOff binary 64<rt>
   | 0b111000u when not r6 ->
@@ -1557,7 +1592,7 @@ let private parseOpcodeField arch binary wordSize release =
     if release = MIPSRelease.R6 then
       Op.BALC, None, None, getRel26 binary
     else
-      raise ParsingFailureException (* SWC2 *)
+      Op.SWC2, None, None, getCop2MemBaseOff binary 32<rt>
   | 0b111011u ->
     parsePCREL release binary
   | 0b111100u when not r6 ->
@@ -1566,7 +1601,7 @@ let private parseOpcodeField arch binary wordSize release =
     Op.SDC1, None, None, getFtMemBaseOff binary (WordSize.toRegType wordSize)
   | 0b111110u ->
     if release = MIPSRelease.R6 then parsePOP76R6 binary
-    else raise ParsingFailureException (* SDC2 *)
+    else Op.SDC2, None, None, getCop2MemBaseOff binary 64<rt>
   | 0b111111u ->
     Op.SD, None, None, getRtMemBaseOff binary 64<rt>
   | _ ->
@@ -1613,6 +1648,8 @@ let isMIPS64Only = function
   | Op.DSRLV | Op.DSUB | Op.DSUBU | Op.LD | Op.LDL | Op.LDPC | Op.LDR
   | Op.LLD | Op.LLDP | Op.LWU | Op.LWUPC | Op.SCD | Op.SCDP | Op.SD
   | Op.SDL | Op.SDR
+  (* the doubleword moves between a general register and coprocessor 2 *)
+  | Op.DMFC2 | Op.DMTC2
   (* microMIPS64's doubleword pairs and lists *)
   | Op.LDP | Op.LDM | Op.SDP | Op.SDM
   (* The two CRC forms over a doubleword. The byte, halfword and word forms

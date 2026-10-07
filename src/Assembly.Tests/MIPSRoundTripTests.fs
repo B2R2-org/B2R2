@@ -510,6 +510,23 @@ type MIPSRoundTripTests() =
       let broken = brokenSource assemblerR6 parserR6 source
       Assert.AreEqual<string option>(None, broken)
 
+  /// Coprocessor 2's moves, its operation and its loads and stores, at both
+  /// releases: the numbers that name its registers are written as numbers,
+  /// and Release 6 writes the loads and stores into COP2.
+  [<TestMethod>]
+  member _.``Coprocessor 2 encodes and prints``() =
+    let cases =
+      [ assembler32, parser32, "mfc2 v0, 0x1805"
+        assembler32, parser32, "mthc2 v0, 0x7"
+        assembler32, parser32, "cop2 0x123456"
+        assembler32, parser32, "lwc2 0x2, 16(a0)"
+        assembler64, parser64, "dmfc2 v0, 0x0"
+        assembler64, parser64, "sdc2 0x2, -16(a0)"
+        assemblerR6, parserR6, "lwc2 0x2, -16(a0)"
+        assemblerR6, parserR6, "cfc2 v0, 0x800" ]
+    for assembler, parser, source in cases do
+      Assert.AreEqual<string option>(None, brokenSource assembler parser source)
+
   /// Checks that a source the assembler refuses leaves it able to read the
   /// next one, which a parser keeping state across a failure would not.
   [<TestMethod>]

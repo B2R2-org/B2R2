@@ -404,6 +404,45 @@ type MIPS64ParserTests() =
     for hex, opcode in kept do
       Assert.AreEqual<Opcode>(opcode, (parse hex :?> Instruction).Opcode, hex)
 
+  /// <summary>
+  /// Coprocessor 2 decodes at both releases.
+  ///
+  /// What a coprocessor 2 register, control word or condition is, is the
+  /// implementation's -- "The interpretation of the Impl field is left
+  /// entirely to the Coprocessor 2 implementation" (MD00087 MFC2) -- so each
+  /// is read as the number the word holds. Release 6 replaced the branches on
+  /// a condition code with two on a condition register, and moved the loads
+  /// and stores into COP2, with an eleven-bit offset, from the major opcodes
+  /// it gave its compact branches.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] Coprocessor 2 decodes at both releases``() =
+    let parse release hex =
+      let isa =
+        ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int release)
+      let parser =
+        Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+      ins.Opcode, ins.Operands
+    let pre, r6 = MIPSRelease.PreR6, MIPSRelease.R6
+    let cases =
+      [ pre, "48021805", (MFC2, [ O.Reg R2; O.Imm 0x1805UL ])
+        r6, "48021805", (MFC2, [ O.Reg R2; O.Imm 0x1805UL ])
+        pre, "48420800", (CFC2, [ O.Reg R2; O.Imm 0x800UL ])
+        pre, "48a20000", (DMTC2, [ O.Reg R2; O.Imm 0UL ])
+        pre, "48e20007", (MTHC2, [ O.Reg R2; O.Imm 7UL ])
+        pre, "49010003", (BC2T, [ O.Addr(Relative 16L) ])
+        pre, "4a123456", (COP2, [ O.Imm 0x123456UL ])
+        pre, "c8820010", (LWC2, [ O.Imm 2UL; O.Mem(R4, 16L, 32<rt>) ])
+        pre, "f8820010", (SDC2, [ O.Imm 2UL; O.Mem(R4, 16L, 64<rt>) ])
+        r6, "49250003", (BC2EQZ, [ O.Imm 5UL; O.Addr(Relative 16L) ])
+        r6, "494227f0", (LWC2, [ O.Imm 2UL; O.Mem(R4, -16L, 32<rt>) ]) ]
+    for release, hex, (opcode, oprs) in cases do
+      let opcode', oprs' = parse release hex
+      Assert.AreEqual<Opcode>(opcode, opcode', hex)
+      Assert.AreEqual<Operands>(operandsFromArray oprs, oprs', hex)
+
   /// Release 6's own encodings are not instructions before it: AUI, the
   /// nine-bit LL, SC, LLD, SCD and PREF in SPECIAL3, ALIGN and DALIGN, and
   /// the three-register DIVU and CLZ and CLO in SPECIAL (MD00087).

@@ -76,13 +76,17 @@ let buildEncoderTable (release: MIPSRelease) =
     [ arithmeticEncoders ()
       branchEncoders ()
       loadStoreEncoders ()
-      privilegedEncoders () ]
+      privilegedEncoders ()
+      cop2Encoders () ]
     |> List.concat
     |> Map.ofList
   let general =
     if release = MIPSRelease.R6 then
       addEncoders (fun _ -> true) general
-        (release6Encoders () @ privilegedR6Encoders () @ movedR6Encoders ())
+        (release6Encoders ()
+         @ privilegedR6Encoders ()
+         @ movedR6Encoders ()
+         @ cop2R6Encoders ())
     else
       general
   let withFloat =

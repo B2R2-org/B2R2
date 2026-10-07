@@ -746,6 +746,26 @@ type LifterTests() =
     Assert.AreEqual<uint64>(0x11223344UL, (read (var R2)).ToUInt64())
 
   /// <summary>
+  /// Every instruction that reaches coprocessor 2 takes Coprocessor Unusable.
+  ///
+  /// Coprocessor 2 is the implementation's, and the processor this front end
+  /// models has none -- Config1.C2 is clear -- so there is nothing for a move,
+  /// a branch on its condition or an operation to reach. Each one's
+  /// Exceptions list Coprocessor Unusable, and that is the whole of its
+  /// effect.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] Coprocessor 2 is unusable``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    for hex in [ "48021805"; "49010003"; "4a123456"; "c8820010" ] do
+      let effects =
+        lifted isa hex
+        |> Array.choose (function
+          | SideEffect(Effect = e) -> Some e
+          | _ -> None)
+      CollectionAssert.AreEqual([| UndefinedInstruction |], effects, hex)
+
+  /// <summary>
   /// CP0 is refused outside Kernel Mode unless Status.CU0 lets it through.
   ///
   /// MD00087 1.2 says where the privileged state may be reached: "in Kernel

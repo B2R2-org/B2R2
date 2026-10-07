@@ -856,5 +856,9 @@ type Opcode =
   | MFLHXU = 395
   /// Set Extended HI/LO State (SmartMIPS).
   | MTLHX = 396
+  /// Doubleword Move from Coprocessor 2, MIPS64 only.
+  | DMFC2 = 397
+  /// Doubleword Move to Coprocessor 2, MIPS64 only.
+  | DMTC2 = 398
 
 type internal Op = Opcode

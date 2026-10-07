@@ -903,6 +903,93 @@ let loadStoreEncoders () =
     Opcode.SDC1, memoryFP 0b111101u
     Opcode.PREF, prefetch ]
 
+(* Coprocessor 2, whose registers, control words and conditions are the
+   implementation's: each is written as the number the word holds. *)
+/// The COP2 major opcode.
+let [<Literal>] private COP2 = 0b010010u
+
+/// Encodes <rt>, <impl>: the moves between a general register and
+/// coprocessor 2, whose sixteen-bit Impl field names the other end.
+let private moveCop2 rs ins =
+  match ins.Operands with
+  | TwoOperands(Rg rt, Im impl) -> immWord COP2 rs (gpr rt) (unsigned 16 impl)
+  | _ -> wrongOperands ins
+
+/// Encodes <place> and <cc>, <place>: the branches on a condition code of
+/// coprocessor 2, which name the code only where it is not the first.
+let private branchOnCop2 tf ins =
+  match ins.Operands with
+  | OneOperand(Place distance) ->
+    immWord COP2 0b01000u tf (branchOffset distance)
+  | TwoOperands(Im cc, Place distance) ->
+    let rt = (unsigned 3 cc <<< 2) ||| tf
+    immWord COP2 0b01000u rt (branchOffset distance)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <ct>, <place>: Release 6's branches on a condition register of
+/// coprocessor 2.
+let private branchOnCop2Reg rs ins =
+  match ins.Operands with
+  | TwoOperands(Im ct, Place distance) ->
+    immWord COP2 rs (unsigned 5 ct) (branchOffset distance)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <cofun>: the operation coprocessor 2 is handed whole.
+let private cop2Operation ins =
+  match ins.Operands with
+  | OneOperand(Im cofun) -> (COP2 <<< 26) ||| (1u <<< 25) ||| unsigned 25 cofun
+  | _ -> wrongOperands ins
+
+/// Encodes <rt>, <offset>(<base>): the loads and stores of a coprocessor 2
+/// register before Release 6, each with a major opcode of its own.
+let private memoryCop2 op ins =
+  match ins.Operands with
+  | TwoOperands(Im rt, Mem(baseReg, offset)) ->
+    immWord op (gpr baseReg) (unsigned 5 rt) (signed 16 offset)
+  | _ ->
+    wrongOperands ins
+
+/// The same at Release 6, which moved them into COP2 with the base in bits
+/// 15..11 and an eleven-bit offset below it.
+let private memoryCop2R6 rs ins =
+  match ins.Operands with
+  | TwoOperands(Im rt, Mem(baseReg, offset)) ->
+    (COP2 <<< 26) ||| (rs <<< 21) ||| (unsigned 5 rt <<< 16)
+    ||| (gpr baseReg <<< 11) ||| signed 11 offset
+  | _ ->
+    wrongOperands ins
+
+/// The coprocessor 2 rows.
+let cop2Encoders () =
+  [ Opcode.MFC2, moveCop2 0b00000u
+    Opcode.DMFC2, moveCop2 0b00001u
+    Opcode.CFC2, moveCop2 0b00010u
+    Opcode.MFHC2, moveCop2 0b00011u
+    Opcode.MTC2, moveCop2 0b00100u
+    Opcode.DMTC2, moveCop2 0b00101u
+    Opcode.CTC2, moveCop2 0b00110u
+    Opcode.MTHC2, moveCop2 0b00111u
+    Opcode.BC2F, branchOnCop2 0u
+    Opcode.BC2T, branchOnCop2 1u
+    Opcode.BC2FL, branchOnCop2 2u
+    Opcode.BC2TL, branchOnCop2 3u
+    Opcode.COP2, cop2Operation
+    Opcode.LWC2, memoryCop2 0b110010u
+    Opcode.SWC2, memoryCop2 0b111010u
+    Opcode.LDC2, memoryCop2 0b110110u
+    Opcode.SDC2, memoryCop2 0b111110u ]
+
+/// The coprocessor 2 rows Release 6 changes or adds.
+let internal cop2R6Encoders () =
+  [ Opcode.BC2EQZ, branchOnCop2Reg 0b01001u
+    Opcode.BC2NEZ, branchOnCop2Reg 0b01101u
+    Opcode.LWC2, memoryCop2R6 0b01010u
+    Opcode.SWC2, memoryCop2R6 0b01011u
+    Opcode.LDC2, memoryCop2R6 0b01110u
+    Opcode.SDC2, memoryCop2R6 0b01111u ]
+
 /// Encodes <rd>, <rs>: the Release 6 count-leading instructions, which keep a
 /// one in the field a shift keeps its amount in.
 let private countLeadingR6 func ins =
