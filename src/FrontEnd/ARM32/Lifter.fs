@@ -566,8 +566,9 @@ let translate (ins: Instruction) bld =
     tst ins bld
   | Op.UBFX ->
     bfx ins bld false
+  (* permanently UNDEFINED: the immediate is a debugger's, not a call's *)
   | Op.UDF ->
-    udf ins bld
+    undefined ins bld
   | Op.UMAAL ->
     umaal ins bld
   | Op.UMLAL ->

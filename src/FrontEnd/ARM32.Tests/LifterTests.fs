@@ -1603,6 +1603,17 @@ type LifterTests() =
     "f57ff040" ++ [||] |> testARM
     "f57ff044" ++ [||] |> testARM
 
+  /// UDF is permanently UNDEFINED (DDI0487F.c F5.1.269): its immediate is
+  /// for a debugger to read, and it is no call to the supervisor, which is
+  /// what an interrupt numbered by it would be taken for.
+  [<TestMethod>]
+  member _.``[ARMv7] UDF is undefined``() =
+    let undefined = [| AST.sideEffect BinIR.SideEffect.UndefinedInstruction |]
+    "e7f000f0" ++ undefined |> testARM
+    "e7f123f4" ++ undefined |> testARM
+    "de00" ++ undefined |> testThumb
+    "f7f0a000" ++ undefined |> testThumb
+
   /// Halting and Debug state belong to an external debugger, which this front
   /// end does not model: with halting not allowed HLT is UNDEFINED, and so
   /// are DCPS1, DCPS2 and DCPS3 in Non-debug state (DDI0487F.c F5.1.53 and

@@ -2722,11 +2722,6 @@ let vld4 (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let udf (ins: Instruction) bld =
-  match ins.Operands with
-  | OneOperand(OprImm n) -> sideEffects ins bld (Interrupt(int n))
-  | _ -> raise InvalidOperandException
-
 let vext (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
