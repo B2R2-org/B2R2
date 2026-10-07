@@ -1056,6 +1056,14 @@ let private wideBarrier op defaultOption ins =
   | OneOperand(OprImm imm) -> word (unsignedImm 4 imm)
   | _ -> wrongOperands ins
 
+/// ENTERX and LEAVEX, which move into and out of ThumbEE state: J, bit 4,
+/// tells them apart (DDI0406C A9.3.1).
+let private thumbEEChange isEnter ins =
+  let j = if isEnter then 0x10u else 0u
+  match ins.Operands with
+  | NoOperand -> wideWord 0xf3bfu (0x8f0fu ||| j)
+  | _ -> wrongOperands ins
+
 /// DCPS1, DCPS2 and DCPS3, which name the exception level they change to.
 let private wideDebugState level ins =
   match ins.Operands with
@@ -1456,6 +1464,8 @@ let thumbWideEncoders () =
     Opcode.DCPS1, wideDebugState 0b01u
     Opcode.DCPS2, wideDebugState 0b10u
     Opcode.DCPS3, wideDebugState 0b11u
+    Opcode.ENTERX, thumbEEChange true
+    Opcode.LEAVEX, thumbEEChange false
     Opcode.SXTAH, wideExtend 0b000u
     Opcode.SXTH, wideExtend 0b000u
     Opcode.UXTAH, wideExtend 0b001u

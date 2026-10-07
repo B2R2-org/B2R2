@@ -1614,6 +1614,15 @@ type LifterTests() =
     "de00" ++ undefined |> testThumb
     "f7f0a000" ++ undefined |> testThumb
 
+  /// No processor this front end models has ThumbEE, and without it ENTERX is
+  /// UNDEFINED (DDI0406C B1.8.10), and LEAVEX's encoding is ThumbEE's alone
+  /// (A6.3.4).
+  [<TestMethod>]
+  member _.``[ARMv7] ENTERX and LEAVEX are undefined``() =
+    let undefined = [| AST.sideEffect BinIR.SideEffect.UndefinedInstruction |]
+    "f3bf8f1f" ++ undefined |> testThumb
+    "f3bf8f0f" ++ undefined |> testThumb
+
   /// Halting and Debug state belong to an external debugger, which this front
   /// end does not model: with halting not allowed HLT is UNDEFINED, and so
   /// are DCPS1, DCPS2 and DCPS3 in Non-debug state (DDI0487F.c F5.1.53 and

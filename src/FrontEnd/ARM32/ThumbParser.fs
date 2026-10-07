@@ -7515,8 +7515,17 @@ let parseChgProcStateT32 (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
 let parseMiscSystem phlp (itstate: byref<BL>) isInIT bin =
   let option = pickFour bin 0
   match pickFour bin 4 (* opc *) with
-  | 0b0000u | 0b0001u (* 000x *) ->
-    raise ParsingFailureException
+  (* ThumbEE's two, which no processor this front end models has *)
+  | 0b0000u ->
+#if !EMULATION
+    inITBlock itstate |> checkUnpred
+#endif
+    render phlp &itstate 0 isInIT bin Op.LEAVEX None N OD.OprNo
+  | 0b0001u ->
+#if !EMULATION
+    inITBlock itstate |> checkUnpred
+#endif
+    render phlp &itstate 0 isInIT bin Op.ENTERX None N OD.OprNo
   | 0b0010u ->
     render phlp &itstate 0 isInIT bin Op.CLREX None N OD.OprNo
   | 0b0011u ->

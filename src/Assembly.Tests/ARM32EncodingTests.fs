@@ -352,6 +352,12 @@ type ARM32EncodingTests() =
       "These ask for something no T32 encoding can say."
     )
 
+  /// ENTERX and LEAVEX exist in T32 alone.
+  [<TestMethod>]
+  member _.``Thumb ENTERX and LEAVEX encode``() =
+    Assert.AreEqual<string>("bff31f8f", encodeThumb "enterx")
+    Assert.AreEqual<string>("bff30f8f", encodeThumb "leavex")
+
   /// SSBB and PSSBB are the DSB options the manual names apart.
   [<TestMethod>]
   member _.``SSBB and PSSBB encode``() =

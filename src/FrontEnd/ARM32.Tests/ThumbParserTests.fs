@@ -1390,6 +1390,13 @@ type ThumbParserTests() =
     testDisasm "efb2a7ce" "vext.8 q5, q9, q7, #0x7"
     testRefused "efb2a7cf"
 
+  /// ENTERX and LEAVEX, ThumbEE's two instructions in Thumb state, are the
+  /// miscellaneous system encodings with opc 0001 and 0000 (DDI0406C A9.3.1).
+  [<TestMethod>]
+  member _.``[T32] ENTERX and LEAVEX read``() =
+    testDisasm "f3bf8f1f" "enterx"
+    testDisasm "f3bf8f0f" "leavex"
+
   [<TestMethod>]
   member _.``[T32] SSBB and PSSBB read apart from DSB``() =
     testDisasm "f3bf8f40" "ssbb"

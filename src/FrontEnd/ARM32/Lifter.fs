@@ -147,6 +147,9 @@ let translate (ins: Instruction) bld =
      modelled: HLT and DCPS are UNDEFINED without one *)
   | Op.HLT | Op.DCPS1 | Op.DCPS2 | Op.DCPS3 ->
     undefined ins bld
+  (* no processor modelled here has ThumbEE, without which both are UNDEFINED *)
+  | Op.ENTERX | Op.LEAVEX ->
+    undefined ins bld
   | Op.HVC | Op.SMC ->
     privilegedCall ins bld
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
