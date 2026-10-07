@@ -1664,14 +1664,16 @@ let msub ins bld =
     sized ins.OprSize dst := src3 .- (src1 .* src2)
   }
 
-/// Whether a SYS is IC IVAU, the one instruction-cache maintenance EL0 may
+/// Whether an IC is IC IVAU, the one instruction-cache maintenance EL0 may
 /// run (DDI0487F.c C5.3.31).
 let isICIVAU (ins: Instruction) =
+  let isIVAU enc =
+    match SysOp.tryOfEncoding enc with
+    | Some e -> e.Name = "IVAU"
+    | None -> false
   match ins.Operands with
-  | FiveOperands(OprImm 3L, OprRegister cn, OprRegister cm, OprImm 1L, _) ->
-    cn = R.C7 && cm = R.C5
-  | _ ->
-    false
+  | OneOperand(OprSysOp enc) | TwoOperands(OprSysOp enc, _) -> isIVAU enc
+  | _ -> false
 
 let nop ins bld =
   lift bld ins { }

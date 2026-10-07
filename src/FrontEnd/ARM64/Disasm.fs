@@ -1821,6 +1821,13 @@ let idxToString = function
 let lsbToString = function
   | l -> "#" + string l
 
+/// The name an alias of SYS gives the operation it encodes, which SysOp has
+/// for every encoding the decoder makes one of.
+let sysOpName enc =
+  match SysOp.tryOfEncoding enc with
+  | Some e -> e.Name.ToLowerInvariant()
+  | None -> raise InvalidOperandException
+
 let isRET (ins: Instruction) = ins.Opcode = Opcode.RET
 
 let oprToString i addr opr delim builder =
@@ -1833,6 +1840,9 @@ let oprToString i addr opr delim builder =
   | OprSysReg key ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.Variable, sysRegName key)
+  | OprSysOp enc ->
+    prependDelimiter delim builder
+    builder.Accumulate(AsmWordKind.Variable, sysOpName enc)
   | OprHintOpt opt ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.Variable, hintOptToString opt)
@@ -1908,8 +1918,22 @@ let buildOprs (ins: Instruction) pc builder =
     oprToString ins pc opr4 (Some ", ") builder
     oprToString ins pc opr5 (Some ", ") builder
 
+/// DC, which names its operation before the register: the operation is the
+/// opcode itself (SysOp), and the mnemonic is DC's.
+let private buildDataCache (ins: Instruction) (e: SysOp.Entry) pc bld =
+  (bld: IDisasmBuilder).Accumulate(AsmWordKind.Mnemonic, e.Mnemonic)
+  bld.Accumulate(AsmWordKind.String, " ")
+  bld.Accumulate(AsmWordKind.Variable, e.Name.ToLowerInvariant())
+  match ins.Operands with
+  | OneOperand xt -> oprToString ins pc xt (Some ", ") bld
+  | _ -> raise InvalidOperandException
+
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   let pc = ins.Address
   builder.AccumulateAddrMarker pc
-  buildOpcode ins builder
-  buildOprs ins pc builder
+  match SysOp.tryOfDataCacheOpcode ins.Opcode with
+  | Some e ->
+    buildDataCache ins e pc builder
+  | None ->
+    buildOpcode ins builder
+    buildOprs ins pc builder

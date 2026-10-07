@@ -302,8 +302,52 @@ type ParserTests() =
   /// persistence (DDI0487F.c C5.3.18 and C5.3.17).
   [<TestMethod>]
   member _.``[AArch64] DC CVAP and DC CVADP decode``() =
-    testDisasm "d50b7c21" "dccvap x1"
-    testDisasm "d50b7d22" "dccvadp x2"
+    testDisasm "d50b7c21" "dc cvap, x1"
+    testDisasm "d50b7d22" "dc cvadp, x2"
+
+  /// <summary>
+  /// Every alias of SYS prints as the manual prefers it: DC, AT, IC, TLBI,
+  /// CFP, DVP and CPP with the operation they name (C6.2.75, C6.2.19,
+  /// C6.2.95, C6.2.328, C6.2.51, C6.2.83 and C6.2.65), where all but DC's
+  /// had printed as SYS and DC's as one word, "dczva x1".
+  ///
+  /// IC's and TLBI's register is optional and defaults to 11111: an
+  /// operation that reads none leaves it out there and writes it anywhere
+  /// else, and one that reads it writes it always. FEAT_MTE's DC operations
+  /// were refused. A SYS no alias names stays SYS, whose register is
+  /// optional in the same way (C6.2.324).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] The aliases of SYS print by name``() =
+    testDisasm "d50b7421" "dc zva, x1"
+    testDisasm "d50b7463" "dc gva, x3"
+    testDisasm "d50b7484" "dc gzva, x4"
+    testDisasm "d5087685" "dc igsw, x5"
+    testDisasm "d50b7ea6" "dc cigdvac, x6"
+    testDisasm "d5087802" "at s1e1r, x2"
+    testDisasm "d5087921" "at s1e1wp, x1"
+    testDisasm "d50c78c3" "at s12e0r, x3"
+    testDisasm "d508751f" "ic iallu"
+    testDisasm "d5087505" "ic iallu, x5"
+    testDisasm "d50b7520" "ic ivau, x0"
+    testDisasm "d50b753f" "ic ivau, xzr"
+    testDisasm "d508871f" "tlbi vmalle1"
+    testDisasm "d5088723" "tlbi vae1, x3"
+    testDisasm "d508811f" "tlbi vmalle1os"
+    testDisasm "d5088621" "tlbi rvae1, x1"
+    testDisasm "d50b7384" "cfp rctx, x4"
+    testDisasm "d50b73a4" "dvp rctx, x4"
+    testDisasm "d50b73e4" "cpp rctx, x4"
+    testDisasm "d5080005" "sys #0x0, c0, c0, #0x0, x5"
+    testDisasm "d508701f" "sys #0x0, c7, c0, #0x0"
+
+  /// An operation a version does not have is refused under it, as the
+  /// processor refuses it: FEAT_TLBIOS's TLBI forms are Armv8.4's and
+  /// FEAT_MTE's DC forms are had by naming the extension.
+  [<TestMethod>]
+  member _.``[AArch64] The aliases of SYS follow their versions``() =
+    readsOnlyUnder "d508811f" [ "armv8.4-a" ] [ "armv8.3-a" ]
+    readsOnlyUnder "d50b7463" [ "armv8.5-a+memtag" ] [ "armv8.5-a" ]
 
   [<TestMethod>]
   member _.``C4.3.4 System (6)``() =

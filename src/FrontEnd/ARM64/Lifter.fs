@@ -557,14 +557,19 @@ let translate (ins: Instruction) bld =
     csinc ins bld
   | Opcode.CTZ ->
     ctz ins bld
-  | Opcode.DCZVA ->
+  (* DC GZVA zeroes the block DC ZVA does, and its allocation tags, which
+     no tag memory here holds *)
+  | Opcode.DCZVA | Opcode.DCGZVA ->
     dczva ins bld
   (* the cleaning EL0 may do, and IC IVAU: no cache stands between the
-     processor and memory here, so none of them has an effect to show *)
+     processor and memory here, so none of them has an effect to show; nor
+     have FEAT_MTE's forms, nor DC GVA, which writes tags alone *)
   | Opcode.DCCVAU | Opcode.DCCVAC | Opcode.DCCIVAC | Opcode.DCCVAP
-  | Opcode.DCCVADP ->
+  | Opcode.DCCVADP | Opcode.DCGVA | Opcode.DCCGVAC | Opcode.DCCGDVAC
+  | Opcode.DCCGVAP | Opcode.DCCGDVAP | Opcode.DCCGVADP | Opcode.DCCGDVADP
+  | Opcode.DCCIGVAC | Opcode.DCCIGDVAC ->
     nop ins bld
-  | Opcode.SYS when isICIVAU ins ->
+  | Opcode.IC when isICIVAU ins ->
     nop ins bld
   | Opcode.DMB | Opcode.DSB | Opcode.ISB | Opcode.SB | Opcode.SSBB
   | Opcode.PSSBB ->

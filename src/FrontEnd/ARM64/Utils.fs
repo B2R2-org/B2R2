@@ -29,13 +29,6 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
 open B2R2.FrontEnd.ARM64
 
-type SystemOp =
-  | SysAT
-  | SysDC
-  | SysIC
-  | SysTLBI
-  | SysSYS
-
 (* The shared extractor, aliased so that the call sites across this
    architecture read as they did. This file used to carry its own copy,
    differing only in rejecting a bad offset range with a bare exception
@@ -139,70 +132,6 @@ let decodeBitMasks immN imms immr isImm oprSize =
   let s = imms &&& levels
   let r = immr &&& levels
   replicate (rorZeroExtendOnes (int s + 1) eSize (int r)) eSize oprSize
-
-/// aarch64/instrs/system/sysops/sysop/SysOp
-/// SysOp()
-/// =======
-let sysOp bin =
-  match extract bin 18u 5u with
-  | 0b00001111000000u -> SysAT // S1E1R
-  | 0b10001111000000u -> SysAT // S1E2R
-  | 0b11001111000000u -> SysAT // S1E3R
-  | 0b00001111000001u -> SysAT // S1E1W
-  | 0b10001111000001u -> SysAT // S1E2W
-  | 0b11001111000001u -> SysAT // S1E3W
-  | 0b00001111000010u -> SysAT // S1E0R
-  | 0b00001111000011u -> SysAT // S1E0W
-  | 0b10001111000100u -> SysAT // S12E1R
-  | 0b10001111000101u -> SysAT // S12E1W
-  | 0b10001111000110u -> SysAT // S12E0R
-  | 0b10001111000111u -> SysAT // S12E0W
-  | 0b01101110100001u -> SysDC // ZVA
-  | 0b00001110110001u -> SysDC // IVAC
-  | 0b00001110110010u -> SysDC // ISW
-  | 0b01101111010001u -> SysDC // CVAC
-  | 0b00001111010010u -> SysDC // CSW
-  | 0b01101111011001u -> SysDC // CVAU
-  | 0b01101111100001u -> SysDC // CVAP
-  | 0b01101111101001u -> SysDC // CVADP
-  | 0b01101111110001u -> SysDC // CIVAC
-  | 0b00001111110010u -> SysDC // CISW
-  | 0b00001110001000u -> SysIC // IALLUIS
-  | 0b00001110101000u -> SysIC // IALLU
-  | 0b01101110101001u -> SysIC // IVAU
-  | 0b10010000000001u -> SysTLBI // IPAS2E1IS
-  | 0b10010000000101u -> SysTLBI // IPAS2LE1IS
-  | 0b00010000011000u -> SysTLBI // VMALLE1IS
-  | 0b10010000011000u -> SysTLBI // ALLE2IS
-  | 0b11010000011000u -> SysTLBI // ALLE3IS
-  | 0b00010000011001u -> SysTLBI // VAE1IS
-  | 0b10010000011001u -> SysTLBI // VAE2IS
-  | 0b11010000011001u -> SysTLBI // VAE3IS
-  | 0b00010000011010u -> SysTLBI // ASIDE1IS
-  | 0b00010000011011u -> SysTLBI // VAAE1IS
-  | 0b10010000011100u -> SysTLBI // ALLE1IS
-  | 0b00010000011101u -> SysTLBI // VALE1IS
-  | 0b10010000011101u -> SysTLBI // VALE2IS
-  | 0b11010000011101u -> SysTLBI // VALE3IS
-  | 0b10010000011110u -> SysTLBI // VMALLS12E1IS
-  | 0b00010000011111u -> SysTLBI // VAALE1IS
-  | 0b10010000100001u -> SysTLBI // IPAS2E1
-  | 0b10010000100101u -> SysTLBI // IPAS2LE1
-  | 0b00010000111000u -> SysTLBI // VMALLE1
-  | 0b10010000111000u -> SysTLBI // ALLE2
-  | 0b11010000111000u -> SysTLBI // ALLE3
-  | 0b00010000111001u -> SysTLBI // VAE1
-  | 0b10010000111001u -> SysTLBI // VAE2
-  | 0b11010000111001u -> SysTLBI // VAE3
-  | 0b00010000111010u -> SysTLBI // ASIDE1
-  | 0b00010000111011u -> SysTLBI // VAAE1
-  | 0b10010000111100u -> SysTLBI // ALLE1
-  | 0b00010000111101u -> SysTLBI // VALE1
-  | 0b10010000111101u -> SysTLBI // VALE2
-  | 0b11010000111101u -> SysTLBI // VALE3
-  | 0b10010000111110u -> SysTLBI // VMALLS12E1
-  | 0b00010000111111u -> SysTLBI // VAALE1
-  | _ -> SysSYS
 
 /// DecodeImmShift()
 let decodeImmShift typ imm5 =

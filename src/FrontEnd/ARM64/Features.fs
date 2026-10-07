@@ -231,6 +231,18 @@ let private systemRequirement operands =
   | TwoOperands(o1, o2) -> Both(fieldRequirement o1, fieldRequirement o2)
   | _ -> Base
 
+/// What an alias of SYS needs: the version that brought the operation it
+/// names (SysOp), FEAT_PAN2's AT forms Armv8.2's, FEAT_TLBIOS's and
+/// FEAT_TLBIRANGE's TLBI forms Armv8.4's, and FEAT_SPECRES's Armv8.5's.
+let private sysOpRequirement operands =
+  match operands with
+  | OneOperand(OprSysOp enc) | TwoOperands(OprSysOp enc, _) ->
+    match SysOp.tryOfEncoding enc with
+    | Some e when e.Since > ARMArchVersion.V8 -> Since e.Since
+    | _ -> Base
+  | _ ->
+    Base
+
 /// <summary>
 /// What an instruction needs: the feature its opcode belongs to, and
 /// FEAT_FP16 as well where it is a floating-point one working on halves --
@@ -282,6 +294,19 @@ let private requirementOf opcode operands =
   | Opcode.STZ2G | Opcode.STGP | Opcode.LDG | Opcode.LDGM | Opcode.STGM
   | Opcode.STZGM ->
     Needs AArch64Extension.MemTag
+  | Opcode.DCIGVAC | Opcode.DCIGSW | Opcode.DCIGDVAC | Opcode.DCIGDSW
+  | Opcode.DCCGSW | Opcode.DCCGDSW | Opcode.DCCIGSW | Opcode.DCCIGDSW
+  | Opcode.DCGVA | Opcode.DCGZVA | Opcode.DCCGVAC | Opcode.DCCGDVAC
+  | Opcode.DCCGVAP | Opcode.DCCGDVAP | Opcode.DCCGVADP | Opcode.DCCGDVADP
+  | Opcode.DCCIGVAC | Opcode.DCCIGDVAC ->
+    Needs AArch64Extension.MemTag
+  | Opcode.DCCVAP ->
+    Since ARMArchVersion.V8_2
+  | Opcode.DCCVADP ->
+    Since ARMArchVersion.V8_5
+  | Opcode.AT | Opcode.IC | Opcode.TLBI | Opcode.CFP | Opcode.DVP
+  | Opcode.CPP ->
+    sysOpRequirement operands
   | Opcode.MSR | Opcode.MRS ->
     systemRequirement operands
   | Opcode.CTZ ->

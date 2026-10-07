@@ -815,15 +815,23 @@ let private systemInstruction l ins =
   | _ ->
     wrongOperands ins
 
-/// The cache maintenance instructions, which the manual defines as a system
-/// instruction whose numbers say which of them it is.
-let private cacheInstruction op1 cn cm op2 ins =
+/// A SYS whose op1:CRn:CRm:op2 is the given encoding (SysOp).
+let private sysOpWord enc rt =
+  systemHead 0u ||| (0b01u <<< 19) ||| (enc <<< 5) ||| rt
+
+/// DC, whose operation is its opcode: the numbers come from SysOp.
+let private dataCache enc ins =
   match ins.Operands with
-  | OneOperand(Rg rt) ->
-    systemHead 0u ||| (0b01u <<< 19) ||| (op1 <<< 16) ||| (cn <<< 12)
-    ||| (cm <<< 8) ||| (op2 <<< 5) ||| coreReg rt
-  | _ ->
-    wrongOperands ins
+  | OneOperand(Rg rt) -> sysOpWord enc (coreReg rt)
+  | _ -> wrongOperands ins
+
+/// AT, IC, TLBI, CFP, DVP and CPP, whose operation is an operand carrying
+/// its encoding; the register is 11111 where it is left out.
+let private systemAlias ins =
+  match ins.Operands with
+  | OneOperand(OprSysOp enc) -> sysOpWord enc 31u
+  | TwoOperands(OprSysOp enc, Rg rt) -> sysOpWord enc (coreReg rt)
+  | _ -> wrongOperands ins
 
 /// <summary>
 /// The sixteen bits that name a system register, which the encoding keeps in
@@ -2011,19 +2019,21 @@ let systemEncoders () =
     Opcode.SYSL, systemInstruction 1u
     Opcode.MSR, moveToSystem
     Opcode.MRS, moveFromSystem
-    Opcode.DCZVA, cacheInstruction 0b011u 0b0111u 0b0100u 0b001u
-    Opcode.DCIVAC, cacheInstruction 0b000u 0b0111u 0b0110u 0b001u
-    Opcode.DCISW, cacheInstruction 0b000u 0b0111u 0b0110u 0b010u
-    Opcode.DCCVAC, cacheInstruction 0b011u 0b0111u 0b1010u 0b001u
-    Opcode.DCCSW, cacheInstruction 0b000u 0b0111u 0b1010u 0b010u
-    Opcode.DCCVAU, cacheInstruction 0b011u 0b0111u 0b1011u 0b001u
-    Opcode.DCCVAP, cacheInstruction 0b011u 0b0111u 0b1100u 0b001u
-    Opcode.DCCVADP, cacheInstruction 0b011u 0b0111u 0b1101u 0b001u
-    Opcode.DCCIVAC, cacheInstruction 0b011u 0b0111u 0b1110u 0b001u
-    Opcode.DCCISW, cacheInstruction 0b000u 0b0111u 0b1110u 0b010u
     Opcode.CFINV, flagManipulation 0b000u
     Opcode.XAFLAG, flagManipulation 0b001u
     Opcode.AXFLAG, flagManipulation 0b010u ]
+
+/// The aliases of SYS: AT, IC, TLBI, CFP, DVP and CPP, whose operation is an
+/// operand, and DC, each of whose operations is an opcode (SysOp).
+let systemAliasEncoders () =
+  [ Opcode.AT, systemAlias
+    Opcode.IC, systemAlias
+    Opcode.TLBI, systemAlias
+    Opcode.CFP, systemAlias
+    Opcode.DVP, systemAlias
+    Opcode.CPP, systemAlias ]
+  @ [ for e in SysOp.all do
+        if e.Mnemonic = "dc" then yield e.Opcode, dataCache e.Encoding else () ]
 
 let loadStoreEncoders () =
   [ Opcode.LDR, loadStore (ByRegister true)

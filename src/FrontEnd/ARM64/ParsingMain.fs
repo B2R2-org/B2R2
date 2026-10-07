@@ -1157,26 +1157,30 @@ let getISBOprs = function
   | 0b1111L -> OneOperand(OprOption SY)
   | imm -> OneOperand(OprImm imm)
 
-let private getDCInstruction bin =
-  match extract bin 18u 5u with
-  | 0b01101110100001u -> Op.DCZVA
-  | 0b00001110110001u -> Op.DCIVAC
-  | 0b00001110110010u -> Op.DCISW
-  | 0b01101111010001u -> Op.DCCVAC
-  | 0b00001111010010u -> Op.DCCSW
-  | 0b01101111011001u -> Op.DCCVAU
-  | 0b01101111100001u -> Op.DCCVAP
-  | 0b01101111101001u -> Op.DCCVADP
-  | 0b01101111110001u -> Op.DCCIVAC
-  | 0b00001111110010u -> Op.DCCISW
-  (* C5.3 A64 system instructions for cache maintenance *)
-  | _ -> raise ParsingFailureException
-
+/// <summary>
+/// The alias a SYS is written as where SysOp names its operation: DC by the
+/// opcode of the operation, and AT, IC, TLBI, CFP, DVP and CPP with the
+/// operation as an operand. One that reads no register leaves it out where
+/// its field holds 11111, the value the syntax defaults it to (C6.2.95,
+/// C6.2.328), and writes it anywhere else. A SYS SysOp does not name stays
+/// SYS, which leaves the register out the same way (C6.2.324).
+/// </summary>
 let changeToAliasOfSystem bin instr =
   match instr with
-  | Op.SYS, FiveOperands(_, OprRegister cn, _, _, xt), oSz
-      when cn = R.C7 && sysOp bin = SysDC ->
-    getDCInstruction bin, OneOperand xt, oSz
+  | Op.SYS, FiveOperands(op1, cn, cm, op2, xt), oSz ->
+    let enc = extract bin 18u 5u
+    let isDefault = extract bin 4u 0u = 0b11111u
+    match SysOp.tryOfEncoding enc with
+    | Some e when e.Mnemonic = "dc" ->
+      e.Opcode, OneOperand xt, oSz
+    | Some e when e.TakesRegister || not isDefault ->
+      e.Opcode, TwoOperands(OprSysOp enc, xt), oSz
+    | Some e ->
+      e.Opcode, OneOperand(OprSysOp enc), oSz
+    | None when isDefault ->
+      Op.SYS, FourOperands(op1, cn, cm, op2), oSz
+    | None ->
+      instr
   | _ ->
     instr
 

@@ -137,6 +137,20 @@ type LifterTests() =
   member _.``[AArch64] BFC with a non-zero lsb lifts``() =
     Assert.AreEqual<bool>(true, (lifted "b3781fe0").Length > 0, "BFC")
 
+  /// DC GZVA clears the block DC ZVA does and the allocation tags no memory
+  /// here holds, and DC GVA writes only those tags: it lifts to nothing, as
+  /// IC IVAU does, there being no cache to maintain.
+  [<TestMethod>]
+  member _.``[AArch64] DC GZVA clears what DC ZVA does``() =
+    let body hex =
+      lifted hex
+      |> Array.filter (function
+        | ISMark _ | IEMark _ -> false
+        | _ -> true)
+    CollectionAssert.AreEqual(body "d50b7421", body "d50b7481")
+    Assert.AreEqual<int>(0, (body "d50b7461").Length)
+    Assert.AreEqual<int>(0, (body "d50b7520").Length)
+
   /// BFC clears the field it names and keeps the rest (C6.2.27): BFC X0, #8,
   /// #8 on all ones leaves bits 15:8 clear.
   [<TestMethod>]
