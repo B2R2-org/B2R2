@@ -1337,6 +1337,42 @@ let rrxs isSetFlags (ins: Instruction) bld =
   | TwoOperands(OprReg R.PC, _) -> subsAndRelatedInstr ins bld
   | _ -> shiftInstr isSetFlags ins ShiftOp.RRX bld
 
+/// <summary>
+/// One step of a bit-reflected CRC: shift the remainder down a bit and, when
+/// the bit that fell out was set, subtract the polynomial. Subtraction over
+/// GF(2) is exclusive or, so no borrow runs between steps, and the polynomial
+/// is given reflected too, which is what lets the division run from the
+/// bottom of the word.
+/// </summary>
+let private crcStep bld poly crc =
+  let one = AST.num1 32<rt>
+  let shifted = crc >> one
+  let next = AST.ite ((crc .& one) == one) (shifted <+> poly) shifted
+  append bld { crc := next }
+
+/// <summary>
+/// CRC32 and CRC32C over a byte, a halfword or a word (DDI0487F.c F5.1.39 and
+/// F5.1.40). The manual reverses the accumulator and the data, divides from
+/// the top and reverses the answer. Reversing the polynomial instead says the
+/// same and leaves the rest the right way up, which is why the constants
+/// below are the reflections of 0x04C11DB7 and 0x1EDC6F41.
+/// </summary>
+let crc32 (ins: Instruction) bld isCastagnoli (size: int<rt>) =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (rd, rn, rm) = transThreeOprs ins bld
+    let poly =
+      if isCastagnoli then numU32 0x82F63B78u 32<rt>
+      else numU32 0xEDB88320u 32<rt>
+    let crc = tmpVar bld 32<rt>
+    crc := rn <+> AST.zext 32<rt> (AST.xtlo size rm)
+    for _ in 1 .. int size do
+      crcStep bld poly crc
+    rd := crc
+    putEndLabel bld lblIgnore
+  }
+
 let clz ins bld =
   lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld

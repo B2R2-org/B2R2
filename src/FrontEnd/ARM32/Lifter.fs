@@ -98,6 +98,18 @@ let translate (ins: Instruction) bld =
     cmp ins bld
   | Op.CPS | Op.CPSID | Op.CPSIE ->
     cps ins bld
+  | Op.CRC32B ->
+    crc32 ins bld false 8<rt>
+  | Op.CRC32H ->
+    crc32 ins bld false 16<rt>
+  | Op.CRC32W ->
+    crc32 ins bld false 32<rt>
+  | Op.CRC32CB ->
+    crc32 ins bld true 8<rt>
+  | Op.CRC32CH ->
+    crc32 ins bld true 16<rt>
+  | Op.CRC32CW ->
+    crc32 ins bld true 32<rt>
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD | Op.PLI | Op.PLDW ->
     nop ins bld
   | Op.EOR ->

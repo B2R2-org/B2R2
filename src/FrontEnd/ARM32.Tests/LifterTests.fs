@@ -241,6 +241,12 @@ type LifterTests() =
       | Store(Addr = addr; Value = value) -> Some(addr, value)
       | _ -> None)
 
+  /// What an encoding leaves in R0, run with R1 and R2 given.
+  let r0After isThumb hex (r1: uint32) (r2: uint32) =
+    let inputs = [ !.R1, BitVector(r1, 32<rt>); !.R2, BitVector(r2, 32<rt>) ]
+    let read = IRRunner.run (liftedBy isThumb hex) inputs
+    uint32 ((read !.R0).ToUInt64())
+
   /// What an address expression comes to with R1 = 0x1000.
   let atR1 (addr: Expr) =
     let r1 = !.R1, BitVector(0x1000u, 32<rt>)
@@ -2161,6 +2167,36 @@ type LifterTests() =
     CollectionAssert.AreEqual([| "store", 16<rt>, 0x1000UL |], one "e1e1fc90")
     let thumb = accessesBy true "e8c10f9f"
     CollectionAssert.AreEqual([| "store", 16<rt>, 0x1000UL |], thumb)
+
+  /// <summary>
+  /// CRC32 and CRC32C fold Rm's byte, halfword or word into the remainder in
+  /// Rn, inverting neither before nor after (DDI0487F.c F5.1.39 and
+  /// F5.1.40): from 0xffffffff over "a" and over "abcd" they give the
+  /// complement of zlib's crc32, and over "a" for CRC32C the complement of
+  /// that string's CRC-32C, 0xc1d04330.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] CRC32 folds a byte, a halfword and a word``() =
+    let crc = r0After false
+    let ones, abcd = 0xffffffffu, 0x64636261u
+    Assert.AreEqual<uint32>(0x174841bcu, crc "e1010042" ones 0x61u)
+    Assert.AreEqual<uint32>(0x90d164a3u, crc "e1210042" 0x12345678u 0xbeefu)
+    Assert.AreEqual<uint32>(0x127d32eeu, crc "e1410042" ones abcd)
+
+  [<TestMethod>]
+  member _.``[ARMv7] CRC32C folds by the Castagnoli polynomial``() =
+    let crc = r0After false
+    let ones, abcd = 0xffffffffu, 0x64636261u
+    Assert.AreEqual<uint32>(0x3e2fbccfu, crc "e1010242" ones 0x61u)
+    Assert.AreEqual<uint32>(0xd78220dcu, crc "e1210242" 0x12345678u 0xbeefu)
+    Assert.AreEqual<uint32>(0x6d37f5ceu, crc "e1410242" ones abcd)
+
+  [<TestMethod>]
+  member _.``[ARMv7] CRC32 reads the same in T32``() =
+    let crc = r0After true
+    let ones, abcd = 0xffffffffu, 0x64636261u
+    Assert.AreEqual<uint32>(0x127d32eeu, crc "fac1f0a2" ones abcd)
+    Assert.AreEqual<uint32>(0x3e2fbccfu, crc "fad1f082" ones 0x61u)
 
   [<TestMethod>]
   member _.``[ARMv7] LDA writes the loaded word to Rt``() =
