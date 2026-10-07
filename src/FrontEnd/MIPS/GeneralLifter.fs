@@ -36,15 +36,15 @@ open B2R2.FrontEnd.MIPS.LiftingUtils
 let abs ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
-    let is32Bit = is32Bit bld
+    let paired = hasPairedFPRs bld
     match ins.Fmt with
-    | Some Fmt.D when is32Bit ->
+    | Some Fmt.D when paired ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x7FFFFFFFFFFFFFFFUL 64<rt>
       let res = (AST.concat fsB fsA) .& mask
       writeFPResult fdB fdA res bld
-    | Some Fmt.PS when is32Bit ->
+    | Some Fmt.PS when paired ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x7FFFFFFFUL 32<rt>
@@ -63,7 +63,7 @@ let abs ins bld =
     | _ ->
       let fd, fs = transOpr ins bld fd, transOpr ins bld fs
       let mask =
-        if is32Bit then numU64 0x7FFFFFFFUL 32<rt>
+        if paired then numU64 0x7FFFFFFFUL 32<rt>
         else numU64 0x7FFFFFFFFFFFFFFFUL 64<rt>
       fd := fs .& mask
   }
@@ -897,7 +897,7 @@ let cvts ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
     let fd = transOprToFPConvert ins bld fd
-    let dst = if is32Bit bld then fd else AST.xtlo 32<rt> fd
+    let dst = if hasPairedFPRs bld then fd else AST.xtlo 32<rt> fd
     let result = tmpVar bld 32<rt>
     let struct (src, srcSz, fromInt) =
       match ins.Fmt with
@@ -2533,7 +2533,7 @@ let sldc1 ins bld stORld unaligned =
       loadNative bld 64<rt> bOff
     memory := loadMem
     if stORld then
-      loadMem := if is32Bit bld then AST.concat ftB ftA else ftA
+      loadMem := if hasPairedFPRs bld then AST.concat ftB ftA else ftA
     else
       writeFPResult ftB ftA memory bld
   }
@@ -2606,7 +2606,7 @@ let alnvps ins bld =
       else
         AST.concat (pairHalf false ft) (pairHalf true fs)
     let offset = rs .& numI32 0b111 bld.RegType
-    let kept = if is32Bit bld then AST.concat fdB fdA else fdA
+    let kept = if hasPairedFPRs bld then AST.concat fdB fdA else fdA
     let defined = AST.ite (offset == numI32 0b100 bld.RegType) spliced kept
     let result = AST.ite (offset == AST.num0 bld.RegType) fs defined
     writeFPResult fdB fdA result bld
@@ -2617,7 +2617,7 @@ let slwc1 ins bld stORld =
     let ft, mem = getTwoOprs ins
     let ft = transOprToSingleFP bld ft
     let mem = transOpr ins bld mem
-    let ft = if is32Bit bld then ft else AST.xtlo 32<rt> ft
+    let ft = if hasPairedFPRs bld then ft else AST.xtlo 32<rt> ft
     if stORld then append bld { mem := ft } else append bld { ft := mem }
   }
 
@@ -2932,7 +2932,7 @@ let movt ins bld =
     | Some Fmt.S ->
       let dst, src = transTwoSingleFP bld (dst, src)
       dst := AST.ite cond src dst
-    | Some Fmt.D when is32Bit bld ->
+    | Some Fmt.D when hasPairedFPRs bld ->
       let dstB, dstA = transOprToFPPairHolding bld dst
       let srcB, srcA = transOprToFPPairHolding bld src
       dstB := AST.ite cond srcB dstB
@@ -2953,7 +2953,7 @@ let movf ins bld =
     | Some Fmt.S ->
       let dst, src = transTwoSingleFP bld (dst, src)
       dst := AST.ite cond src dst
-    | Some Fmt.D when is32Bit bld ->
+    | Some Fmt.D when hasPairedFPRs bld ->
       let dstB, dstA = transOprToFPPairHolding bld dst
       let srcB, srcA = transOprToFPPairHolding bld src
       dstB := AST.ite cond srcB dstB
@@ -2974,7 +2974,7 @@ let movzOrn ins bld opFn =
     | Some Fmt.S ->
       let dst, src = transTwoSingleFP bld (dst, src)
       dst := AST.ite cond src dst
-    | Some Fmt.D when is32Bit bld ->
+    | Some Fmt.D when hasPairedFPRs bld ->
       let dstB, dstA = transOprToFPPairHolding bld dst
       let src = transOprToFPPairHoldingConcat bld src
       dstB := AST.ite cond (AST.xthi 32<rt> src) dstB
@@ -3090,15 +3090,15 @@ let multu ins bld =
 let neg ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
-    let is32Bit = is32Bit bld
+    let paired = hasPairedFPRs bld
     match ins.Fmt with
-    | Some Fmt.D when is32Bit ->
+    | Some Fmt.D when paired ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x8000000000000000UL 64<rt>
       let res = (AST.concat fsB fsA) <+> mask
       writeFPResult fdB fdA res bld
-    | Some Fmt.PS when is32Bit ->
+    | Some Fmt.PS when paired ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x80000000UL 32<rt>
@@ -3117,8 +3117,8 @@ let neg ins bld =
     | _ ->
       let fd, fs = transOpr ins bld fd, transOpr ins bld fs
       let mask =
-        if bld.RegType = 32<rt> then numU64 0x80000000UL bld.RegType
-        else numU64 0x8000000000000000UL bld.RegType
+        if paired then numU64 0x80000000UL 32<rt>
+        else numU64 0x8000000000000000UL 64<rt>
       fd := fs <+> mask
   }
 

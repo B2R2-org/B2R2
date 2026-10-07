@@ -59,9 +59,18 @@ let transOpr (ins: Instruction) bld = function
 
 let inline is32Bit (bld: ILowUIRBuilder) = bld.RegType = 32<rt>
 
+/// <summary>
+/// Whether the FPU keeps a double in a PAIR of thirty-two bit registers,
+/// which is Status.FR = 0 and this front end's model of a thirty-two bit FPU
+/// before Release 6. Release 6 removed the mode, so its FPU is the 64-bit
+/// one (FR = 1) whatever the width of the general registers.
+/// </summary>
+let inline hasPairedFPRs (bld: ILowUIRBuilder) =
+  bld.RegType = 32<rt> && bld.ISA.MIPSRelease <> MIPSRelease.R6
+
 let transOprToFPConvert (ins: Instruction) bld = function
   | OpReg reg ->
-    if is32Bit bld then
+    if hasPairedFPRs bld then
       regVar bld reg
     else
       match ins.Fmt with
@@ -73,7 +82,8 @@ let transOprToFPConvert (ins: Instruction) bld = function
 
 let transOprToSingleFP bld = function
   | OpReg reg ->
-    if is32Bit bld then regVar bld reg else regVar bld reg |> AST.xtlo 32<rt>
+    if hasPairedFPRs bld then regVar bld reg
+    else regVar bld reg |> AST.xtlo 32<rt>
   | _ ->
     raise InvalidOperandException
 
@@ -117,7 +127,7 @@ let private upperOfPair reg =
 
 let transOprToFPPair bld = function
   | OpReg reg ->
-    if is32Bit bld then
+    if hasPairedFPRs bld then
       regVar bld (upperOfPair reg), regVar bld reg
     else
       (* On a 64-bit FPU the high half is a FIELD of the one register, not a
@@ -133,7 +143,7 @@ let transOprToFPPair bld = function
 
 let transOprToFPPairConcat bld = function
   | OpReg reg ->
-    if is32Bit bld then
+    if hasPairedFPRs bld then
       AST.concat (regVar bld (upperOfPair reg)) (regVar bld reg)
     else
       regVar bld reg
@@ -148,7 +158,7 @@ let transOprToFPPairConcat bld = function
 /// it is the upper half of, and so does this.
 /// </summary>
 let transOprToFPPairHolding bld = function
-  | OpReg reg when is32Bit bld ->
+  | OpReg reg when hasPairedFPRs bld ->
     let lower: Register = LanguagePrimitives.EnumOfValue(int reg &&& ~~~1)
     regVar bld (RegisterHelper.getFPPairReg lower), regVar bld lower
   | opr ->
@@ -156,7 +166,7 @@ let transOprToFPPairHolding bld = function
 
 /// The same pair as one value, upper half first.
 let transOprToFPPairHoldingConcat bld opr =
-  if is32Bit bld then
+  if hasPairedFPRs bld then
     let upper, lower = transOprToFPPairHolding bld opr
     AST.concat upper lower
   else
@@ -171,7 +181,7 @@ let transOprToFPPairHoldingConcat bld opr =
 /// the high half then reads, and the answer would come back with its low
 /// thirty-two bits right and its top ones computed from a value nobody wrote.
 let writeFPResult dstB dstA result bld =
-  if is32Bit bld then
+  if hasPairedFPRs bld then
     let value = tmpVar bld 64<rt>
     append bld {
       value := result

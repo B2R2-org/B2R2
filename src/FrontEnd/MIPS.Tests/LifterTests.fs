@@ -724,6 +724,28 @@ type LifterTests() =
     Assert.AreEqual<uint64>(0x33333333UL, (wrote f1).ToUInt64())
 
   /// <summary>
+  /// A thirty-two bit Release 6 FPU holds a double in each register.
+  ///
+  /// Release 6 removed Status.FR = 0, so its FPRs are sixty-four bits wide
+  /// whatever the general registers are, and MFHC1 reads the upper half of
+  /// the register it names -- where the older thirty-two bit FPU reads the
+  /// register above it. This front end gave the thirty-two bit Release 6 FPU
+  /// the paired registers, so $f1 held no double of its own.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] Release 6 holds a double in each register``() =
+    let isa =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, int MIPSRelease.R6)
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let f1 = var F1
+    Assert.AreEqual<RegType>(64<rt>, Expr.typeOf f1)
+    let inputs = [ f1, BitVector(0x1122334455667788UL, 64<rt>) ]
+    (* MFHC1 v0, f1 *)
+    let read = IRRunner.run (lifted isa "44620800") inputs
+    Assert.AreEqual<uint64>(0x11223344UL, (read (var R2)).ToUInt64())
+
+  /// <summary>
   /// CP0 is refused outside Kernel Mode unless Status.CU0 lets it through.
   ///
   /// MD00087 1.2 says where the privileged state may be reached: "in Kernel
