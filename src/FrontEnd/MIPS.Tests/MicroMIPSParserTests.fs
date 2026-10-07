@@ -684,6 +684,18 @@ type MicroMIPSParserTests() =
       Assert.ThrowsExactly<ParsingFailureException>((fun () ->
         parseR6 hex |> ignore), hex) |> ignore
 
+  /// An INS whose field ends before it begins is refused as it is in the
+  /// older encoding (MD00087 INS: UNPREDICTABLE, which the reference takes as
+  /// a Reserved Instruction). The decoder read its size as a negative number
+  /// widened to sixty-four bits, which the check on where the field ends
+  /// wrapped back under thirty-two, and the lifter then failed on it.
+  [<TestMethod>]
+  member _.``[microMIPS] An INS that ends before it begins is refused``() =
+    (* INS zero, zero, with lsb 2 and msb 0 *)
+    let bytes = ByteArray.ofHexString "00008c00"
+    Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+      parser.Parse(System.ReadOnlySpan bytes, 0UL) |> ignore) |> ignore
+
   /// LDP, LDM, SDP and SDM move doublewords, and microMIPS64 alone has them
   /// (microMIPS64 Release 5, POOL32B): a 32-bit decoder refuses them, as it
   /// refuses LD.

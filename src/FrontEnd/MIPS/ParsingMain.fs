@@ -1662,12 +1662,14 @@ let isMIPS64Only = function
 /// before it begins, which MD00087 leaves UNPREDICTABLE for EXT, DEXTM,
 /// DEXTU, INS, DINS and DINSU and which the reference takes as a Reserved
 /// Instruction. A field that ends before it begins comes out of the operand
-/// helpers as a size of zero or one that wrapped round.
+/// helpers as a size of zero or one that wrapped round -- wrapped far enough,
+/// where a helper widens a negative size, that adding the position wraps it
+/// back, which is why the size is held to the register on its own as well.
 /// </summary>
 let isBadBitfield opcode oprs =
   match opcode, oprs with
   | (Op.EXT | Op.INS), FourOperands(_, _, OpImm pos, OpImm size) ->
-    size = 0UL || pos + size > 32UL
+    size = 0UL || size > 32UL || pos + size > 32UL
   | (Op.DEXT | Op.DEXTM | Op.DEXTU | Op.DINS | Op.DINSM | Op.DINSU),
     FourOperands(_, _, OpImm pos, OpImm size) ->
     size = 0UL || size > 64UL || pos + size > 64UL
