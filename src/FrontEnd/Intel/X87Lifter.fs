@@ -1792,17 +1792,26 @@ let private m14fstenv dstAddr addrSize bld =
     storeLE (dstAddr .+ numI32 12 addrSize) (regVar bld R.FDS)
   }
 
+/// Stores the environment in the 28-byte layout of protected and 64-bit mode
+/// (Intel SDM Vol. 1, Figure 8-9): each pointer takes 32 bits and each selector
+/// a word, the opcode sits in the 11 bits above the code selector, and the
+/// halves the layout reserves get ones, which is what the FPU writes there.
 let private m28fstenv dstAddr addrSize bld =
   append bld {
-    let n0 = numI32 0 16<rt>
-    storeLE (dstAddr) (regVar bld R.FCW)
-    storeLE (dstAddr .+ numI32 2 addrSize) n0
-    storeLE (dstAddr .+ numI32 4 addrSize) (regVar bld R.FSW)
-    storeLE (dstAddr .+ numI32 6 addrSize) n0
-    storeLE (dstAddr .+ numI32 8 addrSize) (fineTags bld)
-    storeLE (dstAddr .+ numI32 10 addrSize) n0
-    storeLE (dstAddr .+ numI32 12 addrSize) (regVar bld R.FIP)
-    storeLE (dstAddr .+ numI32 20 addrSize) (regVar bld R.FDP)
+    let ones = numI32 0xFFFF 16<rt>
+    let at off = dstAddr .+ numI32 off addrSize
+    storeLE (at 0) (regVar bld R.FCW)
+    storeLE (at 2) ones
+    storeLE (at 4) (regVar bld R.FSW)
+    storeLE (at 6) ones
+    storeLE (at 8) (fineTags bld)
+    storeLE (at 10) ones
+    storeLE (at 12) (AST.xtlo 32<rt> (regVar bld R.FIP))
+    storeLE (at 16) (regVar bld R.FCS)
+    storeLE (at 18) (regVar bld R.FOP .& numI32 0x7FF 16<rt>)
+    storeLE (at 20) (AST.xtlo 32<rt> (regVar bld R.FDP))
+    storeLE (at 24) (regVar bld R.FDS)
+    storeLE (at 26) ones
   }
 
 let fnstenv (ins: Instruction) bld =
@@ -1851,17 +1860,20 @@ let private m14fldenv srcAddr addrSize bld =
     syncSummaryBits bld
   }
 
+/// Reads back the 28-byte layout m28fstenv stores, each pointer zero-extended
+/// from the 32 bits the layout has room for.
 let private m28fldenv srcAddr addrSize bld =
   append bld {
-    direct (regVar bld R.FCW) := AST.loadLE 16<rt> (srcAddr)
-    direct (regVar bld R.FSW) :=
-      AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize)
-    direct (regVar bld R.FTW) :=
-      AST.loadLE 16<rt> (srcAddr .+ numI32 8 addrSize)
-    direct (regVar bld R.FIP) :=
-      AST.loadLE 64<rt> (srcAddr .+ numI32 12 addrSize)
-    direct (regVar bld R.FDP) :=
-      AST.loadLE 64<rt> (srcAddr .+ numI32 20 addrSize)
+    let at off = srcAddr .+ numI32 off addrSize
+    let opcode = AST.loadLE 16<rt> (at 18) .& numI32 0x7FF 16<rt>
+    direct (regVar bld R.FCW) := AST.loadLE 16<rt> (at 0)
+    direct (regVar bld R.FSW) := AST.loadLE 16<rt> (at 4)
+    direct (regVar bld R.FTW) := AST.loadLE 16<rt> (at 8)
+    direct (regVar bld R.FIP) := AST.zext 64<rt> (AST.loadLE 32<rt> (at 12))
+    direct (regVar bld R.FCS) := AST.loadLE 16<rt> (at 16)
+    direct (regVar bld R.FOP) := opcode
+    direct (regVar bld R.FDP) := AST.zext 64<rt> (AST.loadLE 32<rt> (at 20))
+    direct (regVar bld R.FDS) := AST.loadLE 16<rt> (at 24)
     syncSummaryBits bld
   }
 

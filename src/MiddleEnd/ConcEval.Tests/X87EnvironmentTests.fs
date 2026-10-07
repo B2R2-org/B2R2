@@ -30,38 +30,66 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.Executor
 open B2R2.MiddleEnd.ConcEval
 
-/// The x87 tag word that FNSTENV and FNSAVE store. The FPU keeps no more than
-/// whether each register is empty, and works out the rest from the values as
-/// it stores the word: 00 for a finite nonzero value, 01 for a zero, 10 for a
-/// special one, and 11 for an empty register, two bits per physical register
-/// (Intel SDM Vol. 1, 8.1.7). These run the code rather than read its IR, as
-/// what matters is how the values are judged, in the analysis build's eighty
-/// bits and the emulation build's doubles alike.
+/// The x87 environment that FNSTENV and FNSAVE store and FLDENV and FRSTOR
+/// read back: the control, status, and tag words, and the pointers to the last
+/// instruction and its operand. These run the code rather than read its IR, as
+/// what matters is what lands in the image, in the analysis build's eighty-bit
+/// values and the emulation build's doubles alike.
 [<TestClass>]
 type X87EnvironmentTests() =
   (* Where the environment goes: memory no section backs, which the executor
      takes writes to all the same. *)
   let [<Literal>] Env = 0x8000UL
 
-  (* Runs `count` instructions that end in a store of the environment at RSP,
-     from the state FNINIT leaves, and reads back the tag word, eight bytes
-     into the 28-byte image. *)
-  let storedTags count (hex: string) =
+  (* Pointers as a 64-bit process has them: the instruction high in the address
+     space, the selectors Linux gives its code and data, and the opcode of
+     FLD1. *)
+  let pointers =
+    [ "FIP", 0x5555_5555_4002UL
+      "FCS", 0x33UL
+      "FOP", 0x1e8UL
+      "FDP", 0x7fff_1234_5678UL
+      "FDS", 0x2bUL ]
+
+  (* Runs `count` instructions from the state FNINIT leaves, RSP pointing at
+     Env, with `regs` set on top and each (offset, value, type) of `image`
+     written at Env first. *)
+  let run count (hex: string) regs image =
     let isa = ISA(Architecture.Intel, WordSize.Bit64)
     let hdl = BinHandle.LoadRawImage(ByteArray.ofHexString hex, isa, OS.Linux)
     let rf = hdl.RegisterFactory
-    let reg (name: string) (v: uint64) =
+    let reg (name: string, v: uint64) =
       let rid = rf.GetRegisterID name
       rid, BitVector(v, rf.GetRegType rid)
     let exec = ConcExecutor hdl
-    let regs = [| reg "RSP" Env; reg "FCW" 0x37FUL; reg "FTW" 0xFFFFUL |]
+    let regs =
+      [ "RSP", Env; "FCW", 0x37FUL; "FTW", 0xFFFFUL ] @ regs
+      |> List.map reg
+      |> Array.ofList
     let st =
       exec.CreateState { Memory = BinSectionBackedMemory; Registers = regs }
+    for off, (v: uint64), typ in image do
+      Memory.write (Env + off) (BitVector(v, typ)) Endian.Little st.Memory
     exec.Run(0UL, st, ConcRunOptions.Default().WithMaxInstructions count)
     |> ignore
-    match Memory.read (Env + 8UL) Endian.Little 16<rt> st.Memory with
+    hdl, st
+
+  (* The field of type `typ` at `off` bytes into what was stored at Env. *)
+  let field (st: ConcState) off typ =
+    match Memory.read (Env + off) Endian.Little typ st.Memory with
     | Ok v -> v.ToUInt64()
     | Error _ -> failwith "no environment was stored"
+
+  let regOf (hdl: BinHandle) (st: ConcState) (name: string) =
+    match st.TryGetReg(hdl.RegisterFactory.GetRegisterID name) with
+    | Def v -> v.ToUInt64()
+    | Undef -> failwith $"{name} is undefined"
+
+  (* The tag word, eight bytes into the 28-byte image that the last of `count`
+     instructions stores at RSP. *)
+  let storedTags count hex =
+    let _, st = run count hex [] []
+    field st 8UL 16<rt>
 
   [<TestMethod>]
   member _.``FNSTENV tags every register of an empty stack empty``() =
@@ -92,3 +120,50 @@ type X87EnvironmentTests() =
   member _.``FNSAVE stores the tags FNSTENV would``() =
     (* fldz ; fnsave [rsp] -- the tags go out before FNSAVE empties the stack *)
     Assert.AreEqual<uint64>(0x7FFFUL, storedTags 2 "d9eedd3424")
+
+  (* The 28-byte image gives each pointer 32 bits and each selector a word,
+     with the opcode in the 11 bits above the code selector (Intel SDM Vol. 1,
+     Figure 8-9), so a 64-bit pointer has no room to spill into what follows. *)
+  [<TestMethod>]
+  member _.``FNSTENV keeps each pointer within its own field``() =
+    let _, st = run 1 "d93424" (* fnstenv [rsp] *) pointers []
+    let actual =
+      [| field st 12UL 32<rt>
+         field st 16UL 16<rt>
+         field st 18UL 16<rt>
+         field st 20UL 32<rt>
+         field st 24UL 16<rt> |]
+    let expected = [| 0x55554002UL; 0x33UL; 0x1e8UL; 0x12345678UL; 0x2bUL |]
+    CollectionAssert.AreEqual(expected, actual)
+
+  (* The FPU fills the upper halves the image leaves reserved with ones. *)
+  [<TestMethod>]
+  member _.``FNSTENV fills the reserved halves with ones``() =
+    let _, st = run 1 "d93424" (* fnstenv [rsp] *) [] []
+    let reserved = [ 2UL; 6UL; 10UL; 26UL ]
+    let actual = [| for off in reserved -> field st off 16<rt> |]
+    CollectionAssert.AreEqual(Array.create 4 0xFFFFUL, actual)
+
+  (* FLDENV reads each field back, and a pointer gets the 32 bits the image
+     has room for, whatever its upper half held before. *)
+  [<TestMethod>]
+  member _.``FLDENV reads each pointer from its own field``() =
+    let image =
+      [ 0UL, 0x37FUL, 16<rt>
+        2UL, 0xFFFFUL, 16<rt>
+        4UL, 0UL, 16<rt>
+        6UL, 0xFFFFUL, 16<rt>
+        8UL, 0xFFFFUL, 16<rt>
+        10UL, 0xFFFFUL, 16<rt>
+        12UL, 0x55554002UL, 32<rt>
+        16UL, 0x33UL, 16<rt>
+        18UL, 0x1e8UL, 16<rt>
+        20UL, 0x12345678UL, 32<rt>
+        24UL, 0x2bUL, 16<rt>
+        26UL, 0xFFFFUL, 16<rt> ]
+    let stale = [ "FIP", 0xdead_0000_0000_0000UL ]
+    let hdl, st = run 1 "d92424" (* fldenv [rsp] *) stale image
+    let regs = [ "FIP"; "FCS"; "FOP"; "FDP"; "FDS" ]
+    let actual = [| for r in regs -> regOf hdl st r |]
+    let expected = [| 0x55554002UL; 0x33UL; 0x1e8UL; 0x12345678UL; 0x2bUL |]
+    CollectionAssert.AreEqual(expected, actual)
