@@ -120,6 +120,13 @@ let private strRepeat ins bld body cond =
     let cx = regVar bld (if is64bit bld then R.RCX else R.ECX)
     let pc = getInstrPtr bld
     let ninstAddr = pc .+ numInsLen ins bld
+#if EMULATION
+    (* The flags still owed by an earlier operation are the flags this leaves
+       when its count is zero, so that operation is recorded before the count
+       is tested, for whichever block comes next. *)
+    setCCOp bld
+    bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#endif
     AST.cjmp (cx == n0) (AST.jmpDest lblExit) (AST.jmpDest lblCont)
     AST.lmark lblCont
     body ins bld
@@ -141,6 +148,67 @@ let private strRepeat ins bld body cond =
        the definition of basic block from text books. *)
     AST.interjmp ninstAddr InterJmpKind.Base
   }
+
+#if EMULATION
+/// The fewest elements an emulator is handed REP MOVS or REP STOS for: below
+/// it, running the instruction once an element costs it less than the call.
+let [<Literal>] private RepCallFloor = 16
+
+/// REP MOVS or REP STOS as an emulator runs it: the call `name` names does the
+/// repeating, given the element size and the width of rCX, rSI and rDI, and
+/// moves as many elements at a time as memory lets it rather than one per run
+/// of the instruction. It leaves the three registers where the elements it got
+/// through leave them, which is short of the end only where it stopped at a
+/// fault or went one element at a time, and the instruction then runs again
+/// from there, as a CPU resumes it. A count below RepCallFloor runs the
+/// `body` that moves one element instead, as the instruction otherwise does.
+let private strRepeatCall ins bld body name =
+  append bld {
+    let lblExit = label bld "Exit"
+    let lblCont = label bld "Continue"
+    let lblOne = label bld "One"
+    let lblMany = label bld "Many"
+    let lblAgain = label bld "Again"
+    let n0 = AST.num0 bld.RegType
+    let cx = regVar bld (if is64bit bld then R.RCX else R.ECX)
+    let pc = getInstrPtr bld
+    let ninstAddr = pc .+ numInsLen ins bld
+    let size = RegType.toByteWidth (getOperationSize ins)
+    let width = RegType.toBitWidth bld.RegType
+    let args = [ numI32 size 64<rt>; numI32 width 64<rt> ]
+    let few = cx .< numI32 RepCallFloor bld.RegType
+    setCCOp bld
+    bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
+    AST.cjmp (cx == n0) (AST.jmpDest lblExit) (AST.jmpDest lblCont)
+    AST.lmark lblCont
+    AST.cjmp few (AST.jmpDest lblOne) (AST.jmpDest lblMany)
+    AST.lmark lblOne
+    body ins bld
+    direct cx := cx .- AST.num1 bld.RegType
+    AST.interjmp pc InterJmpKind.Base
+    AST.lmark lblMany
+    AST.extCall (AST.app name args 64<rt>)
+    AST.cjmp (cx == n0) (AST.jmpDest lblExit) (AST.jmpDest lblAgain)
+    AST.lmark lblAgain
+    AST.interjmp pc InterJmpKind.Base
+    AST.lmark lblExit
+    AST.interjmp ninstAddr InterJmpKind.Base
+  }
+#endif
+
+/// Repeats MOVS or STOS, whose `body` moves one element. An emulator has the
+/// call `name` names do the repeating, unless an FS or GS override or an
+/// address-size prefix asks for more than plain rSI and rDI.
+let private strRepeatMove (ins: Instruction) bld body name =
+#if EMULATION
+  let others = Prefix.FS ||| Prefix.GS ||| Prefix.ADDRSIZE
+  if ins.Prefixes &&& others = Prefix.None then
+    strRepeatCall ins bld body name
+  else
+    strRepeat ins bld body None
+#else
+  strRepeat ins bld body None
+#endif
 
 let aaa (ins: Instruction) bld =
   lift bld ins {
@@ -827,31 +895,36 @@ let convBWQ (ins: Instruction) bld =
     sized oprSize (AST.xtlo oprSize opr) := src
   }
 
-let clearFlag (ins: Instruction) bld flagReg =
+/// Writes v to one flag by hand. CF is among the flags an operation computed
+/// lazily may still owe, with the five this leaves alone, so under EMULATION
+/// that promise is settled before CF is written (see adcx); DF and IF are no
+/// part of it, and leave it as it stands.
+let private writeFlag (ins: Instruction) bld flagReg v =
   lift bld ins {
-    direct (regVar bld flagReg) := AST.b0
 #if EMULATION
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+    if flagReg = R.CF && bld.ConditionCodeOp <> ConditionCodeOp.EFlags then
+      genDynamicFlagsUpdate bld
+    else
+      ()
 #endif
+    direct (regVar bld flagReg) := v
   }
 
+let clearFlag (ins: Instruction) bld flagReg =
+  writeFlag ins bld flagReg AST.b0
+
+/// CMC turns CF over and leaves the other flags as they are, which under
+/// EMULATION means settling them first (see writeFlag).
 let cmc (ins: Instruction) bld =
   lift bld ins {
     let cf = regVar bld R.CF
 #if EMULATION
-    direct cf := AST.not (getCFLazy bld)
-#else
+    if bld.ConditionCodeOp <> ConditionCodeOp.EFlags then
+      genDynamicFlagsUpdate bld
+    else
+      ()
+#endif
     direct cf := AST.not cf
-#endif
-#if !EMULATION
-    direct (regVar bld R.OF) := undefOF
-    direct (regVar bld R.AF) := undefAF
-    direct (regVar bld R.SF) := undefSF
-    direct (regVar bld R.ZF) := undefZF
-    direct (regVar bld R.PF) := undefPF
-#else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
   }
 
 let private getCondOfCMov (ins: Instruction) bld =
@@ -1982,7 +2055,7 @@ let private movsBody ins bld =
 let movs (ins: Instruction) bld =
   lift bld ins {
     if Prefix.hasREPZ ins.Prefixes then
-      strRepeat ins bld movsBody None
+      strRepeatMove ins bld movsBody "RepMovs"
       return NoEndMark
     else
       movsBody ins bld
@@ -2725,6 +2798,11 @@ let private scasBody ins bld =
     direct t := x .- tSrc
     enumEFLAGS bld x tSrc t oprSize (cfOnSub x tSrc) (ofOnSub x tSrc t) sf
     direct di := AST.ite df (di .- amount) (di .+ amount)
+#if EMULATION
+    (* The flags are in their registers now, which a repetition records as
+       it loops (see strRepeat), as CMPS does. *)
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   }
 
 let scas (ins: Instruction) bld =
@@ -2733,21 +2811,12 @@ let scas (ins: Instruction) bld =
   lift bld ins {
     if Prefix.hasREPZ pref then
       strRepeat ins bld scasBody (zfCond AST.b0)
-#if EMULATION
-      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
       return NoEndMark
     elif Prefix.hasREPNZ pref then
       strRepeat ins bld scasBody (zfCond AST.b1)
-#if EMULATION
-      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
       return NoEndMark
     else
       scasBody ins bld
-#if EMULATION
-      bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
   }
 
 let private getCondOfSet (ins: Instruction) bld =
@@ -2949,13 +3018,7 @@ let shlx ins bld = shiftWithoutFlags ins bld (<<)
 
 let shrx ins bld = shiftWithoutFlags ins bld (>>)
 
-let setFlag (ins: Instruction) bld flag =
-  lift bld ins {
-    direct (regVar bld flag) := AST.b1
-#if EMULATION
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
-  }
+let setFlag (ins: Instruction) bld flag = writeFlag ins bld flag AST.b1
 
 let stc ins bld = setFlag ins bld R.CF
 
@@ -2977,7 +3040,7 @@ let private stosBody ins bld =
 let stos (ins: Instruction) bld =
   lift bld ins {
     if Prefix.hasREPZ ins.Prefixes then
-      strRepeat ins bld stosBody None
+      strRepeatMove ins bld stosBody "RepStos"
       return NoEndMark
     elif Prefix.hasREPNZ ins.Prefixes then
       Terminator.impossible ()
