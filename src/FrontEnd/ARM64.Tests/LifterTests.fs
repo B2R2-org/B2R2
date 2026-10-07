@@ -137,6 +137,33 @@ type LifterTests() =
   member _.``[AArch64] BFC with a non-zero lsb lifts``() =
     Assert.AreEqual<bool>(true, (lifted "b3781fe0").Length > 0, "BFC")
 
+  /// <summary>
+  /// What EL1 keeps to itself is UNDEFINED at EL0 and nothing at EL1, where
+  /// there is no TLB or cache to maintain (C5.1.1): TLBI VMALLE1, IC IALLU
+  /// and DC IVAC. TLBI ALLE2 needs EL2, which this model does not have, and
+  /// is UNDEFINED at both; CFP RCTX runs at EL0 only where SCTLR_EL1.EnRCTX
+  /// lets it; AT is UNDEFINED at EL0 and unsupported at EL1, there being no
+  /// PAR_EL1 for its result; and a SYS no alias names is UNDEFINED.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] System maintenance needs its exception level``() =
+    let at el (sctlr: uint64) hex =
+      let inputs =
+        [ !.CURRENTEL, bv64 (uint64 el <<< 2); !.SCTLREL1, bv64 sctlr ]
+      IRRunner.effects (lifted hex) inputs
+    let undef = [ BinIR.SideEffect.UndefinedInstruction ]
+    let none: BinIR.SideEffect list = []
+    for hex in [ "d508871f"; "d508751f"; "d5087621" ] do
+      Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL hex, hex)
+      Assert.AreEqual<BinIR.SideEffect list>(none, at 1 0UL hex, hex)
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 1 0UL "d50c871f")
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL "d50b7384")
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 0 0x400UL "d50b7384")
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL "d5087802")
+    let unsupported = [ BinIR.SideEffect.UnsupportedInstruction ]
+    Assert.AreEqual<BinIR.SideEffect list>(unsupported, at 1 0UL "d5087802")
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 1 0UL "d5080005")
+
   /// DC GZVA clears the block DC ZVA does and the allocation tags no memory
   /// here holds, and DC GVA writes only those tags: it lifts to nothing, as
   /// IC IVAU does, there being no cache to maintain.

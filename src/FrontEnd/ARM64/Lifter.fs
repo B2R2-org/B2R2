@@ -569,8 +569,17 @@ let translate (ins: Instruction) bld =
   | Opcode.DCCGVAP | Opcode.DCCGDVAP | Opcode.DCCGVADP | Opcode.DCCGDVADP
   | Opcode.DCCIGVAC | Opcode.DCCIGDVAC ->
     nop ins bld
-  | Opcode.IC when isICIVAU ins ->
-    nop ins bld
+  (* the rest of the aliases of SYS, by the exception level each needs *)
+  | Opcode.IC | Opcode.TLBI | Opcode.CFP | Opcode.DVP | Opcode.CPP
+  | Opcode.DCIVAC | Opcode.DCISW | Opcode.DCCSW | Opcode.DCCISW
+  | Opcode.DCIGVAC | Opcode.DCIGSW | Opcode.DCIGDVAC | Opcode.DCIGDSW
+  | Opcode.DCCGSW | Opcode.DCCGDSW | Opcode.DCCIGSW | Opcode.DCCIGDSW ->
+    systemMaintenance ins bld
+  | Opcode.AT ->
+    addressTranslate ins bld
+  (* a system instruction no alias names is one no processor here has *)
+  | Opcode.SYS | Opcode.SYSL ->
+    sideEffects ins bld UndefinedInstruction
   | Opcode.DMB | Opcode.DSB | Opcode.ISB | Opcode.SB | Opcode.SSBB
   | Opcode.PSSBB ->
     nop ins bld

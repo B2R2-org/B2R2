@@ -151,3 +151,45 @@ module internal IRRunner =
       | _ ->
         failwith $"IRRunner: no {stmt}"
     fun reg -> readReg regs (idOf reg) (Expr.typeOf reg)
+
+  /// The labels of the statements, by where each one sits.
+  let private labelsOf (stmts: Stmt[]) =
+    let at = Dictionary<Label, int>()
+    stmts
+    |> Array.iteri (fun i stmt ->
+      match stmt with
+      | LMark(Label = l) -> at[l] <- i
+      | _ -> ())
+    at
+
+  /// The side effect the statements reach, if any, run from the given
+  /// register values: a jump inside the instruction goes to its label, and a
+  /// side effect ends the run, as the exception it stands for would.
+  let effects (stmts: Stmt[]) (inputs: (Expr * BitVector) list) =
+    let regs = Dictionary<RegisterID, BitVector>()
+    let temps = Dictionary<int, BitVector>()
+    for reg, v in inputs do regs[idOf reg] <- v
+    let at = labelsOf stmts
+    let found = ResizeArray()
+    let mutable pc = 0
+    while pc < stmts.Length do
+      let stmt = stmts[pc]
+      pc <- pc + 1
+      match stmt with
+      | ISMark _ | IEMark _ | LMark _ ->
+        ()
+      | Put(Dst = Var(RegisterID = r); Src = src) ->
+        regs[r] <- eval regs temps src
+      | Put(Dst = TempVar(Index = n); Src = src) ->
+        temps[n] <- eval regs temps src
+      | Jmp(Target = JmpDest(Target = l)) ->
+        pc <- at[l]
+      | CJmp(Cond = c; TrueTarget = JmpDest(Target = t);
+             FalseTarget = JmpDest(Target = f)) ->
+        pc <- at[if (eval regs temps c).IsTrue then t else f]
+      | SideEffect(Effect = e) ->
+        found.Add e
+        pc <- stmts.Length
+      | _ ->
+        failwith $"IRRunner: no {stmt}"
+    List.ofSeq found

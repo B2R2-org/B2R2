@@ -1664,16 +1664,87 @@ let msub ins bld =
     sized ins.OprSize dst := src3 .- (src1 .* src2)
   }
 
-/// Whether an IC is IC IVAU, the one instruction-cache maintenance EL0 may
-/// run (DDI0487F.c C5.3.31).
-let isICIVAU (ins: Instruction) =
-  let isIVAU enc =
-    match SysOp.tryOfEncoding enc with
-    | Some e -> e.Name = "IVAU"
-    | None -> false
-  match ins.Operands with
-  | OneOperand(OprSysOp enc) | TwoOperands(OprSysOp enc, _) -> isIVAU enc
-  | _ -> false
+/// The op1:CRn:CRm:op2 of an alias of SYS: a DC's from its opcode, the
+/// others' from the operation they carry (SysOp).
+let private sysOpEncodingOf (ins: Instruction) =
+  match SysOp.tryOfDataCacheOpcode ins.Opcode, ins.Operands with
+  | Some e, _ -> e.Encoding
+  | None, (OneOperand(OprSysOp enc) | TwoOperands(OprSysOp enc, _)) -> enc
+  | _ -> raise InvalidOperandException
+
+/// The lowest exception level an alias of SYS can run at, which its op1
+/// says (DDI0487F.c C5.1.1): 3 is EL0, 0 to 2 are EL1, 4 and 5 EL2, and 6
+/// EL3.
+let private lowestLevel ins =
+  match sysOpEncodingOf ins >>> 11 with
+  | 3u -> 0
+  | 0u | 1u | 2u -> 1
+  | 4u | 5u -> 2
+  | _ -> 3
+
+/// Whether the processor is at EL0, which CurrentEL holds in bits 3:2. What
+/// runs the IR is what sets it: a Linux process at EL0, a board at EL1.
+let private atEL0 bld =
+  (regVar bld R.CURRENTEL .& numU64 0xcUL 64<rt>) == AST.num0 64<rt>
+
+/// An Undefined Instruction exception where the condition holds.
+let private undefinedWhen bld cond =
+  _when bld "Undefined" cond (block {
+    AST.sideEffect UndefinedInstruction
+  })
+
+/// Whether EL0 may run CFP, DVP and CPP: SCTLR_EL1.EnRCTX, bit 10
+/// (D13.2.113).
+let private enRCTX bld =
+  (regVar bld R.SCTLREL1 .& numU64 0x400UL 64<rt>) != AST.num0 64<rt>
+
+/// <summary>
+/// The aliases of SYS whose effect this model has nothing to show: TLB and
+/// cache maintenance, with neither a TLB nor a cache modelled, and the
+/// restrictions of prediction, with no predictor. What each does is decided
+/// by the exception level it needs (C5.1.1). One EL1 needs is UNDEFINED at
+/// EL0, and CFP, DVP and CPP at EL0 unless SCTLR_EL1.EnRCTX lets it run
+/// them (C5.6.1 to C5.6.3); one that needs EL2 or EL3 is UNDEFINED
+/// anywhere, this model having neither.
+/// </summary>
+let systemMaintenance (ins: Instruction) bld =
+  let restrictsPrediction =
+    match ins.Opcode with
+    | Opcode.CFP | Opcode.DVP | Opcode.CPP -> true
+    | _ -> false
+  match lowestLevel ins with
+  | 0 when restrictsPrediction ->
+    lift bld ins {
+      undefinedWhen bld (atEL0 bld .& AST.not (enRCTX bld))
+    }
+  | 0 ->
+    lift bld ins { }
+  | 1 ->
+    lift bld ins {
+      undefinedWhen bld (atEL0 bld)
+    }
+  | _ ->
+    lift bld ins {
+      AST.sideEffect UndefinedInstruction
+    }
+
+/// <summary>
+/// AT, which puts what it translates to in PAR_EL1: a register this front
+/// end does not have, so where AT may run its result has nowhere to go and it
+/// is unsupported. It needs EL1 (C5.1.1), so at EL0 it is UNDEFINED, and its
+/// forms for EL2 and EL3 are UNDEFINED anywhere.
+/// </summary>
+let addressTranslate ins bld =
+  match lowestLevel ins with
+  | 1 ->
+    lift bld ins {
+      undefinedWhen bld (atEL0 bld)
+      AST.sideEffect UnsupportedInstruction
+    }
+  | _ ->
+    lift bld ins {
+      AST.sideEffect UndefinedInstruction
+    }
 
 let nop ins bld =
   lift bld ins { }
