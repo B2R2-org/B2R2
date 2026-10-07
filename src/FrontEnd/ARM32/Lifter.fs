@@ -51,6 +51,14 @@ let translate (ins: Instruction) bld =
     adds true ins bld
   | Op.ADR ->
     adr ins bld (* for Thumb mode *)
+  | Op.AESD ->
+    CryptoLifter.aesRound ins bld true
+  | Op.AESE ->
+    CryptoLifter.aesRound ins bld false
+  | Op.AESIMC ->
+    CryptoLifter.aesMixColumns ins bld true
+  | Op.AESMC ->
+    CryptoLifter.aesMixColumns ins bld false
   | Op.AND ->
     logicalAnd false ins bld
   | Op.ANDS ->
@@ -250,6 +258,26 @@ let translate (ins: Instruction) bld =
     parallelAddSub ins bld 8 false SaturatingLane ParallelAdd
   | Op.QSUB8 ->
     parallelAddSub ins bld 8 false SaturatingLane ParallelSub
+  | Op.SHA1C ->
+    CryptoLifter.sha1c ins bld
+  | Op.SHA1H ->
+    CryptoLifter.sha1h ins bld
+  | Op.SHA1M ->
+    CryptoLifter.sha1m ins bld
+  | Op.SHA1P ->
+    CryptoLifter.sha1p ins bld
+  | Op.SHA1SU0 ->
+    CryptoLifter.sha1su0 ins bld
+  | Op.SHA1SU1 ->
+    CryptoLifter.sha1su1 ins bld
+  | Op.SHA256H ->
+    CryptoLifter.sha256Hash ins bld true
+  | Op.SHA256H2 ->
+    CryptoLifter.sha256Hash ins bld false
+  | Op.SHA256SU0 ->
+    CryptoLifter.sha256su0 ins bld
+  | Op.SHA256SU1 ->
+    CryptoLifter.sha256su1 ins bld
   | Op.SHADD16 ->
     parallelAddSub ins bld 16 false HalvingLane ParallelAdd
   | Op.SHASX ->

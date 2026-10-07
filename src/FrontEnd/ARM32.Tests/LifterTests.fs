@@ -247,6 +247,29 @@ type LifterTests() =
     let read = IRRunner.run (liftedBy isThumb hex) inputs
     uint32 ((read !.R0).ToUInt64())
 
+  /// What an encoding leaves in Q0, low doubleword first, run with Q0, Q1 and
+  /// Q2 holding what optest-arm/probes/v8crypto-vectors.c gives them.
+  let qRun isThumb hex =
+    let ds =
+      [ 0x0123456789abcdefUL
+        0xfedcba9876543210UL
+        0x0f1e2d3c4b5a6978UL
+        0x8796a5b4c3d2e1f0UL
+        0x1122334455667788UL
+        0x99aabbccddeeff00UL ]
+    let inputs = ds |> List.mapi (fun n v -> dReg n, BitVector(v, 64<rt>))
+    let read = IRRunner.run (liftedBy isThumb hex) inputs
+    (read (dReg 0)).ToUInt64(), (read (dReg 1)).ToUInt64()
+
+  /// The names of the operations one encoding calls, in order.
+  let callsBy isThumb hex =
+    liftedBy isThumb hex
+    |> Array.choose (function
+      | Put(Src = BinOp(Op = BinIR.BinOpType.APP; Left = FuncName(Name = n))) ->
+        Some n
+      | _ ->
+        None)
+
   /// What an address expression comes to with R1 = 0x1000.
   let atR1 (addr: Expr) =
     let r1 = !.R1, BitVector(0x1000u, 32<rt>)
@@ -2197,6 +2220,44 @@ type LifterTests() =
     let ones, abcd = 0xffffffffu, 0x64636261u
     Assert.AreEqual<uint32>(0x127d32eeu, crc "fac1f0a2" ones abcd)
     Assert.AreEqual<uint32>(0x3e2fbccfu, crc "fad1f082" ones 0x61u)
+
+  /// <summary>
+  /// The SHA-1 and SHA-256 instructions (DDI0487F.c F6.1.7-F6.1.16), each
+  /// over the one input optest-arm/probes/v8crypto-vectors.c measured under
+  /// QEMU: what is left in Q0, low doubleword then high.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] the SHA instructions give the measured answers``() =
+    let cases =
+      [ "f2020c44", 0x3d70505e6b6b8c5eUL, 0x7545d662ea51c49bUL (* SHA1C *)
+        "f2120c44", 0x627e917b62d68d5fUL, 0x17f99b385320ee23UL (* SHA1P *)
+        "f2220c44", 0x58c9ee35d5554b2aUL, 0x5323b440988877d7UL (* SHA1M *)
+        "f3b902c2", 0x0000000012d69a5eUL, 0x0000000000000000UL (* SHA1H *)
+        "f2320c44", 0xeeddccbbaa998877UL, 0x68682c68e0e0a468UL (* SHA1SU0 *)
+        "f3ba0382", 0x85e3492f0d6bc1a7UL, 0xe76ef67fe3852f49UL (* SHA1SU1 *)
+        "f3020c44", 0x985165435bd4a46bUL, 0xeeeccb2bee37a382UL (* SHA256H *)
+        "f3120c44", 0x7ba32c032acba172UL, 0x2982bcd5644a655bUL (* SHA256H2 *)
+        "f3ba03c2", 0x23c5791aa92bbc5dUL, 0x6280a5c376d443a1UL (* SHA256SU0 *)
+        "f3220c44", 0xcfafdca539210a20UL, 0x6a38e7f5a2452bbaUL (* SHA256SU1 *) ]
+    for hex, lo, hi in cases do
+      Assert.AreEqual<uint64 * uint64>((lo, hi), qRun false hex, hex)
+    let expected = 0x985165435bd4a46bUL, 0xeeeccb2bee37a382UL
+    Assert.AreEqual<uint64 * uint64>(expected, qRun true "ff020c44")
+
+  /// <summary>
+  /// AESE and AESD are x86's last-round operation, with a zero key, over the
+  /// state already added to the round key; AESMC undoes a round's shift and
+  /// substitution with AESDECLAST and keeps the mixing of AESENC; AESIMC goes
+  /// straight across (DDI0487F.c F6.1.1-F6.1.4).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] the AES instructions name the x86 operations``() =
+    let calls = callsBy false
+    CollectionAssert.AreEqual([| "AESENCLAST" |], calls "f3b00302")
+    CollectionAssert.AreEqual([| "AESDECLAST" |], calls "f3b00342")
+    CollectionAssert.AreEqual([| "AESDECLAST"; "AESENC" |], calls "f3b00382")
+    CollectionAssert.AreEqual([| "AESIMC" |], calls "f3b003c2")
+    CollectionAssert.AreEqual([| "AESENCLAST" |], callsBy true "ffb00302")
 
   [<TestMethod>]
   member _.``[ARMv7] LDA writes the loaded word to Rt``() =

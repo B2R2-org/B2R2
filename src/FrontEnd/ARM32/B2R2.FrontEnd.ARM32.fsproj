@@ -22,6 +22,7 @@
     <Compile Include="Modes.fs" />
     <Compile Include="GeneralLifter.fs" />
     <Compile Include="NEONLifter.fs" />
+    <Compile Include="CryptoLifter.fs" />
     <Compile Include="FloatingPoint.fs" />
     <Compile Include="FPConversion.fs" />
     <Compile Include="FPLifter.fs" />
