@@ -675,6 +675,55 @@ type LifterTests() =
     if widensBySign "40225000" then Assert.Fail "40225000" else ()
 
   /// <summary>
+  /// A double in an odd register of a thirty-two bit FPU is a Reserved
+  /// Instruction.
+  ///
+  /// This front end's MIPS32 FPU keeps a double in a PAIR of registers, the
+  /// even one and the one above it, which is what Status.FR = 0 means; an odd
+  /// register names no pair, and MD00087 makes the operation UNPREDICTABLE.
+  /// The reference running a program built for that mode raises a Reserved
+  /// Instruction for it, where this lifter stopped with an internal error.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] An odd register holds no double``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let effects hex =
+      lifted isa hex
+      |> Array.choose (function
+        | SideEffect(Effect = e) -> Some e
+        | _ -> None)
+    (* ADD.D f0, f1, f2 and ADD.D f0, f2, f4 *)
+    CollectionAssert.AreEqual([| UndefinedInstruction |], effects "46220800")
+    CollectionAssert.AreEqual([||], effects "46241000")
+
+  /// <summary>
+  /// An instruction that moves a double without reading it as a number moves
+  /// the pair an odd register is the upper half of.
+  ///
+  /// That is LDC1 and SDC1, MFHC1 and MTHC1, and the conditional moves. The
+  /// operand is UNPREDICTABLE as it is for the arithmetic, but the reference
+  /// runs these rather than refusing them, on the pair the register belongs
+  /// to -- so MFHC1 of $f1 reads $f1, as MFHC1 of $f0 does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS32] A move takes the pair an odd register is in``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let f0, f1 = var F0, var F1
+    let read hex =
+      let inputs =
+        [ f0, BitVector(0x11111111UL, 32<rt>)
+          f1, BitVector(0x22222222UL, 32<rt>)
+          var R2, BitVector(0x33333333UL, 32<rt>) ]
+      IRRunner.run (lifted isa hex) inputs
+    (* MFHC1 v0, f1 and MTHC1 v0, f1 *)
+    Assert.AreEqual<uint64>(0x22222222UL, (read "44620800" (var R2)).ToUInt64())
+    let wrote = read "44e20800"
+    Assert.AreEqual<uint64>(0x11111111UL, (wrote f0).ToUInt64())
+    Assert.AreEqual<uint64>(0x33333333UL, (wrote f1).ToUInt64())
+
+  /// <summary>
   /// CP0 is refused outside Kernel Mode unless Status.CU0 lets it through.
   ///
   /// MD00087 1.2 says where the privileged state may be reached: "in Kernel

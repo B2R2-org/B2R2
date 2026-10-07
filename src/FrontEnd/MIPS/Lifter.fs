@@ -34,7 +34,7 @@ open B2R2.FrontEnd.MIPS
 open B2R2.FrontEnd.MIPS.LiftingUtils
 open B2R2.FrontEnd.MIPS.GeneralLifter
 
-let translate (ins: Instruction) (bld: LowUIRBuilder) =
+let private translateOpcode (ins: Instruction) (bld: LowUIRBuilder) =
   match ins.Opcode with
   | Op.ABS ->
     abs ins bld
@@ -776,3 +776,23 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     eprintfn "%A" o
 #endif
     raise <| NotImplementedIRException(Disasm.opCodeToString o)
+
+/// <summary>
+/// Lifts one instruction. A double in an odd register of a thirty-two bit
+/// FPU is a Reserved Instruction (see UnpairedRegisterException), which only
+/// shows once the lifter reaches the operand: what it had emitted for the
+/// instruction by then is dropped, and the exception is lifted instead.
+///
+/// The long and paired-single formats are UNPREDICTABLE on that FPU as well,
+/// and are lifted over the pair all the same: only a program running with
+/// the 64-bit FPU (FR = 1) uses them, and the pair holds what it computes
+/// there for an even register.
+/// </summary>
+let translate (ins: Instruction) (bld: LowUIRBuilder) =
+  let stream = (bld :> ILowUIRBuilder).Stream
+  let start = stream.Count
+  try
+    translateOpcode ins bld
+  with UnpairedRegisterException ->
+    stream.RemoveRange(start, stream.Count - start)
+    sideEffects ins bld UndefinedInstruction

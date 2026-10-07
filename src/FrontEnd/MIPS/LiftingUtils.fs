@@ -96,10 +96,29 @@ let transFourSingleFP bld (o1, o2, o3, o4) =
 let transTwoOprFPConvert ins bld (o1, o2) =
   transOprToFPConvert ins bld o1, transOprToFPConvert ins bld o2
 
+/// <summary>
+/// Raised where a thirty-two bit FPU is asked for a double in an odd
+/// register. Its doubles are register PAIRS, the even register and the one
+/// above it, which is what Status.FR = 0 means; an odd register names no
+/// pair, and MD00087 makes the operation UNPREDICTABLE. The lifter answers
+/// it with a Reserved Instruction, which is what the reference raises.
+/// </summary>
+exception UnpairedRegisterException
+
+/// The register that holds the upper half of the double whose lower half an
+/// even register holds.
+let private upperOfPair reg =
+  match reg with
+  | R.F1 | R.F3 | R.F5 | R.F7 | R.F9 | R.F11 | R.F13 | R.F15
+  | R.F17 | R.F19 | R.F21 | R.F23 | R.F25 | R.F27 | R.F29 | R.F31 ->
+    raise UnpairedRegisterException
+  | _ ->
+    RegisterHelper.getFPPairReg reg
+
 let transOprToFPPair bld = function
   | OpReg reg ->
     if is32Bit bld then
-      regVar bld (RegisterHelper.getFPPairReg reg), regVar bld reg
+      regVar bld (upperOfPair reg), regVar bld reg
     else
       (* On a 64-bit FPU the high half is a FIELD of the one register, not a
          register of its own. AST.b0 stood in for it, which broke both
@@ -115,11 +134,33 @@ let transOprToFPPair bld = function
 let transOprToFPPairConcat bld = function
   | OpReg reg ->
     if is32Bit bld then
-      AST.concat (regVar bld (RegisterHelper.getFPPairReg reg)) (regVar bld reg)
+      AST.concat (regVar bld (upperOfPair reg)) (regVar bld reg)
     else
       regVar bld reg
   | _ ->
     raise InvalidOperandException
+
+/// <summary>
+/// The pair an FPR belongs to, upper register first, for the instructions
+/// that move a double without reading it as a number: LDC1 and SDC1, MFHC1
+/// and MTHC1, and the conditional moves. An odd register names no pair of
+/// its own, which MD00087 makes UNPREDICTABLE; the reference moves the pair
+/// it is the upper half of, and so does this.
+/// </summary>
+let transOprToFPPairHolding bld = function
+  | OpReg reg when is32Bit bld ->
+    let lower: Register = LanguagePrimitives.EnumOfValue(int reg &&& ~~~1)
+    regVar bld (RegisterHelper.getFPPairReg lower), regVar bld lower
+  | opr ->
+    transOprToFPPair bld opr
+
+/// The same pair as one value, upper half first.
+let transOprToFPPairHoldingConcat bld opr =
+  if is32Bit bld then
+    let upper, lower = transOprToFPPairHolding bld opr
+    AST.concat upper lower
+  else
+    transOprToFPPairConcat bld opr
 
 /// Commit a double-precision result to its destination.
 ///

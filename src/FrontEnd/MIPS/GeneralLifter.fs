@@ -2512,7 +2512,12 @@ let loadLinked ins bld =
 let sldc1 ins bld stORld unaligned =
   lift bld ins {
     let ft, mem = getTwoOprs ins
-    let ftB, ftA = transOprToFPPair bld ft
+    (* The indexed forms are refused an odd register where the plain ones
+       move the pair it belongs to; the reference draws the line there. *)
+    let ftB, ftA =
+      match ins.Opcode with
+      | Op.LDC1 | Op.SDC1 -> transOprToFPPairHolding bld ft
+      | _ -> transOprToFPPair bld ft
     let baseOffset = transOprToBaseOffset bld mem
     let bOff = tmpVar bld bld.RegType
     let memory = tmpVar bld 64<rt>
@@ -2842,7 +2847,7 @@ let mfhc1 ins bld =
   lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOpr ins bld rt
-    let fsB, _ = transOprToFPPair bld fs
+    let fsB, _ = transOprToFPPairHolding bld fs
     rt := AST.sext bld.RegType fsB
   }
 
@@ -2850,7 +2855,7 @@ let mthc1 ins bld =
   lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOpr ins bld rt
-    let fsB, _ = transOprToFPPair bld fs
+    let fsB, _ = transOprToFPPairHolding bld fs
     fsB := AST.xtlo 32<rt> rt
   }
 
@@ -2928,8 +2933,8 @@ let movt ins bld =
       let dst, src = transTwoSingleFP bld (dst, src)
       dst := AST.ite cond src dst
     | Some Fmt.D when is32Bit bld ->
-      let dstB, dstA = transOprToFPPair bld dst
-      let srcB, srcA = transOprToFPPair bld src
+      let dstB, dstA = transOprToFPPairHolding bld dst
+      let srcB, srcA = transOprToFPPairHolding bld src
       dstB := AST.ite cond srcB dstB
       dstA := AST.ite cond srcA dstA
     | Some Fmt.PS ->
@@ -2949,8 +2954,8 @@ let movf ins bld =
       let dst, src = transTwoSingleFP bld (dst, src)
       dst := AST.ite cond src dst
     | Some Fmt.D when is32Bit bld ->
-      let dstB, dstA = transOprToFPPair bld dst
-      let srcB, srcA = transOprToFPPair bld src
+      let dstB, dstA = transOprToFPPairHolding bld dst
+      let srcB, srcA = transOprToFPPairHolding bld src
       dstB := AST.ite cond srcB dstB
       dstA := AST.ite cond srcA dstA
     | Some Fmt.PS ->
@@ -2970,8 +2975,8 @@ let movzOrn ins bld opFn =
       let dst, src = transTwoSingleFP bld (dst, src)
       dst := AST.ite cond src dst
     | Some Fmt.D when is32Bit bld ->
-      let dstB, dstA = transOprToFPPair bld dst
-      let src = transOprToFPPairConcat bld src
+      let dstB, dstA = transOprToFPPairHolding bld dst
+      let src = transOprToFPPairHoldingConcat bld src
       dstB := AST.ite cond (AST.xthi 32<rt> src) dstB
       dstA := AST.ite cond (AST.xtlo 32<rt> src) dstA
     | _ ->
