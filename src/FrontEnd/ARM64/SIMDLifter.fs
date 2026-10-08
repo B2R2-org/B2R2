@@ -612,7 +612,7 @@ let add (ins: Instruction) bld =
       dstAssignScalar ins bld o1 (src1 .+ src2) eSize
     | FourOperands _ (* Arithmetic *) ->
       let dst, s1, s2 = transFourOprsWithBarrelShift ins bld
-      let result, _ = addWithCarry s1 s2 (AST.num0 ins.OprSize) ins.OprSize
+      let result = sumWithCarry s1 s2 (AST.num0 ins.OprSize)
       sized ins.OprSize dst := result
     | _ ->
       raise InvalidOperandException
@@ -4250,7 +4250,7 @@ let sub (ins: Instruction) bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
       let dst, src1, src2 = transOprOfSUB ins bld
-      let result, _ = addWithCarry src1 src2 (AST.num1 ins.OprSize) ins.OprSize
+      let result = sumWithCarry src1 src2 (AST.num1 ins.OprSize)
       sized ins.OprSize dst := result
   }
 

@@ -116,12 +116,17 @@ let getImmValue imm =
   | OprImm imm -> imm
   | _ -> raise InvalidOperandException
 
+/// The sum AddWithCarry() computes, alone: what ADD, SUB, ADC, SBC and NGC
+/// write, which set no flags. Computing the flags only to drop them made these
+/// the costliest instructions to lift.
+let sumWithCarry opr1 opr2 carryIn = opr1 .+ opr2 .+ carryIn
+
 /// shared/functions/integer/AddWithCarry
 /// AddWithCarry()
 /// ==============
 /// Integer addition with carry input, returning result and NZCV flags
 let addWithCarry opr1 opr2 carryIn oSz =
-  let result = opr1 .+ opr2 .+ carryIn
+  let result = sumWithCarry opr1 opr2 carryIn
   let n = AST.xthi 1<rt> result
   let z = result == (AST.num0 oSz)
   let c =

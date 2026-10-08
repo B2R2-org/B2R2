@@ -47,7 +47,7 @@ let adc ins bld =
   lift bld ins {
     let dst, src1, src2 = transThreeOprs ins bld
     let c = AST.zext ins.OprSize (regVar bld R.C)
-    let result, _ = addWithCarry src1 src2 c ins.OprSize
+    let result = sumWithCarry src1 src2 c
     sized ins.OprSize dst := result
   }
 
@@ -1752,7 +1752,7 @@ let sbc ins bld =
   lift bld ins {
     let dst, src1, src2 = transThreeOprs ins bld
     let c = AST.zext ins.OprSize (regVar bld R.C)
-    let result, _ = addWithCarry src1 (AST.not src2) c ins.OprSize
+    let result = sumWithCarry src1 (AST.not src2) c
     sized ins.OprSize dst := result
   }
 
@@ -1778,8 +1778,7 @@ let ngc ins bld =
   lift bld ins {
     let dst, src = transTwoOprs ins bld
     let c = AST.zext ins.OprSize (regVar bld R.C)
-    let result, _ =
-      addWithCarry (AST.num0 ins.OprSize) (AST.not src) c ins.OprSize
+    let result = sumWithCarry (AST.num0 ins.OprSize) (AST.not src) c
     sized ins.OprSize dst := result
   }
 
