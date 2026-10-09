@@ -96,6 +96,10 @@ let parseOprOfADC (ins: Instruction) bld =
   | FourOperands _ -> transFourOprsOfADC ins bld
   | _ -> raise InvalidOperandException
 
+/// Skips a conditional instruction whose condition fails, handing back the
+/// label it skips to and whether the instruction advances ITSTATE on its way
+/// out (see putEndLabel). Only a T32 instruction can sit in an IT block; an
+/// A32 one runs with ITSTATE zero, which advancing would only clear again.
 let checkCondition (ins: Instruction) bld isUnconditional =
   if isUnconditional then
     None
@@ -107,7 +111,7 @@ let checkCondition (ins: Instruction) bld isUnconditional =
       AST.cjmp cond (AST.jmpDest lblPass) (AST.jmpDest lblIgnore)
       AST.lmark lblPass
     }
-    Some lblIgnore
+    Some(lblIgnore, ins.IsThumb)
 
 /// Update ITState after normal execution of an IT-block instruction. See A2-52
 /// function: ITAdvance().
@@ -141,23 +145,27 @@ let itAdvance bld =
     AST.lmark lblEnd
   }
 
+/// Ends a conditional instruction where checkCondition skips to, advancing
+/// ITSTATE there where the instruction may sit in an IT block.
 let putEndLabel bld lblIgnore =
   match lblIgnore with
-  | Some lblIgnore ->
+  | Some(lblIgnore, advancesIT) ->
     append bld {
       AST.lmark lblIgnore
     }
-    itAdvance bld
+    if advancesIT then itAdvance bld else ()
   | None ->
     ()
 
+/// Ends a conditional branch as putEndLabel does, going on past the branch
+/// where its condition fails.
 let putEndLabelForBranch bld lblIgnore (brIns: Instruction) =
   match lblIgnore with
-  | Some lblIgnore ->
+  | Some(lblIgnore, advancesIT) ->
     append bld {
       AST.lmark lblIgnore
     }
-    itAdvance bld
+    if advancesIT then itAdvance bld else ()
     let target = numU64 (brIns.Address + uint64 brIns.Length) 32<rt>
     append bld {
       AST.interjmp target InterJmpKind.Base
