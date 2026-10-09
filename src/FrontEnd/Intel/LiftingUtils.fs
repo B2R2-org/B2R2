@@ -1994,4 +1994,47 @@ let getCFLazy (bld: ILowUIRBuilder) =
     regVar bld R.CF
   | _ ->
     Terminator.futureFeature ()
+
+/// Settles every flag the pending operation owes into the flag registers, for
+/// an instruction that changes some flags and keeps the rest. Where the
+/// operation is known as the instruction is lifted, the flags are worked out
+/// right here; only at a block's start, where it is not, does this leave them
+/// to a dynamic FlagsUpdate. That is a call into the emulator wherever it
+/// runs, and a rotate right after an operation of its own block is common:
+/// `rolw $8`, the byte swap of a 16-bit value, ran 3.5 million times in a
+/// SQLite benchmark.
+let settleFlags (bld: ILowUIRBuilder) =
+  let ccOp = bld.ConditionCodeOp
+  match ccOp with
+  | ConditionCodeOp.EFlags ->
+    ()
+  | ConditionCodeOp.TraceStart ->
+    genDynamicFlagsUpdate bld
+  | ConditionCodeOp.LOGICB
+  | ConditionCodeOp.LOGICW
+  | ConditionCodeOp.LOGICD
+  | ConditionCodeOp.LOGICQ ->
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
+    let regType = RegType.fromByteWidth size
+    let t = tmpVar bld regType
+    append bld {
+      direct t := getCCDst bld regType
+      direct (regVar bld R.CF) := AST.b0
+      direct (regVar bld R.OF) := AST.b0
+    }
+    enumSZPFlags bld t regType (AST.xthi 1<rt> t)
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+  | ConditionCodeOp.XORXX ->
+    append bld {
+      direct (regVar bld R.CF) := AST.b0
+      direct (regVar bld R.OF) := AST.b0
+      direct (regVar bld R.SF) := AST.b0
+      direct (regVar bld R.ZF) := AST.b1
+      direct (regVar bld R.PF) := AST.b1
+    }
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+  | _ ->
+    (* The getter of any other operation settles every flag it owes on the
+       way to the one it is asked for. *)
+    getOFLazy bld |> ignore
 #endif

@@ -2817,10 +2817,7 @@ let rcl (ins: Instruction) bld =
        are owed they are a promise about the operation before it, a promise
        that names CF and OF too: it is settled before those change (see
        adcx). *)
-    if bld.ConditionCodeOp <> ConditionCodeOp.EFlags then
-      genDynamicFlagsUpdate bld
-    else
-      ()
+    settleFlags bld
 #endif
     _repeat bld "Rotate" cond1
       (block {
@@ -2859,10 +2856,7 @@ let rcr (ins: Instruction) bld =
        are owed they are a promise about the operation before it, a promise
        that names CF and OF too: it is settled before those change (see
        adcx). *)
-    if bld.ConditionCodeOp <> ConditionCodeOp.EFlags then
-      genDynamicFlagsUpdate bld
-    else
-      ()
+    settleFlags bld
 #endif
     direct tmpOF := AST.xthi 1<rt> dst <+> cF
     _repeat bld "Rotate" cond1
@@ -2942,7 +2936,7 @@ let rotate (ins: Instruction) bld lfn hfn cfFn ofFn =
       direct cF := AST.ite cond1 cF (cfFn 1<rt> dst)
       direct oF := AST.ite cond2 (ofFn dst cF) undefOF
 #else
-      genDynamicFlagsUpdate bld
+      settleFlags bld
       direct cF := AST.ite cond1 cF (cfFn 1<rt> dst)
       direct oF := AST.ite cond2 (ofFn dst cF) oF
       bld.ConditionCodeOp <- ConditionCodeOp.EFlags
