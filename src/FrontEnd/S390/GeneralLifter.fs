@@ -1639,10 +1639,68 @@ let private moveLoop bld width step dst src pad labels =
     AST.lmark out
   }
 
+/// The condition code a padded move reports, which compares the lengths it
+/// starts from: 0 where they are equal, 1 where the destination's is the
+/// shorter, 2 where it is the longer.
+let private lengthsCC dl sl =
+  AST.ite (dl == sl) (numCC 0) (AST.ite (dl .< sl) (numCC 1) (numCC 2))
+
+/// MOVE LONG EXTENDED as its loop runs it, a unit a round.
+let private moveLongExtendedLoop ins bld unit r1 r3 o2 =
+  let da = reg bld r1
+  let dl = reg bld (pairOf r1)
+  let sa = reg bld r3
+  let sl = reg bld (pairOf r3)
+  let width = if (unit: int) = 2 then 16<rt> else 8<rt>
+  let step = numG (int64 unit)
+  let pad = tmpVar bld width
+  let cmp = tmpVar bld CCSize
+  let body = label bld "MvcleBody"
+  let more = label bld "MvcleMore"
+  let copy = label bld "MvcleCopy"
+  let fill = label bld "MvcleFill"
+  let out = label bld "MvcleOut"
+  lift bld (ins: Instruction) {
+    pad := AST.xtlo width (transMem bld o2)
+    cmp := lengthsCC dl sl
+    let labels = body, more, copy, fill, out
+    moveLoop bld width step (da, dl) (sa, sl) pad labels
+    ccVar bld := cmp
+  }
+
+#if EMULATION
+/// The call an emulator is handed MOVE LONG EXTENDED as.
+let [<Literal>] private MoveLongCall = "MoveLongExtended"
+
+/// MOVE LONG EXTENDED as an emulator runs it. Its loop moves a byte a round,
+/// and glibc's memcpy hands it every copy past a megabyte; the call
+/// MoveLongCall names, given the numbers of the four registers and the pad
+/// byte, does what the loop does, as many bytes at a time as memory lets it.
+/// It leaves the registers naming what has yet to be moved: nothing, unless
+/// it stopped at a fault, from which the instruction runs again as a CPU
+/// resumes it -- and the lengths left then still compare as the ones it
+/// started from, which the condition code reports.
+let private moveLongExtendedCall ins bld r1 r3 o2 =
+  let num r = numI32 (int (Register.toRegID r)) 64<rt>
+  let cmp = tmpVar bld CCSize
+  let args =
+    [ num r1
+      num (pairOf r1)
+      num r3
+      num (pairOf r3)
+      AST.xtlo 8<rt> (transMem bld o2) ]
+  lift bld (ins: Instruction) {
+    cmp := lengthsCC (reg bld (pairOf r1)) (reg bld (pairOf r3))
+    AST.extCall (AST.app MoveLongCall args 64<rt>)
+    ccVar bld := cmp
+  }
+#endif
+
 /// MOVE LONG EXTENDED: the first operand is filled from the second, and once
 /// the second runs out the rest takes a pad byte. Both addresses and lengths
 /// live in register pairs, which are left naming what has yet to be moved so
-/// that a partial completion could be resumed -- this one always completes.
+/// that a partial completion could be resumed -- this one always completes,
+/// but an emulator's may stop at a fault and resume.
 let moveLongExtended ins bld unit =
   let struct (o1, o2, o3) = getThreeOprs ins
   let r1 = oprReg o1
@@ -1650,28 +1708,12 @@ let moveLongExtended ins bld unit =
   if not (isPair r1 && isPair r3) then
     specException ins bld
   else
-    let da = reg bld r1
-    let dl = reg bld (pairOf r1)
-    let sa = reg bld r3
-    let sl = reg bld (pairOf r3)
-    let width = if (unit: int) = 2 then 16<rt> else 8<rt>
-    let step = numG (int64 unit)
-    let pad = tmpVar bld width
-    let cmp = tmpVar bld CCSize
-    let body = label bld "MvcleBody"
-    let more = label bld "MvcleMore"
-    let copy = label bld "MvcleCopy"
-    let fill = label bld "MvcleFill"
-    let out = label bld "MvcleOut"
-    lift bld (ins: Instruction) {
-      pad := AST.xtlo width (transMem bld o2)
-      cmp := AST.ite (dl == sl)
-                     (numCC 0)
-                     (AST.ite (dl .< sl) (numCC 1) (numCC 2))
-      let labels = body, more, copy, fill, out
-      moveLoop bld width step (da, dl) (sa, sl) pad labels
-      ccVar bld := cmp
-    }
+#if EMULATION
+    if unit = 1 then moveLongExtendedCall ins bld r1 r3 o2
+    else moveLongExtendedLoop ins bld unit r1 r3 o2
+#else
+    moveLongExtendedLoop ins bld unit r1 r3 o2
+#endif
 
 /// COMPARE LOGICAL LONG EXTENDED: the two operands are compared over the
 /// longer of their lengths, the shorter one padded out, and the registers are
@@ -1767,9 +1809,7 @@ let moveLong ins bld =
       dl := dlr .& numG 0xffffffL
       sl := slr .& numG 0xffffffL
       pad := AST.extract slr 8<rt> 24
-      cmp := AST.ite (dl == sl)
-                     (numCC 0)
-                     (AST.ite (dl .< sl) (numCC 1) (numCC 2))
+      cmp := lengthsCC dl sl
       (* Destructive overlap: the destination begins inside the part of the
          source still to be read, so a byte-at-a-time move would read what it
          had already written. *)
