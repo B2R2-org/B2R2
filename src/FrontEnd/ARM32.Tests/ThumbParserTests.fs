@@ -1276,3 +1276,12 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[T32] MSR can name SPSR``() =
     testDisasm "f3918f00" "msr spsr_fsxc, r1"
+
+  /// The narrow MOVS with a register-shifted register reads as the shift it
+  /// names, its preferred disassembly (DDI0487F.c F5.1.113).
+  [<TestMethod>]
+  member _.``[T32] Narrow MOVS by register reads as the shift``() =
+    testDisasm "4088" "lsls r0, r1"
+    testDisasm "40c8" "lsrs r0, r1"
+    testDisasm "4108" "asrs r0, r1"
+    testDisasm "41c8" "rors r0, r1"

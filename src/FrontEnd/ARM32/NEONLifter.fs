@@ -1116,22 +1116,39 @@ let vmaxmin (ins: Instruction) bld maximum =
 let parseOprOfVSTLDM (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprRegList regs) ->
-    regVar bld reg, List.map (regVar bld) regs
+    regVar bld reg, List.map (regVar bld) regs, checkSingleReg regs.Head
   | _ ->
     raise InvalidOperandException
+
+/// One register of a VSTM list, at addr: a single is one word and a double
+/// two, in the order the memory's endianness puts its halves.
+let private vstmReg bld isSingle addr reg =
+  if isSingle then
+    append bld { loadNative bld 32<rt> addr := reg }
+  else
+    let mem1 = loadNative bld 32<rt> addr
+    let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
+    let data1 = AST.xtlo 32<rt> reg
+    let data2 = AST.xthi 32<rt> reg
+    let isbig = bld.Endianness = Endian.Big
+    append bld {
+      mem1 := if isbig then data2 else data1
+      mem2 := if isbig then data1 else data2
+    }
 
 let vstm (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let rn, regList = parseOprOfVSTLDM ins bld
+    let rn, regList, isSingle = parseOprOfVSTLDM ins bld
     let add =
       match ins.Opcode with
       | Op.VSTMIA -> true
       | Op.VSTMDB -> false
       | _ -> raise InvalidOpcodeException
     let regs = List.length regList
-    let imm32 = numI32 ((regs * 2) <<< 2) 32<rt>
+    let size = if isSingle then 4 else 8
+    let imm32 = numI32 (regs * size) 32<rt>
     let addr = tmpVar bld 32<rt>
     let updateRn rn =
       if ins.WriteBack then
@@ -1141,29 +1158,36 @@ let vstm (ins: Instruction) bld =
     addr := if add then rn else rn .- imm32
     rn := updateRn rn
     for r in 0 .. (regs - 1) do
-      let mem1 = loadNative bld 32<rt> addr
-      let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
-      let data1 = AST.xtlo 32<rt> regList[r]
-      let data2 = AST.xthi 32<rt> regList[r]
-      let isbig = bld.Endianness = Endian.Big
-      mem1 := if isbig then data2 else data1
-      mem2 := if isbig then data1 else data2
-      addr := addr .+ (numI32 8 32<rt>)
+      vstmReg bld isSingle addr regList[r]
+      addr := addr .+ (numI32 size 32<rt>)
     putEndLabel bld lblIgnore
   }
+
+/// One register of a VLDM list, from addr, the way vstmReg stores it.
+let private vldmReg bld isSingle addr reg =
+  if isSingle then
+    append bld { reg := loadNative bld 32<rt> addr }
+  else
+    let word1 = loadNative bld 32<rt> addr
+    let word2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
+    let isbig = bld.Endianness = Endian.Big
+    append bld {
+      reg := if isbig then AST.concat word1 word2 else AST.concat word2 word1
+    }
 
 let vldm (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let rn, regList = parseOprOfVSTLDM ins bld
+    let rn, regList, isSingle = parseOprOfVSTLDM ins bld
     let add =
       match ins.Opcode with
       | Op.VLDMIA -> true
       | Op.VLDMDB -> false
       | _ -> raise InvalidOpcodeException
     let regs = List.length regList
-    let imm32 = numI32 ((regs * 2) <<< 2) 32<rt>
+    let size = if isSingle then 4 else 8
+    let imm32 = numI32 (regs * size) 32<rt>
     let addr = tmpVar bld 32<rt>
     let updateRn rn =
       if ins.WriteBack then
@@ -1173,12 +1197,8 @@ let vldm (ins: Instruction) bld =
     addr := if add then rn else rn .- imm32
     rn := updateRn rn
     for r in 0 .. (regs - 1) do
-      let word1 = loadNative bld 32<rt> addr
-      let word2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
-      let isbig = bld.Endianness = Endian.Big
-      regList[r] :=
-             if isbig then AST.concat word1 word2 else AST.concat word2 word1
-      addr := addr .+ (numI32 8 32<rt>)
+      vldmReg bld isSingle addr regList[r]
+      addr := addr .+ (numI32 size 32<rt>)
     putEndLabel bld lblIgnore
   }
 

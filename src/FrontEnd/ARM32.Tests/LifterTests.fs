@@ -24,8 +24,10 @@
 
 namespace B2R2.FrontEnd.ARM32.Tests
 
+open System.Collections.Generic
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.Collections
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM32
@@ -116,6 +118,35 @@ type LifterTests() =
     |> Array.exists (function
       | SideEffect(Effect = BinIR.SideEffect.UndefinedInstruction) -> true
       | _ -> false)
+
+  /// The statement that sets C to a constant, as a flag-setting logical
+  /// instruction does from a rotated immediate: imm32<31>.
+  let carryPut set =
+    let bit = if set then AST.num1 1<rt> else AST.num0 1<rt>
+    !.CPSR := (!.CPSR .& num 0xdfffffffu) .| (AST.zext 32<rt> bit << num 29u)
+
+  /// Whether the statements of one encoding set C to the constant given.
+  let writesCarry isThumb hex set =
+    liftedBy isThumb hex |> Array.contains (carryPut set)
+
+  /// Whether a statement after the one that writes a register reads it: the
+  /// new value, where the instruction reads its operands before it writes.
+  let readsAfterWriting isThumb hex reg =
+    let stmts = liftedBy isThumb hex
+    let rid = int (Register.toRegID reg)
+    let writes = function
+      | Put(Dst = Var(RegisterID = r)) -> int r = rid
+      | _ -> false
+    let reads = function
+      | Put(Src = src) ->
+        let regs = RegisterSet 0x10000
+        AST.updateAllVarsUses regs (HashSet<int>()) src
+        regs.Contains rid
+      | _ ->
+        false
+    match Array.tryFindIndex writes stmts with
+    | Some i -> Array.exists reads stmts[i + 1..]
+    | None -> false
 
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =
@@ -693,3 +724,141 @@ type LifterTests() =
     let user = (!.CPSR .& num 0x1fu) == num 0x10u
     let cleared = AST.ite user !.CPSR (!.CPSR .& num 0xffffff7fu)
     Assert.AreEqual<Expr option>(Some cleared, assignedBy true "b662" !.CPSR)
+
+  /// A narrow shift by register is the wide one in sixteen bits, C included
+  /// (DDI0487F.c F5.1.113).
+  [<TestMethod>]
+  member _.``[Thumb] LSLS (register, narrow) lifts as LSLS.W does``() =
+    CollectionAssert.AreEqual(unwrapStmts (liftedBy true "fa10f001"),
+                              unwrapStmts (liftedBy true "4088"))
+
+  /// ThumbExpandImm_C (DDI0406C A6.3.2): a rotated constant gives
+  /// carry_out = imm32<31>.
+  [<TestMethod>]
+  member _.``[Thumb] TST (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry true "f0114f7f" true)
+
+  [<TestMethod>]
+  member _.``[Thumb] MOVS (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry true "f45f007f" false)
+
+  [<TestMethod>]
+  member _.``[Thumb] ORNS (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry true "f071407f" true)
+
+  /// ARMExpandImm_C (DDI0406C A5.2.4), whose carry the parser already passes
+  /// and A32 TST already takes.
+  [<TestMethod>]
+  member _.``[ARMv7] TST (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry false "e31104ff" true)
+
+  [<TestMethod>]
+  member _.``[ARMv7] TEQ (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry false "e33104ff" true)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MOVS (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry false "e3b008ff" false)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MVNS (immediate) takes C from a rotated constant``() =
+    Assert.AreEqual<bool>(true, writesCarry false "e3f004ff" true)
+
+  /// Shift_C (DDI0406C A8.4.3) reads the operands as they were before the
+  /// instruction, so where the destination is also the amount register the
+  /// carry must not come from the result.
+  [<TestMethod>]
+  member _.``[ARMv7] LSLS (register) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1b01110" R1)
+
+  [<TestMethod>]
+  member _.``[Thumb] LSLS.W (register) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting true "fa10f101" R1)
+
+  [<TestMethod>]
+  member _.``[Thumb] LSLS (register, narrow) with Rdn = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting true "4080" R0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MVNS (immediate shift) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1f00080" R0)
+
+  [<TestMethod>]
+  member _.``[Thumb] MVNS.W (immediate shift) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting true "ea7f0040" R0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MVNS (register shift) with Rd = Rm reads Rm first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1f00110" R0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] MVNS (register shift) with Rd = Rs reads Rs first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1f01110" R1)
+
+  [<TestMethod>]
+  member _.``[ARMv7] ANDS (register shift) with Rd = Rs reads Rs first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e0101110" R1)
+
+  [<TestMethod>]
+  member _.``[ARMv7] ORRS (register shift) with Rd = Rs reads Rs first``() =
+    Assert.AreEqual<bool>(false, readsAfterWriting false "e1901130" R1)
+
+  /// The registers of a list of singles take a word each (DDI0406C A8.8.413
+  /// VSTM, A8.8.333 VLDM); VPUSH and VPOP are those on SP.
+  [<TestMethod>]
+  member _.``[ARMv7] VSTM of singles stores one word a register``() =
+    let sizes =
+      liftedBy false "ec800a04"
+      |> Array.choose (function
+        | Store(Value = value) -> Some(Expr.typeOf value)
+        | _ -> None)
+    CollectionAssert.AreEqual([| 32<rt>; 32<rt>; 32<rt>; 32<rt> |], sizes)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VSTM of singles writes back a word a register``() =
+    Assert.AreEqual<Expr option>(Some(!.R0 .+ num 8u),
+                                 assignedBy false "eca00a02" !.R0)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VLDM of singles loads one word a register``() =
+    let halves = [ !@(Q0, 1); !@(Q0, 2) ]
+    let writes =
+      writtenBy false "ec900a04"
+      |> Array.filter (fun d -> List.contains d halves)
+    Assert.AreEqual<int>(4, writes.Length)
+
+  [<TestMethod>]
+  member _.``[ARMv7] VPUSH of singles moves SP a word a register``() =
+    Assert.AreEqual<Expr option>(Some(!.SP .- num 8u),
+                                 assignedBy false "ed2d0a02" !.SP)
+
+  /// T32's unprivileged loads and stores and its exclusives add their
+  /// unsigned offset to Rn (DDI0406C A8.8.93 LDRT, A8.8.76 LDREX, A8.8.213
+  /// STREX).
+  [<TestMethod>]
+  member _.``[Thumb] LDRT adds its offset``() =
+    let addrs =
+      liftedBy true "f8510e03"
+      |> Array.choose (function
+        | Put(Src = Load(Addr = addr)) -> Some addr
+        | _ -> None)
+    CollectionAssert.AreEqual([| !.R1 .+ num 3u |], addrs)
+
+  [<TestMethod>]
+  member _.``[Thumb] STRT adds its offset``() =
+    let addrs =
+      liftedBy true "f8410e03"
+      |> Array.choose (function
+        | Store(Addr = addr) -> Some addr
+        | _ -> None)
+    CollectionAssert.AreEqual([| !.R1 .+ num 3u |], addrs)
+
+  [<TestMethod>]
+  member _.``[Thumb] LDREX adds its offset``() =
+    Assert.AreEqual<Expr option>(Some(!.R1 .+ num 16u),
+                                 assignedBy true "e8510f04" (t32 1))
+
+  [<TestMethod>]
+  member _.``[Thumb] STREX adds its offset``() =
+    Assert.AreEqual<Expr option>(Some(!.R1 .+ num 16u),
+                                 assignedBy true "e8410204" (t32 1))

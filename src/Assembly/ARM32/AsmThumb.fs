@@ -121,6 +121,15 @@ let private dataProc op ins =
   | ThreeOperands(OprReg rd, OprReg rn, OprImm 0L) -> encode rd rn
   | _ -> wrongOperands ins
 
+/// The narrow shifts: by an immediate, which LSLS, LSRS and ASRS have, and by
+/// a register, which the manual writes as the data-processing operation of
+/// the same name on the register it shifts.
+let private shift immOp regOp ins =
+  match immOp, ins.Operands with
+  | Some op, ThreeOperands(_, _, OprImm _) -> shiftImmediate op ins
+  | None, ThreeOperands(_, _, OprImm _) -> wrongOperands ins
+  | _ -> dataProc regOp ins
+
 /// MULS, which names the register it reads and writes on either side of the one
 /// it only reads.
 let private multiply ins =
@@ -1005,9 +1014,10 @@ let private wideBarrier op defaultOption ins =
 
 /// The narrow Thumb instructions, which are what a halfword on its own can say.
 let thumbNarrowEncoders () =
-  [ Opcode.LSLS, shiftImmediate 0b00u
-    Opcode.LSRS, shiftImmediate 0b01u
-    Opcode.ASRS, shiftImmediate 0b10u
+  [ Opcode.LSLS, shift (Some 0b00u) 0b0010u
+    Opcode.LSRS, shift (Some 0b01u) 0b0011u
+    Opcode.ASRS, shift (Some 0b10u) 0b0100u
+    Opcode.RORS, shift None 0b0111u
     Opcode.ADDS, addSubtractOrImmediate 0u
     Opcode.SUBS, addSubtractOrImmediate 1u
     Opcode.ANDS, dataProc 0b0000u

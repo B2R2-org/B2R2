@@ -618,3 +618,13 @@ type ARM32EncodingTests() =
   [<TestMethod>]
   member _.``Thumb MSR to SPSR encodes``() =
     Assert.AreEqual<string>("91f3008f", encodeThumb "msr spsr_fsxc, r1")
+
+  /// A narrow shift by a register is written as the shift, which is how the
+  /// decoder reads it back (DDI0487F.c F5.1.113).
+  [<TestMethod>]
+  member _.``Thumb LSLS by a register encodes narrow``() =
+    Assert.AreEqual<string>("8840", encodeThumb "lsls r0, r1")
+
+  [<TestMethod>]
+  member _.``Thumb RORS by a register encodes narrow``() =
+    Assert.AreEqual<string>("c841", encodeThumb "rors r0, r1")

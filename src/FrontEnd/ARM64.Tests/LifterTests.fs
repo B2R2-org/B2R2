@@ -82,6 +82,13 @@ type LifterTests() =
     | InterJmp(Target = t) -> t = target
     | _ -> false
 
+  /// What one encoding assigns to a register or a temporary, if anything.
+  let assigned (hex: string) dst =
+    lifted hex
+    |> Array.tryPick (function
+      | Put(Dst = d; Src = src) when d = dst -> Some src
+      | _ -> None)
+
   (* NGC, NGCS and a BFC with a non-zero lsb all reached the raising
      fall-through in `translate`, so a block containing one did not lift at
      all. The claim these pin is exactly that -- each encoding produces
@@ -246,3 +253,30 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[AArch64] CSDB lifts to nothing``() =
     "d503229f" ++ [||] |> test
+
+  /// The tag stores write the base back in their indexed forms, as any store
+  /// does, and a post-index one accesses the base itself (DDI0487F.c C6.2.256
+  /// STG, C6.2.306 STZG, C6.2.258 STGP).
+  [<TestMethod>]
+  member _.``[AArch64] STG (post-index) writes the base back``() =
+    Assert.AreEqual<Expr option>(Some(!.X1 .+ num64 16UL),
+                                 assigned "d9201420" !.X1)
+
+  [<TestMethod>]
+  member _.``[AArch64] STG (pre-index) writes the base back``() =
+    Assert.AreEqual<Expr option>(Some(!.X1 .+ num64 16UL),
+                                 assigned "d9201c20" !.X1)
+
+  [<TestMethod>]
+  member _.``[AArch64] STG (signed offset) leaves the base``() =
+    Assert.AreEqual<Expr option>(None, assigned "d9201820" !.X1)
+
+  [<TestMethod>]
+  member _.``[AArch64] STZG (post-index) zeroes at the base``() =
+    Assert.AreEqual<Expr option>(Some !.X1,
+                                 assigned "d9601420" (AST.tmpvar 64<rt> 1))
+
+  [<TestMethod>]
+  member _.``[AArch64] STGP (post-index) stores at the base``() =
+    Assert.AreEqual<Expr option>(Some !.X1,
+                                 assigned "68808c22" (AST.tmpvar 64<rt> 1))
