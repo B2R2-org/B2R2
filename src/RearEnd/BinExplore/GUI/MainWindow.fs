@@ -46,8 +46,15 @@ type MainWindow<'FnCtx, 'GlCtx
     let themeMode = if useDarkTheme then Builtin Dark else Builtin Light
     let customThemes = Map.empty
     let rootPane = Pane.createLeaf ()
+    let loadingBinaryPath, msg =
+      match arbiter.GetBinaryBrew() with
+      | Ok brew ->
+        let path = brew.BinHandle.File.Path
+        Some path, Elmish.Cmd.ofMsg (OpenBinaryCompleted path)
+      | _ ->
+        None, Elmish.Cmd.none
     { LoadedBinary = None
-      LoadingBinaryPath = None
+      LoadingBinaryPath = loadingBinaryPath
       Functions = []
       FunctionFilter = ""
       Sections = []
@@ -66,7 +73,7 @@ type MainWindow<'FnCtx, 'GlCtx
       SyncEnabled = true
       Hexdump = None
       OffsetSnapshot = OffsetSnapshot.empty
-      StatusBarState = EmptyStatus }, Elmish.Cmd.none
+      StatusBarState = EmptyStatus }, msg
 
   let update (msg: Message) (model: Model) =
     match msg with
