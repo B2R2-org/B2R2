@@ -24,6 +24,7 @@
 
 namespace B2R2.Core.Tests
 
+open System.Collections.Generic
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.Collections
@@ -158,3 +159,66 @@ type NoOverlapIntervalMapTests() =
       |> NoOverlapIntervalMap.removeByAddr 150UL
     Assert.AreEqual<bool>(true, NoOverlapIntervalMap.isEmpty m)
     Assert.AreEqual<int>(0, NoOverlapIntervalMap.count m)
+
+  [<TestMethod>]
+  member _.``Replace An Exact Range``() =
+    let r = AddrRange.create 100UL 199UL
+    let m =
+      NoOverlapIntervalMap.empty
+      |> NoOverlapIntervalMap.add r 1
+      |> NoOverlapIntervalMap.replace r 2
+    Assert.AreEqual<int>(1, NoOverlapIntervalMap.count m)
+    Assert.AreEqual<int>(2, NoOverlapIntervalMap.find r m)
+    Assert.Throws<RangeOverlapException>(fun () ->
+      NoOverlapIntervalMap.replace (AddrRange.create 150UL 249UL) 3 m
+      |> ignore)
+    |> ignore
+
+  [<TestMethod>]
+  member _.``Contains An Address Or An Exact Range``() =
+    let r = AddrRange.create 100UL 199UL
+    let m = NoOverlapIntervalMap.empty |> NoOverlapIntervalMap.add r 1
+    Assert.AreEqual<bool>(true, NoOverlapIntervalMap.containsAddr 150UL m)
+    Assert.AreEqual<bool>(false, NoOverlapIntervalMap.containsAddr 200UL m)
+    Assert.AreEqual<bool>(true, NoOverlapIntervalMap.containsRange r m)
+    let inner = AddrRange.create 120UL 129UL
+    Assert.AreEqual<bool>(false, NoOverlapIntervalMap.containsRange inner m)
+
+  [<TestMethod>]
+  member _.``Find An Exact Range``() =
+    let r = AddrRange.create 100UL 199UL
+    let inner = AddrRange.create 120UL 129UL
+    let m = NoOverlapIntervalMap.empty |> NoOverlapIntervalMap.add r 1
+    Assert.AreEqual<int>(1, NoOverlapIntervalMap.find r m)
+    Assert.AreEqual(Some 1, NoOverlapIntervalMap.tryFind r m)
+    Assert.AreEqual(None, NoOverlapIntervalMap.tryFind inner m)
+    Assert.Throws<KeyNotFoundException>(fun () ->
+      NoOverlapIntervalMap.find inner m |> ignore)
+    |> ignore
+
+  [<TestMethod>]
+  member _.``Try Find By Address``() =
+    let r = AddrRange.create 100UL 199UL
+    let m = NoOverlapIntervalMap.empty |> NoOverlapIntervalMap.add r 1
+    Assert.AreEqual(Some 1, NoOverlapIntervalMap.tryFindByAddr 150UL m)
+    Assert.AreEqual(None, NoOverlapIntervalMap.tryFindByAddr 99UL m)
+    Assert.AreEqual(Some r, NoOverlapIntervalMap.tryFindRangeByAddr 199UL m)
+    Assert.AreEqual(None, NoOverlapIntervalMap.tryFindRangeByAddr 200UL m)
+
+  [<TestMethod>]
+  member _.``Iterate And Fold In Address Order``() =
+    let r1 = AddrRange.create 100UL 199UL
+    let r2 = AddrRange.create 300UL 399UL
+    let r3 = AddrRange.create 500UL 599UL
+    let m =
+      NoOverlapIntervalMap.empty
+      |> NoOverlapIntervalMap.add r2 2
+      |> NoOverlapIntervalMap.add r3 3
+      |> NoOverlapIntervalMap.add r1 1
+    let seen = List<int>()
+    NoOverlapIntervalMap.iter (fun _ v -> seen.Add v) m
+    CollectionAssert.AreEqual([| 1; 2; 3 |], seen.ToArray())
+    let collect acc (k: AddrRange) v = (k.Min, v) :: acc
+    let folded = NoOverlapIntervalMap.fold collect [] m
+    let expected = [ 500UL, 3; 300UL, 2; 100UL, 1 ]
+    Assert.AreEqual<(uint64 * int) list>(expected, folded)
