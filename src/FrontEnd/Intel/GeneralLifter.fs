@@ -162,7 +162,7 @@ let [<Literal>] private RepCallFloor = 16
 /// fault or went one element at a time, and the instruction then runs again
 /// from there, as a CPU resumes it. A count below RepCallFloor runs the
 /// `body` that moves one element instead, as the instruction otherwise does.
-let private strRepeatCall ins bld body name =
+let private strRepeatCall (ins: Instruction) (bld: ILowUIRBuilder) body name =
   append bld {
     let lblExit = label bld "Exit"
     let lblCont = label bld "Continue"
@@ -199,7 +199,7 @@ let private strRepeatCall ins bld body name =
 /// Repeats MOVS or STOS, whose `body` moves one element. An emulator has the
 /// call `name` names do the repeating, unless an FS or GS override or an
 /// address-size prefix asks for more than plain rSI and rDI.
-let private strRepeatMove (ins: Instruction) bld body name =
+let private strRepeatMove (ins: Instruction) (bld: ILowUIRBuilder) body name =
 #if EMULATION
   let others = Prefix.FS ||| Prefix.GS ||| Prefix.ADDRSIZE
   if ins.Prefixes &&& others = Prefix.None then
@@ -3101,7 +3101,7 @@ let private shiftLazily bld oprSize opFn byteOp dst cnt tDst =
 #endif
 
 /// Shifts the destination and sets the flags the shift leaves behind.
-let private shiftAndSetFlags (ins: Instruction) bld oprSize dst src cnt =
+let private shiftAndSetFlags ins bld oprSize dst (src: Expr) cnt =
   append bld {
     let tDst = tmpVar bld oprSize
 #if !EMULATION
@@ -3111,7 +3111,7 @@ let private shiftAndSetFlags (ins: Instruction) bld oprSize dst src cnt =
     let zF = regVar bld R.ZF
     direct tDst := dst
 #endif
-    match ins.Opcode with
+    match (ins: Instruction).Opcode with
     | Opcode.SHL ->
 #if EMULATION
       shiftLazily bld oprSize (<<) ConditionCodeOp.SHLB dst cnt tDst

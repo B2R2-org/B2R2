@@ -310,7 +310,7 @@ let private transGpOpr ins bld useTmpVar (o: Operand) sz =
 
 /// A vector register operand, or the memory operand, as the expression the
 /// given reader makes of the loaded value.
-let private transVecOpr ins bld useTmpVar (o: Operand) regVar memExpr =
+let inline private transVecOpr ins bld useTmpVar (o: Operand) regVar memExpr =
   match o.Kind with
   | OperandKind.Reg ->
     regVar bld o.Register
