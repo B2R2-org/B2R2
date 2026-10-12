@@ -267,6 +267,13 @@ type LifterTests() =
   member _.``[AArch64] DCZID_EL0 holds a Cortex-A57's block size``() =
     Assert.AreEqual<uint64>(0x4UL, SysReg.resetValue DCZIDEL0)
 
+  /// CTR_EL0 is a Cortex-A57's, which gives sixty-four-byte lines on both
+  /// sides: DminLine and IminLine are log2 words, four each.
+  [<TestMethod>]
+  member _.``[AArch64] CTR_EL0 holds a Cortex-A57's line sizes``() =
+    Assert.AreEqual<bool>(true, List.contains CTREL0 SysReg.modelled)
+    Assert.AreEqual<uint64>(0x8444c004UL, SysReg.resetValue CTREL0)
+
   /// DAIFSet and DAIFClr set and clear the masks their immediate names, at the
   /// bits DAIF keeps them in, and leave the other masks as they were.
   [<TestMethod>]

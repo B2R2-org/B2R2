@@ -71,6 +71,7 @@ module SysReg =
       Register.MIDREL1
       Register.ESREL1
       Register.DCZIDEL0
+      Register.CTREL0
       Register.SPSEL
       Register.PAN
       Register.UAO
@@ -83,15 +84,16 @@ module SysReg =
   /// <summary>
   /// What a register holds before anything has written it.
   ///
-  /// Six are not zero. CurrentEL says which exception level is running and
+  /// Seven are not zero. CurrentEL says which exception level is running and
   /// execution with no operating system under it starts at EL1, which the
   /// field spells as one in bits 3:2. SCTLR_EL1 has bits that are RES1 and
   /// reset to them. MIDR_EL1 names the processor, and answering zero there
   /// would say there is none. DCZID_EL0 sizes the block DC ZVA and STZGM
   /// clear, as a log2 in words: a Cortex-A57 clears sixteen, and a zero
-  /// there would have them clear one. A reset masks every interrupt and
-  /// selects the level's own stack pointer, which is DAIF with all four masks
-  /// set and SPSel at one.
+  /// there would have them clear one. CTR_EL0 gives the cache line sizes code
+  /// that cleans caches by line steps by, and a zero there would say four
+  /// bytes. A reset masks every interrupt and selects the level's own stack
+  /// pointer, which is DAIF with all four masks set and SPSel at one.
   ///
   /// Of the rest of PSTATE, DIT resets to zero and PAN, UAO, TCO and SSBS are
   /// UNKNOWN; zero is the value chosen for those, and for PAR_EL1, whose
@@ -102,6 +104,7 @@ module SysReg =
     | Register.SCTLREL1 -> 0x00c50838UL
     | Register.MIDREL1 -> 0x411fd070UL
     | Register.DCZIDEL0 -> 0x4UL
+    | Register.CTREL0 -> 0x8444c004UL
     | Register.DAIF -> 0x3c0UL
     | Register.SPSEL -> 0x1UL
     | _ -> 0UL
