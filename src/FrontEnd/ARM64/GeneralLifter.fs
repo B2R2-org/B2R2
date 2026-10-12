@@ -1547,6 +1547,52 @@ let movz (ins: Instruction) bld =
     sized ins.OprSize dst := src
   }
 
+/// Whether the processor is at EL0, which CurrentEL holds in bits 3:2. What
+/// runs the IR is what sets it: a Linux process at EL0, a board at EL1.
+let private atEL0 bld =
+  (regVar bld R.CURRENTEL .& numU64 0xcUL 64<rt>) == AST.num0 64<rt>
+
+/// An Undefined Instruction exception where the condition holds.
+let private undefinedWhen bld cond =
+  _when bld "Undefined" cond (block {
+    AST.sideEffect UndefinedInstruction
+  })
+
+/// Whether a bit of SCTLR_EL1 is set (D13.2.113).
+let private sctlrBit bld (bit: int) =
+  (regVar bld R.SCTLREL1 .& numU64 (1UL <<< bit) 64<rt>) != AST.num0 64<rt>
+
+/// <summary>
+/// When an MRS (a read) or an MSR of a system register is UNDEFINED, which
+/// is at EL0 alone, or never. A register whose op1 is not 3 needs EL1 or
+/// more (AArch64.CheckSystemAccess, J1.1). Of those whose op1 is 3, DAIF
+/// needs SCTLR_EL1.UMA, bit 9, a read of CTR_EL0 needs SCTLR_EL1.UCT, bit
+/// 15, and CTR_EL0, DCZID_EL0 and CNTVCT_EL0 are only ever read.
+/// </summary>
+let private el0Denies bld isRead opr =
+  let el0 = atEL0 bld
+  match opr with
+  | OprRegister(R.NZCV | R.FPCR | R.FPSR | R.TPIDREL0)
+  | OprRegister(R.DIT | R.SSBS | R.TCO) ->
+    None
+  | OprRegister R.DAIF ->
+    Some(el0 .& AST.not (sctlrBit bld 9))
+  | OprRegister R.CTREL0 when isRead ->
+    Some(el0 .& AST.not (sctlrBit bld 15))
+  | OprRegister(R.DCZIDEL0 | R.CNTVCT_EL0) when isRead ->
+    None
+  | OprSysReg key when (key >>> 11) &&& 7u = 3u ->
+    None
+  | _ ->
+    Some el0
+
+/// An Undefined Instruction exception where the level running may not read
+/// (isRead) or write the system register an MRS or MSR names.
+let checkSystemAccess bld isRead opr =
+  match el0Denies bld isRead opr with
+  | Some cond -> undefinedWhen bld cond
+  | None -> ()
+
 /// <summary>
 /// The bits of its register a field of PSTATE occupies, which are the bits
 /// SPSR keeps it at. Every other bit of such a register is RES0, so a write
@@ -1571,6 +1617,18 @@ let private fieldRegister = function
   | DIT -> R.DIT
   | TCO -> R.TCO
   | DAIFSET | DAIFCLR -> R.DAIF
+
+/// An Undefined Instruction exception where EL0 may not write the field an
+/// MSR (immediate) names: SPSel, PAN and UAO, whose op1 is 0, need EL1, and
+/// DAIFSet and DAIFClr need SCTLR_EL1.UMA (C6.2.194).
+let private checkFieldAccess bld field =
+  match field with
+  | SPSEL | PAN | UAO ->
+    undefinedWhen bld (atEL0 bld)
+  | DAIFSET | DAIFCLR ->
+    undefinedWhen bld (atEL0 bld .& AST.not (sctlrBit bld 9))
+  | _ ->
+    ()
 
 /// <summary>
 /// Makes SP name the stack pointer a selection asks for: SP_EL0 for zero,
@@ -1606,6 +1664,7 @@ let private msrImmediate ins bld field (imm: int64) =
   let daif = regVar bld R.DAIF
   let reg = fieldRegister field
   lift bld ins {
+    checkFieldAccess bld field
     match field with
     | DAIFSET ->
       direct daif := daif .| numU64 (imm <<< 6) 64<rt>
@@ -1620,6 +1679,7 @@ let private msrImmediate ins bld field (imm: int64) =
 /// MSR SPSel, Xt, which selects the stack pointer bit 0 of Xt names.
 let private msrStackSelect ins bld src =
   lift bld ins {
+    checkSystemAccess bld false (OprRegister R.SPSEL)
     let src = transOpr ins bld src
     selectStack bld (src .& AST.num1 64<rt>)
   }
@@ -1628,14 +1688,18 @@ let private msrStackSelect ins bld src =
 /// of the field it names.
 let private msrWindow ins bld reg src =
   lift bld ins {
+    checkSystemAccess bld false (OprRegister reg)
     let src = transOpr ins bld src
     direct (regVar bld reg) := src .& numU64 (pstateBits reg) 64<rt>
   }
 
 let msr (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OprSysReg _, _) ->
-    unsupported ins bld
+  | TwoOperands(OprSysReg _ as dst, _) ->
+    lift bld ins {
+      checkSystemAccess bld false dst
+      AST.sideEffect UnsupportedInstruction
+    }
   | TwoOperands(OprPstate field, OprImm imm) ->
     msrImmediate ins bld field imm
   | TwoOperands(OprRegister R.SPSEL, src) ->
@@ -1645,6 +1709,7 @@ let msr (ins: Instruction) bld =
   | _ ->
     lift bld ins {
       let struct (dst, src) = getTwoOprs ins
+      checkSystemAccess bld false dst
       match dst with
       | OprRegister R.NZCV ->
         let src = transOpr ins bld src
@@ -1682,21 +1747,9 @@ let private lowestLevel ins =
   | 4u | 5u -> 2
   | _ -> 3
 
-/// Whether the processor is at EL0, which CurrentEL holds in bits 3:2. What
-/// runs the IR is what sets it: a Linux process at EL0, a board at EL1.
-let private atEL0 bld =
-  (regVar bld R.CURRENTEL .& numU64 0xcUL 64<rt>) == AST.num0 64<rt>
-
-/// An Undefined Instruction exception where the condition holds.
-let private undefinedWhen bld cond =
-  _when bld "Undefined" cond (block {
-    AST.sideEffect UndefinedInstruction
-  })
-
 /// Whether EL0 may run CFP, DVP and CPP: SCTLR_EL1.EnRCTX, bit 10
 /// (D13.2.113).
-let private enRCTX bld =
-  (regVar bld R.SCTLREL1 .& numU64 0x400UL 64<rt>) != AST.num0 64<rt>
+let private enRCTX bld = sctlrBit bld 10
 
 /// <summary>
 /// The aliases of SYS whose effect this model has nothing to show: TLB and
@@ -1733,8 +1786,7 @@ let systemMaintenance (ins: Instruction) bld =
 let private paMax = 44
 
 /// Whether stage 1 translation is on: SCTLR_EL1.M, bit 0.
-let private mmuOn bld =
-  (regVar bld R.SCTLREL1 .& AST.num1 64<rt>) != AST.num0 64<rt>
+let private mmuOn bld = sctlrBit bld 0
 
 /// An UnsupportedInstruction where the condition holds.
 let private unsupportedWhen bld cond =

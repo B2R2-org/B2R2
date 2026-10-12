@@ -197,6 +197,53 @@ type LifterTests() =
     Assert.AreEqual<bool>(true, List.contains PAREL1 SysReg.modelled)
     Assert.AreEqual<uint64>(0UL, SysReg.resetValue PAREL1)
 
+  /// <summary>
+  /// What MRS and MSR reach at EL0 (AArch64.CheckSystemAccess, J1.1): only
+  /// a register whose op1 is 3. MIDR_EL1, CurrentEL and an unnamed register
+  /// with op1 0 are UNDEFINED there and read at EL1; NZCV and TPIDR_EL0 are
+  /// EL0's; DAIF needs SCTLR_EL1.UMA and a read of CTR_EL0 SCTLR_EL1.UCT, and
+  /// CTR_EL0 takes no write. An unnamed register with op1 3 is EL0's and
+  /// still unsupported.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] MRS and MSR reach EL0's registers only``() =
+    let at el (sctlr: uint64) hex =
+      let inputs =
+        [ !.CURRENTEL, bv64 (uint64 el <<< 2); !.SCTLREL1, bv64 sctlr ]
+      IRRunner.effects (lifted hex) inputs
+    let undef = [ BinIR.SideEffect.UndefinedInstruction ]
+    let none: BinIR.SideEffect list = []
+    let uma, uct = 1UL <<< 9, 1UL <<< 15
+    for hex in [ "d5380000"; "d5384240"; "d538f200" ] do
+      Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL hex, hex)
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 1 0UL "d5380000")
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 0 0UL "d53b4200")
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 0 0UL "d53bd040")
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL "d53b4220")
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL "d51b4220")
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 0 uma "d53b4220")
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL "d53b0020")
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 0 uct "d53b0020")
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 uct "d51b0020")
+    let unsupported = [ BinIR.SideEffect.UnsupportedInstruction ]
+    Assert.AreEqual<BinIR.SideEffect list>(unsupported, at 0 0UL "d53bf200")
+
+  /// MSR (immediate) at EL0 (C6.2.194): SPSel, PAN and UAO need EL1, and
+  /// DAIFSet and DAIFClr SCTLR_EL1.UMA; DIT is EL0's.
+  [<TestMethod>]
+  member _.``[AArch64] MSR (immediate) reaches EL0's fields only``() =
+    let at el (sctlr: uint64) hex =
+      let inputs =
+        [ !.CURRENTEL, bv64 (uint64 el <<< 2); !.SCTLREL1, bv64 sctlr ]
+      IRRunner.effects (lifted hex) inputs
+    let undef = [ BinIR.SideEffect.UndefinedInstruction ]
+    let none: BinIR.SideEffect list = []
+    for hex in [ "d50041bf"; "d500419f"; "d500407f"; "d50342df" ] do
+      Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL hex, hex)
+      Assert.AreEqual<BinIR.SideEffect list>(none, at 1 0UL hex, hex)
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 0 (1UL <<< 9) "d50342df")
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 0 0UL "d503405f")
+
   /// DC GZVA clears the block DC ZVA does and the allocation tags no memory
   /// here holds, and DC GVA writes only those tags: it lifts to nothing, as
   /// IC IVAU does, there being no cache to maintain.
@@ -275,43 +322,50 @@ type LifterTests() =
     Assert.AreEqual<uint64>(0x8444c004UL, SysReg.resetValue CTREL0)
 
   /// DAIFSet and DAIFClr set and clear the masks their immediate names, at the
-  /// bits DAIF keeps them in, and leave the other masks as they were.
+  /// bits DAIF keeps them in, and leave the other masks as they were. Each
+  /// runs at EL1, where nothing stops it.
   [<TestMethod>]
   member _.``[AArch64] MSR DAIFSet ORs its masks into DAIF``() =
-    "d50345df"
-    ++ [| !.DAIF := !.DAIF .| num64 0x140UL |]
-    |> test
+    let inputs = [ !.CURRENTEL, bv64 0x4UL; !.DAIF, bv64 0x200UL ]
+    let read = IRRunner.run (lifted "d50345df") inputs
+    Assert.AreEqual<uint64>(0x340UL, (read !.DAIF).ToUInt64())
 
   [<TestMethod>]
   member _.``[AArch64] MSR DAIFClr clears its masks from DAIF``() =
-    "d50343ff"
-    ++ [| !.DAIF := !.DAIF .& num64 0xffffffffffffff3fUL |]
-    |> test
+    let inputs = [ !.CURRENTEL, bv64 0x4UL; !.DAIF, bv64 0x3c0UL ]
+    let read = IRRunner.run (lifted "d50343ff") inputs
+    Assert.AreEqual<uint64>(0x300UL, (read !.DAIF).ToUInt64())
 
   /// Every other field takes the low bit of the immediate and nothing else.
   [<TestMethod>]
   member _.``[AArch64] MSR PAN takes the low bit of its immediate``() =
-    "d5004f9f"
-    ++ [| !.PAN := num64 0x400000UL |]
-    |> test
+    let inputs = [ !.CURRENTEL, bv64 0x4UL ]
+    let read = IRRunner.run (lifted "d5004f9f") inputs
+    Assert.AreEqual<uint64>(0x400000UL, (read !.PAN).ToUInt64())
 
   /// A register that is a window onto PSTATE keeps only its field's bits.
   [<TestMethod>]
   member _.``[AArch64] MSR DAIF keeps only the mask bits``() =
-    "d51b4220"
-    ++ [| !.DAIF := !.X0 .& num64 0x3c0UL |]
-    |> test
+    let inputs = [ !.CURRENTEL, bv64 0x4UL; !.X0, bv64 ~~~0UL ]
+    let read = IRRunner.run (lifted "d51b4220") inputs
+    Assert.AreEqual<uint64>(0x3c0UL, (read !.DAIF).ToUInt64())
 
   /// What a system register with no name holds is the processor's own, so a
   /// read or a write of one is left to the emulator to report rather than
-  /// given a value nothing stands behind.
+  /// given a value nothing stands behind -- at EL1, where either may run.
   [<TestMethod>]
   member _.``[AArch64] MRS of an unnamed system register is unsupported``() =
-    "d538f200" ++ [| unsupported |] |> test
+    let inputs = [ !.CURRENTEL, bv64 0x4UL ]
+    let effects = IRRunner.effects (lifted "d538f200") inputs
+    let unsupported = [ BinIR.SideEffect.UnsupportedInstruction ]
+    Assert.AreEqual<BinIR.SideEffect list>(unsupported, effects)
 
   [<TestMethod>]
   member _.``[AArch64] MSR to an unnamed system register is unsupported``() =
-    "d51ff001" ++ [| unsupported |] |> test
+    let inputs = [ !.CURRENTEL, bv64 0x4UL ]
+    let effects = IRRunner.effects (lifted "d51ff001") inputs
+    let unsupported = [ BinIR.SideEffect.UnsupportedInstruction ]
+    Assert.AreEqual<BinIR.SideEffect list>(unsupported, effects)
 
   /// A failed authentication puts key_number:NOT(key_number) in bits 62:61 in
   /// place of what was there (Auth(), J1-7662): 01 under an A key, 10 under a

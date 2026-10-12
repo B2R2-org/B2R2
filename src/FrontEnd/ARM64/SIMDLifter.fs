@@ -2680,6 +2680,7 @@ let movk (ins: Instruction) bld =
 let private mrsNamed (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
+    checkSystemAccess bld true src
     match dst, src with
     | OprRegister rt, OprRegister R.CNTVCT_EL0 ->
       (* CNTVCT_EL0 has no stored value to read; leave the 64-bit virtual count
@@ -2703,8 +2704,13 @@ let private mrsNamed (ins: Instruction) bld =
 
 let mrs (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(_, OprSysReg _) -> unsupported ins bld
-  | _ -> mrsNamed ins bld
+  | TwoOperands(_, (OprSysReg _ as src)) ->
+    lift bld ins {
+      checkSystemAccess bld true src
+      AST.sideEffect UnsupportedInstruction
+    }
+  | _ ->
+    mrsNamed ins bld
 
 let mvni (ins: Instruction) bld =
   lift bld ins {
