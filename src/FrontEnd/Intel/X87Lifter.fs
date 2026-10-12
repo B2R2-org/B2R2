@@ -455,34 +455,29 @@ let private signOfST bld reg =
 let private topTagMask top =
   numI32 3 16<rt> << (AST.zext 16<rt> top << AST.num1 16<rt>)
 
-/// The status word bits a stack overflow sets: C1, which tells it from an
-/// underflow, SF, and IE (Intel SDM Vol. 1, 8.5.1.1), with ES and B as well
-/// when the control word leaves IE unmasked. An underflow, an instruction
-/// reading a register tagged empty, goes unflagged here: every read of a stack
-/// register would have to check its tag and answer as its own instruction
-/// does, which costs every arithmetic instruction for code no compiler emits.
-let private overflowBits bld =
-  let ieUnmasked = (regVar bld R.FCW .& AST.num1 16<rt>) == AST.num0 16<rt>
-  let summary = AST.ite ieUnmasked (numI32 0x8080 16<rt>) (AST.num0 16<rt>)
-  numI32 0x241 16<rt> .| summary
-
 /// Pushes the stack: TOP moves down a place (Intel SDM Vol. 1, 8.1.2), and
 /// every value moves to the stack register below, which frees ST(0). The
 /// register TOP now names should be empty; if it still holds a value, the push
-/// has overflowed the stack, which C1 reports along with the stack fault.
-/// Either way it then holds the value pushed. The FPU, the exception masked,
-/// would hold the real indefinite there instead, but a state whose tag word was
-/// never set up -- a zeroed one, where every register reads as holding a value
-/// -- would then turn every value it pushes into one.
+/// has overflowed the stack, which sets C1, which tells it from an underflow,
+/// SF, and IE (Intel SDM Vol. 1, 8.5.1.1); ES and B are left to whatever reads
+/// the status word out. Either way the register then holds the value pushed.
+/// The FPU, the exception masked, would hold the real indefinite there
+/// instead, but a state whose tag word was never set up -- a zeroed one, where
+/// every register reads as holding a value -- would then turn every value it
+/// pushes into one. An underflow, an instruction reading a register tagged
+/// empty, goes unflagged here: every read of a stack register would have to
+/// check its tag and answer as its own instruction does, which costs every
+/// arithmetic instruction for code no compiler emits.
 let private pushFPUStack bld =
   let top = regVar bld R.FTOP
   let tags = regVar bld R.FTW
   let stsWrd = regVar bld R.FSW
+  let mask = tmpVar bld 16<rt>
   append bld {
     extractDstAssign top (top .- AST.num1 8<rt>)
-    let mask = topTagMask top
-    let overflow = (tags .& mask) != mask
-    let fault = AST.ite overflow (overflowBits bld) (AST.num0 16<rt>)
+    direct mask := topTagMask top
+    let overflow = AST.zext 16<rt> ((tags .& mask) != mask)
+    let fault = overflow .* numI32 0x241 16<rt>
     direct stsWrd := (stsWrd .& numI32 0xFDFF 16<rt>) .| fault
     direct tags := tags .& AST.not mask
   }
@@ -1802,24 +1797,28 @@ let fnstcw (ins: Instruction) bld =
 #endif
   }
 
-/// Neither summary bit of the status word holds state of its own: ES (bit 7)
-/// says an exception is flagged that the control word does not mask, and B
-/// (bit 15) has followed ES on every FPU since the 387. Loading a control word
-/// that unmasks a flagged exception sets both at once, and an environment can
-/// be loaded with the three out of step -- flags masked but ES set, say -- and
-/// the FPU answers the next read with the summary its flags and masks imply,
-/// not the one it was handed. Loading is the only place they can disagree
-/// here: a stack fault keeps them in step as it flags, and nothing in this
-/// lifter delivers an exception.
+/// The status word as software reads it out. Neither summary bit holds state
+/// of its own: ES (bit 7) says an exception is flagged that the control word
+/// does not mask, and B (bit 15) has followed ES on every FPU since the 387.
+/// A stack fault flags IE without them, and an environment can be loaded with
+/// the three out of step -- flags masked but ES set, say -- so whatever reads
+/// the word out sums them up from the flags and the masks, as the FPU answers
+/// the next read with the summary they imply, not the one it was handed.
+let private summedStatus bld =
+  let stsWrd = regVar bld R.FSW
+  let excMask = numI32 0x3F 16<rt>
+  let masked = regVar bld R.FCW .& excMask
+  let pending = (stsWrd .& excMask) .& AST.not masked
+  let quiet = pending == AST.num0 16<rt>
+  let summary = AST.ite quiet (AST.num0 16<rt>) (numI32 0x8080 16<rt>)
+  (stsWrd .& numI32 0x7F7F 16<rt>) .| summary
+
+/// Brings ES and B in step with the flags and the masks once a load has put
+/// either out of step with the other: loading a control word that unmasks a
+/// flagged exception sets both at once.
 let private syncSummaryBits bld =
   append bld {
-    let stsWrd = regVar bld R.FSW
-    let excMask = numI32 0x3F 16<rt>
-    let masked = regVar bld R.FCW .& excMask
-    let pending = (stsWrd .& excMask) .& AST.not masked
-    let quiet = pending == AST.num0 16<rt>
-    let summary = AST.ite quiet (AST.num0 16<rt>) (numI32 0x8080 16<rt>)
-    direct stsWrd := (stsWrd .& numI32 0x7F7F 16<rt>) .| summary
+    direct (regVar bld R.FSW) := summedStatus bld
   }
 
 let fldcw (ins: Instruction) bld =
@@ -1881,7 +1880,7 @@ let private m14fstenv dstAddr addrSize bld =
     let fiplo = AST.xtlo 16<rt> (regVar bld R.FIP)
     let fdplo = AST.xtlo 16<rt> (regVar bld R.FDP)
     storeLE (dstAddr) (regVar bld R.FCW)
-    storeLE (dstAddr .+ numI32 2 addrSize) (regVar bld R.FSW)
+    storeLE (dstAddr .+ numI32 2 addrSize) (summedStatus bld)
     storeLE (dstAddr .+ numI32 4 addrSize) (fineTags bld)
     storeLE (dstAddr .+ numI32 6 addrSize) fiplo
     storeLE (dstAddr .+ numI32 8 addrSize) (regVar bld R.FCS)
@@ -1899,7 +1898,7 @@ let private m28fstenv dstAddr addrSize bld =
     let at off = dstAddr .+ numI32 off addrSize
     storeLE (at 0) (regVar bld R.FCW)
     storeLE (at 2) ones
-    storeLE (at 4) (regVar bld R.FSW)
+    storeLE (at 4) (summedStatus bld)
     storeLE (at 6) ones
     storeLE (at 8) (fineTags bld)
     storeLE (at 10) ones
@@ -2027,7 +2026,7 @@ let frstor (ins: Instruction) bld =
 let fnstsw (ins: Instruction) bld =
   lift bld ins {
     let oprExpr = transOneOpr ins bld
-    direct oprExpr := regVar bld R.FSW
+    direct oprExpr := summedStatus bld
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
@@ -2082,7 +2081,7 @@ let private storeX87Area bld baseAddr addrSize =
   let words =
     block {
       yield storeLE (at 0) (regVar bld R.FCW)
-      yield storeLE (at 2) (regVar bld R.FSW)
+      yield storeLE (at 2) (summedStatus bld)
       yield storeLE (at 4) (AST.zext 16<rt> (abridgedTags (regVar bld R.FTW)))
       yield storeLE (at 6) (regVar bld R.FOP)
       yield storeLE (at 8) (regVar bld R.FIP)

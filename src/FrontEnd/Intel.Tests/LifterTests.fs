@@ -946,15 +946,25 @@ type X87LifterTests() =
 
   (* The register a push takes over is the one TOP names after it: if that one
      still held a value, the push overflowed the stack, which sets C1, SF, and
-     IE, and ES and B as well when IE is unmasked. *)
+     IE. *)
   [<TestMethod>]
   member _.``[X64] FLDZ tags its new top and flags an overflow (1)``() =
-    let overflow =
-      "FSW := ((FSW & 0xfdff:I16) | ((((FTW & " + topTag + ") != " + topTag
-      + ")) ? ((0x241:I16 | ((((FCW & 0x1:I16) = 0x0:I16)) ? (0x8080:I16) : "
-      + "(0x0:I16)))) : (0x0:I16)))"
     testTags "d9ee" (* fldz *)
-    <| [| overflow; "FTW := (FTW & (~ " + topTag + "))" |]
+    <| [| "FSW := ((FSW & 0xfdff:I16) | (zext:I16(((FTW & T_1:I16) != "
+          + "T_1:I16)) * 0x241:I16))"
+          "FTW := (FTW & (~ T_1:I16))" |]
+
+  (* FNSTSW reads the status word out with ES and B summing up the flags the
+     control word leaves unmasked, which a stack fault sets without them. *)
+  [<TestMethod>]
+  member _.``[X64] FNSTSW sums up the flags it reads out (1)``() =
+    let actual =
+      lift "dd38" (* fnstsw [rax] *)
+      |> Array.filter (fun l -> l.StartsWith "[RAX] :=")
+    let expected =
+      "[RAX] := ((FSW & 0x7f7f:I16) | (((((FSW & 0x3f:I16) & "
+      + "(~ (FCW & 0x3f:I16))) = 0x0:I16)) ? (0x0:I16) : (0x8080:I16)))"
+    CollectionAssert.AreEqual([| expected |], actual)
 
   (* A pop empties the register TOP names before it moves, and C1 reads 0, as
      it does after any exact result. *)
