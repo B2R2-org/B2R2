@@ -950,8 +950,9 @@ type X87LifterTests() =
   [<TestMethod>]
   member _.``[X64] FLDZ tags its new top and flags an overflow (1)``() =
     let overflow =
-      "FSW := ((FSW & 0xfdff:I16) | ((T_1:I1) ? ((0x241:I16 | ((((FCW & "
-      + "0x1:I16) = 0x0:I16)) ? (0x8080:I16) : (0x0:I16)))) : (0x0:I16)))"
+      "FSW := ((FSW & 0xfdff:I16) | ((((FTW & " + topTag + ") != " + topTag
+      + ")) ? ((0x241:I16 | ((((FCW & 0x1:I16) = 0x0:I16)) ? (0x8080:I16) : "
+      + "(0x0:I16)))) : (0x0:I16)))"
     testTags "d9ee" (* fldz *)
     <| [| overflow; "FTW := (FTW & (~ " + topTag + "))" |]
 

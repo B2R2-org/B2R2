@@ -470,17 +470,18 @@ let private overflowBits bld =
 /// every value moves to the stack register below, which frees ST(0). The
 /// register TOP now names should be empty; if it still holds a value, the push
 /// has overflowed the stack, which C1 reports along with the stack fault.
-/// Either way it now holds one. Returns whether the push overflowed, for
-/// fillPushed to settle what the pushed register holds.
+/// Either way it then holds the value pushed. The FPU, the exception masked,
+/// would hold the real indefinite there instead, but a state whose tag word was
+/// never set up -- a zeroed one, where every register reads as holding a value
+/// -- would then turn every value it pushes into one.
 let private pushFPUStack bld =
   let top = regVar bld R.FTOP
   let tags = regVar bld R.FTW
   let stsWrd = regVar bld R.FSW
-  let overflow = tmpVar bld 1<rt>
   append bld {
     extractDstAssign top (top .- AST.num1 8<rt>)
     let mask = topTagMask top
-    direct overflow := (tags .& mask) != mask
+    let overflow = (tags .& mask) != mask
     let fault = AST.ite overflow (overflowBits bld) (AST.num0 16<rt>)
     direct stsWrd := (stsWrd .& numI32 0xFDFF 16<rt>) .| fault
     direct tags := tags .& AST.not mask
@@ -492,24 +493,6 @@ let private pushFPUStack bld =
   copyST bld R.ST3 R.ST2
   copyST bld R.ST2 R.ST1
   copyST bld R.ST1 R.ST0
-  overflow
-
-/// Settles what a push leaves in ST(0) once the pushed value is written: on an
-/// overflow, the FPU answers with the real indefinite in place of the value,
-/// as it does with the exception masked.
-let private fillPushed bld overflow =
-#if EMULATION
-  let st0 = pseudoRegVar bld R.ST0 1
-  append bld {
-    direct st0 := AST.ite overflow (num64 Indefinite) st0
-  }
-#else
-  let struct (b, a) = getFPUPseudoRegVars bld R.ST0
-  append bld {
-    direct b := AST.ite overflow (numI32 0xffff 16<rt>) b
-    direct a := AST.ite overflow (num64 (TopBit ||| ExtQuietBit)) a
-  }
-#endif
 
 /// Pops the stack: the register TOP names is tagged empty, TOP moves up a place
 /// (Intel SDM Vol. 1, 8.1.2), and every value moves to the stack register
@@ -544,9 +527,8 @@ let private asDouble (opr: Expr) =
 /// Pushes a double onto the stack.
 let private pushDouble bld v =
   let stash = stashDouble bld v
-  let overflow = pushFPUStack bld
+  pushFPUStack bld
   unstashST bld R.ST0 stash
-  fillPushed bld overflow
   cflagsAfterLoad bld
 
 /// Records an x87 instruction as the last the FPU has run, the instruction
@@ -584,9 +566,8 @@ let fld (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
     let stash = stashOperand bld (transOneOpr ins bld)
-    let overflow = pushFPUStack bld
+    pushFPUStack bld
     unstashST bld R.ST0 stash
-    fillPushed bld overflow
     cflagsAfterLoad bld
   }
 
@@ -1308,9 +1289,8 @@ let fxtract (ins: Instruction) bld =
     recordInstr ins bld
     let struct (exponent, significand) = splitST bld R.ST0
     unstashST bld R.ST0 exponent
-    let overflow = pushFPUStack bld
+    pushFPUStack bld
     unstashST bld R.ST0 significand
-    fillPushed bld overflow
   }
 
 /// The two doubles a compare weighs, as they stand before anything the compare
@@ -1511,9 +1491,8 @@ let fsincos (ins: Instruction) bld =
     direct tmpcos := trigResult signed (AST.fcos signed)
     direct tmpsin := trigResult signed (AST.fsin signed)
     writeST bld R.ST0 tmpsin
-    let overflow = pushFPUStack bld
+    pushFPUStack bld
     writeST bld R.ST0 tmpcos
-    fillPushed bld overflow
     direct c2 := AST.b0
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
@@ -1545,9 +1524,8 @@ let fptan (ins: Instruction) bld =
     direct tmp := trigResult signed (AST.ftan signed)
     writeST bld R.ST0 tmp
     direct c2 := AST.b0
-    let overflow = pushFPUStack bld
+    pushFPUStack bld
     writeST bld R.ST0 (trigResult signed fone)
-    fillPushed bld overflow
     direct c2 := AST.b0
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
@@ -1667,9 +1645,8 @@ let fld1 ins bld =
 let fldz (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
-    let overflow = pushFPUStack bld
+    pushFPUStack bld
     clearST bld R.ST0
-    fillPushed bld overflow
     cflagsAfterLoad bld
   }
 

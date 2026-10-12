@@ -189,14 +189,24 @@ type X87EnvironmentTests() =
     let actual = [| field st 0UL 16<rt>; regOf hdl st "FCW" |]
     CollectionAssert.AreEqual([| 0x37BUL; 0x37FUL |], actual)
 
-  (* A ninth push finds the register it takes over still holding a value, and
-     the FPU, the exception masked, pushes the real indefinite instead. *)
+  (* A ninth push finds the register it takes over still holding a value. It
+     flags the overflow but keeps the value it pushes, where the FPU would
+     push the real indefinite: a state whose tag word was never set up would
+     otherwise lose every value it pushes. *)
   [<TestMethod>]
-  member _.``A push onto a full stack leaves the indefinite``() =
+  member _.``A push onto a full stack keeps the value it pushes``() =
     (* fld1 nine times ; fstp qword [rsp+64] *)
     let hex = String.replicate 9 "d9e8" + "dd5c2440"
     let _, st = run 10 hex [] []
-    Assert.AreEqual<uint64>(0xfff8000000000000UL, field st 64UL 64<rt>)
+    Assert.AreEqual<uint64>(0x3ff0000000000000UL, field st 64UL 64<rt>)
+
+  (* A state that never set the tag word up reads as a full stack, and what it
+     pushes still comes back. *)
+  [<TestMethod>]
+  member _.``A push onto a zeroed tag word keeps the value it pushes``() =
+    (* fld1 ; fstp qword [rsp+64] *)
+    let _, st = run 2 "d9e8dd5c2440" [ "FTW", 0UL ] []
+    Assert.AreEqual<uint64>(0x3ff0000000000000UL, field st 64UL 64<rt>)
 
   (* FNINIT gives the FPU its initial state, which has no last instruction or
      operand: both pointers, their selectors, and the opcode go to zero (Intel
