@@ -480,6 +480,11 @@ type ParserTests() =
   member _.``C4.3.4 System (30)``() =
     testDisasm "d503229f" "csdb"
 
+  /// PAR_EL1, where AT puts its result, is S3_0_C7_C4_0 and has its name.
+  [<TestMethod>]
+  member _.``C4.3.4 System (31)``() =
+    testDisasm "d5387400" "mrs x0, par_el1"
+
   /// op1:op2 of 001:000 names no field of PSTATE, and the manual leaves the
   /// encoding UNDEFINED.
   [<TestMethod>]

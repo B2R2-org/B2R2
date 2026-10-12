@@ -447,6 +447,8 @@ type ARM64RoundTripTests() =
       "mrs x0, s3_0_c15_c2_0"
       "msr s3_7_c15_c0_0, x1"
       "mrs x5, s2_3_c1_c4_7"
+      "mrs x0, par_el1"
+      "msr par_el1, x1"
       "bti"
       "bti c"
       "bti j"

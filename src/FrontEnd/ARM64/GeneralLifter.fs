@@ -1728,18 +1728,66 @@ let systemMaintenance (ins: Instruction) bld =
       AST.sideEffect UndefinedInstruction
     }
 
+/// The physical address size of the Cortex-A57 SysReg models: its
+/// ID_AA64MMFR0_EL1.PARange is 0b0100, forty-four bits.
+let private paMax = 44
+
+/// Whether stage 1 translation is on: SCTLR_EL1.M, bit 0.
+let private mmuOn bld =
+  (regVar bld R.SCTLREL1 .& AST.num1 64<rt>) != AST.num0 64<rt>
+
+/// An UnsupportedInstruction where the condition holds.
+let private unsupportedWhen bld cond =
+  _when bld "Unsupported" cond (block {
+    AST.sideEffect UnsupportedInstruction
+  })
+
 /// <summary>
-/// AT, which puts what it translates to in PAR_EL1: a register this front
-/// end does not have, so where AT may run its result has nowhere to go and it
-/// is unsupported. It needs EL1 (C5.1.1), so at EL0 it is UNDEFINED, and its
-/// forms for EL2 and EL3 are UNDEFINED anywhere.
+/// Whether an address lies outside the physical address range, which with
+/// the MMU off is an Address size fault (AArch64.TranslateAddressS1Off,
+/// J1.1). The bits checked run from paMax to the top bit AddrTop gives: 63,
+/// or 55 where TCR_EL1.TBI0 or TBI1, the one bit 55 selects, ignores the top
+/// byte. TBI0 is bit 37 of TCR_EL1 and TBI1 bit 38.
+/// </summary>
+let private beyondPAMax bld va =
+  let tcr = regVar bld R.TCREL1
+  let tbi0 = AST.extract tcr 1<rt> 37
+  let tbi1 = AST.extract tcr 1<rt> 38
+  let tbi = AST.ite (AST.extract va 1<rt> 55) tbi1 tbi0
+  let withTag = numU64 (0UL - (1UL <<< paMax)) 64<rt>
+  let belowTag = numU64 ((1UL <<< 56) - (1UL <<< paMax)) 64<rt>
+  (va .& AST.ite tbi belowTag withTag) != AST.num0 64<rt>
+
+/// <summary>
+/// What AT leaves in PAR_EL1 with the MMU off (D13.2.100). An address in
+/// range translates to itself, page by page, as Device-nGnRnE memory: PA in
+/// bits 43:12, ATTR zero, SH 0b10 (Outer Shareable), NS set, the regime not
+/// being Secure, and bit 11, which is RES1. One out of range is an Address
+/// size fault at level 0: F, with FST zero, and bit 11.
+/// </summary>
+let private translationOf bld va =
+  let page = numU64 ((1UL <<< paMax) - 0x1000UL) 64<rt>
+  let device = numU64 0xb00UL 64<rt>
+  let fault = numU64 0x801UL 64<rt>
+  AST.ite (beyondPAMax bld va) fault ((va .& page) .| device)
+
+/// <summary>
+/// AT, which translates an address and puts the result in PAR_EL1. It needs
+/// EL1 (C5.1.1), so at EL0 it is UNDEFINED, and its forms for EL2 and EL3
+/// are UNDEFINED anywhere. With the MMU off the translation is the identity
+/// whatever the form asks about, a read or a write at EL1 or EL0, there
+/// being no permission to check; with it on the translation is a walk of
+/// tables in memory, which is unsupported.
 /// </summary>
 let addressTranslate ins bld =
   match lowestLevel ins with
   | 1 ->
     lift bld ins {
+      let struct (_, src) = getTwoOprs ins
+      let va = transOpr ins bld src
       undefinedWhen bld (atEL0 bld)
-      AST.sideEffect UnsupportedInstruction
+      unsupportedWhen bld (mmuOn bld)
+      direct (regVar bld R.PAREL1) := translationOf bld va
     }
   | _ ->
     lift bld ins {

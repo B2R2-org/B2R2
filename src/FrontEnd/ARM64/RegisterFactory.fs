@@ -523,6 +523,10 @@ type RegisterFactory(isa: ISA) =
   let spel1 =
     AST.var 64<rt> (Register.toRegID SPEL1) "SP_EL1"
 
+  /// Physical Address Register (EL1).
+  let parel1 =
+    AST.var 64<rt> (Register.toRegID PAREL1) "PAR_EL1"
+
   (* S<op0>_<op1>_<Cn>_<Cm>_<op2> *)
   let s35c3c20 = AST.var 64<rt> (Register.toRegID S3_5_C3_C2_0) "S3_5_C3_C2_0"
   let s37c2c27 = AST.var 64<rt> (Register.toRegID S3_7_C2_C2_7) "S3_7_C2_C2_7"
@@ -797,6 +801,7 @@ type RegisterFactory(isa: ISA) =
       | R.SSBS -> ssbs
       | R.TCO -> tco
       | R.SPEL1 -> spel1
+      | R.PAREL1 -> parel1
       | R.S3_5_C3_C2_0 -> s35c3c20
       | R.S3_7_C2_C2_7 -> s37c2c27
       | R.S0_0_C2_C9_3 -> s00c2c93

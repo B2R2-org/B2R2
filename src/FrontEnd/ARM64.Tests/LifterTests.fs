@@ -142,8 +142,9 @@ type LifterTests() =
   /// there is no TLB or cache to maintain (C5.1.1): TLBI VMALLE1, IC IALLU
   /// and DC IVAC. TLBI ALLE2 needs EL2, which this model does not have, and
   /// is UNDEFINED at both; CFP RCTX runs at EL0 only where SCTLR_EL1.EnRCTX
-  /// lets it; AT is UNDEFINED at EL0 and unsupported at EL1, there being no
-  /// PAR_EL1 for its result; and a SYS no alias names is UNDEFINED.
+  /// lets it; AT is UNDEFINED at EL0, runs at EL1 with the MMU off and is
+  /// unsupported with it on, there being no table walk; and a SYS no alias
+  /// names is UNDEFINED.
   /// </summary>
   [<TestMethod>]
   member _.``[AArch64] System maintenance needs its exception level``() =
@@ -161,8 +162,40 @@ type LifterTests() =
     Assert.AreEqual<BinIR.SideEffect list>(none, at 0 0x400UL "d50b7384")
     Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL "d5087802")
     let unsupported = [ BinIR.SideEffect.UnsupportedInstruction ]
-    Assert.AreEqual<BinIR.SideEffect list>(unsupported, at 1 0UL "d5087802")
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 1 0UL "d5087802")
+    Assert.AreEqual<BinIR.SideEffect list>(unsupported, at 1 1UL "d5087802")
     Assert.AreEqual<BinIR.SideEffect list>(undef, at 1 0UL "d5080005")
+
+  /// <summary>
+  /// AT S1E1R X2 with the MMU off, as a Cortex-A57 answers it (D13.2.100): an
+  /// address below 2^44 is its own page, Device-nGnRnE, SH 0b10, NS and bit
+  /// 11 set; one at or above it is an Address size fault at level 0. A tag in
+  /// the top byte is outside the range unless TCR_EL1.TBI0 ignores it, and
+  /// bit 55 selects TBI1, past which the range still ends at bit 44.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] AT with the MMU off answers the identity``() =
+    let par (tcr: uint64) va =
+      let inputs =
+        [ !.CURRENTEL, bv64 0x4UL
+          !.SCTLREL1, bv64 0x00c50838UL
+          !.TCREL1, bv64 tcr
+          !.X2, bv64 va ]
+      let read = IRRunner.run (lifted "d5087802") inputs
+      (read !.PAREL1).ToUInt64()
+    let tbi = 3UL <<< 37
+    Assert.AreEqual<uint64>(0x40080b00UL, par 0UL 0x40080abcUL)
+    Assert.AreEqual<uint64>(0xfffffffeb00UL, par 0UL 0xfffffffe123UL)
+    Assert.AreEqual<uint64>(0x801UL, par 0UL 0x100000000456UL)
+    Assert.AreEqual<uint64>(0x801UL, par 0UL 0xff00000040080abcUL)
+    Assert.AreEqual<uint64>(0x40080b00UL, par tbi 0xff00000040080abcUL)
+    Assert.AreEqual<uint64>(0x801UL, par tbi 0x0080000040080123UL)
+
+  /// PAR_EL1 is a system register MRS reads by name, from reset on.
+  [<TestMethod>]
+  member _.``[AArch64] PAR_EL1 is a modelled system register``() =
+    Assert.AreEqual<bool>(true, List.contains PAREL1 SysReg.modelled)
+    Assert.AreEqual<uint64>(0UL, SysReg.resetValue PAREL1)
 
   /// DC GZVA clears the block DC ZVA does and the allocation tags no memory
   /// here holds, and DC GVA writes only those tags: it lifts to nothing, as

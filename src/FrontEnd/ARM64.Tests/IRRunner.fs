@@ -31,10 +31,11 @@ open B2R2.BinIR.LowUIR
 
 /// Runs the statements an instruction lifts to over registers given values,
 /// for a test whose claim is the value an instruction computes. It knows the
-/// straight-line integer LowUIR a lane of SIMD arithmetic lifts to, and of
-/// doubles the rounding to an integral value an exactness check asks for and
-/// the conversion and scaling a fixed-point operand goes through, and fails
-/// on anything else rather than guess what it means.
+/// integer LowUIR a lane of SIMD arithmetic lifts to, with the jumps inside
+/// one instruction a check of its exception level makes, and of doubles the
+/// rounding to an integral value an exactness check asks for and the
+/// conversion and scaling a fixed-point operand goes through, and fails on
+/// anything else rather than guess what it means.
 module internal IRRunner =
   /// The register a register variable names.
   let private idOf = function
@@ -134,24 +135,6 @@ module internal IRRunner =
     | _ ->
       failwith $"IRRunner: no {e}"
 
-  /// What each register holds after the statements ran, starting from the
-  /// given values and from zero everywhere else.
-  let run (stmts: Stmt[]) (inputs: (Expr * BitVector) list) =
-    let regs = Dictionary<RegisterID, BitVector>()
-    let temps = Dictionary<int, BitVector>()
-    for reg, v in inputs do regs[idOf reg] <- v
-    for stmt in stmts do
-      match stmt with
-      | ISMark _ | IEMark _ | LMark _ ->
-        ()
-      | Put(Dst = Var(RegisterID = r); Src = src) ->
-        regs[r] <- eval regs temps src
-      | Put(Dst = TempVar(Index = n); Src = src) ->
-        temps[n] <- eval regs temps src
-      | _ ->
-        failwith $"IRRunner: no {stmt}"
-    fun reg -> readReg regs (idOf reg) (Expr.typeOf reg)
-
   /// The labels of the statements, by where each one sits.
   let private labelsOf (stmts: Stmt[]) =
     let at = Dictionary<Label, int>()
@@ -162,10 +145,11 @@ module internal IRRunner =
       | _ -> ())
     at
 
-  /// The side effect the statements reach, if any, run from the given
-  /// register values: a jump inside the instruction goes to its label, and a
-  /// side effect ends the run, as the exception it stands for would.
-  let effects (stmts: Stmt[]) (inputs: (Expr * BitVector) list) =
+  /// Runs the statements from the given register values, and from zero
+  /// everywhere else: a jump inside the instruction goes to its label, and a
+  /// side effect ends the run, as the exception it stands for would. What it
+  /// gives back is the registers and the side effects reached.
+  let private exec (stmts: Stmt[]) (inputs: (Expr * BitVector) list) =
     let regs = Dictionary<RegisterID, BitVector>()
     let temps = Dictionary<int, BitVector>()
     for reg, v in inputs do regs[idOf reg] <- v
@@ -192,4 +176,13 @@ module internal IRRunner =
         pc <- stmts.Length
       | _ ->
         failwith $"IRRunner: no {stmt}"
-    List.ofSeq found
+    regs, List.ofSeq found
+
+  /// What each register holds after the statements ran.
+  let run stmts inputs =
+    let regs, _ = exec stmts inputs
+    fun reg -> readReg regs (idOf reg) (Expr.typeOf reg)
+
+  /// The side effect the statements reach, if any.
+  let effects stmts inputs =
+    snd (exec stmts inputs)

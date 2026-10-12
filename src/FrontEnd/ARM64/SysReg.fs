@@ -77,7 +77,8 @@ module SysReg =
       Register.DIT
       Register.SSBS
       Register.TCO
-      Register.SPEL1 ]
+      Register.SPEL1
+      Register.PAREL1 ]
 
   /// <summary>
   /// What a register holds before anything has written it.
@@ -93,7 +94,8 @@ module SysReg =
   /// set and SPSel at one.
   ///
   /// Of the rest of PSTATE, DIT resets to zero and PAN, UAO, TCO and SSBS are
-  /// UNKNOWN; zero is the value chosen for those.
+  /// UNKNOWN; zero is the value chosen for those, and for PAR_EL1, whose
+  /// reset is UNKNOWN too.
   /// </summary>
   let resetValue = function
     | Register.CURRENTEL -> 0x4UL

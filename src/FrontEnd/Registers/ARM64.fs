@@ -844,6 +844,8 @@ type Register =
   /// Stack Pointer (EL1), where the EL1 stack pointer is kept while SP names
   /// SP_EL0.
   | SPEL1 = 0x191
+  /// Physical Address Register (EL1), where AT puts what it translates to.
+  | PAREL1 = 0x192
 
 /// Provides functions to handle ARM64 registers.
 [<RequireQualifiedAccess>]
@@ -1244,6 +1246,7 @@ module Register =
     | "ssbs" -> Register.SSBS
     | "tco" -> Register.TCO
     | "sp_el1" -> Register.SPEL1
+    | "par_el1" -> Register.PAREL1
     | "esrel2" -> Register.ESREL2
     | "esrel3" -> Register.ESREL3
     | "hpfarel2" -> Register.HPFAREL2
@@ -1657,6 +1660,7 @@ module Register =
     | Register.SSBS -> "ssbs"
     | Register.TCO -> "tco"
     | Register.SPEL1 -> "sp_el1"
+    | Register.PAREL1 -> "par_el1"
     | Register.ESREL2 -> "esr_el2"
     | Register.ESREL3 -> "esr_el3"
     | Register.HPFAREL2 -> "hpfar_el2"
