@@ -605,11 +605,13 @@ let private i64AdjSp ins =
   | _ ->
     wrongOperands ins
 
-/// The doubleword load relative to the program counter.
+/// The doubleword load relative to the program counter, whose sixteen bits
+/// are sign-extended (MD00077, extended LD ry, offset(pc)): a label behind
+/// the instruction is a negative distance and fits.
 let private i64LdPc ins =
   match ins.Operands with
   | TwoOperands(Rg ry, Place distance) ->
-    i64Ext 0b100u (reg3 ry) (fits 16 false (uint64 distance))
+    i64Ext 0b100u (reg3 ry) (fits 16 true (uint64 distance))
   | _ ->
     wrongOperands ins
 
@@ -621,11 +623,11 @@ let private i64Daddiu5 ins =
   | _ ->
     wrongOperands ins
 
-/// DADDIU relative to the program counter.
+/// DADDIU relative to the program counter, signed the same way.
 let private i64DaddiuPc ins =
   match ins.Operands with
   | TwoOperands(Rg ry, Place distance) ->
-    i64Ext 0b110u (reg3 ry) (fits 16 false (uint64 distance))
+    i64Ext 0b110u (reg3 ry) (fits 16 true (uint64 distance))
   | _ ->
     wrongOperands ins
 

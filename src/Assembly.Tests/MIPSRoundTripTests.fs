@@ -580,6 +580,29 @@ type MIPSRoundTripTests() =
     )
 
   /// <summary>
+  /// The extended I64 forms, which the sweep cannot build (it follows every
+  /// halfword with a NOP): each decodes to the sixteen-bit immediate the
+  /// prefix widens, and the assembler writes the same two halfwords back.
+  /// </summary>
+  [<TestMethod>]
+  member _.``The extended 64-bit MIPS16e I64 forms round-trip``() =
+    let words =
+      [ "fff758f8"
+        "22f294f9"
+        "fff710fa"
+        "d9f707fb"
+        "00f160fc"
+        "eff71ffd"
+        "9ff7bcfe"
+        "fff77fff" ]
+    for hex in words do
+      let bytes = ByteArray.ofHexString hex
+      let text = disasm parser1664 bytes
+      let encoded = encodeFirst assembler1664 text
+      Assert.AreEqual<string>(hex, encoded |> Option.map (fun b ->
+        ByteArray.toHexString b) |> Option.defaultValue "-", text)
+
+  /// <summary>
   /// The same rule over the third encoding: anything the MIPS16e decoder
   /// decodes, the assembler encodes to a halfword pair meaning the same.
   /// </summary>

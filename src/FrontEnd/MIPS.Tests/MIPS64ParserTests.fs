@@ -474,3 +474,35 @@ type MIPS64ParserTests() =
         "50a40001", BEQL ]
     for hex, opcode in kept do
       Assert.AreEqual<Opcode>(opcode, (parse hex :?> Instruction).Opcode, hex)
+
+  /// <summary>
+  /// The I64 pool EXTENDED (MD00077 EXT-I64 and EXT-RI64): each of the eight
+  /// takes the sixteen bits the prefix widens, sign-extended and not scaled.
+  /// They had been read as their short forms, the prefix's bits dropped and
+  /// the halfword's own five scaled. The PC-relative two sit at 0x1006, so
+  /// LD's base clears three bits (0x1000) and DADDIU's two (0x1004).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS16e] The extended I64 forms take sixteen bits``() =
+    let isa = ISA "mips16-64el"
+    let parser =
+      Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+    let parse hex addr =
+      let bytes = ByteArray.ofHexString hex
+      parser.Parse(System.ReadOnlySpan bytes, addr) :?> Instruction
+    let sp (o: int64) = O.Mem(R29, o, 64<rt>)
+    let neg (v: int64) = O.Imm(uint64 v)
+    let rel (v: int64) = O.Addr(Relative v)
+    let cases =
+      [ "fff758f8", LD, TwoOperands(O.Reg R2, sp -8L)
+        "22f294f9", SD, TwoOperands(O.Reg R4, sp 0x1234L)
+        "fff710fa", SD, TwoOperands(O.Reg R31, sp -16L)
+        "d9f707fb", DADDIU, ThreeOperands(O.Reg R29, O.Reg R29, neg -12345L)
+        "00f160fc", LD, TwoOperands(O.Reg R3, rel 0xfaL)
+        "eff71ffd", DADDIU, ThreeOperands(O.Reg R16, O.Reg R16, O.Imm 0x7fffUL)
+        "9ff7bcfe", DADDIUPC, TwoOperands(O.Reg R5, rel -0x66L)
+        "fff77fff", DADDIU, ThreeOperands(O.Reg R3, O.Reg R29, neg -1L) ]
+    for hex, opcode, operands in cases do
+      let ins = parse hex 0x1006UL
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
+      Assert.AreEqual<Operands>(operands, ins.Operands, hex)
