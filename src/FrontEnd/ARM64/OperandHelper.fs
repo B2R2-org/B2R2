@@ -177,6 +177,10 @@ let getControlRegister = function (* 1:op0:op1:CRn:CRm:op2 *)
     R.TPIDREL1
   | 0b1100001110100000u ->
     R.PAREL1
+  | 0b1101111100000000u ->
+    R.CNTFRQEL0
+  | 0b1101111010000011u ->
+    R.TPIDRROEL0
   | 0b1100001000010010u ->
     R.CURRENTEL
   | 0b1101101000010001u ->

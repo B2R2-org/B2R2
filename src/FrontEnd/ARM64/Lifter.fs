@@ -561,14 +561,15 @@ let translate (ins: Instruction) bld =
      no tag memory here holds *)
   | Opcode.DCZVA | Opcode.DCGZVA ->
     dczva ins bld
-  (* the cleaning EL0 may do, and IC IVAU: no cache stands between the
-     processor and memory here, so none of them has an effect to show; nor
-     have FEAT_MTE's forms, nor DC GVA, which writes tags alone *)
+  (* the cleaning EL0 may do where SCTLR_EL1.UCI lets it: no cache stands
+     between the processor and memory here, so none of them has an effect to
+     show; nor have FEAT_MTE's forms, nor DC GVA, which writes tags alone
+     and which SCTLR_EL1.DZE gates instead *)
   | Opcode.DCCVAU | Opcode.DCCVAC | Opcode.DCCIVAC | Opcode.DCCVAP
   | Opcode.DCCVADP | Opcode.DCGVA | Opcode.DCCGVAC | Opcode.DCCGDVAC
   | Opcode.DCCGVAP | Opcode.DCCGDVAP | Opcode.DCCGVADP | Opcode.DCCGDVADP
   | Opcode.DCCIGVAC | Opcode.DCCIGDVAC ->
-    nop ins bld
+    el0Maintenance ins bld
   (* the rest of the aliases of SYS, by the exception level each needs *)
   | Opcode.IC | Opcode.TLBI | Opcode.CFP | Opcode.DVP | Opcode.CPP
   | Opcode.DCIVAC | Opcode.DCISW | Opcode.DCCSW | Opcode.DCCISW

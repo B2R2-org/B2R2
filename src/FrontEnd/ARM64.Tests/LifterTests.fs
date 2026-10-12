@@ -244,9 +244,87 @@ type LifterTests() =
     Assert.AreEqual<BinIR.SideEffect list>(none, at 0 (1UL <<< 9) "d50342df")
     Assert.AreEqual<BinIR.SideEffect list>(none, at 0 0UL "d503405f")
 
+  /// <summary>
+  /// MSR of a register the manual gives only an MRS is UNDEFINED at every
+  /// level: MIDR_EL1, CTR_EL0, CurrentEL, and ID_AA64PFR0_EL1, which this
+  /// front end does not name. TPIDRRO_EL0 and CNTFRQ_EL0 EL0 reads and EL1
+  /// writes as well.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] MSR cannot write a read-only register``() =
+    let at el hex =
+      let inputs = [ !.CURRENTEL, bv64 (uint64 el <<< 2) ]
+      IRRunner.effects (lifted hex) inputs
+    let undef = [ BinIR.SideEffect.UndefinedInstruction ]
+    let none: BinIR.SideEffect list = []
+    for hex in [ "d5180000"; "d51b0020"; "d5184240"; "d5180400" ] do
+      Assert.AreEqual<BinIR.SideEffect list>(undef, at 1 hex, hex)
+    for hex in [ "d53bd060"; "d53be000" ] do
+      Assert.AreEqual<BinIR.SideEffect list>(none, at 0 hex, hex)
+    for hex in [ "d51bd060"; "d51be000" ] do
+      Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 hex, hex)
+      Assert.AreEqual<BinIR.SideEffect list>(none, at 1 hex, hex)
+
+  /// <summary>
+  /// The ID space reads a Cortex-A57's values at EL1 (SysReg.idRegister):
+  /// ID_AA64PFR0_EL1, MPIDR_EL1, ID_AA64MMFR0_EL1 and ID_PFR0_EL1 here. CRm
+  /// 0 allocates nothing at op2 1, so that is UNDEFINED, and the whole space
+  /// is EL1's, so UNDEFINED at EL0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] MRS reads the ID registers at EL1``() =
+    let read hex =
+      let inputs = [ !.CURRENTEL, bv64 0x4UL ]
+      (IRRunner.run (lifted hex) inputs !.X0).ToUInt64()
+    Assert.AreEqual<uint64>(0x22UL, read "d5380400")
+    Assert.AreEqual<uint64>(0x80000000UL, read "d53800a0")
+    Assert.AreEqual<uint64>(0x1124UL, read "d5380700")
+    Assert.AreEqual<uint64>(0x131UL, read "d5380100")
+    let at el hex =
+      let inputs = [ !.CURRENTEL, bv64 (uint64 el <<< 2) ]
+      IRRunner.effects (lifted hex) inputs
+    let undef = [ BinIR.SideEffect.UndefinedInstruction ]
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 1 "d5380020")
+    Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 "d5380400")
+
+  /// <summary>
+  /// DCZID_EL0.DZP reads 1 at EL0 where SCTLR_EL1.DZE prohibits DC ZVA, and
+  /// 0 where it does not or at EL1 (D13.2.113); CCSIDR_EL1 describes the
+  /// cache CSSELR_EL1 selects.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AArch64] DCZID_EL0 and CCSIDR_EL1 read what selects them``() =
+    let dczid el (sctlr: uint64) =
+      let inputs =
+        [ !.CURRENTEL, bv64 (uint64 el <<< 2)
+          !.SCTLREL1, bv64 sctlr
+          !.DCZIDEL0, bv64 0x4UL ]
+      (IRRunner.run (lifted "d53b00e0") inputs !.X0).ToUInt64()
+    Assert.AreEqual<uint64>(0x14UL, dczid 0 0UL)
+    Assert.AreEqual<uint64>(0x4UL, dczid 0 0x4000UL)
+    Assert.AreEqual<uint64>(0x4UL, dczid 1 0UL)
+    let ccsidr (sel: uint64) =
+      let inputs = [ !.CURRENTEL, bv64 0x4UL; !.CSSELREL1, bv64 sel ]
+      (IRRunner.run (lifted "d5390000") inputs !.X0).ToUInt64()
+    Assert.AreEqual<uint64>(0x701fe00aUL, ccsidr 0UL)
+    Assert.AreEqual<uint64>(0x201fe012UL, ccsidr 1UL)
+    Assert.AreEqual<uint64>(0x70ffe07aUL, ccsidr 2UL)
+    Assert.AreEqual<uint64>(0UL, ccsidr 3UL)
+
+  /// ERET puts the exception level SPSR_EL1 names in CurrentEL, at the bits
+  /// both keep it in, and is UNDEFINED at EL0 (C6.2.87).
+  [<TestMethod>]
+  member _.``[AArch64] ERET restores CurrentEL``() =
+    let expected = !.SPSREL1 .& num64 0xcUL
+    Assert.AreEqual(Some expected, assigned "d69f03e0" !.CURRENTEL)
+    let inputs = [ !.CURRENTEL, bv64 0UL ]
+    let undef = [ BinIR.SideEffect.UndefinedInstruction ]
+    let effects = IRRunner.effects (lifted "d69f03e0") inputs
+    Assert.AreEqual<BinIR.SideEffect list>(undef, effects)
+
   /// DC GZVA clears the block DC ZVA does and the allocation tags no memory
-  /// here holds, and DC GVA writes only those tags: it lifts to nothing, as
-  /// IC IVAU does, there being no cache to maintain.
+  /// here holds, and DC GVA writes only those tags: it does nothing, there
+  /// being no tag memory. All three need SCTLR_EL1.DZE at EL0 (D13.2.113).
   [<TestMethod>]
   member _.``[AArch64] DC GZVA clears what DC ZVA does``() =
     let body hex =
@@ -255,8 +333,16 @@ type LifterTests() =
         | ISMark _ | IEMark _ -> false
         | _ -> true)
     CollectionAssert.AreEqual(body "d50b7421", body "d50b7481")
-    Assert.AreEqual<int>(0, (body "d50b7461").Length)
-    Assert.AreEqual<int>(0, (body "d50b7520").Length)
+    let at el (sctlr: uint64) hex =
+      let inputs =
+        [ !.CURRENTEL, bv64 (uint64 el <<< 2); !.SCTLREL1, bv64 sctlr ]
+      IRRunner.effects (lifted hex) inputs
+    let undef = [ BinIR.SideEffect.UndefinedInstruction ]
+    let none: BinIR.SideEffect list = []
+    for hex in [ "d50b7421"; "d50b7481"; "d50b7461" ] do
+      Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL hex, hex)
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 0 0x4000UL "d50b7461")
+    Assert.AreEqual<BinIR.SideEffect list>(none, at 1 0UL "d50b7461")
 
   /// BFC clears the field it names and keeps the rest (C6.2.27): BFC X0, #8,
   /// #8 on all ones leaves bits 15:8 clear.
@@ -689,12 +775,12 @@ type LifterTests() =
   /// <summary>
   /// The cache maintenance EL0 may run under SCTLR_EL1.UCI, which Linux sets:
   /// DC CVAU, CVAC, CIVAC, CVAP and CVADP, and IC IVAU (DDI0487F.c C5.3.19,
-  /// C5.3.16, C5.3.14, C5.3.18, C5.3.17 and C5.3.31). Nothing in this model
-  /// stands between the processor and memory, so none of them has an effect
-  /// to show.
+  /// C5.3.16, C5.3.14, C5.3.18, C5.3.17 and C5.3.31; D13.2.113). Nothing in
+  /// this model stands between the processor and memory, so where one runs
+  /// it has no effect to show; with UCI clear it is UNDEFINED at EL0.
   /// </summary>
   [<TestMethod>]
-  member _.``[AArch64] The cache maintenance EL0 runs lifts to nothing``() =
+  member _.``[AArch64] The cache maintenance EL0 runs needs UCI``() =
     let words =
       [ "d50b7b21" (* DC CVAU *)
         "d50b7a21" (* DC CVAC *)
@@ -702,5 +788,13 @@ type LifterTests() =
         "d50b7c21" (* DC CVAP *)
         "d50b7d21" (* DC CVADP *)
         "d50b7520" (* IC IVAU *) ]
+    let at el (sctlr: uint64) hex =
+      let inputs =
+        [ !.CURRENTEL, bv64 (uint64 el <<< 2); !.SCTLREL1, bv64 sctlr ]
+      IRRunner.effects (lifted hex) inputs
+    let undef = [ BinIR.SideEffect.UndefinedInstruction ]
+    let none: BinIR.SideEffect list = []
     for hex in words do
-      hex ++ [||] |> test
+      Assert.AreEqual<BinIR.SideEffect list>(undef, at 0 0UL hex, hex)
+      Assert.AreEqual<BinIR.SideEffect list>(none, at 0 (1UL <<< 26) hex, hex)
+      Assert.AreEqual<BinIR.SideEffect list>(none, at 1 0UL hex, hex)

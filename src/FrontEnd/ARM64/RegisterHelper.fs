@@ -62,7 +62,8 @@ module internal RegisterHelper =
     | R.CNTVCT_EL0 | R.SCTLREL1 | R.TTBR0EL1 | R.TTBR1EL1 | R.TCREL1
     | R.MAIREL1 | R.VBAREL1 | R.FAREL1 | R.ELREL1 | R.SPSREL1 | R.SPEL0
     | R.TPIDREL1 | R.CURRENTEL | R.DAIF | R.SPSEL | R.PAN | R.UAO | R.DIT
-    | R.SSBS | R.TCO | R.SPEL1 | R.PAREL1 -> 64<rt>
+    | R.SSBS | R.TCO | R.SPEL1 | R.PAREL1 | R.CNTFRQEL0
+    | R.TPIDRROEL0 -> 64<rt>
     | R.W0 | R.W1 | R.W2 | R.W3 | R.W4 | R.W5 | R.W6 | R.W7 | R.W8 | R.W9
     | R.W10 | R.W11 | R.W12 | R.W13 | R.W14 | R.W15 | R.W16 | R.W17 | R.W18
     | R.W19 | R.W20 | R.W21 | R.W22 | R.W23 | R.W24 | R.W25 | R.W26 | R.W27

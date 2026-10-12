@@ -2677,6 +2677,32 @@ let movk (ins: Instruction) bld =
   }
 
 /// MRS of a register this front end names.
+/// <summary>
+/// What MRS reads out of a register the front end names. NZCV is four one-bit
+/// registers put back together. DCZID_EL0 adds DZP, bit 4, at EL0 where
+/// SCTLR_EL1.DZE prohibits DC ZVA (D13.2.113). CCSIDR_EL1 describes the cache
+/// CSSELR_EL1 selects (SysReg.cacheSize).
+/// </summary>
+let private namedSource ins bld src =
+  match src with
+  | OprRegister R.NZCV ->
+    let n = (regVar bld R.N |> AST.zext 64<rt>) << numI32 31 64<rt>
+    let z = (regVar bld R.Z |> AST.zext 64<rt>) << numI32 30 64<rt>
+    let c = (regVar bld R.C |> AST.zext 64<rt>) << numI32 29 64<rt>
+    let v = (regVar bld R.V |> AST.zext 64<rt>) << numI32 28 64<rt>
+    n .| z .| c .| v
+  | OprRegister R.DCZIDEL0 ->
+    let prohibited = atEL0 bld .& AST.not (sctlrBit bld 14)
+    regVar bld R.DCZIDEL0
+    .| AST.ite prohibited (numU64 0x10UL 64<rt>) (AST.num0 64<rt>)
+  | OprRegister R.CCSIDREL1 ->
+    let sel = regVar bld R.CSSELREL1
+    let size v = numU64 (SysReg.cacheSize v) 64<rt>
+    let pick v other = AST.ite (sel == numU64 v 64<rt>) (size v) other
+    pick 0UL (pick 1UL (pick 2UL (size 3UL)))
+  | _ ->
+    transOpr ins bld src
+
 let private mrsNamed (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
@@ -2689,21 +2715,26 @@ let private mrsNamed (ins: Instruction) bld =
         (ClockCounterRead(Some(Register.toRegID rt, false)))
     | _ ->
       let dst = transOpr ins bld dst
-      let src =
-        match src with
-        | OprRegister R.NZCV ->
-          let n = (regVar bld R.N |> AST.zext 64<rt>) << numI32 31 64<rt>
-          let z = (regVar bld R.Z |> AST.zext 64<rt>) << numI32 30 64<rt>
-          let c = (regVar bld R.C |> AST.zext 64<rt>) << numI32 29 64<rt>
-          let v = (regVar bld R.V |> AST.zext 64<rt>) << numI32 28 64<rt>
-          n .| z .| c .| v
-        | _ ->
-          transOpr ins bld src
-      direct dst := src
+      direct dst := namedSource ins bld src
   }
+
+/// MRS of a register of the ID space, which reads a constant at EL1 (see
+/// SysReg.idRegister) or is UNDEFINED where the space allocates nothing.
+let private mrsId ins bld dst key =
+  let crm = (key >>> 3) &&& 0xfu
+  match SysReg.idRegister crm (key &&& 7u) with
+  | Some v ->
+    lift bld ins {
+      checkSystemAccess bld true (OprSysReg key)
+      direct (transOpr ins bld dst) := numU64 v 64<rt>
+    }
+  | None ->
+    sideEffects ins bld UndefinedInstruction
 
 let mrs (ins: Instruction) bld =
   match ins.Operands with
+  | TwoOperands(dst, OprSysReg key) when key &&& 0xff80u = 0xc000u ->
+    mrsId ins bld dst key
   | TwoOperands(_, (OprSysReg _ as src)) ->
     lift bld ins {
       checkSystemAccess bld true src

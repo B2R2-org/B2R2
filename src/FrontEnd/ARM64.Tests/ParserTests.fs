@@ -485,6 +485,12 @@ type ParserTests() =
   member _.``C4.3.4 System (31)``() =
     testDisasm "d5387400" "mrs x0, par_el1"
 
+  /// CNTFRQ_EL0 and TPIDRRO_EL0 have their names.
+  [<TestMethod>]
+  member _.``C4.3.4 System (32)``() =
+    testDisasm "d53be000" "mrs x0, cntfrq_el0"
+    testDisasm "d51bd061" "msr tpidrro_el0, x1"
+
   /// op1:op2 of 001:000 names no field of PSTATE, and the manual leaves the
   /// encoding UNDEFINED.
   [<TestMethod>]

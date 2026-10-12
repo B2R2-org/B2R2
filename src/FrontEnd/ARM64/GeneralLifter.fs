@@ -1200,12 +1200,46 @@ let ctz ins bld =
     sized ins.OprSize dst := res
   }
 
+/// Whether the processor is at EL0, which CurrentEL holds in bits 3:2. What
+/// runs the IR is what sets it: a Linux process at EL0, a board at EL1.
+let atEL0 bld =
+  (regVar bld R.CURRENTEL .& numU64 0xcUL 64<rt>) == AST.num0 64<rt>
+
+/// An Undefined Instruction exception where the condition holds.
+let private undefinedWhen bld cond =
+  _when bld "Undefined" cond (block {
+    AST.sideEffect UndefinedInstruction
+  })
+
+/// Whether a bit of SCTLR_EL1 is set (D13.2.113).
+let sctlrBit bld (bit: int) =
+  (regVar bld R.SCTLREL1 .& numU64 (1UL <<< bit) 64<rt>) != AST.num0 64<rt>
+
+/// SCTLR_EL1.DZE, which lets EL0 run DC ZVA, DC GVA and DC GZVA.
+let private dze = 14
+
+/// SCTLR_EL1.UCI, which lets EL0 run the cache maintenance it may run.
+let private uci = 26
+
 /// DC ZVA, which clears the block DCZID_EL0 names around the address it is
-/// given.
+/// given. EL0 runs it only where SCTLR_EL1.DZE lets it (D13.2.113).
 let dczva ins bld =
   lift bld ins {
     let src = transOneOpr ins bld
+    undefinedWhen bld (atEL0 bld .& AST.not (sctlrBit bld dze))
     zeroBlock bld src
+  }
+
+/// <summary>
+/// The cache maintenance EL0 may run where SCTLR_EL1 lets it: the cleaning
+/// by address and IC IVAU under UCI, and DC GVA under DZE (D13.2.113). No
+/// cache stands between the processor and memory here, and no tag memory, so
+/// where one runs it does nothing.
+/// </summary>
+let el0Maintenance (ins: Instruction) bld =
+  let enable = if ins.Opcode = Opcode.DCGVA then dze else uci
+  lift bld ins {
+    undefinedWhen bld (atEL0 bld .& AST.not (sctlrBit bld enable))
   }
 
 /// <summary>
@@ -1547,27 +1581,14 @@ let movz (ins: Instruction) bld =
     sized ins.OprSize dst := src
   }
 
-/// Whether the processor is at EL0, which CurrentEL holds in bits 3:2. What
-/// runs the IR is what sets it: a Linux process at EL0, a board at EL1.
-let private atEL0 bld =
-  (regVar bld R.CURRENTEL .& numU64 0xcUL 64<rt>) == AST.num0 64<rt>
-
-/// An Undefined Instruction exception where the condition holds.
-let private undefinedWhen bld cond =
-  _when bld "Undefined" cond (block {
-    AST.sideEffect UndefinedInstruction
-  })
-
-/// Whether a bit of SCTLR_EL1 is set (D13.2.113).
-let private sctlrBit bld (bit: int) =
-  (regVar bld R.SCTLREL1 .& numU64 (1UL <<< bit) 64<rt>) != AST.num0 64<rt>
-
 /// <summary>
 /// When an MRS (a read) or an MSR of a system register is UNDEFINED, which
 /// is at EL0 alone, or never. A register whose op1 is not 3 needs EL1 or
 /// more (AArch64.CheckSystemAccess, J1.1). Of those whose op1 is 3, DAIF
 /// needs SCTLR_EL1.UMA, bit 9, a read of CTR_EL0 needs SCTLR_EL1.UCT, bit
-/// 15, and CTR_EL0, DCZID_EL0 and CNTVCT_EL0 are only ever read.
+/// 15, and CTR_EL0, DCZID_EL0, CNTVCT_EL0, TPIDRRO_EL0 and CNTFRQ_EL0 EL0
+/// only reads. CNTKCTL_EL1, which decides whether EL0 reaches the counter
+/// and its frequency, is not modelled, and they are read as Linux lets them.
 /// </summary>
 let private el0Denies bld isRead opr =
   let el0 = atEL0 bld
@@ -1581,10 +1602,29 @@ let private el0Denies bld isRead opr =
     Some(el0 .& AST.not (sctlrBit bld 15))
   | OprRegister(R.DCZIDEL0 | R.CNTVCT_EL0) when isRead ->
     None
+  | OprRegister(R.TPIDRROEL0 | R.CNTFRQEL0) when isRead ->
+    None
   | OprSysReg key when (key >>> 11) &&& 7u = 3u ->
     None
   | _ ->
     Some el0
+
+/// <summary>
+/// Whether MSR may not name a register at all: one the manual lists only an
+/// MRS for, whose MSR encoding is unallocated and so UNDEFINED at every level
+/// -- the identification registers, CurrentEL and the counter. The ID space
+/// (op0 3, op1 0, CRn 0) and CCSIDR_EL1, CLIDR_EL1 and AIDR_EL1 are read
+/// only whether or not a register here names them.
+/// </summary>
+let isReadOnly opr =
+  match opr with
+  | OprRegister(R.MIDREL1 | R.CTREL0 | R.DCZIDEL0 | R.CURRENTEL)
+  | OprRegister(R.CNTVCT_EL0 | R.CCSIDREL1 | R.CLIDREL1 | R.AIDREL1) ->
+    true
+  | OprSysReg key ->
+    key &&& 0xff80u = 0xc000u
+  | _ ->
+    false
 
 /// An Undefined Instruction exception where the level running may not read
 /// (isRead) or write the system register an MRS or MSR names.
@@ -1695,6 +1735,8 @@ let private msrWindow ins bld reg src =
 
 let msr (ins: Instruction) bld =
   match ins.Operands with
+  | TwoOperands(dst, _) when isReadOnly dst ->
+    sideEffects ins bld UndefinedInstruction
   | TwoOperands(OprSysReg _ as dst, _) ->
     lift bld ins {
       checkSystemAccess bld false dst
@@ -1757,8 +1799,8 @@ let private enRCTX bld = sctlrBit bld 10
 /// restrictions of prediction, with no predictor. What each does is decided
 /// by the exception level it needs (C5.1.1). One EL1 needs is UNDEFINED at
 /// EL0, and CFP, DVP and CPP at EL0 unless SCTLR_EL1.EnRCTX lets it run
-/// them (C5.6.1 to C5.6.3); one that needs EL2 or EL3 is UNDEFINED
-/// anywhere, this model having neither.
+/// them (C5.6.1 to C5.6.3), and IC IVAU unless SCTLR_EL1.UCI does; one that
+/// needs EL2 or EL3 is UNDEFINED anywhere, this model having neither.
 /// </summary>
 let systemMaintenance (ins: Instruction) bld =
   let restrictsPrediction =
@@ -1771,7 +1813,7 @@ let systemMaintenance (ins: Instruction) bld =
       undefinedWhen bld (atEL0 bld .& AST.not (enRCTX bld))
     }
   | 0 ->
-    lift bld ins { }
+    el0Maintenance ins bld
   | 1 ->
     lift bld ins {
       undefinedWhen bld (atEL0 bld)
@@ -1869,18 +1911,18 @@ let private restoreFields bld spsr =
 /// low bit of SPSR's mode field says which stack pointer to return on, and
 /// that selection is made.
 ///
-/// What is NOT restored is the exception level, which the rest of the mode
-/// field names. There is one level in this model, so there is nothing for it
-/// to select between -- and code that read CurrentEL across an ERET would be
-/// reading a register this does not write. That is a limit worth stating
-/// rather than papering over with a value that looks right.
+/// The rest of the mode field, bits 3:2, is the exception level to return
+/// to, which CurrentEL holds at the same bits: an ERET to EL0 leaves CurrentEL
+/// zero, and what EL0 may run is then checked against it.
 ///
 /// ERETAA and ERETAB are the same return with the address authenticated
 /// against the stack pointer first, under the key given here; what they
-/// authenticate is not written back to the link register.
+/// authenticate is not written back to the link register. All three are
+/// UNDEFINED at EL0, which has no exception to return from (C6.2.87).
 /// </summary>
 let private exceptionReturn ins bld key =
   lift bld ins {
+    undefinedWhen bld (atEL0 bld)
     let spsr = regVar bld R.SPSREL1
     let elr = regVar bld R.ELREL1
     let source =
@@ -1899,6 +1941,7 @@ let private exceptionReturn ins bld key =
       (regVar bld R.DAIF .& AST.not (numU64 0x3c0UL 64<rt>))
       .| (spsr .& numU64 0x3c0UL 64<rt>)
     restoreFields bld spsr
+    direct (regVar bld R.CURRENTEL) := spsr .& numU64 0xcUL 64<rt>
     selectStack bld (spsr .& AST.num1 64<rt>)
     branchTo ins bld target BrTypeRET InterJmpKind.IsRet
     return NoEndMark
