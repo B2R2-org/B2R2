@@ -10,6 +10,15 @@
     <Compile Include="MicroMIPSParserTests.fs" />
     <Compile Include="IRRunner.fs" />
     <Compile Include="LifterTests.fs" />
+    <Compile Include="ManualLift.fs" />
+    <Compile Include="ManualLifterTests1.fs" />
+    <Compile Include="ManualLifterTests2.fs" />
+    <Compile Include="ManualLifterTests3.fs" />
+    <Compile Include="ManualLifterTests4.fs" />
+    <Compile Include="ManualLifterTests5.fs" />
+    <Compile Include="ManualLifterTests6.fs" />
+    <Compile Include="ManualLifterTests7.fs" />
+    <Compile Include="ManualLifterTests8.fs" />
   </ItemGroup>
 
   <ItemGroup>

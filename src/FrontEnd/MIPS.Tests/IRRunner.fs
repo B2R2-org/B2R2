@@ -29,13 +29,16 @@ open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd.MIPS
 
 /// <summary>
 /// Runs the statements an instruction lifts to over registers given values,
 /// for a test whose claim is the value an instruction computes. It knows the
-/// straight-line LowUIR of the floating-point arithmetic, rounded to nearest
-/// unless a RoundCtrl names a direction for a rounding to an integer, and
-/// fails on anything else rather than guess what it means.
+/// integer operations at any width, loads and stores over the bytes a test
+/// gives it at the endianness each one names, and the straight-line LowUIR of
+/// the floating-point arithmetic, rounded to nearest unless a RoundCtrl names
+/// a direction for a rounding to an integer, and fails on anything else
+/// rather than guess what it means -- a byte nobody gave included.
 ///
 /// <para>The exception query answers what a test names, nothing unless it
 /// names something: the query works out what an operation raised, which this
@@ -44,9 +47,20 @@ open B2R2.BinIR.LowUIR
 /// made of the answer it was given.</para>
 /// </summary>
 module internal IRRunner =
-  /// The register a register variable names.
+  /// What a run reads and writes: the registers, the temporaries, the bytes
+  /// of memory by address, and the answer the exception query gives.
+  type private Context =
+    { Answer: BitVector
+      Regs: Dictionary<RegisterID, BitVector>
+      Temps: Dictionary<int, BitVector>
+      Memory: Dictionary<uint64, byte>
+      Unpredictable: HashSet<RegisterID> }
+
+  /// The register a register variable names; the program counter is a
+  /// variable of its own kind and carries no ID, so it is given MIPS's.
   let private idOf = function
     | Var(RegisterID = r) -> r
+    | PCVar _ -> Register.toRegID Register.PC
     | e -> failwith $"IRRunner: {e} is not a register"
 
   let private readReg (regs: Dictionary<RegisterID, BitVector>) r t =
@@ -58,11 +72,17 @@ module internal IRRunner =
     match op with
     | BinOpType.ADD -> BitVector.Add(a, b)
     | BinOpType.SUB -> BitVector.Sub(a, b)
+    | BinOpType.MUL -> BitVector.Mul(a, b)
+    | BinOpType.DIV -> BitVector.Div(a, b)
+    | BinOpType.SDIV -> BitVector.SDiv(a, b)
+    | BinOpType.MOD -> BitVector.Modulo(a, b)
+    | BinOpType.SMOD -> BitVector.SModulo(a, b)
     | BinOpType.AND -> BitVector.And(a, b)
     | BinOpType.OR -> BitVector.Or(a, b)
     | BinOpType.XOR -> BitVector.Xor(a, b)
     | BinOpType.SHL -> BitVector.Shl(a, b)
     | BinOpType.SHR -> BitVector.Shr(a, b)
+    | BinOpType.SAR -> BitVector.Sar(a, b)
     | BinOpType.CONCAT -> BitVector.Concat(a, b)
     | BinOpType.FADD -> BitVector.FAdd(a, b)
     | BinOpType.FSUB -> BitVector.FSub(a, b)
@@ -79,11 +99,14 @@ module internal IRRunner =
     | RelOpType.LT -> BitVector.Lt(a, b)
     | RelOpType.LE -> BitVector.Le(a, b)
     | RelOpType.SGT -> BitVector.SGt(a, b)
+    | RelOpType.SGE -> BitVector.SGe(a, b)
     | RelOpType.SLT -> BitVector.SLt(a, b)
+    | RelOpType.SLE -> BitVector.SLe(a, b)
     | RelOpType.FEQ -> BitVector.FEq(a, b)
     | RelOpType.FGT -> BitVector.FGt(a, b)
     | RelOpType.FGE -> BitVector.FGe(a, b)
     | RelOpType.FLT -> BitVector.FLt(a, b)
+    | RelOpType.FLE -> BitVector.FLe(a, b)
     | _ -> failwith $"IRRunner: no {op}"
 
   /// The value a single or a double holds, which a double holds exactly.
@@ -109,6 +132,9 @@ module internal IRRunner =
     | RoundingMode.TowardPositive -> Math.Ceiling(d)
     | RoundingMode.TowardZero -> Math.Truncate(d)
     | m -> failwith $"IRRunner: no {m}"
+
+  /// A float rounded to an integral float in a direction.
+  let private roundIn mode rt x = ofDouble rt (integral mode (toDouble x))
 
   /// A float rounded to an integer in a direction, the low bits of it kept.
   let private toInt mode rt x =
@@ -136,18 +162,66 @@ module internal IRRunner =
     | _ ->
       failwith $"IRRunner: no {name}"
 
-  let rec private eval answer regs (temps: Dictionary<int, BitVector>) e =
-    let eval = eval answer regs temps
+  /// The bytes at an address, in address order, every one of them given.
+  let private bytesAt (memory: Dictionary<uint64, byte>) (addr: uint64) n =
+    Array.init n (fun i ->
+      let a = addr + uint64 i
+      match memory.TryGetValue a with
+      | true, b -> b
+      | false, _ -> failwith $"IRRunner: no byte at {a:x}")
+
+  /// A value of a type read from memory at an endianness.
+  let private load ctx endian (t: RegType) (addr: BitVector) =
+    let bytes = bytesAt ctx.Memory (addr.ToUInt64()) (RegType.toByteWidth t)
+    let ordered = if endian = Endian.Big then bytes else Array.rev bytes
+    let v = ordered |> Array.fold (fun acc b -> (acc <<< 8) + bigint b) 0I
+    BitVector(v, t)
+
+  /// A value written to memory at an address and an endianness.
+  let private store ctx endian (addr: BitVector) (v: BitVector) =
+    let n = RegType.toByteWidth v.Length
+    let a = addr.ToUInt64()
+    let num = v.ToBigInt()
+    for i in 0 .. n - 1 do
+      let shift = if endian = Endian.Big then 8 * (n - 1 - i) else 8 * i
+      ctx.Memory[a + uint64 i] <- byte ((num >>> shift) &&& 255I)
+
+  /// The direction FCSR.RM names, which is what a rounding no RoundCtrl
+  /// encloses rounds in: nearest, toward zero, up, down.
+  let private fcsrMode ctx =
+    let fcsr = readReg ctx.Regs (Register.toRegID Register.FCSR) 32<rt>
+    match fcsr.ToUInt64() &&& 3UL with
+    | 0UL -> RoundingMode.ToNearestEven
+    | 1UL -> RoundingMode.TowardZero
+    | 2UL -> RoundingMode.TowardPositive
+    | _ -> RoundingMode.TowardNegative
+
+  /// A cast of a value to a type, outside a rounding control.
+  let private cast ctx kind t (x: BitVector) =
+    match kind with
+    | CastKind.ZeroExt -> BitVector.ZExt(x, t)
+    | CastKind.SignExt -> BitVector.SExt(x, t)
+    | CastKind.FloatCast -> BitVector.FCast(x, t)
+    | CastKind.SIntToFloat -> BitVector.Itof(x, t, true)
+    | CastKind.UIntToFloat -> BitVector.Itof(x, t, false)
+    | CastKind.FloatToSInt -> toInt (fcsrMode ctx) t x
+    | CastKind.RoundToIntegral -> roundIn (fcsrMode ctx) t x
+    | k -> failwith $"IRRunner: no {k}"
+
+  let rec private eval ctx e =
+    let eval = eval ctx
     match e with
     | Num(Value = v) ->
       v
     | Var(Type = t; RegisterID = r) ->
-      readReg regs r t
+      readReg ctx.Regs r t
+    | PCVar(Type = t) ->
+      readReg ctx.Regs (idOf e) t
     | TempVar(Index = n) ->
-      temps[n]
+      ctx.Temps[n]
     | BinOp(Op = BinOpType.APP; Left = FuncName(Name = n); Right = es) ->
       match es with
-      | ExprList(Elements = args) -> app answer n (List.map eval args)
+      | ExprList(Elements = args) -> app ctx.Answer n (List.map eval args)
       | _ -> failwith $"IRRunner: no {e}"
     | BinOp(Op = op; Left = l; Right = r) ->
       binOp op (eval l) (eval r)
@@ -155,21 +229,19 @@ module internal IRRunner =
       relOp op (eval l) (eval r)
     | UnOp(Op = UnOpType.NOT; Operand = x) ->
       BitVector.Not(eval x)
+    | UnOp(Op = UnOpType.NEG; Operand = x) ->
+      BitVector.Neg(eval x)
     | UnOp(Op = UnOpType.FSQRT; Operand = x) ->
       BitVector.FSqrt(eval x)
-    | Cast(Kind = CastKind.ZeroExt; Type = t; Operand = x) ->
-      BitVector.ZExt(eval x, t)
-    | Cast(Kind = CastKind.SignExt; Type = t; Operand = x) ->
-      BitVector.SExt(eval x, t)
-    | Cast(Kind = CastKind.FloatCast; Type = t; Operand = x) ->
-      BitVector.FCast(eval x, t)
-    | Cast(Kind = CastKind.FloatToSInt; Type = t; Operand = x) ->
-      toInt RoundingMode.ToNearestEven t (eval x)
+    | Load(Endian = endian; Type = t; Addr = a) ->
+      load ctx endian t (eval a)
+    | Cast(Kind = k; Type = t; Operand = x) ->
+      cast ctx k t (eval x)
     | RoundCtrl(Mode = m; Body = Cast(Kind = k; Type = t; Operand = x)) ->
       let mode = enum<RoundingMode> (int ((eval m).ToUInt64()))
       match k with
       | CastKind.RoundToIntegral ->
-        ofDouble t (integral mode (toDouble (eval x)))
+        roundIn mode t (eval x)
       | CastKind.FloatToSInt ->
         toInt mode t (eval x)
       | _ ->
@@ -181,33 +253,102 @@ module internal IRRunner =
     | _ ->
       failwith $"IRRunner: no {e}"
 
-  let private put answer regs (temps: Dictionary<int, BitVector>) stmt =
+  /// One statement that neither jumps nor raises anything. A register given
+  /// a value the manual leaves UNPREDICTABLE is recorded as such, since no
+  /// value of it can be asked about.
+  let private put ctx stmt =
     match stmt with
+    | Put(Dst = Var(RegisterID = r); Src = Undefined _) ->
+      ctx.Regs.Remove r |> ignore
+      ctx.Unpredictable.Add r |> ignore
     | Put(Dst = Var(RegisterID = r); Src = src) ->
-      (regs: Dictionary<RegisterID, BitVector>)[r] <-
-        eval answer regs temps src
+      ctx.Regs[r] <- eval ctx src
+      ctx.Unpredictable.Remove r |> ignore
+    | Put(Dst = PCVar _ as pc; Src = src) ->
+      ctx.Regs[idOf pc] <- eval ctx src
     | Put(Dst = TempVar(Index = n); Src = src) ->
-      temps[n] <- eval answer regs temps src
+      ctx.Temps[n] <- eval ctx src
+    | Store(Endian = endian; Addr = a; Value = v) ->
+      store ctx endian (eval ctx a) (eval ctx v)
     | _ ->
       failwith $"IRRunner: no {stmt}"
+
+  let private newContext (flags: uint32) inputs =
+    let ctx =
+      { Answer = BitVector(flags, 32<rt>)
+        Regs = Dictionary()
+        Temps = Dictionary()
+        Memory = Dictionary()
+        Unpredictable = HashSet() }
+    for reg, v in inputs do ctx.Regs[idOf reg] <- v
+    ctx
 
   /// What each register holds after the statements ran, starting from the
   /// given values and from zero everywhere else, with the exception query
   /// answering the given flags.
   let runAnswering flags stmts inputs =
-    let answer = BitVector((flags: uint32), 32<rt>)
-    let regs = Dictionary<RegisterID, BitVector>()
-    let temps = Dictionary<int, BitVector>()
-    for reg, v in inputs do regs[idOf reg] <- v
+    let ctx = newContext flags inputs
     for stmt in stmts do
       match stmt with
       | ISMark _ | IEMark _ | LMark _ -> ()
-      | _ -> put answer regs temps stmt
-    fun reg -> readReg regs (idOf reg) (Expr.typeOf reg)
+      | _ -> put ctx stmt
+    fun reg -> readReg ctx.Regs (idOf reg) (Expr.typeOf reg)
 
   /// What each register holds after the statements ran, with the exception
   /// query answering that nothing was raised.
   let run stmts inputs = runAnswering 0u stmts inputs
+
+  /// Where a run left the instruction, if it did: the target and the kind
+  /// of the jump that took it out.
+  type Exit =
+    | Fallthrough
+    | Left of target: uint64 * kind: InterJmpKind
+
+  /// The end of an instruction, which moves the program counter past it.
+  let private advance ctx (n: uint32) =
+    let pc = Register.toRegID Register.PC
+    match ctx.Regs.TryGetValue pc with
+    | true, v ->
+      ctx.Regs[pc] <- BitVector.Add(v, BitVector(uint64 n, v.Length))
+    | false, _ ->
+      ()
+
+  /// The statements run from the first, each jump between their labels taken
+  /// the way the values decide it; a jump out of the instruction ends the
+  /// run and is the exit.
+  let private walk ctx (stmts: Stmt[]) =
+    let at label =
+      stmts
+      |> Array.findIndex (function
+        | LMark(Label = l) -> l = label
+        | _ -> false)
+    let rec step i effects =
+      if i >= stmts.Length then
+        List.rev effects, Fallthrough
+      else
+        match stmts[i] with
+        | ISMark _ | LMark _ ->
+          step (i + 1) effects
+        | IEMark(Length = n) ->
+          advance ctx n
+          step (i + 1) effects
+        | SideEffect(Effect = e) ->
+          step (i + 1) (e :: effects)
+        | Jmp(Target = JmpDest(Target = l)) ->
+          step (at l) effects
+        | CJmp(c, JmpDest(Target = t), JmpDest(Target = f)) ->
+          let taken = (eval ctx c).IsTrue
+          step (at (if taken then t else f)) effects
+        | InterJmp(Target = t; Kind = kind) ->
+          List.rev effects, Left((eval ctx t).ToUInt64(), kind)
+        | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
+          let target = if (eval ctx c).IsTrue then t else f
+          let address = (eval ctx target).ToUInt64()
+          List.rev effects, Left(address, InterJmpKind.Base)
+        | stmt ->
+          put ctx stmt
+          step (i + 1) effects
+    step 0 []
 
   /// <summary>
   /// The side effects the statements raise and what each register holds
@@ -216,33 +357,35 @@ module internal IRRunner =
   /// goes. A jump out of the instruction ends the run.
   /// </summary>
   let follow (stmts: Stmt[]) inputs =
-    let answer = BitVector(0u, 32<rt>)
-    let regs = Dictionary<RegisterID, BitVector>()
-    let temps = Dictionary<int, BitVector>()
-    for reg, v in inputs do regs[idOf reg] <- v
-    let at label =
-      stmts
-      |> Array.findIndex (function
-        | LMark(Label = l) -> l = label
-        | _ -> false)
-    let rec step i effects =
-      if i >= stmts.Length then
-        List.rev effects
-      else
-        match stmts[i] with
-        | ISMark _ | IEMark _ | LMark _ ->
-          step (i + 1) effects
-        | SideEffect(Effect = e) ->
-          step (i + 1) (e :: effects)
-        | Jmp(Target = JmpDest(Target = l)) ->
-          step (at l) effects
-        | CJmp(c, JmpDest(Target = t), JmpDest(Target = f)) ->
-          let taken = (eval answer regs temps c).IsTrue
-          step (at (if taken then t else f)) effects
-        | InterJmp _ ->
-          List.rev effects
-        | stmt ->
-          put answer regs temps stmt
-          step (i + 1) effects
-    let effects = step 0 []
-    effects, fun reg -> readReg regs (idOf reg) (Expr.typeOf reg)
+    let ctx = newContext 0u inputs
+    let effects, _ = walk ctx stmts
+    effects, fun reg -> readReg ctx.Regs (idOf reg) (Expr.typeOf reg)
+
+  /// What a run of whole instructions leaves behind.
+  type Outcome =
+    { /// The side effects raised, in order.
+      Effects: SideEffect list
+      /// Where the run left, if it did.
+      Exit: Exit
+      /// The registers by ID, as they are after the run.
+      Registers: IReadOnlyDictionary<RegisterID, BitVector>
+      /// The registers given a value the manual leaves UNPREDICTABLE.
+      Unpredictable: IReadOnlySet<RegisterID>
+      /// Every byte of memory given or written, by address.
+      Memory: IReadOnlyDictionary<uint64, byte> }
+
+  /// <summary>
+  /// Runs the statements of whole instructions, as follow does, over the
+  /// registers given and the bytes of memory given, with the exception query
+  /// answering that nothing was raised. A load of a byte nobody gave fails
+  /// the run.
+  /// </summary>
+  let exec (stmts: Stmt[]) inputs (memory: (uint64 * byte) list) =
+    let ctx = newContext 0u inputs
+    for addr, b in memory do ctx.Memory[addr] <- b
+    let effects, exit = walk ctx stmts
+    { Effects = effects
+      Exit = exit
+      Registers = ctx.Regs
+      Unpredictable = ctx.Unpredictable
+      Memory = ctx.Memory }
