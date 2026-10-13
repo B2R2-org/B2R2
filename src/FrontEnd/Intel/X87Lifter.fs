@@ -120,6 +120,7 @@ let [<Literal>] private TopBit = 0x8000000000000000UL
 let [<Literal>] private ExtQuietBit = 0x4000000000000000UL
 #endif
 
+#if !EMULATION
 /// A shift count kept within a word, so that an operand computed for a case
 /// that does not hold still shifts by something a word allows.
 let inline private inWord n = n .& numI32 63 64<rt>
@@ -245,6 +246,7 @@ let private doubleToExtended bld v =
         (num64 TopBit .| (frac << numI32 11 64<rt>))
   }
   struct (hi, lo)
+#endif
 
 /// The magnitude of a double: the double with its sign cleared.
 let private magnitudeOf v = v .& num64 0x7fffffffffffffffUL
@@ -277,17 +279,71 @@ let private nanOf a b =
 let private orNaNOf a b r = AST.ite (isNaND a .| isNaND b) (nanOf a b) r
 
 #if EMULATION
-(* An emulator keeps a stack register as the double its value is computed in,
-   in the register's mantissa half, and leaves the other half alone. Every
-   operation computes in double precision anyway, and converting to and from
-   the extended form around each one was most of what an x87 instruction cost
-   to run. Only a load or store of the extended format itself converts, which
-   is where a value no double can hold is rounded to one. *)
+(* An emulator keeps each stack register as the FPU does, in extended
+   precision, and computes in it: the arithmetic goes to BRemu's X87Float as
+   named calls, which round each result once to the precision and in the
+   direction the control word names, and set the status bits the FPU sets.
+   Each takes the halves of an extended value -- its sign and exponent word
+   and its significand -- and gives back a 128-bit word: the significand in
+   the low half, the sign and exponent in bits 79:64, and in bits 95:80 the
+   status bits to set, in the status word's own layout. Only the
+   transcendental instructions still compute in double precision, through
+   readST and writeST. *)
 
-/// The double a stack register holds, as an expression to use at once. It is
-/// the register itself, so it names what the register holds when the
-/// statement using it runs.
-let private readST bld reg = pseudoRegVar bld reg 1
+/// Calls an X87Float operation, the 128-bit word it gives back held in a
+/// temporary.
+let private x87Call bld name args =
+  let t = tmpVar bld 128<rt>
+  append bld {
+    direct t := AST.app name args 128<rt>
+  }
+  t
+
+/// The sign and exponent word of an X87Float result.
+let private seOf t = AST.extract t 16<rt> 64
+
+/// The significand of an X87Float result.
+let private sigOf t = AST.xtlo 64<rt> t
+
+/// The status bits an X87Float result sets.
+let private statusOf t = AST.extract t 16<rt> 80
+
+/// The whole high word of an X87Float result: its sign and exponent with the
+/// status bits above them. A value widened from memory is handed on to the
+/// operation that takes it as an operand this way, as the bit saying it was a
+/// denormal there is among them.
+let private hiOf t = AST.extract t 64<rt> 64
+
+/// Writes an X87Float result to a stack register.
+let private writeResult bld reg t =
+  let struct (b, a) = getFPUPseudoRegVars bld reg
+  append bld {
+    direct b := seOf t
+    direct a := sigOf t
+  }
+
+/// Sets the status bits an X87Float result sets, C1 among them, which says
+/// whether the result was rounded up.
+let private mergeStatus bld t =
+  let stsWrd = regVar bld R.FSW
+  append bld {
+    direct stsWrd := (stsWrd .& numI32 0xFDFF 16<rt>) .| statusOf t
+  }
+
+/// The double nearest a stack register's value, in a temporary, for the
+/// instructions that compute in double precision: a signalling NaN stays one,
+/// for the choice between two NaNs.
+let private readST bld reg =
+  let struct (b, a) = getFPUPseudoRegVars bld reg
+  let d = tmpVar bld 64<rt>
+  append bld {
+    direct d := AST.app "X87VIEWF64" [ b; a ] 64<rt>
+  }
+  d
+
+/// Writes a double, exactly, to a stack register.
+let private writeST bld reg v =
+  writeResult bld reg (x87Call bld "X87OFF64" [ v; AST.num0 64<rt> ])
 #else
 /// The double a stack register holds, in a temporary: the register keeps its
 /// value in extended precision, which every operation computes from as a
@@ -295,28 +351,9 @@ let private readST bld reg = pseudoRegVar bld reg 1
 let private readST bld reg =
   let struct (b, a) = getFPUPseudoRegVars bld reg
   extendedToDouble bld b a
-#endif
-
-/// The double a stack register holds now, kept in a temporary that a write to
-/// the register, or a push or a pop moving it, leaves alone.
-let private takeST bld reg =
-#if EMULATION
-  let t = tmpVar bld 64<rt>
-  append bld {
-    direct t := readST bld reg
-  }
-  t
-#else
-  readST bld reg
-#endif
 
 /// Writes a double to a stack register.
 let private writeST bld reg v =
-#if EMULATION
-  append bld {
-    direct (pseudoRegVar bld reg 1) := v
-  }
-#else
   let struct (hi, lo) = doubleToExtended bld v
   let struct (b, a) = getFPUPseudoRegVars bld reg
   append bld {
@@ -325,58 +362,40 @@ let private writeST bld reg v =
   }
 #endif
 
+/// The double a stack register holds now, kept in a temporary that a write to
+/// the register, or a push or a pop moving it, leaves alone: readST's own.
+let private takeST bld reg = readST bld reg
+
 /// Copies one stack register into another.
 let private copyST bld dst src =
-#if EMULATION
-  append bld {
-    direct (pseudoRegVar bld dst 1) := pseudoRegVar bld src 1
-  }
-#else
   let struct (dstB, dstA) = getFPUPseudoRegVars bld dst
   let struct (srcB, srcA) = getFPUPseudoRegVars bld src
   append bld {
     direct dstA := srcA
     direct dstB := srcB
   }
-#endif
 
 /// Empties a stack register to a zero.
 let private clearST bld reg =
-#if EMULATION
-  append bld {
-    direct (pseudoRegVar bld reg 1) := AST.num0 64<rt>
-  }
-#else
   let struct (b, a) = getFPUPseudoRegVars bld reg
   append bld {
     direct b := AST.num0 16<rt>
     direct a := AST.num0 64<rt>
   }
-#endif
 
 /// Copies `src` into a stack register where `cond` holds.
 let private selectST bld cond dst src =
-#if EMULATION
-  let d = pseudoRegVar bld dst 1
-  append bld {
-    direct d := AST.ite cond (pseudoRegVar bld src 1) d
-  }
-#else
   let struct (srcB, srcA) = getFPUPseudoRegVars bld src
   let struct (dstB, dstA) = getFPUPseudoRegVars bld dst
   append bld {
     direct dstB := AST.ite cond srcB dstB
     direct dstA := AST.ite cond srcA dstA
   }
-#endif
 
-/// Sets a stack register's value aside, as it is kept, for unstashST to put
-/// back into a stack register: a rotation, an exchange or a push moves the
-/// register it came from first.
+/// Sets a stack register's value aside, for unstashST to put back into a
+/// stack register: a rotation, an exchange or a push moves the register it
+/// came from first.
 let private stashST bld reg =
-#if EMULATION
-  takeST bld reg
-#else
   let struct (b, a) = getFPUPseudoRegVars bld reg
   let tmpB = tmpVar bld 16<rt>
   let tmpA = tmpVar bld 64<rt>
@@ -385,31 +404,20 @@ let private stashST bld reg =
     direct tmpA := a
   }
   struct (tmpB, tmpA)
-#endif
 
-/// Puts a value stashST or stashDouble set aside into a stack register.
+/// Puts a value set aside -- its sign and exponent word and its significand --
+/// into a stack register.
 let private unstashST bld reg stash =
-#if EMULATION
-  writeST bld reg stash
-#else
   let struct (tmpB, tmpA) = stash
   let struct (b, a) = getFPUPseudoRegVars bld reg
   append bld {
     direct b := tmpB
     direct a := tmpA
   }
-#endif
 
+#if !EMULATION
 /// Sets a double aside as a stack register keeps it, for unstashST.
-let private stashDouble bld v =
-#if EMULATION
-  let t = tmpVar bld 64<rt>
-  append bld {
-    direct t := v
-  }
-  t
-#else
-  doubleToExtended bld v
+let private stashDouble bld v = doubleToExtended bld v
 #endif
 
 /// Reads the extended-precision value whose mantissa is at `lo` and whose sign
@@ -422,32 +430,19 @@ let private loadExtended bld lo hi =
     direct tmpB := AST.loadLE 16<rt> hi
     direct tmpA := AST.loadLE 64<rt> lo
   }
-#if EMULATION
-  extendedToDouble bld tmpB tmpA
-#else
   struct (tmpB, tmpA)
-#endif
 
 /// Writes a stack register out in extended precision: its mantissa at `lo`, and
 /// its sign and exponent at `hi`.
 let private storeExtended bld lo hi reg =
-#if EMULATION
-  let struct (hiWord, mantissa) = doubleToExtended bld (readST bld reg)
-#else
   let struct (hiWord, mantissa) = getFPUPseudoRegVars bld reg
-#endif
   append bld {
     AST.store Endian.Little lo mantissa
     AST.store Endian.Little hi hiWord
   }
 
 /// The sign bit of a stack register.
-let private signOfST bld reg =
-#if EMULATION
-  AST.xthi 1<rt> (pseudoRegVar bld reg 1)
-#else
-  AST.xthi 1<rt> (pseudoRegVar bld reg 2)
-#endif
+let private signOfST bld reg = AST.xthi 1<rt> (pseudoRegVar bld reg 2)
 
 /// Pushes the stack: TOP moves down a place (Intel SDM Vol. 1, 8.1.2), and
 /// every value moves to the stack register below, which frees ST(0). The tags
@@ -514,6 +509,24 @@ let inline private getLoadAddressExpr (src: Expr) =
   | Load(Addr = addr) -> struct (addr, Expr.typeOf addr)
   | _ -> Terminator.impossible ()
 
+#if EMULATION
+/// A floating-point operand from memory widened, exactly, as an X87Float
+/// result in a temporary: a double or a single. FLD's widening, which `load`
+/// asks for, quiets a signalling NaN and flags it; an arithmetic operand's
+/// keeps it signalling for the operation to answer.
+let private widen bld (opr: Expr) load =
+  let name = if Expr.typeOf opr = 64<rt> then "X87OFF64" else "X87OFF32"
+  x87Call bld name [ opr; numI32 load 64<rt> ]
+
+/// An integer operand as a 64-bit one.
+let private toInt64 (opr: Expr) =
+  if Expr.typeOf opr = 64<rt> then opr else AST.sext 64<rt> opr
+
+/// The low `sz` bits of an X87Float result: an integer or a binary float it
+/// gives back.
+let private lowOf t (sz: RegType) =
+  if sz = 64<rt> then sigOf t else AST.xtlo sz t
+#else
 /// A floating-point operand from memory as a double: a single widened, which
 /// is exact, or a double as it is.
 let private asDouble (opr: Expr) =
@@ -526,6 +539,7 @@ let private pushDouble bld v =
   pushFPUStack bld
   unstashST bld R.ST0 stash
   cflagsAfterLoad bld
+#endif
 
 /// Records an x87 instruction as the last the FPU has run, the instruction
 /// pointer FNSTENV and FNSAVE report (Intel SDM Vol. 1, 8.1.8). Every x87
@@ -535,15 +549,28 @@ let private pushDouble bld v =
 let private recordInstr (ins: Instruction) bld =
   append bld { direct (regVar bld R.FIP) := numU64 ins.Address 64<rt> }
 
-let private fpuLoad (ins: Instruction) bld v =
-  lift bld ins {
-    recordInstr ins bld
-    pushDouble bld v
+/// A single or a double from memory set aside as a stack register keeps it,
+/// a signalling NaN quieted. An emulator also sets the flags the widening
+/// raises, a denormal's included: a push leaves them be.
+let private stashFloat bld (opr: Expr) =
+#if EMULATION
+  let t = widen bld opr 1
+  let stsWrd = regVar bld R.FSW
+  append bld {
+    direct stsWrd := stsWrd .| statusOf t
   }
+  struct (seOf t, sigOf t)
+#else
+  let t = tmpVar bld 64<rt>
+  append bld {
+    direct t := asDouble opr
+  }
+  stashDouble bld (quietIfNaN t)
+#endif
 
 /// The value FLD pushes, set aside before the push moves the stack: an
-/// extended value from memory or a stack register as it stands, a single or a
-/// double from memory as a double, a signalling NaN quieted.
+/// extended value from memory or a stack register as it stands, or a single or
+/// a double from memory widened.
 let private stashOperand bld (opr: Expr) =
   match opr with
   | Load(Addr = addr) when Expr.typeOf opr = 80<rt> ->
@@ -552,11 +579,7 @@ let private stashOperand bld (opr: Expr) =
   | BinOp(Left = Var(RegisterID = r); Right = Var _) ->
     stashST bld (RegisterHelper.pseudoRegToReg (Register.ofRegID r))
   | _ ->
-    let t = tmpVar bld 64<rt>
-    append bld {
-      direct t := asDouble opr
-    }
-    stashDouble bld (quietIfNaN t)
+    stashFloat bld opr
 
 let fld (ins: Instruction) bld =
   lift bld ins {
@@ -567,44 +590,101 @@ let fld (ins: Instruction) bld =
     cflagsAfterLoad bld
   }
 
+/// Stores ST(0) as a single or a double, rounded to it and a signalling NaN
+/// quieted, and says whether it set C1 itself. An emulator rounds in the
+/// direction the control word names and sets the flags the rounding raises,
+/// C1 among them.
+let private storeFloat bld (dst: Expr) =
+#if EMULATION
+  let sz = Expr.typeOf dst
+  let name = if sz = 64<rt> then "X87TOF64" else "X87TOF32"
+  let struct (b, a) = getFPUPseudoRegVars bld R.ST0
+  let t = x87Call bld name [ regVar bld R.FCW; b; a ]
+  append bld {
+    direct dst := lowOf t sz
+  }
+  mergeStatus bld t
+  true
+#else
+  let v =
+    if Expr.typeOf dst = 64<rt> then quietIfNaN (readST bld R.ST0)
+    else AST.cast CastKind.FloatCast 32<rt> (readST bld R.ST0)
+  append bld {
+    direct dst := v
+  }
+  false
+#endif
+
 /// Stores ST(0) in the format the memory operand names: as a single or a
-/// double, rounded to it and a signalling NaN quieted, or as it stands in
-/// extended precision.
+/// double (see storeFloat), or as it stands in extended precision, which
+/// leaves C1 to the caller.
 let private storeOperand bld (dst: Expr) =
   match Expr.typeOf dst with
   | 80<rt> ->
     let struct (addr, addrSize) = getLoadAddressExpr dst
     storeExtended bld addr (addr .+ numI32 8 addrSize) R.ST0
-  | 64<rt> ->
-    append bld {
-      direct dst := quietIfNaN (readST bld R.ST0)
-    }
+    false
   | _ ->
-    append bld {
-      direct dst := AST.cast CastKind.FloatCast 32<rt> (readST bld R.ST0)
-    }
+    storeFloat bld dst
 
 let ffst (ins: Instruction) bld doPop =
   lift bld ins {
     recordInstr ins bld
-    match ins.Operands with
-    | OneOperand(OprReg r) ->
-      copyST bld r R.ST0
-    | OneOperand(opr) ->
-      storeOperand bld (transOpr ins bld false opr)
-    | _ ->
-      raise InvalidOperandException
+    let setC1 =
+      match ins.Operands with
+      | OneOperand(OprReg r) ->
+        copyST bld r R.ST0
+        false
+      | OneOperand(opr) ->
+        storeOperand bld (transOpr ins bld false opr)
+      | _ ->
+        raise InvalidOperandException
     if doPop then popFPUStack bld else ()
-    updateC1OnStore bld
+    if setC1 then () else updateC1OnStore bld
   }
 
 let fild (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
     let oprExpr = transOneOpr ins bld
+#if EMULATION
+    let t = x87Call bld "X87OFINT" [ toInt64 oprExpr ]
+    pushFPUStack bld
+    writeResult bld R.ST0 t
+    cflagsAfterLoad bld
+#else
     pushDouble bld (AST.cast CastKind.SIntToFloat 64<rt> oprExpr)
+#endif
   }
 
+#if EMULATION
+/// Stores ST(0) as an integer of the operand's width, through the X87Float
+/// conversion `name` with the arguments ahead of ST(0)'s own, then sets the
+/// flags it raises and pops where `doPop` asks.
+let private storeInt bld (oprExpr: Expr) name args doPop =
+  let sz = Expr.typeOf oprExpr
+  let struct (b, a) = getFPUPseudoRegVars bld R.ST0
+  let width = numI32 (RegType.toBitWidth sz) 64<rt>
+  let t = x87Call bld name (args @ [ b; a; width ])
+  append bld {
+    direct oprExpr := lowOf t sz
+  }
+  mergeStatus bld t
+  if doPop then popFPUStack bld else ()
+
+let fist (ins: Instruction) bld doPop =
+  lift bld ins {
+    recordInstr ins bld
+    let oprExpr = transOneOpr ins bld
+    storeInt bld oprExpr "X87TOINT" [ regVar bld R.FCW ] doPop
+  }
+
+let fisttp (ins: Instruction) bld =
+  lift bld ins {
+    recordInstr ins bld
+    storeInt bld (transOneOpr ins bld) "X87TOINTT" [] true
+  }
+#else
 let fist (ins: Instruction) bld doPop =
   lift bld ins {
     recordInstr ins bld
@@ -633,13 +713,13 @@ let fisttp (ins: Instruction) bld =
     direct oprExpr := AST.floatToSInt RoundingMode.TowardZero oprSize v
     popFPUStack bld
     direct (regVar bld R.FSWC1) := AST.b0
-#if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
     direct (regVar bld R.FSWC2) := undefC2
     direct (regVar bld R.FSWC3) := undefC3
-#endif
   }
+#endif
 
+#if !EMULATION
 let private getTwoBCDDigits addrExpr addrSize startPos =
   let byteValue = AST.loadLE 8<rt> (addrExpr .+ numI32 startPos addrSize)
   let d1 =
@@ -685,16 +765,6 @@ let private bcdToInt intgr addrExpr addrSize bld =
     direct (AST.xthi 1<rt> intgr) := signBit
   }
 
-let fbld (ins: Instruction) bld =
-  lift bld ins {
-    recordInstr ins bld
-    let src = transOneOpr ins bld
-    let struct (addrExpr, addrSize) = getLoadAddressExpr src
-    let intgr = tmpVar bld 64<rt>
-    bcdToInt intgr addrExpr addrSize bld
-    pushDouble bld (AST.cast CastKind.SIntToFloat 64<rt> intgr)
-  }
-
 let private storeTwoDigitBCD n10 addrExpr addrSize intgr pos bld =
   append bld {
     let d1 = (AST.xtlo 8<rt> (intgr .% n10)) .& (numI32 0xF 8<rt>)
@@ -730,17 +800,47 @@ let private storeBCD addrExpr addrSize intgr bld =
     AST.store Endian.Little (addrExpr .+ numI32 9 addrSize) signByte
   }
 
+#endif
+
+let fbld (ins: Instruction) bld =
+  lift bld ins {
+    recordInstr ins bld
+    let src = transOneOpr ins bld
+    let struct (addrExpr, addrSize) = getLoadAddressExpr src
+#if EMULATION
+    let lo = AST.loadLE 64<rt> addrExpr
+    let hi = AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize)
+    let t = x87Call bld "X87OFBCD" [ lo; hi ]
+    pushFPUStack bld
+    writeResult bld R.ST0 t
+    cflagsAfterLoad bld
+#else
+    let intgr = tmpVar bld 64<rt>
+    bcdToInt intgr addrExpr addrSize bld
+    pushDouble bld (AST.cast CastKind.SIntToFloat 64<rt> intgr)
+#endif
+  }
+
 let fbstp (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
     let dst = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
+#if EMULATION
+    let struct (b, a) = getFPUPseudoRegVars bld R.ST0
+    let t = x87Call bld "X87TOBCD" [ regVar bld R.FCW; b; a ]
+    AST.store Endian.Little addrExpr (sigOf t)
+    AST.store Endian.Little (addrExpr .+ numI32 8 addrSize) (seOf t)
+    mergeStatus bld t
+    popFPUStack bld
+#else
     let intgr = tmpVar bld 64<rt>
     let v = readST bld R.ST0
     direct intgr := AST.floatToSInt RoundingMode.ToNearestEven 64<rt> v
     storeBCD addrExpr addrSize intgr bld
     popFPUStack bld
     updateC1OnStore bld
+#endif
   }
 
 let fxch (ins: Instruction) bld =
@@ -857,6 +957,83 @@ let fcmovnu (ins: Instruction) bld =
 #endif
   }
 
+#if EMULATION
+/// A stack register as X87Float takes an operand: its sign and exponent word
+/// and its significand.
+let private operandOf bld reg =
+  let struct (b, a) = getFPUPseudoRegVars bld reg
+  struct (b, a)
+
+/// An arithmetic or compare operand from memory, widened as X87Float takes an
+/// operand: a double or a single, a signalling NaN kept signalling, or an
+/// integer where `isInt` says so. The sign and exponent word goes with the
+/// status bits above it, which say whether the value was a denormal.
+let private memOperand bld (opr: Expr) isInt =
+  let t =
+    if isInt then x87Call bld "X87OFINT" [ toInt64 opr ]
+    else widen bld opr 0
+  struct (hiOf t, sigOf t)
+
+/// Runs the X87Float operation `name` on two operands, in the order
+/// `leftToRight` says, into the stack register `dst`.
+let private arith bld name leftToRight dst x y =
+  let struct (struct (ase, am), struct (bse, bm)) =
+    if leftToRight then struct (x, y) else struct (y, x)
+  let t = x87Call bld name [ regVar bld R.FCW; ase; am; bse; bm ]
+  writeResult bld dst t
+  mergeStatus bld t
+
+/// An arithmetic instruction on two floating-point operands, worked out by
+/// the X87Float operation `name`.
+let private fpuFBinOp (ins: Instruction) bld name doPop leftToRight =
+  lift bld ins {
+    recordInstr ins bld
+    match ins.Operands with
+    | NoOperand ->
+      let x = operandOf bld R.ST0
+      arith bld name leftToRight R.ST1 x (operandOf bld R.ST1)
+    | OneOperand _ ->
+      let opr = memOperand bld (transOneOpr ins bld) false
+      arith bld name leftToRight R.ST0 (operandOf bld R.ST0) opr
+    | TwoOperands(OprReg reg0, OprReg reg1) ->
+      let x = operandOf bld reg0
+      arith bld name leftToRight reg0 x (operandOf bld reg1)
+    | _ ->
+      raise InvalidOperandException
+    if doPop then popFPUStack bld else ()
+  }
+
+let private fpuIntOp (ins: Instruction) bld name leftToRight =
+  lift bld ins {
+    recordInstr ins bld
+    let opr = memOperand bld (transOneOpr ins bld) true
+    arith bld name leftToRight R.ST0 (operandOf bld R.ST0) opr
+  }
+
+let fpuadd ins bld doPop = fpuFBinOp ins bld "X87ADD" doPop true
+
+let fiadd ins bld = fpuIntOp ins bld "X87ADD" true
+
+let fpusub ins bld doPop = fpuFBinOp ins bld "X87SUB" doPop true
+
+let fisub ins bld = fpuIntOp ins bld "X87SUB" true
+
+let fsubr ins bld doPop = fpuFBinOp ins bld "X87SUB" doPop false
+
+let fisubr ins bld = fpuIntOp ins bld "X87SUB" false
+
+let fpumul ins bld doPop = fpuFBinOp ins bld "X87MUL" doPop true
+
+let fimul ins bld = fpuIntOp ins bld "X87MUL" true
+
+let fpudiv ins bld doPop = fpuFBinOp ins bld "X87DIV" doPop true
+
+let fidiv ins bld = fpuIntOp ins bld "X87DIV" true
+
+let fdivr ins bld doPop = fpuFBinOp ins bld "X87DIV" doPop false
+
+let fidivr ins bld = fpuIntOp ins bld "X87DIV" false
+#else
 /// A single widened to a double the way the FPU widens an operand, which
 /// leaves a signalling NaN signalling where a conversion may quiet it: which of
 /// two NaNs an operation gives back turns on it.
@@ -938,6 +1115,7 @@ let fidiv ins bld = fpuIntOp ins bld AST.fdiv true
 let fdivr ins bld doPop = fpuFBinOp ins bld AST.fdiv doPop false
 
 let fidivr ins bld = fpuIntOp ins bld AST.fdiv false
+#endif
 
 let inline private castToF64 intexp =
   AST.cast CastKind.SIntToFloat 64<rt> intexp
@@ -965,6 +1143,21 @@ let isNan isDouble expr =
   let zero = if isDouble then AST.num0 64<rt> else AST.num0 32<rt>
   (exponent == e) .& (mantissa != zero)
 
+#if EMULATION
+let fprem (ins: Instruction) bld round =
+  lift bld ins {
+    recordInstr ins bld
+    let struct (ase, am) = getFPUPseudoRegVars bld R.ST0
+    let struct (bse, bm) = getFPUPseudoRegVars bld R.ST1
+    let flag = if round then AST.num1 64<rt> else AST.num0 64<rt>
+    let t = x87Call bld "X87PREM" [ flag; ase; am; bse; bm ]
+    let stsWrd = regVar bld R.FSW
+    writeResult bld R.ST0 t
+    (* The condition codes it clears are in bits 111:96. *)
+    let clear = AST.extract t 16<rt> 96
+    direct stsWrd := (stsWrd .& AST.not clear) .| statusOf t
+  }
+#else
 /// What FPREM and FPREM1 leave for a dividend `a` and a divisor `b` where
 /// either is a NaN or an infinity, or the divisor a zero: the NaN nanOf picks;
 /// the indefinite for an infinite dividend or a zero divisor, which leave no
@@ -1109,6 +1302,7 @@ let fprem (ins: Instruction) bld round =
     remainderOf bld round tmp0 tmp1
     AST.lmark lblExit
   }
+#endif
 
 let fabs (ins: Instruction) bld =
   lift bld ins {
@@ -1137,22 +1331,30 @@ let fchs (ins: Instruction) bld =
 #endif
   }
 
+#if EMULATION
+/// Runs the X87Float operation `name` on ST(0), under the control word, into
+/// ST(0).
+let private unaryOp bld name =
+  let struct (b, a) = getFPUPseudoRegVars bld R.ST0
+  let t = x87Call bld name [ regVar bld R.FCW; b; a ]
+  writeResult bld R.ST0 t
+  mergeStatus bld t
+
+let frndint (ins: Instruction) bld =
+  lift bld ins {
+    recordInstr ins bld
+    unaryOp bld "X87RNDINT"
+  }
+#else
 /// Sets the quiet bit of a stack register holding a NaN, as an instruction
 /// handing back the NaN it was given does.
 let private quietST bld reg =
-#if EMULATION
-  let v = pseudoRegVar bld reg 1
-  append bld {
-    direct v := quietIfNaN v
-  }
-#else
   let struct (b, a) = getFPUPseudoRegVars bld reg
   let special = (b .& numI32 0x7fff 16<rt>) == numI32 0x7fff 16<rt>
   let isNaN = special .& ((a << AST.num1 64<rt>) != AST.num0 64<rt>)
   append bld {
     direct a := AST.ite isNaN (a .| num64 ExtQuietBit) a
   }
-#endif
 
 let frndint (ins: Instruction) bld =
   lift bld ins {
@@ -1179,7 +1381,25 @@ let frndint (ins: Instruction) bld =
     AST.lmark lblExit
     updateC1OnStore bld
   }
+#endif
 
+#if EMULATION
+let fscale (ins: Instruction) bld =
+  lift bld ins {
+    recordInstr ins bld
+    let struct (ase, am) = getFPUPseudoRegVars bld R.ST0
+    let struct (bse, bm) = getFPUPseudoRegVars bld R.ST1
+    let t = x87Call bld "X87SCALE" [ regVar bld R.FCW; ase; am; bse; bm ]
+    writeResult bld R.ST0 t
+    mergeStatus bld t
+  }
+
+let fsqrt (ins: Instruction) bld =
+  lift bld ins {
+    recordInstr ins bld
+    unaryOp bld "X87SQRT"
+  }
+#else
 /// The double 2200.0. Scaled by two to the 2200th power, every finite double
 /// but a zero overflows, and scaled by its inverse, vanishes.
 let [<Literal>] private ScaleLimit = 0x40a1300000000000UL
@@ -1218,29 +1438,9 @@ let fsqrt (ins: Instruction) bld =
     writeST bld R.ST0 (AST.unop UnOpType.FSQRT (readST bld R.ST0))
     updateC1OnStore bld
   }
+#endif
 
-#if EMULATION
-/// The two parts FXTRACT splits a stack register into, each set aside for
-/// unstashST: its unbiased exponent, as a double, and its significand -- the
-/// value with that exponent taken out, which leaves it from one up to two. A
-/// denormal is normalised first, which doubleToExtended does. A zero splits
-/// into a negative infinity and itself, an infinity into a positive one and
-/// itself, and a NaN into itself twice, quieted.
-let private splitST bld reg =
-  let v = takeST bld reg
-  let struct (hi, lo) = doubleToExtended bld v
-  let e = AST.zext 64<rt> (hi .& numI32 0x7fff 16<rt>)
-  let isZero = magnitudeOf v == AST.num0 64<rt>
-  let special = isZero .| isNonFinite v
-  let fraction = (lo >> numI32 11 64<rt>) .& num64 FracMask
-  let significand =
-    (v .& num64 TopBit) .| num64 0x3ff0000000000000UL .| fraction
-  let infinite = AST.ite isZero (num64 NegInf) (num64 DoubleInf)
-  let unbiased = castToF64 (e .- num64 0x3fffUL)
-  let quieted = quietIfNaN v
-  let exponent = AST.ite (isNaND v) quieted (AST.ite special infinite unbiased)
-  struct (exponent, AST.ite special quieted significand)
-#else
+#if !EMULATION
 /// The exponent part of what FXTRACT splits the extended-precision value `hi`
 /// and `m` into, set aside for unstashST, where `m` is the value's mantissa
 /// normalised by `sh` places: a negative infinity for a zero, a positive one
@@ -1283,12 +1483,108 @@ let private splitST bld reg =
 let fxtract (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
+#if EMULATION
+    let struct (b, a) = getFPUPseudoRegVars bld R.ST0
+    let significand = x87Call bld "X87XSIG" [ b; a ]
+    let exponent = x87Call bld "X87XEXP" [ b; a ]
+    let stsWrd = regVar bld R.FSW
+    writeResult bld R.ST0 exponent
+    pushFPUStack bld
+    writeResult bld R.ST0 significand
+    (* The flags the significand raises are the instruction's; the push has
+       set C1 for an overflow. *)
+    direct stsWrd := stsWrd .| statusOf significand
+#else
     let struct (exponent, significand) = splitST bld R.ST0
     unstashST bld R.ST0 exponent
     pushFPUStack bld
     unstashST bld R.ST0 significand
+#endif
   }
 
+#if EMULATION
+/// The two operands a compare weighs, as X87Float takes them and as they
+/// stand before anything the compare pops moves the stack.
+let private compareOperands (ins: Instruction) bld =
+  match ins.Operands with
+  | NoOperand ->
+    struct (operandOf bld R.ST0, operandOf bld R.ST1)
+  | OneOperand(OprReg r) ->
+    struct (operandOf bld R.ST0, operandOf bld r)
+  | OneOperand(opr) ->
+    let y = memOperand bld (transOpr ins bld false opr) false
+    struct (operandOf bld R.ST0, y)
+  | TwoOperands(OprReg r1, OprReg r2) ->
+    struct (operandOf bld r1, operandOf bld r2)
+  | _ ->
+    raise InvalidOperandException
+
+/// Compares two operands, in a temporary: the condition codes X87Float gives
+/// in the status word's own places, and the flags it raises. Any NaN is
+/// invalid for a compare, and a quiet one is not for an unordered compare.
+let private compareBy bld x y unordered =
+  let struct (ase, am) = x
+  let struct (bse, bm) = y
+  let quiet = if unordered then AST.num1 64<rt> else AST.num0 64<rt>
+  let c = tmpVar bld 16<rt>
+  append bld {
+    direct c := AST.app "X87CMP" [ ase; am; bse; bm; quiet ] 16<rt>
+  }
+  c
+
+/// Sets the condition codes and the flags of a compare, C1 cleared.
+let private setCompare bld c =
+  let stsWrd = regVar bld R.FSW
+  append bld {
+    direct stsWrd := (stsWrd .& numI32 0xB8FF 16<rt>) .| c
+  }
+
+let fcom (ins: Instruction) bld nPop unordered =
+  lift bld ins {
+    recordInstr ins bld
+    let struct (x, y) = compareOperands ins bld
+    setCompare bld (compareBy bld x y unordered)
+    if nPop > 0 then popFPUStack bld else ()
+    if nPop = 2 then popFPUStack bld else ()
+  }
+
+let ficom (ins: Instruction) bld doPop =
+  lift bld ins {
+    recordInstr ins bld
+    let y = memOperand bld (transOneOpr ins bld) true
+    setCompare bld (compareBy bld (operandOf bld R.ST0) y false)
+    if doPop then popFPUStack bld else ()
+  }
+
+let fcomi (ins: Instruction) bld doPop =
+  lift bld ins {
+    recordInstr ins bld
+    let unordered =
+      ins.Opcode = Opcode.FUCOMI || ins.Opcode = Opcode.FUCOMIP
+    let struct (x, y) = compareOperands ins bld
+    let c = compareBy bld x y unordered
+    let stsWrd = regVar bld R.FSW
+    direct (regVar bld R.ZF) := AST.extract c 1<rt> 14
+    direct (regVar bld R.PF) := AST.extract c 1<rt> 10
+    direct (regVar bld R.CF) := AST.extract c 1<rt> 8
+    (* Unlike the FCOM family, which reports in the status word and leaves
+       EFLAGS alone, FCOMI clears the three flags it does not use. *)
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
+    direct (regVar bld R.AF) := AST.b0
+    let flags = c .& numI32 0x3F 16<rt>
+    direct stsWrd := (stsWrd .& numI32 0xFDFF 16<rt>) .| flags
+    if doPop then popFPUStack bld else ()
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+  }
+
+let ftst (ins: Instruction) bld =
+  lift bld ins {
+    recordInstr ins bld
+    let zero = struct (AST.num0 16<rt>, AST.num0 64<rt>)
+    setCompare bld (compareBy bld (operandOf bld R.ST0) zero false)
+  }
+#else
 /// The two doubles a compare weighs, as they stand before anything the compare
 /// pops moves the stack.
 let private prepareTwoOprsForComparison (ins: Instruction) bld =
@@ -1358,9 +1654,6 @@ let fcomi (ins: Instruction) bld doPop =
     direct (regVar bld R.AF) := AST.b0
     direct (regVar bld R.FSWC1) := AST.b0
     if doPop then popFPUStack bld else ()
-#if EMULATION
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
   }
 
 let ftst (ins: Instruction) bld =
@@ -1381,39 +1674,41 @@ let ftst (ins: Instruction) bld =
     direct (regVar bld R.FSWC1) := AST.b0
   }
 
-/// What FXAM tells of a stack register: whether it holds a NaN, an infinity or
-/// a zero, and its sign.
+#endif
+
+/// What FXAM tells of a stack register: whether it holds a NaN, an infinity, a
+/// zero, a denormal or a normal value, and its sign. An encoding the FPU does
+/// not support -- an integer bit missing where the exponent calls for one --
+/// is none of the five.
 let private classifyST bld reg =
-#if EMULATION
-  let v = pseudoRegVar bld reg 1
-  let exponent = (v >> numI32 52 64<rt>) .& num64 0x7ffUL
-  let frac = v .& num64 FracMask
-  let special = exponent == num64 0x7ffUL
-  let isNaN = special .& (frac != AST.num0 64<rt>)
-  let isInf = special .& (frac == AST.num0 64<rt>)
-  let isZero = (v << AST.num1 64<rt>) == AST.num0 64<rt>
-  struct (isNaN, isInf, isZero, AST.xthi 1<rt> v)
-#else
   let struct (b, a) = getFPUPseudoRegVars bld reg
   let n7fff = numI32 0x7fff 16<rt>
   let exponent = b .& n7fff
-  let num = numI64 0x7FFFFFFF_FFFFFFFFL 64<rt>
-  let isNaN = (exponent == n7fff) .& ((a .& num) != AST.num0 64<rt>)
-  let isInf = (exponent == n7fff) .& ((a .& num) == AST.num0 64<rt>)
-  let isZero = (a == AST.num0 64<rt>) .& (exponent == AST.num0 16<rt>)
-  struct (isNaN, isInf, isZero, AST.xthi 1<rt> b)
-#endif
+  let intBit = AST.xthi 1<rt> a
+  let fraction = a .& numI64 0x7FFFFFFF_FFFFFFFFL 64<rt>
+  let top = exponent == n7fff
+  let bottom = exponent == AST.num0 16<rt>
+  let isNaN = top .& intBit .& (fraction != AST.num0 64<rt>)
+  let isInf = top .& intBit .& (fraction == AST.num0 64<rt>)
+  let isZero = bottom .& (a == AST.num0 64<rt>)
+  let isDenormal = bottom .& (a != AST.num0 64<rt>)
+  let isNormal = AST.not (top .| bottom) .& intBit
+  struct (isNaN, isInf, isZero, isDenormal, isNormal)
 
+/// FXAM's classes, C3 C2 C0: 000 unsupported, 001 NaN, 010 normal, 011
+/// infinity, 100 zero, 101 empty, 110 denormal (Intel SDM Vol. 2A, FXAM). C1
+/// is the sign, an empty register's too.
 let fxam (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
-    let struct (isNaN, isInf, isZero, sign) = classifyST bld R.ST0
+    let struct (isNaN, isInf, isZero, isDenormal, isNormal) =
+      classifyST bld R.ST0
     let three = numI32 3 16<rt>
     let isEmpty = (regVar bld R.FTW .& three) == three
-    let c3Cond = isZero .| isEmpty
-    let c2Cond = AST.not (isNaN .| isZero .| isEmpty)
+    let c3Cond = isZero .| isDenormal .| isEmpty
+    let c2Cond = AST.not isEmpty .& (isNormal .| isInf .| isDenormal)
     let c0Cond = isNaN .| isInf .| isEmpty
-    direct (regVar bld R.FSWC1) := sign
+    direct (regVar bld R.FSWC1) := signOfST bld R.ST0
     direct (regVar bld R.FSWC3) := c3Cond
     direct (regVar bld R.FSWC2) := c2Cond
     direct (regVar bld R.FSWC0) := c0Cond
@@ -1633,9 +1928,22 @@ let fyl2xp1 (ins: Instruction) bld =
 #endif
   }
 
-let fld1 ins bld =
-  let oprExpr = numU64 0x3FF0000000000000UL 64<rt>
-  fpuLoad ins bld oprExpr
+/// Pushes an extended value from no memory: its sign and exponent word and its
+/// significand.
+let private pushValue bld hi lo =
+  pushFPUStack bld
+  let struct (b, a) = getFPUPseudoRegVars bld R.ST0
+  append bld {
+    direct b := hi
+    direct a := lo
+  }
+  cflagsAfterLoad bld
+
+let fld1 (ins: Instruction) bld =
+  lift bld ins {
+    recordInstr ins bld
+    pushValue bld (numI32 0x3fff 16<rt>) (num64 TopBit)
+  }
 
 let fldz (ins: Instruction) bld =
   lift bld ins {
@@ -1645,25 +1953,29 @@ let fldz (ins: Instruction) bld =
     cflagsAfterLoad bld
   }
 
-let fldpi ins bld =
-  let oprExpr = numU64 4614256656552045848UL 64<rt>
-  fpuLoad ins bld oprExpr
+/// Pushes one of the FPU's constants. It keeps more bits of each than it
+/// pushes, and rounds them as the control word says, as it rounds a result:
+/// `lo` is the significand cut off, which rounding down or toward zero keeps,
+/// and rounding up takes one past, as does rounding to nearest where
+/// `nearestUp` says the bits cut off are above a half.
+let private pushConstant (ins: Instruction) bld hi lo nearestUp =
+  lift bld ins {
+    recordInstr ins bld
+    let rc = AST.extract (regVar bld R.FCW) 2<rt> 10
+    let nearest = if nearestUp then rc == AST.num0 2<rt> else AST.b0
+    let up = AST.zext 64<rt> ((rc == numI32 2 2<rt>) .| nearest)
+    pushValue bld (numI32 hi 16<rt>) (num64 lo .+ up)
+  }
 
-let fldl2e ins bld =
-  let oprExpr = numU64 4609176140021203710UL 64<rt>
-  fpuLoad ins bld oprExpr
+let fldpi ins bld = pushConstant ins bld 0x4000 0xc90fdaa22168c234UL true
 
-let fldln2 ins bld =
-  let oprExpr = numU64 4604418534313441775UL 64<rt>
-  fpuLoad ins bld oprExpr
+let fldl2e ins bld = pushConstant ins bld 0x3fff 0xb8aa3b295c17f0bbUL true
 
-let fldl2t ins bld =
-  let oprExpr = numU64 4614662735865160561UL 64<rt>
-  fpuLoad ins bld oprExpr
+let fldln2 ins bld = pushConstant ins bld 0x3ffe 0xb17217f7d1cf79abUL true
 
-let fldlg2 ins bld =
-  let oprExpr = numU64 4599094494223104511UL 64<rt>
-  fpuLoad ins bld oprExpr
+let fldl2t ins bld = pushConstant ins bld 0x4000 0xd49a784bcd1b8afeUL false
+
+let fldlg2 ins bld = pushConstant ins bld 0x3ffd 0x9a209a84fbcff798UL true
 
 let fincstp (ins: Instruction) bld =
   lift bld ins {
@@ -1839,13 +2151,6 @@ let inline private storeLE addr v = AST.store Endian.Little addr v
 /// the tag word: 01 for a zero, 10 for a special value, and 00 for any other
 /// (Intel SDM Vol. 1, 8.1.7).
 let private tagOfValue bld reg =
-#if EMULATION
-  (* A double has no encoding the eighty-bit format calls special but its NaNs
-     and infinities: even its denormals widen to normal extended values. *)
-  let v = pseudoRegVar bld reg 1
-  let isZero = (v << AST.num1 64<rt>) == AST.num0 64<rt>
-  let isSpecial = isNonFinite v
-#else
   (* A normal value has its integer bit set and an exponent neither zero nor
      the reserved all-ones; one holding anything else that is not a zero is a
      NaN, an infinity, a denormal, or an encoding the FPU does not support. *)
@@ -1855,7 +2160,6 @@ let private tagOfValue bld reg =
   let isSpecial =
     (exponent == AST.num0 16<rt>) .| (exponent == numI32 0x7fff 16<rt>)
     .| AST.not (AST.xthi 1<rt> a)
-#endif
   let special = AST.ite isSpecial (numI32 2 16<rt>) (AST.num0 16<rt>)
   AST.ite isZero (AST.num1 16<rt>) special
 

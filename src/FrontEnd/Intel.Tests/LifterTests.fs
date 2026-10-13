@@ -983,10 +983,18 @@ type X87LifterTests() =
     <| [| "FTW := ((FTW << 0x2:I16) | (FTW >> 0xe:I16))"
           "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
 
+  (* FSQRT sets C1 to say whether it rounded up: the analysis build, which
+     computes in doubles, says it did not, and an emulator sets it as the
+     X87Float operation that computes the root reports. *)
   [<TestMethod>]
-  member _.``[X64] FSQRT leaves C1 clear (1)``() =
+  member _.``[X64] FSQRT sets C1 as it rounded (1)``() =
+#if EMULATION
+    let c1 = "(T_1:I128[95:80])"
+#else
+    let c1 = "0x0:I16"
+#endif
     testTags "d9fa" (* fsqrt *)
-    <| [| "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+    <| [| "FSW := ((FSW & 0xfdff:I16) | " + c1 + ")" |]
 
   (* FXSAVE keeps one bit per physical register, set unless its tag is 11,
      empty, in the byte at offset 4; the byte after it is reserved. The tag
