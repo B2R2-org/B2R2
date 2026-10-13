@@ -816,6 +816,11 @@ type ManualLifterTests4() =
         [ M(8, 0x0UL) ]
         [ M(0, 0x0UL); M(8, 0x0UL) ] ]
 
+  /// C6.2.307 STZGM
+  [<TestMethod>]
+  member _.``C6.2.307 STZGM``() =
+    raises BinIR.SideEffect.UndefinedInstruction "d9200020"
+
   /// C6.2.308 SUB (extended register)
   [<TestMethod>]
   member _.``C6.2.308 SUB``() =

@@ -68,19 +68,28 @@ type ManualLifterTests3() =
   /// half, its field above bit 47 a copy of bit 55.
   let pointer = 0x0000123456789abcUL
 
+  /// A pointer whose bits above 47 are not a copy of bit 55: AddPAC
+  /// corrupts the code it signs such a pointer with, so no AUT gives it back.
+  let nonCanonical = 0x0001000012345678UL
+
   /// Checks what AddPAC and Auth() fix about a signer over each input set:
   /// it keeps bit 55 and the address below bit 48 and changes the pointer;
-  /// the matching AUT gives it back; and the other key's AUT fails, leaving
-  /// that key's error code in bits 62:61.
+  /// the matching AUT gives it back, unless the pointer was not canonical,
+  /// when it fails with the key's own error code in bits 62:61; and the
+  /// other key's AUT fails, leaving that key's error code there.
   let signs pac aut wrong reg (code: uint64) =
     for k in 0 .. A64Machine.sets - 1 do
-      let after hexes = (A64Machine.after hexes [ X(reg, pointer) ] k).Xs
+      let from p hexes = (A64Machine.after hexes [ X(reg, p) ] k).Xs
+      let after = from pointer
       let signed = (after [ pac ])[reg]
       Assert.AreEqual<uint64>(pointer, signed &&& 0x0080ffffffffffffUL, pac)
       Assert.AreNotEqual<uint64>(pointer, signed, pac)
       Assert.AreEqual<uint64>(pointer, (after [ pac; aut ])[reg], aut)
       let failed = (after [ pac; wrong ])[reg]
       Assert.AreEqual<uint64>(pointer ||| code, failed, wrong)
+      let own = code ^^^ 0x6000000000000000UL
+      let corrupt = (from nonCanonical [ pac; aut ])[reg]
+      Assert.AreEqual<uint64>(0x12345678UL ||| own, corrupt, aut)
 
   /// Checks an authenticated branch over each input set: with its target
   /// signed by the given word it goes to the pointer, unsigned to the
@@ -685,6 +694,11 @@ type ManualLifterTests3() =
         [ NZCV 0x0UL ]
         [ NZCV 0xf0000000UL ] ]
     check "d503415f" [] [ []; []; []; [] ]
+    check "d51b4420" []
+      [ [ FPSR 0x88000081UL ]
+        [ FPSR 0x1800008eUL ]
+        []
+        [ FPSR 0xf800009fUL ] ]
 
   /// C6.2.196 MSUB
   [<TestMethod>]
@@ -1923,6 +1937,11 @@ type ManualLifterTests3() =
         [ X(1, 0x2008000UL) ] ]
     check "d9201820" [ X(1, 0x2007ff0UL) ] [ []; []; []; [] ]
     check "d9200420" [ X(1, 0x2008000UL) ] [ []; []; []; [] ]
+
+  /// C6.2.257 STGM
+  [<TestMethod>]
+  member _.``C6.2.257 STGM``() =
+    raises BinIR.SideEffect.UndefinedInstruction "d9a00020"
 
   /// C6.2.258 STGP
   [<TestMethod>]

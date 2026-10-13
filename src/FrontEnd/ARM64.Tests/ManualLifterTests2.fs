@@ -48,23 +48,39 @@ type ManualLifterTests2() =
     let found = A64Machine.mismatches hex inputs expected
     Assert.AreEqual<string>("", String.concat "\n" found, hex)
 
+  /// Checks that a word raises the given exception over every input set,
+  /// as the oracle's process took the signal for it.
+  let raises effect hex =
+    for k in 0 .. A64Machine.sets - 1 do
+      let found = A64Machine.effectsOver hex [] k
+      Assert.AreEqual<BinIR.SideEffect list>([ effect ], found, hex)
+
   /// The pointer the authentication tests sign: canonical and in the lower
   /// half, its field above bit 47 a copy of bit 55.
   let pointer = 0x0000123456789abcUL
 
+  /// A pointer whose bits above 47 are not a copy of bit 55: AddPAC
+  /// corrupts the code it signs such a pointer with, so no AUT gives it back.
+  let nonCanonical = 0x0001000012345678UL
+
   /// Checks what AddPAC and Auth() fix about a signer over each input set:
   /// it keeps bit 55 and the address below bit 48 and changes the pointer;
-  /// the matching AUT gives it back; and the other key's AUT fails, leaving
-  /// that key's error code in bits 62:61.
+  /// the matching AUT gives it back, unless the pointer was not canonical,
+  /// when it fails with the key's own error code in bits 62:61; and the
+  /// other key's AUT fails, leaving that key's error code there.
   let signs pac aut wrong reg (code: uint64) =
     for k in 0 .. A64Machine.sets - 1 do
-      let after hexes = (A64Machine.after hexes [ X(reg, pointer) ] k).Xs
+      let from p hexes = (A64Machine.after hexes [ X(reg, p) ] k).Xs
+      let after = from pointer
       let signed = (after [ pac ])[reg]
       Assert.AreEqual<uint64>(pointer, signed &&& 0x0080ffffffffffffUL, pac)
       Assert.AreNotEqual<uint64>(pointer, signed, pac)
       Assert.AreEqual<uint64>(pointer, (after [ pac; aut ])[reg], aut)
       let failed = (after [ pac; wrong ])[reg]
       Assert.AreEqual<uint64>(pointer ||| code, failed, wrong)
+      let own = code ^^^ 0x6000000000000000UL
+      let corrupt = (from nonCanonical [ pac; aut ])[reg]
+      Assert.AreEqual<uint64>(0x12345678UL ||| own, corrupt, aut)
 
   /// Checks what Auth() fixes about an authenticator over each input set: a
   /// pointer the matching signer signed comes back, and one nothing signed,
@@ -88,6 +104,18 @@ type ManualLifterTests2() =
       let mem = (A64Machine.inputSet k).Mem
       Assert.AreEqual<uint64>(mem[q], loaded.Xs[0], hex)
       Assert.AreEqual<uint64>(signed.Xs[1], loaded.Xs[1], hex)
+
+  /// Checks a pre-indexed authenticated load over each input set: with the
+  /// window signed by the given word, it reads the q-th doubleword of the
+  /// window, and the base becomes that doubleword's address.
+  let loadsSignedBack pac hex (q: int) =
+    for k in 0 .. A64Machine.sets - 1 do
+      let inputs = [ X(1, A64Machine.window) ]
+      let loaded = A64Machine.after [ pac; hex ] inputs k
+      let mem = (A64Machine.inputSet k).Mem
+      let address = A64Machine.window + uint64 (q * 8)
+      Assert.AreEqual<uint64>(mem[q], loaded.Xs[0], hex)
+      Assert.AreEqual<uint64>(address, loaded.Xs[1], hex)
 
   /// C6.2.98 LDADDB, LDADDAB, LDADDALB, LDADDLB
   [<TestMethod>]
@@ -638,6 +666,11 @@ type ManualLifterTests2() =
         []
         [] ]
 
+  /// C6.2.124 LDGM
+  [<TestMethod>]
+  member _.``C6.2.124 LDGM``() =
+    raises BinIR.SideEffect.UndefinedInstruction "d9e00020"
+
   /// C6.2.125 LDLARB
   [<TestMethod>]
   member _.``C6.2.125 LDLARB``() =
@@ -857,14 +890,15 @@ type ManualLifterTests2() =
   /// (C6.2.134): with the window signed as the matching PACDZA signs it,
   /// the load reads the doubleword at the window plus the offset, and the
   /// base keeps the signed pointer, over every input set. The oracle
-  /// agrees with the value loaded. The pre-indexed forms, which write
-  /// the authenticated address back, are left out: this front end does
-  /// not write it back.
+  /// agrees with the value loaded, and with the pre-indexed forms
+  /// writing the authenticated address plus the offset back to the base.
   /// </summary>
   [<TestMethod>]
   member _.``C6.2.134 LDRAA``() =
     loadsSigned "dac12be1" "f8200420" 0
     loadsSigned "dac12be1" "f8202420" 2
+    loadsSignedBack "dac12be1" "f8200c20" 0
+    loadsSignedBack "dac12be1" "f8202c20" 2
 
   /// <summary>
   /// LDRAB authenticates its base with a key the oracle's process draws
@@ -873,13 +907,13 @@ type ManualLifterTests2() =
   /// (C6.2.134): with the window signed as the matching PACDZB signs it,
   /// the load reads the doubleword at the window plus the offset, and the
   /// base keeps the signed pointer, over every input set. The oracle
-  /// agrees with the value loaded. The pre-indexed forms, which write
-  /// the authenticated address back, are left out: this front end does
-  /// not write it back.
+  /// agrees with the value loaded, and with the pre-indexed forms
+  /// writing the authenticated address plus the offset back to the base.
   /// </summary>
   [<TestMethod>]
   member _.``C6.2.134 LDRAB``() =
     loadsSigned "dac12fe1" "f8a00420" 0
+    loadsSignedBack "dac12fe1" "f8a02c20" 2
 
   /// C6.2.135 LDRB (immediate)
   [<TestMethod>]

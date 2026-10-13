@@ -418,9 +418,19 @@ let loadTag ins bld =
     sized 64<rt> dst := dst .& AST.not tagMask
   }
 
+/// Whether the processor is at EL0, which CurrentEL holds in bits 3:2. What
+/// runs the IR is what sets it: a Linux process at EL0, a board at EL1.
+let atEL0 bld =
+  (regVar bld R.CURRENTEL .& numU64 0xcUL 64<rt>) == AST.num0 64<rt>
+
+/// An Undefined Instruction exception where the condition holds.
+let private undefinedWhen bld cond =
+  _when bld "Undefined" cond (block {
+    AST.sideEffect UndefinedInstruction
+  })
+
 /// <summary>
-/// STG, ST2G and STGM, which write a tag to one granule, to two, or to a
-/// whole block.
+/// STG and ST2G, which write a tag to one granule or to two.
 ///
 /// The tag memory they write is not addressable and nothing here reads it
 /// back, so what they leave behind is the base register alone, which the
@@ -433,6 +443,16 @@ let storeTag ins bld =
     let bReg, offset = transOpr ins bld mem |> separateMemExpr
     let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
     if isWBack then direct bReg := bReg .+ offset else ()
+  }
+
+/// <summary>
+/// STGM, which writes the tags of a whole block of granules. It is UNDEFINED
+/// at EL0 (C6.2.257); above it, what it writes is tag memory, which nothing
+/// here reads back.
+/// </summary>
+let storeTagMultiple ins bld =
+  lift bld ins {
+    undefinedWhen bld (atEL0 bld)
   }
 
 /// <summary>
@@ -480,12 +500,14 @@ let storeTagPair ins bld =
 /// LDGM, which reads the tags of a whole block of granules into a register.
 ///
 /// With no tag memory every tag is zero, and the bits no tag is written to
-/// are zero by definition, so the register becomes zero.
+/// are zero by definition, so the register becomes zero. It is UNDEFINED at
+/// EL0 (C6.2.124).
 /// </summary>
 let loadTagMultiple ins bld =
   lift bld ins {
     let struct (dst, _) = getTwoOprs ins
     let dst = transOpr ins bld dst
+    undefinedWhen bld (atEL0 bld)
     sized 64<rt> dst := AST.num0 64<rt>
   }
 
@@ -515,12 +537,13 @@ let private zeroBlock bld address =
 /// <summary>
 /// STZGM, which writes the tags of the block DC ZVA clears and clears it.
 /// The tags go nowhere a program can read, the way STG's do; the clearing
-/// is what shows.
+/// is what shows. It is UNDEFINED at EL0 (C6.2.307).
 /// </summary>
 let storeTagZeroingMultiple ins bld =
   lift bld ins {
     let struct (_, mem) = getTwoOprs ins
     let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    undefinedWhen bld (atEL0 bld)
     zeroBlock bld (bReg .+ offset)
   }
 
@@ -658,6 +681,15 @@ let private poisoned addr key =
   let code = if key &&& 1 = 0 then 0b01UL else 0b10UL
   (addr .& numU64 0x9fffffffffffffffUL 64<rt>) .| numU64 (code <<< 61) 64<rt>
 
+/// Whether bits 63:48 of a pointer are all zeros or all ones, which AddPAC
+/// checks before it signs.
+let private isCanonical d =
+  let top = AST.extract d 16<rt> 48
+  (top == AST.num0 16<rt>) .| (top == numU64 0xffffUL 16<rt>)
+
+/// The bit of the code AddPAC inverts for a pointer that is not canonical.
+let private bit62 = 1UL <<< 62
+
 /// The single operand of a Z form, which names the register it signs and
 /// nothing else.
 let private oneOpr (ins: Instruction) =
@@ -680,6 +712,10 @@ let private oneOpr (ins: Instruction) =
 /// architecture allows that or an exception (FEAT_FPAC); the code is what is
 /// done here, because it is a value rather than a trap and a model with no
 /// exception to raise can still say it.
+///
+/// A pointer whose bits 63:48 are not all zeros or all ones is not one a
+/// signer can vouch for, and AddPAC (J1-7658) inverts bit 62 of the code it
+/// writes into one, so that no authentication gives it back.
 /// </summary>
 let private pacWrite bld d m key isAuth =
   let addr = stripPAC bld d
@@ -687,7 +723,7 @@ let private pacWrite bld d m key isAuth =
   let expected = tmpVar bld 64<rt>
   append bld { direct expected := addr .| pacSignature bld addr keyed }
   if isAuth then AST.ite (expected == d) addr (poisoned addr key)
-  else expected
+  else AST.ite (isCanonical d) expected (expected <+> numU64 bit62 64<rt>)
 
 /// The forms that name a modifier register.
 let private pacTwo (ins: Instruction) bld key isAuth =
@@ -826,25 +862,26 @@ let xpaclri (ins: Instruction) bld =
 ///
 /// The offset counts eight-byte words and is signed, and it is added AFTER
 /// the authentication: what is signed is the base, not the address the load
-/// reaches.
+/// reaches. The pre-indexed form writes that address back to the base.
 /// </summary>
 let private loadAuth (ins: Instruction) bld isKeyB =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let d = transOpr ins bld dst
-    let struct (bReg, offset) =
+    let struct (bReg, offset, isWBack) =
       match src with
       | OprMemory(BaseMode(ImmOffset(BaseOffset(b, o)))) ->
-        struct (regVar bld b, defaultArg o 0L)
+        struct (regVar bld b, defaultArg o 0L, false)
       | OprMemory(PreIdxMode(ImmOffset(BaseOffset(b, o)))) ->
-        struct (regVar bld b, defaultArg o 0L)
+        struct (regVar bld b, defaultArg o 0L, true)
       | _ ->
         raise InvalidOperandException
     let key = if isKeyB then 3 else 2
-    let authed = tmpVar bld 64<rt>
+    let struct (authed, address) = tmpVars2 bld 64<rt>
     direct authed := pacWrite bld bReg (AST.num0 64<rt>) key true
-    let address = authed .+ numI64 offset 64<rt>
+    direct address := authed .+ numI64 offset 64<rt>
     sized 64<rt> d := AST.loadLE 64<rt> address
+    if isWBack then direct bReg := address else ()
   }
 
 let ldraa ins bld = loadAuth ins bld false
@@ -1199,17 +1236,6 @@ let ctz ins bld =
     let res = countLeadingZeroBitsForIR revSrc (int ins.OprSize) ins.OprSize bld
     sized ins.OprSize dst := res
   }
-
-/// Whether the processor is at EL0, which CurrentEL holds in bits 3:2. What
-/// runs the IR is what sets it: a Linux process at EL0, a board at EL1.
-let atEL0 bld =
-  (regVar bld R.CURRENTEL .& numU64 0xcUL 64<rt>) == AST.num0 64<rt>
-
-/// An Undefined Instruction exception where the condition holds.
-let private undefinedWhen bld cond =
-  _when bld "Undefined" cond (block {
-    AST.sideEffect UndefinedInstruction
-  })
 
 /// Whether a bit of SCTLR_EL1 is set (D13.2.113).
 let sctlrBit bld (bit: int) =
@@ -1733,6 +1759,11 @@ let private msrWindow ins bld reg src =
     direct (regVar bld reg) := src .& numU64 (pstateBits reg) 64<rt>
   }
 
+/// The bits of FPSR (C5.2.8): N, Z, C and V in 31:28, which AArch32 floating
+/// point has, QC in 27, IDC in 7, and IXC, UFC, OFC, DZC and IOC in 4:0. The
+/// rest are RES0.
+let private fpsrBits = 0xf800009fUL
+
 let msr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(dst, _) when isReadOnly dst ->
@@ -1759,6 +1790,9 @@ let msr (ins: Instruction) bld =
         direct (regVar bld R.Z) := AST.extract src 1<rt> 30
         direct (regVar bld R.C) := AST.extract src 1<rt> 29
         direct (regVar bld R.V) := AST.extract src 1<rt> 28
+      | OprRegister R.FPSR ->
+        let src = transOpr ins bld src
+        direct (regVar bld R.FPSR) := src .& numU64 fpsrBits 64<rt>
       | _ ->
         let dst = transOpr ins bld dst
         let src = transOpr ins bld src

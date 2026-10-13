@@ -237,8 +237,10 @@ let translate (ins: Instruction) bld =
     tagMaskInsert ins bld
   | Opcode.LDG ->
     loadTag ins bld
-  | Opcode.STG | Opcode.ST2G | Opcode.STGM ->
+  | Opcode.STG | Opcode.ST2G ->
     storeTag ins bld
+  | Opcode.STGM ->
+    storeTagMultiple ins bld
   | Opcode.LDGM ->
     loadTagMultiple ins bld
   | Opcode.STZGM ->
