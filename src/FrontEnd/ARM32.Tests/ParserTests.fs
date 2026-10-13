@@ -1598,3 +1598,10 @@ type ParserTests() =
     testDisasm "fe10f310" "mrc2 p3, #0x0, apsr_nzcv, c0, c0, #0x0"
     testRefused "ee00ff10"
     Assert.AreEqual<string option>(Some text, under "aarch32" "ee11fe14")
+
+  /// TSB CSYNC (DDI0487F.c F5.1.261, Armv8.4): binutils 2.42 has no AArch32
+  /// TSB, so this is the manual's encoding, cond 0011 0010 0000 1111 0000
+  /// 0000 0001 0010, written out by hand.
+  [<TestMethod>]
+  member _.``[ARMv8] TSB CSYNC``() =
+    testDisasm "e320f012" "tsb csync"

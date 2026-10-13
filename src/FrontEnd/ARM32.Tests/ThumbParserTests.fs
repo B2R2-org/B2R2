@@ -1454,3 +1454,30 @@ type ThumbParserTests() =
     testDisasm "ee11fe14" "mrc p14, #0x0, apsr_nzcv, c1, c4, #0x0"
     testDisasm "ee10ff10" "mrc p15, #0x0, apsr_nzcv, c0, c0, #0x0"
     testRefused "ee00ff10"
+
+  /// <summary>
+  /// The ThumbEE instructions of DDI0406C (A8.8.31 CHKA, A8.8.52 HB, HBL,
+  /// HBLP, HBP; encodings in A9.5: CHKA is 1100 1010 N Rm Rn, HB and HBL
+  /// 1100 001L, HBLP 1100 01, HBP 1100 0000) exist only in ThumbEE state,
+  /// which no processor modelled here has, as ENTERX and LEAVEX say by
+  /// being UNDEFINED. In Thumb state the same halfwords are the T1 STM and
+  /// LDM, and that is what they read as.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A8.8.31 CHKA, A8.8.52 HB, HBL, HBLP, HBP read as Thumb``() =
+    testDisasm "ca12" "ldm r2!, {r1, r4}"
+    testDisasm "c212" "stm r2!, {r1, r4}"
+    testDisasm "c312" "stm r3!, {r1, r4}"
+    testDisasm "c512" "stm r5!, {r1, r4}"
+    testDisasm "c012" "stm r0!, {r1, r4}"
+
+  /// ENTERX and LEAVEX (DDI0406C A8.8.46, A9.3.1) and TSB CSYNC (DDI0487F.c
+  /// F5.1.261, Armv8.4). binutils 2.42 reads none of the three in Thumb state
+  /// at its default level, so these are the manuals' encodings written out:
+  /// 1111 0011 1011 1111 1000 1111 000J 1111 with J set for ENTERX, and
+  /// 1111 0011 1010 1111 1000 0000 0001 0010 for TSB.
+  [<TestMethod>]
+  member _.``A8.8.46 ENTERX, LEAVEX and TSB``() =
+    testDisasm "f3bf8f1f" "enterx"
+    testDisasm "f3bf8f0f" "leavex"
+    testDisasm "f3af8012" "tsb csync"

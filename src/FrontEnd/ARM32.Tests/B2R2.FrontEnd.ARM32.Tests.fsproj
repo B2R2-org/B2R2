@@ -7,6 +7,14 @@
   <ItemGroup>
     <Compile Include="ParserTests.fs" />
     <Compile Include="ThumbParserTests.fs" />
+    <Compile Include="ManualA32ParserTests1.fs" />
+    <Compile Include="ManualA32ParserTests2.fs" />
+    <Compile Include="ManualA32ParserTests3.fs" />
+    <Compile Include="ManualA32ParserTests4.fs" />
+    <Compile Include="ManualT32ParserTests1.fs" />
+    <Compile Include="ManualT32ParserTests2.fs" />
+    <Compile Include="ManualT32ParserTests3.fs" />
+    <Compile Include="ManualT32ParserTests4.fs" />
     <Compile Include="ExactFloat.fs" />
     <Compile Include="IRRunner.fs" />
     <Compile Include="LifterTests.fs" />
