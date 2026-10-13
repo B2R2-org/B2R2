@@ -149,12 +149,38 @@ let private widened bld name v =
   let t = m68kCall bld name [ v ]
   struct (seOf t, sigOf t)
 
+/// The extended value an immediate in a binary format widens to, worked out
+/// while lifting for a normal value or a zero, which is what a program
+/// writes as a constant: `fracBits` and `biasDiff` say which format, as the
+/// bits of its fraction and how far its bias sits below the extended one.
+/// Anything else is left to M68KFloat.
+let private widenedConst (bits: uint64) fracBits biasDiff =
+  let top = fracBits + (if fracBits = 52 then 11 else 8)
+  let sign = (bits >>> (top - 15)) &&& 0x8000UL
+  let e = (bits >>> fracBits) &&& ((1UL <<< (top - fracBits)) - 1UL)
+  let frac = bits &&& ((1UL <<< fracBits) - 1UL)
+  let maxE = (1UL <<< (top - fracBits)) - 1UL
+  if e - 1UL < maxE - 1UL then
+    let m = 0x8000000000000000UL ||| (frac <<< (63 - fracBits))
+    ValueSome(struct (sign ||| (e + biasDiff), m))
+  elif e = 0UL && frac = 0UL then
+    ValueSome(struct (sign, 0UL))
+  else
+    ValueNone
+
+/// A single or a double immediate as an operand, widened while lifting where
+/// widenedConst can, and by M68KFloat where it cannot.
+let private immWidened bld name bits fracBits biasDiff =
+  match widenedConst bits fracBits biasDiff with
+  | ValueSome(struct (se, m)) -> struct (numU64 se 16<rt>, num64 m)
+  | ValueNone -> widened bld name (num64 bits)
+
 /// A floating-point immediate as an operand: an extended one as it is, a
 /// single or a double one widened.
 let private immOperand bld (bytes: byte[]) =
   match bytes.Length with
-  | 4 -> widened bld "M68KOFF32" (num64 (beValue bytes 0 4))
-  | 8 -> widened bld "M68KOFF64" (num64 (beValue bytes 0 8))
+  | 4 -> immWidened bld "M68KOFF32" (beValue bytes 0 4) 23 0x3f80UL
+  | 8 -> immWidened bld "M68KOFF64" (beValue bytes 0 8) 52 0x3c00UL
   | _ -> struct (numU64 (beValue bytes 0 2) 16<rt>, num64 (beValue bytes 4 8))
 
 /// A floating-point source operand as M68KFloat takes it, widened exactly
