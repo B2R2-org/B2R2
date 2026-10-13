@@ -7,8 +7,14 @@
   <ItemGroup>
     <Compile Include="ParserTests.fs" />
     <Compile Include="ThumbParserTests.fs" />
+    <Compile Include="ExactFloat.fs" />
     <Compile Include="IRRunner.fs" />
     <Compile Include="LifterTests.fs" />
+    <Compile Include="ManualLifting.fs" />
+    <Compile Include="ManualLifterTests1.fs" />
+    <Compile Include="ManualLifterTests2.fs" />
+    <Compile Include="ManualLifterTests3.fs" />
+    <Compile Include="ManualLifterTests4.fs" />
   </ItemGroup>
 
   <ItemGroup>
