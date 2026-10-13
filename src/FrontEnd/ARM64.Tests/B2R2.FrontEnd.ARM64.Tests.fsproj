@@ -7,8 +7,17 @@
   <ItemGroup>
     <Compile Include="ExtractTests.fs" />
     <Compile Include="ParserTests.fs" />
+    <Compile Include="IRFloat.fs" />
     <Compile Include="IRRunner.fs" />
+    <Compile Include="A64Machine.fs" />
     <Compile Include="LifterTests.fs" />
+    <Compile Include="ManualLifterTests1.fs" />
+    <Compile Include="ManualLifterTests2.fs" />
+    <Compile Include="ManualLifterTests3.fs" />
+    <Compile Include="ManualLifterTests4.fs" />
+    <Compile Include="ManualLifterTests5.fs" />
+    <Compile Include="ManualLifterTests6.fs" />
+    <Compile Include="ManualLifterTests7.fs" />
   </ItemGroup>
 
   <ItemGroup>
