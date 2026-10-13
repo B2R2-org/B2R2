@@ -1247,3 +1247,22 @@ type LifterTests() =
     let bnvc = taken "7c150007" R21 R0
     Assert.AreEqual<bool>(false, bnvc 0x100000000UL)
     Assert.AreEqual<bool>(true, bnvc 0x7fffffffUL)
+
+  /// <summary>
+  /// RDHWR reads through a select only the hardware register that has more
+  /// than one instance, the performance counters (4): "In Release 6, when
+  /// the 3-bit sel is undefined for use with a specific register number, then
+  /// a Reserved Instruction Exception is signaled" (MD00582 revision 6.04,
+  /// p.275). UserLocal (29) has one, so RDHWR a4, $29 reads it with select 0
+  /// and is a Reserved Instruction with select 5, where this lifter read it
+  /// either way.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] RDHWR refuses a select its register lacks``() =
+    let effects hex =
+      lifted microR6 hex
+      |> Array.choose (function
+        | SideEffect(Effect = e) -> Some e
+        | _ -> None)
+    CollectionAssert.AreEqual([| UndefinedInstruction |], effects "011d29c0")
+    CollectionAssert.AreEqual(Array.empty<SideEffect>, effects "011d01c0")

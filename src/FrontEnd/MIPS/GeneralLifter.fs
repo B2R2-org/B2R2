@@ -1877,29 +1877,47 @@ let moveToExtended ins bld =
   }
 
 /// <summary>
+/// Whether an RDHWR names a select its hardware register has no instance
+/// for. Only the performance counters (4) are read through one, and "when
+/// the 3-bit sel is undefined for use with a specific register number, then
+/// a Reserved Instruction Exception is signaled" (MD00582 revision 6.04,
+/// p.275).
+/// </summary>
+let private undefinedSelect (ins: Instruction) =
+  match ins.Operands with
+  | ThreeOperands(_, OpReg R.R4, _) -> false
+  | ThreeOperands(_, _, OpImm sel) -> sel <> 0UL
+  | _ -> false
+
+/// <summary>
 /// RDHWR, which is written with a select field in one encoding and without
 /// one in the other.
 ///
 /// MD00594 gives microMIPS's as <c>RDHWR rt,rs</c> and spends the ten bits
 /// between them on the opcode, where the 32-bit encoding keeps a three-bit
 /// select beside the register. Which register is read is the same question
-/// either way, so the select is read past rather than required.
+/// either way, so the select is read past rather than required -- except
+/// that a select the register has no instance for is a Reserved Instruction
+/// (see undefinedSelect).
 /// </summary>
 let readHWR (ins: Instruction) bld =
-  lift bld ins {
-    let rtOpr, rdOpr =
-      match ins.Operands with
-      | ThreeOperands(rt, rd, _) -> rt, rd
-      | TwoOperands(rt, rd) -> rt, rd
-      | _ -> raise InvalidOperandException
-    let rt = transOpr ins bld rtOpr
-    let value =
-      match rdOpr with
-      | OpReg R.R29 -> regVar bld R.ULR      (* HWR 29: TLS pointer *)
-      | OpReg R.R3 -> numI32 1 bld.RegType   (* CCRes: nonzero resolution *)
-      | _ -> numI32 0 bld.RegType            (* CPUNum, SYNCI_Step, CC *)
-    rt := value
-  }
+  if undefinedSelect ins then
+    sideEffects ins bld UndefinedInstruction
+  else
+    lift bld ins {
+      let rtOpr, rdOpr =
+        match ins.Operands with
+        | ThreeOperands(rt, rd, _) -> rt, rd
+        | TwoOperands(rt, rd) -> rt, rd
+        | _ -> raise InvalidOperandException
+      let rt = transOpr ins bld rtOpr
+      let value =
+        match rdOpr with
+        | OpReg R.R29 -> regVar bld R.ULR      (* HWR 29: TLS pointer *)
+        | OpReg R.R3 -> numI32 1 bld.RegType   (* CCRes: nonzero resolution *)
+        | _ -> numI32 0 bld.RegType            (* CPUNum, SYNCI_Step, CC *)
+      rt := value
+    }
 
 /// The Release 6 compact compare-and-branch family.
 ///
