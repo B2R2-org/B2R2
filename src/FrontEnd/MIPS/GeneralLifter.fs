@@ -2679,6 +2679,8 @@ let private pairedFused combine arith addendFirst signMask oprs bld =
     rLo := lower fr
     pHi := AST.fmul sHi tHi
     pLo := AST.fmul sLo tLo
+    normalizeNaN 32<rt> pHi bld
+    normalizeNaN 32<rt> pLo bld
     hi := combine pHi rHi
     lo := combine pLo rLo
     normalizeNaN 32<rt> hi bld
@@ -2706,7 +2708,10 @@ let private pairedFused combine arith addendFirst signMask oprs bld =
 /// a sum -- so an intermediate product that overflows raises the overflow
 /// even where the addend would have brought the answer back. Cause holds what
 /// the INSTRUCTION raised, and that is both roundings; recording them one
-/// after the other would leave only the second there.
+/// after the other would leave only the second there. The product a caller
+/// passes is normalised like any result: a NaN one is the default NaN, which
+/// is quiet, and not the host's, which this guest reads as signalling and
+/// would have the sum raise Invalid for a NaN the product only carried.
 /// </summary>
 let private mAddSubRecord bld oprSz opFn a b c product result =
   let rMul = fpRaised bld oprSz FPMul a b product
@@ -2759,6 +2764,7 @@ let mAddSub (ins: Instruction) bld opFn =
       b := ft
       c := fr
       product := AST.fmul a b
+      normalizeNaN 64<rt> product bld
       result := op product c
       normalizeNaN 64<rt> result bld
       mAddSubRecord bld 64<rt> opFn a b c product result
@@ -2772,6 +2778,7 @@ let mAddSub (ins: Instruction) bld opFn =
       b := ft
       c := fr
       product := AST.fmul a b
+      normalizeNaN 32<rt> product bld
       result := op product c
       normalizeNaN 32<rt> result bld
       mAddSubRecord bld 32<rt> opFn a b c product result
@@ -3132,6 +3139,31 @@ let private nmAddSubRecord bld oprSz add a b c product result =
     else fpRaised bld oprSz FPSub product c result
   fpRecord bld (rMul .| rAdd)
 
+/// <summary>
+/// NMADD's and NMSUB's arithmetic at one width, into `result`: the product
+/// of a and b, then the sum with c or the difference less it, each rounded
+/// and normalised, then the negation.
+///
+/// The negation is of the RESULT, so it applies to the default NaN an invalid
+/// operation produces as much as to a number: normalise first, then flip the
+/// sign, or the canonicalisation undoes the negation. The exceptions are
+/// recorded before it: flipping a sign raises nothing, and the value the add
+/// produced is what the two roundings are asked about.
+/// </summary>
+let private negatedSum bld oprSz add a b c result =
+  let product = tmpVar bld oprSz
+  let sign =
+    if oprSz = 32<rt> then numU64 0x80000000UL 32<rt>
+    else numU64 0x8000000000000000UL 64<rt>
+  append bld {
+    product := AST.fmul a b
+    normalizeNaN oprSz product bld
+    result := (if add then AST.fadd c product else AST.fsub product c)
+    normalizeNaN oprSz result bld
+    nmAddSubRecord bld oprSz add a b c product result
+    result := sign <+> result
+  }
+
 let private negatedMultiplyAdd add ins bld =
   lift bld ins {
     let fd, src1, src2, src3 = getFourOprs ins
@@ -3140,33 +3172,14 @@ let private negatedMultiplyAdd add ins bld =
       let dst, fr, fs, ft = transFourSingleFP bld (fd, src1, src2, src3)
       let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 32<rt>
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
-      let product = tmpVar bld 32<rt>
-      product := AST.fmul tSrc2 tSrc3
-      let sum =
-        if add then AST.fadd tSrc1 product else AST.fsub product tSrc1
-      (* The negation is of the RESULT, so it applies to the default NaN an
-         invalid operation produces as much as to a number: normalise first,
-         then flip the sign, or the canonicalisation undoes the negation. *)
-      result := sum
-      normalizeNaN 32<rt> result bld
-      (* Recorded before the negation: flipping a sign raises nothing, and the
-         value the add produced is what the two roundings are asked about. *)
-      nmAddSubRecord bld 32<rt> add tSrc2 tSrc3 tSrc1 product result
-      result := numU64 0x80000000UL 32<rt> <+> result
+      negatedSum bld 32<rt> add tSrc2 tSrc3 tSrc1 result
       dst := result
     | Some Fmt.D ->
       let fdB, fdA = transOprToFPPair bld fd
       let fr, fs, ft = transFPConcatThreeOprs bld (src1, src2, src3)
       let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 64<rt>
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
-      let product = tmpVar bld 64<rt>
-      product := AST.fmul tSrc2 tSrc3
-      let sum =
-        if add then AST.fadd tSrc1 product else AST.fsub product tSrc1
-      result := sum
-      normalizeNaN 64<rt> result bld
-      nmAddSubRecord bld 64<rt> add tSrc2 tSrc3 tSrc1 product result
-      result := numU64 0x8000000000000000UL 64<rt> <+> result
+      negatedSum bld 64<rt> add tSrc2 tSrc3 tSrc1 result
       writeFPResult fdB fdA result bld
     | Some Fmt.PS ->
       let combine p r = if add then AST.fadd r p else AST.fsub p r
