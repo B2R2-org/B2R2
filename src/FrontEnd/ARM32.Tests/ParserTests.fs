@@ -1575,3 +1575,13 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] The ordinary coprocessors are ARMv7's alone``() =
     readsOnlyUnder "ee000010" [ "armv7-v7" ] [ "aarch32" ]
+
+  /// A Q register is an even pair of D registers, so VDUP from a core register
+  /// with Q set and Vd odd is UNDEFINED (DDI0406C A8.8.315). Vd sits where the
+  /// other Advanced SIMD instructions keep Vn, in bits 19 to 16.
+  [<TestMethod>]
+  member _.``[ARMv7] VDUP to a Q register refuses an odd Vd``() =
+    testDisasm "eea02b10" "vdup.32 q0, r2"
+    testRefused "eea12b14"
+    testRefused "eee12b10"
+    testRefused "eea12b30"

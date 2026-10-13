@@ -1427,3 +1427,12 @@ type ThumbParserTests() =
     testRefused "ec511100"
     testRefused "ed2f1100"
     readsOnlyUnder "ee000010" [ "armv7-v7" ] [ "aarch32" ]
+
+  /// VDUP from a core register to a Q register refuses an odd Vd in T32 as in
+  /// A32 (DDI0406C A8.8.315).
+  [<TestMethod>]
+  member _.``[T32] VDUP to a Q register refuses an odd Vd``() =
+    testDisasm "eea02b10" "vdup.32 q0, r2"
+    testRefused "eea12b14"
+    testRefused "eee12b10"
+    testRefused "eea12b30"

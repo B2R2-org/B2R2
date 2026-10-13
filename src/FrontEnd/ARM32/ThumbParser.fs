@@ -6133,16 +6133,19 @@ let parseAdvSIMD8n16n32BitElemMoveDup phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.VDUP (oneDt SIMDTyp32) N OD.OprDdRt
   | 0b111000u ->
 #if !EMULATION
+    chkDupQVd bin
     chkPCRt bin
 #endif
     render phlp &itstate 0 isInIT bin Op.VDUP (oneDt SIMDTyp8) N OD.OprQdRt
   | 0b101001u ->
 #if !EMULATION
+    chkDupQVd bin
     chkPCRt bin
 #endif
     render phlp &itstate 0 isInIT bin Op.VDUP (oneDt SIMDTyp16) N OD.OprQdRt
   | 0b101000u ->
 #if !EMULATION
+    chkDupQVd bin
     chkPCRt bin
 #endif
     render phlp &itstate 0 isInIT bin Op.VDUP (oneDt SIMDTyp32) N OD.OprQdRt

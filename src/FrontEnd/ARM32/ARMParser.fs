@@ -3920,10 +3920,19 @@ let parseAdvSIMD8n16n32bitElemMoveDup (phlp: ParsingHelper) bin =
   | 0b100000u ->
     render phlp bin Op.VDUP (oneDt SIMDTyp32) OD.OprDdRt
   | 0b111000u ->
+#if !EMULATION
+    chkDupQVd bin
+#endif
     render phlp bin Op.VDUP (oneDt SIMDTyp8) OD.OprQdRt
   | 0b101001u ->
+#if !EMULATION
+    chkDupQVd bin
+#endif
     render phlp bin Op.VDUP (oneDt SIMDTyp16) OD.OprQdRt
   | 0b101000u ->
+#if !EMULATION
+    chkDupQVd bin
+#endif
     render phlp bin Op.VDUP (oneDt SIMDTyp32) OD.OprQdRt
   | 0b111001u | 0b110001u ->
     undefined ()
