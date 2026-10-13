@@ -2438,7 +2438,7 @@ let loadPC ins bld size signed =
         aligned .+ (target .- pc)
       else
         target
-    let v = AST.loadLE size addr
+    let v = loadNative bld size addr
     rs :=
       if size = 64<rt> then v
       elif signed then AST.sext bld.RegType v
@@ -2477,8 +2477,9 @@ let lsa ins bld wide =
 /// lets a program swap a pointer and its counter together. The manual
 /// describes the pair as the halves of one wider value at the base --
 /// "GPR[rd] <- memory[GPR[base]]63..32, GPR[rt] <- memory[GPR[base]]31..0"
-/// -- so loading it that wide and splitting it is what puts each half in
-/// the right register at either endianness.
+/// -- so loading it that wide, in the processor's own byte order, and
+/// splitting it is what puts each half in the right register at either
+/// endianness.
 let loadLinkedPair ins bld half =
   lift bld ins {
     let rtOpr, rdOpr, memOpr = getThreeOprs ins
@@ -2487,7 +2488,7 @@ let loadLinkedPair ins bld half =
     let addr = transOprToBaseOffset bld memOpr
     let wide = if half = 32<rt> then 64<rt> else 128<rt>
     let v = tmpVar bld wide
-    v := AST.loadLE wide addr
+    v := loadNative bld wide addr
     regVar bld R.ExMonAddr := addr
     regVar bld R.ExMonVal := AST.zext bld.RegType (AST.xtlo half v)
     rd := AST.sext bld.RegType (AST.xthi half v)
@@ -2507,7 +2508,7 @@ let storeConditionalPair ins bld half =
     let ok = regVar bld R.ExMonAddr == addr
     let paired =
       AST.concat (AST.xtlo half rd) (AST.xtlo half rt)
-    AST.loadLE wide addr := AST.ite ok paired (AST.loadLE wide addr)
+    storeNative bld addr (AST.ite ok paired (loadNative bld wide addr))
     rt := AST.zext bld.RegType (AST.ite ok (AST.num1 1<rt>) (AST.num0 1<rt>))
   }
 

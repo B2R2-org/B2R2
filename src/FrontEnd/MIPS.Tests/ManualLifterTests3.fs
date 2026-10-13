@@ -998,6 +998,31 @@ type ManualLifterTests3() =
     |> is [ G 2, 0x0UL ]
 
   /// <summary>
+  /// 7c242877 7c221867, lldp a0, a1, (at) then scdp v0, v1, (at). The store
+  /// writes rd and rt as one quadword, rd the more significant, and sets rt
+  /// to one; on a big-endian processor the more significant doubleword is the
+  /// one at the lower address.
+  /// No reference runs it: QEMU's I6400 reads the word as an unpaired
+  /// SCD. Checked against the manual's Operation instead.
+  /// </summary>
+  [<TestMethod>]
+  member _.``MD00087 SCDP``() =
+    let given =
+      [ G 1, 0x20200080UL
+        G 2, 0x2021222324252627UL
+        G 3, 0x3031323334353637UL
+        M 0x20200080UL, 0x1011121314151617UL
+        M 0x20200088UL, 0x18191a1b1c1d1e1fUL ]
+    given
+    |> run r6 [ "7c242877"; "7c221867" ]
+    |> is
+      [ G 2, 0x1UL
+        G 4, 0x18191a1b1c1d1e1fUL
+        G 5, 0x1011121314151617UL
+        M 0x20200080UL, 0x3031323334353637UL
+        M 0x20200088UL, 0x2021222324252627UL ]
+
+  /// <summary>
   /// 7c62011e, sce v0, 2(v1), against QEMU's MIPS64R2-generic: QEMU raised
   /// SIGILL (UndefinedInstruction here); Status = 0x10 puts the lift in User
   /// Mode, the mode QEMU runs every word in; the lift has to change what QEMU
@@ -1035,6 +1060,29 @@ type ManualLifterTests3() =
     given2
     |> run r2 [ "7c62011e" ]
     |> raises [ UndefinedInstruction ] []
+
+  /// <summary>
+  /// 7c242876 7c221866, llwp a0, a1, (at) then scwp v0, v1, (at). The store
+  /// writes the low word of rd and the low word of rt as one doubleword, rd's
+  /// the more significant, and sets rt to one; on a big-endian processor the
+  /// more significant word is the one at the lower address.
+  /// No reference runs it: QEMU's I6400 reads the word as an unpaired
+  /// SC. Checked against the manual's Operation instead.
+  /// </summary>
+  [<TestMethod>]
+  member _.``MD00087 SCWP``() =
+    let given =
+      [ G 1, 0x20200080UL
+        G 2, 0xa0a1a2a3UL
+        G 3, 0xb0b1b2b3UL
+        M 0x20200080UL, 0x1011121314151617UL ]
+    given
+    |> run r6 [ "7c242876"; "7c221866" ]
+    |> is
+      [ G 2, 0x1UL
+        G 4, 0x14151617UL
+        G 5, 0x10111213UL
+        M 0x20200080UL, 0xb0b1b2b3a0a1a2a3UL ]
 
   /// <summary>
   /// 7c22185e, scwpe v0, v1, 0(at), against QEMU's I6400, a Release 6

@@ -1108,3 +1108,43 @@ type LifterTests() =
       let read = IRRunner.run (lifted microR6 hex) inputs
       Assert.AreEqual<uint64>(result, (read (var R2)).ToUInt64(), hex)
       Assert.AreEqual<uint64>(10UL, (read (var R3)).ToUInt64(), hex)
+
+  /// <summary>
+  /// LWPC, LLWP and SCWP move memory in the processor's own byte order. Each
+  /// page reaches memory through LoadMemory or StoreMemory (MD00582 revision
+  /// 6.04, LWPC p.236, LLWP p.227, SCWP p.295), which order the bytes the way
+  /// BigEndianCPU says, and LLWP's two words are the halves of the doubleword
+  /// read so: "GPR[rt] &lt;- memdoubleword31..0" and "GPR[rd] &lt;-
+  /// memdoubleword63..32". These three read and wrote little-endian whatever
+  /// the processor, so on a big-endian one a word came back with its bytes
+  /// reversed and LLWP's pair the wrong way round.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] LWPC, LLWP and SCWP use the native order``() =
+    let regs = RegisterFactory microR6 :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regs.GetRegVar
+    let t = AST.tmpvar 64<rt> 1
+    let lo32 e = AST.xtlo 32<rt> e
+    let one, zero = AST.num1 1<rt>, AST.num0 1<rt>
+    (* LWPC a1, at -0xffff4 *)
+    let target = numU64 0xfffffffffff0000cUL 64<rt>
+    "78ac0003"
+    ++ [| !.R5 := AST.sext 64<rt> (AST.loadBE 32<rt> target) |]
+    |> test microR6
+    (* LLWP v1, t2, 0(s0) *)
+    let addr = !.R16 .+ numI64 0L 64<rt>
+    "607010e0"
+    ++ [| t := AST.loadBE 64<rt> addr
+          !.ExMonAddr := addr
+          !.ExMonVal := AST.zext 64<rt> (lo32 t)
+          !.R14 := AST.sext 64<rt> (AST.xthi 32<rt> t)
+          !.R3 := AST.sext 64<rt> (lo32 t) |]
+    |> test microR6
+    (* SCWP a7, v0, 0(sp) *)
+    let addr = !.R29 .+ numI64 0L 64<rt>
+    let ok = !.ExMonAddr == addr
+    let pair = AST.concat (lo32 !.R2) (lo32 !.R11)
+    "617d9020"
+    ++ [| AST.loadBE 64<rt> addr := AST.ite ok pair (AST.loadBE 64<rt> addr)
+          !.R11 := AST.zext 64<rt> (AST.ite ok one zero) |]
+    |> test microR6

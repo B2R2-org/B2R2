@@ -1244,6 +1244,38 @@ type ManualLifterTests2() =
     |> is [ G 2, 0x2b5036789abcdefUL ]
 
   /// <summary>
+  /// ec580080, ldpc v0, 0x20100400, against QEMU's I6400, a Release 6
+  /// processor: the lift has to change what QEMU changed and nothing else, over
+  /// each set of values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``MD00087 LDPC``() =
+    let given0 =
+      [ G 2, 0x7UL
+        M 0x201003f8UL, 0xe5ca621fa5c07aabUL
+        M 0x20100400UL, 0x2fd7c9b4f199d2c8UL
+        M 0x20100408UL, 0xf294d13915b163efUL ]
+    given0
+    |> run r6 [ "ec580080" ]
+    |> is [ G 2, 0x2fd7c9b4f199d2c8UL ]
+    let given1 =
+      [ G 2, 0x7fffffffUL
+        M 0x201003f8UL, 0x38a36c4ffc7673c4UL
+        M 0x20100400UL, 0x7f923a801ba01dc1UL
+        M 0x20100408UL, 0xa8891f683704ad8dUL ]
+    given1
+    |> run r6 [ "ec580080" ]
+    |> is [ G 2, 0x7f923a801ba01dc1UL ]
+    let given2 =
+      [ G 2, 0xffffffff89abcdefUL
+        M 0x201003f8UL, 0xd466de45a1bd74f8UL
+        M 0x20100400UL, 0xc7cedd1eba65d350UL
+        M 0x20100408UL, 0xefeea73ce4f902c8UL ]
+    given2
+    |> run r6 [ "ec580080" ]
+    |> is [ G 2, 0xc7cedd1eba65d350UL ]
+
+  /// <summary>
   /// 6c620001, ldr v0, 1(v1), against QEMU's MIPS64R2-generic: the lift has to
   /// change what QEMU changed and nothing else, over each set of values.
   /// </summary>
@@ -1529,6 +1561,22 @@ type ManualLifterTests2() =
     |> is [ G 2, 0x8e02cc4395fbd8b6UL ]
 
   /// <summary>
+  /// 7c221877, lldp v0, v1, (at). The less significant doubleword of the
+  /// quadword at the base goes to rt and the more significant to rd; on a
+  /// big-endian processor the more significant doubleword is the one at the
+  /// lower address.
+  /// No reference runs it: QEMU's I6400 reads the word as an unpaired
+  /// LLD. Checked against the manual's Operation instead.
+  /// </summary>
+  [<TestMethod>]
+  member _.``MD00087 LLDP``() =
+    [ G 1, 0x20200080UL
+      M 0x20200080UL, 0x1011121314151617UL
+      M 0x20200088UL, 0x18191a1b1c1d1e1fUL ]
+    |> run r6 [ "7c221877" ]
+    |> is [ G 2, 0x18191a1b1c1d1e1fUL; G 3, 0x1011121314151617UL ]
+
+  /// <summary>
   /// 7c62012e, lle v0, 2(v1), against QEMU's MIPS64R2-generic: QEMU raised
   /// SIGILL (UndefinedInstruction here); Status = 0x10 puts the lift in User
   /// Mode, the mode QEMU runs every word in; the lift has to change what QEMU
@@ -1566,6 +1614,21 @@ type ManualLifterTests2() =
     given2
     |> run r2 [ "7c62012e" ]
     |> raises [ UndefinedInstruction ] []
+
+  /// <summary>
+  /// 7c221876, llwp v0, v1, (at). The least significant word of the
+  /// doubleword at the base goes to rt and the most significant to rd, each
+  /// sign-extended; on a big-endian processor the most significant word is
+  /// the one at the lower address.
+  /// No reference runs it: QEMU's I6400 reads the word as an unpaired
+  /// LL. Checked against the manual's Operation instead.
+  /// </summary>
+  [<TestMethod>]
+  member _.``MD00087 LLWP``() =
+    [ G 1, 0x20200080UL
+      M 0x20200080UL, 0x1011121394959697UL ]
+    |> run r6 [ "7c221876" ]
+    |> is [ G 2, 0xffffffff94959697UL; G 3, 0x10111213UL ]
 
   /// <summary>
   /// 7c22186e, llwpe v0, v1, 0(at), against QEMU's I6400, a Release 6
@@ -1889,6 +1952,38 @@ type ManualLifterTests2() =
     |> raises [ UndefinedInstruction ] []
 
   /// <summary>
+  /// ec480100, lwpc v0, 0x20100400, against QEMU's I6400, a Release 6
+  /// processor: the lift has to change what QEMU changed and nothing else, over
+  /// each set of values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``MD00087 LWPC``() =
+    let given0 =
+      [ G 2, 0x7UL
+        M 0x201003f8UL, 0xc93e2a0680be7c32UL
+        M 0x20100400UL, 0x6d0780cddbc42328UL
+        M 0x20100408UL, 0x1a7cc4109dad56b7UL ]
+    given0
+    |> run r6 [ "ec480100" ]
+    |> is [ G 2, 0x6d0780cdUL ]
+    let given1 =
+      [ G 2, 0x7fffffffUL
+        M 0x201003f8UL, 0xf867e109d8bc1822UL
+        M 0x20100400UL, 0x8753a0b4dacfe1b6UL
+        M 0x20100408UL, 0x35caa7c37c291577UL ]
+    given1
+    |> run r6 [ "ec480100" ]
+    |> is [ G 2, 0xffffffff8753a0b4UL ]
+    let given2 =
+      [ G 2, 0xffffffff89abcdefUL
+        M 0x201003f8UL, 0x5b36aa781dc614aeUL
+        M 0x20100400UL, 0xe296011941d2b2ecUL
+        M 0x20100408UL, 0x8ae2e38fe1135ae9UL ]
+    given2
+    |> run r6 [ "ec480100" ]
+    |> is [ G 2, 0xffffffffe2960119UL ]
+
+  /// <summary>
   /// 98620001, lwr v0, 1(v1), against QEMU's MIPS64R2-generic: the lift has to
   /// change what QEMU changed and nothing else, over each set of values.
   /// </summary>
@@ -1994,6 +2089,38 @@ type ManualLifterTests2() =
     given2
     |> run r2 [ "9c620001" ]
     |> is [ G 2, 0x7d732bb2UL ]
+
+  /// <summary>
+  /// ec500100, lwupc v0, 0x20100400, against QEMU's I6400, a Release 6
+  /// processor: the lift has to change what QEMU changed and nothing else, over
+  /// each set of values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``MD00087 LWUPC``() =
+    let given0 =
+      [ G 2, 0x7UL
+        M 0x201003f8UL, 0x45b0397e4b15024fUL
+        M 0x20100400UL, 0x25c994bce5f12e99UL
+        M 0x20100408UL, 0x88c55495363749e6UL ]
+    given0
+    |> run r6 [ "ec500100" ]
+    |> is [ G 2, 0x25c994bcUL ]
+    let given1 =
+      [ G 2, 0x7fffffffUL
+        M 0x201003f8UL, 0x503624865d930e22UL
+        M 0x20100400UL, 0x609939d10c1908fbUL
+        M 0x20100408UL, 0x38ae56f03d29a7bUL ]
+    given1
+    |> run r6 [ "ec500100" ]
+    |> is [ G 2, 0x609939d1UL ]
+    let given2 =
+      [ G 2, 0xffffffff89abcdefUL
+        M 0x201003f8UL, 0x3b2c0bad8a334f4fUL
+        M 0x20100400UL, 0xc23025d9b28a3a4fUL
+        M 0x20100408UL, 0x68e8514084fb169bUL ]
+    given2
+    |> run r6 [ "ec500100" ]
+    |> is [ G 2, 0xc23025d9UL ]
 
   /// <summary>
   /// 4c430080, lwxc1 f2, v1(v0), against QEMU's MIPS64R2-generic: the lift has
