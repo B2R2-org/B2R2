@@ -521,10 +521,10 @@ let inline relToString pc offset (builder: IDisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 targetAddr)
 
+/// A register by the name the ABI of the processor's width gives it: n64's
+/// on a 64-bit processor, whatever width the instruction accesses.
 let inline regToString (ins: Instruction) reg =
-  match ins.OperationSize with
-  | 64<rt> -> Register.toString reg WordSize.Bit64
-  | _ -> Register.toString reg WordSize.Bit32
+  Register.toString reg ins.WordSize
 
 let oprToString ins opr delim (builder: IDisasmBuilder) =
   match opr with

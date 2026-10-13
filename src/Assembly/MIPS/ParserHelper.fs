@@ -106,19 +106,6 @@ let registers32 = namesAt WordSize.Bit32
 /// The register names a sixty-four bit source writes.
 let registers64 = namesAt WordSize.Bit64
 
-/// <summary>
-/// Which of the two vocabularies an instruction writes its registers in.
-///
-/// The disassembler names them by how wide what the instruction works on is
-/// rather than by how wide the source is, and the four stores that say their
-/// own width are therefore written in the vocabulary that width belongs to.
-/// </summary>
-let registerNaming opcode wordSize =
-  match opcode with
-  | Opcode.SB | Opcode.SH | Opcode.SW -> WordSize.Bit32
-  | Opcode.SD -> WordSize.Bit64
-  | _ -> wordSize
-
 /// The names the disassembler spells otherwise than as the lowercased name of
 /// the opcode, because the name itself holds a dot: the conversions, the two
 /// truncations, and the jumps that clear the instruction hazards.

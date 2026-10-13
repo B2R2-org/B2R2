@@ -506,3 +506,18 @@ type MIPS64ParserTests() =
       let ins = parse hex 0x1006UL
       Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
       Assert.AreEqual<Operands>(operands, ins.Operands, hex)
+
+  /// A 64-bit processor's registers go by the n64 names whatever the width
+  /// an instruction accesses: register 8 is a4 for a store of a byte as much
+  /// as for a load of a doubleword, where the o32 name would be t0.
+  [<TestMethod>]
+  member _.``[MIPS64] A store names its registers as a load does``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let parser = Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    let text hex =
+      let bytes = ByteArray.ofHexString hex
+      parser.Parse(System.ReadOnlySpan bytes, 0UL).Disasm()
+    Assert.AreEqual<string>("sb a4, 1(a5)", text "a1280001")
+    Assert.AreEqual<string>("sh a4, 1(a5)", text "a5280001")
+    Assert.AreEqual<string>("sw a4, 1(a5)", text "ad280001")
+    Assert.AreEqual<string>("lw a4, 1(a5)", text "8d280001")

@@ -198,11 +198,11 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     <|> attempt (pNumber |>> OpImm)
     <|> (pIdentifier |>> GoToLabel)
 
-  /// Which of the two vocabularies the registers of this instruction are
-  /// written in, which is what the disassembler wrote them in.
-  let namesFor opcode =
-    if registerNaming opcode isa.WordSize = WordSize.Bit64 then registers64
-    else registers32
+  /// The vocabulary registers are written in: the one the processor's width
+  /// names them by, whatever width an instruction works on, which is what
+  /// the disassembler writes them in.
+  let names =
+    if isa.WordSize = WordSize.Bit64 then registers64 else registers32
 
   /// The operands of an instruction that names a whole list of registers,
   /// which is written as the registers one after another and then the memory
@@ -224,7 +224,6 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   /// instruction takes depends on which one it is, so the opcode has to be
   /// known before they can be read.
   let pOperands (opcode, cond, fmt) =
-    let names = namesFor opcode
     (if takesRegList opcode then pRegListOperands names opcode
      elif takesFrameList opcode then pFrameListOperands names opcode
      else sepBy (pOperand names opcode) operandSeps)

@@ -403,18 +403,19 @@ type MIPSRoundTripTests() =
 
   /// <summary>
   /// Checks that the registers of an instruction are read in the vocabulary
-  /// the disassembler writes them in, which is the one the width of what the
-  /// instruction works on belongs to rather than the one the source is in.
+  /// the disassembler writes them in, which is the one the processor's width
+  /// belongs to -- o32's names on a 32-bit processor and n64's on a 64-bit
+  /// one -- whatever width the instruction itself works on.
   /// </summary>
   [<TestMethod>]
   member _.``The registers are read in the vocabulary of the width``() =
     let wrong =
       [ isa32, "daddu t0, t1, t2", 0x012a402du
         isa64, "daddu a4, a5, a6", 0x012a402du
-        isa32, "sd a4, 0(a5)", 0xfd280000u
+        isa32, "sd t0, 0(t1)", 0xfd280000u
         isa64, "sd a4, 0(a5)", 0xfd280000u
         isa32, "sw t0, 0(t1)", 0xad280000u
-        isa64, "sw t0, 0(t1)", 0xad280000u ]
+        isa64, "sw a4, 0(a5)", 0xad280000u ]
       |> List.choose (fun (isa, source, expected) ->
         let assembler = Assembler(isa, 0UL) :> ILowerable
         match (try encodeFirst assembler source with _ -> None) with
