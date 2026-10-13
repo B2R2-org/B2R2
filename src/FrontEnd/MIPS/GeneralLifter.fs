@@ -254,13 +254,46 @@ let b (ins: Instruction) (bld: LowUIRBuilder) =
       nPC := offset
     }
 
+/// <summary>
+/// The return address a call leaves behind, which carries the encoding it was
+/// made from.
+///
+/// MD00076 writes it as <c>(PC + n)[GPRLEN-1..1] || ISAMode</c>: the low bit
+/// is not part of the address but the mode to come back to, and a JR through
+/// this register reads it there. So a call made from the compressed encoding
+/// leaves an ODD address behind, and the return finds its way back.
+///
+/// Which mode that is belongs to the CALL and not to the processor. A
+/// -mips16 program is 32-bit code with MIPS16e functions in it and both
+/// encodings make calls; a link from the 32-bit side that carried the bit
+/// anyway would send its own return into the halfword decoder.
+/// </summary>
+let private linkFrom (ins: Instruction) (bld: LowUIRBuilder) ahead =
+  let pc = regVar bld R.PC
+  let raw = pc .+ numI32 ahead bld.RegType
+  if ins.IsCompressed then raw .| AST.num1 bld.RegType else raw
+
+/// <summary>
+/// How far past a call the instruction it returns to sits.
+///
+/// The call's own length plus its delay slot's, and the slot is not always a
+/// word: a MIPS16e one is a halfword, which is why MD00076 writes the link of
+/// JAL as <c>PC + 6</c> where the base architecture writes <c>PC + 8</c>, and
+/// the link of JALR as <c>PC + 4</c>. A call that left the wrong address
+/// behind returns two bytes late, and in an encoding of halfwords that is
+/// another instruction rather than a misalignment -- so nothing faults and
+/// the program simply goes somewhere else.
+/// </summary>
+let private afterSlot (ins: Instruction) =
+  let slot = if ins.ISAMode = MIPSISAMode.MIPS16 then 2 else 4
+  int ins.Length + slot
+
 let bal ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
     let offset = transOneOpr ins bld
-    let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     bld.DelayedBranch <- InterJmpKind.IsCall
-    regVar bld R.R31 := pc .+ numI32 8 bld.RegType
+    regVar bld R.R31 := linkFrom ins bld (afterSlot ins)
     nPC := offset
   }
 
@@ -402,10 +435,9 @@ let bltz ins bld =
 let bltzal ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
-    let pc = regVar bld R.PC
     let nAddr = tmpVar bld bld.RegType
     let cond = AST.slt rs (AST.num0 bld.RegType)
-    nAddr := pc .+ numI32 8 bld.RegType
+    nAddr := linkFrom ins bld (afterSlot ins)
     regVar bld R.R31 := nAddr
     updatePCCond ins bld offset cond InterJmpKind.IsCall
   }
@@ -420,10 +452,9 @@ let bgez ins bld =
 let bgezal ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
-    let pc = regVar bld R.PC
     let nAddr = tmpVar bld bld.RegType
     let cond = AST.sge rs (AST.num0 bld.RegType)
-    nAddr := pc .+ numI32 8 bld.RegType
+    nAddr := linkFrom ins bld (afterSlot ins)
     regVar bld R.R31 := nAddr
     updatePCCond ins bld offset cond InterJmpKind.IsCall
   }
@@ -1399,40 +1430,6 @@ let private carriesMode (bld: ILowUIRBuilder) =
   bld.ISA.MIPSISAMode <> MIPSISAMode.MIPS
 
 /// <summary>
-/// The return address a call leaves behind, which carries the encoding it was
-/// made from.
-///
-/// MD00076 writes it as <c>(PC + n)[GPRLEN-1..1] || ISAMode</c>: the low bit
-/// is not part of the address but the mode to come back to, and a JR through
-/// this register reads it there. So a call made from the compressed encoding
-/// leaves an ODD address behind, and the return finds its way back.
-///
-/// Which mode that is belongs to the CALL and not to the processor. A
-/// -mips16 program is 32-bit code with MIPS16e functions in it and both
-/// encodings make calls; a link from the 32-bit side that carried the bit
-/// anyway would send its own return into the halfword decoder.
-/// </summary>
-let private linkFrom (ins: Instruction) (bld: LowUIRBuilder) ahead =
-  let pc = regVar bld R.PC
-  let raw = pc .+ numI32 ahead bld.RegType
-  if ins.IsCompressed then raw .| AST.num1 bld.RegType else raw
-
-/// <summary>
-/// How far past a call the instruction it returns to sits.
-///
-/// The call's own length plus its delay slot's, and the slot is not always a
-/// word: a MIPS16e one is a halfword, which is why MD00076 writes the link of
-/// JAL as <c>PC + 6</c> where the base architecture writes <c>PC + 8</c>, and
-/// the link of JALR as <c>PC + 4</c>. A call that left the wrong address
-/// behind returns two bytes late, and in an encoding of halfwords that is
-/// another instruction rather than a misalignment -- so nothing faults and
-/// the program simply goes somewhere else.
-/// </summary>
-let private afterSlot (ins: Instruction) =
-  let slot = if ins.ISAMode = MIPSISAMode.MIPS16 then 2 else 4
-  int ins.Length + slot
-
-/// <summary>
 /// The same for the microMIPS calls that name a halfword slot in the
 /// mnemonic -- JALS, JALRS, BLTZALS and BGEZALS.
 ///
@@ -1926,12 +1923,13 @@ let compactBranchZ ins bld cmp =
 
 /// The and-link forms. MD00087 says the return address link is updated
 /// UNCONDITIONALLY, so the write sits outside the branch rather than on its
-/// taken path.
+/// taken path. In microMIPS the link carries the ISA mode in bit 0, as every
+/// branch-and-link's does (MD00582 revision 6.04, Table 1.1, p.18).
 let compactBranchLinkZ ins bld cmp =
   lift bld ins {
     let r, offset = transTwoOprs ins bld
     let cond = cmp r (AST.num0 bld.RegType)
-    regVar bld R.R31 := regVar bld R.PC .+ numI32 4 bld.RegType
+    regVar bld R.R31 := linkFrom ins bld 4
     updatePCCondCompact ins bld offset cond
   }
 
@@ -1955,20 +1953,22 @@ let bcCompact ins bld =
 let balc ins bld =
   lift bld ins {
     let offset = transOneOpr ins bld
-    regVar bld R.R31 := regVar bld R.PC .+ numI32 4 bld.RegType
+    regVar bld R.R31 := linkFrom ins bld 4
     AST.interjmp offset InterJmpKind.IsCall
   }
 
 /// JIC and JIALC jump to a register plus a signed offset. The target is read
 /// into a temporary before the link is written, because the register the jump
-/// reads may be the one the link overwrites.
+/// reads may be the one the link overwrites. JIALC is a jump-and-link-register
+/// instruction, which in microMIPS saves the ISA mode in bit 0 of its link
+/// (MD00582 revision 6.04, section 2.4, p.22).
 let jicCompact ins bld link =
   lift bld ins {
     let rt, off = transTwoOprs ins bld
     let target = tmpVar bld bld.RegType
     target := rt .+ off
     if link then
-      regVar bld R.R31 := regVar bld R.PC .+ numI32 4 bld.RegType
+      regVar bld R.R31 := linkFrom ins bld 4
       AST.interjmp target InterJmpKind.IsCall
     else
       AST.interjmp target InterJmpKind.Base

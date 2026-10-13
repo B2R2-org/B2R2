@@ -403,6 +403,23 @@ type ManualLifterTests6() =
     goes um words [] 0x20100022UL
 
   /// <summary>
+  /// 40600100, bgezal r0, 0x20100204 (binutils: bal 20100204). A branch is not
+  /// run against QEMU: it moves the PC, and its delay slot makes one word
+  /// meaningless to run alone. Checked structurally from the manual: the
+  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// 0x20100204 (the target binutils reads) when it always does; ra becomes
+  /// 0x20100009 and nothing else changes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BAL``() =
+    let words = [ "40600100"; "00000000" ]
+    ownsJump um "40600100" false
+    goes um words [] 0x20100204UL
+    []
+    |> run um words
+    |> is [ G 31, 0x20100009UL ]
+
+  /// <summary>
   /// 43830100, bc1f 0x0, 0x20100204 (binutils: bc1f $fcc0,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
@@ -519,6 +536,25 @@ type ManualLifterTests6() =
     goes um words [ G 3, 0xfffffffffffffffbUL ] 0x20100008UL
 
   /// <summary>
+  /// 40610100, bgezal at, 0x20100204 (binutils: bgezal $1,20100204). A branch
+  /// is not run against QEMU: it moves the PC, and its delay slot makes one
+  /// word meaningless to run alone. Checked structurally from the manual: the
+  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// 0x20100204 (the target binutils reads) when G 1 is 0x5; to 0x20100008,
+  /// past the slot, when G 1 is 0xfffffffffffffffb; ra becomes 0x20100009 and
+  /// nothing else changes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BGEZAL``() =
+    let words = [ "40610100"; "00000000" ]
+    ownsJump um "40610100" false
+    goes um words [ G 1, 0x5UL ] 0x20100204UL
+    goes um words [ G 1, 0xfffffffffffffffbUL ] 0x20100008UL
+    [ G 1, 0x5UL ]
+    |> run um words
+    |> is [ G 31, 0x20100009UL ]
+
+  /// <summary>
   /// 42630100, bgezals v1, 0x20100204 (binutils: bgezals $3,20100204). A branch
   /// is not run against QEMU: it moves the PC, and its delay slot makes one
   /// word meaningless to run alone. Checked structurally from the manual: the
@@ -581,6 +617,25 @@ type ManualLifterTests6() =
     ownsJump um "40030100" false
     goes um words [ G 3, 0xfffffffffffffffbUL ] 0x20100204UL
     goes um words [ G 3, 0x5UL ] 0x20100008UL
+
+  /// <summary>
+  /// 40220100, bltzal v0, 0x20100204 (binutils: bltzal $2,20100204). A branch
+  /// is not run against QEMU: it moves the PC, and its delay slot makes one
+  /// word meaningless to run alone. Checked structurally from the manual: the
+  /// transfer is left to the delay slot, which holds a NOP; control goes to
+  /// 0x20100204 (the target binutils reads) when G 2 is 0xfffffffffffffffb; to
+  /// 0x20100008, past the slot, when G 2 is 0x5; ra becomes 0x20100009 and
+  /// nothing else changes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BLTZAL``() =
+    let words = [ "40220100"; "00000000" ]
+    ownsJump um "40220100" false
+    goes um words [ G 2, 0xfffffffffffffffbUL ] 0x20100204UL
+    goes um words [ G 2, 0x5UL ] 0x20100008UL
+    [ G 2, 0xfffffffffffffffbUL ]
+    |> run um words
+    |> is [ G 31, 0x20100009UL ]
 
   /// <summary>
   /// 42230100, bltzals v1, 0x20100204 (binutils: bltzals $3,20100204). A branch

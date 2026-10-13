@@ -1174,3 +1174,23 @@ type LifterTests() =
     CollectionAssert.Contains(liftedAt "79d40007", lwupc)
     let ldpc = var R20 := AST.loadBE 64<rt> (at 0xfffffffffff01048UL)
     CollectionAssert.Contains(liftedAt "7a9a0009", ldpc)
+
+  /// <summary>
+  /// A microMIPS compact call leaves the ISA mode in bit 0 of its link, as
+  /// JALRC does. Table 1.1 (MD00582 revision 6.04, p.18) has a
+  /// "branch-and-link instruction" store "a combined value of the upper bits
+  /// of PC and the ISA Mode", and section 2.4 (p.22) names JIALC among the
+  /// jump-and-link-register instructions that "save the ISA mode into bit 0
+  /// of the destination register"; BALC's, the B{LE,GE,GT,LT,EQ,NE}ZALC and
+  /// JIALC's pages (pp.128, 134 and 207) write the link "PC+4" as JALRC16's
+  /// writes "PC + 2". A return through JRC reads that bit for the mode to go
+  /// back to, so a link of PC + 4 alone sent the return into MIPS32.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] BALC, the ZALC branches and JIALC link odd``() =
+    let regs = RegisterFactory microR6 :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let link = var R31 := (var PC .+ numI32 4 64<rt>) .| AST.num1 64<rt>
+    (* BALC, BLEZALC a2, BEQZALC a5 and JIALC t9 *)
+    for hex in [ "b6000003"; "c0c08007"; "75208000"; "a0198011" ] do
+      CollectionAssert.Contains(lifted microR6 hex, link, hex)
