@@ -270,7 +270,7 @@ let private translateOpcode (ins: Instruction) (bld: LowUIRBuilder) =
     jumpRegCompact ins bld
   | Op.JALRS ->
     jalrShortSlot ins bld
-  | Op.JALRC ->
+  | Op.JALRC | Op.JALRCHB ->
     jalrCompact ins bld
   | Op.JRADDIUSP | Op.JRCADDIUSP ->
     jumpRegAdjust ins bld

@@ -449,6 +449,7 @@ let opCodeToString = function
   | Op.JRC -> "jrc"
   | Op.JALRS -> "jalrs"
   | Op.JALRC -> "jalrc"
+  | Op.JALRCHB -> "jalrc.hb"
   | Op.JRADDIUSP -> "jraddiusp"
   | Op.JRCADDIUSP -> "jrcaddiusp"
   | Op.LWM -> "lwm"

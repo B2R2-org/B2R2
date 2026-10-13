@@ -188,15 +188,19 @@ let private signed n (v: uint32) =
 /// <summary>
 /// A register-to-register operation of POOL16A and POOL16B.
 ///
-/// The field order is NOT the one the pool's own page appears to give: the
-/// destination is the topmost field. Checked against binutils, which encodes
-/// <c>subu $2, $3, $4</c> as 0x0547 -- 9..7 holding 2, 6..4 holding 4 and
-/// 3..1 holding 3.
+/// Before Release 6 the field order is NOT the one the pool's own page
+/// appears to give: the destination is the topmost field. Checked against
+/// binutils, which encodes <c>subu $2, $3, $4</c> as 0x0547 -- 9..7 holding
+/// 2, 6..4 holding 4 and 3..1 holding 3. Release 6 recoded ADDU16 and SUBU16
+/// with the destination at the bottom: both of its books draw rs in 9..7, rt
+/// in 6..4 and rd in 3..1 (MD00582 revision 6.04, pp.71 and 105; MD00594
+/// revision 6.01, pp.72 and 113).
 /// </summary>
-let private pool16A h =
-  let rd = reg3 (bits h 9u 7u) |> oprReg
+let private pool16A release h =
+  let top = reg3 (bits h 9u 7u) |> oprReg
   let rt = reg3 (bits h 6u 4u) |> oprReg
-  let rs = reg3 (bits h 3u 1u) |> oprReg
+  let bottom = reg3 (bits h 3u 1u) |> oprReg
+  let rd, rs = if release = MIPSRelease.R6 then bottom, top else top, bottom
   let opcode = if bits h 0u 0u = 0u then Op.ADDU else Op.SUBU
   opcode, None, None, ThreeOperands(rd, rs, rt)
 
@@ -419,7 +423,7 @@ let private memSP h opcode =
 let private parseHalfword (release: MIPSRelease) (h: uint32) =
   match bits h 15u 10u with
   | 0b000001u ->
-    pool16A h
+    pool16A release h
   | 0b001001u ->
     pool16B h
   | 0b010001u ->
@@ -656,10 +660,15 @@ let private pool32Axf release w =
       raise ParsingFailureException
   | 0b100u ->
     match bits w 11u 9u, bits w 15u 12u with
+    (* Release 6 made these two compact, which is a different instruction
+       and not a different name: JALRC has no delay slot and links the
+       address right after itself (MD00582 revision 6.04, pp.202 and 204). *)
     | 0b111u, 0b0000u ->
-      Op.JALR, None, None, TwoOperands(fRt w, fRs w)
+      let opcode = if release = MIPSRelease.R6 then Op.JALRC else Op.JALR
+      opcode, None, None, TwoOperands(fRt w, fRs w)
     | 0b111u, 0b0001u ->
-      Op.JALRHB, None, None, TwoOperands(fRt w, fRs w)
+      let opcode = if release = MIPSRelease.R6 then Op.JALRCHB else Op.JALRHB
+      opcode, None, None, TwoOperands(fRt w, fRs w)
     | 0b111u, 0b0100u when release <> MIPSRelease.R6 ->
       Op.JALRS, None, None, TwoOperands(fRt w, fRs w)
     | 0b111u, 0b0101u when release <> MIPSRelease.R6 ->
@@ -784,6 +793,32 @@ let private sllOfZero w sa =
   | _ -> Op.SLL, None, None, ThreeOperands(fRt w, fRs w, sa)
 
 /// <summary>
+/// The Release 6 multiplies and divides, which write one register where the
+/// older ones write HI and LO, by the row of column 011 each takes. POOL32S
+/// keeps the doubleword form of each where POOL32A keeps the word one
+/// (MD00582 revision 6.04, Table 7.4 and pp.182 and 256; MD00594 revision
+/// 6.01, Table 7.13 and pp.210 and 312).
+/// </summary>
+let private mulDivRows =
+  [| Op.MUL, Op.DMUL
+     Op.MUH, Op.DMUH
+     Op.MULU, Op.DMULU
+     Op.MUHU, Op.DMUHU
+     Op.DIV, Op.DDIV
+     Op.MOD, Op.DMOD
+     Op.DIVU, Op.DDIVU
+     Op.MODU, Op.DMODU |]
+
+/// One of them: <c>pick</c> says whether the word or the doubleword form.
+let private mulDivR6 pick w =
+  let row = bits w 9u 6u |> int
+  if row < mulDivRows.Length then
+    let opcode = pick mulDivRows[row]
+    opcode, None, None, ThreeOperands(fRd w, fRs w, fRt w)
+  else
+    raise ParsingFailureException
+
+/// <summary>
 /// POOL32A's own table, which is read as a grid: the three bits above the
 /// pool select a column and the four above those a row.
 /// </summary>
@@ -816,7 +851,9 @@ let private pool32AGrid release w =
     Op.SUB, None, None, ThreeOperands(fRd w, fRs w, fRt w)
   | 0b010u, 0b0111u ->
     Op.SUBU, None, None, ThreeOperands(fRd w, fRs w, fRt w)
-  | 0b010u, 0b1000u ->
+  | 0b010u, 0b1000u when release <> MIPSRelease.R6 ->
+    (* Release 6 moved MUL into column 011 and left this place reserved
+       (MD00582 revision 6.04, Table 7.4). *)
     Op.MUL, None, None, ThreeOperands(fRd w, fRs w, fRt w)
   | 0b010u, 0b1001u ->
     Op.AND, None, None, ThreeOperands(fRd w, fRs w, fRt w)
@@ -834,8 +871,12 @@ let private pool32AGrid release w =
     Op.MOVN, None, None, ThreeOperands(fRd w, fRs w, fRt w)
   | 0b011u, 0b0001u when release <> MIPSRelease.R6 ->
     Op.MOVZ, None, None, ThreeOperands(fRd w, fRs w, fRt w)
-  | 0b011u, 0b0100u ->
+  | 0b011u, 0b0100u when release <> MIPSRelease.R6 ->
     Op.LWXS, None, None, TwoOperands(fRd w, memIdx w 32<rt>)
+  | 0b011u, _ when release = MIPSRelease.R6 ->
+    (* Release 6 took the column for the multiplies and divides that write
+       one register; neither of its books has MOVN, MOVZ or LWXS. *)
+    mulDivR6 fst w
   | 0b000u, 0b0101u when release = MIPSRelease.R6 ->
     Op.SELEQZ, None, None, ThreeOperands(fRd w, fRs w, fRt w)
   | 0b000u, 0b0110u when release = MIPSRelease.R6 ->
@@ -991,6 +1032,8 @@ let private pool32S release w =
       Op.DSUB, None, None, ThreeOperands(fRd w, fRs w, fRt w)
     | 0b010u, 0b0111u ->
       Op.DSUBU, None, None, ThreeOperands(fRd w, fRs w, fRt w)
+    | 0b011u, _ when release = MIPSRelease.R6 ->
+      mulDivR6 snd w
     | _ ->
       raise ParsingFailureException
   | 0b100u ->
@@ -1267,10 +1310,19 @@ let private pool32I release w =
     Op.LUI, None, None, TwoOperands(rs, immZ w)
   | 0b01110u when release <> MIPSRelease.R6 ->
     Op.TEQI, None, None, TwoOperands(rs, immS w)
-  | 0b10000u ->
+  | 0b10000u when release <> MIPSRelease.R6 ->
     Op.SYNCI, None, None, OneOperand(memOff w 32<rt>)
   | 0b10001u when release <> MIPSRelease.R6 ->
     Op.BLTZALS, None, None, TwoOperands(rs, rel16 w)
+  (* Release 6 moved SYNCI to 01100 and gave its older place and BLTZALS's
+     to DATI and DAHI, which microMIPS64 alone has (MD00582 revision 6.04,
+     p.338 and Table 7.13; MD00594 revision 6.01, pp.134 and 404). *)
+  | 0b01100u when release = MIPSRelease.R6 ->
+    Op.SYNCI, None, None, OneOperand(memOff w 32<rt>)
+  | 0b10000u when release = MIPSRelease.R6 ->
+    Op.DATI, None, None, TwoOperands(rs, immZ w)
+  | 0b10001u when release = MIPSRelease.R6 ->
+    Op.DAHI, None, None, TwoOperands(rs, immZ w)
   | 0b10011u when release <> MIPSRelease.R6 ->
     Op.BGEZALS, None, None, TwoOperands(rs, rel16 w)
   | 0b01000u when release = MIPSRelease.R6 ->

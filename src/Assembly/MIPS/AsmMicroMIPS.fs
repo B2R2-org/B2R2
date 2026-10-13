@@ -55,10 +55,10 @@ open B2R2.Assembly.MIPS.AsmField
 /// </summary>
 let size ins =
   match ins.Opcode with
-  | Opcode.B | Opcode.JR | Opcode.JRC | Opcode.JALRC | Opcode.JRADDIUSP
-  | Opcode.JRCADDIUSP | Opcode.MOVEP ->
+  | Opcode.B | Opcode.JR | Opcode.JRC | Opcode.JRADDIUSP | Opcode.JRCADDIUSP
+  | Opcode.MOVEP ->
     2
-  | Opcode.JALR | Opcode.JALRS ->
+  | Opcode.JALR | Opcode.JALRS | Opcode.JALRC ->
     (* These have a long form as well, and what tells the two apart is that
        the short one names the register it returns to by leaving it out. *)
     match ins.Operands with
@@ -384,8 +384,6 @@ let private pool32AxfEncoders () =
     Opcode.TNE, trap 0b110u
     Opcode.MFC0, moveCP0 0b000000u 0b00u
     Opcode.MTC0, moveCP0 0b000000u 0b01u
-    Opcode.JALR, twoRegAxf 0b000000u 0b0000u 0b111u
-    Opcode.JALRHB, twoRegAxf 0b000000u 0b0001u 0b111u
     Opcode.SEB, twoRegAxf 0b000000u 0b0010u 0b101u
     Opcode.SEH, twoRegAxf 0b000000u 0b0011u 0b101u
     Opcode.CLO, twoRegAxf 0b000000u 0b0100u 0b101u
@@ -424,9 +422,12 @@ let private pool32AxfEncoders () =
     Opcode.PAUSE, sllOfZero 5u ]
 
 /// The rows of POOL32Axf that Release 6 took away, which are the multiplies
-/// and divides that write HI and LO and the four that read and write them.
+/// and divides that write HI and LO and the four that read and write them,
+/// and the calls through a register that have a delay slot.
 let private pool32AxfPreR6Encoders () =
-  [ Opcode.MULT, mulDiv 0b000000u 0b1000u
+  [ Opcode.JALR, twoRegAxf 0b000000u 0b0000u 0b111u
+    Opcode.JALRHB, twoRegAxf 0b000000u 0b0001u 0b111u
+    Opcode.MULT, mulDiv 0b000000u 0b1000u
     Opcode.MULTU, mulDiv 0b000000u 0b1001u
     Opcode.DIV, mulDiv 0b000000u 0b1010u
     Opcode.DIVU, mulDiv 0b000000u 0b1011u
@@ -455,23 +456,42 @@ let private pool32AEncoders () =
     Opcode.ADDU, threeReg 0b000000u 0b010u 0b0101u
     Opcode.SUB, threeReg 0b000000u 0b010u 0b0110u
     Opcode.SUBU, threeReg 0b000000u 0b010u 0b0111u
-    Opcode.MUL, threeReg 0b000000u 0b010u 0b1000u
     Opcode.AND, threeReg 0b000000u 0b010u 0b1001u
     Opcode.OR, threeReg 0b000000u 0b010u 0b1010u
     Opcode.NOR, threeReg 0b000000u 0b010u 0b1011u
     Opcode.XOR, threeReg 0b000000u 0b010u 0b1100u
     Opcode.SLT, threeReg 0b000000u 0b010u 0b1101u
     Opcode.SLTU, threeReg 0b000000u 0b010u 0b1110u
-    Opcode.LWXS, loadScaled
     Opcode.INS, fieldPair 0b000000u 0b001u (false, false, true)
     Opcode.EXT, fieldPair 0b000000u 0b101u (false, false, false)
     Opcode.BREAK, breakpoint ]
 
-/// The two the grid holds only before Release 6, which took their place for
-/// the select instructions.
-let private pool32AMoveEncoders () =
-  [ Opcode.MOVN, threeReg 0b000000u 0b011u 0b0000u
-    Opcode.MOVZ, threeReg 0b000000u 0b011u 0b0001u ]
+/// The rows the grid holds only before Release 6: MUL's older place, and
+/// the column of MOVN, MOVZ and LWXS, which Release 6 gave to the multiplies
+/// and divides below.
+let private pool32APreR6Encoders () =
+  [ Opcode.MUL, threeReg 0b000000u 0b010u 0b1000u
+    Opcode.MOVN, threeReg 0b000000u 0b011u 0b0000u
+    Opcode.MOVZ, threeReg 0b000000u 0b011u 0b0001u
+    Opcode.LWXS, loadScaled ]
+
+/// <summary>
+/// The rows of POOL32A Release 6 put in their place: the multiplies and
+/// divides that write one register, in column 011 (MD00582 revision 6.04,
+/// pp.182 and 256), and the calls through a register made compact where
+/// JALR and JALR.HB were (pp.202 and 204).
+/// </summary>
+let private pool32AR6Encoders () =
+  [ Opcode.MUL, threeReg 0b000000u 0b011u 0b0000u
+    Opcode.MUH, threeReg 0b000000u 0b011u 0b0001u
+    Opcode.MULU, threeReg 0b000000u 0b011u 0b0010u
+    Opcode.MUHU, threeReg 0b000000u 0b011u 0b0011u
+    Opcode.DIV, threeReg 0b000000u 0b011u 0b0100u
+    Opcode.MOD, threeReg 0b000000u 0b011u 0b0101u
+    Opcode.DIVU, threeReg 0b000000u 0b011u 0b0110u
+    Opcode.MODU, threeReg 0b000000u 0b011u 0b0111u
+    Opcode.JALRC, twoRegAxf 0b000000u 0b0000u 0b111u
+    Opcode.JALRCHB, twoRegAxf 0b000000u 0b0001u 0b111u ]
 
 (* POOL32B and POOL32C, the loads and stores that need four bits of minor
    opcode and so cannot have a major of their own. Both keep the base in the
@@ -675,11 +695,20 @@ let private immPool32I minor width ins =
     wrongOperands ins
 
 /// Encodes <offset>(<base>): the one member that names memory rather than a
-/// register and a number.
-let private synci ins =
+/// register and a number. Release 6 moved it to another minor.
+let private synci minor ins =
   match ins.Operands with
   | OneOperand(Mem(baseReg, offset)) ->
-    word 0b010000u 0b10000u (gpr baseReg) (signed 16 offset)
+    word 0b010000u minor (gpr baseReg) (signed 16 offset)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rs>, <immediate>: DAHI and DATI, which add the immediate to an
+/// upper part of the register and hold it unsigned, as the decoder reads it.
+let private upperImm minor ins =
+  match ins.Operands with
+  | TwoOperands(Rg rs, Im value) ->
+    word 0b010000u minor (gpr rs) (unsigned 16 value)
   | _ ->
     wrongOperands ins
 
@@ -710,13 +739,14 @@ let private pool32IEncoders () =
     Opcode.BNEZC, branchZero 0b00101u
     Opcode.BGTZ, branchZero 0b00110u
     Opcode.BEQZC, branchZero 0b00111u
-    Opcode.LUI, immPool32I 0b01101u 16
-    Opcode.SYNCI, synci ]
+    Opcode.LUI, immPool32I 0b01101u 16 ]
 
 /// The rows of POOL32I that Release 6 took away, which are the branches that
-/// leave a return address behind and the traps on a written number.
+/// leave a return address behind and the traps on a written number, and
+/// SYNCI's older place.
 let private pool32IPreR6Encoders () =
-  [ Opcode.BLTZAL, branchZero 0b00001u
+  [ Opcode.SYNCI, synci 0b10000u
+    Opcode.BLTZAL, branchZero 0b00001u
     Opcode.BGEZAL, branchZero 0b00011u
     Opcode.TLTI, immPool32I 0b01000u 16
     Opcode.TGEI, immPool32I 0b01001u 16
@@ -731,10 +761,15 @@ let private pool32IPreR6Encoders () =
     Opcode.BC2F, branchFP 0b10100u
     Opcode.BC2T, branchFP 0b10101u ]
 
-/// The rows of POOL32I Release 6 added.
+/// The rows of POOL32I Release 6 added, with SYNCI where it moved to and
+/// DATI and DAHI where it and BLTZALS were (MD00582 revision 6.04, p.338;
+/// MD00594 revision 6.01, pp.134 and 404).
 let private pool32IR6Encoders () =
   [ Opcode.BC2EQZC, branchCop2Reg 0b01010u
-    Opcode.BC2NEZC, branchCop2Reg 0b01011u ]
+    Opcode.BC2NEZC, branchCop2Reg 0b01011u
+    Opcode.SYNCI, synci 0b01100u
+    Opcode.DATI, upperImm 0b10000u
+    Opcode.DAHI, upperImm 0b10001u ]
 
 (* POOL32S, which holds the 64-bit members of what POOL32A holds. The layout
    is POOL32A's and so are the minor opcodes: a doubleword instruction sits at
@@ -789,6 +824,19 @@ let private pool32SPreR6Encoders () =
     Opcode.DMULTU, mulDiv 0b010110u 0b1001u
     Opcode.DDIV, mulDiv 0b010110u 0b1010u
     Opcode.DDIVU, mulDiv 0b010110u 0b1011u ]
+
+/// The doubleword multiplies and divides Release 6 put in their place,
+/// which write one register and sit where POOL32A's word ones do (MD00594
+/// revision 6.01, pp.210 and 312).
+let private pool32SR6Encoders () =
+  [ Opcode.DMUL, threeReg 0b010110u 0b011u 0b0000u
+    Opcode.DMUH, threeReg 0b010110u 0b011u 0b0001u
+    Opcode.DMULU, threeReg 0b010110u 0b011u 0b0010u
+    Opcode.DMUHU, threeReg 0b010110u 0b011u 0b0011u
+    Opcode.DDIV, threeReg 0b010110u 0b011u 0b0100u
+    Opcode.DMOD, threeReg 0b010110u 0b011u 0b0101u
+    Opcode.DDIVU, threeReg 0b010110u 0b011u 0b0110u
+    Opcode.DMODU, threeReg 0b010110u 0b011u 0b0111u ]
 
 (* POOL32F, which holds the floating-point unit. Its members are told apart
    the way POOL32A's are, except that the format an instruction reads is
@@ -1577,11 +1625,13 @@ let private releaseEncoders (release: MIPSRelease) =
     r6Encoders ()
     @ r6BranchEncoders ()
     @ r6ExtraEncoders ()
+    @ pool32AR6Encoders ()
     @ pool32IR6Encoders ()
+    @ pool32SR6Encoders ()
     @ pool32BCop2R6Encoders ()
   else
     preR6Encoders ()
-    @ pool32AMoveEncoders ()
+    @ pool32APreR6Encoders ()
     @ pool32AxfPreR6Encoders ()
     @ pool32IPreR6Encoders ()
     @ pool32SPreR6Encoders ()

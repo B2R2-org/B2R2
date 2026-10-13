@@ -112,6 +112,12 @@ type LifterTests() =
     let actual = Array.sub actual 1 (actual.Length - 1)
     CollectionAssert.AreEqual(givenStmts, actual)
 
+  /// microMIPS64 at Release 6, read from big-endian bytes so that the hex is
+  /// the word as the manuals draw it: the major halfword first.
+  let microR6 =
+    let flags = int MIPSISAMode.MicroMIPS ||| int MIPSRelease.R6
+    ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, flags)
+
   [<TestMethod>]
   member _.``[MIPS64] ADD lift test``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
@@ -881,3 +887,199 @@ type LifterTests() =
     let kinds = jumpKinds isa MIPSISAMode.MIPS "0800e003" "00000000"
     let expected = [| InterJmpKind.SwitchToMIPS16; InterJmpKind.SwitchToMIPS |]
     CollectionAssert.AreEqual(expected, kinds)
+
+  /// <summary>
+  /// microMIPS's Release 6 multiplies (MD00582 revision 6.04, p.256) lift as
+  /// the older encoding's Release 6 multiplies do: one register gets the low
+  /// or the high word of the 64-bit product of the two low words, signed or
+  /// unsigned, sign-extended. MUL goes through the MUL every encoding shares,
+  /// which leaves HI and LO UNPREDICTABLE.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] MUL MUH MULU MUHU lift (32r6 p.256)``() =
+    let regFactory = RegisterFactory microR6 :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let lo32 e = AST.xtlo 32<rt> e
+    let hi32 e = AST.xthi 32<rt> e
+    let sx e = AST.sext 64<rt> (lo32 e)
+    let zx e = AST.zext 64<rt> (lo32 e)
+    let t = AST.tmpvar 64<rt> 1
+    let undef = AST.undef 64<rt> "UNPREDICTABLE"
+    "00831018"
+    ++ [| !.R2 := sx (!.R3 .* !.R4)
+          !.HI := undef
+          !.LO := undef |]
+    |> test microR6
+    "00831058"
+    ++ [| t := sx !.R3 .* sx !.R4
+          !.R2 := AST.sext 64<rt> (hi32 t) |]
+    |> test microR6
+    "00831098"
+    ++ [| t := zx !.R3 .* zx !.R4
+          !.R2 := AST.sext 64<rt> (lo32 t) |]
+    |> test microR6
+    "008310d8"
+    ++ [| t := zx !.R3 .* zx !.R4
+          !.R2 := AST.sext 64<rt> (hi32 t) |]
+    |> test microR6
+
+  /// <summary>
+  /// microMIPS's Release 6 divides (MD00582 revision 6.04, p.182) lift as the
+  /// older encoding's do: the quotient or the remainder of the two low words
+  /// into one register, sign-extended. A zero divisor is UNPREDICTABLE and
+  /// guarded, and the most negative word over minus one is the truncated
+  /// quotient, whose remainder is zero.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] DIV MOD DIVU MODU lift (32r6 p.182)``() =
+    let regFactory = RegisterFactory microR6 :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let rs, rt = AST.xtlo 32<rt> !.R3, AST.xtlo 32<rt> !.R4
+    let num0 = AST.num0 32<rt>
+    let intMin = AST.num (BitVector.SignedMin 32<rt>)
+    let isOvf = (rs == intMin) .& (rt == numI64 -1L 32<rt>)
+    let guard e = AST.sext 64<rt> (AST.ite (rt == num0) num0 e)
+    "00831118"
+    ++ [| !.R2 := guard (AST.ite isOvf intMin (AST.sdiv rs rt)) |]
+    |> test microR6
+    "00831158"
+    ++ [| !.R2 := guard (AST.ite isOvf num0 (AST.smod rs rt)) |]
+    |> test microR6
+    "00831198"
+    ++ [| !.R2 := guard (AST.div rs rt) |]
+    |> test microR6
+    "008311d8"
+    ++ [| !.R2 := guard (AST.(mod) rs rt) |]
+    |> test microR6
+
+  /// <summary>
+  /// DDIV, DMOD, DDIVU and DMODU (MD00594 revision 6.01, p.210) lift as the
+  /// older encoding's Release 6 forms do: the whole doublewords, with the
+  /// same two guards as the word forms.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] DDIV DMOD DDIVU DMODU lift (64r6 p.210)``() =
+    let regFactory = RegisterFactory microR6 :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let rs, rt = !.R3, !.R4
+    let num0 = AST.num0 64<rt>
+    let intMin = AST.num (BitVector.SignedMin 64<rt>)
+    let isOvf = (rs == intMin) .& (rt == numI64 -1L 64<rt>)
+    let guard e = AST.ite (rt == num0) num0 e
+    "58831118"
+    ++ [| !.R2 := guard (AST.ite isOvf intMin (AST.sdiv rs rt)) |]
+    |> test microR6
+    "58831158"
+    ++ [| !.R2 := guard (AST.ite isOvf num0 (AST.smod rs rt)) |]
+    |> test microR6
+    "58831198"
+    ++ [| !.R2 := guard (AST.div rs rt) |]
+    |> test microR6
+    "588311d8"
+    ++ [| !.R2 := guard (AST.(mod) rs rt) |]
+    |> test microR6
+
+  /// <summary>
+  /// DMUL, DMUH, DMULU and DMUHU (MD00594 revision 6.01, p.312) lift as the
+  /// older encoding's do: the 128-bit product of the two doublewords, signed
+  /// or unsigned, of which one register gets the low or the high half.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] DMUL DMUH DMULU DMUHU lift (64r6 p.312)``() =
+    let regFactory = RegisterFactory microR6 :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let sx e = AST.sext 128<rt> e
+    let zx e = AST.zext 128<rt> e
+    let t = AST.tmpvar 128<rt> 1
+    "58831018"
+    ++ [| t := sx !.R3 .* sx !.R4
+          !.R2 := AST.xtlo 64<rt> t |]
+    |> test microR6
+    "58831058"
+    ++ [| t := sx !.R3 .* sx !.R4
+          !.R2 := AST.xthi 64<rt> t |]
+    |> test microR6
+    "58831098"
+    ++ [| t := zx !.R3 .* zx !.R4
+          !.R2 := AST.xtlo 64<rt> t |]
+    |> test microR6
+    "588310d8"
+    ++ [| t := zx !.R3 .* zx !.R4
+          !.R2 := AST.xthi 64<rt> t |]
+    |> test microR6
+
+  /// <summary>
+  /// JALRC and JALRC.HB (MD00582 revision 6.04, pp.202 to 205) jump from the
+  /// instruction itself, with no delay slot, and link "PC + 4" with the ISA
+  /// mode in bit 0, which section 2.4 has every jump-and-link-register
+  /// instruction save. Before Release 6 the same words are JALR and JALR.HB,
+  /// which leave the same jump armed for the slot after them.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] JALRC and JALRC.HB have no slot (32r6 p.202)``() =
+    let regs = RegisterFactory microR6 :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let link = var R31 := (var PC .+ numI32 4 64<rt>) .| AST.num1 64<rt>
+    let call = InterJmpKind.IsCall
+    let jumps =
+      [| call ||| InterJmpKind.SwitchToMicroMIPS
+         call ||| InterJmpKind.SwitchToMIPS |]
+    let preR6 = int MIPSISAMode.MicroMIPS
+    let pre = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, preR6)
+    let micro = MIPSISAMode.MicroMIPS
+    (* JALRC ra, a1 and JALRC.HB ra, a1, each with a NOP after it *)
+    for hex in [ "03e50f3c"; "03e51f3c" ] do
+      let stmts = lifted microR6 hex
+      let own =
+        stmts
+        |> Array.choose (function
+          | InterJmp(Kind = kind) -> Some kind
+          | _ -> None)
+      CollectionAssert.AreEqual(jumps, own, hex)
+      let slot = jumpKinds microR6 micro hex "00000000"
+      CollectionAssert.AreEqual(Array.empty<InterJmpKind>, slot, hex)
+      CollectionAssert.AreEqual(jumps, jumpKinds pre micro hex "00000000", hex)
+      CollectionAssert.Contains(stmts, link, hex)
+
+  /// <summary>
+  /// DAHI and DATI (MD00594 revision 6.01, p.134) add the immediate shifted
+  /// into the upper halves of the register they name:
+  /// "GPR[rs] &lt;- GPR[rs] + sign_extend(immediate &lt;&lt; 32)", and 48
+  /// for DATI. With v1 = 0x12345678 and an immediate of 0x1234 that is
+  /// 0x0000123412345678 and 0x1234000012345678.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] DAHI and DATI lift (64r6 p.134)``() =
+    let regs = RegisterFactory microR6 :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let inputs = [ var R3, BitVector(0x12345678UL, 64<rt>) ]
+    let after hex =
+      (IRRunner.run (lifted microR6 hex) inputs (var R3)).ToUInt64()
+    (* DAHI v1, 0x1234 and DATI v1, 0x1234 *)
+    Assert.AreEqual<uint64>(0x0000123412345678UL, after "42231234")
+    Assert.AreEqual<uint64>(0x1234000012345678UL, after "42031234")
+
+  /// SYNCI at Release 6 (MD00582 revision 6.04, p.338) lifts as SYNCI does in
+  /// the older encoding: to no statement at all.
+  [<TestMethod>]
+  member _.``[microMIPS64R6] SYNCI lifts to nothing (32r6 p.338)``() =
+    (* SYNCI 8(a0) *)
+    "41840008" ++ [||] |> test microR6
+
+  /// <summary>
+  /// ADDU16 and SUBU16 at Release 6 (MD00582 revision 6.04, pp.71 and 105)
+  /// write rd, bits 3..1, from rs, bits 9..7, and rt, bits 6..4:
+  /// "GPR[rd] &lt;- GPR[rs] + GPR[rt]". With v1 = 10 and a0 = 3, the
+  /// halfwords 05c4 and 05c5 leave 13 and 7 in v0, and v1 as it was.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] ADDU16 and SUBU16 write rd (32r6 p.71)``() =
+    let regs = RegisterFactory microR6 :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let inputs =
+      [ var R3, BitVector(10UL, 64<rt>)
+        var R4, BitVector(3UL, 64<rt>) ]
+    for hex, result in [ "05c4", 13UL; "05c5", 7UL ] do
+      let read = IRRunner.run (lifted microR6 hex) inputs
+      Assert.AreEqual<uint64>(result, (read (var R2)).ToUInt64(), hex)
+      Assert.AreEqual<uint64>(10UL, (read (var R3)).ToUInt64(), hex)

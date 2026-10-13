@@ -86,6 +86,26 @@ type MicroMIPSParserTests() =
       Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
       Assert.AreEqual<Operands>(operandsFromArray oprs, ins.Operands, hex)
 
+  /// One instruction at a release and a word size, read from big-endian
+  /// bytes so that the hex is the word as the manuals draw it: the halfword
+  /// holding the major opcode first.
+  let parseAt release wordSize (hex: string) =
+    let flags = int MIPSISAMode.MicroMIPS ||| int release
+    let isa = ISA(Architecture.MIPS, Endian.Big, wordSize, flags)
+    let p = Parser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString hex
+    p.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+
+  let testR6 wordSize (cases: (string * (Opcode * Operand list)) list) =
+    for hex, (opcode, oprs) in cases do
+      let ins = parseAt MIPSRelease.R6 wordSize hex
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
+      Assert.AreEqual<Operands>(operandsFromArray oprs, ins.Operands, hex)
+
+  let refusesAt release wordSize hex =
+    Assert.ThrowsExactly<ParsingFailureException>((fun () ->
+      parseAt release wordSize hex |> ignore), hex) |> ignore
+
   /// <summary>
   /// POOL16A and POOL16B, whose destination field is the TOPMOST of the
   /// three rather than the last.
@@ -784,6 +804,148 @@ type MicroMIPSParserTests() =
       Assert.ThrowsExactly<ParsingFailureException>((fun () ->
         parse pre hex |> ignore), hex) |> ignore
     Assert.AreEqual<Opcode>(LWL, (parse pre "60440000").Opcode)
+
+  /// <summary>
+  /// MUL, MUH, MULU and MUHU, which write one register where the older
+  /// multiplies write HI and LO (MD00582 revision 6.04, p.256): POOL32A's
+  /// column 011, rows 0000 to 0011. The older MUL's place, row 1000 of
+  /// column 010, is reserved at Release 6 (Table 7.4).
+  ///
+  /// binutils refuses microMIPS at Release 6 and QEMU runs none of it, so
+  /// what each word here and below is checked against is the manual and
+  /// nothing else: the encodings match the manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 MUL MUH MULU MUHU decode (32r6 p.256)``() =
+    let oprs = [ O.Reg R2; O.Reg R3; O.Reg R4 ]
+    testR6 WordSize.Bit32
+      [ "00831018", (MUL, oprs)
+        "00831058", (MUH, oprs)
+        "00831098", (MULU, oprs)
+        "008310d8", (MUHU, oprs) ]
+    refusesAt MIPSRelease.R6 WordSize.Bit32 "00831210"
+    let older = parseAt MIPSRelease.PreR6 WordSize.Bit32 "00831210"
+    Assert.AreEqual<Opcode>(MUL, older.Opcode)
+
+  /// <summary>
+  /// DIV, MOD, DIVU and MODU (MD00582 revision 6.04, p.182): rows 0100 to
+  /// 0111 of the same column. Row 0100 is where LWXS sits before Release 6,
+  /// and neither Release 6 book has LWXS, so the word is DIV at Release 6
+  /// and LWXS only before it. The encodings match the manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 DIV MOD DIVU MODU decode (32r6 p.182)``() =
+    let oprs = [ O.Reg R2; O.Reg R3; O.Reg R4 ]
+    testR6 WordSize.Bit32
+      [ "00831118", (DIV, oprs)
+        "00831158", (MOD, oprs)
+        "00831198", (DIVU, oprs)
+        "008311d8", (MODU, oprs) ]
+    let older = parseAt MIPSRelease.PreR6 WordSize.Bit32 "00831118"
+    Assert.AreEqual<Opcode>(LWXS, older.Opcode)
+
+  /// <summary>
+  /// JALRC and JALRC.HB (MD00582 revision 6.04, pp.202 and 204), which take
+  /// the places POOL32Axf gives JALR and JALR.HB before Release 6. They are
+  /// not the older jumps under new names: a compact jump has no delay slot
+  /// and links the address right after itself. The encodings match the
+  /// manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 JALRC and JALRC.HB decode (32r6 pp.202 204)``() =
+    let oprs = [ O.Reg R31; O.Reg R5 ]
+    testR6 WordSize.Bit32
+      [ "03e50f3c", (JALRC, oprs)
+        "03e51f3c", (JALRCHB, oprs) ]
+    let older = parseAt MIPSRelease.PreR6 WordSize.Bit32 "03e51f3c"
+    Assert.AreEqual<Opcode>(JALRHB, older.Opcode)
+
+  /// <summary>
+  /// DAHI and DATI (MD00594 revision 6.01, p.134), POOL32I's minors 10001
+  /// and 10000, with the sixteen-bit immediate unsigned as the older
+  /// encoding's DAHI and DATI hold it. 10000 is where SYNCI sits before
+  /// Release 6. Both are microMIPS64 instructions, so a 32-bit decoder
+  /// refuses them; the microMIPS32 book leaves both minors reserved (Table
+  /// 7.13). The encodings match the manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 DAHI and DATI decode (64r6 p.134)``() =
+    testR6 WordSize.Bit64
+      [ "4223f234", (DAHI, [ O.Reg R3; O.Imm 0xf234UL ])
+        "4203f234", (DATI, [ O.Reg R3; O.Imm 0xf234UL ]) ]
+    for hex in [ "4223f234"; "4203f234" ] do
+      refusesAt MIPSRelease.R6 WordSize.Bit32 hex
+
+  /// <summary>
+  /// DDIV, DMOD, DDIVU and DMODU (MD00594 revision 6.01, p.210): POOL32S's
+  /// column 011, rows 0100 to 0111, where DIV and its family sit in POOL32A.
+  /// The page labels the three register fields of these four rd, rs, rt from
+  /// the top, against rt, rs, rd for DIV on the same page and for DMUL on
+  /// p.312; rd is bits 15..11 here as everywhere else in the pool. A 32-bit
+  /// decoder refuses them. The encodings match the manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 DDIV DMOD DDIVU DMODU decode (64r6 p.210)``() =
+    let oprs = [ O.Reg R2; O.Reg R3; O.Reg R4 ]
+    let cases =
+      [ "58831118", (DDIV, oprs)
+        "58831158", (DMOD, oprs)
+        "58831198", (DDIVU, oprs)
+        "588311d8", (DMODU, oprs) ]
+    testR6 WordSize.Bit64 cases
+    for hex, _ in cases do
+      refusesAt MIPSRelease.R6 WordSize.Bit32 hex
+
+  /// <summary>
+  /// DMUL, DMUH, DMULU and DMUHU (MD00594 revision 6.01, p.312): POOL32S's
+  /// column 011, rows 0000 to 0011. A 32-bit decoder refuses them. The
+  /// encodings match the manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 DMUL DMUH DMULU DMUHU decode (64r6 p.312)``() =
+    let oprs = [ O.Reg R2; O.Reg R3; O.Reg R4 ]
+    let cases =
+      [ "58831018", (DMUL, oprs)
+        "58831058", (DMUH, oprs)
+        "58831098", (DMULU, oprs)
+        "588310d8", (DMUHU, oprs) ]
+    testR6 WordSize.Bit64 cases
+    for hex, _ in cases do
+      refusesAt MIPSRelease.R6 WordSize.Bit32 hex
+
+  /// <summary>
+  /// SYNCI at Release 6 is POOL32I's minor 01100 (MD00582 revision 6.04,
+  /// p.338; MD00594 revision 6.01, p.404), at both word sizes. Its older
+  /// place, 10000, is reserved in the microMIPS32 book and DATI in the
+  /// microMIPS64 one, so it is SYNCI at neither. The encodings match the
+  /// manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 SYNCI moved to 01100 (32r6 p.338 64r6 p.404)``() =
+    let synci = [ O.Mem(R4, 8L, 32<rt>) ]
+    testR6 WordSize.Bit32 [ "41840008", (SYNCI, synci) ]
+    testR6 WordSize.Bit64 [ "41840008", (SYNCI, synci) ]
+    refusesAt MIPSRelease.R6 WordSize.Bit32 "42040008"
+    testR6 WordSize.Bit64 [ "42040008", (DATI, [ O.Reg R4; O.Imm 8UL ]) ]
+    let older = parseAt MIPSRelease.PreR6 WordSize.Bit32 "42040008"
+    Assert.AreEqual<Opcode>(SYNCI, older.Opcode)
+
+  /// <summary>
+  /// ADDU16 and SUBU16 at Release 6 (MD00582 revision 6.04, pp.71 and 105;
+  /// MD00594 revision 6.01, pp.72 and 113). Both books draw rs in bits 9..7,
+  /// rt in 6..4 and rd in 3..1, and say that each "has been recoded for
+  /// Release 6". Before it the destination is the topmost field, as binutils
+  /// writes it, so the same halfword names different registers in the two
+  /// releases. The encodings match the manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 ADDU16 SUBU16 put rd last (32r6 p.71 p.105)``() =
+    let oprs = [ O.Reg R2; O.Reg R3; O.Reg R4 ]
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      testR6 wordSize [ "05c4", (ADDU, oprs); "05c5", (SUBU, oprs) ]
+    let older = parseAt MIPSRelease.PreR6 WordSize.Bit32 "05c5"
+    let olderOprs = ThreeOperands(O.Reg R3, O.Reg R2, O.Reg R4)
+    Assert.AreEqual<Operands>(olderOprs, older.Operands)
 
   /// LDP, LDM, SDP and SDM move doublewords, and microMIPS64 alone has them
   /// (microMIPS64 Release 5, POOL32B): a 32-bit decoder refuses them, as it

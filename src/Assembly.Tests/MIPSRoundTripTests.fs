@@ -580,6 +580,47 @@ type MIPSRoundTripTests() =
     )
 
   /// <summary>
+  /// The Release 6 microMIPS words the decoder took from the manuals -- the
+  /// multiplies and divides that write one register, the 32-bit compact
+  /// jumps, DAHI, DATI and SYNCI's new place -- are what the assembler
+  /// writes (MD00582 revision 6.04, pp.182, 202, 204, 256 and 338; MD00594
+  /// revision 6.01, pp.134, 210 and 312). The sweep holds the assembler to
+  /// the decoder, which a decoder and an assembler wrong the same way pass;
+  /// this holds both to the page, the one witness Release 6 microMIPS has.
+  /// </summary>
+  [<TestMethod>]
+  member _.``Release 6 microMIPS writes the words the manuals draw``() =
+    let cases =
+      [ "mul v0, v1, a0", 0x00831018u
+        "muh v0, v1, a0", 0x00831058u
+        "mulu v0, v1, a0", 0x00831098u
+        "muhu v0, v1, a0", 0x008310d8u
+        "div v0, v1, a0", 0x00831118u
+        "mod v0, v1, a0", 0x00831158u
+        "divu v0, v1, a0", 0x00831198u
+        "modu v0, v1, a0", 0x008311d8u
+        "jalrc ra, a1", 0x03e50f3cu
+        "jalrc.hb ra, a1", 0x03e51f3cu
+        "dahi v1, 0xf234", 0x4223f234u
+        "dati v1, 0xf234", 0x4203f234u
+        "ddiv v0, v1, a0", 0x58831118u
+        "dmod v0, v1, a0", 0x58831158u
+        "ddivu v0, v1, a0", 0x58831198u
+        "dmodu v0, v1, a0", 0x588311d8u
+        "dmul v0, v1, a0", 0x58831018u
+        "dmuh v0, v1, a0", 0x58831058u
+        "dmulu v0, v1, a0", 0x58831098u
+        "dmuhu v0, v1, a0", 0x588310d8u
+        "synci 8(a0)", 0x41840008u ]
+    for source, word in cases do
+      let expected = ByteArray.toHexString (MicroMIPSSweep.bytesOf word)
+      let actual =
+        encodeFirst assemblerMicroR6 source
+        |> Option.map ByteArray.toHexString
+        |> Option.defaultValue "-"
+      Assert.AreEqual<string>(expected, actual, source)
+
+  /// <summary>
   /// The extended I64 forms, which the sweep cannot build (it follows every
   /// halfword with a NOP): each decodes to the sixteen-bit immediate the
   /// prefix widens, and the assembler writes the same two halfwords back.

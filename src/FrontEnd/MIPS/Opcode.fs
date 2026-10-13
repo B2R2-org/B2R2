@@ -872,5 +872,8 @@ type Opcode =
   /// Branch if Coprocessor 1 Register Bit 0 Not Equal to Zero, the compact
   /// form (microMIPS Release 6).
   | BC1NEZC = 402
+  /// Jump and Link Register Compact with Hazard Barrier (microMIPS Release
+  /// 6).
+  | JALRCHB = 403
 
 type internal Op = Opcode

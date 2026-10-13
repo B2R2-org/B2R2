@@ -136,6 +136,7 @@ let private irregularNames =
     Opcode.TRUNCL, "trunc.l"
     Opcode.TRUNCW, "trunc.w"
     Opcode.JALRHB, "jalr.hb"
+    Opcode.JALRCHB, "jalrc.hb"
     Opcode.JALRSHB, "jalrs.hb"
     Opcode.JRHB, "jr.hb"
     (* The paired-single names carry the format in the name rather than in a
