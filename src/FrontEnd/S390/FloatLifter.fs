@@ -528,6 +528,192 @@ let extTestDataClass ins bld =
                            (numCC 1)
     }
 
+/// The two registers of a conversion, ahead of any rounding masks.
+let private headOprs (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(a, b) | ThreeOperands(a, b, _) | FourOperands(a, b, _, _) ->
+    struct (a, b)
+  | _ ->
+    raise InvalidOperandException
+
+#if EMULATION
+(* The emulator computes the extended format exactly, through BRemu's
+   Float128: each arithmetic instruction, and each conversion that rounds or
+   widens, is one call on the two words of every register pair it reads. *)
+
+/// Calls a Float128 operation, the 128-bit word it gives back held in a
+/// temporary: a value as its pair holds it, the even register's word in the
+/// high half and its partner's in the low.
+let private f128Call bld name args =
+  let t = tmpVar bld 128<rt>
+  append bld {
+    t := AST.app name args 128<rt>
+  }
+  t
+
+/// Writes a Float128 value to a register pair.
+let private putPair bld dhi dlo t =
+  append bld {
+    dhi := AST.xthi 64<rt> t
+    dlo := AST.xtlo 64<rt> t
+  }
+
+/// A widening to the extended format, which loses nothing; a signalling NaN
+/// comes out quieted.
+let extFromNarrow ins bld fromRt =
+  let struct (o1, o2) = headOprs ins
+  if not (startsPair (oprReg o1)) then
+    specException ins bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    let name = if fromRt = LongFP then "F128OFF64" else "F128OFF32"
+    lift bld (ins: Instruction) {
+      let raw =
+        match o2 with
+        | OpReg r -> zextTo 64<rt> (fpPart fromRt (reg bld r))
+        | _ -> zextTo 64<rt> (loadMem fromRt (transMem bld o2))
+      let t = f128Call bld name [ raw ]
+      putPair bld dhi dlo t
+    }
+
+/// The FPC's rounding field, which is the direction an instruction rounds in
+/// unless it names one. Float128 reads it in the FPC's own numbering.
+let private fpcRounding bld =
+  AST.zext 64<rt> (reg bld Register.FPC) .& numI64 7L 64<rt>
+
+/// The direction a conversion's modifier names, in the FPC's numbering with 4
+/// for to nearest with ties away from zero; a modifier of zero, and one the
+/// architecture leaves invalid, says to round as the FPC does.
+let private roundingOf bld (m: Mask) =
+  match m &&& 0xfus with
+  | 1us -> numI64 4L 64<rt>
+  | 3us -> numI64 7L 64<rt>
+  | 4us -> AST.num0 64<rt>
+  | 5us -> AST.num1 64<rt>
+  | 6us -> numI64 2L 64<rt>
+  | 7us -> numI64 3L 64<rt>
+  | _ -> fpcRounding bld
+
+/// A narrowing from the extended format, rounded in the direction the
+/// modifier names.
+let extToNarrow ins bld toRt =
+  let struct (o1, o2, m) = convOprs ins
+  if not (startsPair (oprReg o2)) then
+    specException ins bld
+  else
+    let d = oprRegVar bld o1
+    let struct (shi, slo) = extPair bld (oprReg o2)
+    let name = if toRt = LongFP then "F128TOF64" else "F128TOF32"
+    lift bld (ins: Instruction) {
+      let v = AST.app name [ roundingOf bld m; shi; slo ] 64<rt>
+      fpPart toRt d := narrowTo toRt v
+    }
+
+/// A conversion from a fixed-point value to the extended format, which is
+/// exact: a 112-bit fraction holds any integer a register can.
+let extFromInt ins bld intW signed =
+  let struct (o1, o2, _) = convOprs ins
+  if not (startsPair (oprReg o1)) then
+    specException ins bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    let src = oprRegVar bld o2
+    let name = if signed then "F128OFSINT" else "F128OFUINT"
+    lift bld (ins: Instruction) {
+      let v =
+        if intW = GRSize then src
+        elif signed then AST.sext 64<rt> (AST.xtlo intW src)
+        else AST.zext 64<rt> (AST.xtlo intW src)
+      let t = f128Call bld name [ v ]
+      putPair bld dhi dlo t
+    }
+
+/// CONVERT TO FIXED and CONVERT TO LOGICAL from the extended format: the
+/// value rounded as the modifier says, and the condition code, which Float128
+/// works out with it -- the sign of the source, or 3 for a NaN or a value out
+/// of range, which gives the bound on its side.
+let extToInt ins bld intW signed =
+  let struct (o1, o2, m) = convOprs ins
+  if not (startsPair (oprReg o2)) then
+    specException ins bld
+  else
+    let d = oprRegVar bld o1
+    let struct (shi, slo) = extPair bld (oprReg o2)
+    let name = if signed then "F128TOSINT" else "F128TOUINT"
+    let width = numI64 (int64 (RegType.toBitWidth intW)) 64<rt>
+    lift bld (ins: Instruction) {
+      let t = f128Call bld name [ roundingOf bld m; shi; slo; width ]
+      ccVar bld := AST.xtlo CCSize (AST.xthi 64<rt> t)
+      if intW = GRSize then append bld { d := AST.xtlo 64<rt> t }
+      else append bld { low d := AST.xtlo intW t }
+    }
+
+/// The arithmetic of the extended format, rounded as the FPC says: the pair
+/// the first operand names is combined with the second's into the first.
+/// Addition and subtraction report how the result stands against zero, as
+/// their narrower kin do.
+let private extDyadic ins bld name setsCC =
+  let struct (o1, o2) = getTwoOprs ins
+  if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
+    specException ins bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    let struct (shi, slo) = extPair bld (oprReg o2)
+    lift bld (ins: Instruction) {
+      let t = f128Call bld name [ fpcRounding bld; dhi; dlo; shi; slo ]
+      putPair bld dhi dlo t
+      if setsCC then setCCExt bld dhi dlo else ()
+    }
+
+let extAdd ins bld = extDyadic ins bld "F128ADD" true
+
+let extSub ins bld = extDyadic ins bld "F128SUB" true
+
+let extMul ins bld = extDyadic ins bld "F128MUL" false
+
+let extDiv ins bld = extDyadic ins bld "F128DIV" false
+
+/// SQUARE ROOT of an extended value.
+let extSqrt ins bld =
+  let struct (o1, o2) = getTwoOprs ins
+  if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
+    specException ins bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    let struct (shi, slo) = extPair bld (oprReg o2)
+    lift bld (ins: Instruction) {
+      let t = f128Call bld "F128SQRT" [ fpcRounding bld; shi; slo ]
+      putPair bld dhi dlo t
+    }
+
+/// MULTIPLY (long to extended), whose operands are two long values and whose
+/// product fills a register pair, exactly. The first of them is the long
+/// value in the pair's even register.
+let extMulLong ins bld =
+  let struct (o1, o2) = getTwoOprs ins
+  if not (startsPair (oprReg o1)) then
+    specException ins bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    lift bld (ins: Instruction) {
+      let t = f128Call bld "F128MULD" [ dhi; fpSrc bld LongFP o2 ]
+      putPair bld dhi dlo t
+    }
+
+/// LOAD FP INTEGER of an extended value, rounded in the direction the
+/// modifier names.
+let extRoundToInt ins bld =
+  let struct (o1, o2, m) = convOprs ins
+  if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
+    specException ins bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    let struct (shi, slo) = extPair bld (oprReg o2)
+    lift bld (ins: Instruction) {
+      let t = f128Call bld "F128RNDINT" [ roundingOf bld m; shi; slo ]
+      putPair bld dhi dlo t
+    }
+#else
 /// Where a fraction of the given width sits in an extended value's two words:
 /// forty-eight of its bits fit in the even register and the rest spill into
 /// its partner, left-aligned there.
@@ -548,14 +734,6 @@ let private extJoinFrac hi lo fbits =
   else
     (top << numI64 (int64 fbits - 48L) 64<rt>)
     .| (lo >> numI64 (112L - int64 fbits) 64<rt>)
-
-/// The two registers of a conversion, ahead of any rounding masks.
-let private headOprs (ins: Instruction) =
-  match ins.Operands with
-  | TwoOperands(a, b) | ThreeOperands(a, b, _) | FourOperands(a, b, _, _) ->
-    struct (a, b)
-  | _ ->
-    raise InvalidOperandException
 
 /// A widening to the extended format, which loses nothing: a longer fraction
 /// holds a shorter one exactly, so this is a matter of moving the fields.
@@ -695,7 +873,7 @@ let extFromInt ins bld intW signed =
 
 /// A conversion from the extended format to a fixed-point value, truncating
 /// toward zero, which is exact for anything the integer can hold.
-let extToInt ins bld intW =
+let extToInt ins bld intW (_: bool) =
   let struct (o1, o2, _) = convOprs ins
   if not (startsPair (oprReg o2)) then
     specException ins bld
@@ -771,7 +949,7 @@ let private extPutDouble bld dhi dlo src =
 /// back: a program that asked for the extra precision gets an answer good to
 /// 53 bits rather than 113. Addition and subtraction report how the result
 /// stands against zero, as their narrower kin do.
-let extArith ins bld f setsCC =
+let private extArith ins bld f setsCC =
   let struct (o1, o2) = getTwoOprs ins
   if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
     specException ins bld
@@ -784,6 +962,14 @@ let extArith ins bld f setsCC =
       if setsCC then setCCFloat bld r (AST.num0 64<rt>) else ()
       extPutDouble bld dhi dlo r
     }
+
+let extAdd ins bld = extArith ins bld AST.fadd true
+
+let extSub ins bld = extArith ins bld AST.fsub true
+
+let extMul ins bld = extArith ins bld AST.fmul false
+
+let extDiv ins bld = extArith ins bld AST.fdiv false
 
 /// SQUARE ROOT of an extended value, in the same double precision.
 let extSqrt ins bld =
@@ -828,6 +1014,8 @@ let extRoundToInt ins bld =
       r := underRounding (maskRounding m) v
       extPutDouble bld dhi dlo r
     }
+
+#endif
 
 /// SET and EXTRACT of the floating-point control register, which a program
 /// reads and writes to choose a rounding mode and to see which exceptions it

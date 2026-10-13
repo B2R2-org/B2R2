@@ -895,18 +895,22 @@ let private liftExtFloat ins bld opcode =
     FloatLifter.extFromInt ins bld WSize false
   | Opcode.CXLGBR ->
     FloatLifter.extFromInt ins bld GRSize false
-  | Opcode.CFXBR | Opcode.CFXBRA | Opcode.CLFXBR ->
-    FloatLifter.extToInt ins bld WSize
-  | Opcode.CGXBR | Opcode.CGXBRA | Opcode.CLGXBR ->
-    FloatLifter.extToInt ins bld GRSize
+  | Opcode.CFXBR | Opcode.CFXBRA ->
+    FloatLifter.extToInt ins bld WSize true
+  | Opcode.CLFXBR ->
+    FloatLifter.extToInt ins bld WSize false
+  | Opcode.CGXBR | Opcode.CGXBRA ->
+    FloatLifter.extToInt ins bld GRSize true
+  | Opcode.CLGXBR ->
+    FloatLifter.extToInt ins bld GRSize false
   | Opcode.AXBR ->
-    FloatLifter.extArith ins bld AST.fadd true
+    FloatLifter.extAdd ins bld
   | Opcode.SXBR ->
-    FloatLifter.extArith ins bld AST.fsub true
+    FloatLifter.extSub ins bld
   | Opcode.MXBR ->
-    FloatLifter.extArith ins bld AST.fmul false
+    FloatLifter.extMul ins bld
   | Opcode.DXBR ->
-    FloatLifter.extArith ins bld AST.fdiv false
+    FloatLifter.extDiv ins bld
   | Opcode.SQXBR ->
     FloatLifter.extSqrt ins bld
   | Opcode.MXDBR | Opcode.MXDB ->
