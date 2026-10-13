@@ -1933,14 +1933,24 @@ let compactBranchLinkZ ins bld cmp =
     updatePCCondCompact ins bld offset cond
   }
 
+/// Whether a 64-bit register holds something other than a sign-extended
+/// word, which the pseudocode calls NotWordValue.
+let private notWordValue e = AST.sext 64<rt> (AST.xtlo 32<rt> e) != e
+
 /// BOVC and BNVC branch on whether the 32-bit signed sum of their operands
-/// overflows. They compute no sum -- the test is the whole instruction.
+/// overflows. They compute no sum -- the test is the whole instruction. On a
+/// 64-bit processor an operand that is not a sign-extended word counts as an
+/// overflow too: "input_overflow &lt;- NotWordValue(GPR[rs]) or
+/// NotWordValue(GPR[rt])" (MD00594 revision 6.01, p.155).
 let branchOverflowCompact ins bld taken =
   lift bld ins {
     let rs, rt, offset = transThreeOprs ins bld
     let t = tmpVar bld bld.RegType
     t := rs .+ rt
     let ovf = checkOverflowOnAdd rs rt t
+    let ovf =
+      if is32Bit bld then ovf
+      else ovf .| notWordValue rs .| notWordValue rt
     updatePCCondCompact ins bld offset (if taken then ovf else AST.not ovf)
   }
 

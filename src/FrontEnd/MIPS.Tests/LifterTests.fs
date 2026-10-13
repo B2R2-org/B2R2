@@ -1219,3 +1219,31 @@ type LifterTests() =
           | InterJmp(Target = t; Kind = k) when t = masked -> Some k
           | _ -> None)
       CollectionAssert.AreEqual(jumps kind, kinds, hex)
+
+  /// <summary>
+  /// On a 64-bit processor BOVC and BNVC count an operand that is not a
+  /// sign-extended word as an overflow: "input_overflow &lt;-
+  /// NotWordValue(GPR[rs]) or NotWordValue(GPR[rt])", and "BOVC: cond &lt;-
+  /// sum_overflow or input_overflow" (MD00594 revision 6.01, p.155). These
+  /// looked at the low words alone, so 0x100000000 plus zero did not
+  /// overflow and BOVC a5, a0 was not taken, BNVC s5, zero taken.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] BOVC and BNVC check their inputs are words``() =
+    let regs = RegisterFactory microR6 :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let taken hex first second (a: uint64) =
+      let stmts =
+        lifted microR6 hex
+        |> Array.map (function
+          | InterCJmp(Cond = c) -> var NPC := AST.zext 64<rt> c
+          | stmt -> stmt)
+      let zero = BitVector(0UL, 64<rt>)
+      let inputs = [ var first, BitVector(a, 64<rt>); var second, zero ]
+      (IRRunner.run stmts inputs (var NPC)).ToUInt64() = 1UL
+    let bovc = taken "7489800d" R9 R4
+    Assert.AreEqual<bool>(true, bovc 0x100000000UL)
+    Assert.AreEqual<bool>(false, bovc 0xffffffff80000000UL)
+    let bnvc = taken "7c150007" R21 R0
+    Assert.AreEqual<bool>(false, bnvc 0x100000000UL)
+    Assert.AreEqual<bool>(true, bnvc 0x7fffffffUL)
