@@ -1224,6 +1224,20 @@ type ManualLifterTests3() =
     check false "f3010d02" inputs outputs
 
   /// <summary>
+  /// A8.8.363 VPADD, the integer forms: vpadd.i16 d0, d1, d2. The pairs of Dn
+  /// fill the low half of Dd and the pairs of Dm the high half; the outputs are
+  /// computed from the manual's Operation, over lanes at each extreme of their
+  /// type.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A8.8.363 VPADD (integer)``() =
+    let inputs =
+      [ [ D(0, 0x5555555555555555UL)
+          D(1, 0x80017ffe05fa7f80UL)
+          D(2, 0x00ff01028081fe7fUL) ] ]
+    check false "f2110b12" inputs [ [ D(0, 0x02017f00ffff857aUL) ] ]
+
+  /// <summary>
   /// A8.8.365 VPADDL: vpaddl.s32 q0, q2. The outputs are what QEMU left after
   /// running it on the inputs, three runs paired by position.
   /// </summary>
@@ -1274,6 +1288,21 @@ type ManualLifterTests3() =
     check false "f3010f02" inputs outputs
 
   /// <summary>
+  /// A8.8.366 VPMAX, the integer forms: vpmax.s8 d0, d1, d2; vpmax.s16 d0, d1,
+  /// d2. The pairs of Dn fill the low half of Dd and the pairs of Dm the high
+  /// half; the outputs are computed from the manual's Operation, over lanes at
+  /// each extreme of their type.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A8.8.366 VPMAX (integer)``() =
+    let inputs =
+      [ [ D(0, 0x5555555555555555UL)
+          D(1, 0x80017ffe05fa7f80UL)
+          D(2, 0x00ff01028081fe7fUL) ] ]
+    check false "f2010a02" inputs [ [ D(0, 0x0002817f017f057fUL) ] ]
+    check false "f2110a02" inputs [ [ D(0, 0x0102fe7f7ffe7f80UL) ] ]
+
+  /// <summary>
   /// A8.8.366 VPMIN: vpmin.f32 d0, d1, d2. The outputs are what QEMU left after
   /// running it on the inputs, three runs paired by position.
   /// </summary>
@@ -1297,6 +1326,21 @@ type ManualLifterTests3() =
         [ D(0, 0xc060000040800000UL); FPSCR 0x60000000u ]
         [ D(0, 0xc010000080000000UL); FPSCR 0x00000000u ] ]
     check false "f3210f02" inputs outputs
+
+  /// <summary>
+  /// A8.8.366 VPMIN, the integer forms: vpmin.s8 d0, d1, d2; vpmin.u32 d0, d1,
+  /// d2. The pairs of Dn fill the low half of Dd and the pairs of Dm the high
+  /// half; the outputs are computed from the manual's Operation, over lanes at
+  /// each extreme of their type.
+  /// </summary>
+  [<TestMethod>]
+  member _.``A8.8.366 VPMIN (integer)``() =
+    let inputs =
+      [ [ D(0, 0x5555555555555555UL)
+          D(1, 0x80017ffe05fa7f80UL)
+          D(2, 0x00ff01028081fe7fUL) ] ]
+    check false "f2010a12" inputs [ [ D(0, 0xff0180fe80fefa80UL) ] ]
+    check false "f3210a12" inputs [ [ D(0, 0x00ff010205fa7f80UL) ] ]
 
   /// <summary>
   /// A8.8.368 VPOP: vldmia sp!, {d0, d1}. This checks that it loads D0 and D1

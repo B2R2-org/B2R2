@@ -1501,6 +1501,7 @@ let vpadd (ins: Instruction) bld =
     let p = getParsingInfo ins
     let h = p.Elements / 2
     let dest = tmpVar bld 64<rt>
+    dest := AST.num0 64<rt>
     for e in 0 .. h - 1 do
       let addPair expr =
         elem expr (2 * e) p.ESize .+ elem expr (2 * e + 1) p.ESize
@@ -3797,6 +3798,7 @@ let private vpmaxmin (ins: Instruction) bld isMax =
       AST.ite (cmp a b) a b
     let h = p.Elements / 2
     let dest = tmpVar bld 64<rt>
+    dest := AST.num0 64<rt>
     for e in 0 .. h - 1 do
       let pair expr =
         better (elem expr (2 * e) p.ESize) (elem expr (2 * e + 1) p.ESize)
