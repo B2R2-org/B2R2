@@ -220,10 +220,14 @@ let rec private concretizeArgs st acc = function
   | [] ->
     acc
 
-let private evalArgs st args =
-  match args with
-  | BinOp(Op = BinOpType.APP; Right = ExprList(Elements = args)) ->
-    args |> concretizeArgs st []
+/// The name of the function an external call calls, and its arguments,
+/// evaluated.
+let private evalCall st call =
+  match call with
+  | BinOp(Op = BinOpType.APP
+          Left = FuncName(Name = name)
+          Right = ExprList(Elements = args)) ->
+    struct (name, args |> concretizeArgs st [])
   | _ ->
     Terminator.impossible ()
 
@@ -251,8 +255,9 @@ let evalStmt (st: ConcState) stmt =
     evalPCUpdate st target |> st.AbortInstr
   | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
     evalIntCJmp st c t f |> st.AbortInstr
-  | ExternalCall(Call = args) ->
-    st.OnExternalCall(evalArgs st args, st) |> st.NextStmt
+  | ExternalCall(Call = call) ->
+    let struct (name, args) = evalCall st call
+    st.OnExternalCall(name, args, st) |> st.NextStmt
   | SideEffect(Effect = eff) ->
     st.OnSideEffect(eff, st)
     if st.IsInstrTerminated then () else st.AbortInstr true

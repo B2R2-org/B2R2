@@ -444,6 +444,18 @@ let private storeExtended bld lo hi reg =
 /// The sign bit of a stack register.
 let private signOfST bld reg = AST.xthi 1<rt> (pseudoRegVar bld reg 2)
 
+#if EMULATION
+/// Turns the stack registers k places, mod 8: ST(i) takes what ST(i - k)
+/// held, so a push turns them one place and a pop seven. An emulator is
+/// handed the turn as the call X87Rotate rather than as the copies that spell
+/// it out, so that compiled code can keep track of where each register has
+/// gone instead of moving all eight, and put them back only on its way out.
+let private turnStack bld k =
+  append bld {
+    AST.extCall (AST.app "X87Rotate" [ numI32 k 64<rt> ] 64<rt>)
+  }
+#endif
+
 /// Pushes the stack: TOP moves down a place (Intel SDM Vol. 1, 8.1.2), and
 /// every value moves to the stack register below, which frees ST(0). The tags
 /// move with the values: the tag word is kept by stack register, ST(i)'s tag in
@@ -476,6 +488,9 @@ let private pushFPUStack bld =
     direct stsWrd := (stsWrd .& numI32 0xFDFF 16<rt>) .| fault
     direct tags := tags << numI32 2 16<rt>
   }
+#if EMULATION
+  turnStack bld 1
+#else
   copyST bld R.ST7 R.ST6
   copyST bld R.ST6 R.ST5
   copyST bld R.ST5 R.ST4
@@ -483,6 +498,7 @@ let private pushFPUStack bld =
   copyST bld R.ST3 R.ST2
   copyST bld R.ST2 R.ST1
   copyST bld R.ST1 R.ST0
+#endif
 
 /// Pops the stack: the register TOP names is tagged empty, TOP moves up a place
 /// (Intel SDM Vol. 1, 8.1.2), and every value moves to the stack register
@@ -495,6 +511,9 @@ let private popFPUStack bld =
     direct tags := (tags >> numI32 2 16<rt>) .| numI32 0xC000 16<rt>
     extractDstAssign top (top .+ AST.num1 8<rt>)
   }
+#if EMULATION
+  turnStack bld 7
+#else
   copyST bld R.ST0 R.ST1
   copyST bld R.ST1 R.ST2
   copyST bld R.ST2 R.ST3
@@ -502,6 +521,7 @@ let private popFPUStack bld =
   copyST bld R.ST4 R.ST5
   copyST bld R.ST5 R.ST6
   copyST bld R.ST6 R.ST7
+#endif
   clearST bld R.ST7
 
 let inline private getLoadAddressExpr (src: Expr) =
@@ -1985,6 +2005,9 @@ let fincstp (ins: Instruction) bld =
     extractDstAssign top (top .+ AST.num1 8<rt>)
     (* Each value stays in its register, and its tag with it. *)
     direct tags := (tags >> numI32 2 16<rt>) .| (tags << numI32 14 16<rt>)
+#if EMULATION
+    turnStack bld 7
+#else
     let stash = stashST bld R.ST0
     copyST bld R.ST0 R.ST1
     copyST bld R.ST1 R.ST2
@@ -1994,6 +2017,7 @@ let fincstp (ins: Instruction) bld =
     copyST bld R.ST5 R.ST6
     copyST bld R.ST6 R.ST7
     unstashST bld R.ST7 stash
+#endif
     direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
@@ -2010,6 +2034,9 @@ let fdecstp (ins: Instruction) bld =
     extractDstAssign top (top .- AST.num1 8<rt>)
     (* Each value stays in its register, and its tag with it. *)
     direct tags := (tags << numI32 2 16<rt>) .| (tags >> numI32 14 16<rt>)
+#if EMULATION
+    turnStack bld 1
+#else
     let stash = stashST bld R.ST7
     copyST bld R.ST7 R.ST6
     copyST bld R.ST6 R.ST5
@@ -2019,6 +2046,7 @@ let fdecstp (ins: Instruction) bld =
     copyST bld R.ST2 R.ST1
     copyST bld R.ST1 R.ST0
     unstashST bld R.ST0 stash
+#endif
     direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0

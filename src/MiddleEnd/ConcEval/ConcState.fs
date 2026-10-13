@@ -39,7 +39,7 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   let mutable currentInsLen = 0u
   let mutable isInstrTerminated = false
   let mutable loadFailureHdl = LoadFailureEventHandler(fun _ _ _ e -> Error e)
-  let mutable externalCallEventHdl = ExternalCallEventHandler(fun _ _ -> ())
+  let mutable externalCallEventHdl = ExternalCallEventHandler(fun _ _ _ -> ())
   let mutable sideEffectHdl = SideEffectEventHandler(fun _ _ -> ())
 
   /// This constructor will simply create a fresh new ConcState.
@@ -171,8 +171,8 @@ type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   member internal this.OnLoadFailure(pc, addr, rt, e) =
     this.LoadFailureEventHandler.Invoke(pc, addr, rt, e)
 
-  member internal this.OnExternalCall(args, st) =
-    this.ExternalCallEventHandler.Invoke(args, st)
+  member internal this.OnExternalCall(name, args, st) =
+    this.ExternalCallEventHandler.Invoke(name, args, st)
 
   member internal this.OnSideEffect(eff, st) =
     this.SideEffectEventHandler.Invoke(eff, st)
@@ -207,9 +207,10 @@ and LoadFailureEventHandler =
   delegate of Addr * Addr * RegType * ErrorCase -> Result<BitVector, ErrorCase>
 
 /// Represents a callback function that is invoked when an external call is
-/// encountered during the evaluation.
+/// encountered during the evaluation, with the name of the function it calls
+/// and its arguments, evaluated.
 and ExternalCallEventHandler =
-  delegate of BitVector list * ConcState -> unit
+  delegate of string * BitVector list * ConcState -> unit
 
 /// Represents a callback function that is invoked when a side effect is
 /// encountered during the evaluation.

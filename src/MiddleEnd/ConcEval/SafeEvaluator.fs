@@ -253,10 +253,14 @@ let rec private concretizeArgs st acc = function
   | [] ->
     Ok acc
 
-let private evalArgs st args =
-  match args with
-  | BinOp(Op = BinOpType.APP; Right = ExprList(Elements = args)) ->
-    args |> concretizeArgs st []
+/// The name of the function an external call calls, and its arguments,
+/// evaluated.
+let private evalCall st call =
+  match call with
+  | BinOp(Op = BinOpType.APP
+          Left = FuncName(Name = name)
+          Right = ExprList(Elements = args)) ->
+    concretizeArgs st [] args |> Result.map (fun args -> struct (name, args))
   | _ ->
     Error ErrorCase.InvalidExprEvaluation
 
@@ -282,9 +286,10 @@ let evalStmt (st: ConcState) stmt =
     evalPCUpdate st target |> Result.map st.AbortInstr
   | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
     evalIntCJmp st c t f |> Result.map st.AbortInstr
-  | ExternalCall(Call = args) ->
-    evalArgs st args
-    |> Result.map (fun args -> st.OnExternalCall(args, st) |> st.NextStmt)
+  | ExternalCall(Call = call) ->
+    evalCall st call
+    |> Result.map (fun struct (name, args) ->
+      st.OnExternalCall(name, args, st) |> st.NextStmt)
   | SideEffect(Effect = eff) ->
     st.OnSideEffect(eff, st)
     if st.IsInstrTerminated then () else st.AbortInstr true

@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ConcEval.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.Executor
 open B2R2.MiddleEnd.ConcEval
 
@@ -35,7 +36,8 @@ open B2R2.MiddleEnd.ConcEval
 /// instruction and its operand. These run the code rather than read its IR, as
 /// what matters is what lands in the image. They keep to the instructions that
 /// move values whole -- an emulation build computes with named calls to the
-/// emulator's own arithmetic, which this executor has no answer for.
+/// emulator's own arithmetic, which this executor has no answer for -- and
+/// answer the one call such a build turns the stack with themselves.
 [<TestClass>]
 type X87EnvironmentTests() =
   (* Where the environment goes: memory no section backs, which the executor
@@ -51,6 +53,27 @@ type X87EnvironmentTests() =
       "FOP", 0x1e8UL
       "FDP", 0x7fff_1234_5678UL
       "FDS", 0x2bUL ]
+
+  (* What an emulation build of the lifter hands a push, a pop, FINCSTP and
+     FDECSTP as the call X87Rotate: the stack registers turned k places, ST(i)
+     taking what ST(i - k) held. An analysis build spells the turn out as
+     copies and makes no call. *)
+  let turnStack (rf: IRegisterFactory) (st: ConcState) k =
+    for half in [ "A"; "B" ] do
+      let rids = [| for i in 0 .. 7 -> rf.GetRegisterID $"ST{i}{half}" |]
+      let values = Array.map st.TryGetReg rids
+      for i in 0 .. 7 do
+        match values[(i - k + 8) % 8] with
+        | Def v -> st.SetReg(rids[i], v)
+        | Undef -> st.UnsetReg rids[i]
+
+  (* Answers the external calls of the code under test: the turn of the
+     stack, the only one an x87 instruction makes. *)
+  let callHandler rf =
+    ExternalCallEventHandler(fun name args st ->
+      match name, args with
+      | "X87Rotate", [ k ] -> turnStack rf st (int (k.ToUInt64() &&& 7UL))
+      | _ -> failwith $"no answer for the call {name}")
 
   (* Runs `count` instructions of code loaded at `base`, from the state FNINIT
      leaves, RSP pointing at Env, with `regs` set on top and each (offset,
@@ -70,6 +93,7 @@ type X87EnvironmentTests() =
       |> Array.ofList
     let st =
       exec.CreateState { Memory = BinSectionBackedMemory; Registers = regs }
+    st.ExternalCallEventHandler <- callHandler rf
     for off, (v: uint64), typ in image do
       Memory.write (Env + off) (BitVector(v, typ)) Endian.Little st.Memory
     exec.Run(``base``, st, ConcRunOptions.Default().WithMaxInstructions count)
