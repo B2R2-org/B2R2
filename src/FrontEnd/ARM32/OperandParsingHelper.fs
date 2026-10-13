@@ -3399,13 +3399,17 @@ type internal OprCpOpc1RtRt2CRm() =
     let crm = extract bin 3 0 |> getCoprocCReg |> OprReg
     struct (FiveOperands(coproc, opc1, rt, rt2, crm), false, None, 32<rt>)
 
-(* <coproc>, {#}<opc1>, <Rt>, <CRn>, <CRm>{, {#}<opc2>} *)
+(* <coproc>, {#}<opc1>, <Rt>, <CRn>, <CRm>{, {#}<opc2>}, where an MRC's Rt of
+   15 is APSR_nzcv, the flags, rather than the PC *)
 type internal OprCpOpc1RtCRnCRmOpc2() =
   inherit OperandParser()
   override _.Render bin =
     let coproc = extract bin 11 8 |> getCoprocDReg |> OprReg
     let opc1 = extract bin 23 21 |> int64 |> OprImm
-    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let t = extract bin 15 12
+    let rt =
+      if pickBit bin 20 = 1u && t = 15u then OprSpecReg(R.APSR, Some PSRnzcv)
+      else t |> getRegister |> OprReg
     let crn = extract bin 19 16 |> getCoprocCReg |> OprReg
     let crm = extract bin 3 0 |> getCoprocCReg |> OprReg
     let opc2 = extract bin 7 5 |> int64 |> OprImm

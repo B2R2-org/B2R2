@@ -798,6 +798,18 @@ type LifterTests() =
     "ee301f10" ++ [| AST.sideEffect BinIR.SideEffect.UnsupportedInstruction |]
     |> testARM
 
+  /// An MRC whose Rt field is 15 writes APSR_nzcv, never the PC. Coprocessor
+  /// 15 leaves that form UNPREDICTABLE (DDI0406C B3.15.2), so it is not lifted.
+  [<TestMethod>]
+  member _.``[ARMv7] MRC of MIDR to APSR_nzcv is unsupported``() =
+    "ee10ff10" ++ [| AST.sideEffect BinIR.SideEffect.UnsupportedInstruction |]
+    |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] MRC to APSR_nzcv never writes the PC``() =
+    let written = writtenBy false "ee10ff10"
+    Assert.AreEqual<bool>(false, Array.contains !.PC written)
+
   /// The cache maintenance operations need a memory system this front end
   /// does not have.
   [<TestMethod>]

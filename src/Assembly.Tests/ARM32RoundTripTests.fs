@@ -658,3 +658,10 @@ type ARM32RoundTripTests() =
       String.concat "\n" wrong,
       "These branches no longer reach the instruction their label marks."
     )
+
+  /// An MRC names the flags, APSR_nzcv, where its Rt field is 15, and an
+  /// assembler that took only core registers there would refuse the text.
+  [<TestMethod>]
+  member _.``MRC to APSR_nzcv encodes as itself``() =
+    let source = "mrc p14, #0x0, apsr_nzcv, c1, c4, #0x0"
+    Assert.AreEqual<string>("", brokenInEither source)

@@ -903,19 +903,26 @@ let private cdp two ins =
   | _ ->
     wrongOperands ins
 
+/// The Rt field of an MCR or MRC: a core register, or, for an MRC alone, the
+/// flags, APSR_nzcv, as 0b1111 (DDI0406C A8.8.108).
+let private coprocTarget ins l = function
+  | OprReg rt -> coreReg rt
+  | OprSpecReg(Register.APSR, Some PSRnzcv) when l = 1u -> 0b1111u
+  | _ -> wrongOperands ins
+
 /// MCR and MRC, which move one core register to or from the coprocessor.
 let private moveCoproc two l ins =
   match ins.Operands with
   | SixOperands(OprReg p,
                 OprImm opc1,
-                OprReg rt,
+                rt,
                 OprReg crn,
                 OprReg crm,
                 OprImm opc2) ->
     coprocHead two ins ||| (0b1110u <<< 24) ||| (unsignedImm 3 opc1 <<< 21)
-    ||| (l <<< 20) ||| (coprocRegNum crn <<< 16) ||| (coreReg rt <<< 12)
-    ||| (coprocReg p <<< 8) ||| (unsignedImm 3 opc2 <<< 5) ||| (1u <<< 4)
-    ||| coprocRegNum crm
+    ||| (l <<< 20) ||| (coprocRegNum crn <<< 16)
+    ||| (coprocTarget ins l rt <<< 12) ||| (coprocReg p <<< 8)
+    ||| (unsignedImm 3 opc2 <<< 5) ||| (1u <<< 4) ||| coprocRegNum crm
   | _ ->
     wrongOperands ins
 

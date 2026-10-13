@@ -1585,3 +1585,16 @@ type ParserTests() =
     testRefused "eea12b14"
     testRefused "eee12b10"
     testRefused "eea12b30"
+
+  /// An MRC whose Rt field is 15 names APSR_nzcv: it writes the flags from the
+  /// top four bits of what it reads, never the PC (DDI0406C A8.8.108 and
+  /// DDI0487F.c F5.1.115, which Armv8 reads too). An MCR from the PC stays
+  /// refused.
+  [<TestMethod>]
+  member _.``[ARMv7] MRC to Rt 15 names APSR_nzcv``() =
+    let text = "mrc p14, #0x0, apsr_nzcv, c1, c4, #0x0"
+    testDisasm "ee11fe14" text
+    testDisasm "ee10ff10" "mrc p15, #0x0, apsr_nzcv, c0, c0, #0x0"
+    testDisasm "fe10f310" "mrc2 p3, #0x0, apsr_nzcv, c0, c0, #0x0"
+    testRefused "ee00ff10"
+    Assert.AreEqual<string option>(Some text, under "aarch32" "ee11fe14")

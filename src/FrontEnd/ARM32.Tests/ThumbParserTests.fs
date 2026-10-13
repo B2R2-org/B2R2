@@ -1446,3 +1446,11 @@ type ThumbParserTests() =
     testDisasm "e94e0134" "strd r0, r1, [lr, #-0xd0]"
     testRefused "e94f0134"
     testRefused "e9cf0134"
+
+  /// An MRC whose Rt field is 15 names APSR_nzcv in T32 as in A32 (DDI0406C
+  /// A8.8.108).
+  [<TestMethod>]
+  member _.``[T32] MRC to Rt 15 names APSR_nzcv``() =
+    testDisasm "ee11fe14" "mrc p14, #0x0, apsr_nzcv, c1, c4, #0x0"
+    testDisasm "ee10ff10" "mrc p15, #0x0, apsr_nzcv, c0, c0, #0x0"
+    testRefused "ee00ff10"
