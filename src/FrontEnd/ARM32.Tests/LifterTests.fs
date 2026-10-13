@@ -447,6 +447,27 @@ type LifterTests() =
     Assert.AreEqual<bool>(true, ok, "no branch target reported")
     Assert.AreEqual<uint64>(0x1008UL, target)
 
+  /// BLX (immediate) writes LR and changes the instruction set (A8.8.25):
+  /// its jump is a call that switches from A32 to T32 or back.
+  [<TestMethod>]
+  member _.``[ARMv7] BLX with an immediate is a call``() =
+    let call = BinIR.InterJmpKind.IsCall
+    let toThumb = call ||| BinIR.InterJmpKind.SwitchToThumb
+    let toArm = call ||| BinIR.InterJmpKind.SwitchToARM
+    CollectionAssert.AreEqual([| toThumb |], jumpKindsOf false "faffffff")
+    CollectionAssert.AreEqual([| toArm |], jumpKindsOf true "f000e802")
+
+  /// BLX (register) writes LR like BL and interworks like BX (A8.8.26): both
+  /// of its jumps are calls.
+  [<TestMethod>]
+  member _.``[ARMv7] BLX with a register is a call``() =
+    let call = BinIR.InterJmpKind.IsCall
+    let toThumb = call ||| BinIR.InterJmpKind.SwitchToThumb
+    let toArm = call ||| BinIR.InterJmpKind.SwitchToARM
+    let kinds = [| toThumb; toArm |]
+    CollectionAssert.AreEqual(kinds, jumpKindsOf false "e12fff31")
+    CollectionAssert.AreEqual(kinds, jumpKindsOf true "4788")
+
   (* A one-bit field is the width the guard used to exclude, and the width at
      which the difference between SBFX and UBFX is entirely the sign. The mask
      below is what the lifter builds for any width; at width 1 the extracted

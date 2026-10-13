@@ -318,10 +318,11 @@ let transLabelOprsOfBL ins isThumb imm =
   pc .+ (numI64 imm 32<rt>)
 
 let targetModeOfBL (ins: Instruction) =
+  let call = InterJmpKind.IsCall
   match ins.Opcode, ins.IsThumb with
-  | Op.BL, isThumb -> struct (isThumb, InterJmpKind.IsCall)
-  | Op.BLX, false -> struct (true, InterJmpKind.SwitchToThumb)
-  | Op.BLX, true -> struct (false, InterJmpKind.SwitchToARM)
+  | Op.BL, isThumb -> struct (isThumb, call)
+  | Op.BLX, false -> struct (true, call ||| InterJmpKind.SwitchToThumb)
+  | Op.BLX, true -> struct (false, call ||| InterJmpKind.SwitchToARM)
   | _ -> raise InvalidOpcodeException
 
 let parseOprOfBL ins =
@@ -358,7 +359,7 @@ let blxWithReg (ins: Instruction) reg bld =
     else
       let addr = addr .+ (numI32 2 32<rt>)
       lr := maskAndOR addr (AST.num1 32<rt>) 32<rt> 1
-    bxWritePC bld isUnconditional (regVar bld reg)
+    blxWritePC bld isUnconditional (regVar bld reg)
     putEndLabelForBranch bld lblIgnore ins
     return NoEndMark
   }
