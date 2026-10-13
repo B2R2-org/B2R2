@@ -1436,3 +1436,13 @@ type ThumbParserTests() =
     testRefused "eea12b14"
     testRefused "eee12b10"
     testRefused "eea12b30"
+
+  /// L, bit 20, tells STRD from LDRD whatever the base: with L clear and Rn 15
+  /// the word is STRD with the PC as its base, which is UNPREDICTABLE, and only
+  /// with L set is it the literal LDRD (DDI0406C A6.3.6 and A8.8.211).
+  [<TestMethod>]
+  member _.``[T32] STRD with the PC as its base is refused``() =
+    testDisasm "e95f0134" "ldrd r0, r1, [0xffffff34]"
+    testDisasm "e94e0134" "strd r0, r1, [lr, #-0xd0]"
+    testRefused "e94f0134"
+    testRefused "e9cf0134"

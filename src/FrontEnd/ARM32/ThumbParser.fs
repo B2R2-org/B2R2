@@ -6990,6 +6990,8 @@ let parseLdStDualImmPreIndexed phlp (itstate: byref<BL>) isInIT bin =
 let parseLdStDualExclusiveAndTblBranch phlp (itstate: byref<BL>) isInIT bin =
   let op0 = pickFour bin 21 (* op0 *)
   let op2 = pickFour bin 16 (* op2 *)
+  (* LDRD (literal) sets L (F5.1.80): with L clear, Rn = 15 is an STRD *)
+  let isLiteral = op2 = 0b1111u && pickBit bin 20 = 1u
   match concat (pickFive bin 20) (pickThree bin 5) 3 (* op0:op1:op3 *) with
   | b when pickFour b 4 = 0b0010u (* 0010xxxx *) ->
     parseLdStExclusive phlp &itstate isInIT bin
@@ -7007,13 +7009,13 @@ let parseLdStDualExclusiveAndTblBranch phlp (itstate: byref<BL>) isInIT bin =
     parseLdStEexclusiveByteHalfDual phlp &itstate isInIT bin
   | b when b &&& 0b11110100u = 0b01100100u (* 0110x1xx *) ->
     parseLdAcqStRel phlp &itstate isInIT bin
-  | b when (* 0x11xxxx *) b &&& 0b10110000u = 0b00110000u && op2 <> 0b1111u ->
+  | b when (* 0x11xxxx *) b &&& 0b10110000u = 0b00110000u && not isLiteral ->
     parseLdStDualImmePostIndexed phlp &itstate isInIT bin
-  | b when (* 1x10xxxx *) b &&& 0b10110000u = 0b10100000u && op2 <> 0b1111u ->
+  | b when (* 1x10xxxx *) b &&& 0b10110000u = 0b10100000u && not isLiteral ->
     parseLdStDualImm phlp &itstate isInIT bin
-  | b when (* 1x11xxxx *) b &&& 0b10110000u = 0b10110000u && op2 <> 0b1111u ->
+  | b when (* 1x11xxxx *) b &&& 0b10110000u = 0b10110000u && not isLiteral ->
     parseLdStDualImmPreIndexed phlp &itstate isInIT bin
-  | _ when (op0 &&& 0b1001u <> 0b0000u) && (op2 = 0b1111u) ->
+  | _ when (op0 &&& 0b1001u <> 0b0000u) && isLiteral ->
 #if !EMULATION
     chkPCRtRt2EqW bin
 #endif
