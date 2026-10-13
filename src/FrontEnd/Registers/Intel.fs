@@ -196,7 +196,9 @@ type Register =
   | FCW = 0x4E
   /// x87 FPU Status Word.
   | FSW = 0x4F
-  /// x87 FPU Tag Word.
+  /// x87 FPU Tag Word, kept by stack register: ST(i)'s tag in bits 2i+1:2i.
+  /// The FPU's own word, which FNSTENV, FNSAVE, and FXSAVE store, is kept by
+  /// physical register: this one turned by TOP.
   | FTW = 0x50
   /// x87 FPU Opcode.
   | FOP = 0x51
@@ -210,21 +212,21 @@ type Register =
   | FDS = 0x55
   /// x87 FPU Top indicator bits of Status Word.
   | FTOP = 0x56
-  /// x87 FPU Tag word section.
+  /// The tag of ST(0) in the x87 FPU Tag Word.
   | FTW0 = 0x57
-  /// x87 FPU Tag word section.
+  /// The tag of ST(1) in the x87 FPU Tag Word.
   | FTW1 = 0x58
-  /// x87 FPU Tag word section.
+  /// The tag of ST(2) in the x87 FPU Tag Word.
   | FTW2 = 0x59
-  /// x87 FPU Tag word section.
+  /// The tag of ST(3) in the x87 FPU Tag Word.
   | FTW3 = 0x5A
-  /// x87 FPU Tag word section.
+  /// The tag of ST(4) in the x87 FPU Tag Word.
   | FTW4 = 0x5B
-  /// x87 FPU Tag word section.
+  /// The tag of ST(5) in the x87 FPU Tag Word.
   | FTW5 = 0x5C
-  /// x87 FPU Tag word section.
+  /// The tag of ST(6) in the x87 FPU Tag Word.
   | FTW6 = 0x5D
-  /// x87 FPU Tag word section.
+  /// The tag of ST(7) in the x87 FPU Tag Word.
   | FTW7 = 0x5E
   /// x87 FPU Status Word C flag.
   | FSWC0 = 0x5F

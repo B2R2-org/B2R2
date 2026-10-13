@@ -103,6 +103,36 @@ type X87EnvironmentTests() =
     let _, st = runAt Code count hex [] []
     field st 12UL 32<rt>, field st 16UL 32<rt>
 
+  (* C1, SF, and IE after `count` instructions, which a push onto a full stack
+     sets. *)
+  let overflowAfter count hex image =
+    let hdl, st = run count hex [] image
+    regOf hdl st "FSW" &&& 0x241UL
+
+  (* A 28-byte image for FLDENV: TOP alone in the status word, the given tag
+     word, no pointers, and ones where the layout reserves a half. *)
+  let envImage top tags =
+    [ 0UL, 0x37FUL, 16<rt>
+      2UL, 0xFFFFUL, 16<rt>
+      4UL, top <<< 11, 16<rt>
+      6UL, 0xFFFFUL, 16<rt>
+      8UL, tags, 16<rt>
+      10UL, 0xFFFFUL, 16<rt>
+      12UL, 0UL, 32<rt>
+      16UL, 0UL, 32<rt>
+      20UL, 0UL, 32<rt>
+      24UL, 0UL, 16<rt>
+      26UL, 0xFFFFUL, 16<rt> ]
+
+  (* An FXSAVE image for FXRSTOR: zeros but for the default control word and
+     MXCSR, TOP alone in the status word, and the given abridged tag byte. *)
+  let fxImage top abridged =
+    [ for off in 0UL .. 8UL .. 504UL -> off, 0UL, 64<rt> ]
+    @ [ 0UL, 0x37FUL, 16<rt>
+        2UL, top <<< 11, 16<rt>
+        4UL, abridged, 8<rt>
+        24UL, 0x1F80UL, 32<rt> ]
+
   [<TestMethod>]
   member _.``FNSTENV tags every register of an empty stack empty``() =
     Assert.AreEqual<uint64>(0xFFFFUL, storedTags 1 "d93424" (* fnstenv [rsp] *))
@@ -245,3 +275,37 @@ type X87EnvironmentTests() =
     (* fld1 ; fnop ; fnstenv [rsp] *)
     let actual = lastInstr 3 "d9e8d9d0d93424"
     Assert.AreEqual<uint64 * uint64>((0x55554002UL, 0UL), actual)
+
+  (* FINCSTP turns the stack and leaves each value in its register: the 1.0
+     pushed into physical register 7 is ST(7) after it, and still tagged
+     where it sits. *)
+  [<TestMethod>]
+  member _.``FNSTENV tags a value where FINCSTP left it``() =
+    (* fld1 ; fincstp ; fnstenv [rsp] *)
+    Assert.AreEqual<uint64>(0x3FFFUL, storedTags 3 "d9e8d9f7d93424")
+
+  (* With TOP at 6, ST(1) is physical register 7. *)
+  [<TestMethod>]
+  member _.``FNSTENV tags a register FFREE empties where it sits``() =
+    (* fld1 ; fld1 ; ffree st(1) ; fnstenv [rsp] *)
+    Assert.AreEqual<uint64>(0xCFFFUL, storedTags 4 "d9e8d9e8ddc1d93424")
+
+  (* With TOP at 5, a push takes over physical register 4, which the tag word
+     tags in bits 9:8: a value there overflows the stack, and one in register
+     5, ST(0), does not. *)
+  [<TestMethod>]
+  member _.``FLDENV reads the tag word for the TOP it loads``() =
+    (* fldenv [rsp] ; fld1 *)
+    let actual =
+      [| overflowAfter 2 "d92424d9e8" (envImage 5UL 0xFCFFUL)
+         overflowAfter 2 "d92424d9e8" (envImage 5UL 0xF3FFUL) |]
+    CollectionAssert.AreEqual([| 0x241UL; 0UL |], actual)
+
+  (* The abridged byte is by physical register too: bit 4 for register 4. *)
+  [<TestMethod>]
+  member _.``FXRSTOR reads the tag byte for the TOP it loads``() =
+    (* fxrstor [rsp] ; fld1 *)
+    let actual =
+      [| overflowAfter 2 "0fae0c24d9e8" (fxImage 5UL 0x10UL)
+         overflowAfter 2 "0fae0c24d9e8" (fxImage 5UL 0x20UL) |]
+    CollectionAssert.AreEqual([| 0x241UL; 0UL |], actual)

@@ -449,37 +449,37 @@ let private signOfST bld reg =
   AST.xthi 1<rt> (pseudoRegVar bld reg 2)
 #endif
 
-/// The two bits of the tag word that tag the physical register TOP names. The
-/// tag word gives physical register i bits 2i+1:2i, and 11 marks it empty
-/// (Intel SDM Vol. 1, 8.1.7).
-let private topTagMask top =
-  numI32 3 16<rt> << (AST.zext 16<rt> top << AST.num1 16<rt>)
-
 /// Pushes the stack: TOP moves down a place (Intel SDM Vol. 1, 8.1.2), and
-/// every value moves to the stack register below, which frees ST(0). The
-/// register TOP now names should be empty; if it still holds a value, the push
-/// has overflowed the stack, which sets C1, which tells it from an underflow,
-/// SF, and IE (Intel SDM Vol. 1, 8.5.1.1); ES and B are left to whatever reads
-/// the status word out. Either way the register then holds the value pushed.
-/// The FPU, the exception masked, would hold the real indefinite there
-/// instead, but a state whose tag word was never set up -- a zeroed one, where
-/// every register reads as holding a value -- would then turn every value it
-/// pushes into one. An underflow, an instruction reading a register tagged
-/// empty, goes unflagged here: every read of a stack register would have to
-/// check its tag and answer as its own instruction does, which costs every
-/// arithmetic instruction for code no compiler emits.
+/// every value moves to the stack register below, which frees ST(0). The tags
+/// move with the values: the tag word is kept by stack register, ST(i)'s tag in
+/// bits 2i+1:2i and 11 for an empty one, where the FPU keeps it by physical
+/// register (Intel SDM Vol. 1, 8.1.7). That way a push or a pop shifts it by a
+/// constant, as it does the values, and only what stores or loads the FPU's
+/// own word turns it by TOP.
+///
+/// The register the push takes over is ST(7)'s, which should be empty; if it
+/// still holds a value, the push has overflowed the stack, which sets C1,
+/// which tells it from an underflow, SF, and IE (Intel SDM Vol. 1, 8.5.1.1);
+/// ES and B are left to whatever reads the status word out. Either way the
+/// register then holds the value pushed. The FPU, the exception masked, would
+/// hold the real indefinite there instead, but a state whose tag word was never
+/// set up -- a zeroed one, where every register reads as holding a value --
+/// would then turn every value it pushes into one. An underflow, an
+/// instruction reading a register tagged empty, goes unflagged here: every
+/// read of a stack register would have to check its tag and answer as its own
+/// instruction does, which costs every arithmetic instruction for code no
+/// compiler emits.
 let private pushFPUStack bld =
   let top = regVar bld R.FTOP
   let tags = regVar bld R.FTW
   let stsWrd = regVar bld R.FSW
-  let mask = tmpVar bld 16<rt>
   append bld {
     extractDstAssign top (top .- AST.num1 8<rt>)
-    direct mask := topTagMask top
-    let overflow = AST.zext 16<rt> ((tags .& mask) != mask)
+    (* ST(7)'s tag is the top two bits of the word, both set if it is empty. *)
+    let overflow = AST.zext 16<rt> (AST.lt tags (numI32 0xC000 16<rt>))
     let fault = overflow .* numI32 0x241 16<rt>
     direct stsWrd := (stsWrd .& numI32 0xFDFF 16<rt>) .| fault
-    direct tags := tags .& AST.not mask
+    direct tags := tags << numI32 2 16<rt>
   }
   copyST bld R.ST7 R.ST6
   copyST bld R.ST6 R.ST5
@@ -491,12 +491,13 @@ let private pushFPUStack bld =
 
 /// Pops the stack: the register TOP names is tagged empty, TOP moves up a place
 /// (Intel SDM Vol. 1, 8.1.2), and every value moves to the stack register
-/// above, which empties ST(7).
+/// above, which empties ST(7). The tags move up with the values (see
+/// pushFPUStack), the register the pop leaves coming in as ST(7), empty.
 let private popFPUStack bld =
   let top = regVar bld R.FTOP
   let tags = regVar bld R.FTW
   append bld {
-    direct tags := tags .| topTagMask top
+    direct tags := (tags >> numI32 2 16<rt>) .| numI32 0xC000 16<rt>
     extractDstAssign top (top .+ AST.num1 8<rt>)
   }
   copyST bld R.ST0 R.ST1
@@ -1406,10 +1407,9 @@ let private classifyST bld reg =
 let fxam (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
-    let top = regVar bld R.FTOP
     let struct (isNaN, isInf, isZero, sign) = classifyST bld R.ST0
-    let mask = topTagMask top
-    let isEmpty = (regVar bld R.FTW .& mask) == mask
+    let three = numI32 3 16<rt>
+    let isEmpty = (regVar bld R.FTW .& three) == three
     let c3Cond = isZero .| isEmpty
     let c2Cond = AST.not (isNaN .| isZero .| isEmpty)
     let c0Cond = isNaN .| isInf .| isEmpty
@@ -1669,7 +1669,10 @@ let fincstp (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
     let top = regVar bld R.FTOP
+    let tags = regVar bld R.FTW
     extractDstAssign top (top .+ AST.num1 8<rt>)
+    (* Each value stays in its register, and its tag with it. *)
+    direct tags := (tags >> numI32 2 16<rt>) .| (tags << numI32 14 16<rt>)
     let stash = stashST bld R.ST0
     copyST bld R.ST0 R.ST1
     copyST bld R.ST1 R.ST2
@@ -1691,7 +1694,10 @@ let fdecstp (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
     let top = regVar bld R.FTOP
+    let tags = regVar bld R.FTW
     extractDstAssign top (top .- AST.num1 8<rt>)
+    (* Each value stays in its register, and its tag with it. *)
+    direct tags := (tags << numI32 2 16<rt>) .| (tags >> numI32 14 16<rt>)
     let stash = stashST bld R.ST7
     copyST bld R.ST7 R.ST6
     copyST bld R.ST6 R.ST5
@@ -1712,26 +1718,19 @@ let fdecstp (ins: Instruction) bld =
 let ffree (ins: Instruction) bld =
   lift bld ins {
     recordInstr ins bld
-    let top = regVar bld R.FTOP
     let tagWord = regVar bld R.FTW
-    let struct (top16, shifter, tagValue) = tmpVars3 bld 16<rt>
-    let value3 = numI32 3 16<rt>
-    let offset =
+    let index =
       match ins.Operands with
-      | OneOperand(OprReg R.ST0) -> numI32 0 16<rt>
-      | OneOperand(OprReg R.ST1) -> numI32 1 16<rt>
-      | OneOperand(OprReg R.ST2) -> numI32 2 16<rt>
-      | OneOperand(OprReg R.ST3) -> numI32 3 16<rt>
-      | OneOperand(OprReg R.ST4) -> numI32 4 16<rt>
-      | OneOperand(OprReg R.ST5) -> numI32 5 16<rt>
-      | OneOperand(OprReg R.ST6) -> numI32 6 16<rt>
-      | OneOperand(OprReg R.ST7) -> numI32 7 16<rt>
+      | OneOperand(OprReg R.ST0) -> 0
+      | OneOperand(OprReg R.ST1) -> 1
+      | OneOperand(OprReg R.ST2) -> 2
+      | OneOperand(OprReg R.ST3) -> 3
+      | OneOperand(OprReg R.ST4) -> 4
+      | OneOperand(OprReg R.ST5) -> 5
+      | OneOperand(OprReg R.ST6) -> 6
+      | OneOperand(OprReg R.ST7) -> 7
       | _ -> raise InvalidOperandException
-    direct top16 := AST.cast CastKind.ZeroExt 16<rt> top
-    direct top16 := (top16 .+ offset) .& numI32 7 16<rt>
-    direct shifter := (numI32 2 16<rt>) .* top16
-    direct tagValue := (value3 << shifter)
-    direct tagWord := tagWord .| tagValue
+    direct tagWord := tagWord .| numI32 (3 <<< (2 * index)) 16<rt>
   }
 
 (* FIXME: check all unmasked pending floating point exceptions. *)
@@ -1862,8 +1861,8 @@ let private tagOfValue bld reg =
 
 /// The tag word FNSTENV and FNSAVE store. The FPU keeps no more than whether
 /// each register is empty and works out the rest from the values as it stores
-/// the word, so this does the same, ST(i) being physical register (TOP + i)
-/// mod 8.
+/// the word, so this does the same, ST(i)'s tag going to physical register
+/// (TOP + i) mod 8.
 let private fineTags bld =
   let tags = regVar bld R.FTW
   let top = AST.zext 16<rt> (regVar bld R.FTOP)
@@ -1871,7 +1870,7 @@ let private fineTags bld =
   [ for i, st in List.indexed stackRegs ->
       let phys = (top .+ numI32 i 16<rt>) .& numI32 7 16<rt>
       let shift = phys << AST.num1 16<rt>
-      let isEmpty = ((tags >> shift) .& three) == three
+      let isEmpty = ((tags >> numI32 (2 * i) 16<rt>) .& three) == three
       AST.ite isEmpty three (tagOfValue bld st) << shift ]
   |> List.reduce (.|)
 
@@ -1932,6 +1931,19 @@ let fnstenv (ins: Instruction) bld =
     maskExceptions bld
   }
 
+/// Twice TOP, as a shift: how far the tag word, kept by stack register (see
+/// pushFPUStack), turns to be the FPU's own, kept by physical register.
+let private topShift bld =
+  AST.zext 16<rt> (regVar bld R.FTOP) << AST.num1 16<rt>
+
+/// A tag word kept by stack register out of the FPU's own, by physical
+/// register, as FLDENV, FRSTOR, and FXRSTOR read it, for the TOP read with it:
+/// physical register (TOP + i) mod 8 is ST(i), so each tag turns down by twice
+/// TOP, around the word.
+let private toStackTags bld tags =
+  let shift = topShift bld
+  (tags >> shift) .| (tags << (numI32 16 16<rt> .- shift))
+
 let private m14fldenv srcAddr addrSize bld =
   append bld {
     direct (regVar bld R.FCW) := AST.loadLE 16<rt> (srcAddr)
@@ -1939,6 +1951,7 @@ let private m14fldenv srcAddr addrSize bld =
       AST.loadLE 16<rt> (srcAddr .+ numI32 2 addrSize)
     direct (regVar bld R.FTW) :=
       AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize)
+    direct (regVar bld R.FTW) := toStackTags bld (regVar bld R.FTW)
     direct (AST.xtlo 16<rt> (regVar bld R.FIP)) :=
       AST.loadLE 16<rt> (srcAddr .+ numI32 6 addrSize)
     direct (regVar bld R.FCS) :=
@@ -1959,6 +1972,7 @@ let private m28fldenv srcAddr addrSize bld =
     direct (regVar bld R.FCW) := AST.loadLE 16<rt> (at 0)
     direct (regVar bld R.FSW) := AST.loadLE 16<rt> (at 4)
     direct (regVar bld R.FTW) := AST.loadLE 16<rt> (at 8)
+    direct (regVar bld R.FTW) := toStackTags bld (regVar bld R.FTW)
     direct (regVar bld R.FIP) := AST.zext 64<rt> (AST.loadLE 32<rt> (at 12))
     direct (regVar bld R.FCS) := AST.loadLE 16<rt> (at 16)
     direct (regVar bld R.FOP) := opcode
@@ -2072,17 +2086,25 @@ let private abridgedTags tags =
       AST.zext 8<rt> ((tags .& mask) != mask) << numI32 i 8<rt> ]
   |> List.reduce (.|)
 
+/// The FPU's own tag word, by physical register, out of one kept by stack
+/// register (see pushFPUStack): ST(i) is physical register (TOP + i) mod 8, so
+/// each tag turns up by twice TOP, around the word.
+let private toPhysicalTags bld tags =
+  let shift = topShift bld
+  (tags << shift) .| (tags >> (numI32 16 16<rt> .- shift))
+
 /// The x87 half of an FXSAVE-format image: the control and status words, the
 /// abridged tag byte, the opcode and the last instruction and data pointers,
 /// and the eight stack registers, eighty bits each on a sixteen-byte stride
 /// from thirty-two bytes in.
 let private storeX87Area bld baseAddr addrSize =
   let at off = fieldAt baseAddr addrSize off
+  let tags = toPhysicalTags bld (regVar bld R.FTW)
   let words =
     block {
       yield storeLE (at 0) (regVar bld R.FCW)
       yield storeLE (at 2) (summedStatus bld)
-      yield storeLE (at 4) (AST.zext 16<rt> (abridgedTags (regVar bld R.FTW)))
+      yield storeLE (at 4) (AST.zext 16<rt> (abridgedTags tags))
       yield storeLE (at 6) (regVar bld R.FOP)
       yield storeLE (at 8) (regVar bld R.FIP)
       yield storeLE (at 16) (regVar bld R.FDP)
@@ -2123,6 +2145,7 @@ let private loadX87Area bld baseAddr addrSize =
       direct (regVar bld R.FCW) := AST.loadLE 16<rt> (at 0)
       direct (regVar bld R.FSW) := AST.loadLE 16<rt> (at 2)
       direct (regVar bld R.FTW) := fullTags (AST.loadLE 8<rt> (at 4))
+      direct (regVar bld R.FTW) := toStackTags bld (regVar bld R.FTW)
       direct (regVar bld R.FOP) := AST.loadLE 16<rt> (at 6)
       direct (regVar bld R.FIP) := AST.loadLE 64<rt> (at 8)
       direct (regVar bld R.FDP) := AST.loadLE 64<rt> (at 16)

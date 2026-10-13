@@ -903,10 +903,10 @@ type X87LifterTests() =
   let testTags hex (expectedStmts: string[]) =
     CollectionAssert.AreEqual(expectedStmts, tagWrites hex)
 
-  (* The two bits of the tag word that tag the physical register under TOP. *)
-  let topTag =
-    "(0x3:I16 << (zext:I16((((FSW & 0x3800:I16) >> 0xb:I16)[7:0])) << "
-    + "0x1:I16))"
+  (* Twice TOP: how far the tag word, kept by stack register, turns to be the
+     FPU's own, kept by physical register. *)
+  let topTwice =
+    "(zext:I16((((FSW & 0x3800:I16) >> 0xb:I16)[7:0])) << 0x1:I16)"
 
   [<TestMethod>]
   member _.``[X64] FLDZ pushes by moving TOP down (1)``() =
@@ -931,28 +931,23 @@ type X87LifterTests() =
     test "0f77" (* emms *)
     <| [| "FSW := ((FSW & 0xc7ff:I16) | 0x0:I16)"; "FTW := 0xffff:I16" |]
 
-  (* The tag word is indexed by physical register, and ST(1) is physical
-     register (TOP + 1) mod 8: with TOP at 7, an index left unwrapped would
-     shift the tag out of the word and empty nothing. *)
+  (* The tag word is kept by stack register, so ST(1)'s tag is bits 3:2
+     wherever TOP has put ST(1). *)
   [<TestMethod>]
   member _.``[X64] FFREE empties the tag under ST(i) (1)``() =
     test "ddc1" (* ffree st(1) *)
-    <| [| "FIP := 0x0:I64"
-          "T_1:I16 := zext:I16((((FSW & 0x3800:I16) >> 0xb:I16)[7:0]))"
-          "T_1:I16 := ((T_1:I16 + 0x1:I16) & 0x7:I16)"
-          "T_2:I16 := (0x2:I16 * T_1:I16)"
-          "T_3:I16 := (0x3:I16 << T_2:I16)"
-          "FTW := (FTW | T_3:I16)" |]
+    <| [| "FIP := 0x0:I64"; "FTW := (FTW | 0xc:I16)" |]
 
-  (* The register a push takes over is the one TOP names after it: if that one
-     still held a value, the push overflowed the stack, which sets C1, SF, and
-     IE. *)
+  (* The register a push takes over is ST(7), whose tag is the top two bits
+     of the word: if it still held a value, the push overflowed the stack,
+     which sets C1, SF, and IE. Every tag then moves down a register, ST(0)'s
+     reading 00, a value. *)
   [<TestMethod>]
   member _.``[X64] FLDZ tags its new top and flags an overflow (1)``() =
     testTags "d9ee" (* fldz *)
-    <| [| "FSW := ((FSW & 0xfdff:I16) | (zext:I16(((FTW & T_1:I16) != "
-          + "T_1:I16)) * 0x241:I16))"
-          "FTW := (FTW & (~ T_1:I16))" |]
+    <| [| "FSW := ((FSW & 0xfdff:I16) | (zext:I16((FTW < 0xc000:I16)) * "
+          + "0x241:I16))"
+          "FTW := (FTW << 0x2:I16)" |]
 
   (* FNSTSW reads the status word out with ES and B summing up the flags the
      control word leaves unmasked, which a stack fault sets without them. *)
@@ -966,18 +961,27 @@ type X87LifterTests() =
       + "(~ (FCW & 0x3f:I16))) = 0x0:I16)) ? (0x0:I16) : (0x8080:I16)))"
     CollectionAssert.AreEqual([| expected |], actual)
 
-  (* A pop empties the register TOP names before it moves, and C1 reads 0, as
-     it does after any exact result. *)
+  (* A pop moves every tag up a register, the one it leaves coming in as
+     ST(7), empty, and C1 reads 0, as it does after any exact result. *)
   [<TestMethod>]
   member _.``[X64] FSTP empties the register it pops (1)``() =
     testTags "ddd8" (* fstp st(0) *)
-    <| [| "FTW := (FTW | " + topTag + ")"
+    <| [| "FTW := ((FTW >> 0x2:I16) | 0xc000:I16)"
+          "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+
+  (* FINCSTP and FDECSTP turn the stack and leave each value in its register,
+     so the tags turn with the values. *)
+  [<TestMethod>]
+  member _.``[X64] FINCSTP turns the tags with the stack (1)``() =
+    testTags "d9f7" (* fincstp *)
+    <| [| "FTW := ((FTW >> 0x2:I16) | (FTW << 0xe:I16))"
           "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
 
   [<TestMethod>]
-  member _.``[X64] FINCSTP leaves the tags alone (1)``() =
-    testTags "d9f7" (* fincstp *)
-    <| [| "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+  member _.``[X64] FDECSTP turns the tags with the stack (1)``() =
+    testTags "d9f6" (* fdecstp *)
+    <| [| "FTW := ((FTW << 0x2:I16) | (FTW >> 0xe:I16))"
+          "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
 
   [<TestMethod>]
   member _.``[X64] FSQRT leaves C1 clear (1)``() =
@@ -985,12 +989,15 @@ type X87LifterTests() =
     <| [| "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
 
   (* FXSAVE keeps one bit per physical register, set unless its tag is 11,
-     empty, in the byte at offset 4; the byte after it is reserved. *)
+     empty, in the byte at offset 4; the byte after it is reserved. The tag
+     word turns by twice TOP to be kept by physical register. *)
   [<TestMethod>]
   member _.``[X64] FXSAVE stores the abridged tag byte (1)``() =
+    let physical =
+      "((FTW << " + topTwice + ") | (FTW >> (0x10:I16 - " + topTwice + ")))"
     let notEmpty p =
       let mask = sprintf "0x%x:I16" (3 <<< (2 * p))
-      sprintf "(zext:I8(((FTW & %s) != %s)) << 0x%x:I8)" mask mask p
+      sprintf "(zext:I8(((%s & %s) != %s)) << 0x%x:I8)" physical mask mask p
     let abridged =
       [ for p in 0 .. 7 -> notEmpty p ]
       |> List.reduce (fun acc t -> "(" + acc + " | " + t + ")")
@@ -1001,7 +1008,8 @@ type X87LifterTests() =
     CollectionAssert.AreEqual(expected, actual)
 
   (* FXRSTOR reads that byte back: a clear bit is an empty register, 11, and a
-     set one a register holding a value, 00. *)
+     set one a register holding a value, 00. The word then turns back by
+     twice the TOP read with it, to be kept by stack register. *)
   [<TestMethod>]
   member _.``[X64] FXRSTOR expands the abridged tag byte (1)``() =
     let tagOf p =
@@ -1010,10 +1018,13 @@ type X87LifterTests() =
     let tags =
       [ for p in 0 .. 7 -> tagOf p ]
       |> List.reduce (fun acc t -> "(" + acc + " | " + t + ")")
+    let turned =
+      "FTW := ((FTW >> " + topTwice + ") | (FTW << (0x10:I16 - " + topTwice
+      + ")))"
     let actual =
       lift "0fae08" (* fxrstor [rax] *)
       |> Array.filter (fun l -> l.StartsWith "FTW :=")
-    CollectionAssert.AreEqual([| "FTW := " + tags |], actual)
+    CollectionAssert.AreEqual([| "FTW := " + tags; turned |], actual)
 
   (* XRSTOR puts the x87 state its header marks as not held back in its
      initial configuration, which has no selector for either pointer: those
