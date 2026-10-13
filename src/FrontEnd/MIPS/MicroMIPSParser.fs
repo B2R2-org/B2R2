@@ -1082,6 +1082,17 @@ let private cop2Mem release w width =
     raise ParsingFailureException
 
 /// <summary>
+/// CACHE's address. Release 6 gives it nine bits of offset with the three
+/// bits above them clear (MD00582 revision 6.04, p.144) where the releases
+/// before it give it twelve, so the same word reaches a different address in
+/// the two.
+/// </summary>
+let private cacheMem release w =
+  if release <> MIPSRelease.R6 then memOff12 w 32<rt>
+  elif bits w 11u 9u = 0u then memOff9 w 32<rt>
+  else raise ParsingFailureException
+
+/// <summary>
 /// POOL32B, the loads and stores that move more than one register.
 ///
 /// Every member spends four bits on the minor opcode and keeps twelve for
@@ -1110,7 +1121,7 @@ let private pool32B release w =
     Op.LWM, None, None, TwoOperands(regs, memOff12 w 32<rt>)
   | 0b0110u ->
     let hint = bits w 25u 21u |> uint64 |> OpImm
-    Op.CACHE, None, None, TwoOperands(hint, memOff12 w 32<rt>)
+    Op.CACHE, None, None, TwoOperands(hint, cacheMem release w)
   | 0b0111u ->
     let regs = wideRegList (bits w 25u 21u)
     Op.LDM, None, None, TwoOperands(regs, memOff12 w 64<rt>)

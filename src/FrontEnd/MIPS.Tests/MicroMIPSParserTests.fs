@@ -947,6 +947,22 @@ type MicroMIPSParserTests() =
     let olderOprs = ThreeOperands(O.Reg R3, O.Reg R2, O.Reg R4)
     Assert.AreEqual<Operands>(olderOprs, older.Operands)
 
+  /// <summary>
+  /// CACHE at Release 6 (MD00582 revision 6.04, p.144) keeps nine bits of
+  /// offset below three clear ones -- "The 9-bit offset is sign-extended" --
+  /// where the releases before it keep twelve. The decoder read twelve at
+  /// Release 6 as well, so an offset with its sign bit set came out as a
+  /// large positive one. The encodings match the manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 CACHE takes a nine-bit offset (32r6 p.144)``() =
+    let oprs = [ O.Imm 0x15UL; O.Mem(R5, -16L, 32<rt>) ]
+    testR6 WordSize.Bit64 [ "22a561f0", (CACHE, oprs) ]
+    refusesAt MIPSRelease.R6 WordSize.Bit64 "22a563f0"
+    let older = parseAt MIPSRelease.PreR6 WordSize.Bit64 "22a561f0"
+    let olderOprs = TwoOperands(O.Imm 0x15UL, O.Mem(R5, 496L, 32<rt>))
+    Assert.AreEqual<Operands>(olderOprs, older.Operands)
+
   /// LDP, LDM, SDP and SDM move doublewords, and microMIPS64 alone has them
   /// (microMIPS64 Release 5, POOL32B): a 32-bit decoder refuses them, as it
   /// refuses LD.

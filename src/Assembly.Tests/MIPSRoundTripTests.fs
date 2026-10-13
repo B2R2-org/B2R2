@@ -582,11 +582,12 @@ type MIPSRoundTripTests() =
   /// <summary>
   /// The Release 6 microMIPS words the decoder took from the manuals -- the
   /// multiplies and divides that write one register, the 32-bit compact
-  /// jumps, DAHI, DATI and SYNCI's new place -- are what the assembler
-  /// writes (MD00582 revision 6.04, pp.182, 202, 204, 256 and 338; MD00594
-  /// revision 6.01, pp.134, 210 and 312). The sweep holds the assembler to
-  /// the decoder, which a decoder and an assembler wrong the same way pass;
-  /// this holds both to the page, the one witness Release 6 microMIPS has.
+  /// jumps, DAHI, DATI, SYNCI's new place and CACHE's nine-bit offset -- are
+  /// what the assembler writes (MD00582 revision 6.04, pp.144, 182, 202, 204,
+  /// 256 and 338; MD00594 revision 6.01, pp.134, 210 and 312). The sweep
+  /// holds the assembler to the decoder, which a decoder and an assembler
+  /// wrong the same way pass; this holds both to the page, the one witness
+  /// Release 6 microMIPS has.
   /// </summary>
   [<TestMethod>]
   member _.``Release 6 microMIPS writes the words the manuals draw``() =
@@ -611,7 +612,8 @@ type MIPSRoundTripTests() =
         "dmuh v0, v1, a0", 0x58831058u
         "dmulu v0, v1, a0", 0x58831098u
         "dmuhu v0, v1, a0", 0x588310d8u
-        "synci 8(a0)", 0x41840008u ]
+        "synci 8(a0)", 0x41840008u
+        "cache 0x15, -16(a1)", 0x22a561f0u ]
     for source, word in cases do
       let expected = ByteArray.toHexString (MicroMIPSSweep.bytesOf word)
       let actual =

@@ -1391,12 +1391,13 @@ let private mem9R6 minor ins =
   | _ ->
     wrongOperands ins
 
-/// The same for PREF, which names a hint where the others name a register.
-let private hint9R6 minor ins =
+/// The same for PREF and CACHE, which name a hint where the others name a
+/// register. CACHE is POOL32B's, the rest POOL32C's.
+let private hint9R6 major minor ins =
   match ins.Operands with
   | TwoOperands(Im hint, Mem(baseReg, offset)) ->
     let offset = signed 9 offset
-    pooledMem 0b011000u (unsigned 5 hint) (gpr baseReg) minor offset
+    pooledMem major (unsigned 5 hint) (gpr baseReg) minor offset
   | _ ->
     wrongOperands ins
 
@@ -1426,7 +1427,8 @@ let private r6ExtraEncoders () =
     Opcode.SELNEZ, threeReg 0b000000u 0b000u 0b0110u
     Opcode.BC1EQZC, branchFPRegR6 0b01000u
     Opcode.BC1NEZC, branchFPRegR6 0b01001u
-    Opcode.PREF, hint9R6 0b0010u
+    Opcode.PREF, hint9R6 0b011000u 0b0010u
+    Opcode.CACHE, hint9R6 0b001000u 0b0110u
     Opcode.LL, mem9R6 0b0011u
     Opcode.LLD, mem9R6 0b0111u
     Opcode.SC, mem9R6 0b1011u
