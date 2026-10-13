@@ -963,6 +963,19 @@ type MicroMIPSParserTests() =
     let olderOprs = TwoOperands(O.Imm 0x15UL, O.Mem(R5, 496L, 32<rt>))
     Assert.AreEqual<Operands>(olderOprs, older.Operands)
 
+  /// <summary>
+  /// DAUI's rs "cannot be r0, the zero register. The encoding may be used
+  /// for other instructions or must signal a Reserved Instruction Exception"
+  /// (MD00594 revision 6.01, p.135), and no other instruction is given it, so
+  /// the word is refused. The decoder read it as DAUI adding to the zero
+  /// register. The encodings match the manual.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS] R6 DAUI refuses a zero rs (64r6 p.135)``() =
+    let oprs = [ O.Reg R6; O.Reg R15; O.Imm 0x8002UL ]
+    testR6 WordSize.Bit64 [ "f0cf8002", (DAUI, oprs) ]
+    refusesAt MIPSRelease.R6 WordSize.Bit64 "f0c08002"
+
   /// LDP, LDM, SDP and SDM move doublewords, and microMIPS64 alone has them
   /// (microMIPS64 Release 5, POOL32B): a 32-bit decoder refuses them, as it
   /// refuses LD.

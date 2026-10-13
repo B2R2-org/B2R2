@@ -1796,13 +1796,17 @@ let private parseWord release addr w =
   | 0b110100u ->
     Op.ANDI, None, None, ThreeOperands(fRt w, fRs w, immZ w)
   | 0b111100u ->
-    if release = MIPSRelease.R6 then
-      Op.DAUI, None, None, ThreeOperands(fRt w, fRs w, immZ w)
-    else
+    if release <> MIPSRelease.R6 then
       (* JALX crosses into the other encoding, so its target is a WORD index
          where every other jump here holds a halfword one. *)
       let idx = uint64 (bits w 25u 0u) <<< 2
       Op.JALX, None, None, OneOperand(OpAddr(Region idx))
+    elif bits w 20u 16u = 0u then
+      (* DAUI's rs "cannot be r0": the encoding must signal a Reserved
+         Instruction exception (MD00594 revision 6.01, p.135). *)
+      raise ParsingFailureException
+    else
+      Op.DAUI, None, None, ThreeOperands(fRt w, fRs w, immZ w)
   | 0b000101u ->
     Op.LBU, None, None, TwoOperands(fRt w, memOff w 8<rt>)
   | 0b001101u ->
