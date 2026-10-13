@@ -1720,6 +1720,14 @@ let private indexedOrBranchR6 w jump branch =
 /// Which member a word means is settled by a field starting at bit 20 whose
 /// LENGTH varies, so the wider selectors have to be tested after the
 /// narrower ones fail rather than alongside them.
+///
+/// ADDIUPC and LWPC count from this instruction's address with its two low
+/// bits cleared, "PC &amp; ~0x3" (MD00582 revision 6.04, pp.119 and 236),
+/// which is folded into the place here. LWUPC counts from the address as it
+/// is, "PC + sign_extend(offset &lt;&lt; 2)" (MD00594 revision 6.01, p.291),
+/// and LDPC from the doubleword holding it, "PC&amp;~0x7" (p.262), which the
+/// lifter forms as it does for the 32-bit encoding's LDPC; folding the word
+/// alignment into those two as well moved a misaligned one two bytes off.
 /// </summary>
 let private pcrel addr w =
   let rt = fRt w
@@ -1732,12 +1740,12 @@ let private pcrel addr w =
   | 0b01u ->
     Op.LWPC, None, None, TwoOperands(rt, target off19)
   | 0b10u ->
-    Op.LWUPC, None, None, TwoOperands(rt, target off19)
+    Op.LWUPC, None, None, TwoOperands(rt, OpAddr(Relative(int64 off19)))
   | _ ->
     match bits w 20u 18u with
     | 0b110u ->
-      let off18 = uint64 (signed 18 (bits w 17u 0u) <<< 3)
-      Op.LDPC, None, None, TwoOperands(rt, target off18)
+      let off18 = signed 18 (bits w 17u 0u) <<< 3
+      Op.LDPC, None, None, TwoOperands(rt, OpAddr(Relative off18))
     | _ ->
       let imm = imm (uint64 (bits w 15u 0u))
       match bits w 20u 16u with

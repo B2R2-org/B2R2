@@ -1148,3 +1148,29 @@ type LifterTests() =
     ++ [| AST.loadBE 64<rt> addr := AST.ite ok pair (AST.loadBE 64<rt> addr)
           !.R11 := AST.zext 64<rt> (AST.ite ok one zero) |]
     |> test microR6
+
+  /// <summary>
+  /// microMIPS64's LWUPC counts from its own address, "PC +
+  /// sign_extend(offset &lt;&lt; 2)" (MD00594 revision 6.01, p.291), and LDPC
+  /// from the doubleword holding it, "(PC&amp;~0x7) + sign_extend(offset
+  /// &lt;&lt; 3)" (p.262). The decoder cleared the address's two low bits for
+  /// both, as ADDIUPC and LWPC do (MD00582 revision 6.04, pp.119 and 236), so
+  /// at 0x1002 LWUPC read two bytes below its place and LDPC, aligned again
+  /// by the lifter, two bytes below its own.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] LWUPC and LDPC count from their own PC``() =
+    let regs = RegisterFactory microR6 :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let liftedAt (hex: string) =
+      let bld = LowUIRBuilder(microR6, RegisterFactory microR6, LowUIRStream())
+      let p = Parser(microR6, BinReader.Init Endian.Big)
+      let p = p :> IInstructionParsable
+      (p.Parse(ByteArray.ofHexString hex, 0x1002UL)).Translate bld
+    let at (v: uint64) = numU64 v 64<rt>
+    (* LWUPC t2 by -0xfffe4 and LDPC s4 by -0xfffb8, at 0x1002 *)
+    let lwupc =
+      var R14 := AST.zext 64<rt> (AST.loadBE 32<rt> (at 0xfffffffffff0101eUL))
+    CollectionAssert.Contains(liftedAt "79d40007", lwupc)
+    let ldpc = var R20 := AST.loadBE 64<rt> (at 0xfffffffffff01048UL)
+    CollectionAssert.Contains(liftedAt "7a9a0009", ldpc)
