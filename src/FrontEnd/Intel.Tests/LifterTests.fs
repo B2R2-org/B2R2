@@ -852,3 +852,247 @@ type AMXLifterTests() =
           ":BadTileEnd"
           "TMM1 := 0x0:I8192"
           "TILECFG := (TILECFG & " + mask + ")" |]
+
+/// The x87 FPU keeps the index of its stack top, TOP, in bits 13:11 of the
+/// status word: a push decrements it and a pop increments it, so the first
+/// value loaded into an empty stack lands in physical register 7 (Intel SDM
+/// Vol. 1, 8.1.2). Software reads TOP back through FNSTSW, FNSTENV, FNSAVE,
+/// and FXSAVE. These look only at the statements that write TOP, which are the
+/// same in both builds; the rest is not (the analysis build also moves the
+/// exponent halves and marks C0, C2, and C3 undefined).
+[<TestClass>]
+type X87LifterTests() =
+  let liftAt addr (hex: string) =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let regFactory = RegisterFactory isa
+    let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
+    let reader = BinReader.Init Endian.Little
+    let parser = Parser(WordSize.Bit64, reader) :> IInstructionParsable
+    let ins = parser.Parse(ByteArray.ofHexString hex, addr)
+    ins.Translate builder
+    |> Array.map PrettyPrinter.ToString
+    |> Array.filter (fun l -> not (l.StartsWith "(" || l.StartsWith "}"))
+
+  let lift hex = liftAt 0UL hex
+
+  (* The writes to FIP of an instruction at 0x401000. *)
+  let fipWrites hex =
+    liftAt 0x401000UL hex |> Array.filter (fun l -> l.StartsWith "FIP :=")
+
+  let test hex (expectedStmts: string[]) =
+    CollectionAssert.AreEqual(expectedStmts, lift hex)
+
+  (* A write to TOP first clears bits 13:11 of FSW, which nothing else does. *)
+  let topWrites hex =
+    lift hex
+    |> Array.filter (fun l -> l.StartsWith "FSW := ((FSW & 0xc7ff:I16)")
+
+  (* TOP moved one place by `op`, kept within its three bits. *)
+  let testTop hex op =
+    let expected =
+      [| "FSW := ((FSW & 0xc7ff:I16) | ((zext:I16(((((FSW & 0x3800:I16) >> "
+         + "0xb:I16)[7:0]) " + op + " 0x1:I8)) << 0xb:I16) & 0x3800:I16))" |]
+    CollectionAssert.AreEqual(expected, topWrites hex)
+
+  (* The writes to the tag word, and to C1, bit 9 of FSW. *)
+  let tagWrites hex =
+    lift hex
+    |> Array.filter (fun l ->
+      l.StartsWith "FTW :=" || l.StartsWith "FSW := ((FSW & 0xfdff:I16)")
+
+  let testTags hex (expectedStmts: string[]) =
+    CollectionAssert.AreEqual(expectedStmts, tagWrites hex)
+
+  (* Twice TOP: how far the tag word, kept by stack register, turns to be the
+     FPU's own, kept by physical register. *)
+  let topTwice =
+    "(zext:I16((((FSW & 0x3800:I16) >> 0xb:I16)[7:0])) << 0x1:I16)"
+
+  [<TestMethod>]
+  member _.``[X64] FLDZ pushes by moving TOP down (1)``() =
+    testTop "d9ee" (* fldz *) "-"
+
+  [<TestMethod>]
+  member _.``[X64] FSTP pops by moving TOP up (1)``() =
+    testTop "ddd8" (* fstp st(0) *) "+"
+
+  [<TestMethod>]
+  member _.``[X64] FDECSTP moves TOP down (1)``() =
+    testTop "d9f6" (* fdecstp *) "-"
+
+  [<TestMethod>]
+  member _.``[X64] FINCSTP moves TOP up (1)``() =
+    testTop "d9f7" (* fincstp *) "+"
+
+  (* EMMS puts TOP at zero as it empties the stack, as every MMX instruction
+     does. *)
+  [<TestMethod>]
+  member _.``[X64] EMMS puts TOP at zero (1)``() =
+    test "0f77" (* emms *)
+    <| [| "FSW := ((FSW & 0xc7ff:I16) | 0x0:I16)"; "FTW := 0xffff:I16" |]
+
+  (* The tag word is kept by stack register, so ST(1)'s tag is bits 3:2
+     wherever TOP has put ST(1). *)
+  [<TestMethod>]
+  member _.``[X64] FFREE empties the tag under ST(i) (1)``() =
+    test "ddc1" (* ffree st(1) *)
+    <| [| "FIP := 0x0:I64"; "FTW := (FTW | 0xc:I16)" |]
+
+  (* The register a push takes over is ST(7), whose tag is the top two bits
+     of the word: if it still held a value, the push overflowed the stack,
+     which sets C1, SF, and IE. Every tag then moves down a register, ST(0)'s
+     reading 00, a value. *)
+  [<TestMethod>]
+  member _.``[X64] FLDZ tags its new top and flags an overflow (1)``() =
+    testTags "d9ee" (* fldz *)
+    <| [| "FSW := ((FSW & 0xfdff:I16) | (zext:I16((FTW < 0xc000:I16)) * "
+          + "0x241:I16))"
+          "FTW := (FTW << 0x2:I16)" |]
+
+  (* FNSTSW reads the status word out with ES and B summing up the flags the
+     control word leaves unmasked, which a stack fault sets without them. *)
+  [<TestMethod>]
+  member _.``[X64] FNSTSW sums up the flags it reads out (1)``() =
+    let actual =
+      lift "dd38" (* fnstsw [rax] *)
+      |> Array.filter (fun l -> l.StartsWith "[RAX] :=")
+    let expected =
+      "[RAX] := ((FSW & 0x7f7f:I16) | (((((FSW & 0x3f:I16) & "
+      + "(~ (FCW & 0x3f:I16))) = 0x0:I16)) ? (0x0:I16) : (0x8080:I16)))"
+    CollectionAssert.AreEqual([| expected |], actual)
+
+  (* A pop moves every tag up a register, the one it leaves coming in as
+     ST(7), empty, and C1 reads 0, as it does after any exact result. *)
+  [<TestMethod>]
+  member _.``[X64] FSTP empties the register it pops (1)``() =
+    testTags "ddd8" (* fstp st(0) *)
+    <| [| "FTW := ((FTW >> 0x2:I16) | 0xc000:I16)"
+          "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+
+  (* FINCSTP and FDECSTP turn the stack and leave each value in its register,
+     so the tags turn with the values. *)
+  [<TestMethod>]
+  member _.``[X64] FINCSTP turns the tags with the stack (1)``() =
+    testTags "d9f7" (* fincstp *)
+    <| [| "FTW := ((FTW >> 0x2:I16) | (FTW << 0xe:I16))"
+          "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+
+  [<TestMethod>]
+  member _.``[X64] FDECSTP turns the tags with the stack (1)``() =
+    testTags "d9f6" (* fdecstp *)
+    <| [| "FTW := ((FTW << 0x2:I16) | (FTW >> 0xe:I16))"
+          "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+
+  [<TestMethod>]
+  member _.``[X64] FSQRT leaves C1 clear (1)``() =
+    testTags "d9fa" (* fsqrt *)
+    <| [| "FSW := ((FSW & 0xfdff:I16) | 0x0:I16)" |]
+
+  (* FXSAVE keeps one bit per physical register, set unless its tag is 11,
+     empty, in the byte at offset 4; the byte after it is reserved. The tag
+     word turns by twice TOP to be kept by physical register. *)
+  [<TestMethod>]
+  member _.``[X64] FXSAVE stores the abridged tag byte (1)``() =
+    let physical =
+      "((FTW << " + topTwice + ") | (FTW >> (0x10:I16 - " + topTwice + ")))"
+    let notEmpty p =
+      let mask = sprintf "0x%x:I16" (3 <<< (2 * p))
+      sprintf "(zext:I8(((%s & %s) != %s)) << 0x%x:I8)" physical mask mask p
+    let abridged =
+      [ for p in 0 .. 7 -> notEmpty p ]
+      |> List.reduce (fun acc t -> "(" + acc + " | " + t + ")")
+    let actual =
+      lift "0fae00" (* fxsave [rax] *)
+      |> Array.filter (fun l -> l.StartsWith "[(RAX + 0x4:I64)]")
+    let expected = [| "[(RAX + 0x4:I64)] := zext:I16(" + abridged + ")" |]
+    CollectionAssert.AreEqual(expected, actual)
+
+  (* FXRSTOR reads that byte back: a clear bit is an empty register, 11, and a
+     set one a register holding a value, 00. The word then turns back by
+     twice the TOP read with it, to be kept by stack register. *)
+  [<TestMethod>]
+  member _.``[X64] FXRSTOR expands the abridged tag byte (1)``() =
+    let tagOf p =
+      sprintf "(zext:I16((~ ([(RAX + 0x4:I64)]:I8[%d:%d]))) * 0x%x:I16)"
+        p p (3 <<< (2 * p))
+    let tags =
+      [ for p in 0 .. 7 -> tagOf p ]
+      |> List.reduce (fun acc t -> "(" + acc + " | " + t + ")")
+    let turned =
+      "FTW := ((FTW >> " + topTwice + ") | (FTW << (0x10:I16 - " + topTwice
+      + ")))"
+    let actual =
+      lift "0fae08" (* fxrstor [rax] *)
+      |> Array.filter (fun l -> l.StartsWith "FTW :=")
+    CollectionAssert.AreEqual([| "FTW := " + tags; turned |], actual)
+
+  (* XRSTOR puts the x87 state its header marks as not held back in its
+     initial configuration, which has no selector for either pointer: those
+     are zeroed there and nowhere else in it (Intel SDM Vol. 1, 13.6). *)
+  [<TestMethod>]
+  member _.``[X64] XRSTOR clears the selectors of an initial x87 state (1)``() =
+    let actual =
+      lift "0fae2c24" (* xrstor [rsp] *)
+      |> Array.filter (fun l -> l.StartsWith "FCS :=" || l.StartsWith "FDS :=")
+    CollectionAssert.AreEqual([| "FCS := 0x0:I16"; "FDS := 0x0:I16" |], actual)
+
+  (* An x87 instruction other than a control one records where it was as the
+     last instruction, which FNSTENV and FNSAVE report (Intel SDM Vol. 1,
+     8.1.8). FNOP counts, as on the hardware. *)
+  [<TestMethod>]
+  member _.``[X64] FLD1 records itself as the last instruction (1)``() =
+    let actual = fipWrites "d9e8" (* fld1 *)
+    CollectionAssert.AreEqual([| "FIP := 0x401000:I64" |], actual)
+
+  [<TestMethod>]
+  member _.``[X64] FADD records itself as the last instruction (1)``() =
+    let actual = fipWrites "d8c1" (* fadd st(0), st(1) *)
+    CollectionAssert.AreEqual([| "FIP := 0x401000:I64" |], actual)
+
+  [<TestMethod>]
+  member _.``[X64] FNOP records itself as the last instruction (1)``() =
+    let actual = fipWrites "d9d0" (* fnop *)
+    CollectionAssert.AreEqual([| "FIP := 0x401000:I64" |], actual)
+
+  (* A control instruction leaves the pointers to the one before it. *)
+  [<TestMethod>]
+  member _.``[X64] FNSTCW leaves the last instruction alone (1)``() =
+    CollectionAssert.AreEqual([||], fipWrites "d938" (* fnstcw [rax] *))
+
+  [<TestMethod>]
+  member _.``[X64] FWAIT leaves the last instruction alone (1)``() =
+    CollectionAssert.AreEqual([||], fipWrites "9b" (* fwait *))
+
+  (* FNCLEX clears the exception flags, SF among them, and with nothing
+     flagged neither summary bit, ES or B, has anything to say (Intel SDM
+     Vol. 2A, FCLEX/FNCLEX). *)
+  [<TestMethod>]
+  member _.``[X64] FNCLEX clears the summary with the flags (1)``() =
+    let actual =
+      lift "dbe2" (* fnclex *)
+      |> Array.filter (fun l ->
+        l.StartsWith "FSW :=" && not (l.Contains "undefined"))
+    CollectionAssert.AreEqual([| "FSW := (FSW & 0x7f00:I16)" |], actual)
+
+  (* A control word that unmasks a flagged exception sets ES and B at once, and
+     one that masks every flagged exception leaves them nothing to say. *)
+  [<TestMethod>]
+  member _.``[X64] FLDCW sums up the flags it unmasks (1)``() =
+    let actual =
+      lift "d928" (* fldcw [rax] *)
+      |> Array.filter (fun l ->
+        l.StartsWith "FSW :=" && not (l.Contains "undefined"))
+    let expected =
+      "FSW := ((FSW & 0x7f7f:I16) | (((((FSW & 0x3f:I16) & "
+      + "(~ (FCW & 0x3f:I16))) = 0x0:I16)) ? (0x0:I16) : (0x8080:I16)))"
+    CollectionAssert.AreEqual([| expected |], actual)
+
+  (* Once the environment is out, FNSTENV masks every exception, which leaves
+     ES and B nothing to sum up. *)
+  [<TestMethod>]
+  member _.``[X64] FNSTENV masks every exception after the store (1)``() =
+    let actual =
+      lift "d930" (* fnstenv [rax] *)
+      |> Array.filter (fun l -> l.StartsWith "FCW :=" || l.StartsWith "FSW :=")
+    let expected = [| "FCW := (FCW | 0x3f:I16)"; "FSW := (FSW & 0x7f7f:I16)" |]
+    CollectionAssert.AreEqual(expected, actual)

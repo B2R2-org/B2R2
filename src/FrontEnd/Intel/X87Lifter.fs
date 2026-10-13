@@ -61,26 +61,21 @@ let private cflagsUndefined023 bld =
 let inline private getFPUPseudoRegVars bld r =
   struct (pseudoRegVar bld r 2, pseudoRegVar bld r 1)
 
-let private updateC1OnLoad bld =
-  append bld {
-    let top = regVar bld R.FTOP
-    let c1Flag = regVar bld R.FSWC1
-    (* Top value has been wrapped around, which means stack overflow in B2R2. *)
-    direct c1Flag := (top == AST.num0 8<rt>)
-#if !EMULATION
-    direct (regVar bld R.FSWC0) := undefC0
-    direct (regVar bld R.FSWC2) := undefC2
-    direct (regVar bld R.FSWC3) := undefC3
+/// What a load leaves in C0, C2, and C3, which it does not define. C1 is the
+/// push's to set, as only the push knows whether the stack overflowed.
+let private cflagsAfterLoad bld =
+#if EMULATION
+  ignore bld
+#else
+  cflagsUndefined023 bld
 #endif
-  }
 
 let private updateC1OnStore bld =
   append bld {
-    let top = regVar bld R.FTOP
-    let c1Flag = regVar bld R.FSWC1
-    (* Top value has been wrapped around, which means stack underflow in
-       B2R2. *)
-    direct c1Flag := (top != numI32 7 8<rt>)
+    (* C1 is 0 after a stack underflow, and otherwise tells whether the result
+       was rounded up, which this does not model: 0 is what an exact result
+       leaves. *)
+    direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
     direct (regVar bld R.FSWC2) := undefC2
@@ -454,12 +449,37 @@ let private signOfST bld reg =
   AST.xthi 1<rt> (pseudoRegVar bld reg 2)
 #endif
 
+/// Pushes the stack: TOP moves down a place (Intel SDM Vol. 1, 8.1.2), and
+/// every value moves to the stack register below, which frees ST(0). The tags
+/// move with the values: the tag word is kept by stack register, ST(i)'s tag in
+/// bits 2i+1:2i and 11 for an empty one, where the FPU keeps it by physical
+/// register (Intel SDM Vol. 1, 8.1.7). That way a push or a pop shifts it by a
+/// constant, as it does the values, and only what stores or loads the FPU's
+/// own word turns it by TOP.
+///
+/// The register the push takes over is ST(7)'s, which should be empty; if it
+/// still holds a value, the push has overflowed the stack, which sets C1,
+/// which tells it from an underflow, SF, and IE (Intel SDM Vol. 1, 8.5.1.1);
+/// ES and B are left to whatever reads the status word out. Either way the
+/// register then holds the value pushed. The FPU, the exception masked, would
+/// hold the real indefinite there instead, but a state whose tag word was never
+/// set up -- a zeroed one, where every register reads as holding a value --
+/// would then turn every value it pushes into one. An underflow, an
+/// instruction reading a register tagged empty, goes unflagged here: every
+/// read of a stack register would have to check its tag and answer as its own
+/// instruction does, which costs every arithmetic instruction for code no
+/// compiler emits.
 let private pushFPUStack bld =
   let top = regVar bld R.FTOP
-  (* We increment TOP here (which is the opposite way of what the manual says),
-     because it is more intuitive to consider it as a counter. *)
+  let tags = regVar bld R.FTW
+  let stsWrd = regVar bld R.FSW
   append bld {
-    extractDstAssign top (top .+ AST.num1 8<rt>)
+    extractDstAssign top (top .- AST.num1 8<rt>)
+    (* ST(7)'s tag is the top two bits of the word, both set if it is empty. *)
+    let overflow = AST.zext 16<rt> (AST.lt tags (numI32 0xC000 16<rt>))
+    let fault = overflow .* numI32 0x241 16<rt>
+    direct stsWrd := (stsWrd .& numI32 0xFDFF 16<rt>) .| fault
+    direct tags := tags << numI32 2 16<rt>
   }
   copyST bld R.ST7 R.ST6
   copyST bld R.ST6 R.ST5
@@ -469,13 +489,16 @@ let private pushFPUStack bld =
   copyST bld R.ST2 R.ST1
   copyST bld R.ST1 R.ST0
 
+/// Pops the stack: the register TOP names is tagged empty, TOP moves up a place
+/// (Intel SDM Vol. 1, 8.1.2), and every value moves to the stack register
+/// above, which empties ST(7). The tags move up with the values (see
+/// pushFPUStack), the register the pop leaves coming in as ST(7), empty.
 let private popFPUStack bld =
   let top = regVar bld R.FTOP
-  (* We decrement TOP here (the opposite way compared to the manual) because it
-     is more intuitive, because it is more intuitive to consider it as a
-     counter. *)
+  let tags = regVar bld R.FTW
   append bld {
-    extractDstAssign top (top .- AST.num1 8<rt>)
+    direct tags := (tags >> numI32 2 16<rt>) .| numI32 0xC000 16<rt>
+    extractDstAssign top (top .+ AST.num1 8<rt>)
   }
   copyST bld R.ST0 R.ST1
   copyST bld R.ST1 R.ST2
@@ -502,10 +525,19 @@ let private pushDouble bld v =
   let stash = stashDouble bld v
   pushFPUStack bld
   unstashST bld R.ST0 stash
-  updateC1OnLoad bld
+  cflagsAfterLoad bld
+
+/// Records an x87 instruction as the last the FPU has run, the instruction
+/// pointer FNSTENV and FNSAVE report (Intel SDM Vol. 1, 8.1.8). Every x87
+/// instruction does this but the control ones, which leave it to the one before
+/// them. The current processors keep the operand pointer and the opcode for an
+/// exception alone, so this records the instruction pointer only.
+let private recordInstr (ins: Instruction) bld =
+  append bld { direct (regVar bld R.FIP) := numU64 ins.Address 64<rt> }
 
 let private fpuLoad (ins: Instruction) bld v =
   lift bld ins {
+    recordInstr ins bld
     pushDouble bld v
   }
 
@@ -528,10 +560,11 @@ let private stashOperand bld (opr: Expr) =
 
 let fld (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let stash = stashOperand bld (transOneOpr ins bld)
     pushFPUStack bld
     unstashST bld R.ST0 stash
-    updateC1OnLoad bld
+    cflagsAfterLoad bld
   }
 
 /// Stores ST(0) in the format the memory operand names: as a single or a
@@ -553,6 +586,7 @@ let private storeOperand bld (dst: Expr) =
 
 let ffst (ins: Instruction) bld doPop =
   lift bld ins {
+    recordInstr ins bld
     match ins.Operands with
     | OneOperand(OprReg r) ->
       copyST bld r R.ST0
@@ -566,12 +600,14 @@ let ffst (ins: Instruction) bld doPop =
 
 let fild (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     pushDouble bld (AST.cast CastKind.SIntToFloat 64<rt> oprExpr)
   }
 
 let fist (ins: Instruction) bld doPop =
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     let oprSize = Expr.typeOf oprExpr
     (* The stack value is brought down to a double and converted from there,
@@ -590,6 +626,7 @@ let fist (ins: Instruction) bld doPop =
 
 let fisttp (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     let oprSize = Expr.typeOf oprExpr
     let v = readST bld R.ST0
@@ -650,6 +687,7 @@ let private bcdToInt intgr addrExpr addrSize bld =
 
 let fbld (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let src = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     let intgr = tmpVar bld 64<rt>
@@ -694,6 +732,7 @@ let private storeBCD addrExpr addrSize intgr bld =
 
 let fbstp (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let dst = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     let intgr = tmpVar bld 64<rt>
@@ -706,6 +745,7 @@ let fbstp (ins: Instruction) bld =
 
 let fxch (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let other =
       match ins.Operands with
       | OneOperand(OprReg reg) -> reg
@@ -736,6 +776,7 @@ let private fcmov (ins: Instruction) bld cond =
 
 let fcmove (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getZFLazy bld |> fcmov ins bld
 #else
@@ -745,6 +786,7 @@ let fcmove (ins: Instruction) bld =
 
 let fcmovne (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getZFLazy bld |> AST.not |> fcmov ins bld
 #else
@@ -754,6 +796,7 @@ let fcmovne (ins: Instruction) bld =
 
 let fcmovb (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getCFLazy bld |> fcmov ins bld
 #else
@@ -763,6 +806,7 @@ let fcmovb (ins: Instruction) bld =
 
 let fcmovbe (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     (getCFLazy bld .| getZFLazy bld) |> fcmov ins bld
 #else
@@ -772,6 +816,7 @@ let fcmovbe (ins: Instruction) bld =
 
 let fcmovnb (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getCFLazy bld |> AST.not |> fcmov ins bld
 #else
@@ -781,6 +826,7 @@ let fcmovnb (ins: Instruction) bld =
 
 let fcmovnbe (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     let cond1 = getCFLazy bld |> AST.not
     let cond2 = getZFLazy bld |> AST.not
@@ -793,6 +839,7 @@ let fcmovnbe (ins: Instruction) bld =
 
 let fcmovu (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getPFLazy bld |> fcmov ins bld
 #else
@@ -802,6 +849,7 @@ let fcmovu (ins: Instruction) bld =
 
 let fcmovnu (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if EMULATION
     getPFLazy bld |> AST.not |> fcmov ins bld
 #else
@@ -843,6 +891,7 @@ let private fpuFBinOp (ins: Instruction) bld binOp doPop leftToRight =
   let apply x y =
     orNaNOf x y (if leftToRight then binOp x y else binOp y x)
   lift bld ins {
+    recordInstr ins bld
     match ins.Operands with
     | NoOperand ->
       writeST bld R.ST1 (apply (readST bld R.ST0) (readST bld R.ST1))
@@ -860,6 +909,7 @@ let private fpuFBinOp (ins: Instruction) bld binOp doPop leftToRight =
 let private fpuIntOp (ins: Instruction) bld binOp leftToRight =
   let apply x y = if leftToRight then binOp x y else binOp y x
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     let opr = AST.cast CastKind.SIntToFloat 64<rt> oprExpr
     writeST bld R.ST0 (apply (readST bld R.ST0) opr)
@@ -1040,6 +1090,7 @@ let private remainderOf bld round a b =
 
 let fprem (ins: Instruction) bld round =
   lift bld ins {
+    recordInstr ins bld
     let lblSpecial = label bld "Special"
     let lblOrdered = label bld "Ordered"
     let lblExit = label bld "Exit"
@@ -1061,6 +1112,7 @@ let fprem (ins: Instruction) bld round =
 
 let fabs (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     direct (signOfST bld R.ST0) := AST.b0
     direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
@@ -1072,6 +1124,7 @@ let fabs (ins: Instruction) bld =
 
 let fchs (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let sign = signOfST bld R.ST0
     let tmp = tmpVar bld 1<rt>
     direct tmp := sign
@@ -1103,6 +1156,7 @@ let private quietST bld reg =
 
 let frndint (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let lblSpecial = label bld "Special"
     let lblOrdered = label bld "Ordered"
     let lblExit = label bld "Exit"
@@ -1146,6 +1200,7 @@ let private isInvalidScale v s =
 
 let fscale (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let n = tmpVar bld 64<rt>
     let tmp0 = takeST bld R.ST0
     let tmp1 = takeST bld R.ST1
@@ -1159,6 +1214,7 @@ let fscale (ins: Instruction) bld =
 
 let fsqrt (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     writeST bld R.ST0 (AST.unop UnOpType.FSQRT (readST bld R.ST0))
     updateC1OnStore bld
   }
@@ -1226,6 +1282,7 @@ let private splitST bld reg =
 
 let fxtract (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let struct (exponent, significand) = splitST bld R.ST0
     unstashST bld R.ST0 exponent
     pushFPUStack bld
@@ -1254,6 +1311,7 @@ let private prepareTwoOprsForComparison (ins: Instruction) bld =
 
 let fcom (ins: Instruction) bld nPop unordered =
   lift bld ins {
+    recordInstr ins bld
     let c0 = regVar bld R.FSWC0
     let c2 = regVar bld R.FSWC2
     let c3 = regVar bld R.FSWC3
@@ -1269,6 +1327,7 @@ let fcom (ins: Instruction) bld nPop unordered =
 
 let ficom (ins: Instruction) bld doPop =
   lift bld ins {
+    recordInstr ins bld
     let oprExpr = transOneOpr ins bld
     let tmp1 = tmpVar bld 64<rt>
     let tmp0 = readST bld R.ST0
@@ -1283,6 +1342,7 @@ let ficom (ins: Instruction) bld doPop =
 
 let fcomi (ins: Instruction) bld doPop =
   lift bld ins {
+    recordInstr ins bld
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
@@ -1305,6 +1365,7 @@ let fcomi (ins: Instruction) bld doPop =
 
 let ftst (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let num0V = AST.num0 64<rt>
     let c0 = regVar bld R.FSWC0
     let c2 = regVar bld R.FSWC2
@@ -1345,9 +1406,10 @@ let private classifyST bld reg =
 
 let fxam (ins: Instruction) bld =
   lift bld ins {
-    let top = regVar bld R.FTOP
+    recordInstr ins bld
     let struct (isNaN, isInf, isZero, sign) = classifyST bld R.ST0
-    let isEmpty = top == numI32 0 8<rt>
+    let three = numI32 3 16<rt>
+    let isEmpty = (regVar bld R.FTW .& three) == three
     let c3Cond = isZero .| isEmpty
     let c2Cond = AST.not (isNaN .| isZero .| isEmpty)
     let c0Cond = isNaN .| isInf .| isEmpty
@@ -1378,6 +1440,7 @@ let private trigResult v r =
 
 let private ftrig (ins: Instruction) bld trigFunc =
   lift bld ins {
+    recordInstr ins bld
     let c0 = regVar bld R.FSWC0
     let c1 = regVar bld R.FSWC1
     let c2 = regVar bld R.FSWC2
@@ -1409,6 +1472,7 @@ let fcos ins bld = ftrig ins bld AST.fcos
 
 let fsincos (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let c0 = regVar bld R.FSWC0
     let c2 = regVar bld R.FSWC2
     let c3 = regVar bld R.FSWC3
@@ -1428,16 +1492,19 @@ let fsincos (ins: Instruction) bld =
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
     direct c2 := AST.b1
+    (* Out of range, nothing is pushed, so nothing overflows. *)
+    direct (regVar bld R.FSWC1) := AST.b0
     AST.lmark lexit
 #if !EMULATION
     direct c0 := undefC0
     direct c3 := undefC3
 #endif
-    updateC1OnLoad bld
+    cflagsAfterLoad bld
   }
 
 let fptan (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let c0 = regVar bld R.FSWC0
     let c2 = regVar bld R.FSWC2
     let c3 = regVar bld R.FSWC3
@@ -1458,12 +1525,14 @@ let fptan (ins: Instruction) bld =
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
     direct c2 := AST.b1
+    (* Out of range, nothing is pushed, so nothing overflows. *)
+    direct (regVar bld R.FSWC1) := AST.b0
     AST.lmark lexit
 #if !EMULATION
     direct c0 := undefC0
     direct c3 := undefC3
 #endif
-    updateC1OnLoad bld
+    cflagsAfterLoad bld
   }
 
 /// FPATAN is atan2(ST(1), ST(0)), not atan of their quotient: the quotient
@@ -1472,6 +1541,7 @@ let fptan (ins: Instruction) bld =
 /// quotient is therefore corrected by the signs of the two operands.
 let fpatan (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let res = tmpVar bld 64<rt>
     let quot = tmpVar bld 64<rt>
     let signMask = numI64 0x8000000000000000L 64<rt>
@@ -1510,6 +1580,7 @@ let fpatan (ins: Instruction) bld =
 
 let f2xm1 (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let f1 = numI32 1 64<rt> |> castToF64
     let f2 = numI32 2 64<rt> |> castToF64
     let c1 = regVar bld R.FSWC1
@@ -1527,6 +1598,7 @@ let f2xm1 (ins: Instruction) bld =
 
 let fyl2x (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let f2 = numI32 2 64<rt> |> castToF64
     let x = readST bld R.ST0
     let y = readST bld R.ST1
@@ -1544,6 +1616,7 @@ let fyl2x (ins: Instruction) bld =
 
 let fyl2xp1 (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let f1 = numI32 1 64<rt> |> castToF64
     let f2 = numI32 2 64<rt> |> castToF64
     let x = readST bld R.ST0
@@ -1566,9 +1639,10 @@ let fld1 ins bld =
 
 let fldz (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     pushFPUStack bld
     clearST bld R.ST0
-    updateC1OnLoad bld
+    cflagsAfterLoad bld
   }
 
 let fldpi ins bld =
@@ -1593,12 +1667,12 @@ let fldlg2 ins bld =
 
 let fincstp (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let top = regVar bld R.FTOP
-    (* TOP in B2R2 is really a counter, so we decrement TOP here (same as
-       pop). *)
-    let cond = top == numI32 0 8<rt>
-    let updatedTOP = AST.ite cond (numI32 7 8<rt>) (top .- AST.num1 8<rt>)
-    extractDstAssign top updatedTOP
+    let tags = regVar bld R.FTW
+    extractDstAssign top (top .+ AST.num1 8<rt>)
+    (* Each value stays in its register, and its tag with it. *)
+    direct tags := (tags >> numI32 2 16<rt>) .| (tags << numI32 14 16<rt>)
     let stash = stashST bld R.ST0
     copyST bld R.ST0 R.ST1
     copyST bld R.ST1 R.ST2
@@ -1618,11 +1692,12 @@ let fincstp (ins: Instruction) bld =
 
 let fdecstp (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
     let top = regVar bld R.FTOP
-    (* TOP in B2R2 is really a counter, so we increment TOP here. *)
-    let cond = top == numI32 7 8<rt>
-    let updatedTOP = AST.ite cond (AST.num0 8<rt>) (top .+ AST.num1 8<rt>)
-    extractDstAssign top updatedTOP
+    let tags = regVar bld R.FTW
+    extractDstAssign top (top .- AST.num1 8<rt>)
+    (* Each value stays in its register, and its tag with it. *)
+    direct tags := (tags << numI32 2 16<rt>) .| (tags >> numI32 14 16<rt>)
     let stash = stashST bld R.ST7
     copyST bld R.ST7 R.ST6
     copyST bld R.ST6 R.ST5
@@ -1642,31 +1717,28 @@ let fdecstp (ins: Instruction) bld =
 
 let ffree (ins: Instruction) bld =
   lift bld ins {
-    let top = regVar bld R.FTOP
+    recordInstr ins bld
     let tagWord = regVar bld R.FTW
-    let struct (top16, shifter, tagValue) = tmpVars3 bld 16<rt>
-    let value3 = numI32 3 16<rt>
-    let offset =
+    let index =
       match ins.Operands with
-      | OneOperand(OprReg R.ST0) -> numI32 0 16<rt>
-      | OneOperand(OprReg R.ST1) -> numI32 1 16<rt>
-      | OneOperand(OprReg R.ST2) -> numI32 2 16<rt>
-      | OneOperand(OprReg R.ST3) -> numI32 3 16<rt>
-      | OneOperand(OprReg R.ST4) -> numI32 4 16<rt>
-      | OneOperand(OprReg R.ST5) -> numI32 5 16<rt>
-      | OneOperand(OprReg R.ST6) -> numI32 6 16<rt>
-      | OneOperand(OprReg R.ST7) -> numI32 7 16<rt>
+      | OneOperand(OprReg R.ST0) -> 0
+      | OneOperand(OprReg R.ST1) -> 1
+      | OneOperand(OprReg R.ST2) -> 2
+      | OneOperand(OprReg R.ST3) -> 3
+      | OneOperand(OprReg R.ST4) -> 4
+      | OneOperand(OprReg R.ST5) -> 5
+      | OneOperand(OprReg R.ST6) -> 6
+      | OneOperand(OprReg R.ST7) -> 7
       | _ -> raise InvalidOperandException
-    direct top16 := AST.cast CastKind.ZeroExt 16<rt> top
-    direct top16 := top16 .+ offset
-    direct shifter := (numI32 2 16<rt>) .* top16
-    direct tagValue := (value3 << shifter)
-    direct tagWord := tagWord .| tagValue
+    direct tagWord := tagWord .| numI32 (3 <<< (2 * index)) 16<rt>
   }
 
 (* FIXME: check all unmasked pending floating point exceptions. *)
 let private checkFPUExceptions bld = ()
 
+/// Puts the FPU in its initial state: the default control word, a clear status
+/// word, every register tagged empty, and no last instruction or operand, their
+/// selectors and the opcode included (Intel SDM Vol. 2A, FINIT/FNINIT).
 let private clearFPU bld =
   append bld {
     let cw = numI32 895 16<rt>
@@ -1674,6 +1746,11 @@ let private clearFPU bld =
     direct (regVar bld R.FCW) := cw
     direct (regVar bld R.FSW) := AST.num0 16<rt>
     direct (regVar bld R.FTW) := tw
+    direct (regVar bld R.FIP) := AST.num0 64<rt>
+    direct (regVar bld R.FCS) := AST.num0 16<rt>
+    direct (regVar bld R.FDP) := AST.num0 64<rt>
+    direct (regVar bld R.FDS) := AST.num0 16<rt>
+    direct (regVar bld R.FOP) := AST.num0 16<rt>
   }
 
 let finit (ins: Instruction) bld =
@@ -1690,8 +1767,8 @@ let fninit (ins: Instruction) bld =
 let fclex (ins: Instruction) bld =
   lift bld ins {
     let stsWrd = regVar bld R.FSW
-    direct stsWrd := stsWrd .& (numI32 0xFF80 16<rt>)
-    direct (AST.xthi 1<rt> stsWrd) := AST.b0
+    (* The flags in bits 6:0, and ES and B with nothing left to sum up. *)
+    direct stsWrd := stsWrd .& (numI32 0x7F00 16<rt>)
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
     direct (regVar bld R.FSWC1) := undefC1
@@ -1719,10 +1796,35 @@ let fnstcw (ins: Instruction) bld =
 #endif
   }
 
+/// The status word as software reads it out. Neither summary bit holds state
+/// of its own: ES (bit 7) says an exception is flagged that the control word
+/// does not mask, and B (bit 15) has followed ES on every FPU since the 387.
+/// A stack fault flags IE without them, and an environment can be loaded with
+/// the three out of step -- flags masked but ES set, say -- so whatever reads
+/// the word out sums them up from the flags and the masks, as the FPU answers
+/// the next read with the summary they imply, not the one it was handed.
+let private summedStatus bld =
+  let stsWrd = regVar bld R.FSW
+  let excMask = numI32 0x3F 16<rt>
+  let masked = regVar bld R.FCW .& excMask
+  let pending = (stsWrd .& excMask) .& AST.not masked
+  let quiet = pending == AST.num0 16<rt>
+  let summary = AST.ite quiet (AST.num0 16<rt>) (numI32 0x8080 16<rt>)
+  (stsWrd .& numI32 0x7F7F 16<rt>) .| summary
+
+/// Brings ES and B in step with the flags and the masks once a load has put
+/// either out of step with the other: loading a control word that unmasks a
+/// flagged exception sets both at once.
+let private syncSummaryBits bld =
+  append bld {
+    direct (regVar bld R.FSW) := summedStatus bld
+  }
+
 let fldcw (ins: Instruction) bld =
   lift bld ins {
     let oprExpr = transOneOpr ins bld
     direct (regVar bld R.FCW) := oprExpr
+    syncSummaryBits bld
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
     direct (regVar bld R.FSWC1) := undefC1
@@ -1733,30 +1835,89 @@ let fldcw (ins: Instruction) bld =
 
 let inline private storeLE addr v = AST.store Endian.Little addr v
 
+/// The tag the FPU gives a stack register that holds a value, when it stores
+/// the tag word: 01 for a zero, 10 for a special value, and 00 for any other
+/// (Intel SDM Vol. 1, 8.1.7).
+let private tagOfValue bld reg =
+#if EMULATION
+  (* A double has no encoding the eighty-bit format calls special but its NaNs
+     and infinities: even its denormals widen to normal extended values. *)
+  let v = pseudoRegVar bld reg 1
+  let isZero = (v << AST.num1 64<rt>) == AST.num0 64<rt>
+  let isSpecial = isNonFinite v
+#else
+  (* A normal value has its integer bit set and an exponent neither zero nor
+     the reserved all-ones; one holding anything else that is not a zero is a
+     NaN, an infinity, a denormal, or an encoding the FPU does not support. *)
+  let struct (b, a) = getFPUPseudoRegVars bld reg
+  let exponent = b .& numI32 0x7fff 16<rt>
+  let isZero = (exponent == AST.num0 16<rt>) .& (a == AST.num0 64<rt>)
+  let isSpecial =
+    (exponent == AST.num0 16<rt>) .| (exponent == numI32 0x7fff 16<rt>)
+    .| AST.not (AST.xthi 1<rt> a)
+#endif
+  let special = AST.ite isSpecial (numI32 2 16<rt>) (AST.num0 16<rt>)
+  AST.ite isZero (AST.num1 16<rt>) special
+
+/// The tag word FNSTENV and FNSAVE store. The FPU keeps no more than whether
+/// each register is empty and works out the rest from the values as it stores
+/// the word, so this does the same, ST(i)'s tag going to physical register
+/// (TOP + i) mod 8.
+let private fineTags bld =
+  let tags = regVar bld R.FTW
+  let top = AST.zext 16<rt> (regVar bld R.FTOP)
+  let three = numI32 3 16<rt>
+  [ for i, st in List.indexed stackRegs ->
+      let phys = (top .+ numI32 i 16<rt>) .& numI32 7 16<rt>
+      let shift = phys << AST.num1 16<rt>
+      let isEmpty = ((tags >> numI32 (2 * i) 16<rt>) .& three) == three
+      AST.ite isEmpty three (tagOfValue bld st) << shift ]
+  |> List.reduce (.|)
+
 let private m14fstenv dstAddr addrSize bld =
   append bld {
     let fiplo = AST.xtlo 16<rt> (regVar bld R.FIP)
     let fdplo = AST.xtlo 16<rt> (regVar bld R.FDP)
     storeLE (dstAddr) (regVar bld R.FCW)
-    storeLE (dstAddr .+ numI32 2 addrSize) (regVar bld R.FSW)
-    storeLE (dstAddr .+ numI32 4 addrSize) (regVar bld R.FTW)
+    storeLE (dstAddr .+ numI32 2 addrSize) (summedStatus bld)
+    storeLE (dstAddr .+ numI32 4 addrSize) (fineTags bld)
     storeLE (dstAddr .+ numI32 6 addrSize) fiplo
     storeLE (dstAddr .+ numI32 8 addrSize) (regVar bld R.FCS)
     storeLE (dstAddr .+ numI32 10 addrSize) fdplo
     storeLE (dstAddr .+ numI32 12 addrSize) (regVar bld R.FDS)
   }
 
+/// Stores the environment in the 28-byte layout of protected and 64-bit mode
+/// (Intel SDM Vol. 1, Figure 8-9): each pointer takes 32 bits and each selector
+/// a word, the opcode sits in the 11 bits above the code selector, and the
+/// halves the layout reserves get ones, which is what the FPU writes there.
 let private m28fstenv dstAddr addrSize bld =
   append bld {
-    let n0 = numI32 0 16<rt>
-    storeLE (dstAddr) (regVar bld R.FCW)
-    storeLE (dstAddr .+ numI32 2 addrSize) n0
-    storeLE (dstAddr .+ numI32 4 addrSize) (regVar bld R.FSW)
-    storeLE (dstAddr .+ numI32 6 addrSize) n0
-    storeLE (dstAddr .+ numI32 8 addrSize) (regVar bld R.FTW)
-    storeLE (dstAddr .+ numI32 10 addrSize) n0
-    storeLE (dstAddr .+ numI32 12 addrSize) (regVar bld R.FIP)
-    storeLE (dstAddr .+ numI32 20 addrSize) (regVar bld R.FDP)
+    let ones = numI32 0xFFFF 16<rt>
+    let at off = dstAddr .+ numI32 off addrSize
+    storeLE (at 0) (regVar bld R.FCW)
+    storeLE (at 2) ones
+    storeLE (at 4) (summedStatus bld)
+    storeLE (at 6) ones
+    storeLE (at 8) (fineTags bld)
+    storeLE (at 10) ones
+    storeLE (at 12) (AST.xtlo 32<rt> (regVar bld R.FIP))
+    storeLE (at 16) (regVar bld R.FCS)
+    storeLE (at 18) (regVar bld R.FOP .& numI32 0x7FF 16<rt>)
+    storeLE (at 20) (AST.xtlo 32<rt> (regVar bld R.FDP))
+    storeLE (at 24) (regVar bld R.FDS)
+    storeLE (at 26) ones
+  }
+
+/// Masks every exception, as FNSTENV does once the environment is out (Intel
+/// SDM Vol. 2A, FSTENV/FNSTENV). Nothing flagged is left unmasked, so ES and B
+/// go out with it.
+let private maskExceptions bld =
+  append bld {
+    let ctrlWrd = regVar bld R.FCW
+    let stsWrd = regVar bld R.FSW
+    direct ctrlWrd := ctrlWrd .| numI32 0x3F 16<rt>
+    direct stsWrd := stsWrd .& numI32 0x7F7F 16<rt>
   }
 
 let fnstenv (ins: Instruction) bld =
@@ -1767,25 +1928,21 @@ let fnstenv (ins: Instruction) bld =
     | 112<rt> -> m14fstenv addrExpr addrSize bld
     | 224<rt> -> m28fstenv addrExpr addrSize bld
     | _ -> raise InvalidOperandSizeException
+    maskExceptions bld
   }
 
-/// Neither summary bit of the status word holds state of its own: ES (bit 7)
-/// says an exception is flagged that the control word does not mask, and B
-/// (bit 15) has followed ES on every FPU since the 387. An environment can be
-/// loaded with the three out of step -- flags masked but ES set, say -- and the
-/// FPU answers the next read with the summary its flags and masks imply, not
-/// the one it was handed. Loading is the only place they can disagree here,
-/// nothing in this lifter raising an exception of its own.
-let private syncSummaryBits bld =
-  append bld {
-    let stsWrd = regVar bld R.FSW
-    let excMask = numI32 0x3F 16<rt>
-    let masked = regVar bld R.FCW .& excMask
-    let pending = (stsWrd .& excMask) .& AST.not masked
-    let quiet = pending == AST.num0 16<rt>
-    let summary = AST.ite quiet (AST.num0 16<rt>) (numI32 0x8080 16<rt>)
-    direct stsWrd := (stsWrd .& numI32 0x7F7F 16<rt>) .| summary
-  }
+/// Twice TOP, as a shift: how far the tag word, kept by stack register (see
+/// pushFPUStack), turns to be the FPU's own, kept by physical register.
+let private topShift bld =
+  AST.zext 16<rt> (regVar bld R.FTOP) << AST.num1 16<rt>
+
+/// A tag word kept by stack register out of the FPU's own, by physical
+/// register, as FLDENV, FRSTOR, and FXRSTOR read it, for the TOP read with it:
+/// physical register (TOP + i) mod 8 is ST(i), so each tag turns down by twice
+/// TOP, around the word.
+let private toStackTags bld tags =
+  let shift = topShift bld
+  (tags >> shift) .| (tags << (numI32 16 16<rt> .- shift))
 
 let private m14fldenv srcAddr addrSize bld =
   append bld {
@@ -1794,6 +1951,7 @@ let private m14fldenv srcAddr addrSize bld =
       AST.loadLE 16<rt> (srcAddr .+ numI32 2 addrSize)
     direct (regVar bld R.FTW) :=
       AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize)
+    direct (regVar bld R.FTW) := toStackTags bld (regVar bld R.FTW)
     direct (AST.xtlo 16<rt> (regVar bld R.FIP)) :=
       AST.loadLE 16<rt> (srcAddr .+ numI32 6 addrSize)
     direct (regVar bld R.FCS) :=
@@ -1805,17 +1963,21 @@ let private m14fldenv srcAddr addrSize bld =
     syncSummaryBits bld
   }
 
+/// Reads back the 28-byte layout m28fstenv stores, each pointer zero-extended
+/// from the 32 bits the layout has room for.
 let private m28fldenv srcAddr addrSize bld =
   append bld {
-    direct (regVar bld R.FCW) := AST.loadLE 16<rt> (srcAddr)
-    direct (regVar bld R.FSW) :=
-      AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize)
-    direct (regVar bld R.FTW) :=
-      AST.loadLE 16<rt> (srcAddr .+ numI32 8 addrSize)
-    direct (regVar bld R.FIP) :=
-      AST.loadLE 64<rt> (srcAddr .+ numI32 12 addrSize)
-    direct (regVar bld R.FDP) :=
-      AST.loadLE 64<rt> (srcAddr .+ numI32 20 addrSize)
+    let at off = srcAddr .+ numI32 off addrSize
+    let opcode = AST.loadLE 16<rt> (at 18) .& numI32 0x7FF 16<rt>
+    direct (regVar bld R.FCW) := AST.loadLE 16<rt> (at 0)
+    direct (regVar bld R.FSW) := AST.loadLE 16<rt> (at 4)
+    direct (regVar bld R.FTW) := AST.loadLE 16<rt> (at 8)
+    direct (regVar bld R.FTW) := toStackTags bld (regVar bld R.FTW)
+    direct (regVar bld R.FIP) := AST.zext 64<rt> (AST.loadLE 32<rt> (at 12))
+    direct (regVar bld R.FCS) := AST.loadLE 16<rt> (at 16)
+    direct (regVar bld R.FOP) := opcode
+    direct (regVar bld R.FDP) := AST.zext 64<rt> (AST.loadLE 32<rt> (at 20))
+    direct (regVar bld R.FDS) := AST.loadLE 16<rt> (at 24)
     syncSummaryBits bld
   }
 
@@ -1849,12 +2011,8 @@ let fnsave (ins: Instruction) bld =
       stSts addrExpr addrSize 28 bld
     | _ ->
       raise InvalidOperandSizeException
-    direct (regVar bld R.FCW) := numI32 0x037F 16<rt>
-    direct (regVar bld R.FSW) := AST.num0 16<rt>
-    direct (regVar bld R.FTW) := numI32 0xFFFF 16<rt>
-    direct (regVar bld R.FDP) := AST.num0 64<rt>
-    direct (regVar bld R.FIP) := AST.num0 64<rt>
-    direct (regVar bld R.FOP) := AST.num0 16<rt>
+    (* With the state saved, FNSAVE initializes the FPU as FNINIT does. *)
+    clearFPU bld
   }
 
 /// Reads the stack registers back in from where stSts lays them out, as they
@@ -1882,7 +2040,7 @@ let frstor (ins: Instruction) bld =
 let fnstsw (ins: Instruction) bld =
   lift bld ins {
     let oprExpr = transOneOpr ins bld
-    direct oprExpr := regVar bld R.FSW
+    direct oprExpr := summedStatus bld
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
@@ -1895,6 +2053,7 @@ let wait (ins: Instruction) bld =
 
 let fnop (ins: Instruction) bld =
   lift bld ins {
+    recordInstr ins bld
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
@@ -1918,17 +2077,34 @@ let private xmmRegsOf is64bit =
 let private fieldAt baseAddr addrSize off =
   if off = 0 then baseAddr else baseAddr .+ numI32 off addrSize
 
-/// The x87 half of an FXSAVE-format image: the control, status and tag words,
-/// the opcode and the last instruction and data pointers, and the eight stack
-/// registers, eighty bits each on a sixteen-byte stride from thirty-two bytes
-/// in.
+/// The tag byte of an FXSAVE-format image, which abridges the tag word to a bit
+/// per physical register: set unless the register is empty, its tag 11 (Intel
+/// SDM Vol. 1, 10.5.1.1).
+let private abridgedTags tags =
+  [ for i in 0 .. 7 ->
+      let mask = numI32 (3 <<< (2 * i)) 16<rt>
+      AST.zext 8<rt> ((tags .& mask) != mask) << numI32 i 8<rt> ]
+  |> List.reduce (.|)
+
+/// The FPU's own tag word, by physical register, out of one kept by stack
+/// register (see pushFPUStack): ST(i) is physical register (TOP + i) mod 8, so
+/// each tag turns up by twice TOP, around the word.
+let private toPhysicalTags bld tags =
+  let shift = topShift bld
+  (tags << shift) .| (tags >> (numI32 16 16<rt> .- shift))
+
+/// The x87 half of an FXSAVE-format image: the control and status words, the
+/// abridged tag byte, the opcode and the last instruction and data pointers,
+/// and the eight stack registers, eighty bits each on a sixteen-byte stride
+/// from thirty-two bytes in.
 let private storeX87Area bld baseAddr addrSize =
   let at off = fieldAt baseAddr addrSize off
+  let tags = toPhysicalTags bld (regVar bld R.FTW)
   let words =
     block {
       yield storeLE (at 0) (regVar bld R.FCW)
-      yield storeLE (at 2) (regVar bld R.FSW)
-      yield storeLE (at 4) (regVar bld R.FTW)
+      yield storeLE (at 2) (summedStatus bld)
+      yield storeLE (at 4) (AST.zext 16<rt> (abridgedTags tags))
       yield storeLE (at 6) (regVar bld R.FOP)
       yield storeLE (at 8) (regVar bld R.FIP)
       yield storeLE (at 16) (regVar bld R.FDP)
@@ -1951,6 +2127,16 @@ let private storeSseArea bld baseAddr addrSize is64bit =
       yield storeLE (at (168 + 16 * i)) xmmb
   }
 
+/// Expands the abridged tag byte of an FXSAVE-format image back into a tag
+/// word: 11, empty, where its bit is clear, and 00, a valid value, where it is
+/// set. The hardware keeps no more than that; FNSTENV and FNSAVE work out the
+/// finer tags from the registers when they store them.
+let private fullTags abridged =
+  [ for i in 0 .. 7 ->
+      let empty = AST.not (AST.extract abridged 1<rt> i)
+      AST.zext 16<rt> empty .* numI32 (3 <<< (2 * i)) 16<rt> ]
+  |> List.reduce (.|)
+
 /// Reads the x87 half of an FXSAVE-format image back into the registers.
 let private loadX87Area bld baseAddr addrSize =
   let at off = fieldAt baseAddr addrSize off
@@ -1958,7 +2144,8 @@ let private loadX87Area bld baseAddr addrSize =
     block {
       direct (regVar bld R.FCW) := AST.loadLE 16<rt> (at 0)
       direct (regVar bld R.FSW) := AST.loadLE 16<rt> (at 2)
-      direct (regVar bld R.FTW) := AST.loadLE 16<rt> (at 4)
+      direct (regVar bld R.FTW) := fullTags (AST.loadLE 8<rt> (at 4))
+      direct (regVar bld R.FTW) := toStackTags bld (regVar bld R.FTW)
       direct (regVar bld R.FOP) := AST.loadLE 16<rt> (at 6)
       direct (regVar bld R.FIP) := AST.loadLE 64<rt> (at 8)
       direct (regVar bld R.FDP) := AST.loadLE 64<rt> (at 16)
@@ -2116,7 +2303,9 @@ let private initX87Area bld =
       direct (regVar bld R.FTW) := numI32 0xFFFF 16<rt>
       direct (regVar bld R.FOP) := AST.num0 16<rt>
       direct (regVar bld R.FIP) := AST.num0 64<rt>
+      direct (regVar bld R.FCS) := AST.num0 16<rt>
       direct (regVar bld R.FDP) := AST.num0 64<rt>
+      direct (regVar bld R.FDS) := AST.num0 16<rt>
     }
   fun b ->
     words b
