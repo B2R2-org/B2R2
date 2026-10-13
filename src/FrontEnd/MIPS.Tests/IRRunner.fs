@@ -361,6 +361,21 @@ module internal IRRunner =
     let effects, _ = walk ctx stmts
     effects, fun reg -> readReg ctx.Regs (idOf reg) (Expr.typeOf reg)
 
+  /// <summary>
+  /// The jump out of the instruction the statements reach, as its target and
+  /// its kind, taking each jump on the way, and a conditional one out of the
+  /// instruction too, the way the given values decide it; and what each
+  /// register holds by then: for a test whose claim is where an instruction
+  /// goes. Statements that run to their end reach none.
+  /// </summary>
+  let leave (stmts: Stmt[]) inputs =
+    let ctx = newContext 0u inputs
+    let exit =
+      match walk ctx stmts with
+      | _, Left(target, kind) -> Some(target, kind)
+      | _, Fallthrough -> None
+    exit, fun reg -> readReg ctx.Regs (idOf reg) (Expr.typeOf reg)
+
   /// What a run of whole instructions leaves behind.
   type Outcome =
     { /// The side effects raised, in order.
