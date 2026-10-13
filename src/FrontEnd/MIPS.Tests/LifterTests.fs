@@ -1194,3 +1194,28 @@ type LifterTests() =
     (* BALC, BLEZALC a2, BEQZALC a5 and JIALC t9 *)
     for hex in [ "b6000003"; "c0c08007"; "75208000"; "a0198011" ] do
       CollectionAssert.Contains(lifted microR6 hex, link, hex)
+
+  /// <summary>
+  /// microMIPS's JIC and JIALC go on in the encoding bit 0 of their target
+  /// names, at the target with that bit cleared: "PC &lt;- (tempGPRLEN-1..1
+  /// || 0); ISAMode &lt;- temp0" (MD00582 revision 6.04, pp.207-209), which
+  /// section 2.4 (p.22) has every jump-register instruction do. These jumped
+  /// to the sum as it was, naming no encoding, where JRC16 and JALRC16 pick
+  /// one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS64R6] JIC and JIALC take the mode from bit 0``() =
+    let jumps kind =
+      [| kind ||| InterJmpKind.SwitchToMicroMIPS
+         kind ||| InterJmpKind.SwitchToMIPS |]
+    let masked = AST.tmpvar 64<rt> 1 .& AST.not (AST.num1 64<rt>)
+    (* JIC a3 and JIALC t9 *)
+    for hex, kind in [ "8007fff1", InterJmpKind.Base
+                       "a0198011", InterJmpKind.IsCall ] do
+      let stmts = lifted microR6 hex
+      let kinds =
+        stmts
+        |> Array.choose (function
+          | InterJmp(Target = t; Kind = k) when t = masked -> Some k
+          | _ -> None)
+      CollectionAssert.AreEqual(jumps kind, kinds, hex)

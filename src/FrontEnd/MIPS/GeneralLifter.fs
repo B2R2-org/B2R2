@@ -1957,11 +1957,19 @@ let balc ins bld =
     AST.interjmp offset InterJmpKind.IsCall
   }
 
+/// The jump a compact jump through a register ends with, which in a
+/// compressed encoding reads the mode to go on in from bit 0 of the target.
+let private compactJumpTo (bld: LowUIRBuilder) target kind =
+  if carriesMode bld then interJmpByMode bld target kind
+  else append bld { AST.interjmp target kind }
+
 /// JIC and JIALC jump to a register plus a signed offset. The target is read
 /// into a temporary before the link is written, because the register the jump
 /// reads may be the one the link overwrites. JIALC is a jump-and-link-register
 /// instruction, which in microMIPS saves the ISA mode in bit 0 of its link
-/// (MD00582 revision 6.04, section 2.4, p.22).
+/// (MD00582 revision 6.04, section 2.4, p.22), and both read the mode to go
+/// on in from bit 0 of the target, "PC &lt;- (tempGPRLEN-1..1 || 0); ISAMode
+/// &lt;- temp0" (pp.207-209), as JRC does.
 let jicCompact ins bld link =
   lift bld ins {
     let rt, off = transTwoOprs ins bld
@@ -1969,9 +1977,9 @@ let jicCompact ins bld link =
     target := rt .+ off
     if link then
       regVar bld R.R31 := linkFrom ins bld 4
-      AST.interjmp target InterJmpKind.IsCall
+      compactJumpTo bld target InterJmpKind.IsCall
     else
-      AST.interjmp target InterJmpKind.Base
+      compactJumpTo bld target InterJmpKind.Base
   }
 
 /// The Release 6 multiply family: the product's low or high half into rd.
