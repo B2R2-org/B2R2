@@ -375,15 +375,6 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     | opcode when takesCondition opcode -> pOprCondition
     | _ -> fail "not an operand of this instruction"
 
-  /// <summary>
-  /// The condition that was not written, which stands for the one that always
-  /// holds: the disassembler prints that one as nothing at all, so a line it
-  /// wrote ends with the comma that would have come before it.
-  /// </summary>
-  let pOmittedCondition opcode =
-    if takesCondition opcode then preturn (OprCond AL)
-    else fail "not an operand of this instruction"
-
   let pOperand opcode =
     attempt (pOpcodeSpecificOperand opcode)
     <|> attempt pOprMemory
@@ -394,7 +385,6 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     <|> attempt pOprRegister
     <|> attempt pOprAddress
     <|> attempt pOprLabel
-    <|> pOmittedCondition opcode
 
   /// Reads the operands of an already-parsed opcode. Which operands an
   /// instruction takes depends on which one it is, so the opcode has to be

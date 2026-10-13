@@ -3638,9 +3638,7 @@ type ParserTests() =
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (47)``() =
     "2ea13a75"
-    ++ SHLL ** [ O.SIMDVecReg(V21, TwoD)
-                 O.SIMDVecReg(V19, TwoS)
-                 O.Shift(ShiftOp.LSL, 32L) ]
+    ++ SHLL ** [ O.SIMDVecReg(V21, TwoD); O.SIMDVecReg(V19, TwoS); O.Imm 32L ]
     ||> test
 
   [<TestMethod>]
@@ -3648,7 +3646,7 @@ type ParserTests() =
     "6e613a7d"
     ++ SHLL2 ** [ O.SIMDVecReg(V29, FourS)
                   O.SIMDVecReg(V19, EightH)
-                  O.Shift(ShiftOp.LSL, 16L) ]
+                  O.Imm 16L ]
     ||> test
 
   [<TestMethod>]
@@ -6255,3 +6253,71 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[AArch64] The rest of the reserved space is refused``() =
     testRefused "00010000"
+
+  /// A pre-indexed access writes its offset even when it is zero, since
+  /// [<Xn|SP>, #<imm>]! has no form without one (DDI0487F.c C6.2.273, STP);
+  /// only LDRAA and LDRAB make it optional there (C6.2.134).
+  [<TestMethod>]
+  member _.``[AArch64] A pre-indexed access writes a zero offset``() =
+    testDisasm "298003c0" "stp w0, w0, [x30, #0x0]!"
+    testDisasm "29c007c0" "ldp w0, w1, [x30, #0x0]!"
+    testDisasm "3c400fc0" "ldr b0, [x30, #0x0]!"
+    testDisasm "38c00fc0" "ldrsb w0, [x30, #0x0]!"
+    testDisasm "78800fc0" "ldrsh x0, [x30, #0x0]!"
+    testDisasm "698003c0" "stgp x0, x0, [x30, #0x0]!"
+    testDisasm "d9200fc0" "stg x0, [x30, #0x0]!"
+    testDisasm "f8200fc0" "ldraa x0, [x30]!"
+
+  /// AL goes unwritten nowhere it is an operand: the instructions that take
+  /// a condition write it as al like any other.
+  [<TestMethod>]
+  member _.``[AArch64] A condition operand writes AL``() =
+    testDisasm "1a81e043" "csel w3, w2, w1, al"
+    testDisasm "1a82e420" "csinc w0, w1, w2, al"
+    testDisasm "5a82e020" "csinv w0, w1, w2, al"
+    testDisasm "da82e420" "csneg x0, x1, x2, al"
+    testDisasm "7a41e003" "ccmp w0, w1, #0x3, al"
+    testDisasm "ba5fe800" "ccmn x0, #0x1f, #0x0, al"
+    testDisasm "1e22ec20" "fcsel s0, s1, s2, al"
+    testDisasm "1e61e403" "fccmp d0, d1, #0x3, al"
+    testDisasm "1e21e41f" "fccmpe s0, s1, #0xf, al"
+
+  /// A shifted register leaves out only LSL #0, which is what an absent
+  /// shift means; any other shift by zero is a different encoding and is
+  /// written.
+  [<TestMethod>]
+  member _.``[AArch64] A shift other than LSL keeps an amount of zero``() =
+    testDisasm "2a5f03ff" "orr wzr, wzr, wzr, lsr #0x0"
+    testDisasm "8a820020" "and x0, x1, x2, asr #0x0"
+    testDisasm "0a620020" "bic w0, w1, w2, lsr #0x0"
+    testDisasm "cae20020" "eon x0, x1, x2, ror #0x0"
+    testDisasm "2ae103e0" "mvn w0, w1, ror #0x0"
+    testDisasm "eac2003f" "tst x1, x2, ror #0x0"
+    testDisasm "0b420020" "add w0, w1, w2, lsr #0x0"
+    testDisasm "cb820020" "sub x0, x1, x2, asr #0x0"
+    testDisasm "cb8103e0" "neg x0, x1, asr #0x0"
+    testDisasm "6b42003f" "cmp w1, w2, lsr #0x0"
+    testDisasm "8a020020" "and x0, x1, x2"
+
+  /// SHLL's amount is an immediate, SHLL <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+  /// (DDI0487F.c C7.2.255), not a shift.
+  [<TestMethod>]
+  member _.``[AArch64] SHLL writes its amount as an immediate``() =
+    testDisasm "2e213843" "shll v3.8h, v2.8b, #0x8"
+    testDisasm "6e613843" "shll2 v3.4s, v2.8h, #0x10"
+    testDisasm "2ea13843" "shll v3.2d, v2.2s, #0x20"
+
+  /// A byte access with a register offset has two encodings that scale by
+  /// zero: S clear writes no amount, S set writes "#0" (DDI0487F.c C6.2,
+  /// LDRB (register): "{, <extend> {<amount>}}", <amount> 0 when S is 1),
+  /// and the two read differently or they would be one encoding.
+  [<TestMethod>]
+  member _.``[AArch64] A byte register offset keeps an amount of zero``() =
+    testDisasm "38627820" "ldrb w0, [x1, x2, lsl #0x0]"
+    testDisasm "38626820" "ldrb w0, [x1, x2]"
+    testDisasm "38615843" "ldrb w3, [x2, w1, uxtw #0]"
+    testDisasm "38614843" "ldrb w3, [x2, w1, uxtw]"
+    testDisasm "38a15843" "ldrsb x3, [x2, w1, uxtw #0]"
+    testDisasm "38215843" "strb w3, [x2, w1, uxtw #0]"
+    testDisasm "3c627820" "ldr b0, [x1, x2, lsl #0x0]"
+    testDisasm "b8627820" "ldr w0, [x1, x2, lsl #0x2]"

@@ -1455,7 +1455,8 @@ let regOffset bin amount = getRegOffset (valS2 bin) (valOption bin) amount
 let wmxm bin = if pickBit bin 13u = 0b0u then w (valM bin) else x (valM bin)
 
 (* Shift *)
-let lshf1 bin = OprShift(LSL, Imm(8 <<< (valSize1 bin |> int) |> int64))
+let lshf1 bin = (* SHLL's #<shift>, as wide as one source element *)
+  OprImm(8L <<< int (valSize1 bin))
 
 let lshf2 bin = (* FIXME: If shift amount is 0, not present. *)
   OprShift(LSL, Imm(getShiftAmountByShift (valShift bin) |> int64))

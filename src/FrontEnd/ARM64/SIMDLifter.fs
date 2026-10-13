@@ -140,17 +140,9 @@ let private fixedToFp bld oprSz fbits unsigned src =
   fpExceptionsRounded bld AST.b0 (AST.not (fpIsExact integer))
   r
 
-/// <summary>
-/// How far a shift operand shifts.
-///
-/// SHLL's amount is written as a shift rather than as a bare number -- the
-/// disassembly is `shll v0.4s, v1.4h, lsl #16` -- so the operand carries the
-/// kind as well as the count and the general translation has nothing to make
-/// of it.
-/// </summary>
+/// How far an immediate shift operand shifts.
 let private shiftAmountOf = function
   | OprImm imm -> imm
-  | OprShift(_, Imm imm) -> imm
   | _ -> raise InvalidOperandException
 
 let private getRndConst amt eSize =

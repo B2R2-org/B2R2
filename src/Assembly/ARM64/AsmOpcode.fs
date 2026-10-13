@@ -1022,12 +1022,15 @@ let private registerOffset access ins rt rn rm shift =
   let shifted amount =
     if amount = scale then 1u
     else fail $"an offset of {bytes} bytes cannot be shifted by #{amount}"
+  (* A written #0 sets S for a byte, whose scale is zero, and leaves it clear
+     for a wider access, which an amount of zero does not scale. *)
+  let zeroAmount = if scale = 0L then 1u else 0u
   let ext, s =
     match shift with
     | None -> (if is64Reg rm then UXTX else UXTW), 0u
     | Some(ShiftOffset(LSL, Imm amount)) -> UXTX, shifted amount
-    | Some(ExtRegOffset(ext, None))
-    | Some(ExtRegOffset(ext, Some 0L)) -> ext, 0u
+    | Some(ExtRegOffset(ext, None)) -> ext, 0u
+    | Some(ExtRegOffset(ext, Some 0L)) -> ext, zeroAmount
     | Some(ExtRegOffset(ext, Some amount)) -> ext, shifted amount
     | Some _ -> wrongOperands ins
   if is64Reg rm <> extendedSourceIs64 true ext then
