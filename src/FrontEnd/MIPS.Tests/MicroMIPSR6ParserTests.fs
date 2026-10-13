@@ -434,10 +434,26 @@ type MicroMIPSR6ParserTests() =
   /// reserved, against LLWP's own page; the page is followed.
   /// </summary>
   [<TestMethod>]
-  member _.``[microMIPS R6] LLWP holds LLX's slot (32r6 p.226 64r6 p.273)``() =
+  member _.``[microMIPS R6] LLWP holds LLX's slot, not LLDX's (64r6 p.273)``() =
     test [ "607010e0", "llwp v1, t2, 0(s0)" ]
     let narrow = parseAt MIPSRelease.R6 WordSize.Bit32 "607010e0"
     Assert.AreEqual<string>("llwp v1, t6, 0(s0)", narrow.Disasm())
+    for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
+      refusesAt wordSize "60705010"
+
+  /// <summary>
+  /// The rest of the extended family revision 6.01 drew and 6.04 removed
+  /// (MD00594, pp.273 and 353; MD00582, p.392). LLXE's slot, LD-EVA 0110 over
+  /// 010, is LLWPE's, and SCXE's, ST-EVA 1010 over 000, is SCWPE's. The SCX
+  /// page gives SCX and SCDX the codes of LLX and LLDX, 0001 and 0101, which
+  /// a store cannot share with a load; the store conditional's own slot,
+  /// 1001, holds SCWP, and 0101 is refused at both word sizes (above).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[microMIPS R6] LLXE, SCX, SCXE and SCDX slots (64r6 p.353)``() =
+    test [ "630764d0", "llwpe t8, t1, 0(a3)"
+           "617d9020", "scwp a7, v0, 0(sp)"
+           "6264a1e0", "scwpe s3, s8, 0(a0)" ]
     for wordSize in [ WordSize.Bit32; WordSize.Bit64 ] do
       refusesAt wordSize "60705010"
 
