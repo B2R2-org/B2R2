@@ -1266,3 +1266,48 @@ type LifterTests() =
         | _ -> None)
     CollectionAssert.AreEqual([| UndefinedInstruction |], effects "011d29c0")
     CollectionAssert.AreEqual(Array.empty<SideEffect>, effects "011d01c0")
+
+  /// <summary>
+  /// The SmartMIPS ASE (MD00101), which no QEMU model runs, so these follow
+  /// its Operation sections: MULTP and MADDP multiply as binary polynomials
+  /// (carry-less), MULTP clearing ACX and MADDP adding with exclusive-OR into
+  /// HI and LO and leaving ACX; PPERM shifts ACX, HI and LO left by six as one
+  /// accumulator and fills the bottom six bits of LO with the bits of rs that
+  /// rt's six five-bit fields name, the lowest field for bit 0; MFLHXU and
+  /// MTLHX shift the accumulator down and up a register. The words are
+  /// binutils' under -msmartmips.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[SmartMIPS] The accumulator instructions follow MD00101``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let bv r (v: uint64) = var r, BitVector(v, Expr.typeOf (var r))
+    let run hex rs rt =
+      let inputs =
+        [ bv HI 0x87654321UL
+          bv LO 0x0fedcba9UL
+          bv ACX 0x3cUL
+          bv R2 rs
+          bv R3 rt ]
+      let read = IRRunner.run (lifted isa hex) inputs
+      fun r -> (read (var r)).ToUInt64()
+    let check hex rs rt (expected: (Register * uint64) list) =
+      let read = run hex rs rt
+      for r, v in expected do
+        Assert.AreEqual<uint64>(v, read r, $"{hex} {r}")
+    (* MULTP v0, v1 *)
+    [ HI, 0x60000003UL; LO, 0xc000000fUL; ACX, 0x0UL ]
+    |> check "00430459" 0x80000003UL 0xc0000005UL
+    (* MADDP v0, v1 *)
+    [ HI, 0xe7654322UL; LO, 0xcfedcba6UL; ACX, 0x3cUL ]
+    |> check "70430441" 0x80000003UL 0xc0000005UL
+    (* PPERM v0, v1 *)
+    [ HI, 0xd950c843UL; LO, 0xfb72ea77UL; ACX, 0x21UL ]
+    |> check "70430481" 0xdeadbeefUL 0x3e0243c1UL
+    (* MFLHXU a0 *)
+    [ R4, 0x0fedcba9UL; LO, 0x87654321UL; HI, 0x3cUL; ACX, 0x0UL ]
+    |> check "00002052" 0UL 0UL
+    (* MTLHX v0 *)
+    [ ACX, 0x21UL; HI, 0x0fedcba9UL; LO, 0x80000003UL ]
+    |> check "00400053" 0x80000003UL 0UL
