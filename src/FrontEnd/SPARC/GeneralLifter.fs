@@ -265,91 +265,57 @@ let transThreeOprsAddr (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
+/// The sign bits of a word's two halves, bit 63 and bit 31: where a result,
+/// and the word-wide overflow and carry vectors of the operation that gave
+/// it, hold the flag of xcc and of icc.
+let private signs e = e .& numU64 0x8000000080000000UL 64<rt>
+
+/// <summary>
+/// The condition-code byte -- xcc's N, Z, V, C in bits 7 to 4 and icc's in
+/// bits 3 to 0 -- of a result whose N, V and C flags are lined up, each
+/// pair's sign bits at bits 63 and 31 moved down by none, two and three
+/// places: one shift brings xcc's three to bits 7, 5 and 4, another icc's to
+/// bits 3, 1 and 0, and only the two Z flags are worked out apart. Building
+/// the byte a flag at a time, each from sign bits taken out one by one, cost
+/// a SPARC program dozens of host instructions for every compare it made.
+/// </summary>
+let private packConditionCodes res lined =
+  let nvc =
+    AST.xtlo 8<rt> ((lined >> numI32 56 64<rt>) .| (lined >> numI32 28 64<rt>))
+  let zero cond n = AST.zext 8<rt> cond << numI32 n 8<rt>
+  nvc
+  .| zero (res == AST.num0 64<rt>) 6
+  .| zero (AST.xtlo 32<rt> res == AST.num0 32<rt>) 2
+
+/// N, V and C lined up as packConditionCodes takes them.
+let private lineUp res overflow carry =
+  signs res
+  .| (signs overflow >> numI32 2 64<rt>)
+  .| (signs carry >> numI32 3 64<rt>)
+
+/// The condition codes of an addition, with or without a carry in: V where
+/// the operands agree in sign and the result does not, and C carried out of
+/// each width, which is what the operands' and the result's top bits say.
 let getConditionCodeAdd res src src1 =
-  let sign = AST.extract src 1<rt> 63
-  let sign1 = AST.extract src1 1<rt> 63
-  let ressign = AST.extract res 1<rt> 63
-  let res32 = AST.extract res 32<rt> 0
-  let sign32 = AST.extract src 1<rt> 31
-  let sign321 = AST.extract src1 1<rt> 31
-  let ressign32 = AST.extract res 1<rt> 31
-  let xccn = ressign
-  let xccz = res == AST.num0 64<rt>
-  let xccv = ((sign .& sign1 .& AST.not ressign) .|
-    (AST.not sign .& AST.not sign1 .& ressign))
-  let xccc = (sign .& sign1) .| ((AST.not ressign) .& (sign .| sign1))
-  let iccn = (ressign32)
-  let iccz = ((res32) == AST.num0 32<rt>)
-  let iccv = ((sign32 .& sign321 .& AST.not ressign32) .|
-    (AST.not sign32 .& AST.not sign321 .& ressign32))
-  let iccc = (sign32 .& sign321) .| ((AST.not ressign32) .& (sign32 .| sign321))
-  // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
-    // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; xccn |]
+  let overflow = AST.not (src <+> src1) .& (src <+> res)
+  let carry = (src .& src1) .| ((src .| src1) .& AST.not res)
+  packConditionCodes res (lineUp res overflow carry)
 
+/// The condition codes of a subtraction, with or without a borrow in: V where
+/// the operands differ in sign and the result differs from the first, and C
+/// the borrow out of each width.
 let getConditionCodeSub res src src1 =
-  let sign = AST.extract src 1<rt> 63
-  let sign1 = AST.extract src1 1<rt> 63
-  let ressign = AST.extract res 1<rt> 63
-  let res32 = AST.extract res 32<rt> 0
-  let sign32 = AST.extract src 1<rt> 31
-  let sign321 = AST.extract src1 1<rt> 31
-  let ressign32 = AST.extract res 1<rt> 31
-  let xccn = ressign
-  let xccz = res == AST.num0 64<rt>
-  let xccv = ((sign .& AST.not sign1 .& AST.not ressign) .|
-    (AST.not sign .& sign1 .& ressign))
-  let xccc = (((AST.not sign) .& sign1) .|
-    (ressign .& ((AST.not sign) .| sign1)))
-  let iccn = (ressign32)
-  let iccz = ((res32) == AST.num0 32<rt>)
-  let iccv = ((sign32 .& AST.not sign321 .& AST.not ressign32) .|
-    (AST.not sign32 .& sign321 .& ressign32))
-  let iccc = (((AST.not sign32) .& sign321) .|
-    (ressign32 .& ((AST.not sign32) .| sign321)))
-  // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
-    // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; xccn |]
+  let overflow = (src <+> src1) .& (src <+> res)
+  let borrow = (AST.not src .& src1) .| (res .& (AST.not src .| src1))
+  packConditionCodes res (lineUp res overflow borrow)
 
-let getConditionCodeLog res src src1 =
-  let sign = AST.extract src 1<rt> 63
-  let sign1 = AST.extract src1 1<rt> 63
-  let ressign = AST.extract res 1<rt> 63
-  let res32 = AST.extract res 32<rt> 0
-  let sign32 = AST.extract src 1<rt> 31
-  let sign321 = AST.extract src1 1<rt> 31
-  let ressign32 = AST.extract res 1<rt> 31
-  let xccn = ressign
-  let xccz = res == AST.num0 64<rt>
-  let xccv = AST.num0 1<rt>
-  let xccc = AST.num0 1<rt>
-  let iccn = (ressign32)
-  let iccz = ((res32) == AST.num0 32<rt>)
-  let iccv = AST.num0 1<rt>
-  let iccc = AST.num0 1<rt>
-  // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
-    // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; xccn |]
+/// The condition codes of a logical operation: N and Z of the result, V and C
+/// clear.
+let getConditionCodeLog res (_: Expr) (_: Expr) =
+  packConditionCodes res (signs res)
 
-let getConditionCodeMul res src src1 =
-  let sign = AST.extract src 1<rt> 63
-  let sign1 = AST.extract src1 1<rt> 63
-  let ressign = AST.extract res 1<rt> 63
-  let res32 = AST.extract res 32<rt> 0
-  let sign32 = AST.extract src 1<rt> 31
-  let sign321 = AST.extract src1 1<rt> 31
-  let ressign32 = AST.extract res 1<rt> 31
-  let xccn = ressign
-  let xccz = res == AST.num0 64<rt>
-  let xccv = AST.num0 1<rt>
-  let xccc = AST.num0 1<rt>
-  let iccn = (ressign32)
-  let iccz = ((res32) == AST.num0 32<rt>)
-  let iccv = AST.num0 1<rt>
-  let iccc = AST.num0 1<rt>
-  // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
-    // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; xccn |]
+/// The condition codes of a multiplication, which are a logical operation's.
+let getConditionCodeMul res src src1 = getConditionCodeLog res src src1
 
 let getConditionCodeMulscc res src src1 =
   let res32 = AST.extract res 32<rt> 0
