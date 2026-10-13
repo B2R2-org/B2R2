@@ -2034,6 +2034,12 @@ let divR6 ins bld wantRem signed wide =
     rd := if wide || is32Bit bld then res else AST.sext 64<rt> res
   }
 
+/// The sixteen-bit immediate of DAUI, DAHI and DATI, sign-extended to the
+/// register and shifted into place: "sign_extend(immediate << n)" (MD00087,
+/// AUI DAUI DAHI DATI), so one with its top bit set subtracts.
+let private upperImm (bld: ILowUIRBuilder) imm shift =
+  AST.sext bld.RegType (AST.xtlo 16<rt> imm) << numI32 shift bld.RegType
+
 /// AUI, DAUI, DAHI and DATI: add an immediate shifted into one of the upper
 /// halves of a register. Release 6 has them because it dropped the
 /// branch-delay-slot tricks that used to build a 64-bit constant, and four of
@@ -2042,10 +2048,10 @@ let addUpperImm ins bld shift twoOperand =
   lift bld ins {
     if twoOperand then
       let rs, imm = transTwoOprs ins bld
-      rs := rs .+ (imm << numI32 shift bld.RegType)
+      rs := rs .+ upperImm bld imm shift
     else
       let rt, rs, imm = transThreeOprs ins bld
-      rt := rs .+ (imm << numI32 shift bld.RegType)
+      rt := rs .+ upperImm bld imm shift
   }
 
 /// BITSWAP and DBITSWAP reverse the bits WITHIN each byte and leave the bytes

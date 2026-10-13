@@ -1059,6 +1059,31 @@ type LifterTests() =
     Assert.AreEqual<uint64>(0x0000123412345678UL, after "42231234")
     Assert.AreEqual<uint64>(0x1234000012345678UL, after "42031234")
 
+  /// <summary>
+  /// DAUI, DAHI and DATI (MD00087 revision 6.06, AUI DAUI DAHI DATI) add
+  /// the immediate SIGN-EXTENDED once shifted: "GPR[rt] &lt;- GPR[rs] +
+  /// sign_extend(immediate &lt;&lt; 16)", 32 for DAHI and 48 for DATI. An
+  /// immediate with its top bit set is therefore negative: with v1 =
+  /// 0x12345678, DAUI by 0x8000 adds 0xFFFFFFFF80000000 and DAHI by 0x8001
+  /// adds 0xFFFF800100000000, in the 32-bit encoding and in microMIPS alike.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64R6] DAUI and DAHI sign-extend the shifted immediate``() =
+    let r6 =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let regs = RegisterFactory r6 :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let inputs = [ var R3, BitVector(0x12345678UL, 64<rt>) ]
+    let after isa hex dst =
+      (IRRunner.run (lifted isa hex) inputs (var dst)).ToUInt64()
+    (* DAUI v0, v1, 0x8000; DAHI v1, 0x8001; DATI v1, 0x8001 *)
+    Assert.AreEqual<uint64>(0xFFFFFFFF92345678UL, after r6 "74628000" R2)
+    Assert.AreEqual<uint64>(0xFFFF800112345678UL, after r6 "04668001" R3)
+    Assert.AreEqual<uint64>(0x8001000012345678UL, after r6 "047e8001" R3)
+    (* DAHI v1, 0x8001 in microMIPS *)
+    Assert.AreEqual<uint64>(0xFFFF800112345678UL,
+                            after microR6 "42238001" R3)
+
   /// SYNCI at Release 6 (MD00582 revision 6.04, p.338) lifts as SYNCI does in
   /// the older encoding: to no statement at all.
   [<TestMethod>]
