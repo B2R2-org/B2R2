@@ -21,18 +21,20 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 *)
-
-
 /// <summary>
-/// Lifts the m68k floating-point instructions. The unit works in
-/// extended precision, which is eighty bits: a sign, fifteen bits of exponent,
-/// and a mantissa of sixty-four that carries its leading one explicitly rather
-/// than implying it as the IEEE formats do. No register file holds a value
-/// that wide, so a register is kept as the two that together are exactly it,
-/// and every operation is carried out in double precision and converted back.
-/// The results therefore agree with hardware wherever a program stays within
-/// what a double can hold, which is everything short of arithmetic that means
-/// to use the extended format's extra range.
+/// Lifts the m68k floating-point instructions. The unit works in extended
+/// precision, which is eighty bits: a sign, fifteen bits of exponent, and a
+/// mantissa of sixty-four that carries its leading one explicitly rather than
+/// implying it as the IEEE formats do. No register file holds a value that
+/// wide, so a register is kept as the two that together are exactly it: the
+/// sign and exponent word, and the mantissa.
+///
+/// The emulator computes in that format, exactly, through BRemu's M68KFloat
+/// (the EMULATION build below): every arithmetic instruction is a call that
+/// rounds once, to FPCR's precision and in its direction, as the unit does.
+/// The static build carries every operation out in double precision and
+/// converts back, which agrees with hardware wherever a program stays within
+/// what a double can hold.
 /// </summary>
 module internal B2R2.FrontEnd.M68K.FloatLifter
 
@@ -50,12 +52,431 @@ open B2R2.FrontEnd.M68K.LiftHelper
 /// the mantissa in the two long words after it.
 let [<Literal>] private ExtendedBytes = 12
 
+/// A sixty-four-bit constant.
+let inline private num64 (n: uint64) = numU64 n 64<rt>
+
+/// Writes the two halves of an extended-precision value out over the twelve
+/// bytes that carry it, filling in the word of padding.
+let private storeExtended bld addr hi lo =
+  append bld {
+    storeNative bld addr hi
+    storeNative bld (addr .+ num32 2) (AST.num0 16<rt>)
+    storeNative bld (addr .+ num32 4) lo
+  }
+
+/// Returns the big-endian value that a run of bytes of a floating-point
+/// immediate holds.
+let private beValue (bytes: byte[]) off len =
+  Array.sub bytes off len
+  |> Array.fold (fun acc b -> (acc <<< 8) ||| uint64 b) 0UL
+
+/// Returns whether a register is one of the floating-point data registers,
+/// which is what tells an FMOVE that loads one from an FMOVE that stores one.
+let isFloatReg reg =
+  match reg with
+  | R.FP0 | R.FP1 | R.FP2 | R.FP3
+  | R.FP4 | R.FP5 | R.FP6 | R.FP7 -> true
+  | _ -> false
+
+/// Returns the floating-point register an operand names.
+let private floatRegOf opr =
+  match opr with
+  | OpReg r when isFloatReg r -> r
+  | _ -> raise InvalidOperandException
+
+/// Returns the address a floating-point memory operand names.
+let private floatAddrOf bld ins size opr =
+  match transOpr bld ins size opr with
+  | LMem addr -> addr
+  | _ -> raise InvalidOperandException
+
+#if EMULATION
+(* The emulator computes in the extended format itself, through BRemu's
+   M68KFloat: a register keeps its sign and exponent word and its
+   significand, every arithmetic instruction is one call that answers with
+   the result and the condition codes it sets, and only the transcendental
+   instructions still go through a double. *)
+
+/// Calls an M68KFloat operation, the 128-bit word it gives back held in a
+/// temporary: the significand in its low 64 bits, the sign and exponent in
+/// bits 79:64, and in bits 127:96 the FPSR bits the operation sets.
+let private m68kCall bld name args =
+  let t = tmpVar bld 128<rt>
+  append bld {
+    t := AST.app name args 128<rt>
+  }
+  t
+
+/// The sign and exponent word of an M68KFloat result.
+let private seOf t = AST.extract t 16<rt> 64
+
+/// The significand of an M68KFloat result.
+let private sigOf t = AST.xtlo 64<rt> t
+
+/// The FPSR bits an M68KFloat result sets, in FPSR's own places.
+let private fpsrBitsOf t = AST.extract t 32<rt> 96
+
+/// FPCR as the control an operation takes: its rounding mode in bits 5:4
+/// and its precision in bits 7:6.
+let private fpcrCtl bld = AST.zext 64<rt> (regVar bld R.FPCR)
+
+/// The control of an instruction whose mnemonic names its precision, as the
+/// 68040's FSADD and FDADD do: FPCR's mode at that precision, 1 for single
+/// and 2 for double.
+let private precCtl bld (prec: uint64) =
+  (fpcrCtl bld .& num64 0x30UL) .| num64 (prec <<< 6)
+
+/// The control an arithmetic instruction rounds by.
+let private ctlOf bld (ins: Instruction) =
+  match ins.Opcode with
+  | Op.FSADD | Op.FSSUB | Op.FSMUL | Op.FSDIV | Op.FSSQRT
+  | Op.FSMOVE | Op.FSABS | Op.FSNEG ->
+    precCtl bld 1UL
+  | Op.FDADD | Op.FDSUB | Op.FDMUL | Op.FDDIV | Op.FDSQRT
+  | Op.FDMOVE | Op.FDABS | Op.FDNEG ->
+    precCtl bld 2UL
+  | _ ->
+    fpcrCtl bld
+
+/// A floating-point data register as M68KFloat takes an operand: its sign and
+/// exponent word and its significand.
+let private regOperand bld reg =
+  let struct (lo, hi) = RegisterHelper.toFloatParts reg
+  struct (regVar bld hi, regVar bld lo)
+
+/// A value M68KFloat has widened into the extended format, as an operand.
+let private widened bld name v =
+  let t = m68kCall bld name [ v ]
+  struct (seOf t, sigOf t)
+
+/// A floating-point immediate as an operand: an extended one as it is, a
+/// single or a double one widened.
+let private immOperand bld (bytes: byte[]) =
+  match bytes.Length with
+  | 4 -> widened bld "M68KOFF32" (num64 (beValue bytes 0 4))
+  | 8 -> widened bld "M68KOFF64" (num64 (beValue bytes 0 8))
+  | _ -> struct (numU64 (beValue bytes 0 2) 16<rt>, num64 (beValue bytes 4 8))
+
+/// A floating-point source operand as M68KFloat takes it, widened exactly
+/// from whichever format the instruction reads it in.
+let private srcOperand bld ins size opr =
+  match opr, size with
+  | OpFImm bytes, _ ->
+    immOperand bld bytes
+  | OpReg r, _ when isFloatReg r ->
+    regOperand bld r
+  | _, Sz.Extended ->
+    let addr = floatAddrOf bld ins Sz.Extended opr
+    struct (loadNative bld 16<rt> addr, loadNative bld 64<rt> (addr .+ num32 4))
+  | _, (Sz.Byte | Sz.Word | Sz.Long) ->
+    let v = readLoc bld size (transOpr bld ins size opr)
+    widened bld "M68KOFINT" (AST.sext 64<rt> v)
+  | _, Sz.Single ->
+    let v = readLoc bld Sz.Single (transOpr bld ins Sz.Single opr)
+    widened bld "M68KOFF32" (AST.zext 64<rt> v)
+  | _, Sz.Double ->
+    let v = readLoc bld Sz.Double (transOpr bld ins Sz.Double opr)
+    widened bld "M68KOFF64" v
+  | _ ->
+    raise InvalidOperandSizeException
+
+/// Writes an M68KFloat result to a floating-point data register.
+let private writeResult bld reg t =
+  let struct (rlo, rhi) = RegisterHelper.toFloatParts reg
+  append bld {
+    regVar bld rhi := seOf t
+    regVar bld rlo := sigOf t
+  }
+
+/// Puts into FPSR the bits of `bits` that `mask` covers.
+let private mergeFpsr bld bits (mask: uint32) =
+  let fpsr = regVar bld R.FPSR
+  append bld {
+    fpsr := (fpsr .& numU32 (~~~mask) 32<rt>) .| (bits .& numU32 mask 32<rt>)
+  }
+
+/// Sets FPSR's condition codes from an M68KFloat result.
+let private setCondition bld t = mergeFpsr bld (fpsrBitsOf t) 0x0f000000u
+
+/// FPSR's condition codes for a value as it stands, as FTST and FMOVE report
+/// them: the sign, and whether it is a zero, an infinity or a NaN. They are
+/// worked out here rather than called for, as FMOVE is the commonest FPU
+/// instruction there is.
+let private conditionOf se m =
+  let e = AST.zext 32<rt> se .& numI32 0x7fff 32<rt>
+  let top = e == numI32 0x7fff 32<rt>
+  let frac = (m << AST.num1 64<rt>) != AST.num0 64<rt>
+  let at b n = AST.zext 32<rt> b << numI32 n 32<rt>
+  at (AST.xthi 1<rt> se) 27
+  .| at ((e == AST.num0 32<rt>) .& (m == AST.num0 64<rt>)) 26
+  .| at (top .& AST.not frac) 25
+  .| at (top .& frac) 24
+
+/// Sets FPSR's condition codes from a value as it stands.
+let private setConditionOf bld se m =
+  mergeFpsr bld (conditionOf se m) 0x0f000000u
+
+/// Lifts an instruction of one operand that M68KFloat works out from the
+/// arguments `argsOf` makes of the source, into the destination register.
+let private unary (ins: Instruction) bld name argsOf =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let dstReg = floatRegOf o2
+    let struct (se, m) = srcOperand bld ins ins.Size o1
+    let t = m68kCall bld name (argsOf se m)
+    writeResult bld dstReg t
+    setCondition bld t
+  }
+
+/// Lifts an instruction of one operand under a control, the source handed
+/// over as `adjust` makes it.
+let private monadic ins bld name ctl adjust =
+  unary ins bld name (fun se m -> [ ctl; adjust se; m ])
+
+/// Lifts an instruction of two operands that M68KFloat works out, combining
+/// the source into the destination register.
+let private dyadic (ins: Instruction) bld name ctl =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let dstReg = floatRegOf o2
+    let struct (sse, sm) = srcOperand bld ins ins.Size o1
+    let struct (dse, dm) = regOperand bld dstReg
+    let t = m68kCall bld name [ ctl; dse; dm; sse; sm ]
+    writeResult bld dstReg t
+    setCondition bld t
+  }
+
+/// Lifts an FADD, an FSADD or an FDADD.
+let fadd (ins: Instruction) bld = dyadic ins bld "M68KADD" (ctlOf bld ins)
+
+/// Lifts an FSUB, an FSSUB or an FDSUB.
+let fsub (ins: Instruction) bld = dyadic ins bld "M68KSUB" (ctlOf bld ins)
+
+/// Lifts an FMUL, an FSMUL or an FDMUL.
+let fmul (ins: Instruction) bld = dyadic ins bld "M68KMUL" (ctlOf bld ins)
+
+/// Lifts an FDIV, an FSDIV or an FDDIV.
+let fdiv (ins: Instruction) bld = dyadic ins bld "M68KDIV" (ctlOf bld ins)
+
+/// Lifts an FSGLMUL, which multiplies in single precision.
+let fsglmul ins bld = dyadic ins bld "M68KSGLMUL" (fpcrCtl bld)
+
+/// Lifts an FSGLDIV, which divides in single precision.
+let fsgldiv ins bld = dyadic ins bld "M68KSGLDIV" (fpcrCtl bld)
+
+/// Lifts an FMOVE, an FSMOVE or an FDMOVE into a floating-point data
+/// register. FMOVE copies an extended source as it is and widens any other
+/// exactly, rounding neither, as QEMU does; FSMOVE and FDMOVE round.
+let private fmoveData (ins: Instruction) bld =
+  match ins.Opcode with
+  | Op.FSMOVE | Op.FDMOVE ->
+    monadic ins bld "M68KROUND" (ctlOf bld ins) id
+  | _ ->
+    lift bld ins {
+      let struct (o1, o2) = getTwoOprs ins
+      let struct (rlo, rhi) = RegisterHelper.toFloatParts (floatRegOf o2)
+      let struct (se, m) = srcOperand bld ins ins.Size o1
+      let tse = tmpVar bld 16<rt>
+      let tm = tmpVar bld 64<rt>
+      tse := se
+      tm := m
+      regVar bld rhi := tse
+      regVar bld rlo := tm
+      setConditionOf bld tse tm
+    }
+
+/// The value of a floating-point data register as an FMOVE writes it out in
+/// the format `size` names, rounded in the direction FPCR names.
+let private outValue bld size se m =
+  let ctl = fpcrCtl bld
+  match size with
+  | Sz.Double -> AST.app "M68KTOF64" [ ctl; se; m ] 64<rt>
+  | Sz.Single -> AST.xtlo 32<rt> (AST.app "M68KTOF32" [ ctl; se; m ] 64<rt>)
+  | _ -> AST.xtlo (regTypeOf size) (AST.app "M68KTOINT" [ ctl; se; m ] 64<rt>)
+
+/// Writes a floating-point data register out in the format `size` names.
+let private writeOut bld ins size dstOpr se m =
+  match size with
+  | Sz.Extended ->
+    storeExtended bld (floatAddrOf bld ins Sz.Extended dstOpr) se m
+  | Sz.Packed ->
+    raise InvalidOperandSizeException
+  | _ ->
+    let dst = transOpr bld ins size dstOpr
+    append bld {
+      writeLoc bld size dst (outValue bld size se m)
+    }
+
+/// Lifts an FMOVE out of a floating-point data register. The condition codes
+/// are the register's, which is what QEMU sets them from.
+let private fmoveOut (ins: Instruction) bld reg dstOpr =
+  lift bld ins {
+    let struct (se, m) = regOperand bld reg
+    writeOut bld ins ins.Size dstOpr se m
+    setConditionOf bld se m
+  }
+
+/// Lifts an FNEG, an FSNEG or an FDNEG: the sign turned over, the value then
+/// rounded to the precision, as QEMU does.
+let fneg (ins: Instruction) bld =
+  let flip se = se <+> numI32 0x8000 16<rt>
+  monadic ins bld "M68KROUND" (ctlOf bld ins) flip
+
+/// Lifts an FABS, an FSABS or an FDABS: the sign cleared, the value then
+/// rounded to the precision.
+let fabs (ins: Instruction) bld =
+  let clear se = se .& numI32 0x7fff 16<rt>
+  monadic ins bld "M68KROUND" (ctlOf bld ins) clear
+
+/// Lifts an FSQRT, an FSSQRT or an FDSQRT.
+let fsqrt (ins: Instruction) bld =
+  monadic ins bld "M68KSQRT" (ctlOf bld ins) id
+
+/// Lifts an FINT, which rounds to a whole number in whichever direction
+/// FPCR.RND names.
+let fint ins bld = monadic ins bld "M68KINT" (fpcrCtl bld) id
+
+/// Lifts an FINTRZ, which rounds to a whole number toward zero whatever the
+/// rounding mode says: FPCR with its mode replaced by mode 1.
+let fintrz ins bld =
+  let ctl = (fpcrCtl bld .& num64 (~~~0x30UL)) .| num64 0x10UL
+  monadic ins bld "M68KINT" ctl id
+
+/// Lifts an FGETEXP, which gives the exponent of its source as a value.
+let fgetexp ins bld = unary ins bld "M68KGETEXP" (fun se m -> [ se; m ])
+
+/// Lifts an FGETMAN, which gives its source with the exponent taken out.
+let fgetman ins bld = monadic ins bld "M68KGETMAN" (fpcrCtl bld) id
+
+/// Lifts an FSCALE, which multiplies by the power of two its source names.
+let fscale ins bld = dyadic ins bld "M68KSCALE" (fpcrCtl bld)
+
+/// Lifts an FMOD, or an FREM where `isRem` is set, which also leave the
+/// quotient's sign and low seven bits in FPSR's quotient byte -- unless the
+/// answer is a NaN, which leaves that byte alone.
+let private modRem (ins: Instruction) bld (isRem: uint64) =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let dstReg = floatRegOf o2
+    let struct (sse, sm) = srcOperand bld ins ins.Size o1
+    let struct (dse, dm) = regOperand bld dstReg
+    let args = [ fpcrCtl bld; num64 isRem; dse; dm; sse; sm ]
+    let t = m68kCall bld "M68KMODREM" args
+    let both = numU32 0x0fff0000u 32<rt>
+    let ccOnly = numU32 0x0f000000u 32<rt>
+    let mask = AST.ite (AST.extract t 1<rt> 80) both ccOnly
+    let fpsr = regVar bld R.FPSR
+    writeResult bld dstReg t
+    fpsr := (fpsr .& AST.not mask) .| (fpsrBitsOf t .& mask)
+  }
+
+/// Lifts an FMOD, whose quotient is rounded toward zero.
+let fmod ins bld = modRem ins bld 0UL
+
+/// Lifts an FREM, whose quotient is rounded to the nearest whole number.
+let frem ins bld = modRem ins bld 1UL
+
+/// Lifts an FCMP, which reports how its destination stands against its source
+/// and keeps nothing.
+let fcmp (ins: Instruction) bld =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (sse, sm) = srcOperand bld ins ins.Size o1
+    let struct (dse, dm) = regOperand bld (floatRegOf o2)
+    let cc = AST.app "M68KCMP" [ dse; dm; sse; sm ] 64<rt>
+    mergeFpsr bld (AST.xtlo 32<rt> cc) 0x0f000000u
+  }
+
+/// Lifts an FTST, which reports what its one operand is.
+let ftst (ins: Instruction) bld =
+  lift bld ins {
+    let struct (se, m) = srcOperand bld ins ins.Size (getOneOpr ins)
+    setConditionOf bld se m
+  }
+
+/// Returns the constant an FMOVECR offset names, as the unit's ROM holds it
+/// in the extended format: its sign and exponent word and its significand.
+/// Every offset the manual leaves undefined answers zero, as the 68040's
+/// does.
+let private moveCrConstant (offset: int64) =
+  match offset with
+  | 0x00L -> struct (0x4000UL, 0xc90fdaa22168c235UL)
+  | 0x0BL -> struct (0x3ffdUL, 0x9a209a84fbcff798UL)
+  | 0x0CL -> struct (0x4000UL, 0xadf85458a2bb4a9aUL)
+  | 0x0DL -> struct (0x3fffUL, 0xb8aa3b295c17f0bcUL)
+  | 0x0EL -> struct (0x3ffdUL, 0xde5bd8a937287195UL)
+  | 0x30L -> struct (0x3ffeUL, 0xb17217f7d1cf79acUL)
+  | 0x31L -> struct (0x4000UL, 0x935d8dddaaa8ac17UL)
+  | 0x32L -> struct (0x3fffUL, 0x8000000000000000UL)
+  | 0x33L -> struct (0x4002UL, 0xa000000000000000UL)
+  | 0x34L -> struct (0x4005UL, 0xc800000000000000UL)
+  | 0x35L -> struct (0x400cUL, 0x9c40000000000000UL)
+  | 0x36L -> struct (0x4019UL, 0xbebc200000000000UL)
+  | 0x37L -> struct (0x4034UL, 0x8e1bc9bf04000000UL)
+  | 0x38L -> struct (0x4069UL, 0x9dc5ada82b70b59eUL)
+  | 0x39L -> struct (0x40d3UL, 0xc2781f49ffcfa6d5UL)
+  | 0x3aL -> struct (0x41a8UL, 0x93ba47c980e98ce0UL)
+  | 0x3bL -> struct (0x4351UL, 0xaa7eebfb9df9de8eUL)
+  | 0x3cL -> struct (0x46a3UL, 0xe319a0aea60e91c7UL)
+  | 0x3dL -> struct (0x4d48UL, 0xc976758681750c17UL)
+  | 0x3eL -> struct (0x5a92UL, 0x9e8b3b5dc53d5de5UL)
+  | 0x3fL -> struct (0x7525UL, 0xc46052028a20979bUL)
+  | _ -> struct (0UL, 0UL)
+
+/// Lifts an FMOVECR, which loads one of the constants the unit keeps in a
+/// table of its own.
+let fmovecr (ins: Instruction) bld =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let offset =
+      match o1 with
+      | OpImm v -> v
+      | _ -> raise InvalidOperandException
+    let struct (se, m) = moveCrConstant offset
+    let struct (rlo, rhi) = RegisterHelper.toFloatParts (floatRegOf o2)
+    let seV = numU64 se 16<rt>
+    let mV = num64 m
+    regVar bld rhi := seV
+    regVar bld rlo := mV
+    setConditionOf bld seV mV
+  }
+
+/// Lifts an instruction that still computes in double precision: the source
+/// as the double nearest it, `op` applied there, and the answer widened back.
+let private transcendental (ins: Instruction) bld op =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let dstReg = floatRegOf o2
+    let struct (se, m) = srcOperand bld ins ins.Size o1
+    let s = tmpVar bld 64<rt>
+    s := AST.app "M68KVIEWF64" [ se; m ] 64<rt>
+    let t = m68kCall bld "M68KOFF64" [ op s ]
+    writeResult bld dstReg t
+    setCondition bld t
+  }
+
+/// Lifts an FSINCOS, the one FPU instruction with two destinations: the sine
+/// goes to the register the opcode word names in bits 9 to 7 and the cosine to
+/// the one it names in bits 2 to 0, which the parser hands over as the third
+/// and the second operand. The cosine is stored first, so that an encoding
+/// naming the same register twice keeps the sine, as the manual says it does,
+/// and the condition codes are the sine's.
+let fsincos (ins: Instruction) bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (se, m) = srcOperand bld ins ins.Size o1
+    let s = tmpVar bld 64<rt>
+    s := AST.app "M68KVIEWF64" [ se; m ] 64<rt>
+    let c = m68kCall bld "M68KOFF64" [ AST.fcos s ]
+    let r = m68kCall bld "M68KOFF64" [ AST.fsin s ]
+    writeResult bld (floatRegOf o2) c
+    writeResult bld (floatRegOf o3) r
+    setCondition bld r
+  }
+#else
 /// How much wider the bias of an extended-precision exponent is than that of a
 /// double-precision one, which is what converting between the two moves it by.
 let [<Literal>] private BiasDiff = 0x3c00UL
-
-/// A sixty-four-bit constant.
-let inline private num64 (n: uint64) = numU64 n 64<rt>
 
 /// The exponent and mantissa of a double-precision infinity, which is what
 /// every exponent too wide for the format becomes.
@@ -184,21 +605,6 @@ let private loadExtended bld addr =
   AST.concat (loadNative bld 16<rt> addr)
              (loadNative bld 64<rt> (addr .+ num32 4))
 
-/// Writes the two halves of an extended-precision value out over the twelve
-/// bytes that carry it, filling in the word of padding.
-let private storeExtended bld addr hi lo =
-  append bld {
-    storeNative bld addr hi
-    storeNative bld (addr .+ num32 2) (AST.num0 16<rt>)
-    storeNative bld (addr .+ num32 4) lo
-  }
-
-/// Returns the big-endian value that a run of bytes of a floating-point
-/// immediate holds.
-let private beValue (bytes: byte[]) off len =
-  Array.sub bytes off len
-  |> Array.fold (fun acc b -> (acc <<< 8) ||| uint64 b) 0UL
-
 /// Returns the double-precision bits of an extended-precision value given the
 /// word holding its sign and exponent and the long word pair holding its
 /// mantissa. This is what extendedToDouble does, for the one case where both
@@ -225,26 +631,6 @@ let private immDouble (bytes: byte[]) =
     beValue bytes 0 8
   | _ ->
     extendedBitsToDouble (beValue bytes 0 2) (beValue bytes 4 8)
-
-/// Returns whether a register is one of the floating-point data registers,
-/// which is what tells an FMOVE that loads one from an FMOVE that stores one.
-let isFloatReg reg =
-  match reg with
-  | R.FP0 | R.FP1 | R.FP2 | R.FP3
-  | R.FP4 | R.FP5 | R.FP6 | R.FP7 -> true
-  | _ -> false
-
-/// Returns the floating-point register an operand names.
-let private floatRegOf opr =
-  match opr with
-  | OpReg r when isFloatReg r -> r
-  | _ -> raise InvalidOperandException
-
-/// Returns the address a floating-point memory operand names.
-let private floatAddrOf bld ins size opr =
-  match transOpr bld ins size opr with
-  | LMem addr -> addr
-  | _ -> raise InvalidOperandException
 
 /// Returns the double-precision value that a floating-point source operand
 /// holds, whichever of the formats the instruction reads it in.
@@ -433,9 +819,6 @@ let fscale ins bld =
     let e = (k .+ num64 1023UL) << numI32 52 64<rt>
     AST.fmul d e)
 
-/// A double-precision constant.
-let private numFloat (v: float) = num64 (BitConverter.DoubleToUInt64Bits v)
-
 /// Lifts an FMOD, which is the remainder of a division whose quotient is
 /// rounded toward zero.
 let fmod ins bld =
@@ -449,135 +832,6 @@ let frem ins bld =
   dyadic ins bld (fun d s ->
     let q = AST.roundToIntegral RoundingMode.ToNearestEven 64<rt> (AST.fdiv d s)
     AST.fsub d (AST.fmul s q))
-
-/// The magnitude of a value, which is its sign bit cleared.
-let private fmagnitude s = s .& num64 0x7fffffffffffffffUL
-
-/// Returns e raised to the power of a value.
-///
-/// Not FPOW. Raising Math.E to a power amplifies the error in Math.E ITSELF by
-/// the exponent: e is not exactly representable, and pow has no way to know
-/// what the base was meant to be, so the relative error of the answer grows
-/// with the argument. Measured against QEMU over operands up to 2^12, pow(e, x)
-/// was 291 ulp out on the worst of them and outside two ulp on 429 of 6000.
-///
-/// cosh and sinh carry no such constant, and cosh(x) + sinh(x) is e^x
-/// identically, so the sum of the two holds to two ulp. It is computed at the
-/// magnitude and reciprocated for a negative argument, because for x below zero
-/// cosh(x) and sinh(x) are equal and opposite and their sum would cancel away
-/// everything it was meant to carry.
-///
-/// The one place this is weaker than the FPU is an argument below about -709,
-/// where e^x is a denormal and the reciprocal of an overflowed cosh is zero.
-/// Nothing observable follows: the register model keeps a double and loses a
-/// denormal in the conversion anyway.
-let private expOf s =
-  let m = fmagnitude s
-  let p = AST.fadd (AST.fcosh m) (AST.fsinh m)
-  AST.ite (AST.xthi 1<rt> s) (AST.fdiv (numFloat 1.0) p) p
-
-/// Lifts an FETOX, which raises e to the power of its source.
-let fetox ins bld = monadic ins bld expOf
-
-/// Lifts an FETOXM1, which is one less than that.
-///
-/// Subtracting the one is what this instruction exists to avoid. For a small
-/// argument the answer is very nearly the argument itself, and taking one from
-/// a sum that is very nearly one throws away every bit of it: measured against
-/// QEMU over [-1, 1], the subtraction form was 1.07e12 ulp out at worst and got
-/// the sign or the class of the answer wrong on 401 of 6000 operands.
-///
-/// sinh(x) + 2 sinh(x/2)^2 is the same quantity with nothing left to cancel.
-/// Near zero the first term is the argument and the second is its square over
-/// two, each computed to its own relative precision, and the halving is exact;
-/// that holds to two ulp. Away from zero there is no cancellation to avoid and
-/// the subtraction is the accurate form -- and the only one of the two that
-/// survives an argument large enough for sinh to overflow, since the identity
-/// would then add an infinity to an infinity. The two divide the domain at a
-/// half.
-///
-/// A zero answers itself. The identity would not: the sum of a negative zero
-/// and a positive one is positive, and expm1 of a negative zero is a negative
-/// zero.
-let fetoxm1 ins bld =
-  monadic ins bld (fun s ->
-    let mag = fmagnitude s
-    let half = AST.fmul s (numFloat 0.5)
-    let sh = AST.fsinh half
-    let near =
-      AST.fadd (AST.fsinh s) (AST.fmul (numFloat 2.0) (AST.fmul sh sh))
-    let far = AST.fsub (expOf s) (numFloat 1.0)
-    AST.ite (mag == AST.num0 64<rt>)
-      s
-      (AST.ite (AST.flt mag (numFloat 0.5)) near far))
-
-/// Lifts an FTWOTOX, which raises two to the power of its source.
-let ftwotox ins bld = monadic ins bld (AST.fpow (numFloat 2.0))
-
-/// Lifts an FTENTOX, which raises ten to the power of its source.
-let ftentox ins bld = monadic ins bld (AST.fpow (numFloat 10.0))
-
-/// Lifts an FLOGN, the natural logarithm.
-let flogn ins bld = monadic ins bld (AST.flog (numFloat Math.E))
-
-/// Lifts an FLOGNP1, the natural logarithm of one more than its source.
-///
-/// Forming the sum is what this instruction exists to avoid, for the mirror
-/// image of FETOXM1's reason: for a small argument the sum loses the low bits
-/// of it before the logarithm ever sees them, which measured 1.07e12 ulp out
-/// against QEMU over [-1, 1].
-///
-/// 2 atanh(x / (x + 2)) is the same quantity and never forms the sum. atanh(z)
-/// is half the logarithm of (1 + z) / (1 - z), and z = x / (x + 2) makes that
-/// ratio exactly 1 + x, so the identity is exact and near zero the division is
-/// well conditioned; that holds to two ulp. It fails the other way for a large
-/// argument, where x / (x + 2) rounds to one and the answer to an infinity, and
-/// for one near minus one, where the division loses what the logarithm needs.
-/// Both are places where the sum has nothing left to cancel, so the two divide
-/// the domain at a half.
-let flognp1 ins bld =
-  monadic ins bld (fun s ->
-    let near =
-      AST.fmul (numFloat 2.0)
-        (AST.fatanh (AST.fdiv s (AST.fadd s (numFloat 2.0))))
-    let far = AST.flog (numFloat Math.E) (AST.fadd s (numFloat 1.0))
-    AST.ite (AST.flt (fmagnitude s) (numFloat 0.5)) near far)
-
-/// Lifts an FLOG2.
-let flog2 ins bld = monadic ins bld (AST.flog (numFloat 2.0))
-
-/// Lifts an FLOG10.
-let flog10 ins bld = monadic ins bld (AST.flog (numFloat 10.0))
-
-/// Lifts an FSIN.
-let fsin ins bld = monadic ins bld AST.fsin
-
-/// Lifts an FCOS.
-let fcos ins bld = monadic ins bld AST.fcos
-
-/// Lifts an FTAN.
-let ftan ins bld = monadic ins bld AST.ftan
-
-/// Lifts an FASIN.
-let fasin ins bld = monadic ins bld AST.fasin
-
-/// Lifts an FACOS.
-let facos ins bld = monadic ins bld AST.facos
-
-/// Lifts an FATAN.
-let fatan ins bld = monadic ins bld AST.fatan
-
-/// Lifts an FSINH.
-let fsinh ins bld = monadic ins bld AST.fsinh
-
-/// Lifts an FCOSH.
-let fcosh ins bld = monadic ins bld AST.fcosh
-
-/// Lifts an FTANH.
-let ftanh ins bld = monadic ins bld AST.ftanh
-
-/// Lifts an FATANH.
-let fatanh ins bld = monadic ins bld AST.fatanh
 
 /// Lifts an FSINCOS, the one FPU instruction with two destinations: the sine
 /// goes to the register the opcode word names in bits 9 to 7 and the cosine to
@@ -675,6 +929,151 @@ let fmovecr (ins: Instruction) bld =
     writeFloat bld (floatRegOf o2) r
   }
 
+/// Lifts an FMOVE out of a floating-point data register.
+let private fmoveOut (ins: Instruction) bld reg dstOpr =
+  lift bld ins {
+    let v = tmpVar bld 64<rt>
+    v := readFloat bld reg
+    setFpuFlags bld v
+    writeFloatOpr bld ins ins.Size dstOpr v
+  }
+
+/// Lifts an instruction computed in double precision.
+let private transcendental ins bld op = monadic ins bld op
+#endif
+
+/// A double-precision constant.
+let private numFloat (v: float) = num64 (BitConverter.DoubleToUInt64Bits v)
+
+/// The magnitude of a value, which is its sign bit cleared.
+let private fmagnitude s = s .& num64 0x7fffffffffffffffUL
+
+/// Returns e raised to the power of a value.
+///
+/// Not FPOW. Raising Math.E to a power amplifies the error in Math.E ITSELF by
+/// the exponent: e is not exactly representable, and pow has no way to know
+/// what the base was meant to be, so the relative error of the answer grows
+/// with the argument. Measured against QEMU over operands up to 2^12, pow(e, x)
+/// was 291 ulp out on the worst of them and outside two ulp on 429 of 6000.
+///
+/// cosh and sinh carry no such constant, and cosh(x) + sinh(x) is e^x
+/// identically, so the sum of the two holds to two ulp. It is computed at the
+/// magnitude and reciprocated for a negative argument, because for x below zero
+/// cosh(x) and sinh(x) are equal and opposite and their sum would cancel away
+/// everything it was meant to carry.
+///
+/// The one place this is weaker than the FPU is an argument below about -709,
+/// where e^x is a denormal and the reciprocal of an overflowed cosh is zero.
+/// Nothing observable follows: the register model keeps a double and loses a
+/// denormal in the conversion anyway.
+let private expOf s =
+  let m = fmagnitude s
+  let p = AST.fadd (AST.fcosh m) (AST.fsinh m)
+  AST.ite (AST.xthi 1<rt> s) (AST.fdiv (numFloat 1.0) p) p
+
+/// Lifts an FETOX, which raises e to the power of its source.
+let fetox ins bld = transcendental ins bld expOf
+
+/// Lifts an FETOXM1, which is one less than that.
+///
+/// Subtracting the one is what this instruction exists to avoid. For a small
+/// argument the answer is very nearly the argument itself, and taking one from
+/// a sum that is very nearly one throws away every bit of it: measured against
+/// QEMU over [-1, 1], the subtraction form was 1.07e12 ulp out at worst and got
+/// the sign or the class of the answer wrong on 401 of 6000 operands.
+///
+/// sinh(x) + 2 sinh(x/2)^2 is the same quantity with nothing left to cancel.
+/// Near zero the first term is the argument and the second is its square over
+/// two, each computed to its own relative precision, and the halving is exact;
+/// that holds to two ulp. Away from zero there is no cancellation to avoid and
+/// the subtraction is the accurate form -- and the only one of the two that
+/// survives an argument large enough for sinh to overflow, since the identity
+/// would then add an infinity to an infinity. The two divide the domain at a
+/// half.
+///
+/// A zero answers itself. The identity would not: the sum of a negative zero
+/// and a positive one is positive, and expm1 of a negative zero is a negative
+/// zero.
+let fetoxm1 ins bld =
+  transcendental ins bld (fun s ->
+    let mag = fmagnitude s
+    let half = AST.fmul s (numFloat 0.5)
+    let sh = AST.fsinh half
+    let near =
+      AST.fadd (AST.fsinh s) (AST.fmul (numFloat 2.0) (AST.fmul sh sh))
+    let far = AST.fsub (expOf s) (numFloat 1.0)
+    AST.ite (mag == AST.num0 64<rt>)
+      s
+      (AST.ite (AST.flt mag (numFloat 0.5)) near far))
+
+/// Lifts an FTWOTOX, which raises two to the power of its source.
+let ftwotox ins bld = transcendental ins bld (AST.fpow (numFloat 2.0))
+
+/// Lifts an FTENTOX, which raises ten to the power of its source.
+let ftentox ins bld = transcendental ins bld (AST.fpow (numFloat 10.0))
+
+/// Lifts an FLOGN, the natural logarithm.
+let flogn ins bld = transcendental ins bld (AST.flog (numFloat Math.E))
+
+/// Lifts an FLOGNP1, the natural logarithm of one more than its source.
+///
+/// Forming the sum is what this instruction exists to avoid, for the mirror
+/// image of FETOXM1's reason: for a small argument the sum loses the low bits
+/// of it before the logarithm ever sees them, which measured 1.07e12 ulp out
+/// against QEMU over [-1, 1].
+///
+/// 2 atanh(x / (x + 2)) is the same quantity and never forms the sum. atanh(z)
+/// is half the logarithm of (1 + z) / (1 - z), and z = x / (x + 2) makes that
+/// ratio exactly 1 + x, so the identity is exact and near zero the division is
+/// well conditioned; that holds to two ulp. It fails the other way for a large
+/// argument, where x / (x + 2) rounds to one and the answer to an infinity, and
+/// for one near minus one, where the division loses what the logarithm needs.
+/// Both are places where the sum has nothing left to cancel, so the two divide
+/// the domain at a half.
+let flognp1 ins bld =
+  transcendental ins bld (fun s ->
+    let near =
+      AST.fmul (numFloat 2.0)
+        (AST.fatanh (AST.fdiv s (AST.fadd s (numFloat 2.0))))
+    let far = AST.flog (numFloat Math.E) (AST.fadd s (numFloat 1.0))
+    AST.ite (AST.flt (fmagnitude s) (numFloat 0.5)) near far)
+
+/// Lifts an FLOG2.
+let flog2 ins bld = transcendental ins bld (AST.flog (numFloat 2.0))
+
+/// Lifts an FLOG10.
+let flog10 ins bld = transcendental ins bld (AST.flog (numFloat 10.0))
+
+/// Lifts an FSIN.
+let fsin ins bld = transcendental ins bld AST.fsin
+
+/// Lifts an FCOS.
+let fcos ins bld = transcendental ins bld AST.fcos
+
+/// Lifts an FTAN.
+let ftan ins bld = transcendental ins bld AST.ftan
+
+/// Lifts an FASIN.
+let fasin ins bld = transcendental ins bld AST.fasin
+
+/// Lifts an FACOS.
+let facos ins bld = transcendental ins bld AST.facos
+
+/// Lifts an FATAN.
+let fatan ins bld = transcendental ins bld AST.fatan
+
+/// Lifts an FSINH.
+let fsinh ins bld = transcendental ins bld AST.fsinh
+
+/// Lifts an FCOSH.
+let fcosh ins bld = transcendental ins bld AST.fcosh
+
+/// Lifts an FTANH.
+let ftanh ins bld = transcendental ins bld AST.ftanh
+
+/// Lifts an FATANH.
+let fatanh ins bld = transcendental ins bld AST.fatanh
+
 /// Lifts an FMOVE of one floating-point control register, which is the form an
 /// FMOVEM of a single register takes.
 let private fmoveControl (ins: Instruction) bld =
@@ -701,12 +1100,7 @@ let fmove (ins: Instruction) bld =
   | TwoOperands(_, OpReg r) when isFloatReg r ->
     fmoveData ins bld
   | TwoOperands(OpReg r, dstOpr) when isFloatReg r ->
-    lift bld ins {
-      let v = tmpVar bld 64<rt>
-      v := readFloat bld r
-      setFpuFlags bld v
-      writeFloatOpr bld ins ins.Size dstOpr v
-    }
+    fmoveOut ins bld r dstOpr
   | _ ->
     (* An FMOVE to a packed-decimal destination, which this lifter does not
        model: the format has no counterpart in the intermediate language. *)
@@ -918,4 +1312,3 @@ let ftrapcc (ins: Instruction) bld =
         AST.sideEffect (Exception FloatingPointException)
       })
   }
-
