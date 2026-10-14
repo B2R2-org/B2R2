@@ -34,15 +34,15 @@ type internal Loc =
   /// X0 to X30.
   | X of int * uint64
   /// V0 to V31, as the low and the high doubleword.
-  | V of int * uint64 * uint64
+  | Q of int * uint64 * uint64
   /// The stack pointer.
   | SP of uint64
   /// Where the instruction goes on: its own address unless it branches.
-  | PC of uint64
+  | Pc of uint64
   /// NZCV as MRS reads it: N, Z, C and V in bits 31 to 28.
-  | NZCV of uint64
+  | Nzcv of uint64
   /// FPSR, the exceptions an instruction raised: none before it runs.
-  | FPSR of uint64
+  | Fpsr of uint64
   /// The doubleword at a byte offset of the window, little-endian.
   | M of int * uint64
   /// Where the 64-byte window of memory is, where an input moves it.
@@ -256,11 +256,11 @@ module internal A64Machine =
     |> List.fold (fun s loc ->
       match loc with
       | X(i, v) -> { s with Xs = replace s.Xs i v }
-      | V(i, lo, hi) -> { s with Vs = replace s.Vs i (lo, hi) }
+      | Q(i, lo, hi) -> { s with Vs = replace s.Vs i (lo, hi) }
       | SP v -> { s with Sp = v }
-      | PC v -> { s with Pc = v }
-      | NZCV v -> { s with Flags = v }
-      | FPSR v -> { s with Fpsr = v }
+      | Pc v -> { s with Pc = v }
+      | Nzcv v -> { s with Flags = v }
+      | Fpsr v -> { s with Fpsr = v }
       | M(off, v) -> { s with Mem = replace s.Mem (off / 8) v }
       | Window a -> { s with At = a }) state
 

@@ -106,6 +106,20 @@ type MicroMIPSParserTests() =
     Assert.ThrowsExactly<ParsingFailureException>((fun () ->
       parseAt release wordSize hex |> ignore), hex) |> ignore
 
+  let isaMicro64 =
+    ISA(Architecture.MIPS,
+        Endian.Big,
+        WordSize.Bit64,
+        int MIPSISAMode.MicroMIPS)
+
+  let disasmMicro64 (byteString: string) (expected: string) =
+    let bytes = ByteArray.ofHexString byteString
+    let parser =
+      Parser(isaMicro64, BinReader.Init isaMicro64.Endian)
+      :> IInstructionParsable
+    let ins = parser.Parse(bytes, 0UL)
+    Assert.AreEqual<string>(expected, ins.Disasm())
+
   /// <summary>
   /// POOL16A and POOL16B, whose destination field is the TOPMOST of the
   /// three rather than the last.
@@ -1200,3 +1214,2063 @@ type MicroMIPSParserTests() =
       let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
       Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
       Assert.AreEqual<Operands>(operandsFromArray oprs, ins.Operands, hex)
+
+  (* One test for each microMIPS instruction microMIPS64 5.04 describes, in the
+     order of its sections. Each reads words of the instruction and checks the
+     text, and each word is one binutils' objdump reads as the same instruction
+     with the same operands, so what is asserted is a reading two decoders agree
+     on. BC1F, BC1T, BC2F and BC2T, which binutils reads otherwise, are checked
+     against the manual's encodings. *)
+  /// microMIPS64 5.04 pp.194, 196, 198 and 200.
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BC1F BC1T BC2F BC2T``() =
+    disasmMicro64 "43880008" "bc1f 0x2, 0x14"
+    disasmMicro64 "43a80008" "bc1t 0x2, 0x14"
+    disasmMicro64 "42880008" "bc2f 0x2, 0x14"
+    disasmMicro64 "42a80008" "bc2t 0x2, 0x14"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ABS.fmt``() =
+    disasmMicro64 "5400037b" "abs.s f0, f0"
+    disasmMicro64 "5400237b" "abs.d f0, f0"
+    disasmMicro64 "5400437b" "abs.ps f0, f0"
+    disasmMicro64 "5422037b" "abs.s f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADD``() =
+    disasmMicro64 "00000110" "add r0, r0, r0"
+    disasmMicro64 "00000910" "add at, r0, r0"
+    disasmMicro64 "00001110" "add v0, r0, r0"
+    disasmMicro64 "00001910" "add v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADD.fmt``() =
+    disasmMicro64 "54000030" "add.s f0, f0, f0"
+    disasmMicro64 "54000130" "add.d f0, f0, f0"
+    disasmMicro64 "54000230" "add.ps f0, f0, f0"
+    disasmMicro64 "54000830" "add.s f1, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADDI``() =
+    disasmMicro64 "10030000" "addi r0, v1, 0x0"
+    disasmMicro64 "10600000" "addi v1, r0, 0x0"
+    disasmMicro64 "10030001" "addi r0, v1, 0x1"
+    disasmMicro64 "10600001" "addi v1, r0, 0x1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADDIU``() =
+    disasmMicro64 "4c000c00" "addiu r0, r0, 0x0"
+    disasmMicro64 "4c010c00" "addiu sp, sp, 0x400"
+    disasmMicro64 "4c020c00" "addiu r0, r0, 0x1"
+    disasmMicro64 "4c030c00" "addiu sp, sp, 0x404"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADDIUPC``() =
+    disasmMicro64 "78030000" "addiupc s0, 0xc0000"
+    disasmMicro64 "78030001" "addiupc s0, 0xc0004"
+    disasmMicro64 "78830000" "addiupc s1, 0xc0000"
+    disasmMicro64 "78830001" "addiupc s1, 0xc0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADDIUR1SP``() =
+    disasmMicro64 "4c000c00" "addiu r0, r0, 0x0"
+    disasmMicro64 "4c010c00" "addiu sp, sp, 0x400"
+    disasmMicro64 "4c020c00" "addiu r0, r0, 0x1"
+    disasmMicro64 "4c030c00" "addiu sp, sp, 0x404"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADDIUR2``() =
+    disasmMicro64 "4c000c00" "addiu r0, r0, 0x0"
+    disasmMicro64 "4c010c00" "addiu sp, sp, 0x400"
+    disasmMicro64 "4c020c00" "addiu r0, r0, 0x1"
+    disasmMicro64 "4c030c00" "addiu sp, sp, 0x404"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADDIUS5``() =
+    disasmMicro64 "4c000c00" "addiu r0, r0, 0x0"
+    disasmMicro64 "4c010c00" "addiu sp, sp, 0x400"
+    disasmMicro64 "4c020c00" "addiu r0, r0, 0x1"
+    disasmMicro64 "4c030c00" "addiu sp, sp, 0x404"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADDIUSP``() =
+    disasmMicro64 "4c000c00" "addiu r0, r0, 0x0"
+    disasmMicro64 "4c010c00" "addiu sp, sp, 0x400"
+    disasmMicro64 "4c020c00" "addiu r0, r0, 0x1"
+    disasmMicro64 "4c030c00" "addiu sp, sp, 0x404"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADDU``() =
+    disasmMicro64 "04000c00" "addu s0, s0, s0"
+    disasmMicro64 "04020c00" "addu s0, s1, s0"
+    disasmMicro64 "04040c00" "addu s0, v0, s0"
+    disasmMicro64 "04060c00" "addu s0, v1, s0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ADDU16``() =
+    disasmMicro64 "04000c00" "addu s0, s0, s0"
+    disasmMicro64 "04020c00" "addu s0, s1, s0"
+    disasmMicro64 "04040c00" "addu s0, v0, s0"
+    disasmMicro64 "04060c00" "addu s0, v1, s0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ALNV.PS``() =
+    disasmMicro64 "54000019" "alnv.ps f0, f0, f0, r0"
+    disasmMicro64 "54000059" "alnv.ps f0, f0, f0, at"
+    disasmMicro64 "54000099" "alnv.ps f0, f0, f0, v0"
+    disasmMicro64 "540000d9" "alnv.ps f0, f0, f0, v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 AND``() =
+    disasmMicro64 "44800c00" "and s0, s0, s0"
+    disasmMicro64 "44810c00" "and s0, s0, s1"
+    disasmMicro64 "44820c00" "and s0, s0, v0"
+    disasmMicro64 "44830c00" "and s0, s0, v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 AND16``() =
+    disasmMicro64 "44800c00" "and s0, s0, s0"
+    disasmMicro64 "44810c00" "and s0, s0, s1"
+    disasmMicro64 "44820c00" "and s0, s0, v0"
+    disasmMicro64 "44830c00" "and s0, s0, v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ANDI``() =
+    disasmMicro64 "2c000c00" "andi s0, s0, 0x80"
+    disasmMicro64 "2c010c00" "andi s0, s0, 0x1"
+    disasmMicro64 "2c020c00" "andi s0, s0, 0x2"
+    disasmMicro64 "2c030c00" "andi s0, s0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ANDI16``() =
+    disasmMicro64 "2c000c00" "andi s0, s0, 0x80"
+    disasmMicro64 "2c010c00" "andi s0, s0, 0x1"
+    disasmMicro64 "2c020c00" "andi s0, s0, 0x2"
+    disasmMicro64 "2c030c00" "andi s0, s0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 B``() =
+    disasmMicro64 "cc000c00" "b 0x2"
+    disasmMicro64 "cc010c00" "b 0x4"
+    disasmMicro64 "cc020c00" "b 0x6"
+    disasmMicro64 "cc030c00" "b 0x8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 B16``() =
+    disasmMicro64 "cc000c00" "b 0x2"
+    disasmMicro64 "cc010c00" "b 0x4"
+    disasmMicro64 "cc020c00" "b 0x6"
+    disasmMicro64 "cc030c00" "b 0x8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BAL``() =
+    disasmMicro64 "40600000" "bgezal r0, 0x4"
+    disasmMicro64 "40600001" "bgezal r0, 0x6"
+    disasmMicro64 "40607fff" "bgezal r0, 0x10002"
+    disasmMicro64 "40608000" "bgezal r0, 0xffffffffffff0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BEQ``() =
+    disasmMicro64 "8d000c00" "beq v0, r0, 0x2"
+    disasmMicro64 "8c000c00" "beq s0, r0, 0x2"
+    disasmMicro64 "8c010c00" "beq s0, r0, 0x4"
+    disasmMicro64 "8c020c00" "beq s0, r0, 0x6"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BEQZ16``() =
+    disasmMicro64 "8d000c00" "beq v0, r0, 0x2"
+    disasmMicro64 "8c000c00" "beq s0, r0, 0x2"
+    disasmMicro64 "8c010c00" "beq s0, r0, 0x4"
+    disasmMicro64 "8c020c00" "beq s0, r0, 0x6"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BEQZC``() =
+    disasmMicro64 "40e30000" "beqzc v1, 0x4"
+    disasmMicro64 "40e30001" "beqzc v1, 0x6"
+    disasmMicro64 "40e37fff" "beqzc v1, 0x10002"
+    disasmMicro64 "40e38000" "beqzc v1, 0xffffffffffff0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BGEZ``() =
+    disasmMicro64 "40430000" "bgez v1, 0x4"
+    disasmMicro64 "40430001" "bgez v1, 0x6"
+    disasmMicro64 "40437fff" "bgez v1, 0x10002"
+    disasmMicro64 "40438000" "bgez v1, 0xffffffffffff0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BGEZAL``() =
+    disasmMicro64 "40600000" "bgezal r0, 0x4"
+    disasmMicro64 "40600001" "bgezal r0, 0x6"
+    disasmMicro64 "40607fff" "bgezal r0, 0x10002"
+    disasmMicro64 "40608000" "bgezal r0, 0xffffffffffff0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BGEZALS``() =
+    disasmMicro64 "42630000" "bgezals v1, 0x4"
+    disasmMicro64 "42630001" "bgezals v1, 0x6"
+    disasmMicro64 "42637fff" "bgezals v1, 0x10002"
+    disasmMicro64 "42638000" "bgezals v1, 0xffffffffffff0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BGTZ``() =
+    disasmMicro64 "40c30000" "bgtz v1, 0x4"
+    disasmMicro64 "40c30001" "bgtz v1, 0x6"
+    disasmMicro64 "40c37fff" "bgtz v1, 0x10002"
+    disasmMicro64 "40c38000" "bgtz v1, 0xffffffffffff0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BLEZ``() =
+    disasmMicro64 "40830000" "blez v1, 0x4"
+    disasmMicro64 "40830001" "blez v1, 0x6"
+    disasmMicro64 "40837fff" "blez v1, 0x10002"
+    disasmMicro64 "40838000" "blez v1, 0xffffffffffff0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BLTZ``() =
+    disasmMicro64 "40000000" "bltz r0, 0x4"
+    disasmMicro64 "40000001" "bltz r0, 0x6"
+    disasmMicro64 "40000002" "bltz r0, 0x8"
+    disasmMicro64 "40000003" "bltz r0, 0xa"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BLTZAL``() =
+    disasmMicro64 "40220000" "bltzal v0, 0x4"
+    disasmMicro64 "40220001" "bltzal v0, 0x6"
+    disasmMicro64 "40220002" "bltzal v0, 0x8"
+    disasmMicro64 "40220003" "bltzal v0, 0xa"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BLTZALS``() =
+    disasmMicro64 "42230000" "bltzals v1, 0x4"
+    disasmMicro64 "42230001" "bltzals v1, 0x6"
+    disasmMicro64 "42237fff" "bltzals v1, 0x10002"
+    disasmMicro64 "42238000" "bltzals v1, 0xffffffffffff0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BNE``() =
+    disasmMicro64 "ad000c00" "bne v0, r0, 0x2"
+    disasmMicro64 "ac000c00" "bne s0, r0, 0x2"
+    disasmMicro64 "ac010c00" "bne s0, r0, 0x4"
+    disasmMicro64 "ac020c00" "bne s0, r0, 0x6"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BNEZ16``() =
+    disasmMicro64 "ad000c00" "bne v0, r0, 0x2"
+    disasmMicro64 "ac000c00" "bne s0, r0, 0x2"
+    disasmMicro64 "ac010c00" "bne s0, r0, 0x4"
+    disasmMicro64 "ac020c00" "bne s0, r0, 0x6"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BNEZC``() =
+    disasmMicro64 "40a30000" "bnezc v1, 0x4"
+    disasmMicro64 "40a30001" "bnezc v1, 0x6"
+    disasmMicro64 "40a37fff" "bnezc v1, 0x10002"
+    disasmMicro64 "40a38000" "bnezc v1, 0xffffffffffff0004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BREAK``() =
+    disasmMicro64 "46800c00" "break 0x0"
+    disasmMicro64 "46810c00" "break 0x1"
+    disasmMicro64 "46820c00" "break 0x2"
+    disasmMicro64 "46830c00" "break 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 BREAK16``() =
+    disasmMicro64 "46800c00" "break 0x0"
+    disasmMicro64 "46810c00" "break 0x1"
+    disasmMicro64 "46820c00" "break 0x2"
+    disasmMicro64 "46830c00" "break 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 C.cond.fmt``() =
+    disasmMicro64 "5400203c" "c.f.s 0x1, f0, f0"
+    disasmMicro64 "5400207c" "c.un.s 0x1, f0, f0"
+    disasmMicro64 "540020bc" "c.eq.s 0x1, f0, f0"
+    disasmMicro64 "540020fc" "c.ueq.s 0x1, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CACHE``() =
+    disasmMicro64 "20006000" "cache 0x0, 0(r0)"
+    disasmMicro64 "20006001" "cache 0x0, 1(r0)"
+    disasmMicro64 "20006002" "cache 0x0, 2(r0)"
+    disasmMicro64 "20006003" "cache 0x0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CACHEE``() =
+    disasmMicro64 "6000a600" "cachee 0x0, 0(r0)"
+    disasmMicro64 "6000a601" "cachee 0x0, 1(r0)"
+    disasmMicro64 "6000a602" "cachee 0x0, 2(r0)"
+    disasmMicro64 "6000a603" "cachee 0x0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CEIL.L.fmt``() =
+    disasmMicro64 "5400133b" "ceil.l.s f0, f0"
+    disasmMicro64 "5400533b" "ceil.l.d f0, f0"
+    disasmMicro64 "5422133b" "ceil.l.s f1, f2"
+    disasmMicro64 "5422533b" "ceil.l.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CEIL.W.fmt``() =
+    disasmMicro64 "54001b3b" "ceil.w.s f0, f0"
+    disasmMicro64 "54005b3b" "ceil.w.d f0, f0"
+    disasmMicro64 "54221b3b" "ceil.w.s f1, f2"
+    disasmMicro64 "54225b3b" "ceil.w.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CFC1``() =
+    disasmMicro64 "5400103b" "cfc1 r0, f0"
+    disasmMicro64 "5422103b" "cfc1 at, f2"
+    disasmMicro64 "57fe103b" "cfc1 ra, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CFC2``() =
+    disasmMicro64 "0000cd3c" "cfc2 r0, 0x0"
+    disasmMicro64 "0022cd3c" "cfc2 at, 0x2"
+    disasmMicro64 "03fecd3c" "cfc2 ra, 0x1e"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CLO``() =
+    disasmMicro64 "00004b3c" "clo r0, r0"
+    disasmMicro64 "00224b3c" "clo at, v0"
+    disasmMicro64 "03fe4b3c" "clo ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CLZ``() =
+    disasmMicro64 "00005b3c" "clz r0, r0"
+    disasmMicro64 "00225b3c" "clz at, v0"
+    disasmMicro64 "03fe5b3c" "clz ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 COP2``() =
+    disasmMicro64 "00000002" "cop2 0x0"
+    disasmMicro64 "0000000a" "cop2 0x1"
+    disasmMicro64 "00000012" "cop2 0x2"
+    disasmMicro64 "0000001a" "cop2 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CTC1``() =
+    disasmMicro64 "5400183b" "ctc1 r0, f0"
+    disasmMicro64 "5422183b" "ctc1 at, f2"
+    disasmMicro64 "57fe183b" "ctc1 ra, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CTC2``() =
+    disasmMicro64 "0000dd3c" "ctc2 r0, 0x0"
+    disasmMicro64 "0022dd3c" "ctc2 at, 0x2"
+    disasmMicro64 "03fedd3c" "ctc2 ra, 0x1e"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CVT.D.fmt``() =
+    disasmMicro64 "5400137b" "cvt.d.s f0, f0"
+    disasmMicro64 "5400337b" "cvt.d.w f0, f0"
+    disasmMicro64 "5400537b" "cvt.d.l f0, f0"
+    disasmMicro64 "5422137b" "cvt.d.s f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CVT.L.fmt``() =
+    disasmMicro64 "5400013b" "cvt.l.s f0, f0"
+    disasmMicro64 "5400413b" "cvt.l.d f0, f0"
+    disasmMicro64 "5422013b" "cvt.l.s f1, f2"
+    disasmMicro64 "5422413b" "cvt.l.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CVT.PS.S``() =
+    disasmMicro64 "54000180" "cvt.ps.s f0, f0, f0"
+    disasmMicro64 "54000980" "cvt.ps.s f1, f0, f0"
+    disasmMicro64 "54001180" "cvt.ps.s f2, f0, f0"
+    disasmMicro64 "54001980" "cvt.ps.s f3, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CVT.S.PL``() =
+    disasmMicro64 "5400213b" "cvt.s.pl f0, f0"
+    disasmMicro64 "5422213b" "cvt.s.pl f1, f2"
+    disasmMicro64 "57fe213b" "cvt.s.pl f31, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CVT.S.PU``() =
+    disasmMicro64 "5400293b" "cvt.s.pu f0, f0"
+    disasmMicro64 "5422293b" "cvt.s.pu f1, f2"
+    disasmMicro64 "57fe293b" "cvt.s.pu f31, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CVT.S.fmt``() =
+    disasmMicro64 "54001b7b" "cvt.s.d f0, f0"
+    disasmMicro64 "54003b7b" "cvt.s.w f0, f0"
+    disasmMicro64 "54005b7b" "cvt.s.l f0, f0"
+    disasmMicro64 "54221b7b" "cvt.s.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 CVT.W.fmt``() =
+    disasmMicro64 "5400093b" "cvt.w.s f0, f0"
+    disasmMicro64 "5400493b" "cvt.w.d f0, f0"
+    disasmMicro64 "5422093b" "cvt.w.s f1, f2"
+    disasmMicro64 "5422493b" "cvt.w.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DADD``() =
+    disasmMicro64 "58000110" "dadd r0, r0, r0"
+    disasmMicro64 "58000910" "dadd at, r0, r0"
+    disasmMicro64 "58001110" "dadd v0, r0, r0"
+    disasmMicro64 "58001910" "dadd v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DADDI``() =
+    disasmMicro64 "5800001c" "daddi r0, r0, 0x0"
+    disasmMicro64 "5800005c" "daddi r0, r0, 0x1"
+    disasmMicro64 "5800009c" "daddi r0, r0, 0x2"
+    disasmMicro64 "580000dc" "daddi r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DADDIU``() =
+    disasmMicro64 "5c030000" "daddiu r0, v1, 0x0"
+    disasmMicro64 "5c600000" "daddiu v1, r0, 0x0"
+    disasmMicro64 "5c030001" "daddiu r0, v1, 0x1"
+    disasmMicro64 "5c600001" "daddiu v1, r0, 0x1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DADDU``() =
+    disasmMicro64 "58220150" "daddu r0, v0, at"
+    disasmMicro64 "58220950" "daddu at, v0, at"
+    disasmMicro64 "58221150" "daddu v0, v0, at"
+    disasmMicro64 "58221950" "daddu v1, v0, at"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DCLO``() =
+    disasmMicro64 "58004b3c" "dclo r0, r0"
+    disasmMicro64 "58224b3c" "dclo at, v0"
+    disasmMicro64 "5bfe4b3c" "dclo ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DCLZ``() =
+    disasmMicro64 "58005b3c" "dclz r0, r0"
+    disasmMicro64 "58225b3c" "dclz at, v0"
+    disasmMicro64 "5bfe5b3c" "dclz ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DDIV``() =
+    disasmMicro64 "5800ab3c" "ddiv r0, r0"
+    disasmMicro64 "5822ab3c" "ddiv v0, at"
+    disasmMicro64 "5bfeab3c" "ddiv s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DDIVU``() =
+    disasmMicro64 "5800bb3c" "ddivu r0, r0"
+    disasmMicro64 "5822bb3c" "ddivu v0, at"
+    disasmMicro64 "5bfebb3c" "ddivu s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DERET``() =
+    disasmMicro64 "0000e37c" "deret"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DEXT``() =
+    disasmMicro64 "5800002c" "dext r0, r0, 0x0, 0x1"
+    disasmMicro64 "5800006c" "dext r0, r0, 0x1, 0x1"
+    disasmMicro64 "580000ac" "dext r0, r0, 0x2, 0x1"
+    disasmMicro64 "580000ec" "dext r0, r0, 0x3, 0x1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DEXTM``() =
+    disasmMicro64 "58000024" "dextm r0, r0, 0x0, 0x21"
+    disasmMicro64 "58000064" "dextm r0, r0, 0x1, 0x21"
+    disasmMicro64 "580000a4" "dextm r0, r0, 0x2, 0x21"
+    disasmMicro64 "580000e4" "dextm r0, r0, 0x3, 0x21"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DEXTU``() =
+    disasmMicro64 "58000014" "dextu r0, r0, 0x20, 0x1"
+    disasmMicro64 "58000054" "dextu r0, r0, 0x21, 0x1"
+    disasmMicro64 "58000094" "dextu r0, r0, 0x22, 0x1"
+    disasmMicro64 "580000d4" "dextu r0, r0, 0x23, 0x1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DI``() =
+    disasmMicro64 "0000477c" "di r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DINS``() =
+    disasmMicro64 "5800000c" "dins r0, r0, 0x0, 0x1"
+    disasmMicro64 "5800080c" "dins r0, r0, 0x0, 0x2"
+    disasmMicro64 "5800084c" "dins r0, r0, 0x1, 0x1"
+    disasmMicro64 "5800100c" "dins r0, r0, 0x0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DINSM``() =
+    disasmMicro64 "58000004" "dinsm r0, r0, 0x0, 0x21"
+    disasmMicro64 "58000044" "dinsm r0, r0, 0x1, 0x20"
+    disasmMicro64 "58000084" "dinsm r0, r0, 0x2, 0x1f"
+    disasmMicro64 "580000c4" "dinsm r0, r0, 0x3, 0x1e"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DINSU``() =
+    disasmMicro64 "58000034" "dinsu r0, r0, 0x20, 0x1"
+    disasmMicro64 "58000834" "dinsu r0, r0, 0x20, 0x2"
+    disasmMicro64 "58000874" "dinsu r0, r0, 0x21, 0x1"
+    disasmMicro64 "58001034" "dinsu r0, r0, 0x20, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DIV``() =
+    disasmMicro64 "0000ab3c" "div r0, r0"
+    disasmMicro64 "0022ab3c" "div v0, at"
+    disasmMicro64 "03feab3c" "div s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DIV.fmt``() =
+    disasmMicro64 "540000f0" "div.s f0, f0, f0"
+    disasmMicro64 "540001f0" "div.d f0, f0, f0"
+    disasmMicro64 "540008f0" "div.s f1, f0, f0"
+    disasmMicro64 "540009f0" "div.d f1, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DIVU``() =
+    disasmMicro64 "0000bb3c" "divu r0, r0"
+    disasmMicro64 "0022bb3c" "divu v0, at"
+    disasmMicro64 "03febb3c" "divu s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DMFC0``() =
+    disasmMicro64 "580008fc" "dmfc0 r0, 0x0, 0x1"
+    disasmMicro64 "580010fc" "dmfc0 r0, 0x0, 0x2"
+    disasmMicro64 "580018fc" "dmfc0 r0, 0x0, 0x3"
+    disasmMicro64 "582208fc" "dmfc0 at, 0x2, 0x1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DMFC1``() =
+    disasmMicro64 "5400243b" "dmfc1 r0, f0"
+    disasmMicro64 "5422243b" "dmfc1 at, f2"
+    disasmMicro64 "57fe243b" "dmfc1 ra, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DMFC2``() =
+    disasmMicro64 "00006d3c" "dmfc2 r0, 0x0"
+    disasmMicro64 "00226d3c" "dmfc2 at, 0x2"
+    disasmMicro64 "03fe6d3c" "dmfc2 ra, 0x1e"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DMTC0``() =
+    disasmMicro64 "58000afc" "dmtc0 r0, 0x0, 0x1"
+    disasmMicro64 "580012fc" "dmtc0 r0, 0x0, 0x2"
+    disasmMicro64 "58001afc" "dmtc0 r0, 0x0, 0x3"
+    disasmMicro64 "58220afc" "dmtc0 at, 0x2, 0x1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DMTC1``() =
+    disasmMicro64 "54002c3b" "dmtc1 r0, f0"
+    disasmMicro64 "54222c3b" "dmtc1 at, f2"
+    disasmMicro64 "57fe2c3b" "dmtc1 ra, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DMTC2``() =
+    disasmMicro64 "00007d3c" "dmtc2 r0, 0x0"
+    disasmMicro64 "00227d3c" "dmtc2 at, 0x2"
+    disasmMicro64 "03fe7d3c" "dmtc2 ra, 0x1e"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DMULT``() =
+    disasmMicro64 "58008b3c" "dmult r0, r0"
+    disasmMicro64 "58228b3c" "dmult v0, at"
+    disasmMicro64 "5bfe8b3c" "dmult s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DMULTU``() =
+    disasmMicro64 "58009b3c" "dmultu r0, r0"
+    disasmMicro64 "58229b3c" "dmultu v0, at"
+    disasmMicro64 "5bfe9b3c" "dmultu s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DROTR``() =
+    disasmMicro64 "580000c0" "drotr r0, r0, 0x0"
+    disasmMicro64 "580008c0" "drotr r0, r0, 0x1"
+    disasmMicro64 "580010c0" "drotr r0, r0, 0x2"
+    disasmMicro64 "580018c0" "drotr r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DROTR32``() =
+    disasmMicro64 "580000c8" "drotr32  r0, r0, 0x0"
+    disasmMicro64 "580008c8" "drotr32  r0, r0, 0x1"
+    disasmMicro64 "580010c8" "drotr32  r0, r0, 0x2"
+    disasmMicro64 "580018c8" "drotr32  r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DROTRV``() =
+    disasmMicro64 "580000d0" "drotrv r0, r0, r0"
+    disasmMicro64 "580008d0" "drotrv at, r0, r0"
+    disasmMicro64 "580010d0" "drotrv v0, r0, r0"
+    disasmMicro64 "580018d0" "drotrv v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSBH``() =
+    disasmMicro64 "58007b3c" "dsbh r0, r0"
+    disasmMicro64 "58227b3c" "dsbh at, v0"
+    disasmMicro64 "5bfe7b3c" "dsbh ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSHD``() =
+    disasmMicro64 "5800fb3c" "dshd r0, r0"
+    disasmMicro64 "5822fb3c" "dshd at, v0"
+    disasmMicro64 "5bfefb3c" "dshd ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSLL``() =
+    disasmMicro64 "58000000" "dsll r0, r0, 0x0"
+    disasmMicro64 "58000800" "dsll r0, r0, 0x1"
+    disasmMicro64 "58001000" "dsll r0, r0, 0x2"
+    disasmMicro64 "58001800" "dsll r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSLL32``() =
+    disasmMicro64 "58000008" "dsll32 r0, r0, 0x0"
+    disasmMicro64 "58000808" "dsll32 r0, r0, 0x1"
+    disasmMicro64 "58001008" "dsll32 r0, r0, 0x2"
+    disasmMicro64 "58001808" "dsll32 r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSLLV``() =
+    disasmMicro64 "58000010" "dsllv r0, r0, r0"
+    disasmMicro64 "58000810" "dsllv at, r0, r0"
+    disasmMicro64 "58001010" "dsllv v0, r0, r0"
+    disasmMicro64 "58001810" "dsllv v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSRA``() =
+    disasmMicro64 "58000080" "dsra r0, r0, 0x0"
+    disasmMicro64 "58000880" "dsra r0, r0, 0x1"
+    disasmMicro64 "58001080" "dsra r0, r0, 0x2"
+    disasmMicro64 "58001880" "dsra r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSRA32``() =
+    disasmMicro64 "58000088" "dsra32 r0, r0, 0x0"
+    disasmMicro64 "58000888" "dsra32 r0, r0, 0x1"
+    disasmMicro64 "58001088" "dsra32 r0, r0, 0x2"
+    disasmMicro64 "58001888" "dsra32 r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSRAV``() =
+    disasmMicro64 "58000090" "dsrav r0, r0, r0"
+    disasmMicro64 "58000890" "dsrav at, r0, r0"
+    disasmMicro64 "58001090" "dsrav v0, r0, r0"
+    disasmMicro64 "58001890" "dsrav v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSRL``() =
+    disasmMicro64 "58000040" "dsrl r0, r0, 0x0"
+    disasmMicro64 "58000840" "dsrl r0, r0, 0x1"
+    disasmMicro64 "58001040" "dsrl r0, r0, 0x2"
+    disasmMicro64 "58001840" "dsrl r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSRL32``() =
+    disasmMicro64 "58000048" "dsrl32 r0, r0, 0x0"
+    disasmMicro64 "58000848" "dsrl32 r0, r0, 0x1"
+    disasmMicro64 "58001048" "dsrl32 r0, r0, 0x2"
+    disasmMicro64 "58001848" "dsrl32 r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSRLV``() =
+    disasmMicro64 "58000050" "dsrlv r0, r0, r0"
+    disasmMicro64 "58000850" "dsrlv at, r0, r0"
+    disasmMicro64 "58001050" "dsrlv v0, r0, r0"
+    disasmMicro64 "58001850" "dsrlv v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSUB``() =
+    disasmMicro64 "58220190" "dsub r0, v0, at"
+    disasmMicro64 "58220990" "dsub at, v0, at"
+    disasmMicro64 "58221190" "dsub v0, v0, at"
+    disasmMicro64 "58221990" "dsub v1, v0, at"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 DSUBU``() =
+    disasmMicro64 "582201d0" "dsubu r0, v0, at"
+    disasmMicro64 "582209d0" "dsubu at, v0, at"
+    disasmMicro64 "582211d0" "dsubu v0, v0, at"
+    disasmMicro64 "582219d0" "dsubu v1, v0, at"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 EHB``() =
+    disasmMicro64 "00001800" "ehb"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 EI``() =
+    disasmMicro64 "0000577c" "ei r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ERET``() =
+    disasmMicro64 "0000f37c" "eret"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ERETNC``() =
+    disasmMicro64 "0001f37c" "eretnc"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 EXT``() =
+    disasmMicro64 "0000002c" "ext r0, r0, 0x0, 0x1"
+    disasmMicro64 "0000006c" "ext r0, r0, 0x1, 0x1"
+    disasmMicro64 "000000ac" "ext r0, r0, 0x2, 0x1"
+    disasmMicro64 "000000ec" "ext r0, r0, 0x3, 0x1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 FLOOR.L.fmt``() =
+    disasmMicro64 "5400033b" "floor.l.s f0, f0"
+    disasmMicro64 "5400433b" "floor.l.d f0, f0"
+    disasmMicro64 "5422033b" "floor.l.s f1, f2"
+    disasmMicro64 "5422433b" "floor.l.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 FLOOR.W.fmt``() =
+    disasmMicro64 "54000b3b" "floor.w.s f0, f0"
+    disasmMicro64 "54004b3b" "floor.w.d f0, f0"
+    disasmMicro64 "54220b3b" "floor.w.s f1, f2"
+    disasmMicro64 "54224b3b" "floor.w.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 INS``() =
+    disasmMicro64 "0000000c" "ins r0, r0, 0x0, 0x1"
+    disasmMicro64 "0000080c" "ins r0, r0, 0x0, 0x2"
+    disasmMicro64 "0000084c" "ins r0, r0, 0x1, 0x1"
+    disasmMicro64 "0000100c" "ins r0, r0, 0x0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 J``() =
+    disasmMicro64 "d4030000" "j 0x60000"
+    disasmMicro64 "d4600000" "j 0xc00000"
+    disasmMicro64 "d4030001" "j 0x60002"
+    disasmMicro64 "d4600001" "j 0xc00002"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JAL``() =
+    disasmMicro64 "f4030000" "jal 0x60000"
+    disasmMicro64 "f4600000" "jal 0xc00000"
+    disasmMicro64 "f4030001" "jal 0x60002"
+    disasmMicro64 "f4600001" "jal 0xc00002"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JALR``() =
+    disasmMicro64 "45c00c00" "jalr r0"
+    disasmMicro64 "45c10c00" "jalr at"
+    disasmMicro64 "45c20c00" "jalr v0"
+    disasmMicro64 "45c30c00" "jalr v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JALR.HB``() =
+    disasmMicro64 "00051f3c" "jalr.hb r0, a1"
+    disasmMicro64 "00001f3c" "jalr.hb r0, r0"
+    disasmMicro64 "00221f3c" "jalr.hb at, v0"
+    disasmMicro64 "03fe1f3c" "jalr.hb ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JALR16``() =
+    disasmMicro64 "45c00c00" "jalr r0"
+    disasmMicro64 "45c10c00" "jalr at"
+    disasmMicro64 "45c20c00" "jalr v0"
+    disasmMicro64 "45c30c00" "jalr v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JALRS``() =
+    disasmMicro64 "45e00c00" "jalrs r0"
+    disasmMicro64 "45e10c00" "jalrs at"
+    disasmMicro64 "45e20c00" "jalrs v0"
+    disasmMicro64 "45e30c00" "jalrs v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JALRS.HB``() =
+    disasmMicro64 "00225f3c" "jalrs.hb at, v0"
+    disasmMicro64 "03fe5f3c" "jalrs.hb ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JALRS16``() =
+    disasmMicro64 "45e00c00" "jalrs r0"
+    disasmMicro64 "45e10c00" "jalrs at"
+    disasmMicro64 "45e20c00" "jalrs v0"
+    disasmMicro64 "45e30c00" "jalrs v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JALS``() =
+    disasmMicro64 "74030000" "jals 0x60000"
+    disasmMicro64 "74600000" "jals 0xc00000"
+    disasmMicro64 "74030001" "jals 0x60002"
+    disasmMicro64 "74600001" "jals 0xc00002"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JALX``() =
+    disasmMicro64 "f0030000" "jalx 0xc0000"
+    disasmMicro64 "f0600000" "jalx 0x1800000"
+    disasmMicro64 "f0030001" "jalx 0xc0004"
+    disasmMicro64 "f0600001" "jalx 0x1800004"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JR``() =
+    disasmMicro64 "45800c00" "jr r0"
+    disasmMicro64 "45810c00" "jr at"
+    disasmMicro64 "45820c00" "jr v0"
+    disasmMicro64 "45830c00" "jr v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JR.HB``() =
+    disasmMicro64 "00051f3c" "jalr.hb r0, a1"
+    disasmMicro64 "00001f3c" "jalr.hb r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JR16``() =
+    disasmMicro64 "45800c00" "jr r0"
+    disasmMicro64 "45810c00" "jr at"
+    disasmMicro64 "45820c00" "jr v0"
+    disasmMicro64 "45830c00" "jr v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JRADDIUSP``() =
+    disasmMicro64 "47000c00" "jraddiusp 0x0"
+    disasmMicro64 "47010c00" "jraddiusp 0x4"
+    disasmMicro64 "47020c00" "jraddiusp 0x8"
+    disasmMicro64 "47030c00" "jraddiusp 0xc"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 JRC``() =
+    disasmMicro64 "45a00c00" "jrc r0"
+    disasmMicro64 "45a10c00" "jrc at"
+    disasmMicro64 "45a20c00" "jrc v0"
+    disasmMicro64 "45a30c00" "jrc v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LB``() =
+    disasmMicro64 "1c030000" "lb r0, 0(v1)"
+    disasmMicro64 "1c600000" "lb v1, 0(r0)"
+    disasmMicro64 "1c030001" "lb r0, 1(v1)"
+    disasmMicro64 "1c600001" "lb v1, 1(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LBE``() =
+    disasmMicro64 "60006800" "lbe r0, 0(r0)"
+    disasmMicro64 "60006801" "lbe r0, 1(r0)"
+    disasmMicro64 "60006802" "lbe r0, 2(r0)"
+    disasmMicro64 "60006803" "lbe r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LBU``() =
+    disasmMicro64 "08000c00" "lbu s0, 0(s0)"
+    disasmMicro64 "08010c00" "lbu s0, 1(s0)"
+    disasmMicro64 "08020c00" "lbu s0, 2(s0)"
+    disasmMicro64 "08030c00" "lbu s0, 3(s0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LBU16``() =
+    disasmMicro64 "08000c00" "lbu s0, 0(s0)"
+    disasmMicro64 "08010c00" "lbu s0, 1(s0)"
+    disasmMicro64 "08020c00" "lbu s0, 2(s0)"
+    disasmMicro64 "08030c00" "lbu s0, 3(s0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LBUE``() =
+    disasmMicro64 "60006000" "lbue r0, 0(r0)"
+    disasmMicro64 "60006001" "lbue r0, 1(r0)"
+    disasmMicro64 "60006002" "lbue r0, 2(r0)"
+    disasmMicro64 "60006003" "lbue r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LD``() =
+    disasmMicro64 "dc030000" "ld r0, 0(v1)"
+    disasmMicro64 "dc600000" "ld v1, 0(r0)"
+    disasmMicro64 "dc030001" "ld r0, 1(v1)"
+    disasmMicro64 "dc600001" "ld v1, 1(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LDC1``() =
+    disasmMicro64 "bc030000" "ldc1 f0, 0(v1)"
+    disasmMicro64 "bc600000" "ldc1 f3, 0(r0)"
+    disasmMicro64 "bc030001" "ldc1 f0, 1(v1)"
+    disasmMicro64 "bc600001" "ldc1 f3, 1(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LDC2``() =
+    disasmMicro64 "20002000" "ldc2 0x0, 0(r0)"
+    disasmMicro64 "20002001" "ldc2 0x0, 1(r0)"
+    disasmMicro64 "20002002" "ldc2 0x0, 2(r0)"
+    disasmMicro64 "20002003" "ldc2 0x0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LDL``() =
+    disasmMicro64 "60004000" "ldl r0, 0(r0)"
+    disasmMicro64 "60004001" "ldl r0, 1(r0)"
+    disasmMicro64 "60004002" "ldl r0, 2(r0)"
+    disasmMicro64 "60004003" "ldl r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LDM``() =
+    disasmMicro64 "20227000" "ldm s0, 0(v0)"
+    disasmMicro64 "20227001" "ldm s0, 1(v0)"
+    disasmMicro64 "20227002" "ldm s0, 2(v0)"
+    disasmMicro64 "20227003" "ldm s0, 3(v0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LDP``() =
+    disasmMicro64 "20004000" "ldp r0, at, 0(r0)"
+    disasmMicro64 "20004001" "ldp r0, at, 1(r0)"
+    disasmMicro64 "20004002" "ldp r0, at, 2(r0)"
+    disasmMicro64 "20004003" "ldp r0, at, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LDR``() =
+    disasmMicro64 "60005000" "ldr r0, 0(r0)"
+    disasmMicro64 "60005001" "ldr r0, 1(r0)"
+    disasmMicro64 "60005002" "ldr r0, 2(r0)"
+    disasmMicro64 "60005003" "ldr r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LDXC1``() =
+    disasmMicro64 "540000c8" "ldxc1 f0, r0(r0)"
+    disasmMicro64 "540008c8" "ldxc1 f1, r0(r0)"
+    disasmMicro64 "540010c8" "ldxc1 f2, r0(r0)"
+    disasmMicro64 "540018c8" "ldxc1 f3, r0(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LH``() =
+    disasmMicro64 "3c030000" "lh r0, 0(v1)"
+    disasmMicro64 "3c600000" "lh v1, 0(r0)"
+    disasmMicro64 "3c030001" "lh r0, 1(v1)"
+    disasmMicro64 "3c600001" "lh v1, 1(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LHE``() =
+    disasmMicro64 "60006a00" "lhe r0, 0(r0)"
+    disasmMicro64 "60006a01" "lhe r0, 1(r0)"
+    disasmMicro64 "60006a02" "lhe r0, 2(r0)"
+    disasmMicro64 "60006a03" "lhe r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LHU``() =
+    disasmMicro64 "28000c00" "lhu s0, 0(s0)"
+    disasmMicro64 "28010c00" "lhu s0, 2(s0)"
+    disasmMicro64 "28020c00" "lhu s0, 4(s0)"
+    disasmMicro64 "28030c00" "lhu s0, 6(s0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LHU16``() =
+    disasmMicro64 "28000c00" "lhu s0, 0(s0)"
+    disasmMicro64 "28010c00" "lhu s0, 2(s0)"
+    disasmMicro64 "28020c00" "lhu s0, 4(s0)"
+    disasmMicro64 "28030c00" "lhu s0, 6(s0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LHUE``() =
+    disasmMicro64 "60006200" "lhue r0, 0(r0)"
+    disasmMicro64 "60006201" "lhue r0, 1(r0)"
+    disasmMicro64 "60006202" "lhue r0, 2(r0)"
+    disasmMicro64 "60006203" "lhue r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LI16``() =
+    disasmMicro64 "4c000c00" "addiu r0, r0, 0x0"
+    disasmMicro64 "4c010c00" "addiu sp, sp, 0x400"
+    disasmMicro64 "4c020c00" "addiu r0, r0, 0x1"
+    disasmMicro64 "4c030c00" "addiu sp, sp, 0x404"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LL``() =
+    disasmMicro64 "60003000" "ll r0, 0(r0)"
+    disasmMicro64 "60003001" "ll r0, 1(r0)"
+    disasmMicro64 "60003002" "ll r0, 2(r0)"
+    disasmMicro64 "60003003" "ll r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LLD``() =
+    disasmMicro64 "60007000" "lld r0, 0(r0)"
+    disasmMicro64 "60007001" "lld r0, 1(r0)"
+    disasmMicro64 "60007002" "lld r0, 2(r0)"
+    disasmMicro64 "60007003" "lld r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LLE``() =
+    disasmMicro64 "60006c00" "lle r0, 0(r0)"
+    disasmMicro64 "60006c01" "lle r0, 1(r0)"
+    disasmMicro64 "60006c02" "lle r0, 2(r0)"
+    disasmMicro64 "60006c03" "lle r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LUI``() =
+    disasmMicro64 "41a30000" "lui v1, 0x0"
+    disasmMicro64 "41a30001" "lui v1, 0x1"
+    disasmMicro64 "41a37fff" "lui v1, 0x7fff"
+    disasmMicro64 "41a38000" "lui v1, 0x8000"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LUXC1``() =
+    disasmMicro64 "54000148" "luxc1 f0, r0(r0)"
+    disasmMicro64 "54000948" "luxc1 f1, r0(r0)"
+    disasmMicro64 "54001148" "luxc1 f2, r0(r0)"
+    disasmMicro64 "54001948" "luxc1 f3, r0(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LW``() =
+    disasmMicro64 "48000c00" "lw r0, 0(sp)"
+    disasmMicro64 "48010c00" "lw r0, 4(sp)"
+    disasmMicro64 "48020c00" "lw r0, 8(sp)"
+    disasmMicro64 "48030c00" "lw r0, 12(sp)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LW16``() =
+    disasmMicro64 "48000c00" "lw r0, 0(sp)"
+    disasmMicro64 "48010c00" "lw r0, 4(sp)"
+    disasmMicro64 "48020c00" "lw r0, 8(sp)"
+    disasmMicro64 "48030c00" "lw r0, 12(sp)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWC1``() =
+    disasmMicro64 "9c030000" "lwc1 f0, 0(v1)"
+    disasmMicro64 "9c600000" "lwc1 f3, 0(r0)"
+    disasmMicro64 "9c030001" "lwc1 f0, 1(v1)"
+    disasmMicro64 "9c600001" "lwc1 f3, 1(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWC2``() =
+    disasmMicro64 "20000000" "lwc2 0x0, 0(r0)"
+    disasmMicro64 "20000001" "lwc2 0x0, 1(r0)"
+    disasmMicro64 "20000002" "lwc2 0x0, 2(r0)"
+    disasmMicro64 "20000003" "lwc2 0x0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWE``() =
+    disasmMicro64 "60006e00" "lwe r0, 0(r0)"
+    disasmMicro64 "60006e01" "lwe r0, 1(r0)"
+    disasmMicro64 "60006e02" "lwe r0, 2(r0)"
+    disasmMicro64 "60006e03" "lwe r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWGP``() =
+    disasmMicro64 "48000c00" "lw r0, 0(sp)"
+    disasmMicro64 "48010c00" "lw r0, 4(sp)"
+    disasmMicro64 "48020c00" "lw r0, 8(sp)"
+    disasmMicro64 "48030c00" "lw r0, 12(sp)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWL``() =
+    disasmMicro64 "60000000" "lwl r0, 0(r0)"
+    disasmMicro64 "60000001" "lwl r0, 1(r0)"
+    disasmMicro64 "60000002" "lwl r0, 2(r0)"
+    disasmMicro64 "60000003" "lwl r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWLE``() =
+    disasmMicro64 "60006400" "lwle r0, 0(r0)"
+    disasmMicro64 "60006401" "lwle r0, 1(r0)"
+    disasmMicro64 "60006402" "lwle r0, 2(r0)"
+    disasmMicro64 "60006403" "lwle r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWM16``() =
+    disasmMicro64 "45300c00" "lwm s0, s1, s2, s3, ra, 0(sp)"
+    disasmMicro64 "45000c00" "lwm s0, ra, 0(sp)"
+    disasmMicro64 "45010c00" "lwm s0, ra, 4(sp)"
+    disasmMicro64 "45020c00" "lwm s0, ra, 8(sp)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWM32``() =
+    disasmMicro64 "20225000" "lwm s0, 0(v0)"
+    disasmMicro64 "20225001" "lwm s0, 1(v0)"
+    disasmMicro64 "20225002" "lwm s0, 2(v0)"
+    disasmMicro64 "20225003" "lwm s0, 3(v0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWP``() =
+    disasmMicro64 "20001000" "lwp r0, at, 0(r0)"
+    disasmMicro64 "20001001" "lwp r0, at, 1(r0)"
+    disasmMicro64 "20001002" "lwp r0, at, 2(r0)"
+    disasmMicro64 "20001003" "lwp r0, at, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWR``() =
+    disasmMicro64 "60001000" "lwr r0, 0(r0)"
+    disasmMicro64 "60001001" "lwr r0, 1(r0)"
+    disasmMicro64 "60001002" "lwr r0, 2(r0)"
+    disasmMicro64 "60001003" "lwr r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWRE``() =
+    disasmMicro64 "60006600" "lwre r0, 0(r0)"
+    disasmMicro64 "60006601" "lwre r0, 1(r0)"
+    disasmMicro64 "60006602" "lwre r0, 2(r0)"
+    disasmMicro64 "60006603" "lwre r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWSP``() =
+    disasmMicro64 "48000c00" "lw r0, 0(sp)"
+    disasmMicro64 "48010c00" "lw r0, 4(sp)"
+    disasmMicro64 "48020c00" "lw r0, 8(sp)"
+    disasmMicro64 "48030c00" "lw r0, 12(sp)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWU``() =
+    disasmMicro64 "6000e000" "lwu r0, 0(r0)"
+    disasmMicro64 "6000e001" "lwu r0, 1(r0)"
+    disasmMicro64 "6000e002" "lwu r0, 2(r0)"
+    disasmMicro64 "6000e003" "lwu r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWXC1``() =
+    disasmMicro64 "54000048" "lwxc1 f0, r0(r0)"
+    disasmMicro64 "54000848" "lwxc1 f1, r0(r0)"
+    disasmMicro64 "54001048" "lwxc1 f2, r0(r0)"
+    disasmMicro64 "54001848" "lwxc1 f3, r0(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 LWXS``() =
+    disasmMicro64 "00000118" "lwxs r0, r0(r0)"
+    disasmMicro64 "00000918" "lwxs at, r0(r0)"
+    disasmMicro64 "00001118" "lwxs v0, r0(r0)"
+    disasmMicro64 "00001918" "lwxs v1, r0(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MADD``() =
+    disasmMicro64 "0000cb3c" "madd r0, r0"
+    disasmMicro64 "0022cb3c" "madd v0, at"
+    disasmMicro64 "03fecb3c" "madd s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MADD.fmt``() =
+    disasmMicro64 "54000001" "madd.s f0, f0, f0, f0"
+    disasmMicro64 "54000009" "madd.d f0, f0, f0, f0"
+    disasmMicro64 "54000011" "madd.ps f0, f0, f0, f0"
+    disasmMicro64 "54000041" "madd.s f0, f1, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MADDU``() =
+    disasmMicro64 "0000db3c" "maddu r0, r0"
+    disasmMicro64 "0022db3c" "maddu v0, at"
+    disasmMicro64 "03fedb3c" "maddu s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFC0``() =
+    disasmMicro64 "000000fc" "mfc0 r0, 0x0, 0x0"
+    disasmMicro64 "000008fc" "mfc0 r0, 0x0, 0x1"
+    disasmMicro64 "000010fc" "mfc0 r0, 0x0, 0x2"
+    disasmMicro64 "000018fc" "mfc0 r0, 0x0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFC1``() =
+    disasmMicro64 "5400203b" "mfc1 r0, f0"
+    disasmMicro64 "5422203b" "mfc1 at, f2"
+    disasmMicro64 "57fe203b" "mfc1 ra, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFC2``() =
+    disasmMicro64 "00004d3c" "mfc2 r0, 0x0"
+    disasmMicro64 "00224d3c" "mfc2 at, 0x2"
+    disasmMicro64 "03fe4d3c" "mfc2 ra, 0x1e"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFHC0``() =
+    disasmMicro64 "000000f4" "mfhc0 r0, 0x0, 0x0"
+    disasmMicro64 "000008f4" "mfhc0 r0, 0x0, 0x1"
+    disasmMicro64 "000010f4" "mfhc0 r0, 0x0, 0x2"
+    disasmMicro64 "000018f4" "mfhc0 r0, 0x0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFHC1``() =
+    disasmMicro64 "5400303b" "mfhc1 r0, f0"
+    disasmMicro64 "5422303b" "mfhc1 at, f2"
+    disasmMicro64 "57fe303b" "mfhc1 ra, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFHC2``() =
+    disasmMicro64 "00008d3c" "mfhc2 r0, 0x0"
+    disasmMicro64 "00228d3c" "mfhc2 at, 0x2"
+    disasmMicro64 "03fe8d3c" "mfhc2 ra, 0x1e"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFHI``() =
+    disasmMicro64 "46000c00" "mfhi r0"
+    disasmMicro64 "46010c00" "mfhi at"
+    disasmMicro64 "46020c00" "mfhi v0"
+    disasmMicro64 "46030c00" "mfhi v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFHI16``() =
+    disasmMicro64 "46000c00" "mfhi r0"
+    disasmMicro64 "46010c00" "mfhi at"
+    disasmMicro64 "46020c00" "mfhi v0"
+    disasmMicro64 "46030c00" "mfhi v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFLO``() =
+    disasmMicro64 "46400c00" "mflo r0"
+    disasmMicro64 "46410c00" "mflo at"
+    disasmMicro64 "46420c00" "mflo v0"
+    disasmMicro64 "46430c00" "mflo v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MFLO16``() =
+    disasmMicro64 "46400c00" "mflo r0"
+    disasmMicro64 "46410c00" "mflo at"
+    disasmMicro64 "46420c00" "mflo v0"
+    disasmMicro64 "46430c00" "mflo v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOV.fmt``() =
+    disasmMicro64 "5400007b" "mov.s f0, f0"
+    disasmMicro64 "5400207b" "mov.d f0, f0"
+    disasmMicro64 "5400407b" "mov.ps f0, f0"
+    disasmMicro64 "5422007b" "mov.s f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVE16``() =
+    disasmMicro64 "04000c00" "addu s0, s0, s0"
+    disasmMicro64 "04020c00" "addu s0, s1, s0"
+    disasmMicro64 "04040c00" "addu s0, v0, s0"
+    disasmMicro64 "04060c00" "addu s0, v1, s0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVEP``() =
+    disasmMicro64 "84000c00" "movep a1, a2, r0, r0"
+    disasmMicro64 "84020c00" "movep a1, a2, s1, r0"
+    disasmMicro64 "84040c00" "movep a1, a2, v0, r0"
+    disasmMicro64 "84060c00" "movep a1, a2, v1, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVF``() =
+    disasmMicro64 "5400017b" "movf r0, r0, 0x0"
+    disasmMicro64 "5400217b" "movf r0, r0, 0x1"
+    disasmMicro64 "5400417b" "movf r0, r0, 0x2"
+    disasmMicro64 "5400617b" "movf r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVF.fmt``() =
+    disasmMicro64 "54000020" "movf.s f0, f0, 0x0"
+    disasmMicro64 "54000220" "movf.d f0, f0, 0x0"
+    disasmMicro64 "54000420" "movf.ps f0, f0, 0x0"
+    disasmMicro64 "54220020" "movf.s f1, f2, 0x0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVN``() =
+    disasmMicro64 "00000018" "movn r0, r0, r0"
+    disasmMicro64 "00000818" "movn at, r0, r0"
+    disasmMicro64 "00001018" "movn v0, r0, r0"
+    disasmMicro64 "00001818" "movn v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVN.fmt``() =
+    disasmMicro64 "54000038" "movn.s f0, f0, r0"
+    disasmMicro64 "54000138" "movn.d f0, f0, r0"
+    disasmMicro64 "54000238" "movn.ps f0, f0, r0"
+    disasmMicro64 "54000838" "movn.s f1, f0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVT``() =
+    disasmMicro64 "5400097b" "movt r0, r0, 0x0"
+    disasmMicro64 "5400297b" "movt r0, r0, 0x1"
+    disasmMicro64 "5400497b" "movt r0, r0, 0x2"
+    disasmMicro64 "5400697b" "movt r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVT.fmt``() =
+    disasmMicro64 "54000060" "movt.s f0, f0, 0x0"
+    disasmMicro64 "54000260" "movt.d f0, f0, 0x0"
+    disasmMicro64 "54000460" "movt.ps f0, f0, 0x0"
+    disasmMicro64 "54220060" "movt.s f1, f2, 0x0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVZ``() =
+    disasmMicro64 "00000058" "movz r0, r0, r0"
+    disasmMicro64 "00000858" "movz at, r0, r0"
+    disasmMicro64 "00001058" "movz v0, r0, r0"
+    disasmMicro64 "00001858" "movz v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MOVZ.fmt``() =
+    disasmMicro64 "54000078" "movz.s f0, f0, r0"
+    disasmMicro64 "54000178" "movz.d f0, f0, r0"
+    disasmMicro64 "54000278" "movz.ps f0, f0, r0"
+    disasmMicro64 "54000878" "movz.s f1, f0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MSUB``() =
+    disasmMicro64 "0000eb3c" "msub r0, r0"
+    disasmMicro64 "0022eb3c" "msub v0, at"
+    disasmMicro64 "03feeb3c" "msub s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MSUB.fmt``() =
+    disasmMicro64 "54000021" "msub.s f0, f0, f0, f0"
+    disasmMicro64 "54000029" "msub.d f0, f0, f0, f0"
+    disasmMicro64 "54000031" "msub.ps f0, f0, f0, f0"
+    disasmMicro64 "54000061" "msub.s f0, f1, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MSUBU``() =
+    disasmMicro64 "0000fb3c" "msubu r0, r0"
+    disasmMicro64 "0022fb3c" "msubu v0, at"
+    disasmMicro64 "03fefb3c" "msubu s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MTC0``() =
+    disasmMicro64 "000002fc" "mtc0 r0, 0x0, 0x0"
+    disasmMicro64 "00000afc" "mtc0 r0, 0x0, 0x1"
+    disasmMicro64 "000012fc" "mtc0 r0, 0x0, 0x2"
+    disasmMicro64 "00001afc" "mtc0 r0, 0x0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MTC1``() =
+    disasmMicro64 "5400283b" "mtc1 r0, f0"
+    disasmMicro64 "5422283b" "mtc1 at, f2"
+    disasmMicro64 "57fe283b" "mtc1 ra, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MTC2``() =
+    disasmMicro64 "00005d3c" "mtc2 r0, 0x0"
+    disasmMicro64 "00225d3c" "mtc2 at, 0x2"
+    disasmMicro64 "03fe5d3c" "mtc2 ra, 0x1e"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MTHC0``() =
+    disasmMicro64 "000002f4" "mthc0 r0, 0x0, 0x0"
+    disasmMicro64 "00000af4" "mthc0 r0, 0x0, 0x1"
+    disasmMicro64 "000012f4" "mthc0 r0, 0x0, 0x2"
+    disasmMicro64 "00001af4" "mthc0 r0, 0x0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MTHC1``() =
+    disasmMicro64 "5400383b" "mthc1 r0, f0"
+    disasmMicro64 "5422383b" "mthc1 at, f2"
+    disasmMicro64 "57fe383b" "mthc1 ra, f30"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MTHC2``() =
+    disasmMicro64 "00009d3c" "mthc2 r0, 0x0"
+    disasmMicro64 "00229d3c" "mthc2 at, 0x2"
+    disasmMicro64 "03fe9d3c" "mthc2 ra, 0x1e"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MTHI``() =
+    disasmMicro64 "00002d7c" "mthi r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MTLO``() =
+    disasmMicro64 "00003d7c" "mtlo r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MUL``() =
+    disasmMicro64 "00000210" "mul r0, r0, r0"
+    disasmMicro64 "00000a10" "mul at, r0, r0"
+    disasmMicro64 "00001210" "mul v0, r0, r0"
+    disasmMicro64 "00001a10" "mul v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MUL.fmt``() =
+    disasmMicro64 "540000b0" "mul.s f0, f0, f0"
+    disasmMicro64 "540001b0" "mul.d f0, f0, f0"
+    disasmMicro64 "540002b0" "mul.ps f0, f0, f0"
+    disasmMicro64 "540008b0" "mul.s f1, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MULT``() =
+    disasmMicro64 "00008b3c" "mult r0, r0"
+    disasmMicro64 "00228b3c" "mult v0, at"
+    disasmMicro64 "03fe8b3c" "mult s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 MULTU``() =
+    disasmMicro64 "00009b3c" "multu r0, r0"
+    disasmMicro64 "00229b3c" "multu v0, at"
+    disasmMicro64 "03fe9b3c" "multu s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 NEG.fmt``() =
+    disasmMicro64 "54000b7b" "neg.s f0, f0"
+    disasmMicro64 "54002b7b" "neg.d f0, f0"
+    disasmMicro64 "54004b7b" "neg.ps f0, f0"
+    disasmMicro64 "54220b7b" "neg.s f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 NMADD.fmt``() =
+    disasmMicro64 "54000002" "nmadd.s f0, f0, f0, f0"
+    disasmMicro64 "5400000a" "nmadd.d f0, f0, f0, f0"
+    disasmMicro64 "54000012" "nmadd.ps f0, f0, f0, f0"
+    disasmMicro64 "54000042" "nmadd.s f0, f1, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 NMSUB.fmt``() =
+    disasmMicro64 "54000022" "nmsub.s f0, f0, f0, f0"
+    disasmMicro64 "5400002a" "nmsub.d f0, f0, f0, f0"
+    disasmMicro64 "54000032" "nmsub.ps f0, f0, f0, f0"
+    disasmMicro64 "54000062" "nmsub.s f0, f1, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 NOP``() =
+    disasmMicro64 "00000000" "nop"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 NOR``() =
+    disasmMicro64 "44130c00" "nor v0, v1, r0"
+    disasmMicro64 "44000c00" "nor s0, s0, r0"
+    disasmMicro64 "44010c00" "nor s0, s1, r0"
+    disasmMicro64 "44020c00" "nor s0, v0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 NOT16``() =
+    disasmMicro64 "44130c00" "nor v0, v1, r0"
+    disasmMicro64 "44000c00" "nor s0, s0, r0"
+    disasmMicro64 "44010c00" "nor s0, s1, r0"
+    disasmMicro64 "44020c00" "nor s0, v0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 OR``() =
+    disasmMicro64 "0c010c00" "or r0, at, r0"
+    disasmMicro64 "0c020c00" "or r0, v0, r0"
+    disasmMicro64 "0c030c00" "or r0, v1, r0"
+    disasmMicro64 "0c040c00" "or r0, a0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 OR16``() =
+    disasmMicro64 "0c010c00" "or r0, at, r0"
+    disasmMicro64 "0c020c00" "or r0, v0, r0"
+    disasmMicro64 "0c030c00" "or r0, v1, r0"
+    disasmMicro64 "0c040c00" "or r0, a0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ORI``() =
+    disasmMicro64 "50030000" "ori r0, v1, 0x0"
+    disasmMicro64 "50030001" "ori r0, v1, 0x1"
+    disasmMicro64 "50037fff" "ori r0, v1, 0x7fff"
+    disasmMicro64 "50038000" "ori r0, v1, 0x8000"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 PAUSE``() =
+    disasmMicro64 "00002800" "pause"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 PLL.PS``() =
+    disasmMicro64 "54000080" "pll.ps f0, f0, f0"
+    disasmMicro64 "54000880" "pll.ps f1, f0, f0"
+    disasmMicro64 "54001080" "pll.ps f2, f0, f0"
+    disasmMicro64 "54001880" "pll.ps f3, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 PLU.PS``() =
+    disasmMicro64 "540000c0" "plu.ps f0, f0, f0"
+    disasmMicro64 "540008c0" "plu.ps f1, f0, f0"
+    disasmMicro64 "540010c0" "plu.ps f2, f0, f0"
+    disasmMicro64 "540018c0" "plu.ps f3, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 PREF``() =
+    disasmMicro64 "60002000" "pref 0x0, 0(r0)"
+    disasmMicro64 "60002001" "pref 0x0, 1(r0)"
+    disasmMicro64 "60002002" "pref 0x0, 2(r0)"
+    disasmMicro64 "60002003" "pref 0x0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 PREFE``() =
+    disasmMicro64 "6000a400" "prefe 0x0, 0(r0)"
+    disasmMicro64 "6000a401" "prefe 0x0, 1(r0)"
+    disasmMicro64 "6000a402" "prefe 0x0, 2(r0)"
+    disasmMicro64 "6000a403" "prefe 0x0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 PREFX``() =
+    disasmMicro64 "540001a0" "prefx 0x0, r0(r0)"
+    disasmMicro64 "542201a0" "prefx 0x0, at(v0)"
+    disasmMicro64 "57fe01a0" "prefx 0x0, ra(s8)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 PUL.PS``() =
+    disasmMicro64 "54000100" "pul.ps f0, f0, f0"
+    disasmMicro64 "54000900" "pul.ps f1, f0, f0"
+    disasmMicro64 "54001100" "pul.ps f2, f0, f0"
+    disasmMicro64 "54001900" "pul.ps f3, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 PUU.PS``() =
+    disasmMicro64 "54000140" "puu.ps f0, f0, f0"
+    disasmMicro64 "54000940" "puu.ps f1, f0, f0"
+    disasmMicro64 "54001140" "puu.ps f2, f0, f0"
+    disasmMicro64 "54001940" "puu.ps f3, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 RDHWR``() =
+    disasmMicro64 "00006b3c" "rdhwr r0, r0"
+    disasmMicro64 "00226b3c" "rdhwr at, v0"
+    disasmMicro64 "03fe6b3c" "rdhwr ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 RDPGPR``() =
+    disasmMicro64 "0000e17c" "rdpgpr r0, r0"
+    disasmMicro64 "0022e17c" "rdpgpr at, v0"
+    disasmMicro64 "03fee17c" "rdpgpr ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 RECIP.fmt``() =
+    disasmMicro64 "5400123b" "recip.s f0, f0"
+    disasmMicro64 "5400523b" "recip.d f0, f0"
+    disasmMicro64 "5422123b" "recip.s f1, f2"
+    disasmMicro64 "5422523b" "recip.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ROTR``() =
+    disasmMicro64 "000000c0" "rotr r0, r0, 0x0"
+    disasmMicro64 "000008c0" "rotr r0, r0, 0x1"
+    disasmMicro64 "000010c0" "rotr r0, r0, 0x2"
+    disasmMicro64 "000018c0" "rotr r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ROTRV``() =
+    disasmMicro64 "000000d0" "rotrv r0, r0, r0"
+    disasmMicro64 "000008d0" "rotrv at, r0, r0"
+    disasmMicro64 "000010d0" "rotrv v0, r0, r0"
+    disasmMicro64 "000018d0" "rotrv v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ROUND.L.fmt``() =
+    disasmMicro64 "5400333b" "round.l.s f0, f0"
+    disasmMicro64 "5400733b" "round.l.d f0, f0"
+    disasmMicro64 "5422333b" "round.l.s f1, f2"
+    disasmMicro64 "5422733b" "round.l.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 ROUND.W.fmt``() =
+    disasmMicro64 "54003b3b" "round.w.s f0, f0"
+    disasmMicro64 "54007b3b" "round.w.d f0, f0"
+    disasmMicro64 "54223b3b" "round.w.s f1, f2"
+    disasmMicro64 "54227b3b" "round.w.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 RSQRT.fmt``() =
+    disasmMicro64 "5400023b" "rsqrt.s f0, f0"
+    disasmMicro64 "5400423b" "rsqrt.d f0, f0"
+    disasmMicro64 "5422023b" "rsqrt.s f1, f2"
+    disasmMicro64 "5422423b" "rsqrt.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SB``() =
+    disasmMicro64 "88000c00" "sb r0, 0(s0)"
+    disasmMicro64 "88010c00" "sb r0, 1(s0)"
+    disasmMicro64 "88020c00" "sb r0, 2(s0)"
+    disasmMicro64 "88030c00" "sb r0, 3(s0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SB16``() =
+    disasmMicro64 "88000c00" "sb r0, 0(s0)"
+    disasmMicro64 "88010c00" "sb r0, 1(s0)"
+    disasmMicro64 "88020c00" "sb r0, 2(s0)"
+    disasmMicro64 "88030c00" "sb r0, 3(s0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SBE``() =
+    disasmMicro64 "6000a800" "sbe r0, 0(r0)"
+    disasmMicro64 "6000a801" "sbe r0, 1(r0)"
+    disasmMicro64 "6000a802" "sbe r0, 2(r0)"
+    disasmMicro64 "6000a803" "sbe r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SC``() =
+    disasmMicro64 "6000b000" "sc r0, 0(r0)"
+    disasmMicro64 "6000b001" "sc r0, 1(r0)"
+    disasmMicro64 "6000b002" "sc r0, 2(r0)"
+    disasmMicro64 "6000b003" "sc r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SCD``() =
+    disasmMicro64 "6000f000" "scd r0, 0(r0)"
+    disasmMicro64 "6000f001" "scd r0, 1(r0)"
+    disasmMicro64 "6000f002" "scd r0, 2(r0)"
+    disasmMicro64 "6000f003" "scd r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SCE``() =
+    disasmMicro64 "6000ac00" "sce r0, 0(r0)"
+    disasmMicro64 "6000ac01" "sce r0, 1(r0)"
+    disasmMicro64 "6000ac02" "sce r0, 2(r0)"
+    disasmMicro64 "6000ac03" "sce r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SD``() =
+    disasmMicro64 "d8030000" "sd r0, 0(v1)"
+    disasmMicro64 "d8600000" "sd v1, 0(r0)"
+    disasmMicro64 "d8030001" "sd r0, 1(v1)"
+    disasmMicro64 "d8600001" "sd v1, 1(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SDBBP``() =
+    disasmMicro64 "46c00c00" "sdbbp 0x0"
+    disasmMicro64 "46c10c00" "sdbbp 0x1"
+    disasmMicro64 "46c20c00" "sdbbp 0x2"
+    disasmMicro64 "46c30c00" "sdbbp 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SDBBP16``() =
+    disasmMicro64 "46c00c00" "sdbbp 0x0"
+    disasmMicro64 "46c10c00" "sdbbp 0x1"
+    disasmMicro64 "46c20c00" "sdbbp 0x2"
+    disasmMicro64 "46c30c00" "sdbbp 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SDC1``() =
+    disasmMicro64 "b8030000" "sdc1 f0, 0(v1)"
+    disasmMicro64 "b8600000" "sdc1 f3, 0(r0)"
+    disasmMicro64 "b8030001" "sdc1 f0, 1(v1)"
+    disasmMicro64 "b8600001" "sdc1 f3, 1(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SDC2``() =
+    disasmMicro64 "2000a000" "sdc2 0x0, 0(r0)"
+    disasmMicro64 "2000a001" "sdc2 0x0, 1(r0)"
+    disasmMicro64 "2000a002" "sdc2 0x0, 2(r0)"
+    disasmMicro64 "2000a003" "sdc2 0x0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SDL``() =
+    disasmMicro64 "6000c000" "sdl r0, 0(r0)"
+    disasmMicro64 "6000c001" "sdl r0, 1(r0)"
+    disasmMicro64 "6000c002" "sdl r0, 2(r0)"
+    disasmMicro64 "6000c003" "sdl r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SDM``() =
+    disasmMicro64 "2022f000" "sdm s0, 0(v0)"
+    disasmMicro64 "2022f001" "sdm s0, 1(v0)"
+    disasmMicro64 "2022f002" "sdm s0, 2(v0)"
+    disasmMicro64 "2022f003" "sdm s0, 3(v0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SDP``() =
+    disasmMicro64 "2000c000" "sdp r0, at, 0(r0)"
+    disasmMicro64 "2000c001" "sdp r0, at, 1(r0)"
+    disasmMicro64 "2000c002" "sdp r0, at, 2(r0)"
+    disasmMicro64 "2000c003" "sdp r0, at, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SDR``() =
+    disasmMicro64 "6000d000" "sdr r0, 0(r0)"
+    disasmMicro64 "6000d001" "sdr r0, 1(r0)"
+    disasmMicro64 "6000d002" "sdr r0, 2(r0)"
+    disasmMicro64 "6000d003" "sdr r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SDXC1``() =
+    disasmMicro64 "54000108" "sdxc1 f0, r0(r0)"
+    disasmMicro64 "54000908" "sdxc1 f1, r0(r0)"
+    disasmMicro64 "54001108" "sdxc1 f2, r0(r0)"
+    disasmMicro64 "54001908" "sdxc1 f3, r0(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SEB``() =
+    disasmMicro64 "00002b3c" "seb r0, r0"
+    disasmMicro64 "00222b3c" "seb at, v0"
+    disasmMicro64 "03fe2b3c" "seb ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SEH``() =
+    disasmMicro64 "00003b3c" "seh r0, r0"
+    disasmMicro64 "00223b3c" "seh at, v0"
+    disasmMicro64 "03fe3b3c" "seh ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SH``() =
+    disasmMicro64 "a8000c00" "sh r0, 0(s0)"
+    disasmMicro64 "a8010c00" "sh r0, 2(s0)"
+    disasmMicro64 "a8020c00" "sh r0, 4(s0)"
+    disasmMicro64 "a8030c00" "sh r0, 6(s0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SH16``() =
+    disasmMicro64 "a8000c00" "sh r0, 0(s0)"
+    disasmMicro64 "a8010c00" "sh r0, 2(s0)"
+    disasmMicro64 "a8020c00" "sh r0, 4(s0)"
+    disasmMicro64 "a8030c00" "sh r0, 6(s0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SHE``() =
+    disasmMicro64 "6000aa00" "she r0, 0(r0)"
+    disasmMicro64 "6000aa01" "she r0, 1(r0)"
+    disasmMicro64 "6000aa02" "she r0, 2(r0)"
+    disasmMicro64 "6000aa03" "she r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SLL``() =
+    disasmMicro64 "24000c00" "sll s0, s0, 0x8"
+    disasmMicro64 "24020c00" "sll s0, s0, 0x1"
+    disasmMicro64 "24040c00" "sll s0, s0, 0x2"
+    disasmMicro64 "24060c00" "sll s0, s0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SLL16``() =
+    disasmMicro64 "24000c00" "sll s0, s0, 0x8"
+    disasmMicro64 "24020c00" "sll s0, s0, 0x1"
+    disasmMicro64 "24040c00" "sll s0, s0, 0x2"
+    disasmMicro64 "24060c00" "sll s0, s0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SLLV``() =
+    disasmMicro64 "00000010" "sllv r0, r0, r0"
+    disasmMicro64 "00000810" "sllv at, r0, r0"
+    disasmMicro64 "00001010" "sllv v0, r0, r0"
+    disasmMicro64 "00001810" "sllv v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SLT``() =
+    disasmMicro64 "00000350" "slt r0, r0, r0"
+    disasmMicro64 "00000b50" "slt at, r0, r0"
+    disasmMicro64 "00001350" "slt v0, r0, r0"
+    disasmMicro64 "00001b50" "slt v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SLTI``() =
+    disasmMicro64 "90030000" "slti r0, v1, 0x0"
+    disasmMicro64 "90600000" "slti v1, r0, 0x0"
+    disasmMicro64 "90030001" "slti r0, v1, 0x1"
+    disasmMicro64 "90600001" "slti v1, r0, 0x1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SLTIU``() =
+    disasmMicro64 "b0030000" "sltiu r0, v1, 0x0"
+    disasmMicro64 "b0600000" "sltiu v1, r0, 0x0"
+    disasmMicro64 "b0030001" "sltiu r0, v1, 0x1"
+    disasmMicro64 "b0600001" "sltiu v1, r0, 0x1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SLTU``() =
+    disasmMicro64 "00000390" "sltu r0, r0, r0"
+    disasmMicro64 "00000b90" "sltu at, r0, r0"
+    disasmMicro64 "00001390" "sltu v0, r0, r0"
+    disasmMicro64 "00001b90" "sltu v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SQRT.fmt``() =
+    disasmMicro64 "54000a3b" "sqrt.s f0, f0"
+    disasmMicro64 "54004a3b" "sqrt.d f0, f0"
+    disasmMicro64 "54220a3b" "sqrt.s f1, f2"
+    disasmMicro64 "54224a3b" "sqrt.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SRA``() =
+    disasmMicro64 "00000080" "sra r0, r0, 0x0"
+    disasmMicro64 "00000880" "sra r0, r0, 0x1"
+    disasmMicro64 "00001080" "sra r0, r0, 0x2"
+    disasmMicro64 "00001880" "sra r0, r0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SRAV``() =
+    disasmMicro64 "00000090" "srav r0, r0, r0"
+    disasmMicro64 "00000890" "srav at, r0, r0"
+    disasmMicro64 "00001090" "srav v0, r0, r0"
+    disasmMicro64 "00001890" "srav v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SRL``() =
+    disasmMicro64 "24010c00" "srl s0, s0, 0x8"
+    disasmMicro64 "24030c00" "srl s0, s0, 0x1"
+    disasmMicro64 "24050c00" "srl s0, s0, 0x2"
+    disasmMicro64 "24070c00" "srl s0, s0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SRL16``() =
+    disasmMicro64 "24010c00" "srl s0, s0, 0x8"
+    disasmMicro64 "24030c00" "srl s0, s0, 0x1"
+    disasmMicro64 "24050c00" "srl s0, s0, 0x2"
+    disasmMicro64 "24070c00" "srl s0, s0, 0x3"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SRLV``() =
+    disasmMicro64 "00000050" "srlv r0, r0, r0"
+    disasmMicro64 "00000850" "srlv at, r0, r0"
+    disasmMicro64 "00001050" "srlv v0, r0, r0"
+    disasmMicro64 "00001850" "srlv v1, r0, r0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SSNOP``() =
+    disasmMicro64 "00000800" "ssnop"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SUB``() =
+    disasmMicro64 "00220190" "sub r0, v0, at"
+    disasmMicro64 "00220990" "sub at, v0, at"
+    disasmMicro64 "00221190" "sub v0, v0, at"
+    disasmMicro64 "00221990" "sub v1, v0, at"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SUB.fmt``() =
+    disasmMicro64 "54000070" "sub.s f0, f0, f0"
+    disasmMicro64 "54000170" "sub.d f0, f0, f0"
+    disasmMicro64 "54000270" "sub.ps f0, f0, f0"
+    disasmMicro64 "54000870" "sub.s f1, f0, f0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SUBU``() =
+    disasmMicro64 "04010c00" "subu s0, s0, s0"
+    disasmMicro64 "04030c00" "subu s0, s1, s0"
+    disasmMicro64 "04050c00" "subu s0, v0, s0"
+    disasmMicro64 "04070c00" "subu s0, v1, s0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SUBU16``() =
+    disasmMicro64 "04010c00" "subu s0, s0, s0"
+    disasmMicro64 "04030c00" "subu s0, s1, s0"
+    disasmMicro64 "04050c00" "subu s0, v0, s0"
+    disasmMicro64 "04070c00" "subu s0, v1, s0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SUXC1``() =
+    disasmMicro64 "54000188" "suxc1 f0, r0(r0)"
+    disasmMicro64 "54000988" "suxc1 f1, r0(r0)"
+    disasmMicro64 "54001188" "suxc1 f2, r0(r0)"
+    disasmMicro64 "54001988" "suxc1 f3, r0(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SW``() =
+    disasmMicro64 "c8000c00" "sw r0, 0(sp)"
+    disasmMicro64 "c8010c00" "sw r0, 4(sp)"
+    disasmMicro64 "c8020c00" "sw r0, 8(sp)"
+    disasmMicro64 "c8030c00" "sw r0, 12(sp)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SW16``() =
+    disasmMicro64 "c8000c00" "sw r0, 0(sp)"
+    disasmMicro64 "c8010c00" "sw r0, 4(sp)"
+    disasmMicro64 "c8020c00" "sw r0, 8(sp)"
+    disasmMicro64 "c8030c00" "sw r0, 12(sp)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWC1``() =
+    disasmMicro64 "98030000" "swc1 f0, 0(v1)"
+    disasmMicro64 "98600000" "swc1 f3, 0(r0)"
+    disasmMicro64 "98030001" "swc1 f0, 1(v1)"
+    disasmMicro64 "98600001" "swc1 f3, 1(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWC2``() =
+    disasmMicro64 "20008000" "swc2 0x0, 0(r0)"
+    disasmMicro64 "20008001" "swc2 0x0, 1(r0)"
+    disasmMicro64 "20008002" "swc2 0x0, 2(r0)"
+    disasmMicro64 "20008003" "swc2 0x0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWE``() =
+    disasmMicro64 "6000ae00" "swe r0, 0(r0)"
+    disasmMicro64 "6000ae01" "swe r0, 1(r0)"
+    disasmMicro64 "6000ae02" "swe r0, 2(r0)"
+    disasmMicro64 "6000ae03" "swe r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWL``() =
+    disasmMicro64 "60008000" "swl r0, 0(r0)"
+    disasmMicro64 "60008001" "swl r0, 1(r0)"
+    disasmMicro64 "60008002" "swl r0, 2(r0)"
+    disasmMicro64 "60008003" "swl r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWLE``() =
+    disasmMicro64 "6000a000" "swle r0, 0(r0)"
+    disasmMicro64 "6000a001" "swle r0, 1(r0)"
+    disasmMicro64 "6000a002" "swle r0, 2(r0)"
+    disasmMicro64 "6000a003" "swle r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWM16``() =
+    disasmMicro64 "45400c00" "swm s0, ra, 0(sp)"
+    disasmMicro64 "45410c00" "swm s0, ra, 4(sp)"
+    disasmMicro64 "45420c00" "swm s0, ra, 8(sp)"
+    disasmMicro64 "45430c00" "swm s0, ra, 12(sp)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWM32``() =
+    disasmMicro64 "2022d000" "swm s0, 0(v0)"
+    disasmMicro64 "2022d001" "swm s0, 1(v0)"
+    disasmMicro64 "2022d002" "swm s0, 2(v0)"
+    disasmMicro64 "2022d003" "swm s0, 3(v0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWP``() =
+    disasmMicro64 "20009000" "swp r0, at, 0(r0)"
+    disasmMicro64 "20009001" "swp r0, at, 1(r0)"
+    disasmMicro64 "20009002" "swp r0, at, 2(r0)"
+    disasmMicro64 "20009003" "swp r0, at, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWR``() =
+    disasmMicro64 "60009000" "swr r0, 0(r0)"
+    disasmMicro64 "60009001" "swr r0, 1(r0)"
+    disasmMicro64 "60009002" "swr r0, 2(r0)"
+    disasmMicro64 "60009003" "swr r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWRE``() =
+    disasmMicro64 "6000a200" "swre r0, 0(r0)"
+    disasmMicro64 "6000a201" "swre r0, 1(r0)"
+    disasmMicro64 "6000a202" "swre r0, 2(r0)"
+    disasmMicro64 "6000a203" "swre r0, 3(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWSP``() =
+    disasmMicro64 "c8000c00" "sw r0, 0(sp)"
+    disasmMicro64 "c8010c00" "sw r0, 4(sp)"
+    disasmMicro64 "c8020c00" "sw r0, 8(sp)"
+    disasmMicro64 "c8030c00" "sw r0, 12(sp)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SWXC1``() =
+    disasmMicro64 "54000088" "swxc1 f0, r0(r0)"
+    disasmMicro64 "54000888" "swxc1 f1, r0(r0)"
+    disasmMicro64 "54001088" "swxc1 f2, r0(r0)"
+    disasmMicro64 "54001888" "swxc1 f3, r0(r0)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SYNC``() =
+    disasmMicro64 "00006b7c" "sync 0x0"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SYNCI``() =
+    disasmMicro64 "42030000" "synci 0(v1)"
+    disasmMicro64 "42030001" "synci 1(v1)"
+    disasmMicro64 "42037fff" "synci 32767(v1)"
+    disasmMicro64 "42038000" "synci -32768(v1)"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 SYSCALL``() =
+    disasmMicro64 "00008b7c" "syscall 0x0"
+    disasmMicro64 "00228b7c" "syscall 0x22"
+    disasmMicro64 "03fe8b7c" "syscall 0x3fe"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TEQ``() =
+    disasmMicro64 "0000003c" "teq r0, r0"
+    disasmMicro64 "0022003c" "teq v0, at"
+    disasmMicro64 "03fe003c" "teq s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TEQI``() =
+    disasmMicro64 "41c30000" "teqi v1, 0x0"
+    disasmMicro64 "41c30001" "teqi v1, 0x1"
+    disasmMicro64 "41c37fff" "teqi v1, 0x7fff"
+    disasmMicro64 "41c38000" "teqi v1, 0xffffffffffff8000"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TGE``() =
+    disasmMicro64 "0000023c" "tge r0, r0"
+    disasmMicro64 "0022023c" "tge v0, at"
+    disasmMicro64 "03fe023c" "tge s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TGEI``() =
+    disasmMicro64 "41230000" "tgei v1, 0x0"
+    disasmMicro64 "41230001" "tgei v1, 0x1"
+    disasmMicro64 "41237fff" "tgei v1, 0x7fff"
+    disasmMicro64 "41238000" "tgei v1, 0xffffffffffff8000"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TGEIU``() =
+    disasmMicro64 "41630000" "tgeiu v1, 0x0"
+    disasmMicro64 "41630001" "tgeiu v1, 0x1"
+    disasmMicro64 "41637fff" "tgeiu v1, 0x7fff"
+    disasmMicro64 "41638000" "tgeiu v1, 0xffffffffffff8000"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TGEU``() =
+    disasmMicro64 "0000043c" "tgeu r0, r0"
+    disasmMicro64 "0022043c" "tgeu v0, at"
+    disasmMicro64 "03fe043c" "tgeu s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TLBP``() =
+    disasmMicro64 "0000037c" "tlbp"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TLBR``() =
+    disasmMicro64 "0000137c" "tlbr"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TLBWI``() =
+    disasmMicro64 "0000237c" "tlbwi"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TLBWR``() =
+    disasmMicro64 "0000337c" "tlbwr"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TLT``() =
+    disasmMicro64 "0000083c" "tlt r0, r0"
+    disasmMicro64 "0022083c" "tlt v0, at"
+    disasmMicro64 "03fe083c" "tlt s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TLTI``() =
+    disasmMicro64 "41030000" "tlti v1, 0x0"
+    disasmMicro64 "41030001" "tlti v1, 0x1"
+    disasmMicro64 "41037fff" "tlti v1, 0x7fff"
+    disasmMicro64 "41038000" "tlti v1, 0xffffffffffff8000"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TLTIU``() =
+    disasmMicro64 "41430000" "tltiu v1, 0x0"
+    disasmMicro64 "41430001" "tltiu v1, 0x1"
+    disasmMicro64 "41437fff" "tltiu v1, 0x7fff"
+    disasmMicro64 "41438000" "tltiu v1, 0xffffffffffff8000"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TLTU``() =
+    disasmMicro64 "00000a3c" "tltu r0, r0"
+    disasmMicro64 "00220a3c" "tltu v0, at"
+    disasmMicro64 "03fe0a3c" "tltu s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TNE``() =
+    disasmMicro64 "00000c3c" "tne r0, r0"
+    disasmMicro64 "00220c3c" "tne v0, at"
+    disasmMicro64 "03fe0c3c" "tne s8, ra"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TNEI``() =
+    disasmMicro64 "41830000" "tnei v1, 0x0"
+    disasmMicro64 "41830001" "tnei v1, 0x1"
+    disasmMicro64 "41837fff" "tnei v1, 0x7fff"
+    disasmMicro64 "41838000" "tnei v1, 0xffffffffffff8000"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TRUNC.L.fmt``() =
+    disasmMicro64 "5400233b" "trunc.l.s f0, f0"
+    disasmMicro64 "5400633b" "trunc.l.d f0, f0"
+    disasmMicro64 "5422233b" "trunc.l.s f1, f2"
+    disasmMicro64 "5422633b" "trunc.l.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 TRUNC.W.fmt``() =
+    disasmMicro64 "54002b3b" "trunc.w.s f0, f0"
+    disasmMicro64 "54006b3b" "trunc.w.d f0, f0"
+    disasmMicro64 "54222b3b" "trunc.w.s f1, f2"
+    disasmMicro64 "54226b3b" "trunc.w.d f1, f2"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 WAIT``() =
+    disasmMicro64 "0000937c" "wait 0x0"
+    disasmMicro64 "0022937c" "wait 0x22"
+    disasmMicro64 "03fe937c" "wait 0x3fe"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 WRPGPR``() =
+    disasmMicro64 "0000f17c" "wrpgpr r0, r0"
+    disasmMicro64 "0022f17c" "wrpgpr at, v0"
+    disasmMicro64 "03fef17c" "wrpgpr ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 WSBH``() =
+    disasmMicro64 "00007b3c" "wsbh r0, r0"
+    disasmMicro64 "00227b3c" "wsbh at, v0"
+    disasmMicro64 "03fe7b3c" "wsbh ra, s8"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 XOR``() =
+    disasmMicro64 "44400c00" "xor s0, s0, s0"
+    disasmMicro64 "44410c00" "xor s0, s0, s1"
+    disasmMicro64 "44420c00" "xor s0, s0, v0"
+    disasmMicro64 "44430c00" "xor s0, s0, v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 XOR16``() =
+    disasmMicro64 "44400c00" "xor s0, s0, s0"
+    disasmMicro64 "44410c00" "xor s0, s0, s1"
+    disasmMicro64 "44420c00" "xor s0, s0, v0"
+    disasmMicro64 "44430c00" "xor s0, s0, v1"
+
+  [<TestMethod>]
+  member _.``microMIPS64 5.04 XORI``() =
+    disasmMicro64 "70030000" "xori r0, v1, 0x0"
+    disasmMicro64 "70600000" "xori v1, r0, 0x0"
+    disasmMicro64 "70030001" "xori r0, v1, 0x1"
+    disasmMicro64 "70600001" "xori v1, r0, 0x1"
