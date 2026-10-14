@@ -99,8 +99,9 @@ let parseOprOfADC (ins: Instruction) bld =
 
 /// Skips a conditional instruction whose condition fails, handing back the
 /// label it skips to and whether the instruction advances ITSTATE on its way
-/// out (see putEndLabel). Only a T32 instruction can sit in an IT block; an
-/// A32 one runs with ITSTATE zero, which advancing would only clear again.
+/// out (see putEndLabel): only one that sits in an IT block does. Any other
+/// runs with ITSTATE zero, which advancing would only clear again -- an A32
+/// instruction, or a T32 conditional branch, whose condition is its own.
 let checkCondition (ins: Instruction) bld isUnconditional =
   if isUnconditional then
     None
@@ -112,7 +113,7 @@ let checkCondition (ins: Instruction) bld isUnconditional =
       AST.cjmp cond (AST.jmpDest lblPass) (AST.jmpDest lblIgnore)
       AST.lmark lblPass
     }
-    Some(lblIgnore, ins.IsThumb)
+    Some(lblIgnore, ins.IsInITBlock)
 
 /// Update ITState after normal execution of an IT-block instruction. See A2-52
 /// function: ITAdvance().

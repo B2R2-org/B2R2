@@ -99,6 +99,16 @@ type LifterTests() =
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     ins.Translate builder
 
+  /// The statements one T32 encoding lifts to as the one instruction of an
+  /// IT EQ block, parsed where the IT instruction leaves ITSTATE at 0x08.
+  let liftedInITBlock (hex: string) =
+    let parser = Parser(isa, true, reader)
+    (parser :> IModeSwitchable).ITState <- 0x08uy
+    let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
+    let bytes = ByteArray.ofHexString hex
+    let ins = (parser :> IInstructionParsable).Parse(bytes, 0UL)
+    ins.Translate builder
+
   (* Dn is the half n % 2 of Q(n / 2), and S(2n) and S(2n + 1) are the low
      and the high word of Dn *)
   let dReg n = !@(enum<Register> (int Q0 + n / 2), n % 2 + 1)
@@ -1324,6 +1334,26 @@ type LifterTests() =
     let user = (!.CPSR .& num 0x1fu) == num 0x10u
     let cleared = AST.ite user !.CPSR (!.CPSR .& num 0xffffff7fu)
     Assert.AreEqual<Expr option>(Some cleared, assignedBy true "b662" !.CPSR)
+
+  /// A B<c> that carries its own condition, T1 or T3, cannot sit in an IT
+  /// block (DDI0406C A8.8.18), so ITSTATE is zero when it runs and it has no
+  /// ITSTATE to advance.
+  [<TestMethod>]
+  member _.``[Thumb] B<c> with its own condition leaves CPSR alone``() =
+    CollectionAssert.DoesNotContain(writtenBy true "d100", !.CPSR)
+    CollectionAssert.DoesNotContain(writtenBy true "f0008096", !.CPSR)
+
+  /// An instruction in an IT block advances ITSTATE whether its condition
+  /// holds or not (ITAdvance, DDI0406C A2.5.2): the last one of a block ends
+  /// it.
+  [<TestMethod>]
+  member _.``[Thumb] An IT block's last instruction ends the block``() =
+    let itAfter (cpsr: uint32) =
+      let inputs = [ !.CPSR, BitVector(cpsr, 32<rt>) ]
+      let read = IRRunner.run (liftedInITBlock "4608") inputs
+      uint32 ((read !.CPSR).ToUInt64()) &&& 0x0600fc00u
+    Assert.AreEqual<uint32>(0u, itAfter 0x40000800u)
+    Assert.AreEqual<uint32>(0u, itAfter 0x00000800u)
 
   /// A narrow shift by register is the wide one in sixteen bits, C included
   /// (DDI0487F.c F5.1.113).

@@ -48,6 +48,7 @@ let render (phlp: ParsingHelper) (itstate: byref<BL>) it isInIT bin op dt q o =
               q,
               dt,
               phlp.IsThumb,
+              isInIT,
               cflags,
               oSz,
               phlp.IsAdd,

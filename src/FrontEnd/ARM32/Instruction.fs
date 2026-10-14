@@ -40,6 +40,7 @@ type Instruction
            q,
            s,
            isThumb,
+           inIT,
            cf,
            oSz,
            isAdd,
@@ -83,6 +84,11 @@ type Instruction
 
   /// Is a Thumb mode instruction?
   member _.IsThumb with get(): bool = isThumb
+
+  /// Whether this instruction sits in an IT block: it takes its condition
+  /// from ITSTATE rather than from its encoding, and advances ITSTATE as it
+  /// leaves. A conditional branch that carries its own condition never does.
+  member _.IsInITBlock with get(): bool = inIT
 
   /// Carry Flag from decoding instruction.
   member _.Cflag with get(): bool option = cf
