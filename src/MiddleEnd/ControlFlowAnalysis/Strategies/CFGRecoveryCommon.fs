@@ -30,7 +30,6 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.Intel
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -737,59 +736,28 @@ module internal CFGRecoveryCommon =
       | UnknownNoRet, _ ->
         Terminator.impossible ()
 
-  /// Counts the bytes a block pushes onto the stack before its final call, both
-  /// through PUSH and through an explicit SUB on the stack pointer.
-  let countPushedBytes (ctx: CFGBuildingContext<_, _>) (caller: IVertex<_>) =
-    let wordSize = ctx.BinHandle.ISA.WordSize |> WordSize.toByteWidth
-    let mutable pushed = 0
-    for ins in (caller.VData: LowUIRBasicBlock).Internals.Instructions do
-      match ins with
-      | :? Intel.Instruction as ins ->
-        match ins.Opcode, ins.Operands with
-        | Intel.Opcode.PUSH, OneOperand _ ->
-          pushed <- pushed + wordSize
-        | Intel.Opcode.SUB, TwoOperands(OprReg reg, OprImm(v, _))
-          when reg = Intel.Register.RSP || reg = Intel.Register.ESP ->
-          pushed <- pushed + int v
-        | _ -> ()
-      | _ -> ()
-    pushed
+  let computeIndirectCalleeAbstraction
+     ctx
+     (sretAnalysis: ISRetAnalyzable<_, _>)
+     (summarizer: IFunctionSummarizable<_, _>)
+     (caller: IVertex<LowUIRBasicBlock>) =
+    let hdl = ctx.BinHandle
+    let callIns = caller.VData.Internals.LastInstruction
+    let unwindingBytes =
+      if sretAnalysis.IsSRetCall(ctx, caller) then
+        WordSize.toByteWidth hdl.ISA.WordSize
+      else
+        0
+    summarizer.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes)
 
-  /// Heuristically infers how many bytes an indirect callee unwinds on its own.
-  /// The caller reclaims part of what it pushed with an explicit stack pointer
-  /// adjustment right after the call; whatever is left over is what the callee
-  /// itself must have popped (e.g. a `ret N` calling convention).
-  /// TODO: We may leverage CFA to get more accurate unwinding information.
-  let inferIndirectCallUnwindingBytes ctx (caller: IVertex<_>) =
-    let pushed = countPushedBytes ctx caller
-    let inss = (caller.VData: LowUIRBasicBlock).Internals.Instructions
-    let lastIns = Array.last inss
-    let fallthroughAddr = lastIns.Address + uint64 lastIns.Length
-    match ctx.BBLFactory.PeekBBL fallthroughAddr with
-    | Ok bbl ->
-      match bbl[0] with
-      | :? Intel.Instruction as firstIns ->
-        match firstIns.Opcode, firstIns.Operands with
-        | Intel.Opcode.ADD, TwoOperands(OprReg reg, OprImm(v, _))
-          when reg = Intel.Register.RSP || reg = Intel.Register.ESP ->
-          pushed - int v
-        | Intel.Opcode.SUB, TwoOperands(OprReg reg, OprImm(v, _))
-          when reg = Intel.Register.RSP || reg = Intel.Register.ESP ->
-          pushed + int v
-        | _ -> 0
-      | _ -> 0
-    | _ -> 0
-
-  let connectIndirectCallEdge ctx cfgRec callsiteAddr =
+  let connectIndirectCallEdge ctx sretAnalysis cfgRec callsiteAddr =
     let caller = ctx.CallerVertices[callsiteAddr]
     let callIns = caller.VData.Internals.LastInstruction
     let callSiteAddr = callIns.Address
     let callSite = LeafCallSite callSiteAddr
     let summarizer = (cfgRec: ICFGRecovery<_, _>).Summarizer
-    let unwindingBytes = inferIndirectCallUnwindingBytes ctx caller
     let abs =
-      summarizer.MakeUnknownFunctionSummary(ctx.BinHandle, callIns,
-                                            unwindingBytes)
+      computeIndirectCalleeAbstraction ctx sretAnalysis summarizer caller
     let absV = getAbsVertex ctx cfgRec callSite None abs
     connectEdge ctx cfgRec caller absV CallEdge
     connectRet ctx cfgRec (absV, callSiteAddr + uint64 callIns.Length)

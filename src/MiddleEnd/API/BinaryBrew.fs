@@ -120,7 +120,9 @@ type BinaryBrew =
       [<Optional; DefaultParameterValue(false)>] allowBBLOverlap) =
     let exnInfo = ExceptionInfo hdl
     let funcId = FunctionIdentification(hdl, exnInfo)
-    let cfgBuilder = CFGRecovery(allowBBLOverlap) :> ICFGBuildingStrategy<_, _>
+    let cfgBuilder =
+      CFGRecovery(hdl.ISA, allowBBLOverlap)
+      :> ICFGBuildingStrategy<_, _>
     { inherit BinaryBrew<DummyContext, DummyContext>(hdl,
                                                      exnInfo,
                                                      funcId,
@@ -129,7 +131,9 @@ type BinaryBrew =
   new(hdl: BinHandle, targets) =
     let exnInfo = ExceptionInfo hdl
     let funcId = FunctionIdentification(hdl, exnInfo)
-    let cfgBuilder = CFGRecovery(false, targets) :> ICFGBuildingStrategy<_, _>
+    let cfgBuilder =
+      CFGRecovery(hdl.ISA, false, targets)
+      :> ICFGBuildingStrategy<_, _>
     BinaryBrew(hdl, funcId, cfgBuilder)
 
 /// Default BinaryBrew type that uses EVM-specific user context.
