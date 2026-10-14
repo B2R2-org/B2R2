@@ -127,13 +127,15 @@ module internal IRRunner =
 
   /// The named calls the lifter makes: the exception query, in its form for
   /// one operation and for a fused multiply-add, and the fused multiply-add.
+  /// The query's last operand, the flags raised so far, is not read: the
+  /// whole of what the operation raised is always an answer it may give.
   let private app mode (name: string) (args: BitVector list) =
     let t = if name.EndsWith "32" then 32<rt> else 64<rt>
     let narrow = args |> List.forall (fun a -> a.Length <= 64<rt>)
     match name, (if narrow then List.map bits args else []) with
-    | ("FEXC32" | "FEXC64"), [ code; a; b ] ->
+    | ("FEXC32" | "FEXC64"), [ code; a; b; _ ] ->
       BitVector(IRFloat.exceptions t mode code a b, 32<rt>)
-    | ("FEXC32" | "FEXC64"), [ 8UL; x; y; z; flags ] ->
+    | ("FEXC32" | "FEXC64"), [ 8UL; x; y; z; flags; _ ] ->
       BitVector(IRFloat.fusedExceptions t mode flags x y z, 32<rt>)
     | ("FMA32" | "FMA64"), [ x; y; z; flags ] ->
       BitVector(IRFloat.fma t mode flags x y z, t)

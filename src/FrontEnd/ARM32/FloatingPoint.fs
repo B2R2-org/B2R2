@@ -271,14 +271,22 @@ let private fpExcName sz = if sz = 32<rt> then "FEXC32" else "FEXC64"
 /// operation out again with its exact error in hand, in the direction the
 /// controls name. The square root reads one operand; its caller passes it
 /// twice.
+///
+/// <para>The query's last operand is FPSR, the flags raised so far, which
+/// the answer only ever joins. An evaluator may leave out an Inexact already
+/// among them rather than work the rounding out again, as QEMU's hardfloat
+/// does; the other four it answers in full, Underflow deciding a flush.</para>
 /// </summary>
-let fpRaised ctl sz op a b =
+let fpRaised bld ctl sz op a b =
   let code = numU64 (fpExcCode op ||| fpExcArm) 8<rt>
-  inForce ctl (AST.app (fpExcName sz) [ code; a; b ] 32<rt>)
+  let sofar = regVar bld R.FPSR
+  inForce ctl (AST.app (fpExcName sz) [ code; a; b; sofar ] 32<rt>)
 
-/// What a fused multiply-add raised: x times y plus z, rounded once.
-let fpFusedRaised ctl sz x y z =
-  let args = [ numU64 8UL 8<rt>; x; y; z; numU64 fpExcArm 8<rt> ]
+/// What a fused multiply-add raised: x times y plus z, rounded once, with the
+/// flags raised so far last, as fpRaised hands them.
+let fpFusedRaised bld ctl sz x y z =
+  let sofar = regVar bld R.FPSR
+  let args = [ numU64 8UL 8<rt>; x; y; z; numU64 fpExcArm 8<rt>; sofar ]
   inForce ctl (AST.app (fpExcName sz) args 32<rt>)
 
 let private arithOf op a b =
@@ -308,7 +316,7 @@ let fpArithRaised bld ctl sz flushes op operands =
     res := inForce ctl (arithOf op a b)
     res := AST.ite (isNaN sz res) (fpNaNResult bld ctl sz operands) res
   }
-  let raised = fpRaised ctl sz op a b
+  let raised = fpRaised bld ctl sz op a b
   struct (res, if flushes then fpFlushOut bld ctl sz res raised else raised)
 
 /// FPAdd, FPSub, FPMul, FPDiv and FPSqrt, with what they raised recorded.
@@ -338,7 +346,7 @@ let fpMulAddRaised bld ctl sz flushes addend a b =
     res := inForce ctl (fma sz false false a b addend)
     res := AST.ite (isNaN sz res) nan res
   }
-  let raised = fpFusedRaised ctl sz a b addend
+  let raised = fpFusedRaised bld ctl sz a b addend
   struct (res, if flushes then fpFlushOut bld ctl sz res raised else raised)
 
 /// FPMulAdd, with what it raised recorded.

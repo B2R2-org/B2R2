@@ -256,14 +256,16 @@ module internal IRRunner =
 
   /// The exception query: the flags, in FPSCR's order, of what an
   /// operation raised. It has to be asked for tininess before rounding and
-  /// for that order (0xC0), which is how the lifters ask.
+  /// for that order (0xC0), which is how the lifters ask. The flags raised so
+  /// far, its last operand, are not read: the whole of what the operation
+  /// raised is always an answer an evaluator may give.
   let private raised mode (args: BitVector list) =
     let asked (arm: BitVector) = arm.ToUInt64() &&& 0xC0UL = 0xC0UL
     let flags =
       match args with
-      | [ code; x; y; z; arm ] when code.ToUInt64() = 8UL && asked arm ->
+      | [ code; x; y; z; arm; _ ] when code.ToUInt64() = 8UL && asked arm ->
         ExactFloat.fusedRaised mode x y z
-      | [ code; a; b ] when asked code ->
+      | [ code; a; b; _ ] when asked code ->
         ExactFloat.raised mode (int (code.ToUInt64() &&& 0xfUL)) a b
       | _ ->
         failwith $"IRRunner: no exception query {args}"

@@ -1476,7 +1476,8 @@ let private recipStep bld eSize flushes isSqrt a b =
   (* what the one rounding raised: the degenerate product raises nothing,
      where the fused operation it would have been is invalid *)
   let raised =
-    AST.ite degenerate (AST.num0 64<rt>) (fpFusedRaised eSize true x y addend)
+    let fused = fpFusedRaised bld eSize true x y addend
+    AST.ite degenerate (AST.num0 64<rt>) fused
   fpRecord bld (if flushes then fpFlushOut bld eSize res raised else raised)
   res
 

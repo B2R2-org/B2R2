@@ -1433,13 +1433,19 @@ let private fpExcName oprSz = if oprSz = 32<rt> then "FEXC32" else "FEXC64"
 /// used to do, at four directed operations an instruction.
 ///
 /// The square root reads one operand, and its caller passes that one twice.
+///
+/// The query's last operand is FPSR, the flags raised so far, which the
+/// answer only ever joins: an evaluator may leave out an Inexact already among
+/// them rather than work the rounding out again, as QEMU's hardfloat does,
+/// and answers the other four in full, Underflow deciding a flush.
 /// </summary>
-let fpRaised oprSz op src1 src2 =
+let fpRaised bld oprSz op src1 src2 =
   let code = numU64 (fpExcCode op ||| fpExcAArch64) 8<rt>
-  AST.app (fpExcName oprSz) [ code; src1; src2 ] 32<rt> |> AST.zext 64<rt>
+  let args = [ code; src1; src2; regVar bld R.FPSR ]
+  AST.app (fpExcName oprSz) args 32<rt> |> AST.zext 64<rt>
 
 let fpExceptions bld oprSz op src1 src2 =
-  fpRecord bld (fpRaised oprSz op src1 src2)
+  fpRecord bld (fpRaised bld oprSz op src1 src2)
 
 /// <summary>
 /// What a conversion to an INTEGER raises, which is two of the five and
@@ -1489,9 +1495,10 @@ let fpExceptionsCompare bld oprSz signalsOnQuiet a b =
 /// infinity even with a quiet NaN to add, before it lets that NaN through.
 /// The query's fused form answers for both.
 /// </summary>
-let fpFusedRaised oprSz negProduct x y z =
+let fpFusedRaised bld oprSz negProduct x y z =
   let flags = (if negProduct then 1UL else 0UL) ||| fpExcAArch64
-  let args = [ numU64 8UL 8<rt>; x; y; z; numU64 flags 8<rt> ]
+  let sofar = regVar bld R.FPSR
+  let args = [ numU64 8UL 8<rt>; x; y; z; numU64 flags 8<rt>; sofar ]
   AST.app (fpExcName oprSz) args 32<rt> |> AST.zext 64<rt>
 
 /// What an operation raises where rounding is all it can lose: Invalid for a
@@ -2027,7 +2034,7 @@ let private fpArithWide bld dSz flushes op (operands: Expr list) =
     | FPSqrt -> AST.fsqrt a
   append bld { direct res := arith }
   fpSettleNaN bld dSz operands res
-  let raised = fpRaised dSz op a b
+  let raised = fpRaised bld dSz op a b
   fpRecord bld (if flushes then fpFlushOut bld dSz res raised else raised)
   res
 
@@ -2072,7 +2079,8 @@ let private fpMulXWide bld dSz flushes src1 src2 =
     direct res := AST.ite two (fpTwo sign dSz) (AST.fmul src1 src2)
   }
   fpSettleNaN bld dSz [ src1; src2 ] res
-  let raised = AST.ite two (AST.num0 64<rt>) (fpRaised dSz FPMul src1 src2)
+  let mulRaised = fpRaised bld dSz FPMul src1 src2
+  let raised = AST.ite two (AST.num0 64<rt>) mulRaised
   fpRecord bld (if flushes then fpFlushOut bld dSz res raised else raised)
   res
 
@@ -2118,7 +2126,7 @@ let private fpMulAddWide bld dSz flushes addend src1 src2 =
     direct res := fma dSz false false src1 src2 addend
     direct res := AST.ite (isNaN dSz res) nan res
   }
-  let raised = fpFusedRaised dSz false src1 src2 addend
+  let raised = fpFusedRaised bld dSz false src1 src2 addend
   fpRecord bld (if flushes then fpFlushOut bld dSz res raised else raised)
   res
 
