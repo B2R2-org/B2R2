@@ -190,9 +190,9 @@ let private compare (ins: Instruction) bld signalsOnQuiet =
   let a = halfToDouble bld x
   let b = halfToDouble bld y
   let nzcv = fpCompare bld FPSCRValue 64<rt> signalsOnQuiet a b
-  let fpscr = regVar bld R.FPSCR
+  let fpsr = regVar bld R.FPSR
   let flags = AST.zext 32<rt> nzcv << numI32 28 32<rt>
-  append bld { fpscr := (fpscr .& numU32 0x0fffffffu 32<rt>) .| flags }
+  append bld { fpsr := (fpsr .& numU32 0x0fffffffu 32<rt>) .| flags }
 
 /// The Advanced SIMD compares: all ones in a lane where the relation holds.
 let private neonCompare ins bld pred swapped absolute =

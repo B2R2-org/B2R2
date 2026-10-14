@@ -30,9 +30,14 @@
 ///
 /// <para>A VFP instruction reads FPSCR. An Advanced SIMD one reads
 /// StandardFPSCRValue instead -- round to nearest, flush to zero, the default
-/// NaN, and FPSCR.AHP -- and still sets the cumulative flags in FPSCR, since
+/// NaN, and FPSCR.AHP -- and still sets the cumulative flags, since
 /// FPProcessException writes them whatever value it is handed and that value
 /// enables no trap.</para>
+///
+/// <para>The flags, like the rest of FPSCR's status, are kept in FPSR, apart
+/// from the controls in FPSCR: an operation reads only the one and writes
+/// only the other, so the flags one operation sets do not chain it to the
+/// next.</para>
 ///
 /// <para>FPSCR.RMode is the direction an expression no RoundCtrl encloses
 /// rounds in, so a VFP operation is left bare and an Advanced SIMD one is
@@ -190,14 +195,14 @@ let fpBits invalid divZero overflow underflow inexact =
 let fpNone = AST.b0
 
 /// <summary>
-/// Sets FPSCR's cumulative flags for what an operation raised. They are
+/// Sets the cumulative flags, in FPSR, for what an operation raised. They are
 /// sticky: an operation sets the ones it raised and clears none. The trap
 /// enables are not read, since nothing here traps -- the implementation
 /// without trapped exceptions -- and the standard value enables none.
 /// </summary>
 let fpRecord bld raised =
-  let fpscr = regVar bld R.FPSCR
-  append bld { fpscr := fpscr .| raised }
+  let fpsr = regVar bld R.FPSR
+  append bld { fpsr := fpsr .| raised }
 
 /// Records Invalid alone, for an operation whose only exception it is.
 let fpInvalidOnly bld invalid =

@@ -491,7 +491,8 @@ type internal Cell =
   | D of int * uint64
   /// CPSR as MRS reads it: the flags, Q, GE and the mode.
   | CPSR of uint32
-  /// FPSCR.
+  /// FPSCR as VMRS reads it: its controls, which the front end keeps in FPSCR,
+  /// and its status, which it keeps in FPSR, together.
   | FPSCR of uint32
   /// The eight bytes at an offset into the window, read little-endian.
   | M of int * uint64
@@ -566,13 +567,23 @@ module internal ManualLifting =
         ()
     mem
 
-  /// The register a cell names, with its value.
+  /// FPSCR's status fields, which FPSR keeps: N, Z, C, V, QC and the flags.
+  let private fpscrStatus = 0xf800009fu
+
+  /// The registers a cell names, with their values: FPSCR's two halves for
+  /// FPSCR.
   let private regInput = function
-    | Gpr(n, v) -> Some(gprs[n], BitVector(v, 32<rt>))
-    | D(n, v) -> Some(dReg n, BitVector(v, 64<rt>))
-    | CPSR v -> Some(reg Register.CPSR, BitVector(v, 32<rt>))
-    | FPSCR v -> Some(reg Register.FPSCR, BitVector(v, 32<rt>))
-    | M _ -> None
+    | Gpr(n, v) ->
+      [ gprs[n], BitVector(v, 32<rt>) ]
+    | D(n, v) ->
+      [ dReg n, BitVector(v, 64<rt>) ]
+    | CPSR v ->
+      [ reg Register.CPSR, BitVector(v, 32<rt>) ]
+    | FPSCR v ->
+      [ reg Register.FPSCR, BitVector(v &&& ~~~fpscrStatus, 32<rt>)
+        reg Register.FPSR, BitVector(v &&& fpscrStatus, 32<rt>) ]
+    | M _ ->
+      []
 
   /// <summary>
   /// The registers a run starts from: PC at CodeAddr, no exclusive
@@ -583,7 +594,7 @@ module internal ManualLifting =
     [ yield reg Register.PC, BitVector(uint32 CodeAddr, 32<rt>)
       yield reg Register.ExMonAddr, BitVector(0xffffffffu, 32<rt>)
       yield reg Register.ExMonVal, BitVector(0u, 32<rt>)
-      yield! List.choose regInput cells
+      yield! List.collect regInput cells
       for r, v in others -> reg r, BitVector(v, 32<rt>) ]
 
   /// The place a cell names, its value dropped.
@@ -605,7 +616,7 @@ module internal ManualLifting =
     | CPSR _ ->
       CPSR(uint32 (value (reg Register.CPSR)))
     | FPSCR _ ->
-      FPSCR(uint32 (value (reg Register.FPSCR)))
+      FPSCR(uint32 (value (reg Register.FPSCR) ||| value (reg Register.FPSR)))
     | M(offset, _) ->
       let byteAt i = (mem: Dictionary<uint64, byte>)[Window + uint64 i]
       let bytes = Array.init 8 (fun i -> byteAt (offset + i))
@@ -628,6 +639,7 @@ module internal ManualLifting =
     for n in 0 .. 31 do add (dReg n) (D(n, 0UL))
     add (reg Register.CPSR) (CPSR 0u)
     add (reg Register.FPSCR) (FPSCR 0u)
+    add (reg Register.FPSR) (FPSCR 0u)
     d
 
   /// The register each statement writes, as a test would name it, or by its

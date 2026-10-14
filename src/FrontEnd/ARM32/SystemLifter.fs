@@ -301,6 +301,17 @@ let mcr (ins: Instruction) bld =
   | _ ->
     unsupported ins bld
 
+/// The register a floating-point system register's status is kept in: FPSR
+/// for FPSCR, whose controls alone FPSCR keeps, and the register itself for
+/// the others.
+let private fpStatusOf sreg = if sreg = R.FPSCR then R.FPSR else sreg
+
+/// What VMRS reads of a floating-point system register: FPSCR's controls and
+/// status together, and any other register as it is.
+let private fpSystemValue bld sreg =
+  if sreg = R.FPSCR then regVar bld R.FPSCR .| regVar bld R.FPSR
+  else regVar bld sreg
+
 /// VMRS, which reads a floating-point system register into a core register,
 /// or FPSCR's flags into APSR's. Every one but FPSCR is PL1's (DDI0406C
 /// B9.3.21).
@@ -309,12 +320,13 @@ let vmrs (ins: Instruction) bld =
   | TwoOperands(OprReg R.APSR, OprReg sreg) ->
     underCondition ins bld (sreg = R.FPSCR) (fun () ->
       let cpsr = regVar bld R.CPSR
-      let flags = disablePSRBits bld R.CPSR PSR.Cond .| getPSR bld sreg PSR.Cond
+      let nzcv = getPSR bld (fpStatusOf sreg) PSR.Cond
+      let flags = disablePSRBits bld R.CPSR PSR.Cond .| nzcv
       append bld { cpsr := flags })
   | TwoOperands(dst, OprReg sreg) ->
     underCondition ins bld (sreg = R.FPSCR) (fun () ->
       let dst = transOpr ins bld dst
-      append bld { dst := regVar bld sreg })
+      append bld { dst := fpSystemValue bld sreg })
   | _ ->
     unsupported ins bld
 
@@ -340,16 +352,30 @@ let private writableFPBits = function
   | R.FPSCR -> 0xffff009fu
   | _ (* FPEXC *) -> 0x40000000u
 
+/// FPSCR's status fields -- N, Z, C, V, QC, IDC and IXC through IOC -- which
+/// FPSR keeps. The rest of what FPSCR holds are its controls.
+let private fpscrStatusBits = 0xf800009fu
+
 /// VMSR, which writes a core register to a floating-point system register.
 /// Every one but FPSCR is PL1's, and FPSID is read-only, so PL1 writing it
-/// changes nothing (DDI0406C B9.3.22).
+/// changes nothing (DDI0406C B9.3.22). A write of FPSCR puts its controls in
+/// FPSCR and its status in FPSR.
 let vmsr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg R.FPSID, _) ->
     underCondition ins bld false ignore
-  | TwoOperands(OprReg(R.FPSCR | R.FPEXC as sreg), src) ->
+  | TwoOperands(OprReg R.FPSCR, src) ->
+    let status = writableFPBits R.FPSCR &&& fpscrStatusBits
+    let controls = writableFPBits R.FPSCR &&& ~~~fpscrStatusBits
+    underCondition ins bld true (fun () ->
+      let src = transOpr ins bld src
+      append bld {
+        regVar bld R.FPSCR := src .& numU32 controls 32<rt>
+        regVar bld R.FPSR := src .& numU32 status 32<rt>
+      })
+  | TwoOperands(OprReg(R.FPEXC as sreg), src) ->
     let mask = numU32 (writableFPBits sreg) 32<rt>
-    underCondition ins bld (sreg = R.FPSCR) (fun () ->
+    underCondition ins bld false (fun () ->
       let src = transOpr ins bld src
       append bld { regVar bld sreg := src .& mask })
   | _ ->

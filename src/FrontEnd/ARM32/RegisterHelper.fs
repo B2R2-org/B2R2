@@ -56,7 +56,7 @@ module internal RegisterHelper =
     | R.TTBR0 | R.TTBR1 | R.TTBCR | R.DACR | R.DFSR | R.IFSR | R.DFAR | R.IFAR
     | R.PAR | R.PRRR | R.NMRR | R.VBAR | R.FCSEIDR | R.CONTEXTIDR | R.TPIDRURW
     | R.TPIDRPRW | R.CNTFRQ | R.FPSID | R.FPEXC | R.MVFR0 | R.MVFR1
-    | R.MVFR2 -> 32<rt>
+    | R.MVFR2 | R.FPSR -> 32<rt>
     | R.D0 | R.D1 | R.D2 | R.D3 | R.D4 | R.D5 | R.D6 | R.D7 | R.D8 | R.D9
     | R.D10 | R.D11 | R.D12 | R.D13 | R.D14 | R.D15 | R.D16 | R.D17
     | R.D18 | R.D19 | R.D20 | R.D21 | R.D22 | R.D23 | R.D24 | R.D25

@@ -113,15 +113,21 @@ type LifterTests() =
      and the high word of Dn *)
   let dReg n = !@(enum<Register> (int Q0 + n / 2), n % 2 + 1)
 
+  /// FPSCR's status fields, which the front end keeps in FPSR apart from the
+  /// controls it keeps in FPSCR: N, Z, C, V, QC and the cumulative flags.
+  let fpscrStatus = 0xf800009fu
+
   /// What an A32 encoding leaves in D0, D1 and FPSCR, run with FPSCR and the
-  /// D registers given.
+  /// D registers given. FPSCR is its two halves, as VMRS reads it.
   let fpRun hex (fpscr: uint32) (ds: (int * uint64) list) =
     let inputs =
-      (!.FPSCR, BitVector(fpscr, 32<rt>))
+      (!.FPSCR, BitVector(fpscr &&& ~~~fpscrStatus, 32<rt>))
+      :: (!.FPSR, BitVector(fpscr &&& fpscrStatus, 32<rt>))
       :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
     let read = IRRunner.run (liftedBy false hex) inputs
     let d n = (read (dReg n)).ToUInt64()
-    d 0, d 1, uint32 ((read !.FPSCR).ToUInt64())
+    let after = (read !.FPSCR).ToUInt64() ||| (read !.FPSR).ToUInt64()
+    d 0, d 1, uint32 after
 
   /// Whether an A32 encoding lifts to something other than a refusal.
   let liftsToIR hex =
@@ -891,15 +897,22 @@ type LifterTests() =
   member _.``[ARMv7] VMRS of FPSCR is allowed in User mode``() =
     Assert.AreEqual<bool>(false, canBeUndefined false "eef10a10")
 
+  /// FPSCR is its controls, kept in FPSCR, and its status, kept in FPSR.
+  [<TestMethod>]
+  member _.``[ARMv7] VMRS of FPSCR reads its controls and status``() =
+    let both = !.FPSCR .| !.FPSR
+    Assert.AreEqual<Expr option>(Some both, assignedBy false "eef10a10" !.R0)
+
   [<TestMethod>]
   member _.``[Thumb] VMRS reads MVFR0``() =
     Assert.AreEqual<Expr option>(Some !.MVFR0, assignedBy true "eef70a10" !.R0)
 
-  /// APSR_nzcv takes FPSCR's flags, and the rest of CPSR stays as it was.
+  /// APSR_nzcv takes FPSCR's flags, which FPSR keeps, and the rest of CPSR
+  /// stays as it was.
   [<TestMethod>]
   member _.``[ARMv7] VMRS APSR_nzcv takes FPSCR's flags``() =
     let others = !.CPSR .& AST.not (num 0xf0000000u)
-    let flags = others .| (!.FPSCR .& num 0xf0000000u)
+    let flags = others .| (!.FPSR .& num 0xf0000000u)
     Assert.AreEqual<Expr option>(Some flags, assignedBy false "eef1fa10" !.CPSR)
 
   [<TestMethod>]
@@ -921,11 +934,15 @@ type LifterTests() =
     Assert.AreEqual<bool>(true, canBeUndefined false "eee80a10")
 
   /// FPSCR keeps what VMSR has always kept of it: not the RES0 bits, nor the
-  /// trap enables nothing here can take.
+  /// trap enables nothing here can take. Its controls go to FPSCR and its
+  /// status to FPSR.
   [<TestMethod>]
   member _.``[ARMv7] VMSR to FPSCR keeps the bits FPSCR holds``() =
-    let kept = !.R0 .& num 0xffff009fu
-    Assert.AreEqual<Expr option>(Some kept, assignedBy false "eee10a10" !.FPSCR)
+    let controls = !.R0 .& num 0x07ff0000u
+    let status = !.R0 .& num 0xf800009fu
+    let hex = "eee10a10"
+    Assert.AreEqual<Expr option>(Some controls, assignedBy false hex !.FPSCR)
+    Assert.AreEqual<Expr option>(Some status, assignedBy false hex !.FPSR)
 
   /// FPSID is read-only, and PL1 writing it changes nothing (DDI0406C
   /// B9.3.22).
@@ -1537,7 +1554,7 @@ type LifterTests() =
     let q1 = [ !@(Q1, 1), BitVector(0xffffUL, 64<rt>) ]
     let read = IRRunner.run (liftedBy false "f38f0952") q1
     Assert.AreEqual<uint64>(0xffUL, (read !@(Q0, 1)).ToUInt64() &&& 0xffUL)
-    Assert.AreEqual<uint64>(1UL, (read !.FPSCR).ToUInt64() >>> 27 &&& 1UL)
+    Assert.AreEqual<uint64>(1UL, (read !.FPSR).ToUInt64() >>> 27 &&& 1UL)
 
   /// SignedSatQ clamps a 64-bit result to [-2^63, 2^63 - 1] (DDI0406C A2.2.1),
   /// so one in range comes out as it is (A8.8.371 VQADD, A8.8.383 VQSUB,
@@ -1574,7 +1591,7 @@ type LifterTests() =
         !@(Q1, 2), BitVector(1UL, 64<rt>) ]
     let read = IRRunner.run (liftedBy false "f2320013") inputs
     Assert.AreEqual<uint64>(0x7fffffffffffffffUL, (read !@(Q0, 1)).ToUInt64())
-    Assert.AreEqual<uint64>(1UL, (read !.FPSCR).ToUInt64() >>> 27 &&& 1UL)
+    Assert.AreEqual<uint64>(1UL, (read !.FPSR).ToUInt64() >>> 27 &&& 1UL)
 
   /// A by-scalar operation multiplies every element by the one lane Dm[x],
   /// read before any element is written (DDI0406C A8.8.373 VQDMULH, A8.8.377

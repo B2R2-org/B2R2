@@ -436,9 +436,9 @@ let vcmp (ins: Instruction) bld signalsOnQuiet =
       | OprImm _ -> AST.num0 sz
       | _ -> transOpr ins bld o2
     let nzcv = fpCompare bld FPSCRValue sz signalsOnQuiet a b
-    let fpscr = regVar bld R.FPSCR
+    let fpsr = regVar bld R.FPSR
     let flags = AST.zext 32<rt> nzcv << numI32 28 32<rt>
-    append bld { fpscr := (fpscr .& numU32 0x0fffffffu 32<rt>) .| flags })
+    append bld { fpsr := (fpsr .& numU32 0x0fffffffu 32<rt>) .| flags })
 
 /// <summary>
 /// The Advanced SIMD compares: all ones in a lane where the relation holds

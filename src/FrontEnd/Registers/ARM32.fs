@@ -376,7 +376,9 @@ type Register =
   | SCTLR = 0xA8
   /// Non-Secure Access Control Register.
   | NSACR = 0xA9
-  /// FPSCR, Floating-point Status and Control Register, VMSA.
+  /// FPSCR, Floating-point Status and Control Register, VMSA. Its status
+  /// fields -- N, Z, C, V, QC and the cumulative exception flags -- are kept
+  /// apart in FPSR, as AArch64 keeps them, so this holds its controls.
   | FPSCR = 0xAA
   /// TPIDRURO, SW Thread ID Register, readable at PL0, writable only at PL1.
   | TPIDRURO = 0xCB
@@ -533,6 +535,11 @@ type Register =
   | FPEXC = 0xF4
   /// MVFR2, Media and VFP Feature Register 2.
   | MVFR2 = 0xF5
+  /// FPSCR's status fields -- N, Z, C, V, QC, IDC and IXC through IOC -- in
+  /// their FPSCR places. Armv8 defines AArch32's FPSCR as AArch64's FPCR and
+  /// FPSR together, and this is the FPSR half: the bits an operation writes,
+  /// kept apart from the controls it reads.
+  | FPSR = 0xF6
 
 /// Provides functions to handle ARM32 registers.
 [<RequireQualifiedAccess>]
@@ -792,6 +799,7 @@ module Register =
     | "fpsid" -> Register.FPSID
     | "fpexc" -> Register.FPEXC
     | "mvfr2" -> Register.MVFR2
+    | "fpsr" -> Register.FPSR
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an ARM32 register.
@@ -1049,4 +1057,5 @@ module Register =
     | Register.FPSID -> "fpsid"
     | Register.FPEXC -> "fpexc"
     | Register.MVFR2 -> "mvfr2"
+    | Register.FPSR -> "fpsr"
     | _ -> Terminator.impossible ()

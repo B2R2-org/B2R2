@@ -315,15 +315,15 @@ let vand (ins: Instruction) bld =
 let vcmp ins bld =
   lift bld ins {
     let struct (op1, op2) = transTwoOprs ins bld
-    let fpscr = regVar bld R.FPSCR
+    let fpsr = regVar bld R.FPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let unordered = AST.not (AST.feq op1 op1) .| AST.not (AST.feq op2 op2)
     let lt = AST.flt op1 op2
-    fpscr := lt |> setPSR bld R.FPSCR PSR.N
-    fpscr := AST.feq op1 op2 |> setPSR bld R.FPSCR PSR.Z
-    fpscr := AST.not lt |> setPSR bld R.FPSCR PSR.C
-    fpscr := unordered |> setPSR bld R.FPSCR PSR.V
+    fpsr := lt |> setPSR bld R.FPSR PSR.N
+    fpsr := AST.feq op1 op2 |> setPSR bld R.FPSR PSR.Z
+    fpsr := AST.not lt |> setPSR bld R.FPSR PSR.C
+    fpsr := unordered |> setPSR bld R.FPSR PSR.V
     putEndLabel bld lblIgnore
   }
 
@@ -2826,12 +2826,13 @@ let vrhadd ins bld = vhaddsubrnd ins bld (.+) true
 /// comparison against a signed value reads every negative as larger than the
 /// positive limit and clamps it to the top instead of the bottom.
 ///
-/// FPSCR's QC bit records that some lane was clamped. It is sticky by
-/// design -- a program reads it after a whole block of vector arithmetic to
-/// ask whether ANY of it saturated -- so it is set here and never cleared.
+/// FPSCR's QC bit, which FPSR keeps, records that some lane was clamped. It
+/// is sticky by design -- a program reads it after a whole block of vector
+/// arithmetic to ask whether ANY of it saturated -- so it is set here and
+/// never cleared.
 /// </summary>
 let satLane bld srcUnsigned dstUnsigned wide (eSize: int<rt>) value =
-  let qc = AST.extract (regVar bld R.FPSCR) 1<rt> 27
+  let qc = AST.extract (regVar bld R.FPSR) 1<rt> 27
   let width = RegType.toBitWidth eSize
   let allOnes =
     if width >= 64 then 0xffffffffffffffffUL else (1UL <<< width) - 1UL

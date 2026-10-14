@@ -275,7 +275,7 @@ let vjcvt (ins: Instruction) bld =
     let invalid = noInteger .| isNaN 64<rt> s .| isInfinity 64<rt> s
     let inexact = AST.not invalid .& AST.not exact .& AST.not isZero
     fpRecord bld (fpBits invalid fpNone fpNone fpNone inexact)
-    let fpscr = regVar bld R.FPSCR
+    let fpsr = regVar bld R.FPSR
     let z = AST.zext 32<rt> exact << numI32 30 32<rt>
-    append bld { fpscr := (fpscr .& numU32 0x0fffffffu 32<rt>) .| z }
+    append bld { fpsr := (fpsr .& numU32 0x0fffffffu 32<rt>) .| z }
     append bld { d := AST.xtlo 32<rt> signed })
