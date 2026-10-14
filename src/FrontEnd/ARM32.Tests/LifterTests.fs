@@ -143,15 +143,19 @@ type LifterTests() =
       | SideEffect(Effect = BinIR.SideEffect.UndefinedInstruction) -> true
       | _ -> false)
 
-  /// The statement that sets C to a constant, as a flag-setting logical
-  /// instruction does from a rotated immediate: imm32<31>.
-  let carryPut set =
-    let bit = if set then AST.num1 1<rt> else AST.num0 1<rt>
-    !.CPSR := (!.CPSR .& num 0xdfffffffu) .| (AST.zext 32<rt> bit << num 29u)
+  /// The C an encoding leaves in CPSR, run with C given and with every
+  /// register else zero.
+  let carryAfter isThumb hex carryIn =
+    let cpsr = if carryIn then 0x20000000u else 0u
+    let read =
+      IRRunner.run (liftedBy isThumb hex) [ !.CPSR, BitVector(cpsr, 32<rt>) ]
+    (read !.CPSR).ToUInt64() &&& 0x20000000UL <> 0UL
 
-  /// Whether the statements of one encoding set C to the constant given.
+  /// Whether one encoding sets C to the constant given, whatever C was, as a
+  /// flag-setting logical instruction does from a rotated immediate:
+  /// imm32<31>.
   let writesCarry isThumb hex set =
-    liftedBy isThumb hex |> Array.contains (carryPut set)
+    carryAfter isThumb hex true = set && carryAfter isThumb hex false = set
 
   /// Whether a statement after the one that writes a register reads it: the
   /// new value, where the instruction reads its operands before it writes.

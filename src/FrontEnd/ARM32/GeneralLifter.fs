@@ -209,14 +209,8 @@ let adc isSetFlags ins bld =
       let struct (t1, t2) = tmpVars2 bld 32<rt>
       t1 := src1
       t2 := src2
-      let struct (result, carryOut, overflow, rHigh) =
-        addWithCarry t1 t2 (getCarryFlag bld) bld
+      let result = addWithCarrySetFlags t1 t2 (getCarryFlag bld) bld
       dst := result
-      let cpsr = regVar bld R.CPSR
-      cpsr := rHigh |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-      cpsr := carryOut |> setPSR bld R.CPSR PSR.C
-      cpsr := overflow |> setPSR bld R.CPSR PSR.V
     else
       let result = tmpVar bld 32<rt>
       result := addWithCarryOnlyResult src1 src2 (getCarryFlag bld)
@@ -280,14 +274,8 @@ let add isSetFlags ins bld =
       let struct (t1, t2) = tmpVars2 bld 32<rt>
       t1 := src1
       t2 := src2
-      let struct (result, carryOut, overflow, rHigh) =
-        addWithCarry t1 t2 (AST.num0 32<rt>) bld
+      let result = addWithCarrySetFlags t1 t2 (AST.num0 32<rt>) bld
       dst := result
-      let cpsr = regVar bld R.CPSR
-      cpsr := rHigh |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-      cpsr := carryOut |> setPSR bld R.CPSR PSR.C
-      cpsr := overflow |> setPSR bld R.CPSR PSR.V
     else
       let result = tmpVar bld 32<rt>
       result := addWithCarryOnlyResult src1 src2 (AST.num0 32<rt>)
@@ -655,14 +643,8 @@ let sub isSetFlags ins bld =
       let struct (t1, t2) = tmpVars2 bld 32<rt>
       t1 := src1
       t2 := src2
-      let struct (result, carryOut, overflow, rHigh) =
-        addWithCarry t1 (AST.not t2) (AST.num1 32<rt>) bld
+      let result = addWithCarrySetFlags t1 (AST.not t2) (AST.num1 32<rt>) bld
       dst := result
-      let cpsr = regVar bld R.CPSR
-      cpsr := rHigh |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-      cpsr := carryOut |> setPSR bld R.CPSR PSR.C
-      cpsr := overflow |> setPSR bld R.CPSR PSR.V
     else
       let result = tmpVar bld 32<rt>
       result :=
@@ -812,10 +794,7 @@ let logicalAnd isSetFlags (ins: Instruction) bld =
     else
       dst := result
       if isSetFlags then
-        let cpsr = regVar bld R.CPSR
-        cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-        cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-        cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+        setNZC bld result carryOut
       else
         ()
     putEndLabel bld lblIgnore
@@ -846,16 +825,9 @@ let mov isSetFlags ins bld =
     else
       dst := result
       if isSetFlags then
-        let cpsr = regVar bld R.CPSR
-        cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-        cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
         (* A rotated immediate carries out its top bit; anything else keeps
            C as it was. *)
-        if ins.Cflag.IsSome then
-          let carry = computeCarryOutFromImmCflag ins bld
-          cpsr := carry |> setPSR bld R.CPSR PSR.C
-        else
-          ()
+        setNZC bld result (computeCarryOutFromImmCflag ins bld)
       else
         ()
     putEndLabel bld lblIgnore
@@ -873,10 +845,7 @@ let eor isSetFlags (ins: Instruction) bld =
     else
       dst := result
       if isSetFlags then
-        let cpsr = regVar bld R.CPSR
-        cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-        cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-        cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+        setNZC bld result carryOut
       else
         ()
     putEndLabel bld lblIgnore
@@ -912,14 +881,8 @@ let rsb isSetFlags ins bld =
     if isSetFlags then
       t1 := src1
       t2 := src2
-      let struct (result, carryOut, overflow, rHigh) =
-        addWithCarry (AST.not t1) t2 (AST.num1 32<rt>) bld
+      let result = addWithCarrySetFlags (AST.not t1) t2 (AST.num1 32<rt>) bld
       dst := result
-      let cpsr = regVar bld R.CPSR
-      cpsr := rHigh |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-      cpsr := carryOut |> setPSR bld R.CPSR PSR.C
-      cpsr := overflow |> setPSR bld R.CPSR PSR.V
     else
       let result = tmpVar bld 32<rt>
       result :=
@@ -968,14 +931,8 @@ let sbc isSetFlags ins bld =
     if isSetFlags then
       t1 := src1
       t2 := src2
-      let struct (result, carryOut, overflow, rHigh) =
-        addWithCarry t1 (AST.not t2) (getCarryFlag bld) bld
+      let result = addWithCarrySetFlags t1 (AST.not t2) (getCarryFlag bld) bld
       dst := result
-      let cpsr = regVar bld R.CPSR
-      cpsr := rHigh |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-      cpsr := carryOut |> setPSR bld R.CPSR PSR.C
-      cpsr := overflow |> setPSR bld R.CPSR PSR.V
     else
       let result = tmpVar bld 32<rt>
       result :=
@@ -1015,14 +972,8 @@ let rsc isSetFlags ins bld =
     if isSetFlags then
       t1 := src1
       t2 := src2
-      let struct (result, carryOut, overflow, rHigh) =
-        addWithCarry (AST.not t1) t2 (getCarryFlag bld) bld
+      let result = addWithCarrySetFlags (AST.not t1) t2 (getCarryFlag bld) bld
       dst := result
-      let cpsr = regVar bld R.CPSR
-      cpsr := rHigh |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-      cpsr := carryOut |> setPSR bld R.CPSR PSR.C
-      cpsr := overflow |> setPSR bld R.CPSR PSR.V
     else
       let result = tmpVar bld 32<rt>
       result :=
@@ -1044,10 +995,7 @@ let orr isSetFlags (ins: Instruction) bld =
     else
       dst := result
       if isSetFlags then
-        let cpsr = regVar bld R.CPSR
-        cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-        cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-        cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+        setNZC bld result carryOut
       else
         ()
     putEndLabel bld lblIgnore
@@ -1065,10 +1013,7 @@ let orn isSetFlags (ins: Instruction) bld =
     else
       dst := result
       if isSetFlags then
-        let cpsr = regVar bld R.CPSR
-        cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-        cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-        cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+        setNZC bld result carryOut
       else
         ()
     putEndLabel bld lblIgnore
@@ -1086,10 +1031,7 @@ let bic isSetFlags (ins: Instruction) bld =
     else
       dst := result
       if isSetFlags then
-        let cpsr = regVar bld R.CPSR
-        cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-        cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-        cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+        setNZC bld result carryOut
       else
         ()
     putEndLabel bld lblIgnore
@@ -1149,10 +1091,7 @@ let mvn isSetFlags ins bld =
     else
       dst := result
       if isSetFlags then
-        let cpsr = regVar bld R.CPSR
-        cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-        cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-        cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+        setNZC bld result carryOut
       else
         ()
     putEndLabel bld lblIgnore
@@ -1225,10 +1164,7 @@ let shiftInstr isSetFlags ins typ bld =
     else
       dst := result
       if isSetFlags then
-        let cpsr = regVar bld R.CPSR
-        cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-        cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-        cpsr := carry |> setPSR bld R.CPSR PSR.C
+        setNZC bld result carry
       else
         ()
     putEndLabel bld lblIgnore
@@ -1440,17 +1376,11 @@ let cmn ins bld =
   lift bld ins {
     let struct (dst, src) = parseOprOfCMN ins bld
     let struct (t1, t2) = tmpVars2 bld 32<rt>
-    let cpsr = regVar bld R.CPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     t1 := dst
     t2 := src
-    let struct (result, carryOut, overflow, rHigh) =
-      addWithCarry t1 t2 (AST.num0 32<rt>) bld
-    cpsr := rHigh |> setPSR bld R.CPSR PSR.N
-    cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-    cpsr := carryOut |> setPSR bld R.CPSR PSR.C
-    cpsr := overflow |> setPSR bld R.CPSR PSR.V
+    addWithCarrySetFlags t1 t2 (AST.num0 32<rt>) bld |> ignore
     putEndLabel bld lblIgnore
   }
 
@@ -1464,9 +1394,7 @@ let mla isSetFlags ins bld =
                                AST.zext 64<rt> ra)
     rd := r
     if isSetFlags then
-      let cpsr = regVar bld R.CPSR
-      cpsr := AST.xthi 1<rt> r |> setPSR bld R.CPSR PSR.N
-      cpsr := r == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
+      setNZ bld r
     else
       ()
     putEndLabel bld lblIgnore
@@ -1508,17 +1436,11 @@ let cmp ins bld =
   lift bld ins {
     let struct (rn, rm) = parseOprOfCMP ins bld
     let struct (t1, t2) = tmpVars2 bld 32<rt>
-    let cpsr = regVar bld R.CPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     t1 := rn
     t2 := rm
-    let struct (result, carryOut, overflow, rHigh) =
-      addWithCarry t1 (AST.not t2) (AST.num1 32<rt>) bld
-    cpsr := rHigh |> setPSR bld R.CPSR PSR.N
-    cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-    cpsr := carryOut |> setPSR bld R.CPSR PSR.C
-    cpsr := overflow |> setPSR bld R.CPSR PSR.V
+    addWithCarrySetFlags t1 (AST.not t2) (AST.num1 32<rt>) bld |> ignore
     putEndLabel bld lblIgnore
   }
 
@@ -1547,9 +1469,7 @@ let umlal isSetFlags ins bld =
     rdHi := AST.xthi 32<rt> result
     rdLo := AST.xtlo 32<rt> result
     if isSetFlags then
-      let cpsr = regVar bld R.CPSR
-      cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 64<rt> |> setPSR bld R.CPSR PSR.Z
+      setNZOfLong bld result
     else
       ()
     putEndLabel bld lblIgnore
@@ -1565,9 +1485,7 @@ let umull isSetFlags ins bld =
     rdHi := AST.xthi 32<rt> result
     rdLo := AST.xtlo 32<rt> result
     if isSetFlags then
-      let cpsr = regVar bld R.CPSR
-      cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 64<rt> |> setPSR bld R.CPSR PSR.Z
+      setNZOfLong bld result
     else
       ()
     putEndLabel bld lblIgnore
@@ -1598,13 +1516,10 @@ let teq ins bld =
   lift bld ins {
     let src1, src2, carryOut = transOprsOfTEQ ins bld
     let result = tmpVar bld 32<rt>
-    let cpsr = regVar bld R.CPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     result := src1 <+> src2
-    cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-    cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-    cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+    setNZC bld result carryOut
     putEndLabel bld lblIgnore
   }
 
@@ -1617,9 +1532,7 @@ let mul isSetFlags ins bld =
     result := AST.xtlo 32<rt> (AST.zext 64<rt> rn .* AST.zext 64<rt> rm)
     rd := result
     if isSetFlags then
-      let cpsr = regVar bld R.CPSR
-      cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
+      setNZ bld result
     else
       ()
     putEndLabel bld lblIgnore
@@ -1655,13 +1568,10 @@ let tst ins bld =
   lift bld ins {
     let struct (src1, src2, carryOut) = transOprsOfTST ins bld
     let result = tmpVar bld 32<rt>
-    let cpsr = regVar bld R.CPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     result := src1 .& src2
-    cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-    cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-    cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+    setNZC bld result carryOut
     putEndLabel bld lblIgnore
   }
 
@@ -1723,9 +1633,7 @@ let smulandacc isSetFlags doAcc ins bld =
     rdHi := AST.xthi 32<rt> result
     rdLo := AST.xtlo 32<rt> result
     if isSetFlags then
-      let cpsr = regVar bld R.CPSR
-      cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
-      cpsr := result == AST.num0 64<rt> |> setPSR bld R.CPSR PSR.Z
+      setNZOfLong bld result
     else
       ()
     putEndLabel bld lblIgnore
