@@ -99,6 +99,17 @@ type LifterTests() =
     let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
     ins.Translate builder
 
+  /// The statements one A32 encoding lifts to under an ISA that names VFP
+  /// short vectors, without which Len or Stride makes a VFP instruction
+  /// UNDEFINED.
+  let liftedWithShortVectors (hex: string) =
+    let flags = int ARMv7Extension.ShortVectors
+    let shvec = ISA(Architecture.ARMv7, Endian.Big, WordSize.Bit32, flags)
+    let parser = Parser(shvec, false, reader) :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default(shvec, regFactory, LowUIRStream())
+    let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+    ins.Translate builder
+
   /// The statements one T32 encoding lifts to as the one instruction of an
   /// IT EQ block, parsed where the IT instruction leaves ITSTATE at 0x08.
   let liftedInITBlock (hex: string) =
@@ -2171,7 +2182,7 @@ type LifterTests() =
     let inputs =
       (!.FPSCR, BitVector(0x10000u, 32<rt>))
       :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
-    let read = IRRunner.run (liftedBy false "ee357b06") inputs
+    let read = IRRunner.run (liftedWithShortVectors "ee357b06") inputs
     Assert.AreEqual<uint64>(0x4008000000000000UL, (read (dReg 7)).ToUInt64())
     Assert.AreEqual<uint64>(0x4014000000000000UL, (read (dReg 4)).ToUInt64())
 
@@ -2181,7 +2192,7 @@ type LifterTests() =
     let inputs =
       (!.FPSCR, BitVector(0x10000u, 32<rt>))
       :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
-    let read = IRRunner.run (liftedBy false "ee710ba2") inputs
+    let read = IRRunner.run (liftedWithShortVectors "ee710ba2") inputs
     Assert.AreEqual<uint64>(0x4008000000000000UL, (read (dReg 16)).ToUInt64())
     Assert.AreEqual<uint64>(0x3ff0000000000000UL, (read (dReg 17)).ToUInt64())
 
@@ -2197,15 +2208,35 @@ type LifterTests() =
     let inputs =
       (!.FPSCR, BitVector(0x10000u, 32<rt>))
       :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
-    let read = IRRunner.run (liftedBy false "ee384a0c") inputs
+    let read = IRRunner.run (liftedWithShortVectors "ee384a0c") inputs
     Assert.AreEqual<uint64>(0x4040000040000000UL, (read (dReg 4)).ToUInt64())
 
   [<TestMethod>]
   member _.``[ARMv7] VADD.F32 into s0 stays scalar under Len 1``() =
     let one = 0x3f800000UL
     let ds = [ 2, one; 4, (one <<< 32) ||| one ]
-    let d0, _, _ = fpRun "ee320a04" 0x10000u ds
-    Assert.AreEqual<uint64>(0x40000000UL, d0)
+    let inputs =
+      (!.FPSCR, BitVector(0x10000u, 32<rt>))
+      :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
+    let read = IRRunner.run (liftedWithShortVectors "ee320a04") inputs
+    Assert.AreEqual<uint64>(0x40000000UL, (read (dReg 0)).ToUInt64())
+
+  /// Without short vectors, as on a Cortex-A15 or anything Armv8, a length or
+  /// a stride in FPSCR makes a VFP data-processing instruction UNDEFINED.
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 without short vectors refuses a length``() =
+    let named = (!.FPSCR .& num 0x370000u) != AST.num0 32<rt>
+    Assert.AreEqual<Expr option>(Some named, undefinedWhen false "ee384a0c")
+
+  /// And with neither, VADD.F32 s8, s16, s24 is the one addition: s8 = 1 + 2,
+  /// and s9 keeps its 5 where a vector would have put s17 + s25 = 0.
+  [<TestMethod>]
+  member _.``[ARMv7] VADD.F32 without short vectors adds one pair``() =
+    let one, two, five = 0x3f800000UL, 0x40000000UL, 0x40a00000UL
+    let ds = [ 4, five <<< 32; 8, one; 12, two ]
+    let inputs = [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
+    let read = IRRunner.run (liftedBy false "ee384a0c") inputs
+    Assert.AreEqual<uint64>(0x40a0000040400000UL, (read (dReg 4)).ToUInt64())
 
   /// <summary>
   /// A second operand in the first bank is a scalar to every step, and the
@@ -2219,7 +2250,7 @@ type LifterTests() =
     let inputs =
       (!.FPSCR, BitVector(0x310000u, 32<rt>))
       :: [ for n, v in ds -> dReg n, BitVector(v, 64<rt>) ]
-    let read = IRRunner.run (liftedBy false "ee277aa1") inputs
+    let read = IRRunner.run (liftedWithShortVectors "ee277aa1") inputs
     Assert.AreEqual<uint64>(0x3f80000040000000UL, (read (dReg 7)).ToUInt64())
     Assert.AreEqual<uint64>(0x3f80000040000000UL, (read (dReg 4)).ToUInt64())
 

@@ -89,7 +89,8 @@ module private ARMVersion =
       "idiv", int ARMv7Extension.IDIV
       "mp", int ARMv7Extension.MP
       "sec", int ARMv7Extension.Sec
-      "virt", int ARMv7Extension.Virt ]
+      "virt", int ARMv7Extension.Virt
+      "shortvec", int ARMv7Extension.ShortVectors ]
 
   (* GCC's name for the Armv8.0 Cryptographic Extension, which is two of the
      features above; it is read but never printed. *)

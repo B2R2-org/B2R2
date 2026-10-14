@@ -189,6 +189,13 @@ and [<System.Flags>] ARMv7Extension =
   /// The Virtualization Extensions, which add HVC and ERET and bring the
   /// integer divides.
   | Virt = 0x8000
+  /// VFP short vectors, by which FPSCR.Len and FPSCR.Stride make a VFP
+  /// data-processing instruction work over a vector of registers (DDI0406C
+  /// Appendix D11). They are deprecated in ARMv7, gone in Armv8, and left to
+  /// the implementation before that, so no version brings them: a processor
+  /// without them takes such an instruction as UNDEFINED where Len or Stride
+  /// is not zero, which the procedure call standard never has them be.
+  | ShortVectors = 0x10000
 
 /// Represents which release of the MIPS architecture a MIPS ISA means.
 /// Release 6 is a different encoding space, not an extension of the earlier

@@ -186,6 +186,20 @@ let private vectorSteps (r: Register) stride =
   let bank = if r <= R.S31 then 8 else 4
   bank / stride - 1
 
+/// Whether the ISA has VFP short vectors, which only naming them brings.
+let private runsShortVectors (bld: ILowUIRBuilder) =
+  let named = bld.ISA.ARMv7Extensions &&& ARMv7Extension.ShortVectors
+  named = ARMv7Extension.ShortVectors
+
+/// Raises an Undefined Instruction exception where FPSCR names a short vector,
+/// a length or a stride, for a processor that has none to run.
+let private undefinedOnShortVector bld =
+  let fpscr = regVar bld R.FPSCR
+  let named = (fpscr .& numU32 0x370000u 32<rt>) != AST.num0 32<rt>
+  _when bld "ShortVector" named (block {
+    AST.sideEffect UndefinedInstruction
+  })
+
 /// <summary>
 /// A VFP instruction under FPSCR.Len and FPSCR.Stride (DDI0406C Appendix
 /// D11). With its destination outside the first bank it repeats over a short
@@ -196,10 +210,16 @@ let private vectorSteps (r: Register) stride =
 /// The stride is two where the field's top bit is set: 0b11, the only other
 /// value the appendix permits, and the two UNPREDICTABLE ones taken as that
 /// bit says.
+///
+/// <para>That is only where the ISA names short vectors. Elsewhere, as on a
+/// Cortex-A15 or anything Armv8, a length or a stride makes the instruction
+/// UNDEFINED, and it is otherwise the one scalar operation.</para>
 /// </summary>
 let private vfpVector bld (regs: Register[]) step =
+  let vectors = runsShortVectors bld
+  if vectors then () else undefinedOnShortVector bld
   step regs
-  if isScalarBank regs[0] then
+  if not vectors || isScalarBank regs[0] then
     ()
   else
     let fpscr = regVar bld R.FPSCR
