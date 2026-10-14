@@ -71,6 +71,19 @@ let oneDt dt = Some(OneDT dt)
 
 let twoDt (dt1, dt2) = Some(TwoDT(dt1, dt2))
 
+/// A coprocessor's memory transfer: a load or a store, its long form or not,
+/// and the form named 2, which the unconditional encoding is.
+let coprocTransferOp isTwo isLoad isLong =
+  match isTwo, isLoad, isLong with
+  | false, false, false -> Opcode.STC
+  | false, false, true -> Opcode.STCL
+  | false, true, false -> Opcode.LDC
+  | false, true, true -> Opcode.LDCL
+  | true, false, false -> Opcode.STC2
+  | true, false, true -> Opcode.STC2L
+  | true, true, false -> Opcode.LDC2
+  | true, true, true -> Opcode.LDC2L
+
 let getSign s = if s = 1u then Plus else Minus
 
 let getEndian = function

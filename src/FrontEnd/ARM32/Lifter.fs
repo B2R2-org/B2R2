@@ -41,6 +41,22 @@ open B2R2.FrontEnd.ARM32.SystemLifter
 /// Translate IR.
 let translate (ins: Instruction) bld =
   match ins.Opcode with
+  | _ when FP16Lifter.handles ins ->
+    FP16Lifter.translate ins bld
+  | Op.VCVT when BF16Lifter.converts ins ->
+    BF16Lifter.vcvt ins bld
+  | Op.VCVTB when BF16Lifter.converts ins ->
+    BF16Lifter.vcvtHalf ins bld false
+  | Op.VCVTT when BF16Lifter.converts ins ->
+    BF16Lifter.vcvtHalf ins bld true
+  | Op.VDOT ->
+    BF16Lifter.vdot ins bld
+  | Op.VMMLA ->
+    BF16Lifter.vmmla ins bld
+  | Op.VFMAB ->
+    BF16Lifter.vfmaLong ins bld false
+  | Op.VFMAT ->
+    BF16Lifter.vfmaLong ins bld true
   | Op.ADC ->
     adc false ins bld
   | Op.ADCS ->
@@ -51,6 +67,14 @@ let translate (ins: Instruction) bld =
     adds true ins bld
   | Op.ADR ->
     adr ins bld (* for Thumb mode *)
+  | Op.AESD ->
+    CryptoLifter.aesRound ins bld true
+  | Op.AESE ->
+    CryptoLifter.aesRound ins bld false
+  | Op.AESIMC ->
+    CryptoLifter.aesMixColumns ins bld true
+  | Op.AESMC ->
+    CryptoLifter.aesMixColumns ins bld false
   | Op.AND ->
     logicalAnd false ins bld
   | Op.ANDS ->
@@ -88,6 +112,8 @@ let translate (ins: Instruction) bld =
   | Op.STC2 | Op.STC2L | Op.STCL ->
     (* coprocessor instructions *)
     unsupported ins bld
+  | Op.CLREX ->
+    clrex ins bld
   | Op.CLZ ->
     clz ins bld
   | Op.CMN ->
@@ -96,18 +122,47 @@ let translate (ins: Instruction) bld =
     cmp ins bld
   | Op.CPS | Op.CPSID | Op.CPSIE ->
     cps ins bld
-  | Op.CLREX | Op.DMB | Op.DSB | Op.ISB | Op.PLD | Op.PLI | Op.PLDW ->
+  | Op.CRC32B ->
+    crc32 ins bld false 8<rt>
+  | Op.CRC32H ->
+    crc32 ins bld false 16<rt>
+  | Op.CRC32W ->
+    crc32 ins bld false 32<rt>
+  | Op.CRC32CB ->
+    crc32 ins bld true 8<rt>
+  | Op.CRC32CH ->
+    crc32 ins bld true 16<rt>
+  | Op.CRC32CW ->
+    crc32 ins bld true 32<rt>
+  | Op.DMB | Op.DSB | Op.ISB | Op.SSBB | Op.PSSBB | Op.PLD | Op.PLI
+  | Op.PLDW ->
     nop ins bld
   | Op.EOR ->
     eor false ins bld
   | Op.EORS ->
     eors true ins bld
   | Op.ERET ->
-    unsupported ins bld
+    eret ins bld
+  (* Halting and Debug state are an external debugger's, which is not
+     modelled: HLT and DCPS are UNDEFINED without one *)
+  | Op.HLT | Op.DCPS1 | Op.DCPS2 | Op.DCPS3 ->
+    undefined ins bld
+  (* no processor modelled here has ThumbEE, without which both are UNDEFINED *)
+  | Op.ENTERX | Op.LEAVEX ->
+    undefined ins bld
+  | Op.HVC | Op.SMC ->
+    privilegedCall ins bld
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
   | Op.ITEEE ->
     it ins bld
+  (* Load-acquire: with one observer, the order it promises shows nowhere *)
+  | Op.LDA ->
+    ldr ins bld 32<rt> AST.zext
+  | Op.LDAB ->
+    ldr ins bld 8<rt> AST.zext
+  | Op.LDAH ->
+    ldr ins bld 16<rt> AST.zext
   | Op.LDM ->
     ldm Op.LDM ins bld (.+)
   | Op.LDMDA ->
@@ -229,6 +284,26 @@ let translate (ins: Instruction) bld =
     parallelAddSub ins bld 8 false SaturatingLane ParallelAdd
   | Op.QSUB8 ->
     parallelAddSub ins bld 8 false SaturatingLane ParallelSub
+  | Op.SHA1C ->
+    CryptoLifter.sha1c ins bld
+  | Op.SHA1H ->
+    CryptoLifter.sha1h ins bld
+  | Op.SHA1M ->
+    CryptoLifter.sha1m ins bld
+  | Op.SHA1P ->
+    CryptoLifter.sha1p ins bld
+  | Op.SHA1SU0 ->
+    CryptoLifter.sha1su0 ins bld
+  | Op.SHA1SU1 ->
+    CryptoLifter.sha1su1 ins bld
+  | Op.SHA256H ->
+    CryptoLifter.sha256Hash ins bld true
+  | Op.SHA256H2 ->
+    CryptoLifter.sha256Hash ins bld false
+  | Op.SHA256SU0 ->
+    CryptoLifter.sha256su0 ins bld
+  | Op.SHA256SU1 ->
+    CryptoLifter.sha256su1 ins bld
   | Op.SHADD16 ->
     parallelAddSub ins bld 16 false HalvingLane ParallelAdd
   | Op.SHASX ->
@@ -293,8 +368,8 @@ let translate (ins: Instruction) bld =
     rev16 ins bld
   | Op.REVSH ->
     revsh ins bld
-  | Op.RFEDB ->
-    rfedb ins bld
+  | Op.RFEDA | Op.RFEDB | Op.RFEIA | Op.RFEIB ->
+    rfe ins bld
   | Op.ROR ->
     shiftInstr false ins ShiftOp.ROR bld
   | Op.RORS ->
@@ -317,6 +392,10 @@ let translate (ins: Instruction) bld =
     sbcs true ins bld
   | Op.SBFX ->
     bfx ins bld true
+  | Op.SETEND ->
+    setend ins bld
+  | Op.SETPAN ->
+    setpan ins bld
   | Op.SEL ->
     sel ins bld
   | Op.SMLABB ->
@@ -399,6 +478,15 @@ let translate (ins: Instruction) bld =
     smulhalf ins bld true false
   | Op.SMULTT ->
     smulhalf ins bld true true
+  | Op.SRSDA | Op.SRSDB | Op.SRSIA | Op.SRSIB ->
+    srs ins bld
+  (* Store-release, for the same reason a plain store *)
+  | Op.STL ->
+    str ins bld 32<rt>
+  | Op.STLB ->
+    str ins bld 8<rt>
+  | Op.STLH ->
+    str ins bld 16<rt>
   | Op.STM ->
     stm Op.STM ins bld (.+)
   | Op.STMDA ->
@@ -483,8 +571,9 @@ let translate (ins: Instruction) bld =
     tst ins bld
   | Op.UBFX ->
     bfx ins bld false
+  (* permanently UNDEFINED: the immediate is a debugger's, not a call's *)
   | Op.UDF ->
-    udf ins bld
+    undefined ins bld
   | Op.UMAAL ->
     umaal ins bld
   | Op.UMLAL ->
@@ -505,8 +594,12 @@ let translate (ins: Instruction) bld =
     extendHalves ins bld AST.zext
   | Op.UXTH ->
     extend ins bld AST.zext 16<rt>
+  | Op.VABS when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vabs ins bld
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
     vabsf ins bld
+  | Op.VABD when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vabd ins bld
   | Op.VABD ->
     vabd ins bld
   | Op.VABA ->
@@ -519,6 +612,8 @@ let translate (ins: Instruction) bld =
     vshrn ins bld
   | Op.VABS ->
     vabs ins bld
+  | Op.VADD when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vadd ins bld
   | Op.VADD when isF16orF32orF64 ins.SIMDTyp ->
     vaddsub ins bld AST.fadd
   | Op.VADD ->
@@ -545,23 +640,40 @@ let translate (ins: Instruction) bld =
     vaddl ins bld
   | Op.VAND ->
     vand ins bld
-  | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
-    when isF32orF64 ins.SIMDTyp ->
+  | Op.VCEQ when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcompare ins bld FloatingPoint.FPEqual false false
+  | Op.VCGE when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcompare ins bld FloatingPoint.FPGreaterOrEqual false false
+  | Op.VCGT when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcompare ins bld FloatingPoint.FPGreater false false
+  | Op.VCLE when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcompare ins bld FloatingPoint.FPGreaterOrEqual true false
+  | Op.VCLT when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcompare ins bld FloatingPoint.FPGreater true false
+  | Op.VACGE when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcompare ins bld FloatingPoint.FPGreaterOrEqual false true
+  | Op.VACGT when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcompare ins bld FloatingPoint.FPGreater false true
+  | Op.VACLE when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcompare ins bld FloatingPoint.FPGreaterOrEqual true true
+  | Op.VACLT when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcompare ins bld FloatingPoint.FPGreater true true
+  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT ->
     unsupported ins bld
-  | Op.VACGE ->
-    vacge ins bld
-  | Op.VACGT ->
-    vacgt ins bld
-  | Op.VACLE ->
-    vacle ins bld
-  | Op.VACLT ->
-    vaclt ins bld
+  | Op.VRECPE when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vestimateF32 ins bld false
   | Op.VRECPE ->
     vrecpe ins bld
+  | Op.VRSQRTE when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vestimateF32 ins bld true
   | Op.VRSQRTE ->
     vrsqrte ins bld
+  | Op.VRECPS when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vrecpstep ins bld false
   | Op.VRECPS ->
     vrecps ins bld
+  | Op.VRSQRTS when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vrecpstep ins bld true
   | Op.VRSQRTS ->
     vrsqrts ins bld
   | Op.VCEQ ->
@@ -592,13 +704,59 @@ let translate (ins: Instruction) bld =
     vrev64 ins bld
   | Op.VCLZ ->
     vclz ins bld
+  | Op.VCADD ->
+    FPLifter.vcadd ins bld
   | Op.VCMLA ->
-    unsupported ins bld
-  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR ->
-    unsupported ins bld
+    FPLifter.vcmla ins bld
+  | Op.VCVTR ->
+    FPLifter.vcvt ins bld false
+  | Op.VCVTA ->
+    FPv8Lifter.vcvtRounding ins bld FPv8Lifter.TiesAway
+  | Op.VCVTN ->
+    FPv8Lifter.vcvtRounding ins bld FPv8Lifter.toNearest
+  | Op.VCVTP ->
+    FPv8Lifter.vcvtRounding ins bld FPv8Lifter.towardPlus
+  | Op.VCVTM ->
+    FPv8Lifter.vcvtRounding ins bld FPv8Lifter.towardMinus
+  | Op.VJCVT ->
+    FPv8Lifter.vjcvt ins bld
+  | Op.VMAXNM ->
+    FPv8Lifter.vmaxminnm ins bld true
+  | Op.VMINNM ->
+    FPv8Lifter.vmaxminnm ins bld false
+  | Op.VRINTA ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.TiesAway false
+  | Op.VRINTN ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.toNearest false
+  | Op.VRINTP ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.towardPlus false
+  | Op.VRINTM ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.towardMinus false
+  | Op.VRINTZ ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.towardZero false
+  | Op.VRINTR ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.Current false
+  | Op.VRINTX ->
+    FPv8Lifter.vrint ins bld FPv8Lifter.Current true
+  | Op.VSELEQ ->
+    FPv8Lifter.vsel ins bld Condition.EQ
+  | Op.VSELGE ->
+    FPv8Lifter.vsel ins bld Condition.GE
+  | Op.VSELGT ->
+    FPv8Lifter.vsel ins bld Condition.GT
+  | Op.VSELVS ->
+    FPv8Lifter.vsel ins bld Condition.VS
   (* The four fused forms, which differ only in which of Sn and Sd they pass
      through FPNeg. The flip is made on the operand, as the manual makes it,
      so that a NaN operand comes out with its sign turned over. *)
+  | Op.VFMA when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vfma ins bld
+  | Op.VFMS when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vfms ins bld
+  | Op.VFNMA when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vfnma ins bld
+  | Op.VFNMS when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vfnms ins bld
   | Op.VFMA ->
     vfpFusedMulAcc ins bld false false
   | Op.VFMS ->
@@ -607,6 +765,12 @@ let translate (ins: Instruction) bld =
     vfpFusedMulAcc ins bld true true
   | Op.VFNMS ->
     vfpFusedMulAcc ins bld false true
+  | Op.VNMUL when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vnmul ins bld
+  | Op.VNMLA when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vnmla ins bld
+  | Op.VNMLS when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vnmls ins bld
   | Op.VNMUL ->
     vfpMulAcc ins bld (fun sz _ p -> fpNegBits sz p)
   | Op.VNMLA ->
@@ -620,18 +784,24 @@ let translate (ins: Instruction) bld =
     (* FPAdd(FPNeg(Sd), product). A subtraction agrees on every number and
        hands a NaN accumulator back unflipped. *)
     vfpMulAcc ins bld (fun sz d p -> AST.fadd (fpNegBits sz d) p)
+  | Op.VSQRT when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vsqrt ins bld
   | Op.VSQRT ->
     vsqrtf ins bld
+  | Op.VCMP | Op.VCMPE when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vcmp ins bld (ins.Opcode = Op.VCMPE)
   | Op.VCMP | Op.VCMPE ->
     vcmp ins bld
   | Op.VCVT ->
-    vcvt ins bld
+    FPLifter.vcvt ins bld true
+  | Op.VDIV when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vdiv ins bld
   | Op.VDIV ->
     vdiv ins bld
   | Op.VCVTB ->
-    vcvtb ins bld
+    FPLifter.vcvtHalf ins bld false
   | Op.VCVTT ->
-    vcvtt ins bld
+    FPLifter.vcvtHalf ins bld true
   | Op.VDUP ->
     vdup ins bld
   | Op.VEXT ->
@@ -648,16 +818,22 @@ let translate (ins: Instruction) bld =
     vld3 ins bld
   | Op.VLD4 ->
     vld4 ins bld
-  | Op.VLDM | Op.VLDMIA | Op.VLDMDB ->
+  | Op.VLDM | Op.VLDMIA | Op.VLDMDB | Op.FLDMIAX | Op.FLDMDBX ->
     vldm ins bld
   | Op.VLDR ->
     vldr ins bld
-  | Op.VMAX | Op.VMIN when isF32orF64 ins.SIMDTyp ->
-    unsupported ins bld
+  | Op.VMAX when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vmaxmin ins bld true
+  | Op.VMIN when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vmaxmin ins bld false
   | Op.VMAX ->
     vmaxmin ins bld true
   | Op.VMIN ->
     vmaxmin ins bld false
+  | Op.VMLA when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vmla ins bld
+  | Op.VMLS when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vmls ins bld
   | Op.VMLA when isF16orF32orF64 ins.SIMDTyp ->
     vfpMulAcc ins bld (fun _ d p -> AST.fadd d p)
   | Op.VMLS when isF16orF32orF64 ins.SIMDTyp ->
@@ -671,6 +847,8 @@ let translate (ins: Instruction) bld =
     vmls ins bld
   | Op.VMLSL ->
     vmlsl ins bld
+  | Op.VMOV when isF32orF64 ins.SIMDTyp && FPLifter.isVFPMove ins ->
+    FPLifter.vmov ins bld
   | Op.VMOV when isF16orF32orF64 ins.SIMDTyp && not (isSIMDF32Imm ins) ->
     vmovfp ins bld
   | Op.VMOV ->
@@ -681,6 +859,8 @@ let translate (ins: Instruction) bld =
     vmrs ins bld
   | Op.VMSR ->
     vmsr ins bld
+  | Op.VMUL when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vmul ins bld
   | Op.VMUL when isF16orF32orF64 ins.SIMDTyp ->
     vmul ins bld AST.fmul
   | Op.VMUL ->
@@ -688,13 +868,17 @@ let translate (ins: Instruction) bld =
   | Op.VMULL ->
     vmull ins bld
   | Op.VNEG when isF32orF64 ins.SIMDTyp ->
-    vnegf ins bld
+    FPLifter.vneg ins bld
   | Op.VNEG ->
     vneg ins bld
   | Op.VORN ->
     vorn ins bld
   | Op.VORR ->
     vorr ins bld
+  | Op.VPMAX when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vpmaxmin ins bld true
+  | Op.VPMIN when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vpmaxmin ins bld false
   | Op.VPMAX ->
     vpmax ins bld
   | Op.VPMIN ->
@@ -704,7 +888,7 @@ let translate (ins: Instruction) bld =
   | Op.VPADAL ->
     vpadal ins bld
   | Op.VPADD when isF32orF64 ins.SIMDTyp ->
-    unsupported ins bld
+    FPLifter.vpadd ins bld
   | Op.VPADD ->
     vpadd ins bld
   | Op.VPOP ->
@@ -739,6 +923,24 @@ let translate (ins: Instruction) bld =
     vqdmulh ins bld
   | Op.VQRDMULH ->
     vqrdmulh ins bld
+  | Op.VQRDMLAH ->
+    SIMDv8Lifter.vqrdmlah ins bld false
+  | Op.VQRDMLSH ->
+    SIMDv8Lifter.vqrdmlah ins bld true
+  | Op.VSDOT ->
+    SIMDv8Lifter.dotProduct ins bld false false
+  | Op.VUDOT ->
+    SIMDv8Lifter.dotProduct ins bld true true
+  | Op.VUSDOT ->
+    SIMDv8Lifter.dotProduct ins bld true false
+  | Op.VSUDOT ->
+    SIMDv8Lifter.dotProduct ins bld false true
+  | Op.VSMMLA ->
+    SIMDv8Lifter.matMulAdd ins bld false false
+  | Op.VUMMLA ->
+    SIMDv8Lifter.matMulAdd ins bld true true
+  | Op.VUSMMLA ->
+    SIMDv8Lifter.matMulAdd ins bld true false
   | Op.VQDMULL ->
     vqdmull ins bld
   | Op.VQDMLAL ->
@@ -751,8 +953,6 @@ let translate (ins: Instruction) bld =
     vqmovun ins bld
   | Op.VRHADD ->
     vrhadd ins bld
-  | Op.VRINTP ->
-    unsupported ins bld
   | Op.VRSHR ->
     vrshr ins bld
   | Op.VRSHRN ->
@@ -781,10 +981,12 @@ let translate (ins: Instruction) bld =
     vst3 ins bld
   | Op.VST4 ->
     vst4 ins bld
-  | Op.VSTM | Op.VSTMIA | Op.VSTMDB ->
+  | Op.VSTM | Op.VSTMIA | Op.VSTMDB | Op.FSTMIAX | Op.FSTMDBX ->
     vstm ins bld
   | Op.VSTR ->
     vstr ins bld
+  | Op.VSUB when isF32orF64 ins.SIMDTyp ->
+    FPLifter.vsub ins bld
   | Op.VSUB when isF16orF32orF64 ins.SIMDTyp ->
     vaddsub ins bld AST.fsub
   | Op.VSUB ->

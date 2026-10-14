@@ -358,7 +358,9 @@ let private branchT (funct: uint32) ins =
 let private pcRelExt (major: uint32) ins =
   match ins.Operands with
   | TwoOperands(Rg rx, Place distance) ->
-    let v = fits 16 false (uint64 distance)
+    (* The extended forms sign-extend the sixteen bits, so a label behind
+       the instruction is a negative distance and fits. *)
+    let v = fits 16 true (uint64 distance)
     extended (extImm v) (short major ((reg3 rx <<< 8) ||| (v &&& 0x1fu)))
   | _ ->
     wrongOperands ins
@@ -511,8 +513,15 @@ let private nop ins =
   | _ -> wrongOperands ins
 
 /// ASMACRO, whose fields are the implementation's to read and this
-/// assembler's only to carry.
-let private asmacro ins = wrongOperands ins
+/// assembler's only to carry: the one number the decoder makes of them, the
+/// prefix's eleven bits above the RRR's.
+let private asmacro ins =
+  match ins.Operands with
+  | OneOperand(Im fields) ->
+    let v = fits 22 false fields
+    extended (v >>> 11) ((0b11100u <<< 11) ||| (v &&& 0x7ffu))
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// How many bytes an instruction takes.
@@ -533,7 +542,7 @@ let size ins =
   | Opcode.LWU | Opcode.LD | Opcode.SB | Opcode.SH | Opcode.SW | Opcode.SD
   | Opcode.SLL | Opcode.SRL | Opcode.SRA
   | Opcode.DSLL | Opcode.DSRL | Opcode.DSRA
-  | Opcode.SAVE | Opcode.RESTORE ->
+  | Opcode.SAVE | Opcode.RESTORE | Opcode.ASMACRO ->
     4
   | _ ->
     2
@@ -596,11 +605,13 @@ let private i64AdjSp ins =
   | _ ->
     wrongOperands ins
 
-/// The doubleword load relative to the program counter.
+/// The doubleword load relative to the program counter, whose sixteen bits
+/// are sign-extended (MD00077, extended LD ry, offset(pc)): a label behind
+/// the instruction is a negative distance and fits.
 let private i64LdPc ins =
   match ins.Operands with
   | TwoOperands(Rg ry, Place distance) ->
-    i64Ext 0b100u (reg3 ry) (fits 16 false (uint64 distance))
+    i64Ext 0b100u (reg3 ry) (fits 16 true (uint64 distance))
   | _ ->
     wrongOperands ins
 
@@ -612,11 +623,11 @@ let private i64Daddiu5 ins =
   | _ ->
     wrongOperands ins
 
-/// DADDIU relative to the program counter.
+/// DADDIU relative to the program counter, signed the same way.
 let private i64DaddiuPc ins =
   match ins.Operands with
   | TwoOperands(Rg ry, Place distance) ->
-    i64Ext 0b110u (reg3 ry) (fits 16 false (uint64 distance))
+    i64Ext 0b110u (reg3 ry) (fits 16 true (uint64 distance))
   | _ ->
     wrongOperands ins
 

@@ -344,6 +344,11 @@ let chkPCRmRnPldw bin =
 (* if Q == '1' && Vd<0> == '1' then UNDEFINED *)
 let chkQVd bin = checkUndef ((pickBit bin 6 = 0b1u) && (pickBit bin 12 = 0b1u))
 
+(* if Q == '1' && Vd<0> == '1' then UNDEFINED, for VDUP (general-purpose
+   register), which keeps Q in bit 21 and Vd in bits 19:16 *)
+let chkDupQVd bin =
+  checkUndef ((pickBit bin 21 = 0b1u) && (pickBit bin 16 = 0b1u))
+
 (* if Vd<0> == '1' || Vn<0> == '1' then UNDEFINED *)
 let chkVdVn bin = checkUndef (pickBit bin 16 = 1u || pickBit bin 12 = 1u)
 

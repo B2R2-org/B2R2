@@ -84,6 +84,18 @@ type ARM64RoundTripTests() =
     | Ok((_, bytes) :: _) -> Some bytes
     | Ok [] | Error _ -> None
 
+  /// Whether a load or store reads or writes a single byte, the one access
+  /// whose register offset sets S for a written amount of zero.
+  static let isByteAccess (text: string) =
+    Regex.IsMatch(text, @"^(ldrb|strb|ldrsb|ldr b\d+,|str b\d+,)")
+
+  /// A register offset with its written amount of zero left out, which is
+  /// how an access wider than a byte prints it: there #0 is the amount S
+  /// clear already means (C6.2.133, C7.2.193).
+  static let withoutZeroAmount (text: string) =
+    let text = Regex.Replace(text, @"(, [su]xt[wx]) #0\]", "$1]")
+    Regex.Replace(text, @", lsl #0\]", "]")
+
   /// <summary>
   /// Whether two texts name one instruction under both of its names.
   ///
@@ -101,7 +113,7 @@ type ARM64RoundTripTests() =
     | "umov" :: rest ->
       actual = "mov " + String.concat " " rest
     | _ ->
-      false
+      not (isByteAccess expected) && actual = withoutZeroAmount expected
 
   /// Encodes the given source and disassembles the result, so that a source
   /// text stands in for the word a probe was decoded from.
@@ -200,6 +212,7 @@ type ARM64RoundTripTests() =
       "OP w0, w1, w2, lsr #0x1f"
       "OP w0, w1, w2, asr #0x1"
       "OP w0, w1, w2, ror #0x1f"
+      "OP w0, w1, w2, lsr #0x0"
       "OP x0, x1, x2"
       "OP x0, x1, x2, lsl #0x3f"
       "OP x29, x30, x28, asr #0x2" ]
@@ -217,6 +230,7 @@ type ARM64RoundTripTests() =
       "OP w0, w1, w2, lsl #0x1"
       "OP w0, w1, w2, lsr #0x2"
       "OP w0, w1, w2, asr #0x3"
+      "OP w0, w1, w2, asr #0x0"
       "OP x0, x1, x2, lsl #0x3f"
       "OP w0, w1, w2, uxtb"
       "OP w0, w1, w2, uxtb #2"
@@ -234,6 +248,8 @@ type ARM64RoundTripTests() =
       "ubfiz x0, x1, #0x8, #0x10"
       "ubfx x0, x1, #0x8, #0x10"
       "bfi w0, w1, #0x2, #0x4"
+      "bfc w0, #0x3, #0x4"
+      "bfc x1, #0x8, #0x10"
       "bfxil x0, x1, #0x2, #0x4"
       "sxtb w0, w1"
       "sxth x0, w1"
@@ -277,6 +293,7 @@ type ARM64RoundTripTests() =
       "OP w0, [x1, #0x4]"
       "OP w0, [x1, #0xffc]"
       "OP w0, [x1, #0x4]!"
+      "OP w0, [x1, #0x0]!"
       "OP w0, [x1], #0x4"
       "OP w0, [x1], #0x0"
       "OP w0, [x1, x2]"
@@ -314,6 +331,7 @@ type ARM64RoundTripTests() =
     [ "OP w0, w1, [x2]"
       "OP w0, w1, [x2, #0x8]"
       "OP w0, w1, [x2, #0x8]!"
+      "OP w0, w1, [x2, #0x0]!"
       "OP w0, w1, [x2], #0x8"
       "OP x0, x1, [sp, #0x10]"
       "OP x0, x1, [x2, #0xfffffffffffffff0]"
@@ -364,6 +382,14 @@ type ARM64RoundTripTests() =
         yield $"cinv w0, w1, {cond}"
         yield $"cneg x0, x1, {cond}"
         yield $"ccmp w0, w1, #0x3, {cond}"
+        yield $"ccmn x0, #0x1f, #0x0, {cond}"
+      (* AL and NV, which no alias is written with *)
+      for cond in [ "al"; "nv" ] do
+        yield $"csel w0, w1, w2, {cond}"
+        yield $"csinc x0, x1, x2, {cond}"
+        yield $"csinv w0, w1, w2, {cond}"
+        yield $"csneg x0, x1, x2, {cond}"
+        yield $"ccmp w0, w1, #0x3, {cond}"
         yield $"ccmn x0, #0x1f, #0x0, {cond}" ]
 
   /// The instructions the system space holds, which say what they are in a
@@ -378,7 +404,8 @@ type ARM64RoundTripTests() =
       (* #0x7 used to sit here; it is XPACLRI now, and so are twelve of the
          other hint numbers, so the one left standing for a plain hint is
          #0x6. The named forms are listed below it. *)
-      "hint #0x6"
+      "hint #0x9"
+      "dgh"
       "xpaclri"
       "paciaz"
       "paciasp"
@@ -394,11 +421,39 @@ type ARM64RoundTripTests() =
       "autib1716"
       "clrex #0x5"
       "dsb sy"
+      "dc zva, x1"
+      "dc gva, x3"
+      "dc gzva, x4"
+      "dc isw, x5"
+      "dc civac, x2"
+      "dc cvadp, x7"
+      "at s1e1r, x2"
+      "at s1e1wp, x1"
+      "at s12e0w, x9"
+      "ic iallu"
+      "ic iallu, x5"
+      "ic ivau, x0"
+      "ic ivau, xzr"
+      "tlbi vmalle1"
+      "tlbi vae1, x3"
+      "tlbi vmalle1os"
+      "tlbi rvae1, x1"
+      "tlbi alle3, x4"
+      "cfp rctx, x4"
+      "dvp rctx, x4"
+      "cpp rctx, x4"
+      "sys #0x1, c7, c0, #0x0"
+      "sys #0x0, c0, c0, #0x0, x5"
+      "ssbb"
+      "pssbb"
+      "dcps1"
+      "dcps3 #0x7"
       "dmb ish"
       "isb sy"
       "svc #0x1"
       "brk #0x0"
       "hlt #0xffff"
+      "udf #0xabcd"
       "mrs x0, nzcv"
       "msr nzcv, x0"
       "msr spsel, #0x1"
@@ -416,6 +471,10 @@ type ARM64RoundTripTests() =
       "mrs x0, s3_0_c15_c2_0"
       "msr s3_7_c15_c0_0, x1"
       "mrs x5, s2_3_c1_c4_7"
+      "mrs x0, par_el1"
+      "msr par_el1, x1"
+      "mrs x2, cntfrq_el0"
+      "msr tpidrro_el0, x3"
       "bti"
       "bti c"
       "bti j"
@@ -424,7 +483,9 @@ type ARM64RoundTripTests() =
       "psb csync"
       "tsb csync"
       "csdb"
-      "sys #0x0, c8, c3, #0x1, x0"
+      "dc cvap, x1"
+      "dc cvadp, x2"
+      "tlbi vae1is, x0"
       "sysl x0, #0x3, c7, c4, #0x1"
       "ret"
       "ret x1"
@@ -551,8 +612,8 @@ type ARM64RoundTripTests() =
       "fcvtl2 v0.4s, v1.8h"
       "fcvtxn v0.2s, v1.2d"
       "fcvtxn2 v0.4s, v1.2d"
-      "shll v0.8h, v1.8b, lsl #0x8"
-      "shll2 v0.2d, v1.4s, lsl #0x20"
+      "shll v0.8h, v1.8b, #0x8"
+      "shll2 v0.2d, v1.4s, #0x20"
       "addv b0, v1.8b"
       "smaxv h0, v1.8h"
       "uminv s0, v1.4s"
@@ -927,9 +988,11 @@ type ARM64RoundTripTests() =
       "fccmp s0, s1, #0x3, gt"
       "fccmp s0, s1, #0x3, le"
       "fccmp s0, s1, #0x3, nv"
+      "fccmp s0, s1, #0x3, al"
       "fccmpe d0, d1, #0xf, ne"
       "fcsel s0, s1, s2, eq"
       "fcsel d0, d1, d2, le"
+      "fcsel d0, d1, d2, al"
       "fmul s0, s1, v2.s[3]"
       "fmulx s0, s1, v2.s[3]"
       "fmla s0, s1, v2.s[3]"

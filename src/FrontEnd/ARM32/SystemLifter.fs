@@ -24,14 +24,9 @@
 
 /// <summary>
 /// The instructions only PL1 has: the ones that read and write the system
-/// registers of coprocessor 15, change mode, and return from an exception.
-///
-/// <para>The mode is CPSR.M, and each mode but User and System keeps its own
-/// SP, LR and SPSR -- FIQ mode R8 to R12 as well. A mode change does not copy
-/// them: it changes which copy each register names. That is modelled the way
-/// a processor without a register file per mode would do it, by swapping: the
-/// live registers are the running mode's, and a change of mode puts each one
-/// back in the old mode's copy and takes the new mode's out.</para>
+/// registers of coprocessor 15 and of the floating-point unit, change mode,
+/// and return from an exception. What a change of mode does to the registers
+/// is in Modes.
 /// </summary>
 module internal B2R2.FrontEnd.ARM32.SystemLifter
 
@@ -42,36 +37,10 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.ARM32
+open B2R2.FrontEnd.ARM32.IRHelper
 open B2R2.FrontEnd.ARM32.LiftingUtils
 open B2R2.FrontEnd.ARM32.GeneralLifter
-
-/// The modes, as CPSR.M names them.
-type private Mode =
-  | User = 0x10u
-  | FIQ = 0x11u
-  | IRQ = 0x12u
-  | Supervisor = 0x13u
-  | Monitor = 0x16u
-  | Abort = 0x17u
-  | Hyp = 0x1au
-  | Undefined = 0x1bu
-  | System = 0x1fu
-
-/// The mode field of CPSR.
-let private modeOf (psr: Expr) = psr .& numU32 0x1fu 32<rt>
-
-let private modeNum (mode: Mode) = numU32 (uint32 mode) 32<rt>
-
-/// Whether the processor is in User mode, which is PL0.
-let private inUserMode bld =
-  modeOf (regVar bld R.CPSR) == modeNum Mode.User
-
-/// Raises an Undefined Instruction exception in User mode, for an access only
-/// PL1 may make, and carries on otherwise.
-let private undefinedInUserMode bld =
-  _when bld "UserMode" (inUserMode bld) (block {
-    AST.sideEffect UndefinedInstruction
-  })
+open B2R2.FrontEnd.ARM32.Modes
 
 /// Runs the body under the instruction's condition, after checking that the
 /// mode running may do what it does.
@@ -83,129 +52,6 @@ let private underCondition (ins: Instruction) bld userMay body =
     body ()
     putEndLabel bld lblIgnore
   }
-
-/// Whether a mode is one of the given ones.
-let private isOneOf (mode: Expr) modes =
-  modes
-  |> List.map (fun m -> mode == modeNum m)
-  |> List.reduce (.|)
-
-/// Where each mode keeps its own SP. User and System mode share one.
-let private spBanks =
-  [ [ Mode.User; Mode.System ], R.SPusr
-    [ Mode.FIQ ], R.SPfiq
-    [ Mode.IRQ ], R.SPirq
-    [ Mode.Supervisor ], R.SPsvc
-    [ Mode.Monitor ], R.SPmon
-    [ Mode.Abort ], R.SPabt
-    [ Mode.Hyp ], R.SPhyp
-    [ Mode.Undefined ], R.SPund ]
-
-/// Where each mode keeps its own LR. Hyp mode has none, and uses User mode's;
-/// what it returns to is in ELR_hyp.
-let private lrBanks =
-  [ [ Mode.User; Mode.System; Mode.Hyp ], R.LRusr
-    [ Mode.FIQ ], R.LRfiq
-    [ Mode.IRQ ], R.LRirq
-    [ Mode.Supervisor ], R.LRsvc
-    [ Mode.Monitor ], R.LRmon
-    [ Mode.Abort ], R.LRabt
-    [ Mode.Undefined ], R.LRund ]
-
-/// Where each mode keeps its own SPSR. User and System mode have none.
-let private spsrBanks =
-  [ [ Mode.FIQ ], R.SPSRfiq
-    [ Mode.IRQ ], R.SPSRirq
-    [ Mode.Supervisor ], R.SPSRsvc
-    [ Mode.Monitor ], R.SPSRmon
-    [ Mode.Abort ], R.SPSRabt
-    [ Mode.Hyp ], R.SPSRhyp
-    [ Mode.Undefined ], R.SPSRund ]
-
-/// R8 to R12, with the copy every other mode shares and FIQ mode's own.
-let private fiqBanks =
-  [ R.R8, R.R8usr, R.R8fiq
-    R.SB, R.R9usr, R.R9fiq
-    R.SL, R.R10usr, R.R10fiq
-    R.FP, R.R11usr, R.R11fiq
-    R.IP, R.R12usr, R.R12fiq ]
-
-/// Swaps R8 to R12 on a change into or out of FIQ mode, and leaves them alone
-/// on any other.
-let private swapFiqBanks bld oldMode newMode =
-  let fiq = modeNum Mode.FIQ
-  let leaves = (oldMode == fiq) .& (newMode != fiq)
-  let enters = (newMode == fiq) .& (oldMode != fiq)
-  append bld {
-    for live, usrCopy, fiqCopy in fiqBanks do
-      let live = regVar bld live
-      let usrCopy = regVar bld usrCopy
-      let fiqCopy = regVar bld fiqCopy
-      fiqCopy := AST.ite leaves live fiqCopy
-      usrCopy := AST.ite enters live usrCopy
-      live := AST.ite leaves usrCopy (AST.ite enters fiqCopy live)
-  }
-
-/// Puts a banked register back in the copy the old mode keeps, and takes the
-/// one the new mode keeps out. A mode with no copy of its own leaves it as it
-/// is.
-let private swapBanks bld banks live oldMode newMode =
-  let live = regVar bld live
-  let fromNewMode =
-    banks
-    |> List.fold (fun acc (modes, bank) ->
-      AST.ite (isOneOf newMode modes) (regVar bld bank) acc) live
-  append bld {
-    for modes, bank in banks do
-      let bank = regVar bld bank
-      bank := AST.ite (isOneOf oldMode modes) live bank
-    live := fromNewMode
-  }
-
-/// <summary>
-/// Changes mode, the way a write to CPSR.M does: each register the old mode
-/// banks goes back to its copy, and the new mode's copies become the live
-/// registers. The two modes are temporaries, so that nothing written here
-/// moves either; when they are the same, everything goes back where it came
-/// from.
-/// </summary>
-let private switchMode bld oldMode newMode =
-  swapFiqBanks bld oldMode newMode
-  swapBanks bld spBanks R.SP oldMode newMode
-  swapBanks bld lrBanks R.LR oldMode newMode
-  swapBanks bld spsrBanks R.SPSR oldMode newMode
-
-/// <summary>
-/// Whether a write to CPSR at PL1 may change to a mode. Any but Monitor and
-/// Hyp may be entered this way: a processor without the Security and the
-/// Virtualization Extensions has neither, and one with them enters each only
-/// by an exception. Staying in the mode running is always allowed.
-/// </summary>
-let private isReachable mode current =
-  let modes =
-    [ Mode.User
-      Mode.FIQ
-      Mode.IRQ
-      Mode.Supervisor
-      Mode.Abort
-      Mode.Undefined
-      Mode.System ]
-  isOneOf mode modes .| (mode == current)
-
-/// <summary>
-/// Changes mode to the one a write names, where the write may: at PL1, and to
-/// a mode it may reach. Returns the mode CPSR.M is to hold afterwards.
-/// </summary>
-let private changeMode bld (named: Expr) =
-  let struct (oldMode, newMode) = tmpVars2 bld 32<rt>
-  let privileged = AST.not (inUserMode bld)
-  append bld {
-    oldMode := modeOf (regVar bld R.CPSR)
-    newMode :=
-      AST.ite (privileged .& isReachable named oldMode) named oldMode
-  }
-  switchMode bld oldMode newMode
-  newMode
 
 (* The interrupt masks CPSIE and CPSID name, at A, I and F. *)
 let private iflagBits = function
@@ -252,10 +98,25 @@ let cps (ins: Instruction) bld =
   }
 
 /// The bits of CPSR an MRS reads: every one but the execution state -- the IT,
-/// J and T bits -- which read as zero (F5-4571).
-let private readableCPSR = 0xf80f03dfu
+/// J and T bits -- which read as zero (F5-4571), and of the bits Armv8 added
+/// there, PAN, which SETPAN writes (DDI0487F.c F5.1.117).
+let private readableCPSR = 0xf84f03dfu
 
-/// MRS, which reads CPSR or, at PL1, the current mode's SPSR.
+/// MRS (banked register), which reads another mode's copy of a register, or
+/// ELR_hyp (DDI0406C B9.3.9).
+let private mrsBanked (ins: Instruction) bld rd banked =
+  let struct (holder, refused) = bankedAccess bld banked
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let rd = regVar bld rd
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedIf bld refused
+    rd := holder
+    putEndLabel bld lblIgnore
+  }
+
+/// MRS, which reads CPSR or, at PL1, the current mode's SPSR or another
+/// mode's register.
 let mrs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg rd, OprReg R.SPSR) ->
@@ -265,6 +126,8 @@ let mrs (ins: Instruction) bld =
     underCondition ins bld true (fun () ->
       let cpsr = regVar bld R.CPSR
       append bld { regVar bld rd := cpsr .& numU32 readableCPSR 32<rt> })
+  | TwoOperands(OprReg rd, OprReg banked) ->
+    mrsBanked ins bld rd banked
   | _ ->
     unsupported ins bld
 
@@ -288,10 +151,11 @@ let private namedBytes = function
 
 /// <summary>
 /// The bits of CPSR an MSR writes at PL1, within the bytes it names: the
-/// flags, GE, E and the three interrupt masks. The execution state is not an
-/// MSR's to write, and the mode is a change of mode rather than a write.
+/// flags, PAN, GE, E and the three interrupt masks (DDI0487F.c J1.2,
+/// CPSRWriteByInstr). The execution state is not an MSR's to write, and the
+/// mode is a change of mode rather than a write.
 /// </summary>
-let private writableCPSR = 0xf80f03c0u
+let private writableCPSR = 0xf84f03c0u
 
 /// The bits it writes in User mode: the flags, GE and E.
 let private userWritableCPSR = 0xf80f0200u
@@ -330,8 +194,21 @@ let private msrCPSR ins bld bytes src =
       let written = writeMasked cpsr mask value
       append bld { cpsr := (written .& numU32 0xffffffe0u 32<rt>) .| newMode })
 
+/// MSR (banked register), which writes another mode's copy of a register, or
+/// ELR_hyp (DDI0406C B9.3.10).
+let private msrBanked (ins: Instruction) bld banked rn =
+  let struct (holder, refused) = bankedAccess bld banked
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let rn = regVar bld rn
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedIf bld refused
+    holder := rn
+    putEndLabel bld lblIgnore
+  }
+
 /// MSR, which writes the bytes of CPSR or, at PL1, of the current mode's SPSR
-/// that it names.
+/// that it names, or another mode's register.
 let msr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSpecReg(R.SPSR, Some flag), src) ->
@@ -342,6 +219,8 @@ let msr (ins: Instruction) bld =
       append bld { spsr := writeMasked spsr mask src })
   | TwoOperands(OprSpecReg((R.CPSR | R.APSR), Some flag), src) ->
     msrCPSR ins bld (namedBytes flag) (transOpr ins bld src)
+  | TwoOperands(OprReg banked, OprReg rn) ->
+    msrBanked ins bld banked rn
   | _ ->
     unsupported ins bld
 
@@ -421,3 +300,191 @@ let mcr (ins: Instruction) bld =
       unsupported ins bld
   | _ ->
     unsupported ins bld
+
+/// VMRS, which reads a floating-point system register into a core register,
+/// or FPSCR's flags into APSR's. Every one but FPSCR is PL1's (DDI0406C
+/// B9.3.21).
+let vmrs (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(OprReg R.APSR, OprReg sreg) ->
+    underCondition ins bld (sreg = R.FPSCR) (fun () ->
+      let cpsr = regVar bld R.CPSR
+      let flags = disablePSRBits bld R.CPSR PSR.Cond .| getPSR bld sreg PSR.Cond
+      append bld { cpsr := flags })
+  | TwoOperands(dst, OprReg sreg) ->
+    underCondition ins bld (sreg = R.FPSCR) (fun () ->
+      let dst = transOpr ins bld dst
+      append bld { dst := regVar bld sreg })
+  | _ ->
+    unsupported ins bld
+
+/// <summary>
+/// The bits of a floating-point system register a VMSR writes.
+///
+/// FPSCR has two bits that are RES0, 6 and 5, and a row of trap enables --
+/// IDE at 15 and IXE through IOE at 12:8 -- that an implementation without
+/// trapped floating-point exceptions leaves read-as-zero, write-ignored.
+/// There is no FP trapping anywhere in this front end, so storing those bits
+/// would let a program read back a mode nothing here can enter; the reference
+/// answers 0xffff009f to all ones written and read straight back, and the
+/// bits that vanish are exactly these.
+///
+/// Length and stride, 21:20 and 18:16, are NOT among them: short vectors are
+/// part of VFPv4 and the field is writable there.
+///
+/// FPEXC keeps EN alone. What a write does to EX and to bits 29:0 is the
+/// subarchitecture's (DDI0406C B4.1.57), and with nothing trapped there is no
+/// state for them to hold; the reference keeps 0x40000000 of all ones.
+/// </summary>
+let private writableFPBits = function
+  | R.FPSCR -> 0xffff009fu
+  | _ (* FPEXC *) -> 0x40000000u
+
+/// VMSR, which writes a core register to a floating-point system register.
+/// Every one but FPSCR is PL1's, and FPSID is read-only, so PL1 writing it
+/// changes nothing (DDI0406C B9.3.22).
+let vmsr (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(OprReg R.FPSID, _) ->
+    underCondition ins bld false ignore
+  | TwoOperands(OprReg(R.FPSCR | R.FPEXC as sreg), src) ->
+    let mask = numU32 (writableFPBits sreg) 32<rt>
+    underCondition ins bld (sreg = R.FPSCR) (fun () ->
+      let src = transOpr ins bld src
+      append bld { regVar bld sreg := src .& mask })
+  | _ ->
+    unsupported ins bld
+
+/// <summary>
+/// Where RFE reads its two words and SRS writes them, from the base and the
+/// addressing mode the opcode names: decrement after ends at the base,
+/// decrement before one word below it, increment after starts at it and
+/// increment before one word above it (DDI0406C B9.3.13 and B9.3.16).
+/// </summary>
+let private frameAddress opcode (start: Expr) =
+  match opcode with
+  | Op.RFEDA | Op.SRSDA -> start .- numI32 4 32<rt>
+  | Op.RFEDB | Op.SRSDB -> start .- numI32 8 32<rt>
+  | Op.RFEIA | Op.SRSIA -> start
+  | _ -> start .+ numI32 4 32<rt>
+
+/// The base RFE or SRS writes back: past the two words, in the direction its
+/// addressing mode goes.
+let private frameEnd opcode (start: Expr) =
+  match opcode with
+  | Op.RFEDA | Op.SRSDA | Op.RFEDB | Op.SRSDB -> start .- numI32 8 32<rt>
+  | _ -> start .+ numI32 8 32<rt>
+
+/// <summary>
+/// RFE, which returns from an exception with two words from memory: the PC
+/// takes the first and CPSR the second, and the base is written back before
+/// the change of mode that CPSR may make (DDI0406C B9.3.13). It is UNDEFINED
+/// in Hyp mode; User mode takes its UNPREDICTABLE as UNDEFINED, and System
+/// mode, alone among the returns, may run it.
+/// </summary>
+let rfe (ins: Instruction) bld =
+  match ins.Operands with
+  | OneOperand(OprReg rn) ->
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    lift bld ins {
+      let struct (address, target, saved) = tmpVars3 bld 32<rt>
+      let rn = regVar bld rn
+      let lblIgnore = checkCondition ins bld isUnconditional
+      undefinedInUserOrHypMode bld
+      address := frameAddress ins.Opcode rn
+      target := loadNative bld 32<rt> address
+      saved := loadNative bld 32<rt> (address .+ numI32 4 32<rt>)
+      if ins.WriteBack then rn := frameEnd ins.Opcode rn else ()
+      exceptionReturn bld target saved
+      putEndLabel bld lblIgnore
+    }
+  | _ ->
+    unsupported ins bld
+
+/// Stores LR and SPSR of the mode running on the stack of the mode a number
+/// names, and writes that mode's SP back if the instruction says so.
+let private storeReturnState (ins: Instruction) bld mode =
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let struct (start, address) = tmpVars2 bld 32<rt>
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedInUserSystemOrHypMode bld
+    start := readSPOf bld mode
+    address := frameAddress ins.Opcode start
+    loadNative bld 32<rt> address := regVar bld R.LR
+    loadNative bld 32<rt> (address .+ numI32 4 32<rt>) := regVar bld R.SPSR
+    if ins.WriteBack then writeSPOf bld mode (frameEnd ins.Opcode start)
+    else ()
+    putEndLabel bld lblIgnore
+  }
+
+/// An Undefined Instruction exception, taken only where the instruction's
+/// condition passes: a T32 SRS in an IT block whose condition fails does
+/// nothing, whatever mode it names.
+let private undefinedWhenRun (ins: Instruction) bld =
+  underCondition ins bld true (fun () ->
+    append bld { AST.sideEffect UndefinedInstruction })
+
+/// <summary>
+/// SRS, which stores LR and SPSR of the mode running on the stack of the mode
+/// it names, and can write that mode's SP back (DDI0406C B9.3.15 and B9.3.16).
+/// It is UNDEFINED in Hyp, User and System mode, and so is a mode SRS may not
+/// name.
+/// </summary>
+let srs (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(OprReg R.SP, OprImm mode) ->
+    let mode = uint32 mode
+    if isStackOfPlainMode mode then storeReturnState ins bld mode
+    else undefinedWhenRun ins bld
+  | _ ->
+    unsupported ins bld
+
+/// <summary>
+/// ERET, which returns from an exception with SPSR (DDI0406C B9.3.3): from Hyp
+/// mode to ELR_hyp, and from any other PL1 mode to LR, as MOVS PC, LR does --
+/// in T32 it is that very encoding, SUBS PC, LR, #0. User mode, which has no
+/// SPSR, takes its UNPREDICTABLE as UNDEFINED, and System mode runs it, as the
+/// reference does.
+/// </summary>
+let eret (ins: Instruction) bld =
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let struct (target, saved) = tmpVars2 bld 32<rt>
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedInUserMode bld
+    target := AST.ite (inHypMode bld) (regVar bld R.ELRhyp) (regVar bld R.LR)
+    saved := regVar bld R.SPSR
+    exceptionReturn bld target saved
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// SETPAN, which writes PSTATE.PAN -- CPSR bit 22 -- and does nothing in User
+/// mode (DDI0487F.c F5.1.183). It cannot be conditional.
+/// </summary>
+let setpan (ins: Instruction) bld =
+  let pan =
+    match ins.Operands with
+    | OneOperand(OprImm imm) -> uint32 imm <<< 22
+    | _ -> raise InvalidOperandException
+  lift bld ins {
+    let cpsr = regVar bld R.CPSR
+    let set = (cpsr .& numU32 0xffbfffffu 32<rt>) .| numU32 pan 32<rt>
+    cpsr := AST.ite (inUserMode bld) cpsr set
+  }
+
+/// <summary>
+/// HVC and SMC, the calls to the hypervisor and to the Secure monitor, which
+/// are UNDEFINED in User mode (DDI0487F.c F5.1.54 and F5.1.192). The
+/// exceptions they take into Hyp and Monitor mode are not modelled, so in
+/// every other mode they are unsupported.
+/// </summary>
+let privilegedCall (ins: Instruction) bld =
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  lift bld ins {
+    let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedInUserMode bld
+    AST.sideEffect UnsupportedInstruction
+    putEndLabel bld lblIgnore
+  }

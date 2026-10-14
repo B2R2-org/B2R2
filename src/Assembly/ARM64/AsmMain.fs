@@ -88,6 +88,7 @@ let buildEncoderTable () =
     [ dataProcImmEncoders ()
       branchEncoders ()
       systemEncoders ()
+      systemAliasEncoders ()
       loadStoreEncoders ()
       dataProcRegEncoders () ]
     |> List.concat

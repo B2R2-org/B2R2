@@ -58,3 +58,15 @@ type Condition =
   | LE = 14
   /// Not Greater Than.
   | NGT = 15
+  /// Ordered [Release 6 CMP.cond.fmt only].
+  | OR = 17
+  /// Unordered or Not Equal [Release 6 CMP.cond.fmt only].
+  | UNE = 18
+  /// Ordered and Not Equal [Release 6 CMP.cond.fmt only].
+  | NE = 19
+  /// Signaling Ordered [Release 6 CMP.cond.fmt only].
+  | SOR = 25
+  /// Signaling Unordered or Not Equal [Release 6 CMP.cond.fmt only].
+  | SUNE = 26
+  /// Signaling Ordered and Not Equal [Release 6 CMP.cond.fmt only].
+  | SNE = 27

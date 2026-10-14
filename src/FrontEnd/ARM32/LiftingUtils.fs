@@ -553,9 +553,7 @@ let disableITStateForCondBranches bld isUnconditional =
       cpsr := disablePSRBits bld R.CPSR PSR.IT72
   }
 
-/// Write value to R.PC, with interworking, on page A2-47.
-/// function : BXWritePC()
-let bxWritePC bld isUnconditional addr =
+let private interworkTo kind bld isUnconditional addr =
   append bld {
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
@@ -564,11 +562,20 @@ let bxWritePC bld isUnconditional addr =
     AST.cjmp cond1 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
     selectThumbInstrSet bld
-    AST.interjmp (zMaskAnd addr 32<rt> 1) InterJmpKind.SwitchToThumb
+    AST.interjmp (zMaskAnd addr 32<rt> 1) (kind ||| InterJmpKind.SwitchToThumb)
     AST.lmark lblL1
     selectARMInstrSet bld
-    AST.interjmp addr InterJmpKind.SwitchToARM
+    AST.interjmp addr (kind ||| InterJmpKind.SwitchToARM)
   }
+
+/// Write value to R.PC, with interworking, on page A2-47.
+/// function : BXWritePC()
+let bxWritePC bld isUnconditional addr =
+  interworkTo InterJmpKind.Base bld isUnconditional addr
+
+/// BXWritePC() for BLX (register), whose jump is a call (A8.8.26).
+let blxWritePC bld isUnconditional addr =
+  interworkTo InterJmpKind.IsCall bld isUnconditional addr
 
 /// Write value to R.PC, with interworking for ARM only from ARMv7 on page
 /// A2-47. function : ALUWritePC()

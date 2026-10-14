@@ -48,7 +48,7 @@ let condToString = function
 
 /// <summary>
 /// The names Release 6 gives the same sixteen conditions when CMP.cond.fmt
-/// writes them.
+/// writes them, and the six it adds.
 ///
 /// The encodings are the ones above and so are the meanings; only the
 /// spelling differs. Three of the quiet eight lose a letter that said which
@@ -73,6 +73,12 @@ let r6CondToString = function
   | Condition.NGE -> ".sult"
   | Condition.LE -> ".sle"
   | Condition.NGT -> ".sule"
+  | Condition.OR -> ".or"
+  | Condition.UNE -> ".une"
+  | Condition.NE -> ".ne"
+  | Condition.SOR -> ".sor"
+  | Condition.SUNE -> ".sune"
+  | Condition.SNE -> ".sne"
   | _ -> raise ParsingFailureException
 
 let fmtToString = function
@@ -101,8 +107,18 @@ let opCodeToString = function
   | Op.B -> "b"
   | Op.BAL -> "bal"
   | Op.NAL -> "nal"
+  | Op.BC1EQZC -> "bc1eqzc"
   | Op.BC1F -> "bc1f"
+  | Op.BC1NEZC -> "bc1nezc"
   | Op.BC1T -> "bc1t"
+  | Op.BC2EQZ -> "bc2eqz"
+  | Op.BC2EQZC -> "bc2eqzc"
+  | Op.BC2F -> "bc2f"
+  | Op.BC2FL -> "bc2fl"
+  | Op.BC2NEZ -> "bc2nez"
+  | Op.BC2NEZC -> "bc2nezc"
+  | Op.BC2T -> "bc2t"
+  | Op.BC2TL -> "bc2tl"
   | Op.BC3F -> "bc3f"
   | Op.BC3FL -> "bc3fl"
   | Op.BC3T -> "bc3t"
@@ -129,9 +145,12 @@ let opCodeToString = function
   | Op.BREAK -> "break"
   | Op.C -> "c"
   | Op.CFC1 -> "cfc1"
+  | Op.CFC2 -> "cfc2"
   | Op.CLO -> "clo"
   | Op.CLZ -> "clz"
+  | Op.COP2 -> "cop2"
   | Op.CTC1 -> "ctc1"
+  | Op.CTC2 -> "ctc2"
   | Op.CVTD -> "cvt.d"
   | Op.CVTS -> "cvt.s"
   | Op.CVTL -> "cvt.l"
@@ -168,6 +187,7 @@ let opCodeToString = function
   | Op.JIALC -> "jialc"
   | Op.ADDIUPC -> "addiupc"
   | Op.ALUIPC -> "aluipc"
+  | Op.AUIPC -> "auipc"
   | Op.LWPC -> "lwpc"
   | Op.LWUPC -> "lwupc"
   | Op.LDPC -> "ldpc"
@@ -222,7 +242,9 @@ let opCodeToString = function
   | Op.DIV -> "div"
   | Op.DIVU -> "divu"
   | Op.DMFC1 -> "dmfc1"
+  | Op.DMFC2 -> "dmfc2"
   | Op.DMTC1 -> "dmtc1"
+  | Op.DMTC2 -> "dmtc2"
   | Op.DMULT -> "dmult"
   | Op.DMULTU -> "dmultu"
   | Op.DROTR -> "drotr"
@@ -254,6 +276,7 @@ let opCodeToString = function
   | Op.LBU -> "lbu"
   | Op.LD -> "ld"
   | Op.LDC1 -> "ldc1"
+  | Op.LDC2 -> "ldc2"
   | Op.LDL -> "ldl"
   | Op.LDR -> "ldr"
   | Op.LDXC1 -> "ldxc1"
@@ -265,6 +288,7 @@ let opCodeToString = function
   | Op.LUXC1 -> "luxc1"
   | Op.LW -> "lw"
   | Op.LWC1 -> "lwc1"
+  | Op.LWC2 -> "lwc2"
   | Op.LWL -> "lwl"
   | Op.LWR -> "lwr"
   | Op.LWU -> "lwu"
@@ -272,7 +296,9 @@ let opCodeToString = function
   | Op.MADD -> "madd"
   | Op.MADDU -> "maddu"
   | Op.MFC1 -> "mfc1"
+  | Op.MFC2 -> "mfc2"
   | Op.MFHC1 -> "mfhc1"
+  | Op.MFHC2 -> "mfhc2"
   | Op.MFHI -> "mfhi"
   | Op.MFLO -> "mflo"
   | Op.MOV -> "mov"
@@ -283,7 +309,9 @@ let opCodeToString = function
   | Op.MSUB -> "msub"
   | Op.MSUBU -> "msubu"
   | Op.MTC1 -> "mtc1"
+  | Op.MTC2 -> "mtc2"
   | Op.MTHC1 -> "mthc1"
+  | Op.MTHC2 -> "mthc2"
   | Op.MTHI -> "mthi"
   | Op.MTLO -> "mtlo"
   | Op.MUL -> "mul"
@@ -313,6 +341,7 @@ let opCodeToString = function
   | Op.SCD -> "scd"
   | Op.SD -> "sd"
   | Op.SDC1 -> "sdc1"
+  | Op.SDC2 -> "sdc2"
   | Op.SDL -> "sdl"
   | Op.SDR -> "sdr"
   | Op.SDXC1 -> "sdxc1"
@@ -336,10 +365,12 @@ let opCodeToString = function
   | Op.SUXC1 -> "suxc1"
   | Op.SW -> "sw"
   | Op.SWC1 -> "swc1"
+  | Op.SWC2 -> "swc2"
   | Op.SWL -> "swl"
   | Op.SWR -> "swr"
   | Op.SWXC1 -> "swxc1"
   | Op.SYNC -> "sync"
+  | Op.SYNCI -> "synci"
   | Op.SYSCALL -> "syscall"
   | Op.TEQ -> "teq"
   | Op.TEQI -> "teqi"
@@ -418,6 +449,7 @@ let opCodeToString = function
   | Op.JRC -> "jrc"
   | Op.JALRS -> "jalrs"
   | Op.JALRC -> "jalrc"
+  | Op.JALRCHB -> "jalrc.hb"
   | Op.JRADDIUSP -> "jraddiusp"
   | Op.JRCADDIUSP -> "jrcaddiusp"
   | Op.LWM -> "lwm"
@@ -489,10 +521,10 @@ let inline relToString pc offset (builder: IDisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 targetAddr)
 
+/// A register by the name the ABI of the processor's width gives it: n64's
+/// on a 64-bit processor, whatever width the instruction accesses.
 let inline regToString (ins: Instruction) reg =
-  match ins.OperationSize with
-  | 64<rt> -> Register.toString reg WordSize.Bit64
-  | _ -> Register.toString reg WordSize.Bit32
+  Register.toString reg ins.WordSize
 
 let oprToString ins opr delim (builder: IDisasmBuilder) =
   match opr with

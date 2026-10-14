@@ -44,7 +44,7 @@ let condToString = function
   | Some LT -> "lt"
   | Some GT -> "gt"
   | Some LE -> "le"
-  | Some AL -> ""
+  | Some AL -> "al"
   | Some NV -> "nv"
   | None -> ""
 
@@ -1657,7 +1657,7 @@ let prependDelimiter delimiter (builder: IDisasmBuilder) =
 
 let shiftToString shift delim builder =
   match shift with
-  | _, Imm 0L ->
+  | ShiftOp.LSL, Imm 0L ->
     ()
   | s, amount ->
     prependDelimiter delim builder
@@ -1692,6 +1692,27 @@ let regOffString regOff delim builder =
   | ShiftOffset regOff -> shiftToString regOff delim builder
   | ExtRegOffset regOff -> extRegToString regOff delim builder
 
+/// <summary>
+/// The scaling of a register offset in an address. The decoder keeps an
+/// amount only where the encoding sets S, and a byte access then has two
+/// encodings that scale by zero, one with no amount and one with "#0"
+/// (DDI0487F.c C6.2, LDRB (register): "{, &lt;extend&gt; {&lt;amount&gt;}}",
+/// &lt;amount&gt; 0 when S is 1), so here a zero amount is written.
+/// </summary>
+let memRegOffString regOff delim (builder: IDisasmBuilder) =
+  match regOff with
+  | ShiftOffset(ShiftOp.LSL, Imm 0L) ->
+    prependDelimiter delim builder
+    builder.Accumulate(AsmWordKind.String, shiftOperationToString ShiftOp.LSL)
+    builder.Accumulate(AsmWordKind.String, " ")
+    amountToString (Imm 0L) builder
+  | ExtRegOffset(ext, Some 0L) ->
+    prependDelimiter delim builder
+    builder.Accumulate(AsmWordKind.String, extToString ext)
+    builder.Accumulate(AsmWordKind.String, " #0")
+  | _ ->
+    regOffString regOff delim builder
+
 let isPostIdx = function
   | PostIdxMode _ -> true
   | _ -> false
@@ -1703,14 +1724,21 @@ let processAddrExn64 (ins: Instruction) addr =
   | Opcode.ADRP -> addr &&& 0xFFFFFFFFFFFFF000UL
   | _ -> addr
 
+/// Whether a zero offset goes unwritten, which it does only where the base is
+/// not written back and in the pre-indexed LDRAA and LDRAB, whose syntax
+/// makes it optional. Every other pre-indexed form has no syntax without one,
+/// and a post-indexed access closes its bracket with the delimiter before it.
+let omitsZeroOffset (ins: Instruction) mode =
+  match mode, ins.Opcode with
+  | BaseMode _, _ -> true
+  | PreIdxMode _, (Opcode.LDRAA | Opcode.LDRAB) -> true
+  | _ -> false
+
 let immOffsetToString i addr mode offset (builder: IDisasmBuilder) =
   match offset with
-  | BaseOffset(reg, (None | Some 0L)) when not (isPostIdx mode) ->
+  | BaseOffset(reg, (None | Some 0L)) when omitsZeroOffset i mode ->
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
   | BaseOffset(reg, imm) ->
-    (* A post-indexed access has no way of its own to say that it writes its
-       base back, and the delimiter below is what closes its bracket, so it
-       keeps a zero offset that the other addressing modes leave out. *)
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
     builder.Accumulate(AsmWordKind.String, delimPostIdx mode)
     immToString (defaultArg imm 0L) builder
@@ -1724,7 +1752,7 @@ let regOffsetToString mode offset (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.Variable, Register.toString r1)
     builder.Accumulate(AsmWordKind.String, ", ")
     builder.Accumulate(AsmWordKind.Variable, Register.toString r2)
-    regOffString regOff (Some ", ") builder
+    memRegOffString regOff (Some ", ") builder
   | r1, r2, None ->
     builder.Accumulate(AsmWordKind.Variable, Register.toString r1)
     builder.Accumulate(AsmWordKind.String, delimPostIdx mode)
@@ -1821,6 +1849,13 @@ let idxToString = function
 let lsbToString = function
   | l -> "#" + string l
 
+/// The name an alias of SYS gives the operation it encodes, which SysOp has
+/// for every encoding the decoder makes one of.
+let sysOpName enc =
+  match SysOp.tryOfEncoding enc with
+  | Some e -> e.Name.ToLowerInvariant()
+  | None -> raise InvalidOperandException
+
 let isRET (ins: Instruction) = ins.Opcode = Opcode.RET
 
 let oprToString i addr opr delim builder =
@@ -1833,6 +1868,9 @@ let oprToString i addr opr delim builder =
   | OprSysReg key ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.Variable, sysRegName key)
+  | OprSysOp enc ->
+    prependDelimiter delim builder
+    builder.Accumulate(AsmWordKind.Variable, sysOpName enc)
   | OprHintOpt opt ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.Variable, hintOptToString opt)
@@ -1908,8 +1946,22 @@ let buildOprs (ins: Instruction) pc builder =
     oprToString ins pc opr4 (Some ", ") builder
     oprToString ins pc opr5 (Some ", ") builder
 
+/// DC, which names its operation before the register: the operation is the
+/// opcode itself (SysOp), and the mnemonic is DC's.
+let private buildDataCache (ins: Instruction) (e: SysOp.Entry) pc bld =
+  (bld: IDisasmBuilder).Accumulate(AsmWordKind.Mnemonic, e.Mnemonic)
+  bld.Accumulate(AsmWordKind.String, " ")
+  bld.Accumulate(AsmWordKind.Variable, e.Name.ToLowerInvariant())
+  match ins.Operands with
+  | OneOperand xt -> oprToString ins pc xt (Some ", ") bld
+  | _ -> raise InvalidOperandException
+
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   let pc = ins.Address
   builder.AccumulateAddrMarker pc
-  buildOpcode ins builder
-  buildOprs ins pc builder
+  match SysOp.tryOfDataCacheOpcode ins.Opcode with
+  | Some e ->
+    buildDataCache ins e pc builder
+  | None ->
+    buildOpcode ins builder
+    buildOprs ins pc builder

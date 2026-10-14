@@ -34,6 +34,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.ARM32
 open B2R2.FrontEnd.ARM32.IRHelper
 open B2R2.FrontEnd.ARM32.LiftingUtils
+open B2R2.FrontEnd.ARM32.Modes
 
 let transShiftOprs ins bld opr1 opr2 =
   match opr1, opr2 with
@@ -317,10 +318,11 @@ let transLabelOprsOfBL ins isThumb imm =
   pc .+ (numI64 imm 32<rt>)
 
 let targetModeOfBL (ins: Instruction) =
+  let call = InterJmpKind.IsCall
   match ins.Opcode, ins.IsThumb with
-  | Op.BL, isThumb -> struct (isThumb, InterJmpKind.IsCall)
-  | Op.BLX, false -> struct (true, InterJmpKind.SwitchToThumb)
-  | Op.BLX, true -> struct (false, InterJmpKind.SwitchToARM)
+  | Op.BL, isThumb -> struct (isThumb, call)
+  | Op.BLX, false -> struct (true, call ||| InterJmpKind.SwitchToThumb)
+  | Op.BLX, true -> struct (false, call ||| InterJmpKind.SwitchToARM)
   | _ -> raise InvalidOpcodeException
 
 let parseOprOfBL ins =
@@ -357,7 +359,7 @@ let blxWithReg (ins: Instruction) reg bld =
     else
       let addr = addr .+ (numI32 2 32<rt>)
       lr := maskAndOR addr (AST.num1 32<rt>) 32<rt> 1
-    bxWritePC bld isUnconditional (regVar bld reg)
+    blxWritePC bld isUnconditional (regVar bld reg)
     putEndLabelForBranch bld lblIgnore ins
     return NoEndMark
   }
@@ -670,19 +672,6 @@ let sub isSetFlags ins bld =
     putEndLabel bld lblIgnore
   }
 
-/// B9.3.19 SUBS R.PC, R.LR (Thumb), on page B9-2008
-let subsPCLRThumb ins bld =
-  lift bld ins {
-    let struct (_, _, src2) = parseOprOfADD ins bld
-    let pc = getPC bld
-    let struct (result, _, _, _) =
-      addWithCarry pc (AST.not src2) (AST.num1 32<rt>) bld
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    branchWritePC result InterJmpKind.IsRet
-    putEndLabel bld lblIgnore
-  }
-
 let parseResultOfSUBAndRela (ins: Instruction) bld =
   match ins.Opcode with
   | Op.ANDS ->
@@ -740,14 +729,17 @@ let parseResultOfSUBAndRela (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-/// B9.3.20 SUBS R.PC, R.LR and related instruction (ARM), on page B9-2010
+/// SUBS PC, LR and the instructions related to it, which return from an
+/// exception to the result with the state SPSR holds (DDI0406C B9.3.19 for
+/// T32's SUBS PC, LR, B9.3.20 for A32's).
 let subsAndRelatedInstr (ins: Instruction) bld =
   lift bld ins {
     let result = tmpVar bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
+    undefinedInUserOrHypMode bld
     result := parseResultOfSUBAndRela ins bld
-    branchWritePC result InterJmpKind.IsRet
+    returnWithSPSR bld result
     putEndLabel bld lblIgnore
   }
 
@@ -793,15 +785,16 @@ let translateLogicOp (ins: Instruction) bld =
     let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
   | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
-    let t = tmpVar bld 32<rt>
+    let struct (t, amount) = tmpVars2 bld 32<rt>
     let carryIn = getCarryFlag bld
     let dst = transOpr ins bld opr1
     let src1 = transOpr ins bld opr2
     let rm = transOpr ins bld opr3
+    (* The amount register can be the destination, so it is read first too. *)
     append bld {
       t := rm
+      amount := AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     }
-    let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount t 32<rt> typ amount carryIn
     dst, src1, shifted, carryOut
   | _ ->
@@ -856,6 +849,13 @@ let mov isSetFlags ins bld =
         let cpsr = regVar bld R.CPSR
         cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
         cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
+        (* A rotated immediate carries out its top bit; anything else keeps
+           C as it was. *)
+        if ins.Cflag.IsSome then
+          let carry = computeCarryOutFromImmCflag ins bld
+          cpsr := carry |> setPSR bld R.CPSR PSR.C
+        else
+          ()
       else
         ()
     putEndLabel bld lblIgnore
@@ -1099,7 +1099,7 @@ let transTwoOprsOfMVN (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    struct (e1, e2, getCarryFlag bld)
+    struct (e1, e2, computeCarryOutFromImmCflag ins bld)
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     let shifted, carryOut = shiftC e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
@@ -1110,17 +1110,23 @@ let transTwoOprsOfMVN (ins: Instruction) bld =
 let transThreeOprsOfMVN (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
+    let t = tmpVar bld 32<rt>
     let carryIn = getCarryFlag bld
     let dst = transOpr ins bld opr1
-    let src = transOpr ins bld opr2
-    let shifted, carryOut = shiftC src 32<rt> typ imm carryIn
+    (* Rd can be the shifted register, whose bits C is taken from. *)
+    append bld { t := transOpr ins bld opr2 }
+    let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     struct (dst, shifted, carryOut)
   | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
+    let struct (t, amount) = tmpVars2 bld 32<rt>
     let carryIn = getCarryFlag bld
     let dst = transOpr ins bld opr1
-    let src = transOpr ins bld opr2
-    let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
-    let shifted, carryOut = shiftCForRegAmount src 32<rt> typ amount carryIn
+    (* Rd can be the shifted register or the amount register. *)
+    append bld {
+      t := transOpr ins bld opr2
+      amount := AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
+    }
+    let shifted, carryOut = shiftCForRegAmount t 32<rt> typ amount carryIn
     struct (dst, shifted, carryOut)
   | _ ->
     raise InvalidOperandException
@@ -1206,11 +1212,14 @@ let parseOprOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
 let shiftInstr isSetFlags ins typ bld =
   lift bld ins {
     let struct (srcTmp, result) = tmpVars2 bld 32<rt>
+    let carry = tmpVar bld 1<rt>
     let dst, src, res, carryOut = parseOprOfShiftInstr ins typ bld srcTmp
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     srcTmp := src
     result := res
+    (* The amount register can be the destination: take the carry first. *)
+    if isSetFlags then carry := carryOut else ()
     if dst = getPC bld then
       aluWritePC bld ins isUnconditional result
     else
@@ -1219,7 +1228,7 @@ let shiftInstr isSetFlags ins typ bld =
         let cpsr = regVar bld R.CPSR
         cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N
         cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z
-        cpsr := carryOut |> setPSR bld R.CPSR PSR.C
+        cpsr := carry |> setPSR bld R.CPSR PSR.C
       else
         ()
     putEndLabel bld lblIgnore
@@ -1227,8 +1236,6 @@ let shiftInstr isSetFlags ins typ bld =
 
 let subs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(OprReg R.PC, _, _) when ins.IsThumb ->
-    subsPCLRThumb ins bld
   | ThreeOperands(OprReg R.PC, _, _)
   | FourOperands(OprReg R.PC, _, _, _) ->
     subsAndRelatedInstr ins bld
@@ -1330,6 +1337,42 @@ let rrxs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg R.PC, _) -> subsAndRelatedInstr ins bld
   | _ -> shiftInstr isSetFlags ins ShiftOp.RRX bld
+
+/// <summary>
+/// One step of a bit-reflected CRC: shift the remainder down a bit and, when
+/// the bit that fell out was set, subtract the polynomial. Subtraction over
+/// GF(2) is exclusive or, so no borrow runs between steps, and the polynomial
+/// is given reflected too, which is what lets the division run from the
+/// bottom of the word.
+/// </summary>
+let private crcStep bld poly crc =
+  let one = AST.num1 32<rt>
+  let shifted = crc >> one
+  let next = AST.ite ((crc .& one) == one) (shifted <+> poly) shifted
+  append bld { crc := next }
+
+/// <summary>
+/// CRC32 and CRC32C over a byte, a halfword or a word (DDI0487F.c F5.1.39 and
+/// F5.1.40). The manual reverses the accumulator and the data, divides from
+/// the top and reverses the answer. Reversing the polynomial instead says the
+/// same and leaves the rest the right way up, which is why the constants
+/// below are the reflections of 0x04C11DB7 and 0x1EDC6F41.
+/// </summary>
+let crc32 (ins: Instruction) bld isCastagnoli (size: int<rt>) =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let struct (rd, rn, rm) = transThreeOprs ins bld
+    let poly =
+      if isCastagnoli then numU32 0x82F63B78u 32<rt>
+      else numU32 0xEDB88320u 32<rt>
+    let crc = tmpVar bld 32<rt>
+    crc := rn <+> AST.zext 32<rt> (AST.xtlo size rm)
+    for _ in 1 .. int size do
+      crcStep bld poly crc
+    rd := crc
+    putEndLabel bld lblIgnore
+  }
 
 let clz ins bld =
   lift bld ins {
@@ -1534,7 +1577,7 @@ let transOprsOfTEQ (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     let struct (rn, imm) = transTwoOprs ins bld
-    rn, imm, getCarryFlag bld
+    rn, imm, computeCarryOutFromImmCflag ins bld
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
     let rn = transOpr ins bld opr1
@@ -1997,7 +2040,36 @@ let getLDMStartAddr rn stackWidth = function
   | Op.LDMIB -> rn .+ (numI32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
 
-let ldm opcode ins bld wbackop =
+/// Loads User mode's registers, the way popLoop loads the running mode's: an
+/// LDM with ^ and without the PC (DDI0406C B9.3.6).
+let private userPopLoop bld numOfReg addr =
+  let loop addr count =
+    if (numOfReg >>> count) &&& 1u = 1u then
+      let reg = count |> uint32 |> OperandHelper.getRegister
+      let value = tmpVar bld 32<rt>
+      append bld { value := loadNative bld 32<rt> addr }
+      writeUserRegister bld reg value
+      addr .+ (numI32 4 32<rt>)
+    else
+      addr
+  List.fold loop addr [ 0 .. 14 ]
+
+/// The registers an LDM loads: User mode's for one with ^ and without the
+/// PC, and the running mode's otherwise.
+let private loadRegisters bld (ins: Instruction) numOfReg addr =
+  if ins.Caret && (numOfReg >>> 15 &&& 1u) = 0u then
+    userPopLoop bld numOfReg addr
+  else
+    popLoop bld numOfReg addr
+
+/// The PC an LDM loads. With ^ it returns from an exception (DDI0406C
+/// B9.3.5); without it, it branches as LoadWritePC does.
+let private loadPC bld (ins: Instruction) isUnconditional addr =
+  let value = loadNative bld 32<rt> addr
+  if ins.Caret then returnWithSPSR bld value
+  else loadWritePC bld isUnconditional value
+
+let ldm opcode (ins: Instruction) bld wbackop =
   lift bld ins {
     let struct (t0, t1) = tmpVars2 bld 32<rt>
     let struct (rn, numOfRn, numOfReg) = parseOprOfLDM ins bld
@@ -2006,9 +2078,10 @@ let ldm opcode ins bld wbackop =
     let addr = getLDMStartAddr t0 stackWidth opcode
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
+    if ins.Caret then undefinedInUserOrHypMode bld else ()
     t0 := rn
     t1 := addr
-    let addr = popLoop bld numOfReg t1
+    let addr = loadRegisters bld ins numOfReg t1
     if wback && (numOfReg &&& numOfRn) = 0u then
       rn := wbackop t0 (numI32 stackWidth 32<rt>)
     else
@@ -2018,7 +2091,7 @@ let ldm opcode ins bld wbackop =
     else
       ()
     if (numOfReg >>> 15 &&& 1u) = 1u then
-      loadNative bld 32<rt> addr |> loadWritePC bld isUnconditional
+      loadPC bld ins isUnconditional addr
     else
       ()
     putEndLabel bld lblIgnore
@@ -2026,11 +2099,13 @@ let ldm opcode ins bld wbackop =
 
 let getOffAddrWithExpr s r e = if s = Some Plus then r .+ e else r .- e
 
+/// The address an immediate offset names. An offset with no sign is one an
+/// encoding only ever adds (T32's LDRT family, LDREX and STREX).
 let getOffAddrWithImm s r imm =
   match s, imm with
-  | Some Plus, Some i -> r .+ (numI64 i 32<rt>)
+  | (Some Plus | None), Some i -> r .+ (numI64 i 32<rt>)
   | Some Minus, Some i -> r .- (numI64 i 32<rt>)
-  | _, _ -> r
+  | _, None -> r
 
 let parseMemOfLDR ins bld = function
   | OprMemory(OffsetMode(ImmOffset(rn, s, imm))) ->
@@ -2245,22 +2320,6 @@ let revsh ins bld =
     putEndLabel bld lblIgnore
   }
 
-let rfedb (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let dst = transOneOpr ins bld
-    let wback = ins.WriteBack
-    let struct (addr, newPcValue, spsr) = tmpVars3 bld 32<rt>
-    addr := dst .- numI32 8 32<rt>
-    newPcValue := loadNative bld 32<rt> addr
-    spsr := loadNative bld 32<rt> (addr .+ numI32 4 32<rt>)
-    match wback with
-    | true -> append bld { dst := dst .- numI32 8 32<rt> }
-    | _ -> append bld { dst := dst }
-    putEndLabel bld lblIgnore
-  }
-
 /// Store register.
 let str ins bld size =
   lift bld ins {
@@ -2371,6 +2430,41 @@ let strexd ins bld =
     putEndLabel bld lblIgnore
   }
 
+/// CLREX, which clears the reservation a load-exclusive made, so that a
+/// store-exclusive after it fails (DDI0406C A8.8.32). The reservation is left
+/// naming the last byte of memory, which no store-exclusive of a halfword or
+/// more can name, as each is aligned.
+let clrex (ins: Instruction) bld =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    regVar bld R.ExMonAddr := numU32 0xFFFFFFFFu 32<rt>
+    putEndLabel bld lblIgnore
+  }
+
+/// <summary>
+/// SETEND, which writes CPSR.E -- bit 9, the byte order of data accesses --
+/// in any mode and cannot be conditional (DDI0406C A8.8.168). A load or a
+/// store is lifted in the byte order of the ISA it is lifted for, not in the
+/// one E names when it runs, so SETEND ends the block with a jump to the
+/// instruction after it: what follows has to be lifted again, in the order E
+/// now names. Armv8 makes it UNDEFINED where SCTLR.SED is set (DDI0487F.c
+/// F5.1.182, AArch32.CheckSETENDEnabled); SED is not checked here.
+/// </summary>
+let setend (ins: Instruction) bld =
+  let e =
+    match ins.Operands with
+    | OneOperand(OprEndian Endian.Big) -> 0x200u
+    | OneOperand(OprEndian _) -> 0u
+    | _ -> raise InvalidOperandException
+  lift bld ins {
+    let cpsr = regVar bld R.CPSR
+    cpsr := (cpsr .& numU32 0xfffffdffu 32<rt>) .| numU32 e 32<rt>
+    let next = numU64 (ins.Address + uint64 ins.Length) 32<rt>
+    AST.interjmp next InterJmpKind.Base
+    return NoEndMark
+  }
+
 let strd ins bld =
   lift bld ins {
     let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins bld
@@ -2416,7 +2510,25 @@ let stmLoop bld regs wback rn addr =
       addr
   List.fold loop addr [ 0 .. 14 ]
 
-let stm opcode ins bld wbop =
+/// Stores User mode's registers, the way stmLoop stores the running mode's:
+/// an STM with ^ (DDI0406C B9.3.17), which never writes its base back.
+let private userStmLoop bld regs addr =
+  let loop addr count =
+    if (regs >>> count) &&& 1u = 1u then
+      let reg = count |> uint32 |> OperandHelper.getRegister
+      append bld { loadNative bld 32<rt> addr := readUserRegister bld reg }
+      addr .+ (numI32 4 32<rt>)
+    else
+      addr
+  List.fold loop addr [ 0 .. 14 ]
+
+/// The registers an STM stores: User mode's for one with ^, and the running
+/// mode's otherwise.
+let private storeRegisters bld (ins: Instruction) regs wback rn addr =
+  if ins.Caret then userStmLoop bld regs addr
+  else stmLoop bld regs wback rn addr
+
+let stm opcode (ins: Instruction) bld wbop =
   lift bld ins {
     let taddr = tmpVar bld 32<rt>
     let rn, regs = parseOprOfSTM ins bld
@@ -2425,8 +2537,9 @@ let stm opcode ins bld wbop =
     let addr = getSTMStartAddr rn msize opcode
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
+    if ins.Caret then undefinedInUserOrHypMode bld else ()
     taddr := addr
-    let addr = stmLoop bld regs wback rn taddr
+    let addr = storeRegisters bld ins regs wback rn taddr
     if (regs >>> 15 &&& 1u) = 1u then
       loadNative bld 32<rt> addr := pcStoreValue bld
     else

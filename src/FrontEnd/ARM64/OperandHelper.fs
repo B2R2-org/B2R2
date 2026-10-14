@@ -175,6 +175,12 @@ let getControlRegister = function (* 1:op0:op1:CRn:CRm:op2 *)
     R.SPEL0
   | 0b1100011010000100u ->
     R.TPIDREL1
+  | 0b1100001110100000u ->
+    R.PAREL1
+  | 0b1101111100000000u ->
+    R.CNTFRQEL0
+  | 0b1101111010000011u ->
+    R.TPIDRROEL0
   | 0b1100001000010010u ->
     R.CURRENTEL
   | 0b1101101000010001u ->
@@ -1449,7 +1455,8 @@ let regOffset bin amount = getRegOffset (valS2 bin) (valOption bin) amount
 let wmxm bin = if pickBit bin 13u = 0b0u then w (valM bin) else x (valM bin)
 
 (* Shift *)
-let lshf1 bin = OprShift(LSL, Imm(8 <<< (valSize1 bin |> int) |> int64))
+let lshf1 bin = (* SHLL's #<shift>, as wide as one source element *)
+  OprImm(8L <<< int (valSize1 bin))
 
 let lshf2 bin = (* FIXME: If shift amount is 0, not present. *)
   OprShift(LSL, Imm(getShiftAmountByShift (valShift bin) |> int64))

@@ -19,8 +19,17 @@
     <Compile Include="Disasm.fs" />
     <Compile Include="IRHelper.fs" />
     <Compile Include="LiftingUtils.fs" />
+    <Compile Include="Modes.fs" />
     <Compile Include="GeneralLifter.fs" />
     <Compile Include="NEONLifter.fs" />
+    <Compile Include="CryptoLifter.fs" />
+    <Compile Include="FloatingPoint.fs" />
+    <Compile Include="FPConversion.fs" />
+    <Compile Include="FPLifter.fs" />
+    <Compile Include="FPv8Lifter.fs" />
+    <Compile Include="FP16Lifter.fs" />
+    <Compile Include="BF16Lifter.fs" />
+    <Compile Include="SIMDv8Lifter.fs" />
     <Compile Include="SystemLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="OperandParsingHelper.fs" />

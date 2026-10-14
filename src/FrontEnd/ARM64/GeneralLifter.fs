@@ -152,6 +152,15 @@ let bfxil ins bld =
   let imms = (getImmValue lsb) + (getImmValue width) - 1L |> OprImm
   bfm ins bld dst src lsb imms
 
+/// BFC, which is BFI from the zero register: the field it names is cleared
+/// and the rest of the destination kept.
+let bfc ins bld =
+  let struct (dst, lsb, width) = getThreeOprs ins
+  let zero = if ins.OprSize = 64<rt> then R.XZR else R.WZR
+  let immr = ((getImmValue lsb * -1L) &&& 0x3FL) % int64 ins.OprSize |> OprImm
+  let imms = getImmValue width - 1L |> OprImm
+  bfm ins bld dst (OprRegister zero) immr imms
+
 let bics ins bld =
   lift bld ins {
     let dst, src1, src2 = transFourOprsWithBarrelShift ins bld
@@ -409,17 +418,41 @@ let loadTag ins bld =
     sized 64<rt> dst := dst .& AST.not tagMask
   }
 
+/// Whether the processor is at EL0, which CurrentEL holds in bits 3:2. What
+/// runs the IR is what sets it: a Linux process at EL0, a board at EL1.
+let atEL0 bld =
+  (regVar bld R.CURRENTEL .& numU64 0xcUL 64<rt>) == AST.num0 64<rt>
+
+/// An Undefined Instruction exception where the condition holds.
+let private undefinedWhen bld cond =
+  _when bld "Undefined" cond (block {
+    AST.sideEffect UndefinedInstruction
+  })
+
 /// <summary>
-/// STG, ST2G and STGM, which write a tag to one granule, to two, or to a
-/// whole block.
+/// STG and ST2G, which write a tag to one granule or to two.
 ///
 /// The tag memory they write is not addressable and nothing here reads it
-/// back, so what they leave behind is nothing. The zeroing forms below are
-/// the ones with an effect a program can see.
+/// back, so what they leave behind is the base register alone, which the
+/// post-index and pre-index forms write the address back to as any store
+/// does. The zeroing forms below have an effect on memory too.
 /// </summary>
 let storeTag ins bld =
   lift bld ins {
-    ()
+    let struct (_, mem) = getTwoOprs ins
+    let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
+    if isWBack then direct bReg := bReg .+ offset else ()
+  }
+
+/// <summary>
+/// STGM, which writes the tags of a whole block of granules. It is UNDEFINED
+/// at EL0 (C6.2.257); above it, what it writes is tag memory, which nothing
+/// here reads back.
+/// </summary>
+let storeTagMultiple ins bld =
+  lift bld ins {
+    undefinedWhen bld (atEL0 bld)
   }
 
 /// <summary>
@@ -434,11 +467,13 @@ let storeTagZeroing ins bld granules =
   lift bld ins {
     let struct (_, mem) = getTwoOprs ins
     let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     let address = tmpVar bld 64<rt>
-    direct address := bReg .+ offset
+    direct address := if isPostIndex then bReg else bReg .+ offset
     for i in 0 .. granules * 2 - 1 do
       direct (AST.loadLE 64<rt> (address .+ numI32 (i * 8) 64<rt>)) :=
         AST.num0 64<rt>
+    writeBack bld isWBack isPostIndex bReg address offset
   }
 
 /// <summary>
@@ -453,22 +488,26 @@ let storeTagPair ins bld =
     let src1 = transOpr ins bld o1
     let src2 = transOpr ins bld o2
     let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     let address = tmpVar bld 64<rt>
-    direct address := bReg .+ offset
+    direct address := if isPostIndex then bReg else bReg .+ offset
     direct (AST.loadLE 64<rt> address) := src1
     direct (AST.loadLE 64<rt> (address .+ numI32 8 64<rt>)) := src2
+    writeBack bld isWBack isPostIndex bReg address offset
   }
 
 /// <summary>
 /// LDGM, which reads the tags of a whole block of granules into a register.
 ///
 /// With no tag memory every tag is zero, and the bits no tag is written to
-/// are zero by definition, so the register becomes zero.
+/// are zero by definition, so the register becomes zero. It is UNDEFINED at
+/// EL0 (C6.2.124).
 /// </summary>
 let loadTagMultiple ins bld =
   lift bld ins {
     let struct (dst, _) = getTwoOprs ins
     let dst = transOpr ins bld dst
+    undefinedWhen bld (atEL0 bld)
     sized 64<rt> dst := AST.num0 64<rt>
   }
 
@@ -498,12 +537,13 @@ let private zeroBlock bld address =
 /// <summary>
 /// STZGM, which writes the tags of the block DC ZVA clears and clears it.
 /// The tags go nowhere a program can read, the way STG's do; the clearing
-/// is what shows.
+/// is what shows. It is UNDEFINED at EL0 (C6.2.307).
 /// </summary>
 let storeTagZeroingMultiple ins bld =
   lift bld ins {
     let struct (_, mem) = getTwoOprs ins
     let bReg, offset = transOpr ins bld mem |> separateMemExpr
+    undefinedWhen bld (atEL0 bld)
     zeroBlock bld (bReg .+ offset)
   }
 
@@ -641,6 +681,15 @@ let private poisoned addr key =
   let code = if key &&& 1 = 0 then 0b01UL else 0b10UL
   (addr .& numU64 0x9fffffffffffffffUL 64<rt>) .| numU64 (code <<< 61) 64<rt>
 
+/// Whether bits 63:48 of a pointer are all zeros or all ones, which AddPAC
+/// checks before it signs.
+let private isCanonical d =
+  let top = AST.extract d 16<rt> 48
+  (top == AST.num0 16<rt>) .| (top == numU64 0xffffUL 16<rt>)
+
+/// The bit of the code AddPAC inverts for a pointer that is not canonical.
+let private bit62 = 1UL <<< 62
+
 /// The single operand of a Z form, which names the register it signs and
 /// nothing else.
 let private oneOpr (ins: Instruction) =
@@ -663,6 +712,10 @@ let private oneOpr (ins: Instruction) =
 /// architecture allows that or an exception (FEAT_FPAC); the code is what is
 /// done here, because it is a value rather than a trap and a model with no
 /// exception to raise can still say it.
+///
+/// A pointer whose bits 63:48 are not all zeros or all ones is not one a
+/// signer can vouch for, and AddPAC (J1-7658) inverts bit 62 of the code it
+/// writes into one, so that no authentication gives it back.
 /// </summary>
 let private pacWrite bld d m key isAuth =
   let addr = stripPAC bld d
@@ -670,7 +723,7 @@ let private pacWrite bld d m key isAuth =
   let expected = tmpVar bld 64<rt>
   append bld { direct expected := addr .| pacSignature bld addr keyed }
   if isAuth then AST.ite (expected == d) addr (poisoned addr key)
-  else expected
+  else AST.ite (isCanonical d) expected (expected <+> numU64 bit62 64<rt>)
 
 /// The forms that name a modifier register.
 let private pacTwo (ins: Instruction) bld key isAuth =
@@ -809,25 +862,26 @@ let xpaclri (ins: Instruction) bld =
 ///
 /// The offset counts eight-byte words and is signed, and it is added AFTER
 /// the authentication: what is signed is the base, not the address the load
-/// reaches.
+/// reaches. The pre-indexed form writes that address back to the base.
 /// </summary>
 let private loadAuth (ins: Instruction) bld isKeyB =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let d = transOpr ins bld dst
-    let struct (bReg, offset) =
+    let struct (bReg, offset, isWBack) =
       match src with
       | OprMemory(BaseMode(ImmOffset(BaseOffset(b, o)))) ->
-        struct (regVar bld b, defaultArg o 0L)
+        struct (regVar bld b, defaultArg o 0L, false)
       | OprMemory(PreIdxMode(ImmOffset(BaseOffset(b, o)))) ->
-        struct (regVar bld b, defaultArg o 0L)
+        struct (regVar bld b, defaultArg o 0L, true)
       | _ ->
         raise InvalidOperandException
     let key = if isKeyB then 3 else 2
-    let authed = tmpVar bld 64<rt>
+    let struct (authed, address) = tmpVars2 bld 64<rt>
     direct authed := pacWrite bld bReg (AST.num0 64<rt>) key true
-    let address = authed .+ numI64 offset 64<rt>
+    direct address := authed .+ numI64 offset 64<rt>
     sized 64<rt> d := AST.loadLE 64<rt> address
+    if isWBack then direct bReg := address else ()
   }
 
 let ldraa ins bld = loadAuth ins bld false
@@ -1183,52 +1237,50 @@ let ctz ins bld =
     sized ins.OprSize dst := res
   }
 
+/// Whether a bit of SCTLR_EL1 is set (D13.2.113).
+let sctlrBit bld (bit: int) =
+  (regVar bld R.SCTLREL1 .& numU64 (1UL <<< bit) 64<rt>) != AST.num0 64<rt>
+
+/// SCTLR_EL1.DZE, which lets EL0 run DC ZVA, DC GVA and DC GZVA.
+let private dze = 14
+
+/// SCTLR_EL1.UCI, which lets EL0 run the cache maintenance it may run.
+let private uci = 26
+
 /// DC ZVA, which clears the block DCZID_EL0 names around the address it is
-/// given.
+/// given. EL0 runs it only where SCTLR_EL1.DZE lets it (D13.2.113).
 let dczva ins bld =
   lift bld ins {
     let src = transOneOpr ins bld
+    undefinedWhen bld (atEL0 bld .& AST.not (sctlrBit bld dze))
     zeroBlock bld src
   }
 
-let checkZero bld dataSize fpVal =
-  let isFZ = (regVar bld R.FPCR >> numI32 24 64<rt>) |> AST.xtlo 1<rt>
-  let struct (n0, f0) = tmpVars2 bld dataSize
-  append bld {
-    direct n0 := AST.num0 dataSize
-    direct f0 := fpZero fpVal dataSize
+/// <summary>
+/// The cache maintenance EL0 may run where SCTLR_EL1 lets it: the cleaning
+/// by address and IC IVAU under UCI, and DC GVA under DZE (D13.2.113). No
+/// cache stands between the processor and memory here, and no tag memory, so
+/// where one runs it does nothing.
+/// </summary>
+let el0Maintenance (ins: Instruction) bld =
+  let enable = if ins.Opcode = Opcode.DCGVA then dze else uci
+  lift bld ins {
+    undefinedWhen bld (atEL0 bld .& AST.not (sctlrBit bld enable))
   }
-  let inline isOnes exp =
-    match dataSize with
-    | 32<rt> -> exp == numI32 0xFF 32<rt>
-    | 64<rt> -> exp == numI32 0x7FF 64<rt>
-    | _ -> raise InvalidOperandSizeException
-  let struct (exp, frac) = tmpVars2 bld dataSize
-  match dataSize with
-  | 32<rt> ->
-    append bld {
-      direct exp := (fpVal >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
-      direct frac := fpVal .& numU32 0x7fffffu 32<rt>
-    }
-  | 64<rt> ->
-    append bld {
-      direct exp := (fpVal >> numI64 52L 64<rt>) .& numI64 0x7ffL 64<rt>
-      direct frac := fpVal .& numU64 0xfffffffffffffUL 64<rt>
-    }
-  | _ ->
-    raise InvalidOperandSizeException
-  AST.ite ((exp == n0) .& (frac == n0 .| isFZ))
-    f0
-    (AST.ite ((isOnes exp) .& (frac != n0)) f0 fpVal)
 
+/// <summary>
+/// FPCompare's answer as NZCV, and whether unpacking flushed an operand. Both
+/// operands are unpacked first, which flushes a denormal one to zero under
+/// FPCR.FZ: an operand that was a half was flushed under FZ16 before it was
+/// widened, and widened halves are never denormal doubles. The Input Denormal
+/// the flush raises is the caller's to record, since FCCMP compares only
+/// where its condition holds.
+/// </summary>
 let private fpCompare bld oprSz src1 src2 =
-  let struct (v1, v2) = tmpVars2 bld oprSz
+  let struct (v1, d1) = fpFlushOperand bld oprSz src1
+  let struct (v2, d2) = fpFlushOperand bld oprSz src2
   let isOpNaN = tmpVar bld 1<rt>
   let result = tmpVar bld 8<rt>
-  append bld {
-    direct v1 := checkZero bld oprSz src1
-    direct v2 := checkZero bld oprSz src2
-  }
   let lblOpNaN = label bld "OpNaN"
   let lblCmp = label bld "Cmp"
   let lblEq = label bld "Eq"
@@ -1252,17 +1304,18 @@ let private fpCompare bld oprSz src1 src2 =
     direct result := AST.ite cond (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>)
     AST.lmark lblEnd
   }
-  result
+  struct (result, d1 .| d2)
 
 /// <summary>
-/// The comparison at the operands' own width: a half's in doubles, which
-/// hold every half exactly and so order them the same way.
+/// The comparison at the operands' own width -- a half's in doubles, which
+/// hold every half exactly and so order them the same way -- and whether
+/// unpacking flushed an operand, as <see cref="fpCompare"/> gives it.
 /// </summary>
 let private fpCompareAt bld oprSz src1 src2 =
   if oprSz = 16<rt> then
     let struct (w1, w2) = tmpVars2 bld 64<rt>
-    let e1 = halfToWide false 64<rt> bld src1
-    let e2 = halfToWide false 64<rt> bld src2
+    let e1 = halfToWide false 64<rt> bld (fpFlushIn bld 16<rt> src1)
+    let e2 = halfToWide false 64<rt> bld (fpFlushIn bld 16<rt> src2)
     append bld {
       direct w1 := e1
       direct w2 := e2
@@ -1285,7 +1338,9 @@ let fcmp (ins: Instruction) bld =
   lift bld ins {
     let src1, src2 = transTwoOprs ins bld
     let flags = tmpVar bld 8<rt>
-    direct flags := fpCompareAt bld ins.OprSize src1 src2
+    let struct (comp, denormal) = fpCompareAt bld ins.OprSize src1 src2
+    direct flags := comp
+    fpInputDenormal bld ins.OprSize denormal
     fpExceptionsInvalidOnly bld (compareInvalid ins src1 src2)
     direct (regVar bld R.N) := AST.extract flags 1<rt> 3
     direct (regVar bld R.Z) := AST.extract flags 1<rt> 2
@@ -1299,9 +1354,10 @@ let fccmp (ins: Instruction) bld =
     let flags = tmpVar bld 8<rt>
     let holds = tmpVar bld 1<rt>
     direct holds := conditionHolds bld cond
-    let comp = fpCompareAt bld ins.OprSize src1 src2
+    let struct (comp, denormal) = fpCompareAt bld ins.OprSize src1 src2
     direct flags := AST.ite holds comp (AST.xtlo 8<rt> nzcv)
     (* nothing is compared where the condition fails, so nothing is raised *)
+    fpInputDenormal bld ins.OprSize (holds .& denormal)
     fpExceptionsInvalidOnly bld (holds .& compareInvalid ins src1 src2)
     direct (regVar bld R.N) := AST.extract flags 1<rt> 3
     direct (regVar bld R.Z) := AST.extract flags 1<rt> 2
@@ -1552,6 +1608,58 @@ let movz (ins: Instruction) bld =
   }
 
 /// <summary>
+/// When an MRS (a read) or an MSR of a system register is UNDEFINED, which
+/// is at EL0 alone, or never. A register whose op1 is not 3 needs EL1 or
+/// more (AArch64.CheckSystemAccess, J1.1). Of those whose op1 is 3, DAIF
+/// needs SCTLR_EL1.UMA, bit 9, a read of CTR_EL0 needs SCTLR_EL1.UCT, bit
+/// 15, and CTR_EL0, DCZID_EL0, CNTVCT_EL0, TPIDRRO_EL0 and CNTFRQ_EL0 EL0
+/// only reads. CNTKCTL_EL1, which decides whether EL0 reaches the counter
+/// and its frequency, is not modelled, and they are read as Linux lets them.
+/// </summary>
+let private el0Denies bld isRead opr =
+  let el0 = atEL0 bld
+  match opr with
+  | OprRegister(R.NZCV | R.FPCR | R.FPSR | R.TPIDREL0)
+  | OprRegister(R.DIT | R.SSBS | R.TCO) ->
+    None
+  | OprRegister R.DAIF ->
+    Some(el0 .& AST.not (sctlrBit bld 9))
+  | OprRegister R.CTREL0 when isRead ->
+    Some(el0 .& AST.not (sctlrBit bld 15))
+  | OprRegister(R.DCZIDEL0 | R.CNTVCT_EL0) when isRead ->
+    None
+  | OprRegister(R.TPIDRROEL0 | R.CNTFRQEL0) when isRead ->
+    None
+  | OprSysReg key when (key >>> 11) &&& 7u = 3u ->
+    None
+  | _ ->
+    Some el0
+
+/// <summary>
+/// Whether MSR may not name a register at all: one the manual lists only an
+/// MRS for, whose MSR encoding is unallocated and so UNDEFINED at every level
+/// -- the identification registers, CurrentEL and the counter. The ID space
+/// (op0 3, op1 0, CRn 0) and CCSIDR_EL1, CLIDR_EL1 and AIDR_EL1 are read
+/// only whether or not a register here names them.
+/// </summary>
+let isReadOnly opr =
+  match opr with
+  | OprRegister(R.MIDREL1 | R.CTREL0 | R.DCZIDEL0 | R.CURRENTEL)
+  | OprRegister(R.CNTVCT_EL0 | R.CCSIDREL1 | R.CLIDREL1 | R.AIDREL1) ->
+    true
+  | OprSysReg key ->
+    key &&& 0xff80u = 0xc000u
+  | _ ->
+    false
+
+/// An Undefined Instruction exception where the level running may not read
+/// (isRead) or write the system register an MRS or MSR names.
+let checkSystemAccess bld isRead opr =
+  match el0Denies bld isRead opr with
+  | Some cond -> undefinedWhen bld cond
+  | None -> ()
+
+/// <summary>
 /// The bits of its register a field of PSTATE occupies, which are the bits
 /// SPSR keeps it at. Every other bit of such a register is RES0, so a write
 /// keeps only these and a read finds nothing else. Zero for a register that
@@ -1575,6 +1683,18 @@ let private fieldRegister = function
   | DIT -> R.DIT
   | TCO -> R.TCO
   | DAIFSET | DAIFCLR -> R.DAIF
+
+/// An Undefined Instruction exception where EL0 may not write the field an
+/// MSR (immediate) names: SPSel, PAN and UAO, whose op1 is 0, need EL1, and
+/// DAIFSet and DAIFClr need SCTLR_EL1.UMA (C6.2.194).
+let private checkFieldAccess bld field =
+  match field with
+  | SPSEL | PAN | UAO ->
+    undefinedWhen bld (atEL0 bld)
+  | DAIFSET | DAIFCLR ->
+    undefinedWhen bld (atEL0 bld .& AST.not (sctlrBit bld 9))
+  | _ ->
+    ()
 
 /// <summary>
 /// Makes SP name the stack pointer a selection asks for: SP_EL0 for zero,
@@ -1610,6 +1730,7 @@ let private msrImmediate ins bld field (imm: int64) =
   let daif = regVar bld R.DAIF
   let reg = fieldRegister field
   lift bld ins {
+    checkFieldAccess bld field
     match field with
     | DAIFSET ->
       direct daif := daif .| numU64 (imm <<< 6) 64<rt>
@@ -1624,6 +1745,7 @@ let private msrImmediate ins bld field (imm: int64) =
 /// MSR SPSel, Xt, which selects the stack pointer bit 0 of Xt names.
 let private msrStackSelect ins bld src =
   lift bld ins {
+    checkSystemAccess bld false (OprRegister R.SPSEL)
     let src = transOpr ins bld src
     selectStack bld (src .& AST.num1 64<rt>)
   }
@@ -1632,14 +1754,25 @@ let private msrStackSelect ins bld src =
 /// of the field it names.
 let private msrWindow ins bld reg src =
   lift bld ins {
+    checkSystemAccess bld false (OprRegister reg)
     let src = transOpr ins bld src
     direct (regVar bld reg) := src .& numU64 (pstateBits reg) 64<rt>
   }
 
+/// The bits of FPSR (C5.2.8): N, Z, C and V in 31:28, which AArch32 floating
+/// point has, QC in 27, IDC in 7, and IXC, UFC, OFC, DZC and IOC in 4:0. The
+/// rest are RES0.
+let private fpsrBits = 0xf800009fUL
+
 let msr (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OprSysReg _, _) ->
-    unsupported ins bld
+  | TwoOperands(dst, _) when isReadOnly dst ->
+    sideEffects ins bld UndefinedInstruction
+  | TwoOperands(OprSysReg _ as dst, _) ->
+    lift bld ins {
+      checkSystemAccess bld false dst
+      AST.sideEffect UnsupportedInstruction
+    }
   | TwoOperands(OprPstate field, OprImm imm) ->
     msrImmediate ins bld field imm
   | TwoOperands(OprRegister R.SPSEL, src) ->
@@ -1649,6 +1782,7 @@ let msr (ins: Instruction) bld =
   | _ ->
     lift bld ins {
       let struct (dst, src) = getTwoOprs ins
+      checkSystemAccess bld false dst
       match dst with
       | OprRegister R.NZCV ->
         let src = transOpr ins bld src
@@ -1656,6 +1790,9 @@ let msr (ins: Instruction) bld =
         direct (regVar bld R.Z) := AST.extract src 1<rt> 30
         direct (regVar bld R.C) := AST.extract src 1<rt> 29
         direct (regVar bld R.V) := AST.extract src 1<rt> 28
+      | OprRegister R.FPSR ->
+        let src = transOpr ins bld src
+        direct (regVar bld R.FPSR) := src .& numU64 fpsrBits 64<rt>
       | _ ->
         let dst = transOpr ins bld dst
         let src = transOpr ins bld src
@@ -1667,6 +1804,123 @@ let msub ins bld =
     let dst, src1, src2, src3 = transOprOfMSUB ins bld
     sized ins.OprSize dst := src3 .- (src1 .* src2)
   }
+
+/// The op1:CRn:CRm:op2 of an alias of SYS: a DC's from its opcode, the
+/// others' from the operation they carry (SysOp).
+let private sysOpEncodingOf (ins: Instruction) =
+  match SysOp.tryOfDataCacheOpcode ins.Opcode, ins.Operands with
+  | Some e, _ -> e.Encoding
+  | None, (OneOperand(OprSysOp enc) | TwoOperands(OprSysOp enc, _)) -> enc
+  | _ -> raise InvalidOperandException
+
+/// The lowest exception level an alias of SYS can run at, which its op1
+/// says (DDI0487F.c C5.1.1): 3 is EL0, 0 to 2 are EL1, 4 and 5 EL2, and 6
+/// EL3.
+let private lowestLevel ins =
+  match sysOpEncodingOf ins >>> 11 with
+  | 3u -> 0
+  | 0u | 1u | 2u -> 1
+  | 4u | 5u -> 2
+  | _ -> 3
+
+/// Whether EL0 may run CFP, DVP and CPP: SCTLR_EL1.EnRCTX, bit 10
+/// (D13.2.113).
+let private enRCTX bld = sctlrBit bld 10
+
+/// <summary>
+/// The aliases of SYS whose effect this model has nothing to show: TLB and
+/// cache maintenance, with neither a TLB nor a cache modelled, and the
+/// restrictions of prediction, with no predictor. What each does is decided
+/// by the exception level it needs (C5.1.1). One EL1 needs is UNDEFINED at
+/// EL0, and CFP, DVP and CPP at EL0 unless SCTLR_EL1.EnRCTX lets it run
+/// them (C5.6.1 to C5.6.3), and IC IVAU unless SCTLR_EL1.UCI does; one that
+/// needs EL2 or EL3 is UNDEFINED anywhere, this model having neither.
+/// </summary>
+let systemMaintenance (ins: Instruction) bld =
+  let restrictsPrediction =
+    match ins.Opcode with
+    | Opcode.CFP | Opcode.DVP | Opcode.CPP -> true
+    | _ -> false
+  match lowestLevel ins with
+  | 0 when restrictsPrediction ->
+    lift bld ins {
+      undefinedWhen bld (atEL0 bld .& AST.not (enRCTX bld))
+    }
+  | 0 ->
+    el0Maintenance ins bld
+  | 1 ->
+    lift bld ins {
+      undefinedWhen bld (atEL0 bld)
+    }
+  | _ ->
+    lift bld ins {
+      AST.sideEffect UndefinedInstruction
+    }
+
+/// The physical address size of the Cortex-A57 SysReg models: its
+/// ID_AA64MMFR0_EL1.PARange is 0b0100, forty-four bits.
+let private paMax = 44
+
+/// Whether stage 1 translation is on: SCTLR_EL1.M, bit 0.
+let private mmuOn bld = sctlrBit bld 0
+
+/// An UnsupportedInstruction where the condition holds.
+let private unsupportedWhen bld cond =
+  _when bld "Unsupported" cond (block {
+    AST.sideEffect UnsupportedInstruction
+  })
+
+/// <summary>
+/// Whether an address lies outside the physical address range, which with
+/// the MMU off is an Address size fault (AArch64.TranslateAddressS1Off,
+/// J1.1). The bits checked run from paMax to the top bit AddrTop gives: 63,
+/// or 55 where TCR_EL1.TBI0 or TBI1, the one bit 55 selects, ignores the top
+/// byte. TBI0 is bit 37 of TCR_EL1 and TBI1 bit 38.
+/// </summary>
+let private beyondPAMax bld va =
+  let tcr = regVar bld R.TCREL1
+  let tbi0 = AST.extract tcr 1<rt> 37
+  let tbi1 = AST.extract tcr 1<rt> 38
+  let tbi = AST.ite (AST.extract va 1<rt> 55) tbi1 tbi0
+  let withTag = numU64 (0UL - (1UL <<< paMax)) 64<rt>
+  let belowTag = numU64 ((1UL <<< 56) - (1UL <<< paMax)) 64<rt>
+  (va .& AST.ite tbi belowTag withTag) != AST.num0 64<rt>
+
+/// <summary>
+/// What AT leaves in PAR_EL1 with the MMU off (D13.2.100). An address in
+/// range translates to itself, page by page, as Device-nGnRnE memory: PA in
+/// bits 43:12, ATTR zero, SH 0b10 (Outer Shareable), NS set, the regime not
+/// being Secure, and bit 11, which is RES1. One out of range is an Address
+/// size fault at level 0: F, with FST zero, and bit 11.
+/// </summary>
+let private translationOf bld va =
+  let page = numU64 ((1UL <<< paMax) - 0x1000UL) 64<rt>
+  let device = numU64 0xb00UL 64<rt>
+  let fault = numU64 0x801UL 64<rt>
+  AST.ite (beyondPAMax bld va) fault ((va .& page) .| device)
+
+/// <summary>
+/// AT, which translates an address and puts the result in PAR_EL1. It needs
+/// EL1 (C5.1.1), so at EL0 it is UNDEFINED, and its forms for EL2 and EL3
+/// are UNDEFINED anywhere. With the MMU off the translation is the identity
+/// whatever the form asks about, a read or a write at EL1 or EL0, there
+/// being no permission to check; with it on the translation is a walk of
+/// tables in memory, which is unsupported.
+/// </summary>
+let addressTranslate ins bld =
+  match lowestLevel ins with
+  | 1 ->
+    lift bld ins {
+      let struct (_, src) = getTwoOprs ins
+      let va = transOpr ins bld src
+      undefinedWhen bld (atEL0 bld)
+      unsupportedWhen bld (mmuOn bld)
+      direct (regVar bld R.PAREL1) := translationOf bld va
+    }
+  | _ ->
+    lift bld ins {
+      AST.sideEffect UndefinedInstruction
+    }
 
 let nop ins bld =
   lift bld ins { }
@@ -1691,18 +1945,18 @@ let private restoreFields bld spsr =
 /// low bit of SPSR's mode field says which stack pointer to return on, and
 /// that selection is made.
 ///
-/// What is NOT restored is the exception level, which the rest of the mode
-/// field names. There is one level in this model, so there is nothing for it
-/// to select between -- and code that read CurrentEL across an ERET would be
-/// reading a register this does not write. That is a limit worth stating
-/// rather than papering over with a value that looks right.
+/// The rest of the mode field, bits 3:2, is the exception level to return
+/// to, which CurrentEL holds at the same bits: an ERET to EL0 leaves CurrentEL
+/// zero, and what EL0 may run is then checked against it.
 ///
 /// ERETAA and ERETAB are the same return with the address authenticated
 /// against the stack pointer first, under the key given here; what they
-/// authenticate is not written back to the link register.
+/// authenticate is not written back to the link register. All three are
+/// UNDEFINED at EL0, which has no exception to return from (C6.2.87).
 /// </summary>
 let private exceptionReturn ins bld key =
   lift bld ins {
+    undefinedWhen bld (atEL0 bld)
     let spsr = regVar bld R.SPSREL1
     let elr = regVar bld R.ELREL1
     let source =
@@ -1721,6 +1975,7 @@ let private exceptionReturn ins bld key =
       (regVar bld R.DAIF .& AST.not (numU64 0x3c0UL 64<rt>))
       .| (spsr .& numU64 0x3c0UL 64<rt>)
     restoreFields bld spsr
+    direct (regVar bld R.CURRENTEL) := spsr .& numU64 0xcUL 64<rt>
     selectStack bld (spsr .& AST.num1 64<rt>)
     branchTo ins bld target BrTypeRET InterJmpKind.IsRet
     return NoEndMark
@@ -1916,6 +2171,15 @@ let stlxp ins bld =
     else
       let status = storeExclusivePair bld address 64<rt> src2 src3
       sized 32<rt> src1 := status
+  }
+
+/// CLREX, which clears the reservation a load-exclusive made, so that a
+/// store-exclusive after it fails (DDI0487F.c C6.2.54). The reservation is
+/// left naming the last byte of memory, which no store-exclusive of a
+/// halfword or more can name, as each is aligned.
+let clrex ins bld =
+  lift bld ins {
+    direct (regVar bld R.ExMonAddr) := numU64 0xffffffffffffffffUL 64<rt>
   }
 
 let strb ins bld =

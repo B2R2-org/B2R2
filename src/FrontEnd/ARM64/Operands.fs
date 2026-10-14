@@ -51,6 +51,9 @@ and Operand =
   (* a system register with no name here, by its encoding: the sixteen bits
      MRS and MSR carry at 20:5, op0:op1:CRn:CRm:op2 with op0's top bit set *)
   | OprSysReg of uint32
+  (* the operation an alias of SYS names -- AT, IC, TLBI, CFP, DVP or CPP --
+     by its encoding, op1:CRn:CRm:op2 at 18:5 (see SysOp) *)
+  | OprSysOp of uint32
   (* the word after a hint that takes one *)
   | OprHintOpt of HintOption
   | OprPrfOp of PrefetchOperation

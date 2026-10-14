@@ -110,6 +110,9 @@ type ARM32EncodingTests() =
       "ssat r0, #0x1, r1", "1100a0e6"
       "usat16 r0, #0x1, r1", "310fe1e6"
       "ssat16 r0, #0x1, r1", "310fa0e6"
+      (* A PKHTB that names no shift would shift its second source right by
+         32, so it is the PKHBT of its two sources the other way round. *)
+      "pkhtb r3, r6, r10", "16308ae6"
       (* An ordered or exclusive access keeps the register it transfers below
          the field a load keeps it in when it stores and above it when it loads.
          A round trip through text would not notice the assembler and the
@@ -152,6 +155,8 @@ type ARM32EncodingTests() =
          numbers keep the top bit of their destination apart from the four
          below it, as every SIMD instruction does. *)
       "vfmal.f16 d16, s2, s9", "61fc3408"
+      (* A PKHTB with no shift is the PKHBT of its sources swapped. *)
+      "pkhtb r3, r6, r10", "caea0603"
       (* An IT block holds the condition of what follows it as a mask, one bit
          per instruction, ended by a one below them. *)
       "it eq", "08bf"
@@ -199,7 +204,38 @@ type ARM32EncodingTests() =
       ".thumb\n  nop\n.arm\n  mov r0, r1"
       (* A block says what the instructions after it run under, and an ARM
          instruction says that for itself. *)
-      ".thumb\n  it eq\n.arm\n  moveq r0, r1" ]
+      ".thumb\n  it eq\n.arm\n  moveq r0, r1"
+      (* An immediate MSR names the fields it writes. *)
+      "msr cpsr, #0x13"
+      (* A halfword pack shifts its second source left for PKHBT and right for
+         PKHTB. *)
+      "pkhtb r0, r1, r2, lsl #0x4"
+      "pkhbt r0, r1, r2, asr #0x4"
+      (* A fixed-point VCVT converts in place, naming its register twice, and a
+         conversion's registers are as wide as its data types say. *)
+      "vcvt.s32.f32 s1, s2, #0x3"
+      "vcvt.f64.s32 s1, s1, #0x3"
+      "vcvt.s32.f64 s0, s1"
+      "vcvt.f64.f32 s0, s1" ]
+
+  /// <summary>
+  /// Thumb sources that must be refused: a multiply with one register more or
+  /// fewer than its kind takes, an ordered access with an offset or with a
+  /// register it has no field for, a table branch whose index is shifted the
+  /// way the other one's is, and a halfword pack that shifts the wrong way.
+  /// </summary>
+  let rejectedThumb =
+    [ "mla r1, r2, r3"
+      "mul r1, r2, r3, r4"
+      "smull r1, r2, r3"
+      "sdiv r0, r1, r2, r3"
+      "ldrexb r1, [r2, #0x4]"
+      "ldrexb r0, r1, [r2]"
+      "stl r0, r1, [r2]"
+      "tbb [r1, r2, lsl #0x1]"
+      "tbh [r1, r2]"
+      "pkhtb r0, r1, r2, lsl #0x4"
+      "pkhbt r0, r1, r2, asr #0x4" ]
 
   /// Runs the given action with stderr muted; see ARM32RoundTripTests.
   let mutingStderr action =
@@ -250,6 +286,16 @@ type ARM32EncodingTests() =
 
   let brokenVectors vectors = brokenWith encode vectors
 
+  /// Describes every source the given encoding accepts rather than refuses.
+  let acceptedBy encode sources =
+    mutingStderr (fun () ->
+      sources
+      |> List.choose (fun source ->
+        match encode source with
+        | "<unsupported>" -> None
+        | encoded -> Some $"{source} encoded as {encoded}"))
+    |> List.sort
+
   [<TestMethod>]
   member _.``Golden vectors encode exactly as specified``() =
     let defects = brokenVectors vectors
@@ -292,19 +338,33 @@ type ARM32EncodingTests() =
 
   [<TestMethod>]
   member _.``A source that cannot be encoded is refused``() =
-    let accepted =
-      mutingStderr (fun () ->
-        rejected
-        |> List.choose (fun source ->
-          match encode source with
-          | "<unsupported>" -> None
-          | encoded -> Some $"{source} encoded as {encoded}"))
-      |> List.sort
     Assert.AreEqual<string>(
       "",
-      String.concat "\n" accepted,
+      String.concat "\n" (acceptedBy encode rejected),
       "These ask for something no A32 encoding can say."
     )
+
+  [<TestMethod>]
+  member _.``A Thumb source that cannot be encoded is refused``() =
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" (acceptedBy encodeThumb rejectedThumb),
+      "These ask for something no T32 encoding can say."
+    )
+
+  /// ENTERX and LEAVEX exist in T32 alone.
+  [<TestMethod>]
+  member _.``Thumb ENTERX and LEAVEX encode``() =
+    Assert.AreEqual<string>("bff31f8f", encodeThumb "enterx")
+    Assert.AreEqual<string>("bff30f8f", encodeThumb "leavex")
+
+  /// SSBB and PSSBB are the DSB options the manual names apart.
+  [<TestMethod>]
+  member _.``SSBB and PSSBB encode``() =
+    Assert.AreEqual<string>("40f07ff5", encode "ssbb")
+    Assert.AreEqual<string>("44f07ff5", encode "pssbb")
+    Assert.AreEqual<string>("bff3408f", encodeThumb "ssbb")
+    Assert.AreEqual<string>("bff3448f", encodeThumb "pssbb")
 
   /// TSB is written with the one option it has.
   [<TestMethod>]
@@ -358,11 +418,11 @@ type ARM32EncodingTests() =
 
   [<TestMethod>]
   member _.``Thumb ESB encodes``() =
-    Assert.AreEqual<string>("aff31080", encodeThumb "esb.w")
+    Assert.AreEqual<string>("aff31080", encodeThumb "esb")
 
   [<TestMethod>]
   member _.``Thumb CSDB encodes``() =
-    Assert.AreEqual<string>("aff31480", encodeThumb "csdb.w")
+    Assert.AreEqual<string>("aff31480", encodeThumb "csdb")
 
   [<TestMethod>]
   member _.``Thumb DBG encodes``() =
@@ -618,3 +678,53 @@ type ARM32EncodingTests() =
   [<TestMethod>]
   member _.``Thumb MSR to SPSR encodes``() =
     Assert.AreEqual<string>("91f3008f", encodeThumb "msr spsr_fsxc, r1")
+
+  /// A narrow shift by a register is written as the shift, which is how the
+  /// decoder reads it back (DDI0487F.c F5.1.113).
+  [<TestMethod>]
+  member _.``Thumb LSLS by a register encodes narrow``() =
+    Assert.AreEqual<string>("8840", encodeThumb "lsls r0, r1")
+
+  [<TestMethod>]
+  member _.``Thumb RORS by a register encodes narrow``() =
+    Assert.AreEqual<string>("c841", encodeThumb "rors r0, r1")
+
+  /// VMRS and VMSR encode the system register they name in the reg field, and
+  /// FPSCR is reg 0b0001 (DDI0406C B9.3.21 and B9.3.22).
+  [<TestMethod>]
+  member _.``VMRS of FPSCR encodes``() =
+    Assert.AreEqual<string>("100af1ee", encode "vmrs r0, fpscr")
+
+  [<TestMethod>]
+  member _.``VMRS of FPSID encodes``() =
+    Assert.AreEqual<string>("100af0ee", encode "vmrs r0, fpsid")
+
+  [<TestMethod>]
+  member _.``VMSR to FPEXC encodes``() =
+    Assert.AreEqual<string>("100ae8ee", encode "vmsr fpexc, r0")
+
+  [<TestMethod>]
+  member _.``Thumb VMRS of MVFR0 encodes``() =
+    Assert.AreEqual<string>("f7ee100a", encodeThumb "vmrs r0, mvfr0")
+
+  [<TestMethod>]
+  member _.``VMRS of MVFR2 encodes``() =
+    Assert.AreEqual<string>("100af5ee", encode "vmrs r0, mvfr2")
+
+  [<TestMethod>]
+  member _.``VMSR to FPSCR encodes``() =
+    Assert.AreEqual<string>("100ae1ee", encode "vmsr fpscr, r0")
+
+  /// The MVFRs are read-only, and VMSR has no encoding that names one.
+  [<TestMethod>]
+  member _.``VMSR to MVFR0 is refused``() =
+    Assert.AreEqual<string>("<unsupported>", encode "vmsr mvfr0, r0")
+
+  /// APSR as VMRS's destination is Rt 0b1111: FPSCR's flags (A8.8.349).
+  [<TestMethod>]
+  member _.``VMRS to APSR encodes``() =
+    Assert.AreEqual<string>("10faf1ee", encode "vmrs apsr, fpscr")
+
+  [<TestMethod>]
+  member _.``Thumb VMRS to APSR encodes``() =
+    Assert.AreEqual<string>("f1ee10fa", encodeThumb "vmrs apsr, fpscr")

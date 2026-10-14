@@ -59,9 +59,18 @@ let transOpr (ins: Instruction) bld = function
 
 let inline is32Bit (bld: ILowUIRBuilder) = bld.RegType = 32<rt>
 
+/// <summary>
+/// Whether the FPU keeps a double in a PAIR of thirty-two bit registers,
+/// which is Status.FR = 0 and this front end's model of a thirty-two bit FPU
+/// before Release 6. Release 6 removed the mode, so its FPU is the 64-bit
+/// one (FR = 1) whatever the width of the general registers.
+/// </summary>
+let inline hasPairedFPRs (bld: ILowUIRBuilder) =
+  bld.RegType = 32<rt> && bld.ISA.MIPSRelease <> MIPSRelease.R6
+
 let transOprToFPConvert (ins: Instruction) bld = function
   | OpReg reg ->
-    if is32Bit bld then
+    if hasPairedFPRs bld then
       regVar bld reg
     else
       match ins.Fmt with
@@ -73,7 +82,8 @@ let transOprToFPConvert (ins: Instruction) bld = function
 
 let transOprToSingleFP bld = function
   | OpReg reg ->
-    if is32Bit bld then regVar bld reg else regVar bld reg |> AST.xtlo 32<rt>
+    if hasPairedFPRs bld then regVar bld reg
+    else regVar bld reg |> AST.xtlo 32<rt>
   | _ ->
     raise InvalidOperandException
 
@@ -96,10 +106,29 @@ let transFourSingleFP bld (o1, o2, o3, o4) =
 let transTwoOprFPConvert ins bld (o1, o2) =
   transOprToFPConvert ins bld o1, transOprToFPConvert ins bld o2
 
+/// <summary>
+/// Raised where a thirty-two bit FPU is asked for a double in an odd
+/// register. Its doubles are register PAIRS, the even register and the one
+/// above it, which is what Status.FR = 0 means; an odd register names no
+/// pair, and MD00087 makes the operation UNPREDICTABLE. The lifter answers
+/// it with a Reserved Instruction, which is what the reference raises.
+/// </summary>
+exception UnpairedRegisterException
+
+/// The register that holds the upper half of the double whose lower half an
+/// even register holds.
+let private upperOfPair reg =
+  match reg with
+  | R.F1 | R.F3 | R.F5 | R.F7 | R.F9 | R.F11 | R.F13 | R.F15
+  | R.F17 | R.F19 | R.F21 | R.F23 | R.F25 | R.F27 | R.F29 | R.F31 ->
+    raise UnpairedRegisterException
+  | _ ->
+    RegisterHelper.getFPPairReg reg
+
 let transOprToFPPair bld = function
   | OpReg reg ->
-    if is32Bit bld then
-      regVar bld (RegisterHelper.getFPPairReg reg), regVar bld reg
+    if hasPairedFPRs bld then
+      regVar bld (upperOfPair reg), regVar bld reg
     else
       (* On a 64-bit FPU the high half is a FIELD of the one register, not a
          register of its own. AST.b0 stood in for it, which broke both
@@ -114,12 +143,34 @@ let transOprToFPPair bld = function
 
 let transOprToFPPairConcat bld = function
   | OpReg reg ->
-    if is32Bit bld then
-      AST.concat (regVar bld (RegisterHelper.getFPPairReg reg)) (regVar bld reg)
+    if hasPairedFPRs bld then
+      AST.concat (regVar bld (upperOfPair reg)) (regVar bld reg)
     else
       regVar bld reg
   | _ ->
     raise InvalidOperandException
+
+/// <summary>
+/// The pair an FPR belongs to, upper register first, for the instructions
+/// that move a double without reading it as a number: LDC1 and SDC1, MFHC1
+/// and MTHC1, and the conditional moves. An odd register names no pair of
+/// its own, which MD00087 makes UNPREDICTABLE; the reference moves the pair
+/// it is the upper half of, and so does this.
+/// </summary>
+let transOprToFPPairHolding bld = function
+  | OpReg reg when hasPairedFPRs bld ->
+    let lower: Register = LanguagePrimitives.EnumOfValue(int reg &&& ~~~1)
+    regVar bld (RegisterHelper.getFPPairReg lower), regVar bld lower
+  | opr ->
+    transOprToFPPair bld opr
+
+/// The same pair as one value, upper half first.
+let transOprToFPPairHoldingConcat bld opr =
+  if hasPairedFPRs bld then
+    let upper, lower = transOprToFPPairHolding bld opr
+    AST.concat upper lower
+  else
+    transOprToFPPairConcat bld opr
 
 /// Commit a double-precision result to its destination.
 ///
@@ -130,7 +181,7 @@ let transOprToFPPairConcat bld = function
 /// the high half then reads, and the answer would come back with its low
 /// thirty-two bits right and its top ones computed from a value nobody wrote.
 let writeFPResult dstB dstA result bld =
-  if is32Bit bld then
+  if hasPairedFPRs bld then
     let value = tmpVar bld 64<rt>
     append bld {
       value := result
@@ -328,24 +379,6 @@ let private getSignalBit src oprSz =
   if oprSz = 32<rt> then src .& numU32 (1u <<< 22) 32<rt>
   else src .& numU64 (1UL <<< 51) 64<rt>
 
-/// The NaN a floating-point result normalizes to.
-///
-/// MIPS in its legacy NaN encoding -- the one this port uses -- answers with a
-/// single value wherever an operation is invalid or has met a NaN: 0x7fbfffff
-/// at single precision and 0x7ff7ffffffffffff at double. It is that value
-/// whatever the operands were, and it is positive, so this is a replacement
-/// rather than a propagation: both the payload and the sign of whatever NaN
-/// the host arithmetic produced are discarded.
-let normalizeNaN oprSz result bld =
-  let defaultNaN =
-    if oprSz = 32<rt> then numU32 0x7fbfffffu 32<rt>
-    else numU64 0x7ff7ffffffffffffUL 64<rt>
-  let nan =
-    isNaN oprSz (getExponentFull result oprSz) (getMantissa result oprSz)
-  append bld {
-    result := AST.ite nan defaultNaN result
-  }
-
 /// <summary>
 /// The kind of a jump into the compressed encoding of the processor an ISA
 /// names: MIPS16e where it names MIPS16e, and microMIPS otherwise. No processor
@@ -503,6 +536,48 @@ let mul64BitReg src1 src2 bld isSign =
   }
   struct (AST.xthi 64<rt> prod, AST.xtlo 64<rt> prod)
 
+/// <summary>
+/// Whether an instruction reaches the privileged state: the CP0 moves, the
+/// TLB, cache and interrupt controls, the exception returns, WAIT, and the
+/// EVA loads and stores, which reach user memory from the kernel. Each lists
+/// Coprocessor Unusable among its exceptions.
+/// </summary>
+let usesCP0 = function
+  | Op.MFC0 | Op.DMFC0 | Op.MFHC0 | Op.MTC0 | Op.DMTC0 | Op.MTHC0
+  | Op.RDPGPR | Op.WRPGPR | Op.DI | Op.EI | Op.DVP | Op.EVP
+  | Op.ERET | Op.ERETNC | Op.DERET | Op.WAIT
+  | Op.CACHE | Op.CACHEE | Op.GINVI | Op.GINVT
+  | Op.TLBWI | Op.TLBR | Op.TLBP | Op.TLBWR | Op.TLBINV | Op.TLBINVF
+  | Op.LBE | Op.LBUE | Op.LHE | Op.LHUE | Op.LWE | Op.LWLE | Op.LWRE
+  | Op.LLE | Op.LLWPE | Op.SBE | Op.SHE | Op.SWE | Op.SWLE | Op.SWRE
+  | Op.SCE | Op.SCWPE | Op.PREFE -> true
+  | _ -> false
+
+/// <summary>
+/// Refuses an instruction that reaches the privileged state where CP0 may
+/// not be used, and returns the label the instruction ends at. MD00087 1.2
+/// lets CP0 be used "in Kernel Mode or Debug Mode, or with the CP0 usable bit
+/// set in the Status register"; Kernel Mode is Status.KSU zero, or EXL or ERL
+/// set, and Debug Mode is never entered here. A refused instruction raises
+/// Coprocessor Unusable and does nothing it would have done.
+/// </summary>
+let refuseOutsideKernel (bld: ILowUIRBuilder) =
+  let status = regVar bld CP0Register.Status
+  let bit n = AST.extract status 1<rt> n
+  let ksu = AST.extract status 2<rt> 3
+  let kernel = (ksu == AST.num0 2<rt>) .| bit 1 .| bit 2
+  let lblRefuse = label bld "CpU"
+  let lblRun = label bld "CP0"
+  let lblEnd = label bld "End"
+  append bld {
+    AST.cjmp (kernel .| bit 28) (AST.jmpDest lblRun) (AST.jmpDest lblRefuse)
+    AST.lmark lblRefuse
+    AST.sideEffect UndefinedInstruction
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblRun
+  }
+  lblEnd
+
 /// Provides the `lift` computation expression for MIPS, which closes an
 /// instruction by advancing the PC rather than with a plain IEMark: an
 /// ordinary instruction ends with an IEMark, and one sitting in the delay slot
@@ -523,12 +598,17 @@ type LiftBuilder =
   /// Whether the instruction arms the delay slot that follows it.
   val ArmsDelaySlot: bool
 
+  /// Whether the instruction reaches the privileged state, and so is refused
+  /// before it does anything where CP0 may not be used.
+  val UsesCP0: bool
+
   /// Creates a lift builder for the instruction at the given address.
-  new(bld, addr, insLen, arms) =
+  new(bld, addr, insLen, arms, cp0) =
     { Bld = bld
       Address = addr
       InsLen = insLen
-      ArmsDelaySlot = arms }
+      ArmsDelaySlot = arms
+      UsesCP0 = cp0 }
 
   member inline _.Zero() = ()
 
@@ -546,19 +626,25 @@ type LiftBuilder =
 
   member inline this.Run([<InlineIfLambda>] f: unit -> unit) =
     this.Bld.Stream.MarkStart(this.Address, this.InsLen)
+    let refused =
+      if this.UsesCP0 then ValueSome(refuseOutsideKernel this.Bld)
+      else ValueNone
     f ()
+    match refused with
+    | ValueSome lblEnd -> this.Bld.Stream.Append(AST.lmark lblEnd)
+    | ValueNone -> ()
     if this.ArmsDelaySlot then this.Bld.Stream.MarkEnd this.InsLen
     else advancePC (this.Bld :?> LowUIRBuilder) this.InsLen
     this.Bld
 
 /// Starts lifting an ordinary instruction, closing it by advancing the PC.
 let inline lift bld (ins: Instruction) =
-  LiftBuilder(bld, ins.Address, ins.Length, false)
+  LiftBuilder(bld, ins.Address, ins.Length, false, usesCP0 ins.Opcode)
 
 /// Starts lifting a branch, which arms the delay slot that follows it. The
 /// transfer belongs to that slot, so this one closes with a plain IEMark.
 let inline liftTransfer bld (ins: Instruction) =
-  LiftBuilder(bld, ins.Address, ins.Length, true)
+  LiftBuilder(bld, ins.Address, ins.Length, true, false)
 
 let sideEffects (ins: Instruction) bld name =
   lift bld ins {
@@ -601,8 +687,9 @@ let fma sz negProduct negAddend x y z =
 /// <summary>
 /// The arithmetic an IEEE exception can be raised by.
 ///
-/// Which operation it was decides how the exact answer is recovered, and the
-/// divide is the only one of the five that can raise the zero divide.
+/// Which operation it was is what the evaluator is asked about with the
+/// operands, and the divide is the only one of the five that can raise the
+/// zero divide.
 /// </summary>
 type FPArith =
   | FPAdd
@@ -647,8 +734,12 @@ let private fpIsInfinite oprSz v =
   (biasedExponent oprSz v == exponentAllOnes oprSz)
   .& (getMantissa v oprSz == AST.num0 oprSz)
 
+/// Either zero, whose sign this does not ask about.
+let private fpIsZero oprSz v =
+  (v .& magnitudeOfWidth oprSz) == AST.num0 oprSz
+
 /// <summary>
-/// Whether the value is a NaN this guest reads as signalling.
+/// Whether the guest is on the IEEE-2008 side of the NaN encoding.
 ///
 /// Which leading mantissa bit means which is not fixed. IEEE-2008 reads a set
 /// bit as quiet; MIPS before that release read it the other way round, its
@@ -659,14 +750,86 @@ let private fpIsInfinite oprSz v =
 /// Earlier releases leave it to the processor, and there FCSR bit 18 is what
 /// says which side the guest is on.
 /// </summary>
-let private fpIsSignalling (bld: ILowUIRBuilder) oprSz v =
+let fpNaN2008 (bld: ILowUIRBuilder) =
+  if bld.ISA.MIPSRelease = MIPSRelease.R6 then AST.b1
+  else (regVar bld R.FCSR .& numU32 0x40000u 32<rt>) != AST.num0 32<rt>
+
+/// Whether the value is a NaN this guest reads as signalling.
+let private fpIsSignalling bld oprSz v =
   let quiet = (v .& quietBitOfWidth oprSz) != AST.num0 oprSz
-  if bld.ISA.MIPSRelease = MIPSRelease.R6 then
-    fpIsNaN oprSz v .& AST.not quiet
-  else
-    let nan2008 =
-      (regVar bld R.FCSR .& numU32 0x40000u 32<rt>) != AST.num0 32<rt>
-    fpIsNaN oprSz v .& AST.ite nan2008 (AST.not quiet) quiet
+  fpIsNaN oprSz v .& AST.ite (fpNaN2008 bld) (AST.not quiet) quiet
+
+/// <summary>
+/// The NaN MIPS answers before NAN2008, wherever an operation is invalid or
+/// has met a NaN: 0x7fbfffff at single precision and 0x7ff7ffffffffffff at
+/// double. It is that value whatever the operands were, and it is positive,
+/// so it replaces whatever NaN the host arithmetic produced.
+/// </summary>
+let private fpLegacyNaN oprSz =
+  if oprSz = 32<rt> then numU32 0x7fbfffffu 32<rt>
+  else numU64 0x7ff7ffffffffffffUL 64<rt>
+
+/// <summary>
+/// The NaN an arithmetic operation answers, put in place of whatever NaN the
+/// host's arithmetic made: the default one before NAN2008, and with NAN2008,
+/// which Release 6 always has, what IEEE-2008 propagates -- the first
+/// signalling operand quieted, else the first quiet one as it is, and the
+/// default NaN, 0x7fc00000 or 0x7ff8000000000000, only where no operand
+/// brought one. The host picks among NaN operands by a rule of its own, so
+/// the choice is made here.
+/// </summary>
+let fpSettleNaN bld oprSz operands result =
+  let quietBit = quietBitOfWidth oprSz
+  let fresh =
+    if oprSz = 32<rt> then numU32 0x7fc00000u 32<rt>
+    else numU64 0x7ff8000000000000UL 64<rt>
+  let signalling v = fpIsNaN oprSz v .& ((v .& quietBit) == AST.num0 oprSz)
+  let pickQuiet v rest = AST.ite (fpIsNaN oprSz v) v rest
+  let pickSignalling v rest = AST.ite (signalling v) (v .| quietBit) rest
+  let quiet = List.foldBack pickQuiet operands fresh
+  let propagated = List.foldBack pickSignalling operands quiet
+  let settled = AST.ite (fpNaN2008 bld) propagated (fpLegacyNaN oprSz)
+  append bld {
+    result := AST.ite (fpIsNaN oprSz result) settled result
+  }
+
+/// <summary>
+/// The NaN a conversion between the two formats answers: the default one
+/// before NAN2008, and with it the operand's own, quieted, with its payload
+/// cut or extended -- which is what the host's conversion makes of it.
+/// </summary>
+let fpSettleConvertedNaN bld oprSz result =
+  let replaced = fpIsNaN oprSz result .& AST.not (fpNaN2008 bld)
+  append bld {
+    result := AST.ite replaced (fpLegacyNaN oprSz) result
+  }
+
+/// The operation codes of the exception query, which are the evaluator's
+/// contract.
+let private fpExcCode = function
+  | FPAdd -> 0UL
+  | FPSub -> 1UL
+  | FPMul -> 2UL
+  | FPDiv -> 3UL
+  | FPSqrt -> 4UL
+
+/// The fused multiply-add's code in the same query.
+let private fpExcFused = 8UL
+
+/// <summary>
+/// What the query is asked beyond the operation where FCSR.FS is decided:
+/// tininess BEFORE rounding (0x40), which is where the reference flushes. The
+/// exceptions themselves are asked without it, since MIPS decides tininess
+/// after rounding, and the query answers in FCSR's own order: Invalid highest
+/// and Inexact lowest.
+/// </summary>
+let private fpExcBeforeRounding = 0x40UL
+
+let private fpExcName oprSz = if oprSz = 32<rt> then "FEXC32" else "FEXC64"
+
+/// Asks the evaluator what an operation raised.
+let private fpQuery oprSz code args =
+  AST.app (fpExcName oprSz) (numU64 code 8<rt> :: args) 32<rt>
 
 /// The five exceptions as the bits FCSR keeps them in -- Invalid highest and
 /// Inexact lowest -- from one-bit conditions.
@@ -680,26 +843,58 @@ let private fpBits invalid divZero overflow underflow inexact =
 /// Nothing raised, for the exceptions an operation cannot have.
 let private fpNone = AST.num0 1<rt>
 
-/// The operation codes of the evaluator's flags query, which are its
-/// contract.
-let private fpExcCode = function
-  | FPAdd -> 0UL
-  | FPSub -> 1UL
-  | FPMul -> 2UL
-  | FPDiv -> 3UL
-  | FPSqrt -> 4UL
+/// Whether either operand is a NaN this guest reads as signalling, which is
+/// the one thing an operation that does not round can still raise.
+let fpEitherSignalling bld oprSz a b =
+  fpIsSignalling bld oprSz a .| fpIsSignalling bld oprSz b
+
+/// FCSR.FS, flush subnormal results to zero.
+let private fpFlushing bld =
+  AST.xtlo 1<rt> (regVar bld R.FCSR >> numI32 24 32<rt>)
+
+/// A subnormal by its bits: the exponent zero and the value not.
+let private fpIsSubnormal oprSz v =
+  (biasedExponent oprSz v == AST.num0 oprSz) .& AST.not (fpIsZero oprSz v)
+
+/// <summary>
+/// FCSR.FS applied to a result, and to what its operation raised.
+///
+/// With FS set, a result whose exact value was below the smallest normal
+/// becomes a zero of its own sign, and the operation raises nothing: the
+/// reference decides it before rounding, so an answer that rounds up to the
+/// smallest normal is flushed as well, and the Underflow and Inexact the
+/// rounding would have raised go with it. The operands are not flushed.
+/// MD00087 says they are, for MADDF.fmt, but the reference reads them as
+/// they are, and only it can be measured against.
+///
+/// The exact value was tiny where the answer came out subnormal, or where
+/// the query, asked to decide tininess before rounding, says the operation
+/// underflowed: an inexact answer that rounded to zero, or up to the
+/// smallest normal. The query is asked only under FS -- an if, unlike an
+/// and, leaves the other side unevaluated -- so an operation pays for it
+/// only where it can matter.
+/// </summary>
+let private fpFlushOut bld oprSz tinyQuery result raised =
+  let flushed = tmpVar bld 1<rt>
+  let underflow = AST.xtlo 1<rt> (tinyQuery >> AST.num1 32<rt>)
+  let tiny = fpIsSubnormal oprSz result .| underflow
+  append bld {
+    flushed := AST.ite (fpFlushing bld) tiny AST.b0
+    result := AST.ite flushed (result .& signBitOfWidth oprSz) result
+  }
+  AST.ite flushed (AST.num0 32<rt>) raised
 
 /// <summary>
 /// The exceptions an arithmetic operation raised, as the five bits FCSR
-/// keeps them in: Invalid highest and Inexact lowest, which is also the order
-/// the evaluator's flags query answers in.
+/// keeps them in, with FCSR.FS applied to its result -- so this is asked
+/// before the result is written or read again.
 ///
-/// Where the answer is a number, three of the five are about the rounding --
-/// whether it lost anything, whether the answer was tiny, whether it was past
-/// the range -- and an answer does not say: an inexact sum and an exact one
-/// look the same. So the question goes to the evaluator as a named call,
-/// which works the operation out a second time with its exact error in hand
-/// and in the direction FCSR names.
+/// Three of the five are about the rounding -- whether it lost anything,
+/// whether the answer was tiny, whether it was past the range -- and an
+/// answer does not say: an inexact sum and an exact one look the same. So
+/// the question goes to the evaluator as a named call, which works the
+/// operation out again with its exact error in hand, in the direction
+/// FCSR.RM names.
 ///
 /// Where the answer is a NaN the operation either met one or made one, and
 /// Invalid is all there is to decide: a NaN this guest reads as signalling
@@ -711,19 +906,16 @@ let private fpExcCode = function
 /// </summary>
 let fpRaised bld oprSz op src1 src2 result =
   let raised = tmpVar bld 32<rt>
-  let code = numU64 (fpExcCode op) 8<rt>
-  let name = if oprSz = 32<rt> then "FEXC32" else "FEXC64"
+  let code = fpExcCode op
   let nanIn = fpIsNaN oprSz src1 .| fpIsNaN oprSz src2
-  let invalid =
-    fpIsSignalling bld oprSz src1 .| fpIsSignalling bld oprSz src2
-    .| AST.not nanIn
+  let invalid = fpEitherSignalling bld oprSz src1 src2 .| AST.not nanIn
+  let made = fpBits invalid fpNone fpNone fpNone fpNone
   append bld {
     raised :=
-      AST.ite (fpIsNaN oprSz result)
-              (AST.zext 32<rt> invalid << numI32 4 32<rt>)
-              (AST.app name [ code; src1; src2 ] 32<rt>)
+      AST.ite (fpIsNaN oprSz result) made (fpQuery oprSz code [ src1; src2 ])
   }
-  raised
+  let tiny = fpQuery oprSz (code ||| fpExcBeforeRounding) [ src1; src2 ]
+  fpFlushOut bld oprSz tiny result raised
 
 /// <summary>
 /// Records in FCSR the IEEE exceptions an arithmetic operation raised.
@@ -747,6 +939,16 @@ let fpRecord bld raised =
 
 let fpExceptions bld oprSz op src1 src2 result =
   fpRecord bld (fpRaised bld oprSz op src1 src2 result)
+
+/// FCSR.FS applied to a result that was chosen rather than rounded: MIN.fmt
+/// and its kind answer one of their operands, and the reference still writes
+/// that back through its rounding, so under FS a subnormal one comes out a
+/// zero of its own sign. Nothing is raised for it.
+let fpFlushChosen bld oprSz result =
+  let flushed = fpFlushing bld .& fpIsSubnormal oprSz result
+  append bld {
+    result := AST.ite flushed (result .& signBitOfWidth oprSz) result
+  }
 
 /// <summary>
 /// What a conversion to an INTEGER raises, which is two of the five and
@@ -772,44 +974,52 @@ let fpExceptionsToInt bld oprSz src noInteger =
   }
   fpRecord bld (fpBits invalid fpNone fpNone fpNone inexact)
 
+/// What widening a single to a double raises: Invalid for a signalling NaN,
+/// and nothing else, since every single is a double exactly.
+let fpExceptionsWiden bld src =
+  let invalid = fpIsSignalling bld 32<rt> src
+  fpRecord bld (fpBits invalid fpNone fpNone fpNone fpNone)
+
+/// Two to the 64th, by which a double is scaled to ask how it rounds to a
+/// single's precision with no bound on the exponent.
+let private twoTo64 = numU64 0x43f0000000000000UL 64<rt>
+
 /// <summary>
-/// What a conversion between two FORMATS raises.
+/// What narrowing a double to a single raised, with FCSR.FS applied to the
+/// result.
 ///
-/// The answer is the operand in another format, so the only thing that can be
-/// lost is the rounding into it -- and whether anything was is asked by
-/// converting the answer back and seeing whether the operand comes out. A
-/// widening conversion always passes that; a narrowing one passes it exactly
-/// when it lost nothing, which is what Inexact means.
-///
-/// Overflow and Underflow go with it: a narrowing that ran out of exponent
-/// answers an infinity where the operand was finite, or a denormal where it
-/// was not. Rounding toward zero answers the largest finite value instead of
-/// the infinity, and has overflowed all the same once the operand reaches
-/// two to the power one past the largest exponent: only past that would the
-/// answer have been above the largest finite value with exponent to spare.
+/// The answer widened back is exact, so it is inexact where that does not
+/// give the operand. Overflow is asked of the operand, which is the exact
+/// value: out of range from two to the 128th whichever way the rounding
+/// went, or wherever the rounding made an infinity of it. Tininess is
+/// decided after rounding, as MIPS decides it -- on the operand rounded to a
+/// single's precision with no bound on the exponent, which is the operand
+/// scaled up by two to the 64th, exactly, and narrowed there: tiny below two
+/// to the -62nd. Under FS, an operand below the smallest normal single
+/// flushes the answer to a zero of its sign, raising nothing.
 /// </summary>
-let fpExceptionsConvert bld srcSz dstSz back src result =
-  let struct (invalid, overflow, underflow, inexact) = tmpVars4 bld 1<rt>
-  let finiteIn = AST.not (fpIsNaN srcSz src .| fpIsInfinite srcSz src)
-  let beyond =
-    if srcSz = 64<rt> && dstSz = 32<rt> then
-      (src .& magnitudeOfWidth 64<rt>) .>= numU64 0x47F0000000000000UL 64<rt>
-    else
-      AST.b0
+let fpExceptionsNarrow bld src result =
+  let struct (overflow, underflow, inexact) = tmpVars3 bld 1<rt>
+  let struct (finiteIn, flushed) = tmpVars2 bld 1<rt>
+  let rt = 64<rt>
+  let magnitude = src .& magnitudeOfWidth rt
+  let beyond = magnitude .>= numU64 0x47f0000000000000UL rt
+  let tinyIn = magnitude .< numU64 0x3810000000000000UL rt
+  let scaled = AST.cast CastKind.FloatCast 32<rt> (AST.fmul src twoTo64)
+  let tinyOut =
+    (scaled .& magnitudeOfWidth 32<rt>) .< numU32 0x20800000u 32<rt>
+  let back = AST.cast CastKind.FloatCast rt result
   append bld {
-    invalid :=
-      fpIsSignalling bld srcSz src
-      .| (fpIsNaN dstSz result .& AST.not (fpIsNaN srcSz src))
-    overflow :=
-      AST.not invalid .& finiteIn .& (fpIsInfinite dstSz result .| beyond)
-    inexact :=
-      AST.not invalid
-      .& (overflow .| (finiteIn .& (back != src)))
-    underflow :=
-      inexact .& AST.not overflow
-      .& (biasedExponent dstSz result == AST.num0 dstSz)
+    finiteIn := AST.not (fpIsNaN rt src .| fpIsInfinite rt src)
+    overflow := finiteIn .& (beyond .| fpIsInfinite 32<rt> result)
+    inexact := finiteIn .& (overflow .| (back != src))
+    underflow := inexact .& AST.not overflow .& tinyOut
+    flushed := fpFlushing bld .& tinyIn .& AST.not (fpIsZero rt src)
+    result := AST.ite flushed (result .& signBitOfWidth 32<rt>) result
   }
-  fpRecord bld (fpBits invalid fpNone overflow underflow inexact)
+  let invalid = fpIsSignalling bld rt src
+  let raised = fpBits invalid fpNone overflow underflow inexact
+  fpRecord bld (AST.ite flushed (AST.num0 32<rt>) raised)
 
 /// <summary>
 /// What a conversion FROM an integer raises, which is Inexact and nothing
@@ -839,11 +1049,6 @@ let fpCompareInvalid bld oprSz signalsOnQuiet a b =
   if signalsOnQuiet then fpIsNaN oprSz a .| fpIsNaN oprSz b
   else fpIsSignalling bld oprSz a .| fpIsSignalling bld oprSz b
 
-/// Whether either operand is a NaN this guest reads as signalling, which is
-/// the one thing an operation that does not round can still raise.
-let fpEitherSignalling bld oprSz a b =
-  fpIsSignalling bld oprSz a .| fpIsSignalling bld oprSz b
-
 /// Whether the value was changed by being rounded to an integer, which is
 /// what RINT can lose. An operand that is already one loses nothing whichever
 /// direction the rounding goes in.
@@ -851,66 +1056,28 @@ let fpRoundChanged bld oprSz src result =
   AST.not (fpIsNaN oprSz src .| fpIsInfinite oprSz src) .& (result != src)
 
 /// <summary>
-/// What a FUSED multiply-add raised.
+/// What a FUSED multiply-add raised, x times y plus z with the product
+/// negated first where asked, with FCSR.FS applied to its result.
 ///
 /// It is one operation with one rounding, so it is not the union of a
 /// multiply's exceptions and an add's -- an intermediate product that would
 /// have overflowed on its own does not overflow here, because there is no
-/// intermediate product. What it can lose is the single rounding at the end,
-/// and finding out whether it did means the exact value of a times b plus d,
-/// which no format holds.
-///
-/// It is held as a sum of pieces instead. The product is exact as p plus its
-/// own error, which a multiply-add recovers; adding d to p is exact as s plus
-/// the error Knuth's two-sum gives; and the answer is the rounding of those
-/// three together. So the error of the whole is what is left after taking the
-/// answer off the largest piece, plus the two small ones -- and s and the
-/// answer are within one step of each other, which makes that subtraction
-/// exact.
+/// intermediate product -- and a zero times an infinity raises Invalid even
+/// with a quiet NaN to add, as the reference has it. The query's fused form
+/// answers for both. Only Release 6 has the instruction, and it reads a
+/// NaN's quiet bit the way the evaluator does, so no NaN needs asking about
+/// here.
 /// </summary>
-let fpExceptionsFused bld oprSz negProduct src1 src2 addend result =
-  let struct (invalid, overflow, underflow) = tmpVars3 bld 1<rt>
-  let struct (inexact, finiteIn) = tmpVars2 bld 1<rt>
-  let struct (a, p, pe) = tmpVars3 bld oprSz
-  let struct (s, bb, se) = tmpVars3 bld oprSz
-  let err = tmpVar bld oprSz
-  let b, d = src2, addend
-  let anyNaN =
-    fpIsNaN oprSz src1 .| fpIsNaN oprSz b .| fpIsNaN oprSz d
-  let anyInf =
-    fpIsInfinite oprSz src1 .| fpIsInfinite oprSz b .| fpIsInfinite oprSz d
-  append bld {
-    (* Subtracting the product is asked for by flipping the multiplicand's
-       sign, which is safe here because a NaN operand never reaches the
-       arithmetic below: everything it decides is gated on there being none. *)
-    a :=
-      if negProduct then src1 <+> signBitOfWidth oprSz else src1
-    finiteIn := AST.not (anyNaN .| anyInf)
-    invalid :=
-      fpIsSignalling bld oprSz src1 .| fpIsSignalling bld oprSz b
-      .| fpIsSignalling bld oprSz d
-      .| (fpIsNaN oprSz result .& AST.not anyNaN)
-    overflow :=
-      AST.not invalid .& finiteIn .& fpIsInfinite oprSz result
-    p := AST.fmul a b
-    pe := fma oprSz false true a b p
-    s := AST.fadd p d
-    bb := AST.fsub s p
-    se := AST.fadd (AST.fsub p (AST.fsub s bb)) (AST.fsub d bb)
-    err := AST.fadd (AST.fadd (AST.fsub s result) se) pe
-    inexact :=
-      AST.not invalid .& finiteIn
-      .& (overflow
-          .| ((err .& magnitudeOfWidth oprSz) != AST.num0 oprSz))
-    underflow :=
-      inexact .& AST.not overflow
-      .& (biasedExponent oprSz result == AST.num0 oprSz)
-  }
-  fpRecord bld (fpBits invalid fpNone overflow underflow inexact)
+let fpExceptionsFused bld oprSz negProduct x y z result =
+  let flag = if negProduct then 1UL else 0UL
+  let ask flags =
+    fpQuery oprSz fpExcFused [ x; y; z; numU64 flags 8<rt> ]
+  let tiny = ask (flag ||| fpExcBeforeRounding)
+  fpRecord bld (fpFlushOut bld oprSz tiny result (ask flag))
 
 /// What an operation raises where rounding is all it can lose: Invalid for a
 /// signalling operand and Inexact for a result that was rounded. Nothing it
-/// answers can overflow or be denormal, so the other three cannot happen.
+/// answers can overflow or be subnormal, so the other three cannot happen.
 let fpExceptionsRounded bld invalid inexact =
   fpRecord bld (fpBits invalid fpNone fpNone fpNone inexact)
 

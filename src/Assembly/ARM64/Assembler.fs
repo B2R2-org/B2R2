@@ -329,6 +329,15 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | None, Some key -> preturn (OprSysReg key)
       | _ -> fail $"'{name}' is not a system register written by encoding"
 
+  /// The operation an alias of SYS names, by the name SysOp gives it.
+  let pOprSysOp (opcode: Opcode) =
+    pName >>= fun name ->
+      let name = name.ToUpperInvariant()
+      let isNamed (e: SysOp.Entry) = e.Opcode = opcode && e.Name = name
+      match List.tryFind isNamed SysOp.all with
+      | Some e -> preturn (OprSysOp e.Encoding)
+      | None -> fail $"'{name}' is not an operation of this instruction"
+
   let pOprHintOpt =
     pName >>= fun name ->
       match Map.tryFind name hintOptions with
@@ -361,17 +370,10 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     | Opcode.MSR -> attempt pOprPstate <|> pOprSysReg
     | Opcode.MRS -> pOprSysReg
     | Opcode.BTI | Opcode.PSB | Opcode.TSB -> pOprHintOpt
+    | Opcode.AT | Opcode.IC | Opcode.TLBI | Opcode.CFP | Opcode.DVP
+    | Opcode.CPP -> pOprSysOp opcode
     | opcode when takesCondition opcode -> pOprCondition
     | _ -> fail "not an operand of this instruction"
-
-  /// <summary>
-  /// The condition that was not written, which stands for the one that always
-  /// holds: the disassembler prints that one as nothing at all, so a line it
-  /// wrote ends with the comma that would have come before it.
-  /// </summary>
-  let pOmittedCondition opcode =
-    if takesCondition opcode then preturn (OprCond AL)
-    else fail "not an operand of this instruction"
 
   let pOperand opcode =
     attempt (pOpcodeSpecificOperand opcode)
@@ -383,15 +385,27 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     <|> attempt pOprRegister
     <|> attempt pOprAddress
     <|> attempt pOprLabel
-    <|> pOmittedCondition opcode
 
   /// Reads the operands of an already-parsed opcode. Which operands an
   /// instruction takes depends on which one it is, so the opcode has to be
   /// known before they can be read.
-  let pOperands opcode =
+  let pOperandList opcode =
     sepBy (pOperand opcode) operandSeps |>> extractOperands
     |>> (fun operands -> opcode, operands)
-    |> skipWhitespaces
+
+  /// DC's operation and register. Each DC operation is an opcode of its own
+  /// (SysOp), so the name read here is what decides the opcode.
+  let pDataCache =
+    pName >>= fun name ->
+      match SysOp.tryFind "dc" name with
+      | Some e ->
+        operandSeps >>. pOprRegister |>> fun xt -> e.Opcode, OneOperand xt
+      | None ->
+        fail $"'{name}' is not a DC operation"
+
+  let pOperands opcode =
+    if opcode = Opcode.DC then skipWhitespaces pDataCache
+    else skipWhitespaces (pOperandList opcode)
 
   let pMnemonic =
     many1Satisfy Char.IsLetterOrDigit

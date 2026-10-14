@@ -36,15 +36,15 @@ open B2R2.FrontEnd.MIPS.LiftingUtils
 let abs ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
-    let is32Bit = is32Bit bld
+    let paired = hasPairedFPRs bld
     match ins.Fmt with
-    | Some Fmt.D when is32Bit ->
+    | Some Fmt.D when paired ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x7FFFFFFFFFFFFFFFUL 64<rt>
       let res = (AST.concat fsB fsA) .& mask
       writeFPResult fdB fdA res bld
-    | Some Fmt.PS when is32Bit ->
+    | Some Fmt.PS when paired ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x7FFFFFFFUL 32<rt>
@@ -63,7 +63,7 @@ let abs ins bld =
     | _ ->
       let fd, fs = transOpr ins bld fd, transOpr ins bld fs
       let mask =
-        if is32Bit then numU64 0x7FFFFFFFUL 32<rt>
+        if paired then numU64 0x7FFFFFFFUL 32<rt>
         else numU64 0x7FFFFFFFFFFFFFFFUL 64<rt>
       fd := fs .& mask
   }
@@ -124,8 +124,8 @@ let private pairedArith op arith (dst, src1, src2) bld =
     tLo := AST.xtlo 32<rt> ft
     hi := op sHi tHi
     lo := op sLo tLo
-    normalizeNaN 32<rt> hi bld
-    normalizeNaN 32<rt> lo bld
+    fpSettleNaN bld 32<rt> [ sHi; tHi ] hi
+    fpSettleNaN bld 32<rt> [ sLo; tLo ] lo
     (* One record for the pair, not one each: the two halves are two
        operations and the register that holds what was raised is one. Cause
        is rewritten whole by every instruction, so recording each half in
@@ -161,7 +161,7 @@ let add (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fadd tSrc1 tSrc2
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPAdd tSrc1 tSrc2 result
       fd := result
     | Some Fmt.PS ->
@@ -172,7 +172,7 @@ let add (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fadd tSrc1 tSrc2
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPAdd tSrc1 tSrc2 result
       writeFPResult fdB fdA result bld
   }
@@ -254,13 +254,46 @@ let b (ins: Instruction) (bld: LowUIRBuilder) =
       nPC := offset
     }
 
+/// <summary>
+/// The return address a call leaves behind, which carries the encoding it was
+/// made from.
+///
+/// MD00076 writes it as <c>(PC + n)[GPRLEN-1..1] || ISAMode</c>: the low bit
+/// is not part of the address but the mode to come back to, and a JR through
+/// this register reads it there. So a call made from the compressed encoding
+/// leaves an ODD address behind, and the return finds its way back.
+///
+/// Which mode that is belongs to the CALL and not to the processor. A
+/// -mips16 program is 32-bit code with MIPS16e functions in it and both
+/// encodings make calls; a link from the 32-bit side that carried the bit
+/// anyway would send its own return into the halfword decoder.
+/// </summary>
+let private linkFrom (ins: Instruction) (bld: LowUIRBuilder) ahead =
+  let pc = regVar bld R.PC
+  let raw = pc .+ numI32 ahead bld.RegType
+  if ins.IsCompressed then raw .| AST.num1 bld.RegType else raw
+
+/// <summary>
+/// How far past a call the instruction it returns to sits.
+///
+/// The call's own length plus its delay slot's, and the slot is not always a
+/// word: a MIPS16e one is a halfword, which is why MD00076 writes the link of
+/// JAL as <c>PC + 6</c> where the base architecture writes <c>PC + 8</c>, and
+/// the link of JALR as <c>PC + 4</c>. A call that left the wrong address
+/// behind returns two bytes late, and in an encoding of halfwords that is
+/// another instruction rather than a misalignment -- so nothing faults and
+/// the program simply goes somewhere else.
+/// </summary>
+let private afterSlot (ins: Instruction) =
+  let slot = if ins.ISAMode = MIPSISAMode.MIPS16 then 2 else 4
+  int ins.Length + slot
+
 let bal ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
     let offset = transOneOpr ins bld
-    let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     bld.DelayedBranch <- InterJmpKind.IsCall
-    regVar bld R.R31 := pc .+ numI32 8 bld.RegType
+    regVar bld R.R31 := linkFrom ins bld (afterSlot ins)
     nPC := offset
   }
 
@@ -402,10 +435,9 @@ let bltz ins bld =
 let bltzal ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
-    let pc = regVar bld R.PC
     let nAddr = tmpVar bld bld.RegType
     let cond = AST.slt rs (AST.num0 bld.RegType)
-    nAddr := pc .+ numI32 8 bld.RegType
+    nAddr := linkFrom ins bld (afterSlot ins)
     regVar bld R.R31 := nAddr
     updatePCCond ins bld offset cond InterJmpKind.IsCall
   }
@@ -420,10 +452,9 @@ let bgez ins bld =
 let bgezal ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
-    let pc = regVar bld R.PC
     let nAddr = tmpVar bld bld.RegType
     let cond = AST.sge rs (AST.num0 bld.RegType)
-    nAddr := pc .+ numI32 8 bld.RegType
+    nAddr := linkFrom ins bld (afterSlot ins)
     regVar bld R.R31 := nAddr
     updatePCCond ins bld offset cond InterJmpKind.IsCall
   }
@@ -519,14 +550,15 @@ let private condNaNOf bld oprSz (mantissa, exponent) sameReg tFs tFt =
     AST.xtlo 1<rt> (src1Exponent .& (src1Mantissa != AST.num0 oprSz)) .|
     AST.xtlo 1<rt> (src2Exponent .& (src2Mantissa != AST.num0 oprSz))
 
-/// Whether the predicate is one of the signalling half. The manual's
-/// condition field is four bits and the top one is what separates the two
-/// spellings of each comparison: the signalling one raises Invalid for a
-/// quiet NaN as well, which is how a program asks to be told about an
-/// unordered comparison it did not expect.
+/// Whether the predicate is one of the signalling half. Bit 3 of the
+/// condition field is what separates the two spellings of each comparison --
+/// in C.cond.fmt's four bits and in the five of CMP.cond.fmt, whose 25 to 27
+/// are 17 to 19 signalling: the signalling one raises Invalid for a quiet NaN
+/// as well, which is how a program asks to be told about an unordered
+/// comparison it did not expect.
 let private conditionSignals (condition: Condition option) =
   match condition with
-  | Some c -> int c >= 8
+  | Some c -> (int c &&& 8) <> 0
   | None -> false
 
 /// Writes the answer of one comparison into one condition code, and hands
@@ -745,23 +777,35 @@ let cvtd ins bld =
     result :=
       if fromInt then AST.cast CastKind.SIntToFloat 64<rt> src
       else AST.cast CastKind.FloatCast 64<rt> src
-    normalizeNaN 64<rt> result bld
+    fpSettleConvertedNaN bld 64<rt> result
     if fromInt then
       let back = AST.floatToSInt RoundingMode.TowardZero srcSz result
       fpExceptionsFromInt bld src back
     else
-      let back = AST.cast CastKind.FloatCast srcSz result
-      fpExceptionsConvert bld srcSz 64<rt> back src result
+      fpExceptionsWiden bld src
     writeFPResult fdB fdA result bld
   }
 
-/// The word a floating-point value converts to. MD00087 names one default
-/// result for an operand that cannot be represented -- the largest positive
-/// value, on a core with FCSR_NAN2008=0, whatever the operand's sign -- and
-/// the range has to be decided BEFORE the result is narrowed. A value already
-/// narrowed to the destination width is never outside that width's range, so
-/// a comparison made after the narrowing is constant false and the default is
-/// never chosen.
+/// <summary>
+/// The integer a conversion answers for an operand that has none, where
+/// MD00087 names a default result. Before NAN2008 it is the largest positive
+/// one whatever the operand's sign. With NAN2008 -- always, on Release 6 --
+/// it is what IEEE-2008 saturates to, as the reference has it: zero for a
+/// NaN, and the end of the range the operand's sign points at for an
+/// infinity or a magnitude too large.
+/// </summary>
+let private noIntegerResult bld sz src nan =
+  let largest, smallest =
+    if sz = 32<rt> then numI32 0x7fffffff sz, numU32 0x80000000u sz
+    else numI64 0x7fffffffffffffffL sz, numU64 0x8000000000000000UL sz
+  let towardSign = AST.ite (AST.xthi 1<rt> src) smallest largest
+  let saturated = AST.ite nan (AST.num0 sz) towardSign
+  AST.ite (fpNaN2008 bld) saturated largest
+
+/// The word a floating-point value converts to. The range has to be decided
+/// BEFORE the result is narrowed: a value already narrowed to the destination
+/// width is never outside that width's range, so a comparison made after the
+/// narrowing is constant false and the default is never chosen.
 let private wordOfFP bld convert src inf nan =
   let wide = tmpVar bld 64<rt>
   append bld {
@@ -772,7 +816,8 @@ let private wordOfFP bld convert src inf nan =
     .| AST.slt wide (numI64 -0x80000000L 64<rt>)
   let narrowed = AST.xtlo 32<rt> wide
   let noInteger = outOfRange .| inf .| nan
-  struct (AST.ite noInteger (numI32 0x7fffffff 32<rt>) narrowed, noInteger)
+  let fallback = noIntegerResult bld 32<rt> src nan
+  struct (AST.ite noInteger fallback narrowed, noInteger)
 
 /// The doubleword one converts to. There is no wider integer to convert into,
 /// so the range is decided on the operand itself: a magnitude of 2^63 or more
@@ -790,8 +835,8 @@ let private longOfFP bld convert srcSz src inf nan =
   }
   let outOfRange = AST.fge src upper .| AST.flt src lower
   let noInteger = outOfRange .| inf .| nan
-  struct (AST.ite noInteger (numI64 0x7fffffffffffffffL 64<rt>) eval,
-          noInteger)
+  let fallback = noIntegerResult bld 64<rt> src nan
+  struct (AST.ite noInteger fallback eval, noInteger)
 
 /// Rounds the way the instruction's own name says, which is what every
 /// conversion but CVT does.
@@ -821,7 +866,7 @@ let cvtw ins bld =
         let nan = isNaN 32<rt> exponent mantissa
         dst, src, inf, nan
       | _ ->
-        let dst = transOprToFPConvert ins bld fd
+        let dst = transOprToSingleFP bld fd
         let src = transOprToFPPairConcat bld fs
         append bld {
           exponent := getExponentFull src 64<rt>
@@ -883,7 +928,7 @@ let cvts ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
     let fd = transOprToFPConvert ins bld fd
-    let dst = if is32Bit bld then fd else AST.xtlo 32<rt> fd
+    let dst = if hasPairedFPRs bld then fd else AST.xtlo 32<rt> fd
     let result = tmpVar bld 32<rt>
     let struct (src, srcSz, fromInt) =
       match ins.Fmt with
@@ -893,13 +938,12 @@ let cvts ins bld =
     result :=
       if fromInt then AST.cast CastKind.SIntToFloat 32<rt> src
       else AST.cast CastKind.FloatCast 32<rt> src
-    normalizeNaN 32<rt> result bld
+    fpSettleConvertedNaN bld 32<rt> result
     if fromInt then
       let back = AST.floatToSInt RoundingMode.TowardZero srcSz result
       fpExceptionsFromInt bld src back
     else
-      let back = AST.cast CastKind.FloatCast srcSz result
-      fpExceptionsConvert bld srcSz 32<rt> back src result
+      fpExceptionsNarrow bld src result
     dst := result
   }
 
@@ -1203,7 +1247,7 @@ let div (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
       result := AST.fdiv tSrc1 tSrc2
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPDiv tSrc1 tSrc2 result
       writeFPResult fdB fdA result bld
     | _ ->
@@ -1212,7 +1256,7 @@ let div (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
       result := AST.fdiv tSrc1 tSrc2
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPDiv tSrc1 tSrc2 result
       dst := result
   }
@@ -1384,40 +1428,6 @@ let j ins (bld: LowUIRBuilder) =
 /// </summary>
 let private carriesMode (bld: ILowUIRBuilder) =
   bld.ISA.MIPSISAMode <> MIPSISAMode.MIPS
-
-/// <summary>
-/// The return address a call leaves behind, which carries the encoding it was
-/// made from.
-///
-/// MD00076 writes it as <c>(PC + n)[GPRLEN-1..1] || ISAMode</c>: the low bit
-/// is not part of the address but the mode to come back to, and a JR through
-/// this register reads it there. So a call made from the compressed encoding
-/// leaves an ODD address behind, and the return finds its way back.
-///
-/// Which mode that is belongs to the CALL and not to the processor. A
-/// -mips16 program is 32-bit code with MIPS16e functions in it and both
-/// encodings make calls; a link from the 32-bit side that carried the bit
-/// anyway would send its own return into the halfword decoder.
-/// </summary>
-let private linkFrom (ins: Instruction) (bld: LowUIRBuilder) ahead =
-  let pc = regVar bld R.PC
-  let raw = pc .+ numI32 ahead bld.RegType
-  if ins.IsCompressed then raw .| AST.num1 bld.RegType else raw
-
-/// <summary>
-/// How far past a call the instruction it returns to sits.
-///
-/// The call's own length plus its delay slot's, and the slot is not always a
-/// word: a MIPS16e one is a halfword, which is why MD00076 writes the link of
-/// JAL as <c>PC + 6</c> where the base architecture writes <c>PC + 8</c>, and
-/// the link of JALR as <c>PC + 4</c>. A call that left the wrong address
-/// behind returns two bytes late, and in an encoding of halfwords that is
-/// another instruction rather than a misalignment -- so nothing faults and
-/// the program simply goes somewhere else.
-/// </summary>
-let private afterSlot (ins: Instruction) =
-  let slot = if ins.ISAMode = MIPSISAMode.MIPS16 then 2 else 4
-  int ins.Length + slot
 
 /// <summary>
 /// The same for the microMIPS calls that name a halfword slot in the
@@ -1867,29 +1877,47 @@ let moveToExtended ins bld =
   }
 
 /// <summary>
+/// Whether an RDHWR names a select its hardware register has no instance
+/// for. Only the performance counters (4) are read through one, and "when
+/// the 3-bit sel is undefined for use with a specific register number, then
+/// a Reserved Instruction Exception is signaled" (MD00582 revision 6.04,
+/// p.275).
+/// </summary>
+let private undefinedSelect (ins: Instruction) =
+  match ins.Operands with
+  | ThreeOperands(_, OpReg R.R4, _) -> false
+  | ThreeOperands(_, _, OpImm sel) -> sel <> 0UL
+  | _ -> false
+
+/// <summary>
 /// RDHWR, which is written with a select field in one encoding and without
 /// one in the other.
 ///
 /// MD00594 gives microMIPS's as <c>RDHWR rt,rs</c> and spends the ten bits
 /// between them on the opcode, where the 32-bit encoding keeps a three-bit
 /// select beside the register. Which register is read is the same question
-/// either way, so the select is read past rather than required.
+/// either way, so the select is read past rather than required -- except
+/// that a select the register has no instance for is a Reserved Instruction
+/// (see undefinedSelect).
 /// </summary>
 let readHWR (ins: Instruction) bld =
-  lift bld ins {
-    let rtOpr, rdOpr =
-      match ins.Operands with
-      | ThreeOperands(rt, rd, _) -> rt, rd
-      | TwoOperands(rt, rd) -> rt, rd
-      | _ -> raise InvalidOperandException
-    let rt = transOpr ins bld rtOpr
-    let value =
-      match rdOpr with
-      | OpReg R.R29 -> regVar bld R.ULR      (* HWR 29: TLS pointer *)
-      | OpReg R.R3 -> numI32 1 bld.RegType   (* CCRes: nonzero resolution *)
-      | _ -> numI32 0 bld.RegType            (* CPUNum, SYNCI_Step, CC *)
-    rt := value
-  }
+  if undefinedSelect ins then
+    sideEffects ins bld UndefinedInstruction
+  else
+    lift bld ins {
+      let rtOpr, rdOpr =
+        match ins.Operands with
+        | ThreeOperands(rt, rd, _) -> rt, rd
+        | TwoOperands(rt, rd) -> rt, rd
+        | _ -> raise InvalidOperandException
+      let rt = transOpr ins bld rtOpr
+      let value =
+        match rdOpr with
+        | OpReg R.R29 -> regVar bld R.ULR      (* HWR 29: TLS pointer *)
+        | OpReg R.R3 -> numI32 1 bld.RegType   (* CCRes: nonzero resolution *)
+        | _ -> numI32 0 bld.RegType            (* CPUNum, SYNCI_Step, CC *)
+      rt := value
+    }
 
 /// The Release 6 compact compare-and-branch family.
 ///
@@ -1913,23 +1941,34 @@ let compactBranchZ ins bld cmp =
 
 /// The and-link forms. MD00087 says the return address link is updated
 /// UNCONDITIONALLY, so the write sits outside the branch rather than on its
-/// taken path.
+/// taken path. In microMIPS the link carries the ISA mode in bit 0, as every
+/// branch-and-link's does (MD00582 revision 6.04, Table 1.1, p.18).
 let compactBranchLinkZ ins bld cmp =
   lift bld ins {
     let r, offset = transTwoOprs ins bld
     let cond = cmp r (AST.num0 bld.RegType)
-    regVar bld R.R31 := regVar bld R.PC .+ numI32 4 bld.RegType
+    regVar bld R.R31 := linkFrom ins bld 4
     updatePCCondCompact ins bld offset cond
   }
 
+/// Whether a 64-bit register holds something other than a sign-extended
+/// word, which the pseudocode calls NotWordValue.
+let private notWordValue e = AST.sext 64<rt> (AST.xtlo 32<rt> e) != e
+
 /// BOVC and BNVC branch on whether the 32-bit signed sum of their operands
-/// overflows. They compute no sum -- the test is the whole instruction.
+/// overflows. They compute no sum -- the test is the whole instruction. On a
+/// 64-bit processor an operand that is not a sign-extended word counts as an
+/// overflow too: "input_overflow &lt;- NotWordValue(GPR[rs]) or
+/// NotWordValue(GPR[rt])" (MD00594 revision 6.01, p.155).
 let branchOverflowCompact ins bld taken =
   lift bld ins {
     let rs, rt, offset = transThreeOprs ins bld
     let t = tmpVar bld bld.RegType
     t := rs .+ rt
     let ovf = checkOverflowOnAdd rs rt t
+    let ovf =
+      if is32Bit bld then ovf
+      else ovf .| notWordValue rs .| notWordValue rt
     updatePCCondCompact ins bld offset (if taken then ovf else AST.not ovf)
   }
 
@@ -1942,23 +1981,33 @@ let bcCompact ins bld =
 let balc ins bld =
   lift bld ins {
     let offset = transOneOpr ins bld
-    regVar bld R.R31 := regVar bld R.PC .+ numI32 4 bld.RegType
+    regVar bld R.R31 := linkFrom ins bld 4
     AST.interjmp offset InterJmpKind.IsCall
   }
 
+/// The jump a compact jump through a register ends with, which in a
+/// compressed encoding reads the mode to go on in from bit 0 of the target.
+let private compactJumpTo (bld: LowUIRBuilder) target kind =
+  if carriesMode bld then interJmpByMode bld target kind
+  else append bld { AST.interjmp target kind }
+
 /// JIC and JIALC jump to a register plus a signed offset. The target is read
 /// into a temporary before the link is written, because the register the jump
-/// reads may be the one the link overwrites.
+/// reads may be the one the link overwrites. JIALC is a jump-and-link-register
+/// instruction, which in microMIPS saves the ISA mode in bit 0 of its link
+/// (MD00582 revision 6.04, section 2.4, p.22), and both read the mode to go
+/// on in from bit 0 of the target, "PC &lt;- (tempGPRLEN-1..1 || 0); ISAMode
+/// &lt;- temp0" (pp.207-209), as JRC does.
 let jicCompact ins bld link =
   lift bld ins {
     let rt, off = transTwoOprs ins bld
     let target = tmpVar bld bld.RegType
     target := rt .+ off
     if link then
-      regVar bld R.R31 := regVar bld R.PC .+ numI32 4 bld.RegType
-      AST.interjmp target InterJmpKind.IsCall
+      regVar bld R.R31 := linkFrom ins bld 4
+      compactJumpTo bld target InterJmpKind.IsCall
     else
-      AST.interjmp target InterJmpKind.Base
+      compactJumpTo bld target InterJmpKind.Base
   }
 
 /// The Release 6 multiply family: the product's low or high half into rd.
@@ -2021,6 +2070,12 @@ let divR6 ins bld wantRem signed wide =
     rd := if wide || is32Bit bld then res else AST.sext 64<rt> res
   }
 
+/// The sixteen-bit immediate of DAUI, DAHI and DATI, sign-extended to the
+/// register and shifted into place: "sign_extend(immediate << n)" (MD00087,
+/// AUI DAUI DAHI DATI), so one with its top bit set subtracts.
+let private upperImm (bld: ILowUIRBuilder) imm shift =
+  AST.sext bld.RegType (AST.xtlo 16<rt> imm) << numI32 shift bld.RegType
+
 /// AUI, DAUI, DAHI and DATI: add an immediate shifted into one of the upper
 /// halves of a register. Release 6 has them because it dropped the
 /// branch-delay-slot tricks that used to build a 64-bit constant, and four of
@@ -2029,10 +2084,10 @@ let addUpperImm ins bld shift twoOperand =
   lift bld ins {
     if twoOperand then
       let rs, imm = transTwoOprs ins bld
-      rs := rs .+ (imm << numI32 shift bld.RegType)
+      rs := rs .+ upperImm bld imm shift
     else
       let rt, rs, imm = transThreeOprs ins bld
-      rt := rs .+ (imm << numI32 shift bld.RegType)
+      rt := rs .+ upperImm bld imm shift
   }
 
 /// BITSWAP and DBITSWAP reverse the bits WITHIN each byte and leave the bytes
@@ -2166,54 +2221,61 @@ let fpSelect ins bld kind =
 ///   - Zeroes are ordered by SIGN, where a comparison calls them equal:
 ///     MAX(+0, -0) is +0 and MIN(+0, -0) is -0. An `fgt` sees no difference
 ///     between the two and would return whichever operand came second.
+let private minMaxOf wantMax absolute sz a b =
+  let signMask = signBitOf sz
+  let ca = if absolute then a .& AST.not signMask else a
+  let cb = if absolute then b .& AST.not signMask else b
+  (* A NaN is the one value not equal to itself, which is the cheapest
+     test the IR can express and needs no exponent picking. A SIGNALLING
+     one is a NaN whose leading mantissa bit is clear, and it is not
+     ignored the way a quiet one is: IEEE-754 maxNum and minNum return a
+     QUIETED copy of it rather than the other operand. Treating every NaN
+     alike returned the other operand and lost the signal. *)
+  let mantMSB =
+    if sz = 32<rt> then numU64 0x400000UL sz
+    else numU64 0x8000000000000UL sz
+  let aNaN = AST.not (AST.feq a a)
+  let bNaN = AST.not (AST.feq b b)
+  let aSNaN = aNaN .& ((a .& mantMSB) == AST.num0 sz)
+  let bSNaN = bNaN .& ((b .& mantMSB) == AST.num0 sz)
+  let isZero e = (e .& AST.not signMask) == AST.num0 sz
+  let bothZero = isZero a .& isZero b
+  let aNeg = (a .& signMask) != AST.num0 sz
+  let byValue =
+    if wantMax then AST.ite (AST.fgt a b) a b
+    else AST.ite (AST.flt a b) a b
+  (* MAXA and MINA are IEEE-754's maxNumMag and minNumMag, which fall
+     back to maxNum and minNum when the two MAGNITUDES are equal: MINA
+     of +1.0 and -1.0 is -1.0, not whichever operand came second. *)
+  let byOrder =
+    if not absolute then
+      byValue
+    else
+      let bigger = if wantMax then AST.fgt ca cb else AST.flt ca cb
+      AST.ite (ca == cb) byValue (AST.ite bigger a b)
+  let byZeroSign =
+    if wantMax then AST.ite aNeg b a
+    else AST.ite aNeg a b
+  let ordered = AST.ite bothZero byZeroSign byOrder
+  let oneNaN = AST.ite aNaN b (AST.ite bNaN a ordered)
+  let quiet = AST.ite (aNaN .& bNaN) a oneNaN
+  let signalling = AST.ite bSNaN (b .| mantMSB) quiet
+  AST.ite aSNaN (a .| mantMSB) signalling
+
 /// The one thing a choice between two numbers, or a comparison of them, can
 /// raise: a quiet NaN is part of what those answer and a signalling one is
 /// not.
 let private recordSignalling bld sz a b =
   fpExceptionsInvalidOnly bld (fpEitherSignalling bld sz a b)
 
+/// MIN.fmt, MAX.fmt, MINA.fmt and MAXA.fmt: the operand minMaxOf chooses,
+/// flushed under FCSR.FS where it is subnormal, and Invalid recorded for a
+/// signalling one.
 let fpMinMax ins bld wantMax absolute =
-  fpR6BinaryWith ins bld false (fun sz _ a b ->
-    let signMask = signBitOf sz
-    let ca = if absolute then a .& AST.not signMask else a
-    let cb = if absolute then b .& AST.not signMask else b
-    (* A NaN is the one value not equal to itself, which is the cheapest
-       test the IR can express and needs no exponent picking. A SIGNALLING
-       one is a NaN whose leading mantissa bit is clear, and it is not
-       ignored the way a quiet one is: IEEE-754 maxNum and minNum return a
-       QUIETED copy of it rather than the other operand. Treating every NaN
-       alike returned the other operand and lost the signal. *)
-    let mantMSB =
-      if sz = 32<rt> then numU64 0x400000UL sz
-      else numU64 0x8000000000000UL sz
-    let aNaN = AST.not (AST.feq a a)
-    let bNaN = AST.not (AST.feq b b)
-    let aSNaN = aNaN .& ((a .& mantMSB) == AST.num0 sz)
-    let bSNaN = bNaN .& ((b .& mantMSB) == AST.num0 sz)
-    let isZero e = (e .& AST.not signMask) == AST.num0 sz
-    let bothZero = isZero a .& isZero b
-    let aNeg = (a .& signMask) != AST.num0 sz
-    let byValue =
-      if wantMax then AST.ite (AST.fgt a b) a b
-      else AST.ite (AST.flt a b) a b
-    (* MAXA and MINA are IEEE-754's maxNumMag and minNumMag, which fall
-       back to maxNum and minNum when the two MAGNITUDES are equal: MINA
-       of +1.0 and -1.0 is -1.0, not whichever operand came second. *)
-    let byOrder =
-      if not absolute then
-        byValue
-      else
-        let bigger = if wantMax then AST.fgt ca cb else AST.flt ca cb
-        AST.ite (ca == cb) byValue (AST.ite bigger a b)
-    let byZeroSign =
-      if wantMax then AST.ite aNeg b a
-      else AST.ite aNeg a b
-    let ordered = AST.ite bothZero byZeroSign byOrder
-    let oneNaN = AST.ite aNaN b (AST.ite bNaN a ordered)
-    let quiet = AST.ite (aNaN .& bNaN) a oneNaN
-    let signalling = AST.ite bSNaN (b .| mantMSB) quiet
-    AST.ite aSNaN (a .| mantMSB) signalling)
-    (fun sz _ a b _ -> recordSignalling bld sz a b)
+  fpR6BinaryWith ins bld false (fun sz _ -> minMaxOf wantMax absolute sz)
+    (fun sz _ a b result ->
+      fpFlushChosen bld sz result
+      recordSignalling bld sz a b)
 
 /// RINT.fmt rounds to an integral value in the operand's own format, in the
 /// direction FCSR names -- which is what a conversion no RoundCtrl encloses
@@ -2284,36 +2346,16 @@ let fpClass ins bld =
 /// flipping the multiplicand's sign: a NaN's sign is not the arithmetic's to
 /// change, so a sign flip would have needed a guard, and the guard would have
 /// been wrong for a NaN whose sign the operation is supposed to keep.
+///
+/// Which NaN comes out is the architecture's to say, not the host's: the
+/// reference asks the addend first and the multiplicands after it, a
+/// signalling one before any quiet one, which is fpSettleNaN's rule over the
+/// destination, fs and ft in that order.
 /// </summary>
 let private fusedMultiplyAdd add ins bld =
-  fpR6BinaryWith ins bld true (fun sz d a b ->
-    let mantBits = if sz = 32<rt> then 23 else 52
-    let expMask = numU64 ((((1UL <<< (int sz - mantBits - 1)) - 1UL))
-                          <<< mantBits) sz
-    let mantMask = numU64 ((1UL <<< mantBits) - 1UL) sz
-    let isNaN v =
-      ((v .& expMask) == expMask) .& ((v .& mantMask) != AST.num0 sz)
-    let result = fma sz (not add) false a b d
-    (* Which NaN comes out is the architecture's to say, not the host's. A
-       SIGNALLING operand wins over a quiet one wherever it sits -- that is
-       what the reference does when one operand is a quiet NaN and a later one
-       is signalling -- and it comes out quieted. Failing that a quiet operand
-       propagates as it is, and a NaN no operand carried is one this operation
-       manufactured, which Release 6 gives the IEEE-2008 default: the quiet bit
-       set, the rest of the mantissa clear, and positive whatever the operands
-       were. *)
-    let quietBit = numU64 (1UL <<< (mantBits - 1)) sz
-    let defaultNaN = quietBit .| expMask
-    let isSNaN v = isNaN v .& ((v .& quietBit) == AST.num0 sz)
-    let isQNaN v = isNaN v .& ((v .& quietBit) != AST.num0 sz)
-    let manufactured = AST.ite (isNaN result) defaultNaN result
-    let quietD = AST.ite (isQNaN d) d manufactured
-    let quietB = AST.ite (isQNaN b) b quietD
-    let quietA = AST.ite (isQNaN a) a quietB
-    let signalD = AST.ite (isSNaN d) (d .| quietBit) quietA
-    let signalB = AST.ite (isSNaN b) (b .| quietBit) signalD
-    AST.ite (isSNaN a) (a .| quietBit) signalB)
+  fpR6BinaryWith ins bld true (fun sz d a b -> fma sz (not add) false a b d)
     (fun sz d a b result ->
+      fpSettleNaN bld sz [ d; a; b ] result
       fpExceptionsFused bld sz (not add) a b d result)
 
 /// MADDF.fmt: the destination plus the product.
@@ -2322,51 +2364,63 @@ let maddf ins bld = fusedMultiplyAdd true ins bld
 /// MSUBF.fmt: the destination less the product.
 let msubf ins bld = fusedMultiplyAdd false ins bld
 
+/// <summary>
+/// What CMP.cond.fmt's condition says of its two operands. Unordered is
+/// "neither less, nor equal, nor greater", which is what a NaN operand makes
+/// true.
+///
+/// The signalling forms test the same thing as the quiet ones; what they
+/// differ in is what an unordered comparison does to FCSR, which is recorded
+/// apart from this.
+/// </summary>
+let private r6Predicate condition a b =
+  let less, equal = AST.flt a b, AST.feq a b
+  let unordered = AST.not less .& AST.not equal .& AST.not (AST.fgt a b)
+  match condition with
+  | Some Condition.F | Some Condition.SF -> AST.b0
+  | Some Condition.UN | Some Condition.NGLE -> unordered
+  | Some Condition.EQ | Some Condition.SEQ -> equal
+  | Some Condition.UEQ | Some Condition.NGL -> unordered .| equal
+  | Some Condition.OLT | Some Condition.LT -> less
+  | Some Condition.ULT | Some Condition.NGE -> unordered .| less
+  | Some Condition.OLE | Some Condition.LE -> less .| equal
+  | Some Condition.ULE | Some Condition.NGT -> unordered .| less .| equal
+  | Some Condition.OR | Some Condition.SOR -> AST.not unordered
+  | Some Condition.UNE | Some Condition.SUNE -> AST.not equal
+  | Some Condition.NE | Some Condition.SNE -> less .| AST.fgt a b
+  | _ -> raise InvalidOperandException
+
 /// CMP.cond.fmt -- the comparison Release 6 replaced C.cond.fmt with. The
 /// answer goes into an FPR as all-ones or all-zeros rather than into a
 /// condition-code bit, which is why BC1EQZ and BC1NEZ test a register.
 let fpCmpR6 (ins: Instruction) bld =
   fpR6BinaryWith ins bld false (fun sz _ a b ->
-    (* Unordered is "neither less, nor equal, nor greater", which is what a
-       NaN operand makes true. *)
-    let unordered =
-      AST.not (AST.flt a b) .& AST.not (AST.feq a b) .& AST.not (AST.fgt a b)
-    let cond =
-      match ins.Condition with
-      | Some Condition.F -> AST.b0
-      | Some Condition.UN -> unordered
-      | Some Condition.EQ -> AST.feq a b
-      | Some Condition.UEQ -> unordered .| AST.feq a b
-      | Some Condition.OLT -> AST.flt a b
-      | Some Condition.ULT -> unordered .| AST.flt a b
-      | Some Condition.OLE -> AST.flt a b .| AST.feq a b
-      | Some Condition.ULE -> unordered .| AST.flt a b .| AST.feq a b
-      (* The signalling eight test the same thing as the quiet eight; what
-         they differ in is what an unordered comparison does to FCSR, which
-         is recorded below and not decided here. *)
-      | Some Condition.SF -> AST.b0
-      | Some Condition.NGLE -> unordered
-      | Some Condition.SEQ -> AST.feq a b
-      | Some Condition.NGL -> unordered .| AST.feq a b
-      | Some Condition.LT -> AST.flt a b
-      | Some Condition.NGE -> unordered .| AST.flt a b
-      | Some Condition.LE -> AST.flt a b .| AST.feq a b
-      | Some Condition.NGT -> unordered .| AST.flt a b .| AST.feq a b
-      | _ -> raise InvalidOperandException
     let ones =
       if sz = 32<rt> then numU64 0xFFFFFFFFUL sz
       else numU64 0xFFFFFFFFFFFFFFFFUL sz
-    AST.ite cond ones (AST.num0 sz))
+    AST.ite (r6Predicate ins.Condition a b) ones (AST.num0 sz))
     (fun sz _ a b _ ->
       (* A signalling operand always raises; a QUIET one raises only where
-         the predicate is one of the signalling eight, which is the whole of
-         what separates them from the eight below. *)
+         the predicate is one of the signalling half, which is the whole of
+         what separates them from the quiet half. *)
       let signals = conditionSignals ins.Condition
       fpExceptionsInvalidOnly bld (fpCompareInvalid bld sz signals a b))
 
-/// BC1EQZ and BC1NEZ branch on bit 0 of an FPR. They are compact -- Release 6
-/// has no delay slot -- so the transfer is the compact one.
+/// BC1EQZ and BC1NEZ branch on bit 0 of an FPR, and keep a delay slot:
+/// Release 6 did not make them compact, and MD00087 BC1EQZ says to "Execute
+/// the instruction in the delay slot before the instruction at the target",
+/// so the transfer is the slot's, as it is after BEQ.
 let bc1z ins bld nonZero =
+  liftTransfer bld ins {
+    let ft, offset = transTwoOprs ins bld
+    let bit = AST.xtlo 1<rt> ft
+    let cond = if nonZero then bit else AST.not bit
+    updatePCCond ins bld offset cond InterJmpKind.Base
+  }
+
+/// microMIPS's BC1EQZC and BC1NEZC test the same bit and are the compact
+/// ones: Release 6 gave that encoding no delay slot (MD00582 BC1EQZC).
+let bc1zCompact ins bld nonZero =
   lift bld ins {
     let ft, offset = transTwoOprs ins bld
     let bit = AST.xtlo 1<rt> ft
@@ -2420,7 +2474,7 @@ let loadPC ins bld size signed =
         aligned .+ (target .- pc)
       else
         target
-    let v = AST.loadLE size addr
+    let v = loadNative bld size addr
     rs :=
       if size = 64<rt> then v
       elif signed then AST.sext bld.RegType v
@@ -2459,8 +2513,9 @@ let lsa ins bld wide =
 /// lets a program swap a pointer and its counter together. The manual
 /// describes the pair as the halves of one wider value at the base --
 /// "GPR[rd] <- memory[GPR[base]]63..32, GPR[rt] <- memory[GPR[base]]31..0"
-/// -- so loading it that wide and splitting it is what puts each half in
-/// the right register at either endianness.
+/// -- so loading it that wide, in the processor's own byte order, and
+/// splitting it is what puts each half in the right register at either
+/// endianness.
 let loadLinkedPair ins bld half =
   lift bld ins {
     let rtOpr, rdOpr, memOpr = getThreeOprs ins
@@ -2469,7 +2524,7 @@ let loadLinkedPair ins bld half =
     let addr = transOprToBaseOffset bld memOpr
     let wide = if half = 32<rt> then 64<rt> else 128<rt>
     let v = tmpVar bld wide
-    v := AST.loadLE wide addr
+    v := loadNative bld wide addr
     regVar bld R.ExMonAddr := addr
     regVar bld R.ExMonVal := AST.zext bld.RegType (AST.xtlo half v)
     rd := AST.sext bld.RegType (AST.xthi half v)
@@ -2489,7 +2544,7 @@ let storeConditionalPair ins bld half =
     let ok = regVar bld R.ExMonAddr == addr
     let paired =
       AST.concat (AST.xtlo half rd) (AST.xtlo half rt)
-    AST.loadLE wide addr := AST.ite ok paired (AST.loadLE wide addr)
+    storeNative bld addr (AST.ite ok paired (loadNative bld wide addr))
     rt := AST.zext bld.RegType (AST.ite ok (AST.num1 1<rt>) (AST.num0 1<rt>))
   }
 
@@ -2512,7 +2567,12 @@ let loadLinked ins bld =
 let sldc1 ins bld stORld unaligned =
   lift bld ins {
     let ft, mem = getTwoOprs ins
-    let ftB, ftA = transOprToFPPair bld ft
+    (* The indexed forms are refused an odd register where the plain ones
+       move the pair it belongs to; the reference draws the line there. *)
+    let ftB, ftA =
+      match ins.Opcode with
+      | Op.LDC1 | Op.SDC1 -> transOprToFPPairHolding bld ft
+      | _ -> transOprToFPPair bld ft
     let baseOffset = transOprToBaseOffset bld mem
     let bOff = tmpVar bld bld.RegType
     let memory = tmpVar bld 64<rt>
@@ -2528,7 +2588,7 @@ let sldc1 ins bld stORld unaligned =
       loadNative bld 64<rt> bOff
     memory := loadMem
     if stORld then
-      loadMem := if is32Bit bld then AST.concat ftB ftA else ftA
+      loadMem := if hasPairedFPRs bld then AST.concat ftB ftA else ftA
     else
       writeFPResult ftB ftA memory bld
   }
@@ -2601,7 +2661,7 @@ let alnvps ins bld =
       else
         AST.concat (pairHalf false ft) (pairHalf true fs)
     let offset = rs .& numI32 0b111 bld.RegType
-    let kept = if is32Bit bld then AST.concat fdB fdA else fdA
+    let kept = if hasPairedFPRs bld then AST.concat fdB fdA else fdA
     let defined = AST.ite (offset == numI32 0b100 bld.RegType) spliced kept
     let result = AST.ite (offset == AST.num0 bld.RegType) fs defined
     writeFPResult fdB fdA result bld
@@ -2612,7 +2672,7 @@ let slwc1 ins bld stORld =
     let ft, mem = getTwoOprs ins
     let ft = transOprToSingleFP bld ft
     let mem = transOpr ins bld mem
-    let ft = if is32Bit bld then ft else AST.xtlo 32<rt> ft
+    let ft = if hasPairedFPRs bld then ft else AST.xtlo 32<rt> ft
     if stORld then append bld { mem := ft } else append bld { ft := mem }
   }
 
@@ -2649,15 +2709,46 @@ let lui ins bld =
   }
 
 /// <summary>
+/// One UNFUSED multiply-add: the product of a and b rounded, then combined
+/// with the addend c and rounded again, as MD00087 spells the operation out.
+///
+/// Each rounding raises what it raises and is flushed under FCSR.FS on its
+/// own, the product before the sum reads it -- so an intermediate product
+/// that overflows raises the overflow even where the addend would have
+/// brought the answer back. The product is given this guest's NaN first, so
+/// the sum is asked about the NaN MIPS would have handed it rather than the
+/// host's. <c>combine</c> is given the product and the addend in that order,
+/// and <c>addendFirst</c> says which of the two the sum names first. Returns
+/// the sum and what the two roundings raised together: Cause holds what the
+/// INSTRUCTION raised, and recording them one after the other would leave
+/// only the second there.
+/// </summary>
+let private unfusedMulAdd bld sz combine arith addendFirst a b c =
+  let struct (product, result) = tmpVars2 bld sz
+  append bld {
+    product := AST.fmul a b
+  }
+  fpSettleNaN bld sz [ a; b ] product
+  let rMul = fpRaised bld sz FPMul a b product
+  append bld {
+    result := combine product c
+  }
+  fpSettleNaN bld sz [ product; c ] result
+  let rAdd =
+    if addendFirst then fpRaised bld sz arith c product result
+    else fpRaised bld sz arith product c result
+  struct (result, rMul .| rAdd)
+
+/// <summary>
 /// The paired-single form of a multiply-add.
 ///
 /// Two single-precision multiply-adds, one per half, each normalised on its
-/// own. <c>combine</c> is given the product and the addend in that order, so
-/// that the four members keep the operand order each of them is written with.
-/// <c>signMask</c> is the bit the negated pair flip AFTER normalising, since
-/// the negation applies to the default NaN an invalid operation produces as
-/// much as to a number; it is zero for the two that do not negate, which
-/// makes the flip a no-op rather than a branch.
+/// own, and four roundings recorded in the one register.
+/// <c>signMask</c> is the bit the negated pair flip AFTER normalising and
+/// recording, since the negation applies to the default NaN an invalid
+/// operation produces as much as to a number, and raises nothing; it is zero
+/// for the two that do not negate, which makes the flip a no-op rather than
+/// a branch.
 /// </summary>
 let private pairedFused combine arith addendFirst signMask oprs bld =
   let fd, fr, fs, ft = oprs
@@ -2666,9 +2757,8 @@ let private pairedFused combine arith addendFirst signMask oprs bld =
     let fr = transOprToFPPairConcat bld fr
     let fs = transOprToFPPairConcat bld fs
     let ft = transOprToFPPairConcat bld ft
-    let struct (hi, lo) = tmpVars2 bld 32<rt>
-    let struct (sHi, tHi, rHi, pHi) = tmpVars4 bld 32<rt>
-    let struct (sLo, tLo, rLo, pLo) = tmpVars4 bld 32<rt>
+    let struct (sHi, tHi, rHi) = tmpVars3 bld 32<rt>
+    let struct (sLo, tLo, rLo) = tmpVars3 bld 32<rt>
     let upper = AST.xthi 32<rt>
     let lower = AST.xtlo 32<rt>
     sHi := upper fs
@@ -2677,48 +2767,14 @@ let private pairedFused combine arith addendFirst signMask oprs bld =
     sLo := lower fs
     tLo := lower ft
     rLo := lower fr
-    pHi := AST.fmul sHi tHi
-    pLo := AST.fmul sLo tLo
-    normalizeNaN 32<rt> pHi bld
-    normalizeNaN 32<rt> pLo bld
-    hi := combine pHi rHi
-    lo := combine pLo rLo
-    normalizeNaN 32<rt> hi bld
-    normalizeNaN 32<rt> lo bld
-    (* Four roundings and one register: two halves, each a product and then a
-       sum. Recorded before the sign is flipped, which raises nothing. *)
-    let addOf p r result =
-      if addendFirst then fpRaised bld 32<rt> arith r p result
-      else fpRaised bld 32<rt> arith p r result
-    let mulHi = fpRaised bld 32<rt> FPMul sHi tHi pHi
-    let mulLo = fpRaised bld 32<rt> FPMul sLo tLo pLo
-    let addHi = addOf pHi rHi hi
-    let addLo = addOf pLo rLo lo
-    fpRecord bld (mulHi .| mulLo .| addHi .| addLo)
+    let lane = unfusedMulAdd bld 32<rt> combine arith addendFirst
+    let struct (hi, raisedHi) = lane sHi tHi rHi
+    let struct (lo, raisedLo) = lane sLo tLo rLo
+    fpRecord bld (raisedHi .| raisedLo)
     hi := numU64 signMask 32<rt> <+> hi
     lo := numU64 signMask 32<rt> <+> lo
     writeFPResult fdB fdA (AST.concat hi lo) bld
   }
-
-/// <summary>
-/// What an UNFUSED multiply-add raised, which is what its multiply raised and
-/// what its add raised, together.
-///
-/// It rounds twice -- MD00087 spells the operation out as a product and then
-/// a sum -- so an intermediate product that overflows raises the overflow
-/// even where the addend would have brought the answer back. Cause holds what
-/// the INSTRUCTION raised, and that is both roundings; recording them one
-/// after the other would leave only the second there. The product a caller
-/// passes is normalised like any result: a NaN one is the default NaN, which
-/// is quiet, and not the host's, which this guest reads as signalling and
-/// would have the sum raise Invalid for a NaN the product only carried.
-/// </summary>
-let private mAddSubRecord bld oprSz opFn a b c product result =
-  let rMul = fpRaised bld oprSz FPMul a b product
-  let rAdd =
-    if opFn then fpRaised bld oprSz FPAdd product c result
-    else fpRaised bld oprSz FPSub product c result
-  fpRecord bld (rMul .| rAdd)
 
 /// The integer MADD and MSUB, which accumulate into the HI/LO pair rather
 /// than into a register, and have nothing in common with the floating-point
@@ -2745,43 +2801,35 @@ let private mAddSubInteger ins (bld: LowUIRBuilder) opFn =
   }
 
 let mAddSub (ins: Instruction) bld opFn =
+  let combine p r = if opFn then AST.fadd p r else AST.fsub p r
+  let arith = if opFn then FPAdd else FPSub
   lift bld ins {
     match ins.Fmt with
     | None ->
       mAddSubInteger ins bld opFn
     | Some Fmt.PS ->
-      let combine p r = if opFn then AST.fadd p r else AST.fsub p r
-      let arith = if opFn then FPAdd else FPSub
       pairedFused combine arith false 0UL (getFourOprs ins) bld
     | Some Fmt.D ->
-      let op = if opFn then AST.fadd else AST.fsub
       let fd, fr, fs, ft = getFourOprs ins
       let fdB, fdA = transOprToFPPair bld fd
       let fr, fs, ft = transFPConcatThreeOprs bld (fr, fs, ft)
       let struct (a, b, c) = tmpVars3 bld 64<rt>
-      let struct (product, result) = tmpVars2 bld 64<rt>
       a := fs
       b := ft
       c := fr
-      product := AST.fmul a b
-      normalizeNaN 64<rt> product bld
-      result := op product c
-      normalizeNaN 64<rt> result bld
-      mAddSubRecord bld 64<rt> opFn a b c product result
+      let struct (result, raised) =
+        unfusedMulAdd bld 64<rt> combine arith false a b c
+      fpRecord bld raised
       writeFPResult fdB fdA result bld
     | _ ->
-      let op = if opFn then AST.fadd else AST.fsub
       let fd, fr, fs, ft = getFourOprs ins |> transFourSingleFP bld
       let struct (a, b, c) = tmpVars3 bld 32<rt>
-      let struct (product, result) = tmpVars2 bld 32<rt>
       a := fs
       b := ft
       c := fr
-      product := AST.fmul a b
-      normalizeNaN 32<rt> product bld
-      result := op product c
-      normalizeNaN 32<rt> result bld
-      mAddSubRecord bld 32<rt> opFn a b c product result
+      let struct (result, raised) =
+        unfusedMulAdd bld 32<rt> combine arith false a b c
+      fpRecord bld raised
       fd := result
   }
 
@@ -2854,7 +2902,7 @@ let mfhc1 ins bld =
   lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOpr ins bld rt
-    let fsB, _ = transOprToFPPair bld fs
+    let fsB, _ = transOprToFPPairHolding bld fs
     rt := AST.sext bld.RegType fsB
   }
 
@@ -2862,7 +2910,7 @@ let mthc1 ins bld =
   lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOpr ins bld rt
-    let fsB, _ = transOprToFPPair bld fs
+    let fsB, _ = transOprToFPPairHolding bld fs
     fsB := AST.xtlo 32<rt> rt
   }
 
@@ -2939,9 +2987,9 @@ let movt ins bld =
     | Some Fmt.S ->
       let dst, src = transTwoSingleFP bld (dst, src)
       dst := AST.ite cond src dst
-    | Some Fmt.D when is32Bit bld ->
-      let dstB, dstA = transOprToFPPair bld dst
-      let srcB, srcA = transOprToFPPair bld src
+    | Some Fmt.D when hasPairedFPRs bld ->
+      let dstB, dstA = transOprToFPPairHolding bld dst
+      let srcB, srcA = transOprToFPPairHolding bld src
       dstB := AST.ite cond srcB dstB
       dstA := AST.ite cond srcA dstA
     | Some Fmt.PS ->
@@ -2960,9 +3008,9 @@ let movf ins bld =
     | Some Fmt.S ->
       let dst, src = transTwoSingleFP bld (dst, src)
       dst := AST.ite cond src dst
-    | Some Fmt.D when is32Bit bld ->
-      let dstB, dstA = transOprToFPPair bld dst
-      let srcB, srcA = transOprToFPPair bld src
+    | Some Fmt.D when hasPairedFPRs bld ->
+      let dstB, dstA = transOprToFPPairHolding bld dst
+      let srcB, srcA = transOprToFPPairHolding bld src
       dstB := AST.ite cond srcB dstB
       dstA := AST.ite cond srcA dstA
     | Some Fmt.PS ->
@@ -2981,9 +3029,9 @@ let movzOrn ins bld opFn =
     | Some Fmt.S ->
       let dst, src = transTwoSingleFP bld (dst, src)
       dst := AST.ite cond src dst
-    | Some Fmt.D when is32Bit bld ->
-      let dstB, dstA = transOprToFPPair bld dst
-      let src = transOprToFPPairConcat bld src
+    | Some Fmt.D when hasPairedFPRs bld ->
+      let dstB, dstA = transOprToFPPairHolding bld dst
+      let src = transOprToFPPairHoldingConcat bld src
       dstB := AST.ite cond (AST.xthi 32<rt> src) dstB
       dstA := AST.ite cond (AST.xtlo 32<rt> src) dstA
     | _ ->
@@ -3022,7 +3070,7 @@ let mul ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fmul tSrc1 tSrc2
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPMul tSrc1 tSrc2 result
       dst := result
     | Some Fmt.D ->
@@ -3031,7 +3079,7 @@ let mul ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fmul tSrc1 tSrc2
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPMul tSrc1 tSrc2 result
       writeFPResult dstB dstA result bld
     | Some Fmt.PS ->
@@ -3097,15 +3145,15 @@ let multu ins bld =
 let neg ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
-    let is32Bit = is32Bit bld
+    let paired = hasPairedFPRs bld
     match ins.Fmt with
-    | Some Fmt.D when is32Bit ->
+    | Some Fmt.D when paired ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x8000000000000000UL 64<rt>
       let res = (AST.concat fsB fsA) <+> mask
       writeFPResult fdB fdA res bld
-    | Some Fmt.PS when is32Bit ->
+    | Some Fmt.PS when paired ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x80000000UL 32<rt>
@@ -3124,66 +3172,47 @@ let neg ins bld =
     | _ ->
       let fd, fs = transOpr ins bld fd, transOpr ins bld fs
       let mask =
-        if bld.RegType = 32<rt> then numU64 0x80000000UL bld.RegType
-        else numU64 0x8000000000000000UL bld.RegType
+        if paired then numU64 0x80000000UL 32<rt>
+        else numU64 0x8000000000000000UL 64<rt>
       fd := fs <+> mask
   }
 
-/// The same two roundings as MADD's, at the operand order the negated forms
-/// use: NMADD adds the addend to the product and NMSUB takes the addend off
-/// it, and a subtraction is not commutative.
-let private nmAddSubRecord bld oprSz add a b c product result =
-  let rMul = fpRaised bld oprSz FPMul a b product
-  let rAdd =
-    if add then fpRaised bld oprSz FPAdd c product result
-    else fpRaised bld oprSz FPSub product c result
-  fpRecord bld (rMul .| rAdd)
-
 /// <summary>
-/// NMADD's and NMSUB's arithmetic at one width, into `result`: the product
-/// of a and b, then the sum with c or the difference less it, each rounded
-/// and normalised, then the negation.
+/// NMADD.fmt and NMSUB.fmt: the same two roundings as MADD's, at the operand
+/// order the negated forms use -- NMADD adds the addend to the product and
+/// NMSUB takes the addend off it, and a subtraction is not commutative -- and
+/// then the sign flipped.
 ///
 /// The negation is of the RESULT, so it applies to the default NaN an invalid
 /// operation produces as much as to a number: normalise first, then flip the
-/// sign, or the canonicalisation undoes the negation. The exceptions are
-/// recorded before it: flipping a sign raises nothing, and the value the add
-/// produced is what the two roundings are asked about.
+/// sign, or the canonicalisation undoes the negation. It comes after the
+/// record as well, since flipping a sign raises nothing.
 /// </summary>
-let private negatedSum bld oprSz add a b c result =
-  let product = tmpVar bld oprSz
-  let sign =
-    if oprSz = 32<rt> then numU64 0x80000000UL 32<rt>
-    else numU64 0x8000000000000000UL 64<rt>
-  append bld {
-    product := AST.fmul a b
-    normalizeNaN oprSz product bld
-    result := (if add then AST.fadd c product else AST.fsub product c)
-    normalizeNaN oprSz result bld
-    nmAddSubRecord bld oprSz add a b c product result
-    result := sign <+> result
-  }
-
 let private negatedMultiplyAdd add ins bld =
+  let combine p r = if add then AST.fadd r p else AST.fsub p r
+  let arith = if add then FPAdd else FPSub
   lift bld ins {
     let fd, src1, src2, src3 = getFourOprs ins
     match ins.Fmt with
     | Some Fmt.S ->
       let dst, fr, fs, ft = transFourSingleFP bld (fd, src1, src2, src3)
-      let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 32<rt>
+      let struct (tSrc1, tSrc2, tSrc3) = tmpVars3 bld 32<rt>
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
-      negatedSum bld 32<rt> add tSrc2 tSrc3 tSrc1 result
-      dst := result
+      let struct (result, raised) =
+        unfusedMulAdd bld 32<rt> combine arith add tSrc2 tSrc3 tSrc1
+      fpRecord bld raised
+      dst := numU64 0x80000000UL 32<rt> <+> result
     | Some Fmt.D ->
       let fdB, fdA = transOprToFPPair bld fd
       let fr, fs, ft = transFPConcatThreeOprs bld (src1, src2, src3)
-      let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 64<rt>
+      let struct (tSrc1, tSrc2, tSrc3) = tmpVars3 bld 64<rt>
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
-      negatedSum bld 64<rt> add tSrc2 tSrc3 tSrc1 result
-      writeFPResult fdB fdA result bld
+      let struct (result, raised) =
+        unfusedMulAdd bld 64<rt> combine arith add tSrc2 tSrc3 tSrc1
+      fpRecord bld raised
+      let negated = numU64 0x8000000000000000UL 64<rt> <+> result
+      writeFPResult fdB fdA negated bld
     | Some Fmt.PS ->
-      let combine p r = if add then AST.fadd r p else AST.fsub p r
-      let arith = if add then FPAdd else FPSub
       pairedFused combine arith add 0x80000000UL (fd, src1, src2, src3) bld
     | _ ->
       raise InvalidOperandException
@@ -3674,7 +3703,7 @@ let sqrt ins bld =
       let cond = fs == numU32 0x80000000u 32<rt>
       let result = tmpVar bld 32<rt>
       result := AST.ite cond (numU32 0x80000000u 32<rt>) (AST.fsqrt fs)
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ fs ] result
       fpExceptions bld 32<rt> FPSqrt fs fs result
       fd := result
     | _ ->
@@ -3684,7 +3713,7 @@ let sqrt ins bld =
       let cond = src == numU64 0x8000000000000000UL 64<rt>
       result :=
         AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt src)
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ src ] result
       fpExceptions bld 64<rt> FPSqrt src src result
       writeFPResult fdB fdA result bld
   }
@@ -3832,8 +3861,8 @@ let private pairedSub (dst, src1, src2) bld =
     loB := AST.xtlo 32<rt> ft
     hi := AST.fsub hiA hiB
     lo := AST.fsub loA loB
-    normalizeNaN 32<rt> hi bld
-    normalizeNaN 32<rt> lo bld
+    fpSettleNaN bld 32<rt> [ hiA; hiB ] hi
+    fpSettleNaN bld 32<rt> [ loA; loB ] lo
     (* One record for the pair: see the note in pairedArith. *)
     let raisedHi = fpRaised bld 32<rt> FPSub hiA hiB hi
     let raisedLo = fpRaised bld 32<rt> FPSub loA loB lo
@@ -3874,7 +3903,7 @@ let sub ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fsub tSrc1 tSrc2
-      normalizeNaN 32<rt> result bld
+      fpSettleNaN bld 32<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 32<rt> FPSub tSrc1 tSrc2 result
       dst := result
     | Some Fmt.D ->
@@ -3883,7 +3912,7 @@ let sub ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fsub tSrc1 tSrc2
-      normalizeNaN 64<rt> result bld
+      fpSettleNaN bld 64<rt> [ tSrc1; tSrc2 ] result
       fpExceptions bld 64<rt> FPSub tSrc1 tSrc2 result
       writeFPResult dstB dstA result bld
     | Some Fmt.PS ->
@@ -4109,36 +4138,57 @@ let loadLeftRight ins bld memShf regShf amtOp oprSz =
     rt := if is32Bit bld then result else result |> AST.sext 64<rt>
   }
 
-let recip ins bld =
-  lift bld ins {
-    let fd, fs = getTwoOprs ins
-    match ins.Fmt with
-    | Some Fmt.S ->
-      let fd, fs = transTwoSingleFP bld (fd, fs)
-      let fnum = AST.cast CastKind.SIntToFloat 32<rt> (AST.num1 32<rt>)
-      fd := AST.fdiv fnum fs
-    | _ ->
-      let fdB, fdA = transOprToFPPair bld fd
-      let fs = transOprToFPPairConcat bld fs
-      let fnum = AST.cast CastKind.SIntToFloat 64<rt> (AST.num1 64<rt>)
-      writeFPResult fdB fdA (AST.fdiv fnum fs) bld
+/// <summary>
+/// One over the operand, or over its square root, as the reference works
+/// RECIP.fmt and RSQRT.fmt out: a square root and a division, each rounded,
+/// flushed under FCSR.FS and normalised on its own, raising what each
+/// raises -- a zero divisor raises Divide-by-zero, a negative operand to the
+/// root Invalid. Both roundings are recorded together.
+/// </summary>
+let private reciprocalOf bld sz root a =
+  let one =
+    if sz = 32<rt> then numU32 0x3f800000u sz
+    else numU64 0x3ff0000000000000UL sz
+  let struct (divisor, result) = tmpVars2 bld sz
+  append bld {
+    divisor := if root then AST.fsqrt a else a
   }
+  let rootRaised =
+    if root then
+      fpSettleNaN bld sz [ a ] divisor
+      fpRaised bld sz FPSqrt a a divisor
+    else
+      AST.num0 32<rt>
+  append bld {
+    result := AST.fdiv one divisor
+  }
+  fpSettleNaN bld sz [ one; divisor ] result
+  fpRecord bld (rootRaised .| fpRaised bld sz FPDiv one divisor result)
+  result
 
-let rsqrt ins bld =
+let private reciprocal root ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
     match ins.Fmt with
     | Some Fmt.S ->
       let fd, fs = transTwoSingleFP bld (fd, fs)
-      let fnum = AST.cast CastKind.SIntToFloat 32<rt> (AST.num1 32<rt>)
-      fd := AST.fdiv fnum (AST.fsqrt fs)
+      let a = tmpVar bld 32<rt>
+      a := fs
+      let result = reciprocalOf bld 32<rt> root a
+      fd := result
     | _ ->
       let fdB, fdA = transOprToFPPair bld fd
-      let fs = transOprToFPPairConcat bld fs
-      let fnum = AST.cast CastKind.SIntToFloat 64<rt> (AST.num1 64<rt>)
-      let result = AST.fdiv fnum (AST.fsqrt fs)
+      let a = tmpVar bld 64<rt>
+      a := transOprToFPPairConcat bld fs
+      let result = reciprocalOf bld 64<rt> root a
       writeFPResult fdB fdA result bld
   }
+
+/// RECIP.fmt: one over the operand.
+let recip ins bld = reciprocal false ins bld
+
+/// RSQRT.fmt: one over the operand's square root.
+let rsqrt ins bld = reciprocal true ins bld
 
 /// <summary>
 /// The register MIPS16e compares into, which MD00076 calls T.

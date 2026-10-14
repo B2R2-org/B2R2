@@ -1216,6 +1216,9 @@ let parseMovSpecReg11 (phlp: ParsingHelper) bin =
 let parseMoveSpecialRegisterAndHints (phlp: ParsingHelper) bin =
   let rimm4 = concat (pickBit bin 22) (pickFour bin 16) 4
   checkUndef (pickFour bin 12 <> 0b1111u)
+#if !EMULATION
+  checkUnpred (rimm4 = 0b10000u) (* SPSR with no field, B9.3.11 *)
+#endif
   match pickTwo bin 6 (* imm12<7:6> *) with
   | _ when rimm4 <> 0b00000u -> render phlp bin Op.MSR None OD.OprSregImm
   | 0b00u -> parseMovSpecReg00 phlp bin
@@ -2262,6 +2265,49 @@ let parseCase10 (phlp: ParsingHelper) bin =
   | 0b0u -> parseCase100 phlp bin
   | _ -> parseCase101 phlp bin
 
+/// <summary>
+/// The coprocessor instructions ARMv7 leaves to implementations, which reach
+/// coprocessors 0 to 7 alone: 8, 9, 12 and 13 are reserved (A2.9), 10 and 11
+/// are the floating-point unit, and on 14 and 15 every CDP, LDC and STC but
+/// the debug data transfers, and every form named 2, is UNDEFINED (B3.15.2).
+/// The unconditional encoding of each is its form named 2. Armv8 has none of
+/// them.
+/// </summary>
+let parseARMv7Coprocessor (phlp: ParsingHelper) bin =
+  let isTwo = phlp.Cond = Condition.UN
+  let pick op op2 = if isTwo then op2 else op
+  match pickTwo bin 24, pickBit bin 4 (* op1<5:4>, op *) with
+  | 0b10u, 0b0u ->
+    render phlp bin (pick Op.CDP Op.CDP2) None OD.OprCpOpc1CRdCRnCRmOpc2
+  | 0b10u, _ ->
+#if !EMULATION
+    (pickBit bin 20 = 0u && extract bin 15 12 = 15u) |> checkUnpred
+#endif
+    let op =
+      if pickBit bin 20 = 0u then pick Op.MCR Op.MCR2 else pick Op.MRC Op.MRC2
+    render phlp bin op None OD.OprCpOpc1RtCRnCRmOpc2
+  | _ ->
+    match extract bin 24 20 (* op1<4:0> *) with
+    | 0b00000u | 0b00001u ->
+      undefined ()
+    | 0b00100u ->
+#if !EMULATION
+      chkPCRtRt2 bin
+#endif
+      render phlp bin (pick Op.MCRR Op.MCRR2) None OD.OprCpOpc1RtRt2CRm
+    | 0b00101u ->
+#if !EMULATION
+      chkPCRtRt2Eq bin
+#endif
+      render phlp bin (pick Op.MRRC Op.MRRC2) None OD.OprCpOpc1RtRt2CRm
+    | _ ->
+#if !EMULATION
+      chkPUDWCopPCRn bin
+#endif
+      let isLoad = pickBit bin 20 = 1u
+      let op = coprocTransferOp isTwo isLoad (pickBit bin 22 = 1u)
+      render phlp bin op None OD.OprCoprocCRdMem
+
 /// Supervisor call on page F4-4247.
 let parseSupervisorCall (phlp: ParsingHelper) bin =
   if phlp.Cond = Condition.UN then raise ParsingFailureException
@@ -2438,27 +2484,15 @@ let parseAdvSIMDThreeRegSameLenExt (phlp: ParsingHelper) bin =
   (* 011111xx *)
   | 0b01111100u | 0b01111101u | 0b01111110u | 0b01111111u ->
     raise ParsingFailureException
-  (* VCMLA Armv8.3 *)
-  | 0b00100000u ->
+  (* VCMLA Armv8.3, xx1x00x0: op1 is the rotation *)
+  | fields when fields &&& 0b00101101u = 0b00100000u ->
 #if !EMULATION
     chkQVdVnVm bin
 #endif
-    render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprDdDnDmRotate
-  | 0b00100010u ->
-#if !EMULATION
-    chkQVdVnVm bin
-#endif
-    render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprQdQnQmRotate
-  | 0b00110000u ->
-#if !EMULATION
-    chkQVdVnVm bin
-#endif
-    render phlp bin Op.VCMLA (oneDt SIMDTypF32) OD.OprDdDnDmRotate
-  | 0b00110010u ->
-#if !EMULATION
-    chkQVdVnVm bin
-#endif
-    render phlp bin Op.VCMLA (oneDt SIMDTypF32) OD.OprQdQnQmRotate
+    let dt = oneDt (if pickBit bin 20 = 0u then SIMDTypF16 else SIMDTypF32)
+    let oprs =
+      if pickBit bin 6 = 0u then OD.OprDdDnDmRotate else OD.OprQdQnQmRotate
+    render phlp bin Op.VCMLA dt oprs
   (* 101101xx *)
   | 0b10110100u | 0b10110101u | 0b10110110u | 0b10110111u ->
     raise ParsingFailureException
@@ -2524,13 +2558,13 @@ let parseFloatingPointDirectedConvertToInteger (phlp: ParsingHelper) bin =
   let struct (dt2, oprs2) =
     match pickThree bin 7 (* size:op *) with
     | 0b000u | 0b001u -> undefined ()
-    | 0b010u -> struct (twoDt (SIMDTypF16, SIMDTypU32), OD.OprSdSm)
-    | 0b011u -> struct (twoDt (SIMDTypF16, SIMDTypS32), OD.OprSdSm)
-    | 0b100u -> struct (twoDt (SIMDTypF32, SIMDTypU32), OD.OprSdSm)
-    | 0b101u -> struct (twoDt (SIMDTypF32, SIMDTypS32), OD.OprSdSm)
-    | 0b110u -> struct (twoDt (SIMDTypF64, SIMDTypU32), OD.OprSdDm)
+    | 0b010u -> struct (twoDt (SIMDTypU32, SIMDTypF16), OD.OprSdSm)
+    | 0b011u -> struct (twoDt (SIMDTypS32, SIMDTypF16), OD.OprSdSm)
+    | 0b100u -> struct (twoDt (SIMDTypU32, SIMDTypF32), OD.OprSdSm)
+    | 0b101u -> struct (twoDt (SIMDTypS32, SIMDTypF32), OD.OprSdSm)
+    | 0b110u -> struct (twoDt (SIMDTypU32, SIMDTypF64), OD.OprSdDm)
     (* 111 *)
-    | _ -> struct (twoDt (SIMDTypF64, SIMDTypS32), OD.OprSdDm)
+    | _ -> struct (twoDt (SIMDTypS32, SIMDTypF64), OD.OprSdDm)
   match pickThree bin 16 (* o1:RM *) with
   | 0b000u -> render phlp bin Op.VRINTA dt1 oprs1
   | 0b001u -> render phlp bin Op.VRINTN dt1 oprs1
@@ -2556,6 +2590,9 @@ let parseAdvSIMDAndFPMulWithAccumulate (phlp: ParsingHelper) bin =
     render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprDdDnDmidxRotate
   (* 0xx10 *)
   | 0b00010u | 0b00110u | 0b01010u | 0b01110u -> (* Armv8.3 *)
+#if !EMULATION
+    chkQVdVn bin
+#endif
     render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprQdQnDmidxRotate
   | 0b00001u -> (* Armv8.2 *)
 #if !EMULATION
@@ -2781,7 +2818,7 @@ let parseAdvSIMDAndFPLdSt (phlp: ParsingHelper) bin =
   let decodeFields = (* P:U:W:L:size *)
     (pickTwo bin 23 <<< 4) + (pickTwo bin 20 <<< 2) + (pickTwo bin 8)
   let isxxxxxxx0 bin = pickBit bin 0 = 0u
-  let isxxxxxxx1 bin = pickBit bin 1 = 1u
+  let isxxxxxxx1 bin = pickBit bin 0 = 1u
   let isRn1111 bin = pickFour bin 16 = 0b1111u
   match decodeFields (* P:U:W:L:size *) with
   (* 001xxx *)
@@ -2842,8 +2879,12 @@ let parseAdvSIMDAndFPLdSt (phlp: ParsingHelper) bin =
     render phlp bin Op.VSTR (oneDt SIMDTyp64) OD.OprDdMem
   | 0b100100u | 0b110100u when phlp.Cond <> Condition.UN ->
     undefined ()
-  | 0b100101u | 0b110101u | 0b100110u | 0b110110u
-    when phlp.Cond <> Condition.UN ->
+  | 0b100101u | 0b110101u when phlp.Cond <> Condition.UN ->
+#if !EMULATION
+    chkSzCond bin phlp.Cond
+#endif
+    render phlp bin Op.VLDR (oneDt SIMDTyp16) OD.OprSdMem
+  | 0b100110u | 0b110110u when phlp.Cond <> Condition.UN ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
 #endif
@@ -3053,9 +3094,9 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypF64, SIMDTypF16)
     render phlp bin Op.VCVTT dt OD.OprDdSm
   | 0b0011010u -> (* Armv8.6 *)
-    render phlp bin Op.VCVTB (twoDt (BF16, SIMDTypF16)) OD.OprSdSm
+    render phlp bin Op.VCVTB (twoDt (BF16, SIMDTypF32)) OD.OprSdSm
   | 0b0011011u -> (* Armv8.6 *)
-    render phlp bin Op.VCVTT (twoDt (BF16, SIMDTypF16)) OD.OprSdSm
+    render phlp bin Op.VCVTT (twoDt (BF16, SIMDTypF32)) OD.OprSdSm
   | 0b0011100u ->
     let dt = twoDt (SIMDTypF16, SIMDTypF32)
     render phlp bin Op.VCVTB dt OD.OprSdSm
@@ -3879,10 +3920,19 @@ let parseAdvSIMD8n16n32bitElemMoveDup (phlp: ParsingHelper) bin =
   | 0b100000u ->
     render phlp bin Op.VDUP (oneDt SIMDTyp32) OD.OprDdRt
   | 0b111000u ->
+#if !EMULATION
+    chkDupQVd bin
+#endif
     render phlp bin Op.VDUP (oneDt SIMDTyp8) OD.OprQdRt
   | 0b101001u ->
+#if !EMULATION
+    chkDupQVd bin
+#endif
     render phlp bin Op.VDUP (oneDt SIMDTyp16) OD.OprQdRt
   | 0b101000u ->
+#if !EMULATION
+    chkDupQVd bin
+#endif
     render phlp bin Op.VDUP (oneDt SIMDTyp32) OD.OprQdRt
   | 0b111001u | 0b110001u ->
     undefined ()
@@ -3942,18 +3992,12 @@ let parseCase11 (phlp: ParsingHelper) bin =
   let op0op1op2 =
     (pickTwo bin 24 <<< 2) + (pickBit bin 11 <<< 1) + (pickBit bin 4)
   match op0op1op2 (* op0:op1:op2 *) with
-  | _ when phlp.IsARMv7
-           && phlp.Cond = Condition.UN
-           && (pickBit bin 25 = 0u)
-           && (pickBit bin 20 = 0u) -> (* ARMv7 A8-663 *)
-#if !EMULATION
-    chkPUDWCopPCRn bin
-#endif
-    render phlp bin Op.STC2 None OD.OprCoprocCRdMem
+  (* coprocessors 0 to 7 *)
+  | 0b0000u | 0b0001u | 0b0100u | 0b0101u | 0b1000u | 0b1001u
+    when phlp.IsARMv7 ->
+    parseARMv7Coprocessor phlp bin
   | 0b0000u | 0b0001u | 0b0100u | 0b0101u -> (* 0x0x *)
     raise ParsingFailureException
-  | 0b1000u | 0b1001u (* 100x *) when phlp.IsARMv7 -> (* ARMv7 A8-356 *)
-    render phlp bin Op.CDP None OD.OprCpOpc1CRdCRnCRmOpc2
   (* 100x *)
   | 0b1000u | 0b1001u ->
     raise ParsingFailureException
@@ -3965,9 +4009,7 @@ let parseCase11 (phlp: ParsingHelper) bin =
   | 0b0010u | 0b0011u | 0b0110u | 0b0111u ->
     parseAdvSIMDAndSysRegLdStAnd64bitMove phlp bin
   (* Floating point is the coprocessors with 10 in bits 11:10; the four above
-     them are ordinary coprocessors to ARMv7 and nothing to Armv8. *)
-  | 0b1010u when pickTwo bin 10 = 0b11u && phlp.IsARMv7 ->
-    render phlp bin Op.CDP None OD.OprCpOpc1CRdCRnCRmOpc2
+     them hold no CDP in either version. *)
   | 0b1010u when pickTwo bin 10 = 0b11u ->
     raise ParsingFailureException
   | 0b1010u ->
@@ -6243,6 +6285,9 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     raise ParsingFailureException
   (* xx1011000 VCVT *)
   | 0b011011000u ->
+#if !EMULATION
+    chkOpVdVm bin
+#endif
     let dt = twoDt (SIMDTypF16, SIMDTypF32)
     render phlp bin Op.VCVT dt OD.OprDdQm
   | 0b001011000u | 0b101011000u | 0b111011000u -> (* size != 01 *)
@@ -6275,7 +6320,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
   (* xx1011100 VCVT *)
   | 0b011011100u ->
 #if !EMULATION
-    chkVdVm bin
+    chkOpVdVm bin
 #endif
     let dt = twoDt (SIMDTypF32, SIMDTypF16)
     render phlp bin Op.VCVT dt OD.OprQdDm
@@ -6609,7 +6654,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkQVdVm bin
 #endif
-    let dt = twoDt (SIMDTypU32, SIMDTypF16)
+    let dt = twoDt (SIMDTypU16, SIMDTypF16)
     render phlp bin Op.VCVT dt OD.OprDdDm
   | 0b101111000u ->
 #if !EMULATION
@@ -6657,7 +6702,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkQVdVm bin
 #endif
-    let dt = twoDt (SIMDTypU32, SIMDTypF16)
+    let dt = twoDt (SIMDTypU16, SIMDTypF16)
     render phlp bin Op.VCVT dt OD.OprQdQm
   | 0b101111001u ->
 #if !EMULATION
@@ -7319,7 +7364,7 @@ let parseBarriers (phlp: ParsingHelper) bin =
     render phlp bin Op.CLREX None OD.OprNo
   | 0b0010u | 0b0011u ->
     unpredictable ()
-  | 0b0100u when (option <> 0b0000u) || (option <> 0b0100u) ->
+  | 0b0100u when option <> 0b0000u && option <> 0b0100u ->
     render phlp bin Op.DSB None OD.OprOpt
   | 0b0100u when option = 0b0000u ->
     render phlp bin Op.SSBB None OD.OprNo

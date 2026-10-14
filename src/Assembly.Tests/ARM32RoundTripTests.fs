@@ -376,6 +376,124 @@ type ARM32RoundTripTests() =
 
   let branchOpcodes = [ "b"; "bl"; "bne"; "bleq"; "blx" ]
 
+  /// What each of a list of sources reads back as once encoded in Thumb, for
+  /// each where it does not read back as itself.
+  let brokenInThumb sources =
+    mutingStderr (fun () ->
+      sources
+      |> List.choose (fun source ->
+        match thumbRoundTrip source with
+        | ARM32Preserved -> None
+        | outcome -> Some $"'{source}' in Thumb: {outcome}"))
+
+  /// <summary>
+  /// Forms the assembler once encoded as other instructions: SIMD additions
+  /// of integers and of halves as double-precision ones, half-precision
+  /// arithmetic as single, half compares and maxima as integer ones, the
+  /// quadword VFMAL reading its sources as singles, VMOV.F16 of an immediate
+  /// as VMOV.I16, the fixed-point VCVT of halves as an Advanced SIMD one, and
+  /// SHA1SU1 as nothing at all.
+  /// </summary>
+  let alteredSIMDSources =
+    [ "vadd.i16 d0, d0, d1"
+      "vadd.f16 d0, d0, d1"
+      "vsub.i32 q0, q1, q2"
+      "vmul.f16 s0, s1, s2"
+      "vceq.f16 d0, d1, d2"
+      "vmax.f16 q0, q1, q2"
+      "vfmal.f16 q0, d1, d3[2]"
+      "vmov.f16 s0, #0x4500"
+      "vcvt.u16.f16 s1, s1, #0x8"
+      "vrinta.f16 d0, d1"
+      "sha1su1.32 q0, q1"
+      "vminnm.f16 s0, s1, s2" ]
+
+  /// The SIMD and floating-point forms the decoder reads that the assembler
+  /// refused.
+  let refusedSIMDSources =
+    [ "vshl.s8 d0, d1, d2"
+      "vrshl.u16 q0, q1, q2"
+      "vabd.s32 d0, d1, d2"
+      "vrhadd.u8 d0, d1, d2"
+      "vhsub.s16 d0, d1, d2"
+      "vcmla.f16 d0, d1, d2, #0x5a"
+      "vcmla.f32 q0, q1, d2[0], #0xb4"
+      "vcadd.f32 q0, q1, q2, #0x10e"
+      "vdot.bf16 d0, d1, d2[1]"
+      "vusdot.s8 q0, q1, q2"
+      "vmmla.bf16 q0, q1, q2"
+      "vfmab.bf16 q0, q1, d2[3]"
+      "vsubl.s8 q0, d1, d2"
+      "vabdl.u16 q0, d1, d2"
+      "vabal.s32 q0, d1, d2"
+      "aesd.8 q0, q1"
+      "sha1c.32 q0, q1, q2"
+      "vcvt.s32.f64 s0, d1"
+      "vcvtr.u32.f32 s0, s1"
+      "vcvtb.f16.f64 s0, d1"
+      "vcvta.s32.f32 s0, s1"
+      "vcvt.bf16.f32 d0, q1"
+      "vcvt.f32.f16 q0, d1"
+      "vcmp.f32 s0, #0x0"
+      "vrintz.f64 d0, d1"
+      "vrecpe.f16 q0, q1"
+      "vswp d0, d1"
+      "vmovn.i32 d0, q1"
+      "vqmovun.s32 d0, q1"
+      "vshll.i16 q0, d1, #0x10"
+      "vdup.16 q0, d1[3]"
+      "vmovx.f16 s0, s1"
+      "fldmiax r0!, {d0, d1}"
+      "cpsid aif, #0x13"
+      "vcvt.u32.f64 s31, d31"
+      "vcvtb.f64.f16 d31, s31"
+      "vcvt.f64.s16 d17, d17, #0x1"
+      "vcvt.f32.u32 s31, s31, #0x20" ]
+
+  /// <summary>
+  /// The Thumb forms the assembler refused -- the multiplies, the divides,
+  /// the extends that add, the parallel arithmetic, PKH, the exclusive and
+  /// ordered pairs, TBB, PUSH and POP of a high register, the literal LDRD and
+  /// LDRB, CPS of a mode, DCPS -- or encoded as others: SUBS PC, LR as CMP,
+  /// RSBS of a register as one of #0, a negative offset as a positive one,
+  /// and a banked MRS or MSR as one of APSR. The last few name high registers,
+  /// whose top bit a field one bit too narrow would drop.
+  /// </summary>
+  let thumbSources =
+    [ "mla r0, r1, r2, r3"
+      "smull r0, r1, r2, r3"
+      "smlald r0, r1, r2, r3"
+      "sdiv r0, r1, r2"
+      "sxtab r0, r1, r2, ror #0x8"
+      "uxtb16 r0, r1"
+      "qadd8 r0, r1, r2"
+      "sel r0, r1, r2"
+      "clz r0, r1"
+      "crc32cw r0, r1, r2"
+      "pkhtb r0, r1, r2, asr #0x4"
+      "ldrexd r0, r1, [r2]"
+      "strexd r3, r0, r1, [r2]"
+      "stlexd r4, r0, r1, [r2]"
+      "tbb [r0, r1]"
+      "push.w {r0, r8}"
+      "pop.w {r8}"
+      "ldrd r0, r1, [0xc]"
+      "ldrb r0, [0x8]"
+      "adr r0, [0x0]"
+      "cps #0x13"
+      "dcps1"
+      "subs pc, lr, #0x4"
+      "rsbs r0, r0, r1"
+      "ldr r0, [r1, #-0x34]"
+      "msr lr_fiq, r0"
+      "mrs r0, r8_usr"
+      "smlald r8, sb, sl, fp"
+      "sdiv ip, sl, sb"
+      "ldrexd r8, sb, [sl]"
+      "strexd ip, r8, sb, [sl]"
+      "pkhtb ip, fp, sl, asr #0x20"
+      "tbh [sl, fp, lsl #0x1]" ]
+
   [<TestMethod>]
   [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
@@ -473,6 +591,23 @@ type ARM32RoundTripTests() =
     Assert.AreEqual<string>("", brokenInEither "vmls.i16 d1, d2, d3[2]")
 
   [<TestMethod>]
+  member _.``SIMD and half-precision forms keep what they are``() =
+    let wrong =
+      alteredSIMDSources |> List.map brokenInEither |> List.filter ((<>) "")
+    Assert.AreEqual<string>("", String.concat "\n" wrong)
+
+  [<TestMethod>]
+  member _.``Every SIMD and floating-point form named here encodes``() =
+    let wrong =
+      refusedSIMDSources |> List.map brokenInEither |> List.filter ((<>) "")
+    Assert.AreEqual<string>("", String.concat "\n" wrong)
+
+  [<TestMethod>]
+  member _.``Every Thumb form named here encodes as itself``() =
+    let wrong = brokenInThumb thumbSources
+    Assert.AreEqual<string>("", String.concat "\n" wrong)
+
+  [<TestMethod>]
   member _.``An IT block says what the instructions in it run under``() =
     let wrong =
       mutingStderr (fun () ->
@@ -523,3 +658,10 @@ type ARM32RoundTripTests() =
       String.concat "\n" wrong,
       "These branches no longer reach the instruction their label marks."
     )
+
+  /// An MRC names the flags, APSR_nzcv, where its Rt field is 15, and an
+  /// assembler that took only core registers there would refuse the text.
+  [<TestMethod>]
+  member _.``MRC to APSR_nzcv encodes as itself``() =
+    let source = "mrc p14, #0x0, apsr_nzcv, c1, c4, #0x0"
+    Assert.AreEqual<string>("", brokenInEither source)

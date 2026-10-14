@@ -10,6 +10,7 @@
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />
+    <Compile Include="SysOp.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="OperandHelper.fs" />

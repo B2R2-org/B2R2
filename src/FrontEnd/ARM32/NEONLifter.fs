@@ -43,22 +43,35 @@ let checkSingleReg = function
   | R.S28 | R.S29 | R.S30 | R.S31 -> true
   | _ -> false
 
+/// The register a VLDR loads and the address it reads, which counts from the
+/// program counter aligned to a word, or from any other base as it stands.
 let parseOprOfVLDR (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector d)),
                 OprMemory(OffsetMode(ImmOffset(rn, s, imm)))) ->
-    let pc = regVar bld rn |> convertPCOpr ins bld
-    let baseAddr = align pc (numI32 4 32<rt>)
+    let baseAddr =
+      if rn = R.PC then
+        align (regVar bld rn |> convertPCOpr ins bld) (numI32 4 32<rt>)
+      else
+        regVar bld rn
     regVar bld d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ ->
     raise InvalidOperandException
+
+/// Whether a VLDR or VSTR moves a halfword, the bottom half of its register.
+let private isHalfTransfer (ins: Instruction) =
+  ins.SIMDTyp = Some(OneDT SIMDTyp16)
 
 let vldr ins bld =
   lift bld ins {
     let rd, addr, isSReg = parseOprOfVLDR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    if isSReg then
+    if isHalfTransfer ins then
+      let data = tmpVar bld 16<rt>
+      data := loadNative bld 16<rt> addr
+      rd := AST.zext 32<rt> data
+    elif isSReg then
       let data = tmpVar bld 32<rt>
       data := loadNative bld 32<rt> addr
       rd := data
@@ -71,11 +84,14 @@ let vldr ins bld =
     putEndLabel bld lblIgnore
   }
 
+/// The register a VSTR stores and the address it writes, which counts from
+/// the base as it reads: the program counter, which only A32 allows here,
+/// reads ahead of the instruction and is not aligned.
 let parseOprOfVSTR (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector d)),
                 OprMemory(OffsetMode(ImmOffset(rn, s, imm)))) ->
-    let baseAddr = regVar bld rn
+    let baseAddr = regVar bld rn |> convertPCOpr ins bld
     regVar bld d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ ->
     raise InvalidOperandException
@@ -85,7 +101,9 @@ let vstr (ins: Instruction) bld =
     let rd, addr, isSReg = parseOprOfVSTR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    if isSReg then
+    if isHalfTransfer ins then
+      loadNative bld 16<rt> addr := AST.xtlo 16<rt> rd
+    elif isSReg then
       loadNative bld 32<rt> addr := rd
     else
       let mem1 = loadNative bld 32<rt> addr
@@ -291,51 +309,6 @@ let vand (ins: Instruction) bld =
     | _ ->
       let dst, src1, src2 = parseOprOfVAND ins bld
       dst := src1 .& src2
-    putEndLabel bld lblIgnore
-  }
-
-let vmrs ins bld =
-  lift bld ins {
-    let struct (rt, fpscr) = transTwoOprs ins bld
-    let cpsr = regVar bld R.CPSR
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    match ins.Operands with
-    | TwoOperands(OprReg R.APSR, _) | TwoOperands(OprReg R.CPSR, _) ->
-      cpsr := disablePSRBits bld R.CPSR PSR.Cond .|
-                  getPSR bld R.FPSCR PSR.Cond
-    | _ ->
-      rt := fpscr
-    putEndLabel bld lblIgnore
-  }
-
-/// <summary>
-/// VMSR, which does not keep every bit it is handed.
-///
-/// FPSCR has two bits that are RES0, 6 and 5, and a row of trap enables --
-/// IDE at 15 and IXE through IOE at 12:8 -- that an implementation without
-/// trapped floating-point exceptions leaves read-as-zero, write-ignored.
-/// There is no FP trapping anywhere in this front end, so storing those bits
-/// would let a program read back a mode nothing here can enter; the reference
-/// answers 0xffff009f to all ones written and read straight back, and the
-/// bits that vanish are exactly these.
-///
-/// Length and stride, 21:20 and 18:16, are NOT among them: short vectors are
-/// part of VFPv4 and the field is writable there.
-///
-/// The mask is FPSCR's alone, so a VMSR naming another system register --
-/// FPEXC is the one an implementation may allow -- stores what it was given.
-/// </summary>
-let vmsr ins bld =
-  lift bld ins {
-    let struct (dst, rt) = transTwoOprs ins bld
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    match ins.Operands with
-    | TwoOperands(OprReg R.FPSCR, _) ->
-      dst := rt .& numU32 0xffff009fu 32<rt>
-    | _ ->
-      dst := rt
     putEndLabel bld lblIgnore
   }
 
@@ -616,22 +589,6 @@ let vabsf (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
-let vnegf (ins: Instruction) bld =
-  lift bld ins {
-    let struct (dst, src) = transTwoOprs ins bld
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    match (getParsingInfo ins).ESize with
-    | 16 ->
-      dst :=
-        AST.zext 32<rt> (AST.xtlo 16<rt> src <+> numU32 0x8000u 16<rt>)
-    | 32 ->
-      dst := src <+> numU32 0x80000000u 32<rt>
-    | _ ->
-      dst := src <+> numU64 0x8000000000000000UL 64<rt>
-    putEndLabel bld lblIgnore
-  }
-
 /// <summary>
 /// The NaN a VFP operation answers with where it had no operand to propagate.
 ///
@@ -849,103 +806,6 @@ let vaddl (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
-/// The conversion VCVT names, as the function that performs it and the width
-/// it leaves its result in.
-let vcvtCastKind =
-  let fext = AST.cast CastKind.FloatCast
-  let ofSInt = AST.cast CastKind.SIntToFloat
-  let ofUInt = AST.cast CastKind.UIntToFloat
-  let toInt = AST.floatToSInt RoundingMode.TowardZero
-  function
-  (* float <-> float *)
-  | Some(TwoDT(SIMDTypF32, SIMDTypF64)) -> struct (fext, 32<rt>)
-  | Some(TwoDT(SIMDTypF64, SIMDTypF32)) -> struct (fext, 64<rt>)
-  (* int -> float *)
-  | Some(TwoDT(SIMDTypF32, SIMDTypS32)) -> struct (ofSInt, 32<rt>)
-  | Some(TwoDT(SIMDTypF64, SIMDTypS32)) -> struct (ofSInt, 64<rt>)
-  | Some(TwoDT(SIMDTypF32, SIMDTypU32)) -> struct (ofUInt, 32<rt>)
-  | Some(TwoDT(SIMDTypF64, SIMDTypU32)) -> struct (ofUInt, 64<rt>)
-  (* float -> int (round toward zero) *)
-  | Some(TwoDT(SIMDTypS32, SIMDTypF32))
-  | Some(TwoDT(SIMDTypU32, SIMDTypF32)) -> struct (toInt, 32<rt>)
-  | Some(TwoDT(SIMDTypS32, SIMDTypF64))
-  | Some(TwoDT(SIMDTypU32, SIMDTypF64)) -> struct (toInt, 32<rt>)
-  | _ -> raise InvalidOperandException
-
-let parseOprOfVCVT (ins: Instruction) bld =
-  (* FIXME *)
-  match ins.Operands with
-  | TwoOperands(OprSIMD _, OprSIMD _) ->
-    match ins.OprSize with
-    (* FIXME *)
-    (* VCVT (between half-precision and single-precision, Advanced SIMD) *)
-    | 128<rt> ->
-      let struct (dst, src) = getTwoOprs ins
-      let struct (dstB, dstA) = transOpr128 bld dst
-      let src = transOpr ins bld src
-      let p = getParsingInfo ins
-      let struct (tdstB, tdstA) = tmpVars2 bld 64<rt>
-      append bld {
-        tdstA := (dstB << numI32 63 64<rt>) .| (dstA >> AST.num1 64<rt>)
-        tdstB := dstB >> AST.num1 64<rt>
-      }
-      for e in 0 .. (p.Elements - 1) / 2 do
-        append bld {
-          elem tdstB e 32 :=
-            AST.cast CastKind.FloatCast 32<rt> (elem src (e + 2) 16)
-          elem tdstA e 32 :=
-            AST.cast CastKind.FloatCast 32<rt> (elem src e 16)
-        }
-      append bld {
-        dstB := tdstB
-        dstA := tdstA
-      }
-    | 64<rt> ->
-      let struct (dst, src) = getTwoOprs ins
-      let dst = transOpr ins bld dst
-      let struct (srcB, srcA) = transOpr128 bld src
-      let p = getParsingInfo ins
-      let struct (tsrcB, tsrcA) = tmpVars2 bld 64<rt>
-      append bld {
-        tsrcA := (srcB << numI32 63 64<rt>) .| (srcA >> AST.num1 64<rt>)
-        tsrcB := srcB >> AST.num1 64<rt>
-      }
-      for e in 0 .. (p.Elements - 1) / 2 do
-        append bld {
-          elem dst (e + 2) 16 :=
-            AST.cast CastKind.FloatCast 16<rt> (elem tsrcB e 32)
-          elem dst e 16 :=
-            AST.cast CastKind.FloatCast 16<rt> (elem tsrcA e 32)
-        }
-    (* VCVT (between double-precision and single-precision) *)
-    | _ ->
-      let struct (dst, src) = transTwoOprs ins bld
-      match ins.SIMDTyp with
-      | Some(TwoDT(SIMDTypU32, SIMDTypF32))
-      | Some(TwoDT(SIMDTypU32, SIMDTypF64)) ->
-        (* LowUIR has no unsigned float-to-int cast; widen to a signed 64-bit
-           integer (values in [0, 2^32) are exact) and keep the low 32 bits. *)
-        append bld {
-          dst :=
-            AST.xtlo 32<rt>
-              (AST.floatToSInt RoundingMode.TowardZero 64<rt> src)
-        }
-      | _ ->
-        let struct (conv, size) = vcvtCastKind ins.SIMDTyp
-        append bld {
-          dst := conv size src
-        }
-  | _ ->
-    raise InvalidOperandException
-
-let vcvt (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    parseOprOfVCVT ins bld
-    putEndLabel bld lblIgnore
-  }
-
 let parseOprOfVDUP (ins: Instruction) bld esize =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector dst)),
@@ -1116,22 +976,49 @@ let vmaxmin (ins: Instruction) bld maximum =
 let parseOprOfVSTLDM (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprRegList regs) ->
-    regVar bld reg, List.map (regVar bld) regs
+    regVar bld reg, List.map (regVar bld) regs, checkSingleReg regs.Head
   | _ ->
     raise InvalidOperandException
+
+/// <summary>
+/// Whether a VLDM or VSTM steps up from its base, and how many bytes past its
+/// registers it steps over. FLDMX's and FSTMX's imm8 is odd, one more than
+/// twice the doublewords they transfer, and they step over the word that one
+/// more names without touching it (DDI0487F.c F6.1.5 and F6.1.6).
+/// </summary>
+let private multipleShape (ins: Instruction) =
+  match ins.Opcode with
+  | Op.VLDMIA | Op.VSTMIA -> struct (true, 0)
+  | Op.VLDMDB | Op.VSTMDB -> struct (false, 0)
+  | Op.FLDMIAX | Op.FSTMIAX -> struct (true, 4)
+  | Op.FLDMDBX | Op.FSTMDBX -> struct (false, 4)
+  | _ -> raise InvalidOpcodeException
+
+/// One register of a VSTM list, at addr: a single is one word and a double
+/// two, in the order the memory's endianness puts its halves.
+let private vstmReg bld isSingle addr reg =
+  if isSingle then
+    append bld { loadNative bld 32<rt> addr := reg }
+  else
+    let mem1 = loadNative bld 32<rt> addr
+    let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
+    let data1 = AST.xtlo 32<rt> reg
+    let data2 = AST.xthi 32<rt> reg
+    let isbig = bld.Endianness = Endian.Big
+    append bld {
+      mem1 := if isbig then data2 else data1
+      mem2 := if isbig then data1 else data2
+    }
 
 let vstm (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let rn, regList = parseOprOfVSTLDM ins bld
-    let add =
-      match ins.Opcode with
-      | Op.VSTMIA -> true
-      | Op.VSTMDB -> false
-      | _ -> raise InvalidOpcodeException
+    let rn, regList, isSingle = parseOprOfVSTLDM ins bld
+    let struct (add, extra) = multipleShape ins
     let regs = List.length regList
-    let imm32 = numI32 ((regs * 2) <<< 2) 32<rt>
+    let size = if isSingle then 4 else 8
+    let imm32 = numI32 (regs * size + extra) 32<rt>
     let addr = tmpVar bld 32<rt>
     let updateRn rn =
       if ins.WriteBack then
@@ -1141,29 +1028,32 @@ let vstm (ins: Instruction) bld =
     addr := if add then rn else rn .- imm32
     rn := updateRn rn
     for r in 0 .. (regs - 1) do
-      let mem1 = loadNative bld 32<rt> addr
-      let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
-      let data1 = AST.xtlo 32<rt> regList[r]
-      let data2 = AST.xthi 32<rt> regList[r]
-      let isbig = bld.Endianness = Endian.Big
-      mem1 := if isbig then data2 else data1
-      mem2 := if isbig then data1 else data2
-      addr := addr .+ (numI32 8 32<rt>)
+      vstmReg bld isSingle addr regList[r]
+      addr := addr .+ (numI32 size 32<rt>)
     putEndLabel bld lblIgnore
   }
+
+/// One register of a VLDM list, from addr, the way vstmReg stores it.
+let private vldmReg bld isSingle addr reg =
+  if isSingle then
+    append bld { reg := loadNative bld 32<rt> addr }
+  else
+    let word1 = loadNative bld 32<rt> addr
+    let word2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
+    let isbig = bld.Endianness = Endian.Big
+    append bld {
+      reg := if isbig then AST.concat word1 word2 else AST.concat word2 word1
+    }
 
 let vldm (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let rn, regList = parseOprOfVSTLDM ins bld
-    let add =
-      match ins.Opcode with
-      | Op.VLDMIA -> true
-      | Op.VLDMDB -> false
-      | _ -> raise InvalidOpcodeException
+    let rn, regList, isSingle = parseOprOfVSTLDM ins bld
+    let struct (add, extra) = multipleShape ins
     let regs = List.length regList
-    let imm32 = numI32 ((regs * 2) <<< 2) 32<rt>
+    let size = if isSingle then 4 else 8
+    let imm32 = numI32 (regs * size + extra) 32<rt>
     let addr = tmpVar bld 32<rt>
     let updateRn rn =
       if ins.WriteBack then
@@ -1173,12 +1063,8 @@ let vldm (ins: Instruction) bld =
     addr := if add then rn else rn .- imm32
     rn := updateRn rn
     for r in 0 .. (regs - 1) do
-      let word1 = loadNative bld 32<rt> addr
-      let word2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
-      let isbig = bld.Endianness = Endian.Big
-      regList[r] :=
-             if isbig then AST.concat word1 word2 else AST.concat word2 word1
-      addr := addr .+ (numI32 8 32<rt>)
+      vldmReg bld isSingle addr regList[r]
+      addr := addr .+ (numI32 size 32<rt>)
     putEndLabel bld lblIgnore
   }
 
@@ -1472,7 +1358,10 @@ let vecMulByScalar (ins: Instruction) bld opFn =
     let p = getParsingInfo ins
     let struct (dst, src1, src2) = getThreeOprs ins
     let src2, index = transOprToScalar bld src2
-    let op2val = elem src2 index p.ESize
+    let op2val = tmpVar bld p.RtESize
+    (* The scalar is read once, before any lane is written: it can be a lane
+       of the destination itself. *)
+    op2val := elem src2 index p.ESize
     match ins.OprSize with
     | 128<rt> ->
       let struct (dstB, dstA) = transOpr128 bld dst
@@ -1612,6 +1501,7 @@ let vpadd (ins: Instruction) bld =
     let p = getParsingInfo ins
     let h = p.Elements / 2
     let dest = tmpVar bld 64<rt>
+    dest := AST.num0 64<rt>
     for e in 0 .. h - 1 do
       let addPair expr =
         elem expr (2 * e) p.ESize .+ elem expr (2 * e + 1) p.ESize
@@ -1694,40 +1584,6 @@ let vshlImm (ins: Instruction) bld =
         elem dst e p.ESize := elem src e p.ESize << imm
     putEndLabel bld lblIgnore
   }
-
-let vshlReg (ins: Instruction) bld =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let p = getParsingInfo ins
-    let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
-    match ins.OprSize with
-    | 128<rt> ->
-      let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOpr128 bld dst
-      let struct (src1B, src1A) = transOpr128 bld src1
-      let struct (src2B, src2A) = transOpr128 bld src2
-      for e in 0 .. p.Elements - 1 do
-        let shift1 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2B e p.ESize))
-        let shift2 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2A e p.ESize))
-        let result1 = extend 64<rt> (elem src1B e p.ESize) << shift1
-        let result2 = extend 64<rt> (elem src1A e p.ESize) << shift2
-        elem dstB e p.ESize := AST.xtlo p.RtESize result1
-        elem dstA e p.ESize := AST.xtlo p.RtESize result2
-    | _ ->
-      let struct (dst, src1, src2) = transThreeOprs ins bld
-      for e in 0 .. p.Elements - 1 do
-        let shift = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2 e p.ESize))
-        let result = extend 64<rt> (elem src1 e p.ESize) << shift
-        elem dst e p.ESize := AST.xtlo p.RtESize result
-    putEndLabel bld lblIgnore
-  }
-
-let vshl (ins: Instruction) bld =
-  match ins.Operands with
-  | ThreeOperands(_, _, OprImm _) -> vshlImm ins bld
-  | ThreeOperands(_, _, OprSIMD _) -> vshlReg ins bld
-  | _ -> raise InvalidOperandException
 
 let vshr (ins: Instruction) bld =
   lift bld ins {
@@ -1887,27 +1743,6 @@ let vclt (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-/// <summary>
-/// VACGE, VACGT, VACLE and VACLT: the floating-point compares taken on the
-/// MAGNITUDES.
-///
-/// An absolute value is the sign bit cleared and nothing else, so it needs no
-/// arithmetic -- and doing it that way leaves a NaN a NaN, which the compare
-/// then answers false about, as the manual requires. The LE and LT forms are
-/// the GE and GT ones with the operands the other way round.
-/// </summary>
-let private vabscmp (ins: Instruction) bld cmp =
-  let bare e = e .& numU32 0x7fffffffu 32<rt>
-  vectorCompareReg ins bld (fun a b -> cmp (bare a) (bare b))
-
-let vacge ins bld = vabscmp ins bld AST.fge
-
-let vacgt ins bld = vabscmp ins bld AST.fgt
-
-let vacle ins bld = vabscmp ins bld (fun a b -> AST.fge b a)
-
-let vaclt ins bld = vabscmp ins bld (fun a b -> AST.fgt b a)
-
 /// Whether a single-precision value is an infinity: every exponent bit set
 /// and a mantissa of zero, the sign ignored.
 let private isInf32 e =
@@ -1997,7 +1832,7 @@ let vrsqrts ins bld = vrecpstep ins bld true
 /// the middle of its interval by doubling and adding one, the reciprocal is
 /// taken at nineteen bits, and the answer is rounded back to nine.
 /// </summary>
-let private recipEstimate9 a =
+let recipEstimate9 a =
   let rounded = (a .* numI32 2 64<rt>) .+ AST.num1 64<rt>
   let b = numI32 0x80000 64<rt> ./ rounded
   (b .+ AST.num1 64<rt>) ./ numI32 2 64<rt>
@@ -2011,7 +1846,7 @@ let private recipEstimate9 a =
 /// one bit at a time from the top. Nine steps rather than up to five hundred,
 /// and no table.
 /// </summary>
-let private recipSqrtEstimate9 bld a =
+let recipSqrtEstimate9 bld a =
   let limit = numI32 0x10000000 64<rt>
   let struct (rounded, b) = tmpVars2 bld 64<rt>
   let low = (a .* numI32 2 64<rt>) .+ AST.num1 64<rt>
@@ -2076,76 +1911,6 @@ let private vestimate (ins: Instruction) bld isSqrt =
 let vrecpe ins bld = vestimate ins bld false
 
 let vrsqrte ins bld = vestimate ins bld true
-
-/// <summary>
-/// One half-precision value widened to single or double, written out of its
-/// bits rather than cast -- the IR has no half-precision type to cast from.
-///
-/// Three cases, and the middle one is the only one with work in it. A zero
-/// exponent with a zero significand is a signed zero. A zero exponent with
-/// anything else is a DENORMAL, and the wider format has room to write it as
-/// an ordinary number -- so the leading one has to be found and the exponent
-/// derived from where it was. Every exponent bit set is an infinity or a NaN
-/// and carries across as one. Everything else is the exponent rebiased and
-/// the significand moved up.
-/// </summary>
-let private halfToWide bld (rt: int<rt>) h =
-  let mantBits = if rt = 32<rt> then 23 else 52
-  let bias = if rt = 32<rt> then 112 else 1008
-  let expMax = if rt = 32<rt> then 0xff else 0x7ff
-  let sign = AST.zext rt (h >> numI32 15 16<rt>) << numI32 (int rt - 1) rt
-  let e = AST.zext rt ((h >> numI32 10 16<rt>) .& numU32 0x1fu 16<rt>)
-  let m = AST.zext rt (h .& numU32 0x3ffu 16<rt>)
-  let up = m << numI32 (mantBits - 10) rt
-  let normal = ((e .+ numI32 bias rt) << numI32 mantBits rt) .| up
-  (* an infinity carries across as it is, but a NaN comes out QUIET: the
-     manual's FPProcessNaN sets the top significand bit, and VFP is not in
-     default-NaN mode, so the payload is kept rather than replaced *)
-  let quiet = AST.num1 rt << numI32 (mantBits - 1) rt
-  let infOrNaN = (numI32 expMax rt << numI32 mantBits rt) .| up
-  let special =
-    AST.ite (m == AST.num0 rt) infOrNaN (infOrNaN .| quiet)
-  let lz = tmpVar bld rt
-  countLeadingZeroBitsForIR lz m rt bld
-  (* the leading one sits where the count says it does, and the exponent is
-     that position less the twenty-four the format's smallest step is *)
-  let k = numI32 (int rt - 1) rt .- lz
-  let denExp = (k .+ numI32 (bias - 9) rt) << numI32 mantBits rt
-  let mantMask = (AST.num1 rt << numI32 mantBits rt) .- AST.num1 rt
-  let denMant = (m << (numI32 mantBits rt .- k)) .& mantMask
-  let subnormal =
-    AST.ite (m == AST.num0 rt) (AST.num0 rt) (denExp .| denMant)
-  (* thirty-one, not the target's own maximum: the exponent being tested is
-     the HALF's, and five bits is all it has *)
-  let ordinary = AST.ite (e == AST.num0 rt) subnormal normal
-  let body = AST.ite (e == numI32 31 rt) special ordinary
-  sign .| body
-
-/// <summary>
-/// VCVTB and VCVTT: a half-precision value taken from the bottom or the top
-/// half of the source and widened.
-///
-/// The destination's width is what the first of the two data types names,
-/// and the source is a word either way -- which is why the half is picked
-/// out of it rather than read as a register of its own.
-/// </summary>
-let private vcvtHalfWiden (ins: Instruction) bld isTop =
-  lift bld ins {
-    let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    let lblIgnore = checkCondition ins bld isUnconditional
-    let struct (dst, src) = transTwoOprs ins bld
-    let rt =
-      match ins.SIMDTyp with
-      | Some(TwoDT(SIMDTypF64, SIMDTypF16)) -> 64<rt>
-      | _ -> 32<rt>
-    let h = if isTop then AST.xthi 16<rt> src else AST.xtlo 16<rt> src
-    dst := halfToWide bld rt h
-    putEndLabel bld lblIgnore
-  }
-
-let vcvtb ins bld = vcvtHalfWiden ins bld false
-
-let vcvtt ins bld = vcvtHalfWiden ins bld true
 
 let vtst (ins: Instruction) bld =
   lift bld ins {
@@ -2958,11 +2723,6 @@ let vld4 (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let udf (ins: Instruction) bld =
-  match ins.Operands with
-  | OneOperand(OprImm n) -> sideEffects ins bld (Interrupt(int n))
-  | _ -> raise InvalidOperandException
-
 let vext (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -3070,7 +2830,7 @@ let vrhadd ins bld = vhaddsubrnd ins bld (.+) true
 /// design -- a program reads it after a whole block of vector arithmetic to
 /// ask whether ANY of it saturated -- so it is set here and never cleared.
 /// </summary>
-let private satLane bld srcUnsigned dstUnsigned wide (eSize: int<rt>) value =
+let satLane bld srcUnsigned dstUnsigned wide (eSize: int<rt>) value =
   let qc = AST.extract (regVar bld R.FPSCR) 1<rt> 27
   let width = RegType.toBitWidth eSize
   let allOnes =
@@ -3080,8 +2840,11 @@ let private satLane bld srcUnsigned dstUnsigned wide (eSize: int<rt>) value =
       numU64 allOnes wide
     else
       numI64 ((1L <<< (width - 1)) - 1L) wide
+  (* The sign bit of the element, sign-extended: -(1L <<< 63) overflows back
+     to Int64.MinValue, which a wider constant built from it does not hold. *)
   let minV =
-    if dstUnsigned then AST.num0 wide else numI64 (-(1L <<< (width - 1))) wide
+    if dstUnsigned then AST.num0 wide
+    else numU64 (1UL <<< (width - 1)) eSize |> AST.sext wide
   let t = tmpVar bld wide
   append bld { t := value }
   let tooHigh = if srcUnsigned then t .> maxV else t ?> maxV
@@ -3222,28 +2985,28 @@ let vqmovun ins bld = vqmovnarrow ins bld false true
 /// The amount is split into a left half and a right half so that neither
 /// computation is ever run at the other's distance, and both are done at
 /// twice the element's width, where a left shift of a whole element still
-/// has somewhere to go.
+/// has somewhere to go, and a right shift of one leaves nothing of an
+/// unsigned element and the sign of a signed one -- what any longer right
+/// shift leaves, so a longer one is taken as one of the width.
 ///
-/// A rounding right shift adds half of what it is about to discard. At or
-/// beyond the element's width that constant is larger than the whole
-/// element, so every value rounds to zero -- which is why the amount is not
-/// simply clamped there: a clamped amount would add the constant for a
-/// shorter shift than the one being taken.
+/// A rounding right shift adds half of what it is about to discard first.
+/// By the width itself, that half can carry an unsigned element's top bit
+/// into a one; past it, the half is larger than any element, and everything
+/// rounds to zero.
 /// </summary>
 let private shiftByRegLane bld p unsigned isRound saturate e amt =
   let rt = p.RtESize
   let wide = RegType.fromBitWidth (p.ESize * 2)
   let n0 = AST.num0 rt
   let widest = numI32 p.ESize rt
-  let deepest = numI32 (p.ESize - 1) rt
   let struct (isNeg, left, right) = tmpVars3 bld rt
   let struct (over, capped) = tmpVars2 bld rt
   append bld {
     isNeg := AST.ite (amt ?< n0) (AST.num1 rt) n0
     left := AST.ite (amt ?< n0) n0 (AST.ite (amt ?> widest) widest amt)
     right := AST.ite (amt ?< n0) (AST.neg amt) n0
-    over := AST.ite (right .>= widest) (AST.num1 rt) n0
-    capped := AST.ite (right .>= widest) deepest right
+    over := AST.ite (right .> widest) (AST.num1 rt) n0
+    capped := AST.ite (right .> widest) widest right
   }
   let ext = if unsigned then AST.zext wide else AST.sext wide
   let wideE = ext e
@@ -3262,8 +3025,8 @@ let private shiftByRegLane bld p unsigned isRound saturate e amt =
   if saturate then satLane bld unsigned unsigned wide rt answer
   else AST.xtlo rt answer
 
-/// VQSHL, VQRSHL and VRSHL in their register forms: the amount is the low
-/// byte of each element of the second source, read as signed so that a
+/// VSHL, VQSHL, VQRSHL and VRSHL in their register forms: the amount is the
+/// low byte of each element of the second source, read as signed so that a
 /// negative one shifts the other way.
 let private vshiftByReg (ins: Instruction) bld isRound saturate =
   lift bld ins {
@@ -3297,6 +3060,15 @@ let private vshiftByReg (ins: Instruction) bld isRound saturate =
         elem dst e p.ESize := lane op1 op2
     putEndLabel bld lblIgnore
   }
+
+/// VSHL by an immediate, or by a register, which shifts the other way for a
+/// negative amount as the other register forms do, without rounding or
+/// saturating (DDI0406C A8.8.396 and A8.8.397).
+let vshl (ins: Instruction) bld =
+  match ins.Operands with
+  | ThreeOperands(_, _, OprImm _) -> vshlImm ins bld
+  | ThreeOperands(_, _, OprSIMD _) -> vshiftByReg ins bld false false
+  | _ -> raise InvalidOperandException
 
 let vqshlReg ins bld = vshiftByReg ins bld false true
 
@@ -3356,9 +3128,11 @@ let vqshl (ins: Instruction) bld =
 /// VQSHRN, VQSHRUN and their rounding pair: each element shifted right by an
 /// immediate, narrowed to half its width and clamped to what that holds.
 ///
-/// The shift is of the WIDE element and happens before the narrowing. The
-/// UN forms read a signed element and write an unsigned one, so the source's
-/// signedness and the destination's are given separately.
+/// The shift is of the WIDE element and happens before the narrowing, and
+/// the rounding constant is added to the element's integer value, which no
+/// width bounds. The UN forms read a signed element and write an unsigned
+/// one, so the source's signedness and the destination's are given
+/// separately.
 /// </summary>
 let private vqshrnarrow (ins: Instruction) bld isRound dstUnsigned =
   lift bld ins {
@@ -3379,10 +3153,10 @@ let private vqshrnarrow (ins: Instruction) bld isRound dstUnsigned =
     hi := srcB
     let lane v e =
       let x = elem v e (2 * esize)
-      let x =
-        if isRound then x .+ (AST.num1 wide << numI32 (amount - 1) wide)
-        else x
-      let x = if srcUnsigned then x >> shift else x ?>> shift
+      let shifted = if srcUnsigned then x >> shift else x ?>> shift
+      (* (x + 2^(n-1)) >> n, without the add that wraps at x's width. *)
+      let roundBit = AST.extract x 1<rt> (amount - 1) |> AST.zext wide
+      let x = if isRound then shifted .+ roundBit else shifted
       satLane bld srcUnsigned dstUnsigned wide narrow x
     for e in 0 .. perReg - 1 do
       elem dst e esize := lane lo e
@@ -3414,6 +3188,17 @@ let private doubledProduct bld p e1 e2 =
   let prod = AST.sext room e1 .* AST.sext room e2
   satLane bld false false room wide (prod << AST.num1 room)
 
+/// The doubled product of two elements with only its top half kept, saturated,
+/// and for the rounding form with half of the discarded part added before it
+/// is discarded.
+let private doubledHigh bld p isRound e1 e2 =
+  let room = RegType.fromBitWidth (p.ESize * 4)
+  let prod = (AST.sext room e1 .* AST.sext room e2) << AST.num1 room
+  let prod =
+    if isRound then prod .+ (AST.num1 room << numI32 (p.ESize - 1) room)
+    else prod
+  satLane bld false false room p.RtESize (prod ?>> numI32 p.ESize room)
+
 /// <summary>
 /// VQDMULH and VQRDMULH: the doubled product with only its TOP half kept,
 /// saturated, and for the rounding form with half of the discarded part
@@ -3424,15 +3209,7 @@ let private vqdmulhigh (ins: Instruction) bld isRound =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
-    let room = RegType.fromBitWidth (p.ESize * 4)
-    let lane e1 e2 =
-      let prod = (AST.sext room e1 .* AST.sext room e2) << AST.num1 room
-      let prod =
-        if isRound then
-          prod .+ (AST.num1 room << numI32 (p.ESize - 1) room)
-        else
-          prod
-      satLane bld false false room p.RtESize (prod ?>> numI32 p.ESize room)
+    let lane = doubledHigh bld p isRound
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
@@ -3457,9 +3234,59 @@ let private vqdmulhigh (ins: Instruction) bld isRound =
     putEndLabel bld lblIgnore
   }
 
-let vqdmulh ins bld = vqdmulhigh ins bld false
+/// VQDMULH and VQRDMULH by scalar: every element times the one lane Dm[x],
+/// read before anything is written, since Dm can be a part of Qd.
+let private vqdmulhighByScalar (ins: Instruction) bld isRound =
+  lift bld ins {
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let p = getParsingInfo ins
+    let lane = doubledHigh bld p isRound
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let reg, index = transOprToScalar bld src2
+    let scalar = tmpVar bld p.RtESize
+    scalar := elem reg index p.ESize
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (op1B, op1A) = tmpVars2 bld p.RtESize
+      for e in 0 .. p.Elements - 1 do
+        op1B := elem src1B e p.ESize
+        op1A := elem src1A e p.ESize
+        elem dstB e p.ESize := lane op1B scalar
+        elem dstA e p.ESize := lane op1A scalar
+    | _ ->
+      let dst = transOpr ins bld dst
+      let src1 = transOpr ins bld src1
+      let op1 = tmpVar bld p.RtESize
+      for e in 0 .. p.Elements - 1 do
+        op1 := elem src1 e p.ESize
+        elem dst e p.ESize := lane op1 scalar
+    putEndLabel bld lblIgnore
+  }
 
-let vqrdmulh ins bld = vqdmulhigh ins bld true
+let private isByScalar (ins: Instruction) =
+  match ins.Operands with
+  | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) -> true
+  | _ -> false
+
+let vqdmulh ins bld =
+  if isByScalar ins then vqdmulhighByScalar ins bld false
+  else vqdmulhigh ins bld false
+
+let vqrdmulh ins bld =
+  if isByScalar ins then vqdmulhighByScalar ins bld true
+  else vqdmulhigh ins bld true
+
+/// The second operand of a long multiply as a doubleword: the register, or by
+/// scalar the one lane Dm[x], alone in the bottom element.
+let private longSecond (ins: Instruction) bld p src =
+  if isByScalar ins then
+    let reg, index = transOprToScalar bld src
+    AST.zext 64<rt> (elem reg index p.ESize)
+  else
+    transOpr ins bld src
 
 /// <summary>
 /// VQDMULL, VQDMLAL and VQDMLSL: the doubled product written long, on its
@@ -3479,12 +3306,13 @@ let private vqdmullong (ins: Instruction) bld combine =
     let struct (dstB, dstA) = transOpr128 bld dst
     let struct (op1, op2) = tmpVars2 bld 64<rt>
     op1 := transOpr ins bld src1
-    op2 := transOpr ins bld src2
+    op2 := longSecond ins bld p src2
     let room = RegType.fromBitWidth (p.ESize * 4)
     let wide = p.RtESize * 2
     let half = p.Elements / 2
+    let second e = elem op2 (if isByScalar ins then 0 else e) p.ESize
     let answer old e =
-      let prod = doubledProduct bld p (elem op1 e p.ESize) (elem op2 e p.ESize)
+      let prod = doubledProduct bld p (elem op1 e p.ESize) (second e)
       match combine with
       | Some opFn ->
         let sum = opFn (AST.sext room old) (AST.sext room prod)
@@ -3741,6 +3569,14 @@ let private dstSrcOf (ins: Instruction) =
   | ThreeOperands(d, s, _) -> d, s
   | _ -> raise InvalidOperandException
 
+/// The extension a widening makes: VSHLL by the element's own width has a
+/// data type of no sign, and either extension gives it the same answer
+/// (DDI0487F.c F6.1.226).
+let private extensionOf (ins: Instruction) =
+  match ins.SIMDTyp with
+  | Some(OneDT(SIMDTypI8 | SIMDTypI16 | SIMDTypI32)) -> AST.zext
+  | dt -> if isUnsigned dt then AST.zext else AST.sext
+
 /// <summary>
 /// VMOVL and VSHLL: every element widened, and for VSHLL shifted left as
 /// well.
@@ -3756,7 +3592,7 @@ let private vwidenShift (ins: Instruction) bld amount =
     let p = getParsingInfo ins
     let dst, src = dstSrcOf ins
     let struct (dstB, dstA) = transOpr128 bld dst
-    let ext = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
+    let ext = extensionOf ins
     let wide = p.RtESize * 2
     let op = tmpVar bld 64<rt>
     op := transOpr ins bld src
@@ -3962,6 +3798,7 @@ let private vpmaxmin (ins: Instruction) bld isMax =
       AST.ite (cmp a b) a b
     let h = p.Elements / 2
     let dest = tmpVar bld 64<rt>
+    dest := AST.num0 64<rt>
     for e in 0 .. h - 1 do
       let pair expr =
         better (elem expr (2 * e) p.ESize) (elem expr (2 * e + 1) p.ESize)
@@ -4236,13 +4073,14 @@ let vuzp (ins: Instruction) bld =
         dst := AST.undef ins.OprSize "UNKNOWN"
         src := AST.undef ins.OprSize "UNKNOWN"
       else
+        (* the lanes unzipped are D[m]:D[d], the destination's first *)
         zip1B := src
         zip1A := dst
         for e in 0 .. elements do
           let pos = e + p.Elements / 2
-          elem dst e p.ESize := elem zip1B (e * 2) p.ESize
-          elem src e p.ESize := elem zip1B (e * 2 + 1) p.ESize
-          elem dst pos p.ESize := elem zip1A (e * 2) p.ESize
-          elem src pos p.ESize := elem zip1A (e * 2 + 1) p.ESize
+          elem dst e p.ESize := elem zip1A (e * 2) p.ESize
+          elem src e p.ESize := elem zip1A (e * 2 + 1) p.ESize
+          elem dst pos p.ESize := elem zip1B (e * 2) p.ESize
+          elem src pos p.ESize := elem zip1B (e * 2 + 1) p.ESize
     putEndLabel bld lblIgnore
   }

@@ -154,6 +154,20 @@ let private pcRel (addr: Addr) align (v: uint32) scale =
   OpAddr(Relative(int64 (bse + uint64 v * scale) - int64 addr))
 
 /// <summary>
+/// The address an EXTENDED PC-relative instruction names. Its sixteen-bit
+/// immediate is SIGN-extended and added to the instruction's address with
+/// the low bits cleared -- "The 16-bit immediate is sign-extended"
+/// (MD00076, extended ADDIU rx, pc and LW rx, offset(pc)) -- where the short
+/// forms zero-extend an eight-bit one and scale it. Read unsigned, a label
+/// behind the instruction came out 64 KiB ahead of it. Two bits are cleared
+/// for the word forms and three for the doubleword load, as the short forms
+/// do (MD00077, extended LD ry, offset(pc)).
+/// </summary>
+let private pcRelExt (addr: Addr) align (v: int64) =
+  let bse = addr &&& ~~~(align - 1UL)
+  OpAddr(Relative(int64 bse + v - int64 addr))
+
+/// <summary>
 /// RR, the pool of two-register operations, which MD00076 Table 3-24 indexes
 /// by bits 4..0 -- and twice over by bits 7..5 as well, for the two function
 /// codes that spend the ry field on a sub-function instead of a register.
@@ -544,6 +558,33 @@ let private parseJal (h: uint32) (second: uint32) =
   op, OneOperand(OpAddr(Region(idx <<< 2)))
 
 /// <summary>
+/// The I64 pool EXTENDED (MD00077 EXT-I64 and EXT-RI64). Every form takes the
+/// sixteen-bit immediate the prefix widens, sign-extended and never scaled,
+/// where the short form scales a five- or eight-bit one by the size it moves:
+/// read as the short form, `ld v0, -8(sp)` came out as 0xc0(sp).
+/// </summary>
+let private i64Extended addr (v: int64) h =
+  let ry () = oprReg (reg3 (bits h 7 5))
+  let sp () = OpMem(R.R29, Imm v, 64<rt>)
+  match bits h 10 8 with
+  | 0b000u ->
+    Op.LD, TwoOperands(ry (), sp ())
+  | 0b001u ->
+    Op.SD, TwoOperands(ry (), sp ())
+  | 0b010u ->
+    Op.SD, TwoOperands(oprReg R.R31, sp ())
+  | 0b011u ->
+    Op.DADDIU, ThreeOperands(oprReg R.R29, oprReg R.R29, imm (uint64 v))
+  | 0b100u ->
+    Op.LD, TwoOperands(ry (), pcRelExt addr 8UL v)
+  | 0b101u ->
+    Op.DADDIU, ThreeOperands(ry (), ry (), imm (uint64 v))
+  | 0b110u ->
+    Op.DADDIUPC, TwoOperands(ry (), pcRelExt addr 4UL v)
+  | _ ->
+    Op.DADDIU, ThreeOperands(ry (), oprReg R.R29, imm (uint64 v))
+
+/// <summary>
 /// An instruction an EXTEND prefixes, which is the same instruction with a
 /// wider immediate.
 ///
@@ -574,7 +615,7 @@ let private parseExtended addr (ext: uint32) (h: uint32) =
   | 0b00000u ->
     Op.ADDIU, ThreeOperands(rx (), oprReg R.R29, imm (uint64 (wideS ())))
   | 0b00001u ->
-    Op.ADDIUPC, TwoOperands(rx (), pcRel addr 4UL (wide ()) 1UL)
+    Op.ADDIUPC, TwoOperands(rx (), pcRelExt addr 4UL (wideS ()))
   | 0b00010u ->
     Op.B, OneOperand(branchTo ())
   | 0b00100u ->
@@ -642,7 +683,7 @@ let private parseExtended addr (ext: uint32) (h: uint32) =
   | 0b10101u ->
     load Op.LHU 16<rt>
   | 0b10110u ->
-    Op.LW, TwoOperands(rx (), pcRel addr 4UL (wide ()) 1UL)
+    Op.LW, TwoOperands(rx (), pcRelExt addr 4UL (wideS ()))
   | 0b10111u ->
     load Op.LWU 32<rt>
   | 0b11000u ->
@@ -668,8 +709,15 @@ let private parseExtended addr (ext: uint32) (h: uint32) =
       Op.DSRA, ThreeOperands(ry, ry, imm (uint64 sa))
     | _ ->
       raise ParsingFailureException
+  | 0b11100u ->
+    (* ASMACRO, an EXTEND in front of an RRR. Its six fields -- select and
+       p0 to p4 -- are the implementation's to read (MD00076 ASMACRO), and an
+       instruction here holds four operands at most, so they are kept as the
+       one number the two halfwords make of them, prefix first. *)
+    let fields = (bits ext 10 0 <<< 11) ||| bits h 10 0
+    Op.ASMACRO, OneOperand(imm (uint64 fields))
   | 0b11111u ->
-    i64Pool addr h
+    i64Extended addr (wideS ()) h
   | _ ->
     raise ParsingFailureException
 

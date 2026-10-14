@@ -838,6 +838,14 @@ let getSIMDScalarOprSize o size (op, oprs) =
   | 0b11u -> op, oprs, getVectorWidthBySize2 size
   | _ -> raise ParsingFailureException
 
+/// Reserved on page C4-266, where 0x0000_imm16 is UDF, permanently undefined
+/// (C6.2.335), and the rest is unallocated.
+let parseReserved bin =
+  if bin &&& 0xffff0000u = 0u then
+    Op.UDF, OneOperand(OprImm(extract bin 15u 0u |> int64)), 16<rt>
+  else
+    unallocated ()
+
 let changeToAliasOfAddSubImm bin instr =
   let isImm12Zero = valImm12 bin = 0b000000000000u
   match instr with
@@ -911,6 +919,12 @@ let changeToAliasOfBitfield bin instr =
     when (valN bin <> 0b11111u) && (imms < immr) ->
     let lsb = (RegType.toBitWidth oprSize |> int64) - immr
     Op.BFI, FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)), oprSize
+  (* the same insertion from the zero register, which clears the field
+     (C6.2.27 BFC: preferred where Rn is 11111 and imms < immr) *)
+  | Op.BFM, FourOperands(rd, _, OprImm immr, OprImm imms), oprSize
+    when imms < immr ->
+    let lsb = (RegType.toBitWidth oprSize |> int64) - immr
+    Op.BFC, ThreeOperands(rd, OprImm lsb, OprImm(imms + 1L)), oprSize
   | Op.BFM, FourOperands(d, n, OprImm immr, OprImm imms), oprSize
     when imms >= immr ->
     Op.BFXIL, FourOperands(d, n, OprImm immr, OprImm(imms - immr + 1L)), oprSize
@@ -1132,30 +1146,41 @@ let parseExcepGen bin =
     | 0b10100011u -> Op.DCPS3
     | c when c &&& 0b11011100u = 0b11000000u -> unallocated ()
     | _ -> raise ParsingFailureException
-  opCode, OneOperand(OprImm(valImm16 bin |> int64)), 16<rt>
+  let imm = valImm16 bin |> int64
+  (* DCPS1 {#<imm>}: the DCPS immediate is optional and defaults to zero, so
+     a zero one is not written (C6.2.76 to C6.2.78) *)
+  match opCode with
+  | Op.DCPS1 | Op.DCPS2 | Op.DCPS3 when imm = 0L -> opCode, NoOperand, 16<rt>
+  | _ -> opCode, OneOperand(OprImm imm), 16<rt>
 
 let getISBOprs = function
   | 0b1111L -> OneOperand(OprOption SY)
   | imm -> OneOperand(OprImm imm)
 
-let private getDCInstruction bin =
-  match extract bin 18u 5u with
-  | 0b01101110100001u -> Op.DCZVA
-  | 0b00001110110001u -> Op.DCIVAC
-  | 0b00001110110010u -> Op.DCISW
-  | 0b01101111010001u -> Op.DCCVAC
-  | 0b00001111010010u -> Op.DCCSW
-  | 0b01101111011001u -> Op.DCCVAU
-  | 0b01101111110001u -> Op.DCCIVAC
-  | 0b00001111110010u -> Op.DCCISW
-  (* C5.3 A64 system instructions for cache maintenance *)
-  | _ -> raise ParsingFailureException
-
+/// <summary>
+/// The alias a SYS is written as where SysOp names its operation: DC by the
+/// opcode of the operation, and AT, IC, TLBI, CFP, DVP and CPP with the
+/// operation as an operand. One that reads no register leaves it out where
+/// its field holds 11111, the value the syntax defaults it to (C6.2.95,
+/// C6.2.328), and writes it anywhere else. A SYS SysOp does not name stays
+/// SYS, which leaves the register out the same way (C6.2.324).
+/// </summary>
 let changeToAliasOfSystem bin instr =
   match instr with
-  | Op.SYS, FiveOperands(_, OprRegister cn, _, _, xt), oSz
-      when cn = R.C7 && sysOp bin = SysDC ->
-    getDCInstruction bin, OneOperand xt, oSz
+  | Op.SYS, FiveOperands(op1, cn, cm, op2, xt), oSz ->
+    let enc = extract bin 18u 5u
+    let isDefault = extract bin 4u 0u = 0b11111u
+    match SysOp.tryOfEncoding enc with
+    | Some e when e.Mnemonic = "dc" ->
+      e.Opcode, OneOperand xt, oSz
+    | Some e when e.TakesRegister || not isDefault ->
+      e.Opcode, TwoOperands(OprSysOp enc, xt), oSz
+    | Some e ->
+      e.Opcode, OneOperand(OprSysOp enc), oSz
+    | None when isDefault ->
+      Op.SYS, FourOperands(op1, cn, cm, op2), oSz
+    | None ->
+      instr
   | _ ->
     instr
 
@@ -1260,9 +1285,9 @@ let parseSystem bin =
       Op.SEV, NoOperand, 0<rt>
     | 0b0000110010101u when isCRmZero && isRt1F ->
       Op.SEVL, NoOperand, 0<rt>
-    | c when c &&& 0b1111111111110u = 0b0000110010110u && isCRmZero && isRt1F ->
-      let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
-      Op.HINT, OneOperand(OprImm imm), 0<rt> (* Hints 6 and 7 variant *)
+    (* hint 7 is XPACLRI, above *)
+    | 0b0000110010110u when isCRmZero && isRt1F ->
+      Op.DGH, NoOperand, 0<rt>
     | 0b0000110011000u ->
       unallocated ()
     | 0b0000110011001u ->
@@ -1271,6 +1296,12 @@ let parseSystem bin =
       Op.CLREX, OneOperand(OprImm crm), 0<rt>
     | 0b0000110011011u ->
       unallocated ()
+    (* the two values of CRm DSB does not take are the speculative store
+       bypass barriers (C6.2.245 SSBB, C6.2.217 PSSBB) *)
+    | 0b0000110011100u when isRt1F && isCRmZero ->
+      Op.SSBB, NoOperand, 0<rt>
+    | 0b0000110011100u when isRt1F && crm = 4L ->
+      Op.PSSBB, NoOperand, 0<rt>
     | 0b0000110011100u when isRt1F ->
       Op.DSB, getOptionOrimm bin, 0<rt>
     | 0b0000110011101u when isRt1F ->
@@ -5189,6 +5220,7 @@ let parse64Group6 bin =
 let parseByGroupOfB64 bin =
   let op0 = extract bin 28u 25u
   match op0 with
+  | 0b0000u -> parseReserved bin
   | op0 when op0 &&& 0b1100u = 0b0000u -> unallocated ()
   (* Data Processing -- Immediate on page C4-266 *)
   | op0 when op0 &&& 0b1110u = 0b1000u -> parse64Group1 bin

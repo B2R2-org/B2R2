@@ -856,5 +856,24 @@ type Opcode =
   | MFLHXU = 395
   /// Set Extended HI/LO State (SmartMIPS).
   | MTLHX = 396
+  /// Doubleword Move from Coprocessor 2, MIPS64 only.
+  | DMFC2 = 397
+  /// Doubleword Move to Coprocessor 2, MIPS64 only.
+  | DMTC2 = 398
+  /// Branch if Coprocessor 2 Condition Equal to Zero, the compact form
+  /// (microMIPS Release 6).
+  | BC2EQZC = 399
+  /// Branch if Coprocessor 2 Condition Not Equal to Zero, the compact form
+  /// (microMIPS Release 6).
+  | BC2NEZC = 400
+  /// Branch if Coprocessor 1 Register Bit 0 Equal to Zero, the compact form
+  /// (microMIPS Release 6).
+  | BC1EQZC = 401
+  /// Branch if Coprocessor 1 Register Bit 0 Not Equal to Zero, the compact
+  /// form (microMIPS Release 6).
+  | BC1NEZC = 402
+  /// Jump and Link Register Compact with Hazard Barrier (microMIPS Release
+  /// 6).
+  | JALRCHB = 403
 
 type internal Op = Opcode

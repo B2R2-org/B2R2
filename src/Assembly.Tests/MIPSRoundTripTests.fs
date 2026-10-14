@@ -403,18 +403,19 @@ type MIPSRoundTripTests() =
 
   /// <summary>
   /// Checks that the registers of an instruction are read in the vocabulary
-  /// the disassembler writes them in, which is the one the width of what the
-  /// instruction works on belongs to rather than the one the source is in.
+  /// the disassembler writes them in, which is the one the processor's width
+  /// belongs to -- o32's names on a 32-bit processor and n64's on a 64-bit
+  /// one -- whatever width the instruction itself works on.
   /// </summary>
   [<TestMethod>]
   member _.``The registers are read in the vocabulary of the width``() =
     let wrong =
       [ isa32, "daddu t0, t1, t2", 0x012a402du
         isa64, "daddu a4, a5, a6", 0x012a402du
-        isa32, "sd a4, 0(a5)", 0xfd280000u
+        isa32, "sd t0, 0(t1)", 0xfd280000u
         isa64, "sd a4, 0(a5)", 0xfd280000u
         isa32, "sw t0, 0(t1)", 0xad280000u
-        isa64, "sw t0, 0(t1)", 0xad280000u ]
+        isa64, "sw a4, 0(a5)", 0xad280000u ]
       |> List.choose (fun (isa, source, expected) ->
         let assembler = Assembler(isa, 0UL) :> ILowerable
         match (try encodeFirst assembler source with _ -> None) with
@@ -473,6 +474,60 @@ type MIPSRoundTripTests() =
       "These are no longer read as the instruction they name."
     )
 
+  /// SYNCI and AUIPC, which the decoder read and the disassembler could not
+  /// name: SYNCI at both releases and in microMIPS, AUIPC in Release 6.
+  [<TestMethod>]
+  member _.``SYNCI and AUIPC encode and print``() =
+    let cases =
+      [ assembler32, parser32, "synci 8(a0)"
+        assemblerR6, parserR6, "synci -16(sp)"
+        assemblerMicro, parserMicro, "synci 8(a0)"
+        assemblerR6, parserR6, "auipc v0, 0x1234"
+        assemblerMicroR6, parserMicroR6, "auipc v0, 0x1234" ]
+    for assembler, parser, source in cases do
+      Assert.AreEqual<string option>(None, brokenSource assembler parser source)
+
+  /// <summary>
+  /// Release 6 writes the instructions it moved in the encodings it moved
+  /// them to: the count-leading instructions and SDBBP into SPECIAL, and the
+  /// load-linked and store-conditional instructions and PREF into SPECIAL3.
+  /// The earlier encodings are Reserved Instructions there, so a word written
+  /// the old way would not read back at all.
+  /// </summary>
+  [<TestMethod>]
+  member _.``Release 6 writes what it moved where it moved it``() =
+    let sources =
+      [ "clz v0, v1"
+        "clo v0, v1"
+        "dclz v0, v1"
+        "dclo v0, v1"
+        "sdbbp 0x5"
+        "ll v0, 8(a0)"
+        "sc v0, -8(a0)"
+        "lld v0, 8(a0)"
+        "scd v0, 8(a0)"
+        "pref 0x1, 8(a0)" ]
+    for source in sources do
+      let broken = brokenSource assemblerR6 parserR6 source
+      Assert.AreEqual<string option>(None, broken)
+
+  /// Coprocessor 2's moves, its operation and its loads and stores, at both
+  /// releases: the numbers that name its registers are written as numbers,
+  /// and Release 6 writes the loads and stores into COP2.
+  [<TestMethod>]
+  member _.``Coprocessor 2 encodes and prints``() =
+    let cases =
+      [ assembler32, parser32, "mfc2 v0, 0x1805"
+        assembler32, parser32, "mthc2 v0, 0x7"
+        assembler32, parser32, "cop2 0x123456"
+        assembler32, parser32, "lwc2 0x2, 16(a0)"
+        assembler64, parser64, "dmfc2 v0, 0x0"
+        assembler64, parser64, "sdc2 0x2, -16(a0)"
+        assemblerR6, parserR6, "lwc2 0x2, -16(a0)"
+        assemblerR6, parserR6, "cfc2 v0, 0x800" ]
+    for assembler, parser, source in cases do
+      Assert.AreEqual<string option>(None, brokenSource assembler parser source)
+
   /// Checks that a source the assembler refuses leaves it able to read the
   /// next one, which a parser keeping state across a failure would not.
   [<TestMethod>]
@@ -524,6 +579,72 @@ type MIPSRoundTripTests() =
       String.concat "\n" broken,
       "These Release 6 microMIPS instructions do not encode, or differ."
     )
+
+  /// <summary>
+  /// The Release 6 microMIPS words the decoder took from the manuals -- the
+  /// multiplies and divides that write one register, the 32-bit compact
+  /// jumps, DAHI, DATI, SYNCI's new place and CACHE's nine-bit offset -- are
+  /// what the assembler writes (MD00582 revision 6.04, pp.144, 182, 202, 204,
+  /// 256 and 338; MD00594 revision 6.01, pp.134, 210 and 312). The sweep
+  /// holds the assembler to the decoder, which a decoder and an assembler
+  /// wrong the same way pass; this holds both to the page, the one witness
+  /// Release 6 microMIPS has.
+  /// </summary>
+  [<TestMethod>]
+  member _.``Release 6 microMIPS writes the words the manuals draw``() =
+    let cases =
+      [ "mul v0, v1, a0", 0x00831018u
+        "muh v0, v1, a0", 0x00831058u
+        "mulu v0, v1, a0", 0x00831098u
+        "muhu v0, v1, a0", 0x008310d8u
+        "div v0, v1, a0", 0x00831118u
+        "mod v0, v1, a0", 0x00831158u
+        "divu v0, v1, a0", 0x00831198u
+        "modu v0, v1, a0", 0x008311d8u
+        "jalrc ra, a1", 0x03e50f3cu
+        "jalrc.hb ra, a1", 0x03e51f3cu
+        "dahi v1, 0xf234", 0x4223f234u
+        "dati v1, 0xf234", 0x4203f234u
+        "ddiv v0, v1, a0", 0x58831118u
+        "dmod v0, v1, a0", 0x58831158u
+        "ddivu v0, v1, a0", 0x58831198u
+        "dmodu v0, v1, a0", 0x588311d8u
+        "dmul v0, v1, a0", 0x58831018u
+        "dmuh v0, v1, a0", 0x58831058u
+        "dmulu v0, v1, a0", 0x58831098u
+        "dmuhu v0, v1, a0", 0x588310d8u
+        "synci 8(a0)", 0x41840008u
+        "cache 0x15, -16(a1)", 0x22a561f0u ]
+    for source, word in cases do
+      let expected = ByteArray.toHexString (MicroMIPSSweep.bytesOf word)
+      let actual =
+        encodeFirst assemblerMicroR6 source
+        |> Option.map ByteArray.toHexString
+        |> Option.defaultValue "-"
+      Assert.AreEqual<string>(expected, actual, source)
+
+  /// <summary>
+  /// The extended I64 forms, which the sweep cannot build (it follows every
+  /// halfword with a NOP): each decodes to the sixteen-bit immediate the
+  /// prefix widens, and the assembler writes the same two halfwords back.
+  /// </summary>
+  [<TestMethod>]
+  member _.``The extended 64-bit MIPS16e I64 forms round-trip``() =
+    let words =
+      [ "fff758f8"
+        "22f294f9"
+        "fff710fa"
+        "d9f707fb"
+        "00f160fc"
+        "eff71ffd"
+        "9ff7bcfe"
+        "fff77fff" ]
+    for hex in words do
+      let bytes = ByteArray.ofHexString hex
+      let text = disasm parser1664 bytes
+      let encoded = encodeFirst assembler1664 text
+      Assert.AreEqual<string>(hex, encoded |> Option.map (fun b ->
+        ByteArray.toHexString b) |> Option.defaultValue "-", text)
 
   /// <summary>
   /// The same rule over the third encoding: anything the MIPS16e decoder

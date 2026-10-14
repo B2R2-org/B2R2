@@ -574,7 +574,7 @@ let private convertWidening u opcode ins =
 /// writes that width as the amount it shifts by.
 let private shiftLong ins =
   match ins.Operands with
-  | ThreeOperands(Vec(rd, t), Vec(rn, tn), OprShift(LSL, Imm amount)) ->
+  | ThreeOperands(Vec(rd, t), Vec(rn, tn), Im amount) ->
     sameArrangement ins t (widened tn)
     checkArrangement ins NotLong tn
     let size, q = arrangement tn

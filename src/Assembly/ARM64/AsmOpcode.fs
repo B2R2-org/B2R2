@@ -302,6 +302,18 @@ let private addSubReg op s ins =
 /// the aliases naming one register fewer read or write in its place.
 let private zeroLike reg = if is64Reg reg then Register.XZR else Register.WZR
 
+/// BFC, which is BFI from the zero register of the destination's width.
+let private bitfieldClear opc ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rd, Im lsb, Im width) ->
+    let bits = int64 (widthOf rd)
+    if width < 1L || lsb + width > bits then
+      fail $"a field of #{width} bits cannot start at #{lsb}"
+    else
+      bitfieldWith opc rd (zeroLike rd) ((bits - lsb) % bits) (width - 1L)
+  | _ ->
+    wrongOperands ins
+
 /// Encodes <Rn|SP>, <Rm>{, <extend>|<shift>}, the form that names no
 /// destination.
 let private compareReg op ins =
@@ -704,6 +716,18 @@ let private exceptionGen opc ll ins =
   | _ ->
     wrongOperands ins
 
+/// DCPS1 to DCPS3, whose immediate may be left out for zero (C6.2.76).
+let private debugStateChange ll ins =
+  match ins.Operands with
+  | NoOperand -> (0b11010100u <<< 24) ||| (0b101u <<< 21) ||| ll
+  | _ -> exceptionGen 0b101u ll ins
+
+/// UDF, whose word is its immediate alone (C6.2.335).
+let private permanentlyUndefined ins =
+  match ins.Operands with
+  | OneOperand(Im imm) -> unsignedImm 16 imm
+  | _ -> wrongOperands ins
+
 /// The bits every instruction in the system space shares.
 let private systemHead l = (0b1101010100u <<< 22) ||| (l <<< 21)
 
@@ -755,6 +779,16 @@ let private barrier op2 ins =
   systemHead 0u ||| (0b011u <<< 16) ||| (0b0011u <<< 12) ||| (crm <<< 8)
   ||| (op2 <<< 5) ||| 0b11111u
 
+/// SSBB and PSSBB, which are DSB's word with the two values of CRm DSB does
+/// not take, and take no option themselves.
+let private storeBypassBarrier crm ins =
+  match ins.Operands with
+  | NoOperand ->
+    systemHead 0u ||| (0b011u <<< 16) ||| (0b0011u <<< 12) ||| (crm <<< 8)
+    ||| (0b100u <<< 5) ||| 0b11111u
+  | _ ->
+    wrongOperands ins
+
 /// SB, the barrier that ends speculation, which takes no option: its CRm is
 /// zero where the other barriers hold the option.
 let private speculationBarrier ins =
@@ -781,15 +815,23 @@ let private systemInstruction l ins =
   | _ ->
     wrongOperands ins
 
-/// The cache maintenance instructions, which the manual defines as a system
-/// instruction whose numbers say which of them it is.
-let private cacheInstruction op1 cn cm op2 ins =
+/// A SYS whose op1:CRn:CRm:op2 is the given encoding (SysOp).
+let private sysOpWord enc rt =
+  systemHead 0u ||| (0b01u <<< 19) ||| (enc <<< 5) ||| rt
+
+/// DC, whose operation is its opcode: the numbers come from SysOp.
+let private dataCache enc ins =
   match ins.Operands with
-  | OneOperand(Rg rt) ->
-    systemHead 0u ||| (0b01u <<< 19) ||| (op1 <<< 16) ||| (cn <<< 12)
-    ||| (cm <<< 8) ||| (op2 <<< 5) ||| coreReg rt
-  | _ ->
-    wrongOperands ins
+  | OneOperand(Rg rt) -> sysOpWord enc (coreReg rt)
+  | _ -> wrongOperands ins
+
+/// AT, IC, TLBI, CFP, DVP and CPP, whose operation is an operand carrying
+/// its encoding; the register is 11111 where it is left out.
+let private systemAlias ins =
+  match ins.Operands with
+  | OneOperand(OprSysOp enc) -> sysOpWord enc 31u
+  | TwoOperands(OprSysOp enc, Rg rt) -> sysOpWord enc (coreReg rt)
+  | _ -> wrongOperands ins
 
 /// <summary>
 /// The sixteen bits that name a system register, which the encoding keeps in
@@ -836,6 +878,9 @@ let private systemRegisters =
     Register.SPSREL1, 0b1100001000000000u
     Register.SPEL0, 0b1100001000001000u
     Register.TPIDREL1, 0b1100011010000100u
+    Register.PAREL1, 0b1100001110100000u
+    Register.CNTFRQEL0, 0b1101111100000000u
+    Register.TPIDRROEL0, 0b1101111010000011u
     Register.CURRENTEL, 0b1100001000010010u
     Register.DAIF, 0b1101101000010001u
     Register.SPSEL, 0b1100001000010000u
@@ -977,12 +1022,15 @@ let private registerOffset access ins rt rn rm shift =
   let shifted amount =
     if amount = scale then 1u
     else fail $"an offset of {bytes} bytes cannot be shifted by #{amount}"
+  (* A written #0 sets S for a byte, whose scale is zero, and leaves it clear
+     for a wider access, which an amount of zero does not scale. *)
+  let zeroAmount = if scale = 0L then 1u else 0u
   let ext, s =
     match shift with
     | None -> (if is64Reg rm then UXTX else UXTW), 0u
     | Some(ShiftOffset(LSL, Imm amount)) -> UXTX, shifted amount
-    | Some(ExtRegOffset(ext, None))
-    | Some(ExtRegOffset(ext, Some 0L)) -> ext, 0u
+    | Some(ExtRegOffset(ext, None)) -> ext, 0u
+    | Some(ExtRegOffset(ext, Some 0L)) -> ext, zeroAmount
     | Some(ExtRegOffset(ext, Some amount)) -> ext, shifted amount
     | Some _ -> wrongOperands ins
   if is64Reg rm <> extendedSourceIs64 true ext then
@@ -1533,6 +1581,7 @@ let dataProcImmEncoders () =
     Opcode.UBFM, bitfield 0b10u
     Opcode.SBFIZ, bitfieldInsert 0b00u
     Opcode.BFI, bitfieldInsert 0b01u
+    Opcode.BFC, bitfieldClear 0b01u
     Opcode.UBFIZ, bitfieldInsert 0b10u
     Opcode.SBFX, bitfieldExtract 0b00u
     Opcode.BFXIL, bitfieldExtract 0b01u
@@ -1948,9 +1997,10 @@ let systemEncoders () =
     Opcode.SMC, exceptionGen 0b000u 0b11u
     Opcode.BRK, exceptionGen 0b001u 0b00u
     Opcode.HLT, exceptionGen 0b010u 0b00u
-    Opcode.DCPS1, exceptionGen 0b101u 0b01u
-    Opcode.DCPS2, exceptionGen 0b101u 0b10u
-    Opcode.DCPS3, exceptionGen 0b101u 0b11u
+    Opcode.DCPS1, debugStateChange 0b01u
+    Opcode.DCPS2, debugStateChange 0b10u
+    Opcode.DCPS3, debugStateChange 0b11u
+    Opcode.UDF, permanentlyUndefined
     Opcode.NOP, namedHint 0b0000u 0b000u
     Opcode.YIELD, namedHint 0b0000u 0b001u
     Opcode.WFE, namedHint 0b0000u 0b010u
@@ -1959,12 +2009,15 @@ let systemEncoders () =
     Opcode.SEVL, namedHint 0b0000u 0b101u
     Opcode.ESB, namedHint 0b0010u 0b000u
     Opcode.CSDB, namedHint 0b0010u 0b100u
+    Opcode.DGH, namedHint 0b0000u 0b110u
     Opcode.PSB, syncHint 0b001u
     Opcode.TSB, syncHint 0b010u
     Opcode.BTI, branchTarget
     Opcode.HINT, hint
     Opcode.CLREX, barrier 0b010u
     Opcode.DSB, barrier 0b100u
+    Opcode.SSBB, storeBypassBarrier 0b0000u
+    Opcode.PSSBB, storeBypassBarrier 0b0100u
     Opcode.DMB, barrier 0b101u
     Opcode.ISB, barrier 0b110u
     Opcode.SB, speculationBarrier
@@ -1972,17 +2025,21 @@ let systemEncoders () =
     Opcode.SYSL, systemInstruction 1u
     Opcode.MSR, moveToSystem
     Opcode.MRS, moveFromSystem
-    Opcode.DCZVA, cacheInstruction 0b011u 0b0111u 0b0100u 0b001u
-    Opcode.DCIVAC, cacheInstruction 0b000u 0b0111u 0b0110u 0b001u
-    Opcode.DCISW, cacheInstruction 0b000u 0b0111u 0b0110u 0b010u
-    Opcode.DCCVAC, cacheInstruction 0b011u 0b0111u 0b1010u 0b001u
-    Opcode.DCCSW, cacheInstruction 0b000u 0b0111u 0b1010u 0b010u
-    Opcode.DCCVAU, cacheInstruction 0b011u 0b0111u 0b1011u 0b001u
-    Opcode.DCCIVAC, cacheInstruction 0b011u 0b0111u 0b1110u 0b001u
-    Opcode.DCCISW, cacheInstruction 0b000u 0b0111u 0b1110u 0b010u
     Opcode.CFINV, flagManipulation 0b000u
     Opcode.XAFLAG, flagManipulation 0b001u
     Opcode.AXFLAG, flagManipulation 0b010u ]
+
+/// The aliases of SYS: AT, IC, TLBI, CFP, DVP and CPP, whose operation is an
+/// operand, and DC, each of whose operations is an opcode (SysOp).
+let systemAliasEncoders () =
+  [ Opcode.AT, systemAlias
+    Opcode.IC, systemAlias
+    Opcode.TLBI, systemAlias
+    Opcode.CFP, systemAlias
+    Opcode.DVP, systemAlias
+    Opcode.CPP, systemAlias ]
+  @ [ for e in SysOp.all do
+        if e.Mnemonic = "dc" then yield e.Opcode, dataCache e.Encoding else () ]
 
 let loadStoreEncoders () =
   [ Opcode.LDR, loadStore (ByRegister true)

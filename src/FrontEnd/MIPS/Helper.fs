@@ -114,6 +114,12 @@ let getCondition = function
   | 0xDu -> Condition.NGE
   | 0xEu -> Condition.LE
   | 0xFu -> Condition.NGT
+  | 0x11u -> Condition.OR
+  | 0x12u -> Condition.UNE
+  | 0x13u -> Condition.NE
+  | 0x19u -> Condition.SOR
+  | 0x1Au -> Condition.SUNE
+  | 0x1Bu -> Condition.SNE
   | _ -> raise ParsingFailureException
 
 /// The nine-bit offset a SPECIAL3 load or store holds, which the manual reads
@@ -366,6 +372,39 @@ let getRtMemBaseOff9 b accLen = TwoOperands(rt b, memBaseOff b num9 accLen)
 let getFtMemBaseOff b accLen = TwoOperands(ft b, memBaseOff b num16 accLen)
 
 let getHintMemBaseOff b accLen = TwoOperands(hint b, memBaseOff b num16 accLen)
+
+let getMemBaseOff b accLen = OneOperand(memBaseOff b num16 accLen)
+
+/// <summary>
+/// A coprocessor 2 register, control word or condition, which the word holds
+/// as a number: "The interpretation of the Impl field is left entirely to the
+/// Coprocessor 2 implementation" (MD00087 MFC2).
+/// </summary>
+let impl16 b = num16 b |> uint64 |> OpImm
+
+/// The moves between a general register and coprocessor 2.
+let getRtImpl b = TwoOperands(rt b, impl16 b)
+
+/// The coprocessor 2 register a load or a store names, or the condition a
+/// branch on one tests, in the field a general register would sit in.
+let cop2Rt b = Bits.extract b 20u 16u |> uint64 |> OpImm
+
+/// The loads and stores of a coprocessor 2 register before Release 6.
+let getCop2MemBaseOff b accLen =
+  TwoOperands(cop2Rt b, memBaseOff b num16 accLen)
+
+/// The same at Release 6, which moved the four into COP2 with the base in
+/// bits 15..11 and an eleven-bit offset below it.
+let getCop2MemBaseOff11 b accLen =
+  let offset =
+    Bits.extract b 10u 0u |> uint64 |> Bits.signExtend 11 64 |> int64
+  TwoOperands(cop2Rt b, OpMem(getRegFrom1511 b, Imm offset, accLen))
+
+/// BC2EQZ and BC2NEZ: the condition they test, and the place.
+let getCtRel16 b = TwoOperands(cop2Rt b, rel16 b)
+
+/// COP2: the operation the coprocessor is handed, all twenty-five bits of it.
+let getCofun b = OneOperand(Bits.extract b 24u 0u |> uint64 |> OpImm)
 
 let getHintMemBaseOff9 b accLen = TwoOperands(hint b, memBaseOff b num9 accLen)
 

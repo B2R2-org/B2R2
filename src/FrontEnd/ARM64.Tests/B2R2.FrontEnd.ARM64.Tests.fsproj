@@ -7,6 +7,9 @@
   <ItemGroup>
     <Compile Include="ExtractTests.fs" />
     <Compile Include="ParserTests.fs" />
+    <Compile Include="IRFloat.fs" />
+    <Compile Include="IRRunner.fs" />
+    <Compile Include="A64Machine.fs" />
     <Compile Include="LifterTests.fs" />
   </ItemGroup>
 

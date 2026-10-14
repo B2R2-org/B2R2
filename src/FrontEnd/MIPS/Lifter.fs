@@ -34,7 +34,7 @@ open B2R2.FrontEnd.MIPS
 open B2R2.FrontEnd.MIPS.LiftingUtils
 open B2R2.FrontEnd.MIPS.GeneralLifter
 
-let translate (ins: Instruction) (bld: LowUIRBuilder) =
+let private translateOpcode (ins: Instruction) (bld: LowUIRBuilder) =
   match ins.Opcode with
   | Op.ABS ->
     abs ins bld
@@ -270,7 +270,7 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     jumpRegCompact ins bld
   | Op.JALRS ->
     jalrShortSlot ins bld
-  | Op.JALRC ->
+  | Op.JALRC | Op.JALRCHB ->
     jalrCompact ins bld
   | Op.JRADDIUSP | Op.JRCADDIUSP ->
     jumpRegAdjust ins bld
@@ -410,9 +410,8 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     nop ins bld
   (* The system control coprocessor, and the instructions that reach the
      caches and the other processors. Everything here needs a privilege level
-     to be legal in, which is the one thing this front end has no way to
-     check -- a real implementation takes Coprocessor Unusable on all of them
-     unless Status.CU0 is set or the core is in kernel mode. *)
+     to be legal in, which `lift` checks in front of each of them (see
+     usesCP0). *)
   | Op.MFC0 ->
     moveFromCP0 ins bld false false
   | Op.DMFC0 ->
@@ -612,10 +611,11 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     restore ins bld
   | Op.DADDIUPC ->
     addiupc ins bld
-  (* What the macro expands to is the implementation's, not the
-     architecture's, so there is nothing here to expand it into. *)
+  (* What the macro expands to is the implementation's, and the processor
+     modelled here implements none, for which "a Reserved Instruction
+     exception is signaled" (MD00076 ASMACRO). *)
   | Op.ASMACRO ->
-    unsupported ins bld
+    sideEffects ins bld UndefinedInstruction
   | Op.MADDF ->
     maddf ins bld
   | Op.MSUBF ->
@@ -626,6 +626,10 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     bc1z ins bld false
   | Op.BC1NEZ ->
     bc1z ins bld true
+  | Op.BC1EQZC ->
+    bc1zCompact ins bld false
+  | Op.BC1NEZC ->
+    bc1zCompact ins bld true
   | Op.ADDIUPC ->
     addiupc ins bld
   | Op.AUIPC ->
@@ -772,8 +776,36 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     wsbh ins bld
   | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL ->
     unsupported ins bld
+  (* Coprocessor 2 is the implementation's, and this processor has none --
+     Config1.C2 is clear -- so every instruction that reaches it takes
+     Coprocessor Unusable, as each one's Exceptions list it first. *)
+  | Op.MFC2 | Op.DMFC2 | Op.CFC2 | Op.MFHC2 | Op.MTC2 | Op.DMTC2 | Op.CTC2
+  | Op.MTHC2 | Op.BC2F | Op.BC2T | Op.BC2FL | Op.BC2TL | Op.BC2EQZ
+  | Op.BC2NEZ | Op.BC2EQZC | Op.BC2NEZC | Op.COP2 | Op.LWC2 | Op.SWC2
+  | Op.LDC2 | Op.SDC2 ->
+    sideEffects ins bld UndefinedInstruction
   | o ->
 #if DEBUG
     eprintfn "%A" o
 #endif
     raise <| NotImplementedIRException(Disasm.opCodeToString o)
+
+/// <summary>
+/// Lifts one instruction. A double in an odd register of a thirty-two bit
+/// FPU is a Reserved Instruction (see UnpairedRegisterException), which only
+/// shows once the lifter reaches the operand: what it had emitted for the
+/// instruction by then is dropped, and the exception is lifted instead.
+///
+/// The long and paired-single formats are UNPREDICTABLE on that FPU as well,
+/// and are lifted over the pair all the same: only a program running with
+/// the 64-bit FPU (FR = 1) uses them, and the pair holds what it computes
+/// there for an even register.
+/// </summary>
+let translate (ins: Instruction) (bld: LowUIRBuilder) =
+  let stream = (bld :> ILowUIRBuilder).Stream
+  let start = stream.Count
+  try
+    translateOpcode ins bld
+  with UnpairedRegisterException ->
+    stream.RemoveRange(start, stream.Count - start)
+    sideEffects ins bld UndefinedInstruction

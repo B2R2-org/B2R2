@@ -844,6 +844,12 @@ type Register =
   /// Stack Pointer (EL1), where the EL1 stack pointer is kept while SP names
   /// SP_EL0.
   | SPEL1 = 0x191
+  /// Physical Address Register (EL1), where AT puts what it translates to.
+  | PAREL1 = 0x192
+  /// Counter-timer Frequency register, which firmware sets and EL0 reads.
+  | CNTFRQEL0 = 0x193
+  /// EL0 Read-Only Software Thread ID Register.
+  | TPIDRROEL0 = 0x194
 
 /// Provides functions to handle ARM64 registers.
 [<RequireQualifiedAccess>]
@@ -1244,6 +1250,9 @@ module Register =
     | "ssbs" -> Register.SSBS
     | "tco" -> Register.TCO
     | "sp_el1" -> Register.SPEL1
+    | "par_el1" -> Register.PAREL1
+    | "cntfrq_el0" -> Register.CNTFRQEL0
+    | "tpidrro_el0" -> Register.TPIDRROEL0
     | "esrel2" -> Register.ESREL2
     | "esrel3" -> Register.ESREL3
     | "hpfarel2" -> Register.HPFAREL2
@@ -1657,6 +1666,9 @@ module Register =
     | Register.SSBS -> "ssbs"
     | Register.TCO -> "tco"
     | Register.SPEL1 -> "sp_el1"
+    | Register.PAREL1 -> "par_el1"
+    | Register.CNTFRQEL0 -> "cntfrq_el0"
+    | Register.TPIDRROEL0 -> "tpidrro_el0"
     | Register.ESREL2 -> "esr_el2"
     | Register.ESREL3 -> "esr_el3"
     | Register.HPFAREL2 -> "hpfar_el2"

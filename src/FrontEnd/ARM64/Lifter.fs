@@ -82,10 +82,10 @@ let translate (ins: Instruction) bld =
     bCond ins bld EQ
   | Opcode.BFI ->
     bfi ins bld
-  (* A BFC whose lsb is not zero matches neither of the parser's two alias
-     rewrites -- BFI needs Rn <> 31 and BFXIL needs imms >= immr -- so it
-     keeps the raw BFM name and reached the raising fall-through. bfm is
-     already written and takes exactly these operands. *)
+  | Opcode.BFC ->
+    bfc ins bld
+  (* Every BFM word is read as BFI, BFC or BFXIL, so this is for an
+     instruction made by hand; bfm takes exactly these operands. *)
   | Opcode.BFM ->
     let struct (dst, src, immr, imms) = getFourOprs ins
     bfm ins bld dst src immr imms
@@ -129,6 +129,10 @@ let translate (ins: Instruction) bld =
     eret ins bld
   | Opcode.BRK ->
     sideEffects ins bld Breakpoint
+  (* one exception level, no EL2 or EL3, never Debug state: nowhere to go *)
+  | Opcode.HLT | Opcode.DCPS1 | Opcode.DCPS2 | Opcode.DCPS3 | Opcode.DRPS
+  | Opcode.HVC | Opcode.SMC ->
+    sideEffects ins bld UndefinedInstruction
   | Opcode.BSL ->
     bsl ins bld
   | Opcode.BVC ->
@@ -233,8 +237,10 @@ let translate (ins: Instruction) bld =
     tagMaskInsert ins bld
   | Opcode.LDG ->
     loadTag ins bld
-  | Opcode.STG | Opcode.ST2G | Opcode.STGM ->
+  | Opcode.STG | Opcode.ST2G ->
     storeTag ins bld
+  | Opcode.STGM ->
+    storeTagMultiple ins bld
   | Opcode.LDGM ->
     loadTagMultiple ins bld
   | Opcode.STZGM ->
@@ -413,6 +419,8 @@ let translate (ins: Instruction) bld =
     ccmn ins bld
   | Opcode.CCMP ->
     ccmp ins bld
+  | Opcode.CLREX ->
+    clrex ins bld
   | Opcode.CLS ->
     cls ins bld
   | Opcode.FRSQRTE ->
@@ -551,10 +559,32 @@ let translate (ins: Instruction) bld =
     csinc ins bld
   | Opcode.CTZ ->
     ctz ins bld
-  | Opcode.DCZVA ->
+  (* DC GZVA zeroes the block DC ZVA does, and its allocation tags, which
+     no tag memory here holds *)
+  | Opcode.DCZVA | Opcode.DCGZVA ->
     dczva ins bld
-  | Opcode.CLREX
-  | Opcode.DMB | Opcode.DSB | Opcode.ISB | Opcode.SB ->
+  (* the cleaning EL0 may do where SCTLR_EL1.UCI lets it: no cache stands
+     between the processor and memory here, so none of them has an effect to
+     show; nor have FEAT_MTE's forms, nor DC GVA, which writes tags alone
+     and which SCTLR_EL1.DZE gates instead *)
+  | Opcode.DCCVAU | Opcode.DCCVAC | Opcode.DCCIVAC | Opcode.DCCVAP
+  | Opcode.DCCVADP | Opcode.DCGVA | Opcode.DCCGVAC | Opcode.DCCGDVAC
+  | Opcode.DCCGVAP | Opcode.DCCGDVAP | Opcode.DCCGVADP | Opcode.DCCGDVADP
+  | Opcode.DCCIGVAC | Opcode.DCCIGDVAC ->
+    el0Maintenance ins bld
+  (* the rest of the aliases of SYS, by the exception level each needs *)
+  | Opcode.IC | Opcode.TLBI | Opcode.CFP | Opcode.DVP | Opcode.CPP
+  | Opcode.DCIVAC | Opcode.DCISW | Opcode.DCCSW | Opcode.DCCISW
+  | Opcode.DCIGVAC | Opcode.DCIGSW | Opcode.DCIGDVAC | Opcode.DCIGDSW
+  | Opcode.DCCGSW | Opcode.DCCGDSW | Opcode.DCCIGSW | Opcode.DCCIGDSW ->
+    systemMaintenance ins bld
+  | Opcode.AT ->
+    addressTranslate ins bld
+  (* a system instruction no alias names is one no processor here has *)
+  | Opcode.SYS | Opcode.SYSL ->
+    sideEffects ins bld UndefinedInstruction
+  | Opcode.DMB | Opcode.DSB | Opcode.ISB | Opcode.SB | Opcode.SSBB
+  | Opcode.PSSBB ->
     nop ins bld
   | Opcode.DUP ->
     dup ins bld
@@ -817,7 +847,8 @@ let translate (ins: Instruction) bld =
   | Opcode.NOP ->
     nop ins bld
   | Opcode.BTI | Opcode.CSDB | Opcode.ESB | Opcode.PSB | Opcode.TSB
-  | Opcode.SEV | Opcode.SEVL | Opcode.WFE | Opcode.WFI | Opcode.YIELD ->
+  | Opcode.SEV | Opcode.SEVL | Opcode.WFE | Opcode.WFI | Opcode.YIELD
+  | Opcode.DGH ->
     nop ins bld
   | Opcode.ORN ->
     orn ins bld
@@ -1105,6 +1136,8 @@ let translate (ins: Instruction) bld =
     ubfx ins bld
   | Opcode.UCVTF ->
     icvtf ins bld true
+  | Opcode.UDF ->
+    sideEffects ins bld UndefinedInstruction
   | Opcode.UDIV ->
     udiv ins bld
   | Opcode.UMADDL ->
