@@ -274,26 +274,39 @@ type LifterTests() =
       | Store(Addr = addr; Value = value) -> Some(addr, value)
       | _ -> None)
 
+  /// The loads the registers some statements write are read from, in order.
+  let loadsIn (stmts: Stmt[]) =
+    let rec loads e =
+      match e with
+      | Load(Addr = a) ->
+        e :: loads a
+      | UnOp(Operand = x) | Cast(Operand = x) | Extract(Operand = x) ->
+        loads x
+      | BinOp(Left = x; Right = y) | RelOp(Left = x; Right = y) ->
+        loads x @ loads y
+      | Ite(Cond = c; TrueExpr = x; FalseExpr = y) ->
+        loads c @ loads x @ loads y
+      | _ ->
+        []
+    stmts
+    |> Array.toList
+    |> List.collect (function
+      | Put(Src = e) -> loads e
+      | _ -> [])
+
   /// The widths of the loads the registers one encoding writes are read
   /// from, in order.
   let loadWidthsBy isThumb hex =
-    let rec widths e =
-      match e with
-      | Load(Type = t; Addr = a) ->
-        t :: widths a
-      | UnOp(Operand = x) | Cast(Operand = x) | Extract(Operand = x) ->
-        widths x
-      | BinOp(Left = x; Right = y) | RelOp(Left = x; Right = y) ->
-        widths x @ widths y
-      | Ite(Cond = c; TrueExpr = x; FalseExpr = y) ->
-        widths c @ widths x @ widths y
-      | _ ->
-        []
-    liftedBy isThumb hex
-    |> Array.toList
-    |> List.collect (function
-      | Put(Src = e) -> widths e
-      | _ -> [])
+    loadsIn (liftedBy isThumb hex) |> List.map Expr.typeOf
+
+  /// The statements one A32 encoding lifts to where memory is
+  /// little-endian, which every other test here takes big-endian.
+  let liftedLittle (hex: string) =
+    let little = ISA(Architecture.ARMv7, Endian.Little)
+    let parser = Parser(little, false, reader) :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default(little, regFactory, LowUIRStream())
+    let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+    ins.Translate builder
 
   /// What an encoding leaves in R0, run with R1 and R2 given.
   let r0After isThumb hex (r1: uint32) (r2: uint32) =
@@ -1512,6 +1525,77 @@ type LifterTests() =
     for hex, n in [ "ed810b02", 1; "ec810b04", 2; "ed2d8b04", 2 ] do
       let widths = storedBy false hex |> Array.map Expr.typeOf |> List.ofArray
       Assert.AreEqual<RegType list>(doubles n, widths, hex)
+
+  /// VLD1 and VST1 of whole registers move each register as one doubleword
+  /// where memory is little-endian, whatever the size of their elements.
+  /// Where it is big-endian, bytes, which have no order, and a doubleword
+  /// still do, but halfwords and words move an element at a time (DDI0406C
+  /// A8.8.320 VLD1, A8.8.404 VST1).
+  [<TestMethod>]
+  member _.``[ARMv7] VLD1 and VST1 move a whole register in one access``() =
+    let doubles n = List.replicate n 64<rt>
+    let loads =
+      [ "f421070d", 1 (* vld1.8 {d0}, [r1]! *)
+        "f4210a4f", 2 (* vld1.16 {d0-d1}, [r1] *)
+        "f421028d", 4 (* vld1.32 {d0-d3}, [r1]! *)
+        "f42107cf", 1 (* vld1.64 {d0}, [r1] *)
+        "f4210a02", 2 (* vld1.8 {d0-d1}, [r1], r2 *) ]
+    for hex, n in loads do
+      let widths = loadsIn (liftedLittle hex) |> List.map Expr.typeOf
+      Assert.AreEqual<RegType list>(doubles n, widths, hex)
+    let stores =
+      [ "f401070d", 1 (* vst1.8 {d0}, [r1]! *)
+        "f4010a4f", 2 (* vst1.16 {d0-d1}, [r1] *)
+        "f401028d", 4 (* vst1.32 {d0-d3}, [r1]! *)
+        "f40107cf", 1 (* vst1.64 {d0}, [r1] *) ]
+    for hex, n in stores do
+      let widths =
+        liftedLittle hex
+        |> Array.choose (function
+          | Store(Value = v) -> Some(Expr.typeOf v)
+          | _ -> None)
+        |> List.ofArray
+      Assert.AreEqual<RegType list>(doubles n, widths, hex)
+    let loadsOnly hex (expected: (Endian * RegType) list) =
+      let got =
+        loadsIn (liftedBy false hex)
+        |> List.map (function
+          | Load(Endian = e; Type = t) -> e, t
+          | e -> failwith $"not a load: {e}")
+      Assert.AreEqual<(Endian * RegType) list>(expected, got, hex)
+    loadsOnly "f421070d" [ Endian.Little, 64<rt> ]
+    loadsOnly "f42107cf" [ Endian.Big, 64<rt> ]
+    loadsOnly "f4210a4f" (List.replicate 8 (Endian.Big, 16<rt>))
+
+  /// <summary>
+  /// A little-endian VLD1 or VST1 of whole registers moves the doublewords
+  /// of memory, whatever the size of its elements: element i of a register
+  /// lies at byte i times that size, as the bytes of one doubleword do.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[ARMv7] VLD1 and VST1 move memory's doublewords``() =
+    let word i = 0x0123456789abcdefUL * uint64 (2 * i + 1)
+    let dWord r = 0xfedcba9876543210UL + uint64 r
+    let mems = [ for i in 0 .. 7 -> M(8 * i, word i) ]
+    let ds = [ for r in 0 .. 3 -> D(r, dWord r) ]
+    let rn = 0x20000810u
+    let r1 n back = Gpr(1, if back then rn + uint32 (8 * n) else rn)
+    let loads =
+      [ "f421070d", 1, true
+        "f4210a4f", 2, false
+        "f421028d", 4, true
+        "f42107cf", 1, false ]
+    for hex, n, back in loads do
+      let loaded = [ for r in 0 .. n - 1 -> D(r, word (2 + r)) ]
+      check false hex [ Gpr(1, rn) :: mems @ ds ] [ r1 n back :: loaded ]
+    let stores =
+      [ "f401070d", 1, true
+        "f4010a4f", 2, false
+        "f401028d", 4, true
+        "f40107cf", 1, false ]
+    for hex, n, back in stores do
+      let stored = [ for r in 0 .. n - 1 -> M(16 + 8 * r, dWord r) ]
+      check false hex [ Gpr(1, rn) :: mems @ ds ] [ r1 n back :: stored ]
 
   [<TestMethod>]
   member _.``[ARMv7] VLDM of singles loads one word a register``() =

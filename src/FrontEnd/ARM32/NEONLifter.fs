@@ -2189,6 +2189,23 @@ let updateRn (ins: Instruction) rn (rm: Expr option) n (regIdx: bool option) =
 
 let incAddr addr n = addr .+ (numI32 n 32<rt>)
 
+/// <summary>
+/// The doubleword a VLD1 or VST1 of multiple single elements moves a whole
+/// register as, at addr, where one access moves it: on a little-endian
+/// access element i of a register lies at byte i times its size, as the
+/// bytes of a little-endian doubleword do; a byte, which has no order, does
+/// so whatever the access; and a doubleword element is the doubleword. A
+/// big-endian access of halfwords or words orders the bytes within each
+/// element, which no one access does, so those move an element at a time.
+/// </summary>
+let private wholeRegister bld ebytes addr =
+  if ebytes = 8 then
+    ValueSome(loadNative bld 64<rt> addr)
+  elif ebytes = 1 || bld.Endianness = Endian.Little then
+    ValueSome(AST.loadLE 64<rt> addr)
+  else
+    ValueNone
+
 let vst1Multi (ins: Instruction) bld =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -2200,21 +2217,15 @@ let vst1Multi (ins: Instruction) bld =
     addr := rn
     rn := updateRn ins rn rm (8 * regs) p.RegIndex
     for r in 0 .. (regs - 1) do
-      for e in 0 .. (p.Elements - 1) do
-        if p.EBytes <> 8 then
+      match wholeRegister bld p.EBytes addr with
+      | ValueSome mem ->
+        mem := rdList[r]
+        addr := incAddr addr 8
+      | ValueNone ->
+        for e in 0 .. (p.Elements - 1) do
           let mem = loadNative bld p.RtESize addr
           mem := elem rdList[r] e p.ESize
-        else
-          (* a doubleword is two words, the one at the lower address its
-             low half on a little-endian access and its high half on a
-             big-endian one *)
-          let mem1 = loadNative bld 32<rt> addr
-          let mem2 = loadNative bld 32<rt> (incAddr addr 4)
-          let reg = elem rdList[r] e p.ESize
-          let isbig = bld.Endianness = Endian.Big
-          mem1 := if isbig then AST.xthi 32<rt> reg else AST.xtlo 32<rt> reg
-          mem2 := if isbig then AST.xtlo 32<rt> reg else AST.xthi 32<rt> reg
-        addr := addr .+ (numI32 p.EBytes 32<rt>)
+          addr := incAddr addr p.EBytes
     putEndLabel bld lblIgnore
   }
 
@@ -2285,20 +2296,16 @@ let vld1Multi (ins: Instruction) bld =
     addr := rn
     rn := updateRn ins rn rm (8 * regs) p.RegIndex
     for r in 0 .. (regs - 1) do
-      for e in 0 .. (p.Elements - 1) do
-        if p.EBytes <> 8 then
+      match wholeRegister bld p.EBytes addr with
+      | ValueSome mem ->
+        rdList[r] := mem
+        addr := incAddr addr 8
+      | ValueNone ->
+        for e in 0 .. (p.Elements - 1) do
           let data = tmpVar bld p.RtESize
           data := loadNative bld p.RtESize addr
           elem rdList[r] e p.ESize := data
-        else
-          let struct (data1, data2) = tmpVars2 bld 32<rt>
-          let mem1 = loadNative bld 32<rt> addr
-          let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
-          let isbig = bld.Endianness = Endian.Big
-          data1 := if isbig then mem2 else mem1
-          data2 := if isbig then mem1 else mem2
-          elem rdList[r] e p.ESize := AST.concat data2 data1
-        addr := incAddr addr p.EBytes
+          addr := incAddr addr p.EBytes
     putEndLabel bld lblIgnore
   }
 
