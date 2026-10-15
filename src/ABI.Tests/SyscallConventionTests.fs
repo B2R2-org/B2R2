@@ -76,6 +76,17 @@ type SyscallConventionTests() =
     let a5 = Alpha.Register.toRegID Alpha.Register.R21
     Assert.AreEqual<ArgLocation>(ArgLocation.Reg a5, conv.GetArgLocation 5)
 
+  (* Linux on SPARC says a call failed with the carry flags, icc's and xcc's,
+     which the front end keeps at bits 31 and 63 of CCC: the call sets both on
+     failure and clears both on success, and leaves the other flags alone. *)
+  [<TestMethod>]
+  member _.``SPARC reports a failed syscall in its carry flags``() =
+    let isa = ISA(Architecture.SPARC, Endian.Big, WordSize.Bit64)
+    let conv = SyscallConvention.create OS.Linux isa
+    let ccc = SPARC.Register.toRegID SPARC.Register.CCC
+    let carries = FlagBits(ccc, 0x8000000080000000UL)
+    Assert.AreEqual<SyscallError>(carries, conv.Error)
+
   (* Linux on m68k enters the kernel with a TRAP #0, taking the call number in
      D0 and the arguments in D1 through D5 and then A0, which is the one place
      the sequence leaves the data registers. *)

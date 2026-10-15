@@ -57,6 +57,12 @@ and SyscallError =
   /// A dedicated flag register reports the error: when it is non-zero, the
   /// return register holds the (positive) errno. Used by MIPS ($a3).
   | FlagRegister of RegisterID
+  /// Bits of a register report the error: when they are set, the return
+  /// register holds the (positive) errno. A call sets them all on failure and
+  /// clears them all on success, leaving the register's other bits alone.
+  /// Used by SPARC, whose carry flags, icc's and xcc's, are bits 31 and 63 of
+  /// CCC.
+  | FlagBits of RegisterID * mask: uint64
   /// The return register holds a self-describing status code whose sign encodes
   /// success or failure (e.g. an NTSTATUS on Windows), with no separate errno.
   | StatusCode
@@ -188,10 +194,10 @@ module SyscallConvention =
            reg (riscv RISCV.Register.X14)
            reg (riscv RISCV.Register.X15) |] }
 
-  let private linuxSPARC () = (* error reported via the carry bit of CCR *)
+  let private linuxSPARC () = (* error reported via the carry flags *)
     { NumberRegister = sparc SPARC.Register.G1
       ReturnRegister = sparc SPARC.Register.O0
-      Error = FlagRegister(sparc SPARC.Register.CCR)
+      Error = FlagBits(sparc SPARC.Register.CCC, 0x8000000080000000UL)
       Args =
         [| reg (sparc SPARC.Register.O0)
            reg (sparc SPARC.Register.O1)

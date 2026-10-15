@@ -125,6 +125,11 @@ type RegisterFactory(isa: ISA) =
   let fsr = AST.var rt (Register.toRegID FSR) "FSR"
   let asi = AST.var rt (Register.toRegID ASI) "ASI"
   let gsr = AST.var rt (Register.toRegID GSR) "GSR"
+  let ccn = AST.var rt (Register.toRegID CCN) "CCN"
+  let cczi = AST.var 32<rt> (Register.toRegID CCZI) "CCZI"
+  let cczx = AST.var rt (Register.toRegID CCZX) "CCZX"
+  let ccv = AST.var rt (Register.toRegID CCV) "CCV"
+  let ccc = AST.var rt (Register.toRegID CCC) "CCC"
   let asrs = AST.var rt (Register.toRegID ASRs) "ASRs"
   let fprs = AST.var rt (Register.toRegID FPRS) "FPRS"
   let tick = AST.var rt (Register.toRegID TICK) "TICK"
@@ -243,6 +248,11 @@ type RegisterFactory(isa: ISA) =
       | Register.F62 -> f62
       | Register.ASI -> asi
       | Register.GSR -> gsr
+      | Register.CCN -> ccn
+      | Register.CCZI -> cczi
+      | Register.CCZX -> cczx
+      | Register.CCV -> ccv
+      | Register.CCC -> ccc
       | Register.ASRs -> asrs
       | Register.FPRS -> fprs
       | Register.TICK -> tick

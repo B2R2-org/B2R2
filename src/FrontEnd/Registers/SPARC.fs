@@ -142,6 +142,21 @@ type Register =
   | F62 = 0x68
   /// Graphics Status Register (VIS): its align field drives faligndata.
   | GSR = 0x69
+  /// The condition codes' N flags, kept apart from CCR: a value whose bits 63
+  /// and 31 are xcc's N and icc's, as a result holds them.
+  | CCN = 0x6A
+  /// icc's Z flag, kept apart from CCR: set where this 32-bit value is zero,
+  /// as the low word of a result is.
+  | CCZI = 0x6B
+  /// xcc's Z flag, kept apart from CCR: set where this value is zero, as a
+  /// result is.
+  | CCZX = 0x6C
+  /// The condition codes' V flags, kept apart from CCR: bits 63 and 31 of an
+  /// overflow vector are xcc's V and icc's.
+  | CCV = 0x6D
+  /// The condition codes' C flags, kept apart from CCR: bits 63 and 31 of a
+  /// carry vector are xcc's C and icc's.
+  | CCC = 0x6E
 
 /// Provides functions to handle SPARC registers.
 module Register =
@@ -191,6 +206,11 @@ module Register =
     | "y" -> Register.Y
     | "asrs" -> Register.ASRs
     | "ccr" -> Register.CCR
+    | "ccn" -> Register.CCN
+    | "cczi" -> Register.CCZI
+    | "cczx" -> Register.CCZX
+    | "ccv" -> Register.CCV
+    | "ccc" -> Register.CCC
     | "fprs" -> Register.FPRS
     | "fsr" -> Register.FSR
     | "asi" -> Register.ASI
@@ -376,4 +396,9 @@ module Register =
     | Register.F60 -> "%f60"
     | Register.F62 -> "%f62"
     | Register.GSR -> "%gsr"
+    | Register.CCN -> "ccn"
+    | Register.CCZI -> "cczi"
+    | Register.CCZX -> "cczx"
+    | Register.CCV -> "ccv"
+    | Register.CCC -> "ccc"
     | _ -> Terminator.impossible ()

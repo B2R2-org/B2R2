@@ -77,16 +77,45 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[SPARC] ADD (with carry) lift Test``() =
     "0d80429e"
-    ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCR 1<rt> 0)
+    ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCC 1<rt> 31)
           !.O7 := t64 1 |]
     |> test
 
   [<TestMethod>]
   member _.``[SPARC] ADD (with carry and modify icc) lift Test``() =
     "0d80429e"
-    ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCR 1<rt> 0)
+    ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCC 1<rt> 31)
           !.O7 := t64 1 |]
     |> test
+
+  /// SUBcc keeps the condition codes in the registers apart from CCR: the
+  /// result, whose bits 63 and 31 are the N flags and whose being zero is the
+  /// Z flags, and the overflow and borrow vectors, whose bits 63 and 31 are
+  /// the V and C flags.
+  [<TestMethod>]
+  member _.``[SPARC] SUBcc keeps the condition codes apart lift Test``() =
+    "0a40a280"
+    ++ [| t64 1 := !.O1 .- !.O2
+          !.CCN := t64 1
+          !.CCZI := AST.xtlo 32<rt> (t64 1)
+          !.CCZX := t64 1
+          !.CCV := (!.O1 <+> !.O2) .& (!.O1 <+> t64 1)
+          !.CCC := (AST.not !.O1 .& !.O2) .| (t64 1 .& (AST.not !.O1 .| !.O2))
+          !.G0 := !.G0 |]
+    |> test
+
+  /// RDCCR and WRCCR move CCR as a byte of the eight flags, which the
+  /// registers apart from it keep, so neither touches CCR itself.
+  [<TestMethod>]
+  member _.``[SPARC] RD and WR of CCR go through the flags lift Test``() =
+    let lifted hex =
+      let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
+      let parser = Parser(reader) :> IInstructionParsable
+      (parser.Parse(ByteArray.ofHexString hex, 0UL)).Translate builder
+    let touchesCCR hex =
+      lifted hex |> Array.exists (fun s -> s.ToString().Contains "CCR")
+    Assert.AreEqual(false, touchesCCR "00804097")
+    Assert.AreEqual(false, touchesCCR "00208385")
 
   [<TestMethod>]
   member _.``[SPARC] JMPL arms a delayed jump via nPC lift Test``() =

@@ -358,33 +358,59 @@ let transThreeOprsAddr (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-/// The sign bits of a word's two halves, bit 63 and bit 31: where a result,
-/// and the word-wide overflow and carry vectors of the operation that gave
-/// it, hold the flag of xcc and of icc.
-let private signs e = e .& numU64 0x8000000080000000UL 64<rt>
-
 /// <summary>
-/// The condition-code byte -- xcc's N, Z, V, C in bits 7 to 4 and icc's in
-/// bits 3 to 0 -- of a result whose N, V and C flags are lined up, each
-/// pair's sign bits at bits 63 and 31 moved down by none, two and three
-/// places: one shift brings xcc's three to bits 7, 5 and 4, another icc's to
-/// bits 3, 1 and 0, and only the two Z flags are worked out apart. Building
-/// the byte a flag at a time, each from sign bits taken out one by one, cost
-/// a SPARC program dozens of host instructions for every compare it made.
+/// Puts the condition codes an operation sets, given as its result and its
+/// overflow and carry vectors, in the registers apart from CCR that keep
+/// them. The result's bits 63 and 31 are xcc's and icc's N, and its being
+/// zero, as a whole and in its low word, is their Z; bits 63 and 31 of the
+/// vectors are their V and C. Each is a value the operation has at hand, so
+/// setting the codes costs what working out V and C does, and a branch reads
+/// the one flag it tests rather than a byte of all eight.
 /// </summary>
-let private packConditionCodes res lined =
-  let nvc =
-    AST.xtlo 8<rt> ((lined >> numI32 56 64<rt>) .| (lined >> numI32 28 64<rt>))
-  let zero cond n = AST.zext 8<rt> cond << numI32 n 8<rt>
-  nvc
-  .| zero (res == AST.num0 64<rt>) 6
-  .| zero (AST.xtlo 32<rt> res == AST.num0 32<rt>) 2
+let putCC bld (struct (res, overflow, carry)) =
+  append bld {
+    regVar bld Register.CCN := res
+    regVar bld Register.CCZI := AST.xtlo 32<rt> res
+    regVar bld Register.CCZX := res
+    regVar bld Register.CCV := overflow
+    regVar bld Register.CCC := carry
+  }
 
-/// N, V and C lined up as packConditionCodes takes them.
-let private lineUp res overflow carry =
-  signs res
-  .| (signs overflow >> numI32 2 64<rt>)
-  .| (signs carry >> numI32 3 64<rt>)
+/// A word whose bits 63 and 31 are the flags given, of xcc and of icc.
+let private pairOf xcc icc =
+  let at pos flag = AST.zext 64<rt> flag << numI32 pos 64<rt>
+  at 63 xcc .| at 31 icc
+
+/// Puts the eight condition-code flags given one by one -- icc's C, V, Z and
+/// N, then xcc's -- as putCC keeps them.
+let putCCBits bld (flags: Expr[]) =
+  append bld {
+    regVar bld Register.CCN := pairOf flags[7] flags[3]
+    regVar bld Register.CCZI := AST.zext 32<rt> (AST.not flags[2])
+    regVar bld Register.CCZX := AST.zext 64<rt> (AST.not flags[6])
+    regVar bld Register.CCV := pairOf flags[5] flags[1]
+    regVar bld Register.CCC := pairOf flags[4] flags[0]
+  }
+
+/// Condition-code flag n -- icc's C, V, Z and N at 0 to 3, xcc's at 4 to 7,
+/// as CCR holds them -- out of the registers that keep it.
+let ccFlag bld n =
+  let bit r pos = AST.extract (regVar bld r) 1<rt> pos
+  match n with
+  | 0 -> bit Register.CCC 31
+  | 1 -> bit Register.CCV 31
+  | 2 -> regVar bld Register.CCZI == AST.num0 32<rt>
+  | 3 -> bit Register.CCN 31
+  | 4 -> bit Register.CCC 63
+  | 5 -> bit Register.CCV 63
+  | 6 -> regVar bld Register.CCZX == AST.num0 64<rt>
+  | 7 -> bit Register.CCN 63
+  | _ -> raise InvalidOperandException
+
+/// CCR as a byte of the eight flags, as RDCCR reads it.
+let ccByte bld =
+  Array.init 8 (fun n -> AST.zext 64<rt> (ccFlag bld n) << numI32 n 64<rt>)
+  |> Array.reduce (.|)
 
 /// The condition codes of an addition, with or without a carry in: V where
 /// the operands agree in sign and the result does not, and C carried out of
@@ -392,7 +418,7 @@ let private lineUp res overflow carry =
 let getConditionCodeAdd res src src1 =
   let overflow = AST.not (src <+> src1) .& (src <+> res)
   let carry = (src .& src1) .| ((src .| src1) .& AST.not res)
-  packConditionCodes res (lineUp res overflow carry)
+  struct (res, overflow, carry)
 
 /// The condition codes of a subtraction, with or without a borrow in: V where
 /// the operands differ in sign and the result differs from the first, and C
@@ -400,16 +426,19 @@ let getConditionCodeAdd res src src1 =
 let getConditionCodeSub res src src1 =
   let overflow = (src <+> src1) .& (src <+> res)
   let borrow = (AST.not src .& src1) .| (res .& (AST.not src .| src1))
-  packConditionCodes res (lineUp res overflow borrow)
+  struct (res, overflow, borrow)
 
 /// The condition codes of a logical operation: N and Z of the result, V and C
 /// clear.
 let getConditionCodeLog res (_: Expr) (_: Expr) =
-  packConditionCodes res (signs res)
+  struct (res, AST.num0 64<rt>, AST.num0 64<rt>)
 
 /// The condition codes of a multiplication, which are a logical operation's.
 let getConditionCodeMul res src src1 = getConditionCodeLog res src src1
 
+/// The condition codes of a MULScc step, flag by flag as putCCBits takes them:
+/// icc's from the 32-bit sum it makes, xcc's Z from the whole result, and the
+/// rest of xcc clear.
 let getConditionCodeMulscc res src src1 =
   let res32 = AST.extract res 32<rt> 0
   let sign32 = AST.extract src 1<rt> 31
@@ -421,7 +450,7 @@ let getConditionCodeMulscc res src src1 =
     (AST.not sign32 .& AST.not sign321 .& ressign32))
   let iccc = (sign32 .& sign321) .| ((AST.not ressign32)
     .& (sign32 .| sign321))
-  AST.revConcat [| iccc; iccv; iccz; iccn |]
+  [| iccc; iccv; iccz; iccn; AST.b0; AST.b0; res == AST.num0 64<rt>; AST.b0 |]
 
 let getNextReg bld reg =
   if reg = regVar bld Register.G0 then Register.G1
@@ -875,18 +904,12 @@ let fccPosition bld cc =
 /// Which FSR field a conditional float move reads. `fccPosition` answers the
 /// same question for a compare, but raises a different exception, so the two
 /// are kept apart.
-/// The condition codes of a 32-bit divide, from the value written to rd: icc
-/// N and Z come from its low word, xcc N and Z from the whole doubleword, and
-/// both C bits and xcc V are zero (icc V is set by the caller).
-let setDivCC bld ccr result =
-  append bld {
-    AST.extract ccr 1<rt> 7 := AST.extract result 1<rt> 63
-    AST.extract ccr 1<rt> 6 := result == AST.num0 64<rt>
-    AST.extract ccr 2<rt> 4 := AST.num0 2<rt>
-    AST.extract ccr 1<rt> 3 := AST.extract result 1<rt> 31
-    AST.extract ccr 1<rt> 2 := AST.extract result 32<rt> 0 == AST.num0 32<rt>
-    AST.extract ccr 1<rt> 0 := AST.b0
-  }
+/// The condition codes of a 32-bit divide, from the value written to rd and
+/// whether icc's V is set: N and Z come from the value, and xcc's V and both
+/// C are clear.
+let setDivCC bld result iccV =
+  let overflow = AST.zext 64<rt> iccV << numI32 31 64<rt>
+  putCC bld (struct (result, overflow, AST.num0 64<rt>))
 
 /// Whether a signed quotient fits 32 bits, and what it saturates to when it
 /// does not: INT32_MIN or INT32_MAX by its sign. Overflow (V) is that case.
@@ -1000,12 +1023,9 @@ let addcc ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
     res := src .+ src1
     (* flags before dst: rd may alias an operand the V/C formula reads. *)
-    byte := getConditionCodeAdd res src src1
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeAdd res src src1)
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
   }
@@ -1016,14 +1036,11 @@ let private taggedcc ins bld fnOp ccOf =
   lift bld ins {
     let struct (src, src1, dst) = transThreeOprs ins bld
     let res = tmpVar bld 64<rt>
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
     let tagged r = AST.extract r 2<rt> 0 != AST.num0 2<rt>
     res := fnOp src src1
-    byte := ccOf res src src1
-    AST.extract byte 1<rt> 1 :=
-      AST.extract byte 1<rt> 1 .| tagged src .| tagged src1
-    AST.extract ccr 8<rt> 0 := byte
+    let struct (res, overflow, carry) = ccOf res src src1
+    let tag = AST.zext 64<rt> (tagged src .| tagged src1) << numI32 31 64<rt>
+    putCC bld (struct (res, overflow .| tag, carry))
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
   }
@@ -1037,8 +1054,7 @@ let addC ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0)
+    res := src .+ src1 .+ AST.zext 64<rt> (ccFlag bld 0)
     if dst = regVar bld Register.G0 then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
   }
@@ -1048,12 +1064,9 @@ let addCcc ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
-    res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0)
+    res := src .+ src1 .+ AST.zext 64<rt> (ccFlag bld 0)
     (* flags before dst: rd may alias an operand the V/C formula reads. *)
-    byte := (getConditionCodeAdd res src src1)
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeAdd res src src1)
     if dst = regVar bld Register.G0 then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
   }
@@ -1072,14 +1085,11 @@ let andcc ins bld =
   lift bld ins {
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
-    let ccr = regVar bld Register.CCR
     let res = tmpVar bld oprSize
-    let byte = tmpVar bld 8<rt>
     res := src .& src1
     if dst = regVar bld Register.G0 then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
-    byte := (getConditionCodeLog res src src1)
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeLog res src src1)
   }
 
 let andn ins bld =
@@ -1096,14 +1106,11 @@ let andncc ins bld =
   lift bld ins {
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
-    let ccr = regVar bld Register.CCR
     let res = tmpVar bld oprSize
-    let byte = tmpVar bld 8<rt>
     res := src .& (AST.not src1)
     if dst = regVar bld Register.G0 then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
-    byte := (getConditionCodeLog res src src1)
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeLog res src src1)
   }
 
 /// Sets %nPC to the taken target when cond holds, else to the not-taken
@@ -1166,42 +1173,42 @@ let branchpr ins bld =
 
 /// The condition the branchicc family branches on, which the
 /// opcode alone decides.
-let private branchiccCond (ins: Instruction) ccr =
+let private branchiccCond (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.BA ->
     (AST.b1)
   | Opcode.BN ->
     (AST.b0)
   | Opcode.BNE ->
-    (AST.extract ccr 1<rt> 2 == AST.b0)
+    (ccFlag bld 2 == AST.b0)
   | Opcode.BE ->
-    (AST.extract ccr 1<rt> 2 == AST.b1)
+    (ccFlag bld 2 == AST.b1)
   | Opcode.BG ->
-    (((AST.extract ccr 1<rt> 2) .| ((AST.extract ccr 1<rt> 1) <+>
-      (AST.extract ccr 1<rt> 3))) == AST.b0)
+    (((ccFlag bld 2) .| ((ccFlag bld 1) <+>
+      (ccFlag bld 3))) == AST.b0)
   | Opcode.BLE ->
-    (((AST.extract ccr 1<rt> 2) .| ((AST.extract ccr 1<rt> 1) <+>
-      (AST.extract ccr 1<rt> 3))) == AST.b1)
+    (((ccFlag bld 2) .| ((ccFlag bld 1) <+>
+      (ccFlag bld 3))) == AST.b1)
   | Opcode.BGE ->
-    ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b0)
+    ((ccFlag bld 1) <+> (ccFlag bld 3) == AST.b0)
   | Opcode.BL ->
-    ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b1)
+    ((ccFlag bld 1) <+> (ccFlag bld 3) == AST.b1)
   | Opcode.BGU ->
-    ((AST.extract ccr 1<rt> 0) .| (AST.extract ccr 1<rt> 2) == AST.b0)
+    ((ccFlag bld 0) .| (ccFlag bld 2) == AST.b0)
   | Opcode.BLEU ->
-    ((AST.extract ccr 1<rt> 0) .| (AST.extract ccr 1<rt> 2) == AST.b1)
+    ((ccFlag bld 0) .| (ccFlag bld 2) == AST.b1)
   | Opcode.BCC ->
-    (AST.extract ccr 1<rt> 0 == AST.b0)
+    (ccFlag bld 0 == AST.b0)
   | Opcode.BCS ->
-    (AST.extract ccr 1<rt> 0 == AST.b1)
+    (ccFlag bld 0 == AST.b1)
   | Opcode.BPOS ->
-    (AST.extract ccr 1<rt> 3 == AST.b0)
+    (ccFlag bld 3 == AST.b0)
   | Opcode.BNEG ->
-    (AST.extract ccr 1<rt> 3 == AST.b1)
+    (ccFlag bld 3 == AST.b1)
   | Opcode.BVC ->
-    (AST.extract ccr 1<rt> 1 == AST.b0)
+    (ccFlag bld 1 == AST.b0)
   | Opcode.BVS ->
-    (AST.extract ccr 1<rt> 1 == AST.b1)
+    (ccFlag bld 1 == AST.b1)
   | _ ->
     raise InvalidOpcodeException
 
@@ -1210,15 +1217,14 @@ let branchicc ins bld =
     let oprSize = 64<rt>
     let struct (an, label) = transTwoOprs ins bld
     let pc = regVar bld Register.PC
-    let ccr = regVar bld Register.CCR
-    let branchCond = branchiccCond ins ccr
+    let branchCond = branchiccCond ins bld
     let jumpTarget = pc .+ AST.zext 64<rt> label
     branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
   }
 
 /// The condition the branchpcc family branches on, which the
 /// opcode alone decides.
-let private branchpccCond (ins: Instruction) cc bld ccr =
+let private branchpccCond (ins: Instruction) cc bld =
   match ins.Opcode with
   | Opcode.BPA ->
     (AST.b1)
@@ -1226,78 +1232,78 @@ let private branchpccCond (ins: Instruction) cc bld ccr =
     (AST.b0)
   | Opcode.BPNE ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (AST.extract ccr 1<rt> 2 == AST.b0)
+      (ccFlag bld 2 == AST.b0)
     else
-      (AST.extract ccr 1<rt> 6 == AST.b0)
+      (ccFlag bld 6 == AST.b0)
   | Opcode.BPE ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (AST.extract ccr 1<rt> 2 == AST.b1)
+      (ccFlag bld 2 == AST.b1)
     else
-      (AST.extract ccr 1<rt> 6 == AST.b1)
+      (ccFlag bld 6 == AST.b1)
   | Opcode.BPG ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (((AST.extract ccr 1<rt> 2) .| ((AST.extract ccr 1<rt> 1) <+>
-        (AST.extract ccr 1<rt> 3))) == AST.b0)
+      (((ccFlag bld 2) .| ((ccFlag bld 1) <+>
+        (ccFlag bld 3))) == AST.b0)
     else
-      (((AST.extract ccr 1<rt> 6) .| ((AST.extract ccr 1<rt> 5) <+>
-        (AST.extract ccr 1<rt> 7))) == AST.b0)
+      (((ccFlag bld 6) .| ((ccFlag bld 5) <+>
+        (ccFlag bld 7))) == AST.b0)
   | Opcode.BPLE ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (((AST.extract ccr 1<rt> 2) .| ((AST.extract ccr 1<rt> 1) <+>
-        (AST.extract ccr 1<rt> 3))) == AST.b1)
+      (((ccFlag bld 2) .| ((ccFlag bld 1) <+>
+        (ccFlag bld 3))) == AST.b1)
     else
-      (((AST.extract ccr 1<rt> 6) .| ((AST.extract ccr 1<rt> 5) <+>
-        (AST.extract ccr 1<rt> 7))) == AST.b1)
+      (((ccFlag bld 6) .| ((ccFlag bld 5) <+>
+        (ccFlag bld 7))) == AST.b1)
   | Opcode.BPGE ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b0)
+      ((ccFlag bld 1) <+> (ccFlag bld 3) == AST.b0)
     else
-      ((AST.extract ccr 1<rt> 5) <+> (AST.extract ccr 1<rt> 7) == AST.b0)
+      ((ccFlag bld 5) <+> (ccFlag bld 7) == AST.b0)
   | Opcode.BPL ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b1)
+      ((ccFlag bld 1) <+> (ccFlag bld 3) == AST.b1)
     else
-      ((AST.extract ccr 1<rt> 5) <+> (AST.extract ccr 1<rt> 7) == AST.b1)
+      ((ccFlag bld 5) <+> (ccFlag bld 7) == AST.b1)
   | Opcode.BPGU ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      ((AST.extract ccr 1<rt> 0) .| (AST.extract ccr 1<rt> 2) == AST.b0)
+      ((ccFlag bld 0) .| (ccFlag bld 2) == AST.b0)
     else
-      ((AST.extract ccr 1<rt> 4) .| (AST.extract ccr 1<rt> 6) == AST.b0)
+      ((ccFlag bld 4) .| (ccFlag bld 6) == AST.b0)
   | Opcode.BPLEU ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      ((AST.extract ccr 1<rt> 0) .| (AST.extract ccr 1<rt> 2) == AST.b1)
+      ((ccFlag bld 0) .| (ccFlag bld 2) == AST.b1)
     else
-      ((AST.extract ccr 1<rt> 4) .| (AST.extract ccr 1<rt> 6) == AST.b1)
+      ((ccFlag bld 4) .| (ccFlag bld 6) == AST.b1)
   | Opcode.BPCC ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (AST.extract ccr 1<rt> 0 == AST.b0)
+      (ccFlag bld 0 == AST.b0)
     else
-      (AST.extract ccr 1<rt> 4 == AST.b0)
+      (ccFlag bld 4 == AST.b0)
   | Opcode.BPCS ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (AST.extract ccr 1<rt> 0 == AST.b1)
+      (ccFlag bld 0 == AST.b1)
     else
-      (AST.extract ccr 1<rt> 4 == AST.b1)
+      (ccFlag bld 4 == AST.b1)
   | Opcode.BPPOS ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (AST.extract ccr 1<rt> 3 == AST.b0)
+      (ccFlag bld 3 == AST.b0)
     else
-      (AST.extract ccr 1<rt> 7 == AST.b0)
+      (ccFlag bld 7 == AST.b0)
   | Opcode.BPNEG ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (AST.extract ccr 1<rt> 3 == AST.b1)
+      (ccFlag bld 3 == AST.b1)
     else
-      (AST.extract ccr 1<rt> 7 == AST.b1)
+      (ccFlag bld 7 == AST.b1)
   | Opcode.BPVC ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (AST.extract ccr 1<rt> 1 == AST.b0)
+      (ccFlag bld 1 == AST.b0)
     else
-      (AST.extract ccr 1<rt> 5 == AST.b0)
+      (ccFlag bld 5 == AST.b0)
   | Opcode.BPVS ->
     if (cc = getCCVar bld ConditionCode.Icc) then
-      (AST.extract ccr 1<rt> 1 == AST.b1)
+      (ccFlag bld 1 == AST.b1)
     else
-      (AST.extract ccr 1<rt> 5 == AST.b1)
+      (ccFlag bld 5 == AST.b1)
   | _ ->
     raise InvalidOpcodeException
 
@@ -1306,8 +1312,7 @@ let branchpcc ins bld =
     let oprSize = 64<rt>
     let struct (cc, label, an, _) = transFourOprs ins bld
     let pc = regVar bld Register.PC
-    let ccr = regVar bld Register.CCR
-    let branchCond = branchpccCond ins cc bld ccr
+    let branchCond = branchpccCond ins cc bld
     let jumpTarget = pc .+ AST.zext 64<rt> label
     branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
   }
@@ -1750,12 +1755,11 @@ let fdivq ins bld =
 
 let fmovscc ins bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins bld
-  let ccr = regVar bld Register.CCR
   let offset = if (cc = getCCVar bld ConditionCode.Icc) then 0 else 4
-  let n = AST.extract ccr 1<rt> (3 + offset)
-  let z = AST.extract ccr 1<rt> (2 + offset)
-  let v = AST.extract ccr 1<rt> (1 + offset)
-  let c = AST.extract ccr 1<rt> (offset)
+  let n = ccFlag bld (3 + offset)
+  let z = ccFlag bld (2 + offset)
+  let v = ccFlag bld (1 + offset)
+  let c = ccFlag bld (offset)
   let cond =
     match ins.Opcode with
     | Opcode.FMOVsA -> AST.b1
@@ -1786,12 +1790,11 @@ let fmovscc ins bld =
 
 let fmovdcc ins bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins bld
-  let ccr = regVar bld Register.CCR
   let offset = if (cc = getCCVar bld ConditionCode.Icc) then 0 else 4
-  let n = AST.extract ccr 1<rt> (3 + offset)
-  let z = AST.extract ccr 1<rt> (2 + offset)
-  let v = AST.extract ccr 1<rt> (1 + offset)
-  let c = AST.extract ccr 1<rt> (offset)
+  let n = ccFlag bld (3 + offset)
+  let z = ccFlag bld (2 + offset)
+  let v = ccFlag bld (1 + offset)
+  let c = ccFlag bld (offset)
   let cond =
     match ins.Opcode with
     | Opcode.FMOVdA -> AST.b1
@@ -1827,12 +1830,11 @@ let fmovdcc ins bld =
 
 let fmovqcc ins bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins bld
-  let ccr = regVar bld Register.CCR
   let offset = if (cc = getCCVar bld ConditionCode.Icc) then 0 else 4
-  let n = AST.extract ccr 1<rt> (3 + offset)
-  let z = AST.extract ccr 1<rt> (2 + offset)
-  let v = AST.extract ccr 1<rt> (1 + offset)
-  let c = AST.extract ccr 1<rt> (offset)
+  let n = ccFlag bld (3 + offset)
+  let z = ccFlag bld (2 + offset)
+  let v = ccFlag bld (1 + offset)
+  let c = ccFlag bld (offset)
   let cond =
     match ins.Opcode with
     | Opcode.FMOVqA -> AST.b1
@@ -3014,73 +3016,72 @@ let membar ins bld = (* FIXME *)
 
 /// The bit of the condition-code register that the given integer condition
 /// reads, from whichever of the two condition codes the operand selects.
-let private iccBit bld cc ccr n =
-  if cc = getCCVar bld ConditionCode.Icc then AST.extract ccr 1<rt> n
-  else AST.extract ccr 1<rt> (n + 4)
+let private iccBit bld cc n =
+  if cc = getCCVar bld ConditionCode.Icc then ccFlag bld n
+  else ccFlag bld (n + 4)
 
 /// Moves the source under the condition the opcode names, which is what
 /// every member of the MOVcc family comes down to.
 /// The condition an integer MOVcc tests.
-let private movUnderIccCondOf (ins: Instruction) bld cc ccr =
+let private movUnderIccCondOf (ins: Instruction) bld cc =
   match ins.Opcode with
   | Opcode.MOVNE ->
-    (iccBit bld cc ccr 2 == AST.b0)
+    (iccBit bld cc 2 == AST.b0)
   | Opcode.MOVE ->
-    (iccBit bld cc ccr 2 == AST.b1)
+    (iccBit bld cc 2 == AST.b1)
   | Opcode.MOVG ->
-    let n = iccBit bld cc ccr 3
-    let z = iccBit bld cc ccr 2
-    let v = iccBit bld cc ccr 1
+    let n = iccBit bld cc 3
+    let z = iccBit bld cc 2
+    let v = iccBit bld cc 1
     ((z .| (n <+> v)) == AST.b0)
   | Opcode.MOVLE ->
-    let n = iccBit bld cc ccr 3
-    let z = iccBit bld cc ccr 2
-    let v = iccBit bld cc ccr 1
+    let n = iccBit bld cc 3
+    let z = iccBit bld cc 2
+    let v = iccBit bld cc 1
     ((z .| (n <+> v)) == AST.b1)
   | Opcode.MOVGE ->
-    let n = iccBit bld cc ccr 3
-    let v = iccBit bld cc ccr 1
+    let n = iccBit bld cc 3
+    let v = iccBit bld cc 1
     ((n <+> v) == AST.b0)
   | Opcode.MOVL ->
-    let n = iccBit bld cc ccr 3
-    let v = iccBit bld cc ccr 1
+    let n = iccBit bld cc 3
+    let v = iccBit bld cc 1
     ((n <+> v) == AST.b1)
   | Opcode.MOVGU ->
-    let z = iccBit bld cc ccr 2
-    let c = iccBit bld cc ccr 0
+    let z = iccBit bld cc 2
+    let c = iccBit bld cc 0
     ((c .| z) == AST.b0)
   | Opcode.MOVLEU ->
-    let z = iccBit bld cc ccr 2
-    let c = iccBit bld cc ccr 0
+    let z = iccBit bld cc 2
+    let c = iccBit bld cc 0
     ((c .| z) == AST.b1)
   | Opcode.MOVCC ->
-    let c = iccBit bld cc ccr 0
+    let c = iccBit bld cc 0
     (c == AST.b0)
   | Opcode.MOVCS ->
-    let ccr = regVar bld Register.CCR
     if (cc = getCCVar bld ConditionCode.Icc) then
-      let c = AST.extract ccr 1<rt> 0
+      let c = ccFlag bld 0
       (c == AST.b1)
     else
-      let c = AST.extract ccr 1<rt> 4
+      let c = ccFlag bld 4
       (c == AST.b1)
   | Opcode.MOVPOS ->
-    let n = iccBit bld cc ccr 3
+    let n = iccBit bld cc 3
     (n == AST.b0)
   | Opcode.MOVNEG ->
-    let n = iccBit bld cc ccr 3
+    let n = iccBit bld cc 3
     (n == AST.b1)
   | Opcode.MOVVC ->
-    let v = iccBit bld cc ccr 1
+    let v = iccBit bld cc 1
     (v == AST.b0)
   | Opcode.MOVVS ->
-    (iccBit bld cc ccr 1 == AST.b1)
+    (iccBit bld cc 1 == AST.b1)
   | _ ->
     raise InvalidOpcodeException
 
-let private movUnderIccCond (ins: Instruction) bld cc ccr src dst =
+let private movUnderIccCond (ins: Instruction) bld cc src dst =
   append bld {
-    dst := AST.ite (movUnderIccCondOf ins bld cc ccr) (src) (dst)
+    dst := AST.ite (movUnderIccCondOf ins bld cc) (src) (dst)
   }
 
 /// The two-bit floating-point condition code the operand selects.
@@ -3124,7 +3125,7 @@ let private movUnderFccCond (ins: Instruction) bld cc fsr src dst =
     dst := AST.ite (movUnderFccCondOf ins bld cc fsr) (src) (dst)
   }
 
-let private movUnderCond (ins: Instruction) bld cc ccr fsr src dst =
+let private movUnderCond (ins: Instruction) bld cc fsr src dst =
   match ins.Opcode with
   | Opcode.MOVA | Opcode.MOVFA ->
     append bld { dst := src }
@@ -3137,15 +3138,14 @@ let private movUnderCond (ins: Instruction) bld cc ccr fsr src dst =
   | Opcode.MOVFULE | Opcode.MOVFO ->
     movUnderFccCond ins bld cc fsr src dst
   | _ ->
-    movUnderIccCond ins bld cc ccr src dst
+    movUnderIccCond ins bld cc src dst
 
 let movcc ins bld =
   lift bld ins {
     let struct (cc, src, dst) = transThreeOprs ins bld
-    let ccr = regVar bld Register.CCR
     let fsr = regVar bld Register.FSR
     if (dst <> regVar bld Register.G0) then
-      movUnderCond ins bld cc ccr fsr src dst
+      movUnderCond ins bld cc fsr src dst
     else
       ()
   }
@@ -3178,11 +3178,9 @@ let mulscc ins bld =
     let res = tmpVar bld oprSize
     let src32 = tmpVar bld 32<rt>
     let y = regVar bld Register.Y
-    let ccr = regVar bld Register.CCR
     let src2 = tmpVar bld 32<rt>
-    let hbyte = tmpVar bld 4<rt>
-    src32 := AST.concat ((AST.extract ccr 1<rt> 3) <+>
-      (AST.extract ccr 1<rt> 1)) (AST.extract src 31<rt> 1)
+    src32 := AST.concat ((ccFlag bld 3) <+>
+      (ccFlag bld 1)) (AST.extract src 31<rt> 1)
     src2 := AST.ite ((AST.extract y 1<rt> 0) == AST.b0)
                     (AST.num0 32<rt>)
                     (AST.extract src1 32<rt> 0)
@@ -3190,10 +3188,7 @@ let mulscc ins bld =
     if (dst <> regVar bld Register.G0) then append bld { dst := res } else ()
     (AST.extract y 32<rt> 0) := AST.concat (AST.extract src 1<rt> 0)
       (AST.extract y 31<rt> 1)
-    hbyte := getConditionCodeMulscc res src32 src2
-    AST.extract ccr 4<rt> 0 := hbyte
-    AST.extract ccr 4<rt> 4 :=
-      AST.ite (res == AST.num0 64<rt>) (numI32 4 4<rt>) (AST.num0 4<rt>)
+    putCCBits bld (getConditionCodeMulscc res src32 src2)
   }
 
 let mulx ins bld =
@@ -3230,13 +3225,10 @@ let orcc ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
     res := src .| src1
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
-    byte := (getConditionCodeLog res src src1)
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeLog res src src1)
   }
 
 let orn ins bld =
@@ -3254,13 +3246,10 @@ let orncc ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
     res := (src .| AST.not (src1))
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
-    byte := (getConditionCodeLog res src src1)
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeLog res src src1)
   }
 
 let popc ins bld =
@@ -3288,7 +3277,7 @@ let popc ins bld =
 let rd ins bld =
   lift bld ins {
     let struct (reg, dst) = transTwoOprs ins bld
-    dst := reg
+    if reg = regVar bld Register.CCR then dst := ccByte bld else dst := reg
   }
 
 /// The in/out register pairs the register window rotates: on SAVE the caller's
@@ -3522,7 +3511,6 @@ let sdivcc ins bld =
     let dividend = tmpVar bld 64<rt>
     let quotient = tmpVar bld 64<rt>
     let y = regVar bld Register.Y
-    let ccr = regVar bld Register.CCR
     let struct (fits, saturated) = signedDivResult quotient
     divisor := AST.extract src1 32<rt> 0
     dividend := AST.concat (AST.extract y 32<rt> 0)
@@ -3538,7 +3526,6 @@ let sdivcc ins bld =
       else
         ()
       dst := saturated
-      AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1)
       AST.jmp (AST.jmpDest lblEnd)
       AST.lmark lblL0
       AST.sideEffect (Exception DivideError)
@@ -3546,8 +3533,7 @@ let sdivcc ins bld =
     else
       quotient := dividend ?/ (AST.sext 64<rt> divisor)
       dst := saturated
-      AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1)
-    setDivCC bld ccr saturated
+    setDivCC bld saturated (AST.not fits)
   }
 
 let sdivx ins bld =
@@ -3621,8 +3607,6 @@ let smulcc ins bld =
   lift bld ins {
     let struct (src, src1, dst) = transThreeOprs ins bld
     let yreg = regVar bld Register.Y
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
     if (dst = regVar bld Register.G0) then
       dst := AST.num0 64<rt>
     else
@@ -3630,8 +3614,7 @@ let smulcc ins bld =
         .* (AST.sext 64<rt> (AST.extract src1 32<rt> 0))
       AST.extract yreg 64<rt> 0 := AST.zext 64<rt>
         (AST.extract dst 32<rt> 32)
-      byte := (getConditionCodeMul dst src src1)
-      AST.extract ccr 8<rt> 0 := byte
+      putCC bld (getConditionCodeMul dst src src1)
   }
 
 let sra ins bld =
@@ -3806,14 +3789,11 @@ let subcc ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
     res := src .- src1
     (* compute the flags from the original operands before writing dst: rd may
        alias rs1/rs2, and the V/C flags read the operands' sign bits, so writing
        dst first would feed the flag formula the result instead of the input. *)
-    byte := (getConditionCodeSub res src src1)
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeSub res src src1)
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
   }
@@ -3823,8 +3803,7 @@ let subC ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    res := src .- src1 .- AST.zext 64<rt> (AST.extract ccr 1<rt> 0)
+    res := src .- src1 .- AST.zext 64<rt> (ccFlag bld 0)
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
   }
@@ -3834,12 +3813,9 @@ let subCcc ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
-    res := src .- src1 .- AST.zext 64<rt> (AST.extract ccr 1<rt> 0)
+    res := src .- src1 .- AST.zext 64<rt> (ccFlag bld 0)
     (* flags before dst: rd may alias an operand the V/C formula reads. *)
-    byte := (getConditionCodeSub res src src1)
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeSub res src src1)
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
   }
@@ -3920,7 +3896,6 @@ let udivcc ins bld =
     let dividend = tmpVar bld 64<rt>
     let quotient = tmpVar bld 64<rt>
     let y = regVar bld Register.Y
-    let ccr = regVar bld Register.CCR
     let struct (fits, saturated) = unsignedDivResult quotient
     divisor := AST.extract src1 32<rt> 0
     dividend := AST.concat (AST.extract y 32<rt> 0)
@@ -3936,7 +3911,6 @@ let udivcc ins bld =
       else
         ()
       dst := saturated
-      AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1)
       AST.jmp (AST.jmpDest lblEnd)
       AST.lmark lblL0
       AST.sideEffect (Exception DivideError)
@@ -3944,8 +3918,7 @@ let udivcc ins bld =
     else
       quotient := dividend ./ (AST.zext 64<rt> divisor)
       dst := saturated
-      AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1)
-    setDivCC bld ccr saturated
+    setDivCC bld saturated (AST.not fits)
   }
 
 let udivx ins bld =
@@ -3992,8 +3965,6 @@ let umulcc ins bld =
   lift bld ins {
     let struct (src, src1, dst) = transThreeOprs ins bld
     let yreg = regVar bld Register.Y
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
     if (dst = regVar bld Register.G0) then
       dst := AST.num0 64<rt>
     else
@@ -4001,18 +3972,19 @@ let umulcc ins bld =
         .* (AST.zext 64<rt> (AST.extract src1 32<rt> 0))
       AST.extract yreg 64<rt> 0 :=
         AST.zext 64<rt> (AST.extract dst 32<rt> 32)
-      byte := (getConditionCodeMul dst src src1)
-      AST.extract ccr 8<rt> 0 := byte
+      putCC bld (getConditionCodeMul dst src src1)
   }
 
 let wr ins bld =
   lift bld ins {
     let struct (src, src1, reg) = transThreeOprs ins bld
     let value = src <+> src1
-    if reg = regVar bld Register.CCR || reg = regVar bld Register.ASI then
-      reg := AST.zext 64<rt> (AST.extract value 8<rt> 0)
+    if reg = regVar bld Register.CCR then
+      putCCBits bld (Array.init 8 (fun n -> AST.extract value 1<rt> n))
+    elif reg = regVar bld Register.ASI then
+      append bld { reg := AST.zext 64<rt> (AST.extract value 8<rt> 0) }
     else
-      reg := value
+      append bld { reg := value }
   }
 
 let xor ins bld =
@@ -4030,13 +4002,10 @@ let xorcc ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
     res := src <+> src1
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
-    byte := (getConditionCodeLog res src src1)
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeLog res src src1)
   }
 
 let xnor ins bld =
@@ -4054,11 +4023,8 @@ let xnorcc ins bld =
     let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
-    let ccr = regVar bld Register.CCR
-    let byte = tmpVar bld 8<rt>
     res := src <+> AST.not (src1)
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
-    byte := (getConditionCodeLog res src src1)
-    AST.extract ccr 8<rt> 0 := byte
+    putCC bld (getConditionCodeLog res src src1)
   }
