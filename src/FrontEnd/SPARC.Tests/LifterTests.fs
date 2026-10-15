@@ -91,8 +91,16 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[SPARC] JMPL arms a delayed jump via nPC lift Test``() =
     "0600c09f"
-    ++ [| !.NPC := !.G0 .+ !.G6
+    ++ [| !.NPC := !.G6
           !.O7 := !.PC |]
+    |> test
+
+  /// %g0 reads as the zero it always holds, so CLR, which is a store of it,
+  /// stores the constant to the address the register names alone.
+  [<TestMethod>]
+  member _.``[SPARC] %g0 reads as zero lift Test``() =
+    "000022c0"
+    ++ [| AST.store Endian.Big !.O0 (BitVector(0u, 32<rt>) |> AST.num) |]
     |> test
 
   [<TestMethod>]

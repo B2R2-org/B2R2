@@ -46,6 +46,11 @@ type LowUIRBuilder(isa: ISA,
   let mutable annulSkip: Label voption = ValueNone
   let mutable curAddr = 0UL
   let mutable delaySlotAddr: Addr voption = ValueNone
+  let mutable insStart = 0
+
+  /// Where in the stream the statements of the instruction being lifted
+  /// start, which its end rewrites (see GeneralLifter.markInsEnd).
+  member _.InsStart with get() = insStart and set v = insStart <- v
 
   /// The address of the instruction currently being lifted, so a deferred
   /// branch can record where its delay slot must appear.

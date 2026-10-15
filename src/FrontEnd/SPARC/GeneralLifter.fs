@@ -41,6 +41,97 @@ let inline (:=) dst src =
   | Var(RegisterID = rid) when rid = Register.toRegID Register.G0 -> dst := dst
   | _ -> dst := src
 
+/// Whether an expression is %g0.
+let private isG0 e =
+  match e with
+  | Var(RegisterID = rid) -> rid = Register.toRegID Register.G0
+  | _ -> false
+
+/// Whether an expression is the constant zero.
+let private isZero e =
+  match e with
+  | Num(Value = v) -> v.IsZero
+  | _ -> false
+
+/// An operation on two operands, given as one of them where the other is a
+/// zero that leaves it as it is: x + 0, 0 + x, x - 0, x | 0 and x ^ 0.
+let private binopOf op a b =
+  match op with
+  | BinOpType.ADD | BinOpType.OR | BinOpType.XOR when isZero a -> b
+  | BinOpType.ADD | BinOpType.SUB | BinOpType.OR | BinOpType.XOR
+    when isZero b -> a
+  | _ -> AST.binop op a b
+
+/// Whether two nodes are one.
+let inline private same a b = LanguagePrimitives.PhysicalEquality a b
+
+/// An expression with each read of %g0 made the zero it holds, and what that
+/// leaves to fold folded; the expression itself where it reads no %g0.
+let rec private zeroG0 e =
+  match e with
+  | Var(Type = t) when isG0 e ->
+    AST.num (BitVector.Zero t)
+  | UnOp(Op = op; Operand = x) ->
+    zeroUnder e x (AST.unop op)
+  | Cast(Kind = k; Type = t; Operand = x) ->
+    zeroUnder e x (AST.cast k t)
+  | Extract(Operand = x; Type = t; StartPos = p) ->
+    zeroUnder e x (fun x -> AST.extract x t p)
+  | Load(Endian = en; Type = t; Addr = x) ->
+    zeroUnder e x (AST.load en t)
+  | BinOp(Op = BinOpType.APP; Type = t; Left = f; Right = args) ->
+    zeroUnder e args (AST.Raw.binop BinOpType.APP t f)
+  | BinOp(Op = op; Left = x; Right = y) ->
+    zeroUnder2 e x y (binopOf op)
+  | RelOp(Op = op; Left = x; Right = y) ->
+    zeroUnder2 e x y (AST.relop op)
+  | Ite(Cond = c; TrueExpr = x; FalseExpr = y) ->
+    let c' = zeroG0 c
+    let x' = zeroG0 x
+    let y' = zeroG0 y
+    if same c' c && same x' x && same y' y then e else AST.ite c' x' y'
+  | ExprList(Elements = es) ->
+    let es' = List.map zeroG0 es
+    if List.forall2 same es' es then e else AST.exprList es'
+  | _ ->
+    e
+
+and private zeroUnder e x make =
+  let x' = zeroG0 x
+  if same x' x then e else make x'
+
+and private zeroUnder2 e x y make =
+  let x' = zeroG0 x
+  let y' = zeroG0 y
+  if same x' x && same y' y then e else make x' y'
+
+/// A statement with its reads of %g0 made zero. A write to %g0 stays the
+/// self-assign := leaves, which the optimizer drops.
+let private zeroG0In stmt =
+  match stmt with
+  | Put(Dst = d) when isG0 d ->
+    stmt
+  | Put(Dst = d; Src = s) ->
+    AST.put d (zeroG0 s)
+  | Store(Endian = en; Addr = a; Value = v) ->
+    AST.store en (zeroG0 a) (zeroG0 v)
+  | CJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
+    AST.cjmp (zeroG0 c) t f
+  | InterJmp(Target = t; Kind = k) ->
+    AST.interjmp (zeroG0 t) k
+  | InterCJmp(Cond = c; TrueTarget = t; FalseTarget = f) ->
+    AST.intercjmp (zeroG0 c) (zeroG0 t) (zeroG0 f)
+  | ExternalCall(Call = e) ->
+    AST.extCall (zeroG0 e)
+  | _ ->
+    stmt
+
+/// Makes each read of %g0 in the statements from start on the zero it holds,
+/// so that nothing downstream reads a register that never holds anything
+/// else.
+let private zeroG0From (stream: LowUIRStream) start =
+  for i in start .. stream.Count - 1 do stream[i] <- zeroG0In stream[i]
+
 /// Marks the start of an instruction and, when it is the delay slot of an
 /// annulling conditional branch (AnnulCond set by that branch), wraps the body
 /// in a guard: it runs only if the branch was taken, else jumps past it to a
@@ -60,6 +151,7 @@ let markInsStart (bld: ILowUIRBuilder) addr insLen =
                               && addr <> expected -> sbld.ResetDelayState()
     | _ -> ()
     sbld.CurAddr <- addr
+    sbld.InsStart <- bld.Stream.Count
     match sbld.AnnulCond with
     | ValueSome cond ->
       let runLbl = label bld "AnnulRun"
@@ -103,6 +195,7 @@ let markInsEnd (bld: ILowUIRBuilder) insLen =
         sbld.Disarm()
     else
       ()
+    zeroG0From bld.Stream sbld.InsStart
     bld.Stream.MarkEnd insLen
     bld
   | _ ->
