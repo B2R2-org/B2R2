@@ -572,6 +572,16 @@ module internal ManualLifting =
   /// FPSCR's status fields, which FPSR keeps: N, Z, C, V, QC and the flags.
   let private fpscrStatus = 0xf800009fu
 
+  /// The registers that keep CPSR's N, Z, C and V, with each one's bit.
+  let private cpsrFlags =
+    [ reg Register.NF, 31
+      reg Register.ZF, 30
+      reg Register.CF, 29
+      reg Register.VF, 28 ]
+
+  /// CPSR's flags, which the registers apart from it keep.
+  let private flagBits = 0xf0000000u
+
   /// The registers a cell names, with their values: FPSCR's two halves for
   /// FPSCR.
   let private regInput = function
@@ -580,7 +590,8 @@ module internal ManualLifting =
     | D(n, v) ->
       [ dReg n, BitVector(v, 64<rt>) ]
     | CPSR v ->
-      [ reg Register.CPSR, BitVector(v, 32<rt>) ]
+      [ yield reg Register.CPSR, BitVector(v &&& ~~~flagBits, 32<rt>)
+        for r, pos in cpsrFlags -> r, BitVector((v >>> pos) &&& 1u, 1<rt>) ]
     | FPSCR v ->
       [ reg Register.FPSCR, BitVector(v &&& ~~~fpscrStatus, 32<rt>)
         reg Register.FPSR, BitVector(v &&& fpscrStatus, 32<rt>) ]
@@ -616,7 +627,9 @@ module internal ManualLifting =
     | D(n, _) ->
       D(n, value (dReg n))
     | CPSR _ ->
-      CPSR(uint32 (value (reg Register.CPSR)))
+      let flags =
+        cpsrFlags |> List.sumBy (fun (r, pos) -> uint32 (value r) <<< pos)
+      CPSR(uint32 (value (reg Register.CPSR)) &&& ~~~flagBits ||| flags)
     | FPSCR _ ->
       FPSCR(uint32 (value (reg Register.FPSCR) ||| value (reg Register.FPSR)))
     | M(offset, _) ->
@@ -640,6 +653,7 @@ module internal ManualLifting =
     gprs |> Array.iteri (fun n e -> add e (Gpr(n, 0u)))
     for n in 0 .. 31 do add (dReg n) (D(n, 0UL))
     add (reg Register.CPSR) (CPSR 0u)
+    for r, _ in cpsrFlags do add r (CPSR 0u)
     add (reg Register.FPSCR) (FPSCR 0u)
     add (reg Register.FPSR) (FPSCR 0u)
     d

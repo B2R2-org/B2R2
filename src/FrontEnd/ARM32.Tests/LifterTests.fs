@@ -170,13 +170,12 @@ type LifterTests() =
       | SideEffect(Effect = BinIR.SideEffect.UndefinedInstruction) -> true
       | _ -> false)
 
-  /// The C an encoding leaves in CPSR, run with C given and with every
-  /// register else zero.
+  /// The C an encoding leaves, run with C given and with every register else
+  /// zero.
   let carryAfter isThumb hex carryIn =
-    let cpsr = if carryIn then 0x20000000u else 0u
-    let read =
-      IRRunner.run (liftedBy isThumb hex) [ !.CPSR, BitVector(cpsr, 32<rt>) ]
-    (read !.CPSR).ToUInt64() &&& 0x20000000UL <> 0UL
+    let c = if carryIn then 1u else 0u
+    let read = IRRunner.run (liftedBy isThumb hex) [ !.CF, BitVector(c, 1<rt>) ]
+    (read !.CF).ToUInt64() <> 0UL
 
   /// Whether one encoding sets C to the constant given, whatever C was, as a
   /// flag-setting logical instruction does from a rotated immediate:
@@ -334,13 +333,18 @@ type LifterTests() =
     let d0, _, fpscr = fpRun hex fpscr [ 0, uint64 s1 <<< 32; 1, uint64 s2 ]
     uint32 d0, fpscr
 
-  /// What an A32 VSEL leaves in S0, run with CPSR given and with S1 and S2
-  /// holding 0x11111111 and 0x22222222.
+  /// The registers that keep N, Z, C and V, given as CPSR holds them.
+  let flagsOf (cpsr: uint32) =
+    [ !.NF, 31; !.ZF, 30; !.CF, 29; !.VF, 28 ]
+    |> List.map (fun (r, pos) -> r, BitVector((cpsr >>> pos) &&& 1u, 1<rt>))
+
+  /// What an A32 VSEL leaves in S0, run with the flags CPSR holds given and
+  /// with S1 and S2 holding 0x11111111 and 0x22222222.
   let selAfter hex (cpsr: uint32) =
     let inputs =
-      [ !.CPSR, BitVector(cpsr, 32<rt>)
-        dReg 0, BitVector(0x1111111100000000UL, 64<rt>)
-        dReg 1, BitVector(0x22222222UL, 64<rt>) ]
+      flagsOf cpsr
+      @ [ dReg 0, BitVector(0x1111111100000000UL, 64<rt>)
+          dReg 1, BitVector(0x22222222UL, 64<rt>) ]
     let read = IRRunner.run (liftedBy false hex) inputs
     uint32 ((read (dReg 0)).ToUInt64())
 
@@ -585,20 +589,42 @@ type LifterTests() =
   (* MSR names which fields it writes, so it is a read-modify-write and not an
      assignment: everything outside the named field has to survive it. The flag
      field is the same in every mode, so its write needs no look at the one
-     running. *)
+     running. N, Z, C and V go to the registers that keep them, and Q, the
+     field's last bit, to CPSR. *)
   [<TestMethod>]
   member _.``[ARMv7] MSR writes the flag field and leaves the rest``() =
     "e128f000"
-    ++ [| !.CPSR := (!.CPSR .& num 0x07ffffffu) .| (!.R0 .& num 0xf8000000u) |]
+    ++ [| !.NF := AST.extract !.R0 1<rt> 31
+          !.ZF := AST.extract !.R0 1<rt> 30
+          !.CF := AST.extract !.R0 1<rt> 29
+          !.VF := AST.extract !.R0 1<rt> 28
+          !.CPSR := (!.CPSR .& num 0xf7ffffffu) .| (!.R0 .& num 0x08000000u) |]
     |> testARM
+
+  /// CMP keeps each flag in a register of its own, as AArch64's lifter does,
+  /// and leaves CPSR alone: an equal compare sets Z and C and clears N and V.
+  [<TestMethod>]
+  member _.``[ARMv7] CMP keeps each flag in a register of its own``() =
+    let stmts = liftedBy false "e352002c"
+    let read = IRRunner.run stmts [ !.R2, BitVector(0x2cu, 32<rt>) ]
+    let flag r = (read r).ToUInt64()
+    Assert.AreEqual<Expr option>(None, assignedBy false "e352002c" !.CPSR)
+    Assert.AreEqual(0UL, flag !.NF)
+    Assert.AreEqual(1UL, flag !.ZF)
+    Assert.AreEqual(1UL, flag !.CF)
+    Assert.AreEqual(0UL, flag !.VF)
 
   /// MRS of CPSR reads every field but the execution state -- the IT, J and T
   /// bits -- which read as zero (F5-4571), and PAN with them, which SETPAN
   /// writes (DDI0487F.c F5.1.117).
   [<TestMethod>]
   member _.``[ARMv7] MRS of CPSR hides the execution state``() =
+    let flag r pos = AST.zext 32<rt> r << num pos
+    let cpsr =
+      (!.CPSR .& num 0x0fffffffu)
+      .| flag !.NF 31u .| flag !.ZF 30u .| flag !.CF 29u .| flag !.VF 28u
     "e10f0000"
-    ++ [| !.R0 := !.CPSR .& num 0xf84f03dfu |]
+    ++ [| !.R0 := cpsr .& num 0xf84f03dfu |]
     |> testARM
 
   [<TestMethod>]
@@ -952,13 +978,17 @@ type LifterTests() =
   member _.``[Thumb] VMRS reads MVFR0``() =
     Assert.AreEqual<Expr option>(Some !.MVFR0, assignedBy true "eef70a10" !.R0)
 
-  /// APSR_nzcv takes FPSCR's flags, which FPSR keeps, and the rest of CPSR
-  /// stays as it was.
+  /// APSR_nzcv takes FPSCR's flags, which FPSR keeps, into the registers that
+  /// keep CPSR's, and CPSR stays as it was.
   [<TestMethod>]
   member _.``[ARMv7] VMRS APSR_nzcv takes FPSCR's flags``() =
-    let others = !.CPSR .& AST.not (num 0xf0000000u)
-    let flags = others .| (!.FPSR .& num 0xf0000000u)
-    Assert.AreEqual<Expr option>(Some flags, assignedBy false "eef1fa10" !.CPSR)
+    let nzcv = !.FPSR .& num 0xf0000000u
+    let assigned = assignedBy false "eef1fa10"
+    Assert.AreEqual<Expr option>(None, assigned !.CPSR)
+    Assert.AreEqual<Expr option>(Some(AST.extract nzcv 1<rt> 31), assigned !.NF)
+    Assert.AreEqual<Expr option>(Some(AST.extract nzcv 1<rt> 30), assigned !.ZF)
+    Assert.AreEqual<Expr option>(Some(AST.extract nzcv 1<rt> 29), assigned !.CF)
+    Assert.AreEqual<Expr option>(Some(AST.extract nzcv 1<rt> 28), assigned !.VF)
 
   [<TestMethod>]
   member _.``[Thumb] VMRS APSR_nzcv lifts as the A32 one does``() =
@@ -1213,7 +1243,8 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[ARMv7] RFE restores CPSR from the word it loads``() =
     let text = liftedText false "f9100a00"
-    StringAssert.Contains(text, "CPSR := ((T_3:I32 & 0xff0fffe0:I32) | ")
+    StringAssert.Contains(text, "CPSR := ((T_3:I32 & 0xf0fffe0:I32) | ")
+    StringAssert.Contains(text, "ZF := (T_3:I32[30:30])")
     StringAssert.Contains(text, "if ((T_3:I32 & 0x20:I32) != 0x0:I32) then")
 
   [<TestMethod>]
@@ -1245,7 +1276,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[Thumb] RFE restores CPSR from the word it loads``() =
     let text = liftedText true "e9b0c000"
-    StringAssert.Contains(text, "CPSR := ((T_3:I32 & 0xff0fffe0:I32) | ")
+    StringAssert.Contains(text, "CPSR := ((T_3:I32 & 0xf0fffe0:I32) | ")
 
   [<TestMethod>]
   member _.``[Thumb] SRS stores on the named mode's stack``() =

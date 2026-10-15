@@ -271,43 +271,34 @@ let setPSR bld reg psrType expr =
   disablePSRBits bld reg psrType
   .| (AST.zext 32<rt> expr |> psrShift psrType)
 
-let getCarryFlag bld = getPSR bld R.CPSR PSR.C >> (numI32 29 32<rt>)
+/// C as a word of 0 or 1, which a sum with a carry in adds.
+let getCarryFlag bld = AST.zext 32<rt> (regVar bld R.CF)
 
-/// N and Z where CPSR holds them, ready to be OR-ed in: the sign bit of the
-/// word that holds a result's top bit, and whether the result is zero.
-let private nzBits top isZero =
-  (top .& maskPSRForNbit) .| (AST.zext 32<rt> isZero |> psrShift PSR.Z)
-
-/// Puts N and Z in CPSR by one write, the other bits kept.
+/// Puts N and Z: the top bit of the word that holds a result's top bit, and
+/// whether the result is zero.
 let private putNZ bld top isZero =
-  let cpsr = regVar bld R.CPSR
-  let keep = AST.not (maskPSRForNbit .| maskPSRForZbit)
   append bld {
-    cpsr := (cpsr .& keep) .| nzBits top isZero
+    regVar bld R.NF := AST.xthi 1<rt> top
+    regVar bld R.ZF := isZero
   }
 
-/// Sets N and Z from a result in one write of CPSR rather than one each, so
-/// that an instruction pays one read-modify-write of CPSR for its flags.
+/// Sets N and Z from a result.
 let setNZ bld result = putNZ bld result (result == AST.num0 32<rt>)
 
 /// Sets N and Z from the 64-bit result of a long multiply, as setNZ does.
 let setNZOfLong bld result =
   putNZ bld (AST.xthi 32<rt> result) (result == AST.num0 64<rt>)
 
-/// Sets N, Z and C in one write of CPSR, C from a carry bit. A carry that is
-/// the C CPSR holds already, which a shift by zero passes through, leaves C
-/// alone and writes N and Z only.
+/// C from a carry given as a bit, or as a word of 0 or 1.
+let private carryBit carry =
+  if Expr.typeOf carry = 1<rt> then carry else AST.xtlo 1<rt> carry
+
+/// Sets N, Z and C, C from a carry. A carry that is the C held already, which
+/// a shift by zero passes through, leaves C alone and writes N and Z only.
 let setNZC bld result carry =
-  if carry = getCarryFlag bld then
-    setNZ bld result
-  else
-    let cpsr = regVar bld R.CPSR
-    let keep = AST.not (maskPSRForNbit .| maskPSRForZbit .| maskPSRForCbit)
-    let nz = nzBits result (result == AST.num0 32<rt>)
-    let c = AST.zext 32<rt> carry |> psrShift PSR.C
-    append bld {
-      cpsr := (cpsr .& keep) .| nz .| c
-    }
+  setNZ bld result
+  if carry = getCarryFlag bld then ()
+  else append bld { regVar bld R.CF := carryBit carry }
 
 let getZeroMask maskSize regType =
   BitVector(BigInteger.makeMask maskSize, regType)
@@ -525,36 +516,34 @@ let shiftForRegAmount value regType shiftType amount carryIn =
 let shift value regType shiftType amount carryIn =
   shiftC value regType shiftType amount carryIn |> fst
 
-/// The carry out of a sum, at C's place in CPSR. A sum with no carry in
-/// carried out if it came out below src1, and one with a carry in of one if
-/// it came out no greater than src1. With a carry in only known at run time,
-/// it is the top of the carry vector, which holds the carry out of each bit.
+/// The carry out of a sum. A sum with no carry in carried out if it came out
+/// below src1, and one with a carry in of one if it came out no greater than
+/// src1. With a carry in only known at run time, it is the top of the carry
+/// vector, which holds the carry out of each bit.
 let private carryOutBit src1 src2 carryIn result =
   match carryIn with
   | Num(Value = n) when n.IsZero ->
-    AST.zext 32<rt> (AST.lt result src1) |> psrShift PSR.C
+    AST.lt result src1
   | Num(Value = n) when n.IsOne ->
-    AST.zext 32<rt> (AST.le result src1) |> psrShift PSR.C
+    AST.le result src1
   | _ ->
     let carries = (src1 .& src2) .| ((src1 .| src2) .& AST.not result)
-    (carries >> numI32 2 32<rt>) .& maskPSRForCbit
+    AST.xthi 1<rt> carries
 
 /// Addition of bitstrings with a carry input, on page A2-43, for an
 /// instruction that sets the flags: function : AddWithCarry(). It returns
-/// the sum and puts N, Z, C and V in CPSR as one word, by one write. V is the
-/// top of the overflow vector: the sum's sign differs from both addends'.
+/// the sum and puts N, Z, C and V. V is the top of the overflow vector: the
+/// sum's sign differs from both addends'.
 let addWithCarrySetFlags src1 src2 carryIn bld =
   let result = tmpVar bld 32<rt>
   append bld {
     result := src1 .+ src2 .+ carryIn
   }
-  let cpsr = regVar bld R.CPSR
-  let nz = nzBits result (result == AST.num0 32<rt>)
-  let c = carryOutBit src1 src2 carryIn result
   let overflows = (src1 <+> result) .& (src2 <+> result)
-  let v = (overflows >> numI32 3 32<rt>) .& maskPSRForVbit
+  setNZ bld result
   append bld {
-    cpsr := disablePSRBits bld R.CPSR PSR.Cond .| nz .| c .| v
+    regVar bld R.CF := carryOutBit src1 src2 carryIn result
+    regVar bld R.VF := AST.xthi 1<rt> overflows
   }
   result
 

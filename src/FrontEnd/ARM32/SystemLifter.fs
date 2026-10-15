@@ -124,7 +124,7 @@ let mrs (ins: Instruction) bld =
       append bld { regVar bld rd := regVar bld R.SPSR })
   | TwoOperands(OprReg rd, OprReg(R.APSR | R.CPSR)) ->
     underCondition ins bld true (fun () ->
-      let cpsr = regVar bld R.CPSR
+      let cpsr = cpsrWithFlags bld
       append bld { regVar bld rd := cpsr .& numU32 readableCPSR 32<rt> })
   | TwoOperands(OprReg rd, OprReg banked) ->
     mrsBanked ins bld rd banked
@@ -168,17 +168,22 @@ let private writableSPSR = 0xff1fffffu
 let private writeMasked (reg: Expr) (mask: Expr) value =
   (reg .& AST.not mask) .| (value .& mask)
 
+/// N, Z, C and V, which every mode writes and the registers apart from CPSR
+/// keep.
+let private flagBits = 0xf0000000u
+
 /// <summary>
-/// MSR to CPSR. Which bits it writes depends on the mode running, unless the
-/// bytes named hold none that differ between User mode and PL1; a write of
-/// the control byte at PL1 is a change of mode as well, which is made before
-/// CPSR is.
+/// MSR to CPSR. The flags go to the registers that keep them; which other
+/// bits it writes depends on the mode running, unless the bytes named hold
+/// none that differ between User mode and PL1. A write of the control byte at
+/// PL1 is a change of mode as well, which is made before CPSR is.
 /// </summary>
 let private msrCPSR ins bld bytes src =
-  let userMask = bytes &&& userWritableCPSR
-  let privMask = bytes &&& writableCPSR
+  let userMask = bytes &&& userWritableCPSR &&& ~~~flagBits
+  let privMask = bytes &&& writableCPSR &&& ~~~flagBits
   underCondition ins bld true (fun () ->
     let cpsr = regVar bld R.CPSR
+    if bytes &&& flagBits <> 0u then putFlagsOf bld src else ()
     let mask =
       if userMask = privMask then
         numU32 privMask 32<rt>
@@ -319,10 +324,7 @@ let vmrs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg R.APSR, OprReg sreg) ->
     underCondition ins bld (sreg = R.FPSCR) (fun () ->
-      let cpsr = regVar bld R.CPSR
-      let nzcv = getPSR bld (fpStatusOf sreg) PSR.Cond
-      let flags = disablePSRBits bld R.CPSR PSR.Cond .| nzcv
-      append bld { cpsr := flags })
+      putFlagsOf bld (getPSR bld (fpStatusOf sreg) PSR.Cond))
   | TwoOperands(dst, OprReg sreg) ->
     underCondition ins bld (sreg = R.FPSCR) (fun () ->
       let dst = transOpr ins bld dst

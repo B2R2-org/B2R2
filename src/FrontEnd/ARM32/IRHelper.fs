@@ -141,13 +141,34 @@ let internal getPSR bld reg psrType =
   | PSR.M -> psr .& maskPSRForMbits
   | _ -> Terminator.impossible ()
 
-let isSetCPSRn bld = getPSR bld R.CPSR PSR.N == maskPSRForNbit
+/// Whether N is set: NF, which keeps CPSR's N.
+let isSetCPSRn bld = regVar bld R.NF
 
-let isSetCPSRz bld = getPSR bld R.CPSR PSR.Z == maskPSRForZbit
+/// Whether Z is set: ZF, which keeps CPSR's Z.
+let isSetCPSRz bld = regVar bld R.ZF
 
-let isSetCPSRc bld = getPSR bld R.CPSR PSR.C == maskPSRForCbit
+/// Whether C is set: CF, which keeps CPSR's C.
+let isSetCPSRc bld = regVar bld R.CF
 
-let isSetCPSRv bld = getPSR bld R.CPSR PSR.V == maskPSRForVbit
+/// Whether V is set: VF, which keeps CPSR's V.
+let isSetCPSRv bld = regVar bld R.VF
+
+/// CPSR as a word, as MRS reads it: N, Z, C and V from the registers that
+/// keep them, at bits 31 to 28, and the rest from CPSR.
+let cpsrWithFlags bld =
+  let flag r pos = AST.zext 32<rt> (regVar bld r) << numI32 pos 32<rt>
+  (regVar bld R.CPSR .& AST.not maskPSRForCondbits)
+  .| flag R.NF 31 .| flag R.ZF 30 .| flag R.CF 29 .| flag R.VF 28
+
+/// Puts bits 31 to 28 of a word, where CPSR holds N, Z, C and V, in the
+/// registers that keep them.
+let putFlagsOf bld word =
+  append bld {
+    regVar bld R.NF := AST.extract word 1<rt> 31
+    regVar bld R.ZF := AST.extract word 1<rt> 30
+    regVar bld R.CF := AST.extract word 1<rt> 29
+    regVar bld R.VF := AST.extract word 1<rt> 28
+  }
 
 let isSetCPSRj bld = getPSR bld R.CPSR PSR.J == maskPSRForJbit
 

@@ -272,7 +272,11 @@ module ARM32Context =
        { RID = rid D29; RType = 64<rt>; Size = 8; Offset = 296 }
        { RID = rid D30; RType = 64<rt>; Size = 8; Offset = 304 }
        { RID = rid D31; RType = 64<rt>; Size = 8; Offset = 312 }
-       { RID = rid CPSR; RType = 32<rt>; Size = 4; Offset = 320 } |]
+       { RID = rid CPSR; RType = 32<rt>; Size = 4; Offset = 320 }
+       { RID = rid NF; RType = 1<rt>; Size = 1; Offset = 324 }
+       { RID = rid ZF; RType = 1<rt>; Size = 1; Offset = 325 }
+       { RID = rid CF; RType = 1<rt>; Size = 1; Offset = 326 }
+       { RID = rid VF; RType = 1<rt>; Size = 1; Offset = 327 } |]
     |> LLVMContext.ofRegisterElements
 
 [<RequireQualifiedAccess>]

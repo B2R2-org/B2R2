@@ -231,8 +231,9 @@ let undefinedInUserSystemOrHypMode bld =
 
 /// The bits of CPSR a return from an exception restores from the value saved
 /// for it: every one but the reserved 23:20 -- and the mode, which is a change
-/// of mode rather than a write (CPSRWriteByInstr, DDI0406C B1.3.3).
-let private restoredBits = 0xff0fffe0u
+/// of mode rather than a write (CPSRWriteByInstr, DDI0406C B1.3.3) -- and the
+/// flags, which go to the registers that keep them.
+let private restoredBits = 0x0f0fffe0u
 
 /// <summary>
 /// Returns from an exception: CPSR takes the value saved for the return, and
@@ -249,6 +250,7 @@ let exceptionReturn bld (target: Expr) (saved: Expr) =
   let cpsr = regVar bld R.CPSR
   let toThumb = (saved .& numU32 0x20u 32<rt>) != AST.num0 32<rt>
   append bld { cpsr := (saved .& numU32 restoredBits 32<rt>) .| newMode }
+  IRHelper.putFlagsOf bld saved
   _if bld "ReturnToThumb" toThumb (block {
     let thumbTarget = target .& numU32 0xfffffffeu 32<rt>
     AST.interjmp thumbTarget InterJmpKind.SwitchToThumb

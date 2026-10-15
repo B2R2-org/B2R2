@@ -366,7 +366,9 @@ type Register =
   | SPSRfiq = 0xA3
   /// Application Program Status Register.
   | APSR = 0xA4
-  /// Current Program Status Register.
+  /// Current Program Status Register. Its condition flags -- N, Z, C and V,
+  /// bits 31 to 28 -- are kept apart in NF, ZF, CF and VF, so this holds the
+  /// rest.
   | CPSR = 0xA5
   /// Saved Program Status Register.
   | SPSR = 0xA6
@@ -540,6 +542,16 @@ type Register =
   /// FPSR together, and this is the FPSR half: the bits an operation writes,
   /// kept apart from the controls it reads.
   | FPSR = 0xF6
+  /// CPSR's N flag, kept apart from CPSR, as AArch64 keeps PSTATE's: a flag a
+  /// register, so that an instruction reading one reads none of the others,
+  /// and one writing them writes each on its own.
+  | NF = 0xF7
+  /// CPSR's Z flag, kept apart from CPSR as NF is.
+  | ZF = 0xF8
+  /// CPSR's C flag, kept apart from CPSR as NF is.
+  | CF = 0xF9
+  /// CPSR's V flag, kept apart from CPSR as NF is.
+  | VF = 0xFA
 
 /// Provides functions to handle ARM32 registers.
 [<RequireQualifiedAccess>]
@@ -800,6 +812,10 @@ module Register =
     | "fpexc" -> Register.FPEXC
     | "mvfr2" -> Register.MVFR2
     | "fpsr" -> Register.FPSR
+    | "nf" -> Register.NF
+    | "zf" -> Register.ZF
+    | "cf" -> Register.CF
+    | "vf" -> Register.VF
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an ARM32 register.
@@ -1058,4 +1074,8 @@ module Register =
     | Register.FPEXC -> "fpexc"
     | Register.MVFR2 -> "mvfr2"
     | Register.FPSR -> "fpsr"
+    | Register.NF -> "nf"
+    | Register.ZF -> "zf"
+    | Register.CF -> "cf"
+    | Register.VF -> "vf"
     | _ -> Terminator.impossible ()
