@@ -76,11 +76,7 @@ let vldr ins bld =
       data := loadNative bld 32<rt> addr
       rd := data
     else
-      let struct (d1, d2) = tmpVars2 bld 32<rt>
-      d1 := loadNative bld 32<rt> addr
-      d2 := loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
-      rd := if bld.Endianness = Endian.Big then AST.concat d1 d2
-            else AST.concat d2 d1
+      rd := loadNative bld 64<rt> addr
     putEndLabel bld lblIgnore
   }
 
@@ -106,11 +102,7 @@ let vstr (ins: Instruction) bld =
     elif isSReg then
       loadNative bld 32<rt> addr := rd
     else
-      let mem1 = loadNative bld 32<rt> addr
-      let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
-      let isbig = bld.Endianness = Endian.Big
-      mem1 := if isbig then AST.xthi 32<rt> rd else AST.xtlo 32<rt> rd
-      mem2 := if isbig then AST.xtlo 32<rt> rd else AST.xthi 32<rt> rd
+      loadNative bld 64<rt> addr := rd
     putEndLabel bld lblIgnore
   }
 
@@ -214,14 +206,8 @@ let vpopLoop bld d imm isSReg addr =
   let rec nonSingleRegLoop r addr =
     if r < imm / 2 then
       let reg = d + r |> byte |> OperandHelper.getVFPDRegister
-      let word1 = loadNative bld 32<rt> addr
-      let word2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
       let nextAddr = addr .+ (numI32 8 32<rt>)
-      let isbig = bld.Endianness = Endian.Big
-      append bld {
-        regVar bld reg := if isbig then AST.concat word1 word2
-                             else AST.concat word2 word1
-      }
+      append bld { regVar bld reg := loadNative bld 64<rt> addr }
       nonSingleRegLoop (r + 1) nextAddr
     else
       ()
@@ -256,16 +242,8 @@ let vpushLoop bld d imm isSReg addr =
   let rec nonSingleRegLoop r addr =
     if r < imm / 2 then
       let reg = d + r |> byte |> OperandHelper.getVFPDRegister
-      let mem1 = loadNative bld 32<rt> addr
-      let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
       let nextAddr = addr .+ (numI32 8 32<rt>)
-      let isbig = bld.Endianness = Endian.Big
-      let data1 = AST.xthi 32<rt> (regVar bld reg)
-      let data2 = AST.xtlo 32<rt> (regVar bld reg)
-      append bld {
-        mem1 := if isbig then data1 else data2
-        mem2 := if isbig then data2 else data1
-      }
+      append bld { loadNative bld 64<rt> addr := regVar bld reg }
       nonSingleRegLoop (r + 1) nextAddr
     else
       ()
@@ -995,20 +973,14 @@ let private multipleShape (ins: Instruction) =
   | _ -> raise InvalidOpcodeException
 
 /// One register of a VSTM list, at addr: a single is one word and a double
-/// two, in the order the memory's endianness puts its halves.
+/// one doubleword. The manual moves a double as two words, the first of them
+/// its high half where memory is big-endian and its low half otherwise, which
+/// is what one doubleword access in the memory's endianness moves.
 let private vstmReg bld isSingle addr reg =
   if isSingle then
     append bld { loadNative bld 32<rt> addr := reg }
   else
-    let mem1 = loadNative bld 32<rt> addr
-    let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
-    let data1 = AST.xtlo 32<rt> reg
-    let data2 = AST.xthi 32<rt> reg
-    let isbig = bld.Endianness = Endian.Big
-    append bld {
-      mem1 := if isbig then data2 else data1
-      mem2 := if isbig then data1 else data2
-    }
+    append bld { loadNative bld 64<rt> addr := reg }
 
 let vstm (ins: Instruction) bld =
   lift bld ins {
@@ -1038,12 +1010,7 @@ let private vldmReg bld isSingle addr reg =
   if isSingle then
     append bld { reg := loadNative bld 32<rt> addr }
   else
-    let word1 = loadNative bld 32<rt> addr
-    let word2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
-    let isbig = bld.Endianness = Endian.Big
-    append bld {
-      reg := if isbig then AST.concat word1 word2 else AST.concat word2 word1
-    }
+    append bld { reg := loadNative bld 64<rt> addr }
 
 let vldm (ins: Instruction) bld =
   lift bld ins {

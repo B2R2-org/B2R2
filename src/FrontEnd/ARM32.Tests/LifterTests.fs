@@ -274,6 +274,27 @@ type LifterTests() =
       | Store(Addr = addr; Value = value) -> Some(addr, value)
       | _ -> None)
 
+  /// The widths of the loads the registers one encoding writes are read
+  /// from, in order.
+  let loadWidthsBy isThumb hex =
+    let rec widths e =
+      match e with
+      | Load(Type = t; Addr = a) ->
+        t :: widths a
+      | UnOp(Operand = x) | Cast(Operand = x) | Extract(Operand = x) ->
+        widths x
+      | BinOp(Left = x; Right = y) | RelOp(Left = x; Right = y) ->
+        widths x @ widths y
+      | Ite(Cond = c; TrueExpr = x; FalseExpr = y) ->
+        widths c @ widths x @ widths y
+      | _ ->
+        []
+    liftedBy isThumb hex
+    |> Array.toList
+    |> List.collect (function
+      | Put(Src = e) -> widths e
+      | _ -> [])
+
   /// What an encoding leaves in R0, run with R1 and R2 given.
   let r0After isThumb hex (r1: uint32) (r2: uint32) =
     let inputs = [ !.R1, BitVector(r1, 32<rt>); !.R2, BitVector(r2, 32<rt>) ]
@@ -1477,6 +1498,21 @@ type LifterTests() =
     Assert.AreEqual<Expr option>(Some(!.R0 .+ num 8u),
                                  assignedBy false "eca00a02" !.R0)
 
+  /// A doubleword register moves as one doubleword: the two words the manual
+  /// moves it as, taken together in the order the endianness puts them
+  /// (DDI0406C A8.8.332 VLDM, A8.8.333 VLDR, A8.8.412 VSTM, A8.8.413 VSTR;
+  /// VPUSH and VPOP are VSTMDB and VLDMIA on SP).
+  [<TestMethod>]
+  member _.``[ARMv7] A doubleword register moves as one doubleword``() =
+    let doubles n = List.replicate n 64<rt>
+    (* vldr d0, [r1, #8]; vldmia r1, {d0, d1}; vpop {d8, d9} *)
+    for hex, n in [ "ed910b02", 1; "ec910b04", 2; "ecbd8b04", 2 ] do
+      Assert.AreEqual<RegType list>(doubles n, loadWidthsBy false hex, hex)
+    (* vstr d0, [r1, #8]; vstmia r1, {d0, d1}; vpush {d8, d9} *)
+    for hex, n in [ "ed810b02", 1; "ec810b04", 2; "ed2d8b04", 2 ] do
+      let widths = storedBy false hex |> Array.map Expr.typeOf |> List.ofArray
+      Assert.AreEqual<RegType list>(doubles n, widths, hex)
+
   [<TestMethod>]
   member _.``[ARMv7] VLDM of singles loads one word a register``() =
     let halves = [ !@(Q0, 1); !@(Q0, 2) ]
@@ -1498,7 +1534,7 @@ type LifterTests() =
     let loaded =
       writtenBy false "ecb00b07" |> Array.filter (fun d -> List.contains d ds)
     Assert.AreEqual<int>(3, loaded.Length)
-    Assert.AreEqual<int>(2, (storesBy false "ec821b03").Length)
+    Assert.AreEqual<int>(1, (storesBy false "ec821b03").Length)
 
   [<TestMethod>]
   member _.``[ARMv7] VPUSH of singles moves SP a word a register``() =
