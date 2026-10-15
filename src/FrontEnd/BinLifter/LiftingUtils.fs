@@ -344,17 +344,24 @@ let inline _repeat bld name cond ([<InlineIfLambda>] body: Block)
   els bld
   bld.Stream.Append <| AST.lmark lblEnd
 
+/// <summary>
+/// Classifies binary32 values. A value without its sign orders as its
+/// magnitude does, with an infinity above every finite value and a NaN above
+/// an infinity, so a class is one comparison of that against a bound: two
+/// operations, where testing the exponent and the fraction apart takes six,
+/// and a mask and a compare once the IR is compiled.
+/// </summary>
 [<RequireQualifiedAccess>]
 module IEEE754Single =
   open B2R2.BinIR.LowUIR.AST.InfixOp
 
-  let inline private hasFraction x =
-    (x .& numU32 0x7fffffu 32<rt>) != AST.num0 32<rt>
+  /// The value without its sign.
+  let inline private magnitude x = x .& numU32 0x7fffffffu 32<rt>
 
-  let isNaN x =
-    let exponent = (x >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
-    let e = numI32 0xff 32<rt>
-    AST.xtlo 1<rt> ((exponent == e) .& hasFraction x)
+  /// An infinity without its sign.
+  let inline private infinity () = numU32 0x7f800000u 32<rt>
+
+  let isNaN x = magnitude x .> infinity ()
 
   let isSNaN x =
     let nanChecker = isNaN x
@@ -366,28 +373,27 @@ module IEEE754Single =
     let signalBit = numU32 (1u <<< 22) 32<rt>
     nanChecker .& ((x .& signalBit) != AST.num0 32<rt>)
 
-  let isInfinity x =
-    let exponent = (x >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
-    let fraction = x .& numU32 0x7fffffu 32<rt>
-    let e = numI32 0xff 32<rt>
-    let zero = AST.num0 32<rt>
-    AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))
+  let isInfinity x = magnitude x == infinity ()
 
   let isZero x =
     let mask = numU32 0x7fffffffu 32<rt>
     AST.eq (x .& mask) (AST.num0 32<rt>)
 
+/// <summary>
+/// Classifies binary64 values, each class by one comparison of the value
+/// without its sign against a bound, as IEEE754Single does.
+/// </summary>
 [<RequireQualifiedAccess>]
 module IEEE754Double =
   open B2R2.BinIR.LowUIR.AST.InfixOp
 
-  let inline private hasFraction x =
-    (x .& numU64 0xfffff_ffffffffUL 64<rt>) != AST.num0 64<rt>
+  /// The value without its sign.
+  let inline private magnitude x = x .& numU64 0x7fffffff_ffffffffUL 64<rt>
 
-  let isNaN x =
-    let exponent = (x >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
-    let e = numI32 0x7ff 64<rt>
-    AST.xtlo 1<rt> ((exponent == e) .& hasFraction x)
+  /// An infinity without its sign.
+  let inline private infinity () = numU64 0x7ff00000_00000000UL 64<rt>
+
+  let isNaN x = magnitude x .> infinity ()
 
   let isSNaN x =
     let nanChecker = isNaN x
@@ -399,12 +405,7 @@ module IEEE754Double =
     let signalBit = numU64 (1UL <<< 51) 64<rt>
     nanChecker .& ((x .& signalBit) != AST.num0 64<rt>)
 
-  let isInfinity x =
-    let exponent = (x >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
-    let fraction = x .& numU64 0xfffff_ffffffffUL 64<rt>
-    let e = numI32 0x7ff 64<rt>
-    let zero = AST.num0 64<rt>
-    AST.xtlo 1<rt> ((exponent == e) .& (fraction == zero))
+  let isInfinity x = magnitude x == infinity ()
 
   let isZero x =
     let mask = numU64 0x7fffffff_ffffffffUL 64<rt>
