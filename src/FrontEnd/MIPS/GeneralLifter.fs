@@ -316,13 +316,15 @@ let nal ins (bld: LowUIRBuilder) =
     nPC := pc .+ numI32 8 bld.RegType
   }
 
+/// A condition code, which FSR keeps where FCSR has it: FCC0 at 23 and
+/// FCC7..1 at 31..25.
 let private fpConditionCode cc bld =
-  let fcsr = regVar bld R.FCSR
+  let fsr = regVar bld R.FSR
   if cc = 0 then
-    (fcsr .& numU32 0x800000u 32<rt>) == numU32 0x800000u 32<rt>
+    (fsr .& numU32 0x800000u 32<rt>) == numU32 0x800000u 32<rt>
   else
     let num = numU32 0x1000000u 32<rt> << numI32 cc 32<rt>
-    (fcsr .& num) == num
+    (fsr .& num) == num
 
 let bc1f (ins: Instruction) bld =
   liftTransfer bld ins {
@@ -473,22 +475,23 @@ let bne ins bld =
     updatePCCond ins bld offset cond InterJmpKind.Base
   }
 
+/// Sets a condition code in FSR, where FCSR has it.
 let setFPConditionCode bld cc tf =
   append bld {
     let insertBit = AST.xtlo 32<rt> tf
-    let fcsr = regVar bld R.FCSR
+    let fsr = regVar bld R.FSR
     if cc = 0 then
       let shf1 = numI32 23 32<rt>
       let mask1 = numU32 0xFF000000u 32<rt>
       let mask2 = numU32 0x7FFFFFu 32<rt>
       let insertBit = AST.xtlo 32<rt> tf
-      fcsr := (fcsr .& mask1) .| (insertBit << shf1) .| (fcsr .& mask2)
+      fsr := (fsr .& mask1) .| (insertBit << shf1) .| (fsr .& mask2)
     else
       let shf2 = numI32 (24 + cc) 32<rt>
       let mask1 = numU32 0xFE000000u 32<rt> << numI32 cc 32<rt>
       let mask2 =
         (numU32 0xFFFFFFu 32<rt> << numI32 cc 32<rt>) .| numU32 0xFFu 32<rt>
-      fcsr := (fcsr .& mask1) .| (insertBit << shf2) .| (fcsr .& mask2)
+      fsr := (fsr .& mask1) .| (insertBit << shf2) .| (fsr .& mask2)
   }
 
 let private getCCondOpr (ins: Instruction) bld =
@@ -632,6 +635,10 @@ let cCond ins bld =
 /// are contiguous there and split in FCSR, where FCC0 sits at 23 and FCC7..1
 /// at 31..25. FEXR keeps Cause and Flags where FCSR has them. FENR keeps the
 /// Enables and RM where FCSR has them and moves FS from 24 down to 2.
+///
+/// FCSR's state is held in two registers, each bit in its FCSR place: FSR
+/// keeps the status, which FCCR and FEXR show, and FCSR the controls, which
+/// FENR shows. So a window reaches one register and the whole reaches both.
 let private fccrOfFcsr fcsr =
   ((fcsr >> numI32 25 32<rt>) .& numU32 0x7Fu 32<rt> << AST.num1 32<rt>)
   .| ((fcsr >> numI32 23 32<rt>) .& AST.num1 32<rt>)
@@ -657,18 +664,23 @@ let private fcsrWithFenr fcsr v =
   .| (v .& numU32 0xF83u 32<rt>)
   .| (((v >> numI32 2 32<rt>) .& AST.num1 32<rt>) << numI32 24 32<rt>)
 
+/// The FCSR bits FSR keeps: the condition codes at 31..25 and 23, and what
+/// FEXR shows. The rest are the controls, which FCSR keeps.
+let private fsrMask = 0xFE83F07Cu
+
 let ctc1 ins bld =
   lift bld ins {
     let rt, fsOpr = getTwoOprs ins
     let rt = transOpr ins bld rt
     let fcsr = regVar bld R.FCSR
+    let fsr = regVar bld R.FSR
     let v = AST.xtlo 32<rt> rt
     match fsOpr with
     | OpReg R.F25 ->
-      fcsr := fcsrWithFccr fcsr v
+      fsr := fcsrWithFccr fsr v
     | OpReg R.F26 ->
-      fcsr := (fcsr .& AST.not (numU32 fexrMask 32<rt>))
-              .| (v .& numU32 fexrMask 32<rt>)
+      fsr := (fsr .& AST.not (numU32 fexrMask 32<rt>))
+             .| (v .& numU32 fexrMask 32<rt>)
     | OpReg R.F28 ->
       fcsr := fcsrWithFenr fcsr v
     | OpReg R.F0 ->
@@ -678,7 +690,8 @@ let ctc1 ins bld =
          the implementation-defined field is absent is UNPREDICTABLE, not
          masked -- so there is nothing here to clamp. A difference against
          another implementation on those bits says nothing about either. *)
-      fcsr := v
+      fcsr := v .& AST.not (numU32 fsrMask 32<rt>)
+      fsr := v .& numU32 fsrMask 32<rt>
   }
 
 let cfc1 ins bld =
@@ -686,13 +699,14 @@ let cfc1 ins bld =
     let rt, fsOpr = getTwoOprs ins
     let rt = transOpr ins bld rt
     let fcsr = regVar bld R.FCSR
+    let fsr = regVar bld R.FSR
     let v =
       match fsOpr with
-      | OpReg R.F25 -> fccrOfFcsr fcsr
-      | OpReg R.F26 -> fcsr .& numU32 fexrMask 32<rt>
+      | OpReg R.F25 -> fccrOfFcsr fsr
+      | OpReg R.F26 -> fsr .& numU32 fexrMask 32<rt>
       | OpReg R.F28 -> fenrOfFcsr fcsr
       | OpReg R.F0 -> AST.num0 32<rt> (* FIR: no implementation named *)
-      | _ -> fcsr
+      | _ -> fcsr .| fsr
     rt := AST.sext bld.RegType v
   }
 

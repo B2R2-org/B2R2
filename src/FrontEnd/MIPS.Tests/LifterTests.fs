@@ -65,9 +65,9 @@ type LifterTests() =
     let regs = RegisterFactory isa :> IRegisterFactory
     let var r = Register.toRegID r |> regs.GetRegVar
     let fpr (r, v: uint64) = var r, BitVector(v, Expr.typeOf (var r))
-    let inputs = (var FCSR, BitVector(fcsr, 32<rt>)) :: List.map fpr fprs
+    let inputs = FCSRHalves.inputs regs (uint64 fcsr) @ List.map fpr fprs
     let read = IRRunner.runAnswering flags (lifted isa hex) inputs
-    (read (var F0)).ToUInt64(), uint32 ((read (var FCSR)).ToUInt64())
+    (read (var F0)).ToUInt64(), uint32 (FCSRHalves.read regs read)
 
   /// The same with the query answering that nothing was raised.
   let fpRun isa hex fcsr fprs = fpRunAnswering 0u isa hex fcsr fprs
@@ -448,19 +448,28 @@ type LifterTests() =
     Assert.AreEqual<bool>(true, written)
 
   /// <summary>
-  /// The five arithmetic operations record in FCSR what they raised.
+  /// The five arithmetic operations record what they raised in FCSR's status,
+  /// which FSR keeps, and leave its controls alone.
   ///
   /// An IEEE operation answers with a number AND with what that number cost,
   /// and MIPS keeps the record in the same register as the rounding mode and
   /// the condition codes. A lifter that writes only the number leaves a
   /// program that asks what it lost with the answer it started from -- which
   /// is the one part of a floating-point result nothing could disagree about.
-  /// Both formats are here: the two are separate arms of each lifter.
+  /// The record goes to FSR, so FCSR is the controls alone and changes only
+  /// where a program writes it, which is what lets an evaluator take them as
+  /// constants. Both formats are here: the two are separate arms of each
+  /// lifter.
   /// </summary>
   [<TestMethod>]
   member _.``[MIPS64] The arithmetic records what it raised``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
-    let fcsr = Register.toRegID Register.FCSR
+    let writes r stmts =
+      let rid = Register.toRegID r
+      stmts
+      |> Array.exists (function
+        | Put(Dst = Var(RegisterID = id)) -> id = rid
+        | _ -> false)
     let encodings =
       [ "46041000"   (* ADD.S *)
         "46241000"   (* ADD.D *)
@@ -477,12 +486,9 @@ type LifterTests() =
         "46001016"   (* RSQRT.S *)
         "46201016" ] (* RSQRT.D *)
     for hex in encodings do
-      let written =
-        lifted isa hex
-        |> Array.exists (function
-          | Put(Dst = Var(RegisterID = rid)) -> rid = fcsr
-          | _ -> false)
-      if written then () else Assert.Fail hex
+      let stmts = lifted isa hex
+      Assert.AreEqual<bool>(true, writes FSR stmts, hex)
+      Assert.AreEqual<bool>(false, writes FCSR stmts, hex)
 
   /// <summary>
   /// An instruction that moves a value rather than computing one leaves FCSR
@@ -501,7 +507,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[MIPS64] Moving a value records nothing``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
-    let fcsr = Register.toRegID Register.FCSR
+    let halves = [ Register.toRegID FCSR; Register.toRegID FSR ]
     let encodings =
       [ "46001006"   (* MOV.S *)
         "46201006"   (* MOV.D *)
@@ -514,9 +520,40 @@ type LifterTests() =
       let written =
         lifted isa hex
         |> Array.exists (function
-          | Put(Dst = Var(RegisterID = rid)) -> rid = fcsr
+          | Put(Dst = Var(RegisterID = rid)) -> List.contains rid halves
           | _ -> false)
       if written then Assert.Fail hex else ()
+
+  /// <summary>
+  /// CTC1 to FCSR keeps the controls -- RM, the Enables, bits 22..18 and FS
+  /// -- in FCSR and the status -- the condition codes, Cause and Flags -- in
+  /// FSR, each in its FCSR place, and CFC1 reads the two together. A write
+  /// through FCCR or FEXR, which show only status, leaves FCSR alone, so a
+  /// program clearing its flags does not change the controls an evaluator
+  /// may have taken as constants.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] CTC1 keeps FCSR's status in FSR``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let var r = Register.toRegID r |> regs.GetRegVar
+    let ones = [ var R2, BitVector(0xffffffffffffffffUL, 64<rt>) ]
+    let write = IRRunner.run (lifted isa "44c2f800") ones (* ctc1 v0, $31 *)
+    Assert.AreEqual<uint64>(0x017c0f83UL, (write (var FCSR)).ToUInt64())
+    Assert.AreEqual<uint64>(0xfe83f07cUL, (write (var FSR)).ToUInt64())
+    let halves =
+      [ var FCSR, BitVector(0x3UL, 32<rt>)
+        var FSR, BitVector(0x800004UL, 32<rt>) ]
+    let read = IRRunner.run (lifted isa "4443f800") halves (* cfc1 v1, $31 *)
+    Assert.AreEqual<uint64>(0x800007UL, (read (var R3)).ToUInt64())
+    let fcsr = Register.toRegID FCSR
+    for hex in [ "44c2c800"; "44c2d000" ] do (* ctc1 v0, $25 / $26 *)
+      let written =
+        lifted isa hex
+        |> Array.exists (function
+          | Put(Dst = Var(RegisterID = rid)) -> rid = fcsr
+          | _ -> false)
+      Assert.AreEqual<bool>(false, written, hex)
 
   /// <summary>
   /// FCSR.FS flushes a result whose exact value is below the smallest normal

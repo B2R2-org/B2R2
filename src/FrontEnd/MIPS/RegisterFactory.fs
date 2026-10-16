@@ -113,6 +113,7 @@ type RegisterFactory(isa: ISA) =
   let lo = AST.var rt (Register.toRegID LO) "LO"
   let pc = AST.pcvar rt "PC"
   let nextPC = AST.var rt (Register.toRegID NPC) "nPC"
+  let fsr = AST.var 32<rt> (Register.toRegID FSR) "FSR"
   let fcsr = AST.var 32<rt> (Register.toRegID FCSR) "FCSR"
   let fir = AST.var 32<rt> (Register.toRegID FIR) "FIR"
   let exMonAddr = AST.var rt (Register.toRegID ExMonAddr) "ExMonAddr"
@@ -231,6 +232,7 @@ type RegisterFactory(isa: ISA) =
       | R.F29 -> f29
       | R.F30 -> f30
       | R.F31 -> f31
+      | R.FSR -> fsr
       | R.FCSR -> fcsr
       | R.FIR -> fir
       | R.ExMonAddr -> exMonAddr

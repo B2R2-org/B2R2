@@ -34,6 +34,31 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.FrontEnd.BinLifter
 
 /// <summary>
+/// FCSR as CFC1 and CTC1 see it, which the front end keeps in two registers:
+/// the controls in FCSR, and the status -- the condition codes, Cause and
+/// Flags -- in FSR, each bit in its FCSR place. A test gives FCSR whole and
+/// reads it whole, as a program does.
+/// </summary>
+module internal FCSRHalves =
+  /// The FCSR bits FSR keeps: the condition codes at 31..25 and 23, Cause at
+  /// 17..12 and Flags at 6..2.
+  let status = 0xfe83f07cUL
+
+  let private var (regs: IRegisterFactory) r =
+    regs.GetRegVar(Register.toRegID r)
+
+  /// The two registers with their values, for an FCSR given whole.
+  let inputs regs (fcsr: uint64) =
+    let controls = fcsr &&& 0xffffffffUL &&& ~~~status
+    [ var regs Register.FCSR, BitVector(controls, 32<rt>)
+      var regs Register.FSR, BitVector(fcsr &&& status, 32<rt>) ]
+
+  /// FCSR whole, from what a run left in the two registers.
+  let read regs (after: Expr -> BitVector) =
+    let half r = (after (var regs r)).ToUInt64()
+    half Register.FCSR ||| half Register.FSR
+
+/// <summary>
 /// Runs the statements an instruction lifts to over registers given values,
 /// for a test whose claim is the value an instruction computes. It knows the
 /// integer operations at any width, loads and stores over the bytes a test
@@ -417,7 +442,8 @@ type Loc =
   | Hi
   /// LO.
   | Lo
-  /// FCSR.
+  /// FCSR as CFC1 reads it: its controls, which the front end keeps in FCSR,
+  /// and its status, which it keeps in FSR, together.
   | Fcsr
   /// The coprocessor 0 Status register.
   | Status
@@ -512,12 +538,14 @@ module internal ManualLift =
   let private outcomeOf isa hexes (given: (Loc * uint64) list) =
     let regs = RegisterFactory isa :> IRegisterFactory
     let var loc = regOf regs loc
-    let value loc (v: uint64) = var loc, BitVector(v, Expr.typeOf (var loc))
+    let values (loc, v: uint64) =
+      match loc with
+      | M _ -> []
+      | Fcsr -> FCSRHalves.inputs regs v
+      | _ -> [ var loc, BitVector(v, Expr.typeOf (var loc)) ]
     let pc = regs.GetRegVar(Register.toRegID Register.PC)
-    let inputs =
-      (pc, BitVector(at, Expr.typeOf pc))
-      :: (given |> List.filter (fst >> (function M _ -> false | _ -> true))
-          |> List.map (fun (loc, v) -> value loc v))
+    let start = pc, BitVector(at, Expr.typeOf pc)
+    let inputs = start :: List.collect values given
     IRRunner.exec (lift isa hexes) inputs (bytesOf given), var
 
   /// What a run changed and what it raised, every register it gave a value
@@ -531,10 +559,14 @@ module internal ManualLift =
     let before loc =
       given |> List.tryFind (fst >> (=) loc) |> Option.map snd
       |> Option.defaultValue 0UL
-    let after loc =
-      match outcome.Registers.TryGetValue(idOf (var loc)) with
+    let held rid =
+      match outcome.Registers.TryGetValue rid with
       | true, v -> v.ToUInt64()
       | false, _ -> 0UL
+    let after loc =
+      match loc with
+      | Fcsr -> held (idOf (var Fcsr)) ||| held (Register.toRegID Register.FSR)
+      | _ -> held (idOf (var loc))
     let registers =
       places isa
       |> List.filter (fun loc -> not (unpredictable loc))

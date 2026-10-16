@@ -97,12 +97,14 @@ type MicroMIPSR6LifterTests() =
     let target, _, _ = goes hex inputs
     target
 
-  /// What a floating-point word leaves in the registers, run from an FCSR and
-  /// the given FPRs.
+  /// What a floating-point word leaves in the registers -- FCSR read whole,
+  /// its two halves together -- run from an FCSR and the given FPRs.
   let fpRun hex (fcsr: uint32) fprs =
-    let inputs = (var FCSR, BitVector(fcsr, 32<rt>)) :: List.map given fprs
+    let inputs = FCSRHalves.inputs regs (uint64 fcsr) @ List.map given fprs
     let read = IRRunner.run (lifted hex) inputs
-    fun r -> (read (var r)).ToUInt64()
+    fun r ->
+      if r = FCSR then FCSRHalves.read regs read
+      else (read (var r)).ToUInt64()
 
   /// The side effects one word raises.
   let effects hex =

@@ -918,21 +918,23 @@ let fpRaised bld oprSz op src1 src2 result =
   fpFlushOut bld oprSz tiny result raised
 
 /// <summary>
-/// Records in FCSR the IEEE exceptions an arithmetic operation raised.
+/// Records the IEEE exceptions an arithmetic operation raised in FCSR's
+/// status, which FSR keeps in FCSR's places.
 ///
 /// MIPS keeps them three times over. Cause holds what THIS instruction
 /// raised and is written whole by every one of them; Enables says which of
 /// the five trap; Flags accumulates the ones that did not, until software
 /// clears it. An instruction that traps never reaches the next one, so what
 /// is modelled here is the untrapped case -- Cause takes everything raised,
-/// and Flags takes what is not enabled.
+/// and Flags takes what is not enabled. Enables is a control and stays in
+/// FCSR, which the record leaves alone.
 /// </summary>
 let fpRecord bld raised =
-  let fcsr = regVar bld R.FCSR
-  let enabled = (fcsr >> numI32 7 32<rt>) .& numI32 0x1f 32<rt>
+  let fsr = regVar bld R.FSR
+  let enabled = (regVar bld R.FCSR >> numI32 7 32<rt>) .& numI32 0x1f 32<rt>
   append bld {
-    fcsr :=
-      (fcsr .& numU32 0xfffc0fffu 32<rt>)
+    fsr :=
+      (fsr .& numU32 0xfffc0fffu 32<rt>)
       .| (raised << numI32 12 32<rt>)
       .| ((raised .& AST.not enabled) << numI32 2 32<rt>)
   }

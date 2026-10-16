@@ -171,7 +171,14 @@ type Register =
   | PC = 0x102
   /// Pseudo register for the next PC (nPC).
   | NPC = 0x103
-  /// Floating Point Control and Status Register.
+  /// FCSR's status fields -- the condition codes at 31..25 and 23, Cause at
+  /// 17..12 and Flags at 6..2 -- in their FCSR places: the bits an operation
+  /// writes, kept apart from the controls it reads. CFC1 reads FCSR as the
+  /// two together.
+  | FSR = 0x104
+  /// Floating Point Control and Status Register. Its status fields are kept
+  /// apart in FSR, so this holds its controls: RM, the Enables, bits 22..18
+  /// and FS.
   | FCSR = 0x105
   /// Floating Point Implementation Register.
   | FIR = 0x106
@@ -285,6 +292,7 @@ module Register =
     | "lo" -> Register.LO
     | "pc" -> Register.PC
     | "npc" -> Register.NPC
+    | "fsr" -> Register.FSR
     | "fcsr" -> Register.FCSR
     | "fir" -> Register.FIR
     | "exmonaddr" -> Register.ExMonAddr
@@ -372,6 +380,7 @@ module Register =
       | Register.LO -> "lo"
       | Register.PC -> "pc"
       | Register.NPC -> "npc"
+      | Register.FSR -> "fsr"
       | Register.FCSR -> "fcsr"
       | Register.FIR -> "fir"
       | Register.ExMonAddr -> "exmonaddr"
@@ -449,6 +458,7 @@ module Register =
       | Register.LO -> "lo"
       | Register.PC -> "pc"
       | Register.NPC -> "npc"
+      | Register.FSR -> "fsr"
       | Register.FCSR -> "fcsr"
       | Register.FIR -> "fir"
       | Register.ExMonAddr -> "exmonaddr"
