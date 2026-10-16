@@ -62,6 +62,12 @@ type IntelEncodingTests() =
       (* An extended index register needs REX.X, not REX.R. *)
       WordSize.Bit64, "add qword ptr [rax+r8*2], 0x1", "4a83044001"
       WordSize.Bit64, "add qword ptr [rax+rcx*2], 0x1", "4883044801"
+      (* MOVSXD widens a doubleword through every ModRM/SIB operand shape. *)
+      WordSize.Bit64, "movsxd rax, eax", "4863c0"
+      WordSize.Bit64, "movsxd rax, dword ptr [rdx]", "486302"
+      WordSize.Bit64, "movsxd rax, DWORD PTR [rdx + rdi*4]", "486304ba"
+      WordSize.Bit64, "movsxd r9, Dword Ptr [r10+r11*8+0x20]", "4f634cda20"
+      WordSize.Bit64, "movsxd rax, dword ptr [rdi*4+0x100]", "486304bd00010000"
       (* ORPD takes a 128-bit memory operand, like ANDPD. *)
       WordSize.Bit32, "orpd xmm0, xmmword ptr [eax]", "660f5600"
       WordSize.Bit32, "andpd xmm0, xmmword ptr [eax]", "660f5400"

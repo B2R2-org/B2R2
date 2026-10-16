@@ -184,13 +184,14 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     |> Seq.map (pstringCI >> attempt)
     |> choice
     |>> fun directive ->
+      let directive = directive.ToLowerInvariant()
       if isFarPtrString directive then inferredFar <- true else ()
       ptrStringToBitSize directive
 
   let pMemBaseReg = pReg .>> (notFollowedBy (spaces .>> pchar '*'))
 
   let pScaledIndexReg =
-    opt (pchar '+') >>. pReg .>> spaces .>>. pScale
+    opt (pchar '+') >>. spaces >>. pReg .>> spaces .>>. pScale
     |>> (fun (reg, scale) -> struct (reg, scale): ScaledIndex)
   let pDisp = pImm
 
