@@ -1346,14 +1346,7 @@ let vpbroadcastd ins bld = vpbroadcast ins bld 32<rt>
 let vpbroadcastw ins bld = vpbroadcast ins bld 16<rt>
 
 let vpcmpeqb (ins: Instruction) bld =
-#if EMULATION
-  if haveEVEXPrx ins.VEXInfo then
-    buildPackedInstr ins bld true 8<rt> opPcmpeqb
-  else
-    vexLaneCall ins bld "PCMPEQB"
-#else
   buildPackedInstr ins bld true 8<rt> opPcmpeqb
-#endif
 
 let vpcmpeqd ins bld =
   buildPackedInstr ins bld true 32<rt> opPcmpeqd
@@ -2069,14 +2062,7 @@ let vpmaxsd ins bld =
   buildPackedInstr ins bld true 32<rt> SSELifter.opPmaxs
 
 let vpminub (ins: Instruction) bld =
-#if EMULATION
-  if haveEVEXPrx ins.VEXInfo then
-    buildPackedInstr ins bld true 8<rt> SSELifter.opPminu
-  else
-    vexLaneCall ins bld "PMINUB"
-#else
   buildPackedInstr ins bld true 8<rt> SSELifter.opPminu
-#endif
 
 let vpminud ins bld =
   buildPackedInstr ins bld true 32<rt> SSELifter.opPminu
@@ -2194,14 +2180,7 @@ let private shuffleLaneBytes (ins: Instruction) bld =
   }
 
 let vpshufb (ins: Instruction) bld =
-#if EMULATION
-  if haveEVEXPrx ins.VEXInfo then
-    shuffleLaneBytes ins bld
-  else
-    vexLaneCall ins bld "PSHUFB"
-#else
   shuffleLaneBytes ins bld
-#endif
 
 let vpshufd (ins: Instruction) bld =
   lift bld ins {

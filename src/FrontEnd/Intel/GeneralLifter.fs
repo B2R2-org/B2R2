@@ -892,13 +892,6 @@ let bswap (ins: Instruction) bld =
   lift bld ins {
     let dst = transOneOpr ins bld
     let oprSize = getOperationSize ins
-#if EMULATION
-    (* Byte-reverse as one APP intrinsic (a host bswap) instead of decomposing
-       into per-byte extracts + revConcat. bswap ignores the operand-size
-       prefix, so oprSize is only ever 32 or 64; the name carries the width. *)
-    let name = if oprSize = 64<rt> then "BSWAP64" else "BSWAP32"
-    sized oprSize dst := AST.app name [ dst ] oprSize
-#else
     let cnt = RegType.toByteWidth oprSize |> int
     let t = tmpVar bld oprSize
     let tmps = Array.init cnt (fun _ -> tmpVar bld 8<rt>)
@@ -907,7 +900,6 @@ let bswap (ins: Instruction) bld =
       direct (tmps[i]) := AST.extract t 8<rt> (i * 8)
     done
     sized oprSize dst := AST.revConcat (Array.rev tmps)
-#endif
   }
 
 let private bit ins bitBase bitOffset oprSize =

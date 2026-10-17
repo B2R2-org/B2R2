@@ -1554,14 +1554,7 @@ let pmaxsd ins bld = buildPackedInstr ins bld false 32<rt> opPmaxs
 let pmaxsw ins bld = buildPackedInstr ins bld false 16<rt> opPmaxs
 
 let pminub ins bld =
-#if EMULATION
-  if getOperationSize ins = 128<rt> then
-    MMXLifter.packedBinIntrinsic ins bld "PMINUB"
-  else
-    buildPackedInstr ins bld false 8<rt> opPminu
-#else
   buildPackedInstr ins bld false 8<rt> opPminu
-#endif
 
 let pminud ins bld = buildPackedInstr ins bld false 32<rt> opPminu
 
@@ -1614,31 +1607,14 @@ let pmovmskb (ins: Instruction) bld =
     | RegisterHelper.Kind.XMM ->
       let dst = transOpr ins bld false dst
       let struct (srcB, srcA) = transOpr128 ins bld false src
-#if EMULATION
-      (* One SIMD intrinsic (a BinOp(APP, ...) the evaluator runs as a single
-         pmovmskb) gathering the 16 byte MSBs, instead of extracting each by
-         hand; the 16-bit mask is then zero-extended into the destination
-         GPR. *)
-      let mask = AST.app "PMOVMSKB" [ AST.concat srcB srcA ] 16<rt>
-      sized oprSize dst := AST.zext oprSize mask
-#else
       let tmps = byteMask [| srcA; srcB |]
       sized oprSize dst := AST.zext oprSize tmps
-#endif
     | RegisterHelper.Kind.YMM ->
       let dst = transOpr ins bld false dst
       let struct (srcD, srcC, srcB, srcA) =
         transOpr256 ins bld false src
-#if EMULATION
-      (* The same intrinsic over each 128-bit lane, the high lane's mask in
-         the high 16 bits. *)
-      let lo = AST.app "PMOVMSKB" [ AST.concat srcB srcA ] 16<rt>
-      let hi = AST.app "PMOVMSKB" [ AST.concat srcD srcC ] 16<rt>
-      sized oprSize dst := AST.zext oprSize (AST.concat hi lo)
-#else
       let tmps = byteMask [| srcA; srcB; srcC; srcD |]
       sized oprSize dst := AST.zext oprSize tmps
-#endif
     | _ ->
       raise InvalidOperandException
   }
@@ -1939,18 +1915,10 @@ let private shuffleBytes (ins: Instruction) bld =
       raise InvalidOperandSizeException
   }
 
-/// PSHUFB. An emulator runs the 128-bit form as one intrinsic, a byte
-/// shuffle the host has an instruction for, where the picks one at a time
-/// come to several hundred IR nodes.
+/// PSHUFB: each destination byte is the source byte its control byte picks,
+/// or zero where the control byte's top bit is set.
 let pshufb (ins: Instruction) bld =
-#if EMULATION
-  if getOperationSize ins = 128<rt> then
-    MMXLifter.packedBinIntrinsic ins bld "PSHUFB"
-  else
-    shuffleBytes ins bld
-#else
   shuffleBytes ins bld
-#endif
 
 let movdqa ins bld = buildMove ins bld
 
@@ -2612,239 +2580,103 @@ let private saturatedLen bld ctrl regSize reg =
   }
   len
 
-let private setZFSFOfPCMPSTR bld ctrl src1 src2 regs =
+/// The lengths a compare works to, beside the width the REX prefix gave them.
+/// An implicit-length compare reads no length register at all, so the pair is
+/// the raw registers there and the saturated counts only for the explicit
+/// forms.
+let private pcmpstrLengths bld (ctrl: Imm8ControlByte) regSize ax dx =
+  match ctrl.Len with
+  | Implicit ->
+    regSize, ax, dx
+  | Explicit ->
+    let lenAx = saturatedLen bld ctrl regSize ax
+    let lenDx = saturatedLen bld ctrl regSize dx
+    regSize, lenAx, lenDx
+
+/// Whether each element of a string lies inside it: before its first null
+/// element where the length is implicit, below the saturated length where it
+/// is explicit. An implicit string's bits follow one from the next, so the
+/// whole prefix takes one statement an element.
+let private pcmpstrInside bld ctrl (elems: Expr[]) regSize len =
+  let inside = Array.init elems.Length (fun _ -> tmpVar bld 1<rt>)
+  let n0 = AST.num0 ctrl.PackSize
   append bld {
-    let inline checkIfElemIsNull exps =
-      Array.map (fun e -> (e == AST.num0 ctrl.PackSize)) exps
-      |> Array.reduce (.|)
-    let regSize, lenA, lenB = regs
     match ctrl.Len with
     | Implicit ->
-      direct (regVar bld R.ZF) := checkIfElemIsNull src2
-      direct (regVar bld R.SF) := checkIfElemIsNull src1
+      direct (inside[0]) := elems[0] != n0
+      for i in 1 .. elems.Length - 1 do
+        direct (inside[i]) := inside[i - 1] .& (elems[i] != n0)
+      done
     | Explicit ->
-      direct (regVar bld R.ZF) := lenB .< numU32 ctrl.NumElems regSize
-      direct (regVar bld R.SF) := lenA .< numU32 ctrl.NumElems regSize
+      for i in 0 .. elems.Length - 1 do
+        direct (inside[i]) := numI32 i regSize .< len
+      done
   }
+  inside
 
-let private combineBits outSz bitArr =
-  Array.mapi (fun i b -> AST.zext outSz b << (numI32 i outSz)) bitArr
-  |> Array.reduce (.|)
+/// The two strings of a compare, element by element, and whether each element
+/// lies inside its string.
+type private PcmpstrStrings =
+  { A: Expr[]
+    B: Expr[]
+    InA: Expr[]
+    InB: Expr[] }
 
-/// Least significant index.
-let private leastSign bld expr sz max =
-  let lblCont = label bld "Cont"
-  let lblLoop = label bld "Loop"
-  let lblEnd = label bld "End"
-  let cond = tmpVar bld 1<rt>
-  let cnt = tmpVar bld sz
-  append bld {
-    direct cnt := AST.num0 sz
-    AST.lmark lblLoop
-  }
-  let max = numI32 max sz
-  let bit = (AST.xtlo 1<rt> (expr >> cnt)) .& AST.b1
-  append bld {
-    direct cond := (bit == AST.b0) .& (cnt .< max)
-    AST.cjmp cond (AST.jmpDest lblCont) (AST.jmpDest lblEnd)
-    AST.lmark lblCont
-    direct cnt := cnt .+ (AST.num1 sz)
-    AST.jmp (AST.jmpDest lblLoop)
-    AST.lmark lblEnd
-  }
-  cnt
+/// EqualAny's bit for element j of the second string: whether it lies inside
+/// its string and equals some element inside the first.
+let private equalAny (s: PcmpstrStrings) j =
+  let hits = Array.mapi (fun i a -> s.InA[i] .& (a == s.B[j])) s.A
+  s.InB[j] .& Array.reduce (.|) hits
 
-/// Most significant index.
-let private mostSign bld expr sz max =
-  let lblCont = label bld "Cont"
-  let lblLoop = label bld "Loop"
-  let lblEnd = label bld "End"
-  let cond = tmpVar bld 1<rt>
-  let idx = tmpVar bld sz
-  append bld {
-    direct idx := numI32 (max - 1) sz
-    AST.lmark lblLoop
-  }
-  let n0 = AST.num0 sz
-  let bit = (AST.xtlo 1<rt> (expr >> idx)) .& AST.b1
-  append bld {
-    direct cond := (bit == AST.b0) .& (idx .> n0)
-    AST.cjmp cond (AST.jmpDest lblCont) (AST.jmpDest lblEnd)
-    AST.lmark lblCont
-    direct idx := idx .- (AST.num1 sz)
-    AST.jmp (AST.jmpDest lblLoop)
-    AST.lmark lblEnd
-  }
-  idx
-
-/// override comparisons for invalid characters.
-let private overrideIfDataInvalid bld ctrl aInval bInval boolRes =
-  append bld {
-    match ctrl.Agg with
-    | EqualAny | Ranges ->
-      let cond = (AST.not aInval .& bInval) .| (aInval .& AST.not bInval) .|
-                 (aInval .& bInval)
-      direct boolRes := AST.ite cond AST.b0 boolRes
-    | EqualEach ->
-      let cond1 = (AST.not aInval .& bInval) .| (aInval .& AST.not bInval)
-      let cond2 = aInval .& bInval
-      direct boolRes := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b1 boolRes)
-    | EqualOrdered ->
-      let cond1 = AST.not aInval .& bInval
-      let cond2 = (aInval .& AST.not bInval) .| (aInval .& bInval)
-      direct boolRes := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b1 boolRes)
-  }
-
-/// Sets every bit of an aggregation result to the same starting value.
-let private initIntRes bld initVal =
-  Array.iter (fun r -> append bld { direct r := initVal })
-
-/// Compares every character of one operand against every character of the
-/// other, noting as it goes where each string has run out: an implicit length
-/// ends at a null character, an explicit one at the index held in AX or DX.
-/// `Ranges` reads the first operand two at a time, as the low and the high
-/// bound of a range; every other aggregation compares for equality.
-let private comparePcmpstrChars bld
-                                ctrl
-                                (src1: Expr[])
-                                (src2: Expr[])
-                                (boolRes: Expr array2d)
-                                regs =
-  let regSize, lenA, lenB = regs
-  let upperBound = int ctrl.NumElems - 1
-  let n0 = AST.num0 ctrl.PackSize
-  let struct (aInval, bInval) = tmpVars2 bld 1<rt>
-  append bld {
-    direct aInval := AST.b0
-  }
+/// Ranges' bit for element j of the second string: whether it lies inside its
+/// string and inside a range a pair of the first string's elements bounds,
+/// the lower bound first, with both bounds inside the first string.
+let private inRanges ctrl (s: PcmpstrStrings) j =
   let (.<=), (.>=) =
     if ctrl.Sign = Signed then AST.sle, AST.sge else AST.le, AST.ge
-  for i in 0 .. upperBound do
-    append bld {
-      direct bInval := AST.b0
-    }
-    (* invalidate characters after EOS. *)
-    match ctrl.Len with
-    | Implicit ->
-      append bld { direct aInval := aInval .| (src1[i] == n0) }
-    | Explicit ->
-      append bld { direct aInval := aInval .| (numI32 i regSize .>= lenA) }
-    for j in 0 .. upperBound do
-      (* compare all characters. *)
-      if ctrl.Agg = Ranges then
-        if i % 2 = 0 then
-          append bld { direct (boolRes[i, j]) := src1[i] .<= src2[j] }
-        else
-          append bld { direct (boolRes[i, j]) := src1[i] .>= src2[j] }
-      else
-        append bld {
-          direct (boolRes[i, j]) := src1[i] == src2[j]
-        }
-      (* invalidate characters after EOS. *)
-      match ctrl.Len with
-      | Implicit ->
-        append bld { direct bInval := bInval .| (src2[j] == n0) }
-      | Explicit ->
-        append bld { direct bInval := bInval .| (numI32 j regSize .>= lenB) }
-      overrideIfDataInvalid bld ctrl aInval bInval boolRes[i, j]
-    done
-  done
-  bInval
+  let inRange k =
+    let lo, hi = s.A[2 * k], s.A[2 * k + 1]
+    s.InA[2 * k + 1] .& (lo .<= s.B[j]) .& (hi .>= s.B[j])
+  s.InB[j] .& Array.reduce (.|) (Array.init (s.A.Length / 2) inRange)
 
-/// Reduces the grid of character comparisons to one bit per element, the way
-/// the aggregation asks: any match anywhere, a match inside either range, a
-/// match at the same index, or a run of matches starting at that index.
-let private aggregatePcmpstrResult bld
-                                   ctrl
-                                   (boolRes: Expr array2d)
-                                   (intRes1: Expr[]) =
-  let upperBound = int ctrl.NumElems - 1
-  match ctrl.Agg with
-  | EqualAny ->
-    initIntRes bld AST.b0 intRes1
-    for i in 0 .. upperBound do
-      for j in 0 .. upperBound do
-        append bld {
-          direct (intRes1[i]) := intRes1[i] .| boolRes[j, i]
-        }
-      done
-    done
-  | Ranges ->
-    initIntRes bld AST.b0 intRes1
-    for i in 0 .. upperBound do
-      for j in 0 .. 2 .. upperBound do
-        append bld {
-          direct (intRes1[i]) :=
-            intRes1[i] .| (boolRes[j, i] .& boolRes[j + 1, i])
-        }
-      done
-    done
-  | EqualEach ->
-    initIntRes bld AST.b0 intRes1
-    for i in 0 .. upperBound do
-      append bld {
-        direct (intRes1[i]) := boolRes[i, i]
-      }
-    done
-  | EqualOrdered ->
-    initIntRes bld AST.b1 intRes1
-    let mutable k = 0
-    for i in 0 .. upperBound do
-      k <- i
-      for j in 0 .. upperBound - i do
-        append bld {
-          direct (intRes1[i]) := intRes1[i] .& boolRes[j, k]
-        }
-        k <- k + 1
-      done
-    done
+/// EqualEach's bit for element j: whether the two strings agree there, as
+/// much where both have ended before it as where both hold the same element.
+let private equalEach (s: PcmpstrStrings) j =
+  let same = s.InB[j] .& (s.A[j] == s.B[j])
+  AST.ite s.InA[j] same (AST.not s.InB[j])
 
-/// Negates the aggregated bits where the polarity asks for it. A masked
-/// polarity negates only the elements still inside the second string, so the
-/// bits past its end come through as they stood.
-let private negatePcmpstrResult bld
-                                ctrl
-                                (src2: Expr[])
-                                (results: Expr[] * Expr[])
-                                bInval
-                                regs =
-  let intRes1, intRes2 = results
-  let regSize, _, lenB = regs
-  let upperBound = int ctrl.NumElems - 1
-  let n0 = AST.num0 ctrl.PackSize
-  initIntRes bld AST.b0 intRes2
-  (* The masked negation reaches only the elements inside the second string,
-     and an implicit string ends at its first null character -- whatever
-     follows that null is outside it too. So the test starts clear and stays
-     set once it has fired; asking whether each element is itself null would
-     let the characters behind an embedded null back in. *)
+/// EqualOrdered's bit for element j: whether the first string, up to its end,
+/// occurs in the second from j on -- an element past the second string's end
+/// matching nothing, one past the first string's end matching anything.
+let private equalOrdered (s: PcmpstrStrings) j =
+  let matches k =
+    AST.not s.InA[k] .| (s.InB[j + k] .& (s.A[k] == s.B[j + k]))
+  Array.init (s.A.Length - j) matches |> Array.reduce (.&)
+
+/// The bit the aggregation sets for each element of the second string, each
+/// in a temporary of its own.
+let private aggregatePcmpstr bld ctrl (s: PcmpstrStrings) =
+  let bit =
+    match ctrl.Agg with
+    | EqualAny -> equalAny s
+    | Ranges -> inRanges ctrl s
+    | EqualEach -> equalEach s
+    | EqualOrdered -> equalOrdered s
+  let bits = Array.init s.B.Length (fun _ -> tmpVar bld 1<rt>)
   append bld {
-    direct bInval := AST.b0
+    for j in 0 .. bits.Length - 1 do
+      direct (bits[j]) := bit j
+    done
   }
-  for i in 0 .. upperBound do
-    match ctrl.Polarity with
-    | PosPolarity | PosMasked ->
-      append bld {
-        direct (intRes2[i]) := intRes1[i]
-      }
-    | NegPolarity (* 0b01 *) ->
-      append bld {
-        direct (intRes2[i]) := AST.not intRes1[i]
-      }
-    | NegMasked (* 0b11 *) ->
-      match ctrl.Len with
-      | Implicit ->
-        append bld {
-          direct bInval := bInval .| (src2[i] == n0)
-          direct (intRes2[i]) := AST.ite bInval intRes1[i] (AST.not intRes1[i])
-        }
-      | Explicit ->
-        let not = AST.not intRes1[i]
-        append bld {
-          direct (intRes2[i]) :=
-            AST.ite (numI32 i regSize .>= lenB) intRes1[i] not
-        }
-  done
+  bits
+
+/// The aggregated bits under the polarity: negated everywhere, negated only
+/// inside the second string, or as they are.
+let private polarizePcmpstr ctrl (inB: Expr[]) (bits: Expr[]) =
+  match ctrl.Polarity with
+  | PosPolarity | PosMasked -> bits
+  | NegPolarity -> Array.map AST.not bits
+  | NegMasked -> Array.mapi (fun j bit -> bit <+> inB[j]) bits
 
 /// Writes the result bits to XMM0 as a mask, one bit or one whole element wide
 /// per element: `packed` holds the bits side by side, `bits` one by one. The
@@ -2878,155 +2710,76 @@ let private writePcmpstrMask bld ins ctrl (bits: Expr[]) packed =
 let private pcmpstrIndexReg (ins: Instruction) =
   if REXPrefix.hasW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX
 
-/// Writes the bits out the way the opcode asks: as a mask in XMM0, one bit or
-/// one whole element wide, or as the index of the first or the last bit set,
-/// which is the element count where nothing matched at all.
-let private writePcmpstrResult bld
-                               (ins: Instruction)
-                               ctrl
-                               (intRes2: Expr[])
-                               iRes2 =
+/// The index of the first or the last element whose bit is set, as the
+/// control byte selects, or the element count where none is: one choice an
+/// element, the selected end's outermost.
+let private pcmpstrIndex ctrl outSz (bits: Expr[]) =
+  let n = bits.Length
+  let order =
+    match ctrl.OutSelect with
+    | Least -> [ n - 1 .. -1 .. 0 ]
+    | Most -> [ 0 .. n - 1 ]
+  let pick acc i = AST.ite bits[i] (numI32 i outSz) acc
+  List.fold pick (numI32 n outSz) order
+
+/// Writes the result bits out the way the opcode asks: as a mask in XMM0, one
+/// bit or one whole element wide, or as an index in rCX.
+let private writePcmpstrBits bld ins ctrl (bits: Expr[]) packed =
   match ctrl.Ret with
   | Mask ->
-    writePcmpstrMask bld ins ctrl intRes2 iRes2
+    writePcmpstrMask bld ins ctrl bits packed
   | Index ->
+    let outSz, cx = pcmpstrIndexReg ins
     append bld {
-      let nElem = int ctrl.NumElems
-      let elemSz = RegType.fromBitWidth nElem
-      let outSz, cx = pcmpstrIndexReg ins
-      let n0 = AST.num0 elemSz
-      let idx =
-        match ctrl.OutSelect with
-        | Least -> leastSign bld iRes2 elemSz nElem
-        | Most -> mostSign bld iRes2 elemSz nElem
-        |> AST.zext 32<rt>
-      let idx = AST.ite (iRes2 == n0) (numI32 nElem 32<rt>) idx
-      sized outSz (regVar bld cx) := idx
+      sized outSz (regVar bld cx) := pcmpstrIndex ctrl outSz bits
     }
 
-/// The lengths a compare works to, beside the width the REX prefix gave them.
-/// An implicit-length compare reads no length register at all, so the pair is
-/// the raw registers there and the saturated counts only for the explicit
-/// forms.
-let private pcmpstrLengths bld (ctrl: Imm8ControlByte) regSize ax dx =
-  match ctrl.Len with
-  | Implicit ->
-    regSize, ax, dx
-  | Explicit ->
-    let lenAx = saturatedLen bld ctrl regSize ax
-    let lenDx = saturatedLen bld ctrl regSize dx
-    regSize, lenAx, lenDx
-
-/// The flags a compare leaves behind: carry says the result is not empty,
-/// overflow carries its first element, and the auxiliary and parity flags are
-/// cleared. Zero and sign come from the operand lengths, which is why they are
-/// the one pair that needs the sources.
-let private setFlagsOfPcmpstr bld ctrl src1 src2 regs intRes2 iRes2 elemSz =
+/// The flags a compare leaves: carry says some bit is set, zero and sign that
+/// the second and the first string end inside the register, overflow carries
+/// the first bit, and the auxiliary and parity flags are cleared.
+let private setPcmpstrFlags bld (s: PcmpstrStrings) (bits: Expr[]) packed =
+  let last = s.InA.Length - 1
+  let n0 = AST.num0 (RegType.fromBitWidth bits.Length)
   append bld {
-    direct (regVar bld R.CF) := iRes2 != AST.num0 elemSz
-  }
-  setZFSFOfPCMPSTR bld ctrl src1 src2 regs
-  append bld {
-    direct (regVar bld R.OF) := Array.item 0 intRes2
+    direct (regVar bld R.CF) := packed != n0
+    direct (regVar bld R.ZF) := AST.not s.InB[last]
+    direct (regVar bld R.SF) := AST.not s.InA[last]
+    direct (regVar bld R.OF) := bits[0]
     direct (regVar bld R.AF) := AST.b0
     direct (regVar bld R.PF) := AST.b0
   }
 
-/// A string compare spelled out in IR: every element of one string compared
-/// against every element of the other, then aggregated, as the SDM gives it.
-let private pcmpstrByIR (ins: Instruction) bld =
+/// PCMPESTRI, PCMPESTRM, PCMPISTRI and PCMPISTRM, and their VEX forms, spelled
+/// out in IR: where each string ends, worked out once an element; one
+/// aggregated bit for each element of the second string; then the polarity,
+/// the outputs and the flags. It is also the formula a symbolic evaluator
+/// reasons over, which is one more reason to keep it small.
+let pcmpstr (ins: Instruction) bld =
   lift bld ins {
     let struct (s1, s2, imm) = getThreeOprs ins
-    let imm = transOpr ins bld false imm
-    let ctrl = getPcmpstrInfo ins.Opcode imm
+    let ctrl = getPcmpstrInfo ins.Opcode (transOpr ins bld false imm)
     let oprSz = getOperationSize ins
-    let packSize = ctrl.PackSize
-    let nElem = int ctrl.NumElems
-    let elemSz = RegType.fromBitWidth nElem
-    let pNum = 64<rt> / packSize
-    let src1 = transOprToArr ins bld true packSize pNum oprSz s1
-    let src2 = transOprToArr ins bld true packSize pNum oprSz s2
-    let boolRes = Array2D.init nElem nElem (fun _ _ -> tmpVar bld 1<rt>)
+    let pNum = 64<rt> / ctrl.PackSize
+    let a = transOprToArr ins bld true ctrl.PackSize pNum oprSz s1
+    let b = transOprToArr ins bld true ctrl.PackSize pNum oprSz s2
     let regSize, ax, dx =
       if REXPrefix.hasW ins.REXPrefix then
         64<rt>, regVar bld R.RAX, regVar bld R.RDX
       else
         32<rt>, regVar bld R.EAX, regVar bld R.EDX
-    let regs = pcmpstrLengths bld ctrl regSize ax dx
-    let bInval = comparePcmpstrChars bld ctrl src1 src2 boolRes regs
-    let intRes1 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
-    let intRes2 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
-    aggregatePcmpstrResult bld ctrl boolRes intRes1
-    negatePcmpstrResult bld ctrl src2 (intRes1, intRes2) bInval regs
-    let iRes2 = tmpVar bld elemSz
-    direct iRes2 := combineBits elemSz intRes2
-    writePcmpstrResult bld ins ctrl intRes2 iRes2
-    setFlagsOfPcmpstr bld ctrl src1 src2 regs intRes2 iRes2 elemSz
-  }
-
+    let regSize, lenA, lenB = pcmpstrLengths bld ctrl regSize ax dx
+    let s =
+      { A = a
+        B = b
+        InA = pcmpstrInside bld ctrl a regSize lenA
+        InB = pcmpstrInside bld ctrl b regSize lenB }
+    let bits = aggregatePcmpstr bld ctrl s |> polarizePcmpstr ctrl s.InB
+    let packed = tmpVar bld (RegType.fromBitWidth bits.Length)
+    direct packed := AST.revConcat bits
+    writePcmpstrBits bld ins ctrl bits packed
+    setPcmpstrFlags bld s bits packed
 #if EMULATION
-/// The lengths an explicit-length compare is handed: rAX and rDX at the width
-/// the REX prefix gives them, sign-extended to a quadword, so that the sign
-/// means to the callee what it means to the instruction.
-let private pcmpstrLengthArgs (ins: Instruction) bld =
-  if REXPrefix.hasW ins.REXPrefix then
-    [ regVar bld R.RAX; regVar bld R.RDX ]
-  else
-    [ AST.sext 64<rt> (regVar bld R.EAX); AST.sext 64<rt> (regVar bld R.EDX) ]
-
-/// Writes what an emulator's answer word says the way the opcode asks: the
-/// index from bits 24 to 28, or a mask from the result bits.
-let private writePcmpstrWord bld (ins: Instruction) ctrl word =
-  let nElem = int ctrl.NumElems
-  match ctrl.Ret with
-  | Mask ->
-    let bits = Array.init nElem (fun i -> AST.extract word 1<rt> i)
-    let packed = AST.xtlo (RegType.fromBitWidth nElem) word
-    writePcmpstrMask bld ins ctrl bits packed
-  | Index ->
-    let outSz, cx = pcmpstrIndexReg ins
-    let idx = AST.extract word 5<rt> 24
-    append bld {
-      sized outSz (regVar bld cx) := AST.zext outSz idx
-    }
-
-/// A string compare as one call, which an emulator answers with a word: the
-/// result bits, one per element, in its low 16 bits, ZF in bit 16, SF in bit
-/// 17, and the index the index forms write in bits 24 to 28. Every output
-/// follows from it. Spelled out in IR the compare came to some nine thousand
-/// nodes, which ran for some 700 ns, and glibc's strcspn, strspn and strpbrk
-/// run it on every 16 bytes.
-let private pcmpstrByCall (ins: Instruction) bld =
-  lift bld ins {
-    let struct (s1, s2, imm) = getThreeOprs ins
-    let ctrl = getPcmpstrInfo ins.Opcode (transOpr ins bld false imm)
-    let struct (aB, aA) = transOpr128 ins bld false s1
-    let struct (bB, bA) = transOpr128 ins bld false s2
-    let control = numU64 (uint64 (getImmValue imm) &&& 0xFFUL) 8<rt>
-    let strings = [ AST.concat aB aA; AST.concat bB bA; control ]
-    let word = tmpVar bld 64<rt>
-    match ctrl.Len with
-    | Implicit ->
-      direct word := AST.app "PCMPISTR" strings 64<rt>
-    | Explicit ->
-      let args = strings @ pcmpstrLengthArgs ins bld
-      direct word := AST.app "PCMPESTR" args 64<rt>
-    writePcmpstrWord bld ins ctrl word
-    direct (regVar bld R.CF) := AST.xtlo 16<rt> word != AST.num0 16<rt>
-    direct (regVar bld R.ZF) := AST.extract word 1<rt> 16
-    direct (regVar bld R.SF) := AST.extract word 1<rt> 17
-    direct (regVar bld R.OF) := AST.xtlo 1<rt> word
-    direct (regVar bld R.AF) := AST.b0
-    direct (regVar bld R.PF) := AST.b0
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
   }
-#endif
 
-/// PCMPESTRI, PCMPESTRM, PCMPISTRI and PCMPISTRM, and their VEX forms. An
-/// emulator answers them with a call; static analysis gets the IR.
-let pcmpstr (ins: Instruction) bld =
-#if EMULATION
-  pcmpstrByCall ins bld
-#else
-  pcmpstrByIR ins bld
-#endif

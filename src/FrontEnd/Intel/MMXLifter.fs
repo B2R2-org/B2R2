@@ -461,34 +461,13 @@ let punpckhdq ins bld =
   buildPackedInstr ins bld false 32<rt> opUnpackHighData
 
 let punpcklbw ins bld =
-#if EMULATION
-  if getOperationSize ins = 128<rt> then
-    packedBinIntrinsic ins bld "PUNPCKLBW"
-  else
-    buildPackedInstr ins bld false 8<rt> opUnpackLowData
-#else
   buildPackedInstr ins bld false 8<rt> opUnpackLowData
-#endif
 
 let punpcklwd ins bld =
-#if EMULATION
-  if getOperationSize ins = 128<rt> then
-    packedBinIntrinsic ins bld "PUNPCKLWD"
-  else
-    buildPackedInstr ins bld false 16<rt> opUnpackLowData
-#else
   buildPackedInstr ins bld false 16<rt> opUnpackLowData
-#endif
 
 let punpckldq ins bld =
-#if EMULATION
-  if getOperationSize ins = 128<rt> then
-    packedBinIntrinsic ins bld "PUNPCKLDQ"
-  else
-    buildPackedInstr ins bld false 32<rt> opUnpackLowData
-#else
   buildPackedInstr ins bld false 32<rt> opUnpackLowData
-#endif
 
 let opP op _ = Array.map2 (op)
 
@@ -575,14 +554,7 @@ let phaddw ins bld = packedHorizon ins bld 16<rt> (opP (.+))
 let phaddsw ins bld = packedHorizon ins bld 16<rt> opPaddsw
 
 let psubb ins bld =
-#if EMULATION
-  if getOperationSize ins = 128<rt> then
-    packedBinIntrinsic ins bld "PSUBB"
-  else
-    buildPackedInstr ins bld false 8<rt> (opP (.-))
-#else
   buildPackedInstr ins bld false 8<rt> (opP (.-))
-#endif
 
 let psubw ins bld =
   buildPackedInstr ins bld false 16<rt> (opP (.-))
@@ -708,14 +680,7 @@ let opPcmp packSz cmpOp =
 let opPcmpeqb _ = opPcmp 8<rt> (==)
 
 let pcmpeqb ins bld =
-#if EMULATION
-  if getOperationSize ins = 128<rt> then
-    packedBinIntrinsic ins bld "PCMPEQB"
-  else
-    buildPackedInstr ins bld false 8<rt> opPcmpeqb
-#else
   buildPackedInstr ins bld false 8<rt> opPcmpeqb
-#endif
 
 let opPcmpeqw _ = opPcmp 16<rt> (==)
 
