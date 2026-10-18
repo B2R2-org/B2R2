@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <ProjectReference
-      Include="..\B2R2.RearEnd.Transformer.fsproj" />
+      Include="..\Transformer\B2R2.RearEnd.Transformer.fsproj" />
   </ItemGroup>
 
 </Project>
