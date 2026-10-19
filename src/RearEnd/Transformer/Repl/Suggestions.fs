@@ -668,16 +668,37 @@ module Suggestions =
         [ "buf=0x70000000..0x70001000:rw"
           "stack=0x70fff000..0x71000000:rw"
           "code=0x401000..0x402000:rx" ]
+    | "buffers" ->
+      valueCandidates
+        SuggestionKind.Argument
+        "allocated buffer"
+        prefix
+        [ "RDI=track:0x400:rw" ]
+    | "sym-args" ->
+      valueCandidates
+        SuggestionKind.Argument
+        "symbolic ABI argument"
+        prefix
+        [ "0=input:16" ]
+    | "args" ->
+      valueCandidates
+        SuggestionKind.Argument
+        "ABI argument"
+        prefix
+        [ "0=0x0" ]
     | _ ->
       []
 
-  let private isContextAction head =
+  let private isExecutionAction head =
     let id = actionID head
-    id = "make-concrete-context" || id = "make-symbolic-context"
+    id = "make-concrete-executor"
+    || id = "make-symbolic-executor"
+    || id = "run-concrete"
+    || id = "run-symbolic"
 
   let private setContextListCandidates state (context: InputContext) =
     match context.SegmentWords with
-    | head :: _ when isContextAction head ->
+    | head :: _ when isExecutionAction head ->
       match innermostOpenBracket context.Segment with
       | None ->
         None
@@ -699,6 +720,12 @@ module Suggestions =
           contextListValueCandidates "sym-mem" context.Prefix |> Some
         | Some "regions" ->
           contextListValueCandidates "regions" context.Prefix |> Some
+        | Some "buffers" ->
+          contextListValueCandidates "buffers" context.Prefix |> Some
+        | Some "sym-args" ->
+          contextListValueCandidates "sym-args" context.Prefix |> Some
+        | Some "args" ->
+          contextListValueCandidates "args" context.Prefix |> Some
         | _ ->
           None
     | _ ->
@@ -921,41 +948,14 @@ module Suggestions =
       let semantic =
         if registered.Metadata.ID = "mem" && name = "addr" then
           requiredMemoryCandidates "" state prefix
-        elif
-          registered.Metadata.ID = "make-concrete-context"
-          && name = "regs"
-        then
+        elif isExecutionAction registered.Metadata.ID && name = "regs" then
           requiredRegisterCandidates "=" state prefix
-        elif
-          registered.Metadata.ID = "make-concrete-context"
-          && name = "mem"
-        then
+        elif isExecutionAction registered.Metadata.ID && name = "mem" then
           requiredMemoryCandidates "=" state prefix
-        elif
-          registered.Metadata.ID = "make-concrete-context"
-          && name = "regions"
-        then
-          contextListValueCandidates "regions" prefix
-        elif
-          registered.Metadata.ID = "make-symbolic-context"
-          && name = "regs"
-        then
-          requiredRegisterCandidates "=" state prefix
-        elif
-          registered.Metadata.ID = "make-symbolic-context"
-          && name = "mem"
-        then
-          requiredMemoryCandidates "=" state prefix
-        elif
-          registered.Metadata.ID = "make-symbolic-context"
-          && name = "sym-mem"
-        then
-          contextListValueCandidates "sym-mem" prefix
-        elif
-          registered.Metadata.ID = "make-symbolic-context"
-          && name = "regions"
-        then
-          contextListValueCandidates "regions" prefix
+        elif isExecutionAction registered.Metadata.ID
+             && List.contains name
+               [ "sym-mem"; "regions"; "buffers"; "sym-args"; "args" ] then
+          contextListValueCandidates name prefix
         else
           arguments
           |> List.collect (fun argument ->
@@ -1212,12 +1212,12 @@ module Suggestions =
       |> Option.defaultValue state
     let inputKindFor head =
       match ActionRegistry.tryFind (actionID head) registry with
+      | _ when hasPipeline ->
+        typeAnalysis.CurrentInput
       | Some registered when
           ActionMetadata.acceptedInputs registered.Metadata
           |> List.contains ReplValueKind.Unit ->
         Some ReplValueKind.Unit
-      | _ when hasPipeline ->
-        typeAnalysis.CurrentInput
       | _ ->
         state.Current |> Option.map (fun value -> value.Kind)
     let completeArguments head completed argumentIndex =
@@ -1384,11 +1384,11 @@ module Suggestions =
     |> Option.map (fun registered ->
       let metadata = registered.Metadata
       let inputKind =
-        if ActionMetadata.acceptedInputs metadata
+        if context.HasPipeline then
+          typeAnalysis.CurrentInput
+        elif ActionMetadata.acceptedInputs metadata
            |> List.contains ReplValueKind.Unit then
           Some ReplValueKind.Unit
-        elif context.HasPipeline then
-          typeAnalysis.CurrentInput
         else
           state.Current |> Option.map (fun value -> value.Kind)
       registered, inputKind, args)
