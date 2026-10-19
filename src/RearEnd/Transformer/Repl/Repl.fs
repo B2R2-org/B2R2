@@ -354,8 +354,6 @@ module TransformerRepl =
 
   let private startCommandEvaluation registry (command: string) model =
     let command = command.Trim()
-    let command =
-      if command.StartsWith(':') then command else ":" + command
     startEvaluation
       TransformerReplEvaluator.evaluateControlCommand
       registry
