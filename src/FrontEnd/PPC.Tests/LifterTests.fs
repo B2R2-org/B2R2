@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.PPC.Tests
 open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.PPC
@@ -311,6 +312,14 @@ type LifterTests() =
     let regs, memory = List.fold step (given, memory) hexes
     let values = Map.ofList regs
     (fun r -> Map.find r values), Map.ofList memory
+
+  /// The side effects one word lifts to on the processor an ISA names, for
+  /// the instructions whose effect is not a value the runner can compute.
+  let effects isa hex =
+    lifted isa hex
+    |> Array.choose (function
+      | SideEffect(Effect = e) -> Some e
+      | _ -> None)
 
   /// <summary>
   /// add rD, rA, rB writes rA + rB at the width of a register: the sum wraps
@@ -24533,6 +24542,58 @@ type LifterTests() =
       let after, memory = exec isa "7ce0312d" given []
       expect 0UL (cr0 after) (nameOf isa)
       expect 0UL (uint64 memory.Count) (nameOf isa)
+
+  /// <summary>
+  /// mfxer reads XER, a 32-bit register here, into the low word of rD and
+  /// zeroes the rest of it; mtxer writes the low word of rS into XER. A
+  /// 32-bit processor keeps no OV32 or CA32, so mtxer drops them there, as
+  /// the 7457 does. Values from qemu-ppc64 -cpu power10 and qemu-ppc -cpu
+  /// 7457 (mfxer r5; mtxer r8).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFXER and MTXER move XER's word``() =
+    for isa in ppc64s do
+      for xer in [ 0xe00c0000UL; 0x40080000UL ] do
+        let after = run isa "7ca102a6" [ R5, 0xbad0bad0bad0badUL; XER, xer ]
+        expect xer (after R5) (nameOf isa)
+      for rs, xer in
+        [ 0xffffffffe00c007fUL, 0xe00c007fUL
+          0x123456789abcdef3UL, 0x9abcdef3UL ] do
+        expect xer (run isa "7d0103a6" [ R8, rs ] XER) (nameOf isa)
+    expect 0xe0000000UL (run ppc32 "7ca102a6" [ XER, 0xe0000000UL ] R5) "32"
+    for rs, xer in [ 0xe00c007fUL, 0xe000007fUL; 0x9abcdef3UL, 0x9ab0def3UL ] do
+      expect xer (run ppc32 "7d0103a6" [ R8, rs ] XER) "ppc32"
+
+  /// <summary>
+  /// mtspr and mfspr of VRSAVE, a 32-bit SPR, move the low word of rS in and
+  /// zero-extend it back out; mfspr of PVR, another, zero-extends what the
+  /// processor reports. Values from QEMU running mtvrsave r8; mfvrsave r5,
+  /// and mfpvr r5 (which reads 0x00801200 on its power10 and 0x80020102 on
+  /// its 7457).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFSPR and MTSPR size a 32-bit SPR to the register``() =
+    (* mtvrsave r8; mfvrsave r5; mfpvr r5 *)
+    let hexes = [ "7d0043a6"; "7ca042a6" ]
+    for isa, rs, saved, pvr in
+      [ ppc32, 0xe00c007fUL, 0xe00c007fUL, 0x80020102UL
+        ppc64, 0xffffffffe00c007fUL, 0xe00c007fUL, 0x801200UL
+        ppc64le, 0x123456789abcdef3UL, 0x9abcdef3UL, 0x801200UL ] do
+      let after, _ = sequence isa hexes [ R5; VRSAVE ] [ R8, rs ] []
+      expect saved (after R5) (nameOf isa)
+      expect pvr (run isa "7cbf42a6" [ PVR, pvr ] R5) (nameOf isa)
+
+  /// <summary>
+  /// PVR is read-only, and mtspr naming it is a privileged instruction (the
+  /// reference board takes a Privileged program interrupt on it): the word
+  /// lifts to that and to no write of PVR.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTSPR of PVR does not write it``() =
+    (* mtspr 287, r8 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let lifted = effects isa "7d1f43a6"
+      CollectionAssert.AreEqual([| UnsupportedInstruction |], lifted)
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added

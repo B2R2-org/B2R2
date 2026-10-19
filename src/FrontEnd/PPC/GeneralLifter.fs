@@ -1016,13 +1016,24 @@ let mflr ins bld =
     dst := lr
   }
 
+/// A special register read into a general one: one narrower than a register
+/// fills the low bits and zeroes the rest, as mfspr does with a 32-bit SPR.
+let private widened (bld: ILowUIRBuilder) spr =
+  if Expr.typeOf spr = bld.RegType then spr else AST.zext bld.RegType spr
+
+/// A general register written into a special one, which takes as many of its
+/// low bits as it is wide, as mtspr does with a 32-bit SPR.
+let private narrowed spr rs =
+  let width = Expr.typeOf spr
+  if Expr.typeOf rs = width then rs else AST.xtlo width rs
+
 let mfspr (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, spr) =
       match ins.Operands with
       | TwoOperands(o1, OprImm o2) -> transOpr bld o1, getSPRReg bld o2
       | _ -> raise InvalidOperandException
-    dst := spr
+    dst := widened bld spr
   }
 
 (* mftb/mftbu read the 64-bit Time Base into rD. There is no real time base to
@@ -1047,7 +1058,7 @@ let mfxer ins bld =
   lift bld ins {
     let dst = transOneOpr ins bld
     let xer = regVar bld Register.XER
-    dst := xer
+    dst := widened bld xer
   }
 
 let mr ins bld =
@@ -1063,14 +1074,19 @@ let mtctr ins bld =
     ctr := src
   }
 
+/// mtspr. PVR (287) cannot be written at all: an mtspr naming it is a
+/// privileged instruction, which no register file here can stand for.
 let mtspr (ins: Instruction) bld =
-  lift bld ins {
-    let struct (spr, rs) =
-      match ins.Operands with
-      | TwoOperands(OprImm o1, o2) -> getSPRReg bld o1, transOpr bld o2
-      | _ -> raise InvalidOperandException
-    spr := rs
-  }
+  match ins.Operands with
+  | TwoOperands(OprImm 287UL, _) ->
+    sideEffects ins bld UnsupportedInstruction
+  | TwoOperands(OprImm o1, o2) ->
+    lift bld ins {
+      let spr = getSPRReg bld o1
+      spr := narrowed spr (transOpr bld o2)
+    }
+  | _ ->
+    raise InvalidOperandException
 
 let private crmMask bld crm =
   let tCrm = Array.init 4 (fun _ -> tmpVar bld 8<rt>)
@@ -1103,11 +1119,15 @@ let mtlr ins bld =
     lr := src
   }
 
-let mtxer ins bld =
+/// mtxer, which writes the low word of rS into XER. A 32-bit processor has
+/// no OV32 or CA32 (bits 19 and 18 here) to write.
+let mtxer ins (bld: ILowUIRBuilder) =
   lift bld ins {
     let src = transOneOpr ins bld
     let xer = regVar bld Register.XER
-    xer := src
+    let word = narrowed xer src
+    if bld.RegType = 64<rt> then xer := word
+    else xer := word .& numU32 0xfff3ffffu 32<rt>
   }
 
 /// The high half of a product of two `width`-bit operands, taken in a double-
