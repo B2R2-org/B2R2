@@ -1544,6 +1544,34 @@ let translate (ins: Instruction) bld =
   | Op.DSCRIQdot ->
     shift ins true "DSCRI" true bld
   (* Lane V: the vector facility, primary opcode 4. *)
+  | Op.VMULEUW ->
+    vecMulEvenOdd ins bld 32<rt> false true
+  | Op.VMULOUW ->
+    vecMulEvenOdd ins bld 32<rt> false false
+  | Op.VMULEUB ->
+    vecMulEvenOdd ins bld 8<rt> false true
+  | Op.VMULOUB ->
+    vecMulEvenOdd ins bld 8<rt> false false
+  | Op.VMULESB ->
+    vecMulEvenOdd ins bld 8<rt> true true
+  | Op.VMULOSB ->
+    vecMulEvenOdd ins bld 8<rt> true false
+  | Op.VMULEUH ->
+    vecMulEvenOdd ins bld 16<rt> false true
+  | Op.VMULOUH ->
+    vecMulEvenOdd ins bld 16<rt> false false
+  | Op.VMULESH ->
+    vecMulEvenOdd ins bld 16<rt> true true
+  | Op.VMULOSH ->
+    vecMulEvenOdd ins bld 16<rt> true false
+  | Op.VMULEUD ->
+    vecMulEvenOdd ins bld 64<rt> false true
+  | Op.VMULOUD ->
+    vecMulEvenOdd ins bld 64<rt> false false
+  | Op.VMULESD ->
+    vecMulEvenOdd ins bld 64<rt> true true
+  | Op.VMULOSD ->
+    vecMulEvenOdd ins bld 64<rt> true false
   | Op.VPKUDUM ->
     vecPackElements ins bld 64<rt> false Modulo
   | Op.VPKSDSS ->

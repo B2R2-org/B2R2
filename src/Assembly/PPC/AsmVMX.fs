@@ -63,7 +63,26 @@ let private packAndSumEncoders () =
     Op.VMSUMSHM, va 40u
     Op.VMSUMSHS, va 41u ]
 
+/// The even and odd multiplies, whose products are twice as wide as the
+/// elements multiplied.
+let private multiplyEncoders () =
+  [ Op.VMULEUB, vx 520u
+    Op.VMULOUB, vx 8u
+    Op.VMULESB, vx 776u
+    Op.VMULOSB, vx 264u
+    Op.VMULEUH, vx 584u
+    Op.VMULOUH, vx 72u
+    Op.VMULESH, vx 840u
+    Op.VMULOSH, vx 328u
+    Op.VMULEUW, vx 648u
+    Op.VMULOUW, vx 136u
+    Op.VMULEUD, vx 712u
+    Op.VMULOUD, vx 200u
+    Op.VMULESD, vx 968u
+    Op.VMULOSD, vx 456u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
-    [ packAndSumEncoders () ]
+    [ packAndSumEncoders ()
+      multiplyEncoders () ]
