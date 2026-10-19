@@ -186,7 +186,7 @@ let private invalidBits = [ 24; 23; 22; 21; 20; 19; 10; 9; 8 ]
 /// Recomputes FEX and VX, which are never set or cleared but follow the bits
 /// they summarize: VX is the OR of the invalid-operation causes, and FEX the
 /// OR of every exception bit ANDed with its enable (VX with VE).
-let private updateSummaries bld =
+let updateSummaries bld =
   let fpscr = regVar bld Register.FPSCR
   let bit pos = AST.extract fpscr 1<rt> pos
   let vx = tmpVar bld 1<rt>

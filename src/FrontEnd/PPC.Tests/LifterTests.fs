@@ -384,6 +384,28 @@ type FloatLifterTests() =
         expect (after &&& ~~~fr) (out FPSCR &&& ~~~fr) case
 
   /// <summary>
+  /// Runs a DFP word with its named calls answered from the given table
+  /// (name to value), which stands in for BRemu's decimal arithmetic: the
+  /// run shows which calls the lifter made with which arguments, and where
+  /// their answers went. Gives the registers after the run and the calls
+  /// made, each as its name and its arguments' values.
+  /// </summary>
+  let runDFP isa hex given (answers: (string * BitVector) list) =
+    let answer name _ = List.tryFind (fst >> (=) name) answers |> Option.map snd
+    let stmts = lifted isa hex
+    let o = IRRunner.execAnswering answer stmts (inputsOf isa given) []
+    let valuesOf (args: BitVector list) =
+      args |> List.map (fun a -> a.ToBigInt())
+    let calls = o.Calls |> List.map (fun (n, args) -> n, valuesOf args)
+    (fun r -> (o.Read(var isa r)).ToUInt64()), calls
+
+  /// A 128-bit value, its high doubleword first.
+  let wide (hi: uint64) (lo: uint64) = (bigint hi <<< 64) + bigint lo
+
+  /// An answer of a named call.
+  let answerOf (v: bigint) (t: RegType) = BitVector(v, t)
+
+  /// <summary>
   /// fcpsgn. frD, frA, frB writes frB with the sign of frA and records
   /// FPSCR[FX, FEX, VX, OX] in CR1.
   /// </summary>
@@ -820,3 +842,198 @@ type FloatLifterTests() =
       let after = run isa "fc221824" given
       expect 0x4045000000000000UL (after F1) (nameOf isa)
       expect 0xc4000010UL (after FPSCR) (nameOf isa)
+
+  /// <summary>
+  /// dadd frT, frA, frB asks DFPEXC (code 1) for its status and DADD for its
+  /// result, both with frA, frB and the control byte: FPSCR[DRN] (5 here) in
+  /// bits 2:0 under the enables. The result goes to frT; the status's
+  /// exception bits are OR-ed into the FPSCR with FX, its FPRF, FR and FI
+  /// replace the FPSCR's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DADD calls DADD and DFPEXC with DRN``() =
+    let a, b = 0x2238000000000001UL, 0x2238000000000002UL
+    let answers =
+      [ "DFPEXC", answerOf (bigint 0x02024000UL) 32<rt>
+        "DADD", answerOf (bigint 0x2238000000000003UL) 64<rt> ]
+    (* dadd f1, f2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let given = [ F2, a; F3, b; FPSCR, 0x3UL; FPSCRH, 5UL ]
+      let after, calls = runDFP isa "ec221804" given answers
+      let expected =
+        [ "DFPEXC", [ 1I; bigint a; bigint b; 5I ]
+          "DADD", [ bigint a; bigint b; 5I ] ]
+      Assert.AreEqual<(string * bigint list) list>(expected, calls)
+      expect 0x2238000000000003UL (after F1) (nameOf isa)
+      expect 0x82024003UL (after FPSCR) (nameOf isa)
+
+  /// <summary>
+  /// daddq frTp, frAp, frBp passes each pair as one 128-bit value, the even
+  /// register over the odd one, and writes the 128-bit result the same way.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DADDQ passes and writes register pairs``() =
+    let answers =
+      [ "DFPEXC", answerOf (bigint 0x4000UL) 32<rt>
+        "DADDQ", answerOf (wide 0x2208000000000000UL 7UL) 128<rt> ]
+    (* daddq f2, f4, f6 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let given = [ F4, 1UL; F5, 2UL; F6, 3UL; F7, 4UL; FPSCR, 0x80UL ]
+      let after, calls = runDFP isa "fc443004" given answers
+      let expected =
+        [ "DFPEXC", [ 2I; wide 1UL 2UL; wide 3UL 4UL; (bigint 0x80UL) ]
+          "DADDQ", [ wide 1UL 2UL; wide 3UL 4UL; (bigint 0x80UL) ] ]
+      Assert.AreEqual<(string * bigint list) list>(expected, calls)
+      expect 0x2208000000000000UL (after F2) (nameOf isa)
+      expect 7UL (after F3) (nameOf isa)
+      expect 0x4080UL (after FPSCR) (nameOf isa)
+
+  /// <summary>
+  /// With VE set, an invalid operation the status reports (VXIDI) leaves frT
+  /// and FPRF as they were; VX, FX and FEX follow.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DDIV keeps the target on an enabled invalid``() =
+    let answers =
+      [ "DFPEXC", answerOf (bigint 0x00411000UL) 32<rt>
+        "DDIV", answerOf (bigint 0x7c00000000000000UL) 64<rt> ]
+    (* ddiv f1, f2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let given = [ F1, 0x1234UL; FPSCR, 0x80UL ]
+      let after, _ = runDFP isa "ec221c44" given answers
+      expect 0x1234UL (after F1) (nameOf isa)
+      expect 0xe0400080UL (after FPSCR) (nameOf isa)
+
+  /// <summary>
+  /// dcmpu BF, frA, frB asks DFPEXC (code 9) alone: bits 15:12 of the status
+  /// go into CR field BF and FPSCR[FPCC], leaving C as it was.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCMPU writes the status's FPCC into the CR field``() =
+    let answers = [ "DFPEXC", answerOf (bigint 0x8000UL) 32<rt> ]
+    (* dcmpu cr2, f2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let given = [ F2, 6UL; F3, 7UL; FPSCR, 0x1f000UL; CR2_3, 1UL ]
+      let after, calls = runDFP isa "ed021d04" given answers
+      let expected = [ "DFPEXC", [ 9I; 6I; 7I; 0I ] ]
+      Assert.AreEqual<(string * bigint list) list>(expected, calls)
+      expect 0x8UL (field after cr2) (nameOf isa)
+      expect 0x18000UL (after FPSCR) (nameOf isa)
+
+  /// <summary>
+  /// The rounding mode in the control byte: drintx with R = 1 reads RMC in
+  /// the secondary encoding (RMC 2 is away from zero, 6), drintn with R = 0
+  /// in the primary one (RMC 1 is toward zero, 1), and dqua's RMC 3 defers
+  /// to DRN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DRINTX DRINTN DQUA take the mode RMC names``() =
+    let answers =
+      [ "DFPEXC", answerOf 0I 32<rt>
+        "DRINTX", answerOf 1I 64<rt>
+        "DRINTN", answerOf 1I 64<rt>
+        "DQUA", answerOf 1I 64<rt> ]
+    (* drintx 1, f1, f3, 2; drintn 0, f1, f3, 1; dqua f1, f2, f3, 3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, call, code, ctl in
+        [ "ec211cc6", "DRINTX", 29I, 6I
+          "ec201bc6", "DRINTN", 31I, 1I
+          "ec221e06", "DQUA", 25I, 4I ] do
+        let given = [ F2, 2UL; F3, 3UL; FPSCRH, 4UL ]
+        let _, calls = runDFP isa hex given answers
+        let args = if call = "DQUA" then [ 2I; 3I; ctl ] else [ 3I; ctl ]
+        let expected = [ "DFPEXC", code :: args; call, args ]
+        Assert.AreEqual<(string * bigint list) list>(expected, calls, hex)
+
+  /// <summary>
+  /// dquai TE, frT, frB, RMC passes TE as a byte, sign and all: 3, and -16
+  /// as 0xf0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DQUAI passes TE as a signed byte``() =
+    let answers =
+      [ "DFPEXC", answerOf 0I 32<rt>; "DQUAI", answerOf 1I 64<rt> ]
+    (* dquai 3, f1, f3, 1; dquai -16, f1, f3, 1 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, te in [ "ec231a86", 3I; "ec301a86", (bigint 0xf0UL) ] do
+        let _, calls = runDFP isa hex [ F3, 9UL ] answers
+        let expected =
+          [ "DFPEXC", [ 23I; te; 9I; 1I ]
+            "DQUAI", [ te; 9I; 1I ] ]
+        Assert.AreEqual<(string * bigint list) list>(expected, calls, hex)
+
+  /// <summary>
+  /// The conversions read and write what their forms name: dctdp the DFP
+  /// Short in frB's low word, dcffixqq a VR into a pair, dctfixqq a pair into
+  /// a VR -- whose FPRF is undefined and so is not taken from the status.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DFP conversions read and write their forms``() =
+    let answers =
+      [ "DFPEXC", answerOf (bigint 0x0203f000UL) 32<rt>
+        "DCTDP", answerOf 5I 64<rt>
+        "DCFFIXQQ", answerOf (wide 8UL 9UL) 128<rt>
+        "DCTFIXQQ", answerOf (wide 10UL 11UL) 128<rt> ]
+    (* dctdp f1, f3; dcffixqq f2, v3; dctfixqq v1, f6 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let given =
+        [ F3, 0x1122334455667788UL; V3A, 1UL; V3B, 2UL; F6, 3UL; F7, 4UL ]
+      let after, calls = runDFP isa "ec201a04" given answers
+      let short = bigint 0x55667788UL
+      let expected = [ "DFPEXC", [ 33I; short; 0I ]; "DCTDP", [ short; 0I ] ]
+      Assert.AreEqual<(string * bigint list) list>(expected, calls)
+      expect 5UL (after F1) (nameOf isa)
+      let after, calls = runDFP isa "fc401fc4" given answers
+      let vector = wide 1UL 2UL
+      let expected =
+        [ "DFPEXC", [ 39I; vector; 0I ]; "DCFFIXQQ", [ vector; 0I ] ]
+      Assert.AreEqual<(string * bigint list) list>(expected, calls)
+      expect 8UL (after F2) (nameOf isa)
+      expect 9UL (after F3) (nameOf isa)
+      let after, _ = runDFP isa "fc2137c4" given answers
+      expect 10UL (after V1A) (nameOf isa)
+      expect 11UL (after V1B) (nameOf isa)
+      expect 0x82020000UL (after FPSCR) (nameOf isa)
+
+  /// <summary>
+  /// The format instructions alter no FPSCR bit and round nothing: dxex,
+  /// ddedpd and dscli make only their result call, without the control byte;
+  /// dxex. records CR1 from the FPSCR as it was.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DXEX DDEDPD DSCLI make only their result call``() =
+    let answers =
+      [ "DXEX", answerOf 398I 64<rt>
+        "DDEDPD", answerOf (bigint 0x123UL) 64<rt>
+        "DSCLI", answerOf (bigint 0x40UL) 64<rt> ]
+    (* dxex. f1, f3; ddedpd 0, f1, f3; dscli f1, f2, 5 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, call, args, result in
+        [ "ec201ac5", "DXEX", [ 3I ], 398UL
+          "ec201a84", "DDEDPD", [ 0I; 3I ], 0x123UL
+          "ec221484", "DSCLI", [ 2I; 5I ], 0x40UL ] do
+        let given = [ F2, 2UL; F3, 3UL; FPSCR, 0xa0000000UL ]
+        let after, calls = runDFP isa hex given answers
+        Assert.AreEqual<(string * bigint list) list>([ call, args ], calls, hex)
+        expect result (after F1) hex
+        expect 0xa0000000UL (after FPSCR) hex
+      let after, _ = runDFP isa "ec201ac5" [ FPSCR, 0xa0000000UL ] answers
+      expect 0xaUL (field after cr1) (nameOf isa)
+
+  /// <summary>
+  /// The tests pass what they test against: dtstsfi its UIM as a byte,
+  /// dtstsf the significance in frA as it is, dtstdc its DCM as a byte.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DTSTSFI DTSTSF DTSTDC pass their operands``() =
+    let answers = [ "DFPEXC", answerOf (bigint 0x2000UL) 32<rt> ]
+    (* dtstsfi cr2, 1, f3; dtstsf cr2, f2, f3; dtstdc cr2, f2, 1 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, args in
+        [ "ed011d46", [ 21I; 1I; 3I; 0I ]
+          "ed021d44", [ 19I; 2I; 3I; 0I ]
+          "ed020584", [ 13I; 2I; 1I; 0I ] ] do
+        let after, calls = runDFP isa hex [ F2, 2UL; F3, 3UL ] answers
+        let expected = [ "DFPEXC", args ]
+        Assert.AreEqual<(string * bigint list) list>(expected, calls, hex)
+        expect 0x2UL (field after cr2) hex
