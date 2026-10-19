@@ -783,3 +783,228 @@ let frsp ins updateCond bld =
     Invalid = fun _ _ -> []
     Negate = false }
   |> fun a -> fpArith ins updateCond false a bld
+
+/// A conversion in a direction the instruction names, or in the one
+/// FPSCR[RN] names where it names none.
+let private inDirection mode e =
+  match mode with
+  | Some m -> AST.roundCtrl (AST.roundingMode m) e
+  | None -> e
+
+/// <summary>
+/// fcfid, fcfidu, fcfids and fcfidus: the integer in frB converted to a
+/// double, or rounded ONCE straight to a single by the "s" forms -- not to a
+/// double and then again to a single. FI (and XX with it) says the
+/// conversion lost anything, which is where rounding it up and down differ;
+/// FR that it moved the result away from zero; FPRF is the result's class.
+/// </summary>
+let fcfid ins updateCond bld signed single =
+  lift bld ins {
+    let struct (frd, frb) = transTwoOprs ins bld
+    let kind = if signed then CastKind.SIntToFloat else CastKind.UIntToFloat
+    let width = if single then 32<rt> else 64<rt>
+    let convert mode =
+      let c = inDirection mode (AST.cast kind width frb)
+      if single then AST.cast CastKind.FloatCast 64<rt> c else c
+    let struct (r, up, down, toZero) = tmpVars4 bld 64<rt>
+    r := convert None
+    up := convert (Some RoundingMode.TowardPositive)
+    down := convert (Some RoundingMode.TowardNegative)
+    toZero := convert (Some RoundingMode.TowardZero)
+    let fi = up != down
+    frd := r
+    { Result = r
+      Raised = bitsOf [ 25, fi ]
+      FR = fi .& (r != toZero)
+      FI = fi
+      Suppressed = AST.b0 }
+    |> fun o -> recordStatus bld o (fprfOf single r)
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// The doubles bounding what a conversion to an integer can hold: the
+/// least value it holds and the least it does not.
+let private intRange width signed =
+  let dbl (v: float) = numU64 (System.BitConverter.DoubleToUInt64Bits v) 64<rt>
+  let span = 2.0 ** float (int width)
+  if signed then struct (dbl (-span / 2.0), dbl (span / 2.0))
+  else struct (dbl 0.0, dbl span)
+
+/// <summary>
+/// What a conversion to an integer records (Section 4.4.1, 4.3.6): VXSNAN
+/// for an SNaN, VXCVI for a NaN, an infinity or a value whose integer the
+/// width cannot hold, and otherwise FI where frB had a fraction to lose and
+/// FR where the integer is farther from zero than frB. FPRF is undefined
+/// and left as it was. An invalid conversion clears FR and FI; with VE set
+/// it leaves frD as it was, which the caller is given back to keep.
+/// </summary>
+let private convertStatus bld frd old frb rounded width signed =
+  let struct (low, past) = intRange width signed
+  let struct (invalid, inexact) = tmpVars2 bld 1<rt>
+  let ve = AST.extract (regVar bld Register.FPSCR) 1<rt> 7
+  append bld {
+    invalid :=
+      IEEE754Double.isNaN frb .| AST.flt rounded low .| AST.fge rounded past
+    inexact := AST.not invalid .& (rounded != frb)
+    frd := AST.ite (ve .& invalid) old frd
+  }
+  { Result = frd
+    Raised = bitsOf [ 25, inexact; 24, isSNaN frb; 8, invalid ]
+    FR = inexact .& AST.fgt (absOf rounded) (absOf frb)
+    FI = inexact
+    Suppressed = AST.b1 }
+  |> fun o -> recordStatus bld o (AST.num0 32<rt>)
+
+/// Clamps a word conversion: NaN and anything below the most negative word
+/// give 0x80000000, anything above the largest word gives 0x7fffffff.
+let private saturateWord bld frd frb =
+  append bld {
+    let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
+    let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
+    let intMax = numU64 0x7fffffffUL 64<rt>
+    let intMin = numU64 0x80000000UL 64<rt>
+    frd := AST.ite (IEEE754Double.isNaN frb) intMin frd
+    frd := AST.ite (AST.fle frb intMinInFloat) intMin frd
+    frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd
+  }
+
+/// fctiw and fctiwz: frB converted to a signed word, rounded in the
+/// direction FPSCR[RN] names or toward zero.
+let private fctiwIn ins updateCond bld mode =
+  lift bld ins {
+    let struct (frd, frb) = transTwoOprs ins bld
+    let struct (src, old) = tmpVars2 bld 64<rt>
+    let rounded = tmpVar bld 64<rt>
+    src := frb
+    old := frd
+    rounded := inDirection mode (AST.cast CastKind.RoundToIntegral 64<rt> src)
+    frd := inDirection mode (AST.cast CastKind.FloatToSInt 64<rt> src)
+    saturateWord bld frd src
+    convertStatus bld frd old src rounded 32<rt> true
+    if updateCond then setCR1Reg bld else ()
+  }
+
+let fctiw ins updateCond bld = fctiwIn ins updateCond bld None
+
+let fctiwz ins updateCond bld =
+  fctiwIn ins updateCond bld (Some RoundingMode.TowardZero)
+
+/// A double at or above 2^63 converted to an unsigned doubleword, by way of
+/// the signed conversion of it less 2^63.
+let private toUInt64 bld dst src mode =
+  let big = tmpVar bld 1<rt>
+  let adjusted = tmpVar bld 64<rt>
+  let half = numU64 0x43e0000000000000UL 64<rt>
+  append bld {
+    big := AST.fge src half
+    adjusted := AST.ite big (AST.fsub src half) src
+    dst := inDirection mode (AST.cast CastKind.FloatToSInt 64<rt> adjusted)
+    dst := AST.ite big (dst .+ numU64 0x8000000000000000UL 64<rt>) dst
+  }
+
+/// Clamps a conversion to `width` bits: a signed one gives the most negative
+/// integer for NaN and anything below range and the largest for anything
+/// above; an unsigned one gives zero for NaN and for a value whose rounded
+/// integer is negative (a source in (-1, 0) rounds to -1 under
+/// round-toward-minus-infinity) and all ones above the range.
+let private saturateInt bld frd src rounded width signed =
+  let bits = int width
+  let dbl (v: float) = numU64 (System.BitConverter.DoubleToUInt64Bits v) 64<rt>
+  let all = if bits = 64 then System.UInt64.MaxValue else (1UL <<< bits) - 1UL
+  let ones = numU64 all 64<rt>
+  append bld {
+    if signed then
+      let top = numU64 ((1UL <<< (bits - 1)) - 1UL) 64<rt>
+      let bottom = numU64 (1UL <<< (bits - 1)) 64<rt>
+      frd := AST.ite (AST.fge src (dbl (2.0 ** float (bits - 1)))) top frd
+      frd := AST.ite (AST.fle src (dbl (-(2.0 ** float (bits - 1))))) bottom frd
+      frd := AST.ite (IEEE754Double.isNaN src) bottom frd
+    else
+      let negative = AST.flt src (dbl 0.0) .& (rounded ?< AST.num0 64<rt>)
+      frd := AST.ite (AST.fge src (dbl (2.0 ** float bits))) ones frd
+      frd := AST.ite negative (AST.num0 64<rt>) frd
+      frd := AST.ite (IEEE754Double.isNaN src) (AST.num0 64<rt>) frd
+  }
+
+/// fctid/fctidz/fctidu/fctiduz and fctiwu/fctiwuz: a conversion from a double
+/// to an integer of `width` bits, left in the target's low bits. A "z" form
+/// always truncates; the others follow FPSCR[RN].
+let fcti ins updateCond bld width signed truncate =
+  lift bld ins {
+    let struct (frd, frb) = transTwoOprs ins bld
+    let struct (src, old, converted, rounded) = tmpVars4 bld 64<rt>
+    let mode = if truncate then Some RoundingMode.TowardZero else None
+    src := frb
+    old := frd
+    rounded := inDirection mode (AST.cast CastKind.RoundToIntegral 64<rt> src)
+    if not signed && width = 64<rt> then
+      toUInt64 bld converted src mode
+    else
+      converted := inDirection mode (AST.cast CastKind.FloatToSInt 64<rt> src)
+    frd := AST.zext 64<rt> (AST.xtlo width converted)
+    saturateInt bld frd src converted width signed
+    convertStatus bld frd old src rounded width signed
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// <summary>
+/// frin/friz/frip/frim, which round a double to an integral value in place:
+/// to nearest with a tie going AWAY from zero -- not the even one IEEE
+/// rounds to -- and then toward zero, up, and down. They set FR and FI to 0
+/// and FPRF to the result's class; an SNaN raises VXSNAN and becomes its
+/// QNaN, and with VE set leaves frD and FPRF as they were.
+/// </summary>
+let frnd ins updateCond bld mode =
+  lift bld ins {
+    let struct (frd, frb) = transTwoOprs ins bld
+    let r = tmpVar bld 64<rt>
+    let snan = tmpVar bld 1<rt>
+    let ve = AST.extract (regVar bld Register.FPSCR) 1<rt> 7
+    let quieted = frb .| FPConst.quiet
+    let integral = AST.roundToIntegral mode 64<rt> frb
+    snan := isSNaN frb
+    r := AST.ite (IEEE754Double.isNaN frb) quieted integral
+    frd := AST.ite (ve .& snan) frd r
+    { Result = r
+      Raised = bitsOf [ 24, snan ]
+      FR = AST.b0
+      FI = AST.b0
+      Suppressed = ve .& snan }
+    |> fun o -> recordStatus bld o (fprfOf false r)
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// <summary>
+/// fcmpu and fcmpo: CR field BF and FPSCR[FPCC] from the comparison, FL, FG,
+/// FE or FU. An SNaN raises VXSNAN; fcmpo also raises VXVC for any NaN, but
+/// for an SNaN only with VE clear. FX is set where either turned on, and VX
+/// and FEX follow.
+/// </summary>
+let fcmp ins bld isOrdered =
+  lift bld ins {
+    let struct ((crf0, crf1, crf2, crf3), fra, frb) = transCmpOprs ins bld
+    let fpscr = regVar bld Register.FPSCR
+    let struct (lt, gt, eq, un) = tmpVars4 bld 1<rt>
+    let old = tmpVar bld 32<rt>
+    let ve = AST.extract fpscr 1<rt> 7
+    let snan = isSNaN fra .| isSNaN frb
+    let vxvc = if isOrdered then AST.ite snan (AST.not ve) un else AST.b0
+    let raised = bitsOf [ 24, snan; 19, vxvc ]
+    let fpcc = bitsOf [ 15, lt; 14, gt; 13, eq; 12, un ]
+    old := fpscr
+    un := IEEE754Double.isNaN fra .| IEEE754Double.isNaN frb
+    lt := AST.flt fra frb
+    gt := AST.fgt fra frb
+    eq := AST.not (lt .| gt .| un)
+    crf0 := lt
+    crf1 := gt
+    crf2 := eq
+    crf3 := un
+    fpscr := ((old .| raised) .& numU32 0xffff0fffu 32<rt>) .| fpcc
+    setFX bld ((raised .& AST.not old) != AST.num0 32<rt>)
+    updateSummaries bld
+  }
+
+let fcmpo ins bld = fcmp ins bld true
+
+let fcmpu ins bld = fcmp ins bld false

@@ -1037,3 +1037,93 @@ type FloatLifterTests() =
         let expected = [ "DFPEXC", args ]
         Assert.AreEqual<(string * bigint list) list>(expected, calls, hex)
         expect 0x2UL (field after cr2) hex
+
+  /// <summary>
+  /// fcfids converts the doubleword integer in frB straight to a single,
+  /// rounding once, sets FI and XX where that lost anything, and FPRF to the
+  /// result's class, which QEMU leaves as it was. 2^62 + 2^38 + 1 rounds to
+  /// nearest up past the tie a double would have left at 2^62 + 2^38.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FCFIDS rounds once and sets FPRF``() =
+    (* fcfids f1, f3 *)
+    let tie = 0x4000004000000001UL
+    checkFP "ec201e9c" F1 [ F3 ]
+      [ [ oneHalf ], 0UL, 0x43cffc0000000000UL, 0x4000UL
+        [ one ], 1UL, 0x43cff80000000000UL, 0x4001UL
+        [ 0UL ], 2UL, 0UL, 0x2002UL
+        [ 1UL ], 0x7f001UL, one, 0x4001UL
+        [ maxDouble ], 0x20000702UL, 0x43dffc0000000000UL, 0xa2024702UL
+        [ tie ], 0UL, 0x43d0000020000000UL, 0x82024000UL ]
+
+  /// <summary>
+  /// fctiw, fctiwz and fctidu: the integer, saturated where frB has none the
+  /// width holds (VXCVI, and VXSNAN as well for an SNaN), FI and XX where a
+  /// fraction was lost, FR where the integer is the farther from zero. FPRF
+  /// is undefined (QEMU sets it to the QNaN class on VXCVI) and is not
+  /// compared. FX is set only where an exception bit turns on, so a VXCVI
+  /// already set leaves it (QEMU sets FX on every exception).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FCTIW FCTIWZ FCTIDU set the FPSCR``() =
+    (* fctiw f1, f3; fctiwz f1, f3; fctidu f1, f3 *)
+    let ignore = fr ||| 0x1f000UL
+    let check hex cases =
+      for isa in [ ppc32; ppc64; ppc64le ] do
+        for b, fpscr, result, after in cases do
+          let out = run isa hex [ F3, b; FPSCR, fpscr ]
+          let case = $"{hex} {b:x} {fpscr:x} {nameOf isa}"
+          expect result (out F1 &&& 0xffffffffUL) case
+          expect (after &&& ~~~ignore) (out FPSCR &&& ~~~ignore) case
+    check "fc20181c"
+      [ oneHalf, 0UL, 2UL, 0x82020000UL
+        one, 1UL, 1UL, 1UL
+        infinity, 3UL, 0x7fffffffUL, 0xa0011103UL
+        qnan, 0xbff80000UL, 0x80000000UL, 0xbff91100UL
+        1UL, 0x7f001UL, 0UL, 0x8207f001UL
+        maxDouble, 0x20000702UL, 0x7fffffffUL, 0x20000702UL ]
+    check "fc20181e" [ oneHalf, 0UL, 1UL, 0x82020000UL ]
+    check "fc201f5c"
+      [ oneHalf, 0UL, 2UL, 0x82020000UL
+        qnan, 0xbff80000UL, 0UL, 0xbff91100UL ]
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let out = run isa "fc20181c" [ F3, oneHalf ]
+      expect fr (out FPSCR &&& fr) (nameOf isa)
+
+  /// <summary>
+  /// frin rounds to the nearest integral value, a tie away from zero, and
+  /// sets FR and FI to 0 and FPRF to the result's class.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FRIN sets FPRF and clears FR and FI``() =
+    (* frin f1, f3 *)
+    checkFP "fc201b10" F1 [ F3 ]
+      [ [ oneHalf ], 0UL, 0x4000000000000000UL, 0x4000UL
+        [ 0UL ], 2UL, 0UL, 0x2002UL
+        [ infinity ], 3UL, infinity, 0x5003UL
+        [ qnan ], 0xbff80000UL, qnan, 0xbff91000UL
+        [ 1UL ], 0x7f001UL, 0UL, 0x2001UL
+        [ maxDouble ], 0x20000702UL, maxDouble, 0x20004702UL ]
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let out = run isa "fc201b10" [ F3, 1UL; FPSCR, 0x7f001UL ]
+      expect 0x2001UL (out FPSCR) (nameOf isa)
+
+  /// <summary>
+  /// fcmpo BF, frA, frB sets CR field BF and FPSCR[FPCC] to FL, FG, FE or
+  /// FU, leaving C as it was (QEMU sets C on an unordered compare); a NaN
+  /// raises VXVC, which sets FX where it turns on, and VX.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FCMPO records the comparison and VXVC``() =
+    (* fcmpo cr2, f2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for a, b, fpscr, crField, after in
+        [ oneHalf, 0x4002000000000000UL, 0UL, 0x8UL, 0x8000UL
+          one, tenth, 1UL, 0x4UL, 0x4001UL
+          0UL, minusZero, 2UL, 0x2UL, 0x2002UL
+          qnan, one, 0xbff80000UL, 0x1UL, 0xbff81000UL
+          qnan, one, 0UL, 0x1UL, 0xa0081000UL ] do
+        let out = run isa "fd021840" [ F2, a; F3, b; FPSCR, fpscr ]
+        let case = $"{a:x} {b:x} {fpscr:x} {nameOf isa}"
+        expect crField (field out cr2) case
+        expect after (out FPSCR) case

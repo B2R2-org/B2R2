@@ -289,15 +289,6 @@ let floatingNeg bld dst src rt =
     dst := tmp
   }
 
-/// <summary>
-/// A double converted to the integer it stands for, rounded in whichever
-/// direction FPSCR[RN] names. That is what a bare conversion is: an expression
-/// no <c>RoundCtrl</c> encloses rounds by the target's own control register, so
-/// the four directions the field can name need neither be spelled out nor
-/// branched between.
-/// </summary>
-let roundingToCastInt frb = AST.cast CastKind.FloatToSInt 64<rt> frb
-
 let setCR0Reg (bld: ILowUIRBuilder) result =
   append bld {
     let zero = AST.num0 bld.RegType
