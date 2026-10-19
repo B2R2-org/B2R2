@@ -815,6 +815,9 @@ type Opcode =
   | FTSQRT = 4100
   | LFDP = 4101
   | LFDPX = 4102
+  | MFFSCDRN = 4103
+  | MFFSCDRNI = 4104
+  | MFFSCE = 4105
   | STFDP = 4106
   | STFDPX = 4107
 

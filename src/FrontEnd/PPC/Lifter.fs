@@ -425,9 +425,9 @@ let translate (ins: Instruction) bld =
   | Op.MFCTR ->
     mfctr ins bld
   | Op.MFFS ->
-    mffs ins false bld
+    FPLifter.mffs ins false bld
   | Op.MFFSdot ->
-    mffs ins true bld
+    FPLifter.mffs ins true bld
   | Op.MFLR ->
     mflr ins bld
   | Op.MFXER ->
@@ -439,23 +439,23 @@ let translate (ins: Instruction) bld =
   | Op.MTCRF ->
     mtcrf ins bld
   | Op.MTFSFI ->
-    mtfsfi ins false bld
+    FPLifter.mtfsfi ins false bld
   | Op.MTFSFIdot ->
-    mtfsfi ins true bld
+    FPLifter.mtfsfi ins true bld
   | Op.MTSPR ->
     mtspr ins bld
   | Op.MTFSB0 ->
-    mtfsb0 ins false bld
+    mtfsb ins false false bld
   | Op.MTFSB0dot ->
-    mtfsb0 ins true bld
+    mtfsb ins false true bld
   | Op.MTFSB1 ->
-    mtfsb1 ins false bld
+    mtfsb ins true false bld
   | Op.MTFSB1dot ->
-    mtfsb1 ins true bld
+    mtfsb ins true true bld
   | Op.MTFSF ->
-    mtfsf ins false bld
+    FPLifter.mtfsf ins false bld
   | Op.MTFSFdot ->
-    mtfsf ins true bld
+    FPLifter.mtfsf ins true bld
   | Op.MTLR ->
     mtlr ins bld
   | Op.MTXER ->
@@ -820,7 +820,7 @@ let translate (ins: Instruction) bld =
   | Op.MTOCRF ->
     mtcrf ins bld
   | Op.MFOCRF ->
-    mfcr ins bld
+    mfocrf ins bld
   | Op.MFVSRD ->
     mfvsr ins bld 64<rt>
   | Op.MFVSRWZ ->
@@ -969,11 +969,11 @@ let translate (ins: Instruction) bld =
   | Op.FCPSGN ->
     fcpsgn ins bld
   | Op.MFFSL ->
-    mffs ins false bld
+    mffsl ins bld
   | Op.MFFSCRN ->
-    mffscrnReg ins bld
+    mffscrn ins bld
   | Op.MFFSCRNI ->
-    mffscrnImm ins bld
+    mffscrn ins bld
   | Op.XSADDDP ->
     vsxScalarBinary ins bld AST.fadd true
   | Op.XVADDDP ->
@@ -1351,6 +1351,12 @@ let translate (ins: Instruction) bld =
     stfdp ins bld
   | Op.STFDPX ->
     stfdpx ins bld
+  | Op.MFFSCE ->
+    mffsce ins bld
+  | Op.MFFSCDRN ->
+    mffscdrn ins bld
+  | Op.MFFSCDRNI ->
+    mffscdrni ins bld
   | o ->
 #if DEBUG
          eprintfn "%A" o

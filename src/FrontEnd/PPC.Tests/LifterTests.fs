@@ -493,3 +493,135 @@ type FloatLifterTests() =
           "ec201834", infinity, 0UL ] do
         let after = run isa hex [ F3, b ]
         expect result (after F1) $"{hex} {b:x} {nameOf isa}"
+
+  /// <summary>
+  /// mffs frD reads the whole 64-bit FPSCR: DRN, in the high word, with the
+  /// low word below it.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFFS reads both words of the FPSCR``() =
+    (* mffs f1 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let after = run isa "fc20048e" [ FPSCRH, 5UL; FPSCR, 0x82024003UL ]
+      expect 0x582024003UL (after F1) (nameOf isa)
+
+  /// <summary>
+  /// mffsce frD reads the whole FPSCR and then clears VE, OE, UE, ZE and XE,
+  /// and FEX with them.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFFSCE reads the FPSCR and clears the enables``() =
+    (* mffsce f1 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for fpscr, result in
+        [ 0x82024003UL, 0x82024003UL
+          0x7f001UL, 0x7f001UL
+          0xc20000f9UL, 0x82000001UL ] do
+        let after = run isa "fc21048e" [ FPSCR, fpscr ]
+        expect fpscr (after F1) $"{fpscr:x} {nameOf isa}"
+        expect result (after FPSCR) $"{fpscr:x} {nameOf isa}"
+
+  /// <summary>
+  /// mffsl frD reads the control bits (DRN and VE..RN) and the non-sticky
+  /// status bits (FR, FI, FPRF) of the FPSCR, every other bit zero.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFFSL reads only the control and non-sticky bits``() =
+    (* mffsl f1 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for drn, fpscr, result in
+        [ 0UL, 0x82024003UL, 0x24003UL
+          0UL, 0xbff80000UL, 0UL
+          0UL, 0x7f001UL, 0x7f001UL
+          0UL, 0x20000702UL, 0x2UL
+          6UL, 0x20000702UL, 0x600000002UL ] do
+        let after = run isa "fc38048e" [ FPSCRH, drn; FPSCR, fpscr ]
+        expect result (after F1) $"{fpscr:x} {nameOf isa}"
+
+  /// <summary>
+  /// mffscdrn frD, frB reads the control bits and then sets DRN from bits
+  /// 29:31 of frB; mffscdrni frD, DRM sets it from the immediate.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFFSCDRN and MFFSCDRNI set DRN``() =
+    (* mffscdrn f1, f3; mffscdrni f1, 1 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, b, fpscr, result, drn in
+        [ "fc341c8e", maxDouble, 0x20000702UL, 0x2UL, 7UL
+          "fc341c8e", oneHalf, 0x82024003UL, 0x3UL, 0UL
+          "fc350c8e", 0UL, 0x82024003UL, 0x3UL, 1UL
+          "fc350c8e", 0UL, 0xbff80000UL, 0UL, 1UL ] do
+        let after = run isa hex [ F3, b; FPSCR, fpscr ]
+        expect result (after F1) $"{hex} {nameOf isa}"
+        expect drn (after FPSCRH) $"{hex} {nameOf isa}"
+        expect fpscr (after FPSCR) $"{hex} {nameOf isa}"
+
+  /// <summary>
+  /// mtfsfi. BF, U writes field BF of the FPSCR's low word, recomputes VX
+  /// and FEX, and records CR1; with W = 1 it writes the high word, where
+  /// field 7 holds DRN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTFSFI. records CR1 and MTFSFI W sets DRN``() =
+    (* mtfsfi. 2, 0; mtfsfi 7, 1, 1 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let after = run isa "fd00010d" [ FPSCR, 0xbff80000UL ]
+      expect 0xbf080000UL (after FPSCR) (nameOf isa)
+      expect 0xbUL (field after cr1) (nameOf isa)
+      let after = run isa "ff81110c" [ FPSCRH, 6UL; FPSCR, 0x3UL ]
+      expect 1UL (after FPSCRH) (nameOf isa)
+      expect 0x3UL (after FPSCR) (nameOf isa)
+
+  /// <summary>
+  /// mtfsb1 BT sets FPSCR bit BT + 32 and, as the manual's Special Registers
+  /// Altered says, FX where that is an exception bit turning on; VX follows.
+  /// QEMU 8.2 leaves FX alone here (see optest-powerpc/lanes/F.md).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTFSB1 sets FX with an exception bit``() =
+    (* mtfsb1 9 (VXIDI) *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for fpscr, result in
+        [ 0UL, 0xa0400000UL
+          0x7f001UL, 0xa047f001UL
+          0x82024003UL, 0xa2424003UL ] do
+        let after = run isa "fd20004c" [ FPSCR, fpscr ]
+        expect result (after FPSCR) $"{fpscr:x} {nameOf isa}"
+
+  /// <summary>
+  /// mtfsf FLM, frB with L = 1 writes the whole FPSCR from frB: DRN from
+  /// the high word, the low word with FEX and VX recomputed.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTFSF with L writes both words``() =
+    (* mtfsf 255, f3, 1, 0; mtfsf 255, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let b = 0x0000000582024003UL
+      let after = run isa "fffe1d8e" [ F3, b; FPSCR, 0x20000702UL ]
+      expect 0x82024003UL (after FPSCR) (nameOf isa)
+      expect 5UL (after FPSCRH) (nameOf isa)
+      let after = run isa "fdfe1d8e" [ F3, b; FPSCRH, 2UL ]
+      expect 0x82024003UL (after FPSCR) (nameOf isa)
+      expect 2UL (after FPSCRH) (nameOf isa)
+
+  /// <summary>
+  /// mfocrf rD, FXM reads the CR field FXM names into its place in rD; the
+  /// rest of rD, which the manual leaves undefined, is zero, as QEMU makes
+  /// it.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFOCRF reads one CR field``() =
+    (* mfocrf r5, 32 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for cr2Bits, result in [ 0b0110UL, 0x600000UL; 0b1111UL, 0xf00000UL ] do
+        let bit n = (cr2Bits >>> n) &&& 1UL
+        let given =
+          [ CR2_0, bit 3
+            CR2_1, bit 2
+            CR2_2, bit 1
+            CR2_3, bit 0
+            CR0_0, 1UL
+            CR7_3, 1UL
+            R5, 0xbad0bad0UL ]
+        let after = run isa "7cb20026" given
+        expect result (after R5) (nameOf isa)

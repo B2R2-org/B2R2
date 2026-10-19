@@ -736,18 +736,17 @@ let private xSegmentIndirect xo ins =
   | [ Rg r; Rg b ] -> xForm 31u (gpr r) 0u (gpr b) xo 0u
   | _ -> wrongOperands ins
 
-/// <summary>
-/// mfocrf, which reads the one field of the condition register its mask names.
-///
-/// Every other field of what it writes is left undefined, so which field the
-/// mask names is not something the disassembler has to print; the mask written
-/// here therefore names the first field, and any other would say the same
-/// thing.
-/// </summary>
+/// mfocrf, which reads the one field of the condition register its mask
+/// names. The mask straddles the two fields an X-form keeps registers in,
+/// above the bit that tells it from mfcr.
 let private xReadOneCondField ins =
   match ins.Operands with
-  | [ Rg d ] -> word 31u (gpr d) 0x18u 0u (19u <<< 1)
-  | _ -> wrongOperands ins
+  | [ Rg d; Im fxm ] ->
+    let mask = unsigned 8 fxm
+    let high = (1u <<< 4) ||| (mask >>> 4)
+    word 31u (gpr d) high ((mask &&& 0xFu) <<< 1) (19u <<< 1)
+  | _ ->
+    wrongOperands ins
 
 /// mtcrf and mtocrf, which write the fields of the condition register their
 /// mask names. The mask straddles the two fields an X-form keeps registers in.

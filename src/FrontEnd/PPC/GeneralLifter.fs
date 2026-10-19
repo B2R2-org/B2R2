@@ -1229,41 +1229,6 @@ let mfctr ins bld =
     dst := ctr
   }
 
-let mffs ins updateCond bld =
-  lift bld ins {
-    let dst = transOneOpr ins bld
-    let fpscr = regVar bld Register.FPSCR
-    dst := AST.zext 64<rt> fpscr
-    if updateCond then setCR1Reg bld else ()
-  }
-
-/// mffscrn and mffscrni: the FPSCR read out as mffs does, and then a new
-/// rounding mode put in force -- the low two bits of a floating register for
-/// the first, a two-bit immediate for the second. The read happens first, so
-/// what the destination receives is the mode that was in force on entry.
-let private mffscrn ins bld newMode =
-  lift bld ins {
-    let struct (o1, o2) = getTwoOprs ins
-    let dst = transOpr bld o1
-    let src = transOpr bld o2
-    let fpscr = regVar bld Register.FPSCR
-    let struct (old, mode) = tmpVars2 bld 32<rt>
-    (* The mode is taken before the destination is written: the two are very
-       often the same register -- a compiler that wants only the side effect
-       writes mffscrn f0, f0 -- and reading the source afterwards would read
-       back the status word just stored into it. *)
-    old := fpscr
-    mode := newMode src
-    dst := AST.zext 64<rt> old
-    fpscr := (old .& numU32 0xfffffffcu 32<rt>) .| mode
-  }
-
-let mffscrnReg ins bld =
-  mffscrn ins bld (fun src -> AST.xtlo 32<rt> src .& numU32 3u 32<rt>)
-
-let mffscrnImm ins bld =
-  mffscrn ins bld (fun src -> AST.xtlo 32<rt> src .& numU32 3u 32<rt>)
-
 let mflr ins bld =
   lift bld ins {
     let dst = transOneOpr ins bld
@@ -1318,23 +1283,6 @@ let mtctr ins bld =
     ctr := src
   }
 
-let mtfsfi ins updateCond bld =
-  lift bld ins {
-    let struct (crfd, imm) = getTwoOprs ins
-    let crfd = crfd |> getImmValue |> int
-    let pos = 4 * (7 - crfd)
-    let imm = transOpr bld imm
-    let fpscr = regVar bld Register.FPSCR
-    if crfd = 0 then
-      AST.extract fpscr 1<rt> 31 := AST.extract imm 1<rt> 3
-      AST.extract fpscr 1<rt> 28 := AST.extract imm 1<rt> 0
-    else
-      AST.extract fpscr 1<rt> (pos + 3) := AST.extract imm 1<rt> 3
-      AST.extract fpscr 1<rt> (pos + 2) := AST.extract imm 1<rt> 2
-      AST.extract fpscr 1<rt> (pos + 1) := AST.extract imm 1<rt> 1
-      AST.extract fpscr 1<rt> pos := AST.extract imm 1<rt> 0
-  }
-
 let mtspr (ins: Instruction) bld =
   lift bld ins {
     let struct (spr, rs) =
@@ -1373,46 +1321,6 @@ let mtlr ins bld =
     let src = transOneOpr ins bld
     let lr = regVar bld Register.LR
     lr := src
-  }
-
-let mtfsb0 ins updateCond bld =
-  lift bld ins {
-    let crbD = getOneOpr ins |> getImmValue |> int
-    let fpscr = regVar bld Register.FPSCR
-    if crbD <> 1 && crbD <> 2 then
-      AST.extract fpscr 1<rt> (31 - crbD) := AST.b0
-    else
-      ()
-    if updateCond then setCR1Reg bld else ()
-    (* Affected: FX *)
-  }
-
-let mtfsb1 ins updateCond bld =
-  lift bld ins {
-    let crbD = getOneOpr ins |> getImmValue |> int
-    let fpscr = regVar bld Register.FPSCR
-    if crbD <> 1 && crbD <> 2 then
-      AST.extract fpscr 1<rt> (31 - crbD) := AST.b1
-    else
-      ()
-    if updateCond then setCR1Reg bld else ()
-    (* Affected: FX *)
-  }
-
-let mtfsf ins updateCond bld =
-  lift bld ins {
-    let struct (fm, frB) = getTwoOprs ins
-    let frB = transOpr bld frB
-    let fm = BitVector(getImmValue fm, 32<rt>) |> AST.num
-    let fpscr = regVar bld Register.FPSCR
-    let mask = tmpVar bld 32<rt>
-    mask := crmMask bld fm
-    (* bit 20 of the FPSCR is reserved and reads as zero *)
-    let reserved = numU32 0xfffff7ffu 32<rt>
-    let merged = (AST.xtlo 32<rt> frB .& mask) .| (fpscr .& AST.not mask)
-    fpscr := merged .& reserved
-    setFPSCRSummary bld
-    if updateCond then setCR1Reg bld else ()
   }
 
 let mtxer ins bld =

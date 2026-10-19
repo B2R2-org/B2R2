@@ -86,11 +86,14 @@ let private fpSetStatusBit xo rc ins =
   | _ -> wrongOperands ins
 
 /// mtfsfi, which writes one field of that register with what is written
-/// beside it.
+/// beside it, of its low word or, where W is 1, of its high word.
 let private fpSetStatusField rc ins =
   match ins.Operands with
   | [ Im f; Im v ] ->
     xForm 63u ((unsigned 3 f) <<< 2) 0u ((unsigned 4 v) <<< 1) 134u rc
+  | [ Im f; Im v; Im w ] ->
+    let field = (unsigned 3 f) <<< 2
+    xForm 63u field (unsigned 1 w) ((unsigned 4 v) <<< 1) 134u rc
   | _ ->
     wrongOperands ins
 
@@ -123,14 +126,18 @@ let private fpReadStatusSetRoundImm ins =
   | _ -> wrongOperands ins
 
 /// mtfsf, whose mask says which fields of that register it writes and lies
-/// across the two fields the other forms keep registers in.
+/// across the two fields the other forms keep registers in, beside L (the
+/// whole register) and W (its high word).
 let private fpWriteStatus rc ins =
-  match ins.Operands with
-  | [ Im m; Rg b ] ->
+  let encode m b l w =
     let mask = unsigned 8 m
-    word 63u (mask >>> 4) ((mask &&& 0xFu) <<< 1) (fpr b) ((711u <<< 1) ||| rc)
-  | _ ->
-    wrongOperands ins
+    let d = ((unsigned 1 l) <<< 4) ||| (mask >>> 4)
+    let a = ((mask &&& 0xFu) <<< 1) ||| unsigned 1 w
+    word 63u d a (fpr b) ((711u <<< 1) ||| rc)
+  match ins.Operands with
+  | [ Im m; Rg b ] -> encode m b 0UL 0UL
+  | [ Im m; Rg b; Im l; Im w ] -> encode m b l w
+  | _ -> wrongOperands ins
 
 /// A D-form load or store of a floating-point register.
 let private fpMemory po ins =
@@ -240,6 +247,25 @@ let private fpTestOne xo ins =
   | [ Rg f; Rg b ] -> xForm 63u ((crf f) <<< 2) 0u (fpr b) xo 0u
   | _ -> wrongOperands ins
 
+/// mffsce, which reads the status register and clears its enables.
+let private fpReadStatusClearEnables ins =
+  match ins.Operands with
+  | [ Rg d ] -> xForm 63u (fpr d) 1u 0u 583u 0u
+  | _ -> wrongOperands ins
+
+/// mffscdrn, which reads the control bits and puts the decimal rounding mode
+/// a floating-point register names in force.
+let private fpReadStatusSetDecimalRound ins =
+  match ins.Operands with
+  | [ Rg d; Rg b ] -> xForm 63u (fpr d) 20u (fpr b) 583u 0u
+  | _ -> wrongOperands ins
+
+/// mffscdrni, which names that rounding mode outright, in three bits.
+let private fpReadStatusSetDecimalRoundImm ins =
+  match ins.Operands with
+  | [ Rg d; Im m ] -> xForm 63u (fpr d) 21u (unsigned 3 m) 583u 0u
+  | _ -> wrongOperands ins
+
 /// lfdp and stfdp, the DS-form accesses of a register pair.
 let private fpPairMemory po ins =
   match ins.Operands with
@@ -269,6 +295,9 @@ let private laterEncoders () =
         Op.LFDP, fpPairMemory 57u
         Op.STFDP, fpPairMemory 61u
         Op.LFDPX, fpPairIndexed 791u
+        Op.MFFSCE, fpReadStatusClearEnables
+        Op.MFFSCDRN, fpReadStatusSetDecimalRound
+        Op.MFFSCDRNI, fpReadStatusSetDecimalRoundImm
         Op.STFDPX, fpPairIndexed 919u ] ]
 
 /// Every instruction of the floating-point unit.
