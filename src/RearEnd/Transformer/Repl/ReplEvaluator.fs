@@ -82,6 +82,10 @@ module TransformerReplEvaluator =
 
   let [<Literal>] MaxPreviewCollectionItems = 128
 
+  let [<Literal>] MaxPreviewBytes = 16
+
+  let [<Literal>] HexViewBytesPerRow = 8
+
   let private omittedLine omitted =
     $"{omitted} more lines omitted; press F4 for the full result."
 
@@ -258,18 +262,79 @@ module TransformerReplEvaluator =
     else
       header :: lines
 
-  let private renderBinaryBytes bytes =
-    let bytes: BinaryBytes = bytes
-    [ "ByteArray"
-      displayField "base" $"0x{bytes.BaseAddress:x}"
-      displayField "size" $"{bytes.Bytes.Length} bytes"
-      displayField "isa" (string bytes.ISA)
-      displayField "os" (string bytes.OS)
-      displayField "bytes" (Utils.makeByteArraySummary bytes.Bytes) ]
-    @ if String.IsNullOrWhiteSpace bytes.Annotation then
-        []
+  let private renderBytePreview (bytes: byte[]) =
+    let count = min bytes.Length MaxPreviewBytes
+    let hex =
+      bytes
+      |> Seq.truncate count
+      |> Seq.map (fun value -> value.ToString("x2"))
+      |> String.concat " "
+    let visible = if count = 0 then "  <empty>" else "  " + hex
+    let omitted = bytes.Length - count
+    if omitted = 0 then
+      [ visible ]
+    else
+      [ visible
+        $"{omitted} bytes omitted; press F4 for the full result." ]
+
+  let private renderHexRow (bytes: BinaryBytes) addressFormat offset =
+    let values = bytes.Bytes
+    let count = min HexViewBytesPerRow (values.Length - offset)
+    let address = bytes.BaseAddress + uint64 offset
+    let addressFormat: string = addressFormat
+    let builder = StringBuilder($"  {address.ToString(addressFormat)}: ")
+    for index in 0 .. HexViewBytesPerRow - 1 do
+      let hex =
+        if index < count then
+          values[offset + index].ToString("x2")
+        else
+          "  "
+      builder.Append(hex) |> ignore
+      if index < HexViewBytesPerRow - 1 then
+        builder.Append(' ') |> ignore
       else
-        [ displayField "annotation" bytes.Annotation ]
+        ()
+    builder.Append("  |") |> ignore
+    for index in 0 .. count - 1 do
+      let value = values[offset + index]
+      let character =
+        if value >= 0x20uy && value <= 0x7euy then char value else '.'
+      builder.Append(character) |> ignore
+    builder.Append('|') |> ignore
+    builder.ToString()
+
+  let private renderHexRows (bytes: BinaryBytes) =
+    if bytes.Bytes.Length = 0 then
+      [ "  <empty>" ]
+    else
+      let lastOffset =
+        (bytes.Bytes.Length - 1) / HexViewBytesPerRow * HexViewBytesPerRow
+      let lastAddress = bytes.BaseAddress + uint64 lastOffset
+      let width =
+        max 8 ((max bytes.BaseAddress lastAddress).ToString("x").Length)
+      let addressFormat = "x" + string width
+      [ for offset in 0 .. HexViewBytesPerRow .. bytes.Bytes.Length - 1 ->
+          renderHexRow bytes addressFormat offset ]
+
+  let private renderBinaryBytes mode bytes =
+    let bytes: BinaryBytes = bytes
+    let size = bytes.Bytes.Length
+    let unit = if size = 1 then "byte" else "bytes"
+    let header = $"ByteArray ({size} {unit})"
+    match mode with
+    | Preview ->
+      header :: renderBytePreview bytes.Bytes
+    | Full ->
+      let fields =
+        [ displayField "base" $"0x{bytes.BaseAddress:x}"
+          displayField "isa" (string bytes.ISA)
+          displayField "os" (string bytes.OS) ]
+      let fields =
+        if String.IsNullOrWhiteSpace bytes.Annotation then
+          fields
+        else
+          fields @ [ displayField "annotation" bytes.Annotation ]
+      [ header ] @ fields @ [ "" ] @ renderHexRows bytes
 
   let private renderFingerprint mode fingerprint =
     let fingerprint: Fingerprint = fingerprint
@@ -603,7 +668,7 @@ module TransformerReplEvaluator =
     | :? Binary as binary ->
       renderBinary binary
     | :? BinaryBytes as bytes ->
-      renderBinaryBytes bytes
+      renderBinaryBytes mode bytes
     | :? (Instruction[]) as instructions ->
       renderInstructionArray mode instructions
     | :? TextArtifact as artifact ->
