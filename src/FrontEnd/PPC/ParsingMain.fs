@@ -2194,7 +2194,9 @@ let private parseXXSPLTW bin =
   | TwoOperands(xt, xb) -> struct (op, ThreeOperands(xt, xb, uim))
   | _ -> raise ParsingFailureException
 
-/// xxspltib, which carries the byte to splat as an eight-bit immediate.
+/// xxspltib, which carries the byte to splat as an eight-bit immediate. The
+/// two bits above that byte are zero; lxvkq shares the extended opcode with
+/// them set.
 let private parseXXSPLTIB bin =
   let xt = (Bits.pick bin 0u <<< 5) ||| Bits.extract bin 25u 21u
   let imm = Bits.extract bin 18u 11u |> uint64 |> OprImm
@@ -2225,10 +2227,10 @@ let private parseXXSEL bin =
 /// The XX3 and XX2 forms of primary opcode 60: the logical forms, the ones that
 /// shuffle doublewords and words, the scalar double-precision arithmetic, and
 /// the vector double-precision arithmetic, compares and conversions a compiler
-/// emits for a vectorized loop. The quad-precision forms share the space and
-/// fail to parse. An XX3 form's extended opcode is eight bits and an XX2 form's
-/// is nine, so the wider ones are matched first. A vector compare's record bit
-/// is the top bit of its eight, so the two forms are two cases.
+/// emits for a vectorized loop. The forms ISA 3.0 and 3.1 added share the space
+/// and go on to ParsingVSX. An XX3 form's extended opcode is eight bits and an
+/// XX2 form's is nine, so the wider ones are matched first. A vector compare's
+/// record bit is the top bit of its eight, so the two forms are two cases.
 let private parse3CExtended bin =
   match Bits.extract bin 10u 3u with
   | 0u ->
@@ -2330,7 +2332,7 @@ let private parse3CExtended bin =
   | _ ->
     match Bits.extract bin 10u 2u with
     | 164u -> parseXXSPLTW bin
-    | 180u -> parseXXSPLTIB bin
+    | 180u when Bits.extract bin 20u 19u = 0u -> parseXXSPLTIB bin
     | 72u -> parseXX2 Op.XSCVDPUXWS bin
     | 88u -> parseXX2 Op.XSCVDPSXWS bin
     | 11u -> parseXX2 Op.XSSQRTSP bin
@@ -2355,7 +2357,7 @@ let private parse3CExtended bin =
     | 377u -> parseXX2 Op.XSNEGDP bin
     | 248u -> parseXX2 Op.XVCVSXWDP bin
     | 505u -> parseXX2 Op.XVNEGDP bin
-    | _ -> raise ParsingFailureException
+    | _ -> ParsingVSX.parse3C bin
 
 /// The VSX instructions in primary opcode 60. xxsel's four register fields
 /// leave it only bits 26-27 of an extended opcode, which no other form
@@ -2386,7 +2388,7 @@ let private parse1FVector fallback bin =
   | 844u -> parseVsxIndexed Op.LXVD2X bin
   | 908u -> parseVsxIndexed Op.STXVW4X bin
   | 972u -> parseVsxIndexed Op.STXVD2X bin
-  | _ -> fallback bin
+  | _ -> ParsingVSX.parse1F fallback bin
 
 let private parse1FDouble fallback bin =
   match Bits.extract bin 10u 1u with
@@ -3566,15 +3568,15 @@ let private parseFPPair op bin =
   struct (op, TwoOperands(frp, mem))
 
 /// The ISA 3.0 DS-form loads of primary opcode 57: lxsd, which names a vector
-/// register (VSR32-63) by its five-bit number. The other encodings are lfdp
-/// and lxssp, which are not modeled.
+/// register (VSR32-63) by its five-bit number, and lxssp, which ParsingVSX
+/// decodes. The other encoding is lfdp, which is not modeled.
 let private parse39 bin =
   let vrt = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
   let ra = getRegister (Bits.extract bin 20u 16u)
   let mem = (dsDisp bin, ra) |> OprMem (* ds (rA) *)
   match Bits.extract bin 1u 0u with
   | 0b10u -> struct (Op.LXSD, TwoOperands(vrt, mem))
-  | _ -> raise ParsingFailureException
+  | _ -> ParsingVSX.parse39 bin
 
 /// The DS-form loads: ld, ldu and lwa, told apart by the low two bits.
 let private parse3A bin =
@@ -3587,15 +3589,16 @@ let private parse3A bin =
   | 0b10u -> struct (Op.LWA, TwoOperands(rd, mem))
   | _ (* 11 *) -> raise ParsingFailureException
 
-/// The ISA 3.0 DS-form stores of primary opcode 61: stxsd. The other encodings
-/// are stfdp, stxssp and the DQ-form lxv and stxv, which are not modeled.
+/// The ISA 3.0 DS-form stores of primary opcode 61: stxsd here, and stxssp
+/// and the DQ-form lxv and stxv in ParsingVSX. The other encoding is stfdp,
+/// which is not modeled.
 let private parse3D bin =
   let vrs = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
   let ra = getRegister (Bits.extract bin 20u 16u)
   let mem = (dsDisp bin, ra) |> OprMem (* ds (rA) *)
   match Bits.extract bin 1u 0u with
   | 0b10u -> struct (Op.STXSD, TwoOperands(vrs, mem))
-  | _ -> raise ParsingFailureException
+  | _ -> ParsingVSX.parse3D bin
 
 /// The DS-form stores: std and stdu. The remaining encoding is stq, which is
 /// not modeled.
@@ -3651,6 +3654,7 @@ let private parseInstruction bitLen bin addr =
   | 0x2u when bitLen = 64 -> parseTDI bitLen bin
   | 0x3u -> parseTWI bitLen bin
   | 0x4u -> parse04 bitLen bin
+  | 0x6u -> ParsingVSX.parse06 bin
   | 0x7u -> parseMULLI bitLen bin
   | 0x8u -> parseSUBFIC bitLen bin
   | 0xAu -> parseCMPLI bin
