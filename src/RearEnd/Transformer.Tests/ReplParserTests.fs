@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer.Tests
 
 open System
+open System.Numerics
 open System.Threading
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
@@ -377,9 +378,9 @@ type ReplParserTests() =
     let hint =
       completionHint
         ReplValueKind.ConcExecutor
-        "target |> @mem read addr="
-    StringAssert.Contains(hint, "@mem read")
-    assertDoesNotContain "@mem write" hint
+        "target |> @read-memory addr="
+    StringAssert.Contains(hint, "@read-memory")
+    assertDoesNotContain "@write-memory" hint
 
   [<TestMethod>]
   member _.``Colon-prefixed shell input is not a control command``() =
@@ -482,3 +483,37 @@ type ReplParserTests() =
       indItems
       |> List.find (fun item -> item.Text = "0x0000000000000000")
     Assert.AreEqual("command #7 · @run-symbolic · ind:8", ind.Detail)
+
+  [<TestMethod>]
+  member _.``Action names and random integers match their contracts``() =
+    let registry = registry.Value
+    for name in [ "filter"; "read-memory"; "write-memory" ] do
+      let exists = ActionRegistry.tryFind name registry |> Option.isSome
+      Assert.AreEqual(true, exists)
+    for name in [ "find"; "mem"; "model" ] do
+      let missing = ActionRegistry.tryFind name registry |> Option.isNone
+      Assert.AreEqual(true, missing)
+    let _, state, output =
+      evaluateOutput
+        registry
+        TransformerReplState.empty
+        "value = @random min=-3 max=-2"
+    Assert.AreEqual(false, output.HasError)
+    let value = TransformerReplState.tryFind "value" state |> Option.get
+    let number = value.Collection.Values[0] :?> BigInteger
+    Assert.AreEqual(BigInteger(-3), number)
+    Assert.AreEqual("value = -3", state.ReplayCommands.Head)
+    let _, state, output =
+      evaluateOutput
+        registry
+        state
+        ("large = @random min=0xffffffffffffffff "
+         + "max=0x10000000000000000")
+    Assert.AreEqual(false, output.HasError)
+    let value = TransformerReplState.tryFind "large" state |> Option.get
+    let number = value.Collection.Values[0] :?> BigInteger
+    Assert.AreEqual(BigInteger(UInt64.MaxValue), number)
+    Assert.AreEqual(
+      "large = 18446744073709551615",
+      state.ReplayCommands.Head
+    )

@@ -27,7 +27,7 @@
     <Compile Include="DisasmAction.fs" />
     <Compile Include="DotAction.fs" />
     <Compile Include="EditAction.fs" />
-    <Compile Include="FindAction.fs" />
+    <Compile Include="FilterAction.fs" />
     <Compile Include="GrepAction.fs" />
     <Compile Include="HexdumpAction.fs" />
     <Compile Include="JaccardAction.fs" />
@@ -38,6 +38,7 @@
     <Compile Include="OneAction.fs" />
     <Compile Include="PickAction.fs" />
     <Compile Include="PrintAction.fs" />
+    <Compile Include="RandomAction.fs" />
     <Compile Include="SliceAction.fs" />
     <Compile Include="SaveAction.fs" />
     <Compile Include="StringsAction.fs" />

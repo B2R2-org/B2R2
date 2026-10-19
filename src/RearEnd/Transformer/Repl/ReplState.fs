@@ -27,6 +27,7 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Collections.Generic
 open System.Globalization
+open System.Numerics
 open B2R2
 
 /// A typed value retained by an interactive Transformer session.
@@ -139,6 +140,7 @@ module ReplValue =
       typeof<CFGNodeInfo>, ReplValueKind.CFGNodeInfo
       typeof<string>, ReplValueKind.Text
       typeof<int>, ReplValueKind.Int
+      typeof<BigInteger>, ReplValueKind.Int
       typeof<float>, ReplValueKind.Float
       typeof<bool>, ReplValueKind.Bool ]
 
@@ -206,6 +208,8 @@ module ReplValue =
       ReplValueKind.Text
     | :? int ->
       ReplValueKind.Int
+    | :? BigInteger ->
+      ReplValueKind.Int
     | :? float ->
       ReplValueKind.Float
     | :? bool ->
@@ -247,6 +251,8 @@ module ReplValue =
     | :? AddressValue as value ->
       Some $"0x{value.Address:x}"
     | :? int as value ->
+      Some(value.ToString(CultureInfo.InvariantCulture))
+    | :? BigInteger as value ->
       Some(value.ToString(CultureInfo.InvariantCulture))
     | :? float as value ->
       Some(value.ToString("R", CultureInfo.InvariantCulture))

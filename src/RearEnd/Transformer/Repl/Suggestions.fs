@@ -744,6 +744,8 @@ module Suggestions =
       values "instruction-set architecture" isaCandidates
     | ActionArgumentKind.Integer ->
       values argument.Description [ "0"; "1"; "4"; "16" ]
+    | ActionArgumentKind.ArbitraryInteger ->
+      values argument.Description [ "0"; "1"; "-1"; "0x100" ]
     | ActionArgumentKind.Float ->
       values argument.Description [ "0.2"; "0.5"; "1.0" ]
     | ActionArgumentKind.HexPattern ->
@@ -783,6 +785,8 @@ module Suggestions =
     | ActionArgumentKind.Integer
     | ActionArgumentKind.Size ->
       [ ReplValueKind.Int ]
+    | ActionArgumentKind.ArbitraryInteger ->
+      [ ReplValueKind.Int; ReplValueKind.Address ]
     | ActionArgumentKind.Float ->
       [ ReplValueKind.Float ]
     | ActionArgumentKind.Address ->
@@ -946,7 +950,9 @@ module Suggestions =
         |> List.collect (fun argument ->
           argumentBindingCandidates state argument prefix)
       let semantic =
-        if registered.Metadata.ID = "mem" && name = "addr" then
+        if List.contains registered.Metadata.ID
+             [ "read-memory"; "write-memory" ]
+           && name = "addr" then
           requiredMemoryCandidates "" state prefix
         elif isExecutionAction registered.Metadata.ID && name = "regs" then
           requiredRegisterCandidates "=" state prefix

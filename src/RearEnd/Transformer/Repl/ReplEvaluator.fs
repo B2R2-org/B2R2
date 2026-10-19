@@ -28,6 +28,7 @@ open System
 open System.Diagnostics
 open System.Globalization
 open System.IO
+open System.Numerics
 open System.Text
 open System.Text.RegularExpressions
 open System.Threading
@@ -602,7 +603,7 @@ module TransformerReplEvaluator =
         match item.Address with
         | Some addr ->
           $"0x{addr:x} size={item.Size} at 0x{item.At:x}"
-          + $"  => @mem write addr=0x{addr:x} bytes=<hex>"
+          + $"  => @write-memory addr=0x{addr:x} bytes=<hex>"
         | None ->
           $"<unknown> size={item.Size} at 0x{item.At:x}"
           + $"  ({item.Reason})")
@@ -1077,6 +1078,9 @@ module TransformerReplEvaluator =
         isISA value, "a supported ISA name"
       | ActionArgumentKind.Integer ->
         isInteger value, "a 32-bit integer (0x... hex or decimal)"
+      | ActionArgumentKind.ArbitraryInteger ->
+        let isValid = IntegerParsing.tryParse value |> Option.isSome
+        isValid, "an integer (0x... hex or decimal)"
       | ActionArgumentKind.Float ->
         isFloat value, "a floating-point number"
       | ActionArgumentKind.HexPattern ->
@@ -1187,6 +1191,8 @@ module TransformerReplEvaluator =
       | ActionArgumentKind.Choice ->
         [ "String" ]
       | ActionArgumentKind.Integer ->
+        [ "Integer" ]
+      | ActionArgumentKind.ArbitraryInteger ->
         [ "Integer" ]
       | ActionArgumentKind.Size ->
         [ "Integer" ]
@@ -1936,7 +1942,15 @@ module TransformerReplEvaluator =
     | true, value ->
       Some(value |> box)
     | _ ->
-      None
+      match BigInteger.TryParse(
+              token,
+              NumberStyles.Integer,
+              CultureInfo.InvariantCulture
+            ) with
+      | true, value ->
+        Some(value |> box)
+      | _ ->
+        None
 
   let private tryBoolLiteral (token: string) =
     match Boolean.TryParse token with
@@ -2166,8 +2180,8 @@ module TransformerReplEvaluator =
               let id = segment.Head.TrimStart '@'
               equalsIgnoreCase id "random")
           match nondeterministic, value.Collection.Values with
-          | true, [| :? AddressValue as address |] ->
-            let literal = $"0x{address.Address:x}"
+          | true, [| :? BigInteger as number |] ->
+            let literal = number.ToString(CultureInfo.InvariantCulture)
             binding
             |> Option.map (fun name -> $"{name} = {literal}")
             |> Option.defaultValue literal

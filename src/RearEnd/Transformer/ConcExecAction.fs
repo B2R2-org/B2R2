@@ -27,7 +27,6 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Collections.Generic
 open System.Globalization
-open System.Security.Cryptography
 open System.Threading
 open B2R2
 open B2R2.BinIR
@@ -112,19 +111,6 @@ module private ConcRegionPerm =
 
 module private ConcActionParsing =
   let parseUInt64 value = ContextParsing.parseAddress value
-
-  let randomAddress minAddress maxAddress: AddressValue =
-    if minAddress >= maxAddress then
-      invalidArg (nameof maxAddress) "max must be greater than min."
-    else
-      let span = maxAddress - minAddress
-      let bytes = Array.zeroCreate<byte> 8
-      RandomNumberGenerator.Fill bytes
-      let offset = BitConverter.ToUInt64(bytes, 0) % span
-      { Address = minAddress + offset }
-
-  let alignDown align (value: Addr) =
-    if align = 0UL then value else value - (value % align)
 
 type private TracingMemory(inner: ConcMemory,
                            regions: ConcMemoryRegion list) =
@@ -1395,17 +1381,8 @@ type RunAction() =
     member _.TransformNamed(args, collection, cancellationToken) =
       transformNamed cancellationToken args collection
 
-/// Read or write concrete executor memory.
-type MemAction() =
-  let transformOne args (executor: ConcExecutorValue) =
-    match args with
-    | "read" :: args ->
-      executor.ReadMemory args |> box
-    | "write" :: args ->
-      executor.WriteMemory args |> box
-    | _ ->
-      invalidArg (nameof args) "Expected: mem read|write ..."
-
+/// Read concrete executor memory.
+type ReadMemoryAction() =
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
     { Values =
@@ -1414,17 +1391,43 @@ type MemAction() =
           cancellationToken.ThrowIfCancellationRequested()
           match input with
           | :? ConcExecutorValue as executor ->
-            executor |> transformOne args
+            executor.ReadMemory args |> box
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "mem"
+    member _.ActionID with get() = "read-memory"
     member _.Signature with get() =
-      "ConcExecutor -> mem read addr=<addr> size=<n> -> MemoryView | "
-      + "mem write addr=<addr> bytes=<hex> -> ConcExecutor"
+      "ConcExecutor -> read-memory addr=<addr> size=<n> -> MemoryView"
     member _.Description with get() =
-      "Read or write concrete bytes in executor memory."
+      "Read concrete bytes from executor memory."
+    member _.Transform(args, collection) =
+      transform CancellationToken.None args collection
+
+  interface ICancellableAction with
+    member _.Transform(args, collection, cancellationToken) =
+      transform cancellationToken args collection
+
+/// Write concrete executor memory.
+type WriteMemoryAction() =
+  let transform cancellationToken args collection =
+    let cancellationToken: CancellationToken = cancellationToken
+    { Values =
+        collection.Values
+        |> Array.map (fun input ->
+          cancellationToken.ThrowIfCancellationRequested()
+          match input with
+          | :? ConcExecutorValue as executor ->
+            executor.WriteMemory args |> box
+          | _ ->
+            invalidArg (nameof input) "Invalid input type.") }
+
+  interface IAction with
+    member _.ActionID with get() = "write-memory"
+    member _.Signature with get() =
+      "ConcExecutor -> write-memory addr=<addr> bytes=<hex> -> ConcExecutor"
+    member _.Description with get() =
+      "Write concrete bytes to executor memory."
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
 
@@ -1489,39 +1492,6 @@ type TraceAction() =
       + " -> ExecutionTrace"
     member _.Description with get() =
       "Show executed instructions, register changes, and watched memory."
-    member _.Transform(args, collection) =
-      transform CancellationToken.None args collection
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, cancellationToken) =
-      transform cancellationToken args collection
-
-/// Produce a random address in the half-open range [min, max).
-type RandomAction() =
-  let transform cancellationToken args collection =
-    let cancellationToken: CancellationToken = cancellationToken
-    let minAddress =
-      match args with
-      | [ minAddress; maxAddress ] ->
-        ConcActionParsing.parseUInt64 minAddress
-      | _ ->
-        invalidArg (nameof args) "Expected: random min=<addr> max=<addr>."
-    let maxAddress =
-      match args with
-      | [ minAddress; maxAddress ] ->
-        ConcActionParsing.parseUInt64 maxAddress
-      | _ ->
-        invalidArg (nameof args) "Expected: random min=<addr> max=<addr>."
-    cancellationToken.ThrowIfCancellationRequested()
-    let address = ConcActionParsing.randomAddress minAddress maxAddress
-    { Values = [| address |> box |] }
-
-  interface IAction with
-    member _.ActionID with get() = "random"
-    member _.Signature with get() =
-      "Unit -> random min=<addr> max=<addr> -> Address"
-    member _.Description with get() =
-      "Return a random address in the half-open range [min, max)."
     member _.Transform(args, collection) =
       transform CancellationToken.None args collection
 
