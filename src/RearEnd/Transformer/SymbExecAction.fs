@@ -826,6 +826,11 @@ and SymbRunValue(source: SymbExecutorValue,
     result.SatisfiabilityAnswers
     |> List.collect (fun answer -> indexedByteGroups answer.Values)
 
+  member _.InputModels =
+    result.SatisfiabilityAnswers
+    |> List.map (fun answer ->
+      answer.Target, answer.Values, indexedByteGroups answer.Values)
+
   member _.ModelText() =
     let sb = StringBuilder()
     let appendResult = function
