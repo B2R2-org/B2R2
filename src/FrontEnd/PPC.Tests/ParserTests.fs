@@ -59,15 +59,36 @@ module private Shortcut =
 
   /// The 64-bit-only forms must stay unrecognized on a 32-bit guest, whose
   /// architecture does not define them.
-  let testUnsupported wordSz (byteString: string) =
+  let refuse wordSz (bytes: byte[]) =
     let isa = ISA(Architecture.PPC, Endian.Big, wordSz)
     let reader = BinReader.Init isa.Endian
     let parser = Parser(isa.WordSize, reader) :> IInstructionParsable
-    let bytes = ByteArray.ofHexString byteString
     Assert.Throws<ParsingFailureException>(fun () ->
-      parser.Parse(System.ReadOnlySpan(bytes: byte[]), 0UL) |> ignore)
+      parser.Parse(System.ReadOnlySpan bytes, 0UL) |> ignore)
     |> ignore
 
+  /// The same, for a word given as hex.
+  let testUnsupported wordSz (byteString: string) =
+    refuse wordSz (ByteArray.ofHexString byteString)
+
+  /// Decodes a word on a 64-bit processor in both byte orders. The bytes are
+  /// the word as the Power ISA draws it, which a little-endian processor
+  /// keeps in memory the other way round.
+  let testPPC64 bytes (opcode, operands) =
+    testPPC WordSize.Bit64 bytes (opcode, operands)
+    let isa = ISA(Architecture.PPC, Endian.Little, WordSize.Bit64)
+    test isa opcode operands (Array.rev bytes)
+
+  /// Decodes a word the 32-bit and the 64-bit processors both define.
+  let testAllPPC bytes (opcode, operands) =
+    testPPC WordSize.Bit32 bytes (opcode, operands)
+    testPPC64 bytes (opcode, operands)
+
+  /// Decodes a word only the 64-bit processor defines, which the 32-bit one
+  /// must refuse.
+  let testOnlyPPC64 bytes (opcode, operands) =
+    testPPC64 bytes (opcode, operands)
+    refuse WordSize.Bit32 bytes
   /// A word read the same way on every processor: 32-bit and 64-bit
   /// big-endian, and 64-bit little-endian, which keeps the word's bytes the
   /// other way round in memory.
@@ -2946,6 +2967,42 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[PPC64] XXMTACC refuses its B field set``() =
     testUnsupported WordSize.Bit64 "7e010962"
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDO (divide doubleword, recording OV)``() =
+    "7ca63fd2"
+    ++ (DIVDO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDO. (divide doubleword, recording OV and CR0)``() =
+    "7ca63fd3"
+    ++ (DIVDOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDUO (divide doubleword unsigned, recording OV)``() =
+    "7ca63f92"
+    ++ (DIVDUO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDUO. (divide doubleword unsigned, OV and CR0)``() =
+    "7ca63f93"
+    ++ (DIVDUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] MULLDO (multiply low doubleword, recording OV)``() =
+    "7ca63dd2"
+    ++ (MULLDO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] MULLDO. (multiply low doubleword, OV and CR0)``() =
+    "7ca63dd3"
+    ++ (MULLDOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
 
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
