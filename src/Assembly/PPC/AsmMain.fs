@@ -57,6 +57,7 @@ let buildEncoderTable bitLen =
     loadStoreEncoders bitLen
     branchEncoders bitLen
     systemEncoders ()
+    laneAEncoders ()
     floatEncoders ()
     vectorEncoders ()
     vmxEncoders ()

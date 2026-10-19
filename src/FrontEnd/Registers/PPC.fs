@@ -424,6 +424,19 @@ type Register =
   /// Accumulator 7, an MMA operand name only: it overlays VSR 28 to VSR
   /// 31, which hold its state.
   | ACC7 = 0xE8
+  (* Lane A: the registers the branch, storage and system instructions of
+     ISA 2.07 and later name. *)
+  /// Target Address Register, which bctar branches to.
+  | TAR = 0xE9
+  /// Branch Event Status and Control Register of the event-based branches.
+  | BESCR = 0xEA
+  /// Event-Based Branch Handler Register.
+  | EBBHR = 0xEB
+  /// Event-Based Branch Return Register, which rfebb returns to.
+  | EBBRR = 0xEC
+  /// Pseudo register: the second doubleword of a quadword reservation
+  /// (lqarx), whose first doubleword ExMonVal holds.
+  | ExMonVal2 = 0xED
 
 /// Provides functions to handle PPC registers.
 module Register =
@@ -651,6 +664,11 @@ module Register =
     | "a5" -> Register.ACC5
     | "a6" -> Register.ACC6
     | "a7" -> Register.ACC7
+    | "tar" -> Register.TAR
+    | "bescr" -> Register.BESCR
+    | "ebbhr" -> Register.EBBHR
+    | "ebbrr" -> Register.EBBRR
+    | "exmonval2" -> Register.ExMonVal2
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a PPC register.
@@ -877,4 +895,9 @@ module Register =
     | Register.ACC5 -> "a5"
     | Register.ACC6 -> "a6"
     | Register.ACC7 -> "a7"
+    | Register.TAR -> "tar"
+    | Register.BESCR -> "bescr"
+    | Register.EBBHR -> "ebbhr"
+    | Register.EBBRR -> "ebbrr"
+    | Register.ExMonVal2 -> "exmonval2"
     | _ -> Terminator.impossible ()
