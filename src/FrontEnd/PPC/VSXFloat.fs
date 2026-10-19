@@ -338,3 +338,347 @@ let vectorMulAdd ins bld esize targetIsFactor subtract negate =
         mulAddLane bld lane targetIsFactor subtract negate xs[i] ys[i] ts[i])
     writeLanes bld esize th tl results
   }
+
+/// The all-ones or all-zeroes a compare writes into a lane.
+let private maskOf lane cond =
+  AST.ite cond (AST.not (AST.num0 lane.Width)) (AST.num0 lane.Width)
+
+/// <summary>
+/// The vector compares, "xT, xA, xB": each lane all ones where the matching
+/// lanes compare true and all zeroes where not, a NaN comparing false. The
+/// record forms also say in CR6 whether every lane compared true (bit 0) or
+/// none did (bit 2).
+/// </summary>
+let vectorCompare ins bld esize rel record =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let struct (ah, al) = vsrOf bld o2
+    let struct (bh, bl) = vsrOf bld o3
+    let lane = laneOf esize
+    let xs = lanesOf esize ah al
+    let ys = lanesOf esize bh bl
+    let conds = Array.init xs.Length (fun i -> tmpVar bld 1<rt>)
+    for i in 0 .. xs.Length - 1 do
+      conds[i] := rel xs[i] ys[i]
+    writeLanes bld esize dh dl (Array.map (maskOf lane) conds)
+    if record then
+      let all = Array.reduce (.&) conds
+      let none = Array.reduce (.&) (Array.map AST.not conds)
+      regVar bld Register.CR6_0 := all
+      regVar bld Register.CR6_1 := AST.b0
+      regVar bld Register.CR6_2 := none
+      regVar bld Register.CR6_3 := AST.b0
+    else
+      ()
+  }
+
+/// xscmpeqdp, xscmpgtdp and xscmpgedp: doubleword 0 of xT all ones where the
+/// doubles in doubleword 0 of xA and xB compare true, doubleword 1 cleared.
+let scalarCompare ins bld rel =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let struct (ah, _) = vsrOf bld o2
+    let struct (bh, _) = vsrOf bld o3
+    dh := maskOf double (rel ah bh)
+    dl := AST.num0 64<rt>
+  }
+
+/// The four bits of the CR field an operand names, and FPSCR's FPCC.
+let private crAndFPCC bld opr =
+  let lt, gt, eq, un =
+    match opr with
+    | OprReg reg -> transCRxToExpr bld reg
+    | _ -> raise InvalidOperandException
+  let fpscr = regVar bld Register.FPSCR
+  let fpcc = [| for pos in [ 15; 14; 13; 12 ] -> AST.extract fpscr 1<rt> pos |]
+  struct ([| lt; gt; eq; un |], fpcc)
+
+/// Writes four bits to a CR field and, where asked, to FPCC.
+let private writeField bld opr withFPCC (bits: Expr[]) =
+  let struct (cr, fpcc) = crAndFPCC bld opr
+  let vals = Array.init 4 (fun _ -> tmpVar bld 1<rt>)
+  append bld {
+    for i in 0 .. 3 do
+      vals[i] := bits[i]
+    for i in 0 .. 3 do
+      cr[i] := vals[i]
+  }
+  if withFPCC then
+    append bld {
+      for i in 0 .. 3 do
+        fpcc[i] := vals[i]
+    }
+  else
+    ()
+
+/// <summary>
+/// xscmpodp: the ordered compare of the doubles in doubleword 0 of xA and
+/// xB into a CR field and FPCC, as xscmpudp does. A signalling NaN sets
+/// VXSNAN, and VXVC with it unless VE is set; a quiet one sets VXVC.
+/// </summary>
+let xscmpodp ins bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (a, _) = vsrOf bld o2
+    let struct (b, _) = vsrOf bld o3
+    let un = isNaNOf double a .| isNaNOf double b
+    let snan = isSNaNOf double a .| isSNaNOf double b
+    let fpscr = regVar bld Register.FPSCR
+    let ve = AST.extract fpscr 1<rt> 7
+    let vxsnan = AST.extract fpscr 1<rt> 24
+    let vxvc = AST.extract fpscr 1<rt> 19
+    let lt = AST.not un .& AST.flt a b
+    let gt = AST.not un .& AST.fgt a b
+    let eq = AST.not un .& AST.not (AST.flt a b) .& AST.not (AST.fgt a b)
+    writeField bld o1 true [| lt; gt; eq; un |]
+    vxsnan := vxsnan .| snan
+    vxvc := vxvc .| AST.ite snan (AST.not ve) un
+  }
+
+/// xscmpexpdp: the exponent fields of the doubles in doubleword 0 of xA and
+/// xB compared as unsigned numbers into a CR field and FPCC, unordered where
+/// either is a NaN.
+let xscmpexpdp ins bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (a, _) = vsrOf bld o2
+    let struct (b, _) = vsrOf bld o3
+    let ea = AST.extract a 11<rt> 52
+    let eb = AST.extract b 11<rt> 52
+    let un = isNaNOf double a .| isNaNOf double b
+    let lt = AST.not un .& (ea .< eb)
+    let gt = AST.not un .& (ea .> eb)
+    let eq = AST.not un .& (ea == eb)
+    writeField bld o1 true [| lt; gt; eq; un |]
+  }
+
+/// The exponent fields of a lane's format: how wide, and the bias.
+let private expWidth lane = regTypeOf lane.ExpBits
+
+let private bias lane = (1 <<< (lane.ExpBits - 1)) - 1
+
+/// The unbiased exponent of a lane, as a signed 16-bit number: the biased
+/// field less the bias, so a zero or a denormal reads as -bias.
+let private unbiased lane x =
+  let e = AST.extract x (expWidth lane) lane.FracBits
+  AST.zext 16<rt> e .- numI32 (bias lane) 16<rt>
+
+/// Whether a lane holds an infinity.
+let private isInfOf lane x =
+  AST.extract x (expWidth lane) lane.FracBits
+  == AST.not (AST.num0 (expWidth lane))
+  .& (AST.extract x (regTypeOf lane.FracBits) 0
+      == AST.num0 (regTypeOf lane.FracBits))
+
+/// Whether a lane holds a denormal.
+let private isDenOf lane x =
+  (AST.extract x (expWidth lane) lane.FracBits == AST.num0 (expWidth lane))
+  .& AST.not (isZeroOf lane x)
+
+/// A signed 16-bit constant.
+let private s16 v = numI32 v 16<rt>
+
+/// <summary>
+/// The software-divide test of one pair of lanes (xstdivdp, xvtdivdp,
+/// xvtdivsp): fe where the quotient needs a software fix-up -- an operand
+/// that is a NaN or an infinity, a zero divisor, exponents so far apart or
+/// so extreme that the estimate-and-refine sequence would over- or
+/// underflow -- and fg where an operand is an infinity or the divisor a
+/// zero or a denormal. The thresholds are the format's.
+/// </summary>
+let private divideTest lane a b =
+  let ea = unbiased lane a
+  let eb = unbiased lane b
+  let isDouble = lane.Width = 64<rt>
+  let lo, hi = if isDouble then -1022, 1021 else -126, 125
+  let far, near, tiny = if isDouble then 1023, -1021, -970 else 127, -125, -103
+  let live = AST.not (isZeroOf lane a)
+  let fe =
+    isNaNOf lane a .| isInfOf lane a .| isNaNOf lane b .| isInfOf lane b
+    .| isZeroOf lane b .| (eb ?<= s16 lo) .| (eb ?>= s16 hi)
+    .| (live .& ((ea .- eb) ?>= s16 far))
+    .| (live .& ((ea .- eb) ?<= s16 near))
+    .| (live .& (ea ?<= s16 tiny))
+  let fg =
+    isInfOf lane a .| isInfOf lane b .| isZeroOf lane b .| isDenOf lane b
+  struct (fe, fg)
+
+/// The software-square-root test of one lane (xstsqrtdp, xvtsqrtdp,
+/// xvtsqrtsp): fe for a zero, a NaN, an infinity, a negative number or an
+/// exponent too small, fg for a zero, an infinity or a denormal.
+let private sqrtTest lane b =
+  let eb = unbiased lane b
+  let tiny = if lane.Width = 64<rt> then -970 else -103
+  let negative = AST.extract b 1<rt> (int lane.Width - 1)
+  let fe =
+    isNaNOf lane b .| isInfOf lane b .| isZeroOf lane b .| negative
+    .| (eb ?<= s16 tiny)
+  let fg = isInfOf lane b .| isZeroOf lane b .| isDenOf lane b
+  struct (fe, fg)
+
+/// The lanes a test reads: element 0 alone for the scalar forms.
+let private testLanes esize scalar (h: Expr) l =
+  if scalar then [| h |] else lanesOf esize h l
+
+/// <summary>
+/// The software divide and square-root tests, "BF, xA, xB" and "BF, xB":
+/// CR field BF set to 0b1 || fg || fe || 0b0, fe and fg gathered over every
+/// lane tested.
+/// </summary>
+let softwareTest (ins: Instruction) bld esize scalar isDivide =
+  lift bld ins {
+    let lane = laneOf esize
+    let field, flags =
+      match ins.Operands with
+      | ThreeOperands(f, o2, o3) when isDivide ->
+        let struct (ah, al) = vsrOf bld o2
+        let struct (bh, bl) = vsrOf bld o3
+        let xs = testLanes esize scalar ah al
+        let ys = testLanes esize scalar bh bl
+        f, Array.map2 (divideTest lane) xs ys
+      | TwoOperands(f, o2) ->
+        let struct (bh, bl) = vsrOf bld o2
+        f, Array.map (sqrtTest lane) (testLanes esize scalar bh bl)
+      | _ ->
+        raise InvalidOperandException
+    let fe = flags |> Array.map (fun struct (e, _) -> e) |> Array.reduce (.|)
+    let fg = flags |> Array.map (fun struct (_, g) -> g) |> Array.reduce (.|)
+    writeField bld field false [| AST.b1; fg; fe; AST.b0 |]
+  }
+
+/// The classes a data-class mask names, bit 0 (the mask's highest) first:
+/// NaN, +Inf, -Inf, +0, -0, +denormal, -denormal; given the class tests of
+/// a value, whether it is in any class the mask selects.
+let private classMatch dcmx sign nan inf zero den =
+  let positive = AST.not sign
+  [| nan
+     inf .& positive
+     inf .& sign
+     zero .& positive
+     zero .& sign
+     den .& positive
+     den .& sign |]
+  |> Array.indexed
+  |> Array.filter (fun (k, _) -> (dcmx >>> (6 - k)) &&& 1 = 1)
+  |> Array.map snd
+  |> Array.fold (.|) AST.b0
+
+/// Whether a lane is in a class the mask selects.
+let private laneMatch lane dcmx x =
+  let sign = AST.extract x 1<rt> (int lane.Width - 1)
+  let nan, inf = isNaNOf lane x, isInfOf lane x
+  let zero, den = isZeroOf lane x, isDenOf lane x
+  classMatch dcmx sign nan inf zero den
+
+/// The immediate operand at the end of an instruction, as an int.
+let private immOf = function
+  | OprImm n -> int n
+  | _ -> raise InvalidOperandException
+
+/// <summary>
+/// xvtstdcdp and xvtstdcsp, "xT, xB, DCMX": each lane of xT all ones where
+/// the matching lane of xB is in a class DCMX selects, all zeroes where not.
+/// </summary>
+let vectorTestClass ins bld esize =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let struct (bh, bl) = vsrOf bld o2
+    let lane = laneOf esize
+    let dcmx = immOf o3
+    let results =
+      lanesOf esize bh bl
+      |> Array.map (fun x -> maskOf lane (laneMatch lane dcmx x))
+    writeLanes bld esize dh dl results
+  }
+
+/// <summary>
+/// xststdcdp and xststdcsp, "BF, xB, DCMX": the sign of the double in
+/// doubleword 0 of xB, whether it is in a class DCMX selects, and -- for
+/// xststdcsp -- whether no single represents it, into a CR field and FPCC.
+/// xststdcsp reads the classes as the value would be in single precision:
+/// an exponent below the single range is a denormal there.
+/// </summary>
+let scalarTestClass ins bld isSingle =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (b, _) = vsrOf bld o2
+    let dcmx = immOf o3
+    let sign = AST.extract b 1<rt> 63
+    let exp = AST.extract b 11<rt> 52
+    let tinyForSingle =
+      (exp != AST.num0 11<rt>) .& (exp .< numI32 0x381 11<rt>)
+    let den =
+      if isSingle then isDenOf double b .| tinyForSingle else isDenOf double b
+    let nan, inf, zero = isNaNOf double b, isInfOf double b, isZeroOf double b
+    let matched = classMatch dcmx sign nan inf zero den
+    let narrowed = AST.cast CastKind.FloatCast 32<rt> b
+    let back = AST.cast CastKind.FloatCast 64<rt> narrowed
+    let payloadLost =
+      AST.extract b 29<rt> 0 != AST.num0 29<rt>
+    let notSingle =
+      if isSingle then AST.ite (isNaNOf double b) payloadLost (back != b)
+      else AST.b0
+    writeField bld o1 true [| sign; AST.b0; matched; notSingle |]
+  }
+
+/// xsiexpdp, "xT, rA, rB": the sign and fraction of rA with the low eleven
+/// bits of rB as the exponent, in doubleword 0; doubleword 1 cleared.
+let xsiexpdp ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let ra = AST.zext 64<rt> (transOpr bld o2)
+    let rb = AST.zext 64<rt> (transOpr bld o3)
+    let keep = numU64 0x800fffffffffffffUL 64<rt>
+    let exp = (rb .& numU64 0x7ffUL 64<rt>) << numI32 52 64<rt>
+    dh := (ra .& keep) .| exp
+    dl := AST.num0 64<rt>
+  }
+
+/// xsxexpdp and xsxsigdp, "rT, xB": the exponent field, or the significand
+/// with its implicit bit where the value is normal, of the double in
+/// doubleword 0 of xB, into a general register.
+let scalarExtract ins (bld: ILowUIRBuilder) significand =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let rt = transOpr bld o1
+    let struct (b, _) = vsrOf bld o2
+    let exp = AST.extract b 11<rt> 52
+    let normal = (exp != AST.num0 11<rt>) .& (exp != numI32 0x7ff 11<rt>)
+    let fraction = b .& numU64 0xfffffffffffffUL 64<rt>
+    let implicit = numU64 (1UL <<< 52) 64<rt>
+    let withImplicit = AST.ite normal (fraction .| implicit) fraction
+    let value = if significand then withImplicit else AST.zext 64<rt> exp
+    rt := AST.xtlo bld.RegType value
+  }
+
+/// <summary>
+/// xviexpdp and xviexpsp, "xT, xA, xB": each lane the sign and fraction of
+/// xA's with the low exponent-width bits of xB's as the exponent.
+/// </summary>
+let insertExponent lane xs =
+  let struct (a, b) = two xs
+  let field = (AST.num1 lane.Width << numI32 lane.ExpBits lane.Width)
+              .- AST.num1 lane.Width
+  let exp = (b .& field) << numI32 lane.FracBits lane.Width
+  (a .& AST.not (field << numI32 lane.FracBits lane.Width)) .| exp
+
+/// xvxexpdp and xvxexpsp: each lane's exponent field, zero-extended.
+let extractExponent lane xs =
+  let b = one xs
+  AST.zext lane.Width (AST.extract b (expWidth lane) lane.FracBits)
+
+/// xvxsigdp and xvxsigsp: each lane's fraction with the implicit bit where
+/// the value is normal.
+let extractSignificand lane xs =
+  let b = one xs
+  let exp = AST.extract b (expWidth lane) lane.FracBits
+  let normal =
+    (exp != AST.num0 (expWidth lane))
+    .& (exp != AST.not (AST.num0 (expWidth lane)))
+  let fraction = AST.zext lane.Width (AST.extract b (regTypeOf lane.FracBits) 0)
+  let implicit = AST.num1 lane.Width << numI32 lane.FracBits lane.Width
+  AST.ite normal (fraction .| implicit) fraction

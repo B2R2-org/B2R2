@@ -2317,6 +2317,70 @@ let translate (ins: Instruction) bld =
     VSXFloat.vectorMap ins bld 32<rt> VSXFloat.towardZero
   | Op.XSRDPIC ->
     VSXFloat.scalarMap ins bld true VSXFloat.byFPSCR
+  | Op.XSCMPEQDP ->
+    VSXFloat.scalarCompare ins bld AST.feq
+  | Op.XSCMPGTDP ->
+    VSXFloat.scalarCompare ins bld AST.fgt
+  | Op.XSCMPGEDP ->
+    VSXFloat.scalarCompare ins bld AST.fge
+  | Op.XSCMPODP ->
+    VSXFloat.xscmpodp ins bld
+  | Op.XSCMPEXPDP ->
+    VSXFloat.xscmpexpdp ins bld
+  | Op.XVCMPEQDP ->
+    VSXFloat.vectorCompare ins bld 64<rt> AST.feq false
+  | Op.XVCMPEQDPdot ->
+    VSXFloat.vectorCompare ins bld 64<rt> AST.feq true
+  | Op.XVCMPEQSP ->
+    VSXFloat.vectorCompare ins bld 32<rt> AST.feq false
+  | Op.XVCMPEQSPdot ->
+    VSXFloat.vectorCompare ins bld 32<rt> AST.feq true
+  | Op.XVCMPGESP ->
+    VSXFloat.vectorCompare ins bld 32<rt> AST.fge false
+  | Op.XVCMPGESPdot ->
+    VSXFloat.vectorCompare ins bld 32<rt> AST.fge true
+  | Op.XVCMPGTSP ->
+    VSXFloat.vectorCompare ins bld 32<rt> AST.fgt false
+  | Op.XVCMPGTSPdot ->
+    VSXFloat.vectorCompare ins bld 32<rt> AST.fgt true
+  | Op.XSTDIVDP ->
+    VSXFloat.softwareTest ins bld 64<rt> true true
+  | Op.XSTSQRTDP ->
+    VSXFloat.softwareTest ins bld 64<rt> true false
+  | Op.XVTDIVDP ->
+    VSXFloat.softwareTest ins bld 64<rt> false true
+  | Op.XVTDIVSP ->
+    VSXFloat.softwareTest ins bld 32<rt> false true
+  | Op.XVTSQRTDP ->
+    VSXFloat.softwareTest ins bld 64<rt> false false
+  | Op.XVTSQRTSP ->
+    VSXFloat.softwareTest ins bld 32<rt> false false
+  | Op.XSTSTDCDP ->
+    VSXFloat.scalarTestClass ins bld false
+  | Op.XSTSTDCSP ->
+    VSXFloat.scalarTestClass ins bld true
+  | Op.XVTSTDCDP ->
+    VSXFloat.vectorTestClass ins bld 64<rt>
+  | Op.XVTSTDCSP ->
+    VSXFloat.vectorTestClass ins bld 32<rt>
+  | Op.XSIEXPDP ->
+    VSXFloat.xsiexpdp ins bld
+  | Op.XSXEXPDP ->
+    VSXFloat.scalarExtract ins bld false
+  | Op.XSXSIGDP ->
+    VSXFloat.scalarExtract ins bld true
+  | Op.XVIEXPDP ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.insertExponent
+  | Op.XVIEXPSP ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.insertExponent
+  | Op.XVXEXPDP ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.extractExponent
+  | Op.XVXEXPSP ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.extractExponent
+  | Op.XVXSIGDP ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.extractSignificand
+  | Op.XVXSIGSP ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.extractSignificand
   | o ->
 #if DEBUG
          eprintfn "%A" o
