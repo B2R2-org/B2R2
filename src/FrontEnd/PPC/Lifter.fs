@@ -37,6 +37,7 @@ open B2R2.FrontEnd.PPC.VectorLifter
 open B2R2.FrontEnd.PPC.FPLifter
 open B2R2.FrontEnd.PPC.DFPLifter
 open B2R2.FrontEnd.PPC.VectorIntegerLifter
+open B2R2.FrontEnd.PPC.VectorCryptoLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -1596,6 +1597,30 @@ let translate (ins: Instruction) bld =
     vecPackElements ins bld 64<rt> true (Saturate false)
   | Op.VPKUDUS ->
     vecPackElements ins bld 64<rt> false (Saturate false)
+  | Op.VCIPHER ->
+    aesRound ins bld "AESENC"
+  | Op.VCIPHERLAST ->
+    aesRound ins bld "AESENCLAST"
+  | Op.VNCIPHER ->
+    vncipher ins bld
+  | Op.VNCIPHERLAST ->
+    aesRound ins bld "AESDECLAST"
+  | Op.VSBOX ->
+    vsbox ins bld
+  | Op.VSHASIGMAW ->
+    vshasigma ins bld 32<rt>
+  | Op.VSHASIGMAD ->
+    vshasigma ins bld 64<rt>
+  | Op.VPMSUMB ->
+    vpmsum ins bld 8<rt>
+  | Op.VPMSUMH ->
+    vpmsum ins bld 16<rt>
+  | Op.VPMSUMW ->
+    vpmsum ins bld 32<rt>
+  | Op.VPMSUMD ->
+    vpmsum ins bld 64<rt>
+  | Op.VPERMXOR ->
+    vpermxor ins bld
   | Op.VPKUHUS ->
     vecPackElements ins bld 16<rt> false (Saturate false)
   | Op.VPKUWUS ->

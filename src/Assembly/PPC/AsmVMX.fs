@@ -92,9 +92,40 @@ let private quadwordEncoders () =
     Op.VSUBEUQM, va 62u
     Op.VSUBECUQ, va 63u ]
 
+/// A VX-form "vD, vA" whose vB field no register fills (vsbox).
+let private vxA xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg a ] -> word 4u (vr d) (vr a) 0u xo
+  | _ -> wrongOperands ins
+
+/// vshasigmaw/vshasigmad, whose ST bit and four-bit SIX fill the vB field.
+let private vxSigma xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg a; Im st; Im six ] ->
+    word 4u (vr d) (vr a) (((unsigned 1 st) <<< 4) ||| unsigned 4 six) xo
+  | _ ->
+    wrongOperands ins
+
+/// The cryptography support: the AES rounds, the SHA-2 sigma functions, the
+/// carry-less multiply-sums and the permute-and-XOR.
+let private cryptoEncoders () =
+  [ Op.VCIPHER, vx 1288u
+    Op.VCIPHERLAST, vx 1289u
+    Op.VNCIPHER, vx 1352u
+    Op.VNCIPHERLAST, vx 1353u
+    Op.VSBOX, vxA 1480u
+    Op.VSHASIGMAW, vxSigma 1666u
+    Op.VSHASIGMAD, vxSigma 1730u
+    Op.VPMSUMB, vx 1032u
+    Op.VPMSUMH, vx 1096u
+    Op.VPMSUMW, vx 1160u
+    Op.VPMSUMD, vx 1224u
+    Op.VPERMXOR, va 45u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
     [ packAndSumEncoders ()
       multiplyEncoders ()
-      quadwordEncoders () ]
+      quadwordEncoders ()
+      cryptoEncoders () ]
