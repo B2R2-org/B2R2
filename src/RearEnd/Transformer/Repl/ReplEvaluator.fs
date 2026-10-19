@@ -1250,6 +1250,8 @@ module TransformerReplEvaluator =
   let private defaultArgumentValue = function
     | ActionArgumentDefault.Zero ->
       "0"
+    | ActionArgumentDefault.EmptyList ->
+      "[]"
 
   let rec private fillArguments positional named arguments output assignments =
     match arguments with
@@ -1784,9 +1786,16 @@ module TransformerReplEvaluator =
       if isContextAction metadata then
         transformWith (contextOutputKind metadata) args None
       else
+        let isDirectSymbolic =
+          metadata.ID = "run-symbolic"
+          && (input.Kind = ReplValueKind.Binary
+              || input.Kind = ReplValueKind.BinarySlice)
         let ready =
           if metadata.ID = "make-symbolic-executor" then
             registerSymbSolver registry args cancellationToken
+          elif isDirectSymbolic then
+            let solverArgs = "solver=symb-z3" :: args
+            registerSymbSolver registry solverArgs cancellationToken
           else
             Ok registry
         ready

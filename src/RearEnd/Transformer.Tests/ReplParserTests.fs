@@ -317,7 +317,10 @@ type ReplParserTests() =
 
   [<TestMethod>]
   member _.``Completion suggests compatible argument bindings``() =
-    let executor = collectionValue ReplValueKind.ConcExecutor
+    let executor =
+      { Kind = ReplValueKind.ConcExecutor
+        IsCollection = false
+        Collection = { Values = [||] } }
     let address =
       { Address = 0x401e08UL }
       |> box

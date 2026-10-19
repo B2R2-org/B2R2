@@ -30,7 +30,7 @@ open B2R2.RearEnd.Transformer
 [<TestClass>]
 type DisasmActionTests() =
   let disassemble hex =
-    let source = { Values = [| null |] }
+    let source = { Values = [| box () |] }
     let loaded = (LoadAction() :> IAction).Transform([ hex; "x86-64" ], source)
     let result = (DisasmAction() :> IAction).Transform([], loaded)
     result.Values[0] :?> Instruction[]

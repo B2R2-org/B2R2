@@ -10,6 +10,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="AnalysisCache.fs" />
     <Compile Include="ContextParsing.fs" />
+    <Compile Include="ExecutionBuffer.fs" />
     <Compile Include="IAction.fs" />
     <Compile Include="PluginLoader.fs" />
     <Compile Include="Repl\ActionMetadata.fs" />

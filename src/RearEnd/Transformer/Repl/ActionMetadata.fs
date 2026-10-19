@@ -100,6 +100,7 @@ type ActionArgumentKind =
 [<RequireQualifiedAccess>]
 type ActionArgumentDefault =
   | Zero
+  | EmptyList
 
 /// A command-line argument accepted by an action.
 type ActionArgument =
@@ -1194,23 +1195,45 @@ module ActionMetadata =
     let entry =
       optional "entry" ActionArgumentKind.Address
         "Start address; defaults to current PC or file entry point."
+    let binaryEntry =
+      required "entry" ActionArgumentKind.Address
+        "Address of the function to execute."
+    let registers =
+      { required "regs" ActionArgumentKind.Text
+          "Concrete register values: [RSI=0x1; RDX=0x2]." with
+          IsOptional = true
+          DefaultValue = Some ActionArgumentDefault.EmptyList
+          Choices = [ "[]" ] }
+    let buffers =
+      { required "buffers" ActionArgumentKind.Text
+          "Allocated buffers: [RDI=track:0x400:rw]." with
+          IsOptional = true
+          DefaultValue = Some ActionArgumentDefault.EmptyList
+          Choices = [ "[]" ] }
     let limit =
       optional "limit" ActionArgumentKind.Integer
         "Maximum machine instruction count."
     let breakpoint =
       optional "break" ActionArgumentKind.Address
         "Stop before executing this address."
-    contract
+    let directArgs = [ binaryEntry; registers; buffers; limit ]
+    let executorArgs = [ entry; limit; breakpoint ]
+    let binarySyntax = syntaxFor [ ReplValueKind.Binary ] None directArgs
+    let executorSyntax =
+      syntaxFor [ ReplValueKind.ConcExecutor ] None executorArgs
+    overloadContract
       "run-concrete"
-      ReplValueKind.ConcExecutor
+      [ ReplValueKind.Binary; ReplValueKind.ConcExecutor ]
       ReplValueKind.ConcExecutor
       ActionRole.Transform
       20
-      ("run-concrete [entry=<addr>] [limit=<n>] [break=<addr>]"
-       + " -> ConcExecutor")
-      [ "executor |> @run-concrete entry=<entry> limit=<limit>"
+      ("Binary -> run-concrete entry=<addr> [regs=[...]] [buffers=[...]] "
+       + "[limit=<n>] | ConcExecutor -> run-concrete [entry=<addr>] "
+       + "[limit=<n>] [break=<addr>] -> ConcExecutor")
+      [ "binary |> @run-concrete entry=<entry> regs=[...] buffers=[...]"
+        "executor |> @run-concrete entry=<entry> limit=<limit>"
         "executor |> @run-concrete entry=<entry> limit=<limit> break=<addr>" ]
-      [ syntax None [ entry; limit; breakpoint ] ]
+      [ binarySyntax; executorSyntax ]
 
   let private lift =
     overloadContract
