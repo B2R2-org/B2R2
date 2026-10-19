@@ -209,11 +209,51 @@ let private parseLXVKQ bin =
   else
     struct (Op.LXVKQ, TwoOperands(xt bin, OprImm(uint64 uim)))
 
+/// An XX3 form that reports in a condition-register field: "BF, xA, xB".
+let private parseXX3CR op bin =
+  struct (op, ThreeOperands(crField bin, xa bin, xb bin))
+
+/// xststdcdp and xststdcsp, "BF, xB, DCMX": the seven-bit mask lies below
+/// the field, where an XX form keeps the bottom of xT and the A field.
+let private parseScalarDCMX op bin =
+  let dcmx = Bits.extract bin 22u 16u |> uint64 |> OprImm
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  struct (op, ThreeOperands(bf, xb bin, dcmx))
+
+/// xvtstdcdp and xvtstdcsp, "xT, xB, DCMX": the mask is split three ways,
+/// dc above the extended opcode's low part, dm beside the register bits and
+/// dx in the A field.
+let private parseVectorDCMX op bin =
+  let dcmx =
+    (Bits.pick bin 6u <<< 6) ||| (Bits.pick bin 2u <<< 5)
+    ||| Bits.extract bin 20u 16u
+  struct (op, ThreeOperands(xt bin, xb bin, OprImm(uint64 dcmx)))
+
+/// xsxexpdp and xsxsigdp, "rT, xB", whose target is a general register.
+let private parseToGPR op bin =
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException
+  else struct (op, TwoOperands(gpr bin 21u, xb bin))
+
+/// xsiexpdp, "xT, rA, rB", whose sources are general registers.
+let private parseXSIEXPDP bin =
+  struct (Op.XSIEXPDP, ThreeOperands(xt bin, gpr bin 16u, gpr bin 11u))
+
+/// The XX2 forms of extended opcode 347, which its A field tells apart.
+let private parseXO347 bin =
+  match Bits.extract bin 20u 16u with
+  | 0u -> parseToGPR Op.XSXEXPDP bin
+  | 1u -> parseToGPR Op.XSXSIGDP bin
+  | _ -> raise ParsingFailureException
+
 /// The XX2 forms of extended opcode 475, which its A field tells apart.
 let private parseXO475 bin =
   match Bits.extract bin 20u 16u with
+  | 0u -> parseXX2 Op.XVXEXPDP bin
+  | 1u -> parseXX2 Op.XVXSIGDP bin
   | 2u -> parseXX2CR Op.XVTLSBB bin
   | 7u -> parseXX2 Op.XXBRH bin
+  | 8u -> parseXX2 Op.XVXEXPSP bin
+  | 9u -> parseXX2 Op.XVXSIGSP bin
   | 15u -> parseXX2 Op.XXBRW bin
   | 23u -> parseXX2 Op.XXBRD bin
   | 31u -> parseXX2 Op.XXBRQ bin
@@ -223,6 +263,7 @@ let private parseXO475 bin =
 let private parse3CX bin =
   match Bits.extract bin 10u 1u with
   | 916u -> parseGenPCV Op.XXGENPCVBM bin
+  | 918u -> parseXSIEXPDP bin
   | 917u -> parseGenPCV Op.XXGENPCVHM bin
   | 948u -> parseGenPCV Op.XXGENPCVWM bin
   | 949u -> parseGenPCV Op.XXGENPCVDM bin
@@ -232,38 +273,60 @@ let private parse3CX bin =
 /// opcode.
 let private parse3CXX3 bin =
   match Bits.extract bin 10u 3u with
+  | 3u -> parseXX3 Op.XSCMPEQDP bin
+  | 11u -> parseXX3 Op.XSCMPGTDP bin
+  | 19u -> parseXX3 Op.XSCMPGEDP bin
   | 26u -> parseXX3 Op.XXPERM bin
+  | 43u -> parseXX3CR Op.XSCMPODP bin
   | 58u -> parseXX3 Op.XXPERMR bin
+  | 59u -> parseXX3CR Op.XSCMPEXPDP bin
+  | 61u -> parseXX3CR Op.XSTDIVDP bin
   | 64u -> parseXX3 Op.XVADDSP bin
   | 65u -> parseXX3 Op.XVMADDASP bin
+  | 67u -> parseXX3 Op.XVCMPEQSP bin
   | 72u -> parseXX3 Op.XVSUBSP bin
   | 73u -> parseXX3 Op.XVMADDMSP bin
+  | 75u -> parseXX3 Op.XVCMPGTSP bin
   | 80u -> parseXX3 Op.XVMULSP bin
   | 81u -> parseXX3 Op.XVMSUBASP bin
+  | 83u -> parseXX3 Op.XVCMPGESP bin
   | 88u -> parseXX3 Op.XVDIVSP bin
   | 89u -> parseXX3 Op.XVMSUBMSP bin
+  | 93u -> parseXX3CR Op.XVTDIVSP bin
   | 97u -> parseXX3 Op.XVMADDADP bin
+  | 99u -> parseXX3 Op.XVCMPEQDP bin
   | 105u -> parseXX3 Op.XVMADDMDP bin
   | 113u -> parseXX3 Op.XVMSUBADP bin
   | 121u -> parseXX3 Op.XVMSUBMDP bin
+  | 125u -> parseXX3CR Op.XVTDIVDP bin
   | 128u -> parseXX3 Op.XSMAXCDP bin
   | 136u -> parseXX3 Op.XSMINCDP bin
   | 144u -> parseXX3 Op.XSMAXJDP bin
   | 152u -> parseXX3 Op.XSMINJDP bin
   | 192u -> parseXX3 Op.XVMAXSP bin
   | 193u -> parseXX3 Op.XVNMADDASP bin
+  | 195u -> parseXX3 Op.XVCMPEQSPdot bin
   | 200u -> parseXX3 Op.XVMINSP bin
   | 201u -> parseXX3 Op.XVNMADDMSP bin
+  | 203u -> parseXX3 Op.XVCMPGTSPdot bin
   | 208u -> parseXX3 Op.XVCPSGNSP bin
   | 209u -> parseXX3 Op.XVNMSUBASP bin
+  | 211u -> parseXX3 Op.XVCMPGESPdot bin
+  | 213u -> parseVectorDCMX Op.XVTSTDCSP bin
+  | 216u -> parseXX3 Op.XVIEXPSP bin
   | 217u -> parseXX3 Op.XVNMSUBMSP bin
+  | 221u -> parseVectorDCMX Op.XVTSTDCSP bin
   | 224u -> parseXX3 Op.XVMAXDP bin
   | 225u -> parseXX3 Op.XVNMADDADP bin
+  | 227u -> parseXX3 Op.XVCMPEQDPdot bin
   | 232u -> parseXX3 Op.XVMINDP bin
   | 233u -> parseXX3 Op.XVNMADDMDP bin
   | 240u -> parseXX3 Op.XVCPSGNDP bin
   | 241u -> parseXX3 Op.XVNMSUBADP bin
+  | 245u -> parseVectorDCMX Op.XVTSTDCDP bin
+  | 248u -> parseXX3 Op.XVIEXPDP bin
   | 249u -> parseXX3 Op.XVNMSUBMDP bin
+  | 253u -> parseVectorDCMX Op.XVTSTDCDP bin
   | _ -> parse3CX bin
 
 /// <summary>
@@ -277,6 +340,7 @@ let parse3C bin =
   | 26u -> parseXX2 Op.XSRESP bin
   | 74u -> parseXX2 Op.XSRSQRTEDP bin
   | 90u -> parseXX2 Op.XSREDP bin
+  | 106u -> parseXX2CR Op.XSTSQRTDP bin
   | 107u -> parseXX2 Op.XSRDPIC bin
   | 137u -> parseXX2 Op.XVRSPI bin
   | 138u -> parseXX2 Op.XVRSQRTESP bin
@@ -285,6 +349,7 @@ let parse3C bin =
   | 154u -> parseXX2 Op.XVRESP bin
   | 165u -> parseXX2Uim Op.XXEXTRACTUW bin
   | 169u -> parseXX2 Op.XVRSPIP bin
+  | 170u -> parseXX2CR Op.XVTSQRTSP bin
   | 171u -> parseXX2 Op.XVRSPIC bin
   | 180u -> parseLXVKQ bin
   | 181u -> parseXX2Uim Op.XXINSERTW bin
@@ -295,8 +360,12 @@ let parse3C bin =
   | 217u -> parseXX2 Op.XVRDPIZ bin
   | 218u -> parseXX2 Op.XVREDP bin
   | 233u -> parseXX2 Op.XVRDPIP bin
+  | 234u -> parseXX2CR Op.XVTSQRTDP bin
   | 235u -> parseXX2 Op.XVRDPIC bin
   | 249u -> parseXX2 Op.XVRDPIM bin
+  | 298u -> parseScalarDCMX Op.XSTSTDCSP bin
+  | 347u -> parseXO347 bin
+  | 362u -> parseScalarDCMX Op.XSTSTDCDP bin
   | 409u -> parseXX2 Op.XVABSSP bin
   | 425u -> parseXX2 Op.XVNABSSP bin
   | 441u -> parseXX2 Op.XVNEGSP bin

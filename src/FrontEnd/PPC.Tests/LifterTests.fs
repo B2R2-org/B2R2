@@ -12871,6 +12871,3014 @@ type LifterTests() =
       [ F1, 0x40200000feffffffUL; VSRL1, 0x3f000000ffc00000UL ]
       []
 
+  /// <summary>
+  /// xscmpeqdp xT, xA, xB sets doubleword 0 of xT to all ones where the doubles
+  /// in doubleword 0 of xA and xB compare equal -- +0 and -0 do -- and to
+  /// zeroes where not, a NaN comparing unequal; doubleword 1 is cleared.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPEQDP writes a mask of equality``() =
+    (* xscmpeqdp vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221818"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221818"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x4000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x4000000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221818"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x4000000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x4000000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221818"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x8000000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221818"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7ff8000000000001UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7ff8000000000001UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221818"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x7ff0000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x7ff0000000000001UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221818"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7ff0000000000000UL
+        F3, 0x7ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221818"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0xfffffffffffffUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0xfffffffffffffUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xscmpgtdp xT, xA, xB sets doubleword 0 of xT to all ones where the double
+  /// in xA is greater than the one in xB, a NaN comparing false; doubleword 1
+  /// is cleared.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPGTDP writes a mask of greater-than``() =
+    (* xscmpgtdp vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221858"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221858"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x4000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x4000000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221858"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x4000000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x4000000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221858"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x8000000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221858"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7ff8000000000001UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7ff8000000000001UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221858"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x7ff0000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x7ff0000000000001UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221858"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7ff0000000000000UL
+        F3, 0x7ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221858"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0xfffffffffffffUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0xfffffffffffffUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xscmpgedp xT, xA, xB sets doubleword 0 of xT to all ones where the double
+  /// in xA is greater than or equal to the one in xB, a NaN comparing false;
+  /// doubleword 1 is cleared.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPGEDP writes a mask of greater-or-equal``() =
+    (* xscmpgedp vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221898"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221898"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x4000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x4000000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221898"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x4000000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x4000000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221898"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x8000000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221898"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7ff8000000000001UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7ff8000000000001UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221898"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x7ff0000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x7ff0000000000001UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221898"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7ff0000000000000UL
+        F3, 0x7ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221898"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0xfffffffffffffUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0xfffffffffffffUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xscmpodp BF, xA, xB sets CR field BF and FPCC to less-than, greater-than,
+  /// equal or unordered for the doubles in doubleword 0 of xA and xB; +0 and -0
+  /// are equal, and a NaN is unordered.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPODP orders two doubles into CR and FPCC``() =
+    (* xscmpodp cr2,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f1021958"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021958"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x4000000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x4000000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021958"
+      [ F2, 0x4000000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x4000000000000000UL
+        VSRL3, 0x3ff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x1UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021958"
+      [ F2, 0x8000000000000000UL
+        VSRL2, 0x8000000000000000UL
+        CR2_1, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021958"
+      [ F2, 0x7ff8000000000001UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x7ff8000000000001UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021958"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x7ff0000000000001UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x7ff0000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021958"
+      [ F2, 0x7ff0000000000000UL
+        F3, 0x7ff0000000000000UL
+        VSRL2, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021958"
+      [ F2, 0xfffffffffffffUL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0xfffffffffffffUL
+        VSRL3, 0x3ff0000000000000UL
+        CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+
+  /// <summary>
+  /// xscmpexpdp BF, xA, xB compares the biased exponent fields of the doubles
+  /// in doubleword 0 of xA and xB as unsigned numbers into CR field BF and
+  /// FPCC, unordered where either is a NaN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPEXPDP compares exponent fields``() =
+    (* xscmpexpdp cr2,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f10219d8"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219d8"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x4000000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x4000000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219d8"
+      [ F2, 0x4000000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x4000000000000000UL
+        VSRL3, 0x3ff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x1UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219d8"
+      [ F2, 0x8000000000000000UL
+        VSRL2, 0x8000000000000000UL
+        CR2_1, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219d8"
+      [ F2, 0x7ff8000000000001UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x7ff8000000000001UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219d8"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x7ff0000000000001UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x7ff0000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219d8"
+      [ F2, 0x7ff0000000000000UL
+        F3, 0x7ff0000000000000UL
+        VSRL2, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219d8"
+      [ F2, 0xfffffffffffffUL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0xfffffffffffffUL
+        VSRL3, 0x3ff0000000000000UL
+        CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+
+  /// <summary>
+  /// xvcmpeqdp xT, xA, xB sets each double element of xT to all ones where the
+  /// matching element of xA is equal to that of xB, a NaN comparing false, and
+  /// to zeroes where not.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCMPEQDP writes lane masks``() =
+    (* xvcmpeqdp vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221b18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221b18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x4000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x4000000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221b18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x4000000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x4000000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221b18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x8000000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221b18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7ff8000000000001UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7ff8000000000001UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221b18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x7ff0000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x7ff0000000000001UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xvcmpeqdp. xT, xA, xB writes the masks xvcmpeqdp does and sets CR6 to all-
+  /// true, 0, all-false, 0: bit 0 where every element compared true, bit 2
+  /// where none did.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCMPEQDP. also records in CR6``() =
+    (* xvcmpeqdp. vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221f18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR6_0, 0x1UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffffffffffffUL
+        VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x4000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x4000000000000000UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_2, 0x1UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x1UL
+        CR6_3, 0x0UL
+        F1, 0x0UL
+        VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x4000000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x4000000000000000UL
+        VSRL3, 0x3ff0000000000000UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_2, 0x1UL
+        CR6_3, 0x1UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x1UL
+        CR6_3, 0x0UL
+        F1, 0x0UL
+        VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x8000000000000000UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_3, 0x1UL ]
+      []
+      [ CR6_0, 0x1UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffffffffffffUL
+        VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7ff8000000000001UL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7ff8000000000001UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x1UL
+        CR6_3, 0x0UL
+        F1, 0x0UL
+        VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3ff0000000000000UL
+        F3, 0x7ff0000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x7ff0000000000001UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x1UL
+        CR6_3, 0x0UL
+        F1, 0x0UL
+        VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xvcmpeqsp xT, xA, xB sets each single element of xT to all ones where the
+  /// matching element of xA is equal to that of xB, a NaN comparing false, and
+  /// to zeroes where not.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCMPEQSP writes lane masks``() =
+    (* xvcmpeqsp vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221a18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f8000003f800000UL
+        F3, 0x7f800000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x400000007fc00001UL
+        VSRL3, 0x17f800001UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221a18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000040000000UL
+        F3, 0x3f80000040000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3f80000080000000UL
+        VSRL3, 0x3f80000080000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221a18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7f800000ff800000UL
+        F3, 0x3f8000003f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x17f800001UL
+        VSRL3, 0x400000007fc00001UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221a18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000080000000UL
+        F3, 0x3f80000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x40000000c0000000UL
+        VSRL3, 0x40000000c0000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0xffffffffffffffffUL ]
+      []
+
+  /// <summary>
+  /// xvcmpeqsp. xT, xA, xB writes the masks xvcmpeqsp does and sets CR6 to all-
+  /// true, 0, all-false, 0: bit 0 where every element compared true, bit 2
+  /// where none did.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCMPEQSP. also records in CR6``() =
+    (* xvcmpeqsp. vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221e18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f8000003f800000UL
+        F3, 0x7f800000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x400000007fc00001UL
+        VSRL3, 0x17f800001UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x1UL
+        CR6_3, 0x0UL
+        F1, 0x0UL
+        VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221e18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000040000000UL
+        F3, 0x3f80000040000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3f80000080000000UL
+        VSRL3, 0x3f80000080000000UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_2, 0x1UL ]
+      []
+      [ CR6_0, 0x1UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffffffffffffUL
+        VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221e18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7f800000ff800000UL
+        F3, 0x3f8000003f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x17f800001UL
+        VSRL3, 0x400000007fc00001UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_2, 0x1UL
+        CR6_3, 0x1UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x1UL
+        CR6_3, 0x0UL
+        F1, 0x0UL
+        VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221e18"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000080000000UL
+        F3, 0x3f80000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x40000000c0000000UL
+        VSRL3, 0x40000000c0000000UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_3, 0x1UL ]
+      []
+      [ CR6_0, 0x1UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffffffffffffUL
+        VSRL1, 0xffffffffffffffffUL ]
+      []
+
+  /// <summary>
+  /// xvcmpgesp xT, xA, xB sets each single element of xT to all ones where the
+  /// matching element of xA is greater than or equal to that of xB, a NaN
+  /// comparing false, and to zeroes where not.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCMPGESP writes lane masks``() =
+    (* xvcmpgesp vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221a98"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f8000003f800000UL
+        F3, 0x7f800000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x400000007fc00001UL
+        VSRL3, 0x17f800001UL ]
+      []
+      [ F1, 0xffffffffUL; VSRL1, 0xffffffff00000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221a98"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000040000000UL
+        F3, 0x3f80000040000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3f80000080000000UL
+        VSRL3, 0x3f80000080000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221a98"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7f800000ff800000UL
+        F3, 0x3f8000003f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x17f800001UL
+        VSRL3, 0x400000007fc00001UL ]
+      []
+      [ F1, 0xffffffff00000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221a98"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000080000000UL
+        F3, 0x3f80000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x40000000c0000000UL
+        VSRL3, 0x40000000c0000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0xffffffffffffffffUL ]
+      []
+
+  /// <summary>
+  /// xvcmpgesp. xT, xA, xB writes the masks xvcmpgesp does and sets CR6 to all-
+  /// true, 0, all-false, 0: bit 0 where every element compared true, bit 2
+  /// where none did.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCMPGESP. also records in CR6``() =
+    (* xvcmpgesp. vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221e98"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f8000003f800000UL
+        F3, 0x7f800000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x400000007fc00001UL
+        VSRL3, 0x17f800001UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffffUL
+        VSRL1, 0xffffffff00000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221e98"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000040000000UL
+        F3, 0x3f80000040000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3f80000080000000UL
+        VSRL3, 0x3f80000080000000UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_2, 0x1UL ]
+      []
+      [ CR6_0, 0x1UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffffffffffffUL
+        VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221e98"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7f800000ff800000UL
+        F3, 0x3f8000003f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x17f800001UL
+        VSRL3, 0x400000007fc00001UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_2, 0x1UL
+        CR6_3, 0x1UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffff00000000UL
+        VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221e98"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000080000000UL
+        F3, 0x3f80000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x40000000c0000000UL
+        VSRL3, 0x40000000c0000000UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_3, 0x1UL ]
+      []
+      [ CR6_0, 0x1UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffffffffffffUL
+        VSRL1, 0xffffffffffffffffUL ]
+      []
+
+  /// <summary>
+  /// xvcmpgtsp xT, xA, xB sets each single element of xT to all ones where the
+  /// matching element of xA is greater than that of xB, a NaN comparing false,
+  /// and to zeroes where not.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCMPGTSP writes lane masks``() =
+    (* xvcmpgtsp vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221a58"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f8000003f800000UL
+        F3, 0x7f800000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x400000007fc00001UL
+        VSRL3, 0x17f800001UL ]
+      []
+      [ F1, 0xffffffffUL; VSRL1, 0xffffffff00000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221a58"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000040000000UL
+        F3, 0x3f80000040000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3f80000080000000UL
+        VSRL3, 0x3f80000080000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221a58"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7f800000ff800000UL
+        F3, 0x3f8000003f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x17f800001UL
+        VSRL3, 0x400000007fc00001UL ]
+      []
+      [ F1, 0xffffffff00000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221a58"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000080000000UL
+        F3, 0x3f80000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x40000000c0000000UL
+        VSRL3, 0x40000000c0000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xvcmpgtsp. xT, xA, xB writes the masks xvcmpgtsp does and sets CR6 to all-
+  /// true, 0, all-false, 0: bit 0 where every element compared true, bit 2
+  /// where none did.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCMPGTSP. also records in CR6``() =
+    (* xvcmpgtsp. vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221e58"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f8000003f800000UL
+        F3, 0x7f800000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x400000007fc00001UL
+        VSRL3, 0x17f800001UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffffUL
+        VSRL1, 0xffffffff00000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221e58"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000040000000UL
+        F3, 0x3f80000040000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x3f80000080000000UL
+        VSRL3, 0x3f80000080000000UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_2, 0x1UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x1UL
+        CR6_3, 0x0UL
+        F1, 0x0UL
+        VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221e58"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7f800000ff800000UL
+        F3, 0x3f8000003f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x17f800001UL
+        VSRL3, 0x400000007fc00001UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_2, 0x1UL
+        CR6_3, 0x1UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x0UL
+        CR6_3, 0x0UL
+        F1, 0xffffffff00000000UL
+        VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221e58"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x3f80000080000000UL
+        F3, 0x3f80000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x40000000c0000000UL
+        VSRL3, 0x40000000c0000000UL
+        CR6_0, 0x1UL
+        CR6_1, 0x1UL
+        CR6_3, 0x1UL ]
+      []
+      [ CR6_0, 0x0UL
+        CR6_1, 0x0UL
+        CR6_2, 0x1UL
+        CR6_3, 0x0UL
+        F1, 0x0UL
+        VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xstdivdp BF, xA, xB sets CR field BF to 0b1 || fg || fe || 0b0 for the
+  /// doubles in doubleword 0 of xA and xB: fe where a NaN, an infinity, a zero
+  /// divisor or exponents past the thresholds of the double format need a
+  /// software fix-up, fg where an operand is an infinity or the divisor a zero
+  /// or a denormal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSTDIVDP flags a divide that needs software``() =
+    (* xstdivdp cr2,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f10219e8"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219e8"
+      [ F2, 0x3ff0000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219e8"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0xfffffffffffffUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0xfffffffffffffUL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219e8"
+      [ F2, 0x7e70000000000000UL
+        F3, 0x3e10000000000000UL
+        VSRL2, 0x7e70000000000000UL
+        VSRL3, 0x3e10000000000000UL
+        CR2_1, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219e8"
+      [ F2, 0x2b0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x2b0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219e8"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x7fc0000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x7fc0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219e8"
+      [ F2, 0x7ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x7ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10219e8"
+      [ F2, 0x20b0000000000000UL
+        F3, 0x6070000000000000UL
+        VSRL2, 0x20b0000000000000UL
+        VSRL3, 0x6070000000000000UL
+        CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xvtdivdp BF, xA, xB sets CR field BF to 0b1 || fg || fe || 0b0, fe and fg
+  /// gathered over both double lanes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVTDIVDP flags a divide in either lane``() =
+    (* xvtdivdp cr2,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f1021be8"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021be8"
+      [ F2, 0x3ff0000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021be8"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0xfffffffffffffUL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0xfffffffffffffUL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021be8"
+      [ F2, 0x7e70000000000000UL
+        F3, 0x3e10000000000000UL
+        VSRL2, 0x7e70000000000000UL
+        VSRL3, 0x3e10000000000000UL
+        CR2_1, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021be8"
+      [ F2, 0x2b0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x2b0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021be8"
+      [ F2, 0x3ff0000000000000UL
+        F3, 0x7fc0000000000000UL
+        VSRL2, 0x3ff0000000000000UL
+        VSRL3, 0x7fc0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021be8"
+      [ F2, 0x7ff0000000000000UL
+        F3, 0x3ff0000000000000UL
+        VSRL2, 0x7ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021be8"
+      [ F2, 0x20b0000000000000UL
+        F3, 0x6070000000000000UL
+        VSRL2, 0x20b0000000000000UL
+        VSRL3, 0x6070000000000000UL
+        CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xvtdivsp BF, xA, xB tests the four single lanes against the thresholds of
+  /// the single format: e_b at most -126 or at least 125, e_a - e_b at least
+  /// 127 or at most -125, e_a at most -103.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVTDIVSP uses the single thresholds``() =
+    (* xvtdivsp cr2,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f1021ae8"
+      [ F2, 0x3f8000003f800000UL
+        F3, 0x3f8000003f800000UL
+        VSRL2, 0x3f8000003f800000UL
+        VSRL3, 0x3f8000003f800000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021ae8"
+      [ F2, 0x3f80000071800000UL
+        F3, 0x308000003f800000UL
+        VSRL2, 0x3a80000008800000UL
+        VSRL3, 0x448000003f800000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021ae8"
+      [ F2, 0x3f80000000000000UL
+        F3, 0x3f8000003f800000UL
+        VSRL2, 0x17e000000UL
+        VSRL3, 0x3f8000003f800000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xstsqrtdp BF, xB sets CR field BF to 0b1 || fg || fe || 0b0 for the double
+  /// in doubleword 0 of xB: fe for a zero, a NaN, an infinity, a negative
+  /// number or an exponent at most -970, fg for a zero, an infinity or a
+  /// denormal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSTSQRTDP flags a square root that needs software``() =
+    (* xstsqrtdp cr2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f10019a8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10019a8"
+      [ VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL; CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10019a8"
+      [ F3, 0xfffffffffffffUL
+        VSRL3, 0x3ff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10019a8"
+      [ F3, 0x300000000000000UL
+        VSRL3, 0x3ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10019a8"
+      [ F3, 0x3f0000000000000UL; VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10019a8"
+      [ F3, 0xbff0000000000000UL; VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10019a8"
+      [ F3, 0x7ff0000000000000UL; VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f10019a8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xvtsqrtdp BF, xB gathers the xstsqrtdp flags over both double lanes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVTSQRTDP flags a square root in either lane``() =
+    (* xvtsqrtdp cr2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f1001ba8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1001ba8"
+      [ VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL; CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1001ba8"
+      [ F3, 0xfffffffffffffUL
+        VSRL3, 0x3ff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1001ba8"
+      [ F3, 0x300000000000000UL
+        VSRL3, 0x3ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1001ba8"
+      [ F3, 0x3f0000000000000UL; VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1001ba8"
+      [ F3, 0xbff0000000000000UL; VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1001ba8"
+      [ F3, 0x7ff0000000000000UL; VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1001ba8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xvtsqrtsp BF, xB gathers the flags over four single lanes, an exponent at
+  /// most -103 being the single format threshold.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVTSQRTSP uses the single thresholds``() =
+    (* xvtsqrtsp cr2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f1001aa8"
+      [ F3, 0x3f80000040000000UL; VSRL3, 0x4080000041000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1001aa8"
+      [ F3, 0x3f8000000b800000UL
+        VSRL3, 0x3f8000003f800000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1001aa8"
+      [ F3, 0x3f80000080000001UL
+        VSRL3, 0x3f800000bf800000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x1UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xststdcdp BF, xB, DCMX sets CR field BF and FPCC to the sign of the double
+  /// in doubleword 0 of xB, 0, whether it is in a class DCMX selects, and 0;
+  /// each of the seven classes is selected on its own over a value of every
+  /// class, and then all of them.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSTSTDCDP tests each data class``() =
+    (* xststdcdp cr2,vs3,64, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f1401da8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1401da8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1401da8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1401da8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1401da8"
+      [ F3, 0x8000000000000000UL; VSRL3, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1401da8"
+      [ F3, 0xfffffffffffffUL; VSRL3, 0xfffffffffffffUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1401da8"
+      [ F3, 0x800fffffffffffffUL; VSRL3, 0x800fffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1401da8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1201da8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1201da8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1201da8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1201da8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1201da8"
+      [ F3, 0x8000000000000000UL; VSRL3, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1201da8"
+      [ F3, 0xfffffffffffffUL; VSRL3, 0xfffffffffffffUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1201da8"
+      [ F3, 0x800fffffffffffffUL; VSRL3, 0x800fffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1201da8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1101da8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1101da8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1101da8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "f1101da8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1101da8"
+      [ F3, 0x8000000000000000UL; VSRL3, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1101da8"
+      [ F3, 0xfffffffffffffUL; VSRL3, 0xfffffffffffffUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1101da8"
+      [ F3, 0x800fffffffffffffUL; VSRL3, 0x800fffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1101da8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1081da8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1081da8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1081da8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1081da8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1081da8"
+      [ F3, 0x8000000000000000UL; VSRL3, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1081da8"
+      [ F3, 0xfffffffffffffUL; VSRL3, 0xfffffffffffffUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1081da8"
+      [ F3, 0x800fffffffffffffUL; VSRL3, 0x800fffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1081da8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1041da8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1041da8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1041da8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1041da8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1041da8"
+      [ F3, 0x8000000000000000UL; VSRL3, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "f1041da8"
+      [ F3, 0xfffffffffffffUL; VSRL3, 0xfffffffffffffUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1041da8"
+      [ F3, 0x800fffffffffffffUL; VSRL3, 0x800fffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1041da8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021da8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021da8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021da8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021da8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021da8"
+      [ F3, 0x8000000000000000UL; VSRL3, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021da8"
+      [ F3, 0xfffffffffffffUL; VSRL3, 0xfffffffffffffUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021da8"
+      [ F3, 0x800fffffffffffffUL; VSRL3, 0x800fffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021da8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1011da8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1011da8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1011da8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1011da8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1011da8"
+      [ F3, 0x8000000000000000UL; VSRL3, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1011da8"
+      [ F3, 0xfffffffffffffUL; VSRL3, 0xfffffffffffffUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1011da8"
+      [ F3, 0x800fffffffffffffUL; VSRL3, 0x800fffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "f1011da8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f17f1da8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f17f1da8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f17f1da8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "f17f1da8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+
+  /// <summary>
+  /// xststdcsp BF, xB, DCMX classifies the double in doubleword 0 of xB as it
+  /// would be in single precision -- an exponent below the single range is a
+  /// denormal there -- and sets bit 3 of CR field BF and FPCC where no single
+  /// represents the value. Under a mask selecting NaN and +Inf only, QEMU 8.2.2
+  /// still matches a value in the single denormal range; the manual does not,
+  /// and that is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSTSTDCSP reads the classes as a single``() =
+    (* xststdcsp cr2,vs3,3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0x8000000000000000UL; VSRL3, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0xfffffffffffffUL; VSRL3, 0xfffffffffffffUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x1UL; FPSCR, 0x3UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0x800fffffffffffffUL; VSRL3, 0x800fffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x1UL; FPSCR, 0xbUL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0x3800000000000000UL; VSRL3, 0x3800000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0x36a0000000000000UL
+        VSRL3, 0x36a0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0x3810000000000000UL
+        VSRL3, 0x3810000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1031ca8"
+      [ F3, 0x3ff0000000000001UL
+        VSRL3, 0x3ff0000000000001UL
+        CR2_1, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0x7ff8000000000001UL; VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x1UL; FPSCR, 0x3UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0x7ff0000000000000UL
+        VSRL3, 0x7ff0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0xfff0000000000000UL
+        VSRL3, 0xfff0000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0x8000000000000000UL; VSRL3, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0xfffffffffffffUL; VSRL3, 0xfffffffffffffUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0x800fffffffffffffUL; VSRL3, 0x800fffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x9UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0x3ff0000000000000UL; VSRL3, 0x3ff0000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0x3810000000000000UL
+        VSRL3, 0x3810000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0x3ff0000000000001UL
+        VSRL3, 0x3ff0000000000001UL
+        CR2_1, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0x3800000000000000UL; VSRL3, 0x3800000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_3, 0x0UL; CR2_2, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1601ca8"
+      [ F3, 0x36a0000000000000UL
+        VSRL3, 0x36a0000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_3, 0x0UL; CR2_2, 0x0UL; FPSCR, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xvtstdcdp xT, xB, DCMX sets each double element of xT to all ones where
+  /// the matching element of xB is in a class DCMX selects; each class selected
+  /// on its own, over every class.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVTSTDCDP writes lane masks of data classes``() =
+    (* xvtstdcdp vs1,vs3,64, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0201fe8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fe8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fe8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfffffffffffffUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fe8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x800fffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fac"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fac"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fac"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfffffffffffffUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fac"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x800fffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfffffffffffffUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x800fffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0281fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0281fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0281fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfffffffffffffUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0281fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x800fffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0241fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0241fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0241fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfffffffffffffUL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0241fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x800fffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfffffffffffffUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x800fffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfffffffffffffUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211fa8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x800fffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xvtstdcsp xT, xB, DCMX does the same over four single elements.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVTSTDCSP writes lane masks of data classes``() =
+    (* xvtstdcsp vs1,vs3,64, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0201ee8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fc000007f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xff80000000000000UL ]
+      []
+      [ F1, 0xffffffff00000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201ee8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000013f800000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201eac"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fc000007f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xff80000000000000UL ]
+      []
+      [ F1, 0xffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201eac"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000013f800000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fc000007f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xff80000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0xffffffff00000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000013f800000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0281ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fc000007f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xff80000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0xffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0281ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000013f800000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0241ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fc000007f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xff80000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0241ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000013f800000UL ]
+      []
+      [ F1, 0xffffffff00000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fc000007f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xff80000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000013f800000UL ]
+      []
+      [ F1, 0xffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fc000007f800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xff80000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211ea8"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000013f800000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0xffffffff00000000UL ]
+      []
+
+  /// <summary>
+  /// xsiexpdp xT, rA, rB places in doubleword 0 of xT the sign and fraction of
+  /// rA with the low eleven bits of rB as the exponent field, and clears
+  /// doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSIEXPDP inserts an exponent from rB``() =
+    (* xsiexpdp vs1,r6,r7, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0263f2c"
+      [ R6, 0x8123456789abcdefUL
+        R7, 0x3ffUL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xbff3456789abcdefUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0263f2c"
+      [ R6, 0xfffffffffffffUL
+        R7, 0xfffffffffffff800UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xfffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0263f2c"
+      [ R6, 0x7fffffffffffffffUL
+        R7, 0x7ffUL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x7fffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xsxexpdp rT, xB places in rT the eleven-bit exponent field of the double
+  /// in doubleword 0 of xB, zero-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSXEXPDP extracts the exponent field``() =
+    (* xsxexpdp r5,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0a01d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x3ffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a01d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0xfffffffffffffUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a01d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0x7ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x7ffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a01d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x7ffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a01d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a01d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0xc123456789abcdefUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x412UL ]
+      []
+
+  /// <summary>
+  /// xsxsigdp rT, xB places in rT the fraction of the double in doubleword 0 of
+  /// xB with the implicit bit set where the value is normal, clear for a zero,
+  /// a denormal, an infinity or a NaN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSXSIGDP extracts the significand``() =
+    (* xsxsigdp r5,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0a11d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x10000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a11d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0xfffffffffffffUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0xfffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a11d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0x7ff0000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a11d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x8000000000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a11d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0a11d6c"
+      [ R5, 0xbad0bad0bad0badUL
+        F3, 0xc123456789abcdefUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ R5, 0x13456789abcdefUL ]
+      []
+
+  /// <summary>
+  /// xviexpdp xT, xA, xB places in each double element of xT the sign and
+  /// fraction of xA with the low eleven bits of xB as the exponent field.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVIEXPDP inserts the exponents of xB``() =
+    (* xviexpdp vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221fc0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x8123456789abcdefUL
+        F3, 0x3ffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0xfffffffffffffUL
+        VSRL3, 0xfffffffffffff801UL ]
+      []
+      [ F1, 0xbff3456789abcdefUL; VSRL1, 0x1fffffffffffffUL ]
+      []
+
+  /// <summary>
+  /// xviexpsp xT, xA, xB places in each single element of xT the sign and
+  /// fraction of xA with the low eight bits of xB as the exponent field.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVIEXPSP inserts the exponents of xB``() =
+    (* xviexpsp vs1,vs2,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0221ec0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x80123456007fffffUL
+        F3, 0x7fffffff01UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7fffffff00000000UL
+        VSRL3, 0xff00000080UL ]
+      []
+      [ F1, 0xbf92345600ffffffUL; VSRL1, 0x7fffffff40000000UL ]
+      []
+
+  /// <summary>
+  /// xvxexpdp xT, xB places in each double element of xT the exponent field of
+  /// xB, zero-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVXEXPDP extracts the exponent fields``() =
+    (* xvxexpdp vs1,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0201f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfffffffffffffUL ]
+      []
+      [ F1, 0x3ffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ F1, 0x7ffUL; VSRL1, 0x7ffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc123456789abcdefUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x412UL ]
+      []
+
+  /// <summary>
+  /// xvxexpsp xT, xB places in each single element of xT the exponent field of
+  /// xB, zero-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVXEXPSP extracts the exponent fields``() =
+    (* xvxexpsp vs1,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0281f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f80000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7f800000c0123456UL ]
+      []
+      [ F1, 0x7f00000000UL; VSRL1, 0xff00000080UL ]
+      []
+
+  /// <summary>
+  /// xvxsigdp xT, xB places in each double element of xT its fraction with the
+  /// implicit bit where the value is normal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVXSIGDP extracts the significands``() =
+    (* xvxsigdp vs1,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0211f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfffffffffffffUL ]
+      []
+      [ F1, 0x10000000000000UL; VSRL1, 0xfffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7ff8000000000001UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x8000000000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc123456789abcdefUL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x13456789abcdefUL ]
+      []
+
+  /// <summary>
+  /// xvxsigsp xT, xB places in each single element of xT its fraction with the
+  /// implicit bit where the value is normal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVXSIGSP extracts the significands``() =
+    (* xvxsigsp vs1,vs3, under QEMU: lanes/x-oracle/tests *)
+    oracleMem
+      ppc64le
+      "f0291f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f80000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7f800000c0123456UL ]
+      []
+      [ F1, 0x80000000000001UL; VSRL1, 0x923456UL ]
+      []
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

@@ -2363,6 +2363,142 @@ type ParserTests() =
   member _.``[PPC64] XSRDPIC (using current rounding mode)``() =
     testBoth "f02019ac" (XSRDPIC ** [ O.Reg F1; O.Reg F3 ])
 
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPEQDP (VSX scalar compare equal double-precision)``() =
+    testBoth "f0221818" (XSCMPEQDP ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPGTDP``() =
+    testBoth "f0221858" (XSCMPGTDP ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPGEDP (VSX scalar compare greater than or equal)``() =
+    testBoth "f0221898" (XSCMPGEDP ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPODP``() =
+    testBoth "f1021958" (XSCMPODP ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPEXPDP``() =
+    testBoth "f10219d8" (XSCMPEXPDP ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCMPEQDP``() =
+    testBoth "f0221b18" (XVCMPEQDP ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCMPEQDPdot``() =
+    testBoth "f0221f18" (XVCMPEQDPdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCMPEQSP``() =
+    testBoth "f0221a18" (XVCMPEQSP ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCMPEQSPdot``() =
+    testBoth "f0221e18" (XVCMPEQSPdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCMPGESP (single-precision)``() =
+    testBoth "f0221a98" (XVCMPGESP ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCMPGESPdot (single-precision)``() =
+    testBoth "f0221e98" (XVCMPGESPdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCMPGTSP``() =
+    testBoth "f0221a58" (XVCMPGTSP ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCMPGTSPdot``() =
+    testBoth "f0221e58" (XVCMPGTSPdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSTDIVDP``() =
+    testBoth "f10219e8" (XSTDIVDP ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSTSQRTDP (double-precision)``() =
+    testBoth "f10019a8" (XSTSQRTDP ** [ O.Reg CR2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVTDIVDP``() =
+    testBoth "f1021be8" (XVTDIVDP ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVTDIVSP``() =
+    testBoth "f1021ae8" (XVTDIVSP ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVTSQRTDP (VSX vector test for software square root)``() =
+    testBoth "f1001ba8" (XVTSQRTDP ** [ O.Reg CR2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVTSQRTSP (VSX vector test for software square root)``() =
+    testBoth "f1001aa8" (XVTSQRTSP ** [ O.Reg CR2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSTSTDCDP``() =
+    testBoth "f1011da8" (XSTSTDCDP ** [ O.Reg CR2; O.Reg F3; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSTSTDCSP``() =
+    testBoth "f1011ca8" (XSTSTDCSP ** [ O.Reg CR2; O.Reg F3; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVTSTDCDP``() =
+    testBoth "f0211fa8" (XVTSTDCDP ** [ O.Reg F1; O.Reg F3; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVTSTDCSP``() =
+    testBoth "f0211ea8" (XVTSTDCSP ** [ O.Reg F1; O.Reg F3; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSIEXPDP``() =
+    testBoth "f0263f2c" (XSIEXPDP ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSXEXPDP``() =
+    testBoth "f0a01d6c" (XSXEXPDP ** [ O.Reg R5; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSXSIGDP``() =
+    testBoth "f0a11d6c" (XSXSIGDP ** [ O.Reg R5; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVIEXPDP``() =
+    testBoth "f0221fc0" (XVIEXPDP ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVIEXPSP``() =
+    testBoth "f0221ec0" (XVIEXPSP ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVXEXPDP``() =
+    testBoth "f0201f6c" (XVXEXPDP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVXEXPSP``() =
+    testBoth "f0281f6c" (XVXEXPSP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVXSIGDP``() =
+    testBoth "f0211f6c" (XVXSIGDP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVXSIGSP``() =
+    testBoth "f0291f6c" (XVXSIGSP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVTSTDCDP gathers DCMX from three fields``() =
+    testBoth "f07f1fec" (XVTSTDCDP ** [ O.Reg F3; O.Reg F3; O.Imm 0x7fUL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPODP refuses the bits below BF set``() =
+    testUnsupported WordSize.Bit64 "f1221958"
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

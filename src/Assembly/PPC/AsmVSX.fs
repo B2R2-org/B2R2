@@ -265,6 +265,86 @@ let private arithmeticEncoders () =
     Op.XVABSDP, xx2 473u 0u
     Op.XVNABSDP, xx2 489u 0u ]
 
+/// An XX3-form reporting in a condition-register field: "BF, xA, xB".
+let private xx3CR xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Rg b ] -> vsxWord (xo <<< 3) ((crf f) <<< 2) (vsr a) (vsr b)
+  | _ -> wrongOperands ins
+
+/// xststdcdp and xststdcsp, "BF, xB, DCMX": the mask's top two bits sit
+/// below the field, the other five in the A field.
+let private scalarDCMX xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg b; Im d ] ->
+    let dcmx = unsigned 7 d
+    let t = ((crf f) <<< 2) ||| (dcmx >>> 5)
+    vsxWord (xo <<< 2) t (dcmx &&& 0x1Fu) (vsr b)
+  | _ ->
+    wrongOperands ins
+
+/// xvtstdcdp and xvtstdcsp, "xT, xB, DCMX": dc in bit 6, dm in bit 2 and
+/// dx in the A field.
+let private vectorDCMX xo ins =
+  match ins.Operands with
+  | [ Rg t; Rg b; Im d ] ->
+    let dcmx = unsigned 7 d
+    let dc = (dcmx >>> 6) <<< 6
+    let dm = ((dcmx >>> 5) &&& 1u) <<< 2
+    vsxWord ((xo <<< 3) ||| dc ||| dm) (vsr t) (dcmx &&& 0x1Fu) (vsr b)
+  | _ ->
+    wrongOperands ins
+
+/// xsxexpdp and xsxsigdp, "rT, xB".
+let private toGPR a ins =
+  match ins.Operands with
+  | [ Rg r; Rg b ] -> vsxWord (347u <<< 2) (gpr r) a (vsr b)
+  | _ -> wrongOperands ins
+
+/// xsiexpdp, "xT, rA, rB".
+let private insertExponent ins =
+  match ins.Operands with
+  | [ Rg x; Rg a; Rg b ] ->
+    let struct (t, tx) = split (vsr x)
+    word 60u t (gpr a) (gpr b) ((918u <<< 1) ||| tx)
+  | _ ->
+    wrongOperands ins
+
+/// The compares, the tests for a software divide or square root, the
+/// data-class tests and the exponent and significand forms.
+let private testEncoders () =
+  [ Op.XSCMPEQDP, xx3 3u
+    Op.XSCMPGTDP, xx3 11u
+    Op.XSCMPGEDP, xx3 19u
+    Op.XVCMPEQSP, xx3 67u
+    Op.XVCMPEQSPdot, xx3 195u
+    Op.XVCMPGTSP, xx3 75u
+    Op.XVCMPGTSPdot, xx3 203u
+    Op.XVCMPGESP, xx3 83u
+    Op.XVCMPGESPdot, xx3 211u
+    Op.XVCMPEQDP, xx3 99u
+    Op.XVCMPEQDPdot, xx3 227u
+    Op.XVIEXPSP, xx3 216u
+    Op.XVIEXPDP, xx3 248u
+    Op.XSCMPODP, xx3CR 43u
+    Op.XSCMPEXPDP, xx3CR 59u
+    Op.XSTDIVDP, xx3CR 61u
+    Op.XVTDIVSP, xx3CR 93u
+    Op.XVTDIVDP, xx3CR 125u
+    Op.XSTSQRTDP, xx2CR 106u 0u
+    Op.XVTSQRTSP, xx2CR 170u 0u
+    Op.XVTSQRTDP, xx2CR 234u 0u
+    Op.XSTSTDCSP, scalarDCMX 298u
+    Op.XSTSTDCDP, scalarDCMX 362u
+    Op.XVTSTDCSP, vectorDCMX 213u
+    Op.XVTSTDCDP, vectorDCMX 245u
+    Op.XSXEXPDP, toGPR 0u
+    Op.XSXSIGDP, toGPR 1u
+    Op.XSIEXPDP, insertExponent
+    Op.XVXEXPDP, xx2 475u 0u
+    Op.XVXSIGDP, xx2 475u 1u
+    Op.XVXEXPSP, xx2 475u 8u
+    Op.XVXSIGSP, xx2 475u 9u ]
+
 /// The single-precision estimates ISA 2.07 added.
 let private estimateEncoders () =
   [ Op.XSRESP, xx2 26u 0u
@@ -276,4 +356,5 @@ let vsxEncoders () =
     [ memoryEncoders ()
       estimateEncoders ()
       permuteEncoders ()
-      arithmeticEncoders () ]
+      arithmeticEncoders ()
+      testEncoders () ]
