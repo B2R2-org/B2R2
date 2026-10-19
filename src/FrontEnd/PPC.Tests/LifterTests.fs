@@ -270,3 +270,226 @@ type LifterTests() =
         let message = $"RN {rn} {nameOf isa}"
         expect positive (word 2.5 &&& 0xffffffffUL) message
         expect negative (word (-2.5) &&& 0xffffffffUL) message
+
+/// <summary>
+/// Lane F's lifting tests: the binary floating-point instructions added
+/// after the first PowerPC, the floating-point register pair accesses, the
+/// FPSCR, and the Decimal Floating-Point facility. Every expected value is
+/// QEMU's (optest-powerpc/oracle), unless a test says the manual and QEMU
+/// part, in which case it is the manual's.
+/// </summary>
+[<TestClass>]
+type FloatLifterTests() =
+  /// 32-bit PowerPC, big-endian.
+  let ppc32 = ISA(Architecture.PPC, Endian.Big, WordSize.Bit32)
+
+  /// 64-bit PowerPC, big-endian.
+  let ppc64 = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
+
+  /// 64-bit PowerPC, little-endian.
+  let ppc64le = ISA(Architecture.PPC, Endian.Little, WordSize.Bit64)
+
+  /// The statements one word lifts to on the processor an ISA names. The hex
+  /// is the word as the Power ISA draws it, most significant byte first.
+  let lifted (isa: ISA) (hex: string) =
+    let word = ByteArray.ofHexString hex
+    let bytes = if isa.Endian = Endian.Big then word else Array.rev word
+    let reader = BinReader.Init isa.Endian
+    let parser = Parser(isa.WordSize, reader) :> IInstructionParsable
+    let regs = RegisterFactory isa :> IRegisterFactory
+    let builder = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
+    (parser.Parse(bytes, 0UL)).Translate builder
+
+  /// The variable of a register on the processor an ISA names.
+  let var (isa: ISA) r =
+    (RegisterFactory isa :> IRegisterFactory).GetRegVar(Register.toRegID r)
+
+  /// The registers given values, each value at the width of its register.
+  let inputsOf isa given =
+    given
+    |> List.map (fun (r, v: uint64) ->
+      let x = var isa r
+      x, BitVector(v, Expr.typeOf x))
+
+  /// What each register holds after one word ran, over the registers given
+  /// values and the bytes of memory given, and every byte of memory given or
+  /// written after the run.
+  let exec isa hex given memory =
+    let outcome = IRRunner.exec (lifted isa hex) (inputsOf isa given) memory
+    (fun r -> (outcome.Read(var isa r)).ToUInt64()), outcome.Memory
+
+  /// What each register holds after one word ran, with no memory at all.
+  let run isa hex given = exec isa hex given [] |> fst
+
+  /// Asserts that a run left the expected value, naming the case it ran.
+  let expect (expected: uint64) (actual: uint64) (case: string) =
+    Assert.AreEqual(box expected, box actual, case)
+
+  /// The processor an ISA names, for a message.
+  let nameOf (isa: ISA) = $"{isa.WordSize} {isa.Endian}"
+
+  /// The four bits of a CR field, as the Power ISA draws one: bit 0 (LT or
+  /// FL) the most significant.
+  let field after (b0, b1, b2, b3) =
+    (after b0 <<< 3) ||| (after b1 <<< 2) ||| (after b2 <<< 1) ||| after b3
+
+  /// CR1 as its four bit registers.
+  let cr1 = CR1_0, CR1_1, CR1_2, CR1_3
+
+  /// CR2 as its four bit registers.
+  let cr2 = CR2_0, CR2_1, CR2_2, CR2_3
+
+  /// The eight bytes of a doubleword as a big-endian processor stores it.
+  let bigBytes (v: uint64) = Array.init 8 (fun i -> byte (v >>> (56 - 8 * i)))
+
+  /// A doubleword with its bytes in the other order.
+  let swap (v: uint64) =
+    BitConverter.ToUInt64(Array.rev (BitConverter.GetBytes v), 0)
+
+  /// The doubles the tests use most, by their bits.
+  let one = 0x3ff0000000000000UL
+
+  let oneHalf = 0x3ff8000000000000UL
+
+  let tenth = 0x3fb999999999999aUL
+
+  let infinity = 0x7ff0000000000000UL
+
+  let minusInfinity = 0xfff0000000000000UL
+
+  let qnan = 0x7ff8000000000000UL
+
+  let maxDouble = 0x7fefffffffffffffUL
+
+  let minusZero = 0x8000000000000000UL
+
+  /// <summary>
+  /// fcpsgn. frD, frA, frB writes frB with the sign of frA and records
+  /// FPSCR[FX, FEX, VX, OX] in CR1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FCPSGN. copies the sign and records CR1``() =
+    (* fcpsgn. f1, f2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for a, b, fpscr, result, field1 in
+        [ qnan, one, 0xbff80000UL, one, 0xbUL
+          0UL, minusZero, 0x2UL, 0UL, 0UL
+          maxDouble, maxDouble, 0x20000702UL, maxDouble, 0x2UL ] do
+        let after = run isa "fc221811" [ F2, a; F3, b; FPSCR, fpscr ]
+        expect result (after F1) (nameOf isa)
+        expect field1 (field after cr1) (nameOf isa)
+
+  /// <summary>
+  /// fmrgew frD, frA, frB writes word 0 (the high word) of frA and then word
+  /// 0 of frB; fmrgow writes word 1 of each.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FMRGEW and FMRGOW merge words``() =
+    (* fmrgew f1, f2, f3; fmrgow f1, f2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, a, b, result in
+        [ "fc221f8c", oneHalf, 0x4002000000000000UL, 0x3ff8000040020000UL
+          "fc221f8c", infinity, minusInfinity, 0x7ff00000fff00000UL
+          "fc221e8c", one, tenth, 0x9999999aUL
+          "fc221e8c", 0x1UL, 0xfffffffffffffUL, 0x1ffffffffUL ] do
+        let after = run isa hex [ F2, a; F3, b ]
+        expect result (after F1) $"{hex} {nameOf isa}"
+
+  /// <summary>
+  /// ftdiv BF, frA, frB sets CR field BF to fl || fg || fe || 0: fl is 1, as
+  /// the estimates are the exact reciprocals; fe for a NaN or an infinity in
+  /// frA, a zero, NaN or infinity in frB, or exponents a divide cannot take
+  /// without special handling; fg for an infinity in frA or a zero, infinity
+  /// or denormal in frB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FTDIV tests the operands of a divide``() =
+    (* ftdiv cr2, f2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for a, b, result in
+        [ oneHalf, 0x4002000000000000UL, 0x8UL
+          one, tenth, 0x8UL
+          0UL, minusZero, 0xeUL
+          infinity, minusInfinity, 0xeUL
+          qnan, one, 0xaUL
+          0x1UL, 0xfffffffffffffUL, 0xeUL
+          maxDouble, maxDouble, 0xaUL
+          one, 0UL, 0xeUL ] do
+        let after = run isa "fd021900" [ F2, a; F3, b ]
+        expect result (field after cr2) $"{a:x} {b:x} {nameOf isa}"
+
+  /// <summary>
+  /// ftsqrt BF, frB sets CR field BF to fl || fg || fe || 0: fe for a zero, a
+  /// NaN, an infinity, a negative value or an exponent at or below -970; fg
+  /// for a zero, an infinity or a denormal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FTSQRT tests the operand of a square root``() =
+    (* ftsqrt cr2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for b, result in
+        [ oneHalf, 0x8UL
+          0UL, 0xeUL
+          infinity, 0xeUL
+          qnan, 0xaUL
+          0x1UL, 0xeUL
+          maxDouble, 0x8UL ] do
+        let after = run isa "fd001940" [ F3, b ]
+        expect result (field after cr2) $"{b:x} {nameOf isa}"
+
+  /// <summary>
+  /// lfdp frTp, DS(rA) and lfdpx frTp, rA, rB load the doubleword at EA into
+  /// the even register of the pair and the one at EA + 8 into the odd one,
+  /// each in the processor's byte order. QEMU swaps the two in little-endian
+  /// mode; the manual's pseudocode does not, and is followed here (see
+  /// optest-powerpc/lanes/F.md).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LFDP and LFDPX load a register pair``() =
+    let lo, hi = 0xff19a056aef92bd2UL, 0x3204aae99af7e745UL
+    let memory = [ 0x1008UL, Array.append (bigBytes lo) (bigBytes hi) ]
+    (* lfdp f2, 8(r6); lfdpx f2, r6, r7 *)
+    for hex in [ "e4460008"; "7c463e2e" ] do
+      for isa, even, odd in
+        [ ppc32, lo, hi; ppc64, lo, hi; ppc64le, swap lo, swap hi ] do
+        let given = [ R6, 0x1000UL; R7, 8UL; F2, 0x4045000000000000UL ]
+        let after, _ = exec isa hex given memory
+        expect even (after F2) $"{hex} {nameOf isa}"
+        expect odd (after F3) $"{hex} {nameOf isa}"
+
+  /// <summary>
+  /// stfdp frSp, DS(rA) and stfdpx frSp, rA, rB store the even register of
+  /// the pair at EA and the odd one at EA + 8, each in the processor's byte
+  /// order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STFDP and STFDPX store a register pair``() =
+    (* stfdp f2, 8(r6); stfdpx f2, r6, r7 *)
+    for hex in [ "f4460008"; "7c463f2e" ] do
+      for isa in [ ppc32; ppc64; ppc64le ] do
+        let given = [ R6, 0x1000UL; R7, 8UL; F2, oneHalf; F3, 0x5UL ]
+        let _, memory = exec isa hex given []
+        let written = Array.init 16 (fun i -> memory[0x1008UL + uint64 i])
+        let order = if isa.Endian = Endian.Big then id else Array.rev
+        let expected =
+          Array.append (order (bigBytes oneHalf)) (order (bigBytes 0x5UL))
+        CollectionAssert.AreEqual(expected, written, $"{hex} {nameOf isa}")
+
+  /// <summary>
+  /// fre frD, frB and frsqrtes frD, frB estimate the reciprocal and the
+  /// reciprocal square root; where the exact answer is representable, the
+  /// estimate is it.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FRE and FRSQRTES are exact where the answer is``() =
+    (* fre f1, f3; frsqrtes f1, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, b, result in
+        [ "fc201830", one, one
+          "fc201830", 0x4010000000000000UL, 0x3fd0000000000000UL
+          "fc201830", infinity, 0UL
+          "ec201834", one, one
+          "ec201834", 0x4010000000000000UL, 0x3fe0000000000000UL
+          "ec201834", infinity, 0UL ] do
+        let after = run isa hex [ F3, b ]
+        expect result (after F1) $"{hex} {b:x} {nameOf isa}"

@@ -2083,8 +2083,29 @@ let private parse1FWord bin =
   | 0x1F6u when Bits.pick bin 0u = 0u -> parseDCBZ bin
   | _ -> raise ParsingFailureException
 
+/// The even register of an even-odd pair of floating-point registers, which
+/// a pair operand names; an odd one makes the form invalid.
+let private getFPPairRegister n =
+  if n &&& 1u <> 0u then raise ParsingFailureException
+  else getFPRegister n
+
+/// Whether an opcode-31 word is lfdpx or stfdpx, the indexed accesses of a
+/// floating-point register pair.
+let private isFPPairIndexed bin =
+  let xo = Bits.extract bin 10u 1u
+  (xo = 791u || xo = 919u) && Bits.pick bin 0u = 0u
+
+/// lfdpx and stfdpx, "frp, rA, rB".
+let private parseFPPairIndexed bin =
+  let frp = getFPPairRegister (Bits.extract bin 25u 21u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  let op = if Bits.extract bin 10u 1u = 791u then Op.LFDPX else Op.STFDPX
+  struct (op, ThreeOperands(frp, ra, rb))
+
 let parse1F is64 bin =
   if Bits.extract bin 5u 1u = 0xFu then parseISEL bin
+  elif isFPPairIndexed bin then parseFPPairIndexed bin
   elif is64 then parse1FVector (parse1FDouble parse1FWord) bin
   else parse1FVector parse1FWord bin
 
@@ -2379,8 +2400,48 @@ let private parseFCPSGN bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
   let fra = getFPRegister (Bits.extract bin 20u 16u) |> OprReg
   let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
+  if Bits.pick bin 0u = 0u then struct (Op.FCPSGN, ThreeOperands(frd, fra, frb))
+  else struct (Op.FCPSGNdot, ThreeOperands(frd, fra, frb))
+
+/// An A-form estimate, "frD, frB": fre, fres, frsqrte and frsqrtes, whose frA
+/// and frC fields are reserved.
+let private parseFPEstimate op opDot bin =
+  let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
+  let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
+  if Bits.extract bin 20u 16u <> 0u || Bits.extract bin 10u 6u <> 0u then
+    raise ParsingFailureException
+  elif Bits.pick bin 0u = 0u then
+    struct (op, TwoOperands(frd, frb))
+  else
+    struct (opDot, TwoOperands(frd, frb))
+
+/// fmrgew and fmrgow, "frD, frA, frB", which have no record form.
+let private parseFPMerge op bin =
+  let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
+  let fra = getFPRegister (Bits.extract bin 20u 16u) |> OprReg
+  let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
   if Bits.pick bin 0u <> 0u then raise ParsingFailureException
-  else struct (Op.FCPSGN, ThreeOperands(frd, fra, frb))
+  else struct (op, ThreeOperands(frd, fra, frb))
+
+/// ftdiv, "BF, frA, frB", which tests the operands of a divide into a CR
+/// field.
+let private parseFTDIV bin =
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  let fra = getFPRegister (Bits.extract bin 20u 16u) |> OprReg
+  let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
+  if Bits.extract bin 22u 21u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.FTDIV, ThreeOperands(bf, fra, frb))
+
+/// ftsqrt, "BF, frB", which tests the operand of a square root.
+let private parseFTSQRT bin =
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
+  if Bits.extract bin 22u 16u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.FTSQRT, TwoOperands(bf, frb))
 
 /// An X-form floating-point "frD, frB" whose Rc bit names two opcodes.
 let private parseFPUnary op opDot bin =
@@ -2409,6 +2470,8 @@ let parse3B bin =
     parseFRESx bin
   | 0x19u ->
     parseFMULSx bin
+  | 0x1Au ->
+    parseFPEstimate Op.FRSQRTES Op.FRSQRTESdot bin
   | 0x1Cu ->
     parseFMSUBSx bin
   | 0x1Du ->
@@ -2516,19 +2579,6 @@ let parseFMULx bin =
     struct (Op.FMUL, ThreeOperands(frd, fra, frc))
   | 0b1u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.FMULdot, ThreeOperands(frd, fra, frc))
-  | _ ->
-    raise ParsingFailureException
-
-let parseFRSQRTEx bin =
-  let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
-  let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
-  match Bits.pick bin 0u with
-  | 0b0u when Bits.concat (Bits.extract bin 20u 16u)
-                          (Bits.extract bin 10u 6u)
-                          5 = 0u ->
-    struct (Op.FRSQRTE, TwoOperands(frd, frb))
-  | 0b1u when Bits.extract bin 15u 11u = 0u ->
-    struct (Op.FRSQRTEdot, TwoOperands(frd, frb))
   | _ ->
     raise ParsingFailureException
 
@@ -2710,6 +2760,8 @@ let parse3F bin =
     | 0x0u -> parseFCMPU bin
     | 0x1u -> parseFCMPO bin
     | 0x2u -> parseMCRFS bin
+    | 0x4u -> parseFTDIV bin
+    | 0x5u -> parseFTSQRT bin
     | _ -> raise ParsingFailureException
   | 0x6u ->
     (* FIXME: FPSCRegister *)
@@ -2718,6 +2770,8 @@ let parse3F bin =
     (* FIXME: FPSCRegister *)
     | 0x2u -> parseMTFSB0x bin
     | 0x4u -> parseMTFSFIx bin
+    | 0x1Au -> parseFPMerge Op.FMRGOW bin
+    | 0x1Eu -> parseFPMerge Op.FMRGEW bin
     | _ -> raise ParsingFailureException
   | 0x7u ->
     match Bits.extract bin 10u 6u with
@@ -2764,10 +2818,12 @@ let parse3F bin =
     parseFSQRTx bin
   | 0x17u ->
     parseFSELx bin
+  | 0x18u ->
+    parseFPEstimate Op.FRE Op.FREdot bin
   | 0x19u ->
     parseFMULx bin
   | 0x1Au ->
-    parseFRSQRTEx bin
+    parseFPEstimate Op.FRSQRTE Op.FRSQRTEdot bin
   | 0x1Cu ->
     parseFMSUBx bin
   | 0x1Du ->
@@ -2791,6 +2847,14 @@ let private parseTDI bitLen bin =
 let private dsDisp bin =
   Bits.extract bin 15u 2u <<< 2 |> uint64 |> Bits.signExtend 16 64
   |> int64 |> int32
+
+/// lfdp and stfdp, the DS-form accesses of a floating-point register pair:
+/// primary opcodes 57 and 61 with the low two bits clear.
+let private parseFPPair op bin =
+  let frp = getFPPairRegister (Bits.extract bin 25u 21u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u)
+  let mem = (dsDisp bin, ra) |> OprMem (* ds (rA) *)
+  struct (op, TwoOperands(frp, mem))
 
 /// The ISA 3.0 DS-form loads of primary opcode 57: lxsd, which names a vector
 /// register (VSR32-63) by its five-bit number. The other encodings are lfdp
@@ -2925,10 +2989,12 @@ let private parseInstruction bitLen bin addr =
   | 0x35u -> parseSTFSU bin
   | 0x36u -> parseSTFD bin
   | 0x37u -> parseSTFDU bin
+  | 0x39u when Bits.extract bin 1u 0u = 0u -> parseFPPair Op.LFDP bin
   | 0x39u when bitLen = 64 -> parse39 bin
   | 0x3Au when bitLen = 64 -> parse3A bin
   | 0x3Bu -> parse3B bin
   | 0x3Cu -> parse3C bin
+  | 0x3Du when Bits.extract bin 1u 0u = 0u -> parseFPPair Op.STFDP bin
   | 0x3Du when bitLen = 64 -> parse3D bin
   | 0x3Eu when bitLen = 64 -> parse3E bin
   | 0x3Fu -> parse3F bin

@@ -165,3 +165,100 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[PPC64] LD is not a 32-bit form``() =
     testUnsupported WordSize.Bit32 "e8830008"
+
+/// What lane F's tests check a word against: one decode per target, from the
+/// bytes as that target holds them.
+[<AutoOpen>]
+module private FloatShortcut =
+  /// Asserts what a word decodes to on 32-bit and 64-bit big-endian PowerPC,
+  /// from the bytes the big-endian words file holds, and on 64-bit
+  /// little-endian PowerPC, from the bytes the little-endian one holds.
+  let testAll (be: string) (le: string) (opcode, operands) =
+    let bigBytes = ByteArray.ofHexString be
+    let littleBytes = ByteArray.ofHexString le
+    let ppc32 = ISA(Architecture.PPC, Endian.Big, WordSize.Bit32)
+    let ppc64 = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
+    let ppc64le = ISA(Architecture.PPC, Endian.Little, WordSize.Bit64)
+    test ppc32 opcode operands bigBytes
+    test ppc64 opcode operands bigBytes
+    test ppc64le opcode operands littleBytes
+
+/// The binary floating-point instructions added after the first PowerPC, and
+/// the floating-point register pair accesses: each word is the one the words
+/// files hold, decoded on every target the manual defines it for.
+[<TestClass>]
+type FloatParserTests() =
+  [<TestMethod>]
+  member _.``[PPC] FCPSGN. (copy sign, record)``() =
+    FCPSGNdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ]
+    |> testAll "fc221811" "111822fc"
+
+  [<TestMethod>]
+  member _.``[PPC] FMRGEW (merge even word)``() =
+    FMRGEW ** [ O.Reg F1; O.Reg F2; O.Reg F3 ]
+    |> testAll "fc221f8c" "8c1f22fc"
+
+  [<TestMethod>]
+  member _.``[PPC] FMRGOW (merge odd word)``() =
+    FMRGOW ** [ O.Reg F1; O.Reg F2; O.Reg F3 ]
+    |> testAll "fc221e8c" "8c1e22fc"
+
+  [<TestMethod>]
+  member _.``[PPC] FRE (reciprocal estimate)``() =
+    FRE ** [ O.Reg F1; O.Reg F3 ] |> testAll "fc201830" "301820fc"
+
+  [<TestMethod>]
+  member _.``[PPC] FRE. (reciprocal estimate, record)``() =
+    FREdot ** [ O.Reg F1; O.Reg F3 ] |> testAll "fc201831" "311820fc"
+
+  /// <summary>
+  /// frsqrte. reserves frA and frC as frsqrte does; frB is a register like
+  /// any other, which an earlier reading required to be f0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FRSQRTE. (reciprocal square root estimate, record)``() =
+    FRSQRTEdot ** [ O.Reg F1; O.Reg F3 ] |> testAll "fc201835" "351820fc"
+
+  [<TestMethod>]
+  member _.``[PPC] FRSQRTES (reciprocal square root estimate single)``() =
+    FRSQRTES ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201834" "341820ec"
+
+  [<TestMethod>]
+  member _.``[PPC] FRSQRTES. (estimate single, record)``() =
+    FRSQRTESdot ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201835" "351820ec"
+
+  [<TestMethod>]
+  member _.``[PPC] FTDIV (test for software divide)``() =
+    FTDIV ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ]
+    |> testAll "fd021900" "001902fd"
+
+  [<TestMethod>]
+  member _.``[PPC] FTSQRT (test for software square root)``() =
+    FTSQRT ** [ O.Reg CR2; O.Reg F3 ] |> testAll "fd001940" "401900fd"
+
+  [<TestMethod>]
+  member _.``[PPC] LFDP (load double pair)``() =
+    LFDP ** [ O.Reg F2; O.Mem(8, R6) ] |> testAll "e4460008" "080046e4"
+
+  [<TestMethod>]
+  member _.``[PPC] LFDPX (load double pair indexed)``() =
+    LFDPX ** [ O.Reg F2; O.Reg R6; O.Reg R7 ]
+    |> testAll "7c463e2e" "2e3e467c"
+
+  [<TestMethod>]
+  member _.``[PPC] STFDP (store double pair)``() =
+    STFDP ** [ O.Reg F2; O.Mem(8, R6) ] |> testAll "f4460008" "080046f4"
+
+  [<TestMethod>]
+  member _.``[PPC] STFDPX (store double pair indexed)``() =
+    STFDPX ** [ O.Reg F2; O.Reg R6; O.Reg R7 ]
+    |> testAll "7c463f2e" "2e3f467c"
+
+  /// <summary>
+  /// A register pair is named by its even register: an odd one (lfdp f3 here)
+  /// makes the form invalid, on every target.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LFDP of an odd register is invalid``() =
+    testUnsupported WordSize.Bit32 "e4660008"
+    testUnsupported WordSize.Bit64 "e4660008"

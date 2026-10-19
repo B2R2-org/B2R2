@@ -833,6 +833,19 @@ let opCodeToString = function
   | Op.VBPERMQ -> "vbpermq"
   | Op.MFVSCR -> "mfvscr"
   | Op.MTVSCR -> "mtvscr"
+  | Op.FCPSGNdot -> "fcpsgn."
+  | Op.FMRGEW -> "fmrgew"
+  | Op.FMRGOW -> "fmrgow"
+  | Op.FRE -> "fre"
+  | Op.FREdot -> "fre."
+  | Op.FRSQRTES -> "frsqrtes"
+  | Op.FRSQRTESdot -> "frsqrtes."
+  | Op.FTDIV -> "ftdiv"
+  | Op.FTSQRT -> "ftsqrt"
+  | Op.LFDP -> "lfdp"
+  | Op.LFDPX -> "lfdpx"
+  | Op.STFDP -> "stfdp"
+  | Op.STFDPX -> "stfdpx"
   | _ -> Terminator.impossible ()
 
 let condToString = function
