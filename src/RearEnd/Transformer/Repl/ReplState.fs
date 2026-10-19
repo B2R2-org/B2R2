@@ -341,6 +341,12 @@ module ReplValue =
       Collection = { Values = [||] } }
 
 module TransformerReplState =
+  [<Literal>]
+  let LastResultName = "it"
+
+  let isLastResultName name =
+    name = LastResultName
+
   let private emptyAddressObservations: ReplAddressObservations =
     { Entries = Map.empty
       Ordered = []
@@ -609,7 +615,14 @@ module TransformerReplState =
         NextValueID = state.NextValueID + 1
         UndoStack = undoCapture state :: state.UndoStack }
 
-  let tryFind name state = Map.tryFind name state.Bindings
+  let tryLastResult state =
+    state.ValueHistory |> List.tryHead |> Option.map _.Value
+
+  let tryFind name state =
+    if isLastResultName name then
+      tryLastResult state
+    else
+      Map.tryFind name state.Bindings
 
   let tryFindHistory id state =
     state.ValueHistory |> List.tryFind (fun entry -> entry.ID = id)
