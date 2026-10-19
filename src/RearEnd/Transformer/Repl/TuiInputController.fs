@@ -308,13 +308,26 @@ module TransformerTuiInputController =
   let private handleControlKey completion key model =
     let completion: SuggestionSet = completion
     let key: ConsoleKeyInfo = key
-    match key.Key with
-    | ConsoleKey.L ->
+    let canEditInput =
+      model.Overlay = TuiOverlay.None && model.Focus = TuiFocus.Shell
+    match key.Key, canEditInput with
+    | ConsoleKey.A, true ->
+      TransformerTuiModel.moveHome model
+    | ConsoleKey.E, true ->
+      TransformerTuiModel.moveEnd model
+    | ConsoleKey.W, true
+    | ConsoleKey.Backspace, true ->
+      TransformerTuiModel.deleteWord model
+    | ConsoleKey.U, true ->
+      TransformerTuiModel.deleteToStart model
+    | ConsoleKey.K, true ->
+      TransformerTuiModel.deleteToEnd model
+    | ConsoleKey.L, _ ->
       TransformerTuiModel.clearTranscript model
-    | ConsoleKey.N ->
+    | ConsoleKey.N, _ ->
       let count = List.length completion.Items
       TransformerTuiModel.selectSuggestion 1 count model
-    | ConsoleKey.P ->
+    | ConsoleKey.P, _ ->
       let count = List.length completion.Items
       TransformerTuiModel.selectSuggestion -1 count model
     | _ ->
@@ -526,7 +539,7 @@ module TransformerTuiInputController =
         if String.IsNullOrEmpty model.Input then
           TuiInputResult.Stop model
         else
-          TuiInputResult.Update model
+          TransformerTuiModel.delete model |> TuiInputResult.Update
       elif
         control
         && key.Key = ConsoleKey.Enter
