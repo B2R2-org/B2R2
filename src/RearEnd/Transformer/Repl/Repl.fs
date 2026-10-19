@@ -35,7 +35,7 @@ type private TuiEvaluationOrigin =
   | ControlEvaluation
 
 type private RunningEvaluation =
-  { Task: Task<ReplEvaluation>
+  { Task: Task<ReplEvaluation * TuiLine list option>
     Cancellation: CancellationTokenSource
     Command: string
     Origin: TuiEvaluationOrigin
@@ -54,7 +54,7 @@ type private SuggestionCache =
 
 module TransformerRepl =
   let private printOutput output =
-    (output: ReplOutput).Lines |> List.iter (printfn "%s")
+    (output: ReplOutput).Lines |> Seq.iter (printfn "%s")
 
   let private readRedirectedLines () =
     let rec loop lines =
@@ -149,11 +149,7 @@ module TransformerRepl =
             0
           | Continue(registry, next, output) ->
             printOutput output
-            let failed =
-              output.Lines
-              |> List.exists (fun text ->
-                text.StartsWith("Error:", StringComparison.Ordinal))
-            if failed then 1 else loop registry next rest
+            if output.HasError then 1 else loop registry next rest
       loop registry TransformerReplState.empty lines
 
   let private hasModifier modifier (key: ConsoleKeyInfo) =
@@ -176,7 +172,7 @@ module TransformerRepl =
 
   let private isScriptReplayOutput (output: ReplOutput) =
     output.Lines
-    |> List.tryHead
+    |> Seq.tryHead
     |> Option.exists (fun line ->
       line.StartsWith("Script loaded:", StringComparison.Ordinal))
 
@@ -216,6 +212,32 @@ module TransformerRepl =
         { Kind = TuiLineKind.Command; Text = command } :: output)
     replay.Parent @ commandLines
 
+  let private previewTuiLines height cancellationToken (lines: TuiLine seq) =
+    let maxInline = max 6 (height - 2)
+    let keep = max 2 (min 8 ((height - 3) / 2))
+    let inlineLines = ResizeArray<TuiLine>()
+    let tail = Queue<TuiLine>()
+    let mutable count = 0
+    for line in lines do
+      (cancellationToken: CancellationToken).ThrowIfCancellationRequested()
+      if count < maxInline then inlineLines.Add line else ()
+      tail.Enqueue line
+      if tail.Count > keep then tail.Dequeue() |> ignore else ()
+      count <- count + 1
+    if count <= maxInline then
+      Seq.toList inlineLines
+    else
+      let hidden = count - (keep * 2)
+      let marker =
+        { Kind = TuiLineKind.System
+          Text = $"<< {hidden} output lines hidden; Enter opens view >>" }
+      (inlineLines |> Seq.take keep |> Seq.toList)
+      @ [ marker ] @ Seq.toList tail
+
+  let private outputPreviewHeight model =
+    let _, terminalHeight = TransformerTuiTerminal.dimensions ()
+    TransformerTuiModel.transcriptHeight terminalHeight model
+
   let private setReplayResultBlocks
     parentIndex
     (fullReplay: Lazy<ScriptReplayOutput>)
@@ -231,18 +253,18 @@ module TransformerRepl =
       TransformerTuiModel.setResultBlock index (lazy lines) model) model
 
   let private appendScriptReplayOutput (output: ReplOutput) model =
-    let maximumRetainedLines = 5000
-    let retained = output.Lines |> List.truncate maximumRetainedLines
-    let hidden = List.length output.Lines - List.length retained
-    let retained =
-      if hidden > 0 then
-        retained @ [ $"{hidden} more output lines omitted." ]
-      else
-        retained
-    let replay = splitScriptReplayLines retained
+    let replay = output.Lines |> Seq.toList |> splitScriptReplayLines
     let fullReplay: Lazy<ScriptReplayOutput> =
       lazy (splitScriptReplayLines output.FullLines.Value)
-    let lines = replayTranscriptLines replay
+    let height = outputPreviewHeight model
+    let commands =
+      replay.Commands
+      |> List.map (fun (command, lines) ->
+        command, previewTuiLines height CancellationToken.None lines)
+    let preview =
+      { Parent = previewTuiLines height CancellationToken.None replay.Parent
+        Commands = commands }
+    let lines = replayTranscriptLines preview
     let blockIndex = model.FoldTarget
     model
     |> TransformerTuiModel.setLastViewLines lines
@@ -254,21 +276,17 @@ module TransformerRepl =
         model
     |> TransformerTuiModel.appendTuiLines lines
 
-  let private appendEvaluationOutput (output: ReplOutput) model =
+  let private appendEvaluationOutput preview (output: ReplOutput) model =
     if isScriptReplayOutput output then
       appendScriptReplayOutput output model
     else
-      let maximumRetainedLines = 5000
-      let retained = output.Lines |> List.truncate maximumRetainedLines
-      let hidden = List.length output.Lines - List.length retained
-      let lines = retained |> List.map toTuiLine
       let lines =
-        if hidden > 0 then
-          lines
-          @ [ { Kind = TuiLineKind.System
-                Text = $"{hidden} more output lines omitted." } ]
-        else
-          lines
+        preview
+        |> Option.defaultWith (fun () ->
+          let height = outputPreviewHeight model
+          output.Lines
+          |> Seq.map toTuiLine
+          |> previewTuiLines height CancellationToken.None)
       let fullLines =
         lazy (output.FullLines.Value |> List.map toTuiLine)
       let blockIndex = model.FoldTarget
@@ -294,22 +312,18 @@ module TransformerRepl =
     | _ ->
       None
 
-  let private finishShellEvaluation evaluation model =
+  let private finishShellEvaluation evaluation preview model =
     match evaluation with
     | Exit(registry, session) ->
       registry, TransformerTuiModel.setSession session model, true
     | Continue(registry, session, output) ->
-      let hasError =
-        output.Lines
-        |> List.exists (fun line ->
-          line.StartsWith("Error:", StringComparison.Ordinal))
-      let status = if hasError then "Command failed" else "Ready"
+      let status = if output.HasError then "Command failed" else "Ready"
       let model =
         model
         |> TransformerTuiModel.setSession session
         |> TransformerTuiModel.setBusy false
         |> TransformerTuiModel.setStatus status
-      let model = appendEvaluationOutput output model
+      let model = appendEvaluationOutput preview output model
       registry, model, false
 
   let private controlViewTitle command =
@@ -321,10 +335,7 @@ module TransformerRepl =
     | Exit(registry, session) ->
       registry, TransformerTuiModel.setSession session model, true
     | Continue(registry, session, output) ->
-      let hasError =
-        output.Lines
-        |> List.exists (fun line ->
-          line.StartsWith("Error:", StringComparison.Ordinal))
+      let hasError = output.HasError
       let status = if hasError then "Command failed" else "Ready"
       let model =
         model
@@ -337,7 +348,7 @@ module TransformerRepl =
         | Some "Help", false ->
           TransformerTuiModel.helpViewLines
         | _ ->
-          output.Lines |> List.map toTuiLine
+          output.Lines |> Seq.map toTuiLine |> Seq.toList
       let model = TransformerTuiModel.openTextView title lines model
       registry, model, false
 
@@ -362,11 +373,25 @@ module TransformerRepl =
   let private startTask origin evaluate registry command model =
     let model: TransformerTuiModel = model
     let session = model.Session
+    let height = outputPreviewHeight model
     let cancellation = new CancellationTokenSource()
-    let task: Task<ReplEvaluation> =
+    let task: Task<ReplEvaluation * TuiLine list option> =
       Task.Run(
-        Func<ReplEvaluation>(
-          fun () -> evaluate registry session command cancellation.Token
+        Func<ReplEvaluation * TuiLine list option>(
+          fun () ->
+            let result =
+              evaluate registry session command cancellation.Token
+            let preview =
+              match origin, result with
+              | ShellEvaluation, Continue(_, _, output)
+                  when not (isScriptReplayOutput output) ->
+                output.Lines
+                |> Seq.map toTuiLine
+                |> previewTuiLines height cancellation.Token
+                |> Some
+              | _ ->
+                None
+            result, preview
         ),
         cancellation.Token
       )
@@ -651,13 +676,14 @@ module TransformerRepl =
             model <- finishCancellation runningEvaluation model
           else
             try
+              let evaluation, preview = task.Result
               let nextRegistry, nextModel, exit =
                 match runningEvaluation.Origin with
                 | ShellEvaluation ->
-                  finishShellEvaluation task.Result model
+                  finishShellEvaluation evaluation preview model
                 | ControlEvaluation ->
                   finishControlEvaluation
-                    runningEvaluation.Command task.Result model
+                    runningEvaluation.Command evaluation model
               registry <- nextRegistry
               suggestionCache <- None
               model <- nextModel
