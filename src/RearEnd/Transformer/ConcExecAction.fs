@@ -968,6 +968,44 @@ type ConcExecutorValue private(binary: Binary,
     | None ->
       withState runState None (Some trace) memoryRanges regions
 
+  member _.RunUntilReturn(start, limit, returnSP, ct) =
+    if limit <= 0 then
+      invalidArg (nameof limit) "Instruction limit must be positive."
+    else
+      ()
+    let predicate =
+      StopPredicate<ConcState>(fun point ->
+        match point.Instruction with
+        | Some instruction when instruction.IsRET ->
+          let accessor = ConcStateAccessor(hdl, point.State)
+          match accessor.TryGetStackPointer() with
+          | Ok stackPointer ->
+            stackPointer = returnSP
+          | Error _ ->
+            false
+        | _ ->
+          false)
+    let runState = state.Clone()
+    let stops = [ ConcStopCondition.StopWhen predicate ]
+    let result, trace = runWithTrace ct start limit runState None stops
+    match result with
+    | Some result ->
+      let reasons =
+        result.StopReasons
+        |> List.map (function
+          | ConcStopReason.UserStopConditionMet addr ->
+            ConcStopReason.StoppedAtReturn addr
+          | reason ->
+            reason)
+      let result = { result with StopReasons = reasons }
+      let trace =
+        { trace with
+            StopReasons =
+              stopReasonsForTrace result trace.MemoryAccesses }
+      withState result.State (Some result) (Some trace) memoryRanges regions
+    | None ->
+      withState runState None (Some trace) memoryRanges regions
+
   member this.Run(args: string list) =
     this.Run(args, CancellationToken.None)
 
@@ -1057,6 +1095,36 @@ type ConcExecutorValue private(binary: Binary,
         (addr, bytes.Length) :: ranges) memoryRanges
     clearRunState nextState ranges (nextRegions @ regions)
 
+  member _.WithExecutionSetup(layout: ExecutionLayout, registers) =
+    (registers |> List.map fst)
+    @ (layout.Buffers |> List.map _.Register)
+    |> ExecutionSetup.validateRegisterNames hdl
+    let nextState = state.Clone()
+    let accessor = accessorFor nextState
+    accessor.SetStackPointer layout.ReturnStackPointer
+    accessor.InitializeFramePointer()
+    let setRegister (name, value) =
+      match tryGetRegisterID name with
+      | Some rid ->
+        accessor.SetRegister(rid, accessor.WordValue value)
+      | None ->
+        invalidArg (nameof registers) $"Unknown register: {name}"
+    registers |> List.iter setRegister
+    layout.Buffers
+    |> List.iter (fun buffer ->
+      setRegister (buffer.Register, buffer.Address))
+    let nextRegions =
+      ExecutionSetup.regions layout
+      |> List.map (fun region ->
+        { Name = region.Name
+          Start = region.Start
+          Finish = region.Finish
+          Permission =
+            { Read = region.Permission.Read
+              Write = region.Permission.Write
+              Execute = region.Permission.Execute } })
+    clearRunState nextState memoryRanges (nextRegions @ regions)
+
   member _.ReadMemory(args: string list) =
     match args with
     | [ addr; count ] ->
@@ -1143,6 +1211,31 @@ type ConcExecAction() =
 
 /// Run a concrete executor.
 type RunAction() =
+  let parseRegisters text =
+    ContextParsing.entries text
+    |> Array.map (fun entry ->
+      let name, value = ContextParsing.splitAssignment entry
+      name, ContextParsing.parseAddress value)
+    |> Array.toList
+
+  let runBinary ct args (binary: Binary) =
+    match args with
+    | [ entry; regs; buffers ]
+    | [ entry; regs; buffers; _ ] ->
+      let limit =
+        match args with
+        | [ _; _; _; limit ] -> Int32.Parse limit
+        | _ -> 50000
+      let layout = ExecutionSetup.layout (Binary.Handle binary) buffers
+      let executor = ConcExecutorValue binary
+      let registers = parseRegisters regs
+      let executor = executor.WithExecutionSetup(layout, registers)
+      let start = ContextParsing.parseAddress entry
+      executor.RunUntilReturn(start, limit, layout.ReturnStackPointer, ct)
+      |> box
+    | _ ->
+      invalidArg (nameof args) "Invalid binary run-concrete arguments."
+
   let transform cancellationToken args collection =
     let cancellationToken: CancellationToken = cancellationToken
     { Values =
@@ -1152,14 +1245,17 @@ type RunAction() =
           match input with
           | :? ConcExecutorValue as executor ->
             executor.Run(args, cancellationToken) |> box
+          | :? Binary as binary ->
+            runBinary cancellationToken args binary
           | _ ->
             invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
     member _.ActionID with get() = "run-concrete"
     member _.Signature with get() =
-      "ConcExecutor -> run-concrete [entry=<addr>] [limit=<n>] "
-      + "[break=<addr>] -> ConcExecutor"
+      "Binary -> run-concrete entry=<addr> regs=[...] "
+      + "buffers=[...] [limit=<n>] | ConcExecutor -> run-concrete "
+      + "[entry=<addr>] [limit=<n>] [break=<addr>] -> ConcExecutor"
     member _.Description with get() =
       "Run concrete execution and update the executor state."
     member _.Transform(args, collection) =

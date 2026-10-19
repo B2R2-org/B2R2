@@ -735,7 +735,12 @@ module Suggestions =
     | ActionArgumentKind.Choice ->
       values argument.Description argument.Choices
     | ActionArgumentKind.Text ->
-      []
+      values argument.Description argument.Choices
+      |> List.map (fun item ->
+        if item.Text = "[]" then
+          { item with AppendSpace = false; CursorOffset = Some 1 }
+        else
+          item)
 
   let private expectedBindingKinds = function
     | ActionArgumentKind.Text
