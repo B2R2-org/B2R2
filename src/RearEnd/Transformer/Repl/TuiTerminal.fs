@@ -27,6 +27,18 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Text
 
+/// A pointer event reported by a terminal using the SGR mouse protocol.
+type TuiMouseEvent =
+  { Button: int
+    Column: int
+    Row: int
+    IsRelease: bool }
+
+[<RequireQualifiedAccess>]
+type TuiInputEvent =
+  | Key of ConsoleKeyInfo
+  | Mouse of TuiMouseEvent
+
 module TransformerTuiTerminal =
   module private Ansi =
     let private csi = "\x1b["
@@ -34,6 +46,10 @@ module TransformerTuiTerminal =
     let leaveAlternateScreen = csi + "?1049l"
     let disableAutoWrap = csi + "?7l"
     let enableAutoWrap = csi + "?7h"
+    let enableMouseClickTracking = csi + "?1000h"
+    let disableMouseClickTracking = csi + "?1000l"
+    let enableSgrMouseEncoding = csi + "?1006h"
+    let disableSgrMouseEncoding = csi + "?1006l"
     let hideCursor = csi + "?25l"
     let showCursor = csi + "?25h"
     let clearScreen = csi + "2J"
@@ -43,18 +59,50 @@ module TransformerTuiTerminal =
   let private enterTuiScreen =
     Ansi.enterAlternateScreen
     + Ansi.disableAutoWrap
+    + Ansi.enableMouseClickTracking
+    + Ansi.enableSgrMouseEncoding
     + Ansi.clearScreen
     + Ansi.cursorHome
 
   let private leaveTuiScreen =
     Ansi.showCursor
     + Ansi.enableAutoWrap
+    + Ansi.disableMouseClickTracking
+    + Ansi.disableSgrMouseEncoding
     + Ansi.leaveAlternateScreen
 
   let mutable private previousFrameLines: string[] = [||]
 
   let isInteractive () =
     not Console.IsInputRedirected && not Console.IsOutputRedirected
+
+  let tryParseInputEvent (sequence: string) =
+    if String.IsNullOrEmpty sequence
+       || not (sequence.StartsWith("[<", StringComparison.Ordinal)) then
+      None
+    else
+      let terminator = sequence[sequence.Length - 1]
+      if terminator <> 'M' && terminator <> 'm' then
+        None
+      else
+        let values = sequence[2..sequence.Length - 2].Split ';'
+        match values with
+        | [| button; column; row |] ->
+          let buttonResult = Int32.TryParse button
+          let columnResult = Int32.TryParse column
+          let rowResult = Int32.TryParse row
+          match buttonResult, columnResult, rowResult with
+          | (true, button), (true, column), (true, row) ->
+            { Button = button
+              Column = column
+              Row = row
+              IsRelease = terminator = 'm' }
+            |> TuiInputEvent.Mouse
+            |> Some
+          | _ ->
+            None
+        | _ ->
+          None
 
   let dimensions () =
     try max 1 Console.WindowWidth, max 1 Console.WindowHeight
