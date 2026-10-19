@@ -2114,6 +2114,71 @@ let translate (ins: Instruction) bld =
   | Op.VMUL10ECUQ ->
     vecMultiplyByTen ins bld true true
   (* End of lane V. *)
+  (* Lane X: VSX, MMA and quad precision. *)
+  | Op.LXSIBZX ->
+    VSXLifter.loadScalarInt ins bld 8<rt> AST.zext
+  | Op.LXSIHZX ->
+    VSXLifter.loadScalarInt ins bld 16<rt> AST.zext
+  | Op.LXSIWAX ->
+    VSXLifter.loadScalarInt ins bld 32<rt> AST.sext
+  | Op.LXSIWZX ->
+    VSXLifter.loadScalarInt ins bld 32<rt> AST.zext
+  | Op.LXSSP | Op.LXSSPX ->
+    VSXLifter.loadScalarSingle ins bld
+  | Op.LXV | Op.LXVX ->
+    VSXLifter.quadword ins bld true
+  | Op.LXVB16X ->
+    lxvx ins bld 8<rt> true
+  | Op.LXVH8X ->
+    lxvx ins bld 16<rt> true
+  | Op.LXVKQ ->
+    VSXLifter.lxvkq ins bld
+  | Op.LXVL ->
+    VSXLifter.loadWithLength ins bld false
+  | Op.LXVLL ->
+    VSXLifter.loadWithLength ins bld true
+  | Op.LXVP | Op.LXVPX ->
+    VSXLifter.pair ins bld true
+  | Op.LXVRBX ->
+    VSXLifter.loadRightmost ins bld 8<rt>
+  | Op.LXVRHX ->
+    VSXLifter.loadRightmost ins bld 16<rt>
+  | Op.LXVRWX ->
+    VSXLifter.loadRightmost ins bld 32<rt>
+  | Op.LXVRDX ->
+    VSXLifter.loadRightmost ins bld 64<rt>
+  | Op.LXVWSX ->
+    VSXLifter.lxvwsx ins bld
+  | Op.MTVSRWS ->
+    VSXLifter.mtvsrws ins bld
+  | Op.STXSIBX ->
+    VSXLifter.storeScalarInt ins bld 8<rt>
+  | Op.STXSIHX ->
+    VSXLifter.storeScalarInt ins bld 16<rt>
+  | Op.STXSIWX ->
+    VSXLifter.storeScalarInt ins bld 32<rt>
+  | Op.STXSSP | Op.STXSSPX ->
+    VSXLifter.storeScalarSingle ins bld
+  | Op.STXV | Op.STXVX ->
+    VSXLifter.quadword ins bld false
+  | Op.STXVB16X ->
+    lxvx ins bld 8<rt> false
+  | Op.STXVH8X ->
+    lxvx ins bld 16<rt> false
+  | Op.STXVL ->
+    VSXLifter.storeWithLength ins bld false
+  | Op.STXVLL ->
+    VSXLifter.storeWithLength ins bld true
+  | Op.STXVP | Op.STXVPX ->
+    VSXLifter.pair ins bld false
+  | Op.STXVRBX ->
+    VSXLifter.storeRightmost ins bld 8<rt>
+  | Op.STXVRHX ->
+    VSXLifter.storeRightmost ins bld 16<rt>
+  | Op.STXVRWX ->
+    VSXLifter.storeRightmost ins bld 32<rt>
+  | Op.STXVRDX ->
+    VSXLifter.storeRightmost ins bld 64<rt>
   | o ->
 #if DEBUG
          eprintfn "%A" o

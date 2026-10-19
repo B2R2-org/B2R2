@@ -103,6 +103,17 @@ module private Shortcut =
 
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
+  (* Lane X: VSX, MMA and quad precision. *)
+  /// A 64-bit form decoded from both byte orders. The hex is the word as the
+  /// Power ISA draws it, most significant byte first, which a little-endian
+  /// guest keeps in memory reversed.
+  let testBoth (hex: string) (opcode, operands) =
+    let word = ByteArray.ofHexString hex
+    let big = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
+    let little = ISA(Architecture.PPC, Endian.Little, WordSize.Bit64)
+    test big opcode operands word
+    test little opcode operands (Array.rev word)
+
 [<TestClass>]
 type ParserTests() =
   [<TestMethod>]
@@ -1878,6 +1889,191 @@ type ParserTests() =
     "102239cd"
     ++ (VCLRRB ** [ O.Reg V1A; O.Reg V2A; O.Reg R7 ])
     ||> testEveryTarget
+
+  (* Lane X: VSX, MMA and quad precision. *)
+  [<TestMethod>]
+  member _.``[PPC64] LXSIBZX``() =
+    testBoth "7c263e1a" (LXSIBZX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXSIHZX ()``() =
+    testBoth "7c263e5a" (LXSIHZX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXSIWAX ()``() =
+    testBoth "7c263898" (LXSIWAX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXSIWZX ()``() =
+    testBoth "7c263818" (LXSIWZX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXSSP (load VSX scalar single-precision)``() =
+    testBoth "e426000b" (LXSSP ** [ O.Reg V1A; O.Mem(8, R6) ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXSSPX (load VSX scalar single-precision indexed)``() =
+    testBoth "7c263c18" (LXSSPX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXV (load VSX vector)``() =
+    testBoth "f4260011" (LXV ** [ O.Reg F1; O.Mem(16, R6) ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVB16X (load VSX vector byte*16 indexed)``() =
+    testBoth "7c263ed8" (LXVB16X ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVH8X (load VSX vector halfword*8 indexed)``() =
+    testBoth "7c263e58" (LXVH8X ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVKQ (load VSX vector special value quadword)``() =
+    testBoth "f03f0ad0" (LXVKQ ** [ O.Reg F1; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVL (load VSX vector with length)``() =
+    testBoth "7c263a1a" (LXVL ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVLL (load VSX vector with length left-justified)``() =
+    testBoth "7c263a5a" (LXVLL ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVP (load VSX vector paired)``() =
+    testBoth "18460010" (LXVP ** [ O.Reg F2; O.Mem(16, R6) ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVPX (load VSX vector paired indexed)``() =
+    testBoth "7c463a9a" (LXVPX ** [ O.Reg F2; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVRBX (load VSX vector rightmost byte indexed)``() =
+    testBoth "7c26381a" (LXVRBX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVRDX (load VSX vector rightmost doubleword indexed)``() =
+    testBoth "7c2638da" (LXVRDX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVRHX (load VSX vector rightmost halfword indexed)``() =
+    testBoth "7c26385a" (LXVRHX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVRWX (load VSX vector rightmost word indexed)``() =
+    testBoth "7c26389a" (LXVRWX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVWSX (load VSX vector word and splat indexed)``() =
+    testBoth "7c263ad8" (LXVWSX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVX (load VSX vector indexed)``() =
+    testBoth "7c263a18" (LXVX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] MTVSRWS (move to VSR word and splat)``() =
+    testBoth "7c260326" (MTVSRWS ** [ O.Reg F1; O.Reg R6 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXSIBX (store VSX scalar as integer byte indexed)``() =
+    testBoth "7c263f1a" (STXSIBX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXSIHX``() =
+    testBoth "7c263f5a" (STXSIHX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXSIWX (store VSX scalar as integer word indexed)``() =
+    testBoth "7c263918" (STXSIWX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXSSP (store VSX scalar single)``() =
+    testBoth "f426000b" (STXSSP ** [ O.Reg V1A; O.Mem(8, R6) ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXSSPX (store VSX scalar single-precision indexed)``() =
+    testBoth "7c263d18" (STXSSPX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXV (store VSX vector)``() =
+    testBoth "f4260015" (STXV ** [ O.Reg F1; O.Mem(16, R6) ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVB16X (store VSX vector byte*16 indexed)``() =
+    testBoth "7c263fd8" (STXVB16X ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVH8X (store VSX vector halfword*8 indexed)``() =
+    testBoth "7c263f58" (STXVH8X ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVL (store VSX vector with length)``() =
+    testBoth "7c263b1a" (STXVL ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVLL (store VSX vector with length left-justified)``() =
+    testBoth "7c263b5a" (STXVLL ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVP (store VSX vector paired)``() =
+    testBoth "18460011" (STXVP ** [ O.Reg F2; O.Mem(16, R6) ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVPX (store VSX vector paired indexed)``() =
+    testBoth "7c463b9a" (STXVPX ** [ O.Reg F2; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVRBX (store VSX vector rightmost byte indexed)``() =
+    testBoth "7c26391a" (STXVRBX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVRDX``() =
+    testBoth "7c2639da" (STXVRDX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVRHX (store VSX vector rightmost halfword indexed)``() =
+    testBoth "7c26395a" (STXVRHX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVRWX (store VSX vector rightmost word indexed)``() =
+    testBoth "7c26399a" (STXVRWX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVX (store VSX vector indexed)``() =
+    testBoth "7c263b18" (STXVX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVX names VSR32-63 by its last bit``() =
+    testBoth "7c263a19" (LXVX ** [ O.Reg V1A; O.Reg R6; O.Reg R7 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXV names VSR32-63 by the bit above its form``() =
+    testBoth "f4260019" (LXV ** [ O.Reg V1A; O.Mem(16, R6) ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVP names a pair of VSR32-63 by its bit 10``() =
+    testBoth "18660010" (LXVP ** [ O.Reg V2A; O.Mem(16, R6) ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVP takes a negative displacement``() =
+    testBoth "1846fff0" (LXVP ** [ O.Reg F2; O.Mem(-16, R6) ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVKQ is not XXSPLTIB``() =
+    testBoth "f03f8ad0" (LXVKQ ** [ O.Reg F1; O.Imm 0x11UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVKQ refuses a reserved constant``() =
+    testUnsupported WordSize.Bit64 "f03f52d0"
+
+  [<TestMethod>]
+  member _.``[PPC64] XXSPLTIB keeps the forms with its two high bits clear``() =
+    testBoth "f0278ad0" (XXSPLTIB ** [ O.Reg F1; O.Imm 0xf1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] LXVP refuses the low bits no form has``() =
+    testUnsupported WordSize.Bit64 "18460012"
 
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.

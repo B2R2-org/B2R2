@@ -253,6 +253,29 @@ type LifterTests() =
     Array.init 8 (fun i -> uint64 (memory[addr + uint64 i]: byte))
     |> Array.fold (fun acc b -> (acc <<< 8) ||| b) 0UL
 
+  (* Lane X: VSX, MMA and quad precision. *)
+  /// The bytes of memory eight-byte chunks stand for, each chunk being its
+  /// bytes in address order read as one big-endian number, the way the QEMU
+  /// oracle (optest-powerpc/oracle) prints a window of memory.
+  let chunks (given: (uint64 * uint64) list) =
+    given
+    |> List.map (fun (addr, v) -> addr, BitConverter.GetBytes v |> Array.rev)
+
+  /// <summary>
+  /// Runs one word on the processor an ISA names over the registers and the
+  /// eight-byte chunks of memory given, and asserts what each listed
+  /// register and chunk holds afterwards: the values QEMU left, read from
+  /// the oracle's results-ppc64.json and results-ppc64le.json. FPSCR is
+  /// asserted only in its FPRF field, the only part of it the lifter writes.
+  /// </summary>
+  let oracleMem isa hex given memory regs mem =
+    let after, outcome = exec isa hex given (chunks memory)
+    for r, v in regs do
+      let actual = if r = FPSCR then fprf (after r) else after r
+      expect v actual $"{r} {hex} {nameOf isa}"
+    for addr, v in mem do
+      expect v (chunkAt outcome addr) $"{addr:x} {hex} {nameOf isa}"
+
   /// <summary>
   /// add rD, rA, rB writes rA + rB at the width of a register: the sum wraps
   /// at 32 bits on a 32-bit processor and carries into the high word on a
@@ -5242,6 +5265,2012 @@ type LifterTests() =
         V2B, 0xffffffff00000001UL ]
     let wanted = [ V1A, 0x7fffffff80000000UL; V1B, 0xffffffff00000001UL ]
     oracle only64 "102239cd" given wanted
+
+  (* Lane X: VSX, MMA and quad precision. *)
+  /// <summary>
+  /// lxsibzx xT, rA, rB loads the byte at (rA|0) + rB, zero-extended, into
+  /// doubleword 0 of xT, and clears doubleword 1. QEMU 8.2.2 leaves doubleword
+  /// 1 as it was; the manual sets it to zero, and that is what is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXSIBZX zero-extends a byte into doubleword 0``() =
+    (* lxsibzx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xb5f4465092da97e1UL; 0x20200088UL, 0xd62ed088b9fb3d92UL ]
+    oracleMem
+      ppc64
+      "7c263e1a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xb5UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263e1a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xb5UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// lxsihzx xT, rA, rB loads the halfword at (rA|0) + rB in the guest's byte
+  /// order, zero-extended, into doubleword 0 of xT, and clears doubleword 1.
+  /// QEMU 8.2.2 leaves doubleword 1 as it was; the manual sets it to zero, and
+  /// that is what is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXSIHZX zero-extends a halfword into doubleword 0``() =
+    (* lxsihzx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x306bbe1ecaee3665UL; 0x20200088UL, 0xb92904fb95b35bacUL ]
+    oracleMem
+      ppc64
+      "7c263e5a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x306bUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263e5a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x6b30UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// lxsiwax xT, rA, rB loads the word at (rA|0) + rB in the guest's byte
+  /// order, sign-extended, into doubleword 0 of xT, and clears doubleword 1:
+  /// the first vector's word is negative on both byte orders, the second's
+  /// positive. QEMU 8.2.2 leaves doubleword 1 as it was; the manual sets it to
+  /// zero, and that is what is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXSIWAX sign-extends a word into doubleword 0``() =
+    (* lxsiwax vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xad0df3e829ef4201UL; 0x20200088UL, 0x39bd67a2030c75eUL ]
+    let window1 =
+      [ 0x20200080UL, 0x5643ad8df3393989UL; 0x20200088UL, 0x661bdd15e838a07dUL ]
+    oracleMem
+      ppc64
+      "7c263898"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xffffffffad0df3e8UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263898"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xffffffffe8f30dadUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "7c263898"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window1
+      [ F1, 0x5643ad8dUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263898"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window1
+      [ F1, 0xffffffff8dad4356UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// lxsiwzx xT, rA, rB loads the word at (rA|0) + rB in the guest's byte
+  /// order, zero-extended, into doubleword 0 of xT, and clears doubleword 1.
+  /// QEMU 8.2.2 leaves doubleword 1 as it was; the manual sets it to zero, and
+  /// that is what is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXSIWZX zero-extends a word into doubleword 0``() =
+    (* lxsiwzx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xa52a66012bf5f0d7UL; 0x20200088UL, 0x8e463b62f1e64b96UL ]
+    oracleMem
+      ppc64
+      "7c263818"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xa52a6601UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263818"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x1662aa5UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// lxssp vRT, DS(rA) loads the single at (rA|0) + DS and places it in double
+  /// format in doubleword 0 of VSR[vRT+32]; doubleword 1 is cleared. 1.5, the
+  /// smallest denormal, a signalling NaN -- which stays signalling, its payload
+  /// moved up -- and -Inf are each exact in double format.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXSSP widens a loaded single into doubleword 0``() =
+    (* lxssp v1,8(r6), under QEMU: lanes/x-oracle/loads, oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x3fc000007ec2bb6bUL; 0x20200088UL, 0x85f307d07b4cabf9UL ]
+    let window0le =
+      [ 0x20200080UL, 0xc03f7ec2bb6bUL; 0x20200088UL, 0x85f307d07b4cabf9UL ]
+    let window1 =
+      [ 0x20200080UL, 0x1645f28ecUL; 0x20200088UL, 0x71ff843b920d0cddUL ]
+    let window1le =
+      [ 0x20200080UL, 0x1000000645f28ecUL; 0x20200088UL, 0x71ff843b920d0cddUL ]
+    let window2 =
+      [ 0x20200080UL, 0x7f800001bc68cf7fUL; 0x20200088UL, 0x442c7c732f4bbdf8UL ]
+    let window2le =
+      [ 0x20200080UL, 0x100807fbc68cf7fUL; 0x20200088UL, 0x442c7c732f4bbdf8UL ]
+    let window3 =
+      [ 0x20200080UL, 0xff8000002c049d2fUL; 0x20200088UL, 0xe71b758877ec3210UL ]
+    let window3le =
+      [ 0x20200080UL, 0x80ff2c049d2fUL; 0x20200088UL, 0xe71b758877ec3210UL ]
+    let window4 =
+      [ 0x20200080UL, 0xfd615ab67ec2bb6bUL; 0x20200088UL, 0x85f307d07b4cabf9UL ]
+    oracleMem
+      ppc64
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window0
+      [ V1A, 0x3ff8000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window0le
+      [ V1A, 0x3ff8000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window1
+      [ V1A, 0x36a0000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window1le
+      [ V1A, 0x36a0000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window2
+      [ V1A, 0x7ff0000020000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window2le
+      [ V1A, 0x7ff0000020000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window3
+      [ V1A, 0xfff0000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window3le
+      [ V1A, 0xfff0000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window4
+      [ V1A, 0xc7ac2b56c0000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "e426000b"
+      [ R6, 0x20200078UL; V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      window4
+      [ V1A, 0xbecb4c3fa0000000UL; V1B, 0x0UL ]
+      []
+
+  /// <summary>
+  /// lxsspx xT, rA, rB loads the single at (rA|0) + rB and places it in double
+  /// format in doubleword 0 of xT, as lxssp does; doubleword 1 is cleared. QEMU
+  /// 8.2.2 leaves doubleword 1 as it was; the manual sets it to zero, and that
+  /// is what is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXSSPX widens a loaded single into doubleword 0``() =
+    (* lxsspx vs1,r6,r7, under QEMU: lanes/x-oracle/loads, oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x3fc0000047e8c26fUL; 0x20200088UL, 0xdd1f7b578b36893bUL ]
+    let window0le =
+      [ 0x20200080UL, 0xc03f47e8c26fUL; 0x20200088UL, 0xdd1f7b578b36893bUL ]
+    let window1 =
+      [ 0x20200080UL, 0x1d3f5b1d5UL; 0x20200088UL, 0x2094417605d1ea0eUL ]
+    let window1le =
+      [ 0x20200080UL, 0x1000000d3f5b1d5UL; 0x20200088UL, 0x2094417605d1ea0eUL ]
+    let window2 =
+      [ 0x20200080UL, 0x7f800001637811edUL; 0x20200088UL, 0x70783111ad441073UL ]
+    let window2le =
+      [ 0x20200080UL, 0x100807f637811edUL; 0x20200088UL, 0x70783111ad441073UL ]
+    let window3 =
+      [ 0x20200080UL, 0xff800000e558224dUL; 0x20200088UL, 0xd25af19b3ea16566UL ]
+    let window3le =
+      [ 0x20200080UL, 0x80ffe558224dUL; 0x20200088UL, 0xd25af19b3ea16566UL ]
+    let window4 =
+      [ 0x20200080UL, 0x973adcb347e8c26fUL; 0x20200088UL, 0xdd1f7b578b36893bUL ]
+    oracleMem
+      ppc64
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x3ff8000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0le
+      [ F1, 0x3ff8000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window1
+      [ F1, 0x36a0000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window1le
+      [ F1, 0x36a0000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window2
+      [ F1, 0x7ff0000020000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window2le
+      [ F1, 0x7ff0000020000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window3
+      [ F1, 0xfff0000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window3le
+      [ F1, 0xfff0000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window4
+      [ F1, 0xbae75b9660000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263c18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window4
+      [ F1, 0xbe7b8752e0000000UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// lxv xT, DQ(rA) loads the 16 bytes at (rA|0) + DQ into xT: byte element 0
+  /// from the lowest address on a big-endian guest, from the highest on a
+  /// little-endian one, where the whole quadword's byte order reverses.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXV loads a quadword in the guest's byte order``() =
+    (* lxv vs1,16(r6), under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x35bcc3b73e493e1aUL; 0x20200088UL, 0x49f3bab35a85e6aUL ]
+    oracleMem
+      ppc64
+      "f4260011"
+      [ R6, 0x20200070UL; F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x35bcc3b73e493e1aUL; VSRL1, 0x49f3bab35a85e6aUL ]
+      []
+    oracleMem
+      ppc64le
+      "f4260011"
+      [ R6, 0x20200070UL; F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x6a5ea835ab3b9f04UL; VSRL1, 0x1a3e493eb7c3bc35UL ]
+      []
+
+  /// <summary>
+  /// lxvx xT, rA, rB loads the 16 bytes at (rA|0) + rB into xT as lxv does, the
+  /// whole quadword's byte order following the guest's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVX loads a quadword in the guest's byte order``() =
+    (* lxvx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x24b691845c55adedUL; 0x20200088UL, 0xd68da397af749583UL ]
+    oracleMem
+      ppc64
+      "7c263a18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x24b691845c55adedUL; VSRL1, 0xd68da397af749583UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263a18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x839574af97a38dd6UL; VSRL1, 0xedad555c8491b624UL ]
+      []
+
+  /// <summary>
+  /// lxvb16x xT, rA, rB loads byte element i of xT from (rA|0) + rB + i, so a
+  /// little-endian guest sees the same register as a big-endian one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVB16X loads bytes in address order``() =
+    (* lxvb16x vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x88548c15dd98a4e4UL; 0x20200088UL, 0xcc54338e39091045UL ]
+    oracleMem
+      ppc64
+      "7c263ed8"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x88548c15dd98a4e4UL; VSRL1, 0xcc54338e39091045UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263ed8"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x88548c15dd98a4e4UL; VSRL1, 0xcc54338e39091045UL ]
+      []
+
+  /// <summary>
+  /// lxvh8x xT, rA, rB loads halfword element i of xT from (rA|0) + rB + 2i,
+  /// each halfword in the guest's byte order but the elements in address order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVH8X loads eight halfwords in address order``() =
+    (* lxvh8x vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xb6e52d821a62e7f8UL; 0x20200088UL, 0x2833ca77689ad46dUL ]
+    oracleMem
+      ppc64
+      "7c263e58"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xb6e52d821a62e7f8UL; VSRL1, 0x2833ca77689ad46dUL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263e58"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xe5b6822d621af8e7UL; VSRL1, 0x332877ca9a686dd4UL ]
+      []
+
+  /// <summary>
+  /// lxvkq xT, UIM places the quad-precision constant UIM names in xT: 1.0 to
+  /// 7.0, +Inf and the default quiet NaN for UIM 1 to 9, -0.0, -1.0 to -7.0 and
+  /// -Inf for UIM 16 to 24.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVKQ loads every quad-precision constant``() =
+    (* lxvkq vs1,1, under QEMU: lanes/x-oracle/loads *)
+    oracleMem
+      ppc64
+      "f03f0ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x3fff000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f0ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x3fff000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f12d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4000000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f12d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4000000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f1ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4000800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f1ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4000800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f22d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4001000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f22d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4001000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f2ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4001400000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f2ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4001400000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f32d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4001800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f32d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4001800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f3ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4001c00000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f3ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x4001c00000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f42d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x7fff000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f42d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x7fff000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f4ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x7fff800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f4ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x7fff800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f82d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x8000000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f82d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0x8000000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f8ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xbfff000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f8ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xbfff000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f92d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc000000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f92d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc000000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f9ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc000800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f9ad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc000800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03fa2d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc001000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03fa2d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc001000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03faad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc001400000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03faad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc001400000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03fb2d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc001800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03fb2d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc001800000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03fbad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc001c00000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03fbad0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xc001c00000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f03fc2d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xffff000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03fc2d0"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xffff000000000000UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// lxvl xT, rA, rB loads nb bytes at (rA|0), nb being the top byte of rB --
+  /// 16, 5 and 0 here -- into the left of xT on a big-endian guest and, byte
+  /// order reversed, into the right of it on a little-endian one, clearing the
+  /// rest; with nb 0 nothing is read and xT is cleared.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVL loads as many bytes as the top byte of rB says``() =
+    (* lxvl vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x972d9a9234764059UL; 0x20200088UL, 0x8868c68b1f6b9211UL ]
+    let window1 =
+      [ 0x20200080UL, 0xf23ee32ab99d0d70UL; 0x20200088UL, 0xcfb04a4926ffef0fUL ]
+    let window2 =
+      [ 0x20200080UL, 0x13a574af0fe1fd2UL; 0x20200088UL, 0x60db17b53ab9a3b9UL ]
+    oracleMem
+      ppc64
+      "7c263a1a"
+      [ R6, 0x20200080UL
+        R7, 0x1000000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x972d9a9234764059UL; VSRL1, 0x8868c68b1f6b9211UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263a1a"
+      [ R6, 0x20200080UL
+        R7, 0x1000000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x11926b1f8bc66888UL; VSRL1, 0x59407634929a2d97UL ]
+      []
+    oracleMem
+      ppc64
+      "7c263a1a"
+      [ R6, 0x20200080UL
+        R7, 0x500000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window1
+      [ F1, 0xf23ee32ab9000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263a1a"
+      [ R6, 0x20200080UL
+        R7, 0x500000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window1
+      [ F1, 0x0UL; VSRL1, 0xb92ae33ef2UL ]
+      []
+    oracleMem
+      ppc64
+      "7c263a1a"
+      [ R6, 0x20200080UL; F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      window2
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263a1a"
+      [ R6, 0x20200080UL; F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL ]
+      window2
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// lxvll xT, rA, rB loads nb bytes at (rA|0), nb being the top byte of rB and
+  /// at most 16 (16, 5 and 17 here), into byte elements 0 to nb-1 in address
+  /// order whatever the guest's byte order, clearing the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVLL loads nb bytes left-justified on either guest``() =
+    (* lxvll vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xfd1750a6f4c3e33dUL; 0x20200088UL, 0xeb87514450a9ef2fUL ]
+    let window1 =
+      [ 0x20200080UL, 0x1948c01cfb8a909fUL; 0x20200088UL, 0xe088f31510d06591UL ]
+    let window2 =
+      [ 0x20200080UL, 0x494ee7cd6905804bUL; 0x20200088UL, 0xf0b91d2ce1832eebUL ]
+    oracleMem
+      ppc64
+      "7c263a5a"
+      [ R6, 0x20200080UL
+        R7, 0x1000000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xfd1750a6f4c3e33dUL; VSRL1, 0xeb87514450a9ef2fUL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263a5a"
+      [ R6, 0x20200080UL
+        R7, 0x1000000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xfd1750a6f4c3e33dUL; VSRL1, 0xeb87514450a9ef2fUL ]
+      []
+    oracleMem
+      ppc64
+      "7c263a5a"
+      [ R6, 0x20200080UL
+        R7, 0x500000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window1
+      [ F1, 0x1948c01cfb000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263a5a"
+      [ R6, 0x20200080UL
+        R7, 0x500000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window1
+      [ F1, 0x1948c01cfb000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "7c263a5a"
+      [ R6, 0x20200080UL
+        R7, 0x1100000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window2
+      [ F1, 0x494ee7cd6905804bUL; VSRL1, 0xf0b91d2ce1832eebUL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263a5a"
+      [ R6, 0x20200080UL
+        R7, 0x1100000000000000UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window2
+      [ F1, 0x494ee7cd6905804bUL; VSRL1, 0xf0b91d2ce1832eebUL ]
+      []
+
+  /// <summary>
+  /// lxvp xTp, DQ(rA) loads the 32 bytes at (rA|0) + DQ into xTp and xTp+1. The
+  /// 32 bytes are one octword, so on a little-endian guest xTp takes the upper
+  /// 16 bytes, byte-reversed, and xTp+1 the lower.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVP loads a register pair``() =
+    (* lxvp vs2,16(r6), under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x6d876f514fc010cfUL
+        0x20200088UL, 0x847d288916f5b7d5UL
+        0x20200090UL, 0xe78099546887fbe0UL
+        0x20200098UL, 0x66b7f133b4d68f0UL ]
+    oracleMem
+      ppc64
+      "18460010"
+      [ R6, 0x20200070UL; F2, 0xbad0bad0bad0badUL; VSRL2, 0xbad0bad0bad0badUL ]
+      window0
+      [ F2, 0x6d876f514fc010cfUL
+        F3, 0xe78099546887fbe0UL
+        VSRL2, 0x847d288916f5b7d5UL
+        VSRL3, 0x66b7f133b4d68f0UL ]
+      []
+    oracleMem
+      ppc64le
+      "18460010"
+      [ R6, 0x20200070UL; F2, 0xbad0bad0bad0badUL; VSRL2, 0xbad0bad0bad0badUL ]
+      window0
+      [ F2, 0xf0684d3b137f6b06UL
+        F3, 0xd5b7f51689287d84UL
+        VSRL2, 0xe0fb8768549980e7UL
+        VSRL3, 0xcf10c04f516f876dUL ]
+      []
+
+  /// <summary>
+  /// lxvpx xTp, rA, rB loads the 32 bytes at (rA|0) + rB into xTp and xTp+1, as
+  /// lxvp does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVPX loads a register pair``() =
+    (* lxvpx vs2,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x64bc7d77bae33378UL
+        0x20200088UL, 0x4ae77049973271d6UL
+        0x20200090UL, 0xe7bddfc3d0debac0UL
+        0x20200098UL, 0xf8f8a0a3a15acfc2UL ]
+    oracleMem
+      ppc64
+      "7c463a9a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F2, 0xbad0bad0bad0badUL
+        VSRL2, 0xbad0bad0bad0badUL ]
+      window0
+      [ F2, 0x64bc7d77bae33378UL
+        F3, 0xe7bddfc3d0debac0UL
+        VSRL2, 0x4ae77049973271d6UL
+        VSRL3, 0xf8f8a0a3a15acfc2UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c463a9a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F2, 0xbad0bad0bad0badUL
+        VSRL2, 0xbad0bad0bad0badUL ]
+      window0
+      [ F2, 0xc2cf5aa1a3a0f8f8UL
+        F3, 0xd67132974970e74aUL
+        VSRL2, 0xc0baded0c3dfbde7UL
+        VSRL3, 0x7833e3ba777dbc64UL ]
+      []
+
+  /// <summary>
+  /// lxvrbx xT, rA, rB loads the byte at (rA|0) + rB into byte element 15 of xT
+  /// and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVRBX loads a byte into the rightmost element``() =
+    (* lxvrbx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xa461fd807f299624UL; 0x20200088UL, 0x2c4263d2ba55889UL ]
+    oracleMem
+      ppc64
+      "7c26381a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x0UL; VSRL1, 0xa4UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c26381a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x0UL; VSRL1, 0xa4UL ]
+      []
+
+  /// <summary>
+  /// lxvrhx xT, rA, rB loads the halfword at (rA|0) + rB, in the guest's byte
+  /// order, into halfword element 7 of xT and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVRHX loads a halfword into the rightmost element``() =
+    (* lxvrhx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x5d9125101fb99971UL; 0x20200088UL, 0xa714605a5a35f6cUL ]
+    oracleMem
+      ppc64
+      "7c26385a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x0UL; VSRL1, 0x5d91UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c26385a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x0UL; VSRL1, 0x915dUL ]
+      []
+
+  /// <summary>
+  /// lxvrwx xT, rA, rB loads the word at (rA|0) + rB, in the guest's byte
+  /// order, into word element 3 of xT and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVRWX loads a word into the rightmost element``() =
+    (* lxvrwx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x54c388f4d3935752UL; 0x20200088UL, 0xb52f82be75a01116UL ]
+    oracleMem
+      ppc64
+      "7c26389a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x0UL; VSRL1, 0x54c388f4UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c26389a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x0UL; VSRL1, 0xf488c354UL ]
+      []
+
+  /// <summary>
+  /// lxvrdx xT, rA, rB loads the doubleword at (rA|0) + rB, in the guest's byte
+  /// order, into doubleword element 1 of xT and clears doubleword 0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVRDX loads a doubleword into the rightmost element``() =
+    (* lxvrdx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x1ec7bae3110e7a3eUL; 0x20200088UL, 0x51a78d4cf3f5d74UL ]
+    oracleMem
+      ppc64
+      "7c2638da"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x0UL; VSRL1, 0x1ec7bae3110e7a3eUL ]
+      []
+    oracleMem
+      ppc64le
+      "7c2638da"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x0UL; VSRL1, 0x3e7a0e11e3bac71eUL ]
+      []
+
+  /// <summary>
+  /// lxvwsx xT, rA, rB loads the word at (rA|0) + rB, in the guest's byte
+  /// order, into all four word elements of xT.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LXVWSX splats a loaded word``() =
+    (* lxvwsx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xbdaf0774cc2aa342UL; 0x20200088UL, 0x10d3f5c9d6997399UL ]
+    oracleMem
+      ppc64
+      "7c263ad8"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0xbdaf0774bdaf0774UL; VSRL1, 0xbdaf0774bdaf0774UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c263ad8"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      window0
+      [ F1, 0x7407afbd7407afbdUL; VSRL1, 0x7407afbd7407afbdUL ]
+      []
+
+  /// <summary>
+  /// mtvsrws xT, rA places the low word of rA in all four word elements of xT,
+  /// whatever the high word holds.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTVSRWS splats the low word of a general register``() =
+    (* mtvsrws vs1,r6, under QEMU: oracle results *)
+    oracleMem
+      ppc64
+      "7c260326"
+      [ R6, 0x3UL; F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x300000003UL; VSRL1, 0x300000003UL ]
+      []
+    oracleMem
+      ppc64le
+      "7c260326"
+      [ R6, 0x3UL; F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x300000003UL; VSRL1, 0x300000003UL ]
+      []
+    oracleMem
+      ppc64
+      "7c260326"
+      [ R6, 0x7fffffffffffffffUL
+        F1, 0x7fffffff80000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "7c260326"
+      [ R6, 0x7fffffffffffffffUL
+        F1, 0x7fffffff80000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0xffffffffffffffffUL ]
+      []
+
+  /// <summary>
+  /// stxsibx xS, rA, rB stores byte element 7 of xS, the low byte of doubleword
+  /// 0, at (rA|0) + rB, and nothing else.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXSIBX stores byte element 7``() =
+    (* stxsibx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x68989f228f3eec3dUL; 0x20200088UL, 0xead16be809902a38UL ]
+    oracleMem
+      ppc64
+      "7c263f1a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x7989f228f3eec3dUL ]
+    oracleMem
+      ppc64le
+      "7c263f1a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x7989f228f3eec3dUL ]
+
+  /// <summary>
+  /// stxsihx xS, rA, rB stores halfword element 3 of xS, the low halfword of
+  /// doubleword 0, at (rA|0) + rB in the guest's byte order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXSIHX stores halfword element 3``() =
+    (* stxsihx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xe0623307896f70c0UL; 0x20200088UL, 0xd0370f89ca05ca70UL ]
+    oracleMem
+      ppc64
+      "7c263f5a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x6073307896f70c0UL ]
+    oracleMem
+      ppc64le
+      "7c263f5a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x7063307896f70c0UL ]
+
+  /// <summary>
+  /// stxsiwx xS, rA, rB stores word element 1 of xS, the low word of doubleword
+  /// 0, at (rA|0) + rB in the guest's byte order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXSIWX stores word element 1``() =
+    (* stxsiwx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xbfc9a6692fb286dUL; 0x20200088UL, 0x4089a12626c46baeUL ]
+    oracleMem
+      ppc64
+      "7c263918"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x405060792fb286dUL ]
+    oracleMem
+      ppc64le
+      "7c263918"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x706050492fb286dUL ]
+
+  /// <summary>
+  /// stxssp vRS, DS(rA) stores the double in doubleword 0 of VSR[vRS+32] as a
+  /// single at (rA|0) + DS, by the conversion that does not round: 1.5, the
+  /// largest negative single, the smallest normal and the smallest denormal
+  /// single, +Inf, a signalling and a quiet NaN (each keeping its payload's top
+  /// bits) and -0. The conversion is undefined for a double no single
+  /// represents, which no vector here holds.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXSSP stores doubleword 0 as a single``() =
+    (* stxssp v1,8(r6), under QEMU: lanes/x-oracle/loads, oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xe5a5735e3a5695e5UL; 0x20200088UL, 0xa2cf6ece05b481bUL ]
+    let window1 =
+      [ 0x20200080UL, 0x9b9ac4b4dadd63e5UL; 0x20200088UL, 0x8bb0d6dfbf01d233UL ]
+    let window2 =
+      [ 0x20200080UL, 0x34774e899912ffe0UL; 0x20200088UL, 0xc33d8bc8462672abUL ]
+    let window3 =
+      [ 0x20200080UL, 0xe82106bbd067956cUL; 0x20200088UL, 0x1123cfe364027b07UL ]
+    let window4 =
+      [ 0x20200080UL, 0x870c0fe12dcbfa4UL; 0x20200088UL, 0xa2f4b0d4840d1d70UL ]
+    let window5 =
+      [ 0x20200080UL, 0xcbabe3dd103c736bUL; 0x20200088UL, 0x868e7c6eaf15d3f4UL ]
+    let window6 =
+      [ 0x20200080UL, 0x9b9ac4b4dadd63e5UL; 0x20200088UL, 0x8bb0d6dfbf01d233UL ]
+    let window7 =
+      [ 0x20200080UL, 0x903f351ed3aee222UL; 0x20200088UL, 0x8f27381507713064UL ]
+    oracleMem
+      ppc64
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x3ff8000000000000UL; V1B, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x3fc000003a5695e5UL ]
+    oracleMem
+      ppc64le
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x3ff8000000000000UL; V1B, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xc03f3a5695e5UL ]
+    oracleMem
+      ppc64
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0xc7efffffe0000000UL; V1B, 0xffffffff00000001UL ]
+      window1
+      []
+      [ 0x20200080UL, 0xff7fffffdadd63e5UL ]
+    oracleMem
+      ppc64le
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0xc7efffffe0000000UL; V1B, 0xffffffff00000001UL ]
+      window1
+      []
+      [ 0x20200080UL, 0xffff7fffdadd63e5UL ]
+    oracleMem
+      ppc64
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x3810000000000000UL; V1B, 0x7f80ff00017f80ffUL ]
+      window2
+      []
+      [ 0x20200080UL, 0x8000009912ffe0UL ]
+    oracleMem
+      ppc64le
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x3810000000000000UL; V1B, 0x7f80ff00017f80ffUL ]
+      window2
+      []
+      [ 0x20200080UL, 0x80009912ffe0UL ]
+    oracleMem
+      ppc64
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x36a0000000000000UL ]
+      window3
+      []
+      [ 0x20200080UL, 0x1d067956cUL ]
+    oracleMem
+      ppc64le
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x36a0000000000000UL ]
+      window3
+      []
+      [ 0x20200080UL, 0x1000000d067956cUL ]
+    oracleMem
+      ppc64
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x7ff0000000000000UL; V1B, 0x5555555555555555UL ]
+      window4
+      []
+      [ 0x20200080UL, 0x7f80000012dcbfa4UL ]
+    oracleMem
+      ppc64le
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x7ff0000000000000UL; V1B, 0x5555555555555555UL ]
+      window4
+      []
+      [ 0x20200080UL, 0x807f12dcbfa4UL ]
+    oracleMem
+      ppc64
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x7ff4000000000000UL; V1B, 0xfedcba9876543210UL ]
+      window5
+      []
+      [ 0x20200080UL, 0x7fa00000103c736bUL ]
+    oracleMem
+      ppc64le
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x7ff4000000000000UL; V1B, 0xfedcba9876543210UL ]
+      window5
+      []
+      [ 0x20200080UL, 0xa07f103c736bUL ]
+    oracleMem
+      ppc64
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x7fffffff80000000UL; V1B, 0xffffffff00000001UL ]
+      window6
+      []
+      [ 0x20200080UL, 0x7ffffffcdadd63e5UL ]
+    oracleMem
+      ppc64le
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x7fffffff80000000UL; V1B, 0xffffffff00000001UL ]
+      window6
+      []
+      [ 0x20200080UL, 0xfcffff7fdadd63e5UL ]
+    oracleMem
+      ppc64
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x8000000000000000UL ]
+      window7
+      []
+      [ 0x20200080UL, 0x80000000d3aee222UL ]
+    oracleMem
+      ppc64le
+      "f426000b"
+      [ R6, 0x20200078UL; V1A, 0x8000000000000000UL ]
+      window7
+      []
+      [ 0x20200080UL, 0x80d3aee222UL ]
+
+  /// <summary>
+  /// stxsspx xS, rA, rB stores the double in doubleword 0 of xS as a single at
+  /// (rA|0) + rB, by the same conversion as stxssp, over the same values.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXSSPX stores doubleword 0 as a single``() =
+    (* stxsspx vs1,r6,r7, under QEMU: lanes/x-oracle/loads, oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x3bd0532e3744dcbdUL; 0x20200088UL, 0x943f6551b210af78UL ]
+    let window1 =
+      [ 0x20200080UL, 0x8ba96a5167c8d38fUL; 0x20200088UL, 0xa83b3b0802c834c3UL ]
+    let window2 =
+      [ 0x20200080UL, 0xa16a35ffbdaad07eUL; 0x20200088UL, 0x21abc7c227e7f2f4UL ]
+    let window3 =
+      [ 0x20200080UL, 0xc947245ed88760e7UL; 0x20200088UL, 0x9517d63cf22f7e2bUL ]
+    let window4 =
+      [ 0x20200080UL, 0x45a84ba5fd500fadUL; 0x20200088UL, 0x212c603358a88f30UL ]
+    let window5 =
+      [ 0x20200080UL, 0x27302b952302735eUL; 0x20200088UL, 0xfa695644f158cb7bUL ]
+    let window6 =
+      [ 0x20200080UL, 0x8ba96a5167c8d38fUL; 0x20200088UL, 0xa83b3b0802c834c3UL ]
+    let window7 =
+      [ 0x20200080UL, 0x3234b914c6d5e977UL; 0x20200088UL, 0x20b5ec532bc78f4UL ]
+    oracleMem
+      ppc64
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x3ff8000000000000UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x3fc000003744dcbdUL ]
+    oracleMem
+      ppc64le
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x3ff8000000000000UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xc03f3744dcbdUL ]
+    oracleMem
+      ppc64
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xc7efffffe0000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      window1
+      []
+      [ 0x20200080UL, 0xff7fffff67c8d38fUL ]
+    oracleMem
+      ppc64le
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0xc7efffffe0000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      window1
+      []
+      [ 0x20200080UL, 0xffff7fff67c8d38fUL ]
+    oracleMem
+      ppc64
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x3810000000000000UL
+        VSRL1, 0x7f80ff00017f80ffUL ]
+      window2
+      []
+      [ 0x20200080UL, 0x800000bdaad07eUL ]
+    oracleMem
+      ppc64le
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x3810000000000000UL
+        VSRL1, 0x7f80ff00017f80ffUL ]
+      window2
+      []
+      [ 0x20200080UL, 0x8000bdaad07eUL ]
+    oracleMem
+      ppc64
+      "7c263d18"
+      [ R6, 0x20200078UL; R7, 0x8UL; F1, 0x36a0000000000000UL ]
+      window3
+      []
+      [ 0x20200080UL, 0x1d88760e7UL ]
+    oracleMem
+      ppc64le
+      "7c263d18"
+      [ R6, 0x20200078UL; R7, 0x8UL; F1, 0x36a0000000000000UL ]
+      window3
+      []
+      [ 0x20200080UL, 0x1000000d88760e7UL ]
+    oracleMem
+      ppc64
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x7ff0000000000000UL
+        VSRL1, 0x5555555555555555UL ]
+      window4
+      []
+      [ 0x20200080UL, 0x7f800000fd500fadUL ]
+    oracleMem
+      ppc64le
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x7ff0000000000000UL
+        VSRL1, 0x5555555555555555UL ]
+      window4
+      []
+      [ 0x20200080UL, 0x807ffd500fadUL ]
+    oracleMem
+      ppc64
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x7ff4000000000000UL
+        VSRL1, 0xfedcba9876543210UL ]
+      window5
+      []
+      [ 0x20200080UL, 0x7fa000002302735eUL ]
+    oracleMem
+      ppc64le
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x7ff4000000000000UL
+        VSRL1, 0xfedcba9876543210UL ]
+      window5
+      []
+      [ 0x20200080UL, 0xa07f2302735eUL ]
+    oracleMem
+      ppc64
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x7fffffff80000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      window6
+      []
+      [ 0x20200080UL, 0x7ffffffc67c8d38fUL ]
+    oracleMem
+      ppc64le
+      "7c263d18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x7fffffff80000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      window6
+      []
+      [ 0x20200080UL, 0xfcffff7f67c8d38fUL ]
+    oracleMem
+      ppc64
+      "7c263d18"
+      [ R6, 0x20200078UL; R7, 0x8UL; F1, 0x8000000000000000UL ]
+      window7
+      []
+      [ 0x20200080UL, 0x80000000c6d5e977UL ]
+    oracleMem
+      ppc64le
+      "7c263d18"
+      [ R6, 0x20200078UL; R7, 0x8UL; F1, 0x8000000000000000UL ]
+      window7
+      []
+      [ 0x20200080UL, 0x80c6d5e977UL ]
+
+  /// <summary>
+  /// stxv xS, DQ(rA) stores xS at (rA|0) + DQ, byte element 0 at the lowest
+  /// address on a big-endian guest and at the highest on a little-endian one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXV stores a quadword in the guest's byte order``() =
+    (* stxv vs1,16(r6), under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x1387c1d05113f7a2UL; 0x20200088UL, 0x882813dcd4ff21fUL ]
+    oracleMem
+      ppc64
+      "f4260015"
+      [ R6, 0x20200070UL; F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL; 0x20200088UL, 0x8090a0b0c0d0e0fUL ]
+    oracleMem
+      ppc64le
+      "f4260015"
+      [ R6, 0x20200070UL; F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xf0e0d0c0b0a0908UL; 0x20200088UL, 0x706050403020100UL ]
+
+  /// <summary>
+  /// stxvx xS, rA, rB stores xS at (rA|0) + rB as stxv does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVX stores a quadword in the guest's byte order``() =
+    (* stxvx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xbae6d1967f943d15UL; 0x20200088UL, 0x75a4488da907eb1aUL ]
+    oracleMem
+      ppc64
+      "7c263b18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL; 0x20200088UL, 0x8090a0b0c0d0e0fUL ]
+    oracleMem
+      ppc64le
+      "7c263b18"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xf0e0d0c0b0a0908UL; 0x20200088UL, 0x706050403020100UL ]
+
+  /// <summary>
+  /// stxvb16x xS, rA, rB stores byte element i of xS at (rA|0) + rB + i.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVB16X stores bytes in address order``() =
+    (* stxvb16x vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x40f83c3d18977259UL; 0x20200088UL, 0x446dc19f496c3751UL ]
+    oracleMem
+      ppc64
+      "7c263fd8"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL; 0x20200088UL, 0x8090a0b0c0d0e0fUL ]
+    oracleMem
+      ppc64le
+      "7c263fd8"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL; 0x20200088UL, 0x8090a0b0c0d0e0fUL ]
+
+  /// <summary>
+  /// stxvh8x xS, rA, rB stores halfword element i of xS at (rA|0) + rB + 2i,
+  /// each in the guest's byte order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVH8X stores eight halfwords in address order``() =
+    (* stxvh8x vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x42ab0656080b579dUL; 0x20200088UL, 0x645e20e9269f0393UL ]
+    oracleMem
+      ppc64
+      "7c263f58"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL; 0x20200088UL, 0x8090a0b0c0d0e0fUL ]
+    oracleMem
+      ppc64le
+      "7c263f58"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x100030205040706UL; 0x20200088UL, 0x9080b0a0d0c0f0eUL ]
+
+  /// <summary>
+  /// stxvl xS, rA, rB stores nb bytes at (rA|0), nb being the top byte of rB --
+  /// 16, 5 and 0 here: the leftmost bytes of xS on a big-endian guest, the
+  /// rightmost, byte order reversed, on a little-endian one, and no other byte.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVL stores as many bytes as the top byte of rB says``() =
+    (* stxvl vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xe0299bb2455953b2UL; 0x20200088UL, 0x7870dea7881e0168UL ]
+    let window1 =
+      [ 0x20200080UL, 0xfc0387d02a2fd15UL; 0x20200088UL, 0x549ceb2638194eedUL ]
+    let window2 =
+      [ 0x20200080UL, 0x42ae0f396b38cecUL; 0x20200088UL, 0xe8be991b8eff2d42UL ]
+    oracleMem
+      ppc64
+      "7c263b1a"
+      [ R6, 0x20200080UL
+        R7, 0x1000000000000000UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL; 0x20200088UL, 0x8090a0b0c0d0e0fUL ]
+    oracleMem
+      ppc64le
+      "7c263b1a"
+      [ R6, 0x20200080UL
+        R7, 0x1000000000000000UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xf0e0d0c0b0a0908UL; 0x20200088UL, 0x706050403020100UL ]
+    oracleMem
+      ppc64
+      "7c263b1a"
+      [ R6, 0x20200080UL
+        R7, 0x500000000000000UL
+        F1, 0x7fffffff80000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      window1
+      []
+      [ 0x20200080UL, 0x7fffffff80a2fd15UL ]
+    oracleMem
+      ppc64le
+      "7c263b1a"
+      [ R6, 0x20200080UL
+        R7, 0x500000000000000UL
+        F1, 0x7fffffff80000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      window1
+      []
+      [ 0x20200080UL, 0x1000000ffa2fd15UL ]
+    oracleMem
+      ppc64
+      "7c263b1a"
+      [ R6, 0x20200080UL
+        F1, 0x7fff8000ffff0001UL
+        VSRL1, 0x7f80ff00017f80ffUL ]
+      window2
+      []
+      []
+    oracleMem
+      ppc64le
+      "7c263b1a"
+      [ R6, 0x20200080UL
+        F1, 0x7fff8000ffff0001UL
+        VSRL1, 0x7f80ff00017f80ffUL ]
+      window2
+      []
+      []
+
+  /// <summary>
+  /// stxvll xS, rA, rB stores byte elements 0 to nb-1 of xS at (rA|0) upwards,
+  /// nb being the top byte of rB and at most 16 (16, 5 and 17 here).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVLL stores nb bytes left-justified on either guest``() =
+    (* stxvll vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x9f329fde0cfe007UL; 0x20200088UL, 0x565f4663f6b06214UL ]
+    let window1 =
+      [ 0x20200080UL, 0x6929ed1baef336a4UL; 0x20200088UL, 0x7f9c1e7de904818aUL ]
+    let window2 =
+      [ 0x20200080UL, 0xf735ac6afc02b27cUL; 0x20200088UL, 0x30b9956b8a113ca1UL ]
+    oracleMem
+      ppc64
+      "7c263b5a"
+      [ R6, 0x20200080UL
+        R7, 0x1000000000000000UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL; 0x20200088UL, 0x8090a0b0c0d0e0fUL ]
+    oracleMem
+      ppc64le
+      "7c263b5a"
+      [ R6, 0x20200080UL
+        R7, 0x1000000000000000UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL; 0x20200088UL, 0x8090a0b0c0d0e0fUL ]
+    oracleMem
+      ppc64
+      "7c263b5a"
+      [ R6, 0x20200080UL
+        R7, 0x500000000000000UL
+        F1, 0x7fffffff80000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      window1
+      []
+      [ 0x20200080UL, 0x7fffffff80f336a4UL ]
+    oracleMem
+      ppc64le
+      "7c263b5a"
+      [ R6, 0x20200080UL
+        R7, 0x500000000000000UL
+        F1, 0x7fffffff80000000UL
+        VSRL1, 0xffffffff00000001UL ]
+      window1
+      []
+      [ 0x20200080UL, 0x7fffffff80f336a4UL ]
+    oracleMem
+      ppc64
+      "7c263b5a"
+      [ R6, 0x20200080UL; R7, 0x1100000000000000UL ]
+      window2
+      []
+      [ 0x20200080UL, 0x0UL; 0x20200088UL, 0x0UL ]
+    oracleMem
+      ppc64le
+      "7c263b5a"
+      [ R6, 0x20200080UL; R7, 0x1100000000000000UL ]
+      window2
+      []
+      [ 0x20200080UL, 0x0UL; 0x20200088UL, 0x0UL ]
+
+  /// <summary>
+  /// stxvp xSp, DQ(rA) stores xSp and xSp+1 as one octword at (rA|0) + DQ, so
+  /// on a little-endian guest xSp goes to the upper 16 bytes, byte-reversed.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVP stores a register pair``() =
+    (* stxvp vs2,16(r6), under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x40043ba7907c4a19UL
+        0x20200088UL, 0xa6f45e8d86b6242dUL
+        0x20200090UL, 0x83b9402b4d89c479UL
+        0x20200098UL, 0xe61f1158a6c702bUL ]
+    oracleMem
+      ppc64
+      "18460011"
+      [ R6, 0x20200070UL; F2, 0x1020304050607UL; VSRL2, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL
+        0x20200088UL, 0x8090a0b0c0d0e0fUL
+        0x20200090UL, 0x0UL
+        0x20200098UL, 0x0UL ]
+    oracleMem
+      ppc64le
+      "18460011"
+      [ R6, 0x20200070UL; F2, 0x1020304050607UL; VSRL2, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x0UL
+        0x20200088UL, 0x0UL
+        0x20200090UL, 0xf0e0d0c0b0a0908UL
+        0x20200098UL, 0x706050403020100UL ]
+
+  /// <summary>
+  /// stxvpx xSp, rA, rB stores xSp and xSp+1 at (rA|0) + rB as stxvp does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVPX stores a register pair``() =
+    (* stxvpx vs2,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xf7ba2576aed13b03UL
+        0x20200088UL, 0xfb4237e53847469cUL
+        0x20200090UL, 0xa9d501e68fa6546eUL
+        0x20200098UL, 0x363b06d4a8ca4245UL ]
+    oracleMem
+      ppc64
+      "7c463b9a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F2, 0x1020304050607UL
+        VSRL2, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x1020304050607UL
+        0x20200088UL, 0x8090a0b0c0d0e0fUL
+        0x20200090UL, 0x0UL
+        0x20200098UL, 0x0UL ]
+    oracleMem
+      ppc64le
+      "7c463b9a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F2, 0x1020304050607UL
+        VSRL2, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x0UL
+        0x20200088UL, 0x0UL
+        0x20200090UL, 0xf0e0d0c0b0a0908UL
+        0x20200098UL, 0x706050403020100UL ]
+
+  /// <summary>
+  /// stxvrbx xS, rA, rB stores byte element 15 of xS at (rA|0) + rB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVRBX stores the rightmost byte``() =
+    (* stxvrbx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x79258d516f425f65UL; 0x20200088UL, 0x8f3b1351fb2fee54UL ]
+    oracleMem
+      ppc64
+      "7c26391a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xf258d516f425f65UL ]
+    oracleMem
+      ppc64le
+      "7c26391a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xf258d516f425f65UL ]
+
+  /// <summary>
+  /// stxvrhx xS, rA, rB stores halfword element 7 of xS at (rA|0) + rB in the
+  /// guest's byte order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVRHX stores the rightmost halfword``() =
+    (* stxvrhx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x8d3a488eab432aa1UL; 0x20200088UL, 0x19bfb4ccbf56f366UL ]
+    oracleMem
+      ppc64
+      "7c26395a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xe0f488eab432aa1UL ]
+    oracleMem
+      ppc64le
+      "7c26395a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xf0e488eab432aa1UL ]
+
+  /// <summary>
+  /// stxvrwx xS, rA, rB stores word element 3 of xS at (rA|0) + rB in the
+  /// guest's byte order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVRWX stores the rightmost word``() =
+    (* stxvrwx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0x5bdbaa4f381cb62dUL; 0x20200088UL, 0x3806ace9b918bfe0UL ]
+    oracleMem
+      ppc64
+      "7c26399a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xc0d0e0f381cb62dUL ]
+    oracleMem
+      ppc64le
+      "7c26399a"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xf0e0d0c381cb62dUL ]
+
+  /// <summary>
+  /// stxvrdx xS, rA, rB stores doubleword element 1 of xS at (rA|0) + rB in the
+  /// guest's byte order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STXVRDX stores the rightmost doubleword``() =
+    (* stxvrdx vs1,r6,r7, under QEMU: oracle results *)
+    let window0 =
+      [ 0x20200080UL, 0xd4f552f32152b26dUL; 0x20200088UL, 0x42ee9c7755b771feUL ]
+    oracleMem
+      ppc64
+      "7c2639da"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0x8090a0b0c0d0e0fUL ]
+    oracleMem
+      ppc64le
+      "7c2639da"
+      [ R6, 0x20200078UL
+        R7, 0x8UL
+        F1, 0x1020304050607UL
+        VSRL1, 0x8090a0b0c0d0e0fUL ]
+      window0
+      []
+      [ 0x20200080UL, 0xf0e0d0c0b0a0908UL ]
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
