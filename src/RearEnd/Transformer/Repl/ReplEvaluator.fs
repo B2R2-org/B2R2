@@ -144,7 +144,7 @@ module TransformerReplEvaluator =
   let private formatAction registered =
     let metadata = (registered: RegisteredAction).Metadata
     let name = ActionMetadata.actionName metadata.ID
-    $"{name.PadRight 10} {ActionMetadata.typedSignature metadata}"
+    $"{name.PadRight 28} {metadata.Description}"
 
   let private actionDetails registered =
     let metadata = (registered: RegisteredAction).Metadata
@@ -2109,7 +2109,19 @@ module TransformerReplEvaluator =
   let private showActions registry state =
     ActionRegistry.getAll registry
     |> List.collect (fun action -> actionDetails action @ [ "" ])
+    |> List.append
+      [ "AVAILABLE ACTIONS"
+        "Usage, parameters, and examples are listed for every action."
+        "" ]
     |> continueWith registry state
+
+  let private showActionHelp registry state (name: string) =
+    let name = name.TrimStart '@'
+    match ActionRegistry.tryFind name registry with
+    | Some action ->
+      actionDetails action |> continueWith registry state
+    | None ->
+      fail registry state $"Unknown action: @{name}"
 
   let private showHistory registry state =
     state.CommandHistory
@@ -2350,7 +2362,8 @@ module TransformerReplEvaluator =
       "  <expression>                      Evaluate without binding"
       ""
       "Controls are available from the F2 command prompt."
-      "  actions                        List actions and usage forms"
+      "  actions                        List action summaries"
+      "  help [@action]                 Show command or action help"
       "  values                         List retained values"
       "  history                        List evaluated commands"
       "  script save|load|record ...    Manage replay scripts"
@@ -2476,8 +2489,10 @@ module TransformerReplEvaluator =
       continueWith registry state []
     | Ok Quit ->
       Exit(registry, state)
-    | Ok Help ->
+    | Ok(Help None) ->
       continueWith registry state help
+    | Ok(Help(Some action)) ->
+      showActionHelp registry state action
     | Ok Actions ->
       showActions registry state
     | Ok History ->

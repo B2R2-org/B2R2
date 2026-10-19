@@ -462,14 +462,14 @@ module ActionMetadata =
         [| '\r'; '\n' |],
         StringSplitOptions.RemoveEmptyEntries
       )
-      |> Array.tryHead
-      |> Option.defaultValue ""
-      |> fun line -> line.Trim()
+      |> Array.map (fun line -> line.Trim())
+      |> Array.filter (String.IsNullOrWhiteSpace >> not)
+      |> Array.toList
     let details =
-      if String.IsNullOrWhiteSpace description then
+      if List.isEmpty description then
         []
       else
-        [ "  " + description ]
+        description |> List.map (fun line -> "  " + line)
     let input =
       if metadata.Role = ActionRole.Source then
         []
