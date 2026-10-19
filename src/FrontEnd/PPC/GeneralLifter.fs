@@ -1905,9 +1905,13 @@ let trap (ins: Instruction) bld =
     AST.sideEffect (Interrupt 0)
   }
 
+/// One of the extended mnemonics of tw and twi, whose name gives the one
+/// comparison that traps. They are word forms, so only the low words of the
+/// operands take part, whatever the width of a register.
 let trapCond ins cmpOp bld =
   lift bld ins {
     let struct (ra, rb) = transTwoOprs ins bld
+    let ra, rb = AST.xtlo 32<rt> ra, AST.xtlo 32<rt> rb
     let lblTrap = label bld "Trap"
     let lblEnd = label bld "End"
     AST.cjmp (cmpOp ra rb) (AST.jmpDest lblTrap) (AST.jmpDest lblEnd)

@@ -645,8 +645,10 @@ let translate (ins: Instruction) bld =
     subfze ins false true bld
   | Op.SUBFZEOdot ->
     subfze ins true true bld
-  | Op.TRAP | Op.TWI ->
+  | Op.TRAP ->
     trap ins bld
+  | Op.TWI ->
+    trapGeneric ins bld true
   | Op.TWLT ->
     trapCond ins (AST.slt) bld
   | Op.TWLE ->
