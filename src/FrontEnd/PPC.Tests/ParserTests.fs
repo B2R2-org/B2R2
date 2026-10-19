@@ -302,3 +302,430 @@ type FloatParserTests() =
   [<TestMethod>]
   member _.``[PPC] MFOCRF (move from one condition register field)``() =
     MFOCRF ** [ O.Reg R5; O.Imm 0x20UL ] |> testAll "7cb20026" "2600b27c"
+
+  [<TestMethod>]
+  member _.``[PPC] DADD (DFP add)``() =
+    DADD ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221804" "041822ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DADD. (DFP add, record)``() =
+    DADDdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221805" "051822ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DADDQ (DFP add quad)``() =
+    DADDQ ** [ O.Reg F2; O.Reg F4; O.Reg F6 ] |> testAll "fc443004" "043044fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DADDQ. (DFP add quad, record)``() =
+    DADDQdot ** [ O.Reg F2; O.Reg F4; O.Reg F6 ]
+    |> testAll "fc443005" "053044fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DCFFIX (DFP convert from fixed)``() =
+    DCFFIX ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201e44" "441e20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DCFFIX. (DFP convert from fixed, record)``() =
+    DCFFIXdot ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201e45" "451e20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DCFFIXQ (DFP convert from fixed quad)``() =
+    DCFFIXQ ** [ O.Reg F2; O.Reg F3 ] |> testAll "fc401e44" "441e40fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DCFFIXQ. (DFP convert from fixed quad, record)``() =
+    DCFFIXQdot ** [ O.Reg F2; O.Reg F3 ] |> testAll "fc401e45" "451e40fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DCFFIXQQ (DFP convert from fixed quadword quad)``() =
+    DCFFIXQQ ** [ O.Reg F2; O.Reg V3A ] |> testAll "fc401fc4" "c41f40fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DCMPO (DFP compare ordered)``() =
+    DCMPO ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ] |> testAll "ed021904" "041902ed"
+
+  [<TestMethod>]
+  member _.``[PPC] DCMPOQ (DFP compare ordered quad)``() =
+    DCMPOQ ** [ O.Reg CR2; O.Reg F4; O.Reg F6 ] |> testAll "fd043104" "043104fd"
+
+  [<TestMethod>]
+  member _.``[PPC] DCMPU (DFP compare unordered)``() =
+    DCMPU ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ] |> testAll "ed021d04" "041d02ed"
+
+  [<TestMethod>]
+  member _.``[PPC] DCMPUQ (DFP compare unordered quad)``() =
+    DCMPUQ ** [ O.Reg CR2; O.Reg F4; O.Reg F6 ] |> testAll "fd043504" "043504fd"
+
+  [<TestMethod>]
+  member _.``[PPC] DCTDP (DFP convert to DFP long)``() =
+    DCTDP ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201a04" "041a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DCTDP. (DFP convert to DFP long, record)``() =
+    DCTDPdot ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201a05" "051a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DCTFIX (DFP convert to fixed)``() =
+    DCTFIX ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201a44" "441a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DCTFIX. (DFP convert to fixed, record)``() =
+    DCTFIXdot ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201a45" "451a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DCTFIXQ (DFP convert to fixed quad)``() =
+    DCTFIXQ ** [ O.Reg F1; O.Reg F6 ] |> testAll "fc203244" "443220fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DCTFIXQ. (DFP convert to fixed quad, record)``() =
+    DCTFIXQdot ** [ O.Reg F1; O.Reg F6 ] |> testAll "fc203245" "453220fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DCTFIXQQ (DFP convert to fixed quadword quad)``() =
+    DCTFIXQQ ** [ O.Reg V1A; O.Reg F6 ] |> testAll "fc2137c4" "c43721fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DCTQPQ (DFP convert to DFP extended)``() =
+    DCTQPQ ** [ O.Reg F2; O.Reg F3 ] |> testAll "fc401a04" "041a40fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DCTQPQ. (DFP convert to DFP extended, record)``() =
+    DCTQPQdot ** [ O.Reg F2; O.Reg F3 ] |> testAll "fc401a05" "051a40fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DDEDPD (DFP decode DPD to BCD)``() =
+    DDEDPD ** [ O.Imm 0x0UL; O.Reg F1; O.Reg F3 ]
+    |> testAll "ec201a84" "841a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DDEDPD. (DFP decode DPD to BCD, record)``() =
+    DDEDPDdot ** [ O.Imm 0x0UL; O.Reg F1; O.Reg F3 ]
+    |> testAll "ec201a85" "851a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DDEDPDQ (DFP decode DPD to BCD quad)``() =
+    DDEDPDQ ** [ O.Imm 0x0UL; O.Reg F2; O.Reg F6 ]
+    |> testAll "fc403284" "843240fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DDEDPDQ. (DFP decode DPD to BCD quad, record)``() =
+    DDEDPDQdot ** [ O.Imm 0x0UL; O.Reg F2; O.Reg F6 ]
+    |> testAll "fc403285" "853240fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DDIV (DFP divide)``() =
+    DDIV ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221c44" "441c22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DDIV. (DFP divide, record)``() =
+    DDIVdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221c45" "451c22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DDIVQ (DFP divide quad)``() =
+    DDIVQ ** [ O.Reg F2; O.Reg F4; O.Reg F6 ] |> testAll "fc443444" "443444fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DDIVQ. (DFP divide quad, record)``() =
+    DDIVQdot ** [ O.Reg F2; O.Reg F4; O.Reg F6 ]
+    |> testAll "fc443445" "453444fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DENBCD (DFP encode BCD to DPD)``() =
+    DENBCD ** [ O.Imm 0x0UL; O.Reg F1; O.Reg F3 ]
+    |> testAll "ec201e84" "841e20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DENBCD. (DFP encode BCD to DPD, record)``() =
+    DENBCDdot ** [ O.Imm 0x0UL; O.Reg F1; O.Reg F3 ]
+    |> testAll "ec201e85" "851e20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DENBCDQ (DFP encode BCD to DPD quad)``() =
+    DENBCDQ ** [ O.Imm 0x0UL; O.Reg F2; O.Reg F6 ]
+    |> testAll "fc403684" "843640fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DENBCDQ. (DFP encode BCD to DPD quad, record)``() =
+    DENBCDQdot ** [ O.Imm 0x0UL; O.Reg F2; O.Reg F6 ]
+    |> testAll "fc403685" "853640fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DIEX (DFP insert biased exponent)``() =
+    DIEX ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221ec4" "c41e22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DIEX. (DFP insert biased exponent, record)``() =
+    DIEXdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221ec5" "c51e22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DIEXQ (DFP insert biased exponent quad)``() =
+    DIEXQ ** [ O.Reg F2; O.Reg F2; O.Reg F6 ] |> testAll "fc4236c4" "c43642fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DIEXQ. (DFP insert biased exponent quad, record)``() =
+    DIEXQdot ** [ O.Reg F2; O.Reg F2; O.Reg F6 ]
+    |> testAll "fc4236c5" "c53642fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DMUL (DFP multiply)``() =
+    DMUL ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221844" "441822ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DMUL. (DFP multiply, record)``() =
+    DMULdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221845" "451822ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DMULQ (DFP multiply quad)``() =
+    DMULQ ** [ O.Reg F2; O.Reg F4; O.Reg F6 ] |> testAll "fc443044" "443044fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DMULQ. (DFP multiply quad, record)``() =
+    DMULQdot ** [ O.Reg F2; O.Reg F4; O.Reg F6 ]
+    |> testAll "fc443045" "453044fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DQUA (DFP quantize)``() =
+    DQUA ** [ O.Reg F1; O.Reg F2; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec221a06" "061a22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DQUA. (DFP quantize, record)``() =
+    DQUAdot ** [ O.Reg F1; O.Reg F2; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec221a07" "071a22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DQUAI (DFP quantize immediate)``() =
+    DQUAI ** [ O.Imm 0x3UL; O.Reg F1; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec231a86" "861a23ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DQUAI. (DFP quantize immediate, record)``() =
+    DQUAIdot ** [ O.Imm 0x3UL; O.Reg F1; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec231a87" "871a23ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DQUAIQ (DFP quantize immediate quad)``() =
+    DQUAIQ ** [ O.Imm 0x3UL; O.Reg F2; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc433286" "863243fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DQUAIQ. (DFP quantize immediate quad, record)``() =
+    DQUAIQdot ** [ O.Imm 0x3UL; O.Reg F2; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc433287" "873243fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DQUAQ (DFP quantize quad)``() =
+    DQUAQ ** [ O.Reg F2; O.Reg F4; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc443206" "063244fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DQUAQ. (DFP quantize quad, record)``() =
+    DQUAQdot ** [ O.Reg F2; O.Reg F4; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc443207" "073244fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DRDPQ (DFP round to DFP long)``() =
+    DRDPQ ** [ O.Reg F2; O.Reg F6 ] |> testAll "fc403604" "043640fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DRDPQ. (DFP round to DFP long, record)``() =
+    DRDPQdot ** [ O.Reg F2; O.Reg F6 ] |> testAll "fc403605" "053640fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DRINTN (DFP round to integer no inexact)``() =
+    DRINTN ** [ O.Imm 0x0UL; O.Reg F1; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec201bc6" "c61b20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DRINTN. (DFP round to integer no inexact, record)``() =
+    DRINTNdot ** [ O.Imm 0x0UL; O.Reg F1; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec201bc7" "c71b20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DRINTNQ (DFP round to integer no inexact quad)``() =
+    DRINTNQ ** [ O.Imm 0x0UL; O.Reg F2; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc4033c6" "c63340fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DRINTNQ. (DFP round to integer no inexact quad, record)``() =
+    DRINTNQdot ** [ O.Imm 0x0UL; O.Reg F2; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc4033c7" "c73340fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DRINTX (DFP round to integer inexact)``() =
+    DRINTX ** [ O.Imm 0x0UL; O.Reg F1; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec201ac6" "c61a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DRINTX. (DFP round to integer inexact, record)``() =
+    DRINTXdot ** [ O.Imm 0x0UL; O.Reg F1; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec201ac7" "c71a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DRINTXQ (DFP round to integer inexact quad)``() =
+    DRINTXQ ** [ O.Imm 0x0UL; O.Reg F2; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc4032c6" "c63240fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DRINTXQ. (DFP round to integer inexact quad, record)``() =
+    DRINTXQdot ** [ O.Imm 0x0UL; O.Reg F2; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc4032c7" "c73240fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DRRND (DFP reround)``() =
+    DRRND ** [ O.Reg F1; O.Reg F2; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec221a46" "461a22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DRRND. (DFP reround, record)``() =
+    DRRNDdot ** [ O.Reg F1; O.Reg F2; O.Reg F3; O.Imm 0x1UL ]
+    |> testAll "ec221a47" "471a22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DRRNDQ (DFP reround quad)``() =
+    DRRNDQ ** [ O.Reg F2; O.Reg F2; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc423246" "463242fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DRRNDQ. (DFP reround quad, record)``() =
+    DRRNDQdot ** [ O.Reg F2; O.Reg F2; O.Reg F6; O.Imm 0x1UL ]
+    |> testAll "fc423247" "473242fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DRSP (DFP round to DFP short)``() =
+    DRSP ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201e04" "041e20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DRSP. (DFP round to DFP short, record)``() =
+    DRSPdot ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201e05" "051e20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DSCLI (DFP shift significand left)``() =
+    DSCLI ** [ O.Reg F1; O.Reg F2; O.Imm 0x5UL ]
+    |> testAll "ec221484" "841422ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DSCLI. (DFP shift significand left, record)``() =
+    DSCLIdot ** [ O.Reg F1; O.Reg F2; O.Imm 0x5UL ]
+    |> testAll "ec221485" "851422ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DSCLIQ (DFP shift significand left quad)``() =
+    DSCLIQ ** [ O.Reg F2; O.Reg F4; O.Imm 0x5UL ]
+    |> testAll "fc441484" "841444fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DSCLIQ. (DFP shift significand left quad, record)``() =
+    DSCLIQdot ** [ O.Reg F2; O.Reg F4; O.Imm 0x5UL ]
+    |> testAll "fc441485" "851444fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DSCRI (DFP shift significand right)``() =
+    DSCRI ** [ O.Reg F1; O.Reg F2; O.Imm 0x5UL ]
+    |> testAll "ec2214c4" "c41422ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DSCRI. (DFP shift significand right, record)``() =
+    DSCRIdot ** [ O.Reg F1; O.Reg F2; O.Imm 0x5UL ]
+    |> testAll "ec2214c5" "c51422ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DSCRIQ (DFP shift significand right quad)``() =
+    DSCRIQ ** [ O.Reg F2; O.Reg F4; O.Imm 0x5UL ]
+    |> testAll "fc4414c4" "c41444fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DSCRIQ. (DFP shift significand right quad, record)``() =
+    DSCRIQdot ** [ O.Reg F2; O.Reg F4; O.Imm 0x5UL ]
+    |> testAll "fc4414c5" "c51444fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DSUB (DFP subtract)``() =
+    DSUB ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221c04" "041c22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DSUB. (DFP subtract, record)``() =
+    DSUBdot ** [ O.Reg F1; O.Reg F2; O.Reg F3 ] |> testAll "ec221c05" "051c22ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DSUBQ (DFP subtract quad)``() =
+    DSUBQ ** [ O.Reg F2; O.Reg F4; O.Reg F6 ] |> testAll "fc443404" "043444fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DSUBQ. (DFP subtract quad, record)``() =
+    DSUBQdot ** [ O.Reg F2; O.Reg F4; O.Reg F6 ]
+    |> testAll "fc443405" "053444fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTDC (DFP test data class)``() =
+    DTSTDC ** [ O.Reg CR2; O.Reg F2; O.Imm 0x1UL ]
+    |> testAll "ed020584" "840502ed"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTDCQ (DFP test data class quad)``() =
+    DTSTDCQ ** [ O.Reg CR2; O.Reg F4; O.Imm 0x1UL ]
+    |> testAll "fd040584" "840504fd"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTDG (DFP test data group)``() =
+    DTSTDG ** [ O.Reg CR2; O.Reg F2; O.Imm 0x1UL ]
+    |> testAll "ed0205c4" "c40502ed"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTDGQ (DFP test data group quad)``() =
+    DTSTDGQ ** [ O.Reg CR2; O.Reg F4; O.Imm 0x1UL ]
+    |> testAll "fd0405c4" "c40504fd"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTEX (DFP test exponent)``() =
+    DTSTEX ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ] |> testAll "ed021944" "441902ed"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTEXQ (DFP test exponent quad)``() =
+    DTSTEXQ ** [ O.Reg CR2; O.Reg F4; O.Reg F6 ]
+    |> testAll "fd043144" "443104fd"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTSF (DFP test significance)``() =
+    DTSTSF ** [ O.Reg CR2; O.Reg F2; O.Reg F3 ] |> testAll "ed021d44" "441d02ed"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTSFI (DFP test significance immediate)``() =
+    DTSTSFI ** [ O.Reg CR2; O.Imm 0x1UL; O.Reg F3 ]
+    |> testAll "ed011d46" "461d01ed"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTSFIQ (DFP test significance immediate quad)``() =
+    DTSTSFIQ ** [ O.Reg CR2; O.Imm 0x1UL; O.Reg F6 ]
+    |> testAll "fd013546" "463501fd"
+
+  [<TestMethod>]
+  member _.``[PPC] DTSTSFQ (DFP test significance quad)``() =
+    DTSTSFQ ** [ O.Reg CR2; O.Reg F2; O.Reg F6 ]
+    |> testAll "fd023544" "443502fd"
+
+  [<TestMethod>]
+  member _.``[PPC] DXEX (DFP extract biased exponent)``() =
+    DXEX ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201ac4" "c41a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DXEX. (DFP extract biased exponent, record)``() =
+    DXEXdot ** [ O.Reg F1; O.Reg F3 ] |> testAll "ec201ac5" "c51a20ec"
+
+  [<TestMethod>]
+  member _.``[PPC] DXEXQ (DFP extract biased exponent quad)``() =
+    DXEXQ ** [ O.Reg F1; O.Reg F6 ] |> testAll "fc2032c4" "c43220fc"
+
+  [<TestMethod>]
+  member _.``[PPC] DXEXQ. (DFP extract biased exponent quad, record)``() =
+    DXEXQdot ** [ O.Reg F1; O.Reg F6 ] |> testAll "fc2032c5" "c53220fc"
+
+  /// <summary>
+  /// A decimal128 operand is named by the even register of the pair holding
+  /// it: an odd one (daddq f3, f4, f6 here) makes the form invalid, on every
+  /// target.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DADDQ of an odd register pair is invalid``() =
+    testUnsupported WordSize.Bit32 "fc643004"
+    testUnsupported WordSize.Bit64 "fc643004"

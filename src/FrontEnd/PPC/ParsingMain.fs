@@ -2452,8 +2452,232 @@ let private parseFPUnary op opDot bin =
   elif Bits.pick bin 0u = 0u then struct (op, TwoOperands(frd, frb))
   else struct (opDot, TwoOperands(frd, frb))
 
+/// Whether a DFP word is in primary opcode 63, which holds the quad forms: the
+/// instructions on the extended format (decimal128), under the extended
+/// opcodes primary opcode 59 gives those on the long format (decimal64).
+let private isDFPQuad bin = Bits.extract bin 31u 26u = 0x3Fu
+
+/// The FPR a DFP operand names: where a quad form takes the operand in the
+/// extended format, the even register of the pair that holds it.
+let private getDFPRegister isPair n =
+  if isPair then getFPPairRegister n else getFPRegister n
+
+/// The FPR operand in the FRT field, bits 25:21, of a DFP word.
+let private dfpT isPair bin =
+  getDFPRegister isPair (Bits.extract bin 25u 21u) |> OprReg
+
+/// The FPR operand in the FRA field, bits 20:16, of a DFP word.
+let private dfpA isPair bin =
+  getDFPRegister isPair (Bits.extract bin 20u 16u) |> OprReg
+
+/// The FPR operand in the FRB field, bits 15:11, of a DFP word.
+let private dfpB isPair bin =
+  getDFPRegister isPair (Bits.extract bin 15u 11u) |> OprReg
+
+/// The opcode a DFP word with a record bit names: the long or the quad form,
+/// each with that bit clear or set.
+let private dfpOpcode bin (long, longDot) (quad, quadDot) =
+  match isDFPQuad bin, Bits.pick bin 0u with
+  | false, 0u -> long
+  | false, _ -> longDot
+  | true, 0u -> quad
+  | true, _ -> quadDot
+
+/// dadd, dmul, dsub, ddiv and diex, "FRT, FRA, FRB": the quad forms take each
+/// operand as a pair, except diex's FRA (pairA false), the exponent to insert.
+let private parseDFPThree pairA ops opsQ bin =
+  let q = isDFPQuad bin
+  let operands = ThreeOperands(dfpT q bin, dfpA (q && pairA) bin, dfpB q bin)
+  struct (dfpOpcode bin ops opsQ, operands)
+
+/// The CR field, bits 25:23, a DFP comparison or test sets; bits 22:21 below
+/// it are reserved.
+let private dfpBF bin =
+  if Bits.extract bin 22u 21u <> 0u then raise ParsingFailureException
+  else getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+
+/// The opcode a DFP word with no record bit names, whose bit 0 is reserved.
+let private dfpPlainOpcode bin long quad =
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException
+  elif isDFPQuad bin then quad
+  else long
+
+/// dcmpo, dcmpu, dtstex and dtstsf, "BF, FRA, FRB": the quad forms take each
+/// FPR operand as a pair, except dtstsf's FRA (pairA false), the reference
+/// significance.
+let private parseDFPCompare pairA long quad bin =
+  let q = isDFPQuad bin
+  let operands = ThreeOperands(dfpBF bin, dfpA (q && pairA) bin, dfpB q bin)
+  struct (dfpPlainOpcode bin long quad, operands)
+
+/// The X-forms "FRT, FRB", whose FRA field is reserved: the conversions and
+/// the roundings between the formats, and dxex. Which of the two operands the
+/// quad form takes as a pair, (pairT, pairB), depends on the instruction.
+let private parseDFPUnary (pairT, pairB) ops opsQ bin =
+  let q = isDFPQuad bin
+  let frt = dfpT (q && pairT) bin
+  let frb = dfpB (q && pairB) bin
+  if Bits.extract bin 20u 16u <> 0u then raise ParsingFailureException
+  else struct (dfpOpcode bin ops opsQ, TwoOperands(frt, frb))
+
+/// ddedpd "SP, FRT, FRB" and denbcd "S, FRT, FRB", whose immediate is bits
+/// 20:lo, the top of the FRA field; the bits below it are reserved.
+let private parseDFPCode lo ops opsQ bin =
+  let q = isDFPQuad bin
+  let imm = Bits.extract bin 20u lo |> uint64 |> OprImm
+  let operands = ThreeOperands(imm, dfpT q bin, dfpB q bin)
+  if Bits.extract bin (lo - 1u) 16u <> 0u then raise ParsingFailureException
+  else struct (dfpOpcode bin ops opsQ, operands)
+
+/// dcffixqq "FRTp, VRB" and dctfixqq "VRT, FRBp", which only primary opcode 63
+/// holds and the FRA field tells apart; neither has a record bit.
+let private parseDFPQuadword bin =
+  match isDFPQuad bin, Bits.extract bin 20u 16u, Bits.pick bin 0u with
+  | true, 0u, 0u ->
+    let vrb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+    struct (Op.DCFFIXQQ, TwoOperands(dfpT true bin, vrb))
+  | true, 1u, 0u ->
+    let vrt = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+    struct (Op.DCTFIXQQ, TwoOperands(vrt, dfpB true bin))
+  | _ ->
+    raise ParsingFailureException
+
+/// dscli and dscri, "FRT, FRA, SH": Z22-forms, whose six-bit SH is bits 15:10.
+let private parseDFPShift ops opsQ bin =
+  let q = isDFPQuad bin
+  let sh = Bits.extract bin 15u 10u |> uint64 |> OprImm
+  struct (dfpOpcode bin ops opsQ, ThreeOperands(dfpT q bin, dfpA q bin, sh))
+
+/// dtstdc and dtstdg, "BF, FRA, DCM" and "BF, FRA, DGM": Z22-forms with no
+/// record bit, whose six-bit mask is bits 15:10.
+let private parseDFPTestData long quad bin =
+  let fra = dfpA (isDFPQuad bin) bin
+  let mask = Bits.extract bin 15u 10u |> uint64 |> OprImm
+  struct (dfpPlainOpcode bin long quad, ThreeOperands(dfpBF bin, fra, mask))
+
+/// A DFP Z22-form, told by bits 9:1; bit 10 belongs to its six-bit field.
+let private parseDFPZ22 bin =
+  match Bits.extract bin 9u 1u with
+  | 66u -> parseDFPShift (Op.DSCLI, Op.DSCLIdot) (Op.DSCLIQ, Op.DSCLIQdot) bin
+  | 98u -> parseDFPShift (Op.DSCRI, Op.DSCRIdot) (Op.DSCRIQ, Op.DSCRIQdot) bin
+  | 194u -> parseDFPTestData Op.DTSTDC Op.DTSTDCQ bin
+  | 226u -> parseDFPTestData Op.DTSTDG Op.DTSTDGQ bin
+  | _ -> raise ParsingFailureException
+
+/// A DFP word whose bits 5:1 are 2: an X-form, told by bits 10:1, or else a
+/// Z22-form, none of whose extended opcodes is the low nine bits of an
+/// X-form's.
+let private parseDFPX bin =
+  let widen = parseDFPUnary (true, false)
+  let toFixed = parseDFPUnary (false, true)
+  match Bits.extract bin 10u 1u with
+  | 2u ->
+    parseDFPThree true (Op.DADD, Op.DADDdot) (Op.DADDQ, Op.DADDQdot) bin
+  | 34u ->
+    parseDFPThree true (Op.DMUL, Op.DMULdot) (Op.DMULQ, Op.DMULQdot) bin
+  | 130u ->
+    parseDFPCompare true Op.DCMPO Op.DCMPOQ bin
+  | 162u ->
+    parseDFPCompare true Op.DTSTEX Op.DTSTEXQ bin
+  | 258u ->
+    widen (Op.DCTDP, Op.DCTDPdot) (Op.DCTQPQ, Op.DCTQPQdot) bin
+  | 290u ->
+    toFixed (Op.DCTFIX, Op.DCTFIXdot) (Op.DCTFIXQ, Op.DCTFIXQdot) bin
+  | 322u ->
+    parseDFPCode 19u (Op.DDEDPD, Op.DDEDPDdot) (Op.DDEDPDQ, Op.DDEDPDQdot) bin
+  | 354u ->
+    toFixed (Op.DXEX, Op.DXEXdot) (Op.DXEXQ, Op.DXEXQdot) bin
+  | 514u ->
+    parseDFPThree true (Op.DSUB, Op.DSUBdot) (Op.DSUBQ, Op.DSUBQdot) bin
+  | 546u ->
+    parseDFPThree true (Op.DDIV, Op.DDIVdot) (Op.DDIVQ, Op.DDIVQdot) bin
+  | 642u ->
+    parseDFPCompare true Op.DCMPU Op.DCMPUQ bin
+  | 674u ->
+    parseDFPCompare false Op.DTSTSF Op.DTSTSFQ bin
+  | 770u ->
+    parseDFPUnary (true, true) (Op.DRSP, Op.DRSPdot) (Op.DRDPQ, Op.DRDPQdot) bin
+  | 802u ->
+    widen (Op.DCFFIX, Op.DCFFIXdot) (Op.DCFFIXQ, Op.DCFFIXQdot) bin
+  | 834u ->
+    parseDFPCode 20u (Op.DENBCD, Op.DENBCDdot) (Op.DENBCDQ, Op.DENBCDQdot) bin
+  | 866u ->
+    parseDFPThree false (Op.DIEX, Op.DIEXdot) (Op.DIEXQ, Op.DIEXQdot) bin
+  | 994u ->
+    parseDFPQuadword bin
+  | _ ->
+    parseDFPZ22 bin
+
+/// dtstsfi, "BF, UIM, FRB", which has no record bit: its six-bit UIM, bits
+/// 21:16, leaves only bit 22 reserved below BF.
+let private parseDTSTSFI bin =
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  let uim = Bits.extract bin 21u 16u |> uint64 |> OprImm
+  let op = dfpPlainOpcode bin Op.DTSTSFI Op.DTSTSFIQ
+  if Bits.pick bin 22u <> 0u then raise ParsingFailureException
+  else struct (op, ThreeOperands(bf, uim, dfpB (isDFPQuad bin) bin))
+
+/// The RMC field, bits 10:9, of a DFP Z23-form, which says how to round.
+let private dfpRMC bin = Bits.extract bin 10u 9u |> uint64 |> OprImm
+
+/// dqua and drrnd, "FRT, FRA, FRB, RMC": the quad forms take each operand as a
+/// pair, except drrnd's FRA (pairA false), the reference significance.
+let private parseDFPQuantize pairA ops opsQ bin =
+  let q = isDFPQuad bin
+  let fra = dfpA (q && pairA) bin
+  let operands = FourOperands(dfpT q bin, fra, dfpB q bin, dfpRMC bin)
+  struct (dfpOpcode bin ops opsQ, operands)
+
+/// dquai "TE, FRT, FRB, RMC" and drintx and drintn "R, FRT, FRB, RMC":
+/// Z23-forms whose first operand, which readImm reads, fills the FRA field.
+let private parseDFPImmZ23 readImm ops opsQ bin =
+  let q = isDFPQuad bin
+  let operands = FourOperands(readImm bin, dfpT q bin, dfpB q bin, dfpRMC bin)
+  struct (dfpOpcode bin ops opsQ, operands)
+
+/// The TE of dquai, bits 20:16: a signed exponent, -16 to 15.
+let private dfpTE bin =
+  let te = Bits.extract bin 20u 16u |> uint64 |> Bits.signExtend 5 64 |> uint64
+  OprImm te
+
+/// The R of drintx and drintn, bit 16, which picks the encoding RMC is read
+/// in; bits 20:17 above it are reserved.
+let private dfpR bin =
+  if Bits.extract bin 20u 17u <> 0u then raise ParsingFailureException
+  else Bits.pick bin 16u |> uint64 |> OprImm
+
+/// A DFP Z23-form, told by bits 8:1, below its RMC field.
+let private parseDFPZ23 bin =
+  let roundInt = parseDFPImmZ23 dfpR
+  match Bits.extract bin 8u 1u with
+  | 3u ->
+    parseDFPQuantize true (Op.DQUA, Op.DQUAdot) (Op.DQUAQ, Op.DQUAQdot) bin
+  | 35u ->
+    parseDFPQuantize false (Op.DRRND, Op.DRRNDdot) (Op.DRRNDQ, Op.DRRNDQdot) bin
+  | 67u ->
+    parseDFPImmZ23 dfpTE (Op.DQUAI, Op.DQUAIdot) (Op.DQUAIQ, Op.DQUAIQdot) bin
+  | 99u ->
+    roundInt (Op.DRINTX, Op.DRINTXdot) (Op.DRINTXQ, Op.DRINTXQdot) bin
+  | 227u ->
+    roundInt (Op.DRINTN, Op.DRINTNdot) (Op.DRINTNQ, Op.DRINTNQdot) bin
+  | _ ->
+    raise ParsingFailureException
+
+/// <summary>
+/// A Decimal Floating-Point word, in primary opcode 59 or 63. Its bits 5:1
+/// are 2 or 3, as those of no other instruction in either opcode are: 2 in an
+/// X-form or a Z22-form, and 3 in a Z23-form or in dtstsfi, the one X-form
+/// among them whose extended opcode ends in 3.
+/// </summary>
+let private parseDFP bin =
+  if Bits.extract bin 5u 1u = 2u then parseDFPX bin
+  elif Bits.extract bin 10u 1u = 675u then parseDTSTSFI bin
+  else parseDFPZ23 bin
+
 let parse3B bin =
   match Bits.extract bin 5u 1u with
+  | 0x2u | 0x3u ->
+    parseDFP bin
   | 0xEu ->
     match Bits.extract bin 10u 6u with
     | 0x1Au -> parseFPUnary Op.FCFIDS Op.FCFIDSdot bin
@@ -2778,6 +3002,8 @@ let parse3F bin =
     | 0x4u -> parseFTDIV bin
     | 0x5u -> parseFTSQRT bin
     | _ -> raise ParsingFailureException
+  | 0x2u | 0x3u ->
+    parseDFP bin
   | 0x6u ->
     (* FIXME: FPSCRegister *)
     match Bits.extract bin 10u 6u with
