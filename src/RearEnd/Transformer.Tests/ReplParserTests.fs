@@ -205,7 +205,7 @@ type ReplParserTests() =
   [<TestMethod>]
   member _.``Iter function retains semicolons inside lists``() =
     let input =
-      "targets |> iter @make-concrete-context "
+      "targets |> iter @make-concrete-executor "
       + "(fun item -> regs=[RDI=0x1; RSI=0x2])"
     let segments, _, _ = parseEvaluate input
     match ReplLanguage.parseIter "iter" segments[1].Arguments with

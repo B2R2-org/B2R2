@@ -59,33 +59,51 @@ type LoadAction() =
     |> box
     |> Array.singleton
 
+  let loadBytes cancellationToken input =
+    let cancellationToken: CancellationToken = cancellationToken
+    cancellationToken.ThrowIfCancellationRequested()
+    match (input: obj) with
+    | :? BinaryBytes as bytes ->
+      let hdl =
+        lazy (
+          BinHandle.LoadRawImage(
+            bytes.Bytes, bytes.ISA, bytes.BaseAddress, bytes.OS
+          )
+        )
+      Binary.Init(bytes.Annotation, hdl) |> box
+    | _ ->
+      invalidArg (nameof input) "load expects ByteArray input."
+
   let transform cancellationToken (args: string list) collection =
     if collection.Values |> Array.forall isNull then
-      ()
+      match args with
+      | [ value; isaName ] when File.Exists value || Directory.Exists value ->
+        let isa = ISA isaName
+        { Values = loadPath cancellationToken isa value }
+      | [ hex; isaName ] ->
+        let isa = ISA isaName
+        { Values = loadHex isa hex }
+      | [ value ] ->
+        let isa = ISA Architecture.Intel
+        { Values = loadPath cancellationToken isa value }
+      | _ ->
+        invalidArg (nameof args) "Invalid arguments given."
+    elif List.isEmpty args then
+      { Values = collection.Values |> Array.map (loadBytes cancellationToken) }
     else
-      invalidArg (nameof collection) "Invalid argument type."
-    match args with
-    | [ value; isaName ] when File.Exists value || Directory.Exists value ->
-      let isa = ISA isaName
-      { Values = loadPath cancellationToken isa value }
-    | [ hex; isaName ] ->
-      let isa = ISA isaName
-      { Values = loadHex isa hex }
-    | [ value ] ->
-      let isa = ISA Architecture.Intel
-      { Values = loadPath cancellationToken isa value }
-    | _ ->
-      invalidArg (nameof args) "Invalid arguments given."
+      invalidArg (nameof args) "ByteArray input takes no load parameters."
 
   interface IAction with
     member _.ActionID with get() = "load"
     member _.Signature with get() =
-      "Unit -> load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> -> Binary"
+      "Unit -> load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> "
+      + "| ByteArray -> load -> Binary"
     member _.Description with get() =
       """
     Take in a file path and return a binary object. If the given string is a
     valid directory path, then every file in the directory will be loaded in
     bulk. Use `hex=<hex> isa=<isa>` to load hexadecimal bytes as a raw image.
+    With ByteArray input, reconstruct a binary retaining its metadata.
 
       - [isa] : parse the binary for the given ISA.
 """

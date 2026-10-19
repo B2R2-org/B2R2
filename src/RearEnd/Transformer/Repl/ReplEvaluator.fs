@@ -594,7 +594,7 @@ module TransformerReplEvaluator =
       |> Array.toList
       |> List.map (fun item ->
         $"{item.Name} read at 0x{item.Address:x}  {item.Disassembly}"
-        + $"  => @make-concrete-context regs=[{item.Name}=<value>]")
+        + $"  => @make-concrete-executor regs=[{item.Name}=<value>]")
     let memory =
       needs.Memory
       |> Array.toList
@@ -1662,18 +1662,6 @@ module TransformerReplEvaluator =
               | error ->
                 Error error.Message)
 
-  let private isContextAction metadata =
-    let metadata: ActionMetadata = metadata
-    metadata.ID = "make-concrete-context"
-    || metadata.ID = "make-symbolic-context"
-
-  let private contextOutputKind metadata =
-    let metadata: ActionMetadata = metadata
-    if metadata.ID = "make-concrete-context" then
-      ReplValueKind.ConcExecutor
-    else
-      ReplValueKind.SymbExecutor
-
   let private actionInputError (input: ReplValue) metadata =
     let metadata: ActionMetadata = metadata
     let actual = formatKind input.Kind
@@ -1783,27 +1771,25 @@ module TransformerReplEvaluator =
         |> compactBracketArguments
       let transformWith =
         transformWith registered input segment cancellationToken
-      if isContextAction metadata then
-        transformWith (contextOutputKind metadata) args None
-      else
-        let isDirectSymbolic =
-          metadata.ID = "run-symbolic"
-          && (input.Kind = ReplValueKind.Binary
-              || input.Kind = ReplValueKind.BinarySlice)
-        let ready =
-          if metadata.ID = "make-symbolic-executor" then
-            registerSymbSolver registry args cancellationToken
-          elif isDirectSymbolic then
-            let solverArgs = "solver=symb-z3" :: args
-            registerSymbSolver registry solverArgs cancellationToken
-          else
-            Ok registry
-        ready
-        |> Result.bind (fun _ -> validateArguments input metadata args)
-        |> Result.bind (fun (normalizedArgs, assignments) ->
-          let outputKind =
-            ActionMetadata.outputForArguments metadata (Some input.Kind) args
-          transformWith outputKind normalizedArgs assignments)
+      let isDirectSymbolic =
+        metadata.ID = "run-symbolic"
+        && (input.Kind = ReplValueKind.Binary
+            || input.Kind = ReplValueKind.BinarySlice)
+      let ready =
+        if metadata.ID = "make-symbolic-executor" || isDirectSymbolic then
+          let solverArgs =
+            if args |> List.exists (parameterValue "solver" >> Option.isSome)
+            then args
+            else "solver=symb-z3" :: args
+          registerSymbSolver registry solverArgs cancellationToken
+        else
+          Ok registry
+      ready
+      |> Result.bind (fun _ -> validateArguments input metadata args)
+      |> Result.bind (fun (normalizedArgs, assignments) ->
+        let outputKind =
+          ActionMetadata.outputForArguments metadata (Some input.Kind) args
+        transformWith outputKind normalizedArgs assignments)
 
   and private appendIterValue
     (output: ResizeArray<obj>)
@@ -2178,8 +2164,7 @@ module TransformerReplEvaluator =
             segments
             |> List.exists (fun segment ->
               let id = segment.Head.TrimStart '@'
-              equalsIgnoreCase id "random"
-              || equalsIgnoreCase id "user-stack")
+              equalsIgnoreCase id "random")
           match nondeterministic, value.Collection.Values with
           | true, [| :? AddressValue as address |] ->
             let literal = $"0x{address.Address:x}"

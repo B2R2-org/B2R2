@@ -472,7 +472,8 @@ module ActionMetadata =
       else
         description |> List.map (fun line -> "  " + line)
     let input =
-      if metadata.Role = ActionRole.Source then
+      if metadata.Role = ActionRole.Source
+         && inputKinds metadata = [ ReplValueKind.Unit ] then
         []
       else
         [ "  input: " + kinds (inputKinds metadata) ]
@@ -855,17 +856,6 @@ module ActionMetadata =
       [ "binary |> @extract-bytes" ]
       [ syntax None [] ]
 
-  let private asBinary =
-    contract
-      "as-binary"
-      ReplValueKind.ByteArray
-      ReplValueKind.Binary
-      ActionRole.Transform
-      10
-      "as-binary -> Binary"
-      [ "rawBytes |> @as-binary" ]
-      [ syntax None [] ]
-
   let private asm =
     let code =
       required "code" ActionArgumentKind.Text
@@ -890,24 +880,7 @@ module ActionMetadata =
         syntax None [ code; baseAddress ]
         syntax None [ code; isa; baseAddress ] ]
 
-  let private arg =
-    let index =
-      required "index" ActionArgumentKind.Integer
-        "Zero-based integer argument index."
-    let value =
-      required "value" ActionArgumentKind.Address
-        "Concrete integer or pointer value."
-    contract
-      "arg"
-      ReplValueKind.ConcExecutor
-      ReplValueKind.ConcExecutor
-      ActionRole.Transform
-      20
-      "arg index=<n> value=<addr> -> ConcExecutor"
-      [ "executor |> @arg index=<index> value=<addr>" ]
-      [ syntax None [ index; value ] ]
-
-  let private makeConcreteContext =
+  let private concExec =
     let stack =
       optional "stack" ActionArgumentKind.Address
         "Stack pointer value to set."
@@ -920,27 +893,25 @@ module ActionMetadata =
     let regions =
       optional "regions" ActionArgumentKind.Text
         "Memory regions: [name=<start>..<end>:rw]."
-    contract
-      "make-concrete-context"
-      ReplValueKind.ConcExecutor
+    let args =
+      optional "args" ActionArgumentKind.Text
+        "ABI arguments: [0=0x1; 1=0x2]."
+    let buffers =
+      optional "buffers" ActionArgumentKind.Text
+        "Allocated buffers: [RDI=track:0x400:rw]."
+    overloadContract
+      "make-concrete-executor"
+      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.ConcExecutor
       ActionRole.Transform
-      18
-      ("make-concrete-context [stack=<addr>] [regs=[...]] [mem=[...]] "
-       + "[regions=[...]] -> ConcExecutor")
-      [ "executor |> @make-concrete-context regs=[<reg>=<value>; RSP=sp]"
-        "executor |> @make-concrete-context mem=[<addr>=<hex>]"
-        "executor |> @make-concrete-context "
-        + "regions=[buf=<start>..<end>:rw]" ]
-      [ syntax None [ stack ]
-        syntax None [ regs ]
-        syntax None [ mem ]
-        syntax None [ regions ]
-        syntax None [ stack; regs ]
-        syntax None [ stack; mem ]
-        syntax None [ regs; mem ]
-        syntax None [ stack; regs; mem ]
-        syntax None [ stack; regs; mem; regions ] ]
+      20
+      ("make-concrete-executor [stack=<addr>] [regs=[...]] "
+       + "[mem=[...]] [regions=[...]] [args=[...]] "
+       + "[buffers=[...]] -> ConcExecutor")
+      [ "binary |> @make-concrete-executor"
+        "binary |> @make-concrete-executor regs=[RDI=0x70000000]"
+        "binary |> @make-concrete-executor args=[0=0x70000000]" ]
+      [ syntax None [ stack; regs; mem; regions; args; buffers ] ]
 
   let private count =
     contract
@@ -951,17 +922,6 @@ module ActionMetadata =
       60
       "count -> Int"
       [ "matches |> @count" ]
-      [ syntax None [] ]
-
-  let private concExec =
-    overloadContract
-      "make-concrete-executor"
-      [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
-      ReplValueKind.ConcExecutor
-      ActionRole.Transform
-      20
-      "make-concrete-executor -> ConcExecutor"
-      [ "binary |> @make-concrete-executor" ]
       [ syntax None [] ]
 
   let private dbscan =
@@ -1191,10 +1151,7 @@ module ActionMetadata =
         "executor |> @inspect-registers name=RAX" ]
       [ syntax None [ register ] ]
 
-  let private run =
-    let entry =
-      optional "entry" ActionArgumentKind.Address
-        "Start address; defaults to current PC or file entry point."
+  let private runDirectArguments limit =
     let binaryEntry =
       required "entry" ActionArgumentKind.Address
         "Address of the function to execute."
@@ -1210,13 +1167,37 @@ module ActionMetadata =
           IsOptional = true
           DefaultValue = Some ActionArgumentDefault.EmptyList
           Choices = [ "[]" ] }
+    let stack =
+      optional "stack" ActionArgumentKind.Address "Initial stack pointer."
+    let memory =
+      optional "mem" ActionArgumentKind.Text
+        "Concrete memory assignments."
+    let regions =
+      optional "regions" ActionArgumentKind.Text
+        "Additional memory regions."
+    let arguments =
+      optional "args" ActionArgumentKind.Text
+        "ABI arguments: [0=0x1; 1=0x2]."
+    [ binaryEntry
+      stack
+      registers
+      memory
+      regions
+      arguments
+      buffers
+      limit ]
+
+  let private run =
+    let entry =
+      optional "entry" ActionArgumentKind.Address
+        "Start address; defaults to current PC or file entry point."
     let limit =
       optional "limit" ActionArgumentKind.Integer
         "Maximum machine instruction count."
     let breakpoint =
       optional "break" ActionArgumentKind.Address
         "Stop before executing this address."
-    let directArgs = [ binaryEntry; registers; buffers; limit ]
+    let directArgs = runDirectArguments limit
     let executorArgs = [ entry; limit; breakpoint ]
     let binarySyntax = syntaxFor [ ReplValueKind.Binary ] None directArgs
     let executorSyntax =
@@ -1227,7 +1208,8 @@ module ActionMetadata =
       ReplValueKind.ConcExecutor
       ActionRole.Transform
       20
-      ("Binary -> run-concrete entry=<addr> [regs=[...]] [buffers=[...]] "
+      ("Binary -> run-concrete entry=<addr> [stack=<addr>] [regs=[...]] "
+       + "[mem=[...]] [regions=[...]] [args=[...]] [buffers=[...]] "
        + "[limit=<n>] | ConcExecutor -> run-concrete [entry=<addr>] "
        + "[limit=<n>] [break=<addr>] -> ConcExecutor")
       [ "binary |> @run-concrete entry=<entry> regs=[...] buffers=[...]"
@@ -1308,17 +1290,20 @@ module ActionMetadata =
       optional "isa" ActionArgumentKind.ISA "Instruction-set architecture."
     let requiredISA =
       required "isa" ActionArgumentKind.ISA "Instruction-set architecture."
-    contract
+    overloadContract
       "load"
-      ReplValueKind.Unit
+      [ ReplValueKind.Unit; ReplValueKind.ByteArray ]
       ReplValueKind.Binary
       ActionRole.Source
       0
-      "load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> -> Binary"
+      ("load path=<path> [isa=<isa>] | hex=<hex> isa=<isa> | "
+       + "ByteArray -> load -> Binary")
       [ "@load path=<path>"
-        "@load hex=<hex> isa=<isa>" ]
-      [ syntax None [ source; optionalISA ]
-        syntax None [ hex; requiredISA ] ]
+        "@load hex=<hex> isa=<isa>"
+        "rawBytes |> @load" ]
+      [ syntaxFor [ ReplValueKind.Unit ] None [ source; optionalISA ]
+        syntaxFor [ ReplValueKind.Unit ] None [ hex; requiredISA ]
+        syntaxFor [ ReplValueKind.ByteArray ] None [] ]
 
   let private random =
     let minAddress =
@@ -1336,17 +1321,6 @@ module ActionMetadata =
       "random min=<addr> max=<addr> -> Address"
       [ "ptr = @random min=<min> max=<max>" ]
       [ syntax None [ minAddress; maxAddress ] ]
-
-  let private userStack =
-    contract
-      "user-stack"
-      ReplValueKind.Unit
-      ReplValueKind.Address
-      ActionRole.Source
-      19
-      "user-stack -> Address"
-      [ "sp = @user-stack" ]
-      [ syntax None [] ]
 
   let private mem =
     let addr =
@@ -1586,9 +1560,7 @@ module ActionMetadata =
   let private builtIns =
     [ cfg
       bytes
-      asBinary
       asm
-      arg
       count
       concExec
       dbscan
@@ -1612,11 +1584,9 @@ module ActionMetadata =
       random
       regs
       run
-      makeConcreteContext
       slice
       step
       trace
-      userStack
       strings
       save
       winnowing

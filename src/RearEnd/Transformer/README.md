@@ -155,12 +155,10 @@ moves |> @print
 
 | Action | Parameters | Description |
 | --- | --- | --- |
-| `@load` | `path=<path> [isa=<isa>]` or `hex=<hex> isa=<isa>` | Load a binary from a file or create one from bytes. |
+| `@load` | `path=<path> [isa=<isa>]`, `hex=<hex> isa=<isa>`, or ByteArray input | Load a file, create a raw image, or reconstruct a binary from extracted bytes. |
 | `@asm` | `code=<text> [isa=<isa>] [base=<addr>]` | Assemble source text into bytes. |
 | `@random` | `min=<addr> max=<addr>` | Produce a random address in the half-open range. |
-| `@user-stack` | none | Produce an address suitable for a user stack. |
 | `@extract-bytes` | none | Extract bytes from a binary or slice. |
-| `@as-binary` | none | Turn a byte array into a binary value. |
 | `@slice` | `section=<section>`, or `start=<addr> end=<addr>`, or `start=<addr> offset=<size>` | Select a binary section or address range. |
 | `@save` | `path=<path>` | Save a binary or slice to a file. |
 
@@ -210,22 +208,20 @@ layout metadata and does not guarantee the behavior of the resulting binary.
 
 | Action | Parameters | Description |
 | --- | --- | --- |
-| `@make-concrete-executor` | none | Create a concrete executor for a binary or slice. |
-| `@make-concrete-context` | `[stack=<addr>] [regs=<text>] [mem=<text>] [regions=<text>]` | Configure stack, registers, memory, and memory permissions. |
-| `@arg` | `index=<n> value=<addr>` | Set a concrete argument value. |
+| `@make-concrete-executor` | `[stack=<addr>] [regs=<text>] [mem=<text>] [regions=<text>] [args=<text>] [buffers=<text>]` | Create and optionally configure a concrete executor. |
 | `@mem read` | `addr=<addr> size=<n>` | Read concrete memory. |
 | `@mem write` | `addr=<addr> bytes=<hex>` | Write concrete memory. |
 | `@inspect-registers` | `[name=<text>]` | Inspect concrete registers. |
 | `@step` | `[count=<n>]` | Execute a fixed number of instructions. |
 | `@trace` | `[count=<n>] [watch=<addr> size=<n>]` | Trace execution, optionally watching a memory range. |
-| `@run-concrete` | `entry=<addr> [regs=[...]] [buffers=[...]] [limit=<n>]` on a binary, or `[entry=<addr>] [limit=<n>] [break=<addr>]` on an executor | Run concrete execution. |
+| `@run-concrete` | `entry=<addr> [stack=<addr>] [regs=[...]] [mem=[...]] [regions=[...]] [args=[...]] [buffers=[...]] [limit=<n>]` on a binary, or `[entry=<addr>] [limit=<n>] [break=<addr>]` on an executor | Configure and run concrete execution. |
 
 For a one-off run, a binary can be passed directly to `@run-concrete`. The
 `buffers` parameter names a region, its size and permissions, and the register
 that receives its address, for example `buffers=[RDI=track:0x400:rw]`. Buffer
-contents are not initialized. A synthetic stack is provided, and the run stops
-before the outermost return. Use `@make-concrete-executor` and
-`@make-concrete-context` when the caller state or memory must be controlled.
+contents are not initialized. A synthetic stack is provided by default, and
+the run stops before the outermost return. Use `@make-concrete-executor` when
+the executor must be retained or configured without running it.
 
 ### Symbolic execution
 
@@ -233,12 +229,8 @@ These actions are available when a symbolic solver is loaded.
 
 | Action | Parameters | Description |
 | --- | --- | --- |
-| `@make-symbolic-executor` | `[solver=<action>]` | Create a symbolic executor for a binary or slice. |
-| `@make-symbolic-context` | `[pc=<addr>] [stack=<addr>] [regs=<text>] [mem=<text>] [sym-mem=<text>] [sym-regs=<text>] [regions=<text>]` | Configure concrete and symbolic execution state. |
-| `@make-symbolic-arg` | `index=<n> name=<text> size=<n>` | Create a symbolic argument. |
-| `@hook` | `<hook> addr=<addr>` | Model a supported external function at an address. |
-| `@stop-at` | `addr=<addr>` | Stop symbolic execution at an address. |
-| `@run-symbolic` | `entry=<addr> [sym-regs=[...]] [buffers=[...]] check=access-violation` on a binary, or `cond=<fun> [precond=<text>] [max-depth=<n>] [max-states=<n>] [loop-bound=<n>] [prune=<choice>]` on an executor | Explore paths and solve for a condition. |
+| `@make-symbolic-executor` | `[solver=<action>] [pc=<addr>] [stack=<addr>] [regs=<text>] [mem=<text>] [sym-mem=<text>] [sym-regs=<text>] [regions=<text>] [sym-args=<text>] [buffers=<text>] [avoid=[...]] [hooks=[...]]` | Create and optionally configure a symbolic executor. |
+| `@run-symbolic` | `entry=<addr> [solver=<action>] [stack=<addr>] [regs=[...]] [mem=[...]] [sym-mem=[...]] [sym-regs=[...]] [regions=[...]] [sym-args=[...]] [buffers=[...]] [avoid=[...]] [hooks=[...]] (check=access-violation or cond=<fun>) [precond=<text>] [max-depth=<n>] [max-states=<n>] [loop-bound=<n>] [prune=<choice>]` on a binary, or `cond=<fun>` with optional limits, avoidance, and hooks on an executor | Configure and run symbolic execution. |
 
 Direct symbolic execution selects `symb-z3`, creates a synthetic stack, maps
 the requested buffers, and stops paths at the outermost return. For example,
@@ -256,6 +248,7 @@ target
 
 Here, `sym-regs=[ESI=idx:4; RDX=ind:8]` names two symbolic register inputs. The
 `check=access-violation` query tests memory accesses against the binary's
-image permissions and the buffer and stack regions. The executor actions
-remain available when custom solver, memory, or search settings are needed.
+image permissions and the buffer and stack regions. Use
+`@make-symbolic-executor` to retain a configured executor before running it.
+Both creation and direct execution accept solver, state, and input options.
 | `@model` | none | Render a symbolic run result and its satisfying model. |
