@@ -414,7 +414,7 @@ let addWithCarryOut (bld: ILowUIRBuilder) dst a b c =
 
 /// Records a multiply's or a divide's overflow, which is the same in either
 /// mode: OV32 is OV.
-let private setWholeOverflow bld cond =
+let setWholeOverflow bld cond =
   let ov = tmpVar bld 1<rt>
   append bld {
     ov := cond

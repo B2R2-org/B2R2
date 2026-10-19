@@ -2655,17 +2655,31 @@ let private parseCLRBHRB bin =
     struct (Op.CLRBHRB, NoOperand)
 
 /// The lane A forms of primary opcode 31, tried before the word dispatcher
-/// they otherwise fall back to. Only icbt is not 64-bit only: the quadword
-/// pair needs doubleword registers, and the branch history buffer belongs to
-/// the 64-bit server processors.
+/// they otherwise fall back to. The forms on doublewords and the quadword
+/// pair need 64-bit registers, and the branch history buffer belongs to the
+/// 64-bit server processors; icbt and the word forms decode on either.
 let private parse1FLaneA is64 fallback bin =
   match Bits.extract bin 10u 1u with
-  | 0x016u -> parseICBT bin
-  | 0x0B6u when is64 -> parseSTQCX bin
-  | 0x114u when is64 -> parseLQARX bin
-  | 0x12Eu when is64 -> parseMFBHRBE bin
-  | 0x1AEu when is64 -> parseCLRBHRB bin
-  | _ -> fallback bin
+  | 0x016u ->
+    parseICBT bin
+  | 0x0B6u when is64 ->
+    parseSTQCX bin
+  | 0x114u when is64 ->
+    parseLQARX bin
+  | 0x12Eu when is64 ->
+    parseMFBHRBE bin
+  | 0x189u | 0x389u when is64 ->
+    parseXOForm [| Op.DIVDEU; Op.DIVDEUdot; Op.DIVDEUO; Op.DIVDEUOdot |] bin
+  | 0x18Bu | 0x38Bu ->
+    parseXOForm [| Op.DIVWEU; Op.DIVWEUdot; Op.DIVWEUO; Op.DIVWEUOdot |] bin
+  | 0x1A9u | 0x3A9u when is64 ->
+    parseXOForm [| Op.DIVDE; Op.DIVDEdot; Op.DIVDEO; Op.DIVDEOdot |] bin
+  | 0x1ABu | 0x3ABu ->
+    parseXOForm [| Op.DIVWE; Op.DIVWEdot; Op.DIVWEO; Op.DIVWEOdot |] bin
+  | 0x1AEu when is64 ->
+    parseCLRBHRB bin
+  | _ ->
+    fallback bin
 
 let parse1F is64 bin =
   let parse1FWord = parse1FLaneA is64 parse1FWord

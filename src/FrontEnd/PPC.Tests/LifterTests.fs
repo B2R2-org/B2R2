@@ -24799,6 +24799,89 @@ type LifterTests() =
         expect next (after IAR) case
         expect nia (after LR) case
 
+  /// <summary>
+  /// The extended divides put the low word (doubleword) of rA above a word
+  /// (doubleword) of zeros and divide that by the low word (doubleword) of
+  /// rB, the high words of a 64-bit register taking no part. On a 64-bit
+  /// processor a word quotient fills the register by sign extension for divwe
+  /// and zero extension for divweu, as QEMU leaves it (the ISA leaves the
+  /// high word undefined). Values from qemu-ppc64 -cpu power10 (spec
+  /// divext); the 32-bit processor's are the low words of the same, as the
+  /// 7457 has no extended divide.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] The extended divides divide rA shifted up a word``() =
+    let neg1, neg3 = UInt64.MaxValue, 0xfffffffffffffffdUL
+    (* divwe, divweu, divde, divdeu r5, r6, r7 *)
+    let divwe, divweu, divde, divdeu =
+      "7ca63b56", "7ca63b16", "7ca63b52", "7ca63b12"
+    let cases =
+      [ divwe, 1UL, 3UL, 0x55555555UL
+        divwe, neg1, 4UL, 0xffffffffc0000000UL
+        divwe, 1UL, neg3, 0xffffffffaaaaaaabUL
+        divwe, 0xffffffff00000001UL, 0x500000003UL, 0x55555555UL
+        divweu, 1UL, 3UL, 0x55555555UL
+        divweu, 0x7fffffffUL, 0x80000000UL, 0xfffffffeUL
+        divweu, 0xffffffff00000001UL, 3UL, 0x55555555UL
+        divde, 1UL, 3UL, 0x5555555555555555UL
+        divde, neg1, 4UL, 0xc000000000000000UL
+        divde, 1UL, neg3, 0xaaaaaaaaaaaaaaabUL
+        divdeu, 1UL, 3UL, 0x5555555555555555UL
+        divdeu, 0x7fffffffffffffffUL, 1UL <<< 63, 0xfffffffffffffffeUL ]
+    for isa in ppc64s do
+      for hex, a, b, q in cases do
+        let after = run isa hex [ R6, a; R7, b ]
+        expect q (after R5) $"{hex} {a:x} {b:x} {nameOf isa}"
+    for hex, a, b, q in
+      [ divwe, 1UL, 3UL, 0x55555555UL
+        divwe, 0xffffffffUL, 4UL, 0xc0000000UL
+        divweu, 0x7fffffffUL, 0x80000000UL, 0xfffffffeUL ] do
+      expect q (run ppc32 hex [ R6, a; R7, b ] R5) $"{hex} {a:x} ppc32"
+
+  /// <summary>
+  /// The OE forms of the extended divides set OV and OV32 where the quotient
+  /// does not fit -- rA's low word not below rB's for divweu, any quotient
+  /// past the signed range for divwe -- or the divisor is zero, clear them
+  /// where it fits, and OR OV into SO; the record forms set CR0 from the
+  /// result and SO. Values from qemu-ppc64 -cpu power10 (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] The extended divides record an overflow``() =
+    let max, min = 0x7fffffffffffffffUL, 1UL <<< 63
+    (* divweo., divdeuo., divde. r5, r6, r7 *)
+    let divweo, divdeuo, divde = "7ca63f57", "7ca63f13", "7ca63b53"
+    let cases =
+      [ divweo, 1UL, 3UL, 0xe00c0000UL, 0xa0040000UL, 0b0101UL
+        divweo, 5UL, 3UL, 0UL, 0xc0080000UL, 0b0001UL
+        divweo, 5UL, 0UL, 0UL, 0xc0080000UL, 0b0001UL
+        divdeuo, max, min, 0xe00c0000UL, 0xa0040000UL, 0b1001UL
+        divdeuo, 5UL, 3UL, 0UL, 0xc0080000UL, 0b0001UL
+        divde, 1UL, 3UL, 0UL, 0UL, 0b0100UL ]
+    for isa in ppc64s do
+      for hex, a, b, xer, xerAfter, field in cases do
+        let after = run isa hex [ R6, a; R7, b; XER, xer ]
+        let case = $"{hex} {a:x} {b:x} {nameOf isa}"
+        expect xerAfter (after XER) case
+        let mask = if xerAfter &&& ov <> 0UL then 1UL else 0b1111UL
+        expect field (cr0 after &&& mask) case
+
+  /// <summary>
+  /// divdeo sets OV, OV32 and SO wherever the quotient of (RA) || 0^64 by
+  /// (RB) does not fit in a signed doubleword (Book I 3.3.9), including the
+  /// two pairs below, whose quotients are 0x8518bf31833e14c3 and
+  /// -0xab7593371e55f291. QEMU 8.2.2 leaves OV clear on both and wraps the
+  /// quotient (spec divdeov, deviations/ppc64/divdeo.c); the manual wins.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEO flags the overflows QEMU misses``() =
+    (* divdeo r5, r6, r7 *)
+    for isa in ppc64s do
+      for a, b in
+        [ 0x13404cd3e565dfa1UL, 0x25072963263f0842UL
+          0x16513f36f7cb2f45UL, 0xdeadbeefcafebabeUL ] do
+        let after = run isa "7ca63f52" [ R6, a; R7, b ]
+        expect 0xc0080000UL (after XER) $"{a:x} {nameOf isa}"
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

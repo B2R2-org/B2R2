@@ -3071,6 +3071,102 @@ type ParserTests() =
     ++ (STQCXdot ** [ O.Reg R10; O.Reg R6; O.Reg R7 ])
     ||> testOnlyPPC64
 
+  [<TestMethod>]
+  member _.``[PPC64] DIVDE (extended divide)``() =
+    "7ca63b52"
+    ++ (DIVDE ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDE. (extended divide, CR0)``() =
+    "7ca63b53"
+    ++ (DIVDEdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEO (extended divide, OV)``() =
+    "7ca63f52"
+    ++ (DIVDEO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEO. (extended divide, OV, CR0)``() =
+    "7ca63f53"
+    ++ (DIVDEOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEU (extended unsigned divide)``() =
+    "7ca63b12"
+    ++ (DIVDEU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEU. (extended unsigned divide, CR0)``() =
+    "7ca63b13"
+    ++ (DIVDEUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEUO (extended unsigned divide, OV)``() =
+    "7ca63f12"
+    ++ (DIVDEUO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEUO. (extended unsigned divide, OV, CR0)``() =
+    "7ca63f13"
+    ++ (DIVDEUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] DIVWE (extended word divide)``() =
+    "7ca63b56"
+    ++ (DIVWE ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DIVWE. (extended word divide, CR0)``() =
+    "7ca63b57"
+    ++ (DIVWEdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DIVWEO (extended word divide, OV)``() =
+    "7ca63f56"
+    ++ (DIVWEO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DIVWEO. (extended word divide, OV, CR0)``() =
+    "7ca63f57"
+    ++ (DIVWEOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DIVWEU (extended unsigned word divide)``() =
+    "7ca63b16"
+    ++ (DIVWEU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DIVWEU. (extended unsigned word divide, CR0)``() =
+    "7ca63b17"
+    ++ (DIVWEUdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DIVWEUO (extended unsigned word divide, OV)``() =
+    "7ca63f16"
+    ++ (DIVWEUO ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DIVWEUO. (extended unsigned word divide, OV, CR0)``() =
+    "7ca63f17"
+    ++ (DIVWEUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
