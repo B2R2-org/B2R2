@@ -63,6 +63,8 @@ type ReplEvaluation =
   | Exit of ActionRegistry * TransformerReplState
 
 module TransformerReplEvaluator =
+  type private SymbAnswer = B2R2.MiddleEnd.SymbEval.SymbAnswer
+
   type private RenderMode =
     | Preview
     | Full
@@ -166,7 +168,7 @@ module TransformerReplEvaluator =
     else
       foldRange entryRanges
 
-  let private renderCFG index = function
+  let private renderCFG mode index = function
     | CFG(entry, cfg, _) ->
       let label =
         match index with
@@ -174,18 +176,23 @@ module TransformerReplEvaluator =
           $"CFG #{index}"
         | None ->
           "CFG"
-      let range =
-        cfgRange entry cfg
-        |> Option.map (fun (start, finish) ->
-          $"0x{start:x}-0x{finish:x} (end exclusive)")
-        |> Option.defaultValue "unknown"
-      [ $"{label}"
-        $"  entry: 0x{entry:x}"
-        $"  range: {range}"
-        $"  vertices: {cfg.Vertices.Length}"
-        $"  edges: {cfg.Edges.Length}"
-        $"  roots: {cfg.Roots.Length}"
-        $"  exits: {cfg.Exits.Length}" ]
+      match mode with
+      | Preview ->
+        [ $"{label} 0x{entry:x}: {cfg.Vertices.Length} nodes, "
+          + $"{cfg.Edges.Length} edges" ]
+      | Full ->
+        let range =
+          cfgRange entry cfg
+          |> Option.map (fun (start, finish) ->
+            $"0x{start:x}-0x{finish:x} (end exclusive)")
+          |> Option.defaultValue "unknown"
+        [ label
+          $"  entry: 0x{entry:x}"
+          $"  range: {range}"
+          $"  vertices: {cfg.Vertices.Length}"
+          $"  edges: {cfg.Edges.Length}"
+          $"  roots: {cfg.Roots.Length}"
+          $"  exits: {cfg.Exits.Length}" ]
     | NoCFG error ->
       let label =
         match index with
@@ -218,14 +225,24 @@ module TransformerReplEvaluator =
       else
         [ displayField "annotation" annotation ]
 
-  let private renderBinary binary =
-    "Binary" :: binaryDisplayFields binary
+  let private renderBinary mode binary =
+    match mode with
+    | Preview -> [ $"Binary: {binaryPath binary}" ]
+    | Full -> "Binary" :: binaryDisplayFields binary
 
-  let private renderInstructionArray (values: Instruction[]) =
+  let private renderInstructionArray mode (values: Instruction[]) =
     seq {
-      yield $"InstructionArray ({values.Length} values)"
+      yield $"{values.Length} instructions"
       for value in values do
-        yield "  " + value.ToString()
+        match mode with
+        | Preview ->
+          match value with
+          | ValidInstruction(ins, _) ->
+            yield $"  0x{ins.Address:x}: {ins.Disasm()}"
+          | BadInstruction(addr, _) ->
+            yield $"  0x{addr:x}: <undecodable>"
+        | Full ->
+          yield "  " + value.ToString()
     }
 
   let private renderByteRows (values: byte[]) =
@@ -304,15 +321,18 @@ module TransformerReplEvaluator =
         yield! renderHexRows bytes.BaseAddress bytes.Bytes
     }
 
-  let private renderFingerprint fingerprint =
+  let private renderFingerprint mode fingerprint =
     let fingerprint: Fingerprint = fingerprint
     seq {
       yield "Fingerprint"
       yield displayField "count" $"{List.length fingerprint.Patterns} patterns"
-      yield displayField "n-gram" (string fingerprint.NGramSize)
-      yield displayField "window" (string fingerprint.WindowSize)
-      if not (String.IsNullOrWhiteSpace fingerprint.Annotation) then
-        yield displayField "annotation" fingerprint.Annotation
+      if mode = Full then
+        yield displayField "n-gram" (string fingerprint.NGramSize)
+        yield displayField "window" (string fingerprint.WindowSize)
+        if not (String.IsNullOrWhiteSpace fingerprint.Annotation) then
+          yield displayField "annotation" fingerprint.Annotation
+        else
+          ()
       else
         ()
       if List.isEmpty fingerprint.Patterns then
@@ -323,7 +343,7 @@ module TransformerReplEvaluator =
           yield $"    {hash:x2}@{position}"
     }
 
-  let private renderClusterResult mode result =
+  let private renderClusterResult result =
     let result: ClusterResult = result
     seq {
       yield "ClusterResult"
@@ -334,13 +354,9 @@ module TransformerReplEvaluator =
         yield "  clusters:"
         for index in 0 .. result.Clusters.Length - 1 do
           let cluster = result.Clusters[index]
-          match mode with
-          | Preview ->
-            yield $"    #{index}: {cluster.Length} values"
-          | Full ->
-            yield $"    #{index} ({cluster.Length} values):"
-            for item in cluster do
-              yield "      " + item
+          yield $"    #{index} ({cluster.Length} values):"
+          for item in cluster do
+            yield "      " + item
     }
 
   let private formatRange startAddress endAddress =
@@ -362,63 +378,91 @@ module TransformerReplEvaluator =
         let fileStart = offset + slice.StartAddress - section.Address
         fileStart, fileStart + slice.Size, section.Name))
 
-  let private renderSlice slice =
+  let private renderSlice mode slice =
     let slice: BinarySlice = slice
-    let label = slice.Label |> Option.defaultValue "<none>"
-    let fileRange =
-      match tryFileRange slice with
-      | Some(fileStart, fileEnd, section) ->
-        [ $"  file: {formatRange fileStart fileEnd}"
-          $"  section: {section}" ]
-      | None ->
-        []
-    [ "BinarySlice"
-      displayField "label" label
-      displayField "source" (binaryPath slice.Source)
-      displayField "virtual" (formatRange slice.StartAddress slice.EndAddress) ]
-    @ fileRange
-    @ [ $"  size: {slice.Size} bytes" ]
+    match mode with
+    | Preview ->
+      [ $"BinarySlice: 0x{slice.StartAddress:x}-0x{slice.EndAddress:x} "
+        + $"({slice.Size} bytes)" ]
+    | Full ->
+      let label = slice.Label |> Option.defaultValue "<none>"
+      let fileRange =
+        match tryFileRange slice with
+        | Some(fileStart, fileEnd, section) ->
+          [ $"  file: {formatRange fileStart fileEnd}"
+            $"  section: {section}" ]
+        | None ->
+          []
+      [ "BinarySlice"
+        displayField "label" label
+        displayField "source" (binaryPath slice.Source)
+        displayField "virtual"
+          (formatRange slice.StartAddress slice.EndAddress) ]
+      @ fileRange
+      @ [ $"  size: {slice.Size} bytes" ]
 
-  let private renderSection section =
+  let private renderSection mode section =
     let section: SectionInfo = section
-    [ "SectionInfo"
-      displayField "name" section.Name
-      displayField "source" (binaryPath section.Source)
-      displayField "address" $"0x{section.Address:x}"
-      displayField "size" $"{section.Size} bytes"
-      displayField "file-size" $"{section.FileSize} bytes"
-      displayField "kind" section.Kind ]
+    match mode with
+    | Preview ->
+      [ $"{section.Name}: 0x{section.Address:x} "
+        + $"({section.Size} bytes)" ]
+    | Full ->
+      [ "SectionInfo"
+        displayField "name" section.Name
+        displayField "source" (binaryPath section.Source)
+        displayField "address" $"0x{section.Address:x}"
+        displayField "size" $"{section.Size} bytes"
+        displayField "file-size" $"{section.FileSize} bytes"
+        displayField "kind" section.Kind ]
 
-  let private renderFunction fn =
+  let private renderFunction mode fn =
     let fn: FunctionInfo = fn
     let symbol = fn.Symbol |> Option.defaultValue "<none>"
-    [ "FunctionInfo"
-      displayField "source" (binaryPath fn.Source)
-      displayField "entry" $"0x{fn.Entry:x}"
-      displayField "symbol" symbol ]
+    match mode with
+    | Preview ->
+      match fn.Symbol with
+      | Some symbol -> [ $"0x{fn.Entry:x}: {symbol}" ]
+      | None -> [ $"0x{fn.Entry:x}" ]
+    | Full ->
+      [ "FunctionInfo"
+        displayField "source" (binaryPath fn.Source)
+        displayField "entry" $"0x{fn.Entry:x}"
+        displayField "symbol" symbol ]
 
-  let private renderStringMatch stringMatch =
+  let private renderStringMatch mode stringMatch =
     let stringMatch: StringMatch = stringMatch
-    [ "StringMatch"
-      displayField "source" (binaryPath stringMatch.Source)
-      displayField "address" $"0x{stringMatch.Address:x}"
-      displayField "text" stringMatch.Text ]
+    match mode with
+    | Preview ->
+      [ $"0x{stringMatch.Address:x}: {stringMatch.Text}" ]
+    | Full ->
+      [ "StringMatch"
+        displayField "source" (binaryPath stringMatch.Source)
+        displayField "address" $"0x{stringMatch.Address:x}"
+        displayField "text" stringMatch.Text ]
 
-  let private renderRegisterView view =
+  let private renderRegisterView mode view =
     let view: RegisterView = view
     let lines =
       view.Registers
       |> Array.map (fun reg -> $"{reg.Name}: {reg.Value}")
       |> Array.toList
-    [ "RegisterView"; displayField "pc" $"0x{view.PC:x}" ]
-    @ displaySection "registers" lines
+    match mode with
+    | Preview ->
+      $"PC=0x{view.PC:x}" :: lines
+    | Full ->
+      [ "RegisterView"; displayField "pc" $"0x{view.PC:x}" ]
+      @ displaySection "registers" lines
 
   let private renderMemoryView mode view =
     let view: MemoryView = view
     seq {
-      yield "MemoryView"
-      yield displayField "address" $"0x{view.Address:x}"
-      yield displayField "size" $"{view.Bytes.Length} bytes"
+      if mode = Full then
+        yield "MemoryView"
+        yield displayField "address" $"0x{view.Address:x}"
+        yield displayField "size" $"{view.Bytes.Length} bytes"
+      else
+        yield $"0x{view.Address:x}:"
       match mode with
       | Preview ->
         yield! renderByteRows view.Bytes
@@ -427,29 +471,33 @@ module TransformerReplEvaluator =
         yield! renderHexRows view.Address view.Bytes
     }
 
-  let private renderMemoryBytes label addr bytes =
+  let private renderMemoryBytes mode label addr bytes =
     seq {
       yield $"  {label}:"
       match bytes with
       | Some bytes ->
-        for line in renderHexRows addr bytes do
+        let lines =
+          match mode with
+          | Preview -> renderByteRows bytes
+          | Full -> renderHexRows addr bytes
+        for line in lines do
           yield "  " + line
       | None ->
         yield "    <unreadable>"
     }
 
-  let private renderMemoryDiff diff =
+  let private renderMemoryDiff mode diff =
     let diff: MemoryDiff = diff
     seq {
       match diff.Before, diff.After with
       | Some before, Some after when before = after ->
-        yield! renderMemoryBytes "unchanged" diff.Address (Some after)
+        yield! renderMemoryBytes mode "unchanged" diff.Address (Some after)
       | before, after ->
-        yield! renderMemoryBytes "before" diff.Address before
-        yield! renderMemoryBytes "after" diff.Address after
+        yield! renderMemoryBytes mode "before" diff.Address before
+        yield! renderMemoryBytes mode "after" diff.Address after
     }
 
-  let private renderMemoryAccess access =
+  let private renderMemoryAccess mode access =
     let access: MemoryAccess = access
     let head =
       match access.Kind with
@@ -469,43 +517,61 @@ module TransformerReplEvaluator =
       yield head
       match access.Kind with
       | MemoryAccessKind.Read ->
-        yield! renderMemoryBytes "value" access.Address access.After
+        yield! renderMemoryBytes mode "value" access.Address access.After
       | MemoryAccessKind.Write ->
-        yield! renderMemoryBytes "before" access.Address access.Before
-        yield! renderMemoryBytes "after" access.Address access.After
+        yield! renderMemoryBytes mode "before" access.Address access.Before
+        yield! renderMemoryBytes mode "after" access.Address access.After
       yield! violation
     }
 
-  let private renderTrace trace =
+  let private renderTrace mode trace =
     let trace: ExecutionTrace = trace
     seq {
-      yield "ExecutionTrace"
-      yield displayField "executed" (string trace.InstructionCount)
-      yield displayField "attempted" (string trace.Instructions.Length)
-      yield displayField "start" $"0x{trace.Start:x}"
-      yield displayField "final-pc" $"0x{trace.FinalPC:x}"
-      if trace.Instructions.Length = 0 then
-        yield displayField "instructions" "none"
+      yield $"ExecutionTrace: {trace.InstructionCount} instructions, "
+            + $"PC=0x{trace.FinalPC:x}"
+      if mode = Full then
+        yield displayField "attempted" (string trace.Instructions.Length)
+        yield displayField "start" $"0x{trace.Start:x}"
       else
-        yield "  instructions:"
+        ()
+      if trace.Instructions.Length = 0 then
+        if mode = Full then
+          yield displayField "instructions" "none"
+        else
+          ()
+      else
+        if mode = Full then yield "  instructions:" else ()
         for ins in trace.Instructions do
-          yield $"    0x{ins.Address:x}: {ins.Disassembly}"
-      yield! displaySection "registers" (Array.toList trace.RegisterDiffs)
+          let indent = if mode = Full then "    " else "  "
+          yield $"{indent}0x{ins.Address:x}: {ins.Disassembly}"
+      if mode = Full || trace.RegisterDiffs.Length > 0 then
+        yield! displaySection "registers" (Array.toList trace.RegisterDiffs)
+      else
+        ()
       if trace.MemoryAccesses.Length = 0 then
-        yield displayField "memory-accesses" "none"
+        if mode = Full then
+          yield displayField "memory-accesses" "none"
+        else
+          ()
       else
         yield "  memory-accesses:"
         for access in trace.MemoryAccesses do
-          for line in renderMemoryAccess access do
+          for line in renderMemoryAccess mode access do
             yield "    " + line
       if trace.MemoryDiffs.Length = 0 then
-        yield displayField "memory-watch" "none"
+        if mode = Full then
+          yield displayField "memory-watch" "none"
+        else
+          ()
       else
         yield "  memory-watch:"
         for diff in trace.MemoryDiffs do
-          for line in renderMemoryDiff diff do
+          for line in renderMemoryDiff mode diff do
             yield "    " + line
-      yield! displaySection "stop-reasons" (Array.toList trace.StopReasons)
+      if mode = Full || trace.StopReasons.Length > 0 then
+        yield! displaySection "stop-reasons" (Array.toList trace.StopReasons)
+      else
+        ()
     }
 
   let private renderRequirements needs =
@@ -545,7 +611,7 @@ module TransformerReplEvaluator =
     @ displaySection "required-memory" memory
 
   let private renderAddressValue (value: AddressValue) =
-    [ "Address"; displayField "value" $"0x{value.Address:x}" ]
+    [ $"0x{value.Address:x}" ]
 
   let private symbRegionPermission permission =
     let permission: SymbRegionPermission = permission
@@ -559,7 +625,7 @@ module TransformerReplEvaluator =
       | permissions ->
         String.concat "" permissions
 
-  let private renderSymbExecutor executor =
+  let private renderSymbExecutor mode executor =
     let executor: SymbExecutorValue = executor
     let solver =
       executor.Solver
@@ -570,32 +636,134 @@ module TransformerReplEvaluator =
       |> List.rev
       |> List.map (fun input ->
         $"{input.Name}: {input.Location}, {input.Size} bytes")
-    let avoids =
-      executor.Avoids
-      |> Seq.map (fun address -> $"0x{address:x}")
-      |> Seq.toList
-    let regions =
-      executor.Regions
-      |> List.rev
-      |> List.map (fun region ->
-        let permission = symbRegionPermission region.Permission
-        $"{region.Name}: 0x{region.Start:x}-0x{region.Finish:x}, "
-        + permission)
-    let hooks = executor.HookDescriptions |> List.rev
-    [ "SymbExecutor" ]
-    @ binaryDisplayFields executor.Binary
-    @ [ displayField "pc" $"0x{executor.State.PC:x}"
-        displayField "solver" solver ]
-    @ displaySection "symbolic-inputs" inputs
-    @ displaySection "avoid" avoids
-    @ displaySection "regions" regions
-    @ displaySection "hooks" hooks
+    match mode with
+    | Preview ->
+      [ $"SymbExecutor: {binaryPath executor.Binary}, "
+        + $"PC=0x{executor.State.PC:x}, solver={solver}" ]
+      @ if List.isEmpty inputs then
+          []
+        else
+          displaySection "symbolic-inputs" inputs
+    | Full ->
+      let avoids =
+        executor.Avoids
+        |> Seq.map (fun address -> $"0x{address:x}")
+        |> Seq.toList
+      let regions =
+        executor.Regions
+        |> List.rev
+        |> List.map (fun region ->
+          let permission = symbRegionPermission region.Permission
+          $"{region.Name}: 0x{region.Start:x}-0x{region.Finish:x}, "
+          + permission)
+      let hooks = executor.HookDescriptions |> List.rev
+      [ "SymbExecutor" ]
+      @ binaryDisplayFields executor.Binary
+      @ [ displayField "pc" $"0x{executor.State.PC:x}"
+          displayField "solver" solver ]
+      @ displaySection "symbolic-inputs" inputs
+      @ displaySection "avoid" avoids
+      @ displaySection "regions" regions
+      @ displaySection "hooks" hooks
 
-  let private renderSymbSolver solver =
+  let private renderSymbSolver mode solver =
     let solver: SymbSolverValue = solver
-    [ "SymbSolver"
-      displayField "id" ("@" + solver.ID)
-      displayField "description" solver.Description ]
+    match mode with
+    | Preview ->
+      [ "@" + solver.ID ]
+    | Full ->
+      [ "SymbSolver"
+        displayField "id" ("@" + solver.ID)
+        displayField "description" solver.Description ]
+
+  let private renderConcExecutor mode executor =
+    let executor: ConcExecutorValue = executor
+    match mode with
+    | Preview ->
+      let trace = executor.LastTrace
+      let status =
+        match trace with
+        | Some trace ->
+          $"PC=0x{trace.FinalPC:x}, {trace.InstructionCount} instructions"
+        | None ->
+          $"PC=0x{executor.State.PC:x}"
+      [ $"ConcExecutor: {binaryPath executor.Binary}, {status}" ]
+      @ match trace with
+        | Some trace -> Array.toList trace.StopReasons
+        | None -> []
+    | Full ->
+      executor.SummaryLines
+
+  let private renderInputModel
+        (source: SymbExecutorValue)
+        (values: B2R2.MiddleEnd.SymbEval.SolverValue list)
+        (groups: (string * byte[]) list) =
+    let groupedCount =
+      groups |> List.sumBy (fun (_, bytes: byte[]) -> bytes.Length)
+    let fields =
+      if groupedCount = List.length values && groupedCount > 0 then
+        groups
+        |> List.map (fun (name, bytes) ->
+          let isRegister =
+            source.Inputs
+            |> List.exists (fun input ->
+              input.Name = name
+              && input.Location.StartsWith("reg:", StringComparison.Ordinal))
+          let endian = (Binary.Handle source.Binary).ISA.Endian
+          let bytes =
+            if isRegister && endian = Endian.Little then
+              Array.rev bytes
+            else
+              bytes
+          let hex = Convert.ToHexString(bytes)
+          let hex = if isRegister then hex.TrimStart('0') else hex
+          let hex = if hex = "" then "0" else hex.ToLowerInvariant()
+          $"{name}=0x{hex}")
+      else
+        values
+        |> List.map (fun value -> $"{value.Name}={value.Value}")
+    if List.isEmpty fields then "<none>" else String.concat ", " fields
+
+  let private renderSymbRun mode result =
+    let result: SymbRunValue = result
+    match mode with
+    | Full ->
+      splitTextForDisplay (result.ToString())
+    | Preview ->
+      let run = result.Result
+      let answer = run.Answer
+      let status =
+        match run.Timeout, answer with
+        | Some timeout, _ ->
+          $"timed out after {timeout} ms"
+        | None, SymbAnswer.Satisfiable _ ->
+          "satisfiable"
+        | None, SymbAnswer.Unsatisfiable ->
+          "unsatisfiable"
+        | None, SymbAnswer.Reachable _ ->
+          "reachable"
+        | None, SymbAnswer.Unreachable ->
+          "unreachable"
+        | None, SymbAnswer.Unknown _ ->
+          "unknown"
+      seq {
+        yield $"SymbRunResult: {status}"
+        match answer with
+        | SymbAnswer.Satisfiable _ ->
+          for index, (target, values, groups) in
+              List.indexed result.InputModels do
+            let fields = renderInputModel result.Source values groups
+            yield $"  model #{index} at 0x{target:x}: {fields}"
+        | SymbAnswer.Reachable answers ->
+          for answer in answers do
+            yield $"  reached 0x{answer.Target:x}"
+        | SymbAnswer.Unknown failures ->
+          for failure in failures do
+            yield $"  {failure}"
+        | SymbAnswer.Unreachable
+        | SymbAnswer.Unsatisfiable ->
+          ()
+      }
 
   let private ansiOfColor = function
     | NoColor ->
@@ -636,13 +804,13 @@ module TransformerReplEvaluator =
       | null ->
         yield "()"
       | :? CFG as cfg ->
-        yield! renderCFG index cfg
+        yield! renderCFG mode index cfg
       | :? Binary as binary ->
-        yield! renderBinary binary
+        yield! renderBinary mode binary
       | :? BinaryBytes as bytes ->
         yield! renderBinaryBytes mode bytes
       | :? (Instruction[]) as instructions ->
-        yield! renderInstructionArray instructions
+        yield! renderInstructionArray mode instructions
       | :? TextArtifact as artifact ->
         yield! splitTextForDisplay artifact.Content
       | :? string as text ->
@@ -650,35 +818,35 @@ module TransformerReplEvaluator =
       | :? OutString as output ->
         yield! renderOutString output
       | :? Fingerprint as fingerprint ->
-        yield! renderFingerprint fingerprint
+        yield! renderFingerprint mode fingerprint
       | :? ClusterResult as result ->
-        yield! renderClusterResult mode result
+        yield! renderClusterResult result
       | :? BinarySlice as slice ->
-        yield! renderSlice slice
+        yield! renderSlice mode slice
       | :? SectionInfo as section ->
-        yield! renderSection section
+        yield! renderSection mode section
       | :? FunctionInfo as fn ->
-        yield! renderFunction fn
+        yield! renderFunction mode fn
       | :? StringMatch as stringMatch ->
-        yield! renderStringMatch stringMatch
+        yield! renderStringMatch mode stringMatch
       | :? RegisterView as view ->
-        yield! renderRegisterView view
+        yield! renderRegisterView mode view
       | :? MemoryView as view ->
         yield! renderMemoryView mode view
       | :? ExecutionTrace as trace ->
-        yield! renderTrace trace
+        yield! renderTrace mode trace
       | :? ContextRequirements as needs ->
         yield! renderRequirements needs
       | :? AddressValue as address ->
         yield! renderAddressValue address
       | :? ConcExecutorValue as executor ->
-        yield! executor.SummaryLines
+        yield! renderConcExecutor mode executor
       | :? SymbExecutorValue as executor ->
-        yield! renderSymbExecutor executor
+        yield! renderSymbExecutor mode executor
       | :? SymbSolverValue as solver ->
-        yield! renderSymbSolver solver
+        yield! renderSymbSolver mode solver
       | :? SymbRunValue as result ->
-        yield! splitTextForDisplay (result.ToString())
+        yield! renderSymbRun mode result
       | :? Array as values ->
         let name = value.GetType().GetElementType().Name
         yield $"{name} array ({values.Length} values)"
@@ -701,9 +869,22 @@ module TransformerReplEvaluator =
           renderObject mode None values[index]
           |> Seq.collect normalizeDisplayLine
         if value.IsCollection then
-          yield $"  value #{index}:"
-          for line in lines do
-            yield "    " + line
+          use items = lines.GetEnumerator()
+          if items.MoveNext() then
+            let first = items.Current
+            if mode = Preview && not (items.MoveNext()) then
+              yield $"  #{index}: {first}"
+            else
+              yield $"  value #{index}:"
+              yield "    " + first
+              if mode = Preview then
+                yield "    " + items.Current
+              else
+                ()
+              while items.MoveNext() do
+                yield "    " + items.Current
+          else
+            yield $"  #{index}: <empty>"
         else
           yield! lines
     }
