@@ -82,16 +82,15 @@ type TransformerReplCommand =
   | Quit
   | NoInput
 
-/// Parsed `let` header shared by strict parsing and partial suggestions.
+/// Parsed binding header shared by strict parsing and partial suggestions.
 type ReplBindingHeader =
-  { Name: string option
+  { Name: string
     TypeAnnotation: string option
     TypePrefix: string option
     TypePrefixStart: int option
     HasEquals: bool
     Expression: string option
-    ExpressionStart: int option
-    SyntaxError: string option }
+    ExpressionStart: int option }
 
 /// Partial syntax facts for an `iter` or `iteri` expression.
 type ReplIterAnalysis =
@@ -617,6 +616,27 @@ module ReplLanguage =
   let private emptyIterSpec action =
     { ItemName = "_"; IndexName = "_"; Body = []; ActionID = action }
 
+  let private hasTopLevelSemicolon tokens =
+    let rec loop depth = function
+      | [] -> false
+      | ";" :: _ when depth = 0 -> true
+      | token :: rest -> loop (updateDepth depth token) rest
+    loop 0 tokens
+
+  let private iterSpec action item index body =
+    let body = normalizeIterBody body
+    match body with
+    | "let" :: _ ->
+      Error "Local bindings are not supported in iter functions."
+    | _ when hasTopLevelSemicolon body ->
+      Error "An iter function accepts one parameter expression."
+    | _ ->
+      Ok
+        { ItemName = item
+          IndexName = index
+          Body = body
+          ActionID = action }
+
   let private parseIterLambda (keyword: string) action tokens =
     let tokens, _, _ = stripLambdaDelimiters tokens
     match keyword.ToLowerInvariant(), tokens with
@@ -624,18 +644,10 @@ module ReplLanguage =
       Ok(emptyIterSpec action)
     | "iter", "fun" :: item :: "->" :: body
       when validLambdaParameter item ->
-      Ok
-        { ItemName = item
-          IndexName = "_"
-          Body = normalizeIterBody body
-          ActionID = action }
+      iterSpec action item "_" body
     | "iter", "fun" :: item :: index :: "->" :: body
       when validLambdaParameter item && validLambdaParameter index ->
-      Ok
-        { ItemName = item
-          IndexName = index
-          Body = normalizeIterBody body
-          ActionID = action }
+      iterSpec action item index body
     | "iter", "fun" :: _ ->
       Error "iter function must be: fun item -> <action-parameters>."
     | "iter", _ ->
@@ -644,11 +656,7 @@ module ReplLanguage =
       Error "iteri requires a function: fun index item -> ..."
     | "iteri", "fun" :: index :: item :: "->" :: body
       when validLambdaParameter index && validLambdaParameter item ->
-      Ok
-        { ItemName = item
-          IndexName = index
-          Body = normalizeIterBody body
-          ActionID = action }
+      iterSpec action item index body
     | "iteri", "fun" :: _ ->
       Error "iteri function must be: fun index item -> <action-parameters>."
     | "iteri", _ ->
@@ -682,17 +690,6 @@ module ReplLanguage =
       let finish = loop (index + 1)
       Some(input[index..finish - 1], finish)
 
-  let private startsWithLet (input: string) =
-    let start = skipSpaces input 0
-    if start + 3 > input.Length then
-      None
-    elif input[start..start + 2] <> "let" then
-      None
-    elif start + 3 < input.Length && isIdentifierPart input[start + 3] then
-      None
-    else
-      Some(start + 3)
-
   let private trimType (input: string) start finish =
     let mutable first = start
     let mutable last = finish
@@ -718,17 +715,9 @@ module ReplLanguage =
     typ, typStart, finish
 
   let bindingHeader (input: string) =
-    startsWithLet input
-    |> Option.map (fun index ->
-      let index = skipSpaces input index
-      let hasOpenParen = index < input.Length && input[index] = '('
-      let index = if hasOpenParen then skipSpaces input (index + 1) else index
-      let name, index =
-        match parseIdentifier input index with
-        | Some(name, index) ->
-          Some name, index
-        | None ->
-          None, index
+    let start = skipSpaces input 0
+    parseIdentifier input start
+    |> Option.bind (fun (name, index) ->
       let index = skipSpaces input index
       let typ, typStart, index =
         if index < input.Length && input[index] = ':' then
@@ -737,28 +726,20 @@ module ReplLanguage =
         else
           None, None, index
       let index = skipSpaces input index
-      let hasCloseParen =
-        hasOpenParen && index < input.Length && input[index] = ')'
-      let index =
-        if hasCloseParen then
-          skipSpaces input (index + 1)
-        else
-          index
-      let syntaxError =
-        if hasOpenParen && not hasCloseParen then
-          Some "Expected ')' after parenthesized binding."
-        else
-          None
       let hasEquals = index < input.Length && input[index] = '='
-      let expressionStart = if hasEquals then Some(index + 1) else None
-      { Name = name
-        TypeAnnotation = typ
-        TypePrefix = if hasEquals then None else typ
-        TypePrefixStart = if hasEquals then None else typStart
-        HasEquals = hasEquals
-        Expression = expressionStart |> Option.map (fun index -> input[index..])
-        ExpressionStart = expressionStart
-        SyntaxError = syntaxError })
+      if not hasEquals && Option.isNone typ then
+        None
+      else
+        let expressionStart = if hasEquals then Some(index + 1) else None
+        Some
+          { Name = name
+            TypeAnnotation = typ
+            TypePrefix = if hasEquals then None else typ
+            TypePrefixStart = if hasEquals then None else typStart
+            HasEquals = hasEquals
+            Expression =
+              expressionStart |> Option.map (fun index -> input[index..])
+            ExpressionStart = expressionStart })
 
   let bindingExpected input =
     bindingHeader input
@@ -1356,14 +1337,10 @@ module ReplLanguage =
   let parseEvaluation input tokens =
     match bindingHeader input with
     | Some header ->
-      match header.SyntaxError with
-      | Some message ->
-        Error message
-      | None ->
       match header.Name, header.HasEquals, header.Expression with
-      | Some name, _, _ when TransformerReplState.isLastResultName name ->
+      | name, _, _ when TransformerReplState.isLastResultName name ->
         Error "'it' is reserved for the last result."
-      | Some name, true, Some expression when isValidName name ->
+      | name, true, Some expression ->
         let expected =
           match header.TypeAnnotation with
           | Some typ when String.IsNullOrWhiteSpace typ ->
@@ -1380,20 +1357,14 @@ module ReplLanguage =
             parsePipeline expression
             |> Result.map (fun segments ->
               Evaluate(segments, Some name, expected)))
-      | Some name, _, _ when not (isValidName name) ->
-        Error $"Invalid binding name: {name}"
-      | None, _, _ ->
-        Error "A binding name is required after let."
       | _, false, _ ->
         Error "Expected '=' after binding."
       | _, _, None ->
         Error "An expression is required."
-      | Some name, _, _ ->
-        Error $"Invalid binding name: {name}"
     | None ->
       match tokens with
-      | name :: "=" :: _ when isValidName name ->
-        Error "Assignment without let is not supported. Use let <name> = ..."
+      | "let" :: _ ->
+        Error "Use <name> = <expression> to bind a value."
       | _ ->
         parsePipeline input
         |> Result.map (fun segments -> Evaluate(segments, None, None))

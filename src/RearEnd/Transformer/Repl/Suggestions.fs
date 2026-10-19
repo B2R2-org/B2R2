@@ -172,15 +172,6 @@ module Suggestions =
       Form = SuggestionForm.Token
       CursorOffset = None }
 
-  let private letItem =
-    { Text = "let"
-      Label = "let"
-      Detail = "bind an analysis result"
-      Kind = SuggestionKind.Command
-      AppendSpace = true
-      Form = SuggestionForm.Token
-      CursorOffset = None }
-
   let private typeItem kind =
     let name = ReplValueKind.toString kind
     { Text = name
@@ -274,15 +265,9 @@ module Suggestions =
     registry
     state
     prefix
-    includeLet
     includeCurrent
     expected =
     let state: TransformerReplState = state
-    let keywords =
-      if includeLet && matches prefix letItem.Text then
-        [ letItem ]
-      else
-        []
     let bindings =
       bindingCandidates state
       |> List.filter (fun (_, value) -> valueMatches expected value)
@@ -298,7 +283,7 @@ module Suggestions =
         |> Option.defaultValue []
       else
         []
-    keywords @ bindings @ sourceActions @ currentActions
+    bindings @ sourceActions @ currentActions
     |> List.distinctBy (fun item -> item.Text)
 
   let private literalBindingCandidates state expression prefix =
@@ -1261,7 +1246,6 @@ module Suggestions =
             state
             context.Prefix
             (not context.HasBinding)
-            (not context.HasBinding)
             expected
       | [ head ] when endsWithSpace ->
         completeArguments head [] 0
@@ -1275,7 +1259,6 @@ module Suggestions =
           registry
           state
           context.Prefix
-          (not context.HasBinding)
           (not context.HasBinding)
           expected
       | head :: _ ->

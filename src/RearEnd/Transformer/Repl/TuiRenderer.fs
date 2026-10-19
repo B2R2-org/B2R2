@@ -185,7 +185,7 @@ module TransformerTuiRenderer =
     [ "REPL GUIDE"
       ""
       "Pipelines"
-      "  let <name> = <expression>       Bind an analysis result"
+      "  <name> = <expression>           Bind an analysis result"
       "  <value> |> @<action> [args]      Transform the preceding value"
       "  <expression>                      Evaluate without binding"
       ""
