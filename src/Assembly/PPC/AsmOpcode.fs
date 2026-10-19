@@ -916,8 +916,17 @@ let private quadReserve xo rc ins =
   | _ ->
     wrongOperands ins
 
+/// The extended divides, by extended opcode, with the names of their plain
+/// and their overflow-recording forms.
+let private extendedDivides =
+  [ 393u, (Op.DIVDEU, Op.DIVDEUdot), (Op.DIVDEUO, Op.DIVDEUOdot)
+    395u, (Op.DIVWEU, Op.DIVWEUdot), (Op.DIVWEUO, Op.DIVWEUOdot)
+    425u, (Op.DIVDE, Op.DIVDEdot), (Op.DIVDEO, Op.DIVDEOdot)
+    427u, (Op.DIVWE, Op.DIVWEdot), (Op.DIVWEO, Op.DIVWEOdot) ]
+
 /// The instructions of lane A.
 let laneAEncoders () =
+  let divide (xo, plain, ovf) = overflowing xDab xo plain ovf
   [ Op.BCTAR, targetBranch 0u
     Op.BCTARL, targetBranch 1u
     Op.RFEBB, eventReturn
@@ -926,3 +935,4 @@ let laneAEncoders () =
     Op.ICBT, cacheTouch
     Op.LQARX, quadReserve 276u 0u
     Op.STQCXdot, quadReserve 182u 1u ]
+  @ List.collect divide extendedDivides

@@ -2596,6 +2596,38 @@ let translate (ins: Instruction) bld =
     bctar ins bld true
   | Op.CLRBHRB | Op.ICBT ->
     nop ins bld
+  | Op.DIVDE ->
+    divde ins false false bld
+  | Op.DIVDEdot ->
+    divde ins true false bld
+  | Op.DIVDEO ->
+    divde ins false true bld
+  | Op.DIVDEOdot ->
+    divde ins true true bld
+  | Op.DIVDEU ->
+    divdeu ins false false bld
+  | Op.DIVDEUdot ->
+    divdeu ins true false bld
+  | Op.DIVDEUO ->
+    divdeu ins false true bld
+  | Op.DIVDEUOdot ->
+    divdeu ins true true bld
+  | Op.DIVWE ->
+    divwe ins false false bld
+  | Op.DIVWEdot ->
+    divwe ins true false bld
+  | Op.DIVWEO ->
+    divwe ins false true bld
+  | Op.DIVWEOdot ->
+    divwe ins true true bld
+  | Op.DIVWEU ->
+    divweu ins false false bld
+  | Op.DIVWEUdot ->
+    divweu ins true false bld
+  | Op.DIVWEUO ->
+    divweu ins false true bld
+  | Op.DIVWEUOdot ->
+    divweu ins true true bld
   | Op.LQARX ->
     lqarx ins bld
   | Op.MFBHRBE ->

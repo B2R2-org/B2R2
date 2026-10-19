@@ -2203,6 +2203,45 @@ let mtvsrw ins bld signed =
 /// of 2^63 and up are converted with 2^63 taken off and put back afterwards.
 (* Lane A: the branch and storage instructions of ISA 2.07 and later. *)
 /// <summary>
+/// The extended divides, which divide the low word (doubleword) of rA with a
+/// word (doubleword) of zeros below it by the low word (doubleword) of rB, in
+/// a type twice that wide. The quotient is defined only where it fits in a
+/// word (doubleword) and the divisor is not zero; otherwise it is zero here,
+/// as QEMU leaves it, and the OE forms set OV and OV32. A word quotient fills
+/// a 64-bit register by sign or zero extension, as divw and divwu do.
+/// </summary>
+let private divideExtended ins updateCond ovCond bld width signed =
+  lift bld ins {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let wide = width + width
+    let extend = if signed then AST.sext else AST.zext
+    let dividend = AST.concat (AST.xtlo width src1) (AST.num0 width)
+    let struct (divisor, quotient) = tmpVars2 bld wide
+    let ok = tmpVar bld 1<rt>
+    let zero = divisor == AST.num0 wide
+    let safe = AST.ite zero (AST.num1 wide) divisor
+    let result = extend bld.RegType (AST.xtlo width quotient)
+    divisor := extend wide (AST.xtlo width src2)
+    quotient := if signed then dividend ?/ safe else dividend ./ safe
+    ok := AST.not zero .& (quotient == extend wide (AST.xtlo width quotient))
+    if ovCond then setWholeOverflow bld (AST.not ok) else ()
+    dst := AST.ite ok result (AST.num0 bld.RegType)
+    if updateCond then setCR0Reg bld dst else ()
+  }
+
+let divwe ins updateCond ovCond bld =
+  divideExtended ins updateCond ovCond bld 32<rt> true
+
+let divweu ins updateCond ovCond bld =
+  divideExtended ins updateCond ovCond bld 32<rt> false
+
+let divde ins updateCond ovCond bld =
+  divideExtended ins updateCond ovCond bld 64<rt> true
+
+let divdeu ins updateCond ovCond bld =
+  divideExtended ins updateCond ovCond bld 64<rt> false
+
+/// <summary>
 /// bctar/bctarl, which go to TAR with its low two bits cleared where the
 /// counter and a CR bit say so, testing them as bc does -- CTR is counted down
 /// unless BO2 says not to, which bcctr may not do. bctarl leaves the address
