@@ -166,6 +166,36 @@ let private xb bin = getVsxRegister (vsxNumber bin 1u 11u) |> OprReg
 /// An XX2-form "xT, xB".
 let private parseXX2 op bin = struct (op, TwoOperands(xt bin, xb bin))
 
+/// The register an XX3 form names in its A field, extended by bit 2.
+let private xa bin = getVsxRegister (vsxNumber bin 2u 16u) |> OprReg
+
+/// An XX3-form "xT, xA, xB".
+let private parseXX3 op bin = struct (op, ThreeOperands(xt bin, xa bin, xb bin))
+
+/// xxextractuw and xxinsertw, "xT, xB, UIM": the byte index sits in the low
+/// four bits of the A field, the bit above them reserved.
+let private parseXX2Uim op bin =
+  let uim = Bits.extract bin 19u 16u |> uint64 |> OprImm
+  if Bits.pick bin 20u <> 0u then raise ParsingFailureException
+  else struct (op, ThreeOperands(xt bin, xb bin, uim))
+
+/// The xxgenpcv forms, "xT, vRB, IMM": the mask is a vector register, and
+/// only IMM 0 to 3 are defined.
+let private parseGenPCV op bin =
+  let imm = Bits.extract bin 20u 16u
+  let vrb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  if imm > 3u then raise ParsingFailureException
+  else struct (op, ThreeOperands(xt bin, vrb, OprImm(uint64 imm)))
+
+/// The condition-register field an XX form names in place of xT, the two
+/// bits below it reserved.
+let private crField bin =
+  if Bits.extract bin 22u 21u <> 0u then raise ParsingFailureException
+  else getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+
+/// An XX2 form that reports in a condition-register field: "BF, xB".
+let private parseXX2CR op bin = struct (op, TwoOperands(crField bin, xb bin))
+
 /// The UIM values lxvkq defines; the others are reserved.
 let private isQuadConstant uim =
   (uim >= 1u && uim <= 9u) || (uim >= 16u && uim <= 24u)
@@ -179,14 +209,44 @@ let private parseLXVKQ bin =
   else
     struct (Op.LXVKQ, TwoOperands(xt bin, OprImm(uint64 uim)))
 
+/// The XX2 forms of extended opcode 475, which its A field tells apart.
+let private parseXO475 bin =
+  match Bits.extract bin 20u 16u with
+  | 2u -> parseXX2CR Op.XVTLSBB bin
+  | 7u -> parseXX2 Op.XXBRH bin
+  | 15u -> parseXX2 Op.XXBRW bin
+  | 23u -> parseXX2 Op.XXBRD bin
+  | 31u -> parseXX2 Op.XXBRQ bin
+  | _ -> raise ParsingFailureException
+
+/// The X-forms of primary opcode 60, whose extended opcode is ten bits.
+let private parse3CX bin =
+  match Bits.extract bin 10u 1u with
+  | 916u -> parseGenPCV Op.XXGENPCVBM bin
+  | 917u -> parseGenPCV Op.XXGENPCVHM bin
+  | 948u -> parseGenPCV Op.XXGENPCVWM bin
+  | 949u -> parseGenPCV Op.XXGENPCVDM bin
+  | _ -> raise ParsingFailureException
+
+/// The XX3 forms of primary opcode 60, keyed by their eight-bit extended
+/// opcode.
+let private parse3CXX3 bin =
+  match Bits.extract bin 10u 3u with
+  | 26u -> parseXX3 Op.XXPERM bin
+  | 58u -> parseXX3 Op.XXPERMR bin
+  | _ -> parse3CX bin
+
 /// <summary>
 /// The forms of primary opcode 60 that ParsingMain does not decode itself.
 /// An XX2 form's extended opcode is nine bits, ending above the two
-/// register-extension bits.
+/// register-extension bits; an XX3 form's is eight; an X-form's ten.
 /// </summary>
 let parse3C bin =
   match Bits.extract bin 10u 2u with
   | 10u -> parseXX2 Op.XSRSQRTESP bin
   | 26u -> parseXX2 Op.XSRESP bin
+  | 165u -> parseXX2Uim Op.XXEXTRACTUW bin
   | 180u -> parseLXVKQ bin
-  | _ -> raise ParsingFailureException
+  | 181u -> parseXX2Uim Op.XXINSERTW bin
+  | 475u -> parseXO475 bin
+  | _ -> parse3CXX3 bin

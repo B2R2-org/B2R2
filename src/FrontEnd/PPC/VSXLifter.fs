@@ -362,3 +362,191 @@ let reciprocalEstimateSingle ins bld isSqrt =
     dl := AST.num0 64<rt>
     setFPRF bld dh
   }
+
+/// The bytes of a register held as two halves, byte element 0 first.
+let private bytesOf (h: Expr) (l: Expr) = Array.init 16 (byteAt h l)
+
+/// Writes sixteen bytes, byte element 0 first, into a register's two halves
+/// through temporaries, so a source that is also the target is read whole
+/// before it is written.
+let private writeBytes bld (dh: Expr) (dl: Expr) (bytes: Expr[]) =
+  let struct (th, tl) = tmpVars2 bld 64<rt>
+  append bld {
+    th := AST.revConcat (Array.rev bytes[0..7])
+    tl := AST.revConcat (Array.rev bytes[8..15])
+    dh := th
+    dl := tl
+  }
+
+/// xxbrh, xxbrw, xxbrd and xxbrq: the bytes of each element of the given
+/// size reversed, the elements themselves left where they are.
+let byteReverse ins bld size =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let struct (bh, bl) = vsrOf bld o2
+    let src = bytesOf bh bl
+    let reversed =
+      Array.init 16 (fun i -> src[(i / size) * size + size - 1 - i % size])
+    writeBytes bld dh dl reversed
+  }
+
+/// The immediate operand at the end of an instruction.
+let private immOf = function
+  | OprImm n -> int n
+  | _ -> raise InvalidOperandException
+
+/// xxextractuw: the four bytes from byte element UIM of xB, zero-extended
+/// into doubleword 0 (word element 1); the rest of xT is cleared. A UIM past
+/// 12 is undefined and reads the bytes it reaches, wrapping round.
+let xxextractuw ins bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let struct (bh, bl) = vsrOf bld o2
+    let src = bytesOf bh bl
+    let uim = immOf o3
+    let word = Array.init 4 (fun k -> src[(uim + k) % 16])
+    let value = tmpVar bld 32<rt>
+    value := AST.revConcat (Array.rev word)
+    dh := AST.zext 64<rt> value
+    dl := AST.num0 64<rt>
+  }
+
+/// xxinsertw: word element 1 of xB into byte elements UIM to UIM+3 of xT,
+/// the other bytes of xT kept. A UIM past 12 is undefined and writes the
+/// bytes it reaches, wrapping round.
+let xxinsertw ins bld =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let struct (bh, _) = vsrOf bld o2
+    let dst = bytesOf dh dl
+    let uim = immOf o3
+    let word = Array.init 4 (fun k -> AST.extract bh 8<rt> ((3 - k) * 8))
+    let bytes =
+      Array.init 16 (fun i ->
+        let k = (i - uim + 16) % 16
+        if k < 4 then word[k] else dst[i])
+    writeBytes bld dh dl bytes
+  }
+
+/// xxperm and xxpermr: each byte of xT from the 32-byte pair xA || xT, at the
+/// index the low five bits of the matching byte of xB give -- counted from
+/// the left by xxperm and from the right by xxpermr.
+let permute ins bld fromRight =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let struct (ah, al) = vsrOf bld o2
+    let struct (bh, bl) = vsrOf bld o3
+    let src = Array.append (bytesOf ah al) (bytesOf dh dl)
+    let pcv = bytesOf bh bl
+    let picked =
+      Array.init 16 (fun i ->
+        let index = tmpVar bld 8<rt>
+        let raw = pcv[i] .& numI32 31 8<rt>
+        append bld {
+          index := if fromRight then numI32 31 8<rt> .- raw else raw
+        }
+        Array.fold (fun acc k ->
+          AST.ite (index == numI32 k 8<rt>) src[k] acc) src[0] [| 1 .. 31 |])
+    writeBytes bld dh dl picked
+  }
+
+/// xvtlsbb: whether the least significant bit of every byte of xB is set
+/// (CR field bit 0) or every one is clear (bit 2); bits 1 and 3 are zero.
+let xvtlsbb ins bld =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (bh, bl) = vsrOf bld o2
+    let lsbs = numU64 0x0101010101010101UL 64<rt>
+    let lt, gt, eq, so =
+      match o1 with
+      | OprReg reg -> transCRxToExpr bld reg
+      | _ -> raise InvalidOperandException
+    lt := ((bh .& lsbs) == lsbs) .& ((bl .& lsbs) == lsbs)
+    gt := AST.b0
+    eq := ((bh .& lsbs) == AST.num0 64<rt>) .& ((bl .& lsbs) == AST.num0 64<rt>)
+    so := AST.b0
+  }
+
+/// The bits the xxgenpcv forms read: the most significant bit of each
+/// element of the given size, element 0 first.
+let private maskBits (h: Expr) (l: Expr) size =
+  Array.init (16 / size) (fun i ->
+    let b = i * size
+    if b < 8 then AST.extract h 1<rt> (63 - b * 8)
+    else AST.extract l 1<rt> (63 - (b - 8) * 8))
+
+/// How many of the mask bits before each element are set: entry i counts
+/// elements 0 to i-1, so the last entry counts them all.
+let private prefixCounts bld (masks: Expr[]) =
+  let counts = Array.init (masks.Length + 1) (fun _ -> tmpVar bld 8<rt>)
+  append bld {
+    counts[0] := AST.num0 8<rt>
+    for i in 0 .. masks.Length - 1 do
+      counts[i + 1] := counts[i] .+ AST.zext 8<rt> masks[i]
+  }
+  counts
+
+/// IMM 0: element i of the expansion takes the next unused leading element
+/// of the source where its mask bit is set, and its own index into the
+/// second source where it is clear.
+let private expandLeft (masks: Expr[]) (counts: Expr[]) size =
+  Array.init 16 (fun b ->
+    let i, k = b / size, b % size
+    let used = (counts[i] .* numI32 size 8<rt>) .+ numI32 k 8<rt>
+    AST.ite masks[i] used (numI32 (size * i + 16 + k) 8<rt>))
+
+/// IMM 2: the same counted from the right, for a right-indexed permute: the
+/// i-th element from the right and its bytes from the right.
+let private expandRight (masks: Expr[]) (counts: Expr[]) size =
+  let n = masks.Length
+  Array.init 16 (fun b ->
+    let p, k = b / size, size - 1 - b % size
+    let after = counts[n] .- counts[p + 1]
+    let used = (after .* numI32 size 8<rt>) .+ numI32 k 8<rt>
+    AST.ite masks[p] used (numI32 (size * (n - 1 - p) + 16 + k) 8<rt>))
+
+/// IMM 1: output element q takes the index of the q-th selected element;
+/// the elements past the selected ones are undefined and are cleared.
+let private compressLeft (masks: Expr[]) (counts: Expr[]) size =
+  Array.init 16 (fun b ->
+    let q, k = b / size, b % size
+    [| 0 .. masks.Length - 1 |]
+    |> Array.fold (fun acc i ->
+      let hit = masks[i] .& (counts[i] == numI32 q 8<rt>)
+      AST.ite hit (numI32 (size * i + k) 8<rt>) acc) (AST.num0 8<rt>))
+
+/// IMM 3: the same counted from the right.
+let private compressRight (masks: Expr[]) (counts: Expr[]) size =
+  let n = masks.Length
+  Array.init 16 (fun b ->
+    let q, k = b / size, size - 1 - b % size
+    [| 0 .. n - 1 |]
+    |> Array.fold (fun acc i ->
+      let p = n - 1 - i
+      let after = counts[n] .- counts[p + 1]
+      let hit = masks[p] .& (after == numI32 (n - 1 - q) 8<rt>)
+      AST.ite hit (numI32 (size * i + k) 8<rt>) acc) (AST.num0 8<rt>))
+
+/// xxgenpcvbm, xxgenpcvhm, xxgenpcvwm and xxgenpcvdm: the permute control
+/// vector that expands or compresses the elements of the given size vRB's
+/// mask selects, for a permute indexed from the left (IMM 0 and 1) or from
+/// the right (IMM 2 and 3).
+let genPCV ins bld size =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let struct (bh, bl) = vsrOf bld o2
+    let masks = maskBits bh bl size
+    let counts = prefixCounts bld masks
+    let build =
+      match immOf o3 with
+      | 0 -> expandLeft
+      | 1 -> compressLeft
+      | 2 -> expandRight
+      | _ -> compressRight
+    writeBytes bld dh dl (build masks counts size)
+  }

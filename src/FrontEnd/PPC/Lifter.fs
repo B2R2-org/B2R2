@@ -2183,6 +2183,32 @@ let translate (ins: Instruction) bld =
     VSXLifter.reciprocalEstimateSingle ins bld false
   | Op.XSRSQRTESP ->
     VSXLifter.reciprocalEstimateSingle ins bld true
+  | Op.XXBRH ->
+    VSXLifter.byteReverse ins bld 2
+  | Op.XXBRW ->
+    VSXLifter.byteReverse ins bld 4
+  | Op.XXBRD ->
+    VSXLifter.byteReverse ins bld 8
+  | Op.XXBRQ ->
+    VSXLifter.byteReverse ins bld 16
+  | Op.XXEXTRACTUW ->
+    VSXLifter.xxextractuw ins bld
+  | Op.XXINSERTW ->
+    VSXLifter.xxinsertw ins bld
+  | Op.XXPERM ->
+    VSXLifter.permute ins bld false
+  | Op.XXPERMR ->
+    VSXLifter.permute ins bld true
+  | Op.XXGENPCVBM ->
+    VSXLifter.genPCV ins bld 1
+  | Op.XXGENPCVHM ->
+    VSXLifter.genPCV ins bld 2
+  | Op.XXGENPCVWM ->
+    VSXLifter.genPCV ins bld 4
+  | Op.XXGENPCVDM ->
+    VSXLifter.genPCV ins bld 8
+  | Op.XVTLSBB ->
+    VSXLifter.xvtlsbb ins bld
   | o ->
 #if DEBUG
          eprintfn "%A" o

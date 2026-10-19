@@ -1265,6 +1265,19 @@ let opCodeToString = function
   | Op.STXVX -> "stxvx"
   | Op.XSRESP -> "xsresp"
   | Op.XSRSQRTESP -> "xsrsqrtesp"
+  | Op.XVTLSBB -> "xvtlsbb"
+  | Op.XXBRD -> "xxbrd"
+  | Op.XXBRH -> "xxbrh"
+  | Op.XXBRQ -> "xxbrq"
+  | Op.XXBRW -> "xxbrw"
+  | Op.XXEXTRACTUW -> "xxextractuw"
+  | Op.XXGENPCVBM -> "xxgenpcvbm"
+  | Op.XXGENPCVDM -> "xxgenpcvdm"
+  | Op.XXGENPCVHM -> "xxgenpcvhm"
+  | Op.XXGENPCVWM -> "xxgenpcvwm"
+  | Op.XXINSERTW -> "xxinsertw"
+  | Op.XXPERM -> "xxperm"
+  | Op.XXPERMR -> "xxpermr"
   | _ -> Terminator.impossible ()
 
 let condToString = function
