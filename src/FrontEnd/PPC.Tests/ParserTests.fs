@@ -3004,6 +3004,73 @@ type ParserTests() =
     ++ (MULLDOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
     ||> testOnlyPPC64
 
+  [<TestMethod>]
+  member _.``[PPC64] BCTAR (branch conditional to TAR)``() =
+    "4e890460"
+    ++ (BCTAR ** [ O.Imm 0x14UL; O.BI 9u ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] BCTARL (branch conditional to TAR and link)``() =
+    "4e890461"
+    ++ (BCTARL ** [ O.Imm 0x14UL; O.BI 9u ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] BCTAR with a BH hint``() =
+    "4d821460"
+    ++ (BCTAR ** [ O.Imm 0xcUL; O.BI 2u; O.Imm 2UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] CLRBHRB (clear the branch history rolling buffer)``() =
+    "7c00035c"
+    ++ (CLRBHRB ** [])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] ICBT (instruction cache block touch)``() =
+    "7c06382c"
+    ++ (ICBT ** [ O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] ICBT with a CT hint``() =
+    "7c46382c"
+    ++ (ICBT ** [ O.Imm 2UL; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC64] LQARX (load quadword and reserve indexed)``() =
+    "7d463a28"
+    ++ (LQARX ** [ O.Reg R10; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  /// An odd first register of the pair, and a pair that rA names too, are
+  /// invalid forms of lqarx; an odd one is of stqcx.
+  [<TestMethod>]
+  member _.``[PPC64] LQARX and STQCX. refuse the invalid forms``() =
+    for hex in [ "7d663a28"; "7cc63a28"; "7d66396d" ] do
+      testUnsupported WordSize.Bit64 hex
+
+  [<TestMethod>]
+  member _.``[PPC64] MFBHRBE (move from a BHRB entry)``() =
+    "7ca0025c"
+    ++ (MFBHRBE ** [ O.Reg R5; O.Imm 0UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] RFEBB (return from event-based branch)``() =
+    "4c000124"
+    ++ (RFEBB ** [ O.Imm 0UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] STQCX. (store quadword conditional indexed)``() =
+    "7d46396d"
+    ++ (STQCXdot ** [ O.Reg R10; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

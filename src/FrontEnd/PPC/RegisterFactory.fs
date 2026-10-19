@@ -241,6 +241,11 @@ type RegisterFactory(isa: ISA) =
   let vsrl30 = AST.var 64<rt> (Register.toRegID VSRL30) "VSRL30"
   let vsrl31 = AST.var 64<rt> (Register.toRegID VSRL31) "VSRL31"
   let fpscrh = AST.var 32<rt> (Register.toRegID FPSCRH) "FPSCRH"
+  let tar = AST.var rt (Register.toRegID TAR) "TAR"
+  let bescr = AST.var rt (Register.toRegID BESCR) "BESCR"
+  let ebbhr = AST.var rt (Register.toRegID EBBHR) "EBBHR"
+  let ebbrr = AST.var rt (Register.toRegID EBBRR) "EBBRR"
+  let exMonVal2 = AST.var rt (Register.toRegID ExMonVal2) "ExMonVal2"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -457,6 +462,11 @@ type RegisterFactory(isa: ISA) =
       | Register.VSRL30 -> vsrl30
       | Register.VSRL31 -> vsrl31
       | Register.FPSCRH -> fpscrh
+      | Register.TAR -> tar
+      | Register.BESCR -> bescr
+      | Register.EBBHR -> ebbhr
+      | Register.EBBRR -> ebbrr
+      | Register.ExMonVal2 -> exMonVal2
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -659,6 +669,11 @@ type RegisterFactory(isa: ISA) =
       | "vsrl30" -> vsrl30
       | "vsrl31" -> vsrl31
       | "fpscrh" -> fpscrh
+      | "tar" -> tar
+      | "bescr" -> bescr
+      | "ebbhr" -> ebbhr
+      | "ebbrr" -> ebbrr
+      | "exmonval2" -> exMonVal2
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -858,7 +873,12 @@ type RegisterFactory(isa: ISA) =
          vsrl29
          vsrl30
          vsrl31
-         fpscrh |]
+         fpscrh
+         tar
+         bescr
+         ebbhr
+         ebbrr
+         exMonVal2 |]
 
     member _.GetGeneralRegVars() =
       [| r0

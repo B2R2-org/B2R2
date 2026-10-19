@@ -865,3 +865,64 @@ let systemEncoders () =
     Op.EIEIO, xNone 854u
     Op.ISYNC, xBare 19u 150u
     Op.RFI, xBare 19u 50u ]
+
+(* Lane A: the integer, branch, storage and system instructions added since
+   the forms above. *)
+/// bctar and bctarl, which take the BH hint as an optional third operand, in
+/// the two bits below the field naming the CR bit.
+let private targetBranch link ins =
+  let go bo bi bh = word 19u (unsigned 5 bo) bi bh ((560u <<< 1) ||| link)
+  match ins.Operands with
+  | [ Im bo; Bit bi ] -> go bo bi 0u
+  | [ Im bo; Bit bi; Im bh ] -> go bo bi (unsigned 2 bh)
+  | _ -> wrongOperands ins
+
+/// rfebb, whose one operand is the bit it sets BESCR[GE] to.
+let private eventReturn ins =
+  match ins.Operands with
+  | [ Im s ] -> word 19u 0u 0u (unsigned 1 s) (146u <<< 1)
+  | _ -> wrongOperands ins
+
+/// mfbhrbe, whose entry number fills the ten bits above the extended opcode
+/// in order.
+let private historyEntry ins =
+  match ins.Operands with
+  | [ Rg d; Im entry ] ->
+    let n = unsigned 10 entry
+    word 31u (gpr d) (n >>> 5) (n &&& 0x1Fu) (302u <<< 1)
+  | _ ->
+    wrongOperands ins
+
+/// icbt, which takes its CT hint as an optional first operand.
+let private cacheTouch ins =
+  match ins.Operands with
+  | [ Rg a; Rg b ] -> xForm 31u 0u (gpr a) (gpr b) 22u 0u
+  | [ Im ct; Rg a; Rg b ] -> xForm 31u (unsigned 4 ct) (gpr a) (gpr b) 22u 0u
+  | _ -> wrongOperands ins
+
+/// <summary>
+/// lqarx and stqcx., which name the even register of the pair they move. An
+/// odd one is an invalid form; so, for lqarx, is a pair that rA or rB names,
+/// which the processor refuses.
+/// </summary>
+let private quadReserve xo rc ins =
+  match ins.Operands with
+  | [ Rg p; Rg a; Rg b ] when gpr p % 2u <> 0u ->
+    fail $"{ins.Opcode} needs the even register of a pair, not {p}"
+  | [ Rg p; Rg a; Rg b ] when rc = 0u && (p = a || p = b) ->
+    fail $"{ins.Opcode} cannot load a pair rA or rB names"
+  | [ Rg p; Rg a; Rg b ] ->
+    xForm 31u (gpr p) (gpr a) (gpr b) xo rc
+  | _ ->
+    wrongOperands ins
+
+/// The instructions of lane A.
+let laneAEncoders () =
+  [ Op.BCTAR, targetBranch 0u
+    Op.BCTARL, targetBranch 1u
+    Op.RFEBB, eventReturn
+    Op.CLRBHRB, xNone 430u
+    Op.MFBHRBE, historyEntry
+    Op.ICBT, cacheTouch
+    Op.LQARX, quadReserve 276u 0u
+    Op.STQCXdot, quadReserve 182u 1u ]

@@ -1469,6 +1469,15 @@ let opCodeToString = function
   | Op.XXPERM -> "xxperm"
   | Op.XXPERMR -> "xxpermr"
   | Op.XXSETACCZ -> "xxsetaccz"
+  (* Lane A: integer, branch, storage and system instructions. *)
+  | Op.BCTAR -> "bctar"
+  | Op.BCTARL -> "bctarl"
+  | Op.CLRBHRB -> "clrbhrb"
+  | Op.ICBT -> "icbt"
+  | Op.LQARX -> "lqarx"
+  | Op.MFBHRBE -> "mfbhrbe"
+  | Op.RFEBB -> "rfebb"
+  | Op.STQCXdot -> "stqcx."
   | _ -> Terminator.impossible ()
 
 let condToString = function

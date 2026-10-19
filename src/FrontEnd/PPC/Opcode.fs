@@ -1440,5 +1440,14 @@ type Opcode =
   | XXPERM = 3241
   | XXPERMR = 3242
   | XXSETACCZ = 3243
+  (* Lane A: integer, branch, storage and system instructions. *)
+  | BCTAR = 1000
+  | BCTARL = 1001
+  | CLRBHRB = 1002
+  | ICBT = 1003
+  | LQARX = 1004
+  | MFBHRBE = 1005
+  | RFEBB = 1006
+  | STQCXdot = 1007
 
 type internal Op = Opcode

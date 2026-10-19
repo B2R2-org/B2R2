@@ -49,17 +49,20 @@ type LifterTests() =
   /// 64-bit PowerPC, little-endian.
   let ppc64le = ISA(Architecture.PPC, Endian.Little, WordSize.Bit64)
 
-  /// The statements one word lifts to on the processor an ISA names. The hex
-  /// is the word as the Power ISA draws it, most significant byte first, and
-  /// it is laid in memory in the byte order of the ISA.
-  let lifted (isa: ISA) (hex: string) =
+  /// The statements one word at an address lifts to on the processor an ISA
+  /// names. The hex is the word as the Power ISA draws it, most significant
+  /// byte first, and it is laid in memory in the byte order of the ISA.
+  let liftedAt (isa: ISA) (hex: string) addr =
     let word = ByteArray.ofHexString hex
     let bytes = if isa.Endian = Endian.Big then word else Array.rev word
     let reader = BinReader.Init isa.Endian
     let parser = Parser(isa.WordSize, reader) :> IInstructionParsable
     let regs = RegisterFactory isa :> IRegisterFactory
     let builder = ILowUIRBuilder.Default(isa, regs, LowUIRStream())
-    (parser.Parse(bytes, 0UL)).Translate builder
+    (parser.Parse(bytes, addr)).Translate builder
+
+  /// The statements one word at address zero lifts to.
+  let lifted isa hex = liftedAt isa hex 0UL
 
   /// The variable of a register on the processor an ISA names.
   let var (isa: ISA) r =
@@ -312,6 +315,19 @@ type LifterTests() =
     let regs, memory = List.fold step (given, memory) hexes
     let values = Map.ofList regs
     (fun r -> Map.find r values), Map.ofList memory
+
+  /// What each register holds after one word at an address ran, the jump out
+  /// of the instruction that ends it having been turned into a write of its
+  /// target to IAR, which is then read like any other register.
+  let jump isa hex addr given =
+    let toIAR = function
+      | InterJmp(Target = t) ->
+        AST.put (AST.var (Expr.typeOf t) (Register.toRegID IAR) "IAR") t
+      | stmt ->
+        stmt
+    let stmts = liftedAt isa hex addr |> Array.map toIAR
+    let read = IRRunner.run stmts (inputsOf isa given)
+    fun r -> (read (var isa r)).ToUInt64()
 
   /// The side effects one word lifts to on the processor an ISA names, for
   /// the instructions whose effect is not a value the runner can compute.
@@ -24594,6 +24610,169 @@ type LifterTests() =
     for isa in [ ppc32; ppc64; ppc64le ] do
       let lifted = effects isa "7d1f43a6"
       CollectionAssert.AreEqual([| UnsupportedInstruction |], lifted)
+
+  /// <summary>
+  /// bctar and bctarl go to TAR with its low two bits cleared where BO says
+  /// the counter and the CR bit BI allow it, counting CTR down unless BO2
+  /// says not to; bctarl leaves the next instruction's address in LR whether
+  /// the branch is taken or not. Values from QEMU running mttar r8 and then
+  /// the branch, which therefore sits at 0x20100004.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] BCTAR and BCTARL branch to TAR``() =
+    let at, nia, tar, lr = 0x20100004UL, 0x20100008UL, 0x20100040UL, 1UL
+    (* bctar 12,2; bctarl 12,2; bctar 4,2; bctar 16,0; bctarl 20,0 *)
+    let cases =
+      [ "4d820460", tar, 1UL, 2UL, tar, lr, 2UL
+        "4d820460", tar, 0UL, 2UL, nia, lr, 2UL
+        "4d820461", tar, 1UL, 2UL, tar, nia, 2UL
+        "4d820461", tar + 3UL, 0UL, 2UL, nia, nia, 2UL
+        "4c820460", tar + 3UL, 0UL, 2UL, tar, lr, 2UL
+        "4c820460", tar, 1UL, 2UL, nia, lr, 2UL
+        "4e000460", tar, 0UL, 2UL, tar, lr, 1UL
+        "4e000460", tar, 0UL, 1UL, nia, lr, 0UL
+        "4e800461", tar, 0UL, 5UL, tar, nia, 5UL ]
+    for isa in ppc64s do
+      for hex, target, eq, ctr, next, link, counted in cases do
+        let given = [ TAR, target; CR0_2, eq; CTR, ctr; LR, lr ]
+        let after = jump isa hex at given
+        let case = $"{hex} {target:x} {eq} {ctr} {nameOf isa}"
+        expect next (after IAR) case
+        expect link (after LR) case
+        expect counted (after CTR) case
+
+  /// <summary>
+  /// lqarx loads the aligned quadword into an even-odd register pair -- the
+  /// even register the doubleword at EA on a big-endian processor and the one
+  /// at EA + 8 on a little-endian one, which byte-reverses the quadword --
+  /// and reserves it; stqcx. stores the pair the same way while the
+  /// reservation holds and clears it, so a second stqcx. fails and stores
+  /// nothing, and one with no reservation touches no memory. Values from
+  /// QEMU running lqarx r10,0,r6; stqcx. r12,0,r6; stqcx. r14,0,r6 in each
+  /// byte order, and stqcx. r12,0,r6 alone.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] LQARX and STQCX. move a reserved quadword``() =
+    let ea = 0x20200080UL
+    let field = [ CR0_0; CR0_1; CR0_2; CR0_3 ]
+    let pairs = [ R6; R10; R11; R12; R13; R14; R15 ]
+    let state = pairs @ [ RES; ExMonAddr; ExMonVal; ExMonVal2 ] @ field
+    let given =
+      [ R6, ea
+        R12, 0x1111111122222222UL
+        R13, 0x3333333344444444UL
+        R14, 0x5555555566666666UL
+        R15, 0x7777777788888888UL ]
+    let memory = [ ea, [| for i in 0 .. 15 -> byte (i * 0x11) |] ]
+    let doubleword (left: Map<uint64, byte[]>) at =
+      Array.init 8 (fun i -> left[at + uint64 i][0])
+      |> Array.fold (fun acc b -> (acc <<< 8) ||| uint64 b) 0UL
+    (* lqarx r10,0,r6; stqcx. r12,0,r6; stqcx. r14,0,r6 *)
+    let lqarx, first, second = "7d403228", "7d80316d", "7dc0316d"
+    let bigLoad = 0x0011223344556677UL, 0x8899aabbccddeeffUL
+    let bigStore = 0x1111111122222222UL, 0x3333333344444444UL
+    let littleLoad = 0xffeeddccbbaa9988UL, 0x7766554433221100UL
+    let littleStore = 0x4444444433333333UL, 0x2222222211111111UL
+    for isa, (r10, r11), (low, high) in
+      [ ppc64, bigLoad, bigStore; ppc64le, littleLoad, littleStore ] do
+      let after, _ = sequence isa [ lqarx ] state given memory
+      expect r10 (after R10) (nameOf isa)
+      expect r11 (after R11) (nameOf isa)
+      let after, left = sequence isa [ lqarx; first ] state given memory
+      expect 0b0010UL (cr0 after) (nameOf isa)
+      expect low (doubleword left ea) (nameOf isa)
+      expect high (doubleword left (ea + 8UL)) (nameOf isa)
+      let hexes = [ lqarx; first; second ]
+      let after, left = sequence isa hexes state given memory
+      expect 0UL (cr0 after) (nameOf isa)
+      expect low (doubleword left ea) (nameOf isa)
+      expect high (doubleword left (ea + 8UL)) (nameOf isa)
+      let after, left = sequence isa [ first ] state given []
+      expect 0UL (cr0 after) (nameOf isa)
+      expect 0UL (uint64 left.Count) (nameOf isa)
+
+  /// <summary>
+  /// rfebb S sets BESCR[GE], its most significant bit, to S and returns to
+  /// EBBRR with its low two bits cleared (Book II 7.3). The reference cannot
+  /// run it: QEMU's user mode leaves the event-based branch facility off, as
+  /// Linux does until a process asks for it, and stops on its registers.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] RFEBB returns to EBBRR and sets BESCR[GE] to S``() =
+    (* rfebb 0; rfebb 1 *)
+    for isa in ppc64s do
+      for hex, bescr, after in
+        [ "4c000124", 0x8000000000000005UL, 5UL
+          "4c000924", 5UL, 0x8000000000000005UL ] do
+        let given = [ EBBRR, 0x20100043UL; BESCR, bescr ]
+        let state = jump isa hex 0x20100000UL given
+        expect 0x20100040UL (state IAR) (nameOf isa)
+        expect after (state BESCR) (nameOf isa)
+
+  /// <summary>
+  /// mfbhrbe reads an entry of the branch history rolling buffer. How many
+  /// entries there are is the implementation's choice (Book I 2.8); this one
+  /// keeps none, as nothing here records branches, so every entry reads as
+  /// the zero the ISA gives for an entry past the last one. The reference
+  /// cannot run it: QEMU's user mode leaves the facility off.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MFBHRBE reads every entry as zero``() =
+    (* mfbhrbe r5, 0; mfbhrbe r5, 31 *)
+    for isa in ppc64s do
+      for hex in [ "7ca0025c"; "7ca0fa5c" ] do
+        expect 0UL (run isa hex [ R5, 0xbad0bad0bad0badUL ] R5) hex
+
+  /// <summary>
+  /// mtspr and mfspr of TAR (815) move all of rS in and out on a 64-bit
+  /// processor; a 32-bit one has no TAR, and the 7457 refuses both as illegal
+  /// instructions. Values from QEMU running mttar r8; mftar r5.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTSPR and MFSPR move TAR on a 64-bit processor``() =
+    (* mttar r8; mftar r5 *)
+    let hexes = [ "7d0fcba6"; "7cafcaa6" ]
+    for isa in ppc64s do
+      for rs in [ 0xffffffffe00c007fUL; 0x123456789abcdef3UL ] do
+        let after, _ = sequence isa hexes [ R5; TAR ] [ R8, rs ] []
+        expect rs (after R5) (nameOf isa)
+    for hex in hexes do
+      let undefined = effects ppc32 hex
+      CollectionAssert.AreEqual([| UndefinedInstruction |], undefined, hex)
+
+  /// <summary>
+  /// The event-based branch registers. mtspr 806 writes BESCR whole; 800 and
+  /// 801 set the bits of BESCR, or of its upper word, that rS's ones name,
+  /// and 802 and 803 reset them; mfspr of 800, 802 and 806 reads BESCR and
+  /// of 801 and 803 its upper word; EBBHR (804) and EBBRR (805) are plain
+  /// registers (Book II 7.2). The reference cannot run them: QEMU's user mode
+  /// leaves the facility off and stops on its registers.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MTSPR and MFSPR of the event-based branch registers``() =
+    let bescr = 0x0000ff00000000f0UL
+    (* mtspr 800..806, r8; mfspr r5, 800..806 *)
+    let writes =
+      [ "7d00cba6", 0x0000000100000001UL, 0x0000ff01000000f1UL
+        "7d01cba6", 0x0000000100000001UL, 0x0000ff01000000f0UL
+        "7d02cba6", 0x00000f00000000f0UL, 0x0000f00000000000UL
+        "7d03cba6", 0x0000000000000f00UL, 0x0000f000000000f0UL
+        "7d06cba6", 0x0123456789abcdefUL, 0x0123456789abcdefUL ]
+    for isa in ppc64s do
+      for hex, rs, after in writes do
+        let state = run isa hex [ R8, rs; BESCR, bescr ]
+        expect after (state BESCR) $"{hex} {nameOf isa}"
+      for hex, read in
+        [ "7ca0caa6", bescr
+          "7ca1caa6", 0x0000ff00UL
+          "7ca2caa6", bescr
+          "7ca3caa6", 0x0000ff00UL
+          "7ca6caa6", bescr ] do
+        expect read (run isa hex [ BESCR, bescr ] R5) $"{hex} {nameOf isa}"
+      for mt, mf, reg in
+        [ "7d04cba6", "7ca4caa6", EBBHR; "7d05cba6", "7ca5caa6", EBBRR ] do
+        let after, _ = sequence isa [ mt; mf ] [ R5; reg ] [ R8, 0x1234UL ] []
+        expect 0x1234UL (after R5) $"{mt} {nameOf isa}"
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added

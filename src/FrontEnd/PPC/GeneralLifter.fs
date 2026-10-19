@@ -1027,14 +1027,36 @@ let private narrowed spr rs =
   let width = Expr.typeOf spr
   if Expr.typeOf rs = width then rs else AST.xtlo width rs
 
-let mfspr (ins: Instruction) bld =
-  lift bld ins {
-    let struct (dst, spr) =
-      match ins.Operands with
-      | TwoOperands(o1, OprImm o2) -> transOpr bld o1, getSPRReg bld o2
-      | _ -> raise InvalidOperandException
-    dst := widened bld spr
-  }
+/// Whether an SPR number names one of the registers of the event-based
+/// branch and target address facilities, which only a 64-bit processor has:
+/// on a 32-bit one, an mfspr or mtspr naming one names no register at all.
+let private isServerSPR (spr: Imm) =
+  (spr >= 800UL && spr <= 806UL) || spr = 815UL
+
+/// What mfspr reads through an SPR number: BESCR whole through 800, 802 and
+/// 806, its upper word through 801 and 803 -- the numbers that set and reset
+/// its bits read it as it is -- and otherwise the register the number names.
+let private sprToRead bld spr =
+  let bescr = regVar bld Register.BESCR
+  match spr with
+  | 800UL | 802UL | 806UL -> bescr
+  | 801UL | 803UL -> AST.xthi 32<rt> bescr
+  | 804UL -> regVar bld Register.EBBHR
+  | 805UL -> regVar bld Register.EBBRR
+  | 815UL -> regVar bld Register.TAR
+  | _ -> getSPRReg bld spr
+
+let mfspr (ins: Instruction) (bld: ILowUIRBuilder) =
+  match ins.Operands with
+  | TwoOperands(_, OprImm spr) when isServerSPR spr && bld.RegType = 32<rt> ->
+    sideEffects ins bld UndefinedInstruction
+  | TwoOperands(o1, OprImm spr) ->
+    lift bld ins {
+      let dst = transOpr bld o1
+      dst := widened bld (sprToRead bld spr)
+    }
+  | _ ->
+    raise InvalidOperandException
 
 (* mftb/mftbu read the 64-bit Time Base into rD. There is no real time base to
    read, so the value is left to the emulator via a ClockCounterRead side effect
@@ -1074,16 +1096,43 @@ let mtctr ins bld =
     ctr := src
   }
 
+/// An SPR number that names a register of its own, and rS sized to it.
+let private namedSPR bld spr rs =
+  let reg = getSPRReg bld spr
+  struct (reg, narrowed reg rs)
+
+/// <summary>
+/// What mtspr writes through an SPR number, and the value: rS into the
+/// register the number names, but through the numbers that set (800, 801)
+/// and reset (802, 803) bits of BESCR, the ones of rS turn on or off the bits
+/// of the whole register or, from rS's low word, of its upper word.
+/// </summary>
+let private sprToWrite bld spr rs =
+  let bescr = regVar bld Register.BESCR
+  let upper () = rs << numI32 32 64<rt>
+  match spr with
+  | 800UL -> struct (bescr, bescr .| rs)
+  | 801UL -> struct (bescr, bescr .| upper ())
+  | 802UL -> struct (bescr, bescr .& AST.not rs)
+  | 803UL -> struct (bescr, bescr .& AST.not (upper ()))
+  | 804UL -> struct (regVar bld Register.EBBHR, rs)
+  | 805UL -> struct (regVar bld Register.EBBRR, rs)
+  | 806UL -> struct (bescr, rs)
+  | 815UL -> struct (regVar bld Register.TAR, rs)
+  | _ -> namedSPR bld spr rs
+
 /// mtspr. PVR (287) cannot be written at all: an mtspr naming it is a
 /// privileged instruction, which no register file here can stand for.
-let mtspr (ins: Instruction) bld =
+let mtspr (ins: Instruction) (bld: ILowUIRBuilder) =
   match ins.Operands with
   | TwoOperands(OprImm 287UL, _) ->
     sideEffects ins bld UnsupportedInstruction
-  | TwoOperands(OprImm o1, o2) ->
+  | TwoOperands(OprImm spr, _) when isServerSPR spr && bld.RegType = 32<rt> ->
+    sideEffects ins bld UndefinedInstruction
+  | TwoOperands(OprImm spr, o2) ->
     lift bld ins {
-      let spr = getSPRReg bld o1
-      spr := narrowed spr (transOpr bld o2)
+      let struct (dst, value) = sprToWrite bld spr (transOpr bld o2)
+      dst := value
     }
   | _ ->
     raise InvalidOperandException
@@ -1818,6 +1867,36 @@ let stwbrx ins bld = storeByteReverse ins bld 32<rt>
 let stdbrx ins bld = storeByteReverse ins bld 64<rt>
 
 /// <summary>
+/// The skeleton of a store-conditional. Memory is read, by check, only while
+/// the reservation is held at ea, and written, by stores, only where check
+/// finds the reserved value still there. The reservation is cleared either
+/// way, and CR0 says whether the store happened, with SO from XER[SO].
+/// </summary>
+let private conditionalStore (bld: ILowUIRBuilder) ea check stores =
+  let res = regVar bld Register.RES
+  let stored = tmpVar bld 1<rt>
+  let held = res .& (ea == regVar bld Register.ExMonAddr)
+  let lblCheck = label bld "Check"
+  let lblStore = label bld "Store"
+  let lblEnd = label bld "End"
+  append bld {
+    stored := AST.b0
+    AST.cjmp held (AST.jmpDest lblCheck) (AST.jmpDest lblEnd)
+    AST.lmark lblCheck
+    stored := check
+    AST.cjmp stored (AST.jmpDest lblStore) (AST.jmpDest lblEnd)
+    AST.lmark lblStore
+    for dst, value in stores do
+      dst := value
+    AST.lmark lblEnd
+    res := AST.b0
+    regVar bld Register.CR0_0 := AST.b0
+    regVar bld Register.CR0_1 := AST.b0
+    regVar bld Register.CR0_2 := stored
+    regVar bld Register.CR0_3 := AST.xthi 1<rt> (regVar bld Register.XER)
+  }
+
+/// <summary>
 /// stwcx./stdcx.: the store half of a reservation pair. It stores only while
 /// the reservation is held, at the address it stores to, over a value memory
 /// still holds; it reports in CR0[EQ] whether it did, and clears the
@@ -1828,34 +1907,11 @@ let private storeConditional ins (bld: ILowUIRBuilder) size =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let rs = transOpr bld o1
-    let ea = transEAWithIndexReg o2 o3 bld
-    let xerSO = AST.xthi 1<rt> (regVar bld Register.XER)
-    let cr0LT = regVar bld Register.CR0_0
-    let cr0GT = regVar bld Register.CR0_1
-    let cr0EQ = regVar bld Register.CR0_2
-    let cr0SO = regVar bld Register.CR0_3
-    let res = regVar bld Register.RES
-    let tmpEA = tmpVar bld bld.RegType
-    let matched = tmpVar bld 1<rt>
-    let lblCheck = label bld "Check"
-    let lblStore = label bld "Store"
-    let lblEnd = label bld "End"
-    let held = res .& (tmpEA == regVar bld Register.ExMonAddr)
-    let current = AST.zext bld.RegType (loadNative bld size tmpEA)
-    tmpEA := ea
-    matched := AST.b0
-    AST.cjmp held (AST.jmpDest lblCheck) (AST.jmpDest lblEnd)
-    AST.lmark lblCheck
-    matched := current == regVar bld Register.ExMonVal
-    AST.cjmp matched (AST.jmpDest lblStore) (AST.jmpDest lblEnd)
-    AST.lmark lblStore
-    loadNative bld size tmpEA := AST.xtlo size rs
-    AST.lmark lblEnd
-    res := AST.b0
-    cr0EQ := matched
-    cr0LT := AST.b0
-    cr0GT := AST.b0
-    cr0SO := xerSO
+    let ea = tmpVar bld bld.RegType
+    let current = AST.zext bld.RegType (loadNative bld size ea)
+    let check = current == regVar bld Register.ExMonVal
+    ea := transEAWithIndexReg o2 o3 bld
+    conditionalStore bld ea check [ loadNative bld size ea, AST.xtlo size rs ]
   }
 
 let stwcxdot ins bld = storeConditional ins bld 32<rt>
@@ -2140,6 +2196,130 @@ let mtvsrw ins bld signed =
 
 /// An unsigned doubleword conversion has to reach past the signed range: values
 /// of 2^63 and up are converted with 2^63 taken off and put back afterwards.
+(* Lane A: the branch and storage instructions of ISA 2.07 and later. *)
+/// <summary>
+/// bctar/bctarl, which go to TAR with its low two bits cleared where the
+/// counter and a CR bit say so, testing them as bc does -- CTR is counted down
+/// unless BO2 says not to, which bcctr may not do. bctarl leaves the address
+/// of the next instruction in LR whether the branch is taken or not.
+/// </summary>
+let bctar (ins: Instruction) (bld: ILowUIRBuilder) lk =
+  lift bld ins {
+    let struct (bo, bi) =
+      match ins.Operands with
+      | TwoOperands(OprImm bo, OprBI bi)
+      | ThreeOperands(OprImm bo, OprBI bi, _) -> struct (uint32 bo, bi)
+      | _ -> raise InvalidOperandException
+    let rt = bld.RegType
+    let ctr = regVar bld Register.CTR
+    let cr = getCRbitRegister bi |> regVar bld
+    let boBit n = numU32 ((bo >>> (4 - n)) &&& 1u) 1<rt>
+    let taken = tmpVar bld 1<rt>
+    let target = tmpVar bld rt
+    let nia = numU64 (ins.Address + 4UL) rt
+    if bo &&& 4u = 0u then append bld { ctr := ctr .- AST.num1 rt } else ()
+    let ctrOk = boBit 2 .| ((ctr != AST.num0 rt) <+> boBit 3)
+    let condOk = boBit 0 .| (cr <+> AST.not (boBit 1))
+    let tar = regVar bld Register.TAR .& branchTargetMask bld
+    taken := ctrOk .& condOk
+    target := AST.ite taken tar nia
+    if lk then append bld { regVar bld Register.LR := nia } else ()
+    let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
+    AST.interjmp target kind
+  }
+
+/// <summary>
+/// rfebb S, which sets BESCR[GE], its most significant bit, to S and goes to
+/// EBBRR with its low two bits cleared. No event-based exception is ever
+/// pending here, so none is taken on the way; the transactional state BESCR
+/// carries belongs to a facility ISA 3.1 no longer has.
+/// </summary>
+let rfebb (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let s =
+      match ins.Operands with
+      | OneOperand(OprImm s) -> s
+      | _ -> raise InvalidOperandException
+    let target = tmpVar bld bld.RegType
+    target := regVar bld Register.EBBRR .& branchTargetMask bld
+    AST.xthi 1<rt> (regVar bld Register.BESCR) := numU64 s 1<rt>
+    AST.interjmp target InterJmpKind.IsRet
+  }
+
+/// <summary>
+/// mfbhrbe, which reads an entry of the branch history rolling buffer. How
+/// many entries there are is the implementation's to choose, and this one has
+/// none -- nothing here records the branches taken -- so every entry reads as
+/// zero, which is what the ISA gives for an entry past the last one, and what
+/// it allows any entry to read as after the buffer is cleared at any time.
+/// </summary>
+let mfbhrbe (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rt, _) = transTwoOprs ins bld
+    rt := AST.num0 bld.RegType
+  }
+
+/// The even register of the pair an lq-family instruction names, and the odd
+/// one after it.
+let private registerPair = function
+  | OprReg r -> struct (r, int r + 1 |> enum<Register>)
+  | _ -> raise InvalidOperandException
+
+/// <summary>
+/// The addresses of the doublewords a quadword access moves to or from the
+/// even register of the pair and the odd one: a big-endian processor keeps
+/// the even register's first, and a little-endian one byte-reverses the whole
+/// quadword, which puts it second.
+/// </summary>
+let private pairAddresses (bld: ILowUIRBuilder) ea =
+  let next = ea .+ numI32 8 bld.RegType
+  if bld.Endianness = Endian.Big then struct (ea, next) else struct (next, ea)
+
+/// <summary>
+/// lqarx rTp, rA, rB, which loads a quadword into an even-odd register pair
+/// and reserves it: ExMonVal and ExMonVal2 keep the value of the two
+/// doublewords, as ExMonVal alone does for the narrower forms.
+/// </summary>
+let lqarx (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (even, odd) = registerPair o1
+    let ea = tmpVar bld 64<rt>
+    let struct (hi, lo) = tmpVars2 bld 64<rt>
+    ea := transEAWithIndexReg o2 o3 bld
+    let struct (evenAddr, oddAddr) = pairAddresses bld ea
+    hi := loadNative bld 64<rt> evenAddr
+    lo := loadNative bld 64<rt> oddAddr
+    regVar bld Register.RES := AST.b1
+    regVar bld Register.ExMonAddr := ea
+    regVar bld Register.ExMonVal := hi
+    regVar bld Register.ExMonVal2 := lo
+    regVar bld even := hi
+    regVar bld odd := lo
+  }
+
+/// <summary>
+/// stqcx. rSp, rA, rB, which stores an even-odd register pair as one
+/// quadword while the reservation lqarx made is held over a quadword memory
+/// still holds, and otherwise neither stores nor, without a reservation at
+/// that address, reads.
+/// </summary>
+let stqcxdot (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (even, odd) = registerPair o1
+    let ea = tmpVar bld 64<rt>
+    ea := transEAWithIndexReg o2 o3 bld
+    let struct (evenAddr, oddAddr) = pairAddresses bld ea
+    let evenMem = loadNative bld 64<rt> evenAddr
+    let oddMem = loadNative bld 64<rt> oddAddr
+    let check =
+      (evenMem == regVar bld Register.ExMonVal)
+      .& (oddMem == regVar bld Register.ExMonVal2)
+    let pair = [ evenMem, regVar bld even; oddMem, regVar bld odd ]
+    conditionalStore bld ea check pair
+  }
+
 (* The vector unit. A 128-bit vector register is modeled as two 64-bit halves
    (see the Register type), and every operation below works on those halves
    rather than on a 128-bit value, so nothing needs an intermediate wider than a

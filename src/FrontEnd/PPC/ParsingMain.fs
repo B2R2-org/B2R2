@@ -321,12 +321,37 @@ let parseBCCTRx bin =
   | _ ->
     raise ParsingFailureException
 
-let parse13 bin =
+/// rfebb S, which returns from an event-based branch and sets BESCR[GE] to
+/// S, the one bit it names.
+let parseRFEBB bin =
+  if Bits.extract bin 25u 12u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.RFEBB, OneOperand(Bits.pick bin 11u |> uint64 |> OprImm))
+
+/// bctar/bctarl, which branch to TAR. Bits 16-18 are reserved; the BH hint in
+/// bits 19-20 is carried as a third operand only where it is not zero, which
+/// is how the assembler language leaves it out.
+let parseBCTARx bin =
+  if Bits.extract bin 15u 13u <> 0u then
+    raise ParsingFailureException
+  else
+    let op = if Bits.pick bin 0u = 0u then Op.BCTAR else Op.BCTARL
+    let bo = Bits.extract bin 25u 21u |> uint64 |> OprImm
+    let bi = OprBI(Bits.extract bin 20u 16u)
+    match Bits.extract bin 12u 11u with
+    | 0u -> struct (op, TwoOperands(bo, bi))
+    | bh -> struct (op, ThreeOperands(bo, bi, OprImm(uint64 bh)))
+
+/// The forms of primary opcode 19. rfebb and bctar belong to the event-based
+/// branch and target address facilities of the 64-bit processors only.
+let parse13 is64 bin =
   match Bits.extract bin 10u 1u with
   | 0x0u -> parseMCRF bin
   | 0x10u -> parseBCLRx bin
   | 0x21u -> parseCRNOR bin
   | 0x32u -> parseRFI bin
+  | 0x92u when is64 -> parseRFEBB bin
   | 0x81u -> parseCRANDC bin
   | 0x96u -> parseISYNC bin
   | 0xC1u -> parseCRXOR bin
@@ -336,6 +361,7 @@ let parse13 bin =
   | 0x1A1u -> parseCRORC bin
   | 0x1C1u -> parseCROR bin
   | 0x210u -> parseBCCTRx bin
+  | 0x230u when is64 -> parseBCTARx bin
   | _ -> raise ParsingFailureException
 
 let parseRLWIMIx bin =
@@ -1112,7 +1138,8 @@ let parseMFSPR bin =
       struct (Op.MFSPR, TwoOperands(rd, OprImm 256UL))
     | 18u | 19u | 22u | 25u | 26u | 27u | 272u | 273u | 274u | 275u | 282u
     | 287u | 528u | 529u | 530u | 531u | 532u | 533u | 534u | 535u | 536u
-    | 537u | 538u | 539u | 540u | 541u | 542u | 543u | 1013u ->
+    | 537u | 538u | 539u | 540u | 541u | 542u | 543u | 1013u
+    | 800u | 801u | 802u | 803u | 804u | 805u | 806u | 815u ->
       let spr =
         getSPRegister (Bits.concat (Bits.extract bin 15u 11u)
                                    (Bits.extract bin 20u 16u)
@@ -2578,8 +2605,70 @@ let private parseFPPairIndexed bin =
   let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
   let op = if Bits.extract bin 10u 1u = 791u then Op.LFDPX else Op.STFDPX
   struct (op, ThreeOperands(frp, ra, rb))
+(* Lane A: the forms of primary opcode 31 that ISA 2.07 and later added. *)
+/// icbt CT, rA, rB, an instruction cache touch, whose CT hint is carried only
+/// where it is not zero. Bit 6 is reserved.
+let private parseICBT bin =
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  if Bits.pick bin 25u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    match Bits.extract bin 24u 21u with
+    | 0u -> struct (Op.ICBT, TwoOperands(ra, rb))
+    | ct -> struct (Op.ICBT, ThreeOperands(OprImm(uint64 ct), ra, rb))
+
+/// stqcx. rSp, rA, rB, which stores an even-odd register pair: an odd rSp is
+/// an invalid form.
+let private parseSTQCX bin =
+  let struct (rs, ra, rb) = xFormRegs bin
+  if Bits.pick bin 21u <> 0u || Bits.pick bin 0u <> 1u then
+    raise ParsingFailureException
+  else
+    struct (Op.STQCXdot, ThreeOperands(rs, ra, rb))
+
+/// lqarx rTp, rA, rB, which loads an even-odd register pair: an odd rTp, or
+/// one that rA or rB names too, is an invalid form that the processor
+/// refuses (Book II 4.6.2.2). The last bit is the EH hint.
+let private parseLQARX bin =
+  let rt = Bits.extract bin 25u 21u
+  let clash = rt = Bits.extract bin 20u 16u || rt = Bits.extract bin 15u 11u
+  if rt % 2u <> 0u || clash then
+    raise ParsingFailureException
+  else
+    let struct (rd, ra, rb) = xFormRegs bin
+    struct (Op.LQARX, ThreeOperands(rd, ra, rb))
+
+/// mfbhrbe rT, BHRBE, whose entry number sits where an XFX form keeps an SPR
+/// number, but in order rather than in two swapped halves.
+let private parseMFBHRBE bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let entry = Bits.extract bin 20u 11u |> uint64 |> OprImm
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException
+  else struct (Op.MFBHRBE, TwoOperands(rt, entry))
+
+/// clrbhrb, which clears the branch history rolling buffer.
+let private parseCLRBHRB bin =
+  if Bits.extract bin 25u 11u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.CLRBHRB, NoOperand)
+
+/// The lane A forms of primary opcode 31, tried before the word dispatcher
+/// they otherwise fall back to. Only icbt is not 64-bit only: the quadword
+/// pair needs doubleword registers, and the branch history buffer belongs to
+/// the 64-bit server processors.
+let private parse1FLaneA is64 fallback bin =
+  match Bits.extract bin 10u 1u with
+  | 0x016u -> parseICBT bin
+  | 0x0B6u when is64 -> parseSTQCX bin
+  | 0x114u when is64 -> parseLQARX bin
+  | 0x12Eu when is64 -> parseMFBHRBE bin
+  | 0x1AEu when is64 -> parseCLRBHRB bin
+  | _ -> fallback bin
 
 let parse1F is64 bin =
+  let parse1FWord = parse1FLaneA is64 parse1FWord
   if Bits.extract bin 5u 1u = 0xFu then parseISEL bin
   elif isFPPairIndexed bin then parseFPPairIndexed bin
   elif is64 then parse1FVector (parse1FDouble parse1FWord) bin
@@ -3675,7 +3764,7 @@ let private parseInstruction bitLen bin addr =
   | 0x10u -> parseBCx bitLen bin
   | 0x11u when Bits.pick bin 0u = 0u -> parseSC bin
   | 0x12u -> parseBx bitLen bin addr
-  | 0x13u -> parse13 bin
+  | 0x13u -> parse13 (bitLen = 64) bin
   | 0x14u -> parseRLWIMIx bin
   | 0x15u -> parseRLWINMx bin
   | 0x17u -> parseRLWNMx bin
