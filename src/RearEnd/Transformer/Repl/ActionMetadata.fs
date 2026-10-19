@@ -1010,9 +1010,9 @@ module ActionMetadata =
       ReplValueKind.Text
       ActionRole.Reducer 60
       "supported pair -> @compare -> Text"
-      [ "let binaries = (oldBin, newBin)"
+      [ "binaries = (oldBin, newBin)"
         "binaries |> @compare"
-        "let code = (oldCode, newCode)"
+        "code = (oldCode, newCode)"
         "code |> @compare" ] [ syntax None [] ]
 
   let private disasm =
@@ -1172,7 +1172,7 @@ module ActionMetadata =
       ActionRole.Reducer
       60
       "Fingerprint * Fingerprint -> @jaccard -> Float"
-      [ "let fingerprints = (leftFingerprint, rightFingerprint)"
+      [ "fingerprints = (leftFingerprint, rightFingerprint)"
         "fingerprints |> @jaccard" ] [ syntax None [] ]
 
   let private regs =
@@ -1311,7 +1311,7 @@ module ActionMetadata =
       ActionRole.Source
       20
       "random min=<addr> max=<addr> -> Address"
-      [ "let ptr = @random min=<min> max=<max>" ]
+      [ "ptr = @random min=<min> max=<max>" ]
       [ syntax None [ minAddress; maxAddress ] ]
 
   let private userStack =
@@ -1322,7 +1322,7 @@ module ActionMetadata =
       ActionRole.Source
       19
       "user-stack -> Address"
-      [ "let sp = @user-stack" ]
+      [ "sp = @user-stack" ]
       [ syntax None [] ]
 
   let private mem =
