@@ -108,6 +108,19 @@ let private loadConstant ins =
   | _ ->
     wrongOperands ins
 
+/// One word of primary opcode 60, given what fills the bits below the
+/// registers and the three six-bit register numbers, each register's sixth
+/// bit at the end: xA's in bit 2, xB's in bit 1, xT's in bit 0.
+let private vsxWord rest t a b =
+  let tail = rest ||| ((a >>> 5) <<< 2) ||| ((b >>> 5) <<< 1) ||| (t >>> 5)
+  word 60u (t &&& 0x1Fu) (a &&& 0x1Fu) (b &&& 0x1Fu) tail
+
+/// An XX2-form "xT, xB" whose A field is part of the opcode.
+let private xx2 xo a ins =
+  match ins.Operands with
+  | [ Rg t; Rg b ] -> vsxWord (xo <<< 2) (vsr t) a (vsr b)
+  | _ -> wrongOperands ins
+
 /// The loads and stores of the vector-scalar registers, and the moves beside
 /// them.
 let private memoryEncoders () =
@@ -150,5 +163,10 @@ let private memoryEncoders () =
     Op.STXVP, pairDQ 1u
     Op.LXVKQ, loadConstant ]
 
+/// The single-precision estimates ISA 2.07 added.
+let private estimateEncoders () =
+  [ Op.XSRESP, xx2 26u 0u
+    Op.XSRSQRTESP, xx2 10u 0u ]
+
 /// Every instruction this module encodes.
-let vsxEncoders () = memoryEncoders ()
+let vsxEncoders () = List.concat [ memoryEncoders (); estimateEncoders () ]

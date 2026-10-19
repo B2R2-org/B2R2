@@ -1896,15 +1896,15 @@ type ParserTests() =
     testBoth "7c263e1a" (LXSIBZX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
 
   [<TestMethod>]
-  member _.``[PPC64] LXSIHZX ()``() =
+  member _.``[PPC64] LXSIHZX``() =
     testBoth "7c263e5a" (LXSIHZX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
 
   [<TestMethod>]
-  member _.``[PPC64] LXSIWAX ()``() =
+  member _.``[PPC64] LXSIWAX``() =
     testBoth "7c263898" (LXSIWAX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
 
   [<TestMethod>]
-  member _.``[PPC64] LXSIWZX ()``() =
+  member _.``[PPC64] LXSIWZX``() =
     testBoth "7c263818" (LXSIWZX ** [ O.Reg F1; O.Reg R6; O.Reg R7 ])
 
   [<TestMethod>]
@@ -2074,6 +2074,14 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[PPC64] LXVP refuses the low bits no form has``() =
     testUnsupported WordSize.Bit64 "18460012"
+
+  [<TestMethod>]
+  member _.``[PPC64] XSRESP``() =
+    testBoth "f0201868" (XSRESP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSRSQRTESP``() =
+    testBoth "f0201828" (XSRSQRTESP ** [ O.Reg F1; O.Reg F3 ])
 
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.

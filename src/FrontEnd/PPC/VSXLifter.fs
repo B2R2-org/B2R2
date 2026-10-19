@@ -331,3 +331,34 @@ let storeWithLength ins (bld: ILowUIRBuilder) leftJustified =
       let dst = loadNative bld 8<rt> (ea .+ numI32 k bld.RegType)
       _when bld "Length" (numI32 k 8<rt> .< nb) (block { dst := src })
   }
+
+/// <summary>
+/// xsresp and xsrsqrtesp: a single-precision estimate of the reciprocal (of
+/// the square root) of the double in doubleword 0 of xB, in double format in
+/// doubleword 0 of xT, doubleword 1 cleared and FPRF set. The architecture
+/// lets an estimate stray from the exact answer by a part in 16384, which no
+/// analysis can usefully model, so the exact answer rounded to single stands
+/// in, as it does for fres. An answer that became a NaN with no NaN operand
+/// -- the square root of a negative number -- is the default quiet NaN, which
+/// is positive. A NaN result is made from the NaN operand's own bits --
+/// quieted, keeping the sign, the exponent and the leading 23 fraction bits --
+/// since the cast and the arithmetic of a NaN are left to the host.
+/// </summary>
+let reciprocalEstimateSingle ins bld isSqrt =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vsrOf bld o1
+    let struct (bh, _) = vsrOf bld o2
+    let one = numU64 0x3ff0000000000000UL 64<rt>
+    let quiet = numU64 0x0008000000000000UL 64<rt>
+    let singleNaN = numU64 0xffffffffe0000000UL 64<rt>
+    let res = tmpVar bld 64<rt>
+    res := AST.fdiv one (if isSqrt then AST.fsqrt bh else bh)
+    let single = AST.cast CastKind.FloatCast 32<rt> res
+    let widened = AST.cast CastKind.FloatCast 64<rt> single
+    let operand = AST.ite (IEEE754Double.isNaN bh) bh GeneralLifter.defaultQNaN
+    let nan = (operand .| quiet) .& singleNaN
+    dh := AST.ite (IEEE754Double.isNaN res) nan widened
+    dl := AST.num0 64<rt>
+    setFPRF bld dh
+  }

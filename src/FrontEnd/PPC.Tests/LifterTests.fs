@@ -7272,6 +7272,274 @@ type LifterTests() =
       []
       [ 0x20200080UL, 0xf0e0d0c0b0a0908UL ]
 
+  /// <summary>
+  /// xsresp xT, xB places in doubleword 0 of xT a single-precision estimate of
+  /// the reciprocal of the double in doubleword 0 of xB, clears doubleword 1
+  /// and sets FPRF to the class of the result. The estimate may stray by a part
+  /// in 16384 except where the reciprocal is a zero, an infinity or a NaN,
+  /// which are the vectors here: +0 and -0 give +Inf and -Inf, +Inf and -Inf
+  /// give +0 and -0, a quiet NaN passes and a signalling one comes back quiet.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSRESP answers the special values exactly``() =
+    (* xsresp vs1,vs3, under QEMU: lanes/x-oracle/est, oracle results *)
+    oracleMem
+      ppc64
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL; FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7ff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL; FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7ff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0xbff80000UL ]
+      []
+      [ F1, 0x7ff8000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0xbff80000UL ]
+      []
+      [ F1, 0x7ff8000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xfff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x9UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xfff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x9UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x8000000000000000UL; VSRL1, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x8000000000000000UL; VSRL1, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff4000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7ffc000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201868"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff4000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7ffc000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+
+  /// <summary>
+  /// xsrsqrtesp xT, xB places in doubleword 0 of xT a single-precision estimate
+  /// of the reciprocal of the square root of the double in doubleword 0 of xB,
+  /// clears doubleword 1 and sets FPRF. At the special values the answer is
+  /// exact: +0 and -0 give +Inf and -Inf, +Inf gives +0, -Inf and any negative
+  /// number are invalid and give the default quiet NaN, a quiet NaN passes and
+  /// a signalling one comes back quiet.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSRSQRTESP answers the special values exactly``() =
+    (* xsrsqrtesp vs1,vs3, under QEMU: lanes/x-oracle/est, oracle results *)
+    oracleMem
+      ppc64
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL; FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7ff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL; VSRL1, 0xbad0bad0bad0badUL; FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7ff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0xbff80000UL ]
+      []
+      [ F1, 0x7ff8000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0xbff80000UL ]
+      []
+      [ F1, 0x7ff8000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xfff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x9UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL ]
+      []
+      [ F1, 0xfff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x9UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x7ff8000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x7ff8000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff4000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7ffc000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff4000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7ffc000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xc000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x7ff8000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201828"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xc000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x7ff8000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

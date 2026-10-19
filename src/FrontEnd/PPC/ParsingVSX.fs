@@ -159,6 +159,13 @@ let parse06 bin =
   | 0b0001u -> struct (Op.STXVP, TwoOperands(pairRegister bin, mem))
   | _ -> raise ParsingFailureException
 
+/// The register an XX2 or XX3 form names in its B field, extended by the bit
+/// above the last one.
+let private xb bin = getVsxRegister (vsxNumber bin 1u 11u) |> OprReg
+
+/// An XX2-form "xT, xB".
+let private parseXX2 op bin = struct (op, TwoOperands(xt bin, xb bin))
+
 /// The UIM values lxvkq defines; the others are reserved.
 let private isQuadConstant uim =
   (uim >= 1u && uim <= 9u) || (uim >= 16u && uim <= 24u)
@@ -179,5 +186,7 @@ let private parseLXVKQ bin =
 /// </summary>
 let parse3C bin =
   match Bits.extract bin 10u 2u with
+  | 10u -> parseXX2 Op.XSRSQRTESP bin
+  | 26u -> parseXX2 Op.XSRESP bin
   | 180u -> parseLXVKQ bin
   | _ -> raise ParsingFailureException

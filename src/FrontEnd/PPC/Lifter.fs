@@ -2179,6 +2179,10 @@ let translate (ins: Instruction) bld =
     VSXLifter.storeRightmost ins bld 32<rt>
   | Op.STXVRDX ->
     VSXLifter.storeRightmost ins bld 64<rt>
+  | Op.XSRESP ->
+    VSXLifter.reciprocalEstimateSingle ins bld false
+  | Op.XSRSQRTESP ->
+    VSXLifter.reciprocalEstimateSingle ins bld true
   | o ->
 #if DEBUG
          eprintfn "%A" o
