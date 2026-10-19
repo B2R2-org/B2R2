@@ -28,8 +28,9 @@ The `script` mode evaluates a saved REPL script without opening the TUI:
 dotnet run -c Release --project src/RearEnd/Transformer -- script analysis.repl
 ```
 
-Press `F2` to open the control prompt.  Enter `help` for the command-level
-help or `actions` to list the actions currently registered in the session.
+Press `F2` to open the control prompt.  Enter `help` for command help,
+`help @<action>` for an action's usage and examples, or `actions` for concise
+action summaries.
 
 Interaction
 -----------
@@ -46,6 +47,9 @@ same expressions without the interactive `;;` terminator.
 | `Up` / `Down` | Browse history, candidates, or input lines by context. |
 | `Home` / `End` | Select the first or last candidate, history entry, or line by context. |
 | `Ctrl+N` / `Ctrl+P` | Select the next or previous completion. |
+| `Ctrl+A` / `Ctrl+E` | Move to the start or end of shell input. |
+| `Ctrl+W` / `Ctrl+Backspace` | Delete the previous shell-input word. |
+| `Ctrl+U` / `Ctrl+K` | Delete shell input before or after the cursor. |
 | `Ctrl+C` | Cancel a running action. |
 | `Ctrl+D` | Leave the REPL when the input is empty. |
 | `Esc` | Close an open panel or clear the current input. |
@@ -106,8 +110,8 @@ Press `F2` to open the control prompt and enter a control.
 
 | Command | Purpose |
 | --- | --- |
-| `actions` | List registered actions and their usage forms. |
-| `help` | Display interactive help. |
+| `actions` | List concise registered-action summaries. |
+| `help [@action]` | Display interactive help or one action's details. |
 | `type [name or expression]` | Display an inferred REPL value kind. |
 | `inspect [name]` | List functions and sections of a binary value. |
 | `needs <context> [k=v]` | Show the concrete context required for execution. |

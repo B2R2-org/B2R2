@@ -277,7 +277,19 @@ module TransformerRepl =
           model
       |> TransformerTuiModel.appendTuiLines lines
 
-  let private finishEvaluation evaluation model =
+  let private documentationViewTitle command =
+    match InputAnalysis.splitWords command with
+    | [ "help" ] ->
+      Some "Help"
+    | [ "help"; action ] ->
+      let action = action.TrimStart '@'
+      Some $"Help: @{action}"
+    | [ "actions" ] ->
+      Some "Actions"
+    | _ ->
+      None
+
+  let private finishEvaluation command evaluation model =
     match evaluation with
     | Exit(registry, session) ->
       registry, TransformerTuiModel.setSession session model, true
@@ -290,9 +302,21 @@ module TransformerRepl =
       let model =
         model
         |> TransformerTuiModel.setSession session
-        |> appendEvaluationOutput output
         |> TransformerTuiModel.setBusy false
         |> TransformerTuiModel.setStatus status
+      let model =
+        match documentationViewTitle command, hasError with
+        | Some "Help", false ->
+          TransformerTuiModel.openTextView
+            "Help"
+            TransformerTuiModel.helpViewLines
+            model
+        | Some title, false ->
+          output.Lines
+          |> List.map toTuiLine
+          |> fun lines -> TransformerTuiModel.openTextView title lines model
+        | _ ->
+          appendEvaluationOutput output model
       registry, model, false
 
   let private failEvaluation (error: exn) model =
@@ -510,7 +534,7 @@ module TransformerRepl =
           else
             try
               let nextRegistry, nextModel, exit =
-                finishEvaluation task.Result model
+                finishEvaluation runningEvaluation.Command task.Result model
               registry <- nextRegistry
               suggestionCache <- None
               model <- nextModel
