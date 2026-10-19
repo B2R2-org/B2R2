@@ -401,6 +401,7 @@ module TransformerRepl =
     let pendingInput = Queue<TuiInputEvent>()
     let mutable lastWidth, lastHeight = 0, 0
     let mutable lastSpinner = Environment.TickCount64
+    let addPending input = pendingInput.Enqueue input
     let addPendingKey key = pendingInput.Enqueue(TuiInputEvent.Key key)
     let restoreKey key =
       ConsoleKeyInfo(char 0, key, false, false, false)
@@ -457,6 +458,8 @@ module TransformerRepl =
     let readInput () =
       if pendingInput.Count > 0 then
         Some(pendingInput.Dequeue())
+      elif TransformerTuiTerminal.usesNativeInput () then
+        TransformerTuiTerminal.tryReadNativeInputEvent ()
       elif Console.KeyAvailable then
         let key = Console.ReadKey true
         if key.Key = ConsoleKey.Escape && key.KeyChar = '\u001b' then
@@ -469,12 +472,14 @@ module TransformerRepl =
       let builder = StringBuilder()
       builder.Append((first: ConsoleKeyInfo).KeyChar) |> ignore
       let mutable keepReading = true
-      while keepReading && Console.KeyAvailable do
-        let key = Console.ReadKey true
-        if isTextKey key then
+      while keepReading do
+        match readInput () with
+        | Some(TuiInputEvent.Key key) when isTextKey key ->
           builder.Append(key.KeyChar) |> ignore
-        else
-          addPendingKey key
+        | Some input ->
+          addPending input
+          keepReading <- false
+        | None ->
           keepReading <- false
       builder.ToString()
     let isViewNavigationKey (key: ConsoleKeyInfo) =
@@ -497,12 +502,14 @@ module TransformerRepl =
     let repeatedKeyCount first =
       let mutable count = 1
       let mutable keepReading = true
-      while keepReading && Console.KeyAvailable do
-        let key = Console.ReadKey true
-        if samePhysicalKey first key then
+      while keepReading do
+        match readInput () with
+        | Some(TuiInputEvent.Key key) when samePhysicalKey first key ->
           count <- count + 1
-        else
-          addPendingKey key
+        | Some input ->
+          addPending input
+          keepReading <- false
+        | None ->
           keepReading <- false
       count
     let pageHeight model =

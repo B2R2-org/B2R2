@@ -34,6 +34,22 @@ type TransformerTuiFrame =
     CursorRow: int
     CursorColumn: int }
 
+type private TuiInputRow =
+  { Prompt: string
+    Text: string
+    TextStart: int
+    CursorColumn: int
+    Ghost: string
+    Diagnostics: (int * int) list
+    Selection: (int * int) option }
+
+type private TuiInputRenderState =
+  { Completion: SuggestionSet
+    Model: TransformerTuiModel
+    CursorLine: int
+    CursorColumn: int
+    Selection: (int * int) option }
+
 module TransformerTuiRenderer =
   let private reset = "\x1b[0m"
   let private bold = "\x1b[1m"
@@ -191,6 +207,7 @@ module TransformerTuiRenderer =
       "  Tab / Shift+Tab                Apply completion / insert spaces"
       "  Up / Down                      Browse history, suggestions, or lines"
       "  Ctrl+N / Ctrl+P                Select next / previous completion"
+      "  Ctrl+C                         Copy selected text"
       "  Ctrl+A / Ctrl+E                Move to input start / end"
       "  Ctrl+W / Ctrl+Backspace        Delete the previous input word"
       "  Ctrl+U / Ctrl+K                Delete to input start / end"
@@ -579,18 +596,8 @@ module TransformerTuiRenderer =
         Offset = 0
         CursorPosition = None }
 
-  let private takeLast count offset lines =
-    let length = List.length lines
-    let offset = min offset (max 0 (length - count))
-    let last = max 0 (length - offset)
-    let first = max 0 (last - count)
-    lines |> List.skip first |> List.truncate (last - first)
-
-  let private takeTranscriptRows count offset start lines =
-    if offset = 0 then
-      lines |> List.skip start |> List.truncate count
-    else
-      takeLast count offset lines
+  let private takeTranscriptRows count start lines =
+    lines |> List.skip start |> List.truncate count
 
   let private takeBody bodyHeight bodyWidth registry model =
     match model.Overlay with
@@ -602,7 +609,7 @@ module TransformerTuiRenderer =
       let start =
         TransformerTuiModel.transcriptViewportStart
           bodyWidth bodyHeight model
-      takeTranscriptRows bodyHeight model.ScrollOffset start lines
+      takeTranscriptRows bodyHeight start lines
     | _ ->
       let lines = overlayLines bodyWidth registry model
       let maximumOffset = max 0 (List.length lines - bodyHeight)
@@ -738,33 +745,41 @@ module TransformerTuiRenderer =
       else
         None)
 
-  let private styleDiagnostics (text: string) highlights =
+  let private styleInputText (text: string) diagnostics selection =
     let ranges =
-      highlights
+      diagnostics
       |> List.choose (fun (start, length) ->
         let start = max 0 start
         let finish = min text.Length (start + length)
         if start < finish then Some(start, finish) else None)
-      |> List.sortBy fst
-    let rec loop index chunks = function
-      | [] ->
-        if index >= text.Length then
-          List.rev chunks
-        else
-          List.rev (text[index..] :: chunks)
-      | (start, finish) :: rest ->
-        let start = max index start
-        if start >= finish then
-          loop index chunks rest
-        else
-          let chunks =
-            if index < start then
-              text[index..start - 1] :: chunks
-            else
-              chunks
-          let marked = paint (red + underline) text[start..finish - 1]
-          loop finish (marked :: chunks) rest
-    String.concat "" (loop 0 [] ranges)
+    let selection =
+      selection
+      |> Option.bind (fun (start, length) ->
+        let start = max 0 start
+        let finish = min text.Length (start + length)
+        if start < finish then Some(start, finish) else None)
+    let boundaries =
+      [ 0; text.Length ]
+      @ (ranges |> List.collect (fun (start, finish) -> [ start; finish ]))
+      @ (selection
+         |> Option.map (fun (start, finish) -> [ start; finish ])
+         |> Option.defaultValue [])
+      |> List.distinct
+      |> List.sort
+    boundaries
+    |> List.pairwise
+    |> List.map (fun (start, finish) ->
+      let isDiagnostic =
+        ranges
+        |> List.exists (fun (first, last) -> first <= start && start < last)
+      let isSelected =
+        selection
+        |> Option.exists (fun (first, last) -> first <= start && start < last)
+      let style =
+        (if isDiagnostic then red + underline else "")
+        + (if isSelected then reverse else "")
+      paint style text[start..finish - 1])
+    |> String.concat ""
 
   let private hintRows width completion =
     match completion.Hint with
@@ -924,33 +939,25 @@ module TransformerTuiRenderer =
     let column = lines |> List.tryLast |> Option.map _.Length
     line, Option.defaultValue 0 column
 
-  let private inputRow
-    width
-    (prompt: string)
-    (line: string)
-    lineStart
-    cursorColumn
-    (ghost: string)
-    diagnostics =
-    let available = max 1 (width - prompt.Length)
-    let cursorColumn = max 0 (min cursorColumn line.Length)
+  let private inputSegments available (row: TuiInputRow) =
+    let cursorColumn = max 0 (min row.CursorColumn row.Text.Length)
     let start =
       if cursorColumn < available then 0 else cursorColumn - available + 1
     let before =
       if cursorColumn <= start then
         ""
       else
-        line[start..cursorColumn - 1]
+        row.Text[start..cursorColumn - 1]
     let ghost =
       let length = max 0 (available - before.Length)
       if length = 0 then
         ""
-      elif ghost.Length > length then
-        ghost[..length - 1]
+      elif row.Ghost.Length > length then
+        row.Ghost[..length - 1]
       else
-        ghost
+        row.Ghost
     let after =
-      if cursorColumn >= line.Length then "" else line[cursorColumn..]
+      if cursorColumn >= row.Text.Length then "" else row.Text[cursorColumn..]
     let afterLength = max 0 (available - before.Length - ghost.Length)
     let after =
       if afterLength = 0 then
@@ -959,16 +966,34 @@ module TransformerTuiRenderer =
         after[..afterLength - 1]
       else
         after
+    start, cursorColumn, before, ghost, after
+
+  let private selectionInInputRow (row: TuiInputRow) start length =
+    row.Selection
+    |> Option.bind (fun (first, last) ->
+      let finish = start + length
+      let first = max first start
+      let last = min last finish
+      if first < last then Some(first - start, last - first) else None)
+
+  let private styleInputSegment (row: TuiInputRow) start text diagnostics =
+    styleInputText text diagnostics (selectionInInputRow row start text.Length)
+
+  let private inputRow width (row: TuiInputRow) =
+    let available = max 1 (width - row.Prompt.Length)
+    let start, cursorColumn, before, ghost, after = inputSegments available row
     let visibleLength = before.Length + ghost.Length + after.Length
     let beforeHighlights =
-      lineHighlights (lineStart + start) before.Length diagnostics
+      lineHighlights (row.TextStart + start) before.Length row.Diagnostics
     let afterHighlights =
-      lineHighlights (lineStart + cursorColumn) after.Length diagnostics
-    let before = styleDiagnostics before beforeHighlights
-    let after = styleDiagnostics after afterHighlights
+      lineHighlights (row.TextStart + cursorColumn) after.Length row.Diagnostics
+    let before =
+      styleInputSegment row (row.TextStart + start) before beforeHighlights
+    let after =
+      styleInputSegment row (row.TextStart + cursorColumn) after afterHighlights
     let padding = String.replicate (available - visibleLength) " "
-    let cursor = prompt.Length + cursorColumn - start + 1
-    paint green prompt + before + paint dim ghost + after + padding, cursor
+    let cursor = row.Prompt.Length + cursorColumn - start + 1
+    paint green row.Prompt + before + paint dim ghost + after + padding, cursor
 
   let private indexedInputLines (input: string) =
     let rec loop start output = function
@@ -977,6 +1002,45 @@ module TransformerTuiRenderer =
       | (line: string) :: rest ->
         loop (start + line.Length + 1) ((start, line) :: output) rest
     splitInputLines input |> loop 0 []
+
+  let private inputSelection model =
+    model.InputAnchor
+    |> Option.map (fun anchor ->
+      min anchor model.Cursor, max anchor model.Cursor)
+    |> Option.filter (fun (first, last) -> first < last)
+
+  let private renderInputRow
+    width
+    (state: TuiInputRenderState)
+    (first, offset)
+    (lineStart, line) =
+    let absolute = first + offset
+    let prompt =
+      if state.Model.IsBusy then
+        "  "
+      elif absolute = 0 then
+        "> "
+      else
+        "  "
+    let isCursorLine = absolute = state.CursorLine
+    let ghost =
+      if isCursorLine then
+        ghostText state.Completion state.Model.SuggestionIndex state.Model
+      else
+        ""
+    let column = if isCursorLine then state.CursorColumn else 0
+    let diagnostics =
+      state.Completion.Diagnostics
+      |> List.map (fun item -> item.Start, item.Length)
+    let row: TuiInputRow =
+      { Prompt = prompt
+        Text = line
+        TextStart = lineStart
+        CursorColumn = column
+        Ghost = ghost
+        Diagnostics = diagnostics
+        Selection = state.Selection }
+    inputRow width row, isCursorLine
 
   let private inputView
     width
@@ -989,30 +1053,16 @@ module TransformerTuiRenderer =
     let first =
       if cursorLine < maxRows then 0 else cursorLine - maxRows + 1
     let visible = lines |> List.skip first |> List.truncate maxRows
+    let state =
+      { Completion = completion
+        Model = model
+        CursorLine = cursorLine
+        CursorColumn = cursorColumn
+        Selection = inputSelection model }
     let rows, cursor =
       visible
       |> List.mapi (fun offset (lineStart, line) ->
-        let absolute = first + offset
-        let prompt =
-          if model.IsBusy then
-            "  "
-          elif absolute = 0 then
-            "> "
-          else
-            "  "
-        let isCursorLine = absolute = cursorLine
-        let ghost =
-          if isCursorLine then
-            ghostText completion model.SuggestionIndex model
-          else
-            ""
-        let column = if isCursorLine then cursorColumn else 0
-        let diagnostics =
-          completion.Diagnostics
-          |> List.map (fun item -> item.Start, item.Length)
-        let row =
-          inputRow width prompt line lineStart column ghost diagnostics
-        row, isCursorLine)
+        renderInputRow width state (first, offset) (lineStart, line))
       |> List.fold (fun (rows, cursor) (row, isCursorLine) ->
         let cursor =
           if isCursorLine then
@@ -1023,6 +1073,43 @@ module TransformerTuiRenderer =
     let rows = List.rev rows
     let cursor = cursor |> Option.defaultValue (0, 1)
     rows, cursor
+
+  let tryInputCursorAt width height (model: TransformerTuiModel) row column =
+    if model.Overlay <> TuiOverlay.None || model.IsBusy then
+      None
+    else
+      let maxRows = TransformerTuiModel.shellInputCapacity height model
+      let visibleRows =
+        TransformerTuiModel.visibleShellInputRows height model
+      let lines = indexedInputLines model.Input
+      let cursorLine, cursorColumn =
+        cursorInputPosition model.Input model.Cursor
+      let first =
+        if cursorLine < maxRows then 0 else cursorLine - maxRows + 1
+      let inputStart =
+        let afterBody =
+          5 + TransformerTuiModel.transcriptHeight height model
+        match model.BottomPaneOrder with
+        | TuiBottomPaneOrder.ShellAboveSuggestions ->
+          afterBody
+        | TuiBottomPaneOrder.SuggestionsAboveShell ->
+          afterBody + TransformerTuiModel.suggestionHeight height model
+      let offset = row - inputStart
+      let absolute = first + offset
+      let isOutsideInput = offset < 0 || offset >= visibleRows
+      let isOutsideFrame = column < 1 || column > width
+      if isOutsideInput || isOutsideFrame then
+        None
+      else
+        lines
+        |> List.tryItem absolute
+        |> Option.map (fun (lineStart, line) ->
+          let cursorColumn = if absolute = cursorLine then cursorColumn else 0
+          let available = max 1 (width - 2)
+          let start =
+            if cursorColumn < available then 0 else cursorColumn - available + 1
+          let local = max 0 (min line.Length (start + column - 3))
+          lineStart + local)
 
   let private contextFooter width model =
     let cwd = compactPath Environment.CurrentDirectory
@@ -1209,6 +1296,32 @@ module TransformerTuiRenderer =
       |> fun layout -> layout.Offset
     else
       model.ScrollOffset
+
+  let tryViewCursorAt width height model row column =
+    match model.ViewPane with
+    | Some pane when model.Overlay = TuiOverlay.View ->
+      let bodyHeight = TransformerTuiModel.transcriptHeight height model
+      let bodyWidth = TransformerTuiModel.transcriptBodyWidth width model
+      let bodyRow = row - 4
+      let layout = viewPaneLayout bodyWidth bodyHeight model.ScrollOffset model
+      let rowIndex = layout.Offset + bodyRow
+      let rows = viewRows bodyWidth pane
+      let isInBody =
+        bodyRow >= 0
+        && bodyRow < bodyHeight
+        && column >= 2
+        && column < bodyWidth
+      let isDisplayRow = rowIndex >= 0 && rowIndex < rows.Rows.Length
+      if not isInBody || not isDisplayRow then
+        None
+      else
+        let row = rows.Rows[rowIndex]
+        let cursor =
+          { Line = row.SourceLine
+            Column = max row.Start (min row.Finish (column - 4 + row.Start)) }
+        Some cursor
+    | _ ->
+      None
 
   let render width height registry model completion =
     if width < 40 || height < 15 then
