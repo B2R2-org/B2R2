@@ -234,6 +234,36 @@ let private parse3CXX3 bin =
   match Bits.extract bin 10u 3u with
   | 26u -> parseXX3 Op.XXPERM bin
   | 58u -> parseXX3 Op.XXPERMR bin
+  | 64u -> parseXX3 Op.XVADDSP bin
+  | 65u -> parseXX3 Op.XVMADDASP bin
+  | 72u -> parseXX3 Op.XVSUBSP bin
+  | 73u -> parseXX3 Op.XVMADDMSP bin
+  | 80u -> parseXX3 Op.XVMULSP bin
+  | 81u -> parseXX3 Op.XVMSUBASP bin
+  | 88u -> parseXX3 Op.XVDIVSP bin
+  | 89u -> parseXX3 Op.XVMSUBMSP bin
+  | 97u -> parseXX3 Op.XVMADDADP bin
+  | 105u -> parseXX3 Op.XVMADDMDP bin
+  | 113u -> parseXX3 Op.XVMSUBADP bin
+  | 121u -> parseXX3 Op.XVMSUBMDP bin
+  | 128u -> parseXX3 Op.XSMAXCDP bin
+  | 136u -> parseXX3 Op.XSMINCDP bin
+  | 144u -> parseXX3 Op.XSMAXJDP bin
+  | 152u -> parseXX3 Op.XSMINJDP bin
+  | 192u -> parseXX3 Op.XVMAXSP bin
+  | 193u -> parseXX3 Op.XVNMADDASP bin
+  | 200u -> parseXX3 Op.XVMINSP bin
+  | 201u -> parseXX3 Op.XVNMADDMSP bin
+  | 208u -> parseXX3 Op.XVCPSGNSP bin
+  | 209u -> parseXX3 Op.XVNMSUBASP bin
+  | 217u -> parseXX3 Op.XVNMSUBMSP bin
+  | 224u -> parseXX3 Op.XVMAXDP bin
+  | 225u -> parseXX3 Op.XVNMADDADP bin
+  | 232u -> parseXX3 Op.XVMINDP bin
+  | 233u -> parseXX3 Op.XVNMADDMDP bin
+  | 240u -> parseXX3 Op.XVCPSGNDP bin
+  | 241u -> parseXX3 Op.XVNMSUBADP bin
+  | 249u -> parseXX3 Op.XVNMSUBMDP bin
   | _ -> parse3CX bin
 
 /// <summary>
@@ -245,8 +275,32 @@ let parse3C bin =
   match Bits.extract bin 10u 2u with
   | 10u -> parseXX2 Op.XSRSQRTESP bin
   | 26u -> parseXX2 Op.XSRESP bin
+  | 74u -> parseXX2 Op.XSRSQRTEDP bin
+  | 90u -> parseXX2 Op.XSREDP bin
+  | 107u -> parseXX2 Op.XSRDPIC bin
+  | 137u -> parseXX2 Op.XVRSPI bin
+  | 138u -> parseXX2 Op.XVRSQRTESP bin
+  | 139u -> parseXX2 Op.XVSQRTSP bin
+  | 153u -> parseXX2 Op.XVRSPIZ bin
+  | 154u -> parseXX2 Op.XVRESP bin
   | 165u -> parseXX2Uim Op.XXEXTRACTUW bin
+  | 169u -> parseXX2 Op.XVRSPIP bin
+  | 171u -> parseXX2 Op.XVRSPIC bin
   | 180u -> parseLXVKQ bin
   | 181u -> parseXX2Uim Op.XXINSERTW bin
+  | 185u -> parseXX2 Op.XVRSPIM bin
+  | 201u -> parseXX2 Op.XVRDPI bin
+  | 202u -> parseXX2 Op.XVRSQRTEDP bin
+  | 203u -> parseXX2 Op.XVSQRTDP bin
+  | 217u -> parseXX2 Op.XVRDPIZ bin
+  | 218u -> parseXX2 Op.XVREDP bin
+  | 233u -> parseXX2 Op.XVRDPIP bin
+  | 235u -> parseXX2 Op.XVRDPIC bin
+  | 249u -> parseXX2 Op.XVRDPIM bin
+  | 409u -> parseXX2 Op.XVABSSP bin
+  | 425u -> parseXX2 Op.XVNABSSP bin
+  | 441u -> parseXX2 Op.XVNEGSP bin
+  | 473u -> parseXX2 Op.XVABSDP bin
   | 475u -> parseXO475 bin
+  | 489u -> parseXX2 Op.XVNABSDP bin
   | _ -> parse3CXX3 bin

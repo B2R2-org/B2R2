@@ -24,6 +24,7 @@
     <Compile Include="VectorPermuteLifter.fs" />
     <Compile Include="VectorFloatLifter.fs" />
     <Compile Include="VSXLifter.fs" />
+    <Compile Include="VSXFloat.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingVSX.fs" />
     <Compile Include="ParsingMain.fs" />
