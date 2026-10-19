@@ -408,6 +408,67 @@ type LifterTests() =
     oracle only64 "10006a88" given wanted
 
   /// <summary>
+  /// vcipher, vcipherlast, vncipher, vncipherlast and vsbox go out as the
+  /// named AES calls the other front ends use, IRRunner having no AES of its
+  /// own: vcipher one full round (AESENC), vcipherlast and vsbox the last
+  /// round (AESENCLAST, vsbox with a zero key and its ShiftRows undone),
+  /// vncipherlast the last inverse round (AESDECLAST), and vncipher -- whose
+  /// key is added before InvMixColumns -- that round followed by
+  /// InvMixColumns on its own (AESIMC). Their values were checked against
+  /// QEMU outside the suite, through the host's AES instructions.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] The AES rounds lift to the named AES calls``() =
+    let rec callsIn (e: Expr) =
+      match e with
+      | BinOp(Op = BinIR.BinOpType.APP; Left = FuncName(Name = n)) ->
+        [ n ]
+      | BinOp(Left = l; Right = r) | RelOp(Left = l; Right = r) ->
+        callsIn l @ callsIn r
+      | UnOp(Operand = x) | Cast(Operand = x) | Extract(Operand = x) ->
+        callsIn x
+      | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
+        callsIn c @ callsIn a @ callsIn b
+      | _ ->
+        []
+    let callsOf isa hex =
+      lifted isa hex
+      |> Array.toList
+      |> List.collect (function
+        | Put(Src = s) ->
+          callsIn s
+        | _ ->
+          [])
+      |> List.toArray
+    (* vcipher v1, v2, v3; vcipherlast v1, v2, v3; vncipher v1, v2, v3;
+       vncipherlast v1, v2, v3; vsbox v1, v2 *)
+    for hex, calls in
+      [ "10221d08", [| "AESENC" |]
+        "10221d09", [| "AESENCLAST" |]
+        "10221d48", [| "AESDECLAST"; "AESIMC" |]
+        "10221d49", [| "AESDECLAST" |]
+        "102205c8", [| "AESENCLAST" |] ] do
+      for isa in only64 do
+        CollectionAssert.AreEqual(calls, callsOf isa hex, hex)
+
+  /// <summary>
+  /// vshasigmaw and vshasigmad pick their function per element: ST the
+  /// lower- or upper-case sigma, and a bit of SIX -- bit i for word i, bit 2i
+  /// for doubleword i -- sigma 0 or 1, so one word mixes the four functions.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSHASIGMAW and VSHASIGMAD pick a function per element``() =
+    let given = [ V2A, 0x0123456789abcdefUL; V2B, 0x7fffffff80000001UL ]
+    (* vshasigmaw v1, v2, 0, 10; vshasigmaw v1, v2, 1, 5;
+       vshasigmad v1, v2, 0, 2; vshasigmad v1, v2, 1, 8 *)
+    for hex, hi, lo in
+      [ "10225682", 0xca1f28643d5dcc4cUL, 0x001fafff13006000UL
+        "1022ae82", 0x66654447d6316d8aUL, 0xdffbfdff063000c0UL
+        "102216c2", 0x6f92c77c6c4f1aa1UL, 0xfe002ffc01fff00bUL
+        "1022c6c2", 0x7703112333475567UL, 0x1f000017a2fffff8UL ] do
+      oracle only64 hex given [ V1A, hi; V1B, lo ]
+
+  /// <summary>
   /// vpkuhus vD, vA, vB narrows each of the unsigned halfwords of vA followed
   /// by those of vB to one of the unsigned bytes of vD; a value outside 0 ..
   /// 255 is clamped to the nearer end and sets VSCR[SAT], which is sticky.
@@ -1217,6 +1278,113 @@ type LifterTests() =
         V4B, 0x0000000100000001UL ]
     let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000001UL ]
     oracle only64 "1022193f" given wanted
+
+  /// <summary>
+  /// vshasigmaw vD, vA, ST, SIX applies to each word of vA one of the four
+  /// SHA-256 sigma functions: the lower-case ones (rotates and a shift) where
+  /// ST is 0, the upper-case ones (three rotates) where it is 1, and sigma 0
+  /// or 1 as bit i of SIX says for word i.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSHASIGMAW applies the SHA-256 sigma functions``() =
+    (* vshasigmaw v1, v2, 0, 0 *)
+    let given = [ V2A, 0x7fffffff80000000UL; V2B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0effdfff11002000UL; V1B, 0x1fffffff02004000UL ]
+    oracle only64 "10220682" given wanted
+
+  /// <summary>
+  /// vshasigmad vD, vA, ST, SIX applies to each doubleword of vA one of the
+  /// four SHA-512 sigma functions: ST picks the lower- or upper-case pair and
+  /// bit 2i of SIX picks sigma 0 or 1 for doubleword i.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSHASIGMAD applies the SHA-512 sigma functions``() =
+    (* vshasigmad v1, v2, 0, 0 *)
+    let given = [ V2A, 0x7fffffff80000000UL; V2B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x3f7fffffc0800000UL; V1B, 0xffffffff81000000UL ]
+    oracle only64 "102206c2" given wanted
+
+  /// <summary>
+  /// vpmsumb vD, vA, vB multiplies each pair of bytes of vA and vB as
+  /// polynomials over GF(2) -- shifting and XORing, never carrying -- and
+  /// writes the XOR of each even and odd product into a halfword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPMSUMB XORs carry-less byte products``() =
+    (* vpmsumb v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x000000ff7f800000UL; V1B, 0x7f80000000000000UL ]
+    oracle only64 "10221c08" given wanted
+
+  /// <summary>
+  /// vpmsumh vD, vA, vB multiplies each pair of halfwords of vA and vB as
+  /// polynomials over GF(2) -- shifting and XORing, never carrying -- and
+  /// writes the XOR of each even and odd product into a word of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPMSUMH XORs carry-less halfword products``() =
+    (* vpmsumh v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000ffff7fff8000UL; V1B, 0x7fff800000000000UL ]
+    oracle only64 "10221c48" given wanted
+
+  /// <summary>
+  /// vpmsumw vD, vA, vB multiplies each pair of words of vA and vB as
+  /// polynomials over GF(2) -- shifting and XORing, never carrying -- and
+  /// writes the XOR of each even and odd product into a doubleword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPMSUMW XORs carry-less word products``() =
+    (* vpmsumw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x7fffffffffffffffUL; V1B, 0x2aaaaaaa55555555UL ]
+    oracle only64 "10221c88" given wanted
+
+  /// <summary>
+  /// vpmsumd vD, vA, vB multiplies each pair of doublewords of vA and vB as
+  /// polynomials over GF(2) -- shifting and XORing, never carrying -- and
+  /// writes the XOR of each even and odd product into a quadword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPMSUMD XORs carry-less doubleword products``() =
+    (* vpmsumd v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x2aaaaaaaffffffffUL; V1B, 0xd555555500000000UL ]
+    oracle only64 "10221cc8" given wanted
+
+  /// <summary>
+  /// vpermxor vD, vA, vB, vC writes into each byte of vD the XOR of the byte
+  /// of vA the high nibble of the matching byte of vC names and the byte of
+  /// vB its low nibble names.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPERMXOR XORs bytes picked by nibbles``() =
+    (* vpermxor v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x7f7f7f7f7f7f7f7fUL; V1B, 0x7f7f7f7f7f7f7f7fUL ]
+    oracle only64 "1022192d" given wanted
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added

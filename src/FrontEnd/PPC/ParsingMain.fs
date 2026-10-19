@@ -1565,6 +1565,21 @@ let private parseXX3 op bin =
                             getVsxRegister xa |> OprReg,
                             getVsxRegister xb |> OprReg))
 
+/// A VX-form "vD, vA" whose vB field is unused (vsbox).
+let private parseVXA op bin =
+  let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+  let va = getVecRegister (Bits.extract bin 20u 16u) |> OprReg
+  if Bits.extract bin 15u 11u <> 0u then raise ParsingFailureException
+  else struct (op, TwoOperands(vd, va))
+
+/// vshasigmaw/vshasigmad: "vD, vA, ST, SIX", ST and SIX filling the vB field.
+let private parseVXSigma op bin =
+  let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+  let va = getVecRegister (Bits.extract bin 20u 16u) |> OprReg
+  let st = Bits.pick bin 15u |> uint64 |> OprImm
+  let six = Bits.extract bin 14u 11u |> uint64 |> OprImm
+  struct (op, FourOperands(vd, va, st, six))
+
 /// The forms of primary opcode 4 named by their low six bits alone: the VA
 /// forms, whose fourth operand fills the field above.
 let private parse04Wide bin =
@@ -1580,6 +1595,7 @@ let private parse04Wide bin =
   | 39u -> parseVA Op.VMSUMUHS bin
   | 40u -> parseVA Op.VMSUMSHM bin
   | 41u -> parseVA Op.VMSUMSHS bin
+  | 45u -> parseVA Op.VPERMXOR bin
   | 60u -> parseVA Op.VADDEUQM bin
   | 61u -> parseVA Op.VADDECUQ bin
   | 62u -> parseVA Op.VSUBEUQM bin
@@ -1748,6 +1764,17 @@ let private parse04 bin =
       | 782u -> parseVX Op.VPKPX bin
       | 846u -> parseVX2 Op.VUPKHPX bin
       | 974u -> parseVX2 Op.VUPKLPX bin
+      | 1288u -> parseVX Op.VCIPHER bin
+      | 1289u -> parseVX Op.VCIPHERLAST bin
+      | 1352u -> parseVX Op.VNCIPHER bin
+      | 1353u -> parseVX Op.VNCIPHERLAST bin
+      | 1480u -> parseVXA Op.VSBOX bin
+      | 1666u -> parseVXSigma Op.VSHASIGMAW bin
+      | 1730u -> parseVXSigma Op.VSHASIGMAD bin
+      | 1032u -> parseVX Op.VPMSUMB bin
+      | 1096u -> parseVX Op.VPMSUMH bin
+      | 1160u -> parseVX Op.VPMSUMW bin
+      | 1224u -> parseVX Op.VPMSUMD bin
       | _ -> raise ParsingFailureException
 
 /// xxpermdi, whose two-bit DM field picks one doubleword of each source. Its

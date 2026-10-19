@@ -463,6 +463,78 @@ type ParserTests() =
     ++ (VSUBECUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VCIPHER (Vector AES Cipher)``() =
+    "10221d08"
+    ++ (VCIPHER ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCIPHERLAST (Vector AES Cipher Last)``() =
+    "10221d09"
+    ++ (VCIPHERLAST ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VNCIPHER (Vector AES Inverse Cipher)``() =
+    "10221d48"
+    ++ (VNCIPHER ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VNCIPHERLAST (Vector AES Inverse Cipher Last)``() =
+    "10221d49"
+    ++ (VNCIPHERLAST ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSBOX (Vector AES SubBytes)``() =
+    "102205c8"
+    ++ (VSBOX ** [ O.Reg V1A; O.Reg V2A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSHASIGMAW (Vector SHA-256 Sigma Word)``() =
+    "10220682"
+    ++ (VSHASIGMAW ** [ O.Reg V1A; O.Reg V2A; O.Imm 0x0UL; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSHASIGMAD (Vector SHA-512 Sigma Doubleword)``() =
+    "102206c2"
+    ++ (VSHASIGMAD ** [ O.Reg V1A; O.Reg V2A; O.Imm 0x0UL; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPMSUMB (Vector Polynomial Multiply-Sum Byte)``() =
+    "10221c08"
+    ++ (VPMSUMB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPMSUMH (Vector Polynomial Multiply-Sum Halfword)``() =
+    "10221c48"
+    ++ (VPMSUMH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPMSUMW (Vector Polynomial Multiply-Sum Word)``() =
+    "10221c88"
+    ++ (VPMSUMW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPMSUMD (Vector Polynomial Multiply-Sum Doubleword)``() =
+    "10221cc8"
+    ++ (VPMSUMD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPERMXOR (Vector Permute & Exclusive-OR)``() =
+    "1022192d"
+    ++ (VPERMXOR ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
