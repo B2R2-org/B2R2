@@ -228,6 +228,49 @@ let private memoryAndStatusEncoders () =
     Op.MTFSFdot, fpWriteStatus 1u
     Op.FCPSGN, fpArith 63u 8u 0u ]
 
+/// The five bits that name the even register of an even-odd pair of
+/// floating-point registers, which an odd register cannot name.
+let private fprPair reg =
+  let n = fpr reg
+  if n &&& 1u = 0u then n else fail $"{reg} does not begin a register pair"
+
+/// ftsqrt, which tests one number into a field of the condition register.
+let private fpTestOne xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg b ] -> xForm 63u ((crf f) <<< 2) 0u (fpr b) xo 0u
+  | _ -> wrongOperands ins
+
+/// lfdp and stfdp, the DS-form accesses of a register pair.
+let private fpPairMemory po ins =
+  match ins.Operands with
+  | [ Rg f; Mem(disp, b) ] ->
+    dForm po (fprPair f) (gpr b) (wordDisplacement disp)
+  | _ ->
+    wrongOperands ins
+
+/// lfdpx and stfdpx, the X-form accesses of a register pair.
+let private fpPairIndexed xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Rg b ] -> xForm 31u (fprPair f) (gpr a) (gpr b) xo 0u
+  | _ -> wrongOperands ins
+
+/// The instructions the Floating-Point Facility added after the first
+/// PowerPC: the estimates, the merges, the software divide and square root
+/// tests, and the register pair accesses.
+let private laterEncoders () =
+  List.concat
+    [ recording (fpUnary 63u) 24u Op.FRE Op.FREdot
+      recording (fpUnary 59u) 26u Op.FRSQRTES Op.FRSQRTESdot
+      [ Op.FCPSGNdot, fpArith 63u 8u 1u
+        Op.FMRGEW, fpArith 63u 966u 0u
+        Op.FMRGOW, fpArith 63u 838u 0u
+        Op.FTDIV, fpCompare 128u
+        Op.FTSQRT, fpTestOne 160u
+        Op.LFDP, fpPairMemory 57u
+        Op.STFDP, fpPairMemory 61u
+        Op.LFDPX, fpPairIndexed 791u
+        Op.STFDPX, fpPairIndexed 919u ] ]
+
 /// Every instruction of the floating-point unit.
 let floatEncoders () =
   List.concat
@@ -249,4 +292,5 @@ let floatEncoders () =
       recording fpSetStatusBit 38u Op.MTFSB1 Op.MTFSB1dot
       recording fpSetStatusBit 70u Op.MTFSB0 Op.MTFSB0dot
       unaryEncoders ()
-      memoryAndStatusEncoders () ]
+      memoryAndStatusEncoders ()
+      laterEncoders () ]

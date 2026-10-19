@@ -34,6 +34,7 @@ open B2R2.FrontEnd.PPC
 open B2R2.FrontEnd.PPC.LiftingUtils
 open B2R2.FrontEnd.PPC.GeneralLifter
 open B2R2.FrontEnd.PPC.VectorLifter
+open B2R2.FrontEnd.PPC.FPLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -1323,6 +1324,33 @@ let translate (ins: Instruction) bld =
     vecCompare ins bld 64<rt> (?>) false
   | Op.VCMPGTSDdot ->
     vecCompare ins bld 64<rt> (?>) true
+  (* Lane F: binary floating point and Decimal Floating-Point. *)
+  | Op.FCPSGNdot ->
+    fcpsgnDot ins bld
+  | Op.FMRGEW ->
+    fmrg ins true bld
+  | Op.FMRGOW ->
+    fmrg ins false bld
+  | Op.FRE ->
+    fre ins false bld
+  | Op.FREdot ->
+    fre ins true bld
+  | Op.FRSQRTES ->
+    frsqrtes ins false bld
+  | Op.FRSQRTESdot ->
+    frsqrtes ins true bld
+  | Op.FTDIV ->
+    ftdiv ins bld
+  | Op.FTSQRT ->
+    ftsqrt ins bld
+  | Op.LFDP ->
+    lfdp ins bld
+  | Op.LFDPX ->
+    lfdpx ins bld
+  | Op.STFDP ->
+    stfdp ins bld
+  | Op.STFDPX ->
+    stfdpx ins bld
   | o ->
 #if DEBUG
          eprintfn "%A" o
