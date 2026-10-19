@@ -943,8 +943,7 @@ module TransformerReplEvaluator =
         Some(key.ToLowerInvariant(), annotation, value)
 
   let private bindingText (state: TransformerReplState) name =
-    state.Bindings
-    |> Map.tryFind name
+    TransformerReplState.tryFind name state
     |> Option.bind (fun value ->
       match value.Collection.Values with
       | [| value |] ->
