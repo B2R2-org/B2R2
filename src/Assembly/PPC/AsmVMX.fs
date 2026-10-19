@@ -81,8 +81,20 @@ let private multiplyEncoders () =
     Op.VMULESD, vx 968u
     Op.VMULOSD, vx 456u ]
 
+/// The quadword adds and subtracts, with their carries.
+let private quadwordEncoders () =
+  [ Op.VADDUQM, vx 256u
+    Op.VADDCUQ, vx 320u
+    Op.VSUBUQM, vx 1280u
+    Op.VSUBCUQ, vx 1344u
+    Op.VADDEUQM, va 60u
+    Op.VADDECUQ, va 61u
+    Op.VSUBEUQM, va 62u
+    Op.VSUBECUQ, va 63u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
     [ packAndSumEncoders ()
-      multiplyEncoders () ]
+      multiplyEncoders ()
+      quadwordEncoders () ]

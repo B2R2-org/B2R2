@@ -942,6 +942,10 @@ let opCodeToString = function
   | Op.STFDP -> "stfdp"
   | Op.STFDPX -> "stfdpx"
   (* Lane V: the vector facility, primary opcode 4. *)
+  | Op.VADDCUQ -> "vaddcuq"
+  | Op.VADDECUQ -> "vaddecuq"
+  | Op.VADDEUQM -> "vaddeuqm"
+  | Op.VADDUQM -> "vadduqm"
   | Op.VMHADDSHS -> "vmhaddshs"
   | Op.VMHRADDSHS -> "vmhraddshs"
   | Op.VMLADDUHM -> "vmladduhm"
@@ -978,6 +982,10 @@ let opCodeToString = function
   | Op.VPKUDUS -> "vpkudus"
   | Op.VPKUHUS -> "vpkuhus"
   | Op.VPKUWUS -> "vpkuwus"
+  | Op.VSUBCUQ -> "vsubcuq"
+  | Op.VSUBECUQ -> "vsubecuq"
+  | Op.VSUBEUQM -> "vsubeuqm"
+  | Op.VSUBUQM -> "vsubuqm"
   | Op.VUPKHPX -> "vupkhpx"
   | Op.VUPKLPX -> "vupklpx"
   | _ -> Terminator.impossible ()
