@@ -275,6 +275,14 @@ type LifterTests() =
       expect v actual $"{r} {hex} {nameOf isa}"
     for addr, v in mem do
       expect v (chunkAt outcome addr) $"{addr:x} {hex} {nameOf isa}"
+  /// XER[OV], bit 33 of the Power ISA's XER, kept at bit 30 of XER here.
+  let ov = 0x40000000UL
+
+  /// XER's SO, OV and CA after a run, the status bits every processor has.
+  let soOvCa after = after XER &&& (so ||| ov ||| ca)
+
+  /// The 64-bit processors, in both byte orders.
+  let ppc64s = [ ppc64; ppc64le ]
 
   /// <summary>
   /// add rD, rA, rB writes rA + rB at the width of a register: the sum wraps
@@ -24280,6 +24288,62 @@ type LifterTests() =
         VSRL18, 0x3f8000003f800000UL
         VSRL19, 0x0UL ]
       []
+
+  /// <summary>
+  /// divdo, divduo and mulldo set XER[OV] when the result cannot be
+  /// represented in 64 bits -- the most negative doubleword over -1, a zero
+  /// divisor, a product past the signed range -- and clear it when it can,
+  /// OR it into XER[SO] and leave XER[CA] alone. The quotients the ISA
+  /// leaves undefined are not checked. Values from qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDO, DIVDUO and MULLDO record an overflow in OV``() =
+    let max, min = 0x7fffffffffffffffUL, 0x8000000000000000UL
+    let fives, tens = 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL
+    (* divdo, divduo, mulldo r5, r6, r7 *)
+    let divdo, divduo, mulldo = "7ca63fd2", "7ca63f92", "7ca63dd2"
+    for isa in ppc64s do
+      let after hex a b xer = run isa hex [ R6, a; R7, b; XER, xer ]
+      let check hex a b xer status =
+        expect status (soOvCa (after hex a b xer)) $"{hex} {nameOf isa}"
+      let value hex a b xer = after hex a b xer R5
+      expect max (value divdo max 1UL 0xe00c0000UL) (nameOf isa)
+      check divdo max 1UL 0xe00c0000UL (so ||| ca)
+      check divdo min UInt64.MaxValue 0x20040000UL (so ||| ov ||| ca)
+      check divdo 0x1234UL 0UL 0UL (so ||| ov)
+      expect 0UL (value divdo fives tens 0x40080000UL) (nameOf isa)
+      check divdo fives tens 0x40080000UL 0UL
+      expect max (value divduo max 1UL 0xe00c0000UL) (nameOf isa)
+      check divduo max 1UL 0xe00c0000UL (so ||| ca)
+      check divduo 0x1234UL 0UL 0x20040000UL (so ||| ov ||| ca)
+      expect min (value mulldo min UInt64.MaxValue 0x20040000UL) (nameOf isa)
+      check mulldo min UInt64.MaxValue 0x20040000UL (so ||| ov ||| ca)
+      let product = 0x2236d88fe5618cf0UL
+      let a, b = 0x123456789abcdefUL, 0xfedcba9876543210UL
+      expect product (value mulldo a b 0UL) (nameOf isa)
+      check mulldo a b 0UL (so ||| ov)
+      check mulldo max 1UL 0xe00c0000UL (so ||| ca)
+
+  /// <summary>
+  /// The record forms of divdo, divduo and mulldo set CR0 from the result
+  /// and copy XER[SO] into it after OV has been ORed in, so an overflow
+  /// shows in CR0[SO] even when XER[SO] started clear. Values from
+  /// qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDO., DIVDUO. and MULLDO. record in CR0``() =
+    let max, min = 0x7fffffffffffffffUL, 0x8000000000000000UL
+    let fives, tens = 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL
+    (* divdo., divduo., mulldo. r5, r6, r7 *)
+    let divdo, divduo, mulldo = "7ca63fd3", "7ca63f93", "7ca63dd3"
+    for isa in ppc64s do
+      let field hex a b xer = cr0 (run isa hex [ R6, a; R7, b; XER, xer ])
+      expect 0b0101UL (field divdo max 1UL 0xe00c0000UL) (nameOf isa)
+      expect 0b0010UL (field divdo fives tens 0x40080000UL) (nameOf isa)
+      expect 1UL (field divdo 0x1234UL 0UL 0UL &&& 1UL) (nameOf isa)
+      expect 0b0101UL (field divduo max 1UL 0xe00c0000UL) (nameOf isa)
+      expect 0b1001UL (field mulldo min UInt64.MaxValue 0x20040000UL) "mulldo."
+      expect 0b0100UL (field mulldo 3UL 5UL 0UL) (nameOf isa)
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added

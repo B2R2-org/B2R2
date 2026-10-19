@@ -2416,10 +2416,12 @@ let private parse1FDouble fallback bin =
   | 0x0BAu -> parseXFormCount Op.PRTYD bin
   | 0x0D3u -> parseVsrMove Op.MTVSRWA bin
   | 0x0D6u -> parseStoreConditional Op.STDCXdot bin
-  | 0x0E9u -> parseXOForm [| Op.MULLD
-                             Op.MULLDdot
-                             Op.MULLDO
-                             Op.MULLDOdot |] bin
+  (* An XO form keeps OE in bit 10, so its overflow-recording forms read
+     0x200 higher than the plain ones and are reached from both. *)
+  | 0x0E9u | 0x2E9u -> parseXOForm [| Op.MULLD
+                                      Op.MULLDdot
+                                      Op.MULLDO
+                                      Op.MULLDOdot |] bin
   | 0x0F3u -> parseVsrMove Op.MTVSRWZ bin
   | 0x133u -> parseMFVSRLD bin
   | 0x1B3u -> parseMTVSRDD bin
@@ -2427,11 +2429,14 @@ let private parse1FDouble fallback bin =
   | 0x155u -> parseXFormIndexed Op.LWAX bin
   | 0x175u -> parseXFormIndexed Op.LWAUX bin
   | 0x17Au -> parseXFormCount Op.POPCNTW bin
-  | 0x1C9u -> parseXOForm [| Op.DIVDU
-                             Op.DIVDUdot
-                             Op.DIVDUO
-                             Op.DIVDUOdot |] bin
-  | 0x1E9u -> parseXOForm [| Op.DIVD; Op.DIVDdot; Op.DIVDO; Op.DIVDOdot |] bin
+  | 0x1C9u | 0x3C9u -> parseXOForm [| Op.DIVDU
+                                      Op.DIVDUdot
+                                      Op.DIVDUO
+                                      Op.DIVDUOdot |] bin
+  | 0x1E9u | 0x3E9u -> parseXOForm [| Op.DIVD
+                                      Op.DIVDdot
+                                      Op.DIVDO
+                                      Op.DIVDOdot |] bin
   | 0x1FAu -> parseXFormCount Op.POPCNTD bin
   | 0x1FCu -> parseXFormPerm Op.CMPB bin
   | 0x214u -> parseXFormIndexed Op.LDBRX bin
