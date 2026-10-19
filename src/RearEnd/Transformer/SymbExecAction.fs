@@ -1026,7 +1026,7 @@ module private SymbArgs =
             { spec with Regions = spec.Regions @ regions }
           | _ ->
             invalidArg (nameof args)
-              $"Unknown make-symbolic-context parameter: {key}"
+              $"Unknown symbolic execution parameter: {key}"
         loop spec rest
     let empty: SymbContextSpec =
       { PC = None
@@ -1549,6 +1549,114 @@ module private SymbMetadata =
       Examples = examples
       Priority = 20 }
 
+module private SymbExecutorSetup =
+  let private contextKeys =
+    Set.ofList
+      [ "pc"; "stack"; "regs"; "mem"; "sym-mem"; "sym-regs"; "regions" ]
+
+  let symbolicArguments text =
+    ContextParsing.entries text
+    |> Array.map (fun entry ->
+      let index, spec = ContextParsing.splitAssignment entry
+      let separator = spec.LastIndexOf ':'
+      if separator <= 0 then
+        invalidArg (nameof text)
+          $"Expected ABI argument index=name:size: {entry}"
+      else
+        let index = SymbArgs.parseInt index
+        let name = spec[..separator - 1].Trim()
+        let size = SymbArgs.parseInt (spec[separator + 1..].Trim())
+        if index < 0 || size <= 0 || String.IsNullOrWhiteSpace name then
+          invalidArg (nameof text) $"Invalid symbolic ABI argument: {entry}"
+        else
+          index, name, size)
+    |> Array.toList
+
+  let parseOptions args =
+    args
+    |> List.map ContextParsing.splitParameter
+    |> Map.ofList
+
+  let context options =
+    options
+    |> Map.toList
+    |> List.choose (fun (key, value) ->
+      if Set.contains key contextKeys then Some $"{key}={value}" else None)
+    |> SymbArgs.parseContext
+
+  let layout binary context options hasArguments =
+    options
+    |> Map.tryFind "buffers"
+    |> Option.orElseWith (fun () ->
+      if hasArguments then Some "[]" else None)
+    |> Option.map (fun buffers ->
+      let hdl = Binary.Handle binary
+      match context.Stack with
+      | Some stack ->
+        ExecutionSetup.layoutAt hdl stack buffers
+      | None ->
+        ExecutionSetup.layout hdl buffers)
+
+  let applyLayout binary layout context (executor: SymbExecutorValue) =
+    match layout with
+    | Some layout ->
+      let hdl = Binary.Handle binary
+      let entry =
+        context.PC
+        |> Option.defaultWith (fun () ->
+          hdl.File.EntryPoint |> Option.defaultValue hdl.File.BaseAddress)
+      let executor =
+        executor.WithExecutionSetup(entry, layout, context.SymbolicRegisters)
+      executor, { context with Stack = None; SymbolicRegisters = [] }
+    | None ->
+      executor, context
+
+  let configure options (executor: SymbExecutorValue) =
+    let executor =
+      match Map.tryFind "avoid" options with
+      | Some text ->
+        ContextParsing.entries text
+        |> Array.fold (fun (current: SymbExecutorValue) address ->
+          current.WithAvoid(SymbArgs.parseAddr address)) executor
+      | None ->
+        executor
+    match Map.tryFind "hooks" options with
+    | Some text ->
+      ContextParsing.entries text
+      |> Array.fold (fun (current: SymbExecutorValue) entry ->
+        let name, address = ContextParsing.splitAssignment entry
+        let address = SymbArgs.parseAddr address
+        match name.Trim().ToLowerInvariant() with
+        | "strlen" -> current.WithStrlenHook address
+        | "fwrite" -> current.WithFwriteHook address
+        | _ -> invalidArg (nameof text) $"Unknown call hook: {name}")
+        executor
+    | None ->
+      executor
+
+  let create (binary: Binary) options =
+    let solverID =
+      options |> Map.tryFind "solver" |> Option.defaultValue "symb-z3"
+    let solver =
+      SymbSolverRegistry.create solverID
+      |> Option.defaultWith (fun () ->
+        invalidOp $"The {solverID} solver is unavailable. Load its plugin.")
+    let context = context options
+    let arguments =
+      options
+      |> Map.tryFind "sym-args"
+      |> Option.map symbolicArguments
+      |> Option.defaultValue []
+    let layout = layout binary context options (not (List.isEmpty arguments))
+    let executor = SymbExecutorValue(binary).WithSolver solver
+    let executor, context = applyLayout binary layout context executor
+    let executor = executor.WithContext context
+    let executor =
+      arguments
+      |> List.fold (fun (current: SymbExecutorValue) (index, name, size) ->
+        current.WithSymbolicArgument(index, name, size)) executor
+    configure options executor, layout
+
 type SymbExecAction() =
   let solver =
     SymbMetadata.arg
@@ -1556,97 +1664,36 @@ type SymbExecAction() =
       ActionArgumentKind.Action
       true
       "Solver provider action, such as @symb-z3."
-  let metadata =
-    let signature =
-      "Binary | BinarySlice -> @make-symbolic-executor "
-      + "[solver:Action=<action>] "
-      + "-> SymbExecutor"
-    { SymbMetadata.metadata
-        "make-symbolic-executor"
-        ReplValueKind.Binary
-        ReplValueKind.SymbExecutor
-        ActionRole.Transform
-        signature
-        "Create a symbolic executor over a binary or binary slice."
-        [ "let sx = bin |> @make-symbolic-executor solver=@symb-z3" ] with
-        AlternativeInputs = [ ReplValueKind.BinarySlice ]
-        Syntaxes = [ SymbMetadata.syntax None [ solver ] ] }
-
-  let findSolver = function
-    | [] ->
-      None
-    | [ solver ] ->
-      match SymbSolverRegistry.create solver with
-      | Some solver ->
-        Some solver
-      | None ->
-        invalidArg (nameof solver) $"Unknown solver: {solver}"
-    | _ ->
-      invalidArg "args" "Invalid make-symbolic-executor arguments."
-
-  let transformOne solver (value: obj) =
-    let executor =
-      match value with
-      | :? Binary as binary ->
-        SymbExecutorValue binary
-      | :? BinarySlice as slice ->
-        SymbExecutorValue(slice.ToBinary())
-      | value ->
-        invalidOp $"make-symbolic-executor expects Binary: {value}"
-    solver
-    |> Option.map executor.WithSolver
-    |> Option.defaultValue executor
-    |> box
-
-  let transform args (collection: ObjCollection) =
-    let solver = findSolver args
-    collection.Values |> Array.map (transformOne solver) |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
-
-type SymbContextAction() =
   let pc =
     SymbMetadata.arg
       "pc"
       ActionArgumentKind.Address
       true
-      "Address where the next symbolic run starts."
+      "Address where symbolic execution starts."
   let stack =
     SymbMetadata.arg
       "stack"
       ActionArgumentKind.Address
       true
-      "Concrete stack pointer value."
+      "Initial stack pointer."
   let regs =
     SymbMetadata.arg
       "regs"
       ActionArgumentKind.Text
       true
-      "Register assignments: [RBP=0x1; RDI=0x70000000]."
+      "Concrete register assignments: [RDI=0x70000000]."
   let mem =
     SymbMetadata.arg
       "mem"
       ActionArgumentKind.Text
       true
-      "Concrete memory assignments: [0x70000012=00]."
+      "Concrete memory assignments: [0x70000000=00]."
   let symMem =
     SymbMetadata.arg
       "sym-mem"
       ActionArgumentKind.Text
       true
-      "Symbolic memory assignments: [password@0x70000000:18]."
+      "Symbolic memory assignments: [input@0x70000000:16]."
   let symRegs =
     SymbMetadata.arg
       "sym-regs"
@@ -1658,207 +1705,83 @@ type SymbContextAction() =
       "regions"
       ActionArgumentKind.Text
       true
-      "Additional regions: [track=0x70000000..0x70000400:rw]."
-  let signature =
-    "SymbExecutor -> @make-symbolic-context [pc:Address=<addr>] "
-    + "[stack:Address=<addr>] [regs:String=<regs>] "
-    + "[mem:String=<mem>] [sym-mem:String=<sym-mem>] "
-    + "[sym-regs:String=<regs>] [regions:String=<regions>] "
-    + "-> SymbExecutor"
-  let metadata =
-    { SymbMetadata.metadata
-        "make-symbolic-context"
-        ReplValueKind.SymbExecutor
-        ReplValueKind.SymbExecutor
-        ActionRole.Transform
-        signature
-        "Set symbolic context; binary image permissions are automatic."
-        [ "sx |> @make-symbolic-context pc=<addr> stack=<addr>"
-          "sx |> @make-symbolic-context regs=[RBP=<addr>; RDI=<addr>]"
-          "sx |> @make-symbolic-context sym-regs=[ESI=idx:4]"
-          "sx |> @make-symbolic-context "
-          + "regions=[buf=<start>..<end>:rw]" ]
-        with
-        Syntaxes =
-          [ SymbMetadata.syntax None
-              [ pc; stack; regs; mem; symMem; symRegs; regions ] ] }
-
-  let transformOne args (value: obj) =
-    match value with
-    | :? SymbExecutorValue as executor ->
-      SymbArgs.parseContext args |> executor.WithContext |> box
-    | value ->
-      invalidOp $"make-symbolic-context expects SymbExecutor: {value}"
-
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
-
-type SymbAvoidAction() =
-  let addr =
+      "Memory regions: [buf=0x70000000..0x70000400:rw]."
+  let symArgs =
     SymbMetadata.arg
-      "addr"
-      ActionArgumentKind.Address
-      false
-      "Address to discard during symbolic exploration."
-  let metadata =
-    { SymbMetadata.metadata
-        "stop-at"
-        ReplValueKind.SymbExecutor
-        ReplValueKind.SymbExecutor
-        ActionRole.Transform
-        "SymbExecutor -> @stop-at addr:Address=<addr> -> SymbExecutor"
-        "Stop symbolic exploration when PC reaches an address."
-        [ "sx |> @stop-at addr=<addr>" ] with
-        Syntaxes = [ SymbMetadata.syntax None [ addr ] ] }
-
-  let transformOne args (value: obj) =
-    match value with
-    | :? SymbExecutorValue as executor ->
-      match args with
-      | [ addr ] ->
-        executor.WithAvoid(SymbArgs.parseAddr addr) |> box
-      | _ ->
-        invalidArg (nameof args) "Invalid stop-at arguments."
-    | value ->
-      invalidOp $"stop-at expects SymbExecutor: {value}"
-
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
-
-type SymbHookAction() =
-  let addr =
+      "sym-args"
+      ActionArgumentKind.Text
+      true
+      "Symbolic ABI buffers: [0=input:32]."
+  let buffers =
     SymbMetadata.arg
-      "addr"
-      ActionArgumentKind.Address
-      false
-      "Address of an external call stub to model."
+      "buffers"
+      ActionArgumentKind.Text
+      true
+      "Allocated buffers: [RDI=track:0x400:rw]."
+  let avoid =
+    SymbMetadata.arg
+      "avoid"
+      ActionArgumentKind.Text
+      true
+      "Addresses to exclude from exploration: [0x401e62]."
+  let hooks =
+    SymbMetadata.arg
+      "hooks"
+      ActionArgumentKind.Text
+      true
+      "External call models: [strlen=0x401000; fwrite=0x401220]."
   let metadata =
     let signature =
-      "SymbExecutor -> @hook (strlen | fwrite) addr:Address=<addr> "
+      "Binary | BinarySlice -> @make-symbolic-executor "
+      + "[solver=<action>] [pc=<addr>] [stack=<addr>] "
+      + "[regs=[...]] [mem=[...]] [sym-mem=[...]] "
+      + "[sym-regs=[...]] [regions=[...]] [sym-args=[...]] "
+      + "[buffers=[...]] [avoid=[...]] [hooks=[...]] "
       + "-> SymbExecutor"
     { SymbMetadata.metadata
-        "hook"
-        ReplValueKind.SymbExecutor
+        "make-symbolic-executor"
+        ReplValueKind.Binary
         ReplValueKind.SymbExecutor
         ActionRole.Transform
         signature
-        "Attach a built-in symbolic model for an external function."
-        [ "sx |> @hook strlen addr=<addr>"
-          "sx |> @hook fwrite addr=<addr>" ] with
+        "Create a symbolic executor over a binary or binary slice."
+        [ "binary |> @make-symbolic-executor pc=<addr> "
+          + "sym-regs=[ESI=idx:4]" ] with
+        AlternativeInputs = [ ReplValueKind.BinarySlice ]
         Syntaxes =
-          [ SymbMetadata.syntax (Some "strlen") [ addr ]
-            SymbMetadata.syntax (Some "fwrite") [ addr ] ] }
+          [ SymbMetadata.syntax None
+              [ solver
+                pc
+                stack
+                regs
+                mem
+                symMem
+                symRegs
+                regions
+                symArgs
+                buffers
+                avoid
+                hooks ] ] }
 
-  let transformOne args (value: obj) =
-    match value with
-    | :? SymbExecutorValue as executor ->
-      let result =
-        match args with
-        | [ "strlen"; addr ] ->
-          executor.WithStrlenHook(SymbArgs.parseAddr addr)
-        | [ "fwrite"; addr ] ->
-          executor.WithFwriteHook(SymbArgs.parseAddr addr)
-        | _ ->
-          invalidArg (nameof args) "Invalid hook arguments."
-      result |> box
-    | value ->
-      invalidOp $"hook expects SymbExecutor: {value}"
+  let transformNamed args (collection: ObjCollection) =
+    let options = Map.ofList args
+    let values =
+      collection.Values
+      |> Array.map (function
+        | :? Binary as binary ->
+          SymbExecutorSetup.create binary options |> fst |> box
+        | :? BinarySlice as slice ->
+          SymbExecutorSetup.create (slice.ToBinary()) options
+          |> fst
+          |> box
+        | value ->
+          invalidOp $"make-symbolic-executor expects Binary: {value}")
+    { Values = values }
 
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(args, collection) = transform args collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(args, collection, _cancellationToken) =
-      transform args collection
-
-type SymbArgAction() =
-  let index =
-    SymbMetadata.arg
-      "index"
-      ActionArgumentKind.Integer
-      false
-      "Zero-based ABI argument index."
-  let name =
-    SymbMetadata.arg
-      "name"
-      ActionArgumentKind.Text
-      false
-      "Symbolic input variable prefix."
-  let size =
-    SymbMetadata.arg
-      "size"
-      ActionArgumentKind.Integer
-      false
-      "Number of symbolic bytes."
-  let signature =
-    "SymbExecutor -> @make-symbolic-arg index:Int=<n> name:String=<name> "
-    + "size:Int=<n> -> SymbExecutor"
-  let metadata =
-    { SymbMetadata.metadata
-        "make-symbolic-arg"
-        ReplValueKind.SymbExecutor
-        ReplValueKind.SymbExecutor
-        ActionRole.Transform
-        signature
-        "Allocate a symbolic byte buffer and pass it as an ABI argument."
-        [ "sx |> @make-symbolic-arg index=<n> name=<name> size=<n>" ] with
-        Syntaxes = [ SymbMetadata.syntax None [ index; name; size ] ] }
-
-  let transformOne args (value: obj) =
-    match value with
-    | :? SymbExecutorValue as executor ->
-      match args with
-      | [ index; name; size ] ->
-        executor.WithSymbolicArgument(SymbArgs.parseInt index,
-                                      name,
-                                      SymbArgs.parseInt size)
-        |> box
-      | _ ->
-        invalidArg (nameof args) "Invalid make-symbolic-arg arguments."
-    | value ->
-      invalidOp $"make-symbolic-arg expects SymbExecutor: {value}"
-
-  let transform args (collection: ObjCollection) =
-    collection.Values |> Array.map (transformOne args) |> fun values ->
-      { Values = values }
+  let transform args collection =
+    SymbExecutorSetup.parseOptions args
+    |> Map.toList
+    |> fun options -> transformNamed options collection
 
   interface IAction with
     member _.ActionID with get() = metadata.ID
@@ -1872,6 +1795,10 @@ type SymbArgAction() =
   interface ICancellableAction with
     member _.Transform(args, collection, _cancellationToken) =
       transform args collection
+
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, _cancellationToken) =
+      transformNamed args collection
 
 type SymbSearchAction() =
   let entry =
@@ -1880,6 +1807,36 @@ type SymbSearchAction() =
       ActionArgumentKind.Address
       false
       "Address of the function to explore."
+  let solver =
+    SymbMetadata.arg
+      "solver"
+      ActionArgumentKind.Action
+      true
+      "Symbolic solver provider. Default: @symb-z3."
+  let stack =
+    SymbMetadata.arg
+      "stack"
+      ActionArgumentKind.Address
+      true
+      "Initial stack pointer."
+  let registers =
+    SymbMetadata.arg
+      "regs"
+      ActionArgumentKind.Text
+      true
+      "Concrete register assignments."
+  let memory =
+    SymbMetadata.arg
+      "mem"
+      ActionArgumentKind.Text
+      true
+      "Concrete memory assignments."
+  let symbolicMemory =
+    SymbMetadata.arg
+      "sym-mem"
+      ActionArgumentKind.Text
+      true
+      "Symbolic memory assignments."
   let symbolicRegisters =
     { SymbMetadata.arg
         "sym-regs"
@@ -1889,6 +1846,18 @@ type SymbSearchAction() =
         IsOptional = true
         DefaultValue = Some ActionArgumentDefault.EmptyList
         Choices = [ "[]" ] }
+  let regions =
+    SymbMetadata.arg
+      "regions"
+      ActionArgumentKind.Text
+      true
+      "Additional memory regions."
+  let symbolicArguments =
+    SymbMetadata.arg
+      "sym-args"
+      ActionArgumentKind.Text
+      true
+      "Symbolic ABI buffers: [0=input:32]."
   let buffers =
     { SymbMetadata.arg
         "buffers"
@@ -1898,6 +1867,18 @@ type SymbSearchAction() =
         IsOptional = true
         DefaultValue = Some ActionArgumentDefault.EmptyList
         Choices = [ "[]" ] }
+  let avoid =
+    SymbMetadata.arg
+      "avoid"
+      ActionArgumentKind.Text
+      true
+      "Addresses to exclude from exploration: [0x401e62]."
+  let hooks =
+    SymbMetadata.arg
+      "hooks"
+      ActionArgumentKind.Text
+      true
+      "External call models: [strlen=0x401000; fwrite=0x401220]."
   let check =
     SymbMetadata.choice
       "check"
@@ -1940,16 +1921,42 @@ type SymbSearchAction() =
       true
       [ "true"; "false" ]
       "Use the solver to prune infeasible paths. Default: true."
-  let condArgs = [ cond; precond; maxDepth; maxStates; loopBound; prune ]
-  let directArgs = [ entry; symbolicRegisters; buffers; check ]
+  let condArgs =
+    [ cond; precond; maxDepth; maxStates; loopBound; prune; avoid; hooks ]
+  let setupArgs =
+    [ entry
+      solver
+      stack
+      registers
+      memory
+      symbolicMemory
+      symbolicRegisters
+      regions
+      symbolicArguments
+      buffers
+      avoid
+      hooks ]
+  let directArgs =
+    setupArgs
+    @ [ check
+        precond
+        maxDepth
+        maxStates
+        loopBound
+        prune ]
+  let directCondArgs =
+    setupArgs @ [ cond; precond; maxDepth; maxStates; loopBound; prune ]
   let signature =
-    "Binary -> @run-symbolic entry:Address=<addr> "
-    + "[sym-regs:String=<regs>] [buffers:String=<buffers>] "
-    + "check:Choice=<access-violation> | "
+    "Binary -> @run-symbolic entry=<addr> [solver=<action>] "
+    + "[stack=<addr>] [regs=[...]] [mem=[...]] [sym-mem=[...]] "
+    + "[sym-regs=[...]] [regions=[...]] [sym-args=[...]] "
+    + "[buffers=[...]] [avoid=[...]] [hooks=[...]] "
+    + "(check=access-violation | cond=<fun>) | "
     + "SymbExecutor -> @run-symbolic cond:ParameterFunction=<fun> "
     + "[precond:String=<conditions>] [max-depth:Int=<n>] "
     + "[max-states:Int=<n>] "
-    + "[loop-bound:Int=<n>] [prune:Choice=<true|false>] -> SymbRunResult"
+    + "[loop-bound:Int=<n>] [prune:Choice=<true|false>] "
+    + "[avoid=[...]] [hooks=[...]] -> SymbRunResult"
   let metadata =
     { SymbMetadata.metadata
         "run-symbolic"
@@ -1972,54 +1979,103 @@ type SymbSearchAction() =
           [ { SymbMetadata.syntax None directArgs with
                 Inputs =
                   [ ReplValueKind.Binary; ReplValueKind.BinarySlice ] }
+            { SymbMetadata.syntax None directCondArgs with
+                Inputs =
+                  [ ReplValueKind.Binary; ReplValueKind.BinarySlice ] }
             { SymbMetadata.syntax None condArgs with
                 Inputs = [ ReplValueKind.SymbExecutor ] } ] }
 
+  let withPrecondition hdl options (executor: SymbExecutorValue) =
+    match Map.tryFind "precond" options with
+    | Some text ->
+      let condition = SymbCondition.parsePreconditions text
+      let predicate =
+        SymbCondition.toPredicate hdl executor.Regions condition
+      executor.WithPrecondition predicate.Invoke
+    | None ->
+      executor
+
+  let directCondition options =
+    match Map.tryFind "check" options, Map.tryFind "cond" options with
+    | Some "access-violation", None ->
+      "(fun _ -> mem.accessViolation())"
+    | None, Some condition ->
+      condition
+    | _ ->
+      invalidArg (nameof options) "Specify one of check= or cond=."
+
+  let stopAtReturn hdl (executor: SymbExecutorValue) =
+    let returnSP =
+      let accessor = SymbStateAccessor(hdl, executor.State)
+      match accessor.TryGetStackPointer() with
+      | Ok stackPointer ->
+        stackPointer
+      | Error error ->
+        invalidOp $"Cannot determine the initial stack pointer: {error}"
+    StopPredicate<SymbState>(fun point ->
+      match point.Instruction with
+      | Some instruction when instruction.IsRET ->
+        let accessor = SymbStateAccessor(hdl, point.State)
+        match accessor.TryGetStackPointer() with
+        | Ok stackPointer ->
+          stackPointer = returnSP
+        | Error _ ->
+          false
+      | _ ->
+        false)
+
+  let directLimits options =
+    let optionInt name fallback =
+      options
+      |> Map.tryFind name
+      |> Option.map SymbArgs.parseInt
+      |> Option.defaultValue fallback
+    let maxDepth = optionInt "max-depth" 512
+    let maxStates = optionInt "max-states" 2048
+    let loopBound = optionInt "loop-bound" 2
+    let prune =
+      options
+      |> Map.tryFind "prune"
+      |> Option.map SymbArgs.parseBool
+      |> Option.defaultValue true
+    maxDepth, maxStates, loopBound, prune
+
+  let runBinaryNamed ct options binary =
+    let entry = Map.find "entry" options
+    let setup = options |> Map.add "pc" entry
+    let setup =
+      if Map.containsKey "buffers" setup
+         || Map.containsKey "stack" setup then
+        setup
+      else
+        Map.add "buffers" "[]" setup
+    let executor, _ = SymbExecutorSetup.create binary setup
+    let hdl = Binary.Handle binary
+    let executor = withPrecondition hdl options executor
+    let predicate =
+      directCondition options
+      |> SymbCondition.parse
+      |> SymbCondition.toPredicate hdl executor.Regions
+    let stopAtReturn = stopAtReturn hdl executor
+    let maxDepth, maxStates, loopBound, prune = directLimits options
+    executor.RunSatisfyCondition(predicate,
+                                 maxDepth,
+                                 maxStates,
+                                 loopBound,
+                                 prune,
+                                 ct,
+                                 stopWhen = stopAtReturn)
+    |> box
+
   let runBinary ct args binary =
     match args with
-    | [ entry; registers; buffers; "access-violation" ] ->
-      let hdl = Binary.Handle binary
-      let layout = ExecutionSetup.layout hdl buffers
-      let symbolicRegisters =
-        SymbArgs.contextEntries registers
-        |> Array.map SymbArgs.parseSymbolicRegisterAssignment
-        |> Array.toList
-      let solver =
-        match SymbSolverRegistry.create "symb-z3" with
-        | Some solver ->
-          solver
-        | None ->
-          invalidOp "The symb-z3 solver is unavailable. Load its plugin."
-      let entry = ContextParsing.parseAddress entry
-      let executor = SymbExecutorValue(binary).WithSolver(solver)
-      let executor =
-        executor.WithExecutionSetup(entry, layout, symbolicRegisters)
-      let condition =
-        SymbCondition.parse "(fun _ -> mem.accessViolation())"
-        |> SymbCondition.toPredicate hdl executor.Regions
-      let stopAtReturn =
-        StopPredicate<SymbState>(fun point ->
-          match point.Instruction with
-          | Some instruction when instruction.IsRET ->
-            let accessor = SymbStateAccessor(hdl, point.State)
-            match accessor.TryGetStackPointer() with
-            | Ok stackPointer ->
-              stackPointer = layout.ReturnStackPointer
-            | Error _ ->
-              false
-          | _ ->
-            false)
-      let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults []
-      executor.RunSatisfyCondition(
-        condition,
-        maxDepth,
-        maxStates,
-        loopBound,
-        prune,
-        ct,
-        stopWhen = stopAtReturn
-      )
-      |> box
+    | [ entry; registers; buffers; check ] ->
+      Map.ofList
+        [ "entry", entry
+          "sym-regs", registers
+          "buffers", buffers
+          "check", check ]
+      |> fun options -> runBinaryNamed ct options binary
     | _ ->
       invalidArg (nameof args) "Invalid binary run-symbolic arguments."
 
@@ -2095,6 +2151,30 @@ type SymbSearchAction() =
     |> fun values ->
       { Values = values }
 
+  let transformNamed ct args (collection: ObjCollection) =
+    let options = Map.ofList args
+    let option name fallback =
+      Map.tryFind name options |> Option.defaultValue fallback
+    let executorArgs () =
+      [ Map.find "cond" options ]
+      @ (Map.tryFind "precond" options |> Option.toList)
+      @ [ option "max-depth" "512"
+          option "max-states" "2048"
+          option "loop-bound" "2"
+          option "prune" "true" ]
+    { Values =
+        collection.Values
+        |> Array.map (function
+          | :? Binary as binary ->
+            runBinaryNamed ct options binary
+          | :? BinarySlice as slice ->
+            runBinaryNamed ct options (slice.ToBinary())
+          | :? SymbExecutorValue as executor ->
+            let executor = SymbExecutorSetup.configure options executor
+            transformOne ct (executorArgs ()) executor
+          | value ->
+            invalidOp $"run-symbolic expects Binary or SymbExecutor: {value}") }
+
   interface IAction with
     member _.ActionID with get() = metadata.ID
     member _.Signature with get() = metadata.Signature
@@ -2108,6 +2188,10 @@ type SymbSearchAction() =
   interface ICancellableAction with
     member _.Transform(args, collection, ct) =
       transform ct args collection
+
+  interface ICancellableNamedArgumentsAction with
+    member _.TransformNamed(args, collection, ct) =
+      transformNamed ct args collection
 
 type SymbModelAction() =
   let metadata =
