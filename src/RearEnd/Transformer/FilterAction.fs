@@ -27,8 +27,8 @@ namespace B2R2.RearEnd.Transformer
 open System
 open System.Threading
 
-/// The `find` action.
-type FindAction() =
+/// The `filter` action.
+type FilterAction() =
   let parseArgument (args: string list) =
     match args with
     | [ argument ] ->
@@ -62,9 +62,10 @@ type FindAction() =
       invalidArg "arguments" "Expected exactly one named query argument."
 
   interface IAction with
-    member _.ActionID with get() = "find"
+    member _.ActionID with get() = "filter"
     member _.Signature with get() =
-      "FunctionInfo collection -> find symbol=<name>|entry=<addr> -> collection"
+      "FunctionInfo collection -> filter symbol=<name>|entry=<addr> "
+      + "-> collection"
     member _.Description with get() =
       """
     Filter functions by one searchable property.
