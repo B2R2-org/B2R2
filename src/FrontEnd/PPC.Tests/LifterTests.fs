@@ -113,6 +113,21 @@ type LifterTests() =
   /// FPSCR here.
   let fprf (fpscr: uint64) = (fpscr >>> 12) &&& 0x1fUL
 
+  /// Every processor: 32-bit big-endian, and 64-bit big- and little-endian.
+  let everyTarget = [ ppc32; ppc64; ppc64le ]
+
+  /// The two 64-bit processors, for what the 32-bit reference -- a G4, which
+  /// has the vector facility of its day -- does not run.
+  let only64 = [ ppc64; ppc64le ]
+
+  /// Runs a word on each processor named, over the registers given values,
+  /// and asserts that each register wanted holds what QEMU left in it when it
+  /// ran the word over the same values.
+  let oracle isas hex given wanted =
+    for isa in isas do
+      let after = run isa hex given
+      for r, v in wanted do expect v (after r) $"{hex} {r} {nameOf isa}"
+
   /// Eight bytes of memory in address order, given as the oracle writes them:
   /// one big-endian doubleword.
   let chunk (v: uint64) = Array.init 8 (fun i -> byte (v >>> (56 - 8 * i)))
@@ -345,6 +360,498 @@ type LifterTests() =
       ppc64, 0xd4465b420c0d0e0fUL
       ppc64le, 0xd4465b4203020100UL ]
     |> check "7c26398e" 0x14UL 0x20200088UL 0xd4465b42e7cd5698UL
+
+  /// <summary>
+  /// vpkudum v12, v8, v12 and vmsumubm v0, v13, v12, v0 -- the two words a
+  /// ppc64el C++ program and tar first stopped on -- name their target among
+  /// their sources: every element of the result is computed from the
+  /// registers as they were before any of it is written.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKUDUM and VMSUMUBM read a target that is a source``() =
+    (* vpkudum v12, v8, v12 *)
+    let given =
+      [ V8A, 0x0123456789abcdefUL
+        V8B, 0xfedcba9876543210UL
+        V12A, 0x00000001ffffffffUL
+        V12B, 0x8000000012345678UL ]
+    let wanted = [ V12A, 0x89abcdef76543210UL; V12B, 0xffffffff12345678UL ]
+    oracle only64 "1188644e" given wanted
+    (* vmsumubm v0, v13, v12, v0 *)
+    let given =
+      [ V0A, 0x0000000100000002UL
+        V0B, 0x80000000ffffffffUL
+        V12A, 0xfffefdfc80808080UL
+        V12B, 0x017f80ff11223344UL
+        V13A, 0x0102030405060708UL
+        V13B, 0x090a0b0c0d0e0f10UL ]
+    let wanted = [ V0A, 0x000009e300000d02UL; V0B, 0x80001673000009f5UL ]
+    oracle only64 "100d6024" given wanted
+
+  /// <summary>
+  /// vpkuhus vD, vA, vB narrows each of the unsigned halfwords of vA followed
+  /// by those of vB to one of the unsigned bytes of vD; a value outside 0 ..
+  /// 255 is clamped to the nearer end and sets VSCR[SAT], which is sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKUHUS clamps unsigned halfwords to unsigned bytes``() =
+    (* vpkuhus v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x01ffffffffffffffUL
+        V1B, 0xffffffffffffffffUL
+        VSCR, 0x10001UL ]
+    oracle everyTarget "1022188e" given wanted
+
+  /// <summary>
+  /// vpkuwus vD, vA, vB narrows each of the unsigned words of vA followed by
+  /// those of vB to one of the unsigned halfwords of vD; a value outside 0 ..
+  /// 2^16 - 1 is clamped to the nearer end and sets VSCR[SAT], which is
+  /// sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKUWUS clamps unsigned words to unsigned halfwords``() =
+    (* vpkuwus v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0xffffffffffffffffUL
+        V1B, 0xffffffffffffffffUL
+        VSCR, 0x10001UL ]
+    oracle everyTarget "102218ce" given wanted
+
+  /// <summary>
+  /// vpkshss vD, vA, vB narrows each of the signed halfwords of vA followed
+  /// by those of vB to one of the signed bytes of vD; a value outside -128 ..
+  /// 127 is clamped to the nearer end and sets VSCR[SAT], which is sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKSHSS clamps signed halfwords to signed bytes``() =
+    (* vpkshss v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x017f7f7f7f7f7f7fUL
+        V1B, 0x7f7f7f7f7f7f7f7fUL
+        VSCR, 0x10001UL ]
+    oracle everyTarget "1022198e" given wanted
+
+  /// <summary>
+  /// vpkswss vD, vA, vB narrows each of the signed words of vA followed by
+  /// those of vB to one of the signed halfwords of vD; a value outside -2^15
+  /// .. 2^15 - 1 is clamped to the nearer end and sets VSCR[SAT], which is
+  /// sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKSWSS clamps signed words to signed halfwords``() =
+    (* vpkswss v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x7fff7fff7fff7fffUL
+        V1B, 0x7fff7fff7fff7fffUL
+        VSCR, 0x10001UL ]
+    oracle everyTarget "102219ce" given wanted
+
+  /// <summary>
+  /// vpkshus vD, vA, vB narrows each of the signed halfwords of vA followed
+  /// by those of vB to one of the unsigned bytes of vD; a value outside 0 ..
+  /// 255 is clamped to the nearer end and sets VSCR[SAT], which is sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKSHUS clamps signed halfwords to unsigned bytes``() =
+    (* vpkshus v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x01ffffffffffffffUL
+        V1B, 0xffffffffffffffffUL
+        VSCR, 0x10001UL ]
+    oracle everyTarget "1022190e" given wanted
+
+  /// <summary>
+  /// vpkswus vD, vA, vB narrows each of the signed words of vA followed by
+  /// those of vB to one of the unsigned halfwords of vD; a value outside 0 ..
+  /// 2^16 - 1 is clamped to the nearer end and sets VSCR[SAT], which is
+  /// sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKSWUS clamps signed words to unsigned halfwords``() =
+    (* vpkswus v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0xffffffffffffffffUL
+        V1B, 0xffffffffffffffffUL
+        VSCR, 0x10001UL ]
+    oracle everyTarget "1022194e" given wanted
+
+  /// <summary>
+  /// vpkpx vD, vA, vB packs each word of vA followed by vB, a pixel of four
+  /// bytes, into a halfword of vD: the lowest bit of its first byte, then the
+  /// top five bits of each of the other three.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKPX packs pixels into halfwords``() =
+    (* vpkpx v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffff0000ffff0000UL; V1B, 0x0000ffffffff0000UL ]
+    oracle everyTarget "10221b0e" given wanted
+
+  /// <summary>
+  /// vupkhpx vD, vB unpacks each of the high four halfwords of vB, a pixel of
+  /// a bit and three five-bit fields, into a word of vD: the bit sign-
+  /// extended to a byte and each field zero-extended to one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VUPKHPX unpacks the high four pixels``() =
+    (* vupkhpx v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x001f1f1fff1f1f1fUL; V1B, 0xff00000000000000UL ]
+    oracle everyTarget "10201b4e" given wanted
+
+  /// <summary>
+  /// vupklpx vD, vB unpacks each of the low four halfwords of vB, a pixel of
+  /// a bit and three five-bit fields, into a word of vD: the bit sign-
+  /// extended to a byte and each field zero-extended to one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VUPKLPX unpacks the low four pixels``() =
+    (* vupklpx v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xff1f1f1fff1f1f1fUL; V1B, 0x0000000000000001UL ]
+    oracle everyTarget "10201bce" given wanted
+
+  /// <summary>
+  /// vmhaddshs vD, vA, vB, vC adds to each signed halfword of vC the product
+  /// of the matching halfwords of vA and vB shifted right 15 bits, clamping
+  /// the sum to a signed halfword and setting VSCR[SAT] where it has to.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMHADDSHS adds high halves of halfword products``() =
+    (* vmhaddshs v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        V4A, 0x1011121314151617UL
+        V4B, 0x18191a1b1c1d1e1fUL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x10111247146d1683UL
+        V1B, 0x18891a7f1c651e3bUL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10221920" given wanted
+
+  /// <summary>
+  /// vmhraddshs vD, vA, vB, vC does what vmhaddshs does but adds 0x4000 to
+  /// each product before the shift, rounding it to nearest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMHRADDSHS adds rounded high halves of products``() =
+    (* vmhraddshs v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        V4A, 0x1011121314151617UL
+        V4B, 0x18191a1b1c1d1e1fUL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x10111247146e1684UL
+        V1B, 0x188a1a801c651e3bUL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10221921" given wanted
+
+  /// <summary>
+  /// vmladduhm vD, vA, vB, vC writes the low 16 bits of each halfword product
+  /// of vA and vB plus the matching halfword of vC.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMLADDUHM multiplies and adds halfwords modulo``() =
+    (* vmladduhm v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x0000000080000001UL; V1B, 0x8001000200000001UL ]
+    oracle everyTarget "10221922" given wanted
+
+  /// <summary>
+  /// vmsumubm vD, vA, vB, vC adds to each word of vC the four products of the
+  /// unsigned bytes of vA and vB that lie within it, keeping the low 32 bits
+  /// of the sum.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMSUMUBM sums unsigned byte products into words``() =
+    (* vmsumubm v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x0000010000007f81UL; V1B, 0x0003788500000001UL ]
+    oracle everyTarget "10221924" given wanted
+
+  /// <summary>
+  /// vmsummbm vD, vA, vB, vC adds to each word of vC the four products of the
+  /// signed bytes of vA and the unsigned bytes of vB that lie within it,
+  /// keeping the low 32 bits of the sum.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMSUMMBM sums mixed byte products into words``() =
+    (* vmsummbm v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x00000000ffff8081UL; V1B, 0xfffffc8500000001UL ]
+    oracle everyTarget "10221925" given wanted
+
+  /// <summary>
+  /// vmsumuhm vD, vA, vB, vC adds to each word of vC the two products of the
+  /// unsigned halfwords of vA and vB that lie within it, keeping the low 32
+  /// bits of the sum.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMSUMUHM sums unsigned halfword products into words``() =
+    (* vmsumuhm v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x000100007fff8001UL; V1B, 0x7ffc800300000001UL ]
+    oracle everyTarget "10221926" given wanted
+
+  /// <summary>
+  /// vmsumuhs vD, vA, vB, vC adds to each unsigned word of vC the two
+  /// products of the unsigned halfwords of vA and vB within it; a sum above
+  /// 2^32 - 1 is clamped to it and sets VSCR[SAT], which is sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMSUMUHS sums unsigned halfword products saturating``() =
+    (* vmsumuhs v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted =
+      [ V1A, 0x000100007fff8001UL
+        V1B, 0xffffffff00000001UL
+        VSCR, 0x1UL ]
+    oracle everyTarget "10221927" given wanted
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        V4A, 0x1011121314151617UL
+        V4B, 0x18191a1b1c1d1e1fUL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x102b60451477e481UL
+        V1B, 0x1883e87d1c4f6c39UL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10221927" given wanted
+
+  /// <summary>
+  /// vmsumshm vD, vA, vB, vC adds to each word of vC the two products of the
+  /// signed halfwords of vA and vB that lie within it, keeping the low 32
+  /// bits of the sum.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMSUMSHM sums signed halfword products into words``() =
+    (* vmsumshm v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x0000000000008001UL; V1B, 0xffff800300000001UL ]
+    oracle everyTarget "10221928" given wanted
+
+  /// <summary>
+  /// vmsumshs vD, vA, vB, vC adds to each signed word of vC the two products
+  /// of the signed halfwords of vA and vB within it; a sum outside the range
+  /// of a signed word is clamped to the nearer end and sets VSCR[SAT].
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMSUMSHS sums signed halfword products saturating``() =
+    (* vmsumshs v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        V4A, 0x1011121314151617UL
+        V4B, 0x18191a1b1c1d1e1fUL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x102b60451477e481UL
+        V1B, 0x1883e87d1c4f6c39UL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10221929" given wanted
+
+  /// <summary>
+  /// vmsumudm vD, vA, vB, vC adds the two products of the unsigned
+  /// doublewords of vA and vB to vC, a 128-bit number, and keeps the low 128
+  /// bits of the sum.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMSUMUDM sums unsigned doubleword products``() =
+    (* vmsumudm v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x8000000100000000UL; V1B, 0x8000000100000001UL ]
+    oracle only64 "10221923" given wanted
+
+  /// <summary>
+  /// vmsumcud vD, vA, vB, vC writes into vD what the exact sum vmsumudm keeps
+  /// the low 128 bits of holds above them: 0, 1 or 2.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMSUMCUD writes the carry out of vmsumudm``() =
+    (* vmsumcud v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221917" given wanted
+
+  /// <summary>
+  /// vpkudum vD, vA, vB writes the low word of each doubleword of vA followed
+  /// by those of vB into the four words of vD, dropping the high words
+  /// whatever they hold.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKUDUM packs the low words of doublewords``() =
+    (* vpkudum v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x8000000000000001UL; V1B, 0xffffffff80000000UL ]
+    oracle only64 "10221c4e" given wanted
+
+  /// <summary>
+  /// vpksdss vD, vA, vB narrows each of the signed doublewords of vA followed
+  /// by those of vB to one of the signed words of vD; a value outside -2^31
+  /// .. 2^31 - 1 is clamped to the nearer end and sets VSCR[SAT], which is
+  /// sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKSDSS clamps signed doublewords to signed words``() =
+    (* vpksdss v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x7fffffff7fffffffUL
+        V1B, 0x7fffffff7fffffffUL
+        VSCR, 0x10001UL ]
+    oracle only64 "10221dce" given wanted
+
+  /// <summary>
+  /// vpksdus vD, vA, vB narrows each of the signed doublewords of vA followed
+  /// by those of vB to one of the unsigned words of vD; a value outside 0 ..
+  /// 2^32 - 1 is clamped to the nearer end and sets VSCR[SAT], which is
+  /// sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKSDUS clamps signed doublewords to unsigned words``() =
+    (* vpksdus v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0xffffffffffffffffUL
+        V1B, 0xffffffffffffffffUL
+        VSCR, 0x10001UL ]
+    oracle only64 "10221d4e" given wanted
+
+  /// <summary>
+  /// vpkudus vD, vA, vB narrows each of the unsigned doublewords of vA
+  /// followed by those of vB to one of the unsigned words of vD; a value
+  /// outside 0 .. 2^32 - 1 is clamped to the nearer end and sets VSCR[SAT],
+  /// which is sticky.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPKUDUS clamps unsigned doublewords to unsigned words``() =
+    (* vpkudus v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0xffffffffffffffffUL
+        V1B, 0xffffffffffffffffUL
+        VSCR, 0x10001UL ]
+    oracle only64 "10221cce" given wanted
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added

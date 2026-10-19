@@ -1565,6 +1565,23 @@ let private parseXX3 op bin =
                             getVsxRegister xa |> OprReg,
                             getVsxRegister xb |> OprReg))
 
+/// The forms of primary opcode 4 named by their low six bits alone: the VA
+/// forms, whose fourth operand fills the field above.
+let private parse04Wide bin =
+  match Bits.extract bin 5u 0u with
+  | 23u -> parseVA Op.VMSUMCUD bin
+  | 32u -> parseVA Op.VMHADDSHS bin
+  | 33u -> parseVA Op.VMHRADDSHS bin
+  | 34u -> parseVA Op.VMLADDUHM bin
+  | 35u -> parseVA Op.VMSUMUDM bin
+  | 36u -> parseVA Op.VMSUMUBM bin
+  | 37u -> parseVA Op.VMSUMMBM bin
+  | 38u -> parseVA Op.VMSUMUHM bin
+  | 39u -> parseVA Op.VMSUMUHS bin
+  | 40u -> parseVA Op.VMSUMSHM bin
+  | 41u -> parseVA Op.VMSUMSHS bin
+  | _ -> raise ParsingFailureException
+
 /// The vector instructions in primary opcode 4, whose extended opcode is a
 /// plain eleven-bit field except in the VA and VC forms.
 let private parse04 bin =
@@ -1575,6 +1592,8 @@ let private parse04 bin =
     parseVA Op.VPERM bin
   | 44u ->
     parseVSLDOI bin
+  | xo when xo >= 20u ->
+    parse04Wide bin
   | _ ->
     match Bits.extract bin 9u 0u with
     | 6u ->
@@ -1694,6 +1713,19 @@ let private parse04 bin =
       | 1742u -> parseVX2 Op.VUPKLSW bin
       | 1986u -> parseVX2 Op.VCLZD bin
       | 1987u -> parseVX2 Op.VPOPCNTD bin
+      | 1102u -> parseVX Op.VPKUDUM bin
+      | 1486u -> parseVX Op.VPKSDSS bin
+      | 1358u -> parseVX Op.VPKSDUS bin
+      | 1230u -> parseVX Op.VPKUDUS bin
+      | 142u -> parseVX Op.VPKUHUS bin
+      | 206u -> parseVX Op.VPKUWUS bin
+      | 398u -> parseVX Op.VPKSHSS bin
+      | 462u -> parseVX Op.VPKSWSS bin
+      | 270u -> parseVX Op.VPKSHUS bin
+      | 334u -> parseVX Op.VPKSWUS bin
+      | 782u -> parseVX Op.VPKPX bin
+      | 846u -> parseVX2 Op.VUPKHPX bin
+      | 974u -> parseVX2 Op.VUPKLPX bin
       | _ -> raise ParsingFailureException
 
 /// xxpermdi, whose two-bit DM field picks one doubleword of each source. Its

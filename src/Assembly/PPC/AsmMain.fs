@@ -30,6 +30,7 @@ open B2R2.Assembly.PPC.ParserHelper
 open B2R2.Assembly.PPC.AsmOpcode
 open B2R2.Assembly.PPC.AsmFloat
 open B2R2.Assembly.PPC.AsmVector
+open B2R2.Assembly.PPC.AsmVMX
 
 type UserState =
   { /// Label string to the index of the instruction it marks. The index starts
@@ -56,7 +57,8 @@ let buildEncoderTable bitLen =
     branchEncoders bitLen
     systemEncoders ()
     floatEncoders ()
-    vectorEncoders () ]
+    vectorEncoders ()
+    vmxEncoders () ]
   |> List.concat
   |> Map.ofList
 
