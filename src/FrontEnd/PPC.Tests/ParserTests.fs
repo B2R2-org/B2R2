@@ -68,6 +68,27 @@ module private Shortcut =
       parser.Parse(System.ReadOnlySpan(bytes: byte[]), 0UL) |> ignore)
     |> ignore
 
+  /// A word read the same way on every processor: 32-bit and 64-bit
+  /// big-endian, and 64-bit little-endian, which keeps the word's bytes the
+  /// other way round in memory.
+  let testEveryTarget (bytes: byte[]) (opcode, operands) =
+    for wordSz, endian in
+      [ WordSize.Bit32, Endian.Big
+        WordSize.Bit64, Endian.Big
+        WordSize.Bit64, Endian.Little ] do
+      let isa = ISA(Architecture.PPC, endian, wordSz)
+      let inMemory = if endian = Endian.Big then bytes else Array.rev bytes
+      test isa opcode operands inMemory
+
+  /// A form only a 64-bit processor has, read on both of them and refused on
+  /// a 32-bit one.
+  let test64Only (bytes: byte[]) (opcode, operands) =
+    let big = ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
+    let little = ISA(Architecture.PPC, Endian.Little, WordSize.Bit64)
+    test big opcode operands bytes
+    test little opcode operands (Array.rev bytes)
+    testUnsupported WordSize.Bit32 (ByteArray.toHexString bytes)
+
   let operandsFromArray oprList =
     let oprArr = Array.ofList oprList
     match oprArr.Length with
@@ -165,6 +186,150 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[PPC64] LD is not a 32-bit form``() =
     testUnsupported WordSize.Bit32 "e8830008"
+
+  [<TestMethod>]
+  member _.``[PPC] VPKUHUS ()``() =
+    "1022188e"
+    ++ (VPKUHUS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKUWUS (Vector Pack Unsigned Word Unsigned Saturate)``() =
+    "102218ce"
+    ++ (VPKUWUS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKSHSS (Vector Pack Signed Halfword Signed Saturate)``() =
+    "1022198e"
+    ++ (VPKSHSS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKSWSS (Vector Pack Signed Word Signed Saturate)``() =
+    "102219ce"
+    ++ (VPKSWSS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKSHUS (Vector Pack Signed Halfword Unsigned Saturate)``() =
+    "1022190e"
+    ++ (VPKSHUS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKSWUS (Vector Pack Signed Word Unsigned Saturate)``() =
+    "1022194e"
+    ++ (VPKSWUS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKPX (Vector Pack Pixel)``() =
+    "10221b0e"
+    ++ (VPKPX ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VUPKHPX (Vector Unpack High Pixel)``() =
+    "10201b4e"
+    ++ (VUPKHPX ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VUPKLPX (Vector Unpack Low Pixel)``() =
+    "10201bce"
+    ++ (VUPKLPX ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMHADDSHS (Multiply-High-Add Signed Halfword Saturate)``() =
+    "10221920"
+    ++ (VMHADDSHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMHRADDSHS (Multiply-High-Round-Add Signed Halfword)``() =
+    "10221921"
+    ++ (VMHRADDSHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMLADDUHM ()``() =
+    "10221922"
+    ++ (VMLADDUHM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMSUMUBM (Vector Multiply-Sum Unsigned Byte Modulo)``() =
+    "10221924"
+    ++ (VMSUMUBM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMSUMMBM (Vector Multiply-Sum Mixed Byte Modulo)``() =
+    "10221925"
+    ++ (VMSUMMBM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMSUMUHM (VA-form)``() =
+    "10221926"
+    ++ (VMSUMUHM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMSUMUHS (VA-form)``() =
+    "10221927"
+    ++ (VMSUMUHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMSUMSHM (Vector Multiply-Sum Signed Halfword Modulo)``() =
+    "10221928"
+    ++ (VMSUMSHM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMSUMSHS (Vector Multiply-Sum Signed Halfword Saturate)``() =
+    "10221929"
+    ++ (VMSUMSHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMSUMUDM (VA-form)``() =
+    "10221923"
+    ++ (VMSUMUDM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMSUMCUD (Doubleword)``() =
+    "10221917"
+    ++ (VMSUMCUD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKUDUM (Pack Unsigned Doubleword Unsigned Modulo)``() =
+    "10221c4e"
+    ++ (VPKUDUM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKSDSS (VX-form)``() =
+    "10221dce"
+    ++ (VPKSDSS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKSDUS (VX-form)``() =
+    "10221d4e"
+    ++ (VPKSDUS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPKUDUS (Pack Unsigned Doubleword Unsigned Saturate)``() =
+    "10221cce"
+    ++ (VPKUDUS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
 
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.

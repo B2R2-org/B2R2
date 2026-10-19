@@ -16,6 +16,8 @@
     <Compile Include="VectorLifter.fs" />
     <Compile Include="FPLifter.fs" />
     <Compile Include="DFPLifter.fs" />
+    <Compile Include="VectorElements.fs" />
+    <Compile Include="VectorIntegerLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />

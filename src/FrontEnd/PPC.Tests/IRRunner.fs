@@ -181,16 +181,16 @@ module internal IRRunner =
   /// A cast in a direction: a conversion between integers and floats, or
   /// between the two float formats, rounds in it.
   let private cast mode kind t (x: BitVector) =
-    let src, v = x.Length, bits x
-    let ofBits (r: uint64) = BitVector(r, t)
+    let src = x.Length
+    let convert (f: uint64 -> uint64) = BitVector(f (bits x), t)
     match kind with
     | CastKind.ZeroExt -> BitVector.ZExt(x, t)
     | CastKind.SignExt -> BitVector.SExt(x, t)
-    | CastKind.FloatCast -> ofBits (IRFloat.cast src t mode v)
-    | CastKind.SIntToFloat -> ofBits (IRFloat.ofSInt src t mode v)
-    | CastKind.UIntToFloat -> ofBits (IRFloat.ofUInt src t mode v)
-    | CastKind.FloatToSInt -> ofBits (IRFloat.toSInt src t mode v)
-    | CastKind.RoundToIntegral -> ofBits (IRFloat.roundToIntegral t mode v)
+    | CastKind.FloatCast -> convert (IRFloat.cast src t mode)
+    | CastKind.SIntToFloat -> convert (IRFloat.ofSInt src t mode)
+    | CastKind.UIntToFloat -> convert (IRFloat.ofUInt src t mode)
+    | CastKind.FloatToSInt -> convert (IRFloat.toSInt src t mode)
+    | CastKind.RoundToIntegral -> convert (IRFloat.roundToIntegral t mode)
     | k -> failwith $"IRRunner: no {k}"
 
   /// An expression's value, a rounding in it going the way the innermost

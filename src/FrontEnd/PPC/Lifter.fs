@@ -36,6 +36,7 @@ open B2R2.FrontEnd.PPC.GeneralLifter
 open B2R2.FrontEnd.PPC.VectorLifter
 open B2R2.FrontEnd.PPC.FPLifter
 open B2R2.FrontEnd.PPC.DFPLifter
+open B2R2.FrontEnd.PPC.VectorIntegerLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -1542,6 +1543,56 @@ let translate (ins: Instruction) bld =
     shift ins true "DSCRI" false bld
   | Op.DSCRIQdot ->
     shift ins true "DSCRI" true bld
+  (* Lane V: the vector facility, primary opcode 4. *)
+  | Op.VPKUDUM ->
+    vecPackElements ins bld 64<rt> false Modulo
+  | Op.VPKSDSS ->
+    vecPackElements ins bld 64<rt> true (Saturate true)
+  | Op.VPKSDUS ->
+    vecPackElements ins bld 64<rt> true (Saturate false)
+  | Op.VPKUDUS ->
+    vecPackElements ins bld 64<rt> false (Saturate false)
+  | Op.VPKUHUS ->
+    vecPackElements ins bld 16<rt> false (Saturate false)
+  | Op.VPKUWUS ->
+    vecPackElements ins bld 32<rt> false (Saturate false)
+  | Op.VPKSHSS ->
+    vecPackElements ins bld 16<rt> true (Saturate true)
+  | Op.VPKSWSS ->
+    vecPackElements ins bld 32<rt> true (Saturate true)
+  | Op.VPKSHUS ->
+    vecPackElements ins bld 16<rt> true (Saturate false)
+  | Op.VPKSWUS ->
+    vecPackElements ins bld 32<rt> true (Saturate false)
+  | Op.VPKPX ->
+    vpkpx ins bld
+  | Op.VUPKHPX ->
+    vecUnpackPixel ins bld true
+  | Op.VUPKLPX ->
+    vecUnpackPixel ins bld false
+  | Op.VMHADDSHS ->
+    vecMultiplyHighAdd ins bld false
+  | Op.VMHRADDSHS ->
+    vecMultiplyHighAdd ins bld true
+  | Op.VMLADDUHM ->
+    vecMultiplySum ins bld 16<rt> 16<rt> unsignedSums Modulo
+  | Op.VMSUMUBM ->
+    vecMultiplySum ins bld 8<rt> 32<rt> unsignedSums Modulo
+  | Op.VMSUMMBM ->
+    vecMultiplySum ins bld 8<rt> 32<rt> mixedSums Modulo
+  | Op.VMSUMUHM ->
+    vecMultiplySum ins bld 16<rt> 32<rt> unsignedSums Modulo
+  | Op.VMSUMUHS ->
+    vecMultiplySum ins bld 16<rt> 32<rt> unsignedSums (Saturate false)
+  | Op.VMSUMSHM ->
+    vecMultiplySum ins bld 16<rt> 32<rt> signedSums Modulo
+  | Op.VMSUMSHS ->
+    vecMultiplySum ins bld 16<rt> 32<rt> signedSums (Saturate true)
+  | Op.VMSUMUDM ->
+    vecMultiplySum ins bld 64<rt> 128<rt> unsignedSums Modulo
+  | Op.VMSUMCUD ->
+    vmsumcud ins bld
+  (* End of lane V. *)
   | o ->
 #if DEBUG
          eprintfn "%A" o
