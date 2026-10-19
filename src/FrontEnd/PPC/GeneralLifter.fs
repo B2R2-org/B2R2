@@ -196,6 +196,9 @@ let bc ins (bld: ILowUIRBuilder) aa lk =
 let private branchTargetMask (bld: ILowUIRBuilder) =
   AST.not (numI32 3 bld.RegType)
 
+/// bclr/bclrl, which go to LR with its low two bits cleared where BO says the
+/// counter and the CR bit allow it. bclrl reads LR before it writes the next
+/// instruction's address there, which it does whether it branches or not.
 let bclr ins (bld: ILowUIRBuilder) lk =
   lift bld ins {
     let struct (bo, cr) = transBranchTwoOprs ins bld
@@ -215,11 +218,13 @@ let bclr ins (bld: ILowUIRBuilder) lk =
     ctrOk := bo2 .| ((ctr != AST.num0 rt) <+> bo3)
     condOk := bo0 .| (cr <+> AST.not bo1)
     temp := AST.ite (ctrOk .& condOk) (lr .& branchTargetMask bld) nia
-    if lk then append bld { lr := AST.ite (ctrOk .& condOk) nia lr } else ()
+    if lk then append bld { lr := nia } else ()
     let kind = if lk then InterJmpKind.IsCall else InterJmpKind.IsRet
     AST.interjmp temp kind
   }
 
+/// bcctr/bcctrl, which go to CTR with its low two bits cleared where the CR
+/// bit BO names allows it; bcctrl, like bclrl, links either way.
 let bcctr ins (bld: ILowUIRBuilder) lk =
   lift bld ins {
     let struct (bo, cr) = transBranchTwoOprs ins bld
@@ -233,7 +238,7 @@ let bcctr ins (bld: ILowUIRBuilder) lk =
     let temp = tmpVar bld rt
     condOk := bo0 .| (cr <+> AST.not bo1)
     temp := AST.ite condOk (ctr .& branchTargetMask bld) nia
-    if lk then append bld { lr := AST.ite condOk nia lr } else ()
+    if lk then append bld { lr := nia } else ()
     let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
     AST.interjmp temp kind
   }

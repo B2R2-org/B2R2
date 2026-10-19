@@ -24774,6 +24774,31 @@ type LifterTests() =
         let after, _ = sequence isa [ mt; mf ] [ R5; reg ] [ R8, 0x1234UL ] []
         expect 0x1234UL (after R5) $"{mt} {nameOf isa}"
 
+  /// <summary>
+  /// bclrl and bcctrl leave the address of the next instruction in LR
+  /// whether the branch is taken or not (Book I 2.4, "if LK then LR <- CIA +
+  /// 4"), and a taken bclrl goes to the LR it read before writing it. Values
+  /// from QEMU, the branch at 0x20100000.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCLRL and BCCTRL link whether taken or not``() =
+    let at, nia = 0x20100000UL, 0x20100004UL
+    let lr, ctr = 0x20100040UL, 0x20100080UL
+    (* bclrl 12,2; bcctrl 12,2; bclrl 4,2 *)
+    let cases =
+      [ "4d820021", 0UL, nia
+        "4d820021", 1UL, lr
+        "4d820421", 0UL, nia
+        "4d820421", 1UL, ctr
+        "4c820021", 0UL, lr
+        "4c820021", 1UL, nia ]
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, eq, next in cases do
+        let after = jump isa hex at [ LR, lr; CTR, ctr; CR0_2, eq ]
+        let case = $"{hex} {eq} {nameOf isa}"
+        expect next (after IAR) case
+        expect nia (after LR) case
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the
