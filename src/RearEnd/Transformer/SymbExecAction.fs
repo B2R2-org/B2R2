@@ -2192,39 +2192,3 @@ type SymbSearchAction() =
   interface ICancellableNamedArgumentsAction with
     member _.TransformNamed(args, collection, ct) =
       transformNamed ct args collection
-
-type SymbModelAction() =
-  let metadata =
-    { SymbMetadata.metadata
-        "model"
-        ReplValueKind.SymbRunResult
-        ReplValueKind.Text
-        ActionRole.Transform
-        "SymbRunResult -> @model -> Text"
-        "Print model assignments from a symbolic execution result."
-        [ "result |> @model" ] with
-        Syntaxes = [ SymbMetadata.syntax None [] ] }
-
-  let transformOne (value: obj) =
-    match value with
-    | :? SymbRunValue as result ->
-      result.ModelText() |> box
-    | value ->
-      invalidOp $"model expects SymbRunResult: {value}"
-
-  let transform (collection: ObjCollection) =
-    collection.Values |> Array.map transformOne |> fun values ->
-      { Values = values }
-
-  interface IAction with
-    member _.ActionID with get() = metadata.ID
-    member _.Signature with get() = metadata.Signature
-    member _.Description with get() = metadata.Description
-    member _.Transform(_args, collection) = transform collection
-
-  interface IActionMetadataProvider with
-    member _.Metadata with get() = metadata
-
-  interface ICancellableAction with
-    member _.Transform(_args, collection, _cancellationToken) =
-      transform collection

@@ -87,6 +87,7 @@ type ActionArgumentKind =
   | OutputPath
   | ISA
   | Integer
+  | ArbitraryInteger
   | Float
   | HexPattern
   | HexBytes
@@ -319,6 +320,8 @@ module ActionMetadata =
       "ISA"
     | ActionArgumentKind.Integer ->
       "Int"
+    | ActionArgumentKind.ArbitraryInteger ->
+      "Integer"
     | ActionArgumentKind.Float ->
       "Float"
     | ActionArgumentKind.HexPattern ->
@@ -349,6 +352,8 @@ module ActionMetadata =
       "isa"
     | ActionArgumentKind.Integer ->
       "n"
+    | ActionArgumentKind.ArbitraryInteger ->
+      "int"
     | ActionArgumentKind.Float ->
       "n"
     | ActionArgumentKind.HexPattern ->
@@ -1306,49 +1311,55 @@ module ActionMetadata =
         syntaxFor [ ReplValueKind.ByteArray ] None [] ]
 
   let private random =
-    let minAddress =
-      required "min" ActionArgumentKind.Address
-        "Inclusive lower address bound."
-    let maxAddress =
-      required "max" ActionArgumentKind.Address
-        "Exclusive upper address bound."
+    let minimum =
+      required "min" ActionArgumentKind.ArbitraryInteger
+        "Inclusive lower integer bound."
+    let maximum =
+      required "max" ActionArgumentKind.ArbitraryInteger
+        "Exclusive upper integer bound."
     contract
       "random"
       ReplValueKind.Unit
-      ReplValueKind.Address
+      ReplValueKind.Int
       ActionRole.Source
       20
-      "random min=<addr> max=<addr> -> Address"
-      [ "ptr = @random min=<min> max=<max>" ]
-      [ syntax None [ minAddress; maxAddress ] ]
+      "random min=<int> max=<int> -> Int"
+      [ "value = @random min=<min> max=<max>" ]
+      [ syntax None [ minimum; maximum ] ]
 
-  let private mem =
+  let private readMemory =
     let addr =
       required "addr" ActionArgumentKind.Address
         "Starting concrete memory address."
     let size =
       required "size" ActionArgumentKind.Integer
         "Number of bytes to read."
+    contract
+      "read-memory"
+      ReplValueKind.ConcExecutor
+      ReplValueKind.MemoryView
+      ActionRole.Transform
+      20
+      "read-memory addr=<addr> size=<n> -> MemoryView"
+      [ "executor |> @read-memory addr=<addr> size=<size>" ]
+      [ syntax None [ addr; size ] ]
+
+  let private writeMemory =
+    let addr =
+      required "addr" ActionArgumentKind.Address
+        "Starting concrete memory address."
     let bytes =
       required "bytes" ActionArgumentKind.HexBytes
         "Bytes to write as a hexadecimal string."
-    let signature =
-      "mem read addr=<addr> size=<n> -> MemoryView | "
-      + "mem write addr=<addr> bytes=<hex> -> ConcExecutor"
     contract
-      "mem"
+      "write-memory"
       ReplValueKind.ConcExecutor
-      ReplValueKind.Any
+      ReplValueKind.ConcExecutor
       ActionRole.Transform
       20
-      signature
-      [ "executor |> @mem read addr=<addr> size=<size>"
-        "executor |> @mem write addr=<addr> bytes=<hex>" ]
-      [ syntaxOutput (Some "read") ReplValueKind.MemoryView [ addr; size ]
-        syntaxOutput
-          (Some "write")
-          ReplValueKind.ConcExecutor
-          [ addr; bytes ] ]
+      "write-memory addr=<addr> bytes=<hex> -> ConcExecutor"
+      [ "executor |> @write-memory addr=<addr> bytes=<hex>" ]
+      [ syntax None [ addr; bytes ] ]
 
   let private pick =
     let index =
@@ -1379,7 +1390,7 @@ module ActionMetadata =
         [ syntax None [] ] with
         OutputRelation = ActionOutputRelation.CollectionElement }
 
-  let private find =
+  let private filter =
     let symbol =
       required "symbol" ActionArgumentKind.Text "Function symbol name."
     let entry =
@@ -1389,18 +1400,18 @@ module ActionMetadata =
     let address =
       required "address" ActionArgumentKind.Address "Basic-block address."
     { overloadContract
-        "find"
+        "filter"
         [ ReplValueKind.Collection ReplValueKind.FunctionInfo
           ReplValueKind.Collection ReplValueKind.CFGNodeInfo ]
         ReplValueKind.Any
         ActionRole.Transform
         5
-        ("find symbol=<name>|entry=<addr> -> FunctionInfo collection | "
-         + "find mnemonic=<name>|address=<addr> -> CFGNodeInfo collection")
-        [ "functions |> @find symbol=<name>"
-          "functions |> @find entry=<addr>"
-          "nodes |> @find mnemonic=<name>"
-          "nodes |> @find address=<addr>" ]
+        ("filter symbol=<name>|entry=<addr> -> FunctionInfo collection | "
+         + "filter mnemonic=<name>|address=<addr> -> CFGNodeInfo collection")
+        [ "functions |> @filter symbol=<name>"
+          "functions |> @filter entry=<addr>"
+          "nodes |> @filter mnemonic=<name>"
+          "nodes |> @filter address=<addr>" ]
         [ syntaxFor
             [ ReplValueKind.Collection ReplValueKind.FunctionInfo ]
             None
@@ -1569,7 +1580,7 @@ module ActionMetadata =
       disasm
       dot
       edit
-      find
+      filter
       grep
       hexdump
       jaccard
@@ -1577,7 +1588,7 @@ module ActionMetadata =
       list
       llvm
       load
-      mem
+      readMemory
       one
       pick
       print
@@ -1590,7 +1601,8 @@ module ActionMetadata =
       strings
       save
       winnowing
-      write ]
+      write
+      writeMemory ]
     |> List.map (fun metadata -> metadata.ID.ToLowerInvariant(), metadata)
     |> Map.ofList
 

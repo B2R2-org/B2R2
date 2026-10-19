@@ -143,11 +143,11 @@ the function named `main`:
 let moves =
   target
   |> @list functions
-  |> @find symbol="main"
+  |> @filter symbol="main"
   |> @require-one
   |> @recover-cfg
   |> @list nodes
-  |> @find mnemonic="mov"
+  |> @filter mnemonic="mov"
 moves |> @print
 ```
 
@@ -157,7 +157,7 @@ moves |> @print
 | --- | --- | --- |
 | `@load` | `path=<path> [isa=<isa>]`, `hex=<hex> isa=<isa>`, or ByteArray input | Load a file, create a raw image, or reconstruct a binary from extracted bytes. |
 | `@asm` | `code=<text> [isa=<isa>] [base=<addr>]` | Assemble source text into bytes. |
-| `@random` | `min=<addr> max=<addr>` | Produce a random address in the half-open range. |
+| `@random` | `min=<int> max=<int>` | Produce an integer in `[min, max)`. |
 | `@extract-bytes` | none | Extract bytes from a binary or slice. |
 | `@slice` | `section=<section>`, or `start=<addr> end=<addr>`, or `start=<addr> offset=<size>` | Select a binary section or address range. |
 | `@save` | `path=<path>` | Save a binary or slice to a file. |
@@ -178,7 +178,7 @@ moves |> @print
 | `@count` | none | Count collection elements. |
 | `@pick` | `index=<n>` | Select a zero-based collection element. |
 | `@require-one` | none | Require a collection, list, or array to contain exactly one item. |
-| `@find` | `symbol=<name>` or `entry=<addr>`; `mnemonic=<name>` or `address=<addr>` | Filter function or CFG-node collections by a supported property. |
+| `@filter` | `symbol=<name>` or `entry=<addr>`; `mnemonic=<name>` or `address=<addr>` | Filter function or CFG-node collections by a supported property. |
 | `@print` | none | Render the value received from a pipeline in the transcript. |
 | `@write` | `path=<path>` | Write text, text artifacts, or instructions to a file. |
 
@@ -209,8 +209,8 @@ layout metadata and does not guarantee the behavior of the resulting binary.
 | Action | Parameters | Description |
 | --- | --- | --- |
 | `@make-concrete-executor` | `[stack=<addr>] [regs=<text>] [mem=<text>] [regions=<text>] [args=<text>] [buffers=<text>]` | Create and optionally configure a concrete executor. |
-| `@mem read` | `addr=<addr> size=<n>` | Read concrete memory. |
-| `@mem write` | `addr=<addr> bytes=<hex>` | Write concrete memory. |
+| `@read-memory` | `addr=<addr> size=<n>` | Read concrete memory. |
+| `@write-memory` | `addr=<addr> bytes=<hex>` | Write concrete memory. |
 | `@inspect-registers` | `[name=<text>]` | Inspect concrete registers. |
 | `@step` | `[count=<n>]` | Execute a fixed number of instructions. |
 | `@trace` | `[count=<n>] [watch=<addr> size=<n>]` | Trace execution, optionally watching a memory range. |
@@ -251,4 +251,3 @@ Here, `sym-regs=[ESI=idx:4; RDX=ind:8]` names two symbolic register inputs. The
 image permissions and the buffer and stack regions. Use
 `@make-symbolic-executor` to retain a configured executor before running it.
 Both creation and direct execution accept solver, state, and input options.
-| `@model` | none | Render a symbolic run result and its satisfying model. |
