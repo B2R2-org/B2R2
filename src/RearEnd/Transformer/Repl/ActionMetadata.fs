@@ -826,15 +826,15 @@ module ActionMetadata =
       required "entry" ActionArgumentKind.Address
         "Function entry address. Omit this to recover all CFGs."
     overloadContract
-      "cfg"
+      "recover-cfg"
       [ ReplValueKind.Binary; ReplValueKind.FunctionInfo ]
       ReplValueKind.CFG
       ActionRole.Transform
       20
-      "cfg -> CFG collection | cfg entry=<address> -> CFG"
-      [ "binary |> @cfg"
-        "binary |> @cfg entry=<entry>"
-        "function |> @cfg" ]
+      "recover-cfg -> CFG collection | recover-cfg entry=<address> -> CFG"
+      [ "binary |> @recover-cfg"
+        "binary |> @recover-cfg entry=<entry>"
+        "function |> @recover-cfg" ]
       [ syntaxForOutput
           [ ReplValueKind.Binary ]
           None
@@ -845,13 +845,13 @@ module ActionMetadata =
 
   let private bytes =
     overloadContract
-      "bytes"
+      "extract-bytes"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       ReplValueKind.ByteArray
       ActionRole.Transform
       20
-      "bytes -> ByteArray"
-      [ "binary |> @bytes" ]
+      "extract-bytes -> ByteArray"
+      [ "binary |> @extract-bytes" ]
       [ syntax None [] ]
 
   let private asBinary =
@@ -996,7 +996,7 @@ module ActionMetadata =
     let pair left right = ReplValueKind.Tuple [ left; right ]
     let samePair kind = pair kind kind
     overloadContract
-      "diff"
+      "compare"
       [ samePair ReplValueKind.Binary
         samePair ReplValueKind.BinarySlice
         pair ReplValueKind.Binary ReplValueKind.BinarySlice
@@ -1009,11 +1009,11 @@ module ActionMetadata =
         samePair ReplValueKind.TextArtifact ]
       ReplValueKind.Text
       ActionRole.Reducer 60
-      "supported pair -> @diff -> Text"
+      "supported pair -> @compare -> Text"
       [ "let binaries = (oldBin, newBin)"
-        "binaries |> @diff"
+        "binaries |> @compare"
         "let code = (oldCode, newCode)"
-        "code |> @diff" ] [ syntax None [] ]
+        "code |> @compare" ] [ syntax None [] ]
 
   let private disasm =
     overloadContract
@@ -1028,13 +1028,13 @@ module ActionMetadata =
 
   let private dot =
     contract
-      "dot"
+      "export-dot"
       ReplValueKind.CFG
       ReplValueKind.TextArtifact
       ActionRole.Transform
       10
-      "dot -> TextArtifact"
-      [ "graph |> @dot" ]
+      "export-dot -> TextArtifact"
+      [ "graph |> @export-dot" ]
       [ syntax None [] ]
 
   let private editSyntaxes start finish size bytes asm isa =
@@ -1180,13 +1180,14 @@ module ActionMetadata =
       optional "name" ActionArgumentKind.Text
         "Register name to print; defaults to all defined registers."
     contract
-      "regs"
+      "inspect-registers"
       ReplValueKind.ConcExecutor
       ReplValueKind.RegisterView
       ActionRole.Transform
       20
-      "regs [name=<reg>] -> RegisterView"
-      [ "executor |> @regs"; "executor |> @regs name=RAX" ]
+      "inspect-registers [name=<reg>] -> RegisterView"
+      [ "executor |> @inspect-registers"
+        "executor |> @inspect-registers name=RAX" ]
       [ syntax None [ register ] ]
 
   let private run =
@@ -1264,13 +1265,13 @@ module ActionMetadata =
 
   let private llvm =
     contract
-      "llvm"
+      "export-llvm"
       ReplValueKind.Binary
       ReplValueKind.TextArtifact
       ActionRole.Transform
       50
-      "llvm -> TextArtifact"
-      [ "binary |> @llvm" ]
+      "export-llvm -> TextArtifact"
+      [ "binary |> @export-llvm" ]
       [ syntax None [] ]
 
   let private load =
@@ -1369,15 +1370,15 @@ module ActionMetadata =
 
   let private one =
     { overloadContract
-        "one"
+        "require-one"
         [ ReplValueKind.Collection ReplValueKind.Any
           ReplValueKind.List ReplValueKind.Any
           ReplValueKind.Array ReplValueKind.Any ]
         ReplValueKind.Any
         ActionRole.Reducer
         5
-        "one -> Any"
-        [ "items |> @one" ]
+        "require-one -> Any"
+        [ "items |> @require-one" ]
         [ syntax None [] ] with
         OutputRelation = ActionOutputRelation.CollectionElement }
 
@@ -1505,15 +1506,15 @@ module ActionMetadata =
       optional "pattern" ActionArgumentKind.Text
         "Case-insensitive substring filter."
     overloadContract
-      "strings"
+      "extract-strings"
       [ ReplValueKind.Binary; ReplValueKind.BinarySlice ]
       (ReplValueKind.Collection ReplValueKind.StringMatch)
       ActionRole.Transform
       10
-      "strings [min=<n>] [pattern=<text>] -> StringMatch collection"
-      [ "binary |> @strings"
-        "binary |> @strings pattern=ADMIN"
-        "binary |> @strings min=<length> pattern=EXPORT" ]
+      "extract-strings [min=<n>] [pattern=<text>] -> StringMatch collection"
+      [ "binary |> @extract-strings"
+        "binary |> @extract-strings pattern=ADMIN"
+        "binary |> @extract-strings min=<length> pattern=EXPORT" ]
       [ syntax None [ minimum; pattern ] ]
 
   let private save =
@@ -1626,6 +1627,9 @@ module ActionMetadata =
         invalidOp (message + "IActionMetadataProvider.")
 
 module ActionRegistry =
+  let private canonicalActionID (id: string) =
+    id.ToLowerInvariant()
+
   let private valueKinds =
     [ ReplValueKind.Unit
       ReplValueKind.Binary
@@ -1743,7 +1747,7 @@ module ActionRegistry =
     loadAssembly path (registry: ActionRegistry).Actions |> fromMap
 
   let tryFind (id: string) registry =
-    registry.Actions |> Map.tryFind (id.ToLowerInvariant())
+    registry.Actions |> Map.tryFind (canonicalActionID id)
 
   let getAll registry =
     registry.AllSorted

@@ -52,7 +52,7 @@ type BytesAction() =
     { Values = collection.Values |> Array.map (convert cancellationToken) }
 
   interface IAction with
-    member _.ActionID with get() = "bytes"
+    member _.ActionID with get() = "extract-bytes"
     member _.Signature with get() = "Binary | BinarySlice -> ByteArray"
     member _.Description with get() =
       "Extract raw bytes while retaining address and ISA information."

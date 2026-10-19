@@ -326,7 +326,7 @@ type DiffAction() =
         invalidArg (nameof DiffAction) "Invalid input to diff"
 
   interface IAction with
-    member _.ActionID with get() = "diff"
+    member _.ActionID with get() = "compare"
     member _.Signature with get() =
       "Binary|BinarySlice|ByteArray|InstructionArray|CFG|Text|ConcExecutor "
       + "pair -> OutString"

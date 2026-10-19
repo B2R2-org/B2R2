@@ -43,8 +43,8 @@ type OneAction() =
       invalidArg (nameof args) "The one action does not accept arguments."
 
   interface IAction with
-    member _.ActionID with get() = "one"
-    member _.Signature with get() = "'a collection -> one -> 'a"
+    member _.ActionID with get() = "require-one"
+    member _.Signature with get() = "'a collection -> require-one -> 'a"
     member _.Description with get() =
       """
     Require the current collection to contain exactly one value.

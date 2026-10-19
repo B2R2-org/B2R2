@@ -87,7 +87,8 @@ Names refer to previously retained values.  The reserved name `it` refers to
 the most recent successful result.  Arguments have the form
 `name=value`; hexadecimal addresses use `0x`, and strings use double quotes.
 Lists use semicolons, for example `[ RDI=0x70000000; RDX=0x0 ]`.  A tuple such
-as `(left, right)` supplies a pair to actions such as `@diff` and `@jaccard`.
+as `(left, right)` supplies a pair to actions such as `@compare` and
+`@jaccard`.
 
 `iter` applies an action to every element of a collection.  It can use an item
 name in a final parameter expression.  `iteri` additionally supplies a
@@ -95,7 +96,7 @@ zero-based index.
 
 ```
 matches |> iter @disasm |> @print
-matches |> iter @strings (fun item -> min=4)
+matches |> iter @extract-strings (fun item -> min=4)
 ```
 
 The REPL parses incomplete input in order to offer completions.  Its suggestions
@@ -142,8 +143,8 @@ let moves =
   target
   |> @list functions
   |> @find symbol="main"
-  |> @one
-  |> @cfg
+  |> @require-one
+  |> @recover-cfg
   |> @list nodes
   |> @find mnemonic="mov"
 moves |> @print
@@ -157,7 +158,7 @@ moves |> @print
 | `@asm` | `code=<text> [isa=<isa>] [base=<addr>]` | Assemble source text into bytes. |
 | `@random` | `min=<addr> max=<addr>` | Produce a random address in the half-open range. |
 | `@user-stack` | none | Produce an address suitable for a user stack. |
-| `@bytes` | none | Extract bytes from a binary or slice. |
+| `@extract-bytes` | none | Extract bytes from a binary or slice. |
 | `@as-binary` | none | Turn a byte array into a binary value. |
 | `@slice` | `section=<section>`, or `start=<addr> end=<addr>`, or `start=<addr> offset=<size>` | Select a binary section or address range. |
 | `@save` | `path=<path>` | Save a binary or slice to a file. |
@@ -167,17 +168,17 @@ moves |> @print
 | Action | Parameters | Description |
 | --- | --- | --- |
 | `@grep` | `pattern=<hex-pattern> [context=<n>]`, or `[before=<n>] [after=<n>]` | Search a binary or slice for a hexadecimal byte pattern. |
-| `@strings` | `[min=<n>] [pattern=<text>]` | Extract printable strings. |
+| `@extract-strings` | `[min=<n>] [pattern=<text>]` | Extract printable strings. |
 | `@hexdump` | none | Render bytes as a hexadecimal dump. |
 | `@disasm` | none | Disassemble a binary or slice. |
 | `@lift` | none | Lift instructions to B2R2's intermediate representation. |
-| `@llvm` | none | Render a binary through the LLVM representation. |
+| `@export-llvm` | none | Export the LLVM representation of a binary. |
 | `@list` | `sections`, `functions`, or `known-functions`; `nodes` | List binary sections/functions or CFG nodes. |
-| `@cfg` | `[entry=<addr>]` for a binary, none for a function | Recover CFGs from a binary or the CFG of one function. |
-| `@dot` | none | Render one control-flow graph as DOT text. |
+| `@recover-cfg` | `[entry=<addr>]` for a binary, none for a function | Recover CFGs from a binary or the CFG of one function. |
+| `@export-dot` | none | Export one control-flow graph as DOT text. |
 | `@count` | none | Count collection elements. |
 | `@pick` | `index=<n>` | Select a zero-based collection element. |
-| `@one` | none | Require a collection, list, or array to contain exactly one item. |
+| `@require-one` | none | Require a collection, list, or array to contain exactly one item. |
 | `@find` | `symbol=<name>` or `entry=<addr>`; `mnemonic=<name>` or `address=<addr>` | Filter function or CFG-node collections by a supported property. |
 | `@print` | none | Render the value received from a pipeline in the transcript. |
 | `@write` | `path=<path>` | Write text, text artifacts, or instructions to a file. |
@@ -186,7 +187,7 @@ moves |> @print
 
 | Action | Parameters | Description |
 | --- | --- | --- |
-| `@diff` | none | Compare a pair of compatible values. |
+| `@compare` | none | Compare a pair of compatible values. |
 | `@winnowing` | `[n-gram-size=<n>] [window-size=<n>]` | Compute a winnowing fingerprint from bytes. |
 | `@jaccard` | none | Compute the Jaccard similarity of a fingerprint pair. |
 | `@dbscan` | `[eps=<n>] [min-points=<n>]` | Cluster a fingerprint collection with DBSCAN. |
@@ -213,7 +214,7 @@ layout metadata and does not guarantee the behavior of the resulting binary.
 | `@arg` | `index=<n> value=<addr>` | Set a concrete argument value. |
 | `@mem read` | `addr=<addr> size=<n>` | Read concrete memory. |
 | `@mem write` | `addr=<addr> bytes=<hex>` | Write concrete memory. |
-| `@regs` | `[name=<text>]` | Inspect concrete registers. |
+| `@inspect-registers` | `[name=<text>]` | Inspect concrete registers. |
 | `@step` | `[count=<n>]` | Execute a fixed number of instructions. |
 | `@trace` | `[count=<n>] [watch=<addr> size=<n>]` | Trace execution, optionally watching a memory range. |
 | `@run-concrete` | `[entry=<addr>] [limit=<n>] [break=<addr>]` | Run concrete execution with optional limits and breakpoint. |
