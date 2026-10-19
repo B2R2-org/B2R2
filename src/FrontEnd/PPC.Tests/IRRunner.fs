@@ -37,13 +37,12 @@ open B2R2.FrontEnd.PPC
 /// integer operations at any width, loads and stores over the bytes a test
 /// gives it at the endianness each one names, the jumps between the labels
 /// of one instruction, and the straight-line LowUIR of the floating-point
-/// arithmetic, rounded to nearest but for a rounding to an integer or an
-/// integral value, which goes the way a RoundCtrl names or, outside one, the
-/// way FPSCR[RN] does.
-/// Of the named calls it knows the fused multiply-add, the only one the
-/// lifter makes. It fails on anything else rather than guess what it means
-/// -- a byte nobody gave, a jump out of the instruction and a side effect
-/// included.
+/// arithmetic (IRFloat), rounded the way a RoundCtrl names or, outside one,
+/// the way FPSCR[RN] does.
+/// Of the named calls it knows the fused multiply-add and the exception
+/// query (FEXC64), which IRFloat answers exactly. It fails on anything else
+/// rather than guess what it means -- a byte nobody gave, a jump out of the
+/// instruction and a side effect included.
 /// </summary>
 module internal IRRunner =
   /// What a run leaves behind.
@@ -72,30 +71,31 @@ module internal IRRunner =
     | PCVar _ -> Register.toRegID Register.IAR
     | e -> failwith $"IRRunner: {e} is not a register"
 
-  /// The value a single or a double holds, which a double holds exactly.
-  let private toDouble (x: BitVector) =
-    if x.Length = 32<rt> then
-      float (BitConverter.UInt32BitsToSingle(uint32 (x.ToUInt64())))
-    else
-      BitConverter.UInt64BitsToDouble(x.ToUInt64())
+  /// The bits of a value of at most 64 bits.
+  let private bits (v: BitVector) = v.ToUInt64()
 
   /// The named calls the lifter makes: the fused multiply-add, with bit 0 of
-  /// its flags negating the product and bit 1 the addend.
-  let private app name (args: BitVector list) =
-    match name, args with
+  /// its flags negating the product and bit 1 the addend, and the exception
+  /// query of one operation or of a fused multiply-add.
+  let private app mode (name: string) (args: BitVector list) =
+    let t = if name.EndsWith "32" then 32<rt> else 64<rt>
+    match name, List.map bits args with
     | ("FMA32" | "FMA64"), [ x; y; z; flags ] ->
-      let f = flags.ToUInt64()
-      let product = if f &&& 1UL = 0UL then toDouble x else -(toDouble x)
-      let addend = if f &&& 2UL = 0UL then toDouble z else -(toDouble z)
-      if x.Length = 32<rt> then
-        let p, m, a = float32 product, float32 (toDouble y), float32 addend
-        let r = MathF.FusedMultiplyAdd(p, m, a)
-        BitVector(uint64 (BitConverter.SingleToUInt32Bits(r)), 32<rt>)
-      else
-        let r = Math.FusedMultiplyAdd(product, toDouble y, addend)
-        BitVector(BitConverter.DoubleToUInt64Bits(r), 64<rt>)
+      BitVector(IRFloat.fma t mode flags x y z, t)
+    | ("FEXC32" | "FEXC64"), [ code; a; b ] ->
+      BitVector(IRFloat.exceptions t mode code a b, 32<rt>)
+    | ("FEXC32" | "FEXC64"), [ 8UL; x; y; z; flags ] ->
+      BitVector(IRFloat.fusedExceptions t mode flags x y z, 32<rt>)
     | _ ->
       failwith $"IRRunner: no {name}"
+
+  /// The floating-point operation of a BinOpType, if it is one.
+  let private floatOp = function
+    | BinOpType.FADD -> Some Add
+    | BinOpType.FSUB -> Some Sub
+    | BinOpType.FMUL -> Some Mul
+    | BinOpType.FDIV -> Some Div
+    | _ -> None
 
   let private binOp op (a: BitVector) (b: BitVector) =
     match op with
@@ -113,10 +113,6 @@ module internal IRRunner =
     | BinOpType.SHR -> BitVector.Shr(a, b)
     | BinOpType.SAR -> BitVector.Sar(a, b)
     | BinOpType.CONCAT -> BitVector.Concat(a, b)
-    | BinOpType.FADD -> BitVector.FAdd(a, b)
-    | BinOpType.FSUB -> BitVector.FSub(a, b)
-    | BinOpType.FMUL -> BitVector.FMul(a, b)
-    | BinOpType.FDIV -> BitVector.FDiv(a, b)
     | _ -> failwith $"IRRunner: no {op}"
 
   let private relOp op (a: BitVector) (b: BitVector) =
@@ -153,32 +149,6 @@ module internal IRRunner =
     let v = ordered |> Array.fold (fun acc b -> (acc <<< 8) + bigint b) 0I
     BitVector(v, t)
 
-  /// A value rounded to an integral one in a direction of the RoundingMode
-  /// encoding.
-  let private integral mode (d: float) =
-    match mode with
-    | RoundingMode.ToNearestEven -> Math.Round(d)
-    | RoundingMode.TowardNegative -> Math.Floor(d)
-    | RoundingMode.TowardPositive -> Math.Ceiling(d)
-    | RoundingMode.TowardZero -> Math.Truncate(d)
-    | RoundingMode.ToNearestAway -> Math.Round(d, MidpointRounding.AwayFromZero)
-    | m -> failwith $"IRRunner: no {m}"
-
-  /// A float rounded to an integer in a direction, the low bits of it kept.
-  let private toInt mode rt x =
-    let v = int64 (integral mode (toDouble x))
-    BitVector.Cast(BitVector(uint64 v, 64<rt>), rt)
-
-  /// A value as a single or a double, which it must be exactly.
-  let private ofDouble rt (d: float) =
-    if rt = 32<rt> then
-      BitVector(uint64 (BitConverter.SingleToUInt32Bits(float32 d)), 32<rt>)
-    else
-      BitVector(BitConverter.DoubleToUInt64Bits(d), 64<rt>)
-
-  /// A float rounded to an integral float in a direction.
-  let private roundIn mode rt x = ofDouble rt (integral mode (toDouble x))
-
   /// The direction FPSCR[RN] names, which is what a rounding no RoundCtrl
   /// encloses rounds in: nearest, toward zero, up, down.
   let private fpscrMode ctx =
@@ -189,20 +159,25 @@ module internal IRRunner =
     | 2UL -> RoundingMode.TowardPositive
     | _ -> RoundingMode.TowardNegative
 
-  /// A cast of a value to a type, outside a rounding control.
-  let private cast ctx kind t (x: BitVector) =
+  /// A cast in a direction: a conversion between integers and floats, or
+  /// between the two float formats, rounds in it.
+  let private cast mode kind t (x: BitVector) =
+    let src, v = x.Length, bits x
+    let ofBits (r: uint64) = BitVector(r, t)
     match kind with
     | CastKind.ZeroExt -> BitVector.ZExt(x, t)
     | CastKind.SignExt -> BitVector.SExt(x, t)
-    | CastKind.FloatCast -> BitVector.FCast(x, t)
-    | CastKind.SIntToFloat -> BitVector.Itof(x, t, true)
-    | CastKind.UIntToFloat -> BitVector.Itof(x, t, false)
-    | CastKind.FloatToSInt -> toInt (fpscrMode ctx) t x
-    | CastKind.RoundToIntegral -> roundIn (fpscrMode ctx) t x
+    | CastKind.FloatCast -> ofBits (IRFloat.cast src t mode v)
+    | CastKind.SIntToFloat -> ofBits (IRFloat.ofSInt src t mode v)
+    | CastKind.UIntToFloat -> ofBits (IRFloat.ofUInt src t mode v)
+    | CastKind.FloatToSInt -> ofBits (IRFloat.toSInt src t mode v)
+    | CastKind.RoundToIntegral -> ofBits (IRFloat.roundToIntegral t mode v)
     | k -> failwith $"IRRunner: no {k}"
 
-  let rec private eval ctx e =
-    let eval = eval ctx
+  /// An expression's value, a rounding in it going the way the innermost
+  /// RoundCtrl around it names, or the given way outside every one.
+  let rec private eval ctx mode e =
+    let go = eval ctx mode
     match e with
     | Num(Value = v) ->
       v
@@ -214,32 +189,33 @@ module internal IRRunner =
       ctx.Temps[n]
     | BinOp(Op = BinOpType.APP; Left = FuncName(Name = n); Right = es) ->
       match es with
-      | ExprList(Elements = args) -> app n (List.map eval args)
+      | ExprList(Elements = args) -> app mode n (List.map go args)
       | _ -> failwith $"IRRunner: no {e}"
+    | BinOp(Op = op; Left = l; Right = r) when (floatOp op).IsSome ->
+      let t = Expr.typeOf l
+      let a, b = bits (go l), bits (go r)
+      BitVector(IRFloat.arith t mode (floatOp op).Value a b, t)
     | BinOp(Op = op; Left = l; Right = r) ->
-      binOp op (eval l) (eval r)
+      binOp op (go l) (go r)
     | RelOp(Op = op; Left = l; Right = r) ->
-      relOp op (eval l) (eval r)
+      relOp op (go l) (go r)
     | UnOp(Op = UnOpType.NOT; Operand = x) ->
-      BitVector.Not(eval x)
+      BitVector.Not(go x)
     | UnOp(Op = UnOpType.NEG; Operand = x) ->
-      BitVector.Neg(eval x)
+      BitVector.Neg(go x)
     | UnOp(Op = UnOpType.FSQRT; Operand = x) ->
-      BitVector.FSqrt(eval x)
+      let t = Expr.typeOf x
+      BitVector(IRFloat.arith t mode Sqrt (bits (go x)) 0UL, t)
     | Load(Endian = endian; Type = t; Addr = a) ->
-      load ctx endian t (eval a)
+      load ctx endian t (go a)
     | Cast(Kind = k; Type = t; Operand = x) ->
-      cast ctx k t (eval x)
-    | RoundCtrl(Mode = m; Body = Cast(Kind = k; Type = t; Operand = x)) ->
-      let mode = enum<RoundingMode> (int ((eval m).ToUInt64()))
-      match k with
-      | CastKind.FloatToSInt -> toInt mode t (eval x)
-      | CastKind.RoundToIntegral -> roundIn mode t (eval x)
-      | _ -> failwith $"IRRunner: no {e}"
+      cast mode k t (go x)
+    | RoundCtrl(Mode = m; Body = body) ->
+      eval ctx (enum<RoundingMode> (int (bits (go m)))) body
     | Extract(Operand = x; Type = t; StartPos = p) ->
-      BitVector.Extract(eval x, t, p)
+      BitVector.Extract(go x, t, p)
     | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
-      if (eval c).IsTrue then eval a else eval b
+      if (go c).IsTrue then go a else go b
     | _ ->
       failwith $"IRRunner: no {e}"
 
@@ -276,11 +252,12 @@ module internal IRRunner =
   let private put ctx stmt =
     match stmt with
     | Put(Dst = Var(RegisterID = r); Src = src) ->
-      ctx.Regs[r] <- eval ctx src
+      ctx.Regs[r] <- eval ctx (fpscrMode ctx) src
     | Put(Dst = TempVar(Index = n); Src = src) ->
-      ctx.Temps[n] <- eval ctx src
+      ctx.Temps[n] <- eval ctx (fpscrMode ctx) src
     | Store(Endian = endian; Addr = a; Value = v) ->
-      store ctx endian (eval ctx a) (eval ctx v)
+      let mode = fpscrMode ctx
+      store ctx endian (eval ctx mode a) (eval ctx mode v)
     | _ ->
       failwith $"IRRunner: no {stmt}"
 
@@ -293,7 +270,7 @@ module internal IRRunner =
       at[l]
     | CJmp(Cond = c; TrueTarget = JmpDest(Target = t);
            FalseTarget = JmpDest(Target = f)) ->
-      at[if (eval ctx c).IsTrue then t else f]
+      at[if (eval ctx (fpscrMode ctx) c).IsTrue then t else f]
     | _ ->
       put ctx stmt
       next

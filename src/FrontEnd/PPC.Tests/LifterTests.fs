@@ -363,6 +363,26 @@ type FloatLifterTests() =
 
   let minusZero = 0x8000000000000000UL
 
+  /// FPSCR[FR]. QEMU leaves it as it was where the manual sets or clears it
+  /// (optest-powerpc/lanes/F.md), so the QEMU vectors compare everything
+  /// but FR, and FR has tests of its own.
+  let fr = 0x40000UL
+
+  /// <summary>
+  /// Runs a floating-point word on every target over the values given to the
+  /// FPRs the text names after the target, in that order, and FPSCR, and
+  /// checks frD and the FPSCR but for FR: one case per QEMU vector, as
+  /// (operands, FPSCR before, frD after, FPSCR after).
+  /// </summary>
+  let checkFP hex dst srcs cases =
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for (ops: uint64 list), fpscr, result, after in cases do
+        let given = (FPSCR, fpscr) :: List.zip srcs ops
+        let out = run isa hex given
+        let case = $"{hex} %A{ops} {fpscr:x} {nameOf isa}"
+        expect result (out dst) case
+        expect (after &&& ~~~fr) (out FPSCR &&& ~~~fr) case
+
   /// <summary>
   /// fcpsgn. frD, frA, frB writes frB with the sign of frA and records
   /// FPSCR[FX, FEX, VX, OX] in CR1.
@@ -625,3 +645,178 @@ type FloatLifterTests() =
             R5, 0xbad0bad0UL ]
         let after = run isa "7cb20026" given
         expect result (after R5) (nameOf isa)
+
+  /// <summary>
+  /// fadds rounds the exact sum to single precision once. 1.0 + (2^-24 +
+  /// 2^-50) lies above the midpoint between 1.0 and 1.0 + 2^-23, so it rounds
+  /// up; converting the operands to single first loses the 2^-50 and rounds
+  /// the tie to even, down to 1.0. FR records the rounding up (QEMU leaves FR
+  /// as it was).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FADDS rounds the exact sum to single once``() =
+    (* fadds f1, f2, f3 *)
+    checkFP "ec22182a" F1 [ F2; F3 ]
+      [ [ one; 0x3e70000004000000UL ], 0UL, 0x3ff0000020000000UL, 0x82024000UL
+        [ one; 0x3e70000004000000UL ], 1UL, one, 0x82024001UL ]
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let after = run isa "ec22182a" [ F2, one; F3, 0x3e70000004000000UL ]
+      expect fr (after FPSCR &&& fr) (nameOf isa)
+
+  /// <summary>
+  /// fadds over QEMU's vectors: an exact sum, an inexact one truncated, a
+  /// zero, infinities of opposite signs (VXISI, the default QNaN), a QNaN
+  /// operand, a sum too small for a single (UX, XX), and one too large for
+  /// it in round toward +infinity (OX, +infinity).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FADDS sets the FPSCR as QEMU does``() =
+    (* fadds f1, f2, f3 *)
+    checkFP "ec22182a" F1 [ F2; F3 ]
+      [ [ oneHalf; 0x4002000000000000UL ], 0UL, 0x400e000000000000UL, 0x4000UL
+        [ one; tenth ], 1UL, 0x3ff1999980000000UL, 0x82024001UL
+        [ 0UL; minusZero ], 2UL, 0UL, 0x2002UL
+        [ infinity; minusInfinity ], 3UL, qnan, 0xa0811003UL
+        [ qnan; one ], 0xbff80000UL, qnan, 0xbff91000UL
+        [ 1UL; 0xfffffffffffffUL ], 0x7f001UL, 0UL, 0x8a062001UL
+        [ maxDouble; maxDouble ], 0x20000702UL, infinity, 0xb2025702UL
+        [ one; 0UL ], 0x82024003UL, one, 0x82004003UL ]
+
+  /// <summary>
+  /// fmul, fdiv and fsqrt over QEMU's vectors: VXIMZ is not raised by a
+  /// signed zero times a zero; 0/0 raises VXZDZ and infinity over infinity
+  /// VXIDI; a divide by zero raises ZX and clears FR and FI; an exact result
+  /// clears FI.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FMUL FDIV FSQRT set the FPSCR as QEMU does``() =
+    (* fmul f1, f2, f4; fdiv f1, f2, f3; fsqrt f1, f3 *)
+    checkFP "fc220132" F1 [ F2; F4 ]
+      [ [ oneHalf; 0x4002000000000000UL ], 0UL, 0x400b000000000000UL, 0x4000UL
+        [ 0UL; minusZero ], 2UL, minusZero, 0x12002UL
+        [ infinity; minusInfinity ], 3UL, minusInfinity, 0x9003UL
+        [ 1UL; 0xfffffffffffffUL ], 0x7f001UL, 0UL, 0x8a062001UL
+        [ maxDouble; maxDouble ], 0x20000702UL, infinity, 0xb2025702UL ]
+    let third = 0x3fe5555555555555UL
+    let tiny = 0x3cb0000000000001UL
+    checkFP "fc221824" F1 [ F2; F3 ]
+      [ [ oneHalf; 0x4002000000000000UL ], 0UL, third, 0x82024000UL
+        [ one; tenth ], 1UL, 0x4023ffffffffffffUL, 0x82024001UL
+        [ 0UL; minusZero ], 2UL, qnan, 0xa0211002UL
+        [ infinity; minusInfinity ], 3UL, qnan, 0xa0411003UL
+        [ 1UL; 0xfffffffffffffUL ], 0x7f001UL, tiny, 0x82064001UL
+        [ maxDouble; maxDouble ], 0x20000702UL, one, 0x20004702UL
+        [ one; 0UL ], 0x82024003UL, infinity, 0x86005003UL ]
+    checkFP "fc20182c" F1 [ F3 ]
+      [ [ oneHalf ], 0UL, 0x3ff3988e1409212eUL, 0x82024000UL
+        [ 0UL ], 2UL, 0UL, 0x2002UL
+        [ infinity ], 3UL, infinity, 0x5003UL
+        [ 1UL ], 0x7f001UL, 0x1e60000000000000UL, 0x44001UL
+        [ maxDouble ], 0x20000702UL, 0x5ff0000000000000UL, 0xa2024702UL ]
+
+  /// <summary>
+  /// fmadd, fmadds and fnmsubs over QEMU's vectors: one rounding of frA x
+  /// frC + frB; a QNaN in frA wins over an SNaN in frB; a tiny single
+  /// result underflows to zero.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FMADD FMADDS FNMSUBS set the FPSCR as QEMU does``() =
+    (* fmadd f1, f2, f4, f3; fmadds f1, f2, f4, f3; fnmsubs f1, f2, f4, f3 *)
+    let snan = 0x7ff4000000000001UL
+    let x, y, z = oneHalf, 0x4002000000000000UL, 0xbfe8000000000000UL
+    let two, three = 0x4000000000000000UL, 0x4008000000000000UL
+    let small, minNormal = 0xfffffffffffffUL, 0x10000000000000UL
+    let near = 0x4007333320000000UL
+    for hex, sum in
+      [ "fc22193a", 0x4008ccccccccccccUL; "ec22193a", 0x4008ccccc0000000UL ] do
+      checkFP hex F1 [ F2; F4; F3 ]
+        [ [ x; y; z ], 0UL, 0x4005000000000000UL, 0x4000UL
+          [ one; tenth; three ], 1UL, sum, 0x82024001UL
+          [ infinity; minusInfinity; one ], 3UL, minusInfinity, 0x9003UL
+          [ qnan; one; snan ], 0xbff80000UL, qnan, 0xbff91000UL
+          [ maxDouble; maxDouble; two ], 0x20000702UL, infinity, 0xb2025702UL ]
+    checkFP "ec22193c" F1 [ F2; F4; F3 ]
+      [ [ x; y; z ], 0UL, 0xc010800000000000UL, 0x8000UL
+        [ one; tenth; three ], 1UL, near, 0x82024001UL
+        [ 1UL; small; minNormal ], 0x7f001UL, 0UL, 0x8a062001UL ]
+
+  /// <summary>
+  /// fnmsub rounds frA x frC - frB and THEN negates it (manual p. 164), so
+  /// toward +infinity the magnitude of a positive product rounds up before
+  /// the sign turns: -(max x max - 2) overflows to -infinity, and -(0.1 -
+  /// 3) is 2.8999998 rather than 2.9000001. QEMU negates first.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FNMSUBS negates the rounded result``() =
+    (* fnmsubs f1, f2, f4, f3 *)
+    let two, three = 0x4000000000000000UL, 0x4008000000000000UL
+    let near = 0x4007333320000000UL
+    checkFP "ec22193c" F1 [ F2; F4; F3 ]
+      [ [ maxDouble; maxDouble; two ], 2UL, minusInfinity, 0x92029002UL
+        [ one; tenth; three ], 2UL, near, 0x82024002UL ]
+
+  /// <summary>
+  /// frsp and fres over QEMU's vectors, where the manual agrees: frsp of a
+  /// denormal underflows to zero, of the largest double overflows; fres of
+  /// a denormal overflows to the largest single toward zero. Where the
+  /// manual and QEMU part, the manual: fres of +0 is +infinity with ZX
+  /// (QEMU answers 1/2), and a result that is a single denormal has the
+  /// denormal FPRF (QEMU classes it as a double).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FRSP and FRES set the FPSCR``() =
+    (* frsp f1, f3; fres f1, f3 *)
+    checkFP "fc201818" F1 [ F3 ]
+      [ [ oneHalf ], 0UL, oneHalf, 0x4000UL
+        [ qnan ], 0xbff80000UL, qnan, 0xbff91000UL
+        [ 1UL ], 0x7f001UL, 0UL, 0x8a062001UL
+        [ maxDouble ], 0x20000702UL, infinity, 0xb2025702UL ]
+    checkFP "ec201830" F1 [ F3 ]
+      [ [ oneHalf ], 0UL, 0x3fe5555560000000UL, 0x82024000UL
+        [ 0UL ], 2UL, infinity, 0x84005002UL
+        [ infinity ], 3UL, 0UL, 0x2003UL
+        [ 1UL ], 0x7f001UL, 0x47efffffe0000000UL, 0x92064001UL
+        [ maxDouble ], 0x20000702UL, 0x36a0000000000000UL, 0xaa034702UL ]
+
+  /// <summary>
+  /// FR says the rounding moved the fraction up: 1 + 3 x 2^-54 rounds up to
+  /// nearest and FR is 1, truncates toward zero and FR is 0, and an exact
+  /// sum clears it (FR is not sticky). QEMU leaves FR as it was.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FADD sets FR when it rounds up``() =
+    (* fadd f1, f2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for b, fpscr, result, fpscrAfter in
+        [ 0x3ca8000000000000UL, 0UL, 0x3ff0000000000001UL, 0x82064000UL
+          0x3ca8000000000000UL, 1UL, one, 0x82024001UL
+          one, fr, 0x4000000000000000UL, 0x4000UL ] do
+        let after = run isa "fc22182a" [ F2, one; F3, b; FPSCR, fpscr ]
+        expect result (after F1) $"{b:x} {fpscr:x} {nameOf isa}"
+        expect fpscrAfter (after FPSCR) $"{b:x} {fpscr:x} {nameOf isa}"
+
+  /// <summary>
+  /// A single-precision result that is a denormal single is classed as one
+  /// (FPRF 0b10100), even though the double that holds it is normal: 2^-65
+  /// x 2^-65 = 2^-130. QEMU classes it as a double (0b00100).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FMULS classes a single denormal as denormal``() =
+    (* fmuls f1, f2, f4 *)
+    let twoToMinus65 = 0x3be0000000000000UL
+    let twoToMinus130 = 0x37d0000000000000UL
+    let product = [ twoToMinus65; twoToMinus65 ], 0UL, twoToMinus130, 0x14000UL
+    checkFP "ec220132" F1 [ F2; F4 ] [ product ]
+
+  /// <summary>
+  /// With ZE set, a divide by zero leaves frD and FPRF as they were, clears
+  /// FR and FI, and sets ZX, FX and FEX.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] FDIV by zero with ZE keeps the target``() =
+    (* fdiv f1, f2, f3 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let given = [ F1, 0x4045000000000000UL; F2, one; FPSCR, 0x60010UL ]
+      let after = run isa "fc221824" given
+      expect 0x4045000000000000UL (after F1) (nameOf isa)
+      expect 0xc4000010UL (after FPSCR) (nameOf isa)

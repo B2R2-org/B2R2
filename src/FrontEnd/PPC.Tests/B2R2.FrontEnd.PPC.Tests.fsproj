@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="ParserTests.fs" />
+    <Compile Include="IRFloat.fs" />
     <Compile Include="IRRunner.fs" />
     <Compile Include="LifterTests.fs" />
   </ItemGroup>
