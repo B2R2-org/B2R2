@@ -50,14 +50,20 @@ module internal IRRunner =
     { /// What each register holds, by its variable.
       Read: Expr -> BitVector
       /// Every byte of memory given or written, by address.
-      Memory: IReadOnlyDictionary<uint64, byte> }
+      Memory: IReadOnlyDictionary<uint64, byte>
+      /// Every named call made, in order, with its arguments.
+      Calls: (string * BitVector list) list }
 
   /// What a run reads and writes: the registers, the temporaries and the
   /// bytes of memory by address.
   type private Context =
     { Regs: Dictionary<RegisterID, BitVector>
       Temps: Dictionary<int, BitVector>
-      Memory: Dictionary<uint64, byte> }
+      Memory: Dictionary<uint64, byte>
+      /// What a test answers for a named call IRRunner does not know.
+      Answer: string -> BitVector list -> BitVector option
+      /// Every named call made, in order, with its arguments.
+      Calls: List<string * BitVector list> }
 
   let private readReg (regs: Dictionary<RegisterID, BitVector>) r t =
     match regs.TryGetValue r with
@@ -77,17 +83,30 @@ module internal IRRunner =
   /// The named calls the lifter makes: the fused multiply-add, with bit 0 of
   /// its flags negating the product and bit 1 the addend, and the exception
   /// query of one operation or of a fused multiply-add.
-  let private app mode (name: string) (args: BitVector list) =
+  let private floatApp mode (name: string) args =
     let t = if name.EndsWith "32" then 32<rt> else 64<rt>
     match name, List.map bits args with
     | ("FMA32" | "FMA64"), [ x; y; z; flags ] ->
-      BitVector(IRFloat.fma t mode flags x y z, t)
+      Some(BitVector(IRFloat.fma t mode flags x y z, t))
     | ("FEXC32" | "FEXC64"), [ code; a; b ] ->
-      BitVector(IRFloat.exceptions t mode code a b, 32<rt>)
+      Some(BitVector(IRFloat.exceptions t mode code a b, 32<rt>))
     | ("FEXC32" | "FEXC64"), [ 8UL; x; y; z; flags ] ->
-      BitVector(IRFloat.fusedExceptions t mode flags x y z, 32<rt>)
+      Some(BitVector(IRFloat.fusedExceptions t mode flags x y z, 32<rt>))
     | _ ->
-      failwith $"IRRunner: no {name}"
+      None
+
+  /// A named call IRRunner knows, or else what the test answers for it.
+  let private app ctx mode (name: string) (args: BitVector list) =
+    let known = name.StartsWith "FMA" || name.StartsWith "FEXC"
+    let value = if known then floatApp mode name args else ctx.Answer name args
+    match value with
+    | Some v -> v
+    | None -> failwith $"IRRunner: no {name}"
+
+  /// A named call: recorded, then answered.
+  let private call ctx mode name args =
+    ctx.Calls.Add((name, args))
+    app ctx mode name args
 
   /// The floating-point operation of a BinOpType, if it is one.
   let private floatOp = function
@@ -189,7 +208,7 @@ module internal IRRunner =
       ctx.Temps[n]
     | BinOp(Op = BinOpType.APP; Left = FuncName(Name = n); Right = es) ->
       match es with
-      | ExprList(Elements = args) -> app mode n (List.map go args)
+      | ExprList(Elements = args) -> call ctx mode n (List.map go args)
       | _ -> failwith $"IRRunner: no {e}"
     | BinOp(Op = op; Left = l; Right = r) when (floatOp op).IsSome ->
       let t = Expr.typeOf l
@@ -221,9 +240,13 @@ module internal IRRunner =
 
   /// The registers and the bytes of memory given, everything else zero for a
   /// register and absent for a byte.
-  let private newContext inputs (memory: (uint64 * byte[]) list) =
+  let private newContext answer inputs (memory: (uint64 * byte[]) list) =
     let ctx =
-      { Regs = Dictionary(); Temps = Dictionary(); Memory = Dictionary() }
+      { Regs = Dictionary()
+        Temps = Dictionary()
+        Memory = Dictionary()
+        Answer = answer
+        Calls = List() }
     for reg, v in inputs do ctx.Regs[idOf reg] <- v
     for addr, bytes in memory do
       bytes |> Array.iteri (fun i b -> ctx.Memory[addr + uint64 i] <- b)
@@ -278,16 +301,24 @@ module internal IRRunner =
   /// <summary>
   /// Runs the statements from the first, each jump between their labels
   /// taken the way the values decide it, over the registers given and the
-  /// bytes of memory given. A load of a byte nobody gave fails the run.
+  /// bytes of memory given. A load of a byte nobody gave fails the run. A
+  /// named call IRRunner does not know is put to `answer`, which a test
+  /// gives to stand in for the evaluator: the run then shows where the
+  /// lifter took each call's arguments from and where its answer went.
   /// </summary>
-  let exec (stmts: Stmt[]) inputs memory =
-    let ctx = newContext inputs memory
+  let execAnswering answer (stmts: Stmt[]) inputs memory =
+    let ctx = newContext answer inputs memory
     let at = labelsOf stmts
     let rec go i =
       if i < stmts.Length then go (step ctx at stmts[i] (i + 1)) else ()
     go 0
     { Read = fun reg -> readReg ctx.Regs (idOf reg) (Expr.typeOf reg)
-      Memory = ctx.Memory }
+      Memory = ctx.Memory
+      Calls = List.ofSeq ctx.Calls }
+
+  /// The same with no named call answered but the ones IRRunner knows.
+  let exec stmts inputs memory =
+    execAnswering (fun _ _ -> None) stmts inputs memory
 
   /// What each register holds after the statements ran, starting from the
   /// given values and from zero everywhere else, with no memory at all.

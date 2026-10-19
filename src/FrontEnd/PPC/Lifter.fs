@@ -35,6 +35,7 @@ open B2R2.FrontEnd.PPC.LiftingUtils
 open B2R2.FrontEnd.PPC.GeneralLifter
 open B2R2.FrontEnd.PPC.VectorLifter
 open B2R2.FrontEnd.PPC.FPLifter
+open B2R2.FrontEnd.PPC.DFPLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -1357,6 +1358,190 @@ let translate (ins: Instruction) bld =
     mffscdrn ins bld
   | Op.MFFSCDRNI ->
     mffscdrni ins bld
+  | Op.DADD ->
+    arith ins false "DADD" 1UL false bld
+  | Op.DADDdot ->
+    arith ins false "DADD" 1UL true bld
+  | Op.DADDQ ->
+    arith ins true "DADD" 1UL false bld
+  | Op.DADDQdot ->
+    arith ins true "DADD" 1UL true bld
+  | Op.DSUB ->
+    arith ins false "DSUB" 3UL false bld
+  | Op.DSUBdot ->
+    arith ins false "DSUB" 3UL true bld
+  | Op.DSUBQ ->
+    arith ins true "DSUB" 3UL false bld
+  | Op.DSUBQdot ->
+    arith ins true "DSUB" 3UL true bld
+  | Op.DMUL ->
+    arith ins false "DMUL" 5UL false bld
+  | Op.DMULdot ->
+    arith ins false "DMUL" 5UL true bld
+  | Op.DMULQ ->
+    arith ins true "DMUL" 5UL false bld
+  | Op.DMULQdot ->
+    arith ins true "DMUL" 5UL true bld
+  | Op.DDIV ->
+    arith ins false "DDIV" 7UL false bld
+  | Op.DDIVdot ->
+    arith ins false "DDIV" 7UL true bld
+  | Op.DDIVQ ->
+    arith ins true "DDIV" 7UL false bld
+  | Op.DDIVQdot ->
+    arith ins true "DDIV" 7UL true bld
+  | Op.DCMPU ->
+    compare ins false 9UL bld
+  | Op.DCMPUQ ->
+    compare ins true 9UL bld
+  | Op.DCMPO ->
+    compare ins false 11UL bld
+  | Op.DCMPOQ ->
+    compare ins true 11UL bld
+  | Op.DTSTEX ->
+    compare ins false 17UL bld
+  | Op.DTSTEXQ ->
+    compare ins true 17UL bld
+  | Op.DTSTDC ->
+    tstData ins false 13UL bld
+  | Op.DTSTDCQ ->
+    tstData ins true 13UL bld
+  | Op.DTSTDG ->
+    tstData ins false 15UL bld
+  | Op.DTSTDGQ ->
+    tstData ins true 15UL bld
+  | Op.DTSTSF ->
+    tstsf ins false bld
+  | Op.DTSTSFI ->
+    tstsfi ins false bld
+  | Op.DTSTSFQ ->
+    tstsf ins true bld
+  | Op.DTSTSFIQ ->
+    tstsfi ins true bld
+  | Op.DQUA ->
+    quantize ins false "DQUA" 25UL true false bld
+  | Op.DQUAdot ->
+    quantize ins false "DQUA" 25UL true true bld
+  | Op.DQUAQ ->
+    quantize ins true "DQUA" 25UL true false bld
+  | Op.DQUAQdot ->
+    quantize ins true "DQUA" 25UL true true bld
+  | Op.DRRND ->
+    quantize ins false "DRRND" 27UL false false bld
+  | Op.DRRNDdot ->
+    quantize ins false "DRRND" 27UL false true bld
+  | Op.DRRNDQ ->
+    quantize ins true "DRRND" 27UL false false bld
+  | Op.DRRNDQdot ->
+    quantize ins true "DRRND" 27UL false true bld
+  | Op.DQUAI ->
+    quantizeImm ins false false bld
+  | Op.DQUAIdot ->
+    quantizeImm ins false true bld
+  | Op.DQUAIQ ->
+    quantizeImm ins true false bld
+  | Op.DQUAIQdot ->
+    quantizeImm ins true true bld
+  | Op.DRINTX ->
+    roundToInt ins false "DRINTX" 29UL false bld
+  | Op.DRINTXdot ->
+    roundToInt ins false "DRINTX" 29UL true bld
+  | Op.DRINTXQ ->
+    roundToInt ins true "DRINTX" 29UL false bld
+  | Op.DRINTXQdot ->
+    roundToInt ins true "DRINTX" 29UL true bld
+  | Op.DRINTN ->
+    roundToInt ins false "DRINTN" 31UL false bld
+  | Op.DRINTNdot ->
+    roundToInt ins false "DRINTN" 31UL true bld
+  | Op.DRINTNQ ->
+    roundToInt ins true "DRINTN" 31UL false bld
+  | Op.DRINTNQdot ->
+    roundToInt ins true "DRINTN" 31UL true bld
+  | Op.DCTDP ->
+    ctdp ins false bld
+  | Op.DCTDPdot ->
+    ctdp ins true bld
+  | Op.DCTQPQ ->
+    ctqpq ins false bld
+  | Op.DCTQPQdot ->
+    ctqpq ins true bld
+  | Op.DRSP ->
+    rsp ins false bld
+  | Op.DRSPdot ->
+    rsp ins true bld
+  | Op.DRDPQ ->
+    rdpq ins false bld
+  | Op.DRDPQdot ->
+    rdpq ins true bld
+  | Op.DCFFIX ->
+    cffix ins false bld
+  | Op.DCFFIXdot ->
+    cffix ins true bld
+  | Op.DCFFIXQ ->
+    cffixq ins false bld
+  | Op.DCFFIXQdot ->
+    cffixq ins true bld
+  | Op.DCTFIX ->
+    ctfix ins false bld
+  | Op.DCTFIXdot ->
+    ctfix ins true bld
+  | Op.DCTFIXQ ->
+    ctfixq ins false bld
+  | Op.DCTFIXQdot ->
+    ctfixq ins true bld
+  | Op.DCFFIXQQ ->
+    cffixqq ins bld
+  | Op.DCTFIXQQ ->
+    ctfixqq ins bld
+  | Op.DENBCD ->
+    enbcd ins false false bld
+  | Op.DENBCDdot ->
+    enbcd ins false true bld
+  | Op.DENBCDQ ->
+    enbcd ins true false bld
+  | Op.DENBCDQdot ->
+    enbcd ins true true bld
+  | Op.DDEDPD ->
+    dedpd ins false false bld
+  | Op.DDEDPDdot ->
+    dedpd ins false true bld
+  | Op.DDEDPDQ ->
+    dedpd ins true false bld
+  | Op.DDEDPDQdot ->
+    dedpd ins true true bld
+  | Op.DXEX ->
+    xex ins false false bld
+  | Op.DXEXdot ->
+    xex ins false true bld
+  | Op.DXEXQ ->
+    xex ins true false bld
+  | Op.DXEXQdot ->
+    xex ins true true bld
+  | Op.DIEX ->
+    iex ins false false bld
+  | Op.DIEXdot ->
+    iex ins false true bld
+  | Op.DIEXQ ->
+    iex ins true false bld
+  | Op.DIEXQdot ->
+    iex ins true true bld
+  | Op.DSCLI ->
+    shift ins false "DSCLI" false bld
+  | Op.DSCLIdot ->
+    shift ins false "DSCLI" true bld
+  | Op.DSCLIQ ->
+    shift ins true "DSCLI" false bld
+  | Op.DSCLIQdot ->
+    shift ins true "DSCLI" true bld
+  | Op.DSCRI ->
+    shift ins false "DSCRI" false bld
+  | Op.DSCRIdot ->
+    shift ins false "DSCRI" true bld
+  | Op.DSCRIQ ->
+    shift ins true "DSCRI" false bld
+  | Op.DSCRIQdot ->
+    shift ins true "DSCRI" true bld
   | o ->
 #if DEBUG
          eprintfn "%A" o
