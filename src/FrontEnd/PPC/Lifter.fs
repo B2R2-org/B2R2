@@ -2209,6 +2209,114 @@ let translate (ins: Instruction) bld =
     VSXLifter.genPCV ins bld 8
   | Op.XVTLSBB ->
     VSXLifter.xvtlsbb ins bld
+  | Op.XVADDSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.arith AST.fadd)
+  | Op.XVSUBSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.arith AST.fsub)
+  | Op.XVMULSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.arith AST.fmul)
+  | Op.XVDIVSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.arith AST.fdiv)
+  | Op.XVSQRTSP ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.squareRoot
+  | Op.XVSQRTDP ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.squareRoot
+  | Op.XVABSSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.signOp 0)
+  | Op.XVABSDP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.signOp 0)
+  | Op.XVNABSSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.signOp 1)
+  | Op.XVNABSDP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.signOp 1)
+  | Op.XVNEGSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.signOp 2)
+  | Op.XVCPSGNSP ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.copySignOf
+  | Op.XVCPSGNDP ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.copySignOf
+  | Op.XVMAXSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.maxMin true)
+  | Op.XVMINSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.maxMin false)
+  | Op.XVMAXDP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.maxMin true)
+  | Op.XVMINDP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.maxMin false)
+  | Op.XSMAXCDP ->
+    VSXFloat.scalarMap ins bld false (VSXFloat.maxMinC true)
+  | Op.XSMINCDP ->
+    VSXFloat.scalarMap ins bld false (VSXFloat.maxMinC false)
+  | Op.XSMAXJDP ->
+    VSXFloat.scalarMap ins bld false (VSXFloat.maxMinJ true)
+  | Op.XSMINJDP ->
+    VSXFloat.scalarMap ins bld false (VSXFloat.maxMinJ false)
+  | Op.XVMADDADP ->
+    VSXFloat.vectorMulAdd ins bld 64<rt> false false false
+  | Op.XVMADDASP ->
+    VSXFloat.vectorMulAdd ins bld 32<rt> false false false
+  | Op.XVMADDMDP ->
+    VSXFloat.vectorMulAdd ins bld 64<rt> true false false
+  | Op.XVMADDMSP ->
+    VSXFloat.vectorMulAdd ins bld 32<rt> true false false
+  | Op.XVMSUBADP ->
+    VSXFloat.vectorMulAdd ins bld 64<rt> false true false
+  | Op.XVMSUBASP ->
+    VSXFloat.vectorMulAdd ins bld 32<rt> false true false
+  | Op.XVMSUBMDP ->
+    VSXFloat.vectorMulAdd ins bld 64<rt> true true false
+  | Op.XVMSUBMSP ->
+    VSXFloat.vectorMulAdd ins bld 32<rt> true true false
+  | Op.XVNMADDADP ->
+    VSXFloat.vectorMulAdd ins bld 64<rt> false false true
+  | Op.XVNMADDASP ->
+    VSXFloat.vectorMulAdd ins bld 32<rt> false false true
+  | Op.XVNMADDMDP ->
+    VSXFloat.vectorMulAdd ins bld 64<rt> true false true
+  | Op.XVNMADDMSP ->
+    VSXFloat.vectorMulAdd ins bld 32<rt> true false true
+  | Op.XVNMSUBADP ->
+    VSXFloat.vectorMulAdd ins bld 64<rt> false true true
+  | Op.XVNMSUBASP ->
+    VSXFloat.vectorMulAdd ins bld 32<rt> false true true
+  | Op.XVNMSUBMDP ->
+    VSXFloat.vectorMulAdd ins bld 64<rt> true true true
+  | Op.XVNMSUBMSP ->
+    VSXFloat.vectorMulAdd ins bld 32<rt> true true true
+  | Op.XVREDP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.estimate false)
+  | Op.XVRESP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.estimate false)
+  | Op.XVRSQRTEDP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXFloat.estimate true)
+  | Op.XVRSQRTESP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXFloat.estimate true)
+  | Op.XSREDP ->
+    VSXFloat.scalarMap ins bld true (VSXFloat.estimate false)
+  | Op.XSRSQRTEDP ->
+    VSXFloat.scalarMap ins bld true (VSXFloat.estimate true)
+  | Op.XVRDPI ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.awayFromZero
+  | Op.XVRDPIC ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.byFPSCR
+  | Op.XVRDPIM ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.downward
+  | Op.XVRDPIP ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.upward
+  | Op.XVRDPIZ ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXFloat.towardZero
+  | Op.XVRSPI ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.awayFromZero
+  | Op.XVRSPIC ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.byFPSCR
+  | Op.XVRSPIM ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.downward
+  | Op.XVRSPIP ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.upward
+  | Op.XVRSPIZ ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXFloat.towardZero
+  | Op.XSRDPIC ->
+    VSXFloat.scalarMap ins bld true VSXFloat.byFPSCR
   | o ->
 #if DEBUG
          eprintfn "%A" o

@@ -208,6 +208,63 @@ let private permuteEncoders () =
     Op.XXGENPCVDM, genPCV 949u
     Op.XVTLSBB, xx2CR 475u 2u ]
 
+/// The vector and scalar floating-point arithmetic ISA 2.07 to 3.1 added.
+let private arithmeticEncoders () =
+  [ Op.XVADDSP, xx3 64u
+    Op.XVMADDASP, xx3 65u
+    Op.XVSUBSP, xx3 72u
+    Op.XVMADDMSP, xx3 73u
+    Op.XVMULSP, xx3 80u
+    Op.XVMSUBASP, xx3 81u
+    Op.XVDIVSP, xx3 88u
+    Op.XVMSUBMSP, xx3 89u
+    Op.XVMADDADP, xx3 97u
+    Op.XVMADDMDP, xx3 105u
+    Op.XVMSUBADP, xx3 113u
+    Op.XVMSUBMDP, xx3 121u
+    Op.XSMAXCDP, xx3 128u
+    Op.XSMINCDP, xx3 136u
+    Op.XSMAXJDP, xx3 144u
+    Op.XSMINJDP, xx3 152u
+    Op.XVMAXSP, xx3 192u
+    Op.XVNMADDASP, xx3 193u
+    Op.XVMINSP, xx3 200u
+    Op.XVNMADDMSP, xx3 201u
+    Op.XVCPSGNSP, xx3 208u
+    Op.XVNMSUBASP, xx3 209u
+    Op.XVNMSUBMSP, xx3 217u
+    Op.XVMAXDP, xx3 224u
+    Op.XVNMADDADP, xx3 225u
+    Op.XVMINDP, xx3 232u
+    Op.XVNMADDMDP, xx3 233u
+    Op.XVCPSGNDP, xx3 240u
+    Op.XVNMSUBADP, xx3 241u
+    Op.XVNMSUBMDP, xx3 249u
+    Op.XSRSQRTEDP, xx2 74u 0u
+    Op.XSREDP, xx2 90u 0u
+    Op.XSRDPIC, xx2 107u 0u
+    Op.XVRSPI, xx2 137u 0u
+    Op.XVRSQRTESP, xx2 138u 0u
+    Op.XVSQRTSP, xx2 139u 0u
+    Op.XVRSPIZ, xx2 153u 0u
+    Op.XVRESP, xx2 154u 0u
+    Op.XVRSPIP, xx2 169u 0u
+    Op.XVRSPIC, xx2 171u 0u
+    Op.XVRSPIM, xx2 185u 0u
+    Op.XVRDPI, xx2 201u 0u
+    Op.XVRSQRTEDP, xx2 202u 0u
+    Op.XVSQRTDP, xx2 203u 0u
+    Op.XVRDPIZ, xx2 217u 0u
+    Op.XVREDP, xx2 218u 0u
+    Op.XVRDPIP, xx2 233u 0u
+    Op.XVRDPIC, xx2 235u 0u
+    Op.XVRDPIM, xx2 249u 0u
+    Op.XVABSSP, xx2 409u 0u
+    Op.XVNABSSP, xx2 425u 0u
+    Op.XVNEGSP, xx2 441u 0u
+    Op.XVABSDP, xx2 473u 0u
+    Op.XVNABSDP, xx2 489u 0u ]
+
 /// The single-precision estimates ISA 2.07 added.
 let private estimateEncoders () =
   [ Op.XSRESP, xx2 26u 0u
@@ -218,4 +275,5 @@ let vsxEncoders () =
   List.concat
     [ memoryEncoders ()
       estimateEncoders ()
-      permuteEncoders () ]
+      permuteEncoders ()
+      arithmeticEncoders () ]
