@@ -284,6 +284,22 @@ type LifterTests() =
   /// The 64-bit processors, in both byte orders.
   let ppc64s = [ ppc64; ppc64le ]
 
+  /// Whether one word traps on the processor an ISA names, over the
+  /// registers given. The runner refuses every side effect, so a run that
+  /// reaches the trap's interrupt fails on it and one that does not
+  /// completes.
+  let traps isa hex given =
+    try
+      run isa hex given |> ignore
+      false
+    with e when e.Message.EndsWith "!!Int0" ->
+      true
+
+  /// Asserts whether one word trapped, naming the case.
+  let expectTrap (trapped: bool) isa hex given =
+    let case = $"{hex} {nameOf isa}"
+    Assert.AreEqual(box trapped, box (traps isa hex given), case)
+
   /// <summary>
   /// add rD, rA, rB writes rA + rB at the width of a register: the sum wraps
   /// at 32 bits on a 32-bit processor and carries into the high word on a
@@ -24418,6 +24434,42 @@ type LifterTests() =
     for hex, given, xer, expected in cases do
       let after = run ppc32 hex ((XER, xer) :: given)
       expect expected (after XER) hex
+
+  /// <summary>
+  /// twi and tw compare the low word of rA with the sign-extended SI or with
+  /// the low word of rB, and trap when a comparison their TO field names
+  /// holds: TO = 0 names none and never traps, and on a 64-bit processor the
+  /// high words take no part, so 0xffffffff0000000c equals 12. The extended
+  /// mnemonics (tweqi, twlti, tweq, twgt, twllt here) are the same words.
+  /// Values from qemu-ppc64 -cpu power10 and qemu-ppc -cpu 7457.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] TWI and TW trap on the low words TO names``() =
+    (* twi 4,r6,12; twi 0,r6,12; twi 16,r6,0; twi 31,r6,0; tw 4,r6,r7;
+       tw 8,r6,r7; tw 2,r6,r7 *)
+    let cases64 =
+      [ "0c86000c", [ R6, 0xffffffff0000000cUL ], true
+        "0c86000c", [ R6, 0x10000000dUL ], false
+        "0c06000c", [ R6, 0xcUL ], false
+        "0e060000", [ R6, 0x80000000UL ], true
+        "0e060000", [ R6, 0xffffffff00000001UL ], false
+        "0fe60000", [ R6, 7UL ], true
+        "7c863808", [ R6, 0x100000005UL; R7, 5UL ], true
+        "7c863808", [ R6, 5UL; R7, 6UL ], false
+        "7d063808", [ R6, 1UL; R7, 0xffffffff00000002UL ], false
+        "7d063808", [ R6, 3UL; R7, 0xffffffff00000002UL ], true
+        "7c463808", [ R6, 0x1ffffffffUL; R7, 1UL ], false
+        "7c463808", [ R6, 1UL; R7, 0x1ffffffffUL ], true ]
+    for isa in ppc64s do
+      for hex, given, trapped in cases64 do
+        expectTrap trapped isa hex given
+    for hex, given, trapped in
+      [ "0c86000c", [ R6, 0xcUL ], true
+        "0c86000c", [ R6, 0xdUL ], false
+        "0c06000c", [ R6, 0xcUL ], false
+        "0e060000", [ R6, 0x80000000UL ], true
+        "0e060000", [ R6, 1UL ], false ] do
+      expectTrap trapped ppc32 hex given
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
