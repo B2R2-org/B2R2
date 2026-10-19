@@ -1407,8 +1407,9 @@ let private arithShift ins updateCond (bld: ILowUIRBuilder) width =
     let dropped =
       AST.ite inRange ((AST.num1 width << n) .- AST.num1 width) (AST.not z)
     let lost = (value .& dropped) != z
-    AST.extract (regVar bld Register.XER) 1<rt> 29 :=
-      AST.ite (res ?< z) lost AST.b0
+    let carry = tmpVar bld 1<rt>
+    carry := AST.ite (res ?< z) lost AST.b0
+    setCarry bld carry carry
     if updateCond then setCR0Reg bld ra else ()
   }
 
@@ -1430,8 +1431,9 @@ let private arithShiftImm ins updateCond (bld: ILowUIRBuilder) width =
     ra := AST.sext bld.RegType res
     let dropped = (AST.num1 width << n) .- AST.num1 width
     let lost = (value .& dropped) != z
-    AST.extract (regVar bld Register.XER) 1<rt> 29 :=
-      AST.ite (res ?< z) lost AST.b0
+    let carry = tmpVar bld 1<rt>
+    carry := AST.ite (res ?< z) lost AST.b0
+    setCarry bld carry carry
     if updateCond then setCR0Reg bld ra else ()
   }
 
