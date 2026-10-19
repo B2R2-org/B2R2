@@ -194,6 +194,7 @@ module TransformerTuiRenderer =
       "  Ctrl+A / Ctrl+E                Move to input start / end"
       "  Ctrl+W / Ctrl+Backspace        Delete the previous input word"
       "  Ctrl+U / Ctrl+K                Delete to input start / end"
+      "  Click a suggestion             Apply that completion"
       "  Ctrl+C                         Cancel a running action"
       "  Ctrl+D                         Leave when input is empty"
       "  Copy / paste                   Use the terminal's shortcuts"
@@ -806,12 +807,27 @@ module TransformerTuiRenderer =
     + paint labelStyle labelPart
     + paint detailStyle restPart
 
-  let private suggestionRows rowCount width completion selected =
-    let rowCount = max 1 rowCount
+  let private suggestionItemWindow rowCount width completion selected =
     let count = List.length completion.Items
     let boxed = rowCount > 2
     let innerWidth = if boxed then max 1 (width - 2) else width
     let hint = hintRows innerWidth completion
+    let visible =
+      max 0 ((if boxed then rowCount - 2 else rowCount) - List.length hint)
+    let start =
+      if visible <= 0 then
+        0
+      else
+        let pageStart = selected / visible * visible
+        max 0 (min pageStart (count - visible))
+    boxed, hint, start, visible
+
+  let private suggestionRows rowCount width completion selected =
+    let rowCount = max 1 rowCount
+    let count = List.length completion.Items
+    let boxed, hint, start, visible =
+      suggestionItemWindow rowCount width completion selected
+    let innerWidth = if boxed then max 1 (width - 2) else width
     let contentRows =
       if count = 0 then
         match hint with
@@ -822,14 +838,6 @@ module TransformerTuiRenderer =
                         "Suggestions appear here as you type.") ]
       else
         let selected = min selected (count - 1)
-        let visible =
-          max 0 ((if boxed then rowCount - 2 else rowCount) - List.length hint)
-        let start =
-          if visible <= 0 then
-            0
-          else
-            let pageStart = selected / visible * visible
-            max 0 (min pageStart (count - visible))
         let itemRows =
           completion.Items
           |> List.skip start
@@ -845,6 +853,42 @@ module TransformerTuiRenderer =
       |> fitSuggestionRows rowCount width
     else
       contentRows |> fitSuggestionRows rowCount width
+
+  let trySuggestionIndexAt
+    width
+    height
+    (completion: SuggestionSet)
+    (model: TransformerTuiModel)
+    row
+    column =
+    let itemCount = List.length completion.Items
+    if model.Overlay <> TuiOverlay.None
+       || model.IsBusy
+       || itemCount = 0
+       || row < 1
+       || column < 1
+       || column > width then
+      None
+    else
+      let suggestionCount = TransformerTuiModel.suggestionHeight height model
+      let inputRows = TransformerTuiModel.visibleShellInputRows height model
+      let bodyHeight = TransformerTuiModel.transcriptHeight height model
+      let suggestionStart =
+        match model.BottomPaneOrder with
+        | TuiBottomPaneOrder.ShellAboveSuggestions ->
+          5 + bodyHeight + inputRows
+        | TuiBottomPaneOrder.SuggestionsAboveShell ->
+          5 + bodyHeight
+      let boxed, hint, start, visible =
+        suggestionItemWindow
+          suggestionCount width completion model.SuggestionIndex
+      let firstItem =
+        suggestionStart + (if boxed then 1 else 0) + List.length hint
+      let offset = row - firstItem
+      if offset < 0 || offset >= visible then
+        None
+      else
+        Some(start + offset)
 
   let private ghostText completion selected model =
     let completion: SuggestionSet = completion

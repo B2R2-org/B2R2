@@ -398,15 +398,71 @@ module TransformerRepl =
     let mutable shouldExit = false
     let mutable dirty = true
     let mutable suggestionCache: SuggestionCache option = None
-    let pendingKeys = Queue<ConsoleKeyInfo>()
+    let pendingInput = Queue<TuiInputEvent>()
     let mutable lastWidth, lastHeight = 0, 0
     let mutable lastSpinner = Environment.TickCount64
-    let addPending key = pendingKeys.Enqueue key
-    let readKey () =
-      if pendingKeys.Count > 0 then
-        Some(pendingKeys.Dequeue())
+    let addPendingKey key = pendingInput.Enqueue(TuiInputEvent.Key key)
+    let restoreKey key =
+      ConsoleKeyInfo(char 0, key, false, false, false)
+    let restoreEscapeSequence (first: ConsoleKeyInfo) keys sequence =
+      match sequence with
+      | "[A" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.UpArrow)
+      | "[B" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.DownArrow)
+      | "[C" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.RightArrow)
+      | "[D" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.LeftArrow)
+      | "[H"
+      | "[1~" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.Home)
+      | "[F"
+      | "[4~" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.End)
+      | "[3~" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.Delete)
+      | "[5~" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.PageUp)
+      | "[6~" ->
+        TuiInputEvent.Key(restoreKey ConsoleKey.PageDown)
+      | _ ->
+        keys |> Seq.iter addPendingKey
+        TuiInputEvent.Key first
+    let readEscapeSequence (first: ConsoleKeyInfo) =
+      if not Console.KeyAvailable then
+        TuiInputEvent.Key first
+      else
+        let keys = ResizeArray<ConsoleKeyInfo>()
+        let text = StringBuilder()
+        let mutable isComplete = false
+        while Console.KeyAvailable && text.Length < 64 && not isComplete do
+          let key = Console.ReadKey true
+          keys.Add key
+          text.Append key.KeyChar |> ignore
+          let sequence = text.ToString()
+          isComplete <-
+            if sequence.StartsWith("[<", StringComparison.Ordinal) then
+              key.KeyChar = 'M' || key.KeyChar = 'm'
+            elif sequence.StartsWith("[", StringComparison.Ordinal) then
+              Char.IsLetter key.KeyChar || key.KeyChar = '~'
+            else
+              true
+        let sequence = text.ToString()
+        match TransformerTuiTerminal.tryParseInputEvent sequence with
+        | Some input ->
+          input
+        | None ->
+          restoreEscapeSequence first keys sequence
+    let readInput () =
+      if pendingInput.Count > 0 then
+        Some(pendingInput.Dequeue())
       elif Console.KeyAvailable then
-        Some(Console.ReadKey true)
+        let key = Console.ReadKey true
+        if key.Key = ConsoleKey.Escape && key.KeyChar = '\u001b' then
+          Some(readEscapeSequence key)
+        else
+          Some(TuiInputEvent.Key key)
       else
         None
     let readTextBurst first =
@@ -418,7 +474,7 @@ module TransformerRepl =
         if isTextKey key then
           builder.Append(key.KeyChar) |> ignore
         else
-          addPending key
+          addPendingKey key
           keepReading <- false
       builder.ToString()
     let isViewNavigationKey (key: ConsoleKeyInfo) =
@@ -446,7 +502,7 @@ module TransformerRepl =
         if samePhysicalKey first key then
           count <- count + 1
         else
-          addPending key
+          addPendingKey key
           keepReading <- false
       count
     let pageHeight model =
@@ -551,10 +607,20 @@ module TransformerRepl =
         | _ ->
           ()
         if not shouldExit then
-          match readKey () with
+          match readInput () with
           | None ->
             ()
-          | Some key ->
+          | Some(TuiInputEvent.Mouse mouse) ->
+            match running with
+            | Some _ ->
+              ()
+            | None ->
+              let completion = currentSuggestions ()
+              TransformerTuiInputController.handleMouse
+                width height completion mouse model
+              |> applyInputResult
+            dirty <- true
+          | Some(TuiInputEvent.Key key) ->
             match running with
             | Some runningEvaluation
               when hasModifier ConsoleModifiers.Control key

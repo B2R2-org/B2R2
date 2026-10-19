@@ -509,6 +509,34 @@ module TransformerTuiInputController =
     | _ ->
       TuiInputResult.Update model
 
+  let handleMouse width height completion (mouse: TuiMouseEvent) model =
+    let scroll direction =
+      match model.Overlay with
+      | TuiOverlay.None ->
+        TransformerTuiModel.scroll direction model
+      | _ ->
+        TransformerTuiModel.scroll (-direction) model
+    if mouse.Button = 64 then
+      scroll 3 |> TuiInputResult.Update
+    elif mouse.Button = 65 then
+      scroll -3 |> TuiInputResult.Update
+    elif mouse.IsRelease || mouse.Button &&& 3 <> 0 || mouse.Button >= 64 then
+      TuiInputResult.Update model
+    else
+      match TransformerTuiRenderer.trySuggestionIndexAt
+              width height completion model mouse.Row mouse.Column with
+      | Some index ->
+        let count = List.length completion.Items
+        let model =
+          TransformerTuiModel.selectSuggestion
+            (index - model.SuggestionIndex)
+            count
+            model
+        TransformerTuiModel.applyCompletion completion model
+        |> TuiInputResult.Update
+      | None ->
+        TuiInputResult.Update model
+
   let handle completion (key: ConsoleKeyInfo) model =
     let control = hasModifier ConsoleModifiers.Control key
     let shift = hasModifier ConsoleModifiers.Shift key
