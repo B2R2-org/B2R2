@@ -738,7 +738,8 @@ let lis ins bld =
   }
 
 /// lwarx/ldarx: a load that arms the reservation a following store-conditional
-/// checks. The reserved value is kept register-wide whatever the access size.
+/// checks. RES says that one is held, ExMonAddr where and ExMonVal over what
+/// value, which is kept register-wide whatever the access size.
 let private loadReserve ins (bld: ILowUIRBuilder) size =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
@@ -748,6 +749,7 @@ let private loadReserve ins (bld: ILowUIRBuilder) size =
     let tmpVal = tmpVar bld bld.RegType
     tmpEA := ea
     tmpVal := AST.zext bld.RegType (loadNative bld size tmpEA)
+    regVar bld Register.RES := AST.b1
     regVar bld Register.ExMonAddr := tmpEA
     regVar bld Register.ExMonVal := tmpVal
     rd := tmpVal
@@ -1795,9 +1797,13 @@ let stwbrx ins bld = storeByteReverse ins bld 32<rt>
 
 let stdbrx ins bld = storeByteReverse ins bld 64<rt>
 
-/// stwcx./stdcx.: the store half of a reservation pair. It succeeds only when
-/// the address and the value both still match what the paired load reserved,
-/// and reports that in CR0[EQ].
+/// <summary>
+/// stwcx./stdcx.: the store half of a reservation pair. It stores only while
+/// the reservation is held, at the address it stores to, over a value memory
+/// still holds; it reports in CR0[EQ] whether it did, and clears the
+/// reservation either way. Where no reservation is held at that address,
+/// memory is neither read nor written.
+/// </summary>
 let private storeConditional ins (bld: ILowUIRBuilder) size =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
@@ -1808,16 +1814,24 @@ let private storeConditional ins (bld: ILowUIRBuilder) size =
     let cr0GT = regVar bld Register.CR0_1
     let cr0EQ = regVar bld Register.CR0_2
     let cr0SO = regVar bld Register.CR0_3
+    let res = regVar bld Register.RES
     let tmpEA = tmpVar bld bld.RegType
-    let cur = tmpVar bld size
     let matched = tmpVar bld 1<rt>
+    let lblCheck = label bld "Check"
+    let lblStore = label bld "Store"
+    let lblEnd = label bld "End"
+    let held = res .& (tmpEA == regVar bld Register.ExMonAddr)
+    let current = AST.zext bld.RegType (loadNative bld size tmpEA)
     tmpEA := ea
-    cur := loadNative bld size tmpEA
-    matched := (tmpEA == regVar bld Register.ExMonAddr)
-               .& (AST.zext bld.RegType cur
-                   == regVar bld Register.ExMonVal)
-    loadNative bld size tmpEA :=
-      AST.ite matched (AST.xtlo size rs) cur
+    matched := AST.b0
+    AST.cjmp held (AST.jmpDest lblCheck) (AST.jmpDest lblEnd)
+    AST.lmark lblCheck
+    matched := current == regVar bld Register.ExMonVal
+    AST.cjmp matched (AST.jmpDest lblStore) (AST.jmpDest lblEnd)
+    AST.lmark lblStore
+    loadNative bld size tmpEA := AST.xtlo size rs
+    AST.lmark lblEnd
+    res := AST.b0
     cr0EQ := matched
     cr0LT := AST.b0
     cr0GT := AST.b0

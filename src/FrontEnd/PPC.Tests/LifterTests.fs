@@ -300,6 +300,18 @@ type LifterTests() =
     let case = $"{hex} {nameOf isa}"
     Assert.AreEqual(box trapped, box (traps isa hex given), case)
 
+  /// Runs words one after another, each over what the one before left of the
+  /// registers named and of memory, and gives what the last one left.
+  let sequence isa hexes regs given memory =
+    let step (given, memory) hex =
+      let outcome = IRRunner.exec (lifted isa hex) (inputsOf isa given) memory
+      let read r = r, (outcome.Read(var isa r)).ToUInt64()
+      let bytes = outcome.Memory |> Seq.map (fun kv -> kv.Key, [| kv.Value |])
+      List.map read regs, List.ofSeq bytes
+    let regs, memory = List.fold step (given, memory) hexes
+    let values = Map.ofList regs
+    (fun r -> Map.find r values), Map.ofList memory
+
   /// <summary>
   /// add rD, rA, rB writes rA + rB at the width of a register: the sum wraps
   /// at 32 bits on a 32-bit processor and carries into the high word on a
@@ -24470,6 +24482,57 @@ type LifterTests() =
         "0e060000", [ R6, 0x80000000UL ], true
         "0e060000", [ R6, 1UL ], false ] do
       expectTrap trapped ppc32 hex given
+
+  /// <summary>
+  /// lwarx reserves the word it loads, and stwcx. stores only while that
+  /// reservation holds and says in CR0[EQ] whether it did; either way it
+  /// clears the reservation, so a second stwcx. with no lwarx between fails
+  /// and writes nothing -- even where the first stored the very value the
+  /// reservation was made over, so that memory still holds it. Values from
+  /// QEMU running lwarx r5,0,r6; stwcx. r7,0,r6 and then a second stwcx.
+  /// r8,0,r6 in one go, in each byte order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STWCX. uses up the reservation LWARX made``() =
+    let field = [ CR0_0; CR0_1; CR0_2; CR0_3 ]
+    let state = [ R5; R6; R7; R8; ExMonAddr; ExMonVal; RES; XER ] @ field
+    let ea = 0x20200080UL
+    let reserved = [| 0x11uy; 0x22uy; 0x33uy; 0x44uy |]
+    let big = [| 0xaauy; 0xbbuy; 0xccuy; 0xdduy |]
+    let word (left: Map<uint64, byte[]>) =
+      Array.init 4 (fun i -> left[ea + uint64 i][0])
+    (* lwarx r5,0,r6; stwcx. r7,0,r6; stwcx. r8,0,r6 *)
+    let lwarx, first, second = "7ca03028", "7ce0312d", "7d00312d"
+    for isa, loaded, stored in
+      [ ppc32, 0x11223344UL, big
+        ppc64, 0x11223344UL, big
+        ppc64le, 0x44332211UL, Array.rev big ] do
+      let go hexes r7 =
+        let given = [ R6, ea; R7, r7; R8, 0x55667788UL ]
+        sequence isa hexes state given [ ea, reserved ]
+      let after, left = go [ lwarx; first ] 0xaabbccddUL
+      expect loaded (after R5) (nameOf isa)
+      expect 0b0010UL (cr0 after) (nameOf isa)
+      CollectionAssert.AreEqual(stored, word left, nameOf isa)
+      let after, left = go [ lwarx; first; second ] loaded
+      expect 0UL (cr0 after) (nameOf isa)
+      CollectionAssert.AreEqual(reserved, word left, nameOf isa)
+
+  /// <summary>
+  /// stwcx. with no reservation fails without touching memory -- it neither
+  /// stores nor reads the word it would have stored to -- and records the
+  /// failure in CR0, with SO from XER[SO]. Values from QEMU running stwcx.
+  /// r7,0,r6 alone.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STWCX. with no reservation reads and writes nothing``() =
+    let field = [ CR0_0, 1UL; CR0_1, 1UL; CR0_2, 1UL; CR0_3, 1UL ]
+    (* stwcx. r7, 0, r6 *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let given = (R6, 0x20200080UL) :: (R7, 0xaabbccddUL) :: field
+      let after, memory = exec isa "7ce0312d" given []
+      expect 0UL (cr0 after) (nameOf isa)
+      expect 0UL (uint64 memory.Count) (nameOf isa)
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
