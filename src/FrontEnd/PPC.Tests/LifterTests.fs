@@ -113,6 +113,16 @@ type LifterTests() =
   /// FPSCR here.
   let fprf (fpscr: uint64) = (fpscr >>> 12) &&& 0x1fUL
 
+  /// Eight bytes of memory in address order, given as the oracle writes them:
+  /// one big-endian doubleword.
+  let chunk (v: uint64) = Array.init 8 (fun i -> byte (v >>> (56 - 8 * i)))
+
+  /// The eight bytes of memory from an address, read back as chunk writes
+  /// them.
+  let chunkAt (memory: Collections.Generic.IReadOnlyDictionary<_, _>) addr =
+    Array.init 8 (fun i -> uint64 (memory[addr + uint64 i]: byte))
+    |> Array.fold (fun acc b -> (acc <<< 8) ||| b) 0UL
+
   /// <summary>
   /// add rD, rA, rB writes rA + rB at the width of a register: the sum wraps
   /// at 32 bits on a 32-bit processor and carries into the high word on a
@@ -270,6 +280,71 @@ type LifterTests() =
         let message = $"RN {rn} {nameOf isa}"
         expect positive (word 2.5 &&& 0xffffffffUL) message
         expect negative (word (-2.5) &&& 0xffffffffUL) message
+
+  /// <summary>
+  /// lvebx, lvehx and lvewx vD, rA, rB load the element at rA + rB, aligned
+  /// down to its size, into the element of vD the address's low four bits
+  /// eb name: bytes eb onward on a big-endian processor, and bytes 15 - eb
+  /// down on a little-endian one, which numbers the bytes of a register from
+  /// the other end. The rest of vD is left as it was.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LVEBX LVEHX LVEWX place the element by byte order``() =
+    let old = 0x0bad0bad0bad0badUL
+    let check hex offset memory cases =
+      for isa, a, b in cases do
+        let given = [ R6, 0x20200078UL; R7, offset; V1A, old; V1B, old ]
+        let after, _ = exec isa hex given memory
+        expect a (after V1A) $"{hex} {nameOf isa}"
+        expect b (after V1B) $"{hex} {nameOf isa}"
+    (* lvebx v1, r6, r7 *)
+    [ ppc32, 0x0bad0bad0baa0badUL, old
+      ppc64, 0x0bad0bad0baa0badUL, old
+      ppc64le, old, 0x0badaaad0bad0badUL ]
+    |> check "7c26380e" 0xdUL [ 0x20200080UL, chunk 0x7a3e672140aa1b1cUL ]
+    (* lvehx v1, r6, r7 *)
+    [ ppc32, 0x0bad0bad0badde59UL, old
+      ppc64, 0x0bad0bad0badde59UL, old
+      ppc64le, old, 0x59de0bad0bad0badUL ]
+    |> check "7c26384e" 0xeUL [ 0x20200080UL, chunk 0xc311418ff08fde59UL ]
+    (* lvewx v1, r6, r7 *)
+    [ ppc32, old, 0x0bad0bad51884f82UL
+      ppc64, old, 0x0bad0bad51884f82UL
+      ppc64le, 0x824f88510bad0badUL, old ]
+    |> check "7c26388e" 0x14UL [ 0x20200088UL, chunk 0x4b4119e451884f82UL ]
+
+  /// <summary>
+  /// stvebx, stvehx and stvewx vS, rA, rB store the element of vS the low
+  /// four bits eb of rA + rB name, at that address aligned down to the
+  /// element's size: bytes eb onward on a big-endian processor and bytes
+  /// 15 - eb down on a little-endian one, in the processor's byte order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STVEBX STVEHX STVEWX pick the element by byte order``() =
+    let check hex offset at bytes cases =
+      for isa, stored in cases do
+        let given =
+          [ R6, 0x20200078UL
+            R7, offset
+            V1A, 0x0001020304050607UL
+            V1B, 0x08090a0b0c0d0e0fUL ]
+        let _, memory = exec isa hex given [ at, chunk bytes ]
+        expect stored (chunkAt memory at) $"{hex} {nameOf isa}"
+    (* stvebx v1, r6, r7 *)
+    [ ppc32, 0x77c682de4e057c2eUL
+      ppc64, 0x77c682de4e057c2eUL
+      ppc64le, 0x77c682de4e0a7c2eUL ]
+    |> check "7c26390e" 0xdUL 0x20200080UL 0x77c682de4e967c2eUL
+    (* stvehx v1, r6, r7 *)
+    [ ppc32, 0x39d137c667e30607UL
+      ppc64, 0x39d137c667e30607UL
+      ppc64le, 0x39d137c667e30908UL ]
+    |> check "7c26394e" 0xeUL 0x20200080UL 0x39d137c667e343f7UL
+    (* stvewx v1, r6, r7 *)
+    [ ppc32, 0xd4465b420c0d0e0fUL
+      ppc64, 0xd4465b420c0d0e0fUL
+      ppc64le, 0xd4465b4203020100UL ]
+    |> check "7c26398e" 0x14UL 0x20200088UL 0xd4465b42e7cd5698UL
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added

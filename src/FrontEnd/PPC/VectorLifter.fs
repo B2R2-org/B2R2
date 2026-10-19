@@ -228,6 +228,13 @@ let lvsx ins (bld: ILowUIRBuilder) isLeft =
     dl := tl
   }
 
+/// The byte offset within a quadword at which an element access of the given
+/// width reaches vector byte b: b itself on a big-endian guest, and on a
+/// little-endian one the mirror image, as the register's bytes are numbered
+/// from the other end (the ISA's "15 - eb").
+let private elementOffset (bld: ILowUIRBuilder) bytes b =
+  if bld.Endianness = Endian.Big then b else 16 - bytes - b
+
 /// lvebx/lvehx/lvewx, which load one element into the vector slot the address
 /// selects and leave the rest of the register undefined -- modeled here as
 /// leaving it unchanged, which is what a real part does in practice.
@@ -249,7 +256,7 @@ let lvex ins (bld: ILowUIRBuilder) size =
       let b = slot * bytes
       let dst = if b < 8 then dh else dl
       let pos = if b < 8 then (8 - bytes - b % 8) * 8 else (16 - bytes - b) * 8
-      let picked = index == numI32 b 8<rt>
+      let picked = index == numI32 (elementOffset bld bytes b) 8<rt>
       AST.extract dst size pos :=
         AST.ite picked value (AST.extract dst size pos)
   }
@@ -271,7 +278,7 @@ let stvex ins (bld: ILowUIRBuilder) size =
       let b = slot * bytes
       let src = if b < 8 then sh else sl
       let pos = if b < 8 then (8 - bytes - b % 8) * 8 else (16 - bytes - b) * 8
-      let picked = index == numI32 b 8<rt>
+      let picked = index == numI32 (elementOffset bld bytes b) 8<rt>
       value := AST.ite picked (AST.extract src size pos) value
     loadNative bld size tmpEA := value
   }
