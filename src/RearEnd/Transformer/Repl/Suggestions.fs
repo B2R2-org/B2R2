@@ -137,6 +137,14 @@ module Suggestions =
       Form = SuggestionForm.Token
       CursorOffset = None }
 
+  let private bindingCandidates state =
+    match TransformerReplState.tryLastResult state with
+    | Some value ->
+      (TransformerReplState.LastResultName, value)
+      :: (state.Bindings |> Map.toList)
+    | None ->
+      state.Bindings |> Map.toList
+
   let private argumentItem kind detail text =
     { Text = text
       Label = text
@@ -276,8 +284,7 @@ module Suggestions =
       else
         []
     let bindings =
-      state.Bindings
-      |> Map.toList
+      bindingCandidates state
       |> List.filter (fun (_, value) -> valueMatches expected value)
       |> List.filter (fst >> matches prefix)
       |> List.map bindingItem
@@ -324,8 +331,7 @@ module Suggestions =
         push token stack) []
     match stack with
     | ("(" | "[" | "[|") :: _ ->
-      state.Bindings
-      |> Map.toList
+      bindingCandidates state
       |> List.filter (fun (name, value) ->
         matches prefix name && value.Collection.Values.Length = 1)
       |> List.map bindingItem
@@ -772,8 +778,7 @@ module Suggestions =
   let private argumentBindingCandidates state argument prefix =
     let argument: ActionArgument = argument
     let expected = expectedBindingKinds argument.Kind
-    state.Bindings
-    |> Map.toList
+    bindingCandidates state
     |> List.filter (fun (name, value) ->
       matches prefix name
       && (expected

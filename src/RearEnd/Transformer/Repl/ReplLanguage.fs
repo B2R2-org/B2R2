@@ -1361,6 +1361,8 @@ module ReplLanguage =
         Error message
       | None ->
       match header.Name, header.HasEquals, header.Expression with
+      | Some name, _, _ when TransformerReplState.isLastResultName name ->
+        Error "'it' is reserved for the last result."
       | Some name, true, Some expression when isValidName name ->
         let expected =
           match header.TypeAnnotation with
