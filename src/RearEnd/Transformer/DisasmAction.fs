@@ -40,14 +40,15 @@ type DisasmAction() =
     cancellationToken.ThrowIfCancellationRequested()
     if ptr.CanReadFileBytes then
       match lifter.TryParseInstruction ptr with
-      | Ok instr ->
+      | Ok instr when instr.Length > 0u
+                      && int instr.Length <= ptr.ReadableAmount ->
         let insLen = int instr.Length
         let insBytes =
           (BinFileOps.sliceByOffset lifter.File ptr.Offset insLen).ToArray()
         let ptr = ptr.Advance insLen
         let acc = ValidInstruction(instr, insBytes) :: acc
         disasm cancellationToken acc lifter ptr
-      | Error _ ->
+      | _ ->
         let badbyte = [| lifter.File.RawBytes.Span[ptr.Offset] |]
         let acc = BadInstruction(ptr.Addr, badbyte) :: acc
         let ptr = ptr.Advance 1
