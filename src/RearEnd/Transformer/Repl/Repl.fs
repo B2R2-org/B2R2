@@ -30,10 +30,15 @@ open System.Text
 open System.Threading
 open System.Threading.Tasks
 
+type private TuiEvaluationOrigin =
+  | ShellEvaluation
+  | ControlEvaluation
+
 type private RunningEvaluation =
   { Task: Task<ReplEvaluation>
     Cancellation: CancellationTokenSource
     Command: string
+    Origin: TuiEvaluationOrigin
     StartedAt: DateTimeOffset }
 
 type private ScriptReplayOutput =
@@ -289,7 +294,7 @@ module TransformerRepl =
     | _ ->
       None
 
-  let private finishEvaluation command evaluation model =
+  let private finishShellEvaluation evaluation model =
     match evaluation with
     | Exit(registry, session) ->
       registry, TransformerTuiModel.setSession session model, true
@@ -304,22 +309,39 @@ module TransformerRepl =
         |> TransformerTuiModel.setSession session
         |> TransformerTuiModel.setBusy false
         |> TransformerTuiModel.setStatus status
-      let model =
-        match documentationViewTitle command, hasError with
-        | Some "Help", false ->
-          TransformerTuiModel.openTextView
-            "Help"
-            TransformerTuiModel.helpViewLines
-            model
-        | Some title, false ->
-          output.Lines
-          |> List.map toTuiLine
-          |> fun lines -> TransformerTuiModel.openTextView title lines model
-        | _ ->
-          appendEvaluationOutput output model
+      let model = appendEvaluationOutput output model
       registry, model, false
 
-  let private failEvaluation (error: exn) model =
+  let private controlViewTitle command =
+    documentationViewTitle command
+    |> Option.defaultValue $"Command: {command}"
+
+  let private finishControlEvaluation command evaluation model =
+    match evaluation with
+    | Exit(registry, session) ->
+      registry, TransformerTuiModel.setSession session model, true
+    | Continue(registry, session, output) ->
+      let hasError =
+        output.Lines
+        |> List.exists (fun line ->
+          line.StartsWith("Error:", StringComparison.Ordinal))
+      let status = if hasError then "Command failed" else "Ready"
+      let model =
+        model
+        |> TransformerTuiModel.setSession session
+        |> TransformerTuiModel.setBusy false
+        |> TransformerTuiModel.setStatus status
+      let title = controlViewTitle command
+      let lines =
+        match documentationViewTitle command, hasError with
+        | Some "Help", false ->
+          TransformerTuiModel.helpViewLines
+        | _ ->
+          output.Lines |> List.map toTuiLine
+      let model = TransformerTuiModel.openTextView title lines model
+      registry, model, false
+
+  let private failShellEvaluation (error: exn) model =
     let message = error.GetBaseException().Message
     model
     |> TransformerTuiModel.appendLines TuiLineKind.Error
@@ -327,11 +349,18 @@ module TransformerRepl =
     |> TransformerTuiModel.setBusy false
     |> TransformerTuiModel.setStatus "Command failed"
 
-  let private startEvaluation evaluate registry command model =
-    let model =
-      model
-      |> TransformerTuiModel.appendCommand command
-      |> TransformerTuiModel.clearInput
+  let private failControlEvaluation command (error: exn) model =
+    let message = error.GetBaseException().Message
+    let lines =
+      [ { Kind = TuiLineKind.Error
+          Text = $"Internal error: {message}" } ]
+    model
+    |> TransformerTuiModel.setBusy false
+    |> TransformerTuiModel.setStatus "Command failed"
+    |> TransformerTuiModel.openTextView (controlViewTitle command) lines
+
+  let private startTask origin evaluate registry command model =
+    let model: TransformerTuiModel = model
     let session = model.Session
     let cancellation = new CancellationTokenSource()
     let task: Task<ReplEvaluation> =
@@ -341,20 +370,33 @@ module TransformerRepl =
         ),
         cancellation.Token
       )
-    let model =
-      model
-      |> TransformerTuiModel.setBusy true
-      |> TransformerTuiModel.setStatus "Running action"
     let running =
       { Task = task
         Cancellation = cancellation
         Command = command
+        Origin = origin
         StartedAt = DateTimeOffset.Now }
     model, Some running
 
+  let private startShellEvaluation evaluate registry command model =
+    let model =
+      model
+      |> TransformerTuiModel.appendCommand command
+      |> TransformerTuiModel.clearInput
+    let model =
+      model
+      |> TransformerTuiModel.setBusy true
+      |> TransformerTuiModel.setStatus "Running action"
+    startTask ShellEvaluation evaluate registry command model
+
   let private startCommandEvaluation registry (command: string) model =
     let command = command.Trim()
-    startEvaluation
+    let model =
+      model
+      |> TransformerTuiModel.setBusy true
+      |> TransformerTuiModel.setStatus "Running command"
+    startTask
+      ControlEvaluation
       TransformerReplEvaluator.evaluateControlCommand
       registry
       command
@@ -371,22 +413,37 @@ module TransformerRepl =
         ReplExecutionStatus.Cancelled
         running.Command
         None
-    model
-    |> TransformerTuiModel.setSession session
-    |> TransformerTuiModel.appendLines TuiLineKind.System
-      [ "Action cancelled." ]
-    |> TransformerTuiModel.setBusy false
-    |> TransformerTuiModel.setStatus "Cancelled"
+    let model =
+      model
+      |> TransformerTuiModel.setSession session
+      |> TransformerTuiModel.setBusy false
+      |> TransformerTuiModel.setStatus "Cancelled"
+    match running.Origin with
+    | ShellEvaluation ->
+      model
+      |> TransformerTuiModel.appendLines
+        TuiLineKind.System
+        [ "Action cancelled." ]
+    | ControlEvaluation ->
+      let lines = [ { Kind = TuiLineKind.System; Text = "Command cancelled." } ]
+      TransformerTuiModel.openTextView
+        (controlViewTitle running.Command)
+        lines
+        model
 
   let private requestCancellation running model =
     if running.Cancellation.IsCancellationRequested then
       model
     else
       running.Cancellation.Cancel()
-      model
-      |> TransformerTuiModel.appendLines TuiLineKind.System
-        [ "Cancellation requested; waiting for the action to stop." ]
-      |> TransformerTuiModel.setStatus "Cancelling action"
+      match running.Origin with
+      | ShellEvaluation ->
+        model
+        |> TransformerTuiModel.appendLines TuiLineKind.System
+          [ "Cancellation requested; waiting for the action to stop." ]
+        |> TransformerTuiModel.setStatus "Cancelling action"
+      | ControlEvaluation ->
+        TransformerTuiModel.setStatus "Cancelling command" model
 
   let private runTui initialRegistry =
     let restoreTerminal = TransformerTuiTerminal.enter ()
@@ -567,7 +624,7 @@ module TransformerRepl =
         model <- next
       | TuiInputResult.Execute(next, command) ->
         let next, task =
-          startEvaluation
+          startShellEvaluation
             TransformerReplEvaluator.evaluateCommand
             registry
             command
@@ -595,13 +652,23 @@ module TransformerRepl =
           else
             try
               let nextRegistry, nextModel, exit =
-                finishEvaluation runningEvaluation.Command task.Result model
+                match runningEvaluation.Origin with
+                | ShellEvaluation ->
+                  finishShellEvaluation task.Result model
+                | ControlEvaluation ->
+                  finishControlEvaluation
+                    runningEvaluation.Command task.Result model
               registry <- nextRegistry
               suggestionCache <- None
               model <- nextModel
               shouldExit <- exit
             with error ->
-              model <- failEvaluation error model
+              model <-
+                match runningEvaluation.Origin with
+                | ShellEvaluation ->
+                  failShellEvaluation error model
+                | ControlEvaluation ->
+                  failControlEvaluation runningEvaluation.Command error model
           runningEvaluation.Cancellation.Dispose()
           running <- None
           dirty <- true
