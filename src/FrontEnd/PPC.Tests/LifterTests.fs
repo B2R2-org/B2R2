@@ -24345,6 +24345,80 @@ type LifterTests() =
       expect 0b1001UL (field mulldo min UInt64.MaxValue 0x20040000UL) "mulldo."
       expect 0b0100UL (field mulldo 3UL 5UL 0UL) (nameOf isa)
 
+  /// <summary>
+  /// Every form that records an overflow sets XER[OV32] (bit 44, kept at bit
+  /// 19 here) as OV would be set in 32-bit mode: from the low words for an
+  /// add, a subtract and a negate, so 0x7fffffff + 1 sets OV32 alone and
+  /// 0x7fffffffffffffff + 1 sets OV alone; the same as OV for a multiply or
+  /// a divide. XER is compared whole. Values from qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] The overflow forms set OV32 from the low word``() =
+    let max, min = 0x7fffffffffffffffUL, 0x8000000000000000UL
+    let lowMin = 0xffffffff80000000UL
+    (* addo, subfo, addco, addeo, mullwo, divwo, divdo r5, r6, r7;
+       nego r5, r6 *)
+    let cases =
+      [ "7ca63e14", max, 1UL, 0xe00c0000UL, 0xe0040000UL
+        "7ca63e14", 0x7fffffffUL, 1UL, 0x20040000UL, 0x200c0000UL
+        "7ca63c50", 0x123456789abcdefUL, 0xfedcba9876543210UL, 0UL, 0x80000UL
+        "7ca63c14", 0x7fffffffUL, 1UL, 0x20040000UL, 0x80000UL
+        "7ca63c14", min, UInt64.MaxValue, 0x20040000UL, 0xe0000000UL
+        "7ca63d14", 0x7fffffffUL, 1UL, 0x20040000UL, 0x80000UL
+        "7ca63dd6", lowMin, UInt64.MaxValue, 0xa0040000UL, 0xe00c0000UL
+        "7ca63fd6", lowMin, UInt64.MaxValue, 0xa0040000UL, 0xe00c0000UL
+        "7ca63fd2", min, UInt64.MaxValue, 0x20040000UL, 0xe00c0000UL
+        "7ca604d0", lowMin, 0UL, 0xa0040000UL, 0xa00c0000UL
+        "7ca604d0", min, 0UL, 0x20040000UL, 0xe0040000UL ]
+    for isa in ppc64s do
+      for hex, a, b, xer, expected in cases do
+        let after = run isa hex [ R6, a; R7, b; XER, xer ]
+        expect expected (after XER) $"{hex} {a:x} {nameOf isa}"
+
+  /// <summary>
+  /// Every form that sets XER[CA] sets XER[CA32] (bit 45, kept at bit 18
+  /// here) as CA would be set in 32-bit mode: from the carry out of the low
+  /// word for the carrying adds and subtracts, and the same as CA for the
+  /// algebraic shifts. XER is compared whole. Values from qemu-ppc64 -cpu
+  /// power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] The carrying forms set CA32 from the low word``() =
+    let max, min = 0x7fffffffffffffffUL, 0x8000000000000000UL
+    (* addc, subfze, addme r5, r6, r7; subfic r5, r6, 12;
+       sraw, srad r6, r8, r7; srawi r6, r8, 5 *)
+    let cases =
+      [ "7ca63814", [ R6, max; R7, 1UL ], 0xe00c0000UL, 0xc00c0000UL
+        "7ca63814", [ R6, min; R7, UInt64.MaxValue ], 0x20040000UL, ca
+        "7ca60190", [ R6, min ], 0x20040000UL, 0x40000UL
+        "20a6000c", [ R6, min ], 0x20040000UL, 0x40000UL
+        "7ca601d4", [ R6, 0x5555555555555555UL ], 0x40080000UL, 0x600c0000UL
+        "7d063e30", [ R8, 0x123456789abcdefUL; R7, 0x10UL ], 0UL, 0x20040000UL
+        "7d063e30", [ R8, min; R7, UInt64.MaxValue ], 0x20040000UL, 0UL
+        "7d063e34", [ R8, max; R7, 1UL ], 0xe00c0000UL, 0xc0080000UL
+        "7d062e70", [ R8, 0x123456789abcdefUL ], 0UL, 0x20040000UL ]
+    for isa in ppc64s do
+      for hex, given, xer, expected in cases do
+        let after = run isa hex ((XER, xer) :: given)
+        expect expected (after XER) $"{hex} {nameOf isa}"
+
+  /// <summary>
+  /// A 32-bit processor predates OV32 and CA32: bits 44 and 45 of its XER
+  /// are reserved, and no form writes them. The 7457 QEMU models drops them
+  /// even from mtxer. XER is compared whole. Values from qemu-ppc -cpu 7457.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC32] No form writes OV32 or CA32``() =
+    (* addco, addc r5, r6, r7; srawi r6, r8, 5 *)
+    let cases =
+      [ "7ca63c14", [ R6, 0x7fffffffUL; R7, 1UL ], 0xe0000000UL, 0xc0000000UL
+        "7ca63c14", [ R6, 0x80000000UL; R7, 0xffffffffUL ], ca, 0xe0000000UL
+        "7ca63814", [ R6, 0x7fffffffUL; R7, 1UL ], 0xe0000000UL, 0xc0000000UL
+        "7d062e70", [ R8, 0x89abcdefUL ], 0UL, ca ]
+    for hex, given, xer, expected in cases do
+      let after = run ppc32 hex ((XER, xer) :: given)
+      expect expected (after XER) hex
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the
