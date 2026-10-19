@@ -1263,6 +1263,8 @@ let opCodeToString = function
   | Op.STXVRHX -> "stxvrhx"
   | Op.STXVRWX -> "stxvrwx"
   | Op.STXVX -> "stxvx"
+  | Op.XSRESP -> "xsresp"
+  | Op.XSRSQRTESP -> "xsrsqrtesp"
   | _ -> Terminator.impossible ()
 
 let condToString = function

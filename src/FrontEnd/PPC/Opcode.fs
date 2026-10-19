@@ -1234,5 +1234,7 @@ type Opcode =
   | STXVRHX = 3035
   | STXVRWX = 3036
   | STXVX = 3037
+  | XSRESP = 3038
+  | XSRSQRTESP = 3039
 
 type internal Op = Opcode
