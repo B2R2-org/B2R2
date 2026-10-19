@@ -395,6 +395,10 @@ type Register =
   | VSRL30 = 0xDE
   /// VSRL31 is the low 64-bit half of VSR31, whose high half is F31.
   | VSRL31 = 0xDF
+  /// The high word of the 64-bit FPSCR (bits 0:31 of the Power ISA's FPSCR,
+  /// FPSCR holding bits 32:63), whose only defined field is DRN, the decimal
+  /// rounding mode, in its low three bits.
+  | FPSCRH = 0xE0
 
 /// Provides functions to handle PPC registers.
 module Register =
@@ -613,6 +617,7 @@ module Register =
     | "vsrl29" -> Register.VSRL29
     | "vsrl30" -> Register.VSRL30
     | "vsrl31" -> Register.VSRL31
+    | "fpscrh" -> Register.FPSCRH
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a PPC register.
@@ -830,4 +835,5 @@ module Register =
     | Register.VSRL29 -> "vsrl29"
     | Register.VSRL30 -> "vsrl30"
     | Register.VSRL31 -> "vsrl31"
+    | Register.FPSCRH -> "fpscrh"
     | _ -> Terminator.impossible ()

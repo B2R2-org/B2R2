@@ -262,3 +262,43 @@ type FloatParserTests() =
   member _.``[PPC] LFDP of an odd register is invalid``() =
     testUnsupported WordSize.Bit32 "e4660008"
     testUnsupported WordSize.Bit64 "e4660008"
+
+  [<TestMethod>]
+  member _.``[PPC] MFFSCE (move from FPSCR and clear enables)``() =
+    MFFSCE ** [ O.Reg F1 ] |> testAll "fc21048e" "8e0421fc"
+
+  [<TestMethod>]
+  member _.``[PPC] MFFSCDRN (move from FPSCR control and set DRN)``() =
+    MFFSCDRN ** [ O.Reg F1; O.Reg F3 ] |> testAll "fc341c8e" "8e1c34fc"
+
+  [<TestMethod>]
+  member _.``[PPC] MFFSCDRNI (move from FPSCR control, set DRN immediate)``() =
+    MFFSCDRNI ** [ O.Reg F1; O.Imm 1UL ] |> testAll "fc350c8e" "8e0c35fc"
+
+  /// <summary>
+  /// mtfsfi with W = 1 (mtfsfi 7,1,1) writes a field of the FPSCR's high
+  /// word; an earlier reading refused it. With W = 0 the extended form is
+  /// what prints.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTFSFI with W names the high word``() =
+    MTFSFI ** [ O.Imm 7UL; O.Imm 1UL; O.Imm 1UL ]
+    |> testAll "ff81110c" "0c1181ff"
+    MTFSFIdot ** [ O.Imm 2UL; O.Imm 0UL ] |> testAll "fd00010d" "0d0100fd"
+
+  /// <summary>
+  /// mtfsf with L = 1 (mtfsf 255,f3,1,0) writes the whole FPSCR; the L and W
+  /// operands print only where one of them is 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTFSF with L writes the whole FPSCR``() =
+    MTFSF ** [ O.Imm 0xffUL; O.Reg F3; O.Imm 1UL; O.Imm 0UL ]
+    |> testAll "fffe1d8e" "8e1dfeff"
+    MTFSF ** [ O.Imm 0xffUL; O.Reg F3 ] |> testAll "fdfe1d8e" "8e1dfefd"
+
+  /// <summary>
+  /// mfocrf rD, FXM keeps the field mask, which names the field it reads.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MFOCRF (move from one condition register field)``() =
+    MFOCRF ** [ O.Reg R5; O.Imm 0x20UL ] |> testAll "7cb20026" "2600b27c"

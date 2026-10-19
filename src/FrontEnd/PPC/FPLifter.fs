@@ -188,3 +188,228 @@ let stfdp ins bld =
 let stfdpx ins bld =
   let struct (frp, ra, rb) = getThreeOprs ins
   storePair ins frp (transEAWithIndexReg ra rb bld) bld
+
+/// The 64-bit FPSCR, its high word (FPSCRH, which holds DRN) over the low
+/// one (FPSCR).
+let private wholeFPSCR bld =
+  AST.concat (regVar bld Register.FPSCRH) (regVar bld Register.FPSCR)
+
+/// The control bits of the FPSCR as mffscrn, mffscdrn and their immediate
+/// forms read them: DRN (bits 29:31) and VE, OE, UE, ZE, XE, NI, RN (bits
+/// 56:63), every other bit zero.
+let private controlBits bld =
+  let high = regVar bld Register.FPSCRH .& numU32 0x7u 32<rt>
+  let low = regVar bld Register.FPSCR .& numU32 0xffu 32<rt>
+  AST.concat high low
+
+/// The FPSCR exception bits, numbered from the least significant as FPSCR
+/// holds them: OX, UX, ZX, XX, the VX causes VXSNAN to VXVC, and VXSOFT,
+/// VXSQRT and VXCVI. FX is not one: it is the summary of their setting.
+let private exceptionBits = [ 28; 27; 26; 25; 24; 23; 22; 21; 20; 19; 10; 9; 8 ]
+
+/// The causes VX summarizes: VXSNAN to VXVC, and VXSOFT, VXSQRT, VXCVI.
+let private invalidBits = [ 24; 23; 22; 21; 20; 19; 10; 9; 8 ]
+
+/// Recomputes FEX and VX, which are never set or cleared but follow the bits
+/// they summarize: VX is the OR of the invalid-operation causes, and FEX the
+/// OR of every exception bit ANDed with its enable (VX with VE).
+let private updateSummaries bld =
+  let fpscr = regVar bld Register.FPSCR
+  let bit pos = AST.extract fpscr 1<rt> pos
+  let vx = tmpVar bld 1<rt>
+  let enabled (e, en) = bit e .& bit en
+  let others = List.map enabled [ 28, 6; 27, 5; 26, 4; 25, 3 ]
+  append bld {
+    vx := List.reduce (.|) (List.map bit invalidBits)
+    AST.extract fpscr 1<rt> 29 := vx
+    AST.extract fpscr 1<rt> 30 := List.reduce (.|) ((vx .& bit 7) :: others)
+  }
+
+/// mffs and mffs.: the whole 64-bit FPSCR into frD.
+let mffs ins updateCond bld =
+  lift bld ins {
+    let dst = transOneOpr ins bld
+    dst := wholeFPSCR bld
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// mffsce: the whole FPSCR into frD, and then the enables VE, OE, UE, ZE and
+/// XE cleared, which clears FEX with them.
+let mffsce ins bld =
+  lift bld ins {
+    let dst = transOneOpr ins bld
+    let fpscr = regVar bld Register.FPSCR
+    dst := wholeFPSCR bld
+    fpscr := fpscr .& numU32 0xffffff07u 32<rt>
+    updateSummaries bld
+  }
+
+/// mffsl: the control bits and the non-sticky status bits (FR, FI and FPRF,
+/// bits 45:51) of the FPSCR into frD, every other bit zero.
+let mffsl ins bld =
+  lift bld ins {
+    let dst = transOneOpr ins bld
+    let status = regVar bld Register.FPSCR .& numU32 0x7f000u 32<rt>
+    dst := controlBits bld .| AST.zext 64<rt> status
+  }
+
+/// mffscrn, mffscrni, mffscdrn and mffscdrni: the control bits into frD,
+/// then a new rounding mode in force -- RN from bits 62:63 of frB or a
+/// two-bit immediate, DRN from bits 29:31 of frB or a three-bit immediate.
+/// The new mode is read before frD is written, which frB may be.
+let private mffsControl ins bld setMode =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let dst = transOpr bld o1
+    let mode = tmpVar bld 64<rt>
+    mode := AST.zext 64<rt> (transOpr bld o2)
+    dst := controlBits bld
+    setMode mode
+  }
+
+/// A new RN, the low two bits of the mode mffscrn or mffscrni names.
+let mffscrn ins bld =
+  let fpscr = regVar bld Register.FPSCR
+  mffsControl ins bld (fun mode ->
+    let rn = AST.xtlo 32<rt> mode .& numU32 3u 32<rt>
+    append bld {
+      fpscr := (fpscr .& numU32 0xfffffffcu 32<rt>) .| rn
+    })
+
+/// A new DRN, bits 29:31 of frB (the low three bits of its high word).
+let mffscdrn ins bld =
+  let fpscrh = regVar bld Register.FPSCRH
+  mffsControl ins bld (fun mode ->
+    let drn = AST.xthi 32<rt> mode .& numU32 7u 32<rt>
+    append bld {
+      fpscrh := (fpscrh .& numU32 0xfffffff8u 32<rt>) .| drn
+    })
+
+/// A new DRN, the three-bit immediate.
+let mffscdrni ins bld =
+  let fpscrh = regVar bld Register.FPSCRH
+  mffsControl ins bld (fun mode ->
+    let drn = AST.xtlo 32<rt> mode .& numU32 7u 32<rt>
+    append bld {
+      fpscrh := (fpscrh .& numU32 0xfffffff8u 32<rt>) .| drn
+    })
+
+/// The bits of the four-bit fields a field mask (mtfsf's FLM, mfocrf's FXM)
+/// names: bit i of the mask, from the least significant, names the field
+/// whose bits are 4i to 4i + 3 from the least significant.
+let private fieldMask (mask: uint32) =
+  [ 0 .. 7 ]
+  |> List.filter (fun i -> (mask >>> i) &&& 1u = 1u)
+  |> List.fold (fun m i -> m ||| (0xfu <<< (4 * i))) 0u
+
+/// FPSCR bit 52 (bit 11 here), which is reserved and reads as zero.
+let private reservedLow = numU32 0xfffff7ffu 32<rt>
+
+/// The operands of mtfsf: FLM, frB, L and W, the last two zero where the
+/// extended form leaves them out.
+let private mtfsfOperands (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(fm, frb) ->
+    struct (getImmValue fm, transOpr bld frb, 0u, 0u)
+  | FourOperands(fm, frb, l, w) ->
+    struct (getImmValue fm, transOpr bld frb, getImmValue l, getImmValue w)
+  | _ ->
+    raise InvalidOperandException
+
+/// The fields mtfsf writes: with L = 1 the whole FPSCR, of whose high word
+/// only DRN is defined; with L = 0 the fields FLM names, of the low word
+/// (W = 0) or of the high word (W = 1).
+let private writeFields bld frb flm l w =
+  let fpscr = regVar bld Register.FPSCR
+  let fpscrh = regVar bld Register.FPSCRH
+  let merge reg value (mask: uint32) =
+    (value .& numU32 mask 32<rt>) .| (reg .& numU32 ~~~mask 32<rt>)
+  if l = 1u then
+    append bld {
+      fpscr := AST.xtlo 32<rt> frb .& reservedLow
+      fpscrh := AST.xthi 32<rt> frb .& numU32 7u 32<rt>
+    }
+  elif w = 0u then
+    append bld {
+      fpscr := merge fpscr (AST.xtlo 32<rt> frb) (fieldMask flm) .& reservedLow
+    }
+  else
+    append bld {
+      fpscrh := merge fpscrh (AST.xthi 32<rt> frb) (fieldMask flm &&& 7u)
+    }
+
+/// mtfsf FLM, frB[, L, W]: the FPSCR fields from frB. FX and OX are written
+/// as given, never set implicitly; FEX and VX follow the bits they summarize.
+let mtfsf ins updateCond bld =
+  lift bld ins {
+    let struct (flm, frb, l, w) = mtfsfOperands ins bld
+    writeFields bld frb flm l w
+    updateSummaries bld
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// The operands of mtfsfi: BF, U and W, which the extended form leaves out.
+let private mtfsfiOperands (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(bf, u) ->
+    struct (getImmValue bf, getImmValue u, 0u)
+  | ThreeOperands(bf, u, w) ->
+    struct (getImmValue bf, getImmValue u, getImmValue w)
+  | _ ->
+    raise InvalidOperandException
+
+/// mtfsfi BF, U[, W]: U into FPSCR field BF + 8 * (1 - W), of the low word
+/// (W = 0) or of the high word (W = 1, where field 7 holds DRN under a
+/// reserved bit). FX is written only by field 0 of the low word, as given;
+/// FEX and VX follow the bits they summarize, and CR1 records the result.
+let mtfsfi ins updateCond bld =
+  lift bld ins {
+    let struct (bf, u, w) = mtfsfiOperands ins
+    let shift = 4 * (7 - int bf)
+    let field = 0xfu <<< shift
+    let value = u <<< shift
+    let reg = if w = 1u then Register.FPSCRH else Register.FPSCR
+    let defined = if w = 1u then 7u else 0xfffff7ffu
+    let fpscr = regVar bld reg
+    fpscr := (fpscr .& numU32 ~~~(field &&& defined) 32<rt>)
+             .| numU32 (value &&& defined) 32<rt>
+    updateSummaries bld
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// FX, set where an instruction other than mtfsfi and mtfsf turns an
+/// exception bit from 0 to 1.
+let private setFX bld turnedOn =
+  let fx = AST.extract (regVar bld Register.FPSCR) 1<rt> 31
+  append bld {
+    fx := fx .| turnedOn
+  }
+
+/// mtfsb0 and mtfsb1: FPSCR bit BT + 32 cleared or set, and CR1 recorded.
+/// FEX and VX (BT 1 and 2) cannot be set or cleared; they follow the bits
+/// they summarize. Setting an exception bit that was 0 sets FX.
+let mtfsb ins set updateCond bld =
+  lift bld ins {
+    let pos = 31 - (getOneOpr ins |> getImmValue |> int)
+    let bit = AST.extract (regVar bld Register.FPSCR) 1<rt> pos
+    let isException = List.contains pos exceptionBits
+    if pos = 30 || pos = 29 then ()
+    elif set && isException then setFX bld (AST.not bit)
+    else ()
+    if pos = 30 || pos = 29 then ()
+    else bit := (if set then AST.b1 else AST.b0)
+    updateSummaries bld
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// mfocrf rD, FXM: the CR field FXM names into its place in rD. The manual
+/// leaves the other bits undefined; they are zero here, as QEMU makes them.
+let mfocrf ins bld =
+  lift bld ins {
+    let struct (rd, fxm) = getTwoOprs ins
+    let rd = transOpr bld rd
+    let mask = numU32 (fieldMask (getImmValue fxm)) 32<rt>
+    let cr = tmpVar bld 32<rt>
+    getCRRegValue bld cr
+    rd := AST.zext bld.RegType (cr .& mask)
+  }

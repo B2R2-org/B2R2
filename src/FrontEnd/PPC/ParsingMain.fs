@@ -520,11 +520,12 @@ let parseMFCR bin =
   | 0b0u when Bits.extract bin 20u 11u = 0u ->
     let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
     struct (Op.MFCR, OneOperand(rd))
-  (* mfocrf rd,crm names one CR field with a one-hot mask; every other field of
-     rd is left undefined, so reading the whole CR satisfies it. *)
+  (* mfocrf rd,FXM names one CR field with a one-hot mask, which the lifter
+     needs to know which field to read. *)
   | 0b0u when Bits.pick bin 20u = 1u && Bits.pick bin 11u = 0u ->
     let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
-    struct (Op.MFOCRF, OneOperand(rd))
+    let fxm = Bits.extract bin 19u 12u |> uint64 |> OprImm
+    struct (Op.MFOCRF, TwoOperands(rd, fxm))
   | _ ->
     raise ParsingFailureException
 
@@ -2685,20 +2686,18 @@ let parseFMRx bin =
   | _ ->
     raise ParsingFailureException
 
+/// mtfsfi BF, U[, W]: W (bit 16) names the high word of the FPSCR, and the
+/// extended form without it is what a word with W = 0 prints as.
 let parseMTFSFIx bin =
   let crfd = Bits.extract bin 25u 23u |> uint64 |> OprImm
   let imm = Bits.extract bin 15u 12u |> uint64 |> OprImm
-  match Bits.pick bin 0u with
-  | 0b0u when Bits.concat (Bits.extract bin 22u 16u)
-                          (Bits.pick bin 11u)
-                          7 = 0u ->
-    struct (Op.MTFSFI, TwoOperands(crfd, imm))
-  | 0b1u when Bits.concat (Bits.extract bin 22u 16u)
-                          (Bits.pick bin 11u)
-                          7 = 0u ->
-    struct (Op.MTFSFIdot, TwoOperands(crfd, imm))
-  | _ ->
+  let op = if Bits.pick bin 0u = 0u then Op.MTFSFI else Op.MTFSFIdot
+  if Bits.extract bin 22u 17u <> 0u || Bits.pick bin 11u <> 0u then
     raise ParsingFailureException
+  elif Bits.pick bin 16u = 0u then
+    struct (op, TwoOperands(crfd, imm))
+  else
+    struct (op, ThreeOperands(crfd, imm, OprImm 1UL))
 
 let parseFNABSx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2741,17 +2740,33 @@ let parseMFFSx bin =
   | 0b0u when Bits.extract bin 20u 16u = 23u ->
     let rm = Bits.extract bin 12u 11u |> uint64 |> OprImm
     struct (Op.MFFSCRNI, TwoOperands(frd, rm))
+  (* mffsce reads the FPSCR and clears its enables; mffscdrn and mffscdrni
+     read its control bits and put a new DRN in force, from bits 29:31 of a
+     register or from a three-bit immediate. *)
+  | 0b0u when Bits.extract bin 20u 16u = 1u && Bits.extract bin 15u 11u = 0u ->
+    struct (Op.MFFSCE, OneOperand frd)
+  | 0b0u when Bits.extract bin 20u 16u = 20u ->
+    let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
+    struct (Op.MFFSCDRN, TwoOperands(frd, frb))
+  | 0b0u when Bits.extract bin 20u 16u = 21u && Bits.extract bin 15u 14u = 0u ->
+    let drm = Bits.extract bin 13u 11u |> uint64 |> OprImm
+    struct (Op.MFFSCDRNI, TwoOperands(frd, drm))
   | _ ->
     raise ParsingFailureException
 
+/// mtfsf FLM, frB[, L, W]: L (bit 25) writes the whole FPSCR and W (bit 16)
+/// names its high word; the extended form without them is what a word with
+/// both zero prints as.
 let parseMTFSFx bin =
   let fm = Bits.extract bin 24u 17u |> uint64 |> OprImm
   let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
-  (* FIXME: PowerISA v3.1 *)
-  match Bits.pick bin 0u with
-  | 0b0u -> struct (Op.MTFSF, TwoOperands(fm, frb))
-  | 0b1u -> struct (Op.MTFSFdot, TwoOperands(fm, frb))
-  | _ -> raise ParsingFailureException
+  let l = Bits.pick bin 25u
+  let w = Bits.pick bin 16u
+  let op = if Bits.pick bin 0u = 0u then Op.MTFSF else Op.MTFSFdot
+  if l = 0u && w = 0u then
+    struct (op, TwoOperands(fm, frb))
+  else
+    struct (op, FourOperands(fm, frb, OprImm(uint64 l), OprImm(uint64 w)))
 
 let parse3F bin =
   match Bits.extract bin 5u 1u with

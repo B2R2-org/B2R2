@@ -844,6 +844,9 @@ let opCodeToString = function
   | Op.FTSQRT -> "ftsqrt"
   | Op.LFDP -> "lfdp"
   | Op.LFDPX -> "lfdpx"
+  | Op.MFFSCDRN -> "mffscdrn"
+  | Op.MFFSCDRNI -> "mffscdrni"
+  | Op.MFFSCE -> "mffsce"
   | Op.STFDP -> "stfdp"
   | Op.STFDPX -> "stfdpx"
   | _ -> Terminator.impossible ()
