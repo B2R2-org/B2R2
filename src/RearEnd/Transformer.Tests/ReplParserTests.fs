@@ -384,7 +384,7 @@ type ReplParserTests() =
       evaluateOutput registry.Value TransformerReplState.empty ":help"
     Assert.AreEqual<string list>(
       [ "Error: Unknown value or action: :help" ],
-      output.Lines
+      output.Lines |> Seq.toList
     )
 
   [<TestMethod>]
@@ -399,7 +399,7 @@ type ReplParserTests() =
       evaluateControlOutput registry.Value TransformerReplState.empty ":show"
     Assert.AreEqual<string list>(
       [ "Error: Unknown REPL command: :show" ],
-      output.Lines
+      output.Lines |> Seq.toList
     )
 
   [<TestMethod>]

@@ -37,19 +37,25 @@ open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Lines rendered for the transcript, plus a deferred full rendering for view.
+/// Replayable output lines, plus a deferred detailed rendering for view.
 type ReplOutput =
-  { Lines: string list
-    FullLines: Lazy<string list> }
+  { Lines: seq<string>
+    FullLines: Lazy<string list>
+    HasError: bool }
 
 module ReplOutput =
   let ofLines lines =
+    let lines: string list = lines
     { Lines = lines
-      FullLines = lazy lines }
+      FullLines = lazy lines
+      HasError =
+        lines |> List.exists (fun line ->
+          line.StartsWith("Error:", StringComparison.Ordinal)) }
 
   let ofLazy lines fullLines =
     { Lines = lines
-      FullLines = fullLines }
+      FullLines = fullLines
+      HasError = false }
 
 /// The result of evaluating one interactive command.
 type ReplEvaluation =
@@ -78,46 +84,20 @@ module TransformerReplEvaluator =
   let private normalizePath (path: string) =
     path.Replace('\\', '/')
 
-  let [<Literal>] MaxPreviewTextLines = 256
-
-  let [<Literal>] MaxPreviewCollectionItems = 128
-
-  let [<Literal>] MaxPreviewBytes = 16
-
   let [<Literal>] HexViewBytesPerRow = 8
 
-  let private omittedLine omitted =
-    $"{omitted} more lines omitted; press F4 for the full result."
-
-  let private renderedTextLimit = function
-    | Preview ->
-      Some MaxPreviewTextLines
-    | Full ->
-      None
-
-  let private renderedCollectionLimit = function
-    | Preview ->
-      Some MaxPreviewCollectionItems
-    | Full ->
-      None
-
-  let private splitTextForDisplay mode (text: string) =
-    let normalized = text.Replace("\r\n", "\n")
-    use reader = new StringReader(normalized)
-    let lines = ResizeArray<string>()
-    let limit = renderedTextLimit mode
-    let mutable keepReading = true
-    let mutable omitted = 0
-    while keepReading do
-      let line = reader.ReadLine()
-      if isNull line then
-        keepReading <- false
-      elif limit |> Option.forall (fun limit -> lines.Count < limit) then
-        lines.Add line
-      else
-        omitted <- omitted + 1
-    if omitted > 0 then lines.Add(omittedLine omitted) else ()
-    lines |> Seq.toList
+  let private splitTextForDisplay (text: string) =
+    seq {
+      let normalized = text.Replace("\r\n", "\n")
+      use reader = new StringReader(normalized)
+      let mutable reading = true
+      while reading do
+        match reader.ReadLine() with
+        | null ->
+          reading <- false
+        | line ->
+          yield line
+    }
 
   let private displayField name value =
     $"  {name}: {value}"
@@ -133,11 +113,11 @@ module TransformerReplEvaluator =
     | lines ->
       $"  {name}:" :: indentDisplay 4 lines
 
-  let private normalizeDisplayLine mode (line: string) =
+  let private normalizeDisplayLine (line: string) =
     if line.IndexOf '\r' < 0 && line.IndexOf '\n' < 0 then
-      [ line ]
+      Seq.singleton line
     else
-      splitTextForDisplay mode line
+      splitTextForDisplay line
 
   let private ofOption error = function
     | Some value ->
@@ -216,13 +196,6 @@ module TransformerReplEvaluator =
       [ $"{label}"
         $"  error: {error}" ]
 
-  let private truncateByMode mode (values: 'a seq) =
-    match renderedCollectionLimit mode with
-    | Some limit ->
-      values |> Seq.truncate limit
-    | None ->
-      values
-
   let private binaryPath binary =
     let hdl = Binary.Handle binary
     if String.IsNullOrWhiteSpace hdl.File.Path then
@@ -239,8 +212,7 @@ module TransformerReplEvaluator =
       displayField "isa" (string hdl.ISA)
       displayField "os" (string hdl.OS)
       displayField "base" $"0x{hdl.File.BaseAddress:x}"
-      displayField "size" $"{bytes.Length} bytes"
-      displayField "bytes" (Utils.makeMemorySummary bytes) ]
+      displayField "size" $"{bytes.Length} bytes" ]
     @ if String.IsNullOrWhiteSpace annotation then
         []
       else
@@ -249,38 +221,30 @@ module TransformerReplEvaluator =
   let private renderBinary binary =
     "Binary" :: binaryDisplayFields binary
 
-  let private renderInstructionArray mode (values: Instruction[]) =
-    let header = $"InstructionArray ({values.Length} values)"
-    let visible = values |> truncateByMode mode |> Seq.toArray
-    let lines =
-      visible
-      |> Array.map (fun value -> "  " + value.ToString())
-      |> Array.toList
-    let omitted = values.Length - visible.Length
-    if omitted > 0 then
-      header :: lines @ [ omittedLine omitted ]
-    else
-      header :: lines
+  let private renderInstructionArray (values: Instruction[]) =
+    seq {
+      yield $"InstructionArray ({values.Length} values)"
+      for value in values do
+        yield "  " + value.ToString()
+    }
 
-  let private renderBytePreview (bytes: byte[]) =
-    let count = min bytes.Length MaxPreviewBytes
-    let hex =
-      bytes
-      |> Seq.truncate count
-      |> Seq.map (fun value -> value.ToString("x2"))
-      |> String.concat " "
-    let visible = if count = 0 then "  <empty>" else "  " + hex
-    let omitted = bytes.Length - count
-    if omitted = 0 then
-      [ visible ]
-    else
-      [ visible
-        $"{omitted} bytes omitted; press F4 for the full result." ]
+  let private renderByteRows (values: byte[]) =
+    seq {
+      if values.Length = 0 then
+        yield "  <empty>"
+      else
+        for offset in 0 .. HexViewBytesPerRow .. values.Length - 1 do
+          let count = min HexViewBytesPerRow (values.Length - offset)
+          let hex =
+            [ for index in offset .. offset + count - 1 ->
+                values[index].ToString("x2") ]
+            |> String.concat " "
+          yield "  " + hex
+    }
 
-  let private renderHexRow (bytes: BinaryBytes) addressFormat offset =
-    let values = bytes.Bytes
+  let private renderHexRow baseAddress (values: byte[]) addressFormat offset =
     let count = min HexViewBytesPerRow (values.Length - offset)
-    let address = bytes.BaseAddress + uint64 offset
+    let address = baseAddress + uint64 offset
     let addressFormat: string = addressFormat
     let builder = StringBuilder($"  {address.ToString(addressFormat)}: ")
     for index in 0 .. HexViewBytesPerRow - 1 do
@@ -303,73 +267,81 @@ module TransformerReplEvaluator =
     builder.Append('|') |> ignore
     builder.ToString()
 
-  let private renderHexRows (bytes: BinaryBytes) =
-    if bytes.Bytes.Length = 0 then
-      [ "  <empty>" ]
-    else
-      let lastOffset =
-        (bytes.Bytes.Length - 1) / HexViewBytesPerRow * HexViewBytesPerRow
-      let lastAddress = bytes.BaseAddress + uint64 lastOffset
-      let width =
-        max 8 ((max bytes.BaseAddress lastAddress).ToString("x").Length)
-      let addressFormat = "x" + string width
-      [ for offset in 0 .. HexViewBytesPerRow .. bytes.Bytes.Length - 1 ->
-          renderHexRow bytes addressFormat offset ]
+  let private renderHexRows baseAddress (values: byte[]) =
+    seq {
+      if values.Length = 0 then
+        yield "  <empty>"
+      else
+        let lastOffset =
+          (values.Length - 1) / HexViewBytesPerRow * HexViewBytesPerRow
+        let lastAddress = baseAddress + uint64 lastOffset
+        let width =
+          max 8 ((max baseAddress lastAddress).ToString("x").Length)
+        let addressFormat = "x" + string width
+        for offset in 0 .. HexViewBytesPerRow .. values.Length - 1 do
+          yield renderHexRow baseAddress values addressFormat offset
+    }
 
   let private renderBinaryBytes mode bytes =
     let bytes: BinaryBytes = bytes
     let size = bytes.Bytes.Length
     let unit = if size = 1 then "byte" else "bytes"
     let header = $"ByteArray ({size} {unit})"
-    match mode with
-    | Preview ->
-      header :: renderBytePreview bytes.Bytes
-    | Full ->
-      let fields =
-        [ displayField "base" $"0x{bytes.BaseAddress:x}"
-          displayField "isa" (string bytes.ISA)
-          displayField "os" (string bytes.OS) ]
-      let fields =
-        if String.IsNullOrWhiteSpace bytes.Annotation then
-          fields
+    seq {
+      yield header
+      match mode with
+      | Preview ->
+        yield! renderByteRows bytes.Bytes
+      | Full ->
+        yield displayField "base" $"0x{bytes.BaseAddress:x}"
+        yield displayField "isa" (string bytes.ISA)
+        yield displayField "os" (string bytes.OS)
+        if not (String.IsNullOrWhiteSpace bytes.Annotation) then
+          yield displayField "annotation" bytes.Annotation
         else
-          fields @ [ displayField "annotation" bytes.Annotation ]
-      [ header ] @ fields @ [ "" ] @ renderHexRows bytes
+          ()
+        yield ""
+        yield! renderHexRows bytes.BaseAddress bytes.Bytes
+    }
 
-  let private renderFingerprint mode fingerprint =
+  let private renderFingerprint fingerprint =
     let fingerprint: Fingerprint = fingerprint
-    let patterns =
-      fingerprint.Patterns
-      |> truncateByMode mode
-      |> Seq.map (fun (hash, position) -> $"{hash:x2}@{position}")
-      |> Seq.toList
-    [ "Fingerprint"
-      displayField "count" $"{List.length fingerprint.Patterns} patterns"
-      displayField "n-gram" (string fingerprint.NGramSize)
-      displayField "window" (string fingerprint.WindowSize) ]
-    @ if String.IsNullOrWhiteSpace fingerprint.Annotation then
-        []
+    seq {
+      yield "Fingerprint"
+      yield displayField "count" $"{List.length fingerprint.Patterns} patterns"
+      yield displayField "n-gram" (string fingerprint.NGramSize)
+      yield displayField "window" (string fingerprint.WindowSize)
+      if not (String.IsNullOrWhiteSpace fingerprint.Annotation) then
+        yield displayField "annotation" fingerprint.Annotation
       else
-        [ displayField "annotation" fingerprint.Annotation ]
-    @ displaySection "patterns" patterns
+        ()
+      if List.isEmpty fingerprint.Patterns then
+        yield displayField "patterns" "none"
+      else
+        yield "  patterns:"
+        for hash, position in fingerprint.Patterns do
+          yield $"    {hash:x2}@{position}"
+    }
 
   let private renderClusterResult mode result =
     let result: ClusterResult = result
-    let clusters =
-      result.Clusters
-      |> truncateByMode mode
-      |> Seq.mapi (fun index cluster ->
-        match mode with
-        | Preview ->
-          [ $"#{index}: {cluster.Length} values" ]
-        | Full ->
-          $"#{index} ({cluster.Length} values):"
-          :: (cluster |> Array.map (fun item -> "  " + item) |> Array.toList))
-      |> Seq.collect id
-      |> Seq.toList
-    [ "ClusterResult"
-      displayField "count" $"{result.Clusters.Length} clusters" ]
-    @ displaySection "clusters" clusters
+    seq {
+      yield "ClusterResult"
+      yield displayField "count" $"{result.Clusters.Length} clusters"
+      if result.Clusters.Length = 0 then
+        yield displayField "clusters" "none"
+      else
+        yield "  clusters:"
+        for index in 0 .. result.Clusters.Length - 1 do
+          let cluster = result.Clusters[index]
+          match mode with
+          | Preview ->
+            yield $"    #{index}: {cluster.Length} values"
+          | Full ->
+            yield $"    #{index} ({cluster.Length} values):"
+            for item in cluster do
+              yield "      " + item
+    }
 
   let private formatRange startAddress endAddress =
     $"0x{startAddress:x}-0x{endAddress:x} (end exclusive)"
@@ -432,15 +404,6 @@ module TransformerReplEvaluator =
       displayField "address" $"0x{stringMatch.Address:x}"
       displayField "text" stringMatch.Text ]
 
-  let private formatBytes address (bytes: byte[]) =
-    let hex = bytes |> Array.map (sprintf "%02x") |> String.concat " "
-    let ascii =
-      bytes
-      |> Array.map (fun byte ->
-        if byte >= 0x20uy && byte <= 0x7euy then char byte else '.')
-      |> String
-    $"0x{address:x}: {hex}  {ascii}"
-
   let private renderRegisterView view =
     let view: RegisterView = view
     let lines =
@@ -450,37 +413,41 @@ module TransformerReplEvaluator =
     [ "RegisterView"; displayField "pc" $"0x{view.PC:x}" ]
     @ displaySection "registers" lines
 
-  let private renderMemoryView view =
+  let private renderMemoryView mode view =
     let view: MemoryView = view
-    [ "MemoryView"
-      displayField "address" $"0x{view.Address:x}"
-      displayField "size" $"{view.Bytes.Length} bytes"
-      displayField "bytes" (Utils.makeByteArraySummary view.Bytes) ]
+    seq {
+      yield "MemoryView"
+      yield displayField "address" $"0x{view.Address:x}"
+      yield displayField "size" $"{view.Bytes.Length} bytes"
+      match mode with
+      | Preview ->
+        yield! renderByteRows view.Bytes
+      | Full ->
+        yield ""
+        yield! renderHexRows view.Address view.Bytes
+    }
+
+  let private renderMemoryBytes label addr bytes =
+    seq {
+      yield $"  {label}:"
+      match bytes with
+      | Some bytes ->
+        for line in renderHexRows addr bytes do
+          yield "  " + line
+      | None ->
+        yield "    <unreadable>"
+    }
 
   let private renderMemoryDiff diff =
     let diff: MemoryDiff = diff
-    match diff.Before, diff.After with
-    | Some before, Some after when before = after ->
-      [ $"unchanged {formatBytes diff.Address after}" ]
-    | Some before, Some after ->
-      [ $"before {formatBytes diff.Address before}"
-        $"after  {formatBytes diff.Address after}" ]
-    | Some before, None ->
-      [ $"before {formatBytes diff.Address before}"
-        "after  <unreadable>" ]
-    | None, Some after ->
-      [ "before <unreadable>"
-        $"after  {formatBytes diff.Address after}" ]
-    | None, None ->
-      [ "before <unreadable>"
-        "after  <unreadable>" ]
-
-  let private renderAccessBytes label addr bytes =
-    match bytes with
-    | Some bytes ->
-      $"  {label} {formatBytes addr bytes}"
-    | None ->
-      $"  {label} <unreadable>"
+    seq {
+      match diff.Before, diff.After with
+      | Some before, Some after when before = after ->
+        yield! renderMemoryBytes "unchanged" diff.Address (Some after)
+      | before, after ->
+        yield! renderMemoryBytes "before" diff.Address before
+        yield! renderMemoryBytes "after" diff.Address after
+    }
 
   let private renderMemoryAccess access =
     let access: MemoryAccess = access
@@ -498,44 +465,48 @@ module TransformerReplEvaluator =
         [ $"  violation: {message}" ]
       | None ->
         []
-    match access.Kind with
-    | MemoryAccessKind.Read ->
-      [ head
-        renderAccessBytes "value " access.Address access.After ]
-      @ violation
-    | MemoryAccessKind.Write ->
-      [ head
-        renderAccessBytes "before" access.Address access.Before
-        renderAccessBytes "after " access.Address access.After ]
-      @ violation
+    seq {
+      yield head
+      match access.Kind with
+      | MemoryAccessKind.Read ->
+        yield! renderMemoryBytes "value" access.Address access.After
+      | MemoryAccessKind.Write ->
+        yield! renderMemoryBytes "before" access.Address access.Before
+        yield! renderMemoryBytes "after" access.Address access.After
+      yield! violation
+    }
 
   let private renderTrace trace =
     let trace: ExecutionTrace = trace
-    let header =
-      [ "ExecutionTrace"
-        displayField "executed" (string trace.InstructionCount)
-        displayField "attempted" (string trace.Instructions.Length)
-        displayField "start" $"0x{trace.Start:x}"
-        displayField "final-pc" $"0x{trace.FinalPC:x}" ]
-    let instructions =
-      trace.Instructions
-      |> Array.map (fun ins ->
-        $"0x{ins.Address:x}: {ins.Disassembly}")
-      |> Array.toList
-    let registers = trace.RegisterDiffs |> Array.toList
-    let accesses =
-      trace.MemoryAccesses
-      |> Array.toList
-      |> List.collect renderMemoryAccess
-    let watch =
-      trace.MemoryDiffs |> Array.toList |> List.collect renderMemoryDiff
-    let stops = trace.StopReasons |> Array.toList
-    header
-    @ displaySection "instructions" instructions
-    @ displaySection "registers" registers
-    @ displaySection "memory-accesses" accesses
-    @ displaySection "memory-watch" watch
-    @ displaySection "stop-reasons" stops
+    seq {
+      yield "ExecutionTrace"
+      yield displayField "executed" (string trace.InstructionCount)
+      yield displayField "attempted" (string trace.Instructions.Length)
+      yield displayField "start" $"0x{trace.Start:x}"
+      yield displayField "final-pc" $"0x{trace.FinalPC:x}"
+      if trace.Instructions.Length = 0 then
+        yield displayField "instructions" "none"
+      else
+        yield "  instructions:"
+        for ins in trace.Instructions do
+          yield $"    0x{ins.Address:x}: {ins.Disassembly}"
+      yield! displaySection "registers" (Array.toList trace.RegisterDiffs)
+      if trace.MemoryAccesses.Length = 0 then
+        yield displayField "memory-accesses" "none"
+      else
+        yield "  memory-accesses:"
+        for access in trace.MemoryAccesses do
+          for line in renderMemoryAccess access do
+            yield "    " + line
+      if trace.MemoryDiffs.Length = 0 then
+        yield displayField "memory-watch" "none"
+      else
+        yield "  memory-watch:"
+        for diff in trace.MemoryDiffs do
+          for line in renderMemoryDiff diff do
+            yield "    " + line
+      yield! displaySection "stop-reasons" (Array.toList trace.StopReasons)
+    }
 
   let private renderRequirements needs =
     let needs: ContextRequirements = needs
@@ -646,7 +617,7 @@ module TransformerReplEvaluator =
     | GreenHighlight ->
       "\x1b[30;42m"
 
-  let private renderOutString mode (output: OutString) =
+  let private renderOutString (output: OutString) =
     let reset = "\x1b[0m"
     let builder = StringBuilder()
     output.Render(fun color text ->
@@ -657,139 +628,100 @@ module TransformerReplEvaluator =
         builder.Append ansi |> ignore
         builder.Append text |> ignore
         builder.Append reset |> ignore)
-    splitTextForDisplay mode (builder.ToString())
+    splitTextForDisplay (builder.ToString())
 
   let rec private renderObject mode index (value: obj) =
-    match value with
-    | null ->
-      [ "()" ]
-    | :? CFG as cfg ->
-      renderCFG index cfg
-    | :? Binary as binary ->
-      renderBinary binary
-    | :? BinaryBytes as bytes ->
-      renderBinaryBytes mode bytes
-    | :? (Instruction[]) as instructions ->
-      renderInstructionArray mode instructions
-    | :? TextArtifact as artifact ->
-      splitTextForDisplay mode artifact.Content
-    | :? string as text ->
-      splitTextForDisplay mode text
-    | :? OutString as output ->
-      renderOutString mode output
-    | :? Fingerprint as fingerprint ->
-      renderFingerprint mode fingerprint
-    | :? ClusterResult as result ->
-      renderClusterResult mode result
-    | :? BinarySlice as slice ->
-      renderSlice slice
-    | :? SectionInfo as section ->
-      renderSection section
-    | :? FunctionInfo as fn ->
-      renderFunction fn
-    | :? StringMatch as stringMatch ->
-      renderStringMatch stringMatch
-    | :? RegisterView as view ->
-      renderRegisterView view
-    | :? MemoryView as view ->
-      renderMemoryView view
-    | :? ExecutionTrace as trace ->
-      renderTrace trace
-    | :? ContextRequirements as needs ->
-      renderRequirements needs
-    | :? AddressValue as value ->
-      renderAddressValue value
-    | :? ConcExecutorValue as executor ->
-      executor.SummaryLines
-    | :? SymbExecutorValue as executor ->
-      renderSymbExecutor executor
-    | :? SymbSolverValue as solver ->
-      renderSymbSolver solver
-    | :? SymbRunValue as result ->
-      splitTextForDisplay mode (result.ToString())
-    | :? Array as values ->
-      let header = $"{value.GetType().GetElementType().Name} array"
-      let header = $"{header} ({values.Length} values)"
-      let visible =
-        values
-        |> Seq.cast<obj>
-        |> truncateByMode mode
-        |> Seq.toList
-      let lines =
-        visible
-        |> Seq.mapi (fun index value -> renderObject mode (Some index) value)
-        |> Seq.collect id
-        |> Seq.toList
-      let omitted = values.Length - visible.Length
-      if omitted > 0 then
-        header :: lines @ [ omittedLine omitted ]
-      else
-        header :: lines
-    | value ->
-      splitTextForDisplay mode (value.ToString())
+    seq {
+      match value with
+      | null ->
+        yield "()"
+      | :? CFG as cfg ->
+        yield! renderCFG index cfg
+      | :? Binary as binary ->
+        yield! renderBinary binary
+      | :? BinaryBytes as bytes ->
+        yield! renderBinaryBytes mode bytes
+      | :? (Instruction[]) as instructions ->
+        yield! renderInstructionArray instructions
+      | :? TextArtifact as artifact ->
+        yield! splitTextForDisplay artifact.Content
+      | :? string as text ->
+        yield! splitTextForDisplay text
+      | :? OutString as output ->
+        yield! renderOutString output
+      | :? Fingerprint as fingerprint ->
+        yield! renderFingerprint fingerprint
+      | :? ClusterResult as result ->
+        yield! renderClusterResult mode result
+      | :? BinarySlice as slice ->
+        yield! renderSlice slice
+      | :? SectionInfo as section ->
+        yield! renderSection section
+      | :? FunctionInfo as fn ->
+        yield! renderFunction fn
+      | :? StringMatch as stringMatch ->
+        yield! renderStringMatch stringMatch
+      | :? RegisterView as view ->
+        yield! renderRegisterView view
+      | :? MemoryView as view ->
+        yield! renderMemoryView mode view
+      | :? ExecutionTrace as trace ->
+        yield! renderTrace trace
+      | :? ContextRequirements as needs ->
+        yield! renderRequirements needs
+      | :? AddressValue as address ->
+        yield! renderAddressValue address
+      | :? ConcExecutorValue as executor ->
+        yield! executor.SummaryLines
+      | :? SymbExecutorValue as executor ->
+        yield! renderSymbExecutor executor
+      | :? SymbSolverValue as solver ->
+        yield! renderSymbSolver solver
+      | :? SymbRunValue as result ->
+        yield! splitTextForDisplay (result.ToString())
+      | :? Array as values ->
+        let name = value.GetType().GetElementType().Name
+        yield $"{name} array ({values.Length} values)"
+        for index in 0 .. values.Length - 1 do
+          yield! renderObject mode (Some index) (values.GetValue index)
+      | value ->
+        yield! splitTextForDisplay (value.ToString())
+    }
 
   let private renderValue mode value =
     let value: ReplValue = value
     let values = value.Collection.Values
-    let visible = values |> truncateByMode mode |> Seq.toArray
-    let body =
-      visible
-      |> Array.mapi (fun index item ->
-        let lines = renderObject mode None item
-        if value.IsCollection then
-          $"  value #{index}:" :: indentDisplay 4 lines
-        else
-          lines)
-      |> Array.toList
-      |> List.collect id
-    let omitted = values.Length - visible.Length
-    let body =
-      if omitted > 0 then body @ [ omittedLine omitted ] else body
-    let lines =
+    seq {
       if value.IsCollection then
-        $"{typeDescription value} ({values.Length} values)" :: body
+        yield $"{typeDescription value} ({values.Length} values)"
       else
-        body
-    lines |> List.collect (normalizeDisplayLine mode)
-
-  let private renderPrintedValue mode value =
-    let value: ReplValue = value
-    let values = value.Collection.Values
-    let visible = values |> truncateByMode mode |> Seq.toArray
-    let body =
-      visible
-      |> Array.mapi (fun index item ->
-        let lines = renderObject mode None item
+        ()
+      for index in 0 .. values.Length - 1 do
+        let lines =
+          renderObject mode None values[index]
+          |> Seq.collect normalizeDisplayLine
         if value.IsCollection then
-          $"  value #{index}:" :: indentDisplay 4 lines
+          yield $"  value #{index}:"
+          for line in lines do
+            yield "    " + line
         else
-          lines)
-      |> Array.toList
-      |> List.collect id
-    let omitted = values.Length - visible.Length
-    let body =
-      if omitted > 0 then body @ [ omittedLine omitted ] else body
-    let lines =
-      if value.IsCollection then
-        $"{typeDescription value} ({values.Length} values)" :: body
-      else
-        body
-    lines |> List.collect (normalizeDisplayLine mode)
+          yield! lines
+    }
 
   let private renderPrintResult mode result =
     let result: PrintedValue = result
-    result.Values |> List.collect (renderPrintedValue mode)
+    result.Values |> Seq.collect (renderValue mode)
 
   let private outputLines lines =
     ReplOutput.ofLines lines
 
   let private outputValue value =
     ReplOutput.ofLazy (renderValue Preview value)
-      (lazy (renderValue Full value))
+      (lazy (renderValue Full value |> Seq.toList))
 
   let private outputPrintResult result =
     ReplOutput.ofLazy (renderPrintResult Preview result)
-      (lazy (renderPrintResult Full result))
+      (lazy (renderPrintResult Full result |> Seq.toList))
 
   let private continueOutput registry state output =
     Continue(registry, state, output)
@@ -2379,15 +2311,17 @@ module TransformerReplEvaluator =
     else
       let status, detail =
         match evaluation with
-        | Continue(_, _, output) ->
+        | Continue(_, _, output) when output.HasError ->
           output.Lines
-          |> List.tryFind (fun line ->
+          |> Seq.tryFind (fun line ->
             line.StartsWith("Error:", StringComparison.Ordinal))
           |> function
             | Some error ->
               ReplExecutionStatus.Failed, Some error
             | None ->
               ReplExecutionStatus.Succeeded, None
+        | Continue _ ->
+          ReplExecutionStatus.Succeeded, None
         | Exit _ ->
           ReplExecutionStatus.Succeeded, None
       let record (state: TransformerReplState) =
@@ -2567,11 +2501,13 @@ module TransformerReplEvaluator =
             cancellationToken
           |> resultState
           |> Result.bind (fun (nextRegistry, nextState, output) ->
-            match output.Lines |> List.tryFind (fun line ->
-              line.StartsWith("Error:", StringComparison.Ordinal)) with
-            | Some error ->
+            if output.HasError then
+              let error =
+                output.Lines
+                |> Seq.find (fun line ->
+                  line.StartsWith("Error:", StringComparison.Ordinal))
               Error error
-            | None ->
+            else
               outputs.Add $"> {command}"
               outputs.AddRange output.Lines
               Ok(nextRegistry, nextState))))

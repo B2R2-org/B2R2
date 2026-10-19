@@ -1140,13 +1140,10 @@ module TransformerTuiModel =
       let last = sourceLines |> List.last
       TuiTranscriptSource.HiddenRange(first, last)
 
-  let private compactTranscriptBlock
+  let private renderTranscriptBlock
     model
-    height
     index
     (lines: TuiTranscriptLine list) =
-    let maxInline = max 6 (height - 2)
-    let keep = max 2 (min 8 ((height - 3) / 2))
     let command, output =
       let isCommandText (line: TuiTranscriptLine) =
         line.Line.Kind = TuiLineKind.Command
@@ -1160,32 +1157,10 @@ module TransformerTuiModel =
       command @
         [ { Source = source
             Line = { Kind = kind; Text = $"<< result #{index} folded >>" } } ]
-    elif List.length output <= maxInline then
-      command @ (output |> List.map (markTranscriptCursor model))
     else
-      let head = output |> List.truncate keep
-      let hidden =
-        output
-        |> List.skip keep
-        |> List.truncate (List.length output - (keep * 2))
-      let tail = output |> List.skip (List.length output - keep)
-      let source = sourceRange hidden
-      let hiddenCount = List.length hidden
-      let selected = cursorOnSource model source
-      let kind = selectedTextKind selected TuiLineKind.System
-      let text =
-        $"<< {hiddenCount} transcript lines hidden; Enter opens view >>"
-      let marker =
-        { Source = source
-          Line =
-            { Kind = kind
-              Text = text } }
-      command
-      @ (head |> List.map (markTranscriptCursor model))
-      @ [ marker ]
-      @ (tail |> List.map (markTranscriptCursor model))
+      command @ (output |> List.map (markTranscriptCursor model))
 
-  let transcriptDisplayLines height (model: TransformerTuiModel)
+  let transcriptDisplayLines (model: TransformerTuiModel)
       : TuiTranscriptLine list =
     let output = ResizeArray<TuiTranscriptLine>()
     let block = ResizeArray<TuiTranscriptLine>()
@@ -1194,7 +1169,7 @@ module TransformerTuiModel =
       if block.Count > 0 then
         block
         |> Seq.toList
-        |> compactTranscriptBlock model height blockIndex
+        |> renderTranscriptBlock model blockIndex
         |> output.AddRange
         block.Clear()
       else
@@ -1216,7 +1191,7 @@ module TransformerTuiModel =
     Seq.toList output
 
   let transcriptDisplayRows width height model =
-    transcriptDisplayLines height model
+    transcriptDisplayLines model
     |> List.collect (wrapTranscriptLine width model)
 
   let private latestDisplayCommandIndex
