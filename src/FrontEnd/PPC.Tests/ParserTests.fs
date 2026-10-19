@@ -2083,6 +2083,70 @@ type ParserTests() =
   member _.``[PPC64] XSRSQRTESP``() =
     testBoth "f0201828" (XSRSQRTESP ** [ O.Reg F1; O.Reg F3 ])
 
+  [<TestMethod>]
+  member _.``[PPC64] XXBRH (VSX vector byte-reverse halfword)``() =
+    testBoth "f0271f6c" (XXBRH ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXBRW (VSX vector byte-reverse word)``() =
+    testBoth "f02f1f6c" (XXBRW ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXBRD (VSX vector byte-reverse doubleword)``() =
+    testBoth "f0371f6c" (XXBRD ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXBRQ (VSX vector byte-reverse quadword)``() =
+    testBoth "f03f1f6c" (XXBRQ ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXEXTRACTUW (VSX vector extract unsigned word)``() =
+    testBoth "f0211a94" (XXEXTRACTUW ** [ O.Reg F1; O.Reg F3; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXINSERTW (VSX vector insert word)``() =
+    testBoth "f0211ad4" (XXINSERTW ** [ O.Reg F1; O.Reg F3; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXPERM (VSX vector permute)``() =
+    testBoth "f02218d0" (XXPERM ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXPERMR (VSX vector permute right-indexed)``() =
+    testBoth "f02219d0" (XXPERMR ** [ O.Reg F1; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXGENPCVBM (VSX vector generate PCV from byte mask)``() =
+    testBoth "f0211f28" (XXGENPCVBM ** [ O.Reg F1; O.Reg V3A; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXGENPCVHM``() =
+    testBoth "f0211f2a" (XXGENPCVHM ** [ O.Reg F1; O.Reg V3A; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXGENPCVWM (VSX vector generate PCV from word mask)``() =
+    testBoth "f0211f68" (XXGENPCVWM ** [ O.Reg F1; O.Reg V3A; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXGENPCVDM``() =
+    testBoth "f0211f6a" (XXGENPCVDM ** [ O.Reg F1; O.Reg V3A; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVTLSBB``() =
+    testBoth "f1021f6c" (XVTLSBB ** [ O.Reg CR2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXPERM names VSR32-63 by its three last bits``() =
+    testBoth "f02218d7" (XXPERM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXGENPCVBM refuses an IMM past 3``() =
+    testUnsupported WordSize.Bit64 "f0241f28"
+
+  [<TestMethod>]
+  member _.``[PPC64] XXBRQ refuses an A field no form has``() =
+    testUnsupported WordSize.Bit64 "f0261f6c"
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

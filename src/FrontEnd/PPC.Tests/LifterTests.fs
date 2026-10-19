@@ -7540,6 +7540,1306 @@ type LifterTests() =
       [ F1, 0x7ff8000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
       []
 
+  /// <summary>
+  /// xxbrh xT, xB reverses the two bytes of every halfword element of xB, the
+  /// elements staying where they are.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXBRH reverses the bytes of each halfword``() =
+    (* xxbrh vs1,vs3, under QEMU: oracle results *)
+    oracleMem
+      ppc64
+      "f0271f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x100030205040706UL; VSRL1, 0x9080b0a0d0c0f0eUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0271f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x100030205040706UL; VSRL1, 0x9080b0a0d0c0f0eUL ]
+      []
+    oracleMem
+      ppc64
+      "f0271f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffff80000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffff00000001UL ]
+      []
+      [ F1, 0xff7fffff00800000UL; VSRL1, 0xffffffff00000100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0271f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffff80000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffff00000001UL ]
+      []
+      [ F1, 0xff7fffff00800000UL; VSRL1, 0xffffffff00000100UL ]
+      []
+
+  /// <summary>
+  /// xxbrw xT, xB reverses the four bytes of every word element of xB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXBRW reverses the bytes of each word``() =
+    (* xxbrw vs1,vs3, under QEMU: oracle results *)
+    oracleMem
+      ppc64
+      "f02f1f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x302010007060504UL; VSRL1, 0xb0a09080f0e0d0cUL ]
+      []
+    oracleMem
+      ppc64le
+      "f02f1f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x302010007060504UL; VSRL1, 0xb0a09080f0e0d0cUL ]
+      []
+    oracleMem
+      ppc64
+      "f02f1f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffff80000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffff00000001UL ]
+      []
+      [ F1, 0xffffff7f00000080UL; VSRL1, 0xffffffff01000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f02f1f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffff80000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffff00000001UL ]
+      []
+      [ F1, 0xffffff7f00000080UL; VSRL1, 0xffffffff01000000UL ]
+      []
+
+  /// <summary>
+  /// xxbrd xT, xB reverses the eight bytes of each doubleword element of xB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXBRD reverses the bytes of each doubleword``() =
+    (* xxbrd vs1,vs3, under QEMU: oracle results *)
+    oracleMem
+      ppc64
+      "f0371f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x706050403020100UL; VSRL1, 0xf0e0d0c0b0a0908UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0371f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x706050403020100UL; VSRL1, 0xf0e0d0c0b0a0908UL ]
+      []
+    oracleMem
+      ppc64
+      "f0371f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffff80000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x80ffffff7fUL; VSRL1, 0x1000000ffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0371f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffff80000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x80ffffff7fUL; VSRL1, 0x1000000ffffffffUL ]
+      []
+
+  /// <summary>
+  /// xxbrq xT, xB reverses the sixteen bytes of xB as one quadword.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXBRQ reverses all sixteen bytes``() =
+    (* xxbrq vs1,vs3, under QEMU: oracle results *)
+    oracleMem
+      ppc64
+      "f03f1f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f1f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64
+      "f03f1f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffff80000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1000000ffffffffUL; VSRL1, 0x80ffffff7fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f03f1f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffff80000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1000000ffffffffUL; VSRL1, 0x80ffffff7fUL ]
+      []
+
+  /// <summary>
+  /// xxextractuw xT, xB, UIM places byte elements UIM to UIM+3 of xB, as a
+  /// word, zero-extended into doubleword 0 of xT, and clears doubleword 1: UIM
+  /// 1, 0, 5 and 12, the last the largest the manual defines.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXEXTRACTUW takes the word at a byte offset``() =
+    (* xxextractuw vs1,vs3,1, under QEMU: lanes/x-oracle/perm, oracle results *)
+    oracleMem
+      ppc64
+      "f0211a94"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x1020304UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211a94"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x1020304UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201a94"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x10203UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201a94"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x10203UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f0251a94"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x5060708UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0251a94"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x5060708UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f02c1a94"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0xc0d0e0fUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f02c1a94"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0xc0d0e0fUL; VSRL1, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xxinsertw xT, xB, UIM writes word element 1 of xB into byte elements UIM
+  /// to UIM+3 of xT and leaves the other bytes of xT as they were: UIM 1, 0, 7
+  /// and 12.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXINSERTW puts a word at a byte offset``() =
+    (* xxinsertw vs1,vs3,1, under QEMU: lanes/x-oracle/perm, oracle results *)
+    oracleMem
+      ppc64
+      "f0211ad4"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0xb04050607ad0badUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211ad4"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0xb04050607ad0badUL ]
+      []
+    oracleMem
+      ppc64
+      "f0201ad4"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x40506070bad0badUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201ad4"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0x40506070bad0badUL ]
+      []
+    oracleMem
+      ppc64
+      "f0271ad4"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0xbad0bad0bad0b04UL; VSRL1, 0x50607ad0bad0badUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0271ad4"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ F1, 0xbad0bad0bad0b04UL; VSRL1, 0x50607ad0bad0badUL ]
+      []
+    oracleMem
+      ppc64
+      "f02c1ad4"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ VSRL1, 0xbad0bad04050607UL ]
+      []
+    oracleMem
+      ppc64le
+      "f02c1ad4"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1020304050607UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ VSRL1, 0xbad0bad04050607UL ]
+      []
+
+  /// <summary>
+  /// xxperm xT, xA, xB places in byte i of xT the byte of the 32-byte pair xA
+  /// || xT that the low five bits of byte i of xB index from the left; xT is
+  /// read whole before it is written.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXPERM picks bytes of xA and xT by a left index``() =
+    (* xxperm vs1,vs2,vs3, under QEMU: oracle results *)
+    oracleMem
+      ppc64
+      "f02218d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x1020304050607UL
+        F3, 0xf0e0d0c0b0a0908UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x8090a0b0c0d0e0fUL
+        VSRL3, 0x706050403020100UL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f02218d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x1020304050607UL
+        F3, 0xf0e0d0c0b0a0908UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x8090a0b0c0d0e0fUL
+        VSRL3, 0x706050403020100UL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64
+      "f02218d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7fffffff80000000UL
+        F3, 0x1ffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0xffffffff00000001UL
+        VSRL3, 0x7fffffff80000000UL ]
+      []
+      [ F1, 0x7f7f7fffadadadadUL; VSRL1, 0xadadadad7f7f7f7fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f02218d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7fffffff80000000UL
+        F3, 0x1ffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0xffffffff00000001UL
+        VSRL3, 0x7fffffff80000000UL ]
+      []
+      [ F1, 0x7f7f7fffadadadadUL; VSRL1, 0xadadadad7f7f7f7fUL ]
+      []
+    oracleMem
+      ppc64
+      "f02218d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7fff8000ffff0001UL
+        F3, 0x1ffff80007fffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7f80ff00017f80ffUL
+        VSRL3, 0x7f7f808001010000UL ]
+      []
+      [ F1, 0x7fffadad7f7fadadUL; VSRL1, 0xadad7f7fffff7f7fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f02218d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7fff8000ffff0001UL
+        F3, 0x1ffff80007fffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7f80ff00017f80ffUL
+        VSRL3, 0x7f7f808001010000UL ]
+      []
+      [ F1, 0x7fffadad7f7fadadUL; VSRL1, 0xadad7f7fffff7f7fUL ]
+      []
+
+  /// <summary>
+  /// xxpermr xT, xA, xB places in byte i of xT byte 31-k of the 32-byte pair xA
+  /// || xT, k being the low five bits of byte i of xB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXPERMR picks bytes of xA and xT by a right index``() =
+    (* xxpermr vs1,vs2,vs3, under QEMU: oracle results *)
+    oracleMem
+      ppc64
+      "f02219d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x1020304050607UL
+        F3, 0xf0e0d0c0b0a0908UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x8090a0b0c0d0e0fUL
+        VSRL3, 0x706050403020100UL ]
+      []
+      []
+      []
+    oracleMem
+      ppc64le
+      "f02219d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x1020304050607UL
+        F3, 0xf0e0d0c0b0a0908UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x8090a0b0c0d0e0fUL
+        VSRL3, 0x706050403020100UL ]
+      []
+      []
+      []
+    oracleMem
+      ppc64
+      "f02219d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7fffffff80000000UL
+        F3, 0x1ffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0xffffffff00000001UL
+        VSRL3, 0x7fffffff80000000UL ]
+      []
+      [ F1, 0xadadad0b7f7f7f7fUL; VSRL1, 0x7f7f7f7fadadadadUL ]
+      []
+    oracleMem
+      ppc64le
+      "f02219d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7fffffff80000000UL
+        F3, 0x1ffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0xffffffff00000001UL
+        VSRL3, 0x7fffffff80000000UL ]
+      []
+      [ F1, 0xadadad0b7f7f7f7fUL; VSRL1, 0x7f7f7f7fadadadadUL ]
+      []
+    oracleMem
+      ppc64
+      "f02219d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7fff8000ffff0001UL
+        F3, 0x1ffff80007fffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7f80ff00017f80ffUL
+        VSRL3, 0x7f7f808001010000UL ]
+      []
+      [ F1, 0xad0b7f7fadad7f7fUL; VSRL1, 0x7f7fadad0b0badadUL ]
+      []
+    oracleMem
+      ppc64le
+      "f02219d0"
+      [ F1, 0xbad0bad0bad0badUL
+        F2, 0x7fff8000ffff0001UL
+        F3, 0x1ffff80007fffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL2, 0x7f80ff00017f80ffUL
+        VSRL3, 0x7f7f808001010000UL ]
+      []
+      [ F1, 0xad0b7f7fadad7f7fUL; VSRL1, 0x7f7fadad0b0badadUL ]
+      []
+
+  /// <summary>
+  /// xxgenpcvbm xT, vRB, IMM builds the permute control vector that expands
+  /// (IMM 0 and 2) or compresses (1 and 3) the byte elements vRB's most
+  /// significant bits select, for a left-indexed (0, 1) or right-indexed (2, 3)
+  /// permute. Expansion is defined for every mask; compression leaves the
+  /// elements past the selected ones undefined, so it runs here on the all-ones
+  /// mask, where every element is defined.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXGENPCVBM builds the byte permute controls``() =
+    (* xxgenpcvbm vs1,v3,0, under QEMU: lanes/x-oracle/perm *)
+    oracleMem
+      ppc64
+      "f0201f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x1120214031617UL; VSRL1, 0x180405061c070809UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x1120214031617UL; VSRL1, 0x180405061c070809UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0201f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1000010203151617UL; VSRL1, 0x40506071c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1000010203151617UL; VSRL1, 0x40506071c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x9081d071b061918UL; VSRL1, 0x1705040313020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x9081d071b061918UL; VSRL1, 0x1705040313020100UL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1f070605041a1918UL; VSRL1, 0x302010013121110UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1f070605041a1918UL; VSRL1, 0x302010013121110UL ]
+      []
+    oracleMem
+      ppc64
+      "f0211f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0231f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0231f28"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+
+  /// <summary>
+  /// xxgenpcvhm xT, vRB, IMM builds the permute control vector over halfword
+  /// elements, each element's two byte indices in the order the permute
+  /// direction reads them, as xxgenpcvbm does over bytes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXGENPCVHM builds the halfword permute controls``() =
+    (* xxgenpcvhm vs1,v3,0, under QEMU: lanes/x-oracle/perm *)
+    oracleMem
+      ppc64
+      "f0201f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x1121314151617UL; VSRL1, 0x181902031c1d0405UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x1121314151617UL; VSRL1, 0x181902031c1d0405UL ]
+      []
+    oracleMem
+      ppc64
+      "f0201f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0201f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1011000102031617UL; VSRL1, 0x40506071c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1011000102031617UL; VSRL1, 0x40506071c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x5041d1c1b1a1918UL; VSRL1, 0x1716030213120100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x5041d1c1b1a1918UL; VSRL1, 0x1716030213120100UL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1f1e070605041918UL; VSRL1, 0x302010013121110UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1f1e070605041918UL; VSRL1, 0x302010013121110UL ]
+      []
+    oracleMem
+      ppc64
+      "f0211f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0231f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0231f2a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+
+  /// <summary>
+  /// xxgenpcvwm xT, vRB, IMM builds the permute control vector over word
+  /// elements, as xxgenpcvbm does over bytes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXGENPCVWM builds the word permute controls``() =
+    (* xxgenpcvwm vs1,v3,0, under QEMU: lanes/x-oracle/perm *)
+    oracleMem
+      ppc64
+      "f0201f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x1020314151617UL; VSRL1, 0x18191a1b1c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x1020314151617UL; VSRL1, 0x18191a1b1c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0201f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0201f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1011121300010203UL; VSRL1, 0x40506071c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1011121300010203UL; VSRL1, 0x40506071c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x30201001b1a1918UL; VSRL1, 0x1716151413121110UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x30201001b1a1918UL; VSRL1, 0x1716151413121110UL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1f1e1d1c07060504UL; VSRL1, 0x302010013121110UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1f1e1d1c07060504UL; VSRL1, 0x302010013121110UL ]
+      []
+    oracleMem
+      ppc64
+      "f0211f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0231f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0231f68"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+
+  /// <summary>
+  /// xxgenpcvdm xT, vRB, IMM builds the permute control vector over doubleword
+  /// elements, as xxgenpcvbm does over bytes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXGENPCVDM builds the doubleword permute controls``() =
+    (* xxgenpcvdm vs1,v3,0, under QEMU: lanes/x-oracle/perm *)
+    oracleMem
+      ppc64
+      "f0201f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x18191a1b1c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x18191a1b1c1d1e1fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0201f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0201f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1011121314151617UL; VSRL1, 0x1020304050607UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1011121314151617UL; VSRL1, 0x1020304050607UL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x706050403020100UL; VSRL1, 0x1716151413121110UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x80ff00ff7f800001UL
+        V3B, 0x180ff8000ff8080UL ]
+      []
+      [ F1, 0x706050403020100UL; VSRL1, 0x1716151413121110UL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64
+      "f0221f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1f1e1d1c1b1a1918UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0221f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+      []
+      [ F1, 0x1f1e1d1c1b1a1918UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64
+      "f0211f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0211f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x1020304050607UL; VSRL1, 0x8090a0b0c0d0e0fUL ]
+      []
+    oracleMem
+      ppc64
+      "f0231f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0231f6a"
+      [ F1, 0xbad0bad0bad0badUL
+        VSRL1, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0xf0e0d0c0b0a0908UL; VSRL1, 0x706050403020100UL ]
+      []
+
+  /// <summary>
+  /// xvtlsbb BF, xB sets bit 0 of CR field BF when the least significant bit of
+  /// every byte of xB is one and bit 2 when every one is zero, and clears bits
+  /// 1 and 3.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVTLSBB tests the lowest bit of every byte``() =
+    (* xvtlsbb cr2,vs3, under QEMU: lanes/x-oracle/perm, oracle results *)
+    oracleMem
+      ppc64
+      "f1021f6c"
+      [ F3, 0x1020304050607UL; VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021f6c"
+      [ F3, 0x1020304050607UL; VSRL3, 0x8090a0b0c0d0e0fUL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f1021f6c"
+      [ F3, 0x7fffffff80000000UL
+        VSRL3, 0xffffffff00000001UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021f6c"
+      [ F3, 0x7fffffff80000000UL
+        VSRL3, 0xffffffff00000001UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f1021f6c"
+      [ F3, 0x101010101010101UL; VSRL3, 0xffffffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021f6c"
+      [ F3, 0x101010101010101UL; VSRL3, 0xffffffffffffffffUL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f1021f6c"
+      [ F3, 0xfefefefefefefefeUL; CR2_1, 0x1UL; CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021f6c"
+      [ F3, 0xfefefefefefefefeUL; CR2_1, 0x1UL; CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64
+      "f1021f6c"
+      [ F3, 0x101010101010101UL
+        VSRL3, 0x101010101010100UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f1021f6c"
+      [ F3, 0x101010101010101UL
+        VSRL3, 0x101010101010100UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL ]
+      []
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

@@ -163,10 +163,59 @@ let private memoryEncoders () =
     Op.STXVP, pairDQ 1u
     Op.LXVKQ, loadConstant ]
 
+/// An XX3-form "xT, xA, xB".
+let private xx3 xo ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Rg b ] -> vsxWord (xo <<< 3) (vsr t) (vsr a) (vsr b)
+  | _ -> wrongOperands ins
+
+/// An XX2-form "xT, xB, UIM", the immediate in the A field.
+let private xx2Uim xo ins =
+  match ins.Operands with
+  | [ Rg t; Rg b; Im u ] -> vsxWord (xo <<< 2) (vsr t) (unsigned 4 u) (vsr b)
+  | _ -> wrongOperands ins
+
+/// An XX2-form reporting in a condition-register field: "BF, xB".
+let private xx2CR xo a ins =
+  match ins.Operands with
+  | [ Rg f; Rg b ] -> vsxWord (xo <<< 2) ((crf f) <<< 2) a (vsr b)
+  | _ -> wrongOperands ins
+
+/// The xxgenpcv forms, "xT, vRB, IMM", an X-form whose B field is a vector
+/// register.
+let private genPCV xo ins =
+  match ins.Operands with
+  | [ Rg x; Rg v; Im imm ] ->
+    let struct (t, tx) = split (vsr x)
+    word 60u t (unsigned 2 imm) (vr v) ((xo <<< 1) ||| tx)
+  | _ ->
+    wrongOperands ins
+
+/// The permutes and the byte reversals, and the test on each byte's lowest
+/// bit.
+let private permuteEncoders () =
+  [ Op.XXBRH, xx2 475u 7u
+    Op.XXBRW, xx2 475u 15u
+    Op.XXBRD, xx2 475u 23u
+    Op.XXBRQ, xx2 475u 31u
+    Op.XXEXTRACTUW, xx2Uim 165u
+    Op.XXINSERTW, xx2Uim 181u
+    Op.XXPERM, xx3 26u
+    Op.XXPERMR, xx3 58u
+    Op.XXGENPCVBM, genPCV 916u
+    Op.XXGENPCVHM, genPCV 917u
+    Op.XXGENPCVWM, genPCV 948u
+    Op.XXGENPCVDM, genPCV 949u
+    Op.XVTLSBB, xx2CR 475u 2u ]
+
 /// The single-precision estimates ISA 2.07 added.
 let private estimateEncoders () =
   [ Op.XSRESP, xx2 26u 0u
     Op.XSRSQRTESP, xx2 10u 0u ]
 
 /// Every instruction this module encodes.
-let vsxEncoders () = List.concat [ memoryEncoders (); estimateEncoders () ]
+let vsxEncoders () =
+  List.concat
+    [ memoryEncoders ()
+      estimateEncoders ()
+      permuteEncoders () ]
