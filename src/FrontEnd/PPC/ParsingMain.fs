@@ -1580,6 +1580,10 @@ let private parse04Wide bin =
   | 39u -> parseVA Op.VMSUMUHS bin
   | 40u -> parseVA Op.VMSUMSHM bin
   | 41u -> parseVA Op.VMSUMSHS bin
+  | 60u -> parseVA Op.VADDEUQM bin
+  | 61u -> parseVA Op.VADDECUQ bin
+  | 62u -> parseVA Op.VSUBEUQM bin
+  | 63u -> parseVA Op.VSUBECUQ bin
   | _ -> raise ParsingFailureException
 
 /// The vector instructions in primary opcode 4, whose extended opcode is a
@@ -1713,6 +1717,10 @@ let private parse04 bin =
       | 1742u -> parseVX2 Op.VUPKLSW bin
       | 1986u -> parseVX2 Op.VCLZD bin
       | 1987u -> parseVX2 Op.VPOPCNTD bin
+      | 256u -> parseVX Op.VADDUQM bin
+      | 320u -> parseVX Op.VADDCUQ bin
+      | 1280u -> parseVX Op.VSUBUQM bin
+      | 1344u -> parseVX Op.VSUBCUQ bin
       | 648u -> parseVX Op.VMULEUW bin
       | 136u -> parseVX Op.VMULOUW bin
       | 520u -> parseVX Op.VMULEUB bin

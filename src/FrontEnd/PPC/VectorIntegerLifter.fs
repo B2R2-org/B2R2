@@ -180,3 +180,39 @@ let vecMulEvenOdd ins bld esize signed even =
       widen signed wide a[2 * i + pick] .* widen signed wide b[2 * i + pick]
     putElements bld o1 (Array.init (a.Length / 2) product)
   }
+
+/// The operands of a quadword add: vD, vA and vB, whether or not a vC follows.
+let private quadAddOperands (ins: Instruction) =
+  match ins.Operands with
+  | ThreeOperands(o1, o2, o3) | FourOperands(o1, o2, o3, _) ->
+    struct (o1, o2, o3)
+  | _ ->
+    raise InvalidOperandException
+
+/// The carry into a quadword add: the lowest bit of vC for the extended forms,
+/// the only ones with a vC, and otherwise 1 for a subtract and 0 for an add.
+let private quadCarryIn bld (ins: Instruction) subtract =
+  match ins.Operands with
+  | FourOperands(_, _, _, o4) ->
+    let struct (_, cl) = halvesOf bld o4
+    AST.zext 128<rt> (AST.xtlo 1<rt> cl)
+  | _ ->
+    if subtract then AST.num1 128<rt> else AST.num0 128<rt>
+
+/// The quadword adds and subtracts. A subtract adds the complement of vB and a
+/// carry in of 1; the extended forms take their carry in from the lowest bit
+/// of vC instead. The carry forms write the carry out of that sum -- out of
+/// either of its two additions -- rather than the sum itself.
+let vecQuadAdd ins bld subtract carryOut =
+  lift bld ins {
+    let struct (o1, o2, o3) = quadAddOperands ins
+    let b = quadOf bld o3
+    let struct (a, sum, total) = tmpVars3 bld 128<rt>
+    a := quadOf bld o2
+    sum := a .+ (if subtract then AST.not b else b)
+    total := sum .+ quadCarryIn bld ins subtract
+    if carryOut then
+      putElements bld o1 [| AST.zext 128<rt> ((sum .< a) .| (total .< sum)) |]
+    else
+      putElements bld o1 [| total |]
+  }

@@ -1082,6 +1082,142 @@ type LifterTests() =
     let wanted = [ V1A, 0xffffffff80000000UL; V1B, 0xffffffff80000000UL ]
     oracle only64 "102219c8" given wanted
 
+  /// <summary>
+  /// vadduqm vD, vA, vB writes into vD the low 128 bits of vA + vB, the two
+  /// registers read as 128-bit numbers, so a carry crosses the middle of the
+  /// register.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VADDUQM computes a quadword sum``() =
+    (* vadduqm v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x8000000180000000UL; V1B, 0x7ffffffe80000001UL ]
+    oracle only64 "10221900" given wanted
+
+  /// <summary>
+  /// vaddcuq vD, vA, vB writes into vD, as a 128-bit number, the carry out of
+  /// vA + vB computed over the two registers as 128-bit unsigned numbers: 0
+  /// or 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VADDCUQ writes the carry out of a quadword sum``() =
+    (* vaddcuq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221940" given wanted
+
+  /// <summary>
+  /// vaddeuqm vD, vA, vB, vC writes into vD the low 128 bits of vA + vB + the
+  /// lowest bit of vC, the two registers read as 128-bit numbers, so a carry
+  /// crosses the middle of the register.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VADDEUQM computes a quadword sum``() =
+    (* vaddeuqm v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x8000000180000000UL; V1B, 0x7ffffffe80000002UL ]
+    oracle only64 "1022193c" given wanted
+
+  /// <summary>
+  /// vaddecuq vD, vA, vB, vC writes into vD, as a 128-bit number, the carry
+  /// out of vA + vB + the lowest bit of vC computed over the two registers as
+  /// 128-bit unsigned numbers: 0 or 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VADDECUQ writes the carry out of a quadword sum``() =
+    (* vaddecuq v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x0123456789abcdefUL
+        V2B, 0xfedcba9876543210UL
+        V3A, 0xfedcba9876543210UL
+        V3B, 0x0123456789abcdefUL
+        V4A, 0x00000000ffffffffUL
+        V4B, 0x00000000ffffffffUL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000001UL ]
+    oracle only64 "1022193d" given wanted
+
+  /// <summary>
+  /// vsubuqm vD, vA, vB writes into vD the low 128 bits of vA + ~vB + 1, the
+  /// two registers read as 128-bit numbers, so a carry crosses the middle of
+  /// the register.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUBUQM computes a quadword difference``() =
+    (* vsubuqm v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x7ffffffd80000001UL; V1B, 0x7fffffff80000001UL ]
+    oracle only64 "10221d00" given wanted
+
+  /// <summary>
+  /// vsubcuq vD, vA, vB writes into vD, as a 128-bit number, the carry out of
+  /// vA + ~vB + 1 computed over the two registers as 128-bit unsigned
+  /// numbers: 0 or 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUBCUQ writes the carry out of a quadword difference``() =
+    (* vsubcuq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000001UL ]
+    oracle only64 "10221d40" given wanted
+
+  /// <summary>
+  /// vsubeuqm vD, vA, vB, vC writes into vD the low 128 bits of vA + ~vB +
+  /// the lowest bit of vC, the two registers read as 128-bit numbers, so a
+  /// carry crosses the middle of the register.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUBEUQM computes a quadword difference``() =
+    (* vsubeuqm v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x7ffffffd80000001UL; V1B, 0x7fffffff80000001UL ]
+    oracle only64 "1022193e" given wanted
+
+  /// <summary>
+  /// vsubecuq vD, vA, vB, vC writes into vD, as a 128-bit number, the carry
+  /// out of vA + ~vB + the lowest bit of vC computed over the two registers
+  /// as 128-bit unsigned numbers: 0 or 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUBECUQ writes the carry out of a quadword difference``() =
+    (* vsubecuq v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL
+        V4A, 0x0000000100000001UL
+        V4B, 0x0000000100000001UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000001UL ]
+    oracle only64 "1022193f" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

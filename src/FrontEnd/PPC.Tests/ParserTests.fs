@@ -415,6 +415,54 @@ type ParserTests() =
     ++ (VMULOSD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VADDUQM (Vector Add Unsigned Quadword Modulo)``() =
+    "10221900"
+    ++ (VADDUQM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VADDCUQ (Vector Add & write Carry Unsigned Quadword)``() =
+    "10221940"
+    ++ (VADDCUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VADDEUQM (VA-form)``() =
+    "1022193c"
+    ++ (VADDEUQM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VADDECUQ (VA-form)``() =
+    "1022193d"
+    ++ (VADDECUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBUQM (Vector Subtract Unsigned Quadword Modulo)``() =
+    "10221d00"
+    ++ (VSUBUQM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBCUQ (Subtract & write Carry-out Unsigned Quadword)``() =
+    "10221d40"
+    ++ (VSUBCUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBEUQM (Subtract Extended Unsigned Quadword Modulo)``() =
+    "1022193e"
+    ++ (VSUBEUQM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBECUQ (Subtract Extended & write Carry-out Unsigned)``() =
+    "1022193f"
+    ++ (VSUBECUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
