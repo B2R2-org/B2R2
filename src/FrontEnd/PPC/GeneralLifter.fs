@@ -437,22 +437,6 @@ let fabs ins updateCond bld =
     if updateCond then setCR1Reg bld else ()
   }
 
-let fAddOrSub ins updateCond isDouble fnOp bld =
-  lift bld ins {
-    let struct (frd, fra, frb) = transThreeOprs ins bld
-    if isDouble then
-      frd := fnOp fra frb
-    else
-      let fra = AST.cast CastKind.FloatCast 32<rt> fra
-      let frb = AST.cast CastKind.FloatCast 32<rt> frb
-      frd := AST.cast CastKind.FloatCast 64<rt> (fnOp fra frb)
-    setFPRF bld frd
-    if updateCond then setCR1Reg bld else ()
-  }
-
-let fadd ins updateCond isDouble bld =
-  fAddOrSub ins updateCond isDouble AST.fadd bld
-
 let fcmp ins bld isOrdered =
   lift bld ins {
     let struct ((crf0, crf1, crf2, crf3), fra, frb) = transCmpOprs ins bld
@@ -501,73 +485,6 @@ let fcmpo ins bld = fcmp ins bld true
 
 let fcmpu ins bld = fcmp ins bld false
 
-let fdiv ins updateCond isDouble bld =
-  lift bld ins {
-    let struct (frd, fra, frb) = transThreeOprs ins bld
-    let tmp = tmpVar bld 32<rt>
-    if isDouble then
-      frd := AST.fdiv fra frb
-    else
-      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      tmp := AST.fdiv fraS frbS
-      frd := AST.cast CastKind.FloatCast 64<rt> tmp
-    setFPRF bld frd
-    if updateCond then setCR1Reg bld else ()
-  }
-
-let frsp ins updateCond bld =
-  lift bld ins {
-    let struct (frd, frb) = transTwoOprs ins bld
-    let single = AST.cast CastKind.FloatCast 32<rt> frb
-    frd := AST.cast CastKind.FloatCast 64<rt> single
-    setFPRF bld frd
-    if updateCond then setCR1Reg bld else ()
-  }
-
-let fsub ins updateCond isDouble bld =
-  fAddOrSub ins updateCond isDouble AST.fsub bld
-
-let fsqrt ins updateCond isDouble bld =
-  lift bld ins {
-    let struct (frd, frb) = transTwoOprs ins bld
-    let tmp = tmpVar bld 32<rt>
-    if isDouble then
-      frd := AST.fsqrt frb
-    else
-      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      tmp := AST.fsqrt frbS
-      frd := AST.cast CastKind.FloatCast 64<rt> tmp
-    setFPRF bld frd
-    if updateCond then setCR1Reg bld else ()
-  }
-
-/// The double-precision 1.0 the reciprocal estimates divide.
-let private fpOne = numU64 0x3ff0000000000000UL 64<rt>
-
-/// fres, the single-precision reciprocal estimate. The architecture lets the
-/// estimate stray from 1/frB by a part in 256, which no analysis can usefully
-/// model, so the reciprocal itself, rounded to single precision, stands in.
-let fres ins updateCond bld =
-  lift bld ins {
-    let struct (frd, frb) = transTwoOprs ins bld
-    let tmp = tmpVar bld 32<rt>
-    tmp := AST.cast CastKind.FloatCast 32<rt> (AST.fdiv fpOne frb)
-    frd := AST.cast CastKind.FloatCast 64<rt> tmp
-    setFPRF bld frd
-    if updateCond then setCR1Reg bld else ()
-  }
-
-/// frsqrte, the reciprocal square root estimate, taken exactly for the same
-/// reason as fres.
-let frsqrte ins updateCond bld =
-  lift bld ins {
-    let struct (frd, frb) = transTwoOprs ins bld
-    frd := AST.fdiv fpOne (AST.fsqrt frb)
-    setFPRF bld frd
-    if updateCond then setCR1Reg bld else ()
-  }
-
 /// Clamps a word conversion: NaN and anything below the most negative word
 /// give 0x80000000, anything above the largest word gives 0x7fffffff.
 let private saturateWord bld frd frb =
@@ -603,11 +520,6 @@ let fctiwz ins updateCond bld =
     if updateCond then setCR1Reg bld else ()
   }
 
-/// The multiply-adds: the product is exact and the sum is rounded once, so
-/// the four go out as the FMA call, bit 1 of its flag negating the addend for
-/// the subtracting forms. The negated forms flip the sign of the rounded
-/// result, as the ISA says, so an exact cancellation gives -0 rather than the
-/// +0 that negating the operands would; a NaN passes through as it is.
 /// The quiet NaN an invalid operation answers with. It is positive here, where
 /// the FMA primitive -- written for a machine whose indefinite is negative --
 /// hands back the other one, so a result that turned into a NaN on its own has
@@ -619,55 +531,10 @@ let internal noNaNOperand a b c =
   AST.not (IEEE754Double.isNaN a .| IEEE754Double.isNaN b
            .| IEEE754Double.isNaN c)
 
-let private fusedMulAdd ins updateCond isDouble subtract negate bld =
-  lift bld ins {
-    let struct (frd, fra, frc, frb) = transFourOprs ins bld
-    let f = numU64 (if subtract then 2UL else 0UL) 8<rt>
-    let res = tmpVar bld 64<rt>
-    if isDouble then
-      res := AST.app "FMA64" [ fra; frc; frb; f ] 64<rt>
-    else
-      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-      let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      let resS = AST.app "FMA32" [ fraS; frcS; frbS; f ] 32<rt>
-      res := AST.cast CastKind.FloatCast 64<rt> resS
-    let invalid = noNaNOperand fra frc frb .& IEEE754Double.isNaN res
-    res := AST.ite invalid defaultQNaN res
-    if negate then
-      let signBit = numU64 0x8000000000000000UL 64<rt>
-      frd := AST.ite (IEEE754Double.isNaN res) res (res <+> signBit)
-    else
-      frd := res
-    setFPRF bld frd
-    if updateCond then setCR1Reg bld else ()
-  }
-
-let fmadd ins updateCond isDouble bld =
-  fusedMulAdd ins updateCond isDouble false false bld
-
 let fmr ins updateCond bld =
   lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     dst := src
-    if updateCond then setCR1Reg bld else ()
-  }
-
-let fmsub ins updateCond isDouble bld =
-  fusedMulAdd ins updateCond isDouble true false bld
-
-let fmul ins updateCond isDouble bld =
-  lift bld ins {
-    let struct (frd, fra, frb) = transThreeOprs ins bld
-    let tmp = tmpVar bld 32<rt>
-    if isDouble then
-      frd := AST.fmul fra frb
-    else
-      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      tmp := AST.fmul fraS frbS
-      frd := AST.cast CastKind.FloatCast 64<rt> tmp
-    setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
   }
 
@@ -684,12 +551,6 @@ let fneg ins updateCond bld =
     floatingNeg bld frd frb 64<rt>
     if updateCond then setCR1Reg bld else ()
   }
-
-let fnmadd ins updateCond isDouble bld =
-  fusedMulAdd ins updateCond isDouble false true bld
-
-let fnmsub ins updateCond isDouble bld =
-  fusedMulAdd ins updateCond isDouble true true bld
 
 let fsel ins updateCond bld =
   lift bld ins {
