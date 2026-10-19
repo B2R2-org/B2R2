@@ -214,15 +214,21 @@ module TransformerTuiRenderer =
       (ActionRegistry.getAll registry |> List.collect format)
 
   let private bindingLines model =
+    let lastResult =
+      TransformerReplState.tryLastResult model.Session
+      |> Option.map (fun value ->
+        $"{TransformerReplState.LastResultName}  {valueTypeDescription value}")
+      |> Option.toList
     let bindings =
       model.Session.Bindings
       |> Map.toList
       |> List.map (fun (name, value) ->
         $"{name}  {valueTypeDescription value}")
-    if List.isEmpty bindings then
-      [ "SESSION BINDINGS"; ""; "No named values yet." ]
+    let values = lastResult @ bindings
+    if List.isEmpty values then
+      [ "VALUES"; ""; "No values yet." ]
     else
-      "SESSION BINDINGS" :: "" :: bindings
+      "VALUES" :: "" :: values
 
   let private selectionLine selected text =
     { Kind =
@@ -596,13 +602,6 @@ module TransformerTuiRenderer =
       |> List.skip (min model.ScrollOffset maximumOffset)
       |> List.truncate bodyHeight
 
-  let private currentSummary model =
-    match model.Session.Current with
-    | Some value ->
-      valueTypeDescription value
-    | None ->
-      "none"
-
   let private scriptRecordText = function
     | ReplReplayMode.Reproducible ->
       "on"
@@ -645,29 +644,20 @@ module TransformerTuiRenderer =
   let private rawBoxRow = "\x00raw\x00"
 
   let private sidebarLines rightWidth height model =
-    let current = currentSummary model
-    let focus = model.Focus.ToString().ToLowerInvariant()
-    let bindingCount = Map.count model.Session.Bindings
-    let state =
-      [ "", $"current   {current}"
-        "", $"commands  {List.length model.Session.CommandHistory}"
-        "", $"focus     {focus}" ]
-    let boundary =
-      [ rawBoxRow, boxBottom border rightWidth
-        rawBoxRow, boxTop border rightWidth $"Bindings ({bindingCount})" ]
+    let lastResult =
+      TransformerReplState.tryLastResult model.Session
+      |> Option.map (fun value ->
+        let name = TransformerReplState.LastResultName
+        let kind = valueTypeDescription value
+        "", $"{name}: {kind}")
+      |> Option.toList
     let bindings =
       model.Session.Bindings
       |> Map.toList
       |> List.map (fun (name, value) ->
         let kind = valueTypeDescription value
         "", $"{name}: {kind}")
-    let error =
-      match model.Session.LastError with
-      | Some message ->
-        [ "", ""; red, "LAST ERROR"; red, message ]
-      | None ->
-        []
-    state @ boundary @ bindings @ error
+    lastResult @ bindings
     |> List.truncate height
 
   let private renderBodyRow leftWidth rightWidth left right =
@@ -1210,7 +1200,7 @@ module TransformerTuiRenderer =
       let boxTopRow =
         if hasSidebar then
           boxTop border leftWidth "Main Window"
-          + " " + boxTop border rightWidth "State"
+          + " " + boxTop border rightWidth "Values"
         else
           boxTop border leftWidth "Main Window"
       let boxBottomRow =
