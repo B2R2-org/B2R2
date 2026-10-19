@@ -218,7 +218,14 @@ layout metadata and does not guarantee the behavior of the resulting binary.
 | `@inspect-registers` | `[name=<text>]` | Inspect concrete registers. |
 | `@step` | `[count=<n>]` | Execute a fixed number of instructions. |
 | `@trace` | `[count=<n>] [watch=<addr> size=<n>]` | Trace execution, optionally watching a memory range. |
-| `@run-concrete` | `[entry=<addr>] [limit=<n>] [break=<addr>]` | Run concrete execution with optional limits and breakpoint. |
+| `@run-concrete` | `entry=<addr> [regs=[...]] [buffers=[...]] [limit=<n>]` on a binary, or `[entry=<addr>] [limit=<n>] [break=<addr>]` on an executor | Run concrete execution. |
+
+For a one-off run, a binary can be passed directly to `@run-concrete`. The
+`buffers` parameter names a region, its size and permissions, and the register
+that receives its address, for example `buffers=[RDI=track:0x400:rw]`. Buffer
+contents are not initialized. A synthetic stack is provided, and the run stops
+before the outermost return. Use `@make-concrete-executor` and
+`@make-concrete-context` when the caller state or memory must be controlled.
 
 ### Symbolic execution
 
@@ -231,5 +238,24 @@ These actions are available when a symbolic solver is loaded.
 | `@make-symbolic-arg` | `index=<n> name=<text> size=<n>` | Create a symbolic argument. |
 | `@hook` | `<hook> addr=<addr>` | Model a supported external function at an address. |
 | `@stop-at` | `addr=<addr>` | Stop symbolic execution at an address. |
-| `@run-symbolic` | `cond=<fun> [precond=<text>] [max-depth=<n>] [max-states=<n>] [loop-bound=<n>] [prune=<choice>]` | Explore paths and solve for a condition. |
+| `@run-symbolic` | `entry=<addr> [sym-regs=[...]] [buffers=[...]] check=access-violation` on a binary, or `cond=<fun> [precond=<text>] [max-depth=<n>] [max-states=<n>] [loop-bound=<n>] [prune=<choice>]` on an executor | Explore paths and solve for a condition. |
+
+Direct symbolic execution selects `symb-z3`, creates a synthetic stack, maps
+the requested buffers, and stops paths at the outermost return. For example,
+the following pipeline needs no intermediate executor binding:
+
+```text
+target
+|> @run-symbolic
+  entry=functionEntry
+  sym-regs=[ ESI=idx:4; RDX=ind:8 ]
+  buffers=[ RDI=track:0x400:rw ]
+  check=access-violation
+|> @print
+```
+
+Here, `sym-regs=[ESI=idx:4; RDX=ind:8]` names two symbolic register inputs. The
+`check=access-violation` query tests memory accesses against the binary's
+image permissions and the buffer and stack regions. The executor actions
+remain available when custom solver, memory, or search settings are needed.
 | `@model` | none | Render a symbolic run result and its satisfying model. |

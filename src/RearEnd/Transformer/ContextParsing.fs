@@ -96,7 +96,7 @@ module ContextParsing =
     let key, value = splitAssignment token
     key.ToLowerInvariant(), value
 
-  let private parseRegionPermission (entry: string) (text: string) =
+  let parseRegionPermission (entry: string) (text: string) =
     let text = text.Trim().ToLowerInvariant()
     let valid =
       text.Length > 0

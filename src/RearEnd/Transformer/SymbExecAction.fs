@@ -600,6 +600,47 @@ type SymbExecutorValue(binary: Binary,
       spec.SymbolicRegisters |> List.fold applySymbolicRegister executor
     spec.Regions |> List.fold applyRegion executor
 
+  member _.WithExecutionSetup(entry, layout: ExecutionLayout, symRegs) =
+    let symRegs: SymbSymbolicRegisterAssignment list = symRegs
+    (symRegs |> List.map _.Register)
+    @ (layout.Buffers |> List.map _.Register)
+    |> ExecutionSetup.validateRegisterNames (Binary.Handle binary)
+    let nextState = state.Clone()
+    nextState.PC <- entry
+    let accessor = SymbStateAccessor(Binary.Handle binary, nextState)
+    accessor.SetStackPointer layout.ReturnStackPointer
+    accessor.InitializeFramePointer()
+    let prepared =
+      SymbExecutorValue(binary,
+                        nextState,
+                        inputs,
+                        avoids,
+                        regions,
+                        hooks,
+                        hookText,
+                        solver)
+    let withBuffers =
+      layout.Buffers
+      |> List.fold (fun (current: SymbExecutorValue) buffer ->
+        current.WithRegister(buffer.Register, buffer.Address)) prepared
+    let withRegions =
+      ExecutionSetup.regions layout
+      |> List.fold (fun (current: SymbExecutorValue) region ->
+        current.WithRegion
+          { Name = region.Name
+            Start = region.Start
+            Finish = region.Finish
+            Permission =
+              { Read = region.Permission.Read
+                Write = region.Permission.Write
+                Execute = region.Permission.Execute } }) withBuffers
+    symRegs
+    |> List.fold (fun (current: SymbExecutorValue)
+                      (assignment: SymbSymbolicRegisterAssignment) ->
+      current.WithSymbolicRegister(assignment.Register,
+                                   assignment.Name,
+                                   assignment.Size)) withRegions
+
   member _.RunSatisfy(target, maxDepth, maxStates, loopBound, prune, ct) =
     let query =
       { Query = SymbQuery.SatisfyAddress target
@@ -637,7 +678,8 @@ type SymbExecutorValue(binary: Binary,
                                maxStates,
                                loopBound,
                                prune,
-                               ct) =
+                               ct,
+                               ?stopWhen: StopPredicate<SymbState>) =
     let query =
       { Query = SymbQuery.SatisfyWhen predicate
         QueryValues =
@@ -649,9 +691,12 @@ type SymbExecutorValue(binary: Binary,
       { SymbRunOptions.Default(query, this.SolverBackend) with
           Calls = this.CallPolicy
           AvoidConditions =
-            avoids
-            |> Seq.map SymbAvoidCondition.AvoidAddress
-            |> Seq.toList
+            (stopWhen
+             |> Option.map SymbAvoidCondition.AvoidWhen
+             |> Option.toList)
+            @ (avoids
+               |> Seq.map SymbAvoidCondition.AvoidAddress
+               |> Seq.toList)
           MaxDepth = maxDepth
           MaxStates = maxStates
           LoopBound = loopBound
@@ -1829,6 +1874,36 @@ type SymbArgAction() =
       transform args collection
 
 type SymbSearchAction() =
+  let entry =
+    SymbMetadata.arg
+      "entry"
+      ActionArgumentKind.Address
+      false
+      "Address of the function to explore."
+  let symbolicRegisters =
+    { SymbMetadata.arg
+        "sym-regs"
+        ActionArgumentKind.Text
+        false
+        "Symbolic arguments: [ESI=idx:4; RDX=ind:8]." with
+        IsOptional = true
+        DefaultValue = Some ActionArgumentDefault.EmptyList
+        Choices = [ "[]" ] }
+  let buffers =
+    { SymbMetadata.arg
+        "buffers"
+        ActionArgumentKind.Text
+        false
+        "Allocated buffers: [RDI=track:0x400:rw]." with
+        IsOptional = true
+        DefaultValue = Some ActionArgumentDefault.EmptyList
+        Choices = [ "[]" ] }
+  let check =
+    SymbMetadata.choice
+      "check"
+      false
+      [ "access-violation" ]
+      "Condition to search for."
   let cond =
     SymbMetadata.arg
       "cond"
@@ -1866,26 +1941,87 @@ type SymbSearchAction() =
       [ "true"; "false" ]
       "Use the solver to prune infeasible paths. Default: true."
   let condArgs = [ cond; precond; maxDepth; maxStates; loopBound; prune ]
+  let directArgs = [ entry; symbolicRegisters; buffers; check ]
   let signature =
-    "SymbExecutor -> @run-symbolic cond:ParameterFunction=<fun> "
+    "Binary -> @run-symbolic entry:Address=<addr> "
+    + "[sym-regs:String=<regs>] [buffers:String=<buffers>] "
+    + "check:Choice=<access-violation> | "
+    + "SymbExecutor -> @run-symbolic cond:ParameterFunction=<fun> "
     + "[precond:String=<conditions>] [max-depth:Int=<n>] "
     + "[max-states:Int=<n>] "
     + "[loop-bound:Int=<n>] [prune:Choice=<true|false>] -> SymbRunResult"
   let metadata =
     { SymbMetadata.metadata
         "run-symbolic"
-        ReplValueKind.SymbExecutor
+        ReplValueKind.Binary
         ReplValueKind.SymbRunResult
         ActionRole.Transform
         signature
         "Search for symbolic inputs satisfying a state condition."
-        [ "sx |> @run-symbolic cond=(fun pp -> pp.at(<addr>))"
+        [ "binary |> @run-symbolic entry=<addr> "
+          + "sym-regs=[ESI=idx:4] buffers=[RDI=buf:0x400:rw] "
+          + "check=access-violation"
+          "sx |> @run-symbolic cond=(fun pp -> pp.at(<addr>))"
           "sx |> @run-symbolic precond=ESI>99:u32 "
           + "cond=(fun _ -> mem.accessViolation())"
           "sx |> @run-symbolic cond=(fun _ -> mem.accessViolation())" ]
         with
+        AlternativeInputs =
+          [ ReplValueKind.BinarySlice; ReplValueKind.SymbExecutor ]
         Syntaxes =
-          [ SymbMetadata.syntax None condArgs ] }
+          [ { SymbMetadata.syntax None directArgs with
+                Inputs =
+                  [ ReplValueKind.Binary; ReplValueKind.BinarySlice ] }
+            { SymbMetadata.syntax None condArgs with
+                Inputs = [ ReplValueKind.SymbExecutor ] } ] }
+
+  let runBinary ct args binary =
+    match args with
+    | [ entry; registers; buffers; "access-violation" ] ->
+      let hdl = Binary.Handle binary
+      let layout = ExecutionSetup.layout hdl buffers
+      let symbolicRegisters =
+        SymbArgs.contextEntries registers
+        |> Array.map SymbArgs.parseSymbolicRegisterAssignment
+        |> Array.toList
+      let solver =
+        match SymbSolverRegistry.create "symb-z3" with
+        | Some solver ->
+          solver
+        | None ->
+          invalidOp "The symb-z3 solver is unavailable. Load its plugin."
+      let entry = ContextParsing.parseAddress entry
+      let executor = SymbExecutorValue(binary).WithSolver(solver)
+      let executor =
+        executor.WithExecutionSetup(entry, layout, symbolicRegisters)
+      let condition =
+        SymbCondition.parse "(fun _ -> mem.accessViolation())"
+        |> SymbCondition.toPredicate hdl executor.Regions
+      let stopAtReturn =
+        StopPredicate<SymbState>(fun point ->
+          match point.Instruction with
+          | Some instruction when instruction.IsRET ->
+            let accessor = SymbStateAccessor(hdl, point.State)
+            match accessor.TryGetStackPointer() with
+            | Ok stackPointer ->
+              stackPointer = layout.ReturnStackPointer
+            | Error _ ->
+              false
+          | _ ->
+            false)
+      let maxDepth, maxStates, loopBound, prune = SymbArgs.defaults []
+      executor.RunSatisfyCondition(
+        condition,
+        maxDepth,
+        maxStates,
+        loopBound,
+        prune,
+        ct,
+        stopWhen = stopAtReturn
+      )
+      |> box
+    | _ ->
+      invalidArg (nameof args) "Invalid binary run-symbolic arguments."
 
   let isBoolText (text: string) =
     match text.Trim().ToLowerInvariant() with
@@ -1909,6 +2045,10 @@ type SymbSearchAction() =
 
   let transformOne ct args (value: obj) =
     match value with
+    | :? Binary as binary ->
+      runBinary ct args binary
+    | :? BinarySlice as slice ->
+      runBinary ct args (slice.ToBinary())
     | :? SymbExecutorValue as executor ->
       match args with
       | cond :: rest ->
