@@ -266,7 +266,7 @@ module TransformerTuiModel =
     [ helpLine "REPL GUIDE"
       helpLine ""
       helpLine "Pipelines"
-      helpLine "  let <name> = <expression>       Bind an analysis result"
+      helpLine "  <name> = <expression>           Bind an analysis result"
       helpLine
         "  <value> |> @<action> [args]      Transform the preceding value"
       helpLine "  <expression>                      Evaluate without binding"

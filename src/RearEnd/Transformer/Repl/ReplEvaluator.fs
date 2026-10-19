@@ -1303,48 +1303,6 @@ module TransformerReplEvaluator =
     else
       text.Replace("{" + name + "}", replacement)
 
-  let private splitIterStatements tokens =
-    let rec loop depth current statements = function
-      | [] ->
-        List.rev (List.rev current :: statements)
-        |> List.filter (fun statement -> not (List.isEmpty statement))
-      | ";" :: rest when depth = 0 ->
-        loop depth [] (List.rev current :: statements) rest
-      | token :: rest ->
-        loop
-          (InputAnalysis.updateDepth depth token)
-          (token :: current)
-          statements
-          rest
-    loop 0 [] [] tokens
-
-  let private tryLocalBinding tokens =
-    match mergeSeparatedEquals tokens with
-    | "let" :: name :: valueTokens when name.Contains "=" ->
-      let index = name.IndexOf '='
-      let name, value = name[..index - 1], name[index + 1..]
-      if List.isEmpty valueTokens then
-        Some(name, [ value ])
-      else
-        Some(name, value :: valueTokens)
-    | "let" :: name :: "=" :: valueTokens when not (List.isEmpty valueTokens) ->
-      Some(name, valueTokens)
-    | _ ->
-      None
-
-  let private applyLocalBindings (bindings: (string * string) list)
-                                 (token: string) =
-    let replaceBinding (text: string) (name: string, value: string) =
-      let text = text.Replace("{" + name + "}", value)
-      let index = text.IndexOf '='
-      if index < 0 then
-        if text = name then value else text
-      else
-        let prefix = text[..index]
-        let suffix = text[index + 1..]
-        if suffix = name then prefix + value else text
-    bindings |> List.fold replaceBinding token
-
   let private iterArguments (spec: ReplIterSpec) (index: int) (item: obj) =
     let unresolvedItem = "\u0000unrepresentable-iter-item\u0000"
     let itemText =
@@ -1355,36 +1313,12 @@ module TransformerReplEvaluator =
       |> replaceTemplate (spec: ReplIterSpec).ItemName itemText
       |> replaceTemplate spec.IndexName indexText
       |> fun text -> text.Replace("{index}", indexText)
-    let statements = splitIterStatements spec.Body
-    let folder result statement =
-      result
-      |> Result.bind (fun (bindings, body) ->
-        if not (List.isEmpty body) then
-          Error "iter function can have only one final parameter expression."
-        else
-          match tryLocalBinding statement with
-          | Some(name, valueTokens) ->
-            let value =
-              valueTokens
-              |> List.map apply
-              |> String.concat " "
-              |> applyLocalBindings bindings
-            Ok((name, value) :: bindings, [])
-          | None ->
-            let body =
-              statement
-              |> List.map apply
-              |> List.map (applyLocalBindings bindings)
-              |> mergeSeparatedEquals
-            Ok(bindings, body))
-    statements
-    |> List.fold folder (Ok([], []))
-    |> Result.bind (fun (_, body) ->
-      if body |> List.exists (fun text -> text.Contains unresolvedItem) then
-        let kind = ReplValue.kindOf item |> formatKind
-        Error $"{spec.ItemName} of type {kind} cannot be an action argument."
-      else
-        Ok body)
+    let body = spec.Body |> List.map apply |> mergeSeparatedEquals
+    if body |> List.exists (fun text -> text.Contains unresolvedItem) then
+      let kind = ReplValue.kindOf item |> formatKind
+      Error $"{spec.ItemName} of type {kind} cannot be an action argument."
+    else
+      Ok body
 
   let private singletonValue item =
     ReplValue.ofCollection ReplValueKind.Any { Values = [| item |] }
@@ -2063,7 +1997,7 @@ module TransformerReplEvaluator =
           | true, [| :? AddressValue as address |] ->
             let literal = $"0x{address.Address:x}"
             binding
-            |> Option.map (fun name -> $"let {name} = {literal}")
+            |> Option.map (fun name -> $"{name} = {literal}")
             |> Option.defaultValue literal
           | _ ->
             command
@@ -2357,7 +2291,7 @@ module TransformerReplEvaluator =
     [ "REPL COMMANDS"
       ""
       "Pipelines"
-      "  let <name> = <expression>       Bind an analysis result"
+      "  <name> = <expression>           Bind an analysis result"
       "  <value> |> @<action> [args]      Transform the preceding value"
       "  <expression>                      Evaluate without binding"
       ""
