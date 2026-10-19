@@ -389,6 +389,25 @@ type LifterTests() =
     oracle only64 "100d6024" given wanted
 
   /// <summary>
+  /// vmulouw v0, v0, v13 and vmuleuw v0, v0, v13, the forms xxhash's
+  /// accumulate loop uses, multiply into a target that is also a source: both
+  /// products are formed from vA as it was before either reaches vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULOUW and VMULEUW read a target that is a source``() =
+    let given =
+      [ V0A, 0x9e3779b185ebca77UL
+        V0B, 0xc2b2ae3d27d4eb2fUL
+        V13A, 0x165667b19e3779f9UL
+        V13B, 0xfffffffe00000003UL ]
+    (* vmulouw v0, v0, v13 *)
+    let wanted = [ V0A, 0x52c48c6ca69b2cbfUL; V0B, 0x00000000777ec18dUL ]
+    oracle only64 "10006888" given wanted
+    (* vmuleuw v0, v0, v13 *)
+    let wanted = [ V0A, 0x0dce2b2dcdc75a61UL; V0B, 0xc2b2ae3b7a9aa386UL ]
+    oracle only64 "10006a88" given wanted
+
+  /// <summary>
   /// vpkuhus vD, vA, vB narrows each of the unsigned halfwords of vA followed
   /// by those of vB to one of the unsigned bytes of vD; a value outside 0 ..
   /// 255 is clamped to the nearer end and sets VSCR[SAT], which is sticky.
@@ -852,6 +871,216 @@ type LifterTests() =
         V1B, 0xffffffffffffffffUL
         VSCR, 0x10001UL ]
     oracle only64 "10221cce" given wanted
+
+  /// <summary>
+  /// vmuleub vD, vA, vB multiplies the unsigned bytes 0, 2, ... of vA and vB,
+  /// writing each exact product into a halfword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULEUB multiplies the even unsigned bytes``() =
+    (* vmuleub v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x000000007f800000UL; V1B, 0x7e81fe0100000000UL ]
+    oracle everyTarget "10221a08" given wanted
+
+  /// <summary>
+  /// vmuloub vD, vA, vB multiplies the unsigned bytes 1, 3, ... of vA and vB,
+  /// writing each exact product into a halfword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULOUB multiplies the odd unsigned bytes``() =
+    (* vmuloub v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x000000ff00000000UL; V1B, 0xfe01fe0100000000UL ]
+    oracle everyTarget "10221808" given wanted
+
+  /// <summary>
+  /// vmulesb vD, vA, vB multiplies the signed bytes 0, 2, ... of vA and vB,
+  /// writing each exact product into a halfword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULESB multiplies the even signed bytes``() =
+    (* vmulesb v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000000800000UL; V1B, 0xff81000100000000UL ]
+    oracle everyTarget "10221b08" given wanted
+
+  /// <summary>
+  /// vmulosb vD, vA, vB multiplies the signed bytes 1, 3, ... of vA and vB,
+  /// writing each exact product into a halfword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULOSB multiplies the odd signed bytes``() =
+    (* vmulosb v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000ffff00000000UL; V1B, 0x0001000100000000UL ]
+    oracle everyTarget "10221908" given wanted
+
+  /// <summary>
+  /// vmuleuh vD, vA, vB multiplies the unsigned halfwords 0, 2, ... of vA and
+  /// vB, writing each exact product into a word of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULEUH multiplies the even unsigned halfwords``() =
+    (* vmuleuh v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x000000007fff8000UL; V1B, 0x7ffe800100000000UL ]
+    oracle everyTarget "10221a48" given wanted
+
+  /// <summary>
+  /// vmulouh vD, vA, vB multiplies the unsigned halfwords 1, 3, ... of vA and
+  /// vB, writing each exact product into a word of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULOUH multiplies the odd unsigned halfwords``() =
+    (* vmulouh v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000ffff00000000UL; V1B, 0xfffe000100000000UL ]
+    oracle everyTarget "10221848" given wanted
+
+  /// <summary>
+  /// vmulesh vD, vA, vB multiplies the signed halfwords 0, 2, ... of vA and
+  /// vB, writing each exact product into a word of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULESH multiplies the even signed halfwords``() =
+    (* vmulesh v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000000008000UL; V1B, 0xffff800100000000UL ]
+    oracle everyTarget "10221b48" given wanted
+
+  /// <summary>
+  /// vmulosh vD, vA, vB multiplies the signed halfwords 1, 3, ... of vA and
+  /// vB, writing each exact product into a word of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULOSH multiplies the odd signed halfwords``() =
+    (* vmulosh v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffff00000000UL; V1B, 0x0000000100000000UL ]
+    oracle everyTarget "10221948" given wanted
+
+  /// <summary>
+  /// vmuleuw vD, vA, vB multiplies the unsigned words 0 and 2 of vA and vB
+  /// into the two doublewords of vD, each product exact.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULEUW multiplies the even unsigned words``() =
+    (* vmuleuw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x000000007fffffffUL; V1B, 0x7ffffffe80000001UL ]
+    oracle only64 "10221a88" given wanted
+
+  /// <summary>
+  /// vmulouw vD, vA, vB multiplies the unsigned words 1 and 3 of vA and vB
+  /// into the two doublewords of vD, each product exact.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULOUW multiplies the odd unsigned words``() =
+    (* vmulouw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x7fffffff80000000UL; V1B, 0x0000000080000000UL ]
+    oracle only64 "10221888" given wanted
+
+  /// <summary>
+  /// vmuleud vD, vA, vB multiplies the unsigned doublewords 0, 2, ... of vA
+  /// and vB, writing each exact product into a quadword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULEUD multiplies the even unsigned doublewords``() =
+    (* vmuleud v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x00000000fffffffeUL; V1B, 0x8000000080000000UL ]
+    oracle only64 "10221ac8" given wanted
+
+  /// <summary>
+  /// vmuloud vD, vA, vB multiplies the unsigned doublewords 1, 3, ... of vA
+  /// and vB, writing each exact product into a quadword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULOUD multiplies the odd unsigned doublewords``() =
+    (* vmuloud v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x7fffffff00000000UL; V1B, 0xffffffff80000000UL ]
+    oracle only64 "102218c8" given wanted
+
+  /// <summary>
+  /// vmulesd vD, vA, vB multiplies the signed doublewords 0, 2, ... of vA and
+  /// vB, writing each exact product into a quadword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULESD multiplies the even signed doublewords``() =
+    (* vmulesd v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x00000000fffffffeUL; V1B, 0x8000000080000000UL ]
+    oracle only64 "10221bc8" given wanted
+
+  /// <summary>
+  /// vmulosd vD, vA, vB multiplies the signed doublewords 1, 3, ... of vA and
+  /// vB, writing each exact product into a quadword of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULOSD multiplies the odd signed doublewords``() =
+    (* vmulosd v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffff80000000UL; V1B, 0xffffffff80000000UL ]
+    oracle only64 "102219c8" given wanted
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added

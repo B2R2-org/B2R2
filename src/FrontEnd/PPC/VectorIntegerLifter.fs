@@ -166,3 +166,17 @@ let vecUnpackPixel ins bld high =
            AST.zext 8<rt> (AST.extract p 5<rt> 0) |])
     |> putElements bld o1
   }
+
+/// vmule*/vmulo*, which multiply the even (0, 2, ...) or the odd elements of
+/// vA and vB into products twice as wide, which fill vD.
+let vecMulEvenOdd ins bld esize signed even =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let a = elementsOf bld esize o2
+    let b = elementsOf bld esize o3
+    let wide = regTypeOf (int esize * 2)
+    let pick = if even then 0 else 1
+    let product i =
+      widen signed wide a[2 * i + pick] .* widen signed wide b[2 * i + pick]
+    putElements bld o1 (Array.init (a.Length / 2) product)
+  }

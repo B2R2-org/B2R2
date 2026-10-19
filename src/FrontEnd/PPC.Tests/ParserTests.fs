@@ -331,6 +331,90 @@ type ParserTests() =
     ++ (VPKUDUS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VMULEUB (Vector Multiply Even Unsigned Byte)``() =
+    "10221a08"
+    ++ (VMULEUB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULOUB (Vector Multiply Odd Unsigned Byte)``() =
+    "10221808"
+    ++ (VMULOUB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULESB (Vector Multiply Even Signed Byte)``() =
+    "10221b08"
+    ++ (VMULESB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULOSB (Vector Multiply Odd Signed Byte)``() =
+    "10221908"
+    ++ (VMULOSB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULEUH (Vector Multiply Even Unsigned Halfword)``() =
+    "10221a48"
+    ++ (VMULEUH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULOUH (Vector Multiply Odd Unsigned Halfword)``() =
+    "10221848"
+    ++ (VMULOUH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULESH (Vector Multiply Even Signed Halfword)``() =
+    "10221b48"
+    ++ (VMULESH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULOSH (Vector Multiply Odd Signed Halfword)``() =
+    "10221948"
+    ++ (VMULOSH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULEUW (Vector Multiply Even Unsigned Word)``() =
+    "10221a88"
+    ++ (VMULEUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULOUW (Vector Multiply Odd Unsigned Word)``() =
+    "10221888"
+    ++ (VMULOUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULEUD (Vector Multiply Even Unsigned Doubleword)``() =
+    "10221ac8"
+    ++ (VMULEUD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULOUD (Vector Multiply Odd Unsigned Doubleword)``() =
+    "102218c8"
+    ++ (VMULOUD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULESD (Vector Multiply Even Signed Doubleword)``() =
+    "10221bc8"
+    ++ (VMULESD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULOSD (Vector Multiply Odd Signed Doubleword)``() =
+    "102219c8"
+    ++ (VMULOSD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

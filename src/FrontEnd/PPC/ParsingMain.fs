@@ -1713,6 +1713,20 @@ let private parse04 bin =
       | 1742u -> parseVX2 Op.VUPKLSW bin
       | 1986u -> parseVX2 Op.VCLZD bin
       | 1987u -> parseVX2 Op.VPOPCNTD bin
+      | 648u -> parseVX Op.VMULEUW bin
+      | 136u -> parseVX Op.VMULOUW bin
+      | 520u -> parseVX Op.VMULEUB bin
+      | 8u -> parseVX Op.VMULOUB bin
+      | 776u -> parseVX Op.VMULESB bin
+      | 264u -> parseVX Op.VMULOSB bin
+      | 584u -> parseVX Op.VMULEUH bin
+      | 72u -> parseVX Op.VMULOUH bin
+      | 840u -> parseVX Op.VMULESH bin
+      | 328u -> parseVX Op.VMULOSH bin
+      | 712u -> parseVX Op.VMULEUD bin
+      | 200u -> parseVX Op.VMULOUD bin
+      | 968u -> parseVX Op.VMULESD bin
+      | 456u -> parseVX Op.VMULOSD bin
       | 1102u -> parseVX Op.VPKUDUM bin
       | 1486u -> parseVX Op.VPKSDSS bin
       | 1358u -> parseVX Op.VPKSDUS bin
