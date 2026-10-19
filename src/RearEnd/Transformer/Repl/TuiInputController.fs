@@ -37,11 +37,15 @@ module TransformerTuiInputController =
   let private hasModifier modifier (key: ConsoleKeyInfo) =
     key.Modifiers &&& modifier = modifier
 
-  let private toggleOverlay overlay model =
-    if model.Overlay = overlay then
-      TransformerTuiModel.closeOverlay model
-    else
-      TransformerTuiModel.setOverlay overlay model
+  let private toggleHelp model =
+    match model.Overlay, model.ViewPane with
+    | TuiOverlay.View, Some pane when pane.Title = "Help" ->
+      TransformerTuiModel.closeViewPane model
+    | _ ->
+      TransformerTuiModel.openTextView
+        "Help"
+        TransformerTuiModel.helpViewLines
+        model
 
   let private toggleView model =
     if model.Overlay = TuiOverlay.View then
@@ -555,7 +559,7 @@ module TransformerTuiInputController =
       else
         match key.Key with
         | ConsoleKey.F1 ->
-          toggleOverlay TuiOverlay.Help model |> TuiInputResult.Update
+          toggleHelp model |> TuiInputResult.Update
         | ConsoleKey.F4 ->
           toggleView model |> TuiInputResult.Update
         | ConsoleKey.Escape when model.Overlay <> TuiOverlay.None ->
