@@ -136,9 +136,9 @@ type StringsAction() =
               invalidArg (nameof input) "Invalid input type.") }
 
   interface IAction with
-    member _.ActionID with get() = "strings"
+    member _.ActionID with get() = "extract-strings"
     member _.Signature with get() =
-      "Binary | BinarySlice -> strings [min] [pattern] "
+      "Binary | BinarySlice -> extract-strings [min] [pattern] "
       + "-> StringMatch collection"
     member _.Description with get() =
       "Extract printable ASCII strings, optionally filtered by text."

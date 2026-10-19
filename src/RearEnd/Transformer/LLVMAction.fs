@@ -67,7 +67,7 @@ type LLVMAction() =
     { Values = collection.Values |> Array.map (translate cancellationToken) }
 
   interface IAction with
-    member _.ActionID with get() = "llvm"
+    member _.ActionID with get() = "export-llvm"
     member _.Signature with get() = "Binary -> TextArtifact"
     member _.Description with get() =
       """

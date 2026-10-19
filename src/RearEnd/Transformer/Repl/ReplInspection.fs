@@ -57,7 +57,7 @@ module TransformerReplInspection =
       |> Array.map (fun address ->
         { Label = $"function  0x{address:x}"
           Detail = "recover this function's CFG"
-          Command = $"@cfg entry=0x{address:x}" })
+          Command = $"@recover-cfg entry=0x{address:x}" })
       |> Array.toList
     sections @ functions
 
