@@ -1537,6 +1537,108 @@ type ParserTests() =
     ++ (VCMPBFPdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] BCDCPSGNdot (Decimal Copy Sign)``() =
+    "10221b41"
+    ++ (BCDCPSGNdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDSETSGNdot (Decimal Set Sign)``() =
+    "103f1d81"
+    ++ (BCDSETSGNdot ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDCFSQdot (Decimal Convert From Signed Quadword)``() =
+    "10221d81"
+    ++ (BCDCFSQdot ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDCTSQdot (Decimal Convert To Signed Quadword)``() =
+    "10201d81"
+    ++ (BCDCTSQdot ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDSdot (Decimal Shift)``() =
+    "10221cc1"
+    ++ (BCDSdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDUSdot (Decimal Unsigned Shift)``() =
+    "10221c81"
+    ++ (BCDUSdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDSRdot (Decimal Shift and Round)``() =
+    "10221dc1"
+    ++ (BCDSRdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDTRUNCdot (Decimal Truncate)``() =
+    "10221d01"
+    ++ (BCDTRUNCdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDUTRUNCdot (Decimal Unsigned Truncate)``() =
+    "10221d41"
+    ++ (BCDUTRUNCdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDCFNdot (Decimal Convert From National)``() =
+    "10271d81"
+    ++ (BCDCFNdot ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDCTNdot (Decimal Convert To National)``() =
+    "10251d81"
+    ++ (BCDCTNdot ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDCFZdot (Decimal Convert From Zoned)``() =
+    "10261d81"
+    ++ (BCDCFZdot ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDCTZdot (Decimal Convert To Zoned)``() =
+    "10241d81"
+    ++ (BCDCTZdot ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMUL10UQ (Vector Multiply-by-10 Unsigned Quadword)``() =
+    "10220201"
+    ++ (VMUL10UQ ** [ O.Reg V1A; O.Reg V2A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMUL10CUQ (Multiply-by-10 & write Carry-out Unsigned)``() =
+    "10220001"
+    ++ (VMUL10CUQ ** [ O.Reg V1A; O.Reg V2A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMUL10EUQ (Multiply-by-10 Extended Unsigned Quadword)``() =
+    "10221a41"
+    ++ (VMUL10EUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMUL10ECUQ (Multiply-by-10 Extended & write Carry-out)``() =
+    "10221841"
+    ++ (VMUL10ECUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

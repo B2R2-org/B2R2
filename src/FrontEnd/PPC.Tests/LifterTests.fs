@@ -4366,6 +4366,286 @@ type LifterTests() =
         V1B, 0x8000000080000000UL ]
     oracleNearest everyTarget "10221fc6" given wanted
 
+  /// <summary>
+  /// bcdus. vD, vA, vB shifts the 32 unsigned digits of vB by the signed byte
+  /// 7 of vA -- left by 2 here -- and sets CR6 from vB (Book I 6.15.4, p. 492):
+  /// the first bit always clear, as an unsigned value is never negative,
+  /// greater than for a nonzero vB. qemu-ppc64 -cpu power10 (8.2.2) sets the
+  /// first bit instead and reports on the shifted value rather than on vB,
+  /// which the manual rules out (deviations/ppc64/bcd_shift_cr.c), so these
+  /// values are the manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDUSdot shifts unsigned decimal digits``() =
+    (* bcdus. v1, v2, v3 *)
+    let given = [ V2A, 2UL; V3B, 0x12345UL ]
+    let wanted =
+      [ V1A, 0UL
+        V1B, 0x1234500UL
+        CR6_0, 0UL
+        CR6_1, 1UL
+        CR6_2, 0UL
+        CR6_3, 0UL ]
+    oracle only64 "10221c81" given wanted
+
+  /// <summary>
+  /// bcdcpsgn. vD, vA, vB writes the digits of vA with the sign code of vB;
+  /// CR6 compares the result with zero, 0b0001 where either operand is
+  /// invalid.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDCPSGNdot copies a decimal sign``() =
+    (* bcdcpsgn. v1, v2, v3 *)
+    let given = [ V2B, 0x000000987654321dUL; V3B, 0x000000000000000fUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 1UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x0000000000000000UL
+        V1B, 0x000000987654321fUL ]
+    oracle only64 "10221b41" given wanted
+
+  /// <summary>
+  /// bcdsetsgn. vD, vB, PS writes vB with the sign code 0b1101 if it is
+  /// negative, else 0b1100, or 0b1111 where PS is 1; CR6 compares it with
+  /// zero.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDSETSGNdot sets the preferred decimal sign``() =
+    (* bcdsetsgn. v1, v3, 0 *)
+    let given = [ V3B, 0x000000000000456aUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 1UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x0000000000000000UL
+        V1B, 0x000000000000456cUL ]
+    oracle only64 "103f1d81" given wanted
+
+  /// <summary>
+  /// bcdcfsq. vD, vB, PS writes the signed quadword vB as a signed packed
+  /// decimal; one beyond 31 digits sets the last bit of CR6 and leaves vD
+  /// undefined.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDCFSQdot converts a signed quadword to decimal``() =
+    (* bcdcfsq. v1, v3, 0 *)
+    let given = [ V3A, 0x0000007e37be2022UL; V3B, 0xc0914b267fffffffUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 1UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x9999999999999999UL
+        V1B, 0x999999999999999cUL ]
+    oracle only64 "10221d81" given wanted
+
+  /// <summary>
+  /// bcdctsq. vD, vB writes the signed packed decimal vB as a signed
+  /// quadword; CR6 compares it with zero.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDCTSQdot converts a decimal to a signed quadword``() =
+    (* bcdctsq. v1, v3 *)
+    let given = [ V3B, 0x000000000098765dUL ]
+    let wanted =
+      [ CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffffffffffffUL
+        V1B, 0xfffffffffffe7e33UL ]
+    oracle only64 "10201d81" given wanted
+
+  /// <summary>
+  /// bcds. vD, vA, vB, PS shifts the digits of vB left or right by the signed
+  /// byte 7 of vA, a nonzero digit shifted out on the left setting the last
+  /// bit of CR6.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDSdot shifts decimal digits``() =
+    (* bcds. v1, v2, v3, 0 *)
+    let given = [ V2A, 0x0000000000000002UL; V3B, 0x000000000012345cUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 1UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x0000000000000000UL
+        V1B, 0x000000001234500cUL ]
+    oracle only64 "10221cc1" given wanted
+
+  /// <summary>
+  /// bcdsr. vD, vA, vB, PS shifts as bcds. does and, shifting right, rounds
+  /// the magnitude up where the last digit shifted out is 5 or more.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDSRdot shifts and rounds decimal digits``() =
+    (* bcdsr. v1, v2, v3, 0 *)
+    let given = [ V2A, 0x00000000000000feUL; V3B, 0x000000000012355dUL ]
+    let wanted =
+      [ CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x0000000000000000UL
+        V1B, 0x000000000000124dUL ]
+    oracle only64 "10221dc1" given wanted
+
+  /// <summary>
+  /// bcdtrunc. vD, vA, vB, PS keeps the rightmost N digits of vB, N being
+  /// bits 48:63 of vA, a nonzero digit cut off setting the last bit of CR6.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDTRUNCdot truncates decimal digits``() =
+    (* bcdtrunc. v1, v2, v3, 0 *)
+    let given = [ V2A, 0x0000000000000003UL; V3B, 0x000000000012345cUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 1UL
+        CR6_2, 0UL
+        CR6_3, 1UL
+        V1A, 0x0000000000000000UL
+        V1B, 0x000000000000345cUL ]
+    oracle only64 "10221d01" given wanted
+
+  /// <summary>
+  /// bcdutrunc. vD, vA, vB keeps the rightmost N of the 32 unsigned digits of
+  /// vB as bcdtrunc. does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDUTRUNCdot truncates unsigned decimal digits``() =
+    (* bcdutrunc. v1, v2, v3 *)
+    let given = [ V2A, 0x0000000000000003UL; V3B, 0x0000000000012345UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 1UL
+        CR6_2, 0UL
+        CR6_3, 1UL
+        V1A, 0x0000000000000000UL
+        V1B, 0x0000000000000345UL ]
+    oracle only64 "10221d41" given wanted
+
+  /// <summary>
+  /// bcdcfn. vD, vB, PS writes the national decimal vB -- seven digit
+  /// halfwords and a sign halfword -- as a signed packed decimal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDCFNdot converts national decimal to packed``() =
+    (* bcdcfn. v1, v3, 0 *)
+    let given = [ V3A, 0x0030003000300030UL; V3B, 0x003000340032002dUL ]
+    let wanted =
+      [ CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x0000000000000000UL
+        V1B, 0x000000000000042dUL ]
+    oracle only64 "10271d81" given wanted
+
+  /// <summary>
+  /// bcdctn. vD, vB writes the low seven digits of the signed packed decimal
+  /// vB as a national decimal, more digits setting the last bit of CR6.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDCTNdot converts packed decimal to national``() =
+    (* bcdctn. v1, v3 *)
+    let given = [ V3B, 0x000000000000042dUL ]
+    let wanted =
+      [ CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x0030003000300030UL
+        V1B, 0x003000340032002dUL ]
+    oracle only64 "10251d81" given wanted
+
+  /// <summary>
+  /// bcdcfz. vD, vB, PS writes the zoned decimal vB -- a digit in the low
+  /// nibble of each byte -- as a signed packed decimal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDCFZdot converts zoned decimal to packed``() =
+    (* bcdcfz. v1, v3, 0 *)
+    let given = [ V3A, 0x3132333435363738UL; V3B, 0x3930313233343536UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 1UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x0000000000000001UL
+        V1B, 0x234567890123456cUL ]
+    oracle only64 "10261d81" given wanted
+
+  /// <summary>
+  /// bcdctz. vD, vB, PS writes the low sixteen digits of the signed packed
+  /// decimal vB as a zoned decimal, more digits setting the last bit of CR6.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDCTZdot converts packed decimal to zoned``() =
+    (* bcdctz. v1, v3, 0 *)
+    let given = [ V3B, 0x000000000000042dUL ]
+    let wanted =
+      [ CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x3030303030303030UL
+        V1B, 0x3030303030303472UL ]
+    oracle only64 "10241d81" given wanted
+
+  /// <summary>
+  /// vmul10uq vD, vA writes the low 128 bits of vA times ten.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMUL10UQ multiplies a quadword by ten``() =
+    (* vmul10uq v1, v2 *)
+    let given = [ V2A, 0x7fffffff80000000UL; V2B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xfffffffb00000009UL; V1B, 0xfffffff60000000aUL ]
+    oracle only64 "10220201" given wanted
+
+  /// <summary>
+  /// vmul10cuq vD, vA writes what vA times ten holds above 128 bits.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMUL10CUQ writes the carry of a times ten``() =
+    (* vmul10cuq v1, v2 *)
+    let given = [ V2A, 0x7fffffff80000000UL; V2B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000004UL ]
+    oracle only64 "10220001" given wanted
+
+  /// <summary>
+  /// vmul10euq vD, vA, vB writes the low 128 bits of vA times ten plus the
+  /// digit in the low nibble of vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMUL10EUQ multiplies a quadword by ten``() =
+    (* vmul10euq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xfffffffb00000009UL; V1B, 0xfffffff60000000aUL ]
+    oracle only64 "10221a41" given wanted
+
+  /// <summary>
+  /// vmul10ecuq vD, vA, vB writes what vA times ten plus the digit in the low
+  /// nibble of vB holds above 128 bits.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMUL10ECUQ writes the carry of a times ten``() =
+    (* vmul10ecuq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000004UL ]
+    oracle only64 "10221841" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the
