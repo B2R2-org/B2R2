@@ -2730,6 +2730,16 @@ let private parseEXTSWSLI bin =
   let op = if Bits.pick bin 0u = 0u then Op.EXTSWSLI else Op.EXTSWSLIdot
   struct (op, ThreeOperands(ra, rs, OprImm(uint64 sh)))
 
+/// setbc, setbcr, setnbc and setnbcr rT, BI, which name a CR bit where an X
+/// form keeps rA.
+let private parseSETBC op bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let bi = Bits.extract bin 20u 16u |> OprBI
+  if Bits.extract bin 15u 11u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (op, TwoOperands(rt, bi))
+
 /// The lane A forms of primary opcode 31, tried before the word dispatcher
 /// they otherwise fall back to. The forms on doublewords and the quadword
 /// pair need 64-bit registers, and the branch history buffer belongs to the
@@ -2738,16 +2748,30 @@ let private parse1FLaneA is64 fallback bin =
   match Bits.extract bin 10u 1u with
   | 0x016u ->
     parseICBT bin
+  | 0x03Bu when is64 ->
+    parseXFormPerm Op.CNTLZDM bin
   | 0x04Au ->
     parseXFormIndexed Op.ADDG6S bin
   | 0x080u ->
     parseSETB bin
+  | 0x09Bu ->
+    parseXFormCount Op.BRW bin
+  | 0x09Cu when is64 ->
+    parseXFormPerm Op.PDEPD bin
   | 0x0AAu ->
     parseADDEX bin
   | 0x0B6u when is64 ->
     parseSTQCX bin
+  | 0x0BBu when is64 ->
+    parseXFormCount Op.BRD bin
+  | 0x0BCu when is64 ->
+    parseXFormPerm Op.PEXTD bin
   | 0x0C0u ->
     parseCMPRB bin
+  | 0x0DBu ->
+    parseXFormCount Op.BRH bin
+  | 0x0DCu when is64 ->
+    parseXFormPerm Op.CFUGED bin
   | 0x0E0u when is64 ->
     parseCMPEQB bin
   | 0x109u when is64 ->
@@ -2762,20 +2786,30 @@ let private parse1FLaneA is64 fallback bin =
     parseMFBHRBE bin
   | 0x13Au ->
     parseXFormCount Op.CBCDTD bin
+  | 0x180u ->
+    parseSETBC Op.SETBC bin
   | 0x189u | 0x389u when is64 ->
     parseXOForm [| Op.DIVDEU; Op.DIVDEUdot; Op.DIVDEUO; Op.DIVDEUOdot |] bin
   | 0x18Bu | 0x38Bu ->
     parseXOForm [| Op.DIVWEU; Op.DIVWEUdot; Op.DIVWEUO; Op.DIVWEUOdot |] bin
+  | 0x1A0u ->
+    parseSETBC Op.SETBCR bin
   | 0x1A9u | 0x3A9u when is64 ->
     parseXOForm [| Op.DIVDE; Op.DIVDEdot; Op.DIVDEO; Op.DIVDEOdot |] bin
   | 0x1ABu | 0x3ABu ->
     parseXOForm [| Op.DIVWE; Op.DIVWEdot; Op.DIVWEO; Op.DIVWEOdot |] bin
   | 0x1AEu when is64 ->
     parseCLRBHRB bin
+  | 0x1C0u ->
+    parseSETBC Op.SETNBC bin
+  | 0x1E0u ->
+    parseSETBC Op.SETNBCR bin
   | 0x21Au ->
     parseXFormUnary Op.CNTTZW Op.CNTTZWdot bin
   | 0x23Au when is64 ->
     parseXFormUnary Op.CNTTZD Op.CNTTZDdot bin
+  | 0x23Bu when is64 ->
+    parseXFormPerm Op.CNTTZDM bin
   | 0x240u ->
     parseMCRXRX bin
   | 0x2F3u when is64 ->

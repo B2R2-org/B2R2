@@ -2662,6 +2662,115 @@ let stq (ins: Instruction) (bld: ILowUIRBuilder) =
     loadNative bld 64<rt> oddAddr := regVar bld odd
   }
 
+/// brd, brw and brh, which reverse the bytes of each doubleword, word or
+/// halfword of rS.
+let byteReverse ins (bld: ILowUIRBuilder) chunk =
+  lift bld ins {
+    let struct (ra, rs) = transTwoOprs ins bld
+    let piece k = reversedBytes (AST.extract rs chunk (k * int chunk)) chunk
+    ra := Array.init (int bld.RegType / int chunk) piece |> AST.revConcat
+  }
+
+/// Packs the bits of src under the ones of mask into the low bits of packed,
+/// keeping their order, and leaves in count how many there were.
+let private packUnder (bld: ILowUIRBuilder) packed count src mask =
+  append bld {
+    let cond = tmpVar bld 1<rt>
+    packed := AST.num0 64<rt>
+    count := AST.num0 64<rt>
+    for i in 0 .. 63 do
+      cond := AST.extract mask 1<rt> i
+      let bit = AST.zext 64<rt> (AST.extract src 1<rt> i)
+      packed := packed .| AST.ite cond (bit << count) (AST.num0 64<rt>)
+      count := count .+ AST.zext 64<rt> cond
+  }
+
+/// pextd rA, rS, rB, which packs the bits of rS under the ones of rB into the
+/// low bits of rA, keeping their order.
+let pextd ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let struct (packed, count) = tmpVars2 bld 64<rt>
+    packUnder bld packed count rs rb
+    ra := packed
+  }
+
+/// pdepd rA, rS, rB, which spreads the low bits of rS over the positions of
+/// the ones of rB, lowest first, and clears the rest.
+let pdepd ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let struct (spread, count) = tmpVars2 bld 64<rt>
+    let cond = tmpVar bld 1<rt>
+    spread := AST.num0 64<rt>
+    count := AST.num0 64<rt>
+    for i in 0 .. 63 do
+      cond := AST.extract rb 1<rt> i
+      let bit = ((rs >> count) .& AST.num1 64<rt>) << numI32 i 64<rt>
+      spread := spread .| AST.ite cond bit (AST.num0 64<rt>)
+      count := count .+ AST.zext 64<rt> cond
+    ra := spread
+  }
+
+/// <summary>
+/// cfuged rA, rS, rB, which packs the bits of rS under the ones of rB to the
+/// right of rA and the others to the left, each keeping their order. Where
+/// rB is all ones, nothing goes to the left, and the left part shifted out
+/// of the register is zero however far it goes.
+/// </summary>
+let cfuged ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let struct (right, ones) = tmpVars2 bld 64<rt>
+    let struct (left, zeros) = tmpVars2 bld 64<rt>
+    packUnder bld right ones rs rb
+    packUnder bld left zeros rs (AST.not rb)
+    ra := (left << ones) .| right
+  }
+
+/// <summary>
+/// cntlzdm rA, rS, rB, which counts the zeros of rS under the ones of rB from
+/// the most significant end to the first one there: the ones of rB above the
+/// highest one of rS &amp; rB, which smearing that one down to the bottom
+/// marks.
+/// </summary>
+let cntlzdm ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let x = tmpVar bld 64<rt>
+    x := rs .& rb
+    for shift in [ 1; 2; 4; 8; 16; 32 ] do
+      x := x .| (x >> numI32 shift 64<rt>)
+    x := rb .& AST.not x
+    popCountInto bld ra x 64
+  }
+
+/// <summary>
+/// cnttzdm rA, rS, rB, which counts the zeros of rS under the ones of rB from
+/// the least significant end to the first one there: the ones of rB below
+/// the lowest one of rS &amp; rB.
+/// </summary>
+let cnttzdm ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let x = tmpVar bld 64<rt>
+    x := rs .& rb
+    x := rb .& ((x .& AST.neg x) .- AST.num1 64<rt>)
+    popCountInto bld ra x 64
+  }
+
+/// setbc, setbcr, setnbc and setnbcr rT, BI, which give 1 -- or -1 for the
+/// negative forms -- where the CR bit BI is set, or clear for the reverse
+/// forms, and 0 otherwise.
+let setbc ins (bld: ILowUIRBuilder) negative reverse =
+  lift bld ins {
+    let struct (rt, bi) = transTwoOprs ins bld
+    let zero = AST.num0 bld.RegType
+    let value = if negative then AST.not zero else AST.num1 bld.RegType
+    let cond = if reverse then AST.not bi else bi
+    rt := AST.ite cond value zero
+  }
+
 (* The vector unit. A 128-bit vector register is modeled as two 64-bit halves
    (see the Register type), and every operation below works on those halves
    rather than on a 128-bit value, so nothing needs an intermediate wider than a

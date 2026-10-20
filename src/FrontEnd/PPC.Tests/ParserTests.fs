@@ -3327,6 +3327,85 @@ type ParserTests() =
     for hex in [ "7ca63b54"; "7ca63d54"; "7ca63f54"; "7ca305e6" ] do
       testUnsupported WordSize.Bit64 hex
 
+  [<TestMethod>]
+  member _.``[PPC64] BRD (byte-reverse doubleword)``() =
+    "7d060176"
+    ++ (BRD ** [ O.Reg R6; O.Reg R8 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] BRH (byte-reverse halfword)``() =
+    "7d0601b6"
+    ++ (BRH ** [ O.Reg R6; O.Reg R8 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] BRW (byte-reverse word)``() =
+    "7d060136"
+    ++ (BRW ** [ O.Reg R6; O.Reg R8 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC64] CFUGED (centrifuge doubleword)``() =
+    "7d0639b8"
+    ++ (CFUGED ** [ O.Reg R6; O.Reg R8; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] CNTLZDM (count leading zeros under a mask)``() =
+    "7d063876"
+    ++ (CNTLZDM ** [ O.Reg R6; O.Reg R8; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] CNTTZDM (count trailing zeros under a mask)``() =
+    "7d063c76"
+    ++ (CNTTZDM ** [ O.Reg R6; O.Reg R8; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] PDEPD (parallel bits deposit)``() =
+    "7d063938"
+    ++ (PDEPD ** [ O.Reg R6; O.Reg R8; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] PEXTD (parallel bits extract)``() =
+    "7d063978"
+    ++ (PEXTD ** [ O.Reg R6; O.Reg R8; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] SETBC (set boolean condition)``() =
+    "7ca90300"
+    ++ (SETBC ** [ O.Reg R5; O.BI 9u ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] SETBCR (set boolean condition reverse)``() =
+    "7ca90340"
+    ++ (SETBCR ** [ O.Reg R5; O.BI 9u ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] SETNBC (set negative boolean condition)``() =
+    "7ca90380"
+    ++ (SETNBC ** [ O.Reg R5; O.BI 9u ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] SETNBCR (set negative boolean condition reverse)``() =
+    "7ca903c0"
+    ++ (SETNBCR ** [ O.Reg R5; O.BI 9u ])
+    ||> testAllPPC
+
+  /// The reserved fields of the ISA 3.1 X forms: rB of brd, brh and brw, and
+  /// of setbc and its kin.
+  [<TestMethod>]
+  member _.``[PPC64] The ISA 3.1 X forms refuse their reserved bits``() =
+    for hex in [ "7d063976"; "7d0639b6"; "7d063936"; "7ca90b00"; "7ca90bc0" ] do
+      testUnsupported WordSize.Bit64 hex
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
