@@ -2591,6 +2591,222 @@ type ParserTests() =
   member _.``[PPC64] XVCVUXWSP (single-precision format)``() =
     testBoth "f0201aa0" (XVCVUXWSP ** [ O.Reg F1; O.Reg F3 ])
 
+  [<TestMethod>]
+  member _.``[PPC64] XSABSQP (VSX scalar absolute quad-precision)``() =
+    testBoth "fc201e48" (XSABSQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSADDQP``() =
+    testBoth "fc221808" (XSADDQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSADDQPO``() =
+    testBoth "fc221809" (XSADDQPO ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPEQQP (VSX scalar compare equal quad-precision)``() =
+    testBoth "fc221888" (XSCMPEQQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPEXPQP``() =
+    testBoth "fd021948" (XSCMPEXPQP ** [ O.Reg CR2; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPGEQP``() =
+    testBoth "fc221988" (XSCMPGEQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPGTQP``() =
+    testBoth "fc2219c8" (XSCMPGTQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPOQP (VSX scalar compare ordered quad-precision)``() =
+    testBoth "fd021908" (XSCMPOQP ** [ O.Reg CR2; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCMPUQP``() =
+    testBoth "fd021d08" (XSCMPUQP ** [ O.Reg CR2; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCPSGNQP (VSX scalar copy sign quad-precision)``() =
+    testBoth "fc2218c8" (XSCPSGNQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVDPQP``() =
+    testBoth "fc361e88" (XSCVDPQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVQPDP``() =
+    testBoth "fc341e88" (XSCVQPDP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVQPDPO``() =
+    testBoth "fc341e89" (XSCVQPDPO ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVQPSDZ``() =
+    testBoth "fc391e88" (XSCVQPSDZ ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVQPSQZ``() =
+    testBoth "fc281e88" (XSCVQPSQZ ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVQPSWZ``() =
+    testBoth "fc291e88" (XSCVQPSWZ ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVQPUDZ``() =
+    testBoth "fc311e88" (XSCVQPUDZ ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVQPUQZ``() =
+    testBoth "fc201e88" (XSCVQPUQZ ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVQPUWZ``() =
+    testBoth "fc211e88" (XSCVQPUWZ ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVSDQP``() =
+    testBoth "fc2a1e88" (XSCVSDQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVSQQP``() =
+    testBoth "fc2b1e88" (XSCVSQQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVUDQP``() =
+    testBoth "fc221e88" (XSCVUDQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVUQQP``() =
+    testBoth "fc231e88" (XSCVUQQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSDIVQP``() =
+    testBoth "fc221c48" (XSDIVQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSDIVQPO``() =
+    testBoth "fc221c49" (XSDIVQPO ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSIEXPQP (VSX scalar insert exponent quad-precision)``() =
+    testBoth "fc221ec8" (XSIEXPQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSMADDQP``() =
+    testBoth "fc221b08" (XSMADDQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSMADDQPO``() =
+    testBoth "fc221b09" (XSMADDQPO ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSMAXCQP (VSX scalar maximum type-c quad-precision)``() =
+    testBoth "fc221d48" (XSMAXCQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSMINCQP (VSX scalar minimum type-c quad-precision)``() =
+    testBoth "fc221dc8" (XSMINCQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSMSUBQP``() =
+    testBoth "fc221b48" (XSMSUBQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSMSUBQPO``() =
+    testBoth "fc221b49" (XSMSUBQPO ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSMULQP``() =
+    testBoth "fc221848" (XSMULQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSMULQPO``() =
+    testBoth "fc221849" (XSMULQPO ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSNABSQP``() =
+    testBoth "fc281e48" (XSNABSQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSNEGQP (VSX scalar negate quad-precision)``() =
+    testBoth "fc301e48" (XSNEGQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSNMADDQP``() =
+    testBoth "fc221b88" (XSNMADDQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSNMADDQPO``() =
+    testBoth "fc221b89" (XSNMADDQPO ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSNMSUBQP``() =
+    testBoth "fc221bc8" (XSNMSUBQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSNMSUBQPO``() =
+    testBoth "fc221bc9" (XSNMSUBQPO ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSRQPI``() =
+    let oprs = [ O.Imm 1UL; O.Reg V1A; O.Reg V3A; O.Imm 1UL ]
+    testBoth "fc211a0a" (XSRQPI ** oprs)
+
+  [<TestMethod>]
+  member _.``[PPC64] XSRQPIX``() =
+    let oprs = [ O.Imm 1UL; O.Reg V1A; O.Reg V3A; O.Imm 1UL ]
+    testBoth "fc211a0b" (XSRQPIX ** oprs)
+
+  [<TestMethod>]
+  member _.``[PPC64] XSRQPXP``() =
+    let oprs = [ O.Imm 1UL; O.Reg V1A; O.Reg V3A; O.Imm 1UL ]
+    testBoth "fc211a4a" (XSRQPXP ** oprs)
+
+  [<TestMethod>]
+  member _.``[PPC64] XSSQRTQP``() =
+    testBoth "fc3b1e48" (XSSQRTQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSSQRTQPO``() =
+    testBoth "fc3b1e49" (XSSQRTQPO ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSSUBQP``() =
+    testBoth "fc221c08" (XSSUBQP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSSUBQPO``() =
+    testBoth "fc221c09" (XSSUBQPO ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSTSTDCQP (VSX scalar test data class quad-precision)``() =
+    testBoth "fd011d88" (XSTSTDCQP ** [ O.Reg CR2; O.Reg V3A; O.Imm 1UL ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSXEXPQP (VSX scalar extract exponent quad-precision)``() =
+    testBoth "fc221e48" (XSXEXPQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSXSIGQP``() =
+    testBoth "fc321e48" (XSXSIGQP ** [ O.Reg V1A; O.Reg V3A ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSRQPI refuses R = 0 with RMC = 1``() =
+    testUnsupported WordSize.Bit64 "fc201a0a"
+
+  [<TestMethod>]
+  member _.``[PPC64] XSRQPI with R = 0 rounds by FPSCR with RMC = 3``() =
+    let oprs = [ O.Imm 0UL; O.Reg V1A; O.Reg V3A; O.Imm 3UL ]
+    testBoth "fc201e0a" (XSRQPI ** oprs)
+
+  [<TestMethod>]
+  member _.``[PPC64] XSABSQP refuses its last bit set``() =
+    testUnsupported WordSize.Bit64 "fc201e49"
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

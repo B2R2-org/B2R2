@@ -3543,6 +3543,8 @@ let parse3F bin =
     parseFNMSUBx bin
   | 0x1Fu ->
     parseFNMADDx bin
+  | 0x4u | 0x5u ->
+    ParsingVSX.parse3F bin
   | _ ->
     raise ParsingFailureException
 

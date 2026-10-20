@@ -372,6 +372,97 @@ let private conversionEncoders () =
     Op.XVCVHPSP, xx2 475u 24u
     Op.XVCVSPHP, xx2 475u 25u ]
 
+/// A quad X-form "vRT, vRA, vRB" of primary opcode 63, ro its last bit.
+let private quad3 xo ro ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Rg b ] -> word 63u (vr t) (vr a) (vr b) ((xo <<< 1) ||| ro)
+  | _ -> wrongOperands ins
+
+/// A quad compare: "BF, vRA, vRB".
+let private quadCR xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Rg b ] -> word 63u ((crf f) <<< 2) (vr a) (vr b) (xo <<< 1)
+  | _ -> wrongOperands ins
+
+/// A quad X-form "vRT, vRB" whose A field is part of the opcode.
+let private quad2 xo a ro ins =
+  match ins.Operands with
+  | [ Rg t; Rg b ] -> word 63u (vr t) a (vr b) ((xo <<< 1) ||| ro)
+  | _ -> wrongOperands ins
+
+/// xststdcqp, "BF, vRB, DCMX".
+let private quadDCMX ins =
+  match ins.Operands with
+  | [ Rg f; Rg b; Im d ] ->
+    let dcmx = unsigned 7 d
+    let t = ((crf f) <<< 2) ||| (dcmx >>> 5)
+    word 63u t (dcmx &&& 0x1Fu) (vr b) (708u <<< 1)
+  | _ ->
+    wrongOperands ins
+
+/// A Z23-form "R, vRT, vRB, RMC": R at the bottom of the A field, RMC
+/// above the eight-bit extended opcode.
+let private z23 xo ex ins =
+  match ins.Operands with
+  | [ Im r; Rg t; Rg b; Im rmc ] ->
+    let rest = ((unsigned 2 rmc) <<< 9) ||| (xo <<< 1) ||| ex
+    word 63u (vr t) (unsigned 1 r) (vr b) rest
+  | _ ->
+    wrongOperands ins
+
+/// The quad-precision forms.
+let private quadEncoders () =
+  [ Op.XSADDQP, quad3 4u 0u
+    Op.XSADDQPO, quad3 4u 1u
+    Op.XSMULQP, quad3 36u 0u
+    Op.XSMULQPO, quad3 36u 1u
+    Op.XSCMPEQQP, quad3 68u 0u
+    Op.XSCPSGNQP, quad3 100u 0u
+    Op.XSCMPOQP, quadCR 132u
+    Op.XSCMPEXPQP, quadCR 164u
+    Op.XSCMPGEQP, quad3 196u 0u
+    Op.XSCMPGTQP, quad3 228u 0u
+    Op.XSMADDQP, quad3 388u 0u
+    Op.XSMADDQPO, quad3 388u 1u
+    Op.XSMSUBQP, quad3 420u 0u
+    Op.XSMSUBQPO, quad3 420u 1u
+    Op.XSNMADDQP, quad3 452u 0u
+    Op.XSNMADDQPO, quad3 452u 1u
+    Op.XSNMSUBQP, quad3 484u 0u
+    Op.XSNMSUBQPO, quad3 484u 1u
+    Op.XSSUBQP, quad3 516u 0u
+    Op.XSSUBQPO, quad3 516u 1u
+    Op.XSDIVQP, quad3 548u 0u
+    Op.XSDIVQPO, quad3 548u 1u
+    Op.XSCMPUQP, quadCR 644u
+    Op.XSMAXCQP, quad3 676u 0u
+    Op.XSTSTDCQP, quadDCMX
+    Op.XSMINCQP, quad3 740u 0u
+    Op.XSABSQP, quad2 804u 0u 0u
+    Op.XSXEXPQP, quad2 804u 2u 0u
+    Op.XSNABSQP, quad2 804u 8u 0u
+    Op.XSNEGQP, quad2 804u 16u 0u
+    Op.XSXSIGQP, quad2 804u 18u 0u
+    Op.XSSQRTQP, quad2 804u 27u 0u
+    Op.XSSQRTQPO, quad2 804u 27u 1u
+    Op.XSCVQPUQZ, quad2 836u 0u 0u
+    Op.XSCVQPUWZ, quad2 836u 1u 0u
+    Op.XSCVUDQP, quad2 836u 2u 0u
+    Op.XSCVUQQP, quad2 836u 3u 0u
+    Op.XSCVQPSQZ, quad2 836u 8u 0u
+    Op.XSCVQPSWZ, quad2 836u 9u 0u
+    Op.XSCVSDQP, quad2 836u 10u 0u
+    Op.XSCVSQQP, quad2 836u 11u 0u
+    Op.XSCVQPUDZ, quad2 836u 17u 0u
+    Op.XSCVQPDP, quad2 836u 20u 0u
+    Op.XSCVQPDPO, quad2 836u 20u 1u
+    Op.XSCVDPQP, quad2 836u 22u 0u
+    Op.XSCVQPSDZ, quad2 836u 25u 0u
+    Op.XSIEXPQP, quad3 868u 0u
+    Op.XSRQPI, z23 5u 0u
+    Op.XSRQPIX, z23 5u 1u
+    Op.XSRQPXP, z23 37u 0u ]
+
 /// The single-precision estimates ISA 2.07 added.
 let private estimateEncoders () =
   [ Op.XSRESP, xx2 26u 0u
@@ -385,4 +476,5 @@ let vsxEncoders () =
       permuteEncoders ()
       arithmeticEncoders ()
       testEncoders ()
-      conversionEncoders () ]
+      conversionEncoders ()
+      quadEncoders () ]

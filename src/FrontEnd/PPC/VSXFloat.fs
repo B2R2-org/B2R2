@@ -396,7 +396,7 @@ let private crAndFPCC bld opr =
   struct ([| lt; gt; eq; un |], fpcc)
 
 /// Writes four bits to a CR field and, where asked, to FPCC.
-let private writeField bld opr withFPCC (bits: Expr[]) =
+let writeField bld opr withFPCC (bits: Expr[]) =
   let struct (cr, fpcc) = crAndFPCC bld opr
   let vals = Array.init 4 (fun _ -> tmpVar bld 1<rt>)
   append bld {
