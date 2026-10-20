@@ -2590,10 +2590,16 @@ let translate (ins: Instruction) bld =
   | Op.XVI16GER2SPP ->
     VSXMatrix.saturatingUpdate ins bld 16 true true
   (* Lane A: integer, branch, storage and system instructions. *)
+  | Op.ADDG6S ->
+    addg6s ins bld
   | Op.BCTAR ->
     bctar ins bld false
   | Op.BCTARL ->
     bctar ins bld true
+  | Op.CBCDTD ->
+    cbcdtd ins bld
+  | Op.CDTBCD ->
+    cdtbcd ins bld
   | Op.CLRBHRB | Op.ICBT ->
     nop ins bld
   | Op.DIVDE ->

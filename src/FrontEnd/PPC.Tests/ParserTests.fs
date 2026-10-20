@@ -3167,6 +3167,24 @@ type ParserTests() =
     ++ (DIVWEUOdot ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
     ||> testAllPPC
 
+  [<TestMethod>]
+  member _.``[PPC] ADDG6S (add and generate sixes)``() =
+    "7ca63894"
+    ++ (ADDG6S ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] CBCDTD (convert BCD to declets)``() =
+    "7d060274"
+    ++ (CBCDTD ** [ O.Reg R6; O.Reg R8 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] CDTBCD (convert declets to BCD)``() =
+    "7d060234"
+    ++ (CDTBCD ** [ O.Reg R6; O.Reg R8 ])
+    ||> testAllPPC
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

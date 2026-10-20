@@ -24882,6 +24882,57 @@ type LifterTests() =
         let after = run isa "7ca63f52" [ R6, a; R7, b ]
         expect 0xc0080000UL (after XER) $"{a:x} {nameOf isa}"
 
+  /// <summary>
+  /// addg6s adds rA and rB and gives 6 in each digit whose binary sum did
+  /// not carry out of it and 0 in each that did: the correction a BCD add
+  /// subtracts. Values from qemu-ppc64 -cpu power10 (the words file's vectors
+  /// and spec addg6s, whose rA is a BCD number plus 0x666...6, as the ISA's
+  /// programming note adds); the 32-bit processor's are the low words of the
+  /// same, as the 7457 has no addg6s and each digit's carry is the same.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] ADDG6S marks the digits that did not carry``() =
+    (* addg6s r5, r6, r7 *)
+    let cases =
+      [ 0x7fffffffffffffffUL, 1UL, 0x6000000000000000UL
+        1UL <<< 63, UInt64.MaxValue, 0x0666666666666666UL
+        0x7fffffffUL, 1UL, 0x6666666660000000UL
+        0xffffffff80000000UL, UInt64.MaxValue, 0x6666666UL
+        0x6666666666666fffUL, 1UL, 0x6666666666666000UL
+        0x789abcdef6789abcUL, 0x8765432109876544UL, 0UL
+        0x666666666666afffUL, 0x5001UL, 0x6666666666660000UL ]
+    for isa in ppc64s do
+      for a, b, r in cases do
+        expect r (run isa "7ca63894" [ R6, a; R7, b ] R5) $"{a:x} {nameOf isa}"
+    for a, b, r in cases do
+      let lo = 0xffffffffUL
+      let after = run ppc32 "7ca63894" [ R6, a &&& lo; R7, b &&& lo ] R5
+      expect (r &&& lo) after $"{a:x} ppc32"
+
+  /// <summary>
+  /// cdtbcd turns the two declets in the low 20 bits of each word of rS into
+  /// six BCD digits in the low 24 bits of that word of rA, and cbcdtd the
+  /// other way round; the rest of each word is zero. Values from qemu-ppc64
+  /// -cpu power10 (spec bcd, valid BCD for cbcdtd, any declets for cdtbcd);
+  /// the 32-bit processor's are the low words of the same.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] CDTBCD and CBCDTD convert declets and BCD digits``() =
+    (* cbcdtd r6, r8; cdtbcd r6, r8 *)
+    let cases =
+      [ "7d060274", 0x0033956300993908UL, 0x0006e6e300067caeUL
+        "7d060274", 0x0015817600414002UL, 0x000360f600085002UL
+        "7d060274", 0x0099999900000000UL, 0x0003fcff00000000UL
+        "7d060234", 0x6f0099956b01600aUL, 0x0002631500058080UL
+        "7d060234", 0xd3a6cad490c0f21dUL, 0x0033255400830815UL
+        "7d060234", 0x000fffff0000016eUL, 0x0099999900000888UL ]
+    for isa in ppc64s do
+      for hex, rs, ra in cases do
+        expect ra (run isa hex [ R8, rs ] R6) $"{hex} {rs:x} {nameOf isa}"
+    for hex, rs, ra in cases do
+      let lo = 0xffffffffUL
+      expect (ra &&& lo) (run ppc32 hex [ R8, rs &&& lo ] R6) $"{hex} ppc32"
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

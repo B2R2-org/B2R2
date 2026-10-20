@@ -2662,12 +2662,18 @@ let private parse1FLaneA is64 fallback bin =
   match Bits.extract bin 10u 1u with
   | 0x016u ->
     parseICBT bin
+  | 0x04Au ->
+    parseXFormIndexed Op.ADDG6S bin
   | 0x0B6u when is64 ->
     parseSTQCX bin
   | 0x114u when is64 ->
     parseLQARX bin
+  | 0x11Au ->
+    parseXFormCount Op.CDTBCD bin
   | 0x12Eu when is64 ->
     parseMFBHRBE bin
+  | 0x13Au ->
+    parseXFormCount Op.CBCDTD bin
   | 0x189u | 0x389u when is64 ->
     parseXOForm [| Op.DIVDEU; Op.DIVDEUdot; Op.DIVDEUO; Op.DIVDEUOdot |] bin
   | 0x18Bu | 0x38Bu ->
