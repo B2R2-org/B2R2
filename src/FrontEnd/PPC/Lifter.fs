@@ -1845,6 +1845,34 @@ let translate (ins: Instruction) bld =
     vecSignExtend ins bld 64<rt> 32<rt>
   | Op.VEXTSD2Q ->
     vecSignExtend ins bld 128<rt> 64<rt>
+  | Op.VRLWNM ->
+    vecRotateMask ins bld 32<rt> false
+  | Op.VRLDNM ->
+    vecRotateMask ins bld 64<rt> false
+  | Op.VRLQNM ->
+    vecRotateMask ins bld 128<rt> false
+  | Op.VRLWMI ->
+    vecRotateMask ins bld 32<rt> true
+  | Op.VRLDMI ->
+    vecRotateMask ins bld 64<rt> true
+  | Op.VRLQMI ->
+    vecRotateMask ins bld 128<rt> true
+  | Op.VSLQ ->
+    vecShiftQuad ins bld ShiftLeft
+  | Op.VSRQ ->
+    vecShiftQuad ins bld ShiftRight
+  | Op.VSRAQ ->
+    vecShiftQuad ins bld ShiftRightAlgebraic
+  | Op.VRLQ ->
+    vecShiftQuad ins bld RotateLeft
+  | Op.VSLV ->
+    vecShiftVariable ins bld true
+  | Op.VSRV ->
+    vecShiftVariable ins bld false
+  | Op.VSLDBI ->
+    vecShiftDoubleBits ins bld true
+  | Op.VSRDBI ->
+    vecShiftDoubleBits ins bld false
   (* End of lane V. *)
   | o ->
 #if DEBUG

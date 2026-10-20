@@ -1633,6 +1633,20 @@ let private parse04Unary bin =
   | 31u -> parseVXSubB Op.VCTZD bin
   | _ -> raise ParsingFailureException
 
+/// vsldbi/vsrdbi, the VN form "vD, vA, vB, SH": bit 9 tells left from right,
+/// bit 10 above it is zero, and the three-bit SH sits below them.
+let private parseVN bin =
+  let struct (_, oprs) = parseVX Op.VSLDBI bin
+  let sh = Bits.extract bin 8u 6u |> uint64 |> OprImm
+  let op =
+    match Bits.extract bin 10u 9u with
+    | 0u -> Op.VSLDBI
+    | 1u -> Op.VSRDBI
+    | _ -> raise ParsingFailureException
+  match oprs with
+  | ThreeOperands(vd, va, vb) -> struct (op, FourOperands(vd, va, vb, sh))
+  | _ -> raise ParsingFailureException
+
 /// maddhd/maddhdu/maddld, the VA form whose four registers are general ones.
 let private parseVAGpr op bin =
   let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1645,6 +1659,7 @@ let private parseVAGpr op bin =
 /// forms, whose fourth operand fills the field above.
 let private parse04Wide bitLen bin =
   match Bits.extract bin 5u 0u with
+  | 22u -> parseVN bin
   | 23u -> parseVA Op.VMSUMCUD bin
   | 32u -> parseVA Op.VMHADDSHS bin
   | 33u -> parseVA Op.VMHRADDSHS bin
@@ -1861,6 +1876,18 @@ let private parse04 bitLen bin =
       | 1358u -> parseVX Op.VPKSDUS bin
       | 1230u -> parseVX Op.VPKUDUS bin
       | 1538u -> parse04Unary bin
+      | 133u -> parseVX Op.VRLWMI bin
+      | 197u -> parseVX Op.VRLDMI bin
+      | 69u -> parseVX Op.VRLQMI bin
+      | 389u -> parseVX Op.VRLWNM bin
+      | 453u -> parseVX Op.VRLDNM bin
+      | 325u -> parseVX Op.VRLQNM bin
+      | 5u -> parseVX Op.VRLQ bin
+      | 261u -> parseVX Op.VSLQ bin
+      | 517u -> parseVX Op.VSRQ bin
+      | 773u -> parseVX Op.VSRAQ bin
+      | 1860u -> parseVX Op.VSLV bin
+      | 1796u -> parseVX Op.VSRV bin
       | 905u -> parseVX Op.VMULHSW bin
       | 649u -> parseVX Op.VMULHUW bin
       | 969u -> parseVX Op.VMULHSD bin

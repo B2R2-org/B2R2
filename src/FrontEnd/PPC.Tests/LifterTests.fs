@@ -3037,6 +3037,245 @@ type LifterTests() =
     let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffff00000001UL ]
     oracle only64 "103b1e02" given wanted
 
+  /// <summary>
+  /// vrldmi vD, vA, vB rotates each doubleword of vA by the count in bits
+  /// 58:63 of the matching doubleword of vB and inserts the bits of MASK(b,
+  /// e) of it into vD, b and e being bits 42:47 and 50:55, the rest of vD kept
+  /// (Book I 6.9.3, p. 411). Where the mask is whole, nothing of vD is kept
+  /// and QEMU agrees; where it is not, qemu-ppc64 -cpu power10 (8.2.2) writes
+  /// the masked rotate alone, dropping vD, which the manual rules out (the
+  /// case is deviations/ppc64/vrldmi.c), so the second run asserts the
+  /// manual: one bit inserted at the bottom of doubleword 0, one at the top
+  /// of doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRLDMI inserts the rotated bits into vD``() =
+    (* vrldmi v1, v2, v3 *)
+    let given =
+      [ V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL ]
+    let wanted = [ V1A, 0x0102030405060700UL; V1B, 0x08090a0b0c0d0e0fUL ]
+    oracle only64 "102218c5" given wanted
+    let given =
+      [ V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0bad0bad0bad0bacUL; V1B, 0x8bad0bad0bad0badUL ]
+    oracle only64 "102218c5" given wanted
+
+  /// <summary>
+  /// vrlwnm vD, vA, vB rotates each word of vA left by the count in the low
+  /// bits of the matching word of vB and keeps the bits of MASK(b, e), b and
+  /// e being the two fields eight and sixteen bits above the count.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRLWNM rotates each word and ANDs a mask``() =
+    (* vrlwnm v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x8000000000000000UL; V1B, 0x0000000100000000UL ]
+    oracle only64 "10221985" given wanted
+
+  /// <summary>
+  /// vrldnm vD, vA, vB rotates each doubleword of vA left by the count in the
+  /// low bits of the matching doubleword of vB and keeps the bits of MASK(b,
+  /// e), b and e being the two fields eight and sixteen bits above the count.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRLDNM rotates each doubleword and ANDs a mask``() =
+    (* vrldnm v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0xbfffc0007fff8000UL; V1B, 0x7f80ff00017f80ffUL ]
+    oracle only64 "102219c5" given wanted
+
+  /// <summary>
+  /// vrlqnm vD, vA, vB rotates each quadword of vA left by the count in the
+  /// low bits of the matching quadword of vB and keeps the bits of MASK(b,
+  /// e), b and e being the two fields eight and sixteen bits above the count.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRLQNM rotates each quadword and ANDs a mask``() =
+    (* vrlqnm v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0xbfffc0007fff8000UL; V1B, 0xbfc07f8000bfc07fUL ]
+    oracle only64 "10221945" given wanted
+
+  /// <summary>
+  /// vrlwmi vD, vA, vB rotates each word of vA as the matching word of vB
+  /// says and inserts the bits of MASK(b, e) of the result into vD, keeping
+  /// the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRLWMI rotates each word and inserts it``() =
+    (* vrlwmi v1, v2, v3 *)
+    let given =
+      [ V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x3fffc000ffff8000UL; V1B, 0x0bad0bac017f80ffUL ]
+    oracle only64 "10221885" given wanted
+
+  /// <summary>
+  /// vrlqmi vD, vA, vB rotates each quadword of vA as the matching quadword
+  /// of vB says and inserts the bits of MASK(b, e) of the result into vD,
+  /// keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRLQMI rotates each quadword and inserts it``() =
+    (* vrlqmi v1, v2, v3 *)
+    let given =
+      [ V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0xbfffc0007fff8000UL; V1B, 0xbfc07f8000bfc07fUL ]
+    oracle only64 "10221845" given wanted
+
+  /// <summary>
+  /// vslq vD, vA, vB shifts vA, one 128-bit number, left by the count in bits
+  /// 57:63 of vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSLQ shifts the quadword left``() =
+    (* vslq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x5555555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xaaaaaaaaaaaaaaaaUL
+        V3B, 0xaaaaaaaaaaaaaaaaUL ]
+    let wanted = [ V1A, 0x5555555555555555UL; V1B, 0x5555540000000000UL ]
+    oracle only64 "10221905" given wanted
+
+  /// <summary>
+  /// vsrq vD, vA, vB shifts vA, one 128-bit number, right by the count in
+  /// bits 57:63 of vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSRQ shifts the quadword right``() =
+    (* vsrq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x5555555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xaaaaaaaaaaaaaaaaUL
+        V3B, 0xaaaaaaaaaaaaaaaaUL ]
+    let wanted = [ V1A, 0x0000000000155555UL; V1B, 0x5555555555555555UL ]
+    oracle only64 "10221a05" given wanted
+
+  /// <summary>
+  /// vsraq vD, vA, vB shifts vA, one 128-bit number, right algebraically by
+  /// the count in bits 57:63 of vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSRAQ shifts the quadword right algebraically``() =
+    (* vsraq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x5555555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xaaaaaaaaaaaaaaaaUL
+        V3B, 0xaaaaaaaaaaaaaaaaUL ]
+    let wanted = [ V1A, 0x0000000000155555UL; V1B, 0x5555555555555555UL ]
+    oracle only64 "10221b05" given wanted
+
+  /// <summary>
+  /// vrlq vD, vA, vB rotates vA, one 128-bit number, left by the count in
+  /// bits 57:63 of vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRLQ rotates the quadword left``() =
+    (* vrlq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xbfffffffc0000000UL; V1B, 0x7fffffff80000000UL ]
+    oracle only64 "10221805" given wanted
+
+  /// <summary>
+  /// vslv vD, vA, vB shifts each byte of vA left by the low three bits of the
+  /// matching byte of vB, filling from the next byte of vA, and from zero
+  /// after the last.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSLV shifts each byte left by its own count``() =
+    (* vslv v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x7fffffff0000007fUL; V1B, 0xffffff8000000001UL ]
+    oracle only64 "10221f44" given wanted
+
+  /// <summary>
+  /// vsrv vD, vA, vB shifts each byte of vA right by the low three bits of
+  /// the matching byte of vB, filling from the previous byte of vA, and from
+  /// zero before the first.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSRV shifts each byte right by its own count``() =
+    (* vsrv v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x7fffffffff000000UL; V1B, 0x01ffffff00000001UL ]
+    oracle only64 "10221f04" given wanted
+
+  /// <summary>
+  /// vsldbi vD, vA, vB, SH writes the 128 bits of vA || vB that start SH bits
+  /// from its left end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSLDBI shifts a register pair left by bits``() =
+    (* vsldbi v1, v2, v3, 2 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xfffffffe00000003UL; V1B, 0xfffffffc00000004UL ]
+    oracle only64 "10221896" given wanted
+
+  /// <summary>
+  /// vsrdbi vD, vA, vB, SH writes the 128 bits of vA || vB that end SH bits
+  /// from its right end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSRDBI shifts a register pair right by bits``() =
+    (* vsrdbi v1, v2, v3, 2 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x400000007fffffffUL; V1B, 0xdfffffffe0000000UL ]
+    oracle only64 "10221a96" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the
