@@ -316,11 +316,14 @@ type LifterTests() =
     let values = Map.ofList regs
     (fun r -> Map.find r values), Map.ofList memory
 
-  /// The eight bytes of memory a sequence left at an address, read most
-  /// significant first.
-  let doubleword (left: Map<uint64, byte[]>) at =
-    Array.init 8 (fun i -> left[at + uint64 i][0])
+  /// The bytes of memory a sequence left at an address, as many as asked
+  /// for, read most significant first.
+  let valueAt (left: Map<uint64, byte[]>) at count =
+    Array.init count (fun i -> left[at + uint64 i][0])
     |> Array.fold (fun acc b -> (acc <<< 8) ||| uint64 b) 0UL
+
+  /// The eight bytes of memory a sequence left at an address.
+  let doubleword left at = valueAt left at 8
 
   /// What each register holds after one word at an address ran, the jump out
   /// of the instruction that ends it having been turned into a write of its
@@ -25301,6 +25304,71 @@ type LifterTests() =
         let given bit = [ CR2_1, bit; R5, 0xbad0badUL ]
         expect set (run isa hex (given 1UL) R5) $"{hex} {nameOf isa}"
         expect clear (run isa hex (given 0UL) R5) $"{hex} {nameOf isa}"
+
+  /// <summary>
+  /// popcntb, popcntw, prtyw and cmpb work on bytes and words, and the ISA
+  /// gives them to a 32-bit processor as well, which computes on its one
+  /// word what a 64-bit one does on the low word of a register. Values from
+  /// qemu-ppc64 -cpu power10 (the words file and spec gate32); the 7457
+  /// refuses all four, so the 32-bit expectations are the low words.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] POPCNTB, POPCNTW, PRTYW and CMPB on either processor``() =
+    let a, b = 0x8000000180ff0f01UL, 0x1234567808ff0f01UL
+    (* popcntb r6,r8; popcntw r6,r8; prtyw r6,r8; cmpb r6,r8,r7 *)
+    let popcntb, popcntw, prtyw, cmpb =
+      "7d0600f4", "7d0602f4", "7d060134", "7d063bf8"
+    let cases =
+      [ popcntb, a, 0UL, 0x100000101080401UL
+        popcntb, b, 0UL, 0x203040401080401UL
+        popcntw, a, 0UL, 0x20000000eUL
+        popcntw, b, 0UL, 0xd0000000eUL
+        prtyw, a, 0UL, 0x100000001UL
+        prtyw, b, 0UL, 1UL
+        cmpb, a, 3UL, 0xffff0000000000UL
+        cmpb, b, a, 0xffffffUL
+        cmpb, 1UL, 0x80000000UL, 0xffffffff00ffff00UL ]
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, rs, rb, ra in cases do
+        let case = $"{hex} {rs:x} {rb:x} {nameOf isa}"
+        let given = [ R8, rs &&& ones isa; R7, rb &&& ones isa ]
+        expect (ra &&& ones isa) (run isa hex given R6) case
+
+  /// <summary>
+  /// lbarx and lharx load a byte or halfword and reserve it, and stbcx. and
+  /// sthcx. store the low byte or halfword of rS while the reservation holds
+  /// and clear it, so a second one stores nothing. The ISA gives all four to
+  /// a 32-bit processor as well. Values from qemu-ppc64 -cpu power10
+  /// running lbarx r5,0,r6; stbcx. r7,0,r6; stbcx. r7,0,r6 and the same with
+  /// lharx and sthcx. in each byte order (specs gate32, gate32le); the 7457
+  /// refuses all four, so the 32-bit expectations are the big-endian 64-bit
+  /// processor's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LBARX, LHARX, STBCX. and STHCX. on either processor``() =
+    let ea = 0x20200080UL
+    let memory = [ ea, ByteArray.ofHexString "8899aabbccddeeff" ]
+    let field = [ CR0_0; CR0_1; CR0_2; CR0_3 ]
+    let state = [ R5; R6; R7; RES; ExMonAddr; ExMonVal; XER ] @ field
+    let given = [ R6, ea; R7, 0x80ff0f01UL ]
+    (* lbarx r5,0,r6; stbcx. r7,0,r6 -- lharx r5,0,r6; sthcx. r7,0,r6 *)
+    for isa, half, halfWord in
+      [ ppc32, 0x8899UL, 0x0f01aabbUL
+        ppc64, 0x8899UL, 0x0f01aabbUL
+        ppc64le, 0x9988UL, 0x010faabbUL ] do
+      let cases =
+        [ "7ca03068", "7ce0356d", 0x88UL, 0x0199aabbUL
+          "7ca030e8", "7ce035ad", half, halfWord ]
+      for load, store, loaded, word in cases do
+        let case = $"{load} {nameOf isa}"
+        let after, left = sequence isa [ load; store ] state given memory
+        expect loaded (after R5) case
+        expect 0b0010UL (cr0 after) case
+        expect word (valueAt left ea 4) case
+        let hexes = [ load; store; store ]
+        let after, left = sequence isa hexes state given memory
+        expect 0UL (cr0 after) case
+        expect word (valueAt left ea 4) case
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
