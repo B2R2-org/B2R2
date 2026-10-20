@@ -25997,6 +25997,110 @@ type LifterTests() =
       let after, left = smallReserve isa [ load; store; store ]
       expect 0UL (cr0 after) (nameOf isa)
       expect word (valueAt left ea 4) (nameOf isa)
+  /// <summary>
+  /// dcbt is a hint, whatever its TH, and changes no register and no
+  /// memory. QEMU runs every TH tested (0, 1, 8, 16, 17; spec cachesync).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCBT changes nothing whatever its TH``() =
+    (* dcbt r6, r7; dcbt r6, r7, 1; dcbt r6, r7, 16 *)
+    for isa in all3 do
+      for hex in [ "7c063a2c"; "7c263a2c"; "7e063a2c" ] do
+        expect 0UL (uint64 (writes isa hex).Length) $"{hex} {nameOf isa}"
+
+  /// <summary>
+  /// dcbtst is a hint, whatever its TH, and changes no register and no
+  /// memory. QEMU runs every TH tested (0, 1, 16; spec cachesync).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCBTST changes nothing whatever its TH``() =
+    (* dcbtst r6, r7; dcbtst r6, r7, 1; dcbtst r6, r7, 16 *)
+    for isa in all3 do
+      for hex in [ "7c0639ec"; "7c2639ec"; "7e0639ec" ] do
+        expect 0UL (uint64 (writes isa hex).Length) $"{hex} {nameOf isa}"
+
+  /// <summary>
+  /// dcbf flushes a cache block this model does not keep, so for every L
+  /// the ISA defines -- 0, 1, 3, 4 and 6 -- it changes no register and no
+  /// memory. QEMU 8.2.2 runs only L = 0 and 1 and refuses the others (spec
+  /// cachesync, deviations/ppc64/dcbfps.c); the manual wins.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCBF changes nothing for every L``() =
+    (* dcbf r6, r7, L for L = 0, 1, 3, 4, 6 *)
+    let words = [ "7c0638ac"; "7c2638ac"; "7c6638ac"; "7c8638ac"; "7cc638ac" ]
+    for isa in all3 do
+      for hex in words do
+        expect 0UL (uint64 (writes isa hex).Length) $"{hex} {nameOf isa}"
+
+  /// <summary>
+  /// ptesync orders page table updates against later accesses; one
+  /// processor running one instruction at a time has nothing to order, so
+  /// it changes no register and no memory. QEMU runs it (spec cachesync).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] PTESYNC changes nothing``() =
+    (* sync 2, 0 *)
+    for isa in all3 do
+      expect 0UL (uint64 (writes isa "7c4004ac").Length) (nameOf isa)
+
+  /// <summary>
+  /// phwsync is the heavyweight barrier extended to persistent storage; with
+  /// nothing to order it changes no register and no memory. QEMU 8.2.2
+  /// refuses it (spec cachesync, deviations/ppc64/phwsync.c); the manual
+  /// wins.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] PHWSYNC changes nothing``() =
+    (* sync 4, 0 *)
+    for isa in all3 do
+      expect 0UL (uint64 (writes isa "7c8004ac").Length) (nameOf isa)
+
+  /// <summary>
+  /// plwsync is the lightweight barrier extended to persistent storage; with
+  /// nothing to order it changes no register and no memory. QEMU 8.2.2
+  /// refuses it (spec cachesync, deviations/ppc64/phwsync.c); the manual
+  /// wins.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] PLWSYNC changes nothing``() =
+    (* sync 5, 0 *)
+    for isa in all3 do
+      expect 0UL (uint64 (writes isa "7ca004ac").Length) (nameOf isa)
+
+  /// <summary>
+  /// stncisync orders stores to storage that is not caching inhibited; with
+  /// nothing to order it changes no register and no memory. QEMU 8.2.2
+  /// refuses it (spec cachesync, deviations/ppc64/phwsync.c); the manual
+  /// wins.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STNCISYNC changes nothing``() =
+    (* sync 1, 1 *)
+    for isa in all3 do
+      expect 0UL (uint64 (writes isa "7c2104ac").Length) (nameOf isa)
+
+  /// <summary>
+  /// stcisync orders stores to caching inhibited storage; with nothing to
+  /// order it changes no register and no memory. QEMU 8.2.2 refuses it (spec
+  /// cachesync, deviations/ppc64/phwsync.c); the manual wins.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STCISYNC changes nothing``() =
+    (* sync 0, 2 *)
+    for isa in all3 do
+      expect 0UL (uint64 (writes isa "7c0204ac").Length) (nameOf isa)
+
+  /// <summary>
+  /// stsync orders stores; with nothing to order it changes no register and
+  /// no memory. QEMU 8.2.2 refuses it (spec cachesync,
+  /// deviations/ppc64/phwsync.c); the manual wins.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STSYNC changes nothing``() =
+    (* sync 0, 3 *)
+    for isa in all3 do
+      expect 0UL (uint64 (writes isa "7c0304ac").Length) (nameOf isa)
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added

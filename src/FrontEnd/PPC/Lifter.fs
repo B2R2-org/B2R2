@@ -340,7 +340,8 @@ let translate (ins: Instruction) bld =
     fsqrt ins true true bld
   | Op.FSQRTSdot ->
     fsqrt ins true false bld
-  | Op.ISYNC | Op.LWSYNC | Op.SYNC ->
+  | Op.ISYNC | Op.LWSYNC | Op.SYNC | Op.PTESYNC | Op.PHWSYNC | Op.PLWSYNC
+  | Op.STNCISYNC | Op.STCISYNC | Op.STSYNC ->
     nop ins bld
   | Op.LBZ ->
     lbz ins bld

@@ -807,6 +807,14 @@ let private xBare po xo ins =
   | _ -> wrongOperands ins
 
 /// lwsync, which is the barrier the field above it tells from the whole one.
+/// dcbt, dcbtst and dcbf, which take their TH or L hint as an optional third
+/// operand, kept where an X form keeps rD.
+let private xCacheHint xo ins =
+  match ins.Operands with
+  | [ Rg a; Rg b ] -> xForm 31u 0u (gpr a) (gpr b) xo 0u
+  | [ Rg a; Rg b; Im h ] -> xForm 31u (unsigned 5 h) (gpr a) (gpr b) xo 0u
+  | _ -> wrongOperands ins
+
 let private xLightBarrier ins =
   match ins.Operands with
   | [] -> xForm 31u 1u 0u 0u 598u 0u
@@ -850,9 +858,9 @@ let systemEncoders () =
     Op.CRCLR, xCondConstant 193u
     Op.CRSET, xCondConstant 289u
     Op.DCBST, xAb 54u
-    Op.DCBF, xAb 86u
-    Op.DCBTST, xAb 246u
-    Op.DCBT, xAb 278u
+    Op.DCBF, xCacheHint 86u
+    Op.DCBTST, xCacheHint 246u
+    Op.DCBT, xCacheHint 278u
     Op.DCBI, xAb 470u
     Op.DCBA, xAb 758u
     Op.ICBI, xAb 982u
@@ -1007,6 +1015,12 @@ let private setCondition xo ins =
   | [ Rg d; Bit bi ] -> xForm 31u (gpr d) bi 0u xo 0u
   | _ -> wrongOperands ins
 
+/// A sync whose L and SC name one of its barriers.
+let private barrier l sc ins =
+  match ins.Operands with
+  | [] -> xForm 31u l sc 0u 598u 0u
+  | _ -> wrongOperands ins
+
 /// The extended divides, by extended opcode, with the names of their plain
 /// and their overflow-recording forms.
 let private extendedDivides =
@@ -1015,8 +1029,9 @@ let private extendedDivides =
     425u, (Op.DIVDE, Op.DIVDEdot), (Op.DIVDEO, Op.DIVDEOdot)
     427u, (Op.DIVWE, Op.DIVWEdot), (Op.DIVWEO, Op.DIVWEOdot) ]
 
-/// The instructions of lane A.
-let laneAEncoders bitLen =
+/// The ISA 2.06 and 2.07 forms of lane A: the server branch, event and
+/// history facilities, the quadword moves and the decimal assists.
+let private serverEncoders =
   let divide (xo, plain, ovf) = overflowing xDab xo plain ovf
   [ Op.BCTAR, targetBranch 0u
     Op.BCTARL, targetBranch 1u
@@ -1030,8 +1045,12 @@ let laneAEncoders bitLen =
     Op.STQ, storeQuad
     Op.ADDG6S, xDab 74u 0u
     Op.CDTBCD, xAs 282u 0u
-    Op.CBCDTD, xAs 314u 0u
-    Op.SETB, setBoolean
+    Op.CBCDTD, xAs 314u 0u ]
+  @ List.collect divide extendedDivides
+
+/// The ISA 3.0 forms of lane A.
+let private power9Encoders bitLen =
+  [ Op.SETB, setBoolean
     Op.ADDEX, addExtended
     Op.CMPRB, compareRanged
     Op.CMPEQB, compareField 224u
@@ -1043,8 +1062,13 @@ let laneAEncoders bitLen =
     Op.MODUD, xDab 265u 0u
     Op.MODUW, xDab 267u 0u
     Op.MODSD, xDab 777u 0u
-    Op.MODSW, xDab 779u 0u
-    Op.BRD, xAs 187u 0u
+    Op.MODSW, xDab 779u 0u ]
+  @ recording xAs 538u Op.CNTTZW Op.CNTTZWdot
+  @ recording xAs 570u Op.CNTTZD Op.CNTTZDdot
+
+/// The ISA 3.1 forms of lane A, the barriers among them.
+let private power10Encoders =
+  [ Op.BRD, xAs 187u 0u
     Op.BRW, xAs 155u 0u
     Op.BRH, xAs 219u 0u
     Op.CFUGED, xAsb 220u 0u
@@ -1055,7 +1079,14 @@ let laneAEncoders bitLen =
     Op.SETBC, setCondition 384u
     Op.SETBCR, setCondition 416u
     Op.SETNBC, setCondition 448u
-    Op.SETNBCR, setCondition 480u ]
-  @ recording xAs 538u Op.CNTTZW Op.CNTTZWdot
-  @ recording xAs 570u Op.CNTTZD Op.CNTTZDdot
-  @ List.collect divide extendedDivides
+    Op.SETNBCR, setCondition 480u
+    Op.PTESYNC, barrier 2u 0u
+    Op.PHWSYNC, barrier 4u 0u
+    Op.PLWSYNC, barrier 5u 0u
+    Op.STNCISYNC, barrier 1u 1u
+    Op.STCISYNC, barrier 0u 2u
+    Op.STSYNC, barrier 0u 3u ]
+
+/// The instructions of lane A.
+let laneAEncoders bitLen =
+  serverEncoders @ power9Encoders bitLen @ power10Encoders
