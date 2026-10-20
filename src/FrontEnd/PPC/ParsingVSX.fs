@@ -243,6 +243,8 @@ let private parseXO347 bin =
   match Bits.extract bin 20u 16u with
   | 0u -> parseToGPR Op.XSXEXPDP bin
   | 1u -> parseToGPR Op.XSXSIGDP bin
+  | 16u -> parseXX2 Op.XSCVHPDP bin
+  | 17u -> parseXX2 Op.XSCVDPHP bin
   | _ -> raise ParsingFailureException
 
 /// The XX2 forms of extended opcode 475, which its A field tells apart.
@@ -255,7 +257,11 @@ let private parseXO475 bin =
   | 8u -> parseXX2 Op.XVXEXPSP bin
   | 9u -> parseXX2 Op.XVXSIGSP bin
   | 15u -> parseXX2 Op.XXBRW bin
+  | 16u -> parseXX2 Op.XVCVBF16SPN bin
+  | 17u -> parseXX2 Op.XVCVSPBF16 bin
   | 23u -> parseXX2 Op.XXBRD bin
+  | 24u -> parseXX2 Op.XVCVHPSP bin
+  | 25u -> parseXX2 Op.XVCVSPHP bin
   | 31u -> parseXX2 Op.XXBRQ bin
   | _ -> raise ParsingFailureException
 
@@ -342,23 +348,30 @@ let parse3C bin =
   | 90u -> parseXX2 Op.XSREDP bin
   | 106u -> parseXX2CR Op.XSTSQRTDP bin
   | 107u -> parseXX2 Op.XSRDPIC bin
+  | 136u -> parseXX2 Op.XVCVSPUXWS bin
   | 137u -> parseXX2 Op.XVRSPI bin
   | 138u -> parseXX2 Op.XVRSQRTESP bin
   | 139u -> parseXX2 Op.XVSQRTSP bin
+  | 152u -> parseXX2 Op.XVCVSPSXWS bin
   | 153u -> parseXX2 Op.XVRSPIZ bin
   | 154u -> parseXX2 Op.XVRESP bin
   | 165u -> parseXX2Uim Op.XXEXTRACTUW bin
+  | 168u -> parseXX2 Op.XVCVUXWSP bin
   | 169u -> parseXX2 Op.XVRSPIP bin
   | 170u -> parseXX2CR Op.XVTSQRTSP bin
   | 171u -> parseXX2 Op.XVRSPIC bin
   | 180u -> parseLXVKQ bin
   | 181u -> parseXX2Uim Op.XXINSERTW bin
+  | 184u -> parseXX2 Op.XVCVSXWSP bin
   | 185u -> parseXX2 Op.XVRSPIM bin
+  | 200u -> parseXX2 Op.XVCVDPUXWS bin
   | 201u -> parseXX2 Op.XVRDPI bin
   | 202u -> parseXX2 Op.XVRSQRTEDP bin
   | 203u -> parseXX2 Op.XVSQRTDP bin
+  | 216u -> parseXX2 Op.XVCVDPSXWS bin
   | 217u -> parseXX2 Op.XVRDPIZ bin
   | 218u -> parseXX2 Op.XVREDP bin
+  | 232u -> parseXX2 Op.XVCVUXWDP bin
   | 233u -> parseXX2 Op.XVRDPIP bin
   | 234u -> parseXX2CR Op.XVTSQRTDP bin
   | 235u -> parseXX2 Op.XVRDPIC bin
@@ -366,10 +379,20 @@ let parse3C bin =
   | 298u -> parseScalarDCMX Op.XSTSTDCSP bin
   | 347u -> parseXO347 bin
   | 362u -> parseScalarDCMX Op.XSTSTDCDP bin
+  | 392u -> parseXX2 Op.XVCVSPUXDS bin
+  | 393u -> parseXX2 Op.XVCVDPSP bin
+  | 408u -> parseXX2 Op.XVCVSPSXDS bin
   | 409u -> parseXX2 Op.XVABSSP bin
+  | 424u -> parseXX2 Op.XVCVUXDSP bin
   | 425u -> parseXX2 Op.XVNABSSP bin
+  | 440u -> parseXX2 Op.XVCVSXDSP bin
   | 441u -> parseXX2 Op.XVNEGSP bin
+  | 456u -> parseXX2 Op.XVCVDPUXDS bin
+  | 457u -> parseXX2 Op.XVCVSPDP bin
+  | 472u -> parseXX2 Op.XVCVDPSXDS bin
   | 473u -> parseXX2 Op.XVABSDP bin
   | 475u -> parseXO475 bin
+  | 488u -> parseXX2 Op.XVCVUXDDP bin
   | 489u -> parseXX2 Op.XVNABSDP bin
+  | 504u -> parseXX2 Op.XVCVSXDDP bin
   | _ -> parse3CXX3 bin

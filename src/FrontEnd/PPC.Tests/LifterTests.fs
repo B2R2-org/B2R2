@@ -15879,6 +15879,1429 @@ type LifterTests() =
       [ F1, 0x80000000000001UL; VSRL1, 0x923456UL ]
       []
 
+  /// <summary>
+  /// xscvdphp xT, xB rounds the double in doubleword 0 of xB to half precision
+  /// in the direction FPSCR[RN] names, zero-extends it into doubleword 0 of xT,
+  /// clears doubleword 1 and sets FPRF to the class of the half: the largest
+  /// half, a value that overflows it in some directions only, ties at the
+  /// denormal and the normal end, a value too small for any half, a signalling
+  /// NaN (quieted), -0 and -Inf.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVDPHP rounds a double to a half``() =
+    (* xscvdphp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x40effc0000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x7bffUL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x40effc0000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x7bffUL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x40effc0000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7bffUL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x40effc0000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x7bffUL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x40effe0000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x7c00UL; VSRL1, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x40effe0000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x7bffUL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x40effe0000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7c00UL; VSRL1, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x40effe0000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x7bffUL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3e60000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3e60000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3e60000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x1UL; VSRL1, 0x0UL; FPSCR, 0x14UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3e60000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0020000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0020000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0020000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x3c01UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0020000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0010000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0010000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0010000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x3c01UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0010000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ddb7cdfd9d7bdbbUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ddb7cdfd9d7bdbbUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ddb7cdfd9d7bdbbUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x1UL; VSRL1, 0x0UL; FPSCR, 0x14UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ddb7cdfd9d7bdbbUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3e70000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x1UL; VSRL1, 0x0UL; FPSCR, 0x14UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff4000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x7f00UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x8000UL; VSRL1, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0xfc00UL; VSRL1, 0x0UL; FPSCR, 0x9UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xc0f0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0xfc00UL; VSRL1, 0x0UL; FPSCR, 0x9UL ]
+      []
+
+  /// <summary>
+  /// xscvhpdp xT, xB widens the half in halfword 3 of xB to a double in
+  /// doubleword 0 of xT, exactly, a denormal normalized and a signalling NaN
+  /// quieted; doubleword 1 is cleared and FPRF set.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVHPDP widens a half to a double``() =
+    (* xscvhpdp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0301d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3c00UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x3ff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x3e70000000000000UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x3f0ff80000000000UL; VSRL1, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7c00UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x7ff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfc00UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0xfff0000000000000UL; VSRL1, 0x0UL; FPSCR, 0x9UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7e01UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x7ff8040000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7d00UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x7ffc000000000000UL; VSRL1, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0301d6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x8000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff0000000000000UL ]
+      []
+      [ F1, 0x8000000000000000UL; VSRL1, 0x0UL; FPSCR, 0x12UL ]
+      []
+
+  /// <summary>
+  /// xvcvsphp xT, xB rounds each single of xB to half precision in the
+  /// direction FPSCR[RN] names, into the low halfword of its word, the high
+  /// halfword cleared; every direction over ties, the range edge, denormals and
+  /// a NaN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSPHP rounds singles to halves``() =
+    (* xvcvsphp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f800000477fe000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x477ff00033800000UL ]
+      []
+      [ F1, 0x3c0000007bffUL; VSRL1, 0x7c0000000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f800000477fe000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x477ff00033800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x3c0000007bffUL; VSRL1, 0x7bff00000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f800000477fe000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x477ff00033800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x3c0000007bffUL; VSRL1, 0x7c0000000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f800000477fe000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x477ff00033800000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x3c0000007bffUL; VSRL1, 0x7bff00000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x330000003f801000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3f8008007fa00000UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x3c0000007f00UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x330000003f801000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3f8008007fa00000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x3c0000007f00UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x330000003f801000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3f8008007fa00000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x100003c01UL; VSRL1, 0x3c0100007f00UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x330000003f801000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3f8008007fa00000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x3c00UL; VSRL1, 0x3c0000007f00UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x80000000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x387fc000c7800000UL ]
+      []
+      [ F1, 0x80000000fc00UL; VSRL1, 0x3ff0000fc00UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x80000000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x387fc000c7800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x80000000fc00UL; VSRL1, 0x3ff0000fbffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x80000000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x387fc000c7800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x80000000fc00UL; VSRL1, 0x3ff0000fbffUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0391f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x80000000ff800000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x387fc000c7800000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x80000000fc00UL; VSRL1, 0x3ff0000fc00UL ]
+      []
+
+  /// <summary>
+  /// xvcvhpsp xT, xB widens the half in the low halfword of each word of xB to
+  /// a single, exactly, a signalling NaN quieted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVHPSP widens halves to singles``() =
+    (* xvcvhpsp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0381f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3c0000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3ff00007c00UL ]
+      []
+      [ F1, 0x3f80000033800000UL; VSRL1, 0x387fc0007f800000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0381f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0xfc0000007e01UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7d0000008000UL ]
+      []
+      [ F1, 0xff8000007fc02000UL; VSRL1, 0x7fe0000080000000UL ]
+      []
+
+  /// <summary>
+  /// xvcvspbf16 xT, xB rounds each single of xB to bfloat16 in the direction
+  /// FPSCR[RN] names, into the low halfword of its word: ties to even and away,
+  /// the largest single, a signalling NaN quieted, a denormal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSPBF16 rounds singles to bfloat16``() =
+    (* xvcvspbf16 vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0311f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f8000003f808000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3f8180007f7fffffUL ]
+      []
+      [ F1, 0x3f8000003f80UL; VSRL1, 0x3f8200007f80UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f8000003f808000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3f8180007f7fffffUL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x3f8000003f80UL; VSRL1, 0x3f8100007f7fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f8000003f808000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3f8180007f7fffffUL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x3f8000003f81UL; VSRL1, 0x3f8200007f80UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f8000003f808000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x3f8180007f7fffffUL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x3f8000003f80UL; VSRL1, 0x3f8100007f7fUL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fa0000180000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000bf80c000UL ]
+      []
+      [ F1, 0x7fe000008000UL; VSRL1, 0x800000bf81UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fa0000180000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000bf80c000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F1, 0x7fe000008000UL; VSRL1, 0x800000bf80UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fa0000180000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000bf80c000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F1, 0x7fe000008000UL; VSRL1, 0x800000bf80UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0311f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fa0000180000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x800000bf80c000UL
+        FPSCR, 0x3UL ]
+      []
+      [ F1, 0x7fe000008001UL; VSRL1, 0x800000bf81UL ]
+      []
+
+  /// <summary>
+  /// xvcvbf16spn xT, xB places the bfloat16 in the low halfword of each word of
+  /// xB in the high halfword of the word of xT and clears the low one: the
+  /// single it stands for, NaNs left as they are.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVBF16SPN moves bfloat16 into singles``() =
+    (* xvcvbf16spn vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0301f6c"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f8000007fc1UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xff8000000001UL ]
+      []
+      [ F1, 0x3f8000007fc10000UL; VSRL1, 0xff80000000010000UL ]
+      []
+
+  /// <summary>
+  /// xvcvdpsxds xT, xB converts each double of xB to signed doublewords of xT,
+  /// truncating toward zero, saturating at the ends of the range and answering
+  /// a NaN with the low end; the vectors sit on both sides of each end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVDPSXDS saturates at the ends``() =
+    (* xvcvdpsxds vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201f60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000000000UL ]
+      []
+      [ F1, 0x1UL; VSRL1, 0xffffffff80000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41dfffffffc00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000100000UL ]
+      []
+      [ F1, 0x7fffffffUL; VSRL1, 0xffffffff80000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43e0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc3e0000000000000UL ]
+      []
+      [ F1, 0x7fffffffffffffffUL; VSRL1, 0x8000000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfff0000000000000UL ]
+      []
+      [ F1, 0x8000000000000000UL; VSRL1, 0x8000000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41efffffffe00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xbfe0000000000000UL ]
+      []
+      [ F1, 0xffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43f0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4330000000000001UL ]
+      []
+      [ F1, 0x7fffffffffffffffUL; VSRL1, 0x10000000000001UL ]
+      []
+
+  /// <summary>
+  /// xvcvdpuxds xT, xB converts each double of xB to unsigned doublewords of
+  /// xT, truncating toward zero, saturating at the ends of the range and
+  /// answering a NaN with the low end; the vectors sit on both sides of each
+  /// end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVDPUXDS saturates at the ends``() =
+    (* xvcvdpuxds vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201f20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000000000UL ]
+      []
+      [ F1, 0x1UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41dfffffffc00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000100000UL ]
+      []
+      [ F1, 0x7fffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43e0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc3e0000000000000UL ]
+      []
+      [ F1, 0x8000000000000000UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41efffffffe00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xbfe0000000000000UL ]
+      []
+      [ F1, 0xffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43f0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4330000000000001UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x10000000000001UL ]
+      []
+
+  /// <summary>
+  /// xvcvdpsxws xT, xB converts each double of xB to signed words, in both
+  /// words of xT, truncating toward zero, saturating at the ends of the range
+  /// and answering a NaN with the low end; the vectors sit on both sides of
+  /// each end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVDPSXWS saturates at the ends``() =
+    (* xvcvdpsxws vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201b60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000000000UL ]
+      []
+      [ F1, 0x100000001UL; VSRL1, 0x8000000080000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41dfffffffc00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000100000UL ]
+      []
+      [ F1, 0x7fffffff7fffffffUL; VSRL1, 0x8000000080000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43e0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc3e0000000000000UL ]
+      []
+      [ F1, 0x7fffffff7fffffffUL; VSRL1, 0x8000000080000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfff0000000000000UL ]
+      []
+      [ F1, 0x8000000080000000UL; VSRL1, 0x8000000080000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41efffffffe00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xbfe0000000000000UL ]
+      []
+      [ F1, 0x7fffffff7fffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43f0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4330000000000001UL ]
+      []
+      [ F1, 0x7fffffff7fffffffUL; VSRL1, 0x7fffffff7fffffffUL ]
+      []
+
+  /// <summary>
+  /// xvcvdpuxws xT, xB converts each double of xB to unsigned words, in both
+  /// words of xT, truncating toward zero, saturating at the ends of the range
+  /// and answering a NaN with the low end; the vectors sit on both sides of
+  /// each end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVDPUXWS saturates at the ends``() =
+    (* xvcvdpuxws vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201b20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000000000UL ]
+      []
+      [ F1, 0x100000001UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41dfffffffc00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000100000UL ]
+      []
+      [ F1, 0x7fffffff7fffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43e0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc3e0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfff0000000000000UL ]
+      []
+      [ F1, 0x0UL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41efffffffe00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xbfe0000000000000UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201b20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43f0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4330000000000001UL ]
+      []
+      [ F1, 0xffffffffffffffffUL; VSRL1, 0xffffffffffffffffUL ]
+      []
+
+  /// <summary>
+  /// xvcvdpsp xT, xB rounds each double of xB to a single, written into both
+  /// words of the doubleword.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVDPSP rounds doubles to singles``() =
+    (* xvcvdpsp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201e24"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3ff0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000000000UL ]
+      []
+      [ F1, 0x3f8000003f800000UL; VSRL1, 0xcf000000cf000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201e24"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41dfffffffc00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc1e0000000100000UL ]
+      []
+      [ F1, 0x4f0000004f000000UL; VSRL1, 0xcf000000cf000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201e24"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43e0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xc3e0000000000000UL ]
+      []
+      [ F1, 0x5f0000005f000000UL; VSRL1, 0xdf000000df000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201e24"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7ff8000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xfff0000000000000UL ]
+      []
+      [ F1, 0x7fc000007fc00000UL; VSRL1, 0xff800000ff800000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201e24"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x41efffffffe00000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xbfe0000000000000UL ]
+      []
+      [ F1, 0x4f8000004f800000UL; VSRL1, 0xbf000000bf000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201e24"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x43f0000000000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4330000000000001UL ]
+      []
+      [ F1, 0x5f8000005f800000UL; VSRL1, 0x5980000059800000UL ]
+      []
+
+  /// <summary>
+  /// xvcvspsxds xT, xB converts the single in word 0 of each doubleword of xB
+  /// to signed doublewords, truncating toward zero and saturating, a NaN giving
+  /// the low end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSPSXDS saturates at the ends``() =
+    (* xvcvspsxds vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201e60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f800000cf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4f0000007fc00000UL ]
+      []
+      [ F1, 0x1UL; VSRL1, 0x80000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201e60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x4f800000bf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x5f000000df000001UL ]
+      []
+      [ F1, 0x100000000UL; VSRL1, 0x7fffffffffffffffUL ]
+      []
+
+  /// <summary>
+  /// xvcvspuxds xT, xB converts the single in word 0 of each doubleword of xB
+  /// to unsigned doublewords, truncating toward zero and saturating, a NaN
+  /// giving the low end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSPUXDS saturates at the ends``() =
+    (* xvcvspuxds vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201e20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f800000cf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4f0000007fc00000UL ]
+      []
+      [ F1, 0x1UL; VSRL1, 0x80000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201e20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x4f800000bf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x5f000000df000001UL ]
+      []
+      [ F1, 0x100000000UL; VSRL1, 0x8000000000000000UL ]
+      []
+
+  /// <summary>
+  /// xvcvspsxws xT, xB converts each single of xB to signed words, truncating
+  /// toward zero and saturating, a NaN giving the low end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSPSXWS saturates at the ends``() =
+    (* xvcvspsxws vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201a60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f800000cf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4f0000007fc00000UL ]
+      []
+      [ F1, 0x180000000UL; VSRL1, 0x7fffffff80000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201a60"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x4f800000bf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x5f000000df000001UL ]
+      []
+      [ F1, 0x7fffffff00000000UL; VSRL1, 0x7fffffff80000000UL ]
+      []
+
+  /// <summary>
+  /// xvcvspuxws xT, xB converts each single of xB to unsigned words, truncating
+  /// toward zero and saturating, a NaN giving the low end.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSPUXWS saturates at the ends``() =
+    (* xvcvspuxws vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201a20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f800000cf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4f0000007fc00000UL ]
+      []
+      [ F1, 0x100000000UL; VSRL1, 0x8000000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201a20"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x4f800000bf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x5f000000df000001UL ]
+      []
+      [ F1, 0xffffffff00000000UL; VSRL1, 0xffffffff00000000UL ]
+      []
+
+  /// <summary>
+  /// xvcvspdp xT, xB widens the single in word 0 of each doubleword of xB to a
+  /// double, a signalling NaN quieted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSPDP widens singles to doubles``() =
+    (* xvcvspdp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201f24"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x3f800000cf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x4f0000007fc00000UL ]
+      []
+      [ F1, 0x3ff0000000000000UL; VSRL1, 0x41e0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201f24"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x4f800000bf000000UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x5f000000df000001UL ]
+      []
+      [ F1, 0x41f0000000000000UL; VSRL1, 0x43e0000000000000UL ]
+      []
+
+  /// <summary>
+  /// xvcvsxddp xT, xB converts each signed doubleword to a double, rounded to
+  /// nearest here.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSXDDP rounds integers``() =
+    (* xvcvsxddp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201fe0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x3ff0000000000000UL; VSRL1, 0xbff0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fe0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8000000000000000UL ]
+      []
+      [ F1, 0x43e0000000000000UL; VSRL1, 0xc3e0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fe0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x20000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7fffffffUL ]
+      []
+      [ F1, 0x4340000000000000UL; VSRL1, 0x41dfffffffc00000UL ]
+      []
+
+  /// <summary>
+  /// xvcvuxddp xT, xB converts each unsigned doubleword to a double, rounded to
+  /// nearest here.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVUXDDP rounds integers``() =
+    (* xvcvuxddp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201fa0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x3ff0000000000000UL; VSRL1, 0x43f0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fa0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8000000000000000UL ]
+      []
+      [ F1, 0x43e0000000000000UL; VSRL1, 0x43e0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201fa0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x20000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7fffffffUL ]
+      []
+      [ F1, 0x4340000000000000UL; VSRL1, 0x41dfffffffc00000UL ]
+      []
+
+  /// <summary>
+  /// xvcvsxdsp xT, xB converts each signed doubleword to a single, in both
+  /// words, rounded to nearest here.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSXDSP rounds integers``() =
+    (* xvcvsxdsp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201ee0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x3f8000003f800000UL; VSRL1, 0xbf800000bf800000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201ee0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8000000000000000UL ]
+      []
+      [ F1, 0x5f0000005f000000UL; VSRL1, 0xdf000000df000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201ee0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x20000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7fffffffUL ]
+      []
+      [ F1, 0x5a0000005a000000UL; VSRL1, 0x4f0000004f000000UL ]
+      []
+
+  /// <summary>
+  /// xvcvuxdsp xT, xB converts each unsigned doubleword to a single, in both
+  /// words, rounded to nearest here.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVUXDSP rounds integers``() =
+    (* xvcvuxdsp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201ea0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffffffffffffUL ]
+      []
+      [ F1, 0x3f8000003f800000UL; VSRL1, 0x5f8000005f800000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201ea0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x7fffffffffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x8000000000000000UL ]
+      []
+      [ F1, 0x5f0000005f000000UL; VSRL1, 0x5f0000005f000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201ea0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x20000000000001UL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7fffffffUL ]
+      []
+      [ F1, 0x5a0000005a000000UL; VSRL1, 0x4f0000004f000000UL ]
+      []
+
+  /// <summary>
+  /// xvcvsxwsp xT, xB converts each signed word to a single.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVSXWSP converts words``() =
+    (* xvcvsxwsp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201ae0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1ffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7fffffff80000000UL ]
+      []
+      [ F1, 0x3f800000bf800000UL; VSRL1, 0x4f000000cf000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201ae0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1000001fefffffeUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffUL ]
+      []
+      [ F1, 0x4b800000cb800001UL; VSRL1, 0x4b7fffffUL ]
+      []
+
+  /// <summary>
+  /// xvcvuxwsp xT, xB converts each unsigned word to a single.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVUXWSP converts words``() =
+    (* xvcvuxwsp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201aa0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1ffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7fffffff80000000UL ]
+      []
+      [ F1, 0x3f8000004f800000UL; VSRL1, 0x4f0000004f000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201aa0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1000001fefffffeUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffUL ]
+      []
+      [ F1, 0x4b8000004f7f0000UL; VSRL1, 0x4b7fffffUL ]
+      []
+
+  /// <summary>
+  /// xvcvuxwdp xT, xB converts each unsigned word in word 0 of each doubleword
+  /// to a double, exactly.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVCVUXWDP converts words``() =
+    (* xvcvuxwdp vs1,vs3, under QEMU: lanes/x-oracle/convs *)
+    oracleMem
+      ppc64le
+      "f0201ba0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1ffffffffUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0x7fffffff80000000UL ]
+      []
+      [ F1, 0x3ff0000000000000UL; VSRL1, 0x41dfffffffc00000UL ]
+      []
+    oracleMem
+      ppc64le
+      "f0201ba0"
+      [ F1, 0xbad0bad0bad0badUL
+        F3, 0x1000001fefffffeUL
+        VSRL1, 0xbad0bad0bad0badUL
+        VSRL3, 0xffffffUL ]
+      []
+      [ F1, 0x4170000010000000UL; VSRL1, 0x0UL ]
+      []
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

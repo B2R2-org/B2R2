@@ -2499,6 +2499,98 @@ type ParserTests() =
   member _.``[PPC64] XSCMPODP refuses the bits below BF set``() =
     testUnsupported WordSize.Bit64 "f1221958"
 
+  [<TestMethod>]
+  member _.``[PPC64] XSCVDPHP (half-precision format)``() =
+    testBoth "f0311d6c" (XSCVDPHP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XSCVHPDP (format)``() =
+    testBoth "f0301d6c" (XSCVHPDP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVHPSP``() =
+    testBoth "f0381f6c" (XVCVHPSP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSPHP``() =
+    testBoth "f0391f6c" (XVCVSPHP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVBF16SPN``() =
+    testBoth "f0301f6c" (XVCVBF16SPN ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSPBF16 (bfloat16 format)``() =
+    testBoth "f0311f6c" (XVCVSPBF16 ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVDPSP``() =
+    testBoth "f0201e24" (XVCVDPSP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSPDP``() =
+    testBoth "f0201f24" (XVCVSPDP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVDPSXDS``() =
+    testBoth "f0201f60" (XVCVDPSXDS ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVDPSXWS (VSX vector convert with round to zero)``() =
+    testBoth "f0201b60" (XVCVDPSXWS ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVDPUXDS``() =
+    testBoth "f0201f20" (XVCVDPUXDS ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVDPUXWS (double-precision to unsigned word format)``() =
+    testBoth "f0201b20" (XVCVDPUXWS ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSPSXDS (to signed doubleword format)``() =
+    testBoth "f0201e60" (XVCVSPSXDS ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSPSXWS``() =
+    testBoth "f0201a60" (XVCVSPSXWS ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSPUXDS``() =
+    testBoth "f0201e20" (XVCVSPUXDS ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSPUXWS``() =
+    testBoth "f0201a20" (XVCVSPUXWS ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSXDDP``() =
+    testBoth "f0201fe0" (XVCVSXDDP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSXDSP``() =
+    testBoth "f0201ee0" (XVCVSXDSP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVSXWSP``() =
+    testBoth "f0201ae0" (XVCVSXWSP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVUXDDP``() =
+    testBoth "f0201fa0" (XVCVUXDDP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVUXDSP``() =
+    testBoth "f0201ea0" (XVCVUXDSP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVUXWDP``() =
+    testBoth "f0201ba0" (XVCVUXWDP ** [ O.Reg F1; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVCVUXWSP (single-precision format)``() =
+    testBoth "f0201aa0" (XVCVUXWSP ** [ O.Reg F1; O.Reg F3 ])
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

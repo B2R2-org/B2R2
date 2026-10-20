@@ -185,12 +185,12 @@ let private settleNaN lane (operands: Expr list) res =
     AST.ite (isNaNOf lane x) (quietOf lane x) acc) operands made
 
 /// The operand list of a binary operation.
-let private two = function
+let two = function
   | [ a; b ] -> struct (a, b)
   | _ -> raise InvalidOperandException
 
 /// The operand of a unary operation.
-let private one = function
+let one = function
   | [ b ] -> b
   | _ -> raise InvalidOperandException
 

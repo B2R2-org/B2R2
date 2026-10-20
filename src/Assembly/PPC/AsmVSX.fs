@@ -345,6 +345,33 @@ let private testEncoders () =
     Op.XVXEXPSP, xx2 475u 8u
     Op.XVXSIGSP, xx2 475u 9u ]
 
+/// The conversions between the floating-point formats and to and from the
+/// integers.
+let private conversionEncoders () =
+  [ Op.XVCVSPUXWS, xx2 136u 0u
+    Op.XVCVSPSXWS, xx2 152u 0u
+    Op.XVCVUXWSP, xx2 168u 0u
+    Op.XVCVSXWSP, xx2 184u 0u
+    Op.XVCVDPUXWS, xx2 200u 0u
+    Op.XVCVDPSXWS, xx2 216u 0u
+    Op.XVCVUXWDP, xx2 232u 0u
+    Op.XVCVSPUXDS, xx2 392u 0u
+    Op.XVCVDPSP, xx2 393u 0u
+    Op.XVCVSPSXDS, xx2 408u 0u
+    Op.XVCVUXDSP, xx2 424u 0u
+    Op.XVCVSXDSP, xx2 440u 0u
+    Op.XVCVDPUXDS, xx2 456u 0u
+    Op.XVCVSPDP, xx2 457u 0u
+    Op.XVCVDPSXDS, xx2 472u 0u
+    Op.XVCVUXDDP, xx2 488u 0u
+    Op.XVCVSXDDP, xx2 504u 0u
+    Op.XSCVHPDP, xx2 347u 16u
+    Op.XSCVDPHP, xx2 347u 17u
+    Op.XVCVBF16SPN, xx2 475u 16u
+    Op.XVCVSPBF16, xx2 475u 17u
+    Op.XVCVHPSP, xx2 475u 24u
+    Op.XVCVSPHP, xx2 475u 25u ]
+
 /// The single-precision estimates ISA 2.07 added.
 let private estimateEncoders () =
   [ Op.XSRESP, xx2 26u 0u
@@ -357,4 +384,5 @@ let vsxEncoders () =
       estimateEncoders ()
       permuteEncoders ()
       arithmeticEncoders ()
-      testEncoders () ]
+      testEncoders ()
+      conversionEncoders () ]
