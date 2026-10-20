@@ -340,8 +340,7 @@ let translate (ins: Instruction) bld =
     fsqrt ins true true bld
   | Op.FSQRTSdot ->
     fsqrt ins true false bld
-  | Op.ISYNC | Op.LWSYNC | Op.SYNC | Op.PTESYNC | Op.PHWSYNC | Op.PLWSYNC
-  | Op.STNCISYNC | Op.STCISYNC | Op.STSYNC ->
+  | Op.ISYNC | Op.LWSYNC | Op.SYNC ->
     nop ins bld
   | Op.LBZ ->
     lbz ins bld
@@ -2707,7 +2706,8 @@ let translate (ins: Instruction) bld =
     storeAtomic ins bld 64<rt>
   | Op.COPY | Op.PASTE | Op.PASTEdot ->
     sideEffects ins bld UndefinedInstruction
-  | Op.CPABORT ->
+  | Op.CPABORT | Op.PTESYNC | Op.PHWSYNC | Op.PLWSYNC | Op.STNCISYNC
+  | Op.STCISYNC | Op.STSYNC ->
     nop ins bld
   | Op.WAIT ->
     sideEffects ins bld Delay

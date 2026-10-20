@@ -2753,13 +2753,16 @@ let private parseEXTSWSLI bin =
 
 /// <summary>
 /// copy rA, rB, whose bit 10 v3.1 fixes at 1, and paste[.] rA, rB, L, whose
-/// L sits there; the bits above are reserved.
+/// L sits there and is left out where it is 1, the extended mnemonic; the
+/// bits above are reserved.
 /// </summary>
 let private parseCopyPaste bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
   let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
   let l = Bits.pick bin 21u
-  let operands = ThreeOperands(ra, rb, OprImm(uint64 l))
+  let operands =
+    if l = 1u then TwoOperands(ra, rb)
+    else ThreeOperands(ra, rb, OprImm(uint64 l))
   let reserved, xo = Bits.extract bin 25u 22u, Bits.extract bin 10u 1u
   match reserved, xo, l, Bits.pick bin 0u with
   | 0u, 902u, _, 1u -> struct (Op.PASTEdot, operands)
@@ -2775,9 +2778,10 @@ let private parseCPABORT bin =
     struct (Op.CPABORT, NoOperand)
 
 /// <summary>
-/// wait WC, PL. WC = 3 is reserved, an invalid form; a reserved PL is not
-/// (the instruction is then a no-op). Bits 6 and 7 may hold an
-/// implementation-dependent field and are not checked.
+/// wait WC, PL, both left out where both are 0. WC = 3 is reserved, an
+/// invalid form; a reserved PL is not (the instruction is then a no-op).
+/// Bits 6 and 7 may hold an implementation-dependent field and are not
+/// checked.
 /// </summary>
 let private parseWAIT bin =
   let wc = Bits.extract bin 22u 21u
@@ -2787,8 +2791,11 @@ let private parseWAIT bin =
   if wc = 3u || reserved <> 0u then
     raise ParsingFailureException
   else
-    let pl = Bits.extract bin 17u 16u
-    struct (Op.WAIT, TwoOperands(OprImm(uint64 wc), OprImm(uint64 pl)))
+    match wc, Bits.extract bin 17u 16u with
+    | 0u, 0u ->
+      struct (Op.WAIT, NoOperand)
+    | _, pl ->
+      struct (Op.WAIT, TwoOperands(OprImm(uint64 wc), OprImm(uint64 pl)))
 
 /// <summary>
 /// lwat, ldat, stwat and stdat rT, rA, FC, whose function code sits where an
