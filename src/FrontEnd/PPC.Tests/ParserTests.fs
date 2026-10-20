@@ -793,6 +793,54 @@ type ParserTests() =
     ++ (VCMPNEZWdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VMULHSW (Vector Multiply High Signed Word)``() =
+    "10221b89"
+    ++ (VMULHSW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULHUW (Vector Multiply High Unsigned Word)``() =
+    "10221a89"
+    ++ (VMULHUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULHSD (Vector Multiply High Signed Doubleword)``() =
+    "10221bc9"
+    ++ (VMULHSD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULHUD (Vector Multiply High Unsigned Doubleword)``() =
+    "10221ac9"
+    ++ (VMULHUD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMULLD (Vector Multiply Low Doubleword)``() =
+    "102219c9"
+    ++ (VMULLD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MADDHD (Multiply-Add High Doubleword)``() =
+    "10a63a70"
+    ++ (MADDHD ** [ O.Reg R5; O.Reg R6; O.Reg R7; O.Reg R9 ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] MADDHDU (Multiply-Add High Doubleword Unsigned)``() =
+    "10a63a71"
+    ++ (MADDHDU ** [ O.Reg R5; O.Reg R6; O.Reg R7; O.Reg R9 ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] MADDLD (Multiply-Add Low Doubleword)``() =
+    "10a63a73"
+    ++ (MADDLD ** [ O.Reg R5; O.Reg R6; O.Reg R7; O.Reg R9 ])
+    ||> test64Only
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

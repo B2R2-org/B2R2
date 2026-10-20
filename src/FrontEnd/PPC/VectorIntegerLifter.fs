@@ -318,3 +318,25 @@ let vecCompareQuadToCR ins bld signed =
 let notEqualOrZero esize a b =
   let zero = AST.num0 esize
   (a != b) .| (a == zero) .| (b == zero)
+
+/// vmulh*: the high half of each product of the elements of vA and vB, formed
+/// exactly at twice their width.
+let vecMulHigh ins bld esize signed =
+  let wide = regTypeOf (int esize * 2)
+  vecMap2 ins bld esize (fun a b ->
+    AST.xthi esize (widen signed wide a .* widen signed wide b))
+
+/// vmulld, the low doubleword of each product of the doublewords of vA and vB.
+let vmulld ins bld = vecMap2 ins bld 64<rt> (.*)
+
+/// maddhd/maddhdu/maddld rD, rA, rB, rC: the 128-bit product of rA and rB plus
+/// rC, all read as signed or as unsigned numbers, and its high or its low
+/// doubleword -- the low one being the same either way.
+let multiplyAddDoubleword ins bld signed high =
+  lift bld ins {
+    let struct (rt, ra, rb, rc) = transFourOprs ins bld
+    let sum =
+      widen signed 128<rt> ra .* widen signed 128<rt> rb
+      .+ widen signed 128<rt> rc
+    rt := if high then AST.xthi 64<rt> sum else AST.xtlo 64<rt> sum
+  }
