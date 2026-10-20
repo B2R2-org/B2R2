@@ -264,3 +264,57 @@ let vecAverage ins bld esize signed =
 /// vabsdu*, the absolute difference of each pair of unsigned elements.
 let vecAbsoluteDifference ins bld esize =
   vecMap2 ins bld esize (fun a b -> AST.ite (a .> b) (a .- b) (b .- a))
+
+/// The all-ones or all-zeros element a compare writes for one outcome.
+let private maskOf esize cond =
+  AST.ite cond (AST.not (AST.num0 esize)) (AST.num0 esize)
+
+/// Sets CR6 from the outcomes of a recording compare, held in temporaries:
+/// its first bit says every element compared true, its third that none did;
+/// the other two are cleared.
+let private setCR6 (bld: ILowUIRBuilder) (flags: Expr[]) =
+  append bld {
+    regVar bld Register.CR6_0 := Array.reduce (.&) flags
+    regVar bld Register.CR6_1 := AST.b0
+    regVar bld Register.CR6_2 := Array.reduce (.&) (Array.map AST.not flags)
+    regVar bld Register.CR6_3 := AST.b0
+  }
+
+/// A vector compare that sets each element of vD to all ones where rel holds of
+/// the matching elements of vA and vB and to all zeros where it does not; the
+/// record form also reports in CR6. Each outcome is held before the target is
+/// written, as the target may be a source.
+let vecCompareElements ins bld esize rel record =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let a = elementsOf bld esize o2
+    let b = elementsOf bld esize o3
+    let flags = Array.init a.Length (fun _ -> tmpVar bld 1<rt>)
+    for i in 0 .. a.Length - 1 do flags[i] := rel a[i] b[i]
+    putElements bld o1 (Array.map (maskOf esize) flags)
+    if record then setCR6 bld flags else ()
+  }
+
+/// vcmpsq/vcmpuq, which compare two quadwords and set a CR field to less
+/// than, greater than and equal, its fourth bit cleared.
+let vecCompareQuadToCR ins bld signed =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let lt, gt, eq, so =
+      match o1 with
+      | OprReg reg -> transCRxToExpr bld reg
+      | _ -> raise InvalidOperandException
+    let struct (a, b) = tmpVars2 bld 128<rt>
+    a := quadOf bld o2
+    b := quadOf bld o3
+    lt := if signed then a ?< b else a .< b
+    gt := if signed then a ?> b else a .> b
+    eq := a == b
+    so := AST.b0
+  }
+
+/// Whether two elements differ or either of them is zero, which is what the
+/// vcmpnez* compares test so that a string's end stops a search too.
+let notEqualOrZero esize a b =
+  let zero = AST.num0 esize
+  (a != b) .| (a == zero) .| (b == zero)

@@ -1939,6 +1939,365 @@ type LifterTests() =
     let wanted = [ V1A, 0x7ffffffe7fffffffUL; V1B, 0x800000007fffffffUL ]
     oracle only64 "10221c83" given wanted
 
+  /// <summary>
+  /// vcmpequq vD, vA, vB sets all 128 bits of vD where vA is equal to vB as
+  /// 128-bit numbers and clears them where it is not.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPEQUQ compares quadwords``() =
+    (* vcmpequq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000000UL ]
+    oracle everyTarget "102219c7" given wanted
+
+  /// <summary>
+  /// vcmpequq. vD, vA, vB writes vD as vcmpequq does and sets CR6 to 0b1000
+  /// where the compare is true and 0b0010 where it is false.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPEQUQdot records a quadword compare in CR6``() =
+    (* vcmpequq. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 1UL
+        CR6_3, 0UL
+        V1A, 0x0000000000000000UL
+        V1B, 0x0000000000000000UL ]
+    oracle everyTarget "10221dc7" given wanted
+
+  /// <summary>
+  /// vcmpgtuq vD, vA, vB sets all 128 bits of vD where vA is greater than vB
+  /// as unsigned 128-bit numbers and clears them where it is not.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTUQ compares unsigned quadwords``() =
+    (* vcmpgtuq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle everyTarget "10221a87" given wanted
+
+  /// <summary>
+  /// vcmpgtuq. vD, vA, vB writes vD as vcmpgtuq does and sets CR6 to 0b1000
+  /// where the compare is true and 0b0010 where it is false.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTUQdot records a unsigned quadword compare in CR6``() =
+    (* vcmpgtuq. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffffffffffffUL
+        V1B, 0xffffffffffffffffUL ]
+    oracle everyTarget "10221e87" given wanted
+
+  /// <summary>
+  /// vcmpgtsq vD, vA, vB sets all 128 bits of vD where vA is greater than vB
+  /// as signed 128-bit numbers and clears them where it is not.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTSQ compares signed quadwords``() =
+    (* vcmpgtsq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle everyTarget "10221b87" given wanted
+
+  /// <summary>
+  /// vcmpgtsq. vD, vA, vB writes vD as vcmpgtsq does and sets CR6 to 0b1000
+  /// where the compare is true and 0b0010 where it is false.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTSQdot records a signed quadword compare in CR6``() =
+    (* vcmpgtsq. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffffffffffffUL
+        V1B, 0xffffffffffffffffUL ]
+    oracle everyTarget "10221f87" given wanted
+
+  /// <summary>
+  /// vcmpsq BF, vA, vB compares vA with vB as signed 128-bit numbers and sets
+  /// CR field BF to less than, greater than or equal, its fourth bit cleared.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPSQ orders signed quadwords in a CR field``() =
+    (* vcmpsq cr2, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ CR2_0, 0UL; CR2_1, 1UL; CR2_2, 0UL; CR2_3, 0UL ]
+    oracle only64 "11021941" given wanted
+
+  /// <summary>
+  /// vcmpuq BF, vA, vB compares vA with vB as unsigned 128-bit numbers and
+  /// sets CR field BF to less than, greater than or equal, its fourth bit
+  /// cleared.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPUQ orders unsigned quadwords in a CR field``() =
+    (* vcmpuq cr2, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ CR2_0, 0UL; CR2_1, 1UL; CR2_2, 0UL; CR2_3, 0UL ]
+    oracle only64 "11021901" given wanted
+
+  /// <summary>
+  /// vcmpneb vD, vA, vB sets each byte of vD to all ones where the matching
+  /// bytes of vA and vB differ and to all zeros where they are equal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEB compares bytes for inequality``() =
+    (* vcmpneb v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xff000000ff0000ffUL ]
+    oracle only64 "10221807" given wanted
+
+  /// <summary>
+  /// vcmpneb. vD, vA, vB writes vD as vcmpneb does and sets CR6: its first
+  /// bit where every element differs, its third where none does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEBdot records byte inequality in CR6``() =
+    (* vcmpneb. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffffffffffffUL
+        V1B, 0xff000000ff0000ffUL ]
+    oracle only64 "10221c07" given wanted
+
+  /// <summary>
+  /// vcmpneh vD, vA, vB sets each halfword of vD to all ones where the
+  /// matching halfwords of vA and vB differ and to all zeros where they are
+  /// equal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEH compares halfwords for inequality``() =
+    (* vcmpneh v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffff0000ffffffffUL ]
+    oracle only64 "10221847" given wanted
+
+  /// <summary>
+  /// vcmpneh. vD, vA, vB writes vD as vcmpneh does and sets CR6: its first
+  /// bit where every element differs, its third where none does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEHdot records halfword inequality in CR6``() =
+    (* vcmpneh. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffffffffffffUL
+        V1B, 0xffff0000ffffffffUL ]
+    oracle only64 "10221c47" given wanted
+
+  /// <summary>
+  /// vcmpnew vD, vA, vB sets each word of vD to all ones where the matching
+  /// words of vA and vB differ and to all zeros where they are equal.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEW compares words for inequality``() =
+    (* vcmpnew v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10221887" given wanted
+
+  /// <summary>
+  /// vcmpnew. vD, vA, vB writes vD as vcmpnew does and sets CR6: its first
+  /// bit where every element differs, its third where none does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEWdot records word inequality in CR6``() =
+    (* vcmpnew. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffffffffffffUL
+        V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10221c87" given wanted
+
+  /// <summary>
+  /// vcmpnezb vD, vA, vB sets each byte of vD to all ones where the matching
+  /// bytes of vA and vB differ or either of them is zero, and to all zeros
+  /// otherwise.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZB compares bytes for inequality or zero``() =
+    (* vcmpnezb v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xff000000ffffffffUL ]
+    oracle only64 "10221907" given wanted
+
+  /// <summary>
+  /// vcmpnezb. vD, vA, vB writes vD as vcmpnezb does and sets CR6: its first
+  /// bit where every element compared true, its third where none did.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZBdot records byte inequality or zero in CR6``() =
+    (* vcmpnezb. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffffffffffffUL
+        V1B, 0xff000000ffffffffUL ]
+    oracle only64 "10221d07" given wanted
+
+  /// <summary>
+  /// vcmpnezh vD, vA, vB sets each halfword of vD to all ones where the
+  /// matching halfwords of vA and vB differ or either of them is zero, and to
+  /// all zeros otherwise.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZH compares halfwords for inequality or zero``() =
+    (* vcmpnezh v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffff0000ffffffffUL ]
+    oracle only64 "10221947" given wanted
+
+  /// <summary>
+  /// vcmpnezh. vD, vA, vB writes vD as vcmpnezh does and sets CR6: its first
+  /// bit where every element compared true, its third where none did.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZHdot records halfword inequality or zero in CR6``() =
+    (* vcmpnezh. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffffffffffffUL
+        V1B, 0xffff0000ffffffffUL ]
+    oracle only64 "10221d47" given wanted
+
+  /// <summary>
+  /// vcmpnezw vD, vA, vB sets each word of vD to all ones where the matching
+  /// words of vA and vB differ or either of them is zero, and to all zeros
+  /// otherwise.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZW compares words for inequality or zero``() =
+    (* vcmpnezw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10221987" given wanted
+
+  /// <summary>
+  /// vcmpnezw. vD, vA, vB writes vD as vcmpnezw does and sets CR6: its first
+  /// bit where every element compared true, its third where none did.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZWdot records word inequality or zero in CR6``() =
+    (* vcmpnezw. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffffffffffffUL
+        V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10221d87" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

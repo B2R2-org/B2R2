@@ -188,7 +188,7 @@ type ParserTests() =
     testUnsupported WordSize.Bit32 "e8830008"
 
   [<TestMethod>]
-  member _.``[PPC] VPKUHUS ()``() =
+  member _.``[PPC] VPKUHUS (Pack Unsigned Halfword Unsigned Saturate)``() =
     "1022188e"
     ++ (VPKUHUS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
@@ -254,7 +254,7 @@ type ParserTests() =
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VMLADDUHM ()``() =
+  member _.``[PPC] VMLADDUHM (Multiply-Low-Add Unsigned Halfword Modulo)``() =
     "10221922"
     ++ (VMLADDUHM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
@@ -272,13 +272,13 @@ type ParserTests() =
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VMSUMUHM (VA-form)``() =
+  member _.``[PPC] VMSUMUHM (Vector Multiply-Sum Unsigned Halfword Modulo)``() =
     "10221926"
     ++ (VMSUMUHM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VMSUMUHS (VA-form)``() =
+  member _.``[PPC] VMSUMUHS (Multiply-Sum Unsigned Halfword Saturate)``() =
     "10221927"
     ++ (VMSUMUHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
@@ -296,13 +296,13 @@ type ParserTests() =
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VMSUMUDM (VA-form)``() =
+  member _.``[PPC] VMSUMUDM (Multiply-Sum Unsigned Doubleword Modulo)``() =
     "10221923"
     ++ (VMSUMUDM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VMSUMCUD (Doubleword)``() =
+  member _.``[PPC] VMSUMCUD (Multiply-Sum & write Carry-out Unsigned)``() =
     "10221917"
     ++ (VMSUMCUD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
@@ -314,13 +314,13 @@ type ParserTests() =
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VPKSDSS (VX-form)``() =
+  member _.``[PPC] VPKSDSS (Vector Pack Signed Doubleword Signed Saturate)``() =
     "10221dce"
     ++ (VPKSDSS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VPKSDUS (VX-form)``() =
+  member _.``[PPC] VPKSDUS (Pack Signed Doubleword Unsigned Saturate)``() =
     "10221d4e"
     ++ (VPKSDUS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
@@ -428,13 +428,13 @@ type ParserTests() =
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VADDEUQM (VA-form)``() =
+  member _.``[PPC] VADDEUQM (Vector Add Extended Unsigned Quadword Modulo)``() =
     "1022193c"
     ++ (VADDEUQM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VADDECUQ (VA-form)``() =
+  member _.``[PPC] VADDECUQ (Add Extended & write Carry Unsigned Quadword)``() =
     "1022193d"
     ++ (VADDECUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
@@ -614,7 +614,7 @@ type ParserTests() =
     ||> testEveryTarget
 
   [<TestMethod>]
-  member _.``[PPC] VSUBCUW (VX-form)``() =
+  member _.``[PPC] VSUBCUW (Subtract & Write Carry-out Unsigned Word)``() =
     "10221d80"
     ++ (VSUBCUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
@@ -671,6 +671,126 @@ type ParserTests() =
   member _.``[PPC] VABSDUW (Vector Absolute Difference Unsigned Word)``() =
     "10221c83"
     ++ (VABSDUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPEQUQ (Vector Compare Equal Quadword)``() =
+    "102219c7"
+    ++ (VCMPEQUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPEQUQdot (Vector Compare Equal Quadword)``() =
+    "10221dc7"
+    ++ (VCMPEQUQdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTUQ (Compare Greater Than Unsigned Quadword)``() =
+    "10221a87"
+    ++ (VCMPGTUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTUQdot (Compare Greater Than Unsigned Quadword)``() =
+    "10221e87"
+    ++ (VCMPGTUQdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTSQ (Vector Compare Greater Than Signed Quadword)``() =
+    "10221b87"
+    ++ (VCMPGTSQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTSQdot (Compare Greater Than Signed Quadword)``() =
+    "10221f87"
+    ++ (VCMPGTSQdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPSQ (Vector Compare Signed Quadword)``() =
+    "11021941"
+    ++ (VCMPSQ ** [ O.Reg CR2; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPUQ (Vector Compare Unsigned Quadword)``() =
+    "11021901"
+    ++ (VCMPUQ ** [ O.Reg CR2; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEB (Vector Compare Not Equal Byte)``() =
+    "10221807"
+    ++ (VCMPNEB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEBdot (Vector Compare Not Equal Byte)``() =
+    "10221c07"
+    ++ (VCMPNEBdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEH (Vector Compare Not Equal Halfword)``() =
+    "10221847"
+    ++ (VCMPNEH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEHdot (Vector Compare Not Equal Halfword)``() =
+    "10221c47"
+    ++ (VCMPNEHdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEW (Vector Compare Not Equal Word)``() =
+    "10221887"
+    ++ (VCMPNEW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEWdot (Vector Compare Not Equal Word)``() =
+    "10221c87"
+    ++ (VCMPNEWdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZB (Vector Compare Not Equal or Zero Byte)``() =
+    "10221907"
+    ++ (VCMPNEZB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZBdot (Vector Compare Not Equal or Zero Byte)``() =
+    "10221d07"
+    ++ (VCMPNEZBdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZH (Vector Compare Not Equal or Zero Halfword)``() =
+    "10221947"
+    ++ (VCMPNEZH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZHdot (Vector Compare Not Equal or Zero Halfword)``() =
+    "10221d47"
+    ++ (VCMPNEZHdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZW (Vector Compare Not Equal or Zero Word)``() =
+    "10221987"
+    ++ (VCMPNEZW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPNEZWdot (Vector Compare Not Equal or Zero Word)``() =
+    "10221d87"
+    ++ (VCMPNEZWdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
 /// What lane F's tests check a word against: one decode per target, from the
