@@ -26102,6 +26102,104 @@ type LifterTests() =
     for isa in all3 do
       expect 0UL (uint64 (writes isa "7c0304ac").Length) (nameOf isa)
 
+  /// <summary>
+  /// mtspr and mfspr of PPR (896) move all of rS in and out on a 64-bit
+  /// processor. Values from QEMU running mtppr r8; mfppr r5 (spec sprs).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MTSPR and MFSPR move PPR``() =
+    (* mtspr 896, r8; mfspr r5, 896 *)
+    let hexes = [ "7d00e3a6"; "7ca0e2a6" ]
+    for isa in ppc64s do
+      for value in [ 0x0123456789abcdefUL; 0xfedcba9876543210UL ] do
+        let given = [ R5, 0xbad0badUL; R8, value ]
+        let after, _ = sequence isa hexes [ R5; R8; PPR ] given []
+        expect value (after R5) $"{value:x} {nameOf isa}"
+
+  /// <summary>
+  /// PPR32 (898) is the upper word of PPR (Book II 3.1): mtspr writes the
+  /// low word of rS there and leaves the lower word alone, and mfspr reads
+  /// it into the low word of rT. QEMU 8.2.2 refuses SPR 898 (spec sprs,
+  /// deviations/ppc64/dscr.c), so the expectation is the manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MTSPR and MFSPR move PPR32 through PPR's upper word``() =
+    (* mtspr 898, r8; mfspr r5, 898 *)
+    for isa in ppc64s do
+      let given = [ R8, 0x0123456789abcdefUL; PPR, 0x1122334455667788UL ]
+      let after = run isa "7d02e3a6" given
+      expect 0x89abcdef55667788UL (after PPR) (nameOf isa)
+      let after = run isa "7ca2e2a6" [ PPR, 0x1122334455667788UL ]
+      expect 0x11223344UL (after R5) (nameOf isa)
+
+  /// <summary>
+  /// DSCR (3) and AMR (13) are registers a program may move in and out
+  /// whole (Book III 5.4.4, Figure 19); this model has no UAMOR to mask an
+  /// AMR write with, which the ISA leaves to the implementation. QEMU 8.2.2
+  /// refuses both SPRs in user mode (spec sprs, deviations/ppc64/dscr.c), so
+  /// the expectation is the manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MTSPR and MFSPR move DSCR and AMR``() =
+    (* mtspr 3, r8; mfspr r5, 3; mtspr 13, r8; mfspr r5, 13 *)
+    for isa in ppc64s do
+      for hexes, reg in
+        [ [ "7d0303a6"; "7ca302a6" ], DSCR
+          [ "7d0d03a6"; "7cad02a6" ], AMR ] do
+        let given = [ R5, 0xbad0badUL; R8, 0x0123456789abcdefUL ]
+        let after, _ = sequence isa hexes [ R5; R8; reg ] given []
+        expect 0x0123456789abcdefUL (after R5) $"{reg} {nameOf isa}"
+
+  /// <summary>
+  /// mfspr reads CTRL (136) and SPRG3 (259), which a program may read but
+  /// not write: mtspr of those numbers is an illegal instruction. Values
+  /// from QEMU, which reads both as zero and refuses both writes (spec
+  /// sprs).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MFSPR reads CTRL and SPRG3, MTSPR cannot write them``() =
+    (* mfspr r5, 136; mfspr r5, 259; mtspr 136, r8; mtspr 259, r8 *)
+    for isa in ppc64s do
+      for hex, reg in [ "7ca822a6", CTRL; "7ca342a6", SPRG3 ] do
+        let given = [ R5, 0xbad0badUL; reg, 0UL ]
+        expect 0UL (run isa hex given R5) $"{hex} {nameOf isa}"
+      for hex in [ "7d0823a6"; "7d0343a6" ] do
+        let lifted = effects isa hex
+        CollectionAssert.AreEqual([| UndefinedInstruction |], lifted, hex)
+
+  /// <summary>
+  /// SPRs 808 to 811 are reserved, and accesses to them are no-ops (Book III
+  /// 5.4.4, Figure 19): mfspr leaves rT as it was and mtspr writes nothing.
+  /// Values from QEMU (spec sprs).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MFSPR and MTSPR of SPRs 808 to 811 do nothing``() =
+    (* mfspr r5, 808; mtspr 808, r8 *)
+    for isa in ppc64s do
+      expect 0UL (uint64 (writes isa "7ca8caa6").Length) (nameOf isa)
+      expect 0UL (uint64 (writes isa "7d08cba6").Length) (nameOf isa)
+
+  /// <summary>
+  /// The server SPRs -- DSCR, AMR, CTRL, SPRG3, PPR, PPR32 and the reserved
+  /// 808 to 811 -- belong to the 64-bit processors; the 7457 refuses mfspr
+  /// and mtspr of every one of them as illegal instructions (spec sprs).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC32] MFSPR and MTSPR of the server SPRs are undefined``() =
+    let words =
+      [ "7ca302a6"
+        "7d0303a6"
+        "7cad02a6"
+        "7ca822a6"
+        "7ca342a6"
+        "7ca8caa6"
+        "7d08cba6"
+        "7ca0e2a6"
+        "7d00e3a6"
+        "7ca2e2a6" ]
+    for hex in words do
+      CollectionAssert.AreEqual([| UndefinedInstruction |], effects ppc32 hex)
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

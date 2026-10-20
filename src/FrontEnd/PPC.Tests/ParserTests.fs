@@ -3555,6 +3555,48 @@ type ParserTests() =
       testUnsupported WordSize.Bit64 hex
       testUnsupported WordSize.Bit32 hex
 
+  [<TestMethod>]
+  member _.``[PPC] MFSPR of DSCR (mfudscr)``() =
+    "7ca302a6"
+    ++ (MFSPR ** [ O.Reg R5; O.Imm 3UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] MFSPR of AMR (mfuamr)``() =
+    "7cad02a6"
+    ++ (MFSPR ** [ O.Reg R5; O.Imm 13UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] MFSPR of CTRL (mfctrl)``() =
+    "7ca822a6"
+    ++ (MFSPR ** [ O.Reg R5; O.Imm 136UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] MFSPR of SPRG3 (mfusprg3)``() =
+    "7ca342a6"
+    ++ (MFSPR ** [ O.Reg R5; O.Imm 259UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] MFSPR of the reserved SPR 808``() =
+    "7ca8caa6"
+    ++ (MFSPR ** [ O.Reg R5; O.Imm 808UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] MFSPR of PPR (mfppr)``() =
+    "7ca0e2a6"
+    ++ (MFSPR ** [ O.Reg R5; O.Imm 896UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] MFSPR of PPR32 (mfppr32)``() =
+    "7ca2e2a6"
+    ++ (MFSPR ** [ O.Reg R5; O.Imm 898UL ])
+    ||> testAllPPC
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
