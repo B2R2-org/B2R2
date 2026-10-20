@@ -76,3 +76,89 @@ let vecParity ins bld esize =
 /// doubleword of each element to the whole of it.
 let vecSignExtend ins bld esize (from: RegType) =
   vecMap1 ins bld esize (fun x -> AST.sext esize (AST.xtlo from x))
+
+/// The rotate left of an element by a run-time count. A zero count leaves the
+/// element alone whichever way a shift by the whole width goes: the two halves
+/// are then the element and either zero or the element again.
+let private rotl esize (x: Expr) (n: Expr) =
+  (x << n) .| (x >> (numI32 (int esize) esize .- n))
+
+/// MASK(b, e) of an element: ones from bit b through bit e, counted from the
+/// most significant end, wrapping round when b is past e.
+let private maskFromTo esize b e =
+  let ones = AST.not (AST.num0 esize)
+  let fromB = ones >> b
+  let toE = ones << (numI32 (int esize - 1) esize .- e)
+  AST.ite (b .<= e) (fromB .& toE) (fromB .| toE)
+
+/// The mask's first and last bits and the rotate count of a rotate-and-mask
+/// element: three fields of the matching element of vB, eight bits apart and
+/// as wide as a bit number of the element -- for the quadword, in vB's high
+/// doubleword.
+let private rotateFields esize (src: Expr) =
+  let width = regTypeOf (System.Numerics.BitOperations.Log2(uint32 esize))
+  let at = if int esize = 128 then 64 else 0
+  let field pos = AST.zext esize (AST.extract src width (at + pos))
+  struct (field 16, field 8, field 0)
+
+/// vrlwnm/vrldnm/vrlqnm and vrlwmi/vrldmi/vrlqmi: each element of vA rotated
+/// left by the count its element of vB gives, then kept under the mask that
+/// element also gives -- ANDed with it, or inserted into vD through it.
+let vecRotateMask ins bld esize insert =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let a = elementsOf bld esize o2
+    let b = elementsOf bld esize o3
+    let t = elementsOf bld esize o1
+    Array.init a.Length (fun i ->
+      let struct (mb, me, n) = rotateFields esize b[i]
+      let r = rotl esize a[i] n
+      let m = maskFromTo esize mb me
+      if insert then (r .& m) .| (t[i] .& AST.not m) else r .& m)
+    |> putElements bld o1
+  }
+
+/// What a quadword shift does with the count in bits 57:63 of vB.
+type QuadShift =
+  | ShiftLeft
+  | ShiftRight
+  | ShiftRightAlgebraic
+  | RotateLeft
+
+/// vslq/vsrq/vsraq/vrlq: vA as one quadword, shifted or rotated by the count
+/// in bits 57:63 of vB.
+let vecShiftQuad ins bld kind =
+  vecMap2 ins bld 128<rt> (fun a b ->
+    let n = AST.zext 128<rt> (AST.extract b 7<rt> 64)
+    match kind with
+    | ShiftLeft -> a << n
+    | ShiftRight -> a >> n
+    | ShiftRightAlgebraic -> a ?>> n
+    | RotateLeft -> rotl 128<rt> a n)
+
+/// vslv/vsrv: each byte of vA shifted left or right by the low three bits of
+/// the matching byte of vB, the bits shifted in coming from the next or the
+/// previous byte of vA, and a zero byte beyond either end.
+let vecShiftVariable ins bld left =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let a = elementsOf bld 8<rt> o2
+    let b = elementsOf bld 8<rt> o3
+    let byteAt i = if i >= 0 && i < 16 then a[i] else AST.num0 8<rt>
+    Array.init 16 (fun i ->
+      let sh = AST.zext 16<rt> (AST.xtlo 3<rt> b[i])
+      if left then AST.xthi 8<rt> (AST.concat a[i] (byteAt (i + 1)) << sh)
+      else AST.xtlo 8<rt> (AST.concat (byteAt (i - 1)) a[i] >> sh))
+    |> putElements bld o1
+  }
+
+/// vsldbi/vsrdbi: the 128 bits of vA || vB that start SH bits in from its left
+/// end, or that end SH bits in from its right one.
+let vecShiftDoubleBits ins bld left =
+  lift bld ins {
+    let struct (o1, o2, o3, o4) = getFourOprs ins
+    let sh = int (getImmValue o4)
+    let both = AST.concat (quadOf bld o2) (quadOf bld o3)
+    let pos = if left then 128 - sh else sh
+    putElements bld o1 [| AST.extract both 128<rt> pos |]
+  }

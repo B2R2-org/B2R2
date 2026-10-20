@@ -1081,6 +1081,90 @@ type ParserTests() =
     ++ (VEXTSD2Q ** [ O.Reg V1A; O.Reg V3A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VRLWNM (Vector Rotate Left Word then AND with Mask)``() =
+    "10221985"
+    ++ (VRLWNM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRLDNM (Rotate Left Doubleword then AND with Mask)``() =
+    "102219c5"
+    ++ (VRLDNM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRLQNM (Vector Rotate Left Quadword then AND with Mask)``() =
+    "10221945"
+    ++ (VRLQNM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRLWMI (Vector Rotate Left Word then Mask Insert)``() =
+    "10221885"
+    ++ (VRLWMI ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRLDMI (Vector Rotate Left Doubleword then Mask Insert)``() =
+    "102218c5"
+    ++ (VRLDMI ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRLQMI (Vector Rotate Left Quadword then Mask Insert)``() =
+    "10221845"
+    ++ (VRLQMI ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSLQ (Vector Shift Left Quadword)``() =
+    "10221905"
+    ++ (VSLQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSRQ (Vector Shift Right Quadword)``() =
+    "10221a05"
+    ++ (VSRQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSRAQ (Vector Shift Right Algebraic Quadword)``() =
+    "10221b05"
+    ++ (VSRAQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRLQ (Vector Rotate Left Quadword)``() =
+    "10221805"
+    ++ (VRLQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSLV (Vector Shift Left Variable)``() =
+    "10221f44"
+    ++ (VSLV ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSRV (Vector Shift Right Variable)``() =
+    "10221f04"
+    ++ (VSRV ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSLDBI (Vector Shift Left Double by Bit Immediate)``() =
+    "10221896"
+    ++ (VSLDBI ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Imm 0x2UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSRDBI (Vector Shift Right Double by Bit Immediate)``() =
+    "10221a96"
+    ++ (VSRDBI ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Imm 0x2UL ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

@@ -266,6 +266,34 @@ let private countEncoders () =
     Op.VCTZW, vxSub 30u 1538u
     Op.VCTZD, vxSub 31u 1538u ]
 
+/// vsldbi/vsrdbi, the VN form whose bit 9 tells left from right and whose
+/// three-bit shift sits below it.
+let private vn right ins =
+  match ins.Operands with
+  | [ Rg d; Rg a; Rg b; Im sh ] ->
+    let rest = (right <<< 9) ||| ((unsigned 3 sh) <<< 6) ||| 22u
+    word 4u (vr d) (vr a) (vr b) rest
+  | _ ->
+    wrongOperands ins
+
+/// The rotate-and-mask forms, the quadword shifts and rotate, the variable
+/// byte shifts and the shifts of a register pair by bits.
+let private shiftEncoders () =
+  [ Op.VRLWMI, vx 133u
+    Op.VRLDMI, vx 197u
+    Op.VRLQMI, vx 69u
+    Op.VRLWNM, vx 389u
+    Op.VRLDNM, vx 453u
+    Op.VRLQNM, vx 325u
+    Op.VRLQ, vx 5u
+    Op.VSLQ, vx 261u
+    Op.VSRQ, vx 517u
+    Op.VSRAQ, vx 773u
+    Op.VSLV, vx 1860u
+    Op.VSRV, vx 1796u
+    Op.VSLDBI, vn 0u
+    Op.VSRDBI, vn 1u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -279,4 +307,5 @@ let vmxEncoders () =
       multiplyHighEncoders ()
       divideEncoders ()
       sumEncoders ()
-      countEncoders () ]
+      countEncoders ()
+      shiftEncoders () ]
