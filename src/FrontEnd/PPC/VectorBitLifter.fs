@@ -162,3 +162,102 @@ let vecShiftDoubleBits ins bld left =
     let pos = if left then 128 - sh else sh
     putElements bld o1 [| AST.extract both 128<rt> pos |]
   }
+
+/// vgnb rD, vB, N: every Nth bit of vB from bit 0 on, concatenated from the
+/// left of rD; the bits below them are cleared.
+let vgnb ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rt = transOpr bld o1
+    let n = int (getImmValue o3)
+    let q = quadOf bld o2
+    let picked = [| for i in 0 .. n .. 127 -> AST.extract q 1<rt> (127 - i) |]
+    let value = AST.zext 64<rt> (concatElements picked)
+    rt := value << numI32 (64 - picked.Length) 64<rt>
+  }
+
+/// vbpermd: for each doubleword, the bits of vA that the eight bytes of the
+/// matching doubleword of vB index -- from the most significant end, an index
+/// past 63 giving a zero -- in its low byte, the first index's bit the top
+/// one; the rest of the doubleword is cleared.
+let vbpermd ins bld =
+  vecMap2 ins bld 64<rt> (fun a b ->
+    Array.init 8 (fun j ->
+      let index = AST.zext 64<rt> (AST.extract b 8<rt> (56 - 8 * j))
+      let bit = AST.xtlo 1<rt> (a >> (numI32 63 64<rt> .- index))
+      AST.ite (index .< numI32 64 64<rt>) bit AST.b0)
+    |> concatElements
+    |> AST.zext 64<rt>)
+
+/// The bits of a that the set bits of m pick, packed into the low end of a
+/// doubleword in their order: the parallel extract, one step per bit of m.
+let private parallelExtract (bld: ILowUIRBuilder) (a: Expr) (m: Expr) =
+  let struct (r, k) = tmpVars2 bld 64<rt>
+  append bld {
+    r := AST.num0 64<rt>
+    k := AST.num0 64<rt>
+    for j in 0 .. 63 do
+      let pick = AST.extract m 1<rt> j
+      r := r .| (AST.zext 64<rt> (pick .& AST.extract a 1<rt> j) << k)
+      k := k .+ AST.zext 64<rt> pick
+  }
+  struct (r, k)
+
+/// The low bits of a spread to the set bits of m in their order, the other
+/// bits cleared: the parallel deposit.
+let private parallelDeposit (bld: ILowUIRBuilder) (a: Expr) (m: Expr) =
+  let struct (r, k) = tmpVars2 bld 64<rt>
+  append bld {
+    r := AST.num0 64<rt>
+    k := AST.num0 64<rt>
+    for j in 0 .. 63 do
+      let pick = AST.extract m 1<rt> j
+      let bit = AST.xtlo 1<rt> (a >> k)
+      r := r .| (AST.zext 64<rt> (pick .& bit) << numI32 j 64<rt>)
+      k := k .+ AST.zext 64<rt> pick
+  }
+  r
+
+/// What vcfuged, vpdepd, vpextd, vclzdm and vctzdm compute of a doubleword of
+/// vA under the mask in the matching doubleword of vB.
+type MaskedBits =
+  | Centrifuge
+  | Deposit
+  | Extract
+  | LeadingZeros
+  | TrailingZeros
+
+/// One doubleword of a masked-bits instruction. A count under the mask is a
+/// count of the extracted bits: the leading zeros of the field of as many bits
+/// as the mask has set, or its trailing zeros, which are all of it where it
+/// is zero.
+let private maskedBits bld kind a m =
+  match kind with
+  | Deposit ->
+    parallelDeposit bld a m
+  | Extract ->
+    let struct (r, _) = parallelExtract bld a m
+    r
+  | Centrifuge ->
+    let struct (right, n) = parallelExtract bld a m
+    let struct (left, _) = parallelExtract bld a (AST.not m)
+    (left << n) .| right
+  | LeadingZeros ->
+    let struct (r, n) = parallelExtract bld a m
+    countLeadingZerosOf 64<rt> r .- (numI32 64 64<rt> .- n)
+  | TrailingZeros ->
+    let struct (r, n) = parallelExtract bld a m
+    let below = AST.not r .& (r .- AST.num1 64<rt>)
+    AST.ite (r == AST.num0 64<rt>) n (popCountOf 64<rt> below)
+
+/// vcfuged/vpdepd/vpextd/vclzdm/vctzdm vD, vA, vB, doubleword by doubleword.
+let vecMaskedBits ins bld kind =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let a = elementsOf bld 64<rt> o2
+    let m = elementsOf bld 64<rt> o3
+    let results = Array.init 2 (fun i -> maskedBits bld kind a[i] m[i])
+    let held = Array.init 2 (fun _ -> tmpVar bld 64<rt>)
+    for i in 0 .. 1 do held[i] := results[i]
+    putElements bld o1 held
+  }

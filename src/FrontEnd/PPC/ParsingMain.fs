@@ -1714,6 +1714,15 @@ let private parse04String bin =
     | _ -> raise ParsingFailureException
   struct (op, oprs)
 
+/// vgnb "rD, vB, N": N, the stride, in the low three bits of the vA field and
+/// the two above it reserved; a stride below 2 is not a valid form.
+let private parseVGNB bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let vb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  let n = Bits.extract bin 18u 16u
+  if Bits.extract bin 20u 19u <> 0u || n < 2u then raise ParsingFailureException
+  else struct (Op.VGNB, ThreeOperands(rt, vb, n |> uint64 |> OprImm))
+
 /// maddhd/maddhdu/maddld, the VA form whose four registers are general ones.
 let private parseVAGpr op bin =
   let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1944,6 +1953,13 @@ let private parse04 bitLen bin =
       | 1486u -> parseVX Op.VPKSDSS bin
       | 1358u -> parseVX Op.VPKSDUS bin
       | 1230u -> parseVX Op.VPKUDUS bin
+      | 1228u when bitLen = 64 -> parseVGNB bin
+      | 1484u -> parseVX Op.VBPERMD bin
+      | 1357u -> parseVX Op.VCFUGED bin
+      | 1485u -> parseVX Op.VPDEPD bin
+      | 1421u -> parseVX Op.VPEXTD bin
+      | 1924u -> parseVX Op.VCLZDM bin
+      | 1988u -> parseVX Op.VCTZDM bin
       | 1602u -> parse04Mask bitLen bin
       | 13u | 1037u -> parse04String bin
       | 1538u -> parse04Unary bin

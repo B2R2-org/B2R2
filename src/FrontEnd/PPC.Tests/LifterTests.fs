@@ -3652,6 +3652,105 @@ type LifterTests() =
     let wanted = [ V1A, 0x00010080007f007fUL; V1B, 0x008000ff00000080UL ]
     oracle only64 "1022193b" given wanted
 
+  /// <summary>
+  /// vgnb rD, vB, N concatenates every Nth bit of vB, from bit 0 on, from the
+  /// left of rD and clears the bits below them.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VGNB gathers every Nth bit``() =
+    (* vgnb r5, v3, 2 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x7fff8000ffff0000UL ]
+    oracle only64 "10a21ccc" given wanted
+
+  /// <summary>
+  /// vbpermd vD, vA, vB writes into the low byte of each doubleword of vD the
+  /// bits of vA the eight bytes of the matching doubleword of vB index from
+  /// the left, an index past 63 giving a zero, and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VBPERMD permutes bits of each doubleword``() =
+    (* vbpermd v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000000000010UL; V1B, 0x0000000000000007UL ]
+    oracle only64 "10221dcc" given wanted
+
+  /// <summary>
+  /// vcfuged vD, vA, vB moves the bits of each doubleword of vA that the mask
+  /// in vB selects to the right end and the others to the left, each group
+  /// keeping its order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCFUGED centrifuges each doubleword``() =
+    (* vcfuged v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x7fffffff80000000UL; V1B, 0x80000001fffffffeUL ]
+    oracle only64 "10221d4d" given wanted
+
+  /// <summary>
+  /// vpdepd vD, vA, vB spreads the low bits of each doubleword of vA to the
+  /// set bits of the mask in vB, in order, and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPDEPD deposits bits under a mask``() =
+    (* vpdepd v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000180000000UL; V1B, 0x0000000080000000UL ]
+    oracle only64 "10221dcd" given wanted
+
+  /// <summary>
+  /// vpextd vD, vA, vB packs the bits of each doubleword of vA that the mask
+  /// in vB selects into the low end, in order, and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPEXTD extracts bits under a mask``() =
+    (* vpextd v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000180000000UL; V1B, 0x00000000fffffffeUL ]
+    oracle only64 "10221d8d" given wanted
+
+  /// <summary>
+  /// vclzdm vD, vA, vB counts, from the left, the zero bits of each
+  /// doubleword of vA at the set bits of the mask in vB before the first one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCLZDM counts leading zeros under a mask``() =
+    (* vclzdm v1, v2, v3 *)
+    let given = [ V3A, 0xffffffffffffffffUL; V3B, 0xffffffffffffffffUL ]
+    let wanted = [ V1A, 0x0000000000000040UL; V1B, 0x0000000000000040UL ]
+    oracle only64 "10221f84" given wanted
+
+  /// <summary>
+  /// vctzdm vD, vA, vB counts, from the right, the zero bits of each
+  /// doubleword of vA at the set bits of the mask in vB before the first one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCTZDM counts trailing zeros under a mask``() =
+    (* vctzdm v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x000000000000001fUL; V1B, 0x0000000000000001UL ]
+    oracle only64 "10221fc4" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the
