@@ -1520,14 +1520,20 @@ let opCodeToString = function
   | Op.MODUW -> "moduw"
   | Op.PDEPD -> "pdepd"
   | Op.PEXTD -> "pextd"
+  | Op.PHWSYNC -> "phwsync"
+  | Op.PLWSYNC -> "plwsync"
+  | Op.PTESYNC -> "ptesync"
   | Op.RFEBB -> "rfebb"
   | Op.SETB -> "setb"
   | Op.SETBC -> "setbc"
   | Op.SETBCR -> "setbcr"
   | Op.SETNBC -> "setnbc"
   | Op.SETNBCR -> "setnbcr"
+  | Op.STCISYNC -> "stcisync"
+  | Op.STNCISYNC -> "stncisync"
   | Op.STQ -> "stq"
   | Op.STQCXdot -> "stqcx."
+  | Op.STSYNC -> "stsync"
   | _ -> Terminator.impossible ()
 
 let condToString = function

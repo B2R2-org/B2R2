@@ -730,18 +730,49 @@ let parseLSWI bin =
   | _ (* 0 *) ->
     raise ParsingFailureException
 
-let parseDCBFandSYNC bin =
-  match Bits.pick bin 10u with
-  | 0b0u when Bits.extract bin 25u 21u = 0u ->
-    let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
-    let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
-    struct (Op.DCBF, TwoOperands(ra, rb))
-  | 0b1u when Bits.extract bin 25u 11u = 0u ->
-    struct (Op.SYNC, NoOperand)
-  | 0b1u when Bits.extract bin 25u 21u = 1u ->
-    struct (Op.LWSYNC, NoOperand)
-  | _ ->
+/// The operands of a cache hint or flush: rA, rB and, where it is not zero,
+/// the field the instruction keeps where an X form keeps rD.
+let private cacheOperands field bin =
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  if field = 0u then TwoOperands(ra, rb)
+  else ThreeOperands(ra, rb, OprImm(uint64 field))
+
+/// <summary>
+/// dcbf rA, rB, L. The ISA defines L = 0 (dcbf), 1 (dcbfl), 3 (dcbflp), 4
+/// (dcbfps) and 6 (dcbstps) and reserves the other values, an invalid form;
+/// the two bits above L are reserved.
+/// </summary>
+let private parseDCBF bin =
+  match Bits.extract bin 25u 21u with
+  | 0u | 1u | 3u | 4u | 6u as l -> struct (Op.DCBF, cacheOperands l bin)
+  | _ -> raise ParsingFailureException
+
+/// <summary>
+/// sync L, SC, each valid combination of which has a name of its own (Book
+/// II 4.6.3, Figure 5); any other combination, or a reserved bit set, is an
+/// invalid form.
+/// </summary>
+let private parseSYNC bin =
+  let reserved =
+    Bits.extract bin 25u 24u ||| Bits.extract bin 20u 18u
+    ||| Bits.extract bin 15u 11u
+  if reserved <> 0u then
     raise ParsingFailureException
+  else
+    match Bits.extract bin 23u 21u, Bits.extract bin 17u 16u with
+    | 0u, 0u -> struct (Op.SYNC, NoOperand)
+    | 1u, 0u -> struct (Op.LWSYNC, NoOperand)
+    | 2u, 0u -> struct (Op.PTESYNC, NoOperand)
+    | 4u, 0u -> struct (Op.PHWSYNC, NoOperand)
+    | 5u, 0u -> struct (Op.PLWSYNC, NoOperand)
+    | 1u, 1u -> struct (Op.STNCISYNC, NoOperand)
+    | 0u, 2u -> struct (Op.STCISYNC, NoOperand)
+    | 0u, 3u -> struct (Op.STSYNC, NoOperand)
+    | _ -> raise ParsingFailureException
+
+let parseDCBFandSYNC bin =
+  if Bits.pick bin 10u = 0u then parseDCBF bin else parseSYNC bin
 
 let parseLBZXandLFDX bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -1002,17 +1033,13 @@ let parseMTSRIN bin =
   | _ (* 11, 0x *) ->
     raise ParsingFailureException
 
+/// dcbtst rA, rB, TH, whose TH hint is an optional third operand, and dcba.
 let parseDCBTSTandDCBA bin =
-  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
-  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  let th = Bits.extract bin 25u 21u
   match Bits.pick bin 10u with
-  | 0b0u when Bits.extract bin 25u 21u = 0u ->
-    (* CT = 0u *)
-    struct (Op.DCBTST, TwoOperands(ra, rb))
-  | 0b1u when Bits.extract bin 25u 21u = 0u ->
-    struct (Op.DCBA, TwoOperands(ra, rb))
-  | _ ->
-    raise ParsingFailureException
+  | 0b0u -> struct (Op.DCBTST, cacheOperands th bin)
+  | 0b1u when th = 0u -> struct (Op.DCBA, cacheOperands 0u bin)
+  | _ -> raise ParsingFailureException
 
 let parseSTBUXandSTFDUX bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -1037,18 +1064,16 @@ let parseADDx bin =
   | 0b10u -> struct (Op.ADDO, ThreeOperands(rd, ra, rb))
   | _ (* 11 *) -> struct (Op.ADDOdot, ThreeOperands(rd, ra, rb))
 
+/// dcbt rA, rB, TH, whose TH hint is an optional third operand, and lhbrx.
 let parseDCBTandLHBRX bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
   let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
   match Bits.pick bin 10u with
-  | 0b0u when Bits.extract bin 25u 21u = 0u ->
-    (* CT = 0u *)
-     struct (Op.DCBT, TwoOperands(ra, rb))
-  | 0b1u ->
+  | 0b0u ->
+    struct (Op.DCBT, cacheOperands (Bits.extract bin 25u 21u) bin)
+  | _ ->
     let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
     struct (Op.LHBRX, ThreeOperands(rd, ra, rb))
-  | _ ->
-    raise ParsingFailureException
 
 let parseLHZX bin =
   match Bits.pick bin 10u with
@@ -2505,7 +2530,7 @@ let private parse1FWord bin =
   (* FIXME: SegRegister *)
   | 0x53u when Bits.pick bin 0u = 0u -> parseMFMSRandMFSR bin
   | 0x55u when Bits.pick bin 0u = 0u -> parseLSWI bin
-  (* FIXME: DCBF RegA = 0 / SYNC 0 *)
+  (* FIXME: DCBF RegA = 0 *)
   | 0x56u when Bits.pick bin 0u = 0u -> parseDCBFandSYNC bin
   (* FIXME: LBZX / LFDX RegA = 0 *)
   | 0x57u when Bits.pick bin 0u = 0u -> parseLBZXandLFDX bin

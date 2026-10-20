@@ -3460,6 +3460,101 @@ type ParserTests() =
     ++ (STHCXdot ** [ O.Reg R8; O.Reg R6; O.Reg R7 ])
     ||> testAllPPC
 
+  [<TestMethod>]
+  member _.``[PPC] DCBT with a TH hint``() =
+    "7e063a2c"
+    ++ (DCBT ** [ O.Reg R6; O.Reg R7; O.Imm 16UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DCBTST with a TH hint``() =
+    "7c2639ec"
+    ++ (DCBTST ** [ O.Reg R6; O.Reg R7; O.Imm 1UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DCBF with L = 1 (dcbfl)``() =
+    "7c2638ac"
+    ++ (DCBF ** [ O.Reg R6; O.Reg R7; O.Imm 1UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DCBF with L = 3 (dcbflp)``() =
+    "7c6638ac"
+    ++ (DCBF ** [ O.Reg R6; O.Reg R7; O.Imm 3UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DCBF with L = 4 (dcbfps)``() =
+    "7c8638ac"
+    ++ (DCBF ** [ O.Reg R6; O.Reg R7; O.Imm 4UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] DCBF with L = 6 (dcbstps)``() =
+    "7cc638ac"
+    ++ (DCBF ** [ O.Reg R6; O.Reg R7; O.Imm 6UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] PTESYNC (sync 2,0)``() =
+    "7c4004ac"
+    ++ (PTESYNC ** [])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] PHWSYNC (sync 4,0)``() =
+    "7c8004ac"
+    ++ (PHWSYNC ** [])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] PLWSYNC (sync 5,0)``() =
+    "7ca004ac"
+    ++ (PLWSYNC ** [])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] STNCISYNC (sync 1,1)``() =
+    "7c2104ac"
+    ++ (STNCISYNC ** [])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] STCISYNC (sync 0,2)``() =
+    "7c0204ac"
+    ++ (STCISYNC ** [])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] STSYNC (sync 0,3)``() =
+    "7c0304ac"
+    ++ (STSYNC ** [])
+    ||> testAllPPC
+
+  /// <summary>
+  /// The invalid forms of dcbf and sync: an L of 2, 5 or 7 for dcbf, which
+  /// the ISA reserves; the combinations of L and SC Figure 5 of Book II does
+  /// not list for sync; and a reserved bit set in either. QEMU refuses them
+  /// all but sync 3,0, which it reads as a two-bit L.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DCBF and SYNC refuse their invalid forms``() =
+    let words =
+      [ "7c4638ac"
+        "7ca638ac"
+        "7ce638ac"
+        "7d0638ac"
+        "7c6004ac"
+        "7cc004ac"
+        "7c0104ac"
+        "7c2204ac"
+        "7c200cac"
+        "7d0004ac" ]
+    for hex in words do
+      testUnsupported WordSize.Bit64 hex
+      testUnsupported WordSize.Bit32 hex
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
