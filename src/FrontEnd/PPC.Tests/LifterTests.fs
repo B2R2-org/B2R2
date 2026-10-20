@@ -162,6 +162,87 @@ type LifterTests() =
         CR6_3, cr6 &&& 1UL ]
     oracle only64 hex given ([ V1A, 0UL; V1B, result ] @ field)
 
+  /// Whether a RoundCtrl encloses arithmetic rounded to nearest, ties to
+  /// even, rather than one of the conversions IRRunner runs inside a RoundCtrl.
+  let isNearestArithmetic (mode: Expr) (body: Expr) =
+    match mode, body with
+    | _, Cast(Kind = BinIR.CastKind.FloatToSInt)
+    | _, Cast(Kind = BinIR.CastKind.RoundToIntegral) ->
+      false
+    | Num(Value = m), _ ->
+      m.ToUInt64() = uint64 (int BinIR.RoundingMode.ToNearestEven)
+    | _ ->
+      false
+
+  /// An expression with each RoundCtrl that rounds arithmetic to nearest
+  /// replaced by the arithmetic: IRRunner rounds that to nearest already.
+  let rec toNearest (e: Expr) =
+    match e with
+    | RoundCtrl(Mode = m; Body = b) when isNearestArithmetic m b ->
+      toNearest b
+    | BinOp(Op = BinIR.BinOpType.APP) ->
+      e
+    | BinOp(Op = op; Left = l; Right = r) ->
+      AST.binop op (toNearest l) (toNearest r)
+    | UnOp(Op = op; Operand = x) ->
+      AST.unop op (toNearest x)
+    | RelOp(Op = op; Left = l; Right = r) ->
+      AST.relop op (toNearest l) (toNearest r)
+    | Cast(Kind = k; Type = t; Operand = x) ->
+      AST.cast k t (toNearest x)
+    | Extract(Operand = x; Type = t; StartPos = p) ->
+      AST.extract (toNearest x) t p
+    | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
+      AST.ite (toNearest c) (toNearest a) (toNearest b)
+    | _ ->
+      e
+
+  /// oracle for the vector floating-point forms, whose arithmetic rounds to
+  /// nearest whatever FPSCR[RN] holds and so is enclosed in a RoundCtrl.
+  let oracleNearest isas hex given wanted =
+    for isa in isas do
+      let stmts =
+        lifted isa hex
+        |> Array.map (function
+          | Put(Dst = d; Src = v) -> AST.put d (toNearest v)
+          | s -> s)
+      let read = IRRunner.run stmts (inputsOf isa given)
+      for r, v in wanted do
+        expect v ((read (var isa r)).ToUInt64()) $"{hex} {r} {nameOf isa}"
+
+  /// Whether an expression, or any expression inside it, is one pred holds of.
+  let rec occurs pred (e: Expr) =
+    if pred e then
+      true
+    else
+      match e with
+      | BinOp(Left = l; Right = r) | RelOp(Left = l; Right = r) ->
+        occurs pred l || occurs pred r
+      | UnOp(Operand = x) | Cast(Operand = x) | Extract(Operand = x) ->
+        occurs pred x
+      | RoundCtrl(Body = x) ->
+        occurs pred x
+      | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
+        occurs pred c || occurs pred a || occurs pred b
+      | _ ->
+        false
+
+  /// Whether any value one word puts somewhere holds an expression pred holds
+  /// of.
+  let liftedHas isa hex pred =
+    lifted isa hex
+    |> Array.exists (function
+      | Put(Src = s) -> occurs pred s
+      | _ -> false)
+
+  /// Whether an expression is the binary operation op with 2.0 on its left,
+  /// as 2 raised to a single and the base-2 logarithm of one are written.
+  let ofTwo op = function
+    | BinOp(Op = o; Left = Num(Value = v)) ->
+      o = op && v.ToUInt64() = 0x40000000UL
+    | _ ->
+      false
+
   /// Eight bytes of memory in address order, given as the oracle writes them:
   /// one big-endian doubleword.
   let chunk (v: uint64) = Array.init 8 (fun i -> byte (v >>> (56 - 8 * i)))
@@ -3809,6 +3890,481 @@ type LifterTests() =
         V3B, 0x7fffffff80000000UL ]
     let wanted = [ V1A, 0x000000000000001fUL; V1B, 0x0000000000000001UL ]
     oracle only64 "10221fc4" given wanted
+
+  /// <summary>
+  /// The vector facility's floating-point arithmetic rounds to nearest
+  /// whatever FPSCR[RN] holds (Book I 6.10, bfp32_ADD and its kin), so
+  /// vaddfp encloses each sum in a RoundCtrl naming that direction.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VADDFP rounds to nearest whatever FPSCR says``() =
+    let nearestSum = function
+      | RoundCtrl(Mode = m; Body = BinOp(Op = BinIR.BinOpType.FADD) as b) ->
+        isNearestArithmetic m b
+      | _ ->
+        false
+    (* vaddfp v1, v2, v3 *)
+    for isa in everyTarget do
+      Assert.IsTrue(liftedHas isa "1022180a" nearestSum, nameOf isa)
+
+  /// <summary>
+  /// vexptefp vD, vB is 2 raised to each single, the FPOW of 2.0 rounded to
+  /// nearest; IRRunner does not compute FPOW, so its shape is checked, the
+  /// values having agreed with QEMU's on every vector run.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXPTEFP raises 2 to each single``() =
+    (* vexptefp v1, v3 *)
+    for isa in everyTarget do
+      let pow = ofTwo BinIR.BinOpType.FPOW
+      Assert.IsTrue(liftedHas isa "1020198a" pow, nameOf isa)
+
+  /// <summary>
+  /// vlogefp vD, vB is the base-2 logarithm of each single, the FLOG of it to
+  /// base 2.0 rounded to nearest; IRRunner does not compute FLOG, so its
+  /// shape is checked, the values having agreed with QEMU's on every vector
+  /// run.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VLOGEFP takes the base-2 logarithm``() =
+    (* vlogefp v1, v3 *)
+    for isa in everyTarget do
+      let log = ofTwo BinIR.BinOpType.FLOG
+      Assert.IsTrue(liftedHas isa "102019ca" log, nameOf isa)
+
+  /// <summary>
+  /// With VSCR[NJ] clear, vaddfp adds denormal singles as IEEE 754 does; with
+  /// it set, each denormal operand counts as a zero of its sign and a
+  /// denormal sum is written as a zero (Book I 6.3.2, VSCR[NJ]), the other
+  /// lanes -- an overflow to infinity among them -- unaffected.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VADDFP flushes denormals where VSCR[NJ] says``() =
+    (* vaddfp v1, v2, v3 *)
+    let given nj =
+      [ V2A, 0x0040000080400000UL
+        V2B, 0x008000017f7fffffUL
+        V3A, 0x0000000100000000UL
+        V3B, 0x808000007f7fffffUL
+        VSCR, nj ]
+    let wanted = [ V1A, 0x0040000180400000UL; V1B, 0x000000017f800000UL ]
+    oracleNearest everyTarget "1022180a" (given 0UL) wanted
+    let wanted = [ V1A, 0UL; V1B, 0x000000007f800000UL ]
+    oracleNearest everyTarget "1022180a" (given 0x10000UL) wanted
+
+  /// <summary>
+  /// vaddfp vD, vA, vB adds each pair of singles, rounding to nearest
+  /// whatever FPSCR[RN] holds; a NaN operand gives the first NaN quieted, an
+  /// invalid operation 0x7FC00000. With VSCR[NJ] set, a denormal operand
+  /// counts as a zero of its sign and a denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VADDFP adds singles rounding to nearest``() =
+    (* vaddfp v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted = [ V1A, 0x3f8ccccd40466666UL; V1B, 0x408000003f8ccccdUL ]
+    oracleNearest everyTarget "1022180a" given wanted
+
+  /// <summary>
+  /// vsubfp vD, vA, vB subtracts each pair of singles, rounding to nearest
+  /// whatever FPSCR[RN] holds; a NaN operand gives the first NaN quieted, an
+  /// invalid operation 0x7FC00000. With VSCR[NJ] set, a denormal operand
+  /// counts as a zero of its sign and a denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUBFP subtracts singles rounding to nearest``() =
+    (* vsubfp v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted = [ V1A, 0x3f666666c039999aUL; V1B, 0x400000003f666666UL ]
+    oracleNearest everyTarget "1022184a" given wanted
+
+  /// <summary>
+  /// vmaddfp vD, vA, vC, vB writes vA times vC plus vB for each single,
+  /// rounded once to nearest; the NaN taken is vA's, then vB's, then vC's.
+  /// With VSCR[NJ] set, a denormal operand counts as a zero of its sign and a
+  /// denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMADDFP fuses a multiply and an add``() =
+    (* vmaddfp v1, v2, v4, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x404000003f800000UL
+        V3B, 0x3dcccccd40400000UL
+        V4A, 0x3dcccccd40400000UL
+        V4B, 0x3f8000003dcccccdUL ]
+    let wanted = [ V1A, 0x404666663fa66666UL; V1B, 0x4046666640466666UL ]
+    oracleNearest everyTarget "1022192e" given wanted
+
+  /// <summary>
+  /// vnmsubfp vD, vA, vC, vB writes the negation of vA times vC minus vB for
+  /// each single, rounded once to nearest before the negation. With VSCR[NJ]
+  /// set, a denormal operand counts as a zero of its sign and a denormal
+  /// result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VNMSUBFP fuses a negated multiply-subtract``() =
+    (* vnmsubfp v1, v2, v4, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x404000003f800000UL
+        V3B, 0x3dcccccd40400000UL
+        V4A, 0x3dcccccd40400000UL
+        V4B, 0x3f8000003dcccccdUL ]
+    let wanted = [ V1A, 0x4039999a3f333333UL; V1B, 0xc039999a4039999aUL ]
+    oracleNearest everyTarget "1022192f" given wanted
+
+  /// <summary>
+  /// vmaxfp vD, vA, vB writes the larger of each pair of singles, +0 being
+  /// the larger zero and a NaN operand giving a QNaN. With VSCR[NJ] set, a
+  /// denormal operand counts as a zero of its sign and a denormal result is
+  /// written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMAXFP keeps the larger single``() =
+    (* vmaxfp v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted = [ V1A, 0x3f80000040400000UL; V1B, 0x404000003f800000UL ]
+    oracleNearest everyTarget "10221c0a" given wanted
+
+  /// <summary>
+  /// vminfp vD, vA, vB writes the smaller of each pair of singles, -0 being
+  /// the smaller zero and a NaN operand giving a QNaN. With VSCR[NJ] set, a
+  /// denormal operand counts as a zero of its sign and a denormal result is
+  /// written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMINFP keeps the smaller single``() =
+    (* vminfp v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted = [ V1A, 0x3dcccccd3dcccccdUL; V1B, 0x3f8000003dcccccdUL ]
+    oracleNearest everyTarget "10221c4a" given wanted
+
+  /// <summary>
+  /// vrefp vD, vB writes the reciprocal of each single, as QEMU computes the
+  /// estimate the ISA allows: exactly, rounded to nearest. With VSCR[NJ] set,
+  /// a denormal operand counts as a zero of its sign and a denormal result is
+  /// written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VREFP writes reciprocals of singles``() =
+    (* vrefp v1, v3 *)
+    let given = [ V3A, 0x3f8000003dcccccdUL; V3B, 0x404000003f800000UL ]
+    let wanted = [ V1A, 0x3f80000041200000UL; V1B, 0x3eaaaaab3f800000UL ]
+    oracleNearest everyTarget "1020190a" given wanted
+
+  /// <summary>
+  /// vrsqrtefp vD, vB writes the reciprocal of the square root of each
+  /// single, the square root and the division each rounded to nearest. With
+  /// VSCR[NJ] set, a denormal operand counts as a zero of its sign and a
+  /// denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRSQRTEFP writes reciprocal square roots``() =
+    (* vrsqrtefp v1, v3 *)
+    let given = [ V3A, 0x3f8000003dcccccdUL; V3B, 0x404000003f800000UL ]
+    let wanted = [ V1A, 0x3f800000404a62c2UL; V1B, 0x3f13cd3a3f800000UL ]
+    oracleNearest everyTarget "1020194a" given wanted
+
+  /// <summary>
+  /// vrfin vD, vB rounds each single to an integral value to nearest, ties to
+  /// even, a NaN operand giving it quieted. With VSCR[NJ] set, a denormal
+  /// operand counts as a zero of its sign and a denormal result is written as
+  /// one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRFIN rounds singles to integral values``() =
+    (* vrfin v1, v3 *)
+    let given = [ V3A, 0x3f8000003dcccccdUL; V3B, 0x404000003f800000UL ]
+    let wanted = [ V1A, 0x3f80000000000000UL; V1B, 0x404000003f800000UL ]
+    oracleNearest everyTarget "10201a0a" given wanted
+
+  /// <summary>
+  /// vrfiz vD, vB rounds each single to an integral value toward zero, a NaN
+  /// operand giving it quieted. With VSCR[NJ] set, a denormal operand counts
+  /// as a zero of its sign and a denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRFIZ rounds singles to integral values``() =
+    (* vrfiz v1, v3 *)
+    let given = [ V3A, 0x3f8000003dcccccdUL; V3B, 0x404000003f800000UL ]
+    let wanted = [ V1A, 0x3f80000000000000UL; V1B, 0x404000003f800000UL ]
+    oracleNearest everyTarget "10201a4a" given wanted
+
+  /// <summary>
+  /// vrfip vD, vB rounds each single to an integral value toward +infinity, a
+  /// NaN operand giving it quieted. With VSCR[NJ] set, a denormal operand
+  /// counts as a zero of its sign and a denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRFIP rounds singles to integral values``() =
+    (* vrfip v1, v3 *)
+    let given = [ V3A, 0x3f8000003dcccccdUL; V3B, 0x404000003f800000UL ]
+    let wanted = [ V1A, 0x3f8000003f800000UL; V1B, 0x404000003f800000UL ]
+    oracleNearest everyTarget "10201a8a" given wanted
+
+  /// <summary>
+  /// vrfim vD, vB rounds each single to an integral value toward -infinity, a
+  /// NaN operand giving it quieted. With VSCR[NJ] set, a denormal operand
+  /// counts as a zero of its sign and a denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VRFIM rounds singles to integral values``() =
+    (* vrfim v1, v3 *)
+    let given = [ V3A, 0x3f8000003dcccccdUL; V3B, 0x404000003f800000UL ]
+    let wanted = [ V1A, 0x3f80000000000000UL; V1B, 0x404000003f800000UL ]
+    oracleNearest everyTarget "10201aca" given wanted
+
+  /// <summary>
+  /// vcfsx vD, vB, UIM converts each signed word of vB to the nearest single
+  /// and divides it by 2^UIM.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCFSX converts signed words to singles``() =
+    (* vcfsx v1, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x4e800000ce800000UL; V1B, 0xbf0000003f000000UL ]
+    oracleNearest everyTarget "10211b4a" given wanted
+
+  /// <summary>
+  /// vcfux vD, vB, UIM converts each unsigned word of vB to the nearest
+  /// single and divides it by 2^UIM.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCFUX converts unsigned words to singles``() =
+    (* vcfux v1, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x4e8000004e800000UL; V1B, 0x4f0000003f000000UL ]
+    oracleNearest everyTarget "10211b0a" given wanted
+
+  /// <summary>
+  /// vctsxs vD, vB, UIM multiplies each single by 2^UIM and converts it to a
+  /// signed word toward zero; a value beyond the word, an infinity included,
+  /// gives the nearer end and sets VSCR[SAT], a NaN gives 0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCTSXS converts singles to signed words saturating``() =
+    (* vctsxs v1, v3, 1 *)
+    let given = [ V3A, 0x7f7fffff7f7fffffUL; V3B, 0x400000007f7fffffUL ]
+    let wanted =
+      [ V1A, 0x7fffffff7fffffffUL
+        V1B, 0x000000047fffffffUL
+        VSCR, 0x1UL ]
+    oracle everyTarget "10211bca" given wanted
+    let given =
+      [ V3A, 0x3fc0000040100000UL
+        V3B, 0xbf4000003fc00000UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x0000000300000004UL
+        V1B, 0xffffffff00000003UL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10211bca" given wanted
+
+  /// <summary>
+  /// vctuxs vD, vB, UIM multiplies each single by 2^UIM and converts it to an
+  /// unsigned word toward zero; a value beyond the word or at most -1 gives
+  /// the nearer end and sets VSCR[SAT], a NaN gives 0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCTUXS converts singles to unsigned words saturating``() =
+    (* vctuxs v1, v3, 1 *)
+    let given =
+      [ V3A, 0x3fc0000040100000UL
+        V3B, 0xbf4000003fc00000UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x0000000300000004UL
+        V1B, 0x0000000000000003UL
+        VSCR, 0x10001UL ]
+    oracle everyTarget "10211b8a" given wanted
+    let given = [ V3A, 0x3f8000003dcccccdUL; V3B, 0x404000003f800000UL ]
+    let wanted =
+      [ V1A, 0x0000000200000000UL
+        V1B, 0x0000000600000002UL
+        VSCR, 0x0UL ]
+    oracle everyTarget "10211b8a" given wanted
+
+  /// <summary>
+  /// vcmpeqfp vD, vA, vB sets each word of vD to all ones where the single of
+  /// vA is equal to that of vB and to all zeros where it is not or either is
+  /// a NaN. With VSCR[NJ] set, a denormal operand counts as a zero of its
+  /// sign and a denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPEQFP compares singles: equal to``() =
+    (* vcmpeqfp v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0000000080000000UL
+        V2B, 0x3f80000000000000UL
+        V3A, 0x800000003f800000UL
+        V3B, 0x0000000080000000UL
+        VSCR, 0x10000UL ]
+    let wanted = [ V1A, 0xffffffff00000000UL; V1B, 0x00000000ffffffffUL ]
+    oracleNearest everyTarget "102218c6" given wanted
+
+  /// <summary>
+  /// vcmpeqfp. vD, vA, vB writes vD as vcmpeqfp does and sets CR6: its first
+  /// bit where every compare is true, its third where none is. With VSCR[NJ]
+  /// set, a denormal operand counts as a zero of its sign and a denormal
+  /// result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPEQFPdot records the equal to compare in CR6``() =
+    (* vcmpeqfp. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0000000080000000UL
+        V2B, 0x3f80000000000000UL
+        V3A, 0x800000003f800000UL
+        V3B, 0x0000000080000000UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffff00000000UL
+        V1B, 0x00000000ffffffffUL ]
+    oracleNearest everyTarget "10221cc6" given wanted
+
+  /// <summary>
+  /// vcmpgefp vD, vA, vB sets each word of vD to all ones where the single of
+  /// vA is at least that of vB and to all zeros where it is not or either is
+  /// a NaN. With VSCR[NJ] set, a denormal operand counts as a zero of its
+  /// sign and a denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPGEFP compares singles: at least``() =
+    (* vcmpgefp v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted = [ V1A, 0xffffffff00000000UL; V1B, 0xffffffffffffffffUL ]
+    oracleNearest everyTarget "102219c6" given wanted
+
+  /// <summary>
+  /// vcmpgefp. vD, vA, vB writes vD as vcmpgefp does and sets CR6: its first
+  /// bit where every compare is true, its third where none is. With VSCR[NJ]
+  /// set, a denormal operand counts as a zero of its sign and a denormal
+  /// result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPGEFPdot records the at least compare in CR6``() =
+    (* vcmpgefp. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffff00000000UL
+        V1B, 0xffffffffffffffffUL ]
+    oracleNearest everyTarget "10221dc6" given wanted
+
+  /// <summary>
+  /// vcmpgtfp vD, vA, vB sets each word of vD to all ones where the single of
+  /// vA is greater than that of vB and to all zeros where it is not or either
+  /// is a NaN. With VSCR[NJ] set, a denormal operand counts as a zero of its
+  /// sign and a denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTFP compares singles: greater than``() =
+    (* vcmpgtfp v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted = [ V1A, 0xffffffff00000000UL; V1B, 0xffffffffffffffffUL ]
+    oracleNearest everyTarget "10221ac6" given wanted
+
+  /// <summary>
+  /// vcmpgtfp. vD, vA, vB writes vD as vcmpgtfp does and sets CR6: its first
+  /// bit where every compare is true, its third where none is. With VSCR[NJ]
+  /// set, a denormal operand counts as a zero of its sign and a denormal
+  /// result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTFPdot records the greater than compare in CR6``() =
+    (* vcmpgtfp. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0xffffffff00000000UL
+        V1B, 0xffffffffffffffffUL ]
+    oracleNearest everyTarget "10221ec6" given wanted
+
+  /// <summary>
+  /// vcmpbfp vD, vA, vB writes at the top of each word of vD two bits: the
+  /// first set where the single of vA is not at most that of vB, the second
+  /// where it is not at least its negation, both for a NaN. With VSCR[NJ]
+  /// set, a denormal operand counts as a zero of its sign and a denormal
+  /// result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPBFP checks singles against bounds``() =
+    (* vcmpbfp v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted = [ V1A, 0x8000000000000000UL; V1B, 0x8000000080000000UL ]
+    oracleNearest everyTarget "10221bc6" given wanted
+
+  /// <summary>
+  /// vcmpbfp. vD, vA, vB writes vD as vcmpbfp does and sets CR6 to 0b0010
+  /// where every single is within bounds and to zero where one is not. With
+  /// VSCR[NJ] set, a denormal operand counts as a zero of its sign and a
+  /// denormal result is written as one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCMPBFPdot records the bounds check in CR6``() =
+    (* vcmpbfp. v1, v2, v3 *)
+    let given =
+      [ V2A, 0x3f8000003dcccccdUL
+        V2B, 0x404000003f800000UL
+        V3A, 0x3dcccccd40400000UL
+        V3B, 0x3f8000003dcccccdUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x8000000000000000UL
+        V1B, 0x8000000080000000UL ]
+    oracleNearest everyTarget "10221fc6" given wanted
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added

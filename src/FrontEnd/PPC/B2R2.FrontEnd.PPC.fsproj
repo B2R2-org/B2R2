@@ -22,6 +22,7 @@
     <Compile Include="VectorDecimalLifter.fs" />
     <Compile Include="VectorBitLifter.fs" />
     <Compile Include="VectorPermuteLifter.fs" />
+    <Compile Include="VectorFloatLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />

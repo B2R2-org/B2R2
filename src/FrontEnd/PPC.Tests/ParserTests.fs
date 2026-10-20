@@ -1381,6 +1381,162 @@ type ParserTests() =
     ++ (VCTZDM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VADDFP (Vector Add Floating-Point)``() =
+    "1022180a"
+    ++ (VADDFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBFP (Vector Subtract Floating-Point)``() =
+    "1022184a"
+    ++ (VSUBFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMADDFP (Vector Multiply-Add Floating-Point)``() =
+    "1022192e"
+    ++ (VMADDFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V4A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VNMSUBFP (Negative Multiply-Subtract Floating-Point)``() =
+    "1022192f"
+    ++ (VNMSUBFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V4A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMAXFP (Vector Maximum Floating-Point)``() =
+    "10221c0a"
+    ++ (VMAXFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMINFP (Vector Minimum Floating-Point)``() =
+    "10221c4a"
+    ++ (VMINFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VREFP (Vector Reciprocal Estimate Floating-Point)``() =
+    "1020190a"
+    ++ (VREFP ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRSQRTEFP (Reciprocal Square Root Estimate)``() =
+    "1020194a"
+    ++ (VRSQRTEFP ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXPTEFP (2 Raised to the Exponent Estimate)``() =
+    "1020198a"
+    ++ (VEXPTEFP ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VLOGEFP (Vector Log Base 2 Estimate Floating-Point)``() =
+    "102019ca"
+    ++ (VLOGEFP ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRFIN (Vector Round to Floating-Point Integer Nearest)``() =
+    "10201a0a"
+    ++ (VRFIN ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRFIZ (Round to Floating-Point Integer toward Zero)``() =
+    "10201a4a"
+    ++ (VRFIZ ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRFIP (Round to Floating-Point Integer toward)``() =
+    "10201a8a"
+    ++ (VRFIP ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VRFIM (Round to Floating-Point Integer toward)``() =
+    "10201aca"
+    ++ (VRFIM ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCFSX (Convert with round to nearest From Signed Word)``() =
+    "10211b4a"
+    ++ (VCFSX ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCFUX (Convert with round to nearest From Unsigned)``() =
+    "10211b0a"
+    ++ (VCFUX ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCTSXS (Convert with round to zero from floating-point)``() =
+    "10211bca"
+    ++ (VCTSXS ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCTUXS (Convert with round to zero from floating-point)``() =
+    "10211b8a"
+    ++ (VCTUXS ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPEQFP (Vector Compare Equal Floating-Point)``() =
+    "102218c6"
+    ++ (VCMPEQFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPEQFPdot (Vector Compare Equal Floating-Point)``() =
+    "10221cc6"
+    ++ (VCMPEQFPdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPGEFP (Compare Greater Than or Equal Floating-Point)``() =
+    "102219c6"
+    ++ (VCMPGEFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPGEFPdot (Compare Greater Than or Equal)``() =
+    "10221dc6"
+    ++ (VCMPGEFPdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTFP (Vector Compare Greater Than Floating-Point)``() =
+    "10221ac6"
+    ++ (VCMPGTFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPGTFPdot (Compare Greater Than Floating-Point)``() =
+    "10221ec6"
+    ++ (VCMPGTFPdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPBFP (Vector Compare Bounds Floating-Point)``() =
+    "10221bc6"
+    ++ (VCMPBFP ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCMPBFPdot (Vector Compare Bounds Floating-Point)``() =
+    "10221fc6"
+    ++ (VCMPBFPdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
