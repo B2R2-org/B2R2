@@ -2381,6 +2381,52 @@ let translate (ins: Instruction) bld =
     VSXFloat.vectorMap ins bld 64<rt> VSXFloat.extractSignificand
   | Op.XVXSIGSP ->
     VSXFloat.vectorMap ins bld 32<rt> VSXFloat.extractSignificand
+  | Op.XSCVHPDP ->
+    VSXConvert.scalarHalf ins bld true
+  | Op.XSCVDPHP ->
+    VSXConvert.scalarHalf ins bld false
+  | Op.XVCVHPSP ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXConvert.halfToSingle
+  | Op.XVCVSPHP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.singleToHalf bld)
+  | Op.XVCVBF16SPN ->
+    VSXFloat.vectorMap ins bld 32<rt> VSXConvert.bfloat16ToSingle
+  | Op.XVCVSPBF16 ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.singleToBfloat16 bld)
+  | Op.XVCVDPSP ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXConvert.doubleToSingle
+  | Op.XVCVSPDP ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXConvert.singleToDouble
+  | Op.XVCVDPSXDS ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.doubleToLong true)
+  | Op.XVCVDPSXWS ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.doubleToInt true)
+  | Op.XVCVSPSXDS ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.singleToLong true)
+  | Op.XVCVSPSXWS ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.singleToInt true)
+  | Op.XVCVSXDDP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.intToFloat true)
+  | Op.XVCVSXWSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.intToFloat true)
+  | Op.XVCVSXDSP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.longToSingle true)
+  | Op.XVCVDPUXDS ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.doubleToLong false)
+  | Op.XVCVDPUXWS ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.doubleToInt false)
+  | Op.XVCVSPUXDS ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.singleToLong false)
+  | Op.XVCVSPUXWS ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.singleToInt false)
+  | Op.XVCVUXDDP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.intToFloat false)
+  | Op.XVCVUXWSP ->
+    VSXFloat.vectorMap ins bld 32<rt> (VSXConvert.intToFloat false)
+  | Op.XVCVUXDSP ->
+    VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.longToSingle false)
+  | Op.XVCVUXWDP ->
+    VSXFloat.vectorMap ins bld 64<rt> VSXConvert.uintToDouble
   | o ->
 #if DEBUG
          eprintfn "%A" o

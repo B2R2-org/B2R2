@@ -40,9 +40,10 @@ open B2R2.FrontEnd.PPC
 /// arithmetic (IRFloat), rounded the way a RoundCtrl names or, outside one,
 /// the way FPSCR[RN] does.
 /// Of the named calls it knows the fused multiply-add and the exception
-/// query (FEXC64), which IRFloat answers exactly. It fails on anything else
-/// rather than guess what it means -- a byte nobody gave, a jump out of the
-/// instruction and a side effect included.
+/// query (FEXC64), which IRFloat answers exactly, and the conversions to the
+/// half and bfloat16 formats, worked out over exact values. It fails on
+/// anything else rather than guess what it means -- a byte nobody gave, a
+/// jump out of the instruction and a side effect included.
 /// </summary>
 module internal IRRunner =
   /// What a run leaves behind.
@@ -80,6 +81,144 @@ module internal IRRunner =
   /// The bits of a value of at most 64 bits.
   let private bits (v: BitVector) = v.ToUInt64()
 
+  (* Lane X: exact binary floating point, for the named calls the half,
+     bfloat16 and quad-precision forms make. A value is decoded to the exact
+     number it stands for and rounded once into the format asked for. *)
+  /// A binary interchange format, by the widths of its exponent and its
+  /// fraction.
+  type private BinFormat =
+    { ExpBits: int
+      FracBits: int }
+
+  /// IEEE binary16.
+  let private binary16 = { ExpBits = 5; FracBits = 10 }
+
+  /// bfloat16.
+  let private bfloat16 = { ExpBits = 8; FracBits = 7 }
+
+  /// IEEE binary32.
+  let private binary32 = { ExpBits = 8; FracBits = 23 }
+
+  /// IEEE binary64.
+  let private binary64 = { ExpBits = 11; FracBits = 52 }
+
+  /// A value of a format: a NaN with its fraction, an infinity, or exactly
+  /// sign times m times two to the e.
+  type private Exact =
+    | NaN of nanSign: bool * fraction: bigint
+    | Inf of infSign: bool
+    | Finite of sign: bool * m: bigint * e: int
+
+  let private biasOf fmt = (1 <<< (fmt.ExpBits - 1)) - 1
+
+  /// The number a format's bits stand for.
+  let private decodeAs fmt (bits: bigint) =
+    let frac = bits &&& ((1I <<< fmt.FracBits) - 1I)
+    let biased = int ((bits >>> fmt.FracBits) &&& ((1I <<< fmt.ExpBits) - 1I))
+    let sign = (bits >>> (fmt.ExpBits + fmt.FracBits)) &&& 1I = 1I
+    if biased = (1 <<< fmt.ExpBits) - 1 then
+      if frac.IsZero then Inf sign else NaN(sign, frac)
+    elif biased = 0 then
+      Finite(sign, frac, 1 - biasOf fmt - fmt.FracBits)
+    else
+      let m = frac ||| (1I <<< fmt.FracBits)
+      Finite(sign, m, biased - biasOf fmt - fmt.FracBits)
+
+  /// The format a BitVector of a float holds, by its width.
+  let private formatOf (x: BitVector) =
+    match x.Length with
+    | 16<rt> -> binary16
+    | 32<rt> -> binary32
+    | 64<rt> -> binary64
+    | _ -> { ExpBits = 15; FracBits = 112 }
+
+  let private signBits fmt sign =
+    if sign then 1I <<< (fmt.ExpBits + fmt.FracBits) else 0I
+
+  let private infBits fmt sign =
+    signBits fmt sign ||| (((1I <<< fmt.ExpBits) - 1I) <<< fmt.FracBits)
+
+  /// A NaN carried into a format: quiet, its fraction's top bits kept.
+  let private nanBits fmt srcFracBits sign (frac: bigint) =
+    let moved =
+      if srcFracBits >= fmt.FracBits then frac >>> (srcFracBits - fmt.FracBits)
+      else frac <<< (fmt.FracBits - srcFracBits)
+    infBits fmt sign ||| moved ||| (1I <<< (fmt.FracBits - 1))
+
+  /// What overflows answers with in a direction: an infinity, or the largest
+  /// finite number where the direction rounds toward zero.
+  let private overflowBits fmt mode sign =
+    match mode, sign with
+    | 0, _ | 2, false | 3, true -> infBits fmt sign
+    | _ -> infBits fmt sign - 1I
+
+  /// Whether the cut-off part decides an increment, in a direction: 0 to
+  /// nearest with ties to even, 1 toward zero, 2 toward +Inf, 3 toward -Inf.
+  let private roundsUp mode sign (kept: bigint) (rest: bigint) half =
+    match mode with
+    | 0 -> rest > half || (rest = half && not rest.IsZero && not kept.IsEven)
+    | 2 -> not rest.IsZero && not sign
+    | 3 -> not rest.IsZero && sign
+    | _ -> false
+
+  /// Encodes a significand already rounded at the quantum exponent q.
+  let private encodeRounded fmt mode sign (n: bigint) q =
+    let n, q = if n >= (1I <<< (fmt.FracBits + 1)) then n >>> 1, q + 1 else n, q
+    let biased =
+      if n >= (1I <<< fmt.FracBits) then q + fmt.FracBits + biasOf fmt else 0
+    if biased >= (1 <<< fmt.ExpBits) - 1 then
+      overflowBits fmt mode sign
+    else
+      let frac = n &&& ((1I <<< fmt.FracBits) - 1I)
+      signBits fmt sign ||| (bigint biased <<< fmt.FracBits) ||| frac
+
+  /// <summary>
+  /// sign times m times two to the e rounded once into a format, in a
+  /// direction: 0 to nearest with ties to even, 1 toward zero, 2 toward
+  /// +Inf, 3 toward -Inf, 4 to odd (truncated, the last bit set where
+  /// anything was cut off).
+  /// </summary>
+  let private roundInto fmt mode sign (m: bigint) e =
+    if m.IsZero then
+      signBits fmt sign
+    else
+      let top = int (m.GetBitLength()) - 1 + e
+      let q = max top (1 - biasOf fmt) - fmt.FracBits
+      let shift = q - e
+      if shift <= 0 then
+        encodeRounded fmt mode sign (m <<< -shift) q
+      else
+        let kept = m >>> shift
+        let rest = m - (kept <<< shift)
+        let half = 1I <<< (shift - 1)
+        let n =
+          if mode = 4 then (if rest.IsZero then kept else kept ||| 1I)
+          elif roundsUp mode sign kept rest half then kept + 1I
+          else kept
+        encodeRounded fmt mode sign n q
+
+  /// A float converted into a narrower format, rounded in a direction, a
+  /// NaN quieted with its fraction's top bits.
+  let private narrow fmt (x: BitVector) (mode: BitVector) =
+    let src = formatOf x
+    let bits =
+      match decodeAs src (x.ToBigInt()) with
+      | NaN(sign, frac) -> nanBits fmt src.FracBits sign frac
+      | Inf sign -> infBits fmt sign
+      | Finite(sign, m, e) -> roundInto fmt (int (mode.ToUInt64())) sign m e
+    BitVector(bits, 16<rt>)
+
+  /// The named calls the wide and the half-precision forms make, which are
+  /// answered over exact values and carry their own direction as an argument.
+  let private exactApp (name: string) (args: BitVector list) =
+    match name, args with
+    | "FCVTHALF", [ x; mode ] ->
+      Some(narrow binary16 x mode)
+    | "FCVTBF16", [ x; mode ] ->
+      Some(narrow bfloat16 x mode)
+    | _ ->
+      None
+
   /// The named calls the lifter makes: the fused multiply-add, with bit 0 of
   /// its flags negating the product and bit 1 the addend, and the exception
   /// query of one operation or of a fused multiply-add.
@@ -98,7 +237,11 @@ module internal IRRunner =
   /// A named call IRRunner knows, or else what the test answers for it.
   let private app ctx mode (name: string) (args: BitVector list) =
     let known = name.StartsWith "FMA" || name.StartsWith "FEXC"
-    let value = if known then floatApp mode name args else ctx.Answer name args
+    let value =
+      match exactApp name args with
+      | Some v -> Some v
+      | None when known -> floatApp mode name args
+      | None -> ctx.Answer name args
     match value with
     | Some v -> v
     | None -> failwith $"IRRunner: no {name}"
