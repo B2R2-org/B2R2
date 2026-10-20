@@ -2807,6 +2807,146 @@ type ParserTests() =
   member _.``[PPC64] XSABSQP refuses its last bit set``() =
     testUnsupported WordSize.Bit64 "fc201e49"
 
+  [<TestMethod>]
+  member _.``[PPC64] XVBF16GER2 (VSX vector bfloat16 GER (rank-2 update))``() =
+    testBoth "ee021998" (XVBF16GER2 ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVBF16GER2NN``() =
+    testBoth "ee021f90" (XVBF16GER2NN ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVBF16GER2NP``() =
+    testBoth "ee021b90" (XVBF16GER2NP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVBF16GER2PN``() =
+    testBoth "ee021d90" (XVBF16GER2PN ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVBF16GER2PP``() =
+    testBoth "ee021990" (XVBF16GER2PP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF16GER2``() =
+    testBoth "ee021898" (XVF16GER2 ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF16GER2NN``() =
+    testBoth "ee021e90" (XVF16GER2NN ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF16GER2NP``() =
+    testBoth "ee021a90" (XVF16GER2NP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF16GER2PN``() =
+    testBoth "ee021c90" (XVF16GER2PN ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF16GER2PP``() =
+    testBoth "ee021890" (XVF16GER2PP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF32GER``() =
+    testBoth "ee0218d8" (XVF32GER ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF32GERNN``() =
+    testBoth "ee021ed0" (XVF32GERNN ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF32GERNP``() =
+    testBoth "ee021ad0" (XVF32GERNP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF32GERPN``() =
+    testBoth "ee021cd0" (XVF32GERPN ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF32GERPP``() =
+    testBoth "ee0218d0" (XVF32GERPP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF64GER``() =
+    testBoth "ee0619d8" (XVF64GER ** [ O.Reg ACC4; O.Reg F6; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF64GERNN``() =
+    testBoth "ee061fd0" (XVF64GERNN ** [ O.Reg ACC4; O.Reg F6; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF64GERNP``() =
+    testBoth "ee061bd0" (XVF64GERNP ** [ O.Reg ACC4; O.Reg F6; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF64GERPN``() =
+    testBoth "ee061dd0" (XVF64GERPN ** [ O.Reg ACC4; O.Reg F6; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF64GERPP``() =
+    testBoth "ee0619d0" (XVF64GERPP ** [ O.Reg ACC4; O.Reg F6; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVI16GER2``() =
+    testBoth "ee021a58" (XVI16GER2 ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVI16GER2PP``() =
+    testBoth "ee021b58" (XVI16GER2PP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVI16GER2S``() =
+    testBoth "ee021958" (XVI16GER2S ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVI16GER2SPP``() =
+    testBoth "ee021950" (XVI16GER2SPP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVI4GER8``() =
+    testBoth "ee021918" (XVI4GER8 ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVI4GER8PP``() =
+    testBoth "ee021910" (XVI4GER8PP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVI8GER4``() =
+    testBoth "ee021818" (XVI8GER4 ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVI8GER4PP``() =
+    testBoth "ee021810" (XVI8GER4PP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVI8GER4SPP``() =
+    testBoth "ee021b18" (XVI8GER4SPP ** [ O.Reg ACC4; O.Reg F2; O.Reg F3 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXMFACC (VSX move from accumulator)``() =
+    testBoth "7e000162" (XXMFACC ** [ O.Reg ACC4 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXMTACC (VSX move to accumulator)``() =
+    testBoth "7e010162" (XXMTACC ** [ O.Reg ACC4 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XXSETACCZ (VSX set accumulator to zero)``() =
+    testBoth "7e030162" (XXSETACCZ ** [ O.Reg ACC4 ])
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF32GERPP refuses xA inside its accumulator``() =
+    testUnsupported WordSize.Bit64 "ee1018d0"
+
+  [<TestMethod>]
+  member _.``[PPC64] XVF64GERPP refuses a pair at an odd register``() =
+    testUnsupported WordSize.Bit64 "ee0719d0"
+
+  [<TestMethod>]
+  member _.``[PPC64] XXMTACC refuses its B field set``() =
+    testUnsupported WordSize.Bit64 "7e010962"
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

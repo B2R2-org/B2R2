@@ -90,6 +90,8 @@ let private printableName (reg: Register) =
     Some("v" + string ((int reg - int Register.V0A) / 2))
   elif reg <= Register.CR7_3 then
     Some(Register.toString reg)
+  elif reg >= Register.ACC0 && reg <= Register.ACC7 then
+    Some(Register.toString reg)
   else
     None
 

@@ -463,6 +463,65 @@ let private quadEncoders () =
     Op.XSRQPIX, z23 5u 1u
     Op.XSRQPXP, z23 37u 0u ]
 
+/// The number of the accumulator a register names.
+let private accNumber (reg: Register) =
+  if reg >= Register.ACC0 && reg <= Register.ACC7 then
+    uint32 (int reg - int Register.ACC0)
+  else
+    fail $"{reg} is not an accumulator"
+
+/// xxmfacc, xxmtacc and xxsetaccz, "AS" or "AT".
+let private accumulatorMove a ins =
+  match ins.Operands with
+  | [ Rg acc ] -> word 31u ((accNumber acc) <<< 2) a 0u (177u <<< 1)
+  | _ -> wrongOperands ins
+
+/// A rank-k update of primary opcode 59, "AT, xA, xB", the sixth bits of xA
+/// and xB in bits 2 and 1.
+let private matrix xo ins =
+  match ins.Operands with
+  | [ Rg acc; Rg a; Rg b ] ->
+    let na, nb = vsr a, vsr b
+    let tail = (xo <<< 3) ||| ((na >>> 5) <<< 2) ||| ((nb >>> 5) <<< 1)
+    word 59u ((accNumber acc) <<< 2) (na &&& 0x1Fu) (nb &&& 0x1Fu) tail
+  | _ ->
+    wrongOperands ins
+
+/// The Matrix-Multiply Assist forms.
+let private matrixEncoders () =
+  [ Op.XXMFACC, accumulatorMove 0u
+    Op.XXMTACC, accumulatorMove 1u
+    Op.XXSETACCZ, accumulatorMove 3u
+    Op.XVI8GER4PP, matrix 2u
+    Op.XVI8GER4, matrix 3u
+    Op.XVF16GER2PP, matrix 18u
+    Op.XVF16GER2, matrix 19u
+    Op.XVF32GERPP, matrix 26u
+    Op.XVF32GER, matrix 27u
+    Op.XVI4GER8PP, matrix 34u
+    Op.XVI4GER8, matrix 35u
+    Op.XVI16GER2SPP, matrix 42u
+    Op.XVI16GER2S, matrix 43u
+    Op.XVBF16GER2PP, matrix 50u
+    Op.XVBF16GER2, matrix 51u
+    Op.XVF64GERPP, matrix 58u
+    Op.XVF64GER, matrix 59u
+    Op.XVI16GER2, matrix 75u
+    Op.XVF16GER2NP, matrix 82u
+    Op.XVF32GERNP, matrix 90u
+    Op.XVI8GER4SPP, matrix 99u
+    Op.XVI16GER2PP, matrix 107u
+    Op.XVBF16GER2NP, matrix 114u
+    Op.XVF64GERNP, matrix 122u
+    Op.XVF16GER2PN, matrix 146u
+    Op.XVF32GERPN, matrix 154u
+    Op.XVBF16GER2PN, matrix 178u
+    Op.XVF64GERPN, matrix 186u
+    Op.XVF16GER2NN, matrix 210u
+    Op.XVF32GERNN, matrix 218u
+    Op.XVBF16GER2NN, matrix 242u
+    Op.XVF64GERNN, matrix 250u ]
+
 /// The single-precision estimates ISA 2.07 added.
 let private estimateEncoders () =
   [ Op.XSRESP, xx2 26u 0u
@@ -477,4 +536,5 @@ let vsxEncoders () =
       arithmeticEncoders ()
       testEncoders ()
       conversionEncoders ()
-      quadEncoders () ]
+      quadEncoders ()
+      matrixEncoders () ]

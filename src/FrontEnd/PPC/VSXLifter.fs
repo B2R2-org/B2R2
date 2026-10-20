@@ -186,7 +186,7 @@ let quadword ins (bld: ILowUIRBuilder) isLoad =
 
 /// The register holding doubleword 0 of the second register of a pair, whose
 /// first is the given (even) one.
-let private secondOfPair (reg: Register) =
+let secondOfPair (reg: Register) =
   let step = if reg >= Register.V0A then 2 else 1
   int reg + step |> LanguagePrimitives.EnumOfValue
 

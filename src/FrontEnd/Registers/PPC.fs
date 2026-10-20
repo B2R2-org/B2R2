@@ -399,6 +399,31 @@ type Register =
   /// FPSCR holding bits 32:63), whose only defined field is DRN, the decimal
   /// rounding mode, in its low three bits.
   | FPSCRH = 0xE0
+  (* Lane X: the MMA accumulators. *)
+  /// Accumulator 0, an MMA operand name only: it overlays VSR 0 to VSR
+  /// 3, which hold its state.
+  | ACC0 = 0xE1
+  /// Accumulator 1, an MMA operand name only: it overlays VSR 4 to VSR
+  /// 7, which hold its state.
+  | ACC1 = 0xE2
+  /// Accumulator 2, an MMA operand name only: it overlays VSR 8 to VSR
+  /// 11, which hold its state.
+  | ACC2 = 0xE3
+  /// Accumulator 3, an MMA operand name only: it overlays VSR 12 to VSR
+  /// 15, which hold its state.
+  | ACC3 = 0xE4
+  /// Accumulator 4, an MMA operand name only: it overlays VSR 16 to VSR
+  /// 19, which hold its state.
+  | ACC4 = 0xE5
+  /// Accumulator 5, an MMA operand name only: it overlays VSR 20 to VSR
+  /// 23, which hold its state.
+  | ACC5 = 0xE6
+  /// Accumulator 6, an MMA operand name only: it overlays VSR 24 to VSR
+  /// 27, which hold its state.
+  | ACC6 = 0xE7
+  /// Accumulator 7, an MMA operand name only: it overlays VSR 28 to VSR
+  /// 31, which hold its state.
+  | ACC7 = 0xE8
 
 /// Provides functions to handle PPC registers.
 module Register =
@@ -618,6 +643,14 @@ module Register =
     | "vsrl30" -> Register.VSRL30
     | "vsrl31" -> Register.VSRL31
     | "fpscrh" -> Register.FPSCRH
+    | "a0" -> Register.ACC0
+    | "a1" -> Register.ACC1
+    | "a2" -> Register.ACC2
+    | "a3" -> Register.ACC3
+    | "a4" -> Register.ACC4
+    | "a5" -> Register.ACC5
+    | "a6" -> Register.ACC6
+    | "a7" -> Register.ACC7
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a PPC register.
@@ -836,4 +869,12 @@ module Register =
     | Register.VSRL30 -> "vsrl30"
     | Register.VSRL31 -> "vsrl31"
     | Register.FPSCRH -> "fpscrh"
+    | Register.ACC0 -> "a0"
+    | Register.ACC1 -> "a1"
+    | Register.ACC2 -> "a2"
+    | Register.ACC3 -> "a3"
+    | Register.ACC4 -> "a4"
+    | Register.ACC5 -> "a5"
+    | Register.ACC6 -> "a6"
+    | Register.ACC7 -> "a7"
     | _ -> Terminator.impossible ()
