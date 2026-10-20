@@ -225,6 +225,14 @@ let private divideEncoders () =
     Op.VMODSQ, vx 1803u
     Op.VMODUQ, vx 1547u ]
 
+/// The sums across a vector, within words or across the whole of it.
+let private sumEncoders () =
+  [ Op.VSUM4UBS, vx 1544u
+    Op.VSUM4SBS, vx 1800u
+    Op.VSUM4SHS, vx 1608u
+    Op.VSUM2SWS, vx 1672u
+    Op.VSUMSWS, vx 1928u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -236,4 +244,5 @@ let vmxEncoders () =
       saturatingEncoders ()
       compareEncoders ()
       multiplyHighEncoders ()
-      divideEncoders () ]
+      divideEncoders ()
+      sumEncoders () ]

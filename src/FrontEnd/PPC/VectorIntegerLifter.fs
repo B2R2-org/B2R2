@@ -371,3 +371,38 @@ let vecDivide ins bld esize signed kind =
       | _, false -> dividend ./ safe
     let undefined = if kind = Remainder then AST.num0 esize else a
     AST.ite zero undefined (AST.xtlo esize answer))
+
+/// vsum4ubs/vsum4sbs/vsum4shs: each word of vD the sum of the elements of vA
+/// that lie within it plus the matching word of vB, computed exactly and
+/// clamped to a word, which sets VSCR[SAT] where it has to.
+let vecSumWithin ins bld esize signed =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let a = elementsOf bld esize o2
+    let b = elementsOf bld 32<rt> o3
+    let per = 32 / int esize
+    Array.init 4 (fun i ->
+      Array.init per (fun j -> widen signed 64<rt> a[i * per + j])
+      |> Array.fold (.+) (widen signed 64<rt> b[i])
+      |> saturate 32<rt> signed)
+    |> putSaturated bld o1
+  }
+
+/// vsum2sws/vsumsws: the signed words of vA summed in groups -- two of two
+/// words, or one of four -- each sum added to the last word of its group in
+/// vB, clamped and written there; the other words of vD are cleared.
+let vecSumAcross ins bld groups =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let a = elementsOf bld 32<rt> o2
+    let b = elementsOf bld 32<rt> o3
+    let size = 4 / groups
+    let sumOf i =
+      Array.init size (fun j -> AST.sext 64<rt> a[i - size + 1 + j])
+      |> Array.fold (.+) (AST.sext 64<rt> b[i])
+      |> saturate 32<rt> true
+    Array.init 4 (fun i ->
+      if i % size = size - 1 then sumOf i
+      else struct (AST.num0 32<rt>, AST.b0))
+    |> putSaturated bld o1
+  }

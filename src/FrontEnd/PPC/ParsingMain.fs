@@ -1848,6 +1848,11 @@ let private parse04 bitLen bin =
       | 1739u -> parseVX Op.VMODUD bin
       | 1803u -> parseVX Op.VMODSQ bin
       | 1547u -> parseVX Op.VMODUQ bin
+      | 1544u -> parseVX Op.VSUM4UBS bin
+      | 1800u -> parseVX Op.VSUM4SBS bin
+      | 1608u -> parseVX Op.VSUM4SHS bin
+      | 1672u -> parseVX Op.VSUM2SWS bin
+      | 1928u -> parseVX Op.VSUMSWS bin
       | 142u -> parseVX Op.VPKUHUS bin
       | 206u -> parseVX Op.VPKUWUS bin
       | 398u -> parseVX Op.VPKSHSS bin
