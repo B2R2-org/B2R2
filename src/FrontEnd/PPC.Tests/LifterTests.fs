@@ -17845,6 +17845,15 @@ type LifterTests() =
       []
       [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
       []
+
+  /// <summary>
+  /// xsaddqpo, xssubqpo, xsmulqpo and xsdivqpo round to odd whatever FPSCR[RN]
+  /// says: an inexact result keeps its truncated significand with the last bit
+  /// set, and an overflow gives the largest quad.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSSUBQPO beside XSADDQPO``() =
+    (* xssubqpo v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221c09"
@@ -17855,6 +17864,15 @@ type LifterTests() =
       []
       [ V1A, 0x3ffeffffffffffffUL; V1B, 0xffffffffffffffffUL; FPSCR, 0x4UL ]
       []
+
+  /// <summary>
+  /// xsaddqpo, xssubqpo, xsmulqpo and xsdivqpo round to odd whatever FPSCR[RN]
+  /// says: an inexact result keeps its truncated significand with the last bit
+  /// set, and an overflow gives the largest quad.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSMULQPO beside XSADDQPO``() =
+    (* xsmulqpo v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221849"
@@ -17875,6 +17893,15 @@ type LifterTests() =
       []
       [ V1A, 0x0UL; V1B, 0x1UL; FPSCR, 0x14UL ]
       []
+
+  /// <summary>
+  /// xsaddqpo, xssubqpo, xsmulqpo and xsdivqpo round to odd whatever FPSCR[RN]
+  /// says: an inexact result keeps its truncated significand with the last bit
+  /// set, and an overflow gives the largest quad.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSDIVQPO beside XSADDQPO``() =
+    (* xsdivqpo v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221c49"
@@ -18010,6 +18037,16 @@ type LifterTests() =
       []
       [ V1A, 0x3ffe279a74590331UL; V1B, 0xc4d218f81e4afb26UL; FPSCR, 0x4UL ]
       []
+
+  /// <summary>
+  /// xssqrtqp vRT, vRB takes the square root of vRB, rounded in the direction
+  /// FPSCR[RN] names (xssqrtqpo to odd): an inexact root up and to nearest, an
+  /// exact one, a negative number, -0, +Inf, a signalling NaN, the smallest
+  /// denormal and the largest quad.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSSQRTQPO beside XSSQRTQP``() =
+    (* xssqrtqpo v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc3b1e49"
@@ -18138,6 +18175,15 @@ type LifterTests() =
       []
       [ V1A, 0xffff000000000000UL; V1B, 0x0UL; FPSCR, 0x9UL ]
       []
+
+  /// <summary>
+  /// xsmaddqp vRT, vRA, vRB rounds vRA times vRB plus vRT once: a sum the
+  /// product's lost bits decide, an exact zero, infinity times zero, NaNs in
+  /// POWER's order (vRA, vRT, vRB), infinities of opposite signs, an overflow.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSMADDQPO beside XSMADDQP``() =
+    (* xsmaddqpo v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221b09"
@@ -18153,7 +18199,7 @@ type LifterTests() =
   /// <summary>
   /// xsmsubqp subtracts vRT from the product; xsnmaddqp and xsnmsubqp negate
   /// the result after it is rounded, so an exact zero takes the sign the
-  /// direction gives and then flips.
+  /// direction gives and then flips; their "o" forms round to odd.
   /// </summary>
   [<TestMethod>]
   member _.``[PPC] XSNMADDQP negates the rounded result``() =
@@ -18178,6 +18224,15 @@ type LifterTests() =
       []
       [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
       []
+
+  /// <summary>
+  /// xsmsubqp subtracts vRT from the product; xsnmaddqp and xsnmsubqp negate
+  /// the result after it is rounded, so an exact zero takes the sign the
+  /// direction gives and then flips; their "o" forms round to odd.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSNMADDQP beside XSMSUBQP``() =
+    (* xsnmaddqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221b88"
@@ -18220,6 +18275,15 @@ type LifterTests() =
       []
       [ V1A, 0xbf90000000000000UL; FPSCR, 0x8UL; V1B, 0x1UL ]
       []
+
+  /// <summary>
+  /// xsmsubqp subtracts vRT from the product; xsnmaddqp and xsnmsubqp negate
+  /// the result after it is rounded, so an exact zero takes the sign the
+  /// direction gives and then flips; their "o" forms round to odd.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSNMSUBQP beside XSMSUBQP``() =
+    (* xsnmsubqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221bc8"
@@ -18242,6 +18306,75 @@ type LifterTests() =
         FPSCR, 0x2UL ]
       []
       [ V1A, 0xc000000000000000UL; FPSCR, 0x8UL; V1B, 0x2UL ]
+      []
+
+  /// <summary>
+  /// xsmsubqp subtracts vRT from the product; xsnmaddqp and xsnmsubqp negate
+  /// the result after it is rounded, so an exact zero takes the sign the
+  /// direction gives and then flips; their "o" forms round to odd.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSMSUBQPO beside XSMSUBQP``() =
+    (* xsmsubqpo v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221b49"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x1UL; FPSCR, 0x4UL ]
+      []
+
+  /// <summary>
+  /// xsmsubqp subtracts vRT from the product; xsnmaddqp and xsnmsubqp negate
+  /// the result after it is rounded, so an exact zero takes the sign the
+  /// direction gives and then flips; their "o" forms round to odd.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSNMADDQPO beside XSMSUBQP``() =
+    (* xsnmaddqpo v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221b89"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0xbf90000000000000UL; V1B, 0x1UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b89"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+
+  /// <summary>
+  /// xsmsubqp subtracts vRT from the product; xsnmaddqp and xsnmsubqp negate
+  /// the result after it is rounded, so an exact zero takes the sign the
+  /// direction gives and then flips; their "o" forms round to odd.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSNMSUBQPO beside XSMSUBQP``() =
+    (* xsnmsubqpo v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221bc9"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0xc000000000000000UL; V1B, 0x1UL; FPSCR, 0x8UL ]
       []
 
   /// <summary>
@@ -18334,6 +18467,15 @@ type LifterTests() =
       []
       [ CR2_0, 0x0UL; CR2_1, 0x1UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x4UL ]
       []
+
+  /// <summary>
+  /// xscmpuqp BF, vRA, vRB and xscmpoqp set CR field BF and FPCC to less-than,
+  /// greater-than, equal or unordered: +0 equals -0, a NaN is unordered, a
+  /// denormal is above -Inf.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPOQP beside XSCMPUQP``() =
+    (* xscmpoqp cr2,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fd021908"
@@ -18387,6 +18529,15 @@ type LifterTests() =
       []
       [ V1A, 0x0UL; V1B, 0x0UL ]
       []
+
+  /// <summary>
+  /// xscmpeqqp, xscmpgtqp and xscmpgeqp set vRT to all ones where vRA is equal
+  /// to, greater than or not less than vRB, to all zeroes otherwise and where
+  /// either is a NaN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPGTQP beside XSCMPEQQP``() =
+    (* xscmpgtqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc2219c8"
@@ -18437,6 +18588,15 @@ type LifterTests() =
       []
       [ V1A, 0x0UL; V1B, 0x0UL ]
       []
+
+  /// <summary>
+  /// xscmpeqqp, xscmpgtqp and xscmpgeqp set vRT to all ones where vRA is equal
+  /// to, greater than or not less than vRB, to all zeroes otherwise and where
+  /// either is a NaN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPGEQP beside XSCMPEQQP``() =
+    (* xscmpgeqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221988"
@@ -18599,6 +18759,15 @@ type LifterTests() =
       []
       [ V1B, 0x0UL; V1A, 0x8000000000000000UL ]
       []
+
+  /// <summary>
+  /// xsmaxcqp vRT, vRA, vRB gives vRA where it is greater than vRB and vRB
+  /// otherwise, so a NaN in either and a tie of +0 and -0 give vRB; xsmincqp
+  /// gives the lesser in the same way.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSMINCQP beside XSMAXCQP``() =
+    (* xsmincqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221dc8"
@@ -18669,6 +18838,14 @@ type LifterTests() =
       []
       [ V1A, 0x3fff000000000000UL; V1B, 0x0UL ]
       []
+
+  /// <summary>
+  /// xscpsgnqp takes vRA's sign onto vRB; xsabsqp clears the sign, xsnabsqp
+  /// sets it and xsnegqp flips it, a NaN included and left signalling.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSABSQP beside XSCPSGNQP``() =
+    (* xsabsqp v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc201e48"
@@ -18688,6 +18865,14 @@ type LifterTests() =
       []
       [ V1A, 0x7fff000000000000UL; V1B, 0x1UL ]
       []
+
+  /// <summary>
+  /// xscpsgnqp takes vRA's sign onto vRB; xsabsqp clears the sign, xsnabsqp
+  /// sets it and xsnegqp flips it, a NaN included and left signalling.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSNABSQP beside XSCPSGNQP``() =
+    (* xsnabsqp v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc281e48"
@@ -18707,6 +18892,14 @@ type LifterTests() =
       []
       [ V1A, 0xffff800000000000UL; V1B, 0x1234UL ]
       []
+
+  /// <summary>
+  /// xscpsgnqp takes vRA's sign onto vRB; xsabsqp clears the sign, xsnabsqp
+  /// sets it and xsnegqp flips it, a NaN included and left signalling.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSNEGQP beside XSCPSGNQP``() =
+    (* xsnegqp v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc301e48"
@@ -18777,6 +18970,15 @@ type LifterTests() =
       []
       [ V1A, 0x7ffeUL; V1B, 0x0UL ]
       []
+
+  /// <summary>
+  /// xsxexpqp puts vRB's exponent field in doubleword 0; xsxsigqp gives the
+  /// fraction with the implicit bit where vRB is normal; xsiexpqp puts the low
+  /// 15 bits of vRB's doubleword 0 into vRA as its exponent field.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSXSIGQP beside XSXEXPQP``() =
+    (* xsxsigqp v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc321e48"
@@ -18822,6 +19024,15 @@ type LifterTests() =
       []
       [ V1A, 0x1ffffffffffffUL; V1B, 0xffffffffffffffffUL ]
       []
+
+  /// <summary>
+  /// xsxexpqp puts vRB's exponent field in doubleword 0; xsxsigqp gives the
+  /// fraction with the implicit bit where vRB is normal; xsiexpqp puts the low
+  /// 15 bits of vRB's doubleword 0 into vRA as its exponent field.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSIEXPQP beside XSXEXPQP``() =
+    (* xsiexpqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221ec8"
@@ -19162,6 +19373,14 @@ type LifterTests() =
       []
       [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
       []
+
+  /// <summary>
+  /// xscvsdqp and xscvudqp convert the signed or unsigned doubleword in
+  /// doubleword 0 of vRB to a quad, exactly; zero gives +0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVUDQP beside XSCVSDQP``() =
+    (* xscvudqp v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc221e88"
@@ -19280,6 +19499,15 @@ type LifterTests() =
       []
       [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
       []
+
+  /// <summary>
+  /// xscvsqqp and xscvuqqp convert the signed or unsigned quadword in vRB to a
+  /// quad, rounded in the direction FPSCR[RN] names where it needs more than
+  /// 113 bits.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVUQQP beside XSCVSQQP``() =
+    (* xscvuqqp v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc231e88"
@@ -19503,6 +19731,15 @@ type LifterTests() =
       []
       [ V1A, 0x10000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
       []
+
+  /// <summary>
+  /// xscvqpdp vRT, vRB rounds vRB to a double in doubleword 0, in the direction
+  /// FPSCR[RN] names (xscvqpdpo to odd), doubleword 1 cleared: overflow,
+  /// underflow, a NaN keeping the top of its payload, one third.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVQPDPO beside XSCVQPDP``() =
+    (* xscvqpdpo v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc341e89"
@@ -19670,6 +19907,15 @@ type LifterTests() =
       []
       [ V1A, 0x0UL; V1B, 0x0UL ]
       []
+
+  /// <summary>
+  /// xscvqpsdz and xscvqpudz truncate vRB toward zero to a signed or unsigned
+  /// doubleword in doubleword 0, saturating: a NaN gives the smallest signed
+  /// value or zero, a negative number zero to the unsigned one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVQPUDZ beside XSCVQPSDZ``() =
+    (* xscvqpudz v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc311e88"
@@ -19798,6 +20044,15 @@ type LifterTests() =
       []
       [ V1A, 0xffffffff80000000UL; V1B, 0x0UL ]
       []
+
+  /// <summary>
+  /// xscvqpswz and xscvqpuwz truncate vRB to a signed or unsigned word,
+  /// extended to doubleword 0 as its signedness says, saturating at the word's
+  /// ends.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVQPUWZ beside XSCVQPSWZ``() =
+    (* xscvqpuwz v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc211e88"
@@ -19908,6 +20163,14 @@ type LifterTests() =
       []
       [ V1A, 0x2000000000001UL; V1B, 0x0UL ]
       []
+
+  /// <summary>
+  /// xscvqpsqz and xscvqpuqz truncate vRB to a signed or unsigned quadword,
+  /// saturating at 2 to the 127 and 2 to the 128.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVQPUQZ beside XSCVQPSQZ``() =
+    (* xscvqpuqz v1,v3, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc201e88"
@@ -20155,6 +20418,16 @@ type LifterTests() =
       []
       [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
       []
+
+  /// <summary>
+  /// xsrqpi R, vRT, vRB, RMC rounds vRB to an integral value: R = 0 and RMC = 0
+  /// to nearest with ties away, R = 0 and RMC = 3 by FPSCR[RN] (toward zero
+  /// here), R = 1 by RMC; a signalling NaN comes back quiet, an infinity and -0
+  /// as they are.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSRQPIX beside XSRQPI``() =
+    (* xsrqpix 0,v1,v3,1, under QEMU: lanes/x-oracle/quad *)
     oracleMem
       ppc64le
       "fc21180b"
