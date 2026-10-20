@@ -3072,6 +3072,40 @@ type ParserTests() =
     ||> testOnlyPPC64
 
   [<TestMethod>]
+  member _.``[PPC64] LQ (load quadword)``() =
+    "e1460010"
+    ++ (LQ ** [ O.Reg R10; O.Mem(16, R6) ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] LQ with a negative displacement``() =
+    "e146fff0"
+    ++ (LQ ** [ O.Reg R10; O.Mem(-16, R6) ])
+    ||> testOnlyPPC64
+
+  /// The low four bits of lq are reserved, which the processor ignores (Book
+  /// I 1.3.3); QEMU loads the same pair with them set.
+  [<TestMethod>]
+  member _.``[PPC64] LQ ignores its reserved bits``() =
+    "e146001f"
+    ++ (LQ ** [ O.Reg R10; O.Mem(16, R6) ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] STQ (store quadword)``() =
+    "f986000a"
+    ++ (STQ ** [ O.Reg R12; O.Mem(8, R6) ])
+    ||> testOnlyPPC64
+
+  /// An odd first register of the pair, and a pair that rA names too -- r0
+  /// with rA = 0 among them -- are invalid forms of lq; an odd one is of stq.
+  /// QEMU refuses all of them as illegal instructions.
+  [<TestMethod>]
+  member _.``[PPC64] LQ and STQ refuse the invalid forms``() =
+    for hex in [ "e1660010"; "e0c60010"; "e0000010"; "f9a60012" ] do
+      testUnsupported WordSize.Bit64 hex
+
+  [<TestMethod>]
   member _.``[PPC64] DIVDE (extended divide)``() =
     "7ca63b52"
     ++ (DIVDE ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])

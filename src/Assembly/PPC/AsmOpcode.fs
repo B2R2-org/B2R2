@@ -916,6 +916,35 @@ let private quadReserve xo rc ins =
   | _ ->
     wrongOperands ins
 
+/// <summary>
+/// lq, which names the even register of the pair it loads and reaches whole
+/// quadwords only. An odd register is an invalid form, and so is a pair that
+/// rA names, which the processor refuses.
+/// </summary>
+let private loadQuad ins =
+  match ins.Operands with
+  | [ Rg p; Mem(_, _) ] when gpr p % 2u <> 0u ->
+    fail $"lq needs the even register of a pair, not {p}"
+  | [ Rg p; Mem(_, b) ] when p = b ->
+    fail "lq cannot load a pair rA names"
+  | [ Rg p; Mem(disp, b) ] when disp % 16 = 0 ->
+    dForm 56u (gpr p) (gpr b) (displacement disp)
+  | [ Rg _; Mem(_, _) ] ->
+    fail "lq cannot reach a place that is not a whole quadword away"
+  | _ ->
+    wrongOperands ins
+
+/// stq, which names the even register of the pair it stores; an odd one is
+/// an invalid form.
+let private storeQuad ins =
+  match ins.Operands with
+  | [ Rg p; Mem(_, _) ] when gpr p % 2u <> 0u ->
+    fail $"stq needs the even register of a pair, not {p}"
+  | [ Rg p; Mem(disp, b) ] ->
+    dForm 62u (gpr p) (gpr b) ((wordDisplacement disp) ||| 2u)
+  | _ ->
+    wrongOperands ins
+
 /// setb, whose CR field fills the top three bits of the rA field.
 let private setBoolean ins =
   match ins.Operands with
@@ -991,6 +1020,8 @@ let laneAEncoders bitLen =
     Op.ICBT, cacheTouch
     Op.LQARX, quadReserve 276u 0u
     Op.STQCXdot, quadReserve 182u 1u
+    Op.LQ, loadQuad
+    Op.STQ, storeQuad
     Op.ADDG6S, xDab 74u 0u
     Op.CDTBCD, xAs 282u 0u
     Op.CBCDTD, xAs 314u 0u

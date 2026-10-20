@@ -1504,6 +1504,7 @@ let opCodeToString = function
   | Op.EXTSWSLI -> "extswsli"
   | Op.EXTSWSLIdot -> "extswsli."
   | Op.ICBT -> "icbt"
+  | Op.LQ -> "lq"
   | Op.LQARX -> "lqarx"
   | Op.MCRXRX -> "mcrxrx"
   | Op.MFBHRBE -> "mfbhrbe"
@@ -1513,6 +1514,7 @@ let opCodeToString = function
   | Op.MODUW -> "moduw"
   | Op.RFEBB -> "rfebb"
   | Op.SETB -> "setb"
+  | Op.STQ -> "stq"
   | Op.STQCXdot -> "stqcx."
   | _ -> Terminator.impossible ()
 

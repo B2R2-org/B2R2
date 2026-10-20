@@ -2652,6 +2652,8 @@ let translate (ins: Instruction) bld =
     divweu ins false true bld
   | Op.DIVWEUOdot ->
     divweu ins true true bld
+  | Op.LQ ->
+    lq ins bld
   | Op.LQARX ->
     lqarx ins bld
   | Op.EXTSWSLI ->
@@ -2674,6 +2676,8 @@ let translate (ins: Instruction) bld =
     rfebb ins bld
   | Op.SETB ->
     setb ins bld
+  | Op.STQ ->
+    stq ins bld
   | Op.STQCXdot ->
     stqcxdot ins bld
   | o ->
