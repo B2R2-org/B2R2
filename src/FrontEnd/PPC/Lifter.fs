@@ -1999,6 +1999,40 @@ let translate (ins: Instruction) bld =
     vcmpbfp ins bld false
   | Op.VCMPBFPdot ->
     vcmpbfp ins bld true
+  | Op.BCDCPSGNdot ->
+    bcdcpsgn ins bld
+  | Op.BCDSETSGNdot ->
+    bcdsetsgn ins bld
+  | Op.BCDCFSQdot ->
+    bcdcfsq ins bld
+  | Op.BCDCTSQdot ->
+    bcdctsq ins bld
+  | Op.BCDSdot ->
+    bcds ins bld
+  | Op.BCDUSdot ->
+    bcdus ins bld
+  | Op.BCDSRdot ->
+    bcdsr ins bld
+  | Op.BCDTRUNCdot ->
+    bcdtrunc ins bld
+  | Op.BCDUTRUNCdot ->
+    bcdutrunc ins bld
+  | Op.BCDCFNdot ->
+    bcdcfn ins bld
+  | Op.BCDCTNdot ->
+    bcdctn ins bld
+  | Op.BCDCFZdot ->
+    bcdcfz ins bld
+  | Op.BCDCTZdot ->
+    bcdctz ins bld
+  | Op.VMUL10UQ ->
+    vecMultiplyByTen ins bld false false
+  | Op.VMUL10CUQ ->
+    vecMultiplyByTen ins bld false true
+  | Op.VMUL10EUQ ->
+    vecMultiplyByTen ins bld true false
+  | Op.VMUL10ECUQ ->
+    vecMultiplyByTen ins bld true true
   (* End of lane V. *)
   | o ->
 #if DEBUG

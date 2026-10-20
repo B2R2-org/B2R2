@@ -403,6 +403,38 @@ let private floatEncoders () =
       recording vc 710u Op.VCMPGTFP Op.VCMPGTFPdot
       recording vc 966u Op.VCMPBFP Op.VCMPBFPdot ]
 
+/// The decimal conversions and bcdsetsgn., extended opcode 1409 with the
+/// conversion in the vA field and PS above the opcode where there is one.
+let private vxDecimalSub sub ins =
+  match ins.Operands with
+  | [ Rg d; Rg b; Im ps ] ->
+    word 4u (vr d) sub (vr b) (((unsigned 1 ps) <<< 9) ||| 1409u)
+  | [ Rg d; Rg b ] ->
+    word 4u (vr d) sub (vr b) 1409u
+  | _ ->
+    wrongOperands ins
+
+/// The rest of the decimal integer instructions -- conversions, sign
+/// changes, shifts and truncations -- and the multiplies by ten.
+let private decimalMoreEncoders () =
+  [ Op.BCDCTSQdot, vxDecimalSub 0u
+    Op.BCDCFSQdot, vxDecimalSub 2u
+    Op.BCDCTZdot, vxDecimalSub 4u
+    Op.BCDCTNdot, vxDecimalSub 5u
+    Op.BCDCFZdot, vxDecimalSub 6u
+    Op.BCDCFNdot, vxDecimalSub 7u
+    Op.BCDSETSGNdot, vxDecimalSub 31u
+    Op.BCDCPSGNdot, vx 833u
+    Op.BCDSdot, vxDecimal 1217u
+    Op.BCDUSdot, vx 1153u
+    Op.BCDSRdot, vxDecimal 1473u
+    Op.BCDTRUNCdot, vxDecimal 1281u
+    Op.BCDUTRUNCdot, vx 1345u
+    Op.VMUL10UQ, vxA 513u
+    Op.VMUL10CUQ, vxA 1u
+    Op.VMUL10EUQ, vx 577u
+    Op.VMUL10ECUQ, vx 65u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -421,4 +453,5 @@ let vmxEncoders () =
       maskEncoders ()
       stringEncoders ()
       bitEncoders ()
-      floatEncoders () ]
+      floatEncoders ()
+      decimalMoreEncoders () ]

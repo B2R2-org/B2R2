@@ -1731,6 +1731,24 @@ let private parseVAFloat op bin =
   let vc = getVecRegister (Bits.extract bin 10u 6u) |> OprReg
   struct (op, FourOperands(vd, va, vc, vb))
 
+/// The decimal conversions and bcdsetsgn., told apart by their vA field;
+/// PS sits above the nine-bit extended opcode, where the two that take none
+/// leave it clear.
+let private parse04Decimal bin =
+  let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+  let vb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  let ps = Bits.pick bin 9u
+  let withPS op = struct (op, ThreeOperands(vd, vb, ps |> uint64 |> OprImm))
+  match Bits.extract bin 20u 16u with
+  | 0u when ps = 0u -> struct (Op.BCDCTSQdot, TwoOperands(vd, vb))
+  | 2u -> withPS Op.BCDCFSQdot
+  | 4u -> withPS Op.BCDCTZdot
+  | 5u when ps = 0u -> struct (Op.BCDCTNdot, TwoOperands(vd, vb))
+  | 6u -> withPS Op.BCDCFZdot
+  | 7u -> withPS Op.BCDCFNdot
+  | 31u -> withPS Op.BCDSETSGNdot
+  | _ -> raise ParsingFailureException
+
 /// maddhd/maddhdu/maddld, the VA form whose four registers are general ones.
 let private parseVAGpr op bin =
   let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1971,6 +1989,17 @@ let private parse04 bitLen bin =
       | 1486u -> parseVX Op.VPKSDSS bin
       | 1358u -> parseVX Op.VPKSDUS bin
       | 1230u -> parseVX Op.VPKUDUS bin
+      | 1409u | 1921u -> parse04Decimal bin
+      | 833u -> parseVX Op.BCDCPSGNdot bin
+      | 1217u | 1729u -> parseVXDecimal Op.BCDSdot bin
+      | 1153u -> parseVX Op.BCDUSdot bin
+      | 1473u | 1985u -> parseVXDecimal Op.BCDSRdot bin
+      | 1281u | 1793u -> parseVXDecimal Op.BCDTRUNCdot bin
+      | 1345u -> parseVX Op.BCDUTRUNCdot bin
+      | 513u -> parseVXA Op.VMUL10UQ bin
+      | 1u -> parseVXA Op.VMUL10CUQ bin
+      | 577u -> parseVX Op.VMUL10EUQ bin
+      | 65u -> parseVX Op.VMUL10ECUQ bin
       | 10u -> parseVX Op.VADDFP bin
       | 74u -> parseVX Op.VSUBFP bin
       | 1034u -> parseVX Op.VMAXFP bin
