@@ -2590,8 +2590,12 @@ let translate (ins: Instruction) bld =
   | Op.XVI16GER2SPP ->
     VSXMatrix.saturatingUpdate ins bld 16 true true
   (* Lane A: integer, branch, storage and system instructions. *)
+  | Op.ADDEX ->
+    addex ins bld
   | Op.ADDG6S ->
     addg6s ins bld
+  | Op.ADDPCIS ->
+    addpcis ins bld
   | Op.BCTAR ->
     bctar ins bld false
   | Op.BCTARL ->
@@ -2602,6 +2606,20 @@ let translate (ins: Instruction) bld =
     cdtbcd ins bld
   | Op.CLRBHRB | Op.ICBT ->
     nop ins bld
+  | Op.CMPEQB ->
+    cmpeqb ins bld
+  | Op.CMPRB ->
+    cmprb ins bld
+  | Op.CNTTZD ->
+    cnttzd ins false bld
+  | Op.CNTTZDdot ->
+    cnttzd ins true bld
+  | Op.CNTTZW ->
+    cnttzw ins false bld
+  | Op.CNTTZWdot ->
+    cnttzw ins true bld
+  | Op.DARN ->
+    darn ins bld
   | Op.DIVDE ->
     divde ins false false bld
   | Op.DIVDEdot ->
@@ -2636,10 +2654,26 @@ let translate (ins: Instruction) bld =
     divweu ins true true bld
   | Op.LQARX ->
     lqarx ins bld
+  | Op.EXTSWSLI ->
+    extswsli ins false bld
+  | Op.EXTSWSLIdot ->
+    extswsli ins true bld
+  | Op.MCRXRX ->
+    mcrxrx ins bld
   | Op.MFBHRBE ->
     mfbhrbe ins bld
+  | Op.MODSD ->
+    modsd ins bld
+  | Op.MODSW ->
+    modsw ins bld
+  | Op.MODUD ->
+    modud ins bld
+  | Op.MODUW ->
+    moduw ins bld
   | Op.RFEBB ->
     rfebb ins bld
+  | Op.SETB ->
+    setb ins bld
   | Op.STQCXdot ->
     stqcxdot ins bld
   | o ->

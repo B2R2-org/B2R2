@@ -916,6 +916,62 @@ let private quadReserve xo rc ins =
   | _ ->
     wrongOperands ins
 
+/// setb, whose CR field fills the top three bits of the rA field.
+let private setBoolean ins =
+  match ins.Operands with
+  | [ Rg d; Rg f ] -> xForm 31u (gpr d) ((crf f) <<< 2) 0u 128u 0u
+  | _ -> wrongOperands ins
+
+/// addex, whose CY operand has no value but 0 that is not reserved.
+let private addExtended ins =
+  match ins.Operands with
+  | [ Rg d; Rg a; Rg b; Im 0UL ] -> xForm 31u (gpr d) (gpr a) (gpr b) 170u 0u
+  | [ Rg _; Rg _; Rg _; Im cy ] -> fail $"addex has no CY {cy}"
+  | _ -> wrongOperands ins
+
+/// cmprb, whose L sits below the CR field, one reserved bit apart.
+let private compareRanged ins =
+  match ins.Operands with
+  | [ Rg f; Im l; Rg a; Rg b ] ->
+    let field = ((crf f) <<< 2) ||| unsigned 1 l
+    xForm 31u field (gpr a) (gpr b) 192u 0u
+  | _ ->
+    wrongOperands ins
+
+/// cmpeqb and mcrxrx, which name a CR field and what they compare.
+let private compareField xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Rg b ] -> xForm 31u ((crf f) <<< 2) (gpr a) (gpr b) xo 0u
+  | [ Rg f ] -> xForm 31u ((crf f) <<< 2) 0u 0u xo 0u
+  | _ -> wrongOperands ins
+
+/// darn, whose L fills the low two bits of the rA field.
+let private deliverRandom ins =
+  match ins.Operands with
+  | [ Rg d; Im l ] -> xForm 31u (gpr d) (unsigned 2 l) 0u 755u 0u
+  | _ -> wrongOperands ins
+
+/// extswsli, an XS form whose six-bit shift keeps its high bit in bit 30.
+let private signExtendShift rc ins =
+  match ins.Operands with
+  | [ Rg a; Rg s; Im shift ] ->
+    let sh = unsigned 6 shift
+    let rest = (445u <<< 2) ||| ((sh >>> 5) <<< 1) ||| rc
+    word 31u (gpr s) (gpr a) (sh &&& 0x1Fu) rest
+  | _ ->
+    wrongOperands ins
+
+/// addpcis, whose sixteen-bit D is split into d0, d1 and d2.
+let private addPCImmediate bitLen ins =
+  match ins.Operands with
+  | [ Rg d; Im v ] ->
+    let value = immediate16 bitLen v
+    let d1 = (value >>> 1) &&& 0x1Fu
+    let rest = (value &&& 0xFFC0u) ||| (2u <<< 1) ||| (value &&& 1u)
+    word 19u (gpr d) d1 0u rest
+  | _ ->
+    wrongOperands ins
+
 /// The extended divides, by extended opcode, with the names of their plain
 /// and their overflow-recording forms.
 let private extendedDivides =
@@ -925,7 +981,7 @@ let private extendedDivides =
     427u, (Op.DIVWE, Op.DIVWEdot), (Op.DIVWEO, Op.DIVWEOdot) ]
 
 /// The instructions of lane A.
-let laneAEncoders () =
+let laneAEncoders bitLen =
   let divide (xo, plain, ovf) = overflowing xDab xo plain ovf
   [ Op.BCTAR, targetBranch 0u
     Op.BCTARL, targetBranch 1u
@@ -937,5 +993,20 @@ let laneAEncoders () =
     Op.STQCXdot, quadReserve 182u 1u
     Op.ADDG6S, xDab 74u 0u
     Op.CDTBCD, xAs 282u 0u
-    Op.CBCDTD, xAs 314u 0u ]
+    Op.CBCDTD, xAs 314u 0u
+    Op.SETB, setBoolean
+    Op.ADDEX, addExtended
+    Op.CMPRB, compareRanged
+    Op.CMPEQB, compareField 224u
+    Op.MCRXRX, compareField 576u
+    Op.DARN, deliverRandom
+    Op.EXTSWSLI, signExtendShift 0u
+    Op.EXTSWSLIdot, signExtendShift 1u
+    Op.ADDPCIS, addPCImmediate bitLen
+    Op.MODUD, xDab 265u 0u
+    Op.MODUW, xDab 267u 0u
+    Op.MODSD, xDab 777u 0u
+    Op.MODSW, xDab 779u 0u ]
+  @ recording xAs 538u Op.CNTTZW Op.CNTTZWdot
+  @ recording xAs 570u Op.CNTTZD Op.CNTTZDdot
   @ List.collect divide extendedDivides

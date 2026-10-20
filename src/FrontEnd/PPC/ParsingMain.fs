@@ -321,6 +321,17 @@ let parseBCCTRx bin =
   | _ ->
     raise ParsingFailureException
 
+/// addpcis rT, D, a DX form whose sixteen-bit D is split three ways: d0 in
+/// bits 16-25, d1 in bits 11-15 and d2 in bit 31. Its extended opcode is the
+/// five bits 26-30 alone, which no XL form of primary opcode 19 shares.
+let parseADDPCIS bitLen bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let d0 = Bits.extract bin 15u 6u
+  let d1 = Bits.extract bin 20u 16u
+  let d = (d0 <<< 6) ||| (d1 <<< 1) ||| Bits.pick bin 0u
+  let value = d |> uint64 |> Bits.signExtend 16 bitLen |> uint64
+  struct (Op.ADDPCIS, TwoOperands(rt, OprImm value))
+
 /// rfebb S, which returns from an event-based branch and sets BESCR[GE] to
 /// S, the one bit it names.
 let parseRFEBB bin =
@@ -345,13 +356,14 @@ let parseBCTARx bin =
 
 /// The forms of primary opcode 19. rfebb and bctar belong to the event-based
 /// branch and target address facilities of the 64-bit processors only.
-let parse13 is64 bin =
+let parse13 bitLen bin =
   match Bits.extract bin 10u 1u with
+  | xo when xo &&& 0x1Fu = 2u -> parseADDPCIS bitLen bin
   | 0x0u -> parseMCRF bin
   | 0x10u -> parseBCLRx bin
   | 0x21u -> parseCRNOR bin
   | 0x32u -> parseRFI bin
-  | 0x92u when is64 -> parseRFEBB bin
+  | 0x92u when bitLen = 64 -> parseRFEBB bin
   | 0x81u -> parseCRANDC bin
   | 0x96u -> parseISYNC bin
   | 0xC1u -> parseCRXOR bin
@@ -361,7 +373,7 @@ let parse13 is64 bin =
   | 0x1A1u -> parseCRORC bin
   | 0x1C1u -> parseCROR bin
   | 0x210u -> parseBCCTRx bin
-  | 0x230u when is64 -> parseBCTARx bin
+  | 0x230u when bitLen = 64 -> parseBCTARx bin
   | _ -> raise ParsingFailureException
 
 let parseRLWIMIx bin =
@@ -2654,6 +2666,70 @@ let private parseCLRBHRB bin =
   else
     struct (Op.CLRBHRB, NoOperand)
 
+/// setb rT, BFA, whose CR field is the top three bits of the rA field; the
+/// other two are reserved, as is rB.
+let private parseSETB bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let bfa = getCondRegister (Bits.extract bin 20u 18u) |> OprReg
+  if Bits.extract bin 17u 11u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.SETB, TwoOperands(rt, bfa))
+
+/// addex rT, rA, rB, CY, whose CY (bits 21-22) is 0 in every defined form;
+/// the dispatcher reaches this only for CY = 0.
+let private parseADDEX bin =
+  let struct (rt, ra, rb) = xFormRegs bin
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException
+  else struct (Op.ADDEX, FourOperands(rt, ra, rb, OprImm 0UL))
+
+/// cmprb BF, L, rA, rB. Bit 9 is reserved.
+let private parseCMPRB bin =
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  let l = Bits.pick bin 21u |> uint64 |> OprImm
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  if Bits.pick bin 22u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.CMPRB, FourOperands(bf, l, ra, rb))
+
+/// cmpeqb BF, rA, rB. Bits 9-10 are reserved.
+let private parseCMPEQB bin =
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  if Bits.extract bin 22u 21u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.CMPEQB, ThreeOperands(bf, ra, rb))
+
+/// mcrxrx BF; everything below BF is reserved.
+let private parseMCRXRX bin =
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  if Bits.extract bin 22u 11u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.MCRXRX, OneOperand bf)
+
+/// darn rT, L, whose L (bits 14-15) of 3 is reserved.
+let private parseDARN bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let l = Bits.extract bin 17u 16u
+  let reserved = Bits.extract bin 20u 18u ||| Bits.extract bin 15u 11u
+  if l = 3u || reserved <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.DARN, TwoOperands(rt, OprImm(uint64 l)))
+
+/// extswsli rA, rS, SH, an XS form whose shift keeps its sixth bit in bit 30.
+let private parseEXTSWSLI bin =
+  let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let sh = (Bits.pick bin 1u <<< 5) ||| Bits.extract bin 15u 11u
+  let op = if Bits.pick bin 0u = 0u then Op.EXTSWSLI else Op.EXTSWSLIdot
+  struct (op, ThreeOperands(ra, rs, OprImm(uint64 sh)))
+
 /// The lane A forms of primary opcode 31, tried before the word dispatcher
 /// they otherwise fall back to. The forms on doublewords and the quadword
 /// pair need 64-bit registers, and the branch history buffer belongs to the
@@ -2664,8 +2740,20 @@ let private parse1FLaneA is64 fallback bin =
     parseICBT bin
   | 0x04Au ->
     parseXFormIndexed Op.ADDG6S bin
+  | 0x080u ->
+    parseSETB bin
+  | 0x0AAu ->
+    parseADDEX bin
   | 0x0B6u when is64 ->
     parseSTQCX bin
+  | 0x0C0u ->
+    parseCMPRB bin
+  | 0x0E0u when is64 ->
+    parseCMPEQB bin
+  | 0x109u when is64 ->
+    parseXFormIndexed Op.MODUD bin
+  | 0x10Bu ->
+    parseXFormIndexed Op.MODUW bin
   | 0x114u when is64 ->
     parseLQARX bin
   | 0x11Au ->
@@ -2684,6 +2772,20 @@ let private parse1FLaneA is64 fallback bin =
     parseXOForm [| Op.DIVWE; Op.DIVWEdot; Op.DIVWEO; Op.DIVWEOdot |] bin
   | 0x1AEu when is64 ->
     parseCLRBHRB bin
+  | 0x21Au ->
+    parseXFormUnary Op.CNTTZW Op.CNTTZWdot bin
+  | 0x23Au when is64 ->
+    parseXFormUnary Op.CNTTZD Op.CNTTZDdot bin
+  | 0x240u ->
+    parseMCRXRX bin
+  | 0x2F3u when is64 ->
+    parseDARN bin
+  | 0x309u when is64 ->
+    parseXFormIndexed Op.MODSD bin
+  | 0x30Bu ->
+    parseXFormIndexed Op.MODSW bin
+  | 0x37Au | 0x37Bu when is64 ->
+    parseEXTSWSLI bin
   | _ ->
     fallback bin
 
@@ -3784,7 +3886,7 @@ let private parseInstruction bitLen bin addr =
   | 0x10u -> parseBCx bitLen bin
   | 0x11u when Bits.pick bin 0u = 0u -> parseSC bin
   | 0x12u -> parseBx bitLen bin addr
-  | 0x13u -> parse13 (bitLen = 64) bin
+  | 0x13u -> parse13 bitLen bin
   | 0x14u -> parseRLWIMIx bin
   | 0x15u -> parseRLWINMx bin
   | 0x17u -> parseRLWNMx bin

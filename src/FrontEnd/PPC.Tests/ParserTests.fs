@@ -3185,6 +3185,114 @@ type ParserTests() =
     ++ (CDTBCD ** [ O.Reg R6; O.Reg R8 ])
     ||> testAllPPC
 
+  [<TestMethod>]
+  member _.``[PPC] ADDEX (add extended using OV)``() =
+    "7ca63954"
+    ++ (ADDEX ** [ O.Reg R5; O.Reg R6; O.Reg R7; O.Imm 0UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] ADDPCIS (add PC immediate shifted)``() =
+    "4ca00005"
+    ++ (ADDPCIS ** [ O.Reg R5; O.Imm 1UL ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC64] CMPEQB (compare equal byte)``() =
+    "7d0639c0"
+    ++ (CMPEQB ** [ O.Reg CR2; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] CMPRB (compare ranged byte)``() =
+    "7d063980"
+    ++ (CMPRB ** [ O.Reg CR2; O.Imm 0UL; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC64] CNTTZD (count trailing zeros doubleword)``() =
+    "7d060474"
+    ++ (CNTTZD ** [ O.Reg R6; O.Reg R8 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] CNTTZD. (count trailing zeros dword, CR0)``() =
+    "7d060475"
+    ++ (CNTTZDdot ** [ O.Reg R6; O.Reg R8 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] CNTTZW (count trailing zeros word)``() =
+    "7d060434"
+    ++ (CNTTZW ** [ O.Reg R6; O.Reg R8 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] CNTTZW. (count trailing zeros word, CR0)``() =
+    "7d060435"
+    ++ (CNTTZWdot ** [ O.Reg R6; O.Reg R8 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC64] DARN (deliver a random number)``() =
+    "7ca105e6"
+    ++ (DARN ** [ O.Reg R5; O.Imm 1UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] EXTSWSLI (extend sign word, shift left)``() =
+    "7d062ef4"
+    ++ (EXTSWSLI ** [ O.Reg R6; O.Reg R8; O.Imm 5UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] EXTSWSLI. (extend sign word, shift, CR0)``() =
+    "7d062ef5"
+    ++ (EXTSWSLIdot ** [ O.Reg R6; O.Reg R8; O.Imm 5UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] MCRXRX (move to CR from XER extended)``() =
+    "7d000480"
+    ++ (MCRXRX ** [ O.Reg CR2 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC64] MODSD (modulo signed doubleword)``() =
+    "7ca63e12"
+    ++ (MODSD ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] MODSW (modulo signed word)``() =
+    "7ca63e16"
+    ++ (MODSW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC64] MODUD (modulo unsigned doubleword)``() =
+    "7ca63a12"
+    ++ (MODUD ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] MODUW (modulo unsigned word)``() =
+    "7ca63a16"
+    ++ (MODUW ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] SETB (set boolean)``() =
+    "7cac0100"
+    ++ (SETB ** [ O.Reg R5; O.Reg CR3 ])
+    ||> testAllPPC
+
+  /// The reserved values: addex with CY other than 0, darn with L = 3.
+  [<TestMethod>]
+  member _.``[PPC64] ADDEX and DARN refuse their reserved operands``() =
+    for hex in [ "7ca63b54"; "7ca63d54"; "7ca63f54"; "7ca305e6" ] do
+      testUnsupported WordSize.Bit64 hex
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
