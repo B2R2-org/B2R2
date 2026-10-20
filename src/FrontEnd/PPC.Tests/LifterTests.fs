@@ -25185,6 +25185,123 @@ type LifterTests() =
       for hex in [ "7ca105e6"; "7ca005e6"; "7ca205e6" ] do
         expect UInt64.MaxValue (run isa hex [ R5, 0x1234UL ] R5) hex
 
+  /// <summary>
+  /// brd reverses the bytes of rS, brw those of each word and brh those of
+  /// each halfword. Values from qemu-ppc64 -cpu power10 (the words file and
+  /// spec isa31); the 32-bit processor's are the low words of the same, as
+  /// the 7457 has none of them.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BRD, BRW and BRH reverse bytes``() =
+    let a, b = 0x0123456789abcdefUL, 0xffffffff80000000UL
+    (* brd, brw, brh r6, r8 *)
+    let brd, brw, brh = "7d060176", "7d060136", "7d0601b6"
+    let cases =
+      [ brd, a, 0xefcdab8967452301UL
+        brd, 0x80000000000000ffUL, 0xff00000000000080UL
+        brd, b, 0x80ffffffffUL
+        brw, a, 0x67452301efcdab89UL
+        brw, b, 0xffffffff00000080UL
+        brh, a, 0x23016745ab89efcdUL
+        brh, b, 0xffffffff00800000UL ]
+    for isa in ppc64s do
+      for hex, rs, ra in cases do
+        expect ra (run isa hex [ R8, rs ] R6) $"{hex} {rs:x} {nameOf isa}"
+    for hex, rs, ra in
+      [ brw, 0x89abcdefUL, 0xefcdab89UL
+        brh, 0x89abcdefUL, 0xab89efcdUL
+        brw, 0x80000000UL, 0x80UL ] do
+      expect ra (run ppc32 hex [ R8, rs ] R6) $"{hex} {rs:x} ppc32"
+
+  /// <summary>
+  /// pextd packs the bits of rS under the ones of rB into the low bits of rA
+  /// in their order; pdepd spreads the low bits of rS over those positions;
+  /// cfuged packs the bits under the ones to the right and the rest to the
+  /// left, each in its order. Values from qemu-ppc64 -cpu power10 (the words
+  /// file and spec isa31).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] PEXTD, PDEPD and CFUGED move bits under a mask``() =
+    let a, beef = 0x0123456789abcdefUL, 0xdeadbeefcafebabeUL
+    let mixed, ends = 0xff00ff00f0f0f0f0UL, 0x8000000000000001UL
+    (* pextd, pdepd, cfuged r6, r8, r7 *)
+    let pextd, pdepd, cfuged = "7d063978", "7d063938", "7d0639b8"
+    let cases =
+      [ pextd, a, mixed, 0x1458aceUL
+        pextd, beef, ends, 2UL
+        pextd, beef, 0xffff0000UL, 0xcafeUL
+        pextd, 0xfffffffffffffff0UL, 0xff00ff00ff00ffUL, 0xfffffff0UL
+        pextd, 0xf0000000000000UL, 0xff0000000000ff0UL, 0xf00UL
+        pextd, beef, UInt64.MaxValue, beef
+        pextd, 0x1234UL, 0UL, 0UL
+        pdepd, a, mixed, 0x8900ab00c0d0e0f0UL
+        pdepd, beef, ends, 0x8000000000000000UL
+        pdepd, beef, 0xffff0000UL, 0xbabe0000UL
+        pdepd, 0xfffffffffffffff0UL, 0xff00ff00ff00ffUL, 0xff00ff00ff00f0UL
+        pdepd, a, 0xfedcba9876543210UL, 0x88c89a8066503210UL
+        cfuged, a, mixed, 0x23679bdf01458aceUL
+        cfuged, beef, ends, 0xbd5b7ddf95fd757eUL
+        cfuged, beef, 0xffff0000UL, 0xdeadbeefbabecafeUL
+        cfuged, ends, ends, 3UL
+        cfuged, 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL, 0xffffffff00000000UL
+        cfuged, beef, UInt64.MaxValue, beef
+        cfuged, 0x1234UL, 0UL, 0x1234UL ]
+    for isa in ppc64s do
+      for hex, rs, rb, ra in cases do
+        let case = $"{hex} {rs:x} {rb:x} {nameOf isa}"
+        expect ra (run isa hex [ R8, rs; R7, rb ] R6) case
+
+  /// <summary>
+  /// cntlzdm and cnttzdm count the zeros of rS under the ones of rB from
+  /// the most or the least significant end up to the first one there,
+  /// giving the number of ones in rB where there is none. Values from
+  /// qemu-ppc64 -cpu power10 (the words file and spec isa31).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] CNTLZDM and CNTTZDM count zeros under a mask``() =
+    let a, beef = 0x0123456789abcdefUL, 0xdeadbeefcafebabeUL
+    let mixed, ends = 0xff00ff00f0f0f0f0UL, 0x8000000000000001UL
+    (* cntlzdm, cnttzdm r6, r8, r7 *)
+    let lz, tz = "7d063876", "7d063c76"
+    let cases =
+      [ lz, a, mixed, 7UL
+        lz, beef, ends, 0UL
+        lz, 0UL, 0xf0fUL, 8UL
+        lz, 0xf0000000000000UL, 0xff0000000000ff0UL, 4UL
+        lz, 0UL, UInt64.MaxValue, 0x40UL
+        lz, 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL, 0x20UL
+        tz, a, mixed, 1UL
+        tz, beef, ends, 1UL
+        tz, ends, ends, 0UL
+        tz, 0xfffffffffffffff0UL, 0xff00ff00ff00ffUL, 4UL
+        tz, 0xf0000000000000UL, 0xff0000000000ff0UL, 8UL
+        tz, 0x8000000000000000UL, UInt64.MaxValue, 0x3fUL
+        tz, 0UL, UInt64.MaxValue, 0x40UL ]
+    for isa in ppc64s do
+      for hex, rs, rb, ra in cases do
+        let case = $"{hex} {rs:x} {rb:x} {nameOf isa}"
+        expect ra (run isa hex [ R8, rs; R7, rb ] R6) case
+
+  /// <summary>
+  /// setbc gives 1 where the CR bit BI is set and 0 where it is clear,
+  /// setbcr the other way round, and setnbc and setnbcr the same with -1 in
+  /// place of 1. Values from qemu-ppc64 -cpu power10 (the words file, BI =
+  /// 4*cr2+gt); the 32-bit processor's -1 is the low word of the same.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] SETBC and its kin turn a CR bit into a number``() =
+    (* setbc, setbcr, setnbc, setnbcr r5, 4*cr2+gt *)
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      let cases =
+        [ "7ca90300", 1UL, 0UL
+          "7ca90340", 0UL, 1UL
+          "7ca90380", ones isa, 0UL
+          "7ca903c0", 0UL, ones isa ]
+      for hex, set, clear in cases do
+        let given bit = [ CR2_1, bit; R5, 0xbad0badUL ]
+        expect set (run isa hex (given 1UL) R5) $"{hex} {nameOf isa}"
+        expect clear (run isa hex (given 0UL) R5) $"{hex} {nameOf isa}"
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

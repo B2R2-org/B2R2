@@ -2680,6 +2680,30 @@ let translate (ins: Instruction) bld =
     stq ins bld
   | Op.STQCXdot ->
     stqcxdot ins bld
+  | Op.BRD ->
+    byteReverse ins bld 64<rt>
+  | Op.BRW ->
+    byteReverse ins bld 32<rt>
+  | Op.BRH ->
+    byteReverse ins bld 16<rt>
+  | Op.PEXTD ->
+    pextd ins bld
+  | Op.PDEPD ->
+    pdepd ins bld
+  | Op.CFUGED ->
+    cfuged ins bld
+  | Op.CNTLZDM ->
+    cntlzdm ins bld
+  | Op.CNTTZDM ->
+    cnttzdm ins bld
+  | Op.SETBC ->
+    setbc ins bld false false
+  | Op.SETBCR ->
+    setbc ins bld false true
+  | Op.SETNBC ->
+    setbc ins bld true false
+  | Op.SETNBCR ->
+    setbc ins bld true true
   | o ->
 #if DEBUG
          eprintfn "%A" o

@@ -1001,6 +1001,12 @@ let private addPCImmediate bitLen ins =
   | _ ->
     wrongOperands ins
 
+/// setbc and its kin, which name a CR bit where an X form keeps rA.
+let private setCondition xo ins =
+  match ins.Operands with
+  | [ Rg d; Bit bi ] -> xForm 31u (gpr d) bi 0u xo 0u
+  | _ -> wrongOperands ins
+
 /// The extended divides, by extended opcode, with the names of their plain
 /// and their overflow-recording forms.
 let private extendedDivides =
@@ -1037,7 +1043,19 @@ let laneAEncoders bitLen =
     Op.MODUD, xDab 265u 0u
     Op.MODUW, xDab 267u 0u
     Op.MODSD, xDab 777u 0u
-    Op.MODSW, xDab 779u 0u ]
+    Op.MODSW, xDab 779u 0u
+    Op.BRD, xAs 187u 0u
+    Op.BRW, xAs 155u 0u
+    Op.BRH, xAs 219u 0u
+    Op.CFUGED, xAsb 220u 0u
+    Op.CNTLZDM, xAsb 59u 0u
+    Op.CNTTZDM, xAsb 571u 0u
+    Op.PDEPD, xAsb 156u 0u
+    Op.PEXTD, xAsb 188u 0u
+    Op.SETBC, setCondition 384u
+    Op.SETBCR, setCondition 416u
+    Op.SETNBC, setCondition 448u
+    Op.SETNBCR, setCondition 480u ]
   @ recording xAs 538u Op.CNTTZW Op.CNTTZWdot
   @ recording xAs 570u Op.CNTTZD Op.CNTTZDdot
   @ List.collect divide extendedDivides
