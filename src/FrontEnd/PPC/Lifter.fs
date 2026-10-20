@@ -2427,6 +2427,104 @@ let translate (ins: Instruction) bld =
     VSXFloat.vectorMap ins bld 64<rt> (VSXConvert.longToSingle false)
   | Op.XVCVUXWDP ->
     VSXFloat.vectorMap ins bld 64<rt> VSXConvert.uintToDouble
+  | Op.XSADDQP ->
+    VSXQuad.arith ins bld "FADD128" false
+  | Op.XSADDQPO ->
+    VSXQuad.arith ins bld "FADD128" true
+  | Op.XSSUBQP ->
+    VSXQuad.arith ins bld "FSUB128" false
+  | Op.XSSUBQPO ->
+    VSXQuad.arith ins bld "FSUB128" true
+  | Op.XSMULQP ->
+    VSXQuad.arith ins bld "FMUL128" false
+  | Op.XSMULQPO ->
+    VSXQuad.arith ins bld "FMUL128" true
+  | Op.XSDIVQP ->
+    VSXQuad.arith ins bld "FDIV128" false
+  | Op.XSDIVQPO ->
+    VSXQuad.arith ins bld "FDIV128" true
+  | Op.XSSQRTQP ->
+    VSXQuad.squareRoot ins bld false
+  | Op.XSSQRTQPO ->
+    VSXQuad.squareRoot ins bld true
+  | Op.XSMADDQP ->
+    VSXQuad.mulAdd ins bld false false false
+  | Op.XSMADDQPO ->
+    VSXQuad.mulAdd ins bld false false true
+  | Op.XSMSUBQP ->
+    VSXQuad.mulAdd ins bld true false false
+  | Op.XSMSUBQPO ->
+    VSXQuad.mulAdd ins bld true false true
+  | Op.XSNMADDQP ->
+    VSXQuad.mulAdd ins bld false true false
+  | Op.XSNMADDQPO ->
+    VSXQuad.mulAdd ins bld false true true
+  | Op.XSNMSUBQP ->
+    VSXQuad.mulAdd ins bld true true false
+  | Op.XSNMSUBQPO ->
+    VSXQuad.mulAdd ins bld true true true
+  | Op.XSABSQP ->
+    VSXQuad.signOp ins bld 0
+  | Op.XSNABSQP ->
+    VSXQuad.signOp ins bld 1
+  | Op.XSNEGQP ->
+    VSXQuad.signOp ins bld 2
+  | Op.XSCPSGNQP ->
+    VSXQuad.copySign ins bld
+  | Op.XSCMPEQQP ->
+    VSXQuad.compareMask ins bld 0
+  | Op.XSCMPGTQP ->
+    VSXQuad.compareMask ins bld 1
+  | Op.XSCMPGEQP ->
+    VSXQuad.compareMask ins bld 2
+  | Op.XSCMPUQP ->
+    VSXQuad.compareField ins bld false
+  | Op.XSCMPOQP ->
+    VSXQuad.compareField ins bld true
+  | Op.XSCMPEXPQP ->
+    VSXQuad.compareExponents ins bld
+  | Op.XSMAXCQP ->
+    VSXQuad.maxMinC ins bld true
+  | Op.XSMINCQP ->
+    VSXQuad.maxMinC ins bld false
+  | Op.XSTSTDCQP ->
+    VSXQuad.testClass ins bld
+  | Op.XSXEXPQP ->
+    VSXQuad.extractExponent ins bld
+  | Op.XSXSIGQP ->
+    VSXQuad.extractSignificand ins bld
+  | Op.XSIEXPQP ->
+    VSXQuad.insertExponent ins bld
+  | Op.XSCVDPQP ->
+    VSXQuad.fromDouble ins bld
+  | Op.XSCVSDQP ->
+    VSXQuad.fromLong ins bld true
+  | Op.XSCVUDQP ->
+    VSXQuad.fromLong ins bld false
+  | Op.XSCVSQQP ->
+    VSXQuad.fromQuadword ins bld true
+  | Op.XSCVUQQP ->
+    VSXQuad.fromQuadword ins bld false
+  | Op.XSCVQPDP ->
+    VSXQuad.toDouble ins bld false
+  | Op.XSCVQPDPO ->
+    VSXQuad.toDouble ins bld true
+  | Op.XSCVQPSDZ ->
+    VSXQuad.toInteger ins bld 64 true
+  | Op.XSCVQPUDZ ->
+    VSXQuad.toInteger ins bld 64 false
+  | Op.XSCVQPSWZ ->
+    VSXQuad.toInteger ins bld 32 true
+  | Op.XSCVQPUWZ ->
+    VSXQuad.toInteger ins bld 32 false
+  | Op.XSCVQPSQZ ->
+    VSXQuad.toInteger ins bld 128 true
+  | Op.XSCVQPUQZ ->
+    VSXQuad.toInteger ins bld 128 false
+  | Op.XSRQPI | Op.XSRQPIX ->
+    VSXQuad.roundToIntegral ins bld
+  | Op.XSRQPXP ->
+    VSXQuad.roundToX80 ins bld
   | o ->
 #if DEBUG
          eprintfn "%A" o

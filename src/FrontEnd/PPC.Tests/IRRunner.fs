@@ -41,9 +41,10 @@ open B2R2.FrontEnd.PPC
 /// the way FPSCR[RN] does.
 /// Of the named calls it knows the fused multiply-add and the exception
 /// query (FEXC64), which IRFloat answers exactly, and the conversions to the
-/// half and bfloat16 formats, worked out over exact values. It fails on
-/// anything else rather than guess what it means -- a byte nobody gave, a
-/// jump out of the instruction and a side effect included.
+/// half and bfloat16 formats and the quad-precision operations, worked out
+/// over exact values. It fails on anything else rather than guess what it
+/// means -- a byte nobody gave, a jump out of the instruction and a side
+/// effect included.
 /// </summary>
 module internal IRRunner =
   /// What a run leaves behind.
@@ -149,16 +150,18 @@ module internal IRRunner =
   /// finite number where the direction rounds toward zero.
   let private overflowBits fmt mode sign =
     match mode, sign with
-    | 0, _ | 2, false | 3, true -> infBits fmt sign
+    | 0, _ | 5, _ | 2, false | 3, true -> infBits fmt sign
     | _ -> infBits fmt sign - 1I
 
   /// Whether the cut-off part decides an increment, in a direction: 0 to
-  /// nearest with ties to even, 1 toward zero, 2 toward +Inf, 3 toward -Inf.
+  /// nearest with ties to even, 1 toward zero, 2 toward +Inf, 3 toward -Inf,
+  /// 5 to nearest with ties away from zero.
   let private roundsUp mode sign (kept: bigint) (rest: bigint) half =
     match mode with
     | 0 -> rest > half || (rest = half && not rest.IsZero && not kept.IsEven)
     | 2 -> not rest.IsZero && not sign
     | 3 -> not rest.IsZero && sign
+    | 5 -> rest >= half && not rest.IsZero
     | _ -> false
 
   /// Encodes a significand already rounded at the quantum exponent q.
@@ -208,6 +211,208 @@ module internal IRRunner =
       | Finite(sign, m, e) -> roundInto fmt (int (mode.ToUInt64())) sign m e
     BitVector(bits, 16<rt>)
 
+  /// IEEE binary128.
+  let private binary128 = { ExpBits = 15; FracBits = 112 }
+
+  /// Double-extended precision as xsrqpxp rounds to it: binary128's
+  /// exponent range with a 64-bit significand.
+  let private extended80 = { ExpBits = 15; FracBits = 63 }
+
+  /// The quiet NaN a quad operation answers with here; the lifter settles
+  /// which NaN the instruction gives, so its payload does not matter.
+  let private quadNaN = infBits binary128 false ||| (1I <<< 111)
+
+  /// The number a float BitVector stands for.
+  let private exactOf (x: BitVector) = decodeAs (formatOf x) (x.ToBigInt())
+
+  /// A quad's bits as a BitVector.
+  let private quadOf (bits: bigint) = BitVector(bits, 128<rt>)
+
+  /// The direction argument of a call.
+  let private modeOf (mode: BitVector) = int (mode.ToUInt64())
+
+  /// <summary>
+  /// The exact sum of two finite numbers rounded into a quad. A sum that
+  /// is exactly zero is +0, or -0 rounding toward -Inf, unless both terms
+  /// are zeroes of the same sign, which keep it.
+  /// </summary>
+  let private sumInto mode (s1, m1: bigint, e1) (s2, m2: bigint, e2) =
+    let e = min e1 e2
+    let v1 = (if s1 then -m1 else m1) <<< (e1 - e)
+    let v2 = (if s2 then -m2 else m2) <<< (e2 - e)
+    let v = v1 + v2
+    if v.IsZero then
+      let bothZero = m1.IsZero && m2.IsZero && s1 = s2
+      signBits binary128 (if bothZero then s1 else mode = 3)
+    else
+      roundInto binary128 mode (v.Sign < 0) (abs v) e
+
+  /// FADD128 (and FSUB128, with b's sign flipped first).
+  let private quadAdd mode a b =
+    match a, b with
+    | NaN _, _ | _, NaN _ ->
+      quadNaN
+    | Inf sa, Inf sb ->
+      if sa = sb then infBits binary128 sa else quadNaN
+    | Inf s, _ | _, Inf s ->
+      infBits binary128 s
+    | Finite(s1, m1, e1), Finite(s2, m2, e2) ->
+      sumInto mode (s1, m1, e1) (s2, m2, e2)
+
+  /// A value with its sign flipped.
+  let private negated = function
+    | NaN(s, f) -> NaN(not s, f)
+    | Inf s -> Inf(not s)
+    | Finite(s, m, e) -> Finite(not s, m, e)
+
+  /// FMUL128.
+  let private quadMul mode a b =
+    match a, b with
+    | NaN _, _ | _, NaN _ ->
+      quadNaN
+    | Inf _, Finite(_, m, _) | Finite(_, m, _), Inf _ when m.IsZero ->
+      quadNaN
+    | Inf sa, Inf sb ->
+      infBits binary128 (sa <> sb)
+    | Inf sa, Finite(sb, _, _) | Finite(sa, _, _), Inf sb ->
+      infBits binary128 (sa <> sb)
+    | Finite(sa, ma, ea), Finite(sb, mb, eb) ->
+      roundInto binary128 mode (sa <> sb) (ma * mb) (ea + eb)
+
+  /// How many bits past the significand a quotient or a root is worked out
+  /// to before the remainder is folded into a sticky bit.
+  let private extra = 240
+
+  /// FDIV128.
+  let private quadDiv mode a b =
+    match a, b with
+    | NaN _, _ | _, NaN _ | Inf _, Inf _ ->
+      quadNaN
+    | Inf sa, Finite(sb, _, _) ->
+      infBits binary128 (sa <> sb)
+    | Finite(sa, _, _), Inf sb ->
+      signBits binary128 (sa <> sb)
+    | Finite(_, ma, _), Finite(_, mb, _) when ma.IsZero && mb.IsZero ->
+      quadNaN
+    | Finite(sa, _, _), Finite(sb, mb, _) when mb.IsZero ->
+      infBits binary128 (sa <> sb)
+    | Finite(sa, ma, ea), Finite(sb, mb, eb) ->
+      let q = (ma <<< extra) / mb
+      let sticky = if (ma <<< extra) % mb = 0I then 0I else 1I
+      let m = (q <<< 1) ||| sticky
+      roundInto binary128 mode (sa <> sb) m (ea - eb - extra - 1)
+
+  /// The integer square root, the largest r with r * r <= n.
+  let private isqrt (n: bigint) =
+    if n.IsZero then
+      0I
+    else
+      let rec go (x: bigint) =
+        let y = (x + n / x) >>> 1
+        if y >= x then x else go y
+      go (1I <<< ((int (n.GetBitLength()) + 1) / 2))
+
+  /// FSQRT128.
+  let private quadSqrt mode a =
+    match a with
+    | NaN _ | Inf true ->
+      quadNaN
+    | Inf false ->
+      infBits binary128 false
+    | Finite(s, m, _) when m.IsZero ->
+      signBits binary128 s
+    | Finite(true, _, _) ->
+      quadNaN
+    | Finite(false, m, e) ->
+      let m, e = if e % 2 = 0 then m, e else m <<< 1, e - 1
+      let scaled = m <<< (2 * extra)
+      let r = isqrt scaled
+      let sticky = if r * r = scaled then 0I else 1I
+      let q = (e - 2 * extra) / 2 - 1
+      roundInto binary128 mode false ((r <<< 1) ||| sticky) q
+
+  /// FMA128: a times b plus c, rounded once; bit 0 of flags negates the
+  /// product, bit 1 the addend.
+  let private quadFMA mode a b c (flags: uint64) =
+    let product sign = if flags &&& 1UL = 0UL then sign else not sign
+    let c = if flags &&& 2UL = 0UL then c else negated c
+    match a, b, c with
+    | NaN _, _, _ | _, NaN _, _ | _, _, NaN _ ->
+      quadNaN
+    | Inf _, Finite(_, m, _), _ | Finite(_, m, _), Inf _, _ when m.IsZero ->
+      quadNaN
+    | Inf sa, Inf sb, _
+    | Inf sa, Finite(sb, _, _), _
+    | Finite(sa, _, _), Inf sb, _ ->
+      let sp = product (sa <> sb)
+      match c with
+      | Inf sc when sc <> sp -> quadNaN
+      | _ -> infBits binary128 sp
+    | _, _, Inf sc ->
+      infBits binary128 sc
+    | Finite(sa, ma, ea), Finite(sb, mb, eb), Finite(sc, mc, ec) ->
+      sumInto mode (product (sa <> sb), ma * mb, ea + eb) (sc, mc, ec)
+
+  /// FCVT128TO64: a quad rounded to a double.
+  let private quadToDouble mode a =
+    match a with
+    | NaN(s, f) -> nanBits binary64 112 s f
+    | Inf s -> infBits binary64 s
+    | Finite(s, m, e) -> roundInto binary64 mode s m e
+
+  /// FCVTINT128: a 128-bit integer, signed or not, rounded to a quad.
+  let private intToQuad mode signed (x: bigint) =
+    let negative = signed && x >= (1I <<< 127)
+    let magnitude = if negative then (1I <<< 128) - x else x
+    roundInto binary128 mode negative magnitude 0
+
+  /// <summary>
+  /// FRINT128: a finite quad rounded to an integral value in a direction
+  /// (5 to nearest, ties away from zero); a zero result keeps the operand's
+  /// sign, and an infinity or a zero comes back as it is.
+  /// </summary>
+  let private quadRint mode (bits: bigint) a =
+    match a with
+    | NaN _ ->
+      quadNaN
+    | Inf _ ->
+      bits
+    | Finite(_, _, e) when e >= 0 ->
+      bits
+    | Finite(s, m, e) ->
+      let kept = m >>> -e
+      let rest = m - (kept <<< -e)
+      let half = 1I <<< (-e - 1)
+      let n = if roundsUp mode s kept rest half then kept + 1I else kept
+      roundInto binary128 0 s n 0
+
+  /// <summary>
+  /// FRND80: a finite quad rounded to double-extended precision in a
+  /// direction, the result still a quad; an overflow gives an infinity or
+  /// the largest double-extended value as the direction says.
+  /// </summary>
+  let private quadRound80 mode (bits: bigint) a =
+    match a with
+    | NaN _ ->
+      quadNaN
+    | Inf _ ->
+      bits
+    | Finite(_, m, _) when m.IsZero ->
+      bits
+    | Finite(s, m, e) ->
+      match decodeAs extended80 (roundInto extended80 mode s m e) with
+      | Finite(s, n, q) -> roundInto binary128 0 s n q
+      | Inf s -> infBits binary128 s
+      | NaN _ -> quadNaN
+
+  /// One quad operation of two operands by its call's name.
+  let private quadBinary name mode a b =
+    match name with
+    | "FADD128" -> quadAdd mode a b
+    | "FSUB128" -> quadAdd mode a (negated b)
+    | "FMUL128" -> quadMul mode a b
+    | _ -> quadDiv mode a b
+
   /// The named calls the wide and the half-precision forms make, which are
   /// answered over exact values and carry their own direction as an argument.
   let private exactApp (name: string) (args: BitVector list) =
@@ -216,6 +421,22 @@ module internal IRRunner =
       Some(narrow binary16 x mode)
     | "FCVTBF16", [ x; mode ] ->
       Some(narrow bfloat16 x mode)
+    | ("FADD128" | "FSUB128" | "FMUL128" | "FDIV128"), [ a; b; mode ] ->
+      Some(quadOf (quadBinary name (modeOf mode) (exactOf a) (exactOf b)))
+    | "FSQRT128", [ a; mode ] ->
+      Some(quadOf (quadSqrt (modeOf mode) (exactOf a)))
+    | "FMA128", [ a; b; c; flags; mode ] ->
+      let x, y, z = exactOf a, exactOf b, exactOf c
+      Some(quadOf (quadFMA (modeOf mode) x y z (flags.ToUInt64())))
+    | "FCVT128TO64", [ a; mode ] ->
+      Some(BitVector(quadToDouble (modeOf mode) (exactOf a), 64<rt>))
+    | "FCVTINT128", [ x; signed; mode ] ->
+      let isSigned = signed.ToUInt64() = 1UL
+      Some(quadOf (intToQuad (modeOf mode) isSigned (x.ToBigInt())))
+    | "FRINT128", [ a; mode ] ->
+      Some(quadOf (quadRint (modeOf mode) (a.ToBigInt()) (exactOf a)))
+    | "FRND80", [ a; mode ] ->
+      Some(quadOf (quadRound80 (modeOf mode) (a.ToBigInt()) (exactOf a)))
     | _ ->
       None
 

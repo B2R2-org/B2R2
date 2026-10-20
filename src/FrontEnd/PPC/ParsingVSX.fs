@@ -396,3 +396,121 @@ let parse3C bin =
   | 489u -> parseXX2 Op.XVNABSDP bin
   | 504u -> parseXX2 Op.XVCVSXDDP bin
   | _ -> parse3CXX3 bin
+
+(* The quad-precision forms of primary opcode 63. Their extended opcodes all
+   end in 0b00100 (the X-forms) or 0b00101 (the Z23-forms), which none of
+   the floating-point forms ParsingMain decodes there do. *)
+/// The vector register named by the five bits starting at lo.
+let private vrAt bin lo =
+  getVecRegister (Bits.extract bin (lo + 4u) lo) |> OprReg
+
+/// A quad X-form "vRT, vRA, vRB" whose last bit is reserved.
+let private parseQuad op bin =
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException
+  else struct (op, ThreeOperands(vrAt bin 21u, vrAt bin 16u, vrAt bin 11u))
+
+/// A quad X-form "vRT, vRA, vRB" whose last bit asks for round to odd.
+let private parseQuadRO op opO bin =
+  let op = if Bits.pick bin 0u = 0u then op else opO
+  struct (op, ThreeOperands(vrAt bin 21u, vrAt bin 16u, vrAt bin 11u))
+
+/// A quad compare into a condition-register field: "BF, vRA, vRB".
+let private parseQuadCR op bin =
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException
+  else struct (op, ThreeOperands(crField bin, vrAt bin 16u, vrAt bin 11u))
+
+/// A quad X-form "vRT, vRB" whose A field is part of the opcode, its last
+/// bit reserved unless the form rounds to odd by it.
+let private parseQuadUnary op opO bin =
+  let op =
+    match opO with
+    | Some o when Bits.pick bin 0u = 1u -> o
+    | None when Bits.pick bin 0u = 1u -> raise ParsingFailureException
+    | _ -> op
+  struct (op, TwoOperands(vrAt bin 21u, vrAt bin 11u))
+
+/// xststdcqp, "BF, vRB, DCMX".
+let private parseQuadDCMX bin =
+  let dcmx = Bits.extract bin 22u 16u |> uint64 |> OprImm
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException
+  else struct (Op.XSTSTDCQP, ThreeOperands(bf, vrAt bin 11u, dcmx))
+
+/// The quad forms of extended opcode 804, which the A field tells apart.
+let private parseXO804 bin =
+  match Bits.extract bin 20u 16u with
+  | 0u -> parseQuadUnary Op.XSABSQP None bin
+  | 2u -> parseQuadUnary Op.XSXEXPQP None bin
+  | 8u -> parseQuadUnary Op.XSNABSQP None bin
+  | 16u -> parseQuadUnary Op.XSNEGQP None bin
+  | 18u -> parseQuadUnary Op.XSXSIGQP None bin
+  | 27u -> parseQuadUnary Op.XSSQRTQP (Some Op.XSSQRTQPO) bin
+  | _ -> raise ParsingFailureException
+
+/// The quad conversions of extended opcode 836, which the A field tells
+/// apart.
+let private parseXO836 bin =
+  match Bits.extract bin 20u 16u with
+  | 0u -> parseQuadUnary Op.XSCVQPUQZ None bin
+  | 1u -> parseQuadUnary Op.XSCVQPUWZ None bin
+  | 2u -> parseQuadUnary Op.XSCVUDQP None bin
+  | 3u -> parseQuadUnary Op.XSCVUQQP None bin
+  | 8u -> parseQuadUnary Op.XSCVQPSQZ None bin
+  | 9u -> parseQuadUnary Op.XSCVQPSWZ None bin
+  | 10u -> parseQuadUnary Op.XSCVSDQP None bin
+  | 11u -> parseQuadUnary Op.XSCVSQQP None bin
+  | 17u -> parseQuadUnary Op.XSCVQPUDZ None bin
+  | 20u -> parseQuadUnary Op.XSCVQPDP (Some Op.XSCVQPDPO) bin
+  | 22u -> parseQuadUnary Op.XSCVDPQP None bin
+  | 25u -> parseQuadUnary Op.XSCVQPSDZ None bin
+  | _ -> raise ParsingFailureException
+
+/// <summary>
+/// A Z23-form "R, vRT, vRB, RMC". R = 0 defines only RMC = 0 (to nearest,
+/// ties away) and RMC = 3 (FPSCR[RN]); the other two are reserved.
+/// </summary>
+let private parseZ23 op bin =
+  let r = Bits.pick bin 16u
+  let rmc = Bits.extract bin 10u 9u
+  if Bits.extract bin 20u 17u <> 0u || (r = 0u && (rmc = 1u || rmc = 2u)) then
+    raise ParsingFailureException
+  else
+    let vrt, vrb = vrAt bin 21u, vrAt bin 11u
+    struct (op, FourOperands(OprImm(uint64 r), vrt, vrb, OprImm(uint64 rmc)))
+
+/// The Z23-forms: xsrqpi and xsrqpix (EX in the last bit), xsrqpxp.
+let private parseQuadZ23 bin =
+  match Bits.extract bin 8u 1u with
+  | 5u when Bits.pick bin 0u = 0u -> parseZ23 Op.XSRQPI bin
+  | 5u -> parseZ23 Op.XSRQPIX bin
+  | 37u when Bits.pick bin 0u = 0u -> parseZ23 Op.XSRQPXP bin
+  | _ -> raise ParsingFailureException
+
+/// The quad-precision forms of primary opcode 63.
+let parse3F bin =
+  if Bits.extract bin 5u 1u = 5u then
+    parseQuadZ23 bin
+  else
+    match Bits.extract bin 10u 1u with
+    | 4u -> parseQuadRO Op.XSADDQP Op.XSADDQPO bin
+    | 36u -> parseQuadRO Op.XSMULQP Op.XSMULQPO bin
+    | 68u -> parseQuad Op.XSCMPEQQP bin
+    | 100u -> parseQuad Op.XSCPSGNQP bin
+    | 132u -> parseQuadCR Op.XSCMPOQP bin
+    | 164u -> parseQuadCR Op.XSCMPEXPQP bin
+    | 196u -> parseQuad Op.XSCMPGEQP bin
+    | 228u -> parseQuad Op.XSCMPGTQP bin
+    | 388u -> parseQuadRO Op.XSMADDQP Op.XSMADDQPO bin
+    | 420u -> parseQuadRO Op.XSMSUBQP Op.XSMSUBQPO bin
+    | 452u -> parseQuadRO Op.XSNMADDQP Op.XSNMADDQPO bin
+    | 484u -> parseQuadRO Op.XSNMSUBQP Op.XSNMSUBQPO bin
+    | 516u -> parseQuadRO Op.XSSUBQP Op.XSSUBQPO bin
+    | 548u -> parseQuadRO Op.XSDIVQP Op.XSDIVQPO bin
+    | 644u -> parseQuadCR Op.XSCMPUQP bin
+    | 676u -> parseQuad Op.XSMAXCQP bin
+    | 708u -> parseQuadDCMX bin
+    | 740u -> parseQuad Op.XSMINCQP bin
+    | 804u -> parseXO804 bin
+    | 836u -> parseXO836 bin
+    | 868u -> parseQuad Op.XSIEXPQP bin
+    | _ -> raise ParsingFailureException

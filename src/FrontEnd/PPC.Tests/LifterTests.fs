@@ -17302,6 +17302,2952 @@ type LifterTests() =
       [ F1, 0x4170000010000000UL; VSRL1, 0x0UL ]
       []
 
+  /// <summary>
+  /// xsaddqp vRT, vRA, vRB adds the quads in vRA and vRB, rounded in the
+  /// direction FPSCR[RN] names: an inexact sum in every direction, an overflow
+  /// to infinity or to the largest quad, opposite infinities and a NaN in
+  /// either operand, exact zeroes and their signs.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSADDQP adds two quads``() =
+    (* xsaddqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000800000000000UL ]
+      []
+      [ V1A, 0x4001000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x1UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7ffeffffffffffffUL
+        V2B, 0xffffffffffffffffUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7ffeffffffffffffUL
+        V2B, 0xffffffffffffffffUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7ffeffffffffffffUL; V1B, 0xffffffffffffffffUL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7ffeffffffffffffUL
+        V2B, 0xffffffffffffffffUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x3UL ]
+      []
+      [ V1A, 0x7ffeffffffffffffUL; V1B, 0xffffffffffffffffUL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff000000000000UL
+        V3A, 0xffff000000000000UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x1234UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7fffc00000000000UL; V1B, 0x5678UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL
+        FPSCR, 0x3UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0xbfff000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0xbfff000000000000UL
+        FPSCR, 0x3UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2B, 0x1UL
+        V3A, 0x3ffe000000000000UL ]
+      []
+      [ V1A, 0x3ffe000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221808"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0xbffd555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0xbffd555555555555UL; V1B, 0x5555555555555555UL; FPSCR, 0x8UL ]
+      []
+
+  /// <summary>
+  /// xssubqp vRT, vRA, vRB subtracts vRB from vRA, rounded in the direction
+  /// FPSCR[RN] names; a signalling NaN in vRB comes back quiet.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSSUBQP subtracts two quads``() =
+    (* xssubqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221c08"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000800000000000UL ]
+      []
+      [ V1A, 0xc000000000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c08"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c08"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ V1A, 0x3ffeffffffffffffUL; V1B, 0xffffffffffffffffUL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c08"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7fffc00000000000UL; V1B, 0x5678UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c08"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c08"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0xbfff000000000000UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+
+  /// <summary>
+  /// xsmulqp vRT, vRA, vRB multiplies the quads in vRA and vRB, rounded in the
+  /// direction FPSCR[RN] names: an overflow, a NaN, zero times a number, a
+  /// product that rounds into the denormals.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSMULQP multiplies two quads``() =
+    (* xsmulqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000800000000000UL ]
+      []
+      [ V1A, 0x4000800000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7ffeffffffffffffUL
+        V2B, 0xffffffffffffffffUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7ffeffffffffffffUL
+        V2B, 0xffffffffffffffffUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7ffeffffffffffffUL; V1B, 0xffffffffffffffffUL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff000000000000UL
+        V3A, 0xffff000000000000UL ]
+      []
+      [ V1A, 0xffff000000000000UL; V1B, 0x0UL; FPSCR, 0x9UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x1234UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2B, 0x1UL
+        V3A, 0x3ffe000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2B, 0x1UL
+        V3A, 0x3ffe000000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x1UL; FPSCR, 0x14UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0xbffd555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x8000555555555555UL; V1B, 0x5555555555555555UL; FPSCR, 0x18UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221848"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0xbffd555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x8000555555555555UL; V1B, 0x5555555555555554UL; FPSCR, 0x18UL ]
+      []
+
+  /// <summary>
+  /// xsdivqp vRT, vRA, vRB divides vRA by vRB, rounded in the direction
+  /// FPSCR[RN] names: one third in every direction, infinity by infinity, zero
+  /// by zero, a number by zero, a quotient past the largest quad.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSDIVQP divides two quads``() =
+    (* xsdivqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221c48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000800000000000UL ]
+      []
+      [ V1A, 0x3ffd555555555555UL; V1B, 0x5555555555555555UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000800000000000UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x3ffd555555555555UL; V1B, 0x5555555555555555UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000800000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x3ffd555555555555UL; V1B, 0x5555555555555556UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000800000000000UL
+        FPSCR, 0x3UL ]
+      []
+      [ V1A, 0x3ffd555555555555UL; V1B, 0x5555555555555555UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff000000000000UL
+        V3A, 0xffff000000000000UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x1234UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c48"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0xbffd555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0xfffb555555555555UL; V1B, 0x5555555555555556UL; FPSCR, 0x8UL ]
+      []
+
+  /// <summary>
+  /// xsaddqpo, xssubqpo, xsmulqpo and xsdivqpo round to odd whatever FPSCR[RN]
+  /// says: an inexact result keeps its truncated significand with the last bit
+  /// set, and an overflow gives the largest quad.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSADDQPO and its kin round to odd``() =
+    (* xsaddqpo v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221809"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x1UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221809"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7ffeffffffffffffUL
+        V2B, 0xffffffffffffffffUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x7ffeffffffffffffUL; V1B, 0xffffffffffffffffUL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221809"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c09"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x3ffeffffffffffffUL; V1B, 0xffffffffffffffffUL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221849"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000800000000000UL ]
+      []
+      [ V1A, 0x4000800000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221849"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2B, 0x1UL
+        V3A, 0x3ffe000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x1UL; FPSCR, 0x14UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c49"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000800000000000UL ]
+      []
+      [ V1A, 0x3ffd555555555555UL; V1B, 0x5555555555555555UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221c49"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0xbffd555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0xfffb555555555555UL; V1B, 0x5555555555555557UL; FPSCR, 0x8UL ]
+      []
+
+  /// <summary>
+  /// xssqrtqp vRT, vRB takes the square root of vRB, rounded in the direction
+  /// FPSCR[RN] names (xssqrtqpo to odd): an inexact root up and to nearest, an
+  /// exact one, a negative number, -0, +Inf, a signalling NaN, the smallest
+  /// denormal and the largest quad.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSSQRTQP takes the square root of a quad``() =
+    (* xssqrtqp v1,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x4000000000000000UL ]
+      []
+      [ V1A, 0x3fff6a09e667f3bcUL; V1B, 0xc908b2fb1366ea95UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x4000000000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x3fff6a09e667f3bcUL; V1B, 0xc908b2fb1366ea96UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x4001000000000000UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xbfff000000000000UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff000000000000UL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7fffc00000000000UL; V1B, 0x5678UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL; V3B, 0x1UL ]
+      []
+      [ V1A, 0x1fc8000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x5ffeffffffffffffUL; V1B, 0xffffffffffffffffUL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3ffd555555555555UL
+        V3B, 0x5555555555555555UL ]
+      []
+      [ V1A, 0x3ffe279a74590331UL; V1B, 0xc4d218f81e4afb25UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3ffd555555555555UL
+        V3B, 0x5555555555555555UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x3ffe279a74590331UL; V1B, 0xc4d218f81e4afb26UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e49"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x4000000000000000UL ]
+      []
+      [ V1A, 0x3fff6a09e667f3bcUL; V1B, 0xc908b2fb1366ea95UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc3b1e49"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3ffd555555555555UL
+        V3B, 0x5555555555555555UL ]
+      []
+      [ V1A, 0x3ffe279a74590331UL; V1B, 0xc4d218f81e4afb25UL; FPSCR, 0x4UL ]
+      []
+
+  /// <summary>
+  /// xsmaddqp vRT, vRA, vRB rounds vRA times vRB plus vRT once: a sum the
+  /// product's lost bits decide, an exact zero, infinity times zero, NaNs in
+  /// POWER's order (vRA, vRT, vRB), infinities of opposite signs, an overflow.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSMADDQP fuses a multiply and an add``() =
+    (* xsmaddqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x3f90000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x3f90000000000000UL; V1B, 0x1UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0x3fff000000000000UL; V2A, 0x7fff000000000000UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0x7fff400000000000UL
+        V1B, 0x5678UL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x1234UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0x7fff800000000000UL
+        V1B, 0x1234UL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x1234UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0x7fff400000000000UL
+        V1B, 0x5678UL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x7fffc00000000000UL; V1B, 0x5678UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0xffff000000000000UL
+        V2A, 0x7fff000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x7fff800000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3ffd555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0x4000800000000000UL ]
+      []
+      [ V1A, 0xbf8d000000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b08"
+      [ V1A, 0xffff000000000000UL
+        V2A, 0x7ffeffffffffffffUL
+        V2B, 0xffffffffffffffffUL
+        V3A, 0x4000000000000000UL ]
+      []
+      [ V1A, 0xffff000000000000UL; V1B, 0x0UL; FPSCR, 0x9UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b09"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x3f90000000000000UL; V1B, 0x1UL; FPSCR, 0x4UL ]
+      []
+
+  /// <summary>
+  /// xsmsubqp subtracts vRT from the product; xsnmaddqp and xsnmsubqp negate
+  /// the result after it is rounded, so an exact zero takes the sign the
+  /// direction gives and then flips.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSNMADDQP negates the rounded result``() =
+    (* xsmsubqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221b48"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x1UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b48"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b88"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0xbf90000000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b88"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b88"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221b88"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0xbf90000000000000UL; FPSCR, 0x8UL; V1B, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221bc8"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0xc000000000000000UL; V1B, 0x1UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221bc8"
+      [ V1A, 0xbfff000000000000UL
+        V2A, 0x3fff000000000000UL
+        V2B, 0x1UL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0xc000000000000000UL; FPSCR, 0x8UL; V1B, 0x2UL ]
+      []
+
+  /// <summary>
+  /// xscmpuqp BF, vRA, vRB and xscmpoqp set CR field BF and FPCC to less-than,
+  /// greater-than, equal or unordered: +0 equals -0, a NaN is unordered, a
+  /// denormal is above -Inf.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPUQP orders two quads into CR and FPCC``() =
+    (* xscmpuqp cr2,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V2A, 0x3fff000000000000UL; V3A, 0x4000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V2A, 0x4000000000000000UL
+        V3A, 0x3fff000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x1UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V3A, 0x8000000000000000UL; CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V2A, 0xbfff000000000000UL; V3A, 0x3fff000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V2A, 0x7fff800000000000UL; V2B, 0x1234UL; V3A, 0x3fff000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V2A, 0x3fff000000000000UL; V3A, 0x7fff400000000000UL; V3B, 0x5678UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V2A, 0xffff000000000000UL; V3B, 0x1UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V2A, 0xc000000000000000UL; V3A, 0xbfff000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d08"
+      [ V2A, 0x7fff000000000000UL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x1UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021908"
+      [ V2A, 0x7fff800000000000UL; V2B, 0x1234UL; V3A, 0x3fff000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021908"
+      [ V2A, 0x3fff000000000000UL; V3A, 0x7fff400000000000UL; V3B, 0x5678UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+
+  /// <summary>
+  /// xscmpeqqp, xscmpgtqp and xscmpgeqp set vRT to all ones where vRA is equal
+  /// to, greater than or not less than vRB, to all zeroes otherwise and where
+  /// either is a NaN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPEQQP and its kin give a mask``() =
+    (* xscmpeqqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221888"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221888"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221888"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2219c8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2219c8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x4000000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2219c8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2219c8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2219c8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0xc000000000000000UL
+        V3A, 0xbfff000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221988"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221988"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221988"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221988"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xscmpexpqp BF, vRA, vRB compares the exponent fields of vRA and vRB as
+  /// unsigned numbers into CR field BF and FPCC, unordered where either is a
+  /// NaN.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCMPEXPQP compares exponent fields``() =
+    (* xscmpexpqp cr2,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fd021948"
+      [ V2A, 0x3fff000000000000UL; V3A, 0x4000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021948"
+      [ V2A, 0x4000000000000000UL
+        V3A, 0x3fff000000000000UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x1UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021948"
+      [ V2A, 0x3fff000000000000UL
+        V3A, 0x3fff000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021948"
+      [ V2A, 0x7fff800000000000UL; V2B, 0x1234UL; V3A, 0x3fff000000000000UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x1UL; FPSCR, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021948"
+      [ V2A, 0xffff000000000000UL; V3B, 0x1UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x1UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x4UL ]
+      []
+
+  /// <summary>
+  /// xsmaxcqp vRT, vRA, vRB gives vRA where it is greater than vRB and vRB
+  /// otherwise, so a NaN in either and a tie of +0 and -0 give vRB; xsmincqp
+  /// gives the lesser in the same way.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSMAXCQP picks the C-style maximum``() =
+    (* xsmaxcqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221d48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000000000000000UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221d48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x4000000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221d48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221d48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7fff400000000000UL; V1B, 0x5678UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221d48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0xc000000000000000UL
+        V3A, 0xbfff000000000000UL ]
+      []
+      [ V1A, 0xbfff000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221d48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1B, 0x0UL; V1A, 0x8000000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221dc8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000000000000000UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221dc8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221dc8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221dc8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7fff400000000000UL; V1B, 0x5678UL ]
+      []
+
+  /// <summary>
+  /// xscpsgnqp takes vRA's sign onto vRB; xsabsqp clears the sign, xsnabsqp
+  /// sets it and xsnegqp flips it, a NaN included and left signalling.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCPSGNQP and the sign forms touch only the sign``() =
+    (* xscpsgnqp v1,v2,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc2218c8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0xbfff000000000000UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0xbfff000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2218c8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xffff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc281e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0xbfff000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc281e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff800000000000UL
+        V3B, 0x1234UL ]
+      []
+      [ V1A, 0xffff800000000000UL; V1B, 0x1234UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc301e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0xbfff000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc301e48"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc301e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xffff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x1UL ]
+      []
+
+  /// <summary>
+  /// xsxexpqp puts vRB's exponent field in doubleword 0; xsxsigqp gives the
+  /// fraction with the implicit bit where vRB is normal; xsiexpqp puts the low
+  /// 15 bits of vRB's doubleword 0 into vRA as its exponent field.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSXEXPQP and XSXSIGQP take a quad apart``() =
+    (* xsxexpqp v1,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc221e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x3fffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221e48"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL; V3B, 0x1UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff000000000000UL ]
+      []
+      [ V1A, 0x7fffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x7ffeUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc321e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff000000000000UL ]
+      []
+      [ V1A, 0x1000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc321e48"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL; V3B, 0x1UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc321e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc321e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff800000000000UL
+        V3B, 0x1234UL ]
+      []
+      [ V1A, 0x800000000000UL; V1B, 0x1234UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc321e48"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x1ffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221ec8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x3fff000000000000UL
+        V3A, 0x4000UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221ec8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0x7fff800000000000UL
+        V2B, 0x1234UL
+        V3A, 0x1234UL ]
+      []
+      [ V1A, 0x1234800000000000UL; V1B, 0x1234UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221ec8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2A, 0xbfff000000000000UL
+        V3A, 0xffffffffffff0000UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221ec8"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V2B, 0x1UL
+        V3A, 0x7fffUL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x1UL ]
+      []
+
+  /// <summary>
+  /// xststdcqp BF, vRB, DCMX sets the sign of vRB and whether it is in a class
+  /// DCMX selects into CR field BF and FPCC: each DCMX bit on its own against
+  /// its class and a normal number, and every bit together over every class.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSTSTDCQP tests a quad's data class``() =
+    (* xststdcqp cr2,v3,1, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fd401d88"
+      [ V3A, 0x7fff800000000000UL; V3B, 0x1234UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd401d88"
+      [ V3A, 0x3fff000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd201d88"
+      [ V3A, 0x7fff000000000000UL; CR2_1, 0x1UL; CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd201d88"
+      [ V3A, 0x3fff000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd101d88"
+      [ V3A, 0xffff000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "fd101d88"
+      [ V3A, 0x3fff000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd081d88"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd081d88"
+      [ V3A, 0x3fff000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd041d88"
+      [ V3A, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "fd041d88"
+      [ V3A, 0x3fff000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d88"
+      [ V3B, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd021d88"
+      [ V3A, 0x3fff000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd011d88"
+      [ V3A, 0x8000000000000000UL; V3B, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "fd011d88"
+      [ V3A, 0x3fff000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd7f1d88"
+      [ V3A, 0x7fff800000000000UL; V3B, 0x1234UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd7f1d88"
+      [ V3A, 0x7fff000000000000UL; CR2_1, 0x1UL; CR2_2, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd7f1d88"
+      [ V3A, 0xffff000000000000UL
+        CR2_0, 0x1UL
+        CR2_1, 0x1UL
+        CR2_2, 0x1UL
+        CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "fd7f1d88"
+      [ CR2_1, 0x1UL; CR2_3, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd7f1d88"
+      [ V3A, 0x8000000000000000UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "fd7f1d88"
+      [ V3B, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fd7f1d88"
+      [ V3A, 0x8000000000000000UL; V3B, 0x1UL ]
+      []
+      [ CR2_0, 0x1UL; CR2_1, 0x0UL; CR2_2, 0x1UL; CR2_3, 0x0UL; FPSCR, 0xaUL ]
+      []
+    oracleMem
+      ppc64le
+      "fd7f1d88"
+      [ V3A, 0x3fff000000000000UL; CR2_1, 0x1UL ]
+      []
+      [ CR2_0, 0x0UL; CR2_1, 0x0UL; CR2_2, 0x0UL; CR2_3, 0x0UL; FPSCR, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xscvdpqp vRT, vRB widens the double in doubleword 0 of vRB to a quad
+  /// exactly: denormals normalized, a signalling NaN quieted, infinities and
+  /// the largest double; FPRF is set.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVDPQP widens a double to a quad``() =
+    (* xscvdpqp v1,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc361e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3ff0000000000000UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc361e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc361e88"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL; V3A, 0x1UL ]
+      []
+      [ V1A, 0x3bcd000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc361e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xfffffffffffffUL ]
+      []
+      [ V1A, 0x3c00ffffffffffffUL; V1B, 0xe000000000000000UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc361e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7ff0000000000000UL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc361e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7ff4000000000001UL ]
+      []
+      [ V1A, 0x7fffc00000000000UL; V1B, 0x1000000000000000UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc361e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xfff8000000000000UL ]
+      []
+      [ V1A, 0xffff800000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc361e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fefffffffffffffUL ]
+      []
+      [ V1A, 0x43feffffffffffffUL; V1B, 0xf000000000000000UL; FPSCR, 0x4UL ]
+      []
+
+  /// <summary>
+  /// xscvsdqp and xscvudqp convert the signed or unsigned doubleword in
+  /// doubleword 0 of vRB to a quad, exactly; zero gives +0.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVSDQP converts a doubleword exactly``() =
+    (* xscvsdqp v1,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc2a1e88"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL; V3A, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2a1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0xbfff000000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2a1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffffffffffffUL ]
+      []
+      [ V1A, 0x403dffffffffffffUL; V1B, 0xfffc000000000000UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2a1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0xc03e000000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2a1e88"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221e88"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL; V3A, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x403effffffffffffUL; V1B, 0xfffe000000000000UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc221e88"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+
+  /// <summary>
+  /// xscvsqqp and xscvuqqp convert the signed or unsigned quadword in vRB to a
+  /// quad, rounded in the direction FPSCR[RN] names where it needs more than
+  /// 113 bits.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVSQQP rounds a quadword to a quad``() =
+    (* xscvsqqp v1,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc2b1e88"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL; V3B, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2b1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0xbfff000000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2b1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0xc07e000000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2b1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x2000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x4070000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2b1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x2000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4070000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2b1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x2000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x4070000000000000UL; V1B, 0x1UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2b1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x2000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ V1A, 0x4070000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2b1e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x407e000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc2b1e88"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc231e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xffffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x407f000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc231e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x407e000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc231e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x2000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x4070000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc231e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x2000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x4070000000000000UL; V1B, 0x1UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc231e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fffffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x407e000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+
+  /// <summary>
+  /// xscvqpdp vRT, vRB rounds vRB to a double in doubleword 0, in the direction
+  /// FPSCR[RN] names (xscvqpdpo to odd), doubleword 1 cleared: overflow,
+  /// underflow, a NaN keeping the top of its payload, one third.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVQPDP rounds a quad to a double``() =
+    (* xscvqpdp v1,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x3ff0000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x3ff0000000000001UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x7ff0000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7fefffffffffffffUL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x7ff0000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL; V1B, 0xbad0bad0bad0badUL; V3B, 0x1UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3B, 0x1UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3B, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL ]
+      []
+      [ V1A, 0x7ffc000000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff800000000000UL
+        V3B, 0x1234UL ]
+      []
+      [ V1A, 0x7ff8000000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3ffd555555555555UL
+        V3B, 0x5555555555555555UL ]
+      []
+      [ V1A, 0x3fd5555555555555UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3ffd555555555555UL
+        V3B, 0x5555555555555555UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x3fd5555555555555UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3ffd555555555555UL
+        V3B, 0x5555555555555555UL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x3fd5555555555556UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3ffd555555555555UL
+        V3B, 0x5555555555555555UL
+        FPSCR, 0x3UL ]
+      []
+      [ V1A, 0x3fd5555555555555UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3c00ffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x10000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3c00ffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x2UL ]
+      []
+      [ V1A, 0x10000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e89"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff000000000000UL
+        V3B, 0x1UL ]
+      []
+      [ V1A, 0x3ff0000000000001UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e89"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL ]
+      []
+      [ V1A, 0x7fefffffffffffffUL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc341e89"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3ffd555555555555UL
+        V3B, 0x5555555555555555UL ]
+      []
+      [ V1A, 0x3fd5555555555555UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+
+  /// <summary>
+  /// xscvqpsdz and xscvqpudz truncate vRB toward zero to a signed or unsigned
+  /// doubleword in doubleword 0, saturating: a NaN gives the smallest signed
+  /// value or zero, a negative number zero to the unsigned one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVQPSDZ truncates a quad to a doubleword``() =
+    (* xscvqpsdz v1,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff800000000000UL ]
+      []
+      [ V1A, 0x1UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xbfff800000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x401e000000000000UL ]
+      []
+      [ V1A, 0x80000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xc01e000000000000UL ]
+      []
+      [ V1A, 0xffffffff80000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x403e000000000000UL ]
+      []
+      [ V1A, 0x7fffffffffffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xc03e000000000000UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x403f000000000000UL ]
+      []
+      [ V1A, 0x7fffffffffffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x407e000000000000UL ]
+      []
+      [ V1A, 0x7fffffffffffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x407f000000000000UL ]
+      []
+      [ V1A, 0x7fffffffffffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff800000000000UL
+        V3B, 0x1234UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xbffe000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xffff000000000000UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x4070000000000000UL
+        V3B, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x7fffffffffffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc391e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc311e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff800000000000UL ]
+      []
+      [ V1A, 0x1UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc311e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xbfff800000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc311e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x403e000000000000UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc311e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x403f000000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc311e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff800000000000UL
+        V3B, 0x1234UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc311e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xbffe000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc311e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xffff000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xscvqpswz and xscvqpuwz truncate vRB to a signed or unsigned word,
+  /// extended to doubleword 0 as its signedness says, saturating at the word's
+  /// ends.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVQPSWZ truncates a quad to a word``() =
+    (* xscvqpswz v1,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc291e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff800000000000UL ]
+      []
+      [ V1A, 0x1UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc291e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xbfff800000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc291e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x401e000000000000UL ]
+      []
+      [ V1A, 0x7fffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc291e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xc01e000000000000UL ]
+      []
+      [ V1A, 0xffffffff80000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc291e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff800000000000UL
+        V3B, 0x1234UL ]
+      []
+      [ V1A, 0xffffffff80000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc291e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xffff000000000000UL ]
+      []
+      [ V1A, 0xffffffff80000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff800000000000UL ]
+      []
+      [ V1A, 0x1UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xbfff800000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x401e000000000000UL ]
+      []
+      [ V1A, 0x80000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x403f000000000000UL ]
+      []
+      [ V1A, 0xffffffffUL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff800000000000UL
+        V3B, 0x1234UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xscvqpsqz and xscvqpuqz truncate vRB to a signed or unsigned quadword,
+  /// saturating at 2 to the 127 and 2 to the 128.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSCVQPSQZ truncates a quad to a quadword``() =
+    (* xscvqpsqz v1,v3, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc281e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff800000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc281e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0xbfff800000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc281e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x407e000000000000UL ]
+      []
+      [ V1A, 0x7fffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc281e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x407f000000000000UL ]
+      []
+      [ V1A, 0x7fffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc281e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff800000000000UL
+        V3B, 0x1234UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc281e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x4070000000000000UL
+        V3B, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x2000000000001UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x3fff800000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x407f000000000000UL ]
+      []
+      [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x7fff800000000000UL
+        V3B, 0x1234UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x4070000000000000UL
+        V3B, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x2000000000001UL; V1B, 0x0UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e88"
+      [ V1A, 0xbad0bad0bad0badUL
+        V1B, 0xbad0bad0bad0badUL
+        V3A, 0x8000000000000000UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xsrqpi R, vRT, vRB, RMC rounds vRB to an integral value: R = 0 and RMC = 0
+  /// to nearest with ties away, R = 0 and RMC = 3 by FPSCR[RN] (toward zero
+  /// here), R = 1 by RMC; a signalling NaN comes back quiet, an infinity and -0
+  /// as they are.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSRQPI rounds a quad to an integral value``() =
+    (* xsrqpi 0,v1,v3,1, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc20180a"
+      [ V1A, 0x3fff800000000000UL; V3A, 0x4000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000800000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20180a"
+      [ V1A, 0x3fff000000000000UL; V3A, 0xc000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0xc000800000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20180a"
+      [ V3A, 0x3fff800000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20180a"
+      [ V1A, 0x7fff000000000000UL; V3A, 0x3ffe000000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20180a"
+      [ V1A, 0x7fff800000000000UL
+        V3A, 0xbffd555555555555UL
+        V3B, 0x5555555555555555UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20180a"
+      [ V1A, 0x7ffeffffffffffffUL
+        V1B, 0xffffffffffffffffUL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7fffc00000000000UL; V1B, 0x5678UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20180a"
+      [ V1A, 0x3fff000000000000UL; V3A, 0x7fff000000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20180a"
+      [ V1A, 0x3fff800000000000UL; V3A, 0x8000000000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20180a"
+      [ V1A, 0x3fff000000000000UL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7ffeffffffffffffUL; V1B, 0xffffffffffffffffUL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e0a"
+      [ V1A, 0x3fff800000000000UL; V3A, 0x4000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e0a"
+      [ V1A, 0x3fff000000000000UL; V3A, 0xc000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1B, 0x0UL; FPSCR, 0x8UL; V1A, 0xc000000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc201e0a"
+      [ V1A, 0x7fff800000000000UL
+        V3A, 0xbffd555555555555UL
+        V3B, 0x5555555555555555UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1B, 0x0UL; V1A, 0x8000000000000000UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc21180a"
+      [ V1A, 0x3fff800000000000UL; V3A, 0x4000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc21180a"
+      [ V1A, 0x3fff000000000000UL; V3A, 0xc000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0xc000000000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc21180a"
+      [ V3A, 0x3fff800000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc21180a"
+      [ V1A, 0x7fff000000000000UL; V3A, 0x3ffe000000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x0UL; V1B, 0x0UL; FPSCR, 0x2UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211a0a"
+      [ V1A, 0x3fff800000000000UL; V3A, 0x4000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211a0a"
+      [ V1A, 0x7fff800000000000UL
+        V3A, 0xbffd555555555555UL
+        V3B, 0x5555555555555555UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211c0a"
+      [ V1A, 0x3fff800000000000UL; V3A, 0x4000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000800000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211c0a"
+      [ V1A, 0x7fff800000000000UL
+        V3A, 0xbffd555555555555UL
+        V3B, 0x5555555555555555UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211c0a"
+      [ V1B, 0x1UL; V3A, 0x3fff000000000000UL; V3B, 0x1UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211e0a"
+      [ V1A, 0x3fff800000000000UL; V3A, 0x4000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211e0a"
+      [ V1A, 0x7fff800000000000UL
+        V3A, 0xbffd555555555555UL
+        V3B, 0x5555555555555555UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0xbfff000000000000UL; V1B, 0x0UL; FPSCR, 0x8UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211e0a"
+      [ V1A, 0x3fff800000000000UL; V3A, 0x8000000000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x8000000000000000UL; V1B, 0x0UL; FPSCR, 0x12UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc21180b"
+      [ V1A, 0x3fff800000000000UL; V3A, 0x4000400000000000UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x4000000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc21180b"
+      [ V3A, 0x406f000000000000UL; V3B, 0x1UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x406f000000000000UL; V1B, 0x1UL; FPSCR, 0x4UL ]
+      []
+
+  /// <summary>
+  /// xsrqpxp R, vRT, vRB, RMC rounds vRB to a 64-bit significand in the quad's
+  /// exponent range: one ulp above one, a NaN cut to that precision, the
+  /// largest quad overflowing or not by direction.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XSRQPXP rounds a quad to double-extended precision``() =
+    (* xsrqpxp 0,v1,v3,1, under QEMU: lanes/x-oracle/quad *)
+    oracleMem
+      ppc64le
+      "fc20184a"
+      [ V1B, 0x1UL; V3A, 0x3fff000000000000UL; V3B, 0x1UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20184a"
+      [ V1A, 0x7ffeffffffffffffUL
+        V1B, 0xffffffffffffffffUL
+        V3A, 0x7fff400000000000UL
+        V3B, 0x5678UL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7fffc00000000000UL; V1B, 0x0UL; FPSCR, 0x11UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20184a"
+      [ V1A, 0x3fff000000000000UL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc20184a"
+      [ V3A, 0x406f000000000000UL; V3B, 0x1UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x406f000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211c4a"
+      [ V1B, 0x1UL; V3A, 0x3fff000000000000UL; V3B, 0x1UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x3fff000000000000UL; V1B, 0x2000000000000UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211c4a"
+      [ V1A, 0x3fff000000000000UL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7fff000000000000UL; V1B, 0x0UL; FPSCR, 0x5UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc211e4a"
+      [ V1A, 0x3fff000000000000UL
+        V3A, 0x7ffeffffffffffffUL
+        V3B, 0xffffffffffffffffUL
+        FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x7ffeffffffffffffUL; V1B, 0xfffe000000000000UL; FPSCR, 0x4UL ]
+      []
+    oracleMem
+      ppc64le
+      "fc21184a"
+      [ V3A, 0x406f000000000000UL; V3B, 0x1UL; FPSCR, 0x1UL ]
+      []
+      [ V1A, 0x406f000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
+      []
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

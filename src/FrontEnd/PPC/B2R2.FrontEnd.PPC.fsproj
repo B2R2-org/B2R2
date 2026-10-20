@@ -26,6 +26,7 @@
     <Compile Include="VSXLifter.fs" />
     <Compile Include="VSXFloat.fs" />
     <Compile Include="VSXConvert.fs" />
+    <Compile Include="VSXQuad.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingVSX.fs" />
     <Compile Include="ParsingMain.fs" />
