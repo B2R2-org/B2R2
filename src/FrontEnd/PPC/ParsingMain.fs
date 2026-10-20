@@ -1598,6 +1598,41 @@ let private parseVXDecimal op bin =
   | ThreeOperands(vd, va, vb) -> struct (op, FourOperands(vd, va, vb, ps))
   | _ -> raise ParsingFailureException
 
+/// A VX-form "vD, vB" whose vA field holds a further extended opcode.
+let private parseVXSubB op bin =
+  let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+  let vb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  struct (op, TwoOperands(vd, vb))
+
+/// A VX-form "rD, vB" whose vA field holds a further extended opcode.
+let private parseVXGprB op bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let vb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  struct (op, TwoOperands(rt, vb))
+
+/// The forms of extended opcode 1538, told apart by their vA field: the
+/// counts, the negations, the parities and the sign extensions of vB.
+let private parse04Unary bin =
+  match Bits.extract bin 20u 16u with
+  | 0u -> parseVXGprB Op.VCLZLSBB bin
+  | 1u -> parseVXGprB Op.VCTZLSBB bin
+  | 6u -> parseVXSubB Op.VNEGW bin
+  | 7u -> parseVXSubB Op.VNEGD bin
+  | 8u -> parseVXSubB Op.VPRTYBW bin
+  | 9u -> parseVXSubB Op.VPRTYBD bin
+  | 10u -> parseVXSubB Op.VPRTYBQ bin
+  | 16u -> parseVXSubB Op.VEXTSB2W bin
+  | 17u -> parseVXSubB Op.VEXTSH2W bin
+  | 24u -> parseVXSubB Op.VEXTSB2D bin
+  | 25u -> parseVXSubB Op.VEXTSH2D bin
+  | 26u -> parseVXSubB Op.VEXTSW2D bin
+  | 27u -> parseVXSubB Op.VEXTSD2Q bin
+  | 28u -> parseVXSubB Op.VCTZB bin
+  | 29u -> parseVXSubB Op.VCTZH bin
+  | 30u -> parseVXSubB Op.VCTZW bin
+  | 31u -> parseVXSubB Op.VCTZD bin
+  | _ -> raise ParsingFailureException
+
 /// maddhd/maddhdu/maddld, the VA form whose four registers are general ones.
 let private parseVAGpr op bin =
   let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1825,6 +1860,7 @@ let private parse04 bitLen bin =
       | 1486u -> parseVX Op.VPKSDSS bin
       | 1358u -> parseVX Op.VPKSDUS bin
       | 1230u -> parseVX Op.VPKUDUS bin
+      | 1538u -> parse04Unary bin
       | 905u -> parseVX Op.VMULHSW bin
       | 649u -> parseVX Op.VMULHUW bin
       | 969u -> parseVX Op.VMULHSD bin

@@ -2848,6 +2848,195 @@ type LifterTests() =
         VSCR, 0x10000UL ]
     oracle everyTarget "10221f88" given wanted
 
+  /// <summary>
+  /// vctzb vD, vB writes into each byte of vD how many zero bits end the
+  /// matching byte of vB, its width for a zero one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCTZB counts the trailing zeros of each byte``() =
+    (* vctzb v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0000000007080808UL; V1B, 0x0000000008080800UL ]
+    oracle only64 "103c1e02" given wanted
+
+  /// <summary>
+  /// vctzh vD, vB writes into each halfword of vD how many zero bits end the
+  /// matching halfword of vB, its width for a zero one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCTZH counts the trailing zeros of each halfword``() =
+    (* vctzh v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x00000000000f0010UL; V1B, 0x0000000000100000UL ]
+    oracle only64 "103d1e02" given wanted
+
+  /// <summary>
+  /// vctzw vD, vB writes into each word of vD how many zero bits end the
+  /// matching word of vB, its width for a zero one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCTZW counts the trailing zeros of each word``() =
+    (* vctzw v1, v3 *)
+    let given = [ V3A, 0x7fff8000ffff0001UL; V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ V1A, 0x0000000f00000000UL; V1B, 0x0000000800000000UL ]
+    oracle only64 "103e1e02" given wanted
+
+  /// <summary>
+  /// vctzd vD, vB writes into each doubleword of vD how many zero bits end
+  /// the matching doubleword of vB, its width for a zero one.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCTZD counts the trailing zeros of each doubleword``() =
+    (* vctzd v1, v3 *)
+    let given = [ V3A, 0x8000000000000000UL ]
+    let wanted = [ V1A, 0x000000000000003fUL; V1B, 0x0000000000000040UL ]
+    oracle only64 "103f1e02" given wanted
+
+  /// <summary>
+  /// vclzlsbb rD, vB writes into rD how many bytes of vB, from byte 0 on,
+  /// have their lowest bit clear before the first one that has it set: 16
+  /// when none does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCLZLSBB counts leading bytes with a clear lowest bit``() =
+    (* vclzlsbb r5, v3 *)
+    let given = [ V3A, 0x8000000000000000UL ]
+    let wanted = [ R5, 0x10UL ]
+    oracle only64 "10a01e02" given wanted
+
+  /// <summary>
+  /// vctzlsbb rD, vB counts as vclzlsbb does, from byte 15 back.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCTZLSBB counts trailing bytes with a clear lowest bit``() =
+    (* vctzlsbb r5, v3 *)
+    let given = [ V3A, 0x0123456789abcdefUL; V3B, 0xfedcba9876543210UL ]
+    let wanted = [ R5, 0x8UL ]
+    oracle only64 "10a11e02" given wanted
+
+  /// <summary>
+  /// vnegw vD, vB writes the two's complement negation of each word of vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VNEGW negates each word``() =
+    (* vnegw v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x8000000180000000UL; V1B, 0x00000001ffffffffUL ]
+    oracle only64 "10261e02" given wanted
+
+  /// <summary>
+  /// vnegd vD, vB writes the two's complement negation of each doubleword of
+  /// vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VNEGD negates each doubleword``() =
+    (* vnegd v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x8000000080000000UL; V1B, 0x00000000ffffffffUL ]
+    oracle only64 "10271e02" given wanted
+
+  /// <summary>
+  /// vprtybw vD, vB writes into each word of vD 1 or 0 as the lowest bits of
+  /// the bytes of the matching word of vB hold an odd or an even number of
+  /// ones.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPRTYBW writes the byte parity of each word``() =
+    (* vprtybw v1, v3 *)
+    let given = [ V3A, 0x7fff8000ffff0001UL; V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ V1A, 0x0000000000000001UL; V1B, 0x0000000000000001UL ]
+    oracle only64 "10281e02" given wanted
+
+  /// <summary>
+  /// vprtybd vD, vB writes into each doubleword of vD 1 or 0 as the lowest
+  /// bits of the bytes of the matching doubleword of vB hold an odd or an
+  /// even number of ones.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPRTYBD writes the byte parity of each doubleword``() =
+    (* vprtybd v1, v3 *)
+    let given = [ V3A, 0x7fff8000ffff0001UL; V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ V1A, 0x0000000000000001UL; V1B, 0x0000000000000001UL ]
+    oracle only64 "10291e02" given wanted
+
+  /// <summary>
+  /// vprtybq vD, vB writes into each quadword of vD 1 or 0 as the lowest bits
+  /// of the bytes of the matching quadword of vB hold an odd or an even
+  /// number of ones.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPRTYBQ writes the byte parity of each quadword``() =
+    (* vprtybq v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000001UL ]
+    oracle only64 "102a1e02" given wanted
+
+  /// <summary>
+  /// vextsb2w vD, vB writes into each word of vD the lowest byte of the
+  /// matching word of vB, sign-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTSB2W sign-extends a low byte to each word``() =
+    (* vextsb2w v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffffff00000000UL; V1B, 0xffffffff00000001UL ]
+    oracle only64 "10301e02" given wanted
+
+  /// <summary>
+  /// vextsh2w vD, vB writes into each word of vD the lowest halfword of the
+  /// matching word of vB, sign-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTSH2W sign-extends a low halfword to each word``() =
+    (* vextsh2w v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffffff00000000UL; V1B, 0xffffffff00000001UL ]
+    oracle only64 "10311e02" given wanted
+
+  /// <summary>
+  /// vextsb2d vD, vB writes into each doubleword of vD the lowest byte of the
+  /// matching doubleword of vB, sign-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTSB2D sign-extends a low byte to each doubleword``() =
+    (* vextsb2d v1, v3 *)
+    let given = [ V3A, 0x7fff8000ffff0001UL; V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ V1A, 0x0000000000000001UL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10381e02" given wanted
+
+  /// <summary>
+  /// vextsh2d vD, vB writes into each doubleword of vD the lowest halfword of
+  /// the matching doubleword of vB, sign-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTSH2D sign-extends each low halfword``() =
+    (* vextsh2d v1, v3 *)
+    let given = [ V3A, 0x7fff8000ffff0001UL; V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ V1A, 0x0000000000000001UL; V1B, 0xffffffffffff80ffUL ]
+    oracle only64 "10391e02" given wanted
+
+  /// <summary>
+  /// vextsw2d vD, vB writes into each doubleword of vD the lowest word of the
+  /// matching doubleword of vB, sign-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTSW2D sign-extends a low word to each doubleword``() =
+    (* vextsw2d v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffffff80000000UL; V1B, 0x0000000000000001UL ]
+    oracle only64 "103a1e02" given wanted
+
+  /// <summary>
+  /// vextsd2q vD, vB writes into each quadword of vD the lowest doubleword of
+  /// the matching quadword of vB, sign-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTSD2Q sign-extends each low doubleword``() =
+    (* vextsd2q v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffff00000001UL ]
+    oracle only64 "103b1e02" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

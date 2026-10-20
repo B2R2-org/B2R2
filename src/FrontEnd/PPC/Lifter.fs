@@ -39,6 +39,7 @@ open B2R2.FrontEnd.PPC.DFPLifter
 open B2R2.FrontEnd.PPC.VectorIntegerLifter
 open B2R2.FrontEnd.PPC.VectorCryptoLifter
 open B2R2.FrontEnd.PPC.VectorDecimalLifter
+open B2R2.FrontEnd.PPC.VectorBitLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -1810,6 +1811,40 @@ let translate (ins: Instruction) bld =
     vecSumAcross ins bld 2
   | Op.VSUMSWS ->
     vecSumAcross ins bld 1
+  | Op.VCTZB ->
+    vecCountTrailingZeros ins bld 8<rt>
+  | Op.VCTZH ->
+    vecCountTrailingZeros ins bld 16<rt>
+  | Op.VCTZW ->
+    vecCountTrailingZeros ins bld 32<rt>
+  | Op.VCTZD ->
+    vecCountTrailingZeros ins bld 64<rt>
+  | Op.VCLZLSBB ->
+    vecCountLsbZeroBytes ins bld true
+  | Op.VCTZLSBB ->
+    vecCountLsbZeroBytes ins bld false
+  | Op.VNEGW ->
+    vecMap1 ins bld 32<rt> AST.neg
+  | Op.VNEGD ->
+    vecMap1 ins bld 64<rt> AST.neg
+  | Op.VPRTYBW ->
+    vecParity ins bld 32<rt>
+  | Op.VPRTYBD ->
+    vecParity ins bld 64<rt>
+  | Op.VPRTYBQ ->
+    vecParity ins bld 128<rt>
+  | Op.VEXTSB2W ->
+    vecSignExtend ins bld 32<rt> 8<rt>
+  | Op.VEXTSH2W ->
+    vecSignExtend ins bld 32<rt> 16<rt>
+  | Op.VEXTSB2D ->
+    vecSignExtend ins bld 64<rt> 8<rt>
+  | Op.VEXTSH2D ->
+    vecSignExtend ins bld 64<rt> 16<rt>
+  | Op.VEXTSW2D ->
+    vecSignExtend ins bld 64<rt> 32<rt>
+  | Op.VEXTSD2Q ->
+    vecSignExtend ins bld 128<rt> 64<rt>
   (* End of lane V. *)
   | o ->
 #if DEBUG

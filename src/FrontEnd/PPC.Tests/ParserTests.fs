@@ -979,6 +979,108 @@ type ParserTests() =
     ++ (VSUMSWS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VCTZB (Vector Count Trailing Zeros Byte)``() =
+    "103c1e02"
+    ++ (VCTZB ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCTZH (Vector Count Trailing Zeros Halfword)``() =
+    "103d1e02"
+    ++ (VCTZH ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCTZW (Vector Count Trailing Zeros Word)``() =
+    "103e1e02"
+    ++ (VCTZW ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCTZD (Vector Count Trailing Zeros Doubleword)``() =
+    "103f1e02"
+    ++ (VCTZD ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCLZLSBB (Count Leading Zero Least-Significant Bits)``() =
+    "10a01e02"
+    ++ (VCLZLSBB ** [ O.Reg R5; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCTZLSBB (Count Trailing Zero Least-Significant Bits)``() =
+    "10a11e02"
+    ++ (VCTZLSBB ** [ O.Reg R5; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VNEGW (Vector Negate Word)``() =
+    "10261e02"
+    ++ (VNEGW ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VNEGD (Vector Negate Doubleword)``() =
+    "10271e02"
+    ++ (VNEGD ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPRTYBW (Vector Parity Byte Word)``() =
+    "10281e02"
+    ++ (VPRTYBW ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPRTYBD (Vector Parity Byte Doubleword)``() =
+    "10291e02"
+    ++ (VPRTYBD ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPRTYBQ (Vector Parity Byte Quadword)``() =
+    "102a1e02"
+    ++ (VPRTYBQ ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTSB2W (Vector Extend Sign Byte To Word)``() =
+    "10301e02"
+    ++ (VEXTSB2W ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTSH2W (Vector Extend Sign Halfword To Word)``() =
+    "10311e02"
+    ++ (VEXTSH2W ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTSB2D (Vector Extend Sign Byte To Doubleword)``() =
+    "10381e02"
+    ++ (VEXTSB2D ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTSH2D (Vector Extend Sign Halfword To Doubleword)``() =
+    "10391e02"
+    ++ (VEXTSH2D ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTSW2D (Vector Extend Sign Word To Doubleword)``() =
+    "103a1e02"
+    ++ (VEXTSW2D ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTSD2Q (Vector Extend Sign Doubleword to Quadword)``() =
+    "103b1e02"
+    ++ (VEXTSD2Q ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

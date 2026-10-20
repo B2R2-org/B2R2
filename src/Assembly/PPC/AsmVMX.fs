@@ -233,6 +233,39 @@ let private sumEncoders () =
     Op.VSUM2SWS, vx 1672u
     Op.VSUMSWS, vx 1928u ]
 
+/// A VX-form "vD, vB" whose vA field holds a further extended opcode.
+let private vxSub sub xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg b ] -> word 4u (vr d) sub (vr b) xo
+  | _ -> wrongOperands ins
+
+/// A VX-form "rD, vB" whose vA field holds a further extended opcode.
+let private vxGprSub sub xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg b ] -> word 4u (gpr d) sub (vr b) xo
+  | _ -> wrongOperands ins
+
+/// The counts, negations, parities and sign extensions of extended opcode
+/// 1538, told apart by their vA field.
+let private countEncoders () =
+  [ Op.VCLZLSBB, vxGprSub 0u 1538u
+    Op.VCTZLSBB, vxGprSub 1u 1538u
+    Op.VNEGW, vxSub 6u 1538u
+    Op.VNEGD, vxSub 7u 1538u
+    Op.VPRTYBW, vxSub 8u 1538u
+    Op.VPRTYBD, vxSub 9u 1538u
+    Op.VPRTYBQ, vxSub 10u 1538u
+    Op.VEXTSB2W, vxSub 16u 1538u
+    Op.VEXTSH2W, vxSub 17u 1538u
+    Op.VEXTSB2D, vxSub 24u 1538u
+    Op.VEXTSH2D, vxSub 25u 1538u
+    Op.VEXTSW2D, vxSub 26u 1538u
+    Op.VEXTSD2Q, vxSub 27u 1538u
+    Op.VCTZB, vxSub 28u 1538u
+    Op.VCTZH, vxSub 29u 1538u
+    Op.VCTZW, vxSub 30u 1538u
+    Op.VCTZD, vxSub 31u 1538u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -245,4 +278,5 @@ let vmxEncoders () =
       compareEncoders ()
       multiplyHighEncoders ()
       divideEncoders ()
-      sumEncoders () ]
+      sumEncoders ()
+      countEncoders () ]
