@@ -128,6 +128,40 @@ type LifterTests() =
       let after = run isa hex given
       for r, v in wanted do expect v (after r) $"{hex} {r} {nameOf isa}"
 
+  /// The named calls the statements of one word make, in order.
+  let namedCalls isa hex =
+    let rec callsIn (e: Expr) =
+      match e with
+      | BinOp(Op = BinIR.BinOpType.APP; Left = FuncName(Name = n)) ->
+        [ n ]
+      | BinOp(Left = l; Right = r) | RelOp(Left = l; Right = r) ->
+        callsIn l @ callsIn r
+      | UnOp(Operand = x) | Cast(Operand = x) | Extract(Operand = x) ->
+        callsIn x
+      | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
+        callsIn c @ callsIn a @ callsIn b
+      | _ ->
+        []
+    lifted isa hex
+    |> Array.toList
+    |> List.collect (function
+      | Put(Src = s) ->
+        callsIn s
+      | _ ->
+        [])
+    |> List.toArray
+
+  /// Runs a decimal add or subtract over vA and vB holding the low doublewords
+  /// given, their high ones zero, and asserts vD and CR6 as QEMU left them.
+  let decimalCase hex a b result cr6 =
+    let given = [ V2B, a; V3B, b ]
+    let field =
+      [ CR6_0, (cr6 >>> 3) &&& 1UL
+        CR6_1, (cr6 >>> 2) &&& 1UL
+        CR6_2, (cr6 >>> 1) &&& 1UL
+        CR6_3, cr6 &&& 1UL ]
+    oracle only64 hex given ([ V1A, 0UL; V1B, result ] @ field)
+
   /// Eight bytes of memory in address order, given as the oracle writes them:
   /// one big-endian doubleword.
   let chunk (v: uint64) = Array.init 8 (fun i -> byte (v >>> (56 - 8 * i)))
@@ -408,48 +442,77 @@ type LifterTests() =
     oracle only64 "10006a88" given wanted
 
   /// <summary>
-  /// vcipher, vcipherlast, vncipher, vncipherlast and vsbox go out as the
-  /// named AES calls the other front ends use, IRRunner having no AES of its
-  /// own: vcipher one full round (AESENC), vcipherlast and vsbox the last
-  /// round (AESENCLAST, vsbox with a zero key and its ShiftRows undone),
-  /// vncipherlast the last inverse round (AESDECLAST), and vncipher -- whose
-  /// key is added before InvMixColumns -- that round followed by
-  /// InvMixColumns on its own (AESIMC). Their values were checked against
-  /// QEMU outside the suite, through the host's AES instructions.
+  /// vcipher vD, vA, vB runs one AES round -- SubBytes, ShiftRows, MixColumns,
+  /// AddRoundKey -- on the state in vA with the round key in vB, which is the
+  /// AESENC call the other front ends make. The calls number the state's bytes
+  /// from the least significant end, so the operands go in laid out that way;
+  /// IRRunner has no AES, so the call is what is asserted, its values having
+  /// been checked against QEMU through the host's AES instructions.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] The AES rounds lift to the named AES calls``() =
-    let rec callsIn (e: Expr) =
-      match e with
-      | BinOp(Op = BinIR.BinOpType.APP; Left = FuncName(Name = n)) ->
-        [ n ]
-      | BinOp(Left = l; Right = r) | RelOp(Left = l; Right = r) ->
-        callsIn l @ callsIn r
-      | UnOp(Operand = x) | Cast(Operand = x) | Extract(Operand = x) ->
-        callsIn x
-      | Ite(Cond = c; TrueExpr = a; FalseExpr = b) ->
-        callsIn c @ callsIn a @ callsIn b
-      | _ ->
-        []
-    let callsOf isa hex =
-      lifted isa hex
-      |> Array.toList
-      |> List.collect (function
-        | Put(Src = s) ->
-          callsIn s
-        | _ ->
-          [])
-      |> List.toArray
-    (* vcipher v1, v2, v3; vcipherlast v1, v2, v3; vncipher v1, v2, v3;
-       vncipherlast v1, v2, v3; vsbox v1, v2 *)
-    for hex, calls in
-      [ "10221d08", [| "AESENC" |]
-        "10221d09", [| "AESENCLAST" |]
-        "10221d48", [| "AESDECLAST"; "AESIMC" |]
-        "10221d49", [| "AESDECLAST" |]
-        "102205c8", [| "AESENCLAST" |] ] do
-      for isa in only64 do
-        CollectionAssert.AreEqual(calls, callsOf isa hex, hex)
+  member _.``[PPC] VCIPHER lifts to the named AES calls``() =
+    (* vcipher v1, v2, v3 *)
+    let calls = [| "AESENC" |]
+    for isa in only64 do
+      CollectionAssert.AreEqual(calls, namedCalls isa "10221d08")
+
+  /// <summary>
+  /// vcipherlast vD, vA, vB runs the last AES round, the one without
+  /// MixColumns, which is the AESENCLAST call. The calls number the state's
+  /// bytes from the least significant end, so the operands go in laid out that
+  /// way; IRRunner has no AES, so the call is what is asserted, its values
+  /// having been checked against QEMU through the host's AES instructions.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCIPHERLAST lifts to the named AES calls``() =
+    (* vcipherlast v1, v2, v3 *)
+    let calls = [| "AESENCLAST" |]
+    for isa in only64 do
+      CollectionAssert.AreEqual(calls, namedCalls isa "10221d09")
+
+  /// <summary>
+  /// vncipher vD, vA, vB runs one inverse round whose key is added before
+  /// InvMixColumns, so it is the last inverse round (AESDECLAST) followed by
+  /// InvMixColumns on its own (AESIMC). The calls number the state's bytes from
+  /// the least significant end, so the operands go in laid out that way;
+  /// IRRunner has no AES, so the call is what is asserted, its values having
+  /// been checked against QEMU through the host's AES instructions.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VNCIPHER lifts to the named AES calls``() =
+    (* vncipher v1, v2, v3 *)
+    let calls = [| "AESDECLAST"; "AESIMC" |]
+    for isa in only64 do
+      CollectionAssert.AreEqual(calls, namedCalls isa "10221d48")
+
+  /// <summary>
+  /// vncipherlast vD, vA, vB runs the last inverse AES round, which is the
+  /// AESDECLAST call. The calls number the state's bytes from the least
+  /// significant end, so the operands go in laid out that way; IRRunner has no
+  /// AES, so the call is what is asserted, its values having been checked
+  /// against QEMU through the host's AES instructions.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VNCIPHERLAST lifts to the named AES calls``() =
+    (* vncipherlast v1, v2, v3 *)
+    let calls = [| "AESDECLAST" |]
+    for isa in only64 do
+      CollectionAssert.AreEqual(calls, namedCalls isa "10221d49")
+
+  /// <summary>
+  /// vsbox vD, vA applies SubBytes alone: the last AES round with a zero key
+  /// (AESENCLAST), its ShiftRows undone by moving the bytes back. The calls
+  /// number the state's bytes from the least significant end, so the operands
+  /// go in laid out that way; IRRunner has no AES, so the call is what is
+  /// asserted, its values having been checked against QEMU through the host's
+  /// AES instructions.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSBOX lifts to the named AES calls``() =
+    (* vsbox v1, v2 *)
+    let calls = [| "AESENCLAST" |]
+    for isa in only64 do
+      CollectionAssert.AreEqual(calls, namedCalls isa "102205c8")
 
   /// <summary>
   /// vshasigmaw and vshasigmad pick their function per element: ST the
@@ -469,40 +532,36 @@ type LifterTests() =
       oracle only64 hex given [ V1A, hi; V1B, lo ]
 
   /// <summary>
-  /// bcdadd. and bcdsub. vD, vA, vB, PS work on signed packed decimals: 31
-  /// digits and a sign code, 0b1011 and 0b1101 negative and the other four
-  /// valid codes positive. The result's sign code is 0b1101 when negative and
-  /// otherwise 0b1100, or 0b1111 where PS is 1; CR6 says less than, greater
-  /// than or equal to zero, with its last bit set on overflowing 31 digits.
-  /// An invalid operand makes the result undefined and CR6 0b0001; QEMU
-  /// writes all ones there, which is what is lifted.
+  /// bcdadd. vD, vA, vB, PS adds two signed packed decimals -- 31 digits and
+  /// a sign code, 0b1011 and 0b1101 negative and the other four valid codes
+  /// positive. The sum's sign code is 0b1101 when negative and otherwise
+  /// 0b1100, or 0b1111 where PS is 1; CR6 says less than, greater than or
+  /// equal to zero.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] BCDADDdot and BCDSUBdot add signed packed decimals``() =
-    let check hex a b result cr6 =
-      let given = [ V2B, a; V3B, b ]
-      let field =
-        [ CR6_0, (cr6 >>> 3) &&& 1UL
-          CR6_1, (cr6 >>> 2) &&& 1UL
-          CR6_2, (cr6 >>> 1) &&& 1UL
-          CR6_3, cr6 &&& 1UL ]
-      let wanted = [ V1A, 0UL; V1B, result ] @ field
-      oracle only64 hex given wanted
+  member _.``[PPC] BCDADDdot adds signed packed decimals``() =
     (* bcdadd. v1, v2, v3, 0 *)
-    check "10221c01" 0x123cUL 0x456cUL 0x579cUL 0b0100UL
-    check "10221c01" 0x5dUL 0x3cUL 0x2dUL 0b1000UL
-    check "10221c01" 0x7aUL 0x7bUL 0xcUL 0b0010UL
-    check "10221c01" 0x987654321fUL 0x123456789eUL 0x1111111110cUL 0b0100UL
+    decimalCase "10221c01" 0x123cUL 0x456cUL 0x579cUL 0b0100UL
+    decimalCase "10221c01" 0x5dUL 0x3cUL 0x2dUL 0b1000UL
+    decimalCase "10221c01" 0x7aUL 0x7bUL 0xcUL 0b0010UL
+    decimalCase "10221c01" 0x987654321fUL 0x123456789eUL 0x1111111110cUL 4UL
     (* bcdadd. v1, v2, v3, 1 *)
-    check "10221e01" 0x123cUL 0x456cUL 0x579fUL 0b0100UL
-    check "10221e01" 0x7aUL 0x7bUL 0xfUL 0b0010UL
+    decimalCase "10221e01" 0x123cUL 0x456cUL 0x579fUL 0b0100UL
+    decimalCase "10221e01" 0x7aUL 0x7bUL 0xfUL 0b0010UL
+
+  /// <summary>
+  /// bcdsub. vD, vA, vB, PS writes vA - vB as bcdadd. writes a sum, the sign
+  /// code and CR6 taken from the difference.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDSUBdot subtracts signed packed decimals``() =
     (* bcdsub. v1, v2, v3, 0 *)
-    check "10221c41" 0x123cUL 0x456cUL 0x333dUL 0b1000UL
-    check "10221c41" 0x5dUL 0x3cUL 0x8dUL 0b1000UL
-    check "10221c41" 0x42cUL 0x42cUL 0xcUL 0b0010UL
+    decimalCase "10221c41" 0x123cUL 0x456cUL 0x333dUL 0b1000UL
+    decimalCase "10221c41" 0x5dUL 0x3cUL 0x8dUL 0b1000UL
+    decimalCase "10221c41" 0x42cUL 0x42cUL 0xcUL 0b0010UL
     (* bcdsub. v1, v2, v3, 1 *)
-    check "10221e41" 0x7aUL 0x7bUL 0x14fUL 0b0100UL
-    check "10221e41" 0x42cUL 0x42cUL 0xfUL 0b0010UL
+    decimalCase "10221e41" 0x7aUL 0x7bUL 0x14fUL 0b0100UL
+    decimalCase "10221e41" 0x42cUL 0x42cUL 0xfUL 0b0010UL
 
   /// <summary>
   /// bcdadd. keeps the low 31 digits of a sum that needs 32 and sets the
