@@ -1580,6 +1580,15 @@ let private parseVXSigma op bin =
   let six = Bits.extract bin 14u 11u |> uint64 |> OprImm
   struct (op, FourOperands(vd, va, st, six))
 
+/// A decimal add or subtract, "vD, vA, vB, PS", the preferred-sign bit PS
+/// sitting just above the nine-bit extended opcode.
+let private parseVXDecimal op bin =
+  let struct (_, oprs) = parseVX op bin
+  let ps = Bits.pick bin 9u |> uint64 |> OprImm
+  match oprs with
+  | ThreeOperands(vd, va, vb) -> struct (op, FourOperands(vd, va, vb, ps))
+  | _ -> raise ParsingFailureException
+
 /// The forms of primary opcode 4 named by their low six bits alone: the VA
 /// forms, whose fourth operand fills the field above.
 let private parse04Wide bin =
@@ -1775,6 +1784,8 @@ let private parse04 bin =
       | 1096u -> parseVX Op.VPMSUMH bin
       | 1160u -> parseVX Op.VPMSUMW bin
       | 1224u -> parseVX Op.VPMSUMD bin
+      | 1025u | 1537u -> parseVXDecimal Op.BCDADDdot bin
+      | 1089u | 1601u -> parseVXDecimal Op.BCDSUBdot bin
       | _ -> raise ParsingFailureException
 
 /// xxpermdi, whose two-bit DM field picks one doubleword of each source. Its

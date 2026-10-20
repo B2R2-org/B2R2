@@ -942,6 +942,8 @@ let opCodeToString = function
   | Op.STFDP -> "stfdp"
   | Op.STFDPX -> "stfdpx"
   (* Lane V: the vector facility, primary opcode 4. *)
+  | Op.BCDADDdot -> "bcdadd."
+  | Op.BCDSUBdot -> "bcdsub."
   | Op.VADDCUQ -> "vaddcuq"
   | Op.VADDECUQ -> "vaddecuq"
   | Op.VADDEUQM -> "vaddeuqm"

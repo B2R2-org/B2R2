@@ -19,6 +19,7 @@
     <Compile Include="VectorElements.fs" />
     <Compile Include="VectorIntegerLifter.fs" />
     <Compile Include="VectorCryptoLifter.fs" />
+    <Compile Include="VectorDecimalLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />

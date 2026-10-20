@@ -38,6 +38,7 @@ open B2R2.FrontEnd.PPC.FPLifter
 open B2R2.FrontEnd.PPC.DFPLifter
 open B2R2.FrontEnd.PPC.VectorIntegerLifter
 open B2R2.FrontEnd.PPC.VectorCryptoLifter
+open B2R2.FrontEnd.PPC.VectorDecimalLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -1621,6 +1622,10 @@ let translate (ins: Instruction) bld =
     vpmsum ins bld 64<rt>
   | Op.VPERMXOR ->
     vpermxor ins bld
+  | Op.BCDADDdot ->
+    bcdAddSub ins bld false
+  | Op.BCDSUBdot ->
+    bcdAddSub ins bld true
   | Op.VPKUHUS ->
     vecPackElements ins bld 16<rt> false (Saturate false)
   | Op.VPKUWUS ->

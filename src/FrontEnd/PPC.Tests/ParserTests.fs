@@ -535,6 +535,18 @@ type ParserTests() =
     ++ (VPERMXOR ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] BCDADDdot (Decimal Add Modulo)``() =
+    "10221c01"
+    ++ (BCDADDdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] BCDSUBdot (Decimal Subtract Modulo)``() =
+    "10221c41"
+    ++ (BCDSUBdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Imm 0x0UL ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
