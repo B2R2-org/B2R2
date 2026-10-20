@@ -2203,6 +2203,174 @@ let mtvsrw ins bld signed =
 /// of 2^63 and up are converted with 2^63 taken off and put back afterwards.
 (* Lane A: the branch and storage instructions of ISA 2.07 and later. *)
 /// <summary>
+/// addex rT, rA, rB, 0, which adds rA, rB and OV, and keeps the carry out in
+/// OV -- out of the register -- and OV32 -- out of the low word -- the way
+/// adde keeps it in CA and CA32. SO is left alone, as it is by nothing else
+/// that writes OV.
+/// </summary>
+let addex ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, src1, src2, _) = transFourOprs ins bld
+    let rt = bld.RegType
+    let struct (a, b) = tmpVars2 bld rt
+    let struct (partial, sum) = tmpVars2 bld rt
+    let struct (c1, c2) = tmpVars2 bld 1<rt>
+    a := src1
+    b := src2
+    partial := a .+ b
+    c1 := partial .< a
+    sum := partial .+ AST.zext rt (xerBit bld 30)
+    c2 := sum .< partial
+    xerBit bld 30 := c1 .| c2
+    if rt = 64<rt> then
+      xerBit bld 19 := AST.extract (a <+> b <+> sum) 1<rt> 32
+    else
+      ()
+    dst := sum
+  }
+
+/// addpcis rT, D, which adds D shifted up sixteen bits to the address of the
+/// next instruction.
+let addpcis (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, d) = transTwoOprs ins bld
+    let nia = numU64 (ins.Address + 4UL) bld.RegType
+    dst := nia .+ (d << numI32 16 bld.RegType)
+  }
+
+/// <summary>
+/// cnttzw/cnttzd, which count the zeros below the lowest one of rS's low word
+/// or of all of it, up to the whole width where it is zero: the ones of
+/// (x &amp; -x) - 1 are exactly those zeros.
+/// </summary>
+let private countTrailingZeros ins updateCond (bld: ILowUIRBuilder) width =
+  lift bld ins {
+    let struct (ra, rs) = transTwoOprs ins bld
+    let x = tmpVar bld width
+    let below = tmpVar bld bld.RegType
+    x := AST.xtlo width rs
+    x := (x .& AST.neg x) .- AST.num1 width
+    below := AST.zext bld.RegType x
+    popCountInto bld ra below (int bld.RegType)
+    if updateCond then setCR0Reg bld ra else ()
+  }
+
+let cnttzw ins updateCond bld = countTrailingZeros ins updateCond bld 32<rt>
+
+let cnttzd ins updateCond bld = countTrailingZeros ins updateCond bld 64<rt>
+
+/// <summary>
+/// cmpeqb BF, rA, rB, which sets CR field BF to 0b0100 where the low byte of
+/// rA equals any byte of rB and to zero where it equals none.
+/// </summary>
+let cmpeqb ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct ((lt, gt, eq, so), ra, rb) = transCmpOprs ins bld
+    let c = AST.xtlo 8<rt> ra
+    let matches = [ for i in 0 .. 7 -> AST.extract rb 8<rt> (8 * i) == c ]
+    lt := AST.b0
+    gt := List.reduce (.|) matches
+    eq := AST.b0
+    so := AST.b0
+  }
+
+/// <summary>
+/// cmprb BF, L, rA, rB, which sets CR field BF to 0b0100 where the low byte
+/// of rA lies in the range rB's bytes 7:6 bound (and, for L = 1, also where
+/// it lies in the one its bytes 5:4 bound) and to zero where it does not.
+/// </summary>
+let cmprb (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (field, l, ra, rb) =
+      match ins.Operands with
+      | FourOperands(OprReg f, OprImm l, ra, rb) ->
+        struct (transCRxToExpr bld f, l, transOpr bld ra, transOpr bld rb)
+      | _ ->
+        raise InvalidOperandException
+    let lt, gt, eq, so = field
+    let c = AST.xtlo 8<rt> ra
+    let byte n = AST.extract rb 8<rt> (8 * n)
+    let within lo hi = (byte lo .<= c) .& (c .<= byte hi)
+    lt := AST.b0
+    gt := if l = 0UL then within 0 1 else within 0 1 .| within 2 3
+    eq := AST.b0
+    so := AST.b0
+  }
+
+/// darn rT, L. The random number generator may fail, and says so by giving
+/// all ones (Book I 3.3.9); this one has no source of randomness to read, so
+/// it always reports that, which software is expected to handle by retrying
+/// and then falling back on a generator of its own.
+let darn ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rt, _) = transTwoOprs ins bld
+    rt := AST.not (AST.num0 bld.RegType)
+  }
+
+/// extswsli rA, rS, SH, which sign-extends rS's low word and shifts it left.
+let extswsli ins updateCond (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (ra, rs, sh) = transThreeOprs ins bld
+    ra := AST.sext 64<rt> (AST.xtlo 32<rt> rs) << sh
+    if updateCond then setCR0Reg bld ra else ()
+  }
+
+/// mcrxrx BF, which copies OV, OV32, CA and CA32 into CR field BF.
+let mcrxrx ins bld =
+  lift bld ins {
+    let lt, gt, eq, so = transCondOneOpr ins bld
+    lt := xerBit bld 30
+    gt := xerBit bld 19
+    eq := xerBit bld 29
+    so := xerBit bld 18
+  }
+
+/// <summary>
+/// The modulos, which give the remainder of a word (doubleword) division
+/// with the sign of the dividend. The remainder is undefined for a zero
+/// divisor and for the most negative dividend over -1; it is zero here, as
+/// QEMU leaves it. A word remainder fills a 64-bit register by sign or zero
+/// extension, as QEMU leaves it (the ISA leaves the high word undefined).
+/// </summary>
+let private modulo ins (bld: ILowUIRBuilder) width signed =
+  lift bld ins {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let struct (a, b) = tmpVars2 bld width
+    let extend = if signed then AST.sext else AST.zext
+    let zero = b == AST.num0 width
+    let minValue = AST.num1 width << numI32 (int width - 1) width
+    let overflow = (a == minValue) .& (b == AST.not (AST.num0 width))
+    let undefined = if signed then zero .| overflow else zero
+    let safe = AST.ite undefined (AST.num1 width) b
+    let r = if signed then a ?% safe else a .% safe
+    a := AST.xtlo width src1
+    b := AST.xtlo width src2
+    dst := AST.ite undefined (AST.num0 bld.RegType) (extend bld.RegType r)
+  }
+
+let modsw ins bld = modulo ins bld 32<rt> true
+
+let moduw ins bld = modulo ins bld 32<rt> false
+
+let modsd ins bld = modulo ins bld 64<rt> true
+
+let modud ins bld = modulo ins bld 64<rt> false
+
+/// setb rT, BFA, which gives -1 where CR field BFA says LT, else 1 where it
+/// says GT, and 0 otherwise.
+let setb (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rt, field) =
+      match ins.Operands with
+      | TwoOperands(rt, OprReg f) -> struct (transOpr bld rt, f)
+      | _ -> raise InvalidOperandException
+    let lt, gt, _, _ = transCRxToExpr bld field
+    let one = AST.num1 bld.RegType
+    let gtValue = AST.ite gt one (AST.num0 bld.RegType)
+    rt := AST.ite lt (AST.not (AST.num0 bld.RegType)) gtValue
+  }
+
+/// <summary>
 /// addg6s, which adds rA and rB and, for each four-bit digit, puts 6 in the
 /// result where the binary sum did not carry out of that digit and 0 where it
 /// did. The carry into bit 4k of a sum is bit 4k of a ^ b ^ sum; the carry out
