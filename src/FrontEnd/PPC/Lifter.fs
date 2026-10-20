@@ -41,6 +41,7 @@ open B2R2.FrontEnd.PPC.VectorCryptoLifter
 open B2R2.FrontEnd.PPC.VectorDecimalLifter
 open B2R2.FrontEnd.PPC.VectorBitLifter
 open B2R2.FrontEnd.PPC.VectorPermuteLifter
+open B2R2.FrontEnd.PPC.VectorFloatLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -1946,6 +1947,58 @@ let translate (ins: Instruction) bld =
     vecMaskedBits ins bld LeadingZeros
   | Op.VCTZDM ->
     vecMaskedBits ins bld TrailingZeros
+  | Op.VADDFP ->
+    vecFloatBinary ins bld AST.fadd
+  | Op.VSUBFP ->
+    vecFloatBinary ins bld AST.fsub
+  | Op.VMADDFP ->
+    vecFloatMultiplyAdd ins bld false
+  | Op.VNMSUBFP ->
+    vecFloatMultiplyAdd ins bld true
+  | Op.VMAXFP ->
+    vecFloatMaxMin ins bld true
+  | Op.VMINFP ->
+    vecFloatMaxMin ins bld false
+  | Op.VREFP ->
+    vecFloatReciprocal ins bld false
+  | Op.VRSQRTEFP ->
+    vecFloatReciprocal ins bld true
+  | Op.VEXPTEFP ->
+    vecFloatExpLog ins bld true
+  | Op.VLOGEFP ->
+    vecFloatExpLog ins bld false
+  | Op.VRFIN ->
+    vecFloatRound ins bld RoundingMode.ToNearestEven
+  | Op.VRFIZ ->
+    vecFloatRound ins bld RoundingMode.TowardZero
+  | Op.VRFIP ->
+    vecFloatRound ins bld RoundingMode.TowardPositive
+  | Op.VRFIM ->
+    vecFloatRound ins bld RoundingMode.TowardNegative
+  | Op.VCFSX ->
+    vecFloatFromInt ins bld true
+  | Op.VCFUX ->
+    vecFloatFromInt ins bld false
+  | Op.VCTSXS ->
+    vecFloatToInt ins bld true
+  | Op.VCTUXS ->
+    vecFloatToInt ins bld false
+  | Op.VCMPEQFP ->
+    vecFloatCompare ins bld AST.feq false
+  | Op.VCMPEQFPdot ->
+    vecFloatCompare ins bld AST.feq true
+  | Op.VCMPGEFP ->
+    vecFloatCompare ins bld AST.fge false
+  | Op.VCMPGEFPdot ->
+    vecFloatCompare ins bld AST.fge true
+  | Op.VCMPGTFP ->
+    vecFloatCompare ins bld AST.fgt false
+  | Op.VCMPGTFPdot ->
+    vecFloatCompare ins bld AST.fgt true
+  | Op.VCMPBFP ->
+    vcmpbfp ins bld false
+  | Op.VCMPBFPdot ->
+    vcmpbfp ins bld true
   (* End of lane V. *)
   | o ->
 #if DEBUG

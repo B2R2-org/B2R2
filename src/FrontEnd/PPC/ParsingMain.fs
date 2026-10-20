@@ -1723,6 +1723,14 @@ let private parseVGNB bin =
   if Bits.extract bin 20u 19u <> 0u || n < 2u then raise ParsingFailureException
   else struct (Op.VGNB, ThreeOperands(rt, vb, n |> uint64 |> OprImm))
 
+/// vmaddfp/vnmsubfp "vD, vA, vC, vB", a VA form written with vC before vB.
+let private parseVAFloat op bin =
+  let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+  let va = getVecRegister (Bits.extract bin 20u 16u) |> OprReg
+  let vb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  let vc = getVecRegister (Bits.extract bin 10u 6u) |> OprReg
+  struct (op, FourOperands(vd, va, vc, vb))
+
 /// maddhd/maddhdu/maddld, the VA form whose four registers are general ones.
 let private parseVAGpr op bin =
   let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1749,6 +1757,8 @@ let private parse04Wide bitLen bin =
   | 40u -> parseVA Op.VMSUMSHM bin
   | 41u -> parseVA Op.VMSUMSHS bin
   | 45u -> parseVA Op.VPERMXOR bin
+  | 46u -> parseVAFloat Op.VMADDFP bin
+  | 47u -> parseVAFloat Op.VNMSUBFP bin
   | 48u when bitLen = 64 -> parseVAGpr Op.MADDHD bin
   | 49u when bitLen = 64 -> parseVAGpr Op.MADDHDU bin
   | 51u when bitLen = 64 -> parseVAGpr Op.MADDLD bin
@@ -1797,6 +1807,14 @@ let private parse04 bitLen bin =
       parseVC Op.VCMPGTSW Op.VCMPGTSWdot bin
     | 967u ->
       parseVC Op.VCMPGTSD Op.VCMPGTSDdot bin
+    | 198u ->
+      parseVC Op.VCMPEQFP Op.VCMPEQFPdot bin
+    | 454u ->
+      parseVC Op.VCMPGEFP Op.VCMPGEFPdot bin
+    | 710u ->
+      parseVC Op.VCMPGTFP Op.VCMPGTFPdot bin
+    | 966u ->
+      parseVC Op.VCMPBFP Op.VCMPBFPdot bin
     | 7u ->
       parseVC Op.VCMPNEB Op.VCMPNEBdot bin
     | 71u ->
@@ -1953,6 +1971,22 @@ let private parse04 bitLen bin =
       | 1486u -> parseVX Op.VPKSDSS bin
       | 1358u -> parseVX Op.VPKSDUS bin
       | 1230u -> parseVX Op.VPKUDUS bin
+      | 10u -> parseVX Op.VADDFP bin
+      | 74u -> parseVX Op.VSUBFP bin
+      | 1034u -> parseVX Op.VMAXFP bin
+      | 1098u -> parseVX Op.VMINFP bin
+      | 266u -> parseVX2 Op.VREFP bin
+      | 330u -> parseVX2 Op.VRSQRTEFP bin
+      | 394u -> parseVX2 Op.VEXPTEFP bin
+      | 458u -> parseVX2 Op.VLOGEFP bin
+      | 522u -> parseVX2 Op.VRFIN bin
+      | 586u -> parseVX2 Op.VRFIZ bin
+      | 650u -> parseVX2 Op.VRFIP bin
+      | 714u -> parseVX2 Op.VRFIM bin
+      | 778u -> parseVXUimm Op.VCFUX bin
+      | 842u -> parseVXUimm Op.VCFSX bin
+      | 906u -> parseVXUimm Op.VCTUXS bin
+      | 970u -> parseVXUimm Op.VCTSXS bin
       | 1228u when bitLen = 64 -> parseVGNB bin
       | 1484u -> parseVX Op.VBPERMD bin
       | 1357u -> parseVX Op.VCFUGED bin

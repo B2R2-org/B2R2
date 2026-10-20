@@ -368,6 +368,41 @@ let private bitEncoders () =
     Op.VCLZDM, vx 1924u
     Op.VCTZDM, vx 1988u ]
 
+/// vmaddfp/vnmsubfp "vD, vA, vC, vB", whose vC is written before vB.
+let private vaFloat xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg a; Rg c; Rg b ] ->
+    word 4u (vr d) (vr a) (vr b) (((vr c) <<< 6) ||| xo)
+  | _ ->
+    wrongOperands ins
+
+/// The floating-point arithmetic, estimates, roundings, conversions and
+/// compares on four singles.
+let private floatEncoders () =
+  List.concat
+    [ [ Op.VADDFP, vx 10u
+        Op.VSUBFP, vx 74u
+        Op.VMAXFP, vx 1034u
+        Op.VMINFP, vx 1098u
+        Op.VREFP, vx2 266u
+        Op.VRSQRTEFP, vx2 330u
+        Op.VEXPTEFP, vx2 394u
+        Op.VLOGEFP, vx2 458u
+        Op.VRFIN, vx2 522u
+        Op.VRFIZ, vx2 586u
+        Op.VRFIP, vx2 650u
+        Op.VRFIM, vx2 714u
+        Op.VCFUX, vxSplat 778u
+        Op.VCFSX, vxSplat 842u
+        Op.VCTUXS, vxSplat 906u
+        Op.VCTSXS, vxSplat 970u
+        Op.VMADDFP, vaFloat 46u
+        Op.VNMSUBFP, vaFloat 47u ]
+      recording vc 198u Op.VCMPEQFP Op.VCMPEQFPdot
+      recording vc 454u Op.VCMPGEFP Op.VCMPGEFPdot
+      recording vc 710u Op.VCMPGTFP Op.VCMPGTFPdot
+      recording vc 966u Op.VCMPBFP Op.VCMPBFPdot ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -385,4 +420,5 @@ let vmxEncoders () =
       shiftEncoders ()
       maskEncoders ()
       stringEncoders ()
-      bitEncoders () ]
+      bitEncoders ()
+      floatEncoders () ]
