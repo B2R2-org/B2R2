@@ -3786,6 +3786,24 @@ let private parseFPPair op bin =
   let ra = getRegister (Bits.extract bin 20u 16u)
   let mem = (dsDisp bin, ra) |> OprMem (* ds (rA) *)
   struct (op, TwoOperands(frp, mem))
+/// <summary>
+/// lq rTp, DQ(rA), which loads an even-odd register pair: an odd rTp, or one
+/// that rA names too -- r0 with rA = 0 included -- is an invalid form the
+/// processor refuses (Book I 3.3.4). The displacement is a 12-bit signed
+/// field the encoding leaves scaled by sixteen, and the four bits below it
+/// are reserved.
+/// </summary>
+let private parseLQ bin =
+  let rt = Bits.extract bin 25u 21u
+  let ra = Bits.extract bin 20u 16u
+  if rt % 2u <> 0u || rt = ra then
+    raise ParsingFailureException
+  else
+    let disp =
+      Bits.extract bin 15u 4u <<< 4 |> uint64 |> Bits.signExtend 16 64
+      |> int64 |> int32
+    let mem = (disp, getRegister ra) |> OprMem (* dq (rA) *)
+    struct (Op.LQ, TwoOperands(getRegister rt |> OprReg, mem))
 
 /// The ISA 3.0 DS-form loads of primary opcode 57: lxsd, which names a vector
 /// register (VSR32-63) by its five-bit number, and lxssp, which ParsingVSX
@@ -3820,8 +3838,8 @@ let private parse3D bin =
   | 0b10u -> struct (Op.STXSD, TwoOperands(vrs, mem))
   | _ -> ParsingVSX.parse3D bin
 
-/// The DS-form stores: std and stdu. The remaining encoding is stq, which is
-/// not modeled.
+/// The DS-form stores: std, stdu and stq. stq stores an even-odd register
+/// pair, so an odd rSp is an invalid form.
 let private parse3E bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
   let ra = getRegister (Bits.extract bin 20u 16u)
@@ -3829,6 +3847,7 @@ let private parse3E bin =
   match Bits.extract bin 1u 0u with
   | 0b00u -> struct (Op.STD, TwoOperands(rs, mem))
   | 0b01u -> struct (Op.STDU, TwoOperands(rs, mem))
+  | 0b10u when Bits.pick bin 21u = 0u -> struct (Op.STQ, TwoOperands(rs, mem))
   | _ -> raise ParsingFailureException
 
 /// The rotate-left-doubleword forms. In an MD form the six-bit mask bound and
@@ -3922,6 +3941,7 @@ let private parseInstruction bitLen bin addr =
   | 0x35u -> parseSTFSU bin
   | 0x36u -> parseSTFD bin
   | 0x37u -> parseSTFDU bin
+  | 0x38u when bitLen = 64 -> parseLQ bin
   | 0x39u when Bits.extract bin 1u 0u = 0u -> parseFPPair Op.LFDP bin
   | 0x39u when bitLen = 64 -> parse39 bin
   | 0x3Au when bitLen = 64 -> parse3A bin

@@ -316,6 +316,12 @@ type LifterTests() =
     let values = Map.ofList regs
     (fun r -> Map.find r values), Map.ofList memory
 
+  /// The eight bytes of memory a sequence left at an address, read most
+  /// significant first.
+  let doubleword (left: Map<uint64, byte[]>) at =
+    Array.init 8 (fun i -> left[at + uint64 i][0])
+    |> Array.fold (fun acc b -> (acc <<< 8) ||| uint64 b) 0UL
+
   /// What each register holds after one word at an address ran, the jump out
   /// of the instruction that ends it having been turned into a write of its
   /// target to IAR, which is then read like any other register.
@@ -24664,9 +24670,6 @@ type LifterTests() =
         R14, 0x5555555566666666UL
         R15, 0x7777777788888888UL ]
     let memory = [ ea, [| for i in 0 .. 15 -> byte (i * 0x11) |] ]
-    let doubleword (left: Map<uint64, byte[]>) at =
-      Array.init 8 (fun i -> left[at + uint64 i][0])
-      |> Array.fold (fun acc b -> (acc <<< 8) ||| uint64 b) 0UL
     (* lqarx r10,0,r6; stqcx. r12,0,r6; stqcx. r14,0,r6 *)
     let lqarx, first, second = "7d403228", "7d80316d", "7dc0316d"
     let bigLoad = 0x0011223344556677UL, 0x8899aabbccddeeffUL
@@ -24690,6 +24693,49 @@ type LifterTests() =
       let after, left = sequence isa [ first ] state given []
       expect 0UL (cr0 after) (nameOf isa)
       expect 0UL (uint64 left.Count) (nameOf isa)
+
+  /// <summary>
+  /// lq loads the quadword at EA into an even-odd register pair -- the even
+  /// register the doubleword at EA on a big-endian processor and the one at
+  /// EA + 8 on a little-endian one, which byte-reverses the quadword -- and
+  /// stq stores a pair the same way. rA may name the odd register, which the
+  /// load then overwrites; a quadword off a sixteen-byte boundary moves all
+  /// the same, as it does in QEMU's user mode. Values from QEMU running lq
+  /// r10,16(r6), lq r10,0(r11), stq r12,8(r6) and stq r12,16(r6) in each byte
+  /// order (specs lq, lqle).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] LQ and STQ move a quadword to and from a pair``() =
+    let ea = 0x20200080UL
+    let memory =
+      [ ea, ByteArray.ofHexString "00112233445566778899aabbccddeeff"
+        ea + 16UL, ByteArray.ofHexString "0123456789abcdeffedcba9876543210" ]
+    let aligned, off = 0x20200070UL, 0x20200078UL
+    (* lq r10,16(r6); lq r10,0(r11) *)
+    let bigLoads =
+      [ "e1460010", aligned, 0x0011223344556677UL, 0x8899aabbccddeeffUL
+        "e14b0000", 0UL, 0x0011223344556677UL, 0x8899aabbccddeeffUL
+        "e1460010", off, 0x8899aabbccddeeffUL, 0x0123456789abcdefUL ]
+    let littleLoads =
+      [ "e1460010", aligned, 0xffeeddccbbaa9988UL, 0x7766554433221100UL
+        "e14b0000", 0UL, 0xffeeddccbbaa9988UL, 0x7766554433221100UL
+        "e1460010", off, 0xefcdab8967452301UL, 0xffeeddccbbaa9988UL ]
+    for isa, loads in [ ppc64, bigLoads; ppc64le, littleLoads ] do
+      for hex, r6, r10, r11 in loads do
+        let given = [ R6, r6; R11, ea ]
+        let after, _ = sequence isa [ hex ] [ R10; R11 ] given memory
+        expect r10 (after R10) $"{hex} {r6:x} {nameOf isa}"
+        expect r11 (after R11) $"{hex} {r6:x} {nameOf isa}"
+    (* stq r12,8(r6); stq r12,16(r6) *)
+    let pair = [ R12, 0x1111111122222222UL; R13, 0x3333333344444444UL ]
+    for isa, first, second in
+      [ ppc64, 0x1111111122222222UL, 0x3333333344444444UL
+        ppc64le, 0x4444444433333333UL, 0x2222222211111111UL ] do
+      for hex, at in [ "f986000a", ea; "f9860012", ea + 8UL ] do
+        let given = (R6, off) :: pair
+        let _, left = sequence isa [ hex ] [] given memory
+        expect first (doubleword left at) $"{hex} {nameOf isa}"
+        expect second (doubleword left (at + 8UL)) $"{hex} {nameOf isa}"
 
   /// <summary>
   /// rfebb S sets BESCR[GE], its most significant bit, to S and returns to

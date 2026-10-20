@@ -2632,6 +2632,36 @@ let stqcxdot (ins: Instruction) (bld: ILowUIRBuilder) =
     conditionalStore bld ea check pair
   }
 
+/// <summary>
+/// lq rTp, DQ(rA), which loads a quadword into an even-odd register pair. rA
+/// may name the odd register, which the load then overwrites.
+/// </summary>
+let lq (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (even, odd) = registerPair o1
+    let ea = tmpVar bld 64<rt>
+    let struct (hi, lo) = tmpVars2 bld 64<rt>
+    ea := transEAWithOffset o2 bld
+    let struct (evenAddr, oddAddr) = pairAddresses bld ea
+    hi := loadNative bld 64<rt> evenAddr
+    lo := loadNative bld 64<rt> oddAddr
+    regVar bld even := hi
+    regVar bld odd := lo
+  }
+
+/// stq rSp, DS(rA), which stores an even-odd register pair as one quadword.
+let stq (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (even, odd) = registerPair o1
+    let ea = tmpVar bld 64<rt>
+    ea := transEAWithOffset o2 bld
+    let struct (evenAddr, oddAddr) = pairAddresses bld ea
+    loadNative bld 64<rt> evenAddr := regVar bld even
+    loadNative bld 64<rt> oddAddr := regVar bld odd
+  }
+
 (* The vector unit. A 128-bit vector register is modeled as two 64-bit halves
    (see the Register type), and every operation below works on those halves
    rather than on a 128-bit value, so nothing needs an intermediate wider than a
