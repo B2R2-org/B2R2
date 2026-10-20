@@ -2705,6 +2705,14 @@ let translate (ins: Instruction) bld =
     storeAtomic ins bld 32<rt>
   | Op.STDAT ->
     storeAtomic ins bld 64<rt>
+  | Op.COPY | Op.PASTE | Op.PASTEdot ->
+    sideEffects ins bld UndefinedInstruction
+  | Op.CPABORT ->
+    nop ins bld
+  | Op.WAIT ->
+    sideEffects ins bld Delay
+  | Op.SCV ->
+    sideEffects ins bld SysCall
   | Op.SETBC ->
     setbc ins bld false false
   | Op.SETBCR ->

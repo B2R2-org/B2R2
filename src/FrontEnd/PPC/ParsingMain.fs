@@ -164,6 +164,11 @@ let parseSC bin =
   | 0b1u -> struct (Op.SC, NoOperand)
   | _ -> raise ParsingFailureException
 
+/// scv LEV, whose seven-bit LEV sits in bits 20 to 26.
+let parseSCV bin =
+  let lev = Bits.extract bin 11u 5u |> uint64
+  struct (Op.SCV, OneOperand(OprImm lev))
+
 let parseBx bitLen bin addr =
   let li = Bits.extract bin 25u 2u |> uint64
   let signExtended = Bits.signExtend 26 bitLen (li <<< 2) |> uint64
@@ -2747,6 +2752,45 @@ let private parseEXTSWSLI bin =
   struct (op, ThreeOperands(ra, rs, OprImm(uint64 sh)))
 
 /// <summary>
+/// copy rA, rB, whose bit 10 v3.1 fixes at 1, and paste[.] rA, rB, L, whose
+/// L sits there; the bits above are reserved.
+/// </summary>
+let private parseCopyPaste bin =
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  let l = Bits.pick bin 21u
+  let operands = ThreeOperands(ra, rb, OprImm(uint64 l))
+  let reserved, xo = Bits.extract bin 25u 22u, Bits.extract bin 10u 1u
+  match reserved, xo, l, Bits.pick bin 0u with
+  | 0u, 902u, _, 1u -> struct (Op.PASTEdot, operands)
+  | 0u, 902u, _, _ -> struct (Op.PASTE, operands)
+  | 0u, _, 1u, 0u -> struct (Op.COPY, TwoOperands(ra, rb))
+  | _ -> raise ParsingFailureException
+
+/// cpabort, whose fields are all reserved.
+let private parseCPABORT bin =
+  if Bits.extract bin 25u 11u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    struct (Op.CPABORT, NoOperand)
+
+/// <summary>
+/// wait WC, PL. WC = 3 is reserved, an invalid form; a reserved PL is not
+/// (the instruction is then a no-op). Bits 6 and 7 may hold an
+/// implementation-dependent field and are not checked.
+/// </summary>
+let private parseWAIT bin =
+  let wc = Bits.extract bin 22u 21u
+  let reserved =
+    Bits.pick bin 23u ||| Bits.extract bin 20u 18u ||| Bits.extract bin 15u 11u
+    ||| Bits.pick bin 0u
+  if wc = 3u || reserved <> 0u then
+    raise ParsingFailureException
+  else
+    let pl = Bits.extract bin 17u 16u
+    struct (Op.WAIT, TwoOperands(OprImm(uint64 wc), OprImm(uint64 pl)))
+
+/// <summary>
 /// lwat, ldat, stwat and stdat rT, rA, FC, whose function code sits where an
 /// X form keeps rB. A code Book II does not list is not an invalid form: the
 /// processor invokes the data storage error handler when it runs.
@@ -2779,6 +2823,8 @@ let private parse1FLaneA is64 fallback bin =
   match Bits.extract bin 10u 1u with
   | 0x016u ->
     parseICBT bin
+  | 0x01Eu when is64 ->
+    parseWAIT bin
   | 0x034u ->
     parseReserveIndexed Op.LBARX bin
   | 0x03Bu when is64 ->
@@ -2869,12 +2915,18 @@ let private parse1FLaneA is64 fallback bin =
     parseAtomic Op.STDAT bin
   | 0x2F3u when is64 ->
     parseDARN bin
+  | 0x306u when is64 ->
+    parseCopyPaste bin
   | 0x309u when is64 ->
     parseXFormIndexed Op.MODSD bin
   | 0x30Bu ->
     parseXFormIndexed Op.MODSW bin
+  | 0x346u when is64 ->
+    parseCPABORT bin
   | 0x37Au | 0x37Bu when is64 ->
     parseEXTSWSLI bin
+  | 0x386u when is64 ->
+    parseCopyPaste bin
   | _ ->
     fallback bin
 
@@ -3993,6 +4045,7 @@ let private parseInstruction bitLen bin addr =
   | 0xFu -> parseADDIS bitLen bin
   | 0x10u -> parseBCx bitLen bin
   | 0x11u when Bits.pick bin 0u = 0u -> parseSC bin
+  | 0x11u when bitLen = 64 && Bits.extract bin 1u 0u = 1u -> parseSCV bin
   | 0x12u -> parseBx bitLen bin addr
   | 0x13u -> parse13 bitLen bin
   | 0x14u -> parseRLWIMIx bin
