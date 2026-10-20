@@ -340,3 +340,34 @@ let multiplyAddDoubleword ins bld signed high =
       .+ widen signed 128<rt> rc
     rt := if high then AST.xthi 64<rt> sum else AST.xtlo 64<rt> sum
   }
+
+/// What a vector divide writes: the quotient, the quotient of the dividend
+/// shifted up by the element's width first, or the remainder.
+type DivideKind =
+  | Quotient
+  | ExtendedQuotient
+  | Remainder
+
+/// The divides and the remainders, each element divided at twice its width
+/// and the answer cut back to it. A zero divisor leaves the answer undefined,
+/// as does a quotient that does not fit; the divide is made with a divisor of
+/// one there so that it cannot fault, and the element is written as QEMU
+/// writes it: the dividend's element for a quotient, zero for a remainder.
+let vecDivide ins bld esize signed kind =
+  let n = int esize
+  let wide = regTypeOf (2 * n)
+  vecMap2 ins bld esize (fun a b ->
+    let dividend = widen signed wide a
+    let dividend =
+      if kind = ExtendedQuotient then dividend << numI32 n wide else dividend
+    let divisor = widen signed wide b
+    let zero = divisor == AST.num0 wide
+    let safe = AST.ite zero (AST.num1 wide) divisor
+    let answer =
+      match kind, signed with
+      | Remainder, true -> dividend ?% safe
+      | Remainder, false -> dividend .% safe
+      | _, true -> dividend ?/ safe
+      | _, false -> dividend ./ safe
+    let undefined = if kind = Remainder then AST.num0 esize else a
+    AST.ite zero undefined (AST.xtlo esize answer))

@@ -1764,6 +1764,42 @@ let translate (ins: Instruction) bld =
     multiplyAddDoubleword ins bld false true
   | Op.MADDLD ->
     multiplyAddDoubleword ins bld true false
+  | Op.VDIVSW ->
+    vecDivide ins bld 32<rt> true Quotient
+  | Op.VDIVUW ->
+    vecDivide ins bld 32<rt> false Quotient
+  | Op.VDIVSD ->
+    vecDivide ins bld 64<rt> true Quotient
+  | Op.VDIVUD ->
+    vecDivide ins bld 64<rt> false Quotient
+  | Op.VDIVSQ ->
+    vecDivide ins bld 128<rt> true Quotient
+  | Op.VDIVUQ ->
+    vecDivide ins bld 128<rt> false Quotient
+  | Op.VDIVESW ->
+    vecDivide ins bld 32<rt> true ExtendedQuotient
+  | Op.VDIVEUW ->
+    vecDivide ins bld 32<rt> false ExtendedQuotient
+  | Op.VDIVESD ->
+    vecDivide ins bld 64<rt> true ExtendedQuotient
+  | Op.VDIVEUD ->
+    vecDivide ins bld 64<rt> false ExtendedQuotient
+  | Op.VDIVESQ ->
+    vecDivide ins bld 128<rt> true ExtendedQuotient
+  | Op.VDIVEUQ ->
+    vecDivide ins bld 128<rt> false ExtendedQuotient
+  | Op.VMODSW ->
+    vecDivide ins bld 32<rt> true Remainder
+  | Op.VMODUW ->
+    vecDivide ins bld 32<rt> false Remainder
+  | Op.VMODSD ->
+    vecDivide ins bld 64<rt> true Remainder
+  | Op.VMODUD ->
+    vecDivide ins bld 64<rt> false Remainder
+  | Op.VMODSQ ->
+    vecDivide ins bld 128<rt> true Remainder
+  | Op.VMODUQ ->
+    vecDivide ins bld 128<rt> false Remainder
   (* End of lane V. *)
   | o ->
 #if DEBUG

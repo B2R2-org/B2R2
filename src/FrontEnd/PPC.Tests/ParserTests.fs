@@ -841,6 +841,114 @@ type ParserTests() =
     ++ (MADDLD ** [ O.Reg R5; O.Reg R6; O.Reg R7; O.Reg R9 ])
     ||> test64Only
 
+  [<TestMethod>]
+  member _.``[PPC] VDIVSW (Vector Divide Signed Word)``() =
+    "1022198b"
+    ++ (VDIVSW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVUW (Vector Divide Unsigned Word)``() =
+    "1022188b"
+    ++ (VDIVUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVSD (Vector Divide Signed Doubleword)``() =
+    "102219cb"
+    ++ (VDIVSD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVUD (Vector Divide Unsigned Doubleword)``() =
+    "102218cb"
+    ++ (VDIVUD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVSQ (Vector Divide Signed Quadword)``() =
+    "1022190b"
+    ++ (VDIVSQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVUQ (Vector Divide Unsigned Quadword)``() =
+    "1022180b"
+    ++ (VDIVUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVESW (Vector Divide Extended Signed Word)``() =
+    "10221b8b"
+    ++ (VDIVESW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVEUW (Vector Divide Extended Unsigned Word)``() =
+    "10221a8b"
+    ++ (VDIVEUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVESD (Vector Divide Extended Signed Doubleword)``() =
+    "10221bcb"
+    ++ (VDIVESD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVEUD (Vector Divide Extended Unsigned Doubleword)``() =
+    "10221acb"
+    ++ (VDIVEUD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVESQ (Vector Divide Extended Signed Quadword)``() =
+    "10221b0b"
+    ++ (VDIVESQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VDIVEUQ (Vector Divide Extended Unsigned Quadword)``() =
+    "10221a0b"
+    ++ (VDIVEUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMODSW (Vector Modulo Signed Word)``() =
+    "10221f8b"
+    ++ (VMODSW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMODUW (Vector Modulo Unsigned Word)``() =
+    "10221e8b"
+    ++ (VMODUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMODSD (Vector Modulo Signed Doubleword)``() =
+    "10221fcb"
+    ++ (VMODSD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMODUD (Vector Modulo Unsigned Doubleword)``() =
+    "10221ecb"
+    ++ (VMODUD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMODSQ (Vector Modulo Signed Quadword)``() =
+    "10221f0b"
+    ++ (VMODSQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VMODUQ (Vector Modulo Unsigned Quadword)``() =
+    "10221e0b"
+    ++ (VMODUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

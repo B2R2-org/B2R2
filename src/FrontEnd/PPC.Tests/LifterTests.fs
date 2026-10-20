@@ -2414,6 +2414,309 @@ type LifterTests() =
     let wanted = [ R5, 0x7ffffffffffffffdUL ]
     oracle only64 "10a63a73" given wanted
 
+  /// <summary>
+  /// vdivsw vD, vA, vB divides each signed word of vA by the matching one of
+  /// vB, and writes the quotient, rounded toward zero; a zero divisor or a
+  /// quotient that does not fit leaves the element undefined, and no such
+  /// case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVSW writes signed word quotients``() =
+    (* vdivsw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x00003fff00000000UL; V1B, 0x0000000100000001UL ]
+    oracle only64 "1022198b" given wanted
+
+  /// <summary>
+  /// vdivuw vD, vA, vB divides each unsigned word of vA by the matching one
+  /// of vB, and writes the quotient, rounded toward zero; a zero divisor or a
+  /// quotient that does not fit leaves the element undefined, and no such
+  /// case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVUW writes unsigned word quotients``() =
+    (* vdivuw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x7fffffff00000000UL; V1B, 0x0000000200000000UL ]
+    oracle only64 "1022188b" given wanted
+
+  /// <summary>
+  /// vdivsd vD, vA, vB divides each signed doubleword of vA by the matching
+  /// one of vB, and writes the quotient, rounded toward zero; a zero divisor
+  /// or a quotient that does not fit leaves the element undefined, and no
+  /// such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVSD writes signed doubleword quotients``() =
+    (* vdivsd v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x0000000000003fffUL; V1B, 0x0000000000000001UL ]
+    oracle only64 "102219cb" given wanted
+
+  /// <summary>
+  /// vdivud vD, vA, vB divides each unsigned doubleword of vA by the matching
+  /// one of vB, and writes the quotient, rounded toward zero; a zero divisor
+  /// or a quotient that does not fit leaves the element undefined, and no
+  /// such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVUD writes unsigned doubleword quotients``() =
+    (* vdivud v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x000000003fffffffUL; V1B, 0x0000000000000002UL ]
+    oracle only64 "102218cb" given wanted
+
+  /// <summary>
+  /// vdivsq vD, vA, vB divides each signed quadword of vA by the matching one
+  /// of vB, and writes the quotient, rounded toward zero; a zero divisor or a
+  /// quotient that does not fit leaves the element undefined, and no such
+  /// case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVSQ writes signed quadword quotients``() =
+    (* vdivsq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x000000003fffffffUL ]
+    oracle only64 "1022190b" given wanted
+
+  /// <summary>
+  /// vdivuq vD, vA, vB divides each unsigned quadword of vA by the matching
+  /// one of vB, and writes the quotient, rounded toward zero; a zero divisor
+  /// or a quotient that does not fit leaves the element undefined, and no
+  /// such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVUQ writes unsigned quadword quotients``() =
+    (* vdivuq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x000000003fffffffUL ]
+    oracle only64 "1022180b" given wanted
+
+  /// <summary>
+  /// vdivesw vD, vA, vB divides each signed word of vA by the matching one of
+  /// vB, the dividend shifted up by the width of an element first, and writes
+  /// the quotient, rounded toward zero; a zero divisor or a quotient that
+  /// does not fit leaves the element undefined, and no such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVESW writes signed word extended quotients``() =
+    (* vdivesw v1, v2, v3 *)
+    let given = [ V3A, 0xffffffffffffffffUL; V3B, 0xffffffffffffffffUL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000000UL ]
+    oracle everyTarget "10221b8b" given wanted
+
+  /// <summary>
+  /// vdiveuw vD, vA, vB divides each unsigned word of vA by the matching one
+  /// of vB, the dividend shifted up by the width of an element first, and
+  /// writes the quotient, rounded toward zero; a zero divisor or a quotient
+  /// that does not fit leaves the element undefined, and no such case is
+  /// asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVEUW writes unsigned word extended quotients``() =
+    (* vdiveuw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x5555555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xaaaaaaaaaaaaaaaaUL
+        V3B, 0xaaaaaaaaaaaaaaaaUL ]
+    let wanted = [ V1A, 0x8000000080000000UL; V1B, 0x8000000080000000UL ]
+    oracle only64 "10221a8b" given wanted
+
+  /// <summary>
+  /// vdivesd vD, vA, vB divides each signed doubleword of vA by the matching
+  /// one of vB, the dividend shifted up by the width of an element first, and
+  /// writes the quotient, rounded toward zero; a zero divisor or a quotient
+  /// that does not fit leaves the element undefined, and no such case is
+  /// asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVESD writes signed doubleword extended quotients``() =
+    (* vdivesd v1, v2, v3 *)
+    let given = [ V3A, 0xffffffffffffffffUL; V3B, 0xffffffffffffffffUL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000000UL ]
+    oracle everyTarget "10221bcb" given wanted
+
+  /// <summary>
+  /// vdiveud vD, vA, vB divides each unsigned doubleword of vA by the
+  /// matching one of vB, the dividend shifted up by the width of an element
+  /// first, and writes the quotient, rounded toward zero; a zero divisor or a
+  /// quotient that does not fit leaves the element undefined, and no such
+  /// case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVEUD writes unsigned doubleword extended quotients``() =
+    (* vdiveud v1, v2, v3 *)
+    let given =
+      [ V2A, 0x5555555555555555UL
+        V2B, 0x5555555555555555UL
+        V3A, 0xaaaaaaaaaaaaaaaaUL
+        V3B, 0xaaaaaaaaaaaaaaaaUL ]
+    let wanted = [ V1A, 0x8000000000000000UL; V1B, 0x8000000000000000UL ]
+    oracle only64 "10221acb" given wanted
+
+  /// <summary>
+  /// vdivesq vD, vA, vB divides each signed quadword of vA by the matching
+  /// one of vB, the dividend shifted up by the width of an element first, and
+  /// writes the quotient, rounded toward zero; a zero divisor or a quotient
+  /// that does not fit leaves the element undefined, and no such case is
+  /// asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVESQ writes signed quadword extended quotients``() =
+    (* vdivesq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL ]
+    let wanted = [ V1A, 0x00112358e75d3033UL; V1B, 0x6a0ab617909a3e1fUL ]
+    oracle only64 "10221b0b" given wanted
+
+  /// <summary>
+  /// vdiveuq vD, vA, vB divides each unsigned quadword of vA by the matching
+  /// one of vB, the dividend shifted up by the width of an element first, and
+  /// writes the quotient, rounded toward zero; a zero divisor or a quotient
+  /// that does not fit leaves the element undefined, and no such case is
+  /// asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VDIVEUQ writes unsigned quadword extended quotients``() =
+    (* vdiveuq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0123456789abcdefUL
+        V2B, 0xfedcba9876543210UL
+        V3A, 0xfedcba9876543210UL
+        V3B, 0x0123456789abcdefUL ]
+    let wanted = [ V1A, 0x0124924924924924UL; V1B, 0x7ec5397829cbc14eUL ]
+    oracle only64 "10221a0b" given wanted
+
+  /// <summary>
+  /// vmodsw vD, vA, vB divides each signed word of vA by the matching one of
+  /// vB, and writes the remainder, which takes the sign of the dividend; a
+  /// zero divisor or a quotient that does not fit leaves the element
+  /// undefined, and no such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMODSW writes signed word remainders``() =
+    (* vmodsw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x0001bfffffff0001UL; V1B, 0x00017e80007e80ffUL ]
+    oracle only64 "10221f8b" given wanted
+
+  /// <summary>
+  /// vmoduw vD, vA, vB divides each unsigned word of vA by the matching one
+  /// of vB, and writes the remainder, which takes the sign of the dividend; a
+  /// zero divisor or a quotient that does not fit leaves the element
+  /// undefined, and no such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMODUW writes unsigned word remainders``() =
+    (* vmoduw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x0000000080000000UL; V1B, 0x0000000100000001UL ]
+    oracle only64 "10221e8b" given wanted
+
+  /// <summary>
+  /// vmodsd vD, vA, vB divides each signed doubleword of vA by the matching
+  /// one of vB, and writes the remainder, which takes the sign of the
+  /// dividend; a zero divisor or a quotient that does not fit leaves the
+  /// element undefined, and no such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMODSD writes signed doubleword remainders``() =
+    (* vmodsd v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x00000001bfffffffUL; V1B, 0xffffffff00000001UL ]
+    oracle only64 "10221fcb" given wanted
+
+  /// <summary>
+  /// vmodud vD, vA, vB divides each unsigned doubleword of vA by the matching
+  /// one of vB, and writes the remainder, which takes the sign of the
+  /// dividend; a zero divisor or a quotient that does not fit leaves the
+  /// element undefined, and no such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMODUD writes unsigned doubleword remainders``() =
+    (* vmodud v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x00000001bfffffffUL; V1B, 0x0000000000000001UL ]
+    oracle only64 "10221ecb" given wanted
+
+  /// <summary>
+  /// vmodsq vD, vA, vB divides each signed quadword of vA by the matching one
+  /// of vB, and writes the remainder, which takes the sign of the dividend; a
+  /// zero divisor or a quotient that does not fit leaves the element
+  /// undefined, and no such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMODSQ writes signed quadword remainders``() =
+    (* vmodsq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x00000001a0000000UL; V1B, 0x9ffffffe80000001UL ]
+    oracle only64 "10221f0b" given wanted
+
+  /// <summary>
+  /// vmoduq vD, vA, vB divides each unsigned quadword of vA by the matching
+  /// one of vB, and writes the remainder, which takes the sign of the
+  /// dividend; a zero divisor or a quotient that does not fit leaves the
+  /// element undefined, and no such case is asserted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMODUQ writes unsigned quadword remainders``() =
+    (* vmoduq v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x00000001a0000000UL; V1B, 0x9ffffffe80000001UL ]
+    oracle only64 "10221e0b" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the
