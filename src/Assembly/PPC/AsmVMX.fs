@@ -294,6 +294,51 @@ let private shiftEncoders () =
     Op.VSLDBI, vn 0u
     Op.VSRDBI, vn 1u ]
 
+/// A VX-form "vD, rB" whose vA field holds a further extended opcode.
+let private vxVecGprSub sub xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg b ] -> word 4u (vr d) sub (gpr b) xo
+  | _ -> wrongOperands ins
+
+/// vcntmb* "rD, vB, MP", MP being the lowest bit of the vA field.
+let private vxCountMask sub xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg b; Im mp ] -> word 4u (gpr d) (sub ||| unsigned 1 mp) (vr b) xo
+  | _ -> wrongOperands ins
+
+/// mtvsrbmi "vD, bm", whose sixteen-bit bm is split in three fields.
+let private dxMask ins =
+  match ins.Operands with
+  | [ Rg d; Im bm ] ->
+    let bm = unsigned 16 bm
+    let rest = ((bm >>> 6) <<< 6) ||| (10u <<< 1) ||| (bm &&& 1u)
+    word 4u (vr d) ((bm >>> 1) &&& 0x1Fu) 0u rest
+  | _ ->
+    wrongOperands ins
+
+/// The expands, extracts and moves of a mask, and the counts of its bits.
+let private maskEncoders () =
+  [ Op.VEXPANDBM, vxSub 0u 1602u
+    Op.VEXPANDHM, vxSub 1u 1602u
+    Op.VEXPANDWM, vxSub 2u 1602u
+    Op.VEXPANDDM, vxSub 3u 1602u
+    Op.VEXPANDQM, vxSub 4u 1602u
+    Op.VEXTRACTBM, vxGprSub 8u 1602u
+    Op.VEXTRACTHM, vxGprSub 9u 1602u
+    Op.VEXTRACTWM, vxGprSub 10u 1602u
+    Op.VEXTRACTDM, vxGprSub 11u 1602u
+    Op.VEXTRACTQM, vxGprSub 12u 1602u
+    Op.MTVSRBM, vxVecGprSub 16u 1602u
+    Op.MTVSRHM, vxVecGprSub 17u 1602u
+    Op.MTVSRWM, vxVecGprSub 18u 1602u
+    Op.MTVSRDM, vxVecGprSub 19u 1602u
+    Op.MTVSRQM, vxVecGprSub 20u 1602u
+    Op.VCNTMBB, vxCountMask 24u 1602u
+    Op.VCNTMBH, vxCountMask 26u 1602u
+    Op.VCNTMBW, vxCountMask 28u 1602u
+    Op.VCNTMBD, vxCountMask 30u 1602u
+    Op.MTVSRBMI, dxMask ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -308,4 +353,5 @@ let vmxEncoders () =
       divideEncoders ()
       sumEncoders ()
       countEncoders ()
-      shiftEncoders () ]
+      shiftEncoders ()
+      maskEncoders () ]

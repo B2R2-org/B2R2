@@ -3276,6 +3276,253 @@ type LifterTests() =
     let wanted = [ V1A, 0x400000007fffffffUL; V1B, 0xdfffffffe0000000UL ]
     oracle only64 "10221a96" given wanted
 
+  /// <summary>
+  /// vexpandbm vD, vB sets each byte of vD to all ones where the top bit of
+  /// the matching byte of vB is set and to all zeros where it is clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDBM spreads each byte's top bit across it``() =
+    (* vexpandbm v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x00ffffffff000000UL; V1B, 0xffffffff00000000UL ]
+    oracle only64 "10201e42" given wanted
+
+  /// <summary>
+  /// vexpandhm vD, vB sets each halfword of vD to all ones where the top bit
+  /// of the matching halfword of vB is set and to all zeros where it is
+  /// clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDHM spreads each halfword's top bit across it``() =
+    (* vexpandhm v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0000ffffffff0000UL; V1B, 0xffffffff00000000UL ]
+    oracle only64 "10211e42" given wanted
+
+  /// <summary>
+  /// vexpandwm vD, vB sets each word of vD to all ones where the top bit of
+  /// the matching word of vB is set and to all zeros where it is clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDWM spreads each word's top bit across it``() =
+    (* vexpandwm v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x00000000ffffffffUL; V1B, 0xffffffff00000000UL ]
+    oracle only64 "10221e42" given wanted
+
+  /// <summary>
+  /// vexpanddm vD, vB sets each doubleword of vD to all ones where the top
+  /// bit of the matching doubleword of vB is set and to all zeros where it is
+  /// clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDDM spreads each doubleword's top bit across it``() =
+    (* vexpanddm v1, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0000000000000000UL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10231e42" given wanted
+
+  /// <summary>
+  /// vexpandqm vD, vB sets each quadword of vD to all ones where the top bit
+  /// of the matching quadword of vB is set and to all zeros where it is
+  /// clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDQM spreads each quadword's top bit across it``() =
+    (* vexpandqm v1, v3 *)
+    let given = [ V3A, 0x8000000000000000UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10241e42" given wanted
+
+  /// <summary>
+  /// vextractbm rD, vB writes the top bits of the bytes of vB, that of byte 0
+  /// the most significant, into the low bits of rD and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTBM gathers the top bit of each byte``() =
+    (* vextractbm r5, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x78f0UL ]
+    oracle only64 "10a81e42" given wanted
+
+  /// <summary>
+  /// vextracthm rD, vB writes the top bits of the halfwords of vB, that of
+  /// halfword 0 the most significant, into the low bits of rD and clears the
+  /// rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTHM gathers the top bit of each halfword``() =
+    (* vextracthm r5, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x6cUL ]
+    oracle only64 "10a91e42" given wanted
+
+  /// <summary>
+  /// vextractwm rD, vB writes the top bits of the words of vB, that of word 0
+  /// the most significant, into the low bits of rD and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTWM gathers the top bit of each word``() =
+    (* vextractwm r5, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x6UL ]
+    oracle only64 "10aa1e42" given wanted
+
+  /// <summary>
+  /// vextractdm rD, vB writes the top bits of the doublewords of vB, that of
+  /// doubleword 0 the most significant, into the low bits of rD and clears
+  /// the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTDM gathers the top bit of each doubleword``() =
+    (* vextractdm r5, v3 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x1UL ]
+    oracle only64 "10ab1e42" given wanted
+
+  /// <summary>
+  /// vextractqm rD, vB writes the top bits of the quadwords of vB, that of
+  /// quadword 0 the most significant, into the low bits of rD and clears the
+  /// rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTQM gathers the top bit of each quadword``() =
+    (* vextractqm r5, v3 *)
+    let given = [ V3A, 0x8000000000000000UL ]
+    let wanted = [ R5, 0x1UL ]
+    oracle only64 "10ac1e42" given wanted
+
+  /// <summary>
+  /// mtvsrbm vD, rB sets each byte of vD to all ones or all zeros as the
+  /// matching low bit of rB, that of byte 0 the most significant, is set or
+  /// clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTVSRBM builds a byte mask from a register``() =
+    (* mtvsrbm v1, r7 *)
+    let given =
+      [ R7, 0x7fffffffffffffffUL
+        V1A, 0x7fffffff80000000UL
+        V1B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10303e42" given wanted
+
+  /// <summary>
+  /// mtvsrhm vD, rB sets each halfword of vD to all ones or all zeros as the
+  /// matching low bit of rB, that of halfword 0 the most significant, is set
+  /// or clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTVSRHM builds a halfword mask from a register``() =
+    (* mtvsrhm v1, r7 *)
+    let given =
+      [ R7, 0x7fffffffffffffffUL
+        V1A, 0x7fffffff80000000UL
+        V1B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10313e42" given wanted
+
+  /// <summary>
+  /// mtvsrwm vD, rB sets each word of vD to all ones or all zeros as the
+  /// matching low bit of rB, that of word 0 the most significant, is set or
+  /// clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTVSRWM builds a word mask from a register``() =
+    (* mtvsrwm v1, r7 *)
+    let given =
+      [ R7, 0x7fffffffffffffffUL
+        V1A, 0x7fffffff80000000UL
+        V1B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10323e42" given wanted
+
+  /// <summary>
+  /// mtvsrdm vD, rB sets each doubleword of vD to all ones or all zeros as
+  /// the matching low bit of rB, that of doubleword 0 the most significant,
+  /// is set or clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTVSRDM builds a doubleword mask from a register``() =
+    (* mtvsrdm v1, r7 *)
+    let given =
+      [ R7, 0x7fffffffffffffffUL
+        V1A, 0x7fffffff80000000UL
+        V1B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10333e42" given wanted
+
+  /// <summary>
+  /// mtvsrqm vD, rB sets each quadword of vD to all ones or all zeros as the
+  /// matching low bit of rB, that of quadword 0 the most significant, is set
+  /// or clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTVSRQM builds a quadword mask from a register``() =
+    (* mtvsrqm v1, r7 *)
+    let given =
+      [ R7, 0x7fffffffffffffffUL
+        V1A, 0x7fffffff80000000UL
+        V1B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffffffffffffffUL; V1B, 0xffffffffffffffffUL ]
+    oracle only64 "10343e42" given wanted
+
+  /// <summary>
+  /// mtvsrbmi vD, bm sets each byte of vD to all ones or all zeros as the
+  /// matching bit of the sixteen-bit bm, byte 0's the most significant, is
+  /// set or clear.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MTVSRBMI builds a byte mask from an immediate``() =
+    (* mtvsrbmi v1, 4660 *)
+    let given = [ V1A, 0x7fffffff80000000UL; V1B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x000000ff0000ff00UL; V1B, 0x0000ffff00ff0000UL ]
+    oracle only64 "103a1214" given wanted
+
+  /// <summary>
+  /// vcntmbb rD, vB, MP writes into the top bits of rD how many bytes of vB
+  /// have their top bit equal to MP, and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCNTMBB counts the bytes with a given top bit``() =
+    (* vcntmbb r5, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x800000000000000UL ]
+    oracle only64 "10b91e42" given wanted
+
+  /// <summary>
+  /// vcntmbh rD, vB, MP writes into the top bits of rD how many halfwords of
+  /// vB have their top bit equal to MP, and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCNTMBH counts the halfwords with a given top bit``() =
+    (* vcntmbh r5, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x800000000000000UL ]
+    oracle only64 "10bb1e42" given wanted
+
+  /// <summary>
+  /// vcntmbw rD, vB, MP writes into the top bits of rD how many words of vB
+  /// have their top bit equal to MP, and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCNTMBW counts the words with a given top bit``() =
+    (* vcntmbw r5, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x800000000000000UL ]
+    oracle only64 "10bd1e42" given wanted
+
+  /// <summary>
+  /// vcntmbd rD, vB, MP writes into the top bits of rD how many doublewords
+  /// of vB have their top bit equal to MP, and clears the rest.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCNTMBD counts the doublewords with a given top bit``() =
+    (* vcntmbd r5, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x800000000000000UL ]
+    oracle only64 "10bf1e42" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

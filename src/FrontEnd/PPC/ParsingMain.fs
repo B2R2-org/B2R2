@@ -1647,6 +1647,55 @@ let private parseVN bin =
   | ThreeOperands(vd, va, vb) -> struct (op, FourOperands(vd, va, vb, sh))
   | _ -> raise ParsingFailureException
 
+/// A VX-form "vD, rB" whose vA field holds a further extended opcode.
+let private parseVXVecGpr op bin =
+  let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  struct (op, TwoOperands(vd, rb))
+
+/// vcntmb* "rD, vB, MP", the MP bit being the lowest of the vA field.
+let private parseVXCountMask op bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let vb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  let mp = Bits.pick bin 16u |> uint64 |> OprImm
+  struct (op, ThreeOperands(rt, vb, mp))
+
+/// The forms of extended opcode 1602, told apart by their vA field: the
+/// expands, extracts and moves of a mask, and the counts of its bits, whose
+/// result is a doubleword.
+let private parse04Mask bitLen bin =
+  match Bits.extract bin 20u 16u with
+  | 0u -> parseVXSubB Op.VEXPANDBM bin
+  | 1u -> parseVXSubB Op.VEXPANDHM bin
+  | 2u -> parseVXSubB Op.VEXPANDWM bin
+  | 3u -> parseVXSubB Op.VEXPANDDM bin
+  | 4u -> parseVXSubB Op.VEXPANDQM bin
+  | 8u -> parseVXGprB Op.VEXTRACTBM bin
+  | 9u -> parseVXGprB Op.VEXTRACTHM bin
+  | 10u -> parseVXGprB Op.VEXTRACTWM bin
+  | 11u -> parseVXGprB Op.VEXTRACTDM bin
+  | 12u -> parseVXGprB Op.VEXTRACTQM bin
+  | 16u -> parseVXVecGpr Op.MTVSRBM bin
+  | 17u -> parseVXVecGpr Op.MTVSRHM bin
+  | 18u -> parseVXVecGpr Op.MTVSRWM bin
+  | 19u -> parseVXVecGpr Op.MTVSRDM bin
+  | 20u -> parseVXVecGpr Op.MTVSRQM bin
+  | 24u | 25u when bitLen = 64 -> parseVXCountMask Op.VCNTMBB bin
+  | 26u | 27u when bitLen = 64 -> parseVXCountMask Op.VCNTMBH bin
+  | 28u | 29u when bitLen = 64 -> parseVXCountMask Op.VCNTMBW bin
+  | 30u | 31u when bitLen = 64 -> parseVXCountMask Op.VCNTMBD bin
+  | _ -> raise ParsingFailureException
+
+/// mtvsrbmi "vD, bm", a DX form whose sixteen-bit bm is split in three: ten
+/// bits where vB and the field below it sit, five where vA does, and the
+/// last at the very end.
+let private parseMTVSRBMI bin =
+  let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+  let b0 = Bits.extract bin 15u 6u
+  let b1 = Bits.extract bin 20u 16u
+  let bm = (b0 <<< 6) ||| (b1 <<< 1) ||| Bits.pick bin 0u
+  struct (Op.MTVSRBMI, TwoOperands(vd, bm |> uint64 |> OprImm))
+
 /// maddhd/maddhdu/maddld, the VA form whose four registers are general ones.
 let private parseVAGpr op bin =
   let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1659,6 +1708,7 @@ let private parseVAGpr op bin =
 /// forms, whose fourth operand fills the field above.
 let private parse04Wide bitLen bin =
   match Bits.extract bin 5u 0u with
+  | 20u | 21u -> parseMTVSRBMI bin
   | 22u -> parseVN bin
   | 23u -> parseVA Op.VMSUMCUD bin
   | 32u -> parseVA Op.VMHADDSHS bin
@@ -1875,6 +1925,7 @@ let private parse04 bitLen bin =
       | 1486u -> parseVX Op.VPKSDSS bin
       | 1358u -> parseVX Op.VPKSDUS bin
       | 1230u -> parseVX Op.VPKUDUS bin
+      | 1602u -> parse04Mask bitLen bin
       | 1538u -> parse04Unary bin
       | 133u -> parseVX Op.VRLWMI bin
       | 197u -> parseVX Op.VRLDMI bin
