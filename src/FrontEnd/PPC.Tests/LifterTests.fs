@@ -469,6 +469,85 @@ type LifterTests() =
       oracle only64 hex given [ V1A, hi; V1B, lo ]
 
   /// <summary>
+  /// bcdadd. and bcdsub. vD, vA, vB, PS work on signed packed decimals: 31
+  /// digits and a sign code, 0b1011 and 0b1101 negative and the other four
+  /// valid codes positive. The result's sign code is 0b1101 when negative and
+  /// otherwise 0b1100, or 0b1111 where PS is 1; CR6 says less than, greater
+  /// than or equal to zero, with its last bit set on overflowing 31 digits.
+  /// An invalid operand makes the result undefined and CR6 0b0001; QEMU
+  /// writes all ones there, which is what is lifted.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDADDdot and BCDSUBdot add signed packed decimals``() =
+    let check hex a b result cr6 =
+      let given = [ V2B, a; V3B, b ]
+      let field =
+        [ CR6_0, (cr6 >>> 3) &&& 1UL
+          CR6_1, (cr6 >>> 2) &&& 1UL
+          CR6_2, (cr6 >>> 1) &&& 1UL
+          CR6_3, cr6 &&& 1UL ]
+      let wanted = [ V1A, 0UL; V1B, result ] @ field
+      oracle only64 hex given wanted
+    (* bcdadd. v1, v2, v3, 0 *)
+    check "10221c01" 0x123cUL 0x456cUL 0x579cUL 0b0100UL
+    check "10221c01" 0x5dUL 0x3cUL 0x2dUL 0b1000UL
+    check "10221c01" 0x7aUL 0x7bUL 0xcUL 0b0010UL
+    check "10221c01" 0x987654321fUL 0x123456789eUL 0x1111111110cUL 0b0100UL
+    (* bcdadd. v1, v2, v3, 1 *)
+    check "10221e01" 0x123cUL 0x456cUL 0x579fUL 0b0100UL
+    check "10221e01" 0x7aUL 0x7bUL 0xfUL 0b0010UL
+    (* bcdsub. v1, v2, v3, 0 *)
+    check "10221c41" 0x123cUL 0x456cUL 0x333dUL 0b1000UL
+    check "10221c41" 0x5dUL 0x3cUL 0x8dUL 0b1000UL
+    check "10221c41" 0x42cUL 0x42cUL 0xcUL 0b0010UL
+    (* bcdsub. v1, v2, v3, 1 *)
+    check "10221e41" 0x7aUL 0x7bUL 0x14fUL 0b0100UL
+    check "10221e41" 0x42cUL 0x42cUL 0xfUL 0b0010UL
+
+  /// <summary>
+  /// bcdadd. keeps the low 31 digits of a sum that needs 32 and sets the
+  /// last bit of CR6, the sign still that of the whole sum; an operand that
+  /// is not a valid encoding sets CR6 to 0b0001 alone.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BCDADDdot reports overflow and invalid operands``() =
+    let nines = 0x9999999999999999UL
+    (* bcdadd. v1, v2, v3, 0 *)
+    let given =
+      [ V2A, nines
+        V2B, 0x999999999999999cUL
+        V3B, 0x1cUL ]
+    let wanted =
+      [ V1A, 0UL
+        V1B, 0xcUL
+        CR6_0, 0UL
+        CR6_1, 1UL
+        CR6_2, 0UL
+        CR6_3, 1UL ]
+    oracle only64 "10221c01" given wanted
+    let given =
+      [ V2A, nines
+        V2B, 0x999999999999999dUL
+        V3B, 0x2dUL ]
+    let wanted =
+      [ V1A, 0UL
+        V1B, 0x1dUL
+        CR6_0, 1UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 1UL ]
+    oracle only64 "10221c01" given wanted
+    let given = [ V2B, 0x1cUL; V3B, 0xa0UL ]
+    let wanted =
+      [ V1A, UInt64.MaxValue
+        V1B, UInt64.MaxValue
+        CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 1UL ]
+    oracle only64 "10221c01" given wanted
+
+  /// <summary>
   /// vpkuhus vD, vA, vB narrows each of the unsigned halfwords of vA followed
   /// by those of vB to one of the unsigned bytes of vD; a value outside 0 ..
   /// 255 is clamped to the nearer end and sets VSCR[SAT], which is sticky.

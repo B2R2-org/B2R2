@@ -122,10 +122,25 @@ let private cryptoEncoders () =
     Op.VPMSUMD, vx 1224u
     Op.VPERMXOR, va 45u ]
 
+/// A decimal add or subtract, whose preferred-sign bit sits above its
+/// nine-bit extended opcode.
+let private vxDecimal xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg a; Rg b; Im ps ] ->
+    word 4u (vr d) (vr a) (vr b) (((unsigned 1 ps) <<< 9) ||| xo)
+  | _ ->
+    wrongOperands ins
+
+/// The decimal integer arithmetic.
+let private decimalEncoders () =
+  [ Op.BCDADDdot, vxDecimal 1025u
+    Op.BCDSUBdot, vxDecimal 1089u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
     [ packAndSumEncoders ()
       multiplyEncoders ()
       quadwordEncoders ()
-      cryptoEncoders () ]
+      cryptoEncoders ()
+      decimalEncoders () ]
