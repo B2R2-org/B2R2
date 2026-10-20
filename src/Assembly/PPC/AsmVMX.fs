@@ -183,6 +183,27 @@ let private compareEncoders () =
       recording vc 391u Op.VCMPNEZW Op.VCMPNEZWdot
       [ Op.VCMPSQ, vxCompareToCR 321u; Op.VCMPUQ, vxCompareToCR 257u ] ]
 
+/// maddhd/maddhdu/maddld, the VA form that names general registers.
+let private vaGpr xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg a; Rg b; Rg c ] ->
+    word 4u (gpr d) (gpr a) (gpr b) (((gpr c) <<< 6) ||| xo)
+  | _ ->
+    wrongOperands ins
+
+/// The multiplies that keep the high half of each product, the doubleword
+/// multiply that keeps the low one, and the multiply-adds of doubleword
+/// general registers.
+let private multiplyHighEncoders () =
+  [ Op.VMULHSW, vx 905u
+    Op.VMULHUW, vx 649u
+    Op.VMULHSD, vx 969u
+    Op.VMULHUD, vx 713u
+    Op.VMULLD, vx 457u
+    Op.MADDHD, vaGpr 48u
+    Op.MADDHDU, vaGpr 49u
+    Op.MADDLD, vaGpr 51u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -192,4 +213,5 @@ let vmxEncoders () =
       cryptoEncoders ()
       decimalEncoders ()
       saturatingEncoders ()
-      compareEncoders () ]
+      compareEncoders ()
+      multiplyHighEncoders () ]

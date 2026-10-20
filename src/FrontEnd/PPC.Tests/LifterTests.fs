@@ -2298,6 +2298,122 @@ type LifterTests() =
         V1B, 0xffffffffffffffffUL ]
     oracle only64 "10221d87" given wanted
 
+  /// <summary>
+  /// vmulhsw vD, vA, vB writes into each word of vD the high half of the
+  /// exact product of the matching signed words of vA and vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULHSW keeps the high half of each word product``() =
+    (* vmulhsw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x0000fffe00007fffUL; V1B, 0x3f807f7f00018100UL ]
+    oracle only64 "10221b89" given wanted
+
+  /// <summary>
+  /// vmulhuw vD, vA, vB writes into each word of vD the high half of the
+  /// exact product of the matching unsigned words of vA and vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULHUW keeps the high half of each word product``() =
+    (* vmulhuw v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x000000007fffffffUL; V1B, 0x7ffffffe00000000UL ]
+    oracle only64 "10221a89" given wanted
+
+  /// <summary>
+  /// vmulhsd vD, vA, vB writes into each doubleword of vD the high half of
+  /// the exact product of the matching signed doublewords of vA and vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULHSD keeps the high half of each doubleword product``() =
+    (* vmulhsd v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x00000000fffffffeUL; V1B, 0xffffffff80000000UL ]
+    oracle only64 "10221bc9" given wanted
+
+  /// <summary>
+  /// vmulhud vD, vA, vB writes into each doubleword of vD the high half of
+  /// the exact product of the matching unsigned doublewords of vA and vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULHUD keeps the high half of each doubleword product``() =
+    (* vmulhud v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x00000000fffffffeUL; V1B, 0x7fffffff00000000UL ]
+    oracle only64 "10221ac9" given wanted
+
+  /// <summary>
+  /// vmulld vD, vA, vB writes into each doubleword of vD the low 64 bits of
+  /// the product of the matching doublewords of vA and vB.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VMULLD keeps the low halves of doubleword products``() =
+    (* vmulld v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x8000000080000000UL; V1B, 0xffffffff80000000UL ]
+    oracle only64 "102219c9" given wanted
+
+  /// <summary>
+  /// maddhd rD, rA, rB, rC writes the high doubleword of the 128-bit signed
+  /// product of rA and rB plus rC, sign-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MADDHD keeps the high doubleword of a signed sum``() =
+    (* maddhd r5, r6, r7, r9 *)
+    let given =
+      [ R6, 0x5555555555555555UL
+        R7, 0xaaaaaaaaaaaaaaaaUL
+        R9, 0xf0f0f0f0f0f0f0fUL ]
+    let wanted = [ R5, 0xe38e38e38e38e38eUL ]
+    oracle only64 "10a63a70" given wanted
+
+  /// <summary>
+  /// maddhdu rD, rA, rB, rC writes the high doubleword of the 128-bit
+  /// unsigned product of rA and rB plus rC, zero-extended.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MADDHDU keeps the high doubleword of an unsigned sum``() =
+    (* maddhdu r5, r6, r7, r9 *)
+    let given =
+      [ R6, 0x7fffffffffffffffUL
+        R7, 0x1UL
+        R9, 0xfffffffffffffffeUL ]
+    let wanted = [ R5, 0x1UL ]
+    oracle only64 "10a63a71" given wanted
+
+  /// <summary>
+  /// maddld rD, rA, rB, rC writes the low doubleword of rA times rB plus rC.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MADDLD keeps the low doubleword of a product sum``() =
+    (* maddld r5, r6, r7, r9 *)
+    let given =
+      [ R6, 0x7fffffffffffffffUL
+        R7, 0x1UL
+        R9, 0xfffffffffffffffeUL ]
+    let wanted = [ R5, 0x7ffffffffffffffdUL ]
+    oracle only64 "10a63a73" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

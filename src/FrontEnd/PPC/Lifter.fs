@@ -1748,6 +1748,22 @@ let translate (ins: Instruction) bld =
     vecMultiplySum ins bld 64<rt> 128<rt> unsignedSums Modulo
   | Op.VMSUMCUD ->
     vmsumcud ins bld
+  | Op.VMULHSW ->
+    vecMulHigh ins bld 32<rt> true
+  | Op.VMULHUW ->
+    vecMulHigh ins bld 32<rt> false
+  | Op.VMULHSD ->
+    vecMulHigh ins bld 64<rt> true
+  | Op.VMULHUD ->
+    vecMulHigh ins bld 64<rt> false
+  | Op.VMULLD ->
+    vmulld ins bld
+  | Op.MADDHD ->
+    multiplyAddDoubleword ins bld true true
+  | Op.MADDHDU ->
+    multiplyAddDoubleword ins bld false true
+  | Op.MADDLD ->
+    multiplyAddDoubleword ins bld true false
   (* End of lane V. *)
   | o ->
 #if DEBUG

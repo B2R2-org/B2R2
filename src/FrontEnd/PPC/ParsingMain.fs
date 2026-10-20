@@ -1598,9 +1598,17 @@ let private parseVXDecimal op bin =
   | ThreeOperands(vd, va, vb) -> struct (op, FourOperands(vd, va, vb, ps))
   | _ -> raise ParsingFailureException
 
+/// maddhd/maddhdu/maddld, the VA form whose four registers are general ones.
+let private parseVAGpr op bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  let rc = getRegister (Bits.extract bin 10u 6u) |> OprReg
+  struct (op, FourOperands(rt, ra, rb, rc))
+
 /// The forms of primary opcode 4 named by their low six bits alone: the VA
 /// forms, whose fourth operand fills the field above.
-let private parse04Wide bin =
+let private parse04Wide bitLen bin =
   match Bits.extract bin 5u 0u with
   | 23u -> parseVA Op.VMSUMCUD bin
   | 32u -> parseVA Op.VMHADDSHS bin
@@ -1614,6 +1622,9 @@ let private parse04Wide bin =
   | 40u -> parseVA Op.VMSUMSHM bin
   | 41u -> parseVA Op.VMSUMSHS bin
   | 45u -> parseVA Op.VPERMXOR bin
+  | 48u when bitLen = 64 -> parseVAGpr Op.MADDHD bin
+  | 49u when bitLen = 64 -> parseVAGpr Op.MADDHDU bin
+  | 51u when bitLen = 64 -> parseVAGpr Op.MADDLD bin
   | 60u -> parseVA Op.VADDEUQM bin
   | 61u -> parseVA Op.VADDECUQ bin
   | 62u -> parseVA Op.VSUBEUQM bin
@@ -1622,7 +1633,7 @@ let private parse04Wide bin =
 
 /// The vector instructions in primary opcode 4, whose extended opcode is a
 /// plain eleven-bit field except in the VA and VC forms.
-let private parse04 bin =
+let private parse04 bitLen bin =
   match Bits.extract bin 5u 0u with
   | 42u ->
     parseVA Op.VSEL bin
@@ -1631,7 +1642,7 @@ let private parse04 bin =
   | 44u ->
     parseVSLDOI bin
   | xo when xo >= 20u ->
-    parse04Wide bin
+    parse04Wide bitLen bin
   | _ ->
     match Bits.extract bin 9u 0u with
     | 6u ->
@@ -1814,6 +1825,11 @@ let private parse04 bin =
       | 1486u -> parseVX Op.VPKSDSS bin
       | 1358u -> parseVX Op.VPKSDUS bin
       | 1230u -> parseVX Op.VPKUDUS bin
+      | 905u -> parseVX Op.VMULHSW bin
+      | 649u -> parseVX Op.VMULHUW bin
+      | 969u -> parseVX Op.VMULHSD bin
+      | 713u -> parseVX Op.VMULHUD bin
+      | 457u -> parseVX Op.VMULLD bin
       | 142u -> parseVX Op.VPKUHUS bin
       | 206u -> parseVX Op.VPKUWUS bin
       | 398u -> parseVX Op.VPKSHSS bin
@@ -3324,7 +3340,7 @@ let private parseInstruction bitLen bin addr =
   match Bits.extract bin 31u 26u with
   | 0x2u when bitLen = 64 -> parseTDI bitLen bin
   | 0x3u -> parseTWI bitLen bin
-  | 0x4u -> parse04 bin
+  | 0x4u -> parse04 bitLen bin
   | 0x7u -> parseMULLI bitLen bin
   | 0x8u -> parseSUBFIC bitLen bin
   | 0xAu -> parseCMPLI bin
