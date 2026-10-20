@@ -161,6 +161,28 @@ let private saturatingEncoders () =
     Op.VABSDUH, vx 1091u
     Op.VABSDUW, vx 1155u ]
 
+/// vcmpsq/vcmpuq, which compare into a field of the condition register named
+/// in the three bits where a target register would begin.
+let private vxCompareToCR xo ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Rg b ] -> word 4u ((crf f) <<< 2) (vr a) (vr b) xo
+  | _ -> wrongOperands ins
+
+/// The compares added after the first vector units: quadword equality and
+/// order, and inequality with or without a zero element counting as one.
+let private compareEncoders () =
+  List.concat
+    [ recording vc 455u Op.VCMPEQUQ Op.VCMPEQUQdot
+      recording vc 647u Op.VCMPGTUQ Op.VCMPGTUQdot
+      recording vc 903u Op.VCMPGTSQ Op.VCMPGTSQdot
+      recording vc 7u Op.VCMPNEB Op.VCMPNEBdot
+      recording vc 71u Op.VCMPNEH Op.VCMPNEHdot
+      recording vc 135u Op.VCMPNEW Op.VCMPNEWdot
+      recording vc 263u Op.VCMPNEZB Op.VCMPNEZBdot
+      recording vc 327u Op.VCMPNEZH Op.VCMPNEZHdot
+      recording vc 391u Op.VCMPNEZW Op.VCMPNEZWdot
+      [ Op.VCMPSQ, vxCompareToCR 321u; Op.VCMPUQ, vxCompareToCR 257u ] ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -169,4 +191,5 @@ let vmxEncoders () =
       quadwordEncoders ()
       cryptoEncoders ()
       decimalEncoders ()
-      saturatingEncoders () ]
+      saturatingEncoders ()
+      compareEncoders () ]

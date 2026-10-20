@@ -1604,6 +1604,46 @@ let translate (ins: Instruction) bld =
     vecQuadAdd ins bld true false
   | Op.VSUBECUQ ->
     vecQuadAdd ins bld true true
+  | Op.VCMPEQUQ ->
+    vecCompareElements ins bld 128<rt> (==) false
+  | Op.VCMPEQUQdot ->
+    vecCompareElements ins bld 128<rt> (==) true
+  | Op.VCMPGTUQ ->
+    vecCompareElements ins bld 128<rt> (.>) false
+  | Op.VCMPGTUQdot ->
+    vecCompareElements ins bld 128<rt> (.>) true
+  | Op.VCMPGTSQ ->
+    vecCompareElements ins bld 128<rt> (?>) false
+  | Op.VCMPGTSQdot ->
+    vecCompareElements ins bld 128<rt> (?>) true
+  | Op.VCMPNEB ->
+    vecCompareElements ins bld 8<rt> (!=) false
+  | Op.VCMPNEBdot ->
+    vecCompareElements ins bld 8<rt> (!=) true
+  | Op.VCMPNEH ->
+    vecCompareElements ins bld 16<rt> (!=) false
+  | Op.VCMPNEHdot ->
+    vecCompareElements ins bld 16<rt> (!=) true
+  | Op.VCMPNEW ->
+    vecCompareElements ins bld 32<rt> (!=) false
+  | Op.VCMPNEWdot ->
+    vecCompareElements ins bld 32<rt> (!=) true
+  | Op.VCMPNEZB ->
+    vecCompareElements ins bld 8<rt> (notEqualOrZero 8<rt>) false
+  | Op.VCMPNEZBdot ->
+    vecCompareElements ins bld 8<rt> (notEqualOrZero 8<rt>) true
+  | Op.VCMPNEZH ->
+    vecCompareElements ins bld 16<rt> (notEqualOrZero 16<rt>) false
+  | Op.VCMPNEZHdot ->
+    vecCompareElements ins bld 16<rt> (notEqualOrZero 16<rt>) true
+  | Op.VCMPNEZW ->
+    vecCompareElements ins bld 32<rt> (notEqualOrZero 32<rt>) false
+  | Op.VCMPNEZWdot ->
+    vecCompareElements ins bld 32<rt> (notEqualOrZero 32<rt>) true
+  | Op.VCMPSQ ->
+    vecCompareQuadToCR ins bld true
+  | Op.VCMPUQ ->
+    vecCompareQuadToCR ins bld false
   | Op.VMULEUW ->
     vecMulEvenOdd ins bld 32<rt> false true
   | Op.VMULOUW ->

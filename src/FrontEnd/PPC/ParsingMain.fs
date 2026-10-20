@@ -1565,6 +1565,15 @@ let private parseXX3 op bin =
                             getVsxRegister xa |> OprReg,
                             getVsxRegister xb |> OprReg))
 
+/// vcmpsq/vcmpuq, which compare into the CR field BF; the two bits below BF
+/// are reserved.
+let private parseVXCompareToCR op bin =
+  let bf = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
+  let va = getVecRegister (Bits.extract bin 20u 16u) |> OprReg
+  let vb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  if Bits.extract bin 22u 21u <> 0u then raise ParsingFailureException
+  else struct (op, ThreeOperands(bf, va, vb))
+
 /// A VX-form "vD, vA" whose vB field is unused (vsbox).
 let private parseVXA op bin =
   let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1649,6 +1658,24 @@ let private parse04 bin =
       parseVC Op.VCMPGTSW Op.VCMPGTSWdot bin
     | 967u ->
       parseVC Op.VCMPGTSD Op.VCMPGTSDdot bin
+    | 7u ->
+      parseVC Op.VCMPNEB Op.VCMPNEBdot bin
+    | 71u ->
+      parseVC Op.VCMPNEH Op.VCMPNEHdot bin
+    | 135u ->
+      parseVC Op.VCMPNEW Op.VCMPNEWdot bin
+    | 263u ->
+      parseVC Op.VCMPNEZB Op.VCMPNEZBdot bin
+    | 327u ->
+      parseVC Op.VCMPNEZH Op.VCMPNEZHdot bin
+    | 391u ->
+      parseVC Op.VCMPNEZW Op.VCMPNEZWdot bin
+    | 455u ->
+      parseVC Op.VCMPEQUQ Op.VCMPEQUQdot bin
+    | 647u ->
+      parseVC Op.VCMPGTUQ Op.VCMPGTUQdot bin
+    | 903u ->
+      parseVC Op.VCMPGTSQ Op.VCMPGTSQdot bin
     | _ ->
       match Bits.extract bin 10u 0u with
       | 0u -> parseVX Op.VADDUBM bin
@@ -1767,6 +1794,8 @@ let private parse04 bin =
       | 320u -> parseVX Op.VADDCUQ bin
       | 1280u -> parseVX Op.VSUBUQM bin
       | 1344u -> parseVX Op.VSUBCUQ bin
+      | 321u -> parseVXCompareToCR Op.VCMPSQ bin
+      | 257u -> parseVXCompareToCR Op.VCMPUQ bin
       | 648u -> parseVX Op.VMULEUW bin
       | 136u -> parseVX Op.VMULOUW bin
       | 520u -> parseVX Op.VMULEUB bin
