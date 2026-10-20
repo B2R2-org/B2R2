@@ -3630,13 +3630,13 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[PPC64] PASTE (paste the copy buffer)``() =
     "7c263f0c"
-    ++ (PASTE ** [ O.Reg R6; O.Reg R7; O.Imm 1UL ])
+    ++ (PASTE ** [ O.Reg R6; O.Reg R7 ])
     ||> testOnlyPPC64
 
   [<TestMethod>]
   member _.``[PPC64] PASTE. (paste the copy buffer, recording)``() =
     "7c263f0d"
-    ++ (PASTEdot ** [ O.Reg R6; O.Reg R7; O.Imm 1UL ])
+    ++ (PASTEdot ** [ O.Reg R6; O.Reg R7 ])
     ||> testOnlyPPC64
 
   [<TestMethod>]
@@ -3648,7 +3648,7 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[PPC64] WAIT (wait 0,0)``() =
     "7c00003c"
-    ++ (WAIT ** [ O.Imm 0UL; O.Imm 0UL ])
+    ++ (WAIT ** [])
     ||> testOnlyPPC64
 
   [<TestMethod>]
