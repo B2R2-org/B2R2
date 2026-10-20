@@ -246,6 +246,11 @@ type RegisterFactory(isa: ISA) =
   let ebbhr = AST.var rt (Register.toRegID EBBHR) "EBBHR"
   let ebbrr = AST.var rt (Register.toRegID EBBRR) "EBBRR"
   let exMonVal2 = AST.var rt (Register.toRegID ExMonVal2) "ExMonVal2"
+  let dscr = AST.var rt (Register.toRegID DSCR) "DSCR"
+  let amr = AST.var rt (Register.toRegID AMR) "AMR"
+  let ctrl = AST.var 32<rt> (Register.toRegID CTRL) "CTRL"
+  let sprg3 = AST.var rt (Register.toRegID SPRG3) "SPRG3"
+  let ppr = AST.var rt (Register.toRegID PPR) "PPR"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -467,6 +472,11 @@ type RegisterFactory(isa: ISA) =
       | Register.EBBHR -> ebbhr
       | Register.EBBRR -> ebbrr
       | Register.ExMonVal2 -> exMonVal2
+      | Register.DSCR -> dscr
+      | Register.AMR -> amr
+      | Register.CTRL -> ctrl
+      | Register.SPRG3 -> sprg3
+      | Register.PPR -> ppr
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -674,6 +684,11 @@ type RegisterFactory(isa: ISA) =
       | "ebbhr" -> ebbhr
       | "ebbrr" -> ebbrr
       | "exmonval2" -> exMonVal2
+      | "dscr" -> dscr
+      | "amr" -> amr
+      | "ctrl" -> ctrl
+      | "sprg3" -> sprg3
+      | "ppr" -> ppr
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -878,7 +893,12 @@ type RegisterFactory(isa: ISA) =
          bescr
          ebbhr
          ebbrr
-         exMonVal2 |]
+         exMonVal2
+         dscr
+         amr
+         ctrl
+         sprg3
+         ppr |]
 
     member _.GetGeneralRegVars() =
       [| r0

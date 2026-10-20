@@ -1176,7 +1176,8 @@ let parseMFSPR bin =
     | 18u | 19u | 22u | 25u | 26u | 27u | 272u | 273u | 274u | 275u | 282u
     | 287u | 528u | 529u | 530u | 531u | 532u | 533u | 534u | 535u | 536u
     | 537u | 538u | 539u | 540u | 541u | 542u | 543u | 1013u
-    | 800u | 801u | 802u | 803u | 804u | 805u | 806u | 815u ->
+    | 800u | 801u | 802u | 803u | 804u | 805u | 806u | 815u
+    | 3u | 13u | 136u | 259u | 808u | 809u | 810u | 811u | 896u | 898u ->
       let spr =
         getSPRegister (Bits.concat (Bits.extract bin 15u 11u)
                                    (Bits.extract bin 20u 16u)

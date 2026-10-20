@@ -1032,11 +1032,24 @@ let private narrowed spr rs =
   let width = Expr.typeOf spr
   if Expr.typeOf rs = width then rs else AST.xtlo width rs
 
-/// Whether an SPR number names one of the registers of the event-based
-/// branch and target address facilities, which only a 64-bit processor has:
-/// on a 32-bit one, an mfspr or mtspr naming one names no register at all.
+let nop (ins: Instruction) bld =
+  lift bld ins {
+  }
+
+/// <summary>
+/// Whether an SPR number names one of the server registers a program may
+/// reach -- DSCR, AMR, CTRL, SPRG3, PPR and PPR32, those of the event-based
+/// branch and target address facilities, and the reserved 808 to 811 --
+/// which only a 64-bit processor has: on a 32-bit one, an mfspr or mtspr
+/// naming one names no register at all.
+/// </summary>
 let private isServerSPR (spr: Imm) =
-  (spr >= 800UL && spr <= 806UL) || spr = 815UL
+  match spr with
+  | 3UL | 13UL | 136UL | 259UL | 815UL | 896UL | 898UL -> true
+  | _ -> spr >= 800UL && spr <= 811UL
+
+/// SPRs 808 to 811, which are reserved and whose accesses are no-ops.
+let private isNoOpSPR (spr: Imm) = spr >= 808UL && spr <= 811UL
 
 /// What mfspr reads through an SPR number: BESCR whole through 800, 802 and
 /// 806, its upper word through 801 and 803 -- the numbers that set and reset
@@ -1049,12 +1062,20 @@ let private sprToRead bld spr =
   | 804UL -> regVar bld Register.EBBHR
   | 805UL -> regVar bld Register.EBBRR
   | 815UL -> regVar bld Register.TAR
+  | 3UL -> regVar bld Register.DSCR
+  | 13UL -> regVar bld Register.AMR
+  | 136UL -> regVar bld Register.CTRL
+  | 259UL -> regVar bld Register.SPRG3
+  | 896UL -> regVar bld Register.PPR
+  | 898UL -> AST.xthi 32<rt> (regVar bld Register.PPR)
   | _ -> getSPRReg bld spr
 
 let mfspr (ins: Instruction) (bld: ILowUIRBuilder) =
   match ins.Operands with
   | TwoOperands(_, OprImm spr) when isServerSPR spr && bld.RegType = 32<rt> ->
     sideEffects ins bld UndefinedInstruction
+  | TwoOperands(_, OprImm spr) when isNoOpSPR spr ->
+    nop ins bld
   | TwoOperands(o1, OprImm spr) ->
     lift bld ins {
       let dst = transOpr bld o1
@@ -1114,6 +1135,7 @@ let private namedSPR bld spr rs =
 /// </summary>
 let private sprToWrite bld spr rs =
   let bescr = regVar bld Register.BESCR
+  let ppr = regVar bld Register.PPR
   let upper () = rs << numI32 32 64<rt>
   match spr with
   | 800UL -> struct (bescr, bescr .| rs)
@@ -1124,6 +1146,10 @@ let private sprToWrite bld spr rs =
   | 805UL -> struct (regVar bld Register.EBBRR, rs)
   | 806UL -> struct (bescr, rs)
   | 815UL -> struct (regVar bld Register.TAR, rs)
+  | 3UL -> struct (regVar bld Register.DSCR, rs)
+  | 13UL -> struct (regVar bld Register.AMR, rs)
+  | 896UL -> struct (ppr, rs)
+  | 898UL -> struct (ppr, (upper ()) .| (ppr .& numU64 0xffffffffUL 64<rt>))
   | _ -> namedSPR bld spr rs
 
 /// mtspr. PVR (287) cannot be written at all: an mtspr naming it is a
@@ -1134,6 +1160,10 @@ let mtspr (ins: Instruction) (bld: ILowUIRBuilder) =
     sideEffects ins bld UnsupportedInstruction
   | TwoOperands(OprImm spr, _) when isServerSPR spr && bld.RegType = 32<rt> ->
     sideEffects ins bld UndefinedInstruction
+  | TwoOperands(OprImm 136UL, _) | TwoOperands(OprImm 259UL, _) ->
+    sideEffects ins bld UndefinedInstruction
+  | TwoOperands(OprImm spr, _) when isNoOpSPR spr ->
+    nop ins bld
   | TwoOperands(OprImm spr, o2) ->
     lift bld ins {
       let struct (dst, value) = sprToWrite bld spr (transOpr bld o2)
@@ -1264,10 +1294,6 @@ let nor ins updateCond bld =
     let struct (dst, src1, src2) = transThreeOprs ins bld
     dst := AST.not (src1 .| src2)
     if updateCond then setCR0Reg bld dst else ()
-  }
-
-let nop (ins: Instruction) bld =
-  lift bld ins {
   }
 
 /// The number of bytes dcbz clears. The architecture leaves the size to the

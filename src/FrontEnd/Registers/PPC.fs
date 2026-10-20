@@ -437,6 +437,16 @@ type Register =
   /// Pseudo register: the second doubleword of a quadword reservation
   /// (lqarx), whose first doubleword ExMonVal holds.
   | ExMonVal2 = 0xED
+  /// Data Stream Control Register (SPR 3).
+  | DSCR = 0xEE
+  /// Authority Mask Register (SPR 13).
+  | AMR = 0xEF
+  /// Control Register, which a program can only read (SPR 136).
+  | CTRL = 0xF0
+  /// SPR General 3, which a program can only read (SPR 259).
+  | SPRG3 = 0xF1
+  /// Program Priority Register (SPR 896); PPR32 (898) is its upper word.
+  | PPR = 0xF2
 
 /// Provides functions to handle PPC registers.
 module Register =
@@ -669,6 +679,11 @@ module Register =
     | "ebbhr" -> Register.EBBHR
     | "ebbrr" -> Register.EBBRR
     | "exmonval2" -> Register.ExMonVal2
+    | "dscr" -> Register.DSCR
+    | "amr" -> Register.AMR
+    | "ctrl" -> Register.CTRL
+    | "sprg3" -> Register.SPRG3
+    | "ppr" -> Register.PPR
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a PPC register.
@@ -900,4 +915,9 @@ module Register =
     | Register.EBBHR -> "ebbhr"
     | Register.EBBRR -> "ebbrr"
     | Register.ExMonVal2 -> "exmonval2"
+    | Register.DSCR -> "dscr"
+    | Register.AMR -> "amr"
+    | Register.CTRL -> "ctrl"
+    | Register.SPRG3 -> "sprg3"
+    | Register.PPR -> "ppr"
     | _ -> Terminator.impossible ()
