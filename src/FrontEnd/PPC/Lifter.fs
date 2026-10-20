@@ -40,6 +40,7 @@ open B2R2.FrontEnd.PPC.VectorIntegerLifter
 open B2R2.FrontEnd.PPC.VectorCryptoLifter
 open B2R2.FrontEnd.PPC.VectorDecimalLifter
 open B2R2.FrontEnd.PPC.VectorBitLifter
+open B2R2.FrontEnd.PPC.VectorPermuteLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -1873,6 +1874,46 @@ let translate (ins: Instruction) bld =
     vecShiftDoubleBits ins bld true
   | Op.VSRDBI ->
     vecShiftDoubleBits ins bld false
+  | Op.VEXPANDBM ->
+    vecExpandMask ins bld 8<rt>
+  | Op.VEXTRACTBM ->
+    vecExtractMask ins bld 8<rt>
+  | Op.MTVSRBM ->
+    vecMoveToMask ins bld 8<rt>
+  | Op.VCNTMBB ->
+    vecCountMaskBits ins bld 8<rt>
+  | Op.VEXPANDHM ->
+    vecExpandMask ins bld 16<rt>
+  | Op.VEXTRACTHM ->
+    vecExtractMask ins bld 16<rt>
+  | Op.MTVSRHM ->
+    vecMoveToMask ins bld 16<rt>
+  | Op.VCNTMBH ->
+    vecCountMaskBits ins bld 16<rt>
+  | Op.VEXPANDWM ->
+    vecExpandMask ins bld 32<rt>
+  | Op.VEXTRACTWM ->
+    vecExtractMask ins bld 32<rt>
+  | Op.MTVSRWM ->
+    vecMoveToMask ins bld 32<rt>
+  | Op.VCNTMBW ->
+    vecCountMaskBits ins bld 32<rt>
+  | Op.VEXPANDDM ->
+    vecExpandMask ins bld 64<rt>
+  | Op.VEXTRACTDM ->
+    vecExtractMask ins bld 64<rt>
+  | Op.MTVSRDM ->
+    vecMoveToMask ins bld 64<rt>
+  | Op.VCNTMBD ->
+    vecCountMaskBits ins bld 64<rt>
+  | Op.VEXPANDQM ->
+    vecExpandMask ins bld 128<rt>
+  | Op.VEXTRACTQM ->
+    vecExtractMask ins bld 128<rt>
+  | Op.MTVSRQM ->
+    vecMoveToMask ins bld 128<rt>
+  | Op.MTVSRBMI ->
+    mtvsrbmi ins bld
   (* End of lane V. *)
   | o ->
 #if DEBUG

@@ -1165,6 +1165,126 @@ type ParserTests() =
     ++ (VSRDBI ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Imm 0x2UL ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDBM (Vector Expand Byte Mask)``() =
+    "10201e42"
+    ++ (VEXPANDBM ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDHM (Vector Expand Halfword Mask)``() =
+    "10211e42"
+    ++ (VEXPANDHM ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDWM (Vector Expand Word Mask)``() =
+    "10221e42"
+    ++ (VEXPANDWM ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDDM (Vector Expand Doubleword Mask)``() =
+    "10231e42"
+    ++ (VEXPANDDM ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXPANDQM (Vector Expand Quadword Mask)``() =
+    "10241e42"
+    ++ (VEXPANDQM ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTBM (Vector Extract Byte Mask)``() =
+    "10a81e42"
+    ++ (VEXTRACTBM ** [ O.Reg R5; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTHM (Vector Extract Halfword Mask)``() =
+    "10a91e42"
+    ++ (VEXTRACTHM ** [ O.Reg R5; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTWM (Vector Extract Word Mask)``() =
+    "10aa1e42"
+    ++ (VEXTRACTWM ** [ O.Reg R5; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTDM (Vector Extract Doubleword Mask)``() =
+    "10ab1e42"
+    ++ (VEXTRACTDM ** [ O.Reg R5; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTQM (Vector Extract Quadword Mask)``() =
+    "10ac1e42"
+    ++ (VEXTRACTQM ** [ O.Reg R5; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTVSRBM (Move to VSR Byte Mask)``() =
+    "10303e42"
+    ++ (MTVSRBM ** [ O.Reg V1A; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTVSRHM (Move to VSR Halfword Mask)``() =
+    "10313e42"
+    ++ (MTVSRHM ** [ O.Reg V1A; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTVSRWM (Move to VSR Word Mask)``() =
+    "10323e42"
+    ++ (MTVSRWM ** [ O.Reg V1A; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTVSRDM (Move to VSR Doubleword Mask)``() =
+    "10333e42"
+    ++ (MTVSRDM ** [ O.Reg V1A; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTVSRQM (Move to VSR Quadword Mask)``() =
+    "10343e42"
+    ++ (MTVSRQM ** [ O.Reg V1A; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] MTVSRBMI (Move To VSR Byte Mask Immediate)``() =
+    "103a1214"
+    ++ (MTVSRBMI ** [ O.Reg V1A; O.Imm 0x1234UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCNTMBB (Vector Count Mask Bits Byte)``() =
+    "10b91e42"
+    ++ (VCNTMBB ** [ O.Reg R5; O.Reg V3A; O.Imm 0x1UL ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] VCNTMBH (Vector Count Mask Bits Halfword)``() =
+    "10bb1e42"
+    ++ (VCNTMBH ** [ O.Reg R5; O.Reg V3A; O.Imm 0x1UL ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] VCNTMBW (Vector Count Mask Bits Word)``() =
+    "10bd1e42"
+    ++ (VCNTMBW ** [ O.Reg R5; O.Reg V3A; O.Imm 0x1UL ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] VCNTMBD (Vector Count Mask Bits Doubleword)``() =
+    "10bf1e42"
+    ++ (VCNTMBD ** [ O.Reg R5; O.Reg V3A; O.Imm 0x1UL ])
+    ||> test64Only
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
