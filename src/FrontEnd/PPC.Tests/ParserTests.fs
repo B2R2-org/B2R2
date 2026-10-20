@@ -547,6 +547,132 @@ type ParserTests() =
     ++ (BCDSUBdot ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Imm 0x0UL ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VADDSBS (Vector Add Signed Byte Saturate)``() =
+    "10221b00"
+    ++ (VADDSBS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VADDSHS (Vector Add Signed Halfword Saturate)``() =
+    "10221b40"
+    ++ (VADDSHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VADDSWS (Vector Add Signed Word Saturate)``() =
+    "10221b80"
+    ++ (VADDSWS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VADDUHS (Vector Add Unsigned Halfword Saturate)``() =
+    "10221a40"
+    ++ (VADDUHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VADDUWS (Vector Add Unsigned Word Saturate)``() =
+    "10221a80"
+    ++ (VADDUWS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBSBS (Vector Subtract Signed Byte Saturate)``() =
+    "10221f00"
+    ++ (VSUBSBS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBSHS (Vector Subtract Signed Halfword Saturate)``() =
+    "10221f40"
+    ++ (VSUBSHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBSWS (Vector Subtract Signed Word Saturate)``() =
+    "10221f80"
+    ++ (VSUBSWS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBUHS (Vector Subtract Unsigned Halfword Saturate)``() =
+    "10221e40"
+    ++ (VSUBUHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBUWS (Vector Subtract Unsigned Word Saturate)``() =
+    "10221e80"
+    ++ (VSUBUWS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VADDCUW (Vector Add & write Carry Unsigned Word)``() =
+    "10221980"
+    ++ (VADDCUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUBCUW (VX-form)``() =
+    "10221d80"
+    ++ (VSUBCUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VAVGSB (Vector Average Signed Byte)``() =
+    "10221d02"
+    ++ (VAVGSB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VAVGSH (Vector Average Signed Halfword)``() =
+    "10221d42"
+    ++ (VAVGSH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VAVGSW (Vector Average Signed Word)``() =
+    "10221d82"
+    ++ (VAVGSW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VAVGUB (Vector Average Unsigned Byte)``() =
+    "10221c02"
+    ++ (VAVGUB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VAVGUH (Vector Average Unsigned Halfword)``() =
+    "10221c42"
+    ++ (VAVGUH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VAVGUW (Vector Average Unsigned Word)``() =
+    "10221c82"
+    ++ (VAVGUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VABSDUB (Vector Absolute Difference Unsigned Byte)``() =
+    "10221c03"
+    ++ (VABSDUB ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VABSDUH (Vector Absolute Difference Unsigned Halfword)``() =
+    "10221c43"
+    ++ (VABSDUH ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VABSDUW (Vector Absolute Difference Unsigned Word)``() =
+    "10221c83"
+    ++ (VABSDUW ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
