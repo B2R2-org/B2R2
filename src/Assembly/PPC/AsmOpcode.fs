@@ -1021,6 +1021,27 @@ let private atomicForm xo ins =
   | [ Rg t; Rg a; Im fc ] -> xForm 31u (gpr t) (gpr a) (unsigned 5 fc) xo 0u
   | _ -> wrongOperands ins
 
+/// copy, whose bit 10 is always set, and paste[.], whose L sits there.
+let private copyPaste xo rc ins =
+  match ins.Operands with
+  | [ Rg a; Rg b ] -> xForm 31u 1u (gpr a) (gpr b) xo rc
+  | [ Rg a; Rg b; Im l ] -> xForm 31u (unsigned 1 l) (gpr a) (gpr b) xo rc
+  | _ -> wrongOperands ins
+
+/// wait WC, PL, both optional.
+let private waitForm ins =
+  match ins.Operands with
+  | [] -> xForm 31u 0u 0u 0u 30u 0u
+  | [ Im wc ] -> xForm 31u (unsigned 2 wc) 0u 0u 30u 0u
+  | [ Im wc; Im pl ] -> xForm 31u (unsigned 2 wc) (unsigned 2 pl) 0u 30u 0u
+  | _ -> wrongOperands ins
+
+/// scv LEV.
+let private vectoredCall ins =
+  match ins.Operands with
+  | [ Im lev ] -> word 17u 0u 0u 0u (((unsigned 7 lev) <<< 5) ||| 1u)
+  | _ -> wrongOperands ins
+
 /// A sync whose L and SC name one of its barriers.
 let private barrier l sc ins =
   match ins.Operands with
@@ -1095,7 +1116,13 @@ let private power10Encoders =
     Op.PLWSYNC, barrier 5u 0u
     Op.STNCISYNC, barrier 1u 1u
     Op.STCISYNC, barrier 0u 2u
-    Op.STSYNC, barrier 0u 3u ]
+    Op.STSYNC, barrier 0u 3u
+    Op.COPY, copyPaste 774u 0u
+    Op.PASTE, copyPaste 902u 0u
+    Op.PASTEdot, copyPaste 902u 1u
+    Op.CPABORT, xNone 838u
+    Op.WAIT, waitForm
+    Op.SCV, vectoredCall ]
 
 /// The instructions of lane A.
 let laneAEncoders bitLen =

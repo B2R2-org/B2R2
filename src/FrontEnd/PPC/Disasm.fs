@@ -1490,6 +1490,8 @@ let opCodeToString = function
   | Op.CNTTZDM -> "cnttzdm"
   | Op.CNTTZW -> "cnttzw"
   | Op.CNTTZWdot -> "cnttzw."
+  | Op.COPY -> "copy"
+  | Op.CPABORT -> "cpabort"
   | Op.DARN -> "darn"
   | Op.DIVDE -> "divde"
   | Op.DIVDEdot -> "divde."
@@ -1520,12 +1522,15 @@ let opCodeToString = function
   | Op.MODSW -> "modsw"
   | Op.MODUD -> "modud"
   | Op.MODUW -> "moduw"
+  | Op.PASTE -> "paste"
+  | Op.PASTEdot -> "paste."
   | Op.PDEPD -> "pdepd"
   | Op.PEXTD -> "pextd"
   | Op.PHWSYNC -> "phwsync"
   | Op.PLWSYNC -> "plwsync"
   | Op.PTESYNC -> "ptesync"
   | Op.RFEBB -> "rfebb"
+  | Op.SCV -> "scv"
   | Op.SETB -> "setb"
   | Op.SETBC -> "setbc"
   | Op.SETBCR -> "setbcr"
@@ -1538,6 +1543,7 @@ let opCodeToString = function
   | Op.STQCXdot -> "stqcx."
   | Op.STSYNC -> "stsync"
   | Op.STWAT -> "stwat"
+  | Op.WAIT -> "wait"
   | _ -> Terminator.impossible ()
 
 let condToString = function

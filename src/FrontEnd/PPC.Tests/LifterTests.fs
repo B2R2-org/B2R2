@@ -26408,6 +26408,78 @@ type LifterTests() =
       for hex, at in [ "7d46c4cc", 0x20200098UL; "7d46e48c", 0x20200080UL ] do
         Assert.IsTrue(raisesAt isa hex at "Exception(MisalignedAccess)", hex)
 
+  /// <summary>
+  /// copy loads a block into the copy buffer of the copy-paste facility,
+  /// which is optional for every compliancy subset; where it is not
+  /// included, running copy invokes the hypervisor emulation assistance --
+  /// an illegal instruction to a program. This model leaves it out, as QEMU
+  /// 8.2.2 does (it raises SIGILL; spec copypaste).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] COPY is an illegal instruction``() =
+    (* copy r6, r7 *)
+    for isa in ppc64s do
+      let lifted = effects isa "7c263e0c"
+      CollectionAssert.AreEqual([| UndefinedInstruction |], lifted)
+
+  /// <summary>
+  /// paste, like copy, belongs to the copy-paste facility this model leaves
+  /// out, as QEMU 8.2.2 does (SIGILL; spec copypaste).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] PASTE is an illegal instruction``() =
+    (* paste r6, r7, 1 *)
+    for isa in ppc64s do
+      let lifted = effects isa "7c263f0c"
+      CollectionAssert.AreEqual([| UndefinedInstruction |], lifted)
+
+  /// <summary>
+  /// paste., like copy, belongs to the copy-paste facility this model leaves
+  /// out, as QEMU 8.2.2 does (SIGILL; spec copypaste).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] PASTE. is an illegal instruction``() =
+    (* paste. r6, r7, 1 *)
+    for isa in ppc64s do
+      let lifted = effects isa "7c263f0d"
+      CollectionAssert.AreEqual([| UndefinedInstruction |], lifted)
+
+  /// <summary>
+  /// cpabort clears the state of a copy-paste sequence; with no copy buffer
+  /// there is none, and it changes nothing, as QEMU's power10 runs it (spec
+  /// copypaste).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] CPABORT changes nothing``() =
+    (* cpabort *)
+    for isa in ppc64s do
+      expect 0UL (uint64 (writes isa "7c00068c").Length) (nameOf isa)
+
+  /// <summary>
+  /// wait suspends the processor until an exception, the loss of the
+  /// reservation (WC = 1) or a short time (WC = 2); to a program it is a
+  /// delay, as pause is on other architectures. The reference cannot run
+  /// it: QEMU's user mode would stop there.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] WAIT is a delay``() =
+    (* wait 0,0; wait 1,0; wait 2,0 *)
+    for isa in ppc64s do
+      for hex in [ "7c00003c"; "7c20003c"; "7c40003c" ] do
+        CollectionAssert.AreEqual([| Delay |], effects isa hex, hex)
+
+  /// <summary>
+  /// scv calls the system, as sc does; the system's convention for scv
+  /// differs (Linux returns an error as a negative r3 rather than in
+  /// CR0[SO]), which is the emulator's to keep. QEMU 8.2.2 refuses scv in
+  /// user mode (SIGILL; spec copypaste, deviations/ppc64/scv.c).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] SCV calls the system``() =
+    (* scv 0 *)
+    for isa in ppc64s do
+      CollectionAssert.AreEqual([| SysCall |], effects isa "44000001")
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

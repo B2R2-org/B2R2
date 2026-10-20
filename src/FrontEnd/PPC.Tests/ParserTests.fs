@@ -3621,6 +3621,63 @@ type ParserTests() =
     ++ (STDAT ** [ O.Reg R11; O.Reg R6; O.Imm 24UL ])
     ||> testOnlyPPC64
 
+  [<TestMethod>]
+  member _.``[PPC64] COPY (copy a block to the copy buffer)``() =
+    "7c263e0c"
+    ++ (COPY ** [ O.Reg R6; O.Reg R7 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] PASTE (paste the copy buffer)``() =
+    "7c263f0c"
+    ++ (PASTE ** [ O.Reg R6; O.Reg R7; O.Imm 1UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] PASTE. (paste the copy buffer, recording)``() =
+    "7c263f0d"
+    ++ (PASTEdot ** [ O.Reg R6; O.Reg R7; O.Imm 1UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] CPABORT (copy-paste abort)``() =
+    "7c00068c"
+    ++ (CPABORT ** [])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] WAIT (wait 0,0)``() =
+    "7c00003c"
+    ++ (WAIT ** [ O.Imm 0UL; O.Imm 0UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] WAIT with WC = 2 (pause_short)``() =
+    "7c40003c"
+    ++ (WAIT ** [ O.Imm 2UL; O.Imm 0UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] SCV (system call vectored)``() =
+    "44000001"
+    ++ (SCV ** [ O.Imm 0UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] SCV with LEV = 1``() =
+    "44000021"
+    ++ (SCV ** [ O.Imm 1UL ])
+    ||> testOnlyPPC64
+
+  /// <summary>
+  /// The invalid forms: copy with bit 10 clear, which v3.1 fixes at 1; wait
+  /// with WC = 3, a reserved value; and cpabort with a reserved field set.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] COPY, WAIT and CPABORT refuse their invalid forms``() =
+    for hex in [ "7c063e0c"; "7c60003c"; "7c06068c" ] do
+      testUnsupported WordSize.Bit64 hex
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
