@@ -1696,6 +1696,24 @@ let private parseMTVSRBMI bin =
   let bm = (b0 <<< 6) ||| (b1 <<< 1) ||| Bits.pick bin 0u
   struct (Op.MTVSRBMI, TwoOperands(vd, bm |> uint64 |> OprImm))
 
+/// The string isolates, VX forms with a record bit whose vA field picks
+/// bytes or halfwords and the end they start from.
+let private parse04String bin =
+  let struct (_, oprs) = parseVXSubB Op.VSTRIBL bin
+  let record = Bits.pick bin 10u = 1u
+  let op =
+    match Bits.extract bin 20u 16u, record with
+    | 0u, false -> Op.VSTRIBL
+    | 0u, true -> Op.VSTRIBLdot
+    | 1u, false -> Op.VSTRIBR
+    | 1u, true -> Op.VSTRIBRdot
+    | 2u, false -> Op.VSTRIHL
+    | 2u, true -> Op.VSTRIHLdot
+    | 3u, false -> Op.VSTRIHR
+    | 3u, true -> Op.VSTRIHRdot
+    | _ -> raise ParsingFailureException
+  struct (op, oprs)
+
 /// maddhd/maddhdu/maddld, the VA form whose four registers are general ones.
 let private parseVAGpr op bin =
   let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1725,6 +1743,7 @@ let private parse04Wide bitLen bin =
   | 48u when bitLen = 64 -> parseVAGpr Op.MADDHD bin
   | 49u when bitLen = 64 -> parseVAGpr Op.MADDHDU bin
   | 51u when bitLen = 64 -> parseVAGpr Op.MADDLD bin
+  | 59u -> parseVA Op.VPERMR bin
   | 60u -> parseVA Op.VADDEUQM bin
   | 61u -> parseVA Op.VADDECUQ bin
   | 62u -> parseVA Op.VSUBEUQM bin
@@ -1926,6 +1945,7 @@ let private parse04 bitLen bin =
       | 1358u -> parseVX Op.VPKSDUS bin
       | 1230u -> parseVX Op.VPKUDUS bin
       | 1602u -> parse04Mask bitLen bin
+      | 13u | 1037u -> parse04String bin
       | 1538u -> parse04Unary bin
       | 133u -> parseVX Op.VRLWMI bin
       | 197u -> parseVX Op.VRLDMI bin

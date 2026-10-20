@@ -1285,6 +1285,60 @@ type ParserTests() =
     ++ (VCNTMBD ** [ O.Reg R5; O.Reg V3A; O.Imm 0x1UL ])
     ||> test64Only
 
+  [<TestMethod>]
+  member _.``[PPC] VSTRIBL (Vector String Isolate Byte Left-justified)``() =
+    "1020180d"
+    ++ (VSTRIBL ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSTRIBLdot (Vector String Isolate Byte Left-justified)``() =
+    "10201c0d"
+    ++ (VSTRIBLdot ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSTRIBR (Vector String Isolate Byte Right-justified)``() =
+    "1021180d"
+    ++ (VSTRIBR ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSTRIBRdot (Vector String Isolate Byte Right-justified)``() =
+    "10211c0d"
+    ++ (VSTRIBRdot ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSTRIHL (Vector String Isolate Halfword Left-justified)``() =
+    "1022180d"
+    ++ (VSTRIHL ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSTRIHLdot (String Isolate Halfword Left-justified)``() =
+    "10221c0d"
+    ++ (VSTRIHLdot ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSTRIHR (String Isolate Halfword Right-justified)``() =
+    "1023180d"
+    ++ (VSTRIHR ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSTRIHRdot (String Isolate Halfword Right-justified)``() =
+    "10231c0d"
+    ++ (VSTRIHRdot ** [ O.Reg V1A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPERMR (Vector Permute Right-indexed)``() =
+    "1022193b"
+    ++ (VPERMR ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
