@@ -346,6 +346,168 @@ type LifterTests() =
       | SideEffect(Effect = e) -> Some e
       | _ -> None)
 
+  /// Every processor: 32-bit, and 64-bit in both byte orders.
+  let all3 = [ ppc32; ppc64; ppc64le ]
+
+  /// What a word reading r6 and r7 leaves, over XER given.
+  let arith isa hex (a: uint64) (b: uint64) (xer: uint64) =
+    run isa hex [ R6, a; R7, b; XER, xer ]
+
+  /// <summary>
+  /// Asserts the r5 a word reading r6 and r7 leaves on each processor named,
+  /// for each rA, rB and result. A 32-bit processor is given and expected
+  /// the low words: the 7457 has none of the forms tested so, and a word
+  /// form's high words take no part on a 64-bit one.
+  /// </summary>
+  let expectR5 isas hex cases =
+    for isa in isas do
+      for a, b, r in cases do
+        let case = $"{hex} {a:x} {b:x} {nameOf isa}"
+        let after = arith isa hex (a &&& ones isa) (b &&& ones isa) 0UL
+        expect (r &&& ones isa) (after R5) case
+
+  /// Asserts XER's SO, OV and CA after a word reading r6 and r7 on each
+  /// 64-bit processor, for each rA, rB, XER before and status after.
+  let expectStatus hex cases =
+    for isa in ppc64s do
+      for a, b, xer, status in cases do
+        let case = $"{hex} {a:x} {b:x} {xer:x} {nameOf isa}"
+        expect status (soOvCa (arith isa hex a b xer)) case
+
+  /// Asserts the whole XER after a word reading r6 and r7 on each 64-bit
+  /// processor, for each rA, rB, XER before and XER after.
+  let expectXER hex cases =
+    for isa in ppc64s do
+      for a, b, xer, after in cases do
+        let case = $"{hex} {a:x} {b:x} {xer:x} {nameOf isa}"
+        expect after (arith isa hex a b xer XER) case
+
+  /// <summary>
+  /// Asserts the bits of CR0 a mask selects after a word reading r6 and r7
+  /// on each 64-bit processor, for each rA, rB, XER, mask and field: all four
+  /// where the result is defined, SO alone where the ISA leaves the rest
+  /// undefined.
+  /// </summary>
+  let expectCR0 hex cases =
+    for isa in ppc64s do
+      for a, b, xer, mask, field in cases do
+        let case = $"{hex} {a:x} {b:x} {xer:x} {nameOf isa}"
+        expect field (cr0 (arith isa hex a b xer) &&& mask) case
+
+  /// <summary>
+  /// Asserts the r6 a word leaves on each processor named, for each list of
+  /// register values given and result. A 32-bit processor is given and
+  /// expected the low words, as in expectR5.
+  /// </summary>
+  let expectR6 isas hex cases =
+    for isa in isas do
+      for given, result in cases do
+        let given = List.map (fun (r, v) -> r, v &&& ones isa) given
+        let case = $"{hex} {given} {nameOf isa}"
+        expect (result &&& ones isa) (run isa hex given R6) case
+
+  /// Asserts the r6 a word reading r8 leaves, for each rS and result.
+  let expectUnary isas hex cases =
+    expectR6 isas hex [ for rs, ra in cases -> [ R8, rs ], ra ]
+
+  /// Asserts the r6 a word reading r8 and r7 leaves, for each rS, rB and
+  /// result.
+  let expectBinary isas hex cases =
+    expectR6 isas hex [ for rs, rb, ra in cases -> [ R8, rs; R7, rb ], ra ]
+
+  /// Asserts the r6 and CR0 a record form reading r8 leaves on each 64-bit
+  /// processor, for each rS, XER, result and CR0 field.
+  let expectRecordR6 hex cases =
+    for isa in ppc64s do
+      for rs, xer, ra, field in cases do
+        let after = run isa hex [ R8, rs; XER, xer ]
+        let case = $"{hex} {rs:x} {xer:x} {nameOf isa}"
+        expect ra (after R6) case
+        expect field (cr0 after) case
+
+  /// CR2 as the Power ISA draws a CR field.
+  let cr2 after =
+    (after CR2_0 <<< 3) ||| (after CR2_1 <<< 2) ||| (after CR2_2 <<< 1)
+    ||| after CR2_3
+
+  /// <summary>
+  /// Runs bctar or bctarl -- at 0x20100004, after the mttar that set TAR --
+  /// on each 64-bit processor with LR holding 1, and asserts where it went,
+  /// LR and CTR, for each word, TAR, CR0[EQ], CTR and the three after.
+  /// </summary>
+  let expectTargetBranch cases =
+    for isa in ppc64s do
+      for hex, target, eq, ctr, next, link, counted in cases do
+        let given = [ TAR, target; CR0_2, eq; CTR, ctr; LR, 1UL ]
+        let after = jump isa hex 0x20100004UL given
+        let case = $"{hex} {target:x} {eq} {ctr} {nameOf isa}"
+        expect next (after IAR) case
+        expect link (after LR) case
+        expect counted (after CTR) case
+
+  /// The quadword at 0x20200080 the quadword reservation tests start from:
+  /// the bytes 0x00, 0x11, ..., 0xff.
+  let quad = [ 0x20200080UL, [| for i in 0 .. 15 -> byte (i * 0x11) |] ]
+
+  /// <summary>
+  /// Runs quadword reservation words one after another, r6 holding
+  /// 0x20200080 and the pairs r12/r13 and r14/r15 distinct values, over the
+  /// memory given.
+  /// </summary>
+  let quadSequence isa hexes memory =
+    let field = [ CR0_0; CR0_1; CR0_2; CR0_3 ]
+    let pairs = [ R6; R10; R11; R12; R13; R14; R15 ]
+    let state = pairs @ [ RES; ExMonAddr; ExMonVal; ExMonVal2 ] @ field
+    let given =
+      [ R6, 0x20200080UL
+        R12, 0x1111111122222222UL
+        R13, 0x3333333344444444UL
+        R14, 0x5555555566666666UL
+        R15, 0x7777777788888888UL ]
+    sequence isa hexes state given memory
+
+  /// The memory the lq and stq tests start from: two quadwords at
+  /// 0x20200080.
+  let pairMemory =
+    [ 0x20200080UL, ByteArray.ofHexString "00112233445566778899aabbccddeeff"
+      0x20200090UL, ByteArray.ofHexString "0123456789abcdeffedcba9876543210" ]
+
+  /// <summary>
+  /// Runs byte and halfword reservation words one after another, r6 holding
+  /// 0x20200080, where the bytes 88 99 aa bb cc dd ee ff lie, and r7
+  /// 0x80ff0f01.
+  /// </summary>
+  let smallReserve isa hexes =
+    let ea = 0x20200080UL
+    let memory = [ ea, ByteArray.ofHexString "8899aabbccddeeff" ]
+    let field = [ CR0_0; CR0_1; CR0_2; CR0_3 ]
+    let state = [ R5; R6; R7; RES; ExMonAddr; ExMonVal; XER ] @ field
+    sequence isa hexes state [ R6, ea; R7, 0x80ff0f01UL ] memory
+
+  /// One, on any processor.
+  let one (_: ISA) = 1UL
+
+  /// Zero, on any processor.
+  let none (_: ISA) = 0UL
+
+  /// <summary>
+  /// Asserts what a word naming the CR bit 4*cr2+gt leaves in r5 on each
+  /// processor where that bit is set and where it is clear.
+  /// </summary>
+  let expectFromCRBit hex set clear =
+    for isa in all3 do
+      let given bit = [ CR2_1, bit; R5, 0xbad0badUL ]
+      expect (set isa) (run isa hex (given 1UL) R5) $"{hex} {nameOf isa}"
+      expect (clear isa) (run isa hex (given 0UL) R5) $"{hex} {nameOf isa}"
+
+  /// The statements a word lifts to that change state: a register, memory
+  /// or a side effect.
+  let writes isa hex =
+    lifted isa hex
+    |> Array.filter (function
+      | Put _ | Store _ | SideEffect _ -> true
+      | _ -> false)
+
   /// <summary>
   /// add rD, rA, rB writes rA + rB at the width of a register: the sum wraps
   /// at 32 bits on a 32-bit processor and carries into the high word on a
@@ -24352,60 +24514,101 @@ type LifterTests() =
       []
 
   /// <summary>
-  /// divdo, divduo and mulldo set XER[OV] when the result cannot be
-  /// represented in 64 bits -- the most negative doubleword over -1, a zero
-  /// divisor, a product past the signed range -- and clear it when it can,
-  /// OR it into XER[SO] and leave XER[CA] alone. The quotients the ISA
-  /// leaves undefined are not checked. Values from qemu-ppc64 -cpu power10.
-  /// </summary>
-  [<TestMethod>]
-  member _.``[PPC64] DIVDO, DIVDUO and MULLDO record an overflow in OV``() =
-    let max, min = 0x7fffffffffffffffUL, 0x8000000000000000UL
-    let fives, tens = 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL
-    (* divdo, divduo, mulldo r5, r6, r7 *)
-    let divdo, divduo, mulldo = "7ca63fd2", "7ca63f92", "7ca63dd2"
-    for isa in ppc64s do
-      let after hex a b xer = run isa hex [ R6, a; R7, b; XER, xer ]
-      let check hex a b xer status =
-        expect status (soOvCa (after hex a b xer)) $"{hex} {nameOf isa}"
-      let value hex a b xer = after hex a b xer R5
-      expect max (value divdo max 1UL 0xe00c0000UL) (nameOf isa)
-      check divdo max 1UL 0xe00c0000UL (so ||| ca)
-      check divdo min UInt64.MaxValue 0x20040000UL (so ||| ov ||| ca)
-      check divdo 0x1234UL 0UL 0UL (so ||| ov)
-      expect 0UL (value divdo fives tens 0x40080000UL) (nameOf isa)
-      check divdo fives tens 0x40080000UL 0UL
-      expect max (value divduo max 1UL 0xe00c0000UL) (nameOf isa)
-      check divduo max 1UL 0xe00c0000UL (so ||| ca)
-      check divduo 0x1234UL 0UL 0x20040000UL (so ||| ov ||| ca)
-      expect min (value mulldo min UInt64.MaxValue 0x20040000UL) (nameOf isa)
-      check mulldo min UInt64.MaxValue 0x20040000UL (so ||| ov ||| ca)
-      let product = 0x2236d88fe5618cf0UL
-      let a, b = 0x123456789abcdefUL, 0xfedcba9876543210UL
-      expect product (value mulldo a b 0UL) (nameOf isa)
-      check mulldo a b 0UL (so ||| ov)
-      check mulldo max 1UL 0xe00c0000UL (so ||| ca)
-
-  /// <summary>
-  /// The record forms of divdo, divduo and mulldo set CR0 from the result
-  /// and copy XER[SO] into it after OV has been ORed in, so an overflow
-  /// shows in CR0[SO] even when XER[SO] started clear. Values from
+  /// divdo sets XER[OV] where the quotient cannot be represented in 64 bits
+  /// -- the most negative doubleword over -1, a zero divisor -- and clears it
+  /// where it can, ORs it into XER[SO] and leaves XER[CA] alone. The
+  /// quotients the ISA leaves undefined are not checked. Values from
   /// qemu-ppc64 -cpu power10.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC64] DIVDO., DIVDUO. and MULLDO. record in CR0``() =
+  member _.``[PPC64] DIVDO records an overflow in OV``() =
     let max, min = 0x7fffffffffffffffUL, 0x8000000000000000UL
     let fives, tens = 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL
-    (* divdo., divduo., mulldo. r5, r6, r7 *)
-    let divdo, divduo, mulldo = "7ca63fd3", "7ca63f93", "7ca63dd3"
-    for isa in ppc64s do
-      let field hex a b xer = cr0 (run isa hex [ R6, a; R7, b; XER, xer ])
-      expect 0b0101UL (field divdo max 1UL 0xe00c0000UL) (nameOf isa)
-      expect 0b0010UL (field divdo fives tens 0x40080000UL) (nameOf isa)
-      expect 1UL (field divdo 0x1234UL 0UL 0UL &&& 1UL) (nameOf isa)
-      expect 0b0101UL (field divduo max 1UL 0xe00c0000UL) (nameOf isa)
-      expect 0b1001UL (field mulldo min UInt64.MaxValue 0x20040000UL) "mulldo."
-      expect 0b0100UL (field mulldo 3UL 5UL 0UL) (nameOf isa)
+    (* divdo r5, r6, r7 *)
+    expectR5 ppc64s "7ca63fd2" [ max, 1UL, max; fives, tens, 0UL ]
+    expectStatus
+      "7ca63fd2"
+      [ max, 1UL, 0xe00c0000UL, so ||| ca
+        min, UInt64.MaxValue, 0x20040000UL, so ||| ov ||| ca
+        0x1234UL, 0UL, 0UL, so ||| ov
+        fives, tens, 0x40080000UL, 0UL ]
+
+  /// <summary>
+  /// divduo sets XER[OV] for a zero divisor and clears it where the quotient
+  /// fits, ORs it into XER[SO] and leaves XER[CA] alone. Values from
+  /// qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDUO records an overflow in OV``() =
+    let max = 0x7fffffffffffffffUL
+    (* divduo r5, r6, r7 *)
+    expectR5 ppc64s "7ca63f92" [ max, 1UL, max ]
+    expectStatus
+      "7ca63f92"
+      [ max, 1UL, 0xe00c0000UL, so ||| ca
+        0x1234UL, 0UL, 0x20040000UL, so ||| ov ||| ca ]
+
+  /// <summary>
+  /// mulldo sets XER[OV] where the product is past the signed doubleword
+  /// range and clears it where it is not, ORs it into XER[SO] and leaves
+  /// XER[CA] alone; the low doubleword of the product is the result either
+  /// way. Values from qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MULLDO records an overflow in OV``() =
+    let max, min = 0x7fffffffffffffffUL, 0x8000000000000000UL
+    let a, b = 0x123456789abcdefUL, 0xfedcba9876543210UL
+    (* mulldo r5, r6, r7 *)
+    expectR5
+      ppc64s
+      "7ca63dd2"
+      [ min, UInt64.MaxValue, min
+        a, b, 0x2236d88fe5618cf0UL ]
+    expectStatus
+      "7ca63dd2"
+      [ min, UInt64.MaxValue, 0x20040000UL, so ||| ov ||| ca
+        a, b, 0UL, so ||| ov
+        max, 1UL, 0xe00c0000UL, so ||| ca ]
+
+  /// <summary>
+  /// divdo. sets CR0 from the quotient and copies XER[SO] into it after OV
+  /// has been ORed in, so an overflow shows in CR0[SO] even when XER[SO]
+  /// started clear; the rest of CR0 is then undefined. Values from
+  /// qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDO. records in CR0``() =
+    let max = 0x7fffffffffffffffUL
+    let fives, tens = 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL
+    (* divdo. r5, r6, r7 *)
+    expectCR0
+      "7ca63fd3"
+      [ max, 1UL, 0xe00c0000UL, 0xfUL, 0b0101UL
+        fives, tens, 0x40080000UL, 0xfUL, 0b0010UL
+        0x1234UL, 0UL, 0UL, 1UL, 1UL ]
+
+  /// <summary>
+  /// divduo. sets CR0 from the quotient and XER[SO]. Values from qemu-ppc64
+  /// -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDUO. records in CR0``() =
+    let max = 0x7fffffffffffffffUL
+    (* divduo. r5, r6, r7 *)
+    expectCR0 "7ca63f93" [ max, 1UL, 0xe00c0000UL, 0xfUL, 0b0101UL ]
+
+  /// <summary>
+  /// mulldo. sets CR0 from the product and copies XER[SO] into it after OV
+  /// has been ORed in. Values from qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MULLDO. records in CR0``() =
+    let min = 0x8000000000000000UL
+    (* mulldo. r5, r6, r7 *)
+    expectCR0
+      "7ca63dd3"
+      [ min, UInt64.MaxValue, 0x20040000UL, 0xfUL, 0b1001UL
+        3UL, 5UL, 0UL, 0xfUL, 0b0100UL ]
 
   /// <summary>
   /// Every form that records an overflow sets XER[OV32] (bit 44, kept at bit
@@ -24621,98 +24824,96 @@ type LifterTests() =
       CollectionAssert.AreEqual([| UnsupportedInstruction |], lifted)
 
   /// <summary>
-  /// bctar and bctarl go to TAR with its low two bits cleared where BO says
-  /// the counter and the CR bit BI allow it, counting CTR down unless BO2
-  /// says not to; bctarl leaves the next instruction's address in LR whether
-  /// the branch is taken or not. Values from QEMU running mttar r8 and then
+  /// bctar goes to TAR with its low two bits cleared where BO says the
+  /// counter and the CR bit BI allow it, counting CTR down unless BO2 says
+  /// not to, and leaves LR alone. Values from QEMU running mttar r8 and then
   /// the branch, which therefore sits at 0x20100004.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC64] BCTAR and BCTARL branch to TAR``() =
-    let at, nia, tar, lr = 0x20100004UL, 0x20100008UL, 0x20100040UL, 1UL
-    (* bctar 12,2; bctarl 12,2; bctar 4,2; bctar 16,0; bctarl 20,0 *)
-    let cases =
-      [ "4d820460", tar, 1UL, 2UL, tar, lr, 2UL
-        "4d820460", tar, 0UL, 2UL, nia, lr, 2UL
-        "4d820461", tar, 1UL, 2UL, tar, nia, 2UL
+  member _.``[PPC64] BCTAR branches to TAR``() =
+    let nia, tar = 0x20100008UL, 0x20100040UL
+    (* bctar 12,2; bctar 4,2; bctar 16,0 *)
+    expectTargetBranch
+      [ "4d820460", tar, 1UL, 2UL, tar, 1UL, 2UL
+        "4d820460", tar, 0UL, 2UL, nia, 1UL, 2UL
+        "4c820460", tar + 3UL, 0UL, 2UL, tar, 1UL, 2UL
+        "4c820460", tar, 1UL, 2UL, nia, 1UL, 2UL
+        "4e000460", tar, 0UL, 2UL, tar, 1UL, 1UL
+        "4e000460", tar, 0UL, 1UL, nia, 1UL, 0UL ]
+
+  /// <summary>
+  /// bctarl branches as bctar does and leaves the next instruction's address
+  /// in LR whether the branch is taken or not. Values from QEMU running
+  /// mttar r8 and then the branch, which therefore sits at 0x20100004.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] BCTARL branches to TAR and links``() =
+    let nia, tar = 0x20100008UL, 0x20100040UL
+    (* bctarl 12,2; bctarl 20,0 *)
+    expectTargetBranch
+      [ "4d820461", tar, 1UL, 2UL, tar, nia, 2UL
         "4d820461", tar + 3UL, 0UL, 2UL, nia, nia, 2UL
-        "4c820460", tar + 3UL, 0UL, 2UL, tar, lr, 2UL
-        "4c820460", tar, 1UL, 2UL, nia, lr, 2UL
-        "4e000460", tar, 0UL, 2UL, tar, lr, 1UL
-        "4e000460", tar, 0UL, 1UL, nia, lr, 0UL
         "4e800461", tar, 0UL, 5UL, tar, nia, 5UL ]
-    for isa in ppc64s do
-      for hex, target, eq, ctr, next, link, counted in cases do
-        let given = [ TAR, target; CR0_2, eq; CTR, ctr; LR, lr ]
-        let after = jump isa hex at given
-        let case = $"{hex} {target:x} {eq} {ctr} {nameOf isa}"
-        expect next (after IAR) case
-        expect link (after LR) case
-        expect counted (after CTR) case
 
   /// <summary>
   /// lqarx loads the aligned quadword into an even-odd register pair -- the
   /// even register the doubleword at EA on a big-endian processor and the one
   /// at EA + 8 on a little-endian one, which byte-reverses the quadword --
-  /// and reserves it; stqcx. stores the pair the same way while the
+  /// and reserves it, so that a stqcx. after it succeeds. Values from QEMU
+  /// running lqarx r10,0,r6 and lqarx r10,0,r6; stqcx. r12,0,r6 in each
+  /// byte order.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] LQARX loads and reserves a quadword``() =
+    (* lqarx r10,0,r6; stqcx. r12,0,r6 *)
+    let lqarx, stqcx = "7d403228", "7d80316d"
+    for isa, r10, r11 in
+      [ ppc64, 0x0011223344556677UL, 0x8899aabbccddeeffUL
+        ppc64le, 0xffeeddccbbaa9988UL, 0x7766554433221100UL ] do
+      let after, _ = quadSequence isa [ lqarx ] quad
+      expect r10 (after R10) (nameOf isa)
+      expect r11 (after R11) (nameOf isa)
+      let after, _ = quadSequence isa [ lqarx; stqcx ] quad
+      expect 0b0010UL (cr0 after) (nameOf isa)
+
+  /// <summary>
+  /// stqcx. stores an even-odd register pair as lqarx loads one while the
   /// reservation holds and clears it, so a second stqcx. fails and stores
   /// nothing, and one with no reservation touches no memory. Values from
   /// QEMU running lqarx r10,0,r6; stqcx. r12,0,r6; stqcx. r14,0,r6 in each
   /// byte order, and stqcx. r12,0,r6 alone.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC64] LQARX and STQCX. move a reserved quadword``() =
+  member _.``[PPC64] STQCX. stores a reserved quadword once``() =
     let ea = 0x20200080UL
-    let field = [ CR0_0; CR0_1; CR0_2; CR0_3 ]
-    let pairs = [ R6; R10; R11; R12; R13; R14; R15 ]
-    let state = pairs @ [ RES; ExMonAddr; ExMonVal; ExMonVal2 ] @ field
-    let given =
-      [ R6, ea
-        R12, 0x1111111122222222UL
-        R13, 0x3333333344444444UL
-        R14, 0x5555555566666666UL
-        R15, 0x7777777788888888UL ]
-    let memory = [ ea, [| for i in 0 .. 15 -> byte (i * 0x11) |] ]
     (* lqarx r10,0,r6; stqcx. r12,0,r6; stqcx. r14,0,r6 *)
     let lqarx, first, second = "7d403228", "7d80316d", "7dc0316d"
-    let bigLoad = 0x0011223344556677UL, 0x8899aabbccddeeffUL
-    let bigStore = 0x1111111122222222UL, 0x3333333344444444UL
-    let littleLoad = 0xffeeddccbbaa9988UL, 0x7766554433221100UL
-    let littleStore = 0x4444444433333333UL, 0x2222222211111111UL
-    for isa, (r10, r11), (low, high) in
-      [ ppc64, bigLoad, bigStore; ppc64le, littleLoad, littleStore ] do
-      let after, _ = sequence isa [ lqarx ] state given memory
-      expect r10 (after R10) (nameOf isa)
-      expect r11 (after R11) (nameOf isa)
-      let after, left = sequence isa [ lqarx; first ] state given memory
+    for isa, low, high in
+      [ ppc64, 0x1111111122222222UL, 0x3333333344444444UL
+        ppc64le, 0x4444444433333333UL, 0x2222222211111111UL ] do
+      let after, left = quadSequence isa [ lqarx; first ] quad
       expect 0b0010UL (cr0 after) (nameOf isa)
       expect low (doubleword left ea) (nameOf isa)
       expect high (doubleword left (ea + 8UL)) (nameOf isa)
-      let hexes = [ lqarx; first; second ]
-      let after, left = sequence isa hexes state given memory
+      let after, left = quadSequence isa [ lqarx; first; second ] quad
       expect 0UL (cr0 after) (nameOf isa)
       expect low (doubleword left ea) (nameOf isa)
       expect high (doubleword left (ea + 8UL)) (nameOf isa)
-      let after, left = sequence isa [ first ] state given []
+      let after, left = quadSequence isa [ first ] []
       expect 0UL (cr0 after) (nameOf isa)
       expect 0UL (uint64 left.Count) (nameOf isa)
 
   /// <summary>
   /// lq loads the quadword at EA into an even-odd register pair -- the even
   /// register the doubleword at EA on a big-endian processor and the one at
-  /// EA + 8 on a little-endian one, which byte-reverses the quadword -- and
-  /// stq stores a pair the same way. rA may name the odd register, which the
-  /// load then overwrites; a quadword off a sixteen-byte boundary moves all
-  /// the same, as it does in QEMU's user mode. Values from QEMU running lq
-  /// r10,16(r6), lq r10,0(r11), stq r12,8(r6) and stq r12,16(r6) in each byte
-  /// order (specs lq, lqle).
+  /// EA + 8 on a little-endian one, which byte-reverses the quadword. rA may
+  /// name the odd register, which the load then overwrites; a quadword off a
+  /// sixteen-byte boundary loads all the same, as it does in QEMU's user
+  /// mode. Values from QEMU running lq r10,16(r6) and lq r10,0(r11) in each
+  /// byte order (specs lq, lqle).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC64] LQ and STQ move a quadword to and from a pair``() =
-    let ea = 0x20200080UL
-    let memory =
-      [ ea, ByteArray.ofHexString "00112233445566778899aabbccddeeff"
-        ea + 16UL, ByteArray.ofHexString "0123456789abcdeffedcba9876543210" ]
+  member _.``[PPC64] LQ loads a quadword into a pair``() =
     let aligned, off = 0x20200070UL, 0x20200078UL
     (* lq r10,16(r6); lq r10,0(r11) *)
     let bigLoads =
@@ -24725,18 +24926,27 @@ type LifterTests() =
         "e1460010", off, 0xefcdab8967452301UL, 0xffeeddccbbaa9988UL ]
     for isa, loads in [ ppc64, bigLoads; ppc64le, littleLoads ] do
       for hex, r6, r10, r11 in loads do
-        let given = [ R6, r6; R11, ea ]
-        let after, _ = sequence isa [ hex ] [ R10; R11 ] given memory
+        let given = [ R6, r6; R11, 0x20200080UL ]
+        let after, _ = sequence isa [ hex ] [ R10; R11 ] given pairMemory
         expect r10 (after R10) $"{hex} {r6:x} {nameOf isa}"
         expect r11 (after R11) $"{hex} {r6:x} {nameOf isa}"
-    (* stq r12,8(r6); stq r12,16(r6) *)
+
+  /// <summary>
+  /// stq stores an even-odd register pair as lq loads one, off a
+  /// sixteen-byte boundary as well. Values from QEMU running stq r12,8(r6)
+  /// and stq r12,16(r6) in each byte order (specs lq, lqle).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] STQ stores a pair as a quadword``() =
+    let ea = 0x20200080UL
     let pair = [ R12, 0x1111111122222222UL; R13, 0x3333333344444444UL ]
+    (* stq r12,8(r6); stq r12,16(r6) *)
     for isa, first, second in
       [ ppc64, 0x1111111122222222UL, 0x3333333344444444UL
         ppc64le, 0x4444444433333333UL, 0x2222222211111111UL ] do
       for hex, at in [ "f986000a", ea; "f9860012", ea + 8UL ] do
-        let given = (R6, off) :: pair
-        let _, left = sequence isa [ hex ] [] given memory
+        let given = (R6, 0x20200078UL) :: pair
+        let _, left = sequence isa [ hex ] [] given pairMemory
         expect first (doubleword left at) $"{hex} {nameOf isa}"
         expect second (doubleword left (at + 8UL)) $"{hex} {nameOf isa}"
 
@@ -24771,6 +24981,29 @@ type LifterTests() =
     for isa in ppc64s do
       for hex in [ "7ca0025c"; "7ca0fa5c" ] do
         expect 0UL (run isa hex [ R5, 0xbad0bad0bad0badUL ] R5) hex
+
+  /// <summary>
+  /// clrbhrb clears the branch history rolling buffer, which this model
+  /// keeps empty, so it changes no register and no memory. The reference
+  /// cannot run it: QEMU's user mode leaves the facility off.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] CLRBHRB changes nothing``() =
+    (* clrbhrb *)
+    for isa in ppc64s do
+      expect 0UL (uint64 (writes isa "7c00035c").Length) (nameOf isa)
+
+  /// <summary>
+  /// icbt is a hint that an instruction cache block will soon be needed; it
+  /// changes no register and no memory. QEMU refuses it outside Book E
+  /// (deviations/ppc64/icbt.c), so the expectation is the ISA's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] ICBT changes nothing``() =
+    (* icbt 0, r6, r7; icbt 2, r6, r7 *)
+    for isa in all3 do
+      for hex in [ "7c06382c"; "7c46382c" ] do
+        expect 0UL (uint64 (writes isa hex).Length) $"{hex} {nameOf isa}"
 
   /// <summary>
   /// mtspr and mfspr of TAR (815) move all of rS in and out on a 64-bit
@@ -24849,87 +25082,262 @@ type LifterTests() =
         expect nia (after LR) case
 
   /// <summary>
-  /// The extended divides put the low word (doubleword) of rA above a word
-  /// (doubleword) of zeros and divide that by the low word (doubleword) of
-  /// rB, the high words of a 64-bit register taking no part. On a 64-bit
-  /// processor a word quotient fills the register by sign extension for divwe
-  /// and zero extension for divweu, as QEMU leaves it (the ISA leaves the
-  /// high word undefined). Values from qemu-ppc64 -cpu power10 (spec
-  /// divext); the 32-bit processor's are the low words of the same, as the
-  /// 7457 has no extended divide.
+  /// divwe puts the low word of rA above a word of zeros and divides that by
+  /// the low word of rB as signed integers, the high words of a 64-bit
+  /// register taking no part; the quotient fills a 64-bit register by sign
+  /// extension, as QEMU leaves it (the ISA leaves the high word undefined).
+  /// Values from qemu-ppc64 -cpu power10 (spec divext); the 32-bit
+  /// processor's are the low words of the same, as the 7457 has no extended
+  /// divide.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] The extended divides divide rA shifted up a word``() =
-    let neg1, neg3 = UInt64.MaxValue, 0xfffffffffffffffdUL
-    (* divwe, divweu, divde, divdeu r5, r6, r7 *)
-    let divwe, divweu, divde, divdeu =
-      "7ca63b56", "7ca63b16", "7ca63b52", "7ca63b12"
-    let cases =
-      [ divwe, 1UL, 3UL, 0x55555555UL
-        divwe, neg1, 4UL, 0xffffffffc0000000UL
-        divwe, 1UL, neg3, 0xffffffffaaaaaaabUL
-        divwe, 0xffffffff00000001UL, 0x500000003UL, 0x55555555UL
-        divweu, 1UL, 3UL, 0x55555555UL
-        divweu, 0x7fffffffUL, 0x80000000UL, 0xfffffffeUL
-        divweu, 0xffffffff00000001UL, 3UL, 0x55555555UL
-        divde, 1UL, 3UL, 0x5555555555555555UL
-        divde, neg1, 4UL, 0xc000000000000000UL
-        divde, 1UL, neg3, 0xaaaaaaaaaaaaaaabUL
-        divdeu, 1UL, 3UL, 0x5555555555555555UL
-        divdeu, 0x7fffffffffffffffUL, 1UL <<< 63, 0xfffffffffffffffeUL ]
-    for isa in ppc64s do
-      for hex, a, b, q in cases do
-        let after = run isa hex [ R6, a; R7, b ]
-        expect q (after R5) $"{hex} {a:x} {b:x} {nameOf isa}"
-    for hex, a, b, q in
-      [ divwe, 1UL, 3UL, 0x55555555UL
-        divwe, 0xffffffffUL, 4UL, 0xc0000000UL
-        divweu, 0x7fffffffUL, 0x80000000UL, 0xfffffffeUL ] do
-      expect q (run ppc32 hex [ R6, a; R7, b ] R5) $"{hex} {a:x} ppc32"
+  member _.``[PPC] DIVWE divides rA shifted up a word``() =
+    (* divwe r5, r6, r7 *)
+    expectR5
+      all3
+      "7ca63b56"
+      [ 1UL, 3UL, 0x55555555UL
+        UInt64.MaxValue, 4UL, 0xffffffffc0000000UL
+        1UL, 0xfffffffffffffffdUL, 0xffffffffaaaaaaabUL
+        0xffffffff00000001UL, 0x500000003UL, 0x55555555UL ]
 
   /// <summary>
-  /// The OE forms of the extended divides set OV and OV32 where the quotient
-  /// does not fit -- rA's low word not below rB's for divweu, any quotient
-  /// past the signed range for divwe -- or the divisor is zero, clear them
-  /// where it fits, and OR OV into SO; the record forms set CR0 from the
-  /// result and SO. Values from qemu-ppc64 -cpu power10 (spec divext).
+  /// divwe. sets CR0 from the quotient of divwe and from XER[SO], which a
+  /// zero divisor leaves the only defined bit of it. Values from qemu-ppc64
+  /// -cpu power10 (spec divext).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC64] The extended divides record an overflow``() =
+  member _.``[PPC64] DIVWE. records in CR0``() =
+    (* divwe. r5, r6, r7 *)
+    expectCR0
+      "7ca63b57"
+      [ 1UL, 3UL, 0UL, 0xfUL, 0b0100UL
+        1UL, 3UL, 0xe00c0000UL, 0xfUL, 0b0101UL
+        UInt64.MaxValue, 4UL, 0UL, 0xfUL, 0b1000UL
+        5UL, 0UL, 0UL, 1UL, 0UL
+        5UL, 0UL, 0xe00c0000UL, 1UL, 1UL ]
+
+  /// <summary>
+  /// divweo sets OV and OV32 where the quotient of divwe is past the signed
+  /// word range or the divisor is zero, clears them where it fits, and ORs
+  /// OV into SO. Values from qemu-ppc64 -cpu power10 (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVWEO records an overflow``() =
+    (* divweo r5, r6, r7 *)
+    expectR5 ppc64s "7ca63f56" [ 1UL, 3UL, 0x55555555UL ]
+    expectXER
+      "7ca63f56"
+      [ 1UL, 3UL, 0xe00c0000UL, 0xa0040000UL
+        UInt64.MaxValue, 4UL, 0xe00c0000UL, 0xa0040000UL
+        5UL, 0UL, 0UL, 0xc0080000UL
+        5UL, 0UL, 0xe00c0000UL, 0xe00c0000UL ]
+
+  /// <summary>
+  /// divweo. records the overflow as divweo does and sets CR0 from the
+  /// quotient and the SO that results. Values from qemu-ppc64 -cpu power10
+  /// (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVWEO. records an overflow in CR0``() =
+    (* divweo. r5, r6, r7 *)
+    expectXER "7ca63f57" [ 5UL, 0UL, 0UL, 0xc0080000UL ]
+    expectCR0
+      "7ca63f57"
+      [ 1UL, 3UL, 0xe00c0000UL, 0xfUL, 0b0101UL
+        1UL, 0xfffffffffffffffdUL, 0UL, 0xfUL, 0b1000UL
+        5UL, 0UL, 0UL, 1UL, 1UL ]
+
+  /// <summary>
+  /// divweu divides the low word of rA above a word of zeros by the low word
+  /// of rB as unsigned integers; the quotient fills a 64-bit register by
+  /// zero extension, as QEMU leaves it. Values from qemu-ppc64 -cpu power10
+  /// (spec divext); the 32-bit processor's are the low words of the same.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DIVWEU divides rA shifted up a word``() =
+    (* divweu r5, r6, r7 *)
+    expectR5
+      all3
+      "7ca63b16"
+      [ 1UL, 3UL, 0x55555555UL
+        0x7fffffffUL, 0x80000000UL, 0xfffffffeUL
+        0xffffffff00000001UL, 3UL, 0x55555555UL ]
+
+  /// <summary>
+  /// divweu. sets CR0 from the quotient of divweu, compared as a signed
+  /// doubleword, and from XER[SO]. Values from qemu-ppc64 -cpu power10 (spec
+  /// divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVWEU. records in CR0``() =
+    (* divweu. r5, r6, r7 *)
+    expectCR0
+      "7ca63b17"
+      [ 0x7fffffffUL, 0x80000000UL, 0UL, 0xfUL, 0b0100UL
+        0x7fffffffUL, 0x80000000UL, 0xe00c0000UL, 0xfUL, 0b0101UL
+        5UL, 3UL, 0UL, 1UL, 0UL
+        5UL, 3UL, 0xe00c0000UL, 1UL, 1UL ]
+
+  /// <summary>
+  /// divweuo sets OV and OV32 where rA's low word is not below rB's -- the
+  /// quotient does not fit a word -- or the divisor is zero, clears them
+  /// where it fits, and ORs OV into SO. Values from qemu-ppc64 -cpu power10
+  /// (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVWEUO records an overflow``() =
+    (* divweuo r5, r6, r7 *)
+    expectR5 ppc64s "7ca63f16" [ 0x7fffffffUL, 0x80000000UL, 0xfffffffeUL ]
+    expectXER
+      "7ca63f16"
+      [ 1UL, 3UL, 0xe00c0000UL, 0xa0040000UL
+        5UL, 3UL, 0UL, 0xc0080000UL
+        5UL, 0UL, 0UL, 0xc0080000UL
+        5UL, 0UL, 0xe00c0000UL, 0xe00c0000UL ]
+
+  /// <summary>
+  /// divweuo. records the overflow as divweuo does and sets CR0 from the
+  /// quotient and the SO that results. Values from qemu-ppc64 -cpu power10
+  /// (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVWEUO. records an overflow in CR0``() =
+    (* divweuo. r5, r6, r7 *)
+    expectXER "7ca63f17" [ 5UL, 3UL, 0UL, 0xc0080000UL ]
+    expectCR0
+      "7ca63f17"
+      [ 1UL, 3UL, 0UL, 0xfUL, 0b0100UL
+        0x7fffffffUL, 0x80000000UL, 0xe00c0000UL, 0xfUL, 0b0101UL
+        5UL, 3UL, 0UL, 1UL, 1UL ]
+
+  /// <summary>
+  /// divde puts rA above a doubleword of zeros and divides that by rB as
+  /// signed integers. Values from qemu-ppc64 -cpu power10 (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDE divides rA shifted up a doubleword``() =
+    (* divde r5, r6, r7 *)
+    expectR5
+      ppc64s
+      "7ca63b52"
+      [ 1UL, 3UL, 0x5555555555555555UL
+        UInt64.MaxValue, 4UL, 0xc000000000000000UL
+        1UL, 0xfffffffffffffffdUL, 0xaaaaaaaaaaaaaaabUL ]
+
+  /// <summary>
+  /// divde. sets CR0 from the quotient of divde and from XER[SO]. Values from
+  /// qemu-ppc64 -cpu power10 (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDE. records in CR0``() =
+    (* divde. r5, r6, r7 *)
+    expectCR0
+      "7ca63b53"
+      [ 1UL, 3UL, 0UL, 0xfUL, 0b0100UL
+        UInt64.MaxValue, 4UL, 0xe00c0000UL, 0xfUL, 0b1001UL
+        5UL, 3UL, 0UL, 1UL, 0UL ]
+
+  /// <summary>
+  /// divdeo. records an overflow of divde in OV, OV32 and SO and sets CR0
+  /// from the quotient and the SO that results. Values from qemu-ppc64 -cpu
+  /// power10 (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEO. records an overflow in CR0``() =
+    (* divdeo. r5, r6, r7 *)
+    expectXER "7ca63f53" [ 5UL, 0UL, 0UL, 0xc0080000UL ]
+    expectCR0
+      "7ca63f53"
+      [ 1UL, 3UL, 0xe00c0000UL, 0xfUL, 0b0101UL
+        UInt64.MaxValue, 4UL, 0UL, 0xfUL, 0b1000UL
+        5UL, 0UL, 0UL, 1UL, 1UL ]
+
+  /// <summary>
+  /// divdeu puts rA above a doubleword of zeros and divides that by rB as
+  /// unsigned integers. Values from qemu-ppc64 -cpu power10 (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEU divides rA shifted up a doubleword``() =
+    (* divdeu r5, r6, r7 *)
+    expectR5
+      ppc64s
+      "7ca63b12"
+      [ 1UL, 3UL, 0x5555555555555555UL
+        0x7fffffffffffffffUL, 1UL <<< 63, 0xfffffffffffffffeUL ]
+
+  /// <summary>
+  /// divdeu. sets CR0 from the quotient of divdeu, compared as a signed
+  /// doubleword, and from XER[SO]. Values from qemu-ppc64 -cpu power10 (spec
+  /// divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEU. records in CR0``() =
     let max, min = 0x7fffffffffffffffUL, 1UL <<< 63
-    (* divweo., divdeuo., divde. r5, r6, r7 *)
-    let divweo, divdeuo, divde = "7ca63f57", "7ca63f13", "7ca63b53"
-    let cases =
-      [ divweo, 1UL, 3UL, 0xe00c0000UL, 0xa0040000UL, 0b0101UL
-        divweo, 5UL, 3UL, 0UL, 0xc0080000UL, 0b0001UL
-        divweo, 5UL, 0UL, 0UL, 0xc0080000UL, 0b0001UL
-        divdeuo, max, min, 0xe00c0000UL, 0xa0040000UL, 0b1001UL
-        divdeuo, 5UL, 3UL, 0UL, 0xc0080000UL, 0b0001UL
-        divde, 1UL, 3UL, 0UL, 0UL, 0b0100UL ]
-    for isa in ppc64s do
-      for hex, a, b, xer, xerAfter, field in cases do
-        let after = run isa hex [ R6, a; R7, b; XER, xer ]
-        let case = $"{hex} {a:x} {b:x} {nameOf isa}"
-        expect xerAfter (after XER) case
-        let mask = if xerAfter &&& ov <> 0UL then 1UL else 0b1111UL
-        expect field (cr0 after &&& mask) case
+    (* divdeu. r5, r6, r7 *)
+    expectCR0
+      "7ca63b13"
+      [ 1UL, 3UL, 0UL, 0xfUL, 0b0100UL
+        max, min, 0UL, 0xfUL, 0b1000UL
+        max, min, 0xe00c0000UL, 0xfUL, 0b1001UL
+        5UL, 3UL, 0UL, 1UL, 0UL ]
+
+  /// <summary>
+  /// divdeuo sets OV and OV32 where rA is not below rB -- the quotient does
+  /// not fit a doubleword -- or the divisor is zero, clears them where it
+  /// fits, and ORs OV into SO. Values from qemu-ppc64 -cpu power10 (spec
+  /// divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEUO records an overflow``() =
+    let max, min = 0x7fffffffffffffffUL, 1UL <<< 63
+    (* divdeuo r5, r6, r7 *)
+    expectR5 ppc64s "7ca63f12" [ max, min, 0xfffffffffffffffeUL ]
+    expectXER
+      "7ca63f12"
+      [ max, min, 0xe00c0000UL, 0xa0040000UL
+        5UL, 3UL, 0UL, 0xc0080000UL
+        5UL, 0UL, 0UL, 0xc0080000UL
+        5UL, 0UL, 0xe00c0000UL, 0xe00c0000UL ]
+
+  /// <summary>
+  /// divdeuo. records the overflow as divdeuo does and sets CR0 from the
+  /// quotient and the SO that results. Values from qemu-ppc64 -cpu power10
+  /// (spec divext).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] DIVDEUO. records an overflow in CR0``() =
+    let max, min = 0x7fffffffffffffffUL, 1UL <<< 63
+    (* divdeuo. r5, r6, r7 *)
+    expectXER
+      "7ca63f13"
+      [ max, min, 0xe00c0000UL, 0xa0040000UL
+        5UL, 3UL, 0UL, 0xc0080000UL ]
+    expectCR0
+      "7ca63f13"
+      [ max, min, 0xe00c0000UL, 0xfUL, 0b1001UL
+        5UL, 3UL, 0UL, 1UL, 1UL ]
 
   /// <summary>
   /// divdeo sets OV, OV32 and SO wherever the quotient of (RA) || 0^64 by
-  /// (RB) does not fit in a signed doubleword (Book I 3.3.9), including the
+  /// (RB) does not fit in a signed doubleword or the divisor is zero (Book I
+  /// 3.3.9), and clears OV and OV32 where it fits. That includes the last
   /// two pairs below, whose quotients are 0x8518bf31833e14c3 and
-  /// -0xab7593371e55f291. QEMU 8.2.2 leaves OV clear on both and wraps the
+  /// -0xab7593371e55f291: QEMU 8.2.2 leaves OV clear on both and wraps the
   /// quotient (spec divdeov, deviations/ppc64/divdeo.c); the manual wins.
+  /// The other values are from qemu-ppc64 -cpu power10 (spec divext).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC64] DIVDEO flags the overflows QEMU misses``() =
+  member _.``[PPC64] DIVDEO records an overflow``() =
     (* divdeo r5, r6, r7 *)
-    for isa in ppc64s do
-      for a, b in
-        [ 0x13404cd3e565dfa1UL, 0x25072963263f0842UL
-          0x16513f36f7cb2f45UL, 0xdeadbeefcafebabeUL ] do
-        let after = run isa "7ca63f52" [ R6, a; R7, b ]
-        expect 0xc0080000UL (after XER) $"{a:x} {nameOf isa}"
+    expectR5 ppc64s "7ca63f52" [ 1UL, 3UL, 0x5555555555555555UL ]
+    expectXER
+      "7ca63f52"
+      [ 1UL, 3UL, 0xe00c0000UL, 0xa0040000UL
+        5UL, 3UL, 0UL, 0xc0080000UL
+        5UL, 0UL, 0UL, 0xc0080000UL
+        0x13404cd3e565dfa1UL, 0x25072963263f0842UL, 0UL, 0xc0080000UL
+        0x16513f36f7cb2f45UL, 0xdeadbeefcafebabeUL, 0UL, 0xc0080000UL ]
 
   /// <summary>
   /// addg6s adds rA and rB and gives 6 in each digit whose binary sum did
@@ -24960,106 +25368,184 @@ type LifterTests() =
 
   /// <summary>
   /// cdtbcd turns the two declets in the low 20 bits of each word of rS into
-  /// six BCD digits in the low 24 bits of that word of rA, and cbcdtd the
-  /// other way round; the rest of each word is zero. Values from qemu-ppc64
-  /// -cpu power10 (spec bcd, valid BCD for cbcdtd, any declets for cdtbcd);
+  /// six BCD digits in the low 24 bits of that word of rA; the rest of each
+  /// word is zero. Every declet is defined. Values from qemu-ppc64 -cpu
+  /// power10 (spec bcd); the 32-bit processor's are the low words of the
+  /// same.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] CDTBCD converts declets to BCD digits``() =
+    (* cdtbcd r6, r8 *)
+    expectUnary
+      all3
+      "7d060234"
+      [ 0x6f0099956b01600aUL, 0x0002631500058080UL
+        0xd3a6cad490c0f21dUL, 0x0033255400830815UL
+        0x000fffff0000016eUL, 0x0099999900000888UL ]
+
+  /// <summary>
+  /// cbcdtd turns the six BCD digits in the low 24 bits of each word of rS
+  /// into two declets in the low 20 bits of that word of rA; the rest of
+  /// each word is zero. A digit above 9 gives an undefined result, so the
+  /// operands are valid BCD. Values from qemu-ppc64 -cpu power10 (spec bcd);
   /// the 32-bit processor's are the low words of the same.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] CDTBCD and CBCDTD convert declets and BCD digits``() =
-    (* cbcdtd r6, r8; cdtbcd r6, r8 *)
-    let cases =
-      [ "7d060274", 0x0033956300993908UL, 0x0006e6e300067caeUL
-        "7d060274", 0x0015817600414002UL, 0x000360f600085002UL
-        "7d060274", 0x0099999900000000UL, 0x0003fcff00000000UL
-        "7d060234", 0x6f0099956b01600aUL, 0x0002631500058080UL
-        "7d060234", 0xd3a6cad490c0f21dUL, 0x0033255400830815UL
-        "7d060234", 0x000fffff0000016eUL, 0x0099999900000888UL ]
-    for isa in ppc64s do
-      for hex, rs, ra in cases do
-        expect ra (run isa hex [ R8, rs ] R6) $"{hex} {rs:x} {nameOf isa}"
-    for hex, rs, ra in cases do
-      let lo = 0xffffffffUL
-      expect (ra &&& lo) (run ppc32 hex [ R8, rs &&& lo ] R6) $"{hex} ppc32"
+  member _.``[PPC] CBCDTD converts BCD digits to declets``() =
+    (* cbcdtd r6, r8 *)
+    expectUnary
+      all3
+      "7d060274"
+      [ 0x0033956300993908UL, 0x0006e6e300067caeUL
+        0x0015817600414002UL, 0x000360f600085002UL
+        0x0099999900000000UL, 0x0003fcff00000000UL ]
 
   /// <summary>
-  /// cnttzw and cnttzd count the zeros below the lowest one bit of rS's low
-  /// word or of all of it, giving the width where there is none; the record
-  /// forms set CR0 from the count. Values from qemu-ppc64 -cpu power10; the
-  /// 32-bit processor's from the low words of the same, as the 7457 has no
-  /// cnttzw.
+  /// cnttzw counts the zeros below the lowest one bit of rS's low word, 32
+  /// where there is none. Values from qemu-ppc64 -cpu power10; the 32-bit
+  /// processor's are the low words of the same, as the 7457 has no cnttzw.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] CNTTZW and CNTTZD count the trailing zeros``() =
-    (* cnttzw r6, r8; cnttzd. r6, r8 *)
-    let cnttzw, cnttzd = "7d060434", "7d060475"
-    for isa in ppc64s do
-      for rs, n in
-        [ 3UL, 0UL
-          1UL <<< 63, 0x20UL
-          0UL, 0x20UL
-          0xffffffff80000000UL, 0x1fUL ] do
-        expect n (run isa cnttzw [ R8, rs ] R6) $"{rs:x} {nameOf isa}"
-      for rs, xer, n, field in
-        [ 1UL <<< 63, 0x20040000UL, 0x3fUL, 0b0100UL
-          0UL, so, 0x40UL, 0b0101UL
-          3UL, 0UL, 0UL, 0b0010UL ] do
-        let after = run isa cnttzd [ R8, rs; XER, xer ]
-        expect n (after R6) $"{rs:x} {nameOf isa}"
-        expect field (cr0 after) $"{rs:x} {nameOf isa}"
-    for rs, n in [ 0x80000000UL, 0x1fUL; 0UL, 0x20UL; 3UL, 0UL ] do
-      expect n (run ppc32 cnttzw [ R8, rs ] R6) $"{rs:x} ppc32"
+  member _.``[PPC] CNTTZW counts the trailing zeros of a word``() =
+    (* cnttzw r6, r8 *)
+    expectUnary
+      all3
+      "7d060434"
+      [ 3UL, 0UL
+        1UL <<< 63, 0x20UL
+        0UL, 0x20UL
+        0xffffffff80000000UL, 0x1fUL ]
 
   /// <summary>
-  /// The modulos give the remainder of a word or doubleword division with
-  /// the sign of the dividend for the signed forms; a word remainder fills a
-  /// 64-bit register by sign extension for modsw and zero extension for
-  /// moduw, as QEMU leaves it. Values from qemu-ppc64 -cpu power10; the
-  /// 32-bit processor's from the low words of the same.
+  /// cnttzw. counts as cnttzw does and sets CR0 from the count and XER[SO].
+  /// Values from qemu-ppc64 -cpu power10 (the words file).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] The modulos give the remainder``() =
-    let fives, tens = 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL
-    let a, b = 0x123456789abcdefUL, 0xfedcba9876543210UL
-    let low, neg1 = 0xffffffff80000000UL, UInt64.MaxValue
-    (* modsw, moduw, modsd, modud r5, r6, r7 *)
-    let modsw, moduw, modsd, modud =
-      "7ca63e16", "7ca63a16", "7ca63e12", "7ca63a12"
-    let cases =
-      [ modsw, 3UL, 5UL, 3UL
-        modsw, fives, tens, 0x55555555UL
-        modsw, a, b, UInt64.MaxValue
-        moduw, a, b, 0x13579bdfUL
-        moduw, low, neg1, 0x80000000UL
-        modsd, fives, tens, fives
-        modsd, 3UL, 5UL, 3UL
-        modud, 1UL <<< 63, neg1, 1UL <<< 63
-        modud, low, neg1, low ]
-    for isa in ppc64s do
-      for hex, x, y, r in cases do
-        let case = $"{hex} {x:x} {y:x} {nameOf isa}"
-        expect r (run isa hex [ R6, x; R7, y ] R5) case
-    for hex, x, y, r in
-      [ modsw, 0x89abcdefUL, 0x76543210UL, 0xffffffffUL
-        moduw, 0x89abcdefUL, 0x76543210UL, 0x13579bdfUL ] do
-      expect r (run ppc32 hex [ R6, x; R7, y ] R5) $"{hex} ppc32"
+  member _.``[PPC64] CNTTZW. records the count in CR0``() =
+    (* cnttzw. r6, r8 *)
+    expectRecordR6
+      "7d060435"
+      [ 3UL, 0UL, 0UL, 0b0010UL
+        1UL <<< 63, 0x20040000UL, 0x20UL, 0b0100UL
+        0UL, so, 0x20UL, 0b0101UL
+        0xffffffff80000000UL, 0xa0040000UL, 0x1fUL, 0b0101UL ]
 
   /// <summary>
-  /// extswsli sign-extends rS's low word and shifts it left, and its record
-  /// form sets CR0 from the doubleword. Values from qemu-ppc64 -cpu power10.
+  /// cnttzd counts the zeros below the lowest one bit of rS, 64 where there
+  /// is none. Values from qemu-ppc64 -cpu power10 (the words file).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] CNTTZD counts the trailing zeros of a doubleword``() =
+    (* cnttzd r6, r8 *)
+    expectUnary
+      ppc64s
+      "7d060474"
+      [ 3UL, 0UL
+        1UL <<< 63, 0x3fUL
+        0UL, 0x40UL
+        0xffffffff80000000UL, 0x1fUL ]
+
+  /// <summary>
+  /// cnttzd. counts as cnttzd does and sets CR0 from the count and XER[SO].
+  /// Values from qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] CNTTZD. records the count in CR0``() =
+    (* cnttzd. r6, r8 *)
+    expectRecordR6
+      "7d060475"
+      [ 1UL <<< 63, 0x20040000UL, 0x3fUL, 0b0100UL
+        0UL, so, 0x40UL, 0b0101UL
+        3UL, 0UL, 0UL, 0b0010UL ]
+
+  /// <summary>
+  /// modsw gives the remainder of the low words of rA and rB divided as
+  /// signed integers, with the sign of the dividend, filling a 64-bit
+  /// register by sign extension as QEMU leaves it. Values from qemu-ppc64
+  /// -cpu power10; the 32-bit processor's are the low words of the same.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MODSW gives the signed remainder of the words``() =
+    (* modsw r5, r6, r7 *)
+    expectR5
+      all3
+      "7ca63e16"
+      [ 3UL, 5UL, 3UL
+        0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL, 0x55555555UL
+        0x123456789abcdefUL, 0xfedcba9876543210UL, UInt64.MaxValue ]
+
+  /// <summary>
+  /// moduw gives the remainder of the low words of rA and rB divided as
+  /// unsigned integers, filling a 64-bit register by zero extension. Values
+  /// from qemu-ppc64 -cpu power10; the 32-bit processor's are the low words
+  /// of the same.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] MODUW gives the unsigned remainder of the words``() =
+    (* moduw r5, r6, r7 *)
+    expectR5
+      all3
+      "7ca63a16"
+      [ 0x123456789abcdefUL, 0xfedcba9876543210UL, 0x13579bdfUL
+        0xffffffff80000000UL, UInt64.MaxValue, 0x80000000UL ]
+
+  /// <summary>
+  /// modsd gives the remainder of rA divided by rB as signed doublewords,
+  /// with the sign of the dividend. Values from qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MODSD gives the signed remainder``() =
+    (* modsd r5, r6, r7 *)
+    expectR5
+      ppc64s
+      "7ca63e12"
+      [ 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL, 0x5555555555555555UL
+        3UL, 5UL, 3UL ]
+
+  /// <summary>
+  /// modud gives the remainder of rA divided by rB as unsigned doublewords.
+  /// Values from qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] MODUD gives the unsigned remainder``() =
+    let low = 0xffffffff80000000UL
+    (* modud r5, r6, r7 *)
+    expectR5
+      ppc64s
+      "7ca63a12"
+      [ 1UL <<< 63, UInt64.MaxValue, 1UL <<< 63
+        low, UInt64.MaxValue, low ]
+
+  /// <summary>
+  /// extswsli sign-extends rS's low word and shifts it left. Values from
+  /// qemu-ppc64 -cpu power10 (the words file, extswsli r6, r8, 5).
   /// </summary>
   [<TestMethod>]
   member _.``[PPC64] EXTSWSLI sign-extends a word and shifts it``() =
+    (* extswsli r6, r8, 5 *)
+    expectUnary
+      ppc64s
+      "7d062ef4"
+      [ 3UL, 0x60UL
+        0x7fffffffffffffffUL, 0xffffffffffffffe0UL
+        0x5555555555555555UL, 0xaaaaaaaa0UL
+        0x123456789abcdefUL, 0xfffffff13579bde0UL
+        0x7fffffffUL, 0xfffffffe0UL
+        0xffffffff80000000UL, 0xfffffff000000000UL ]
+
+  /// <summary>
+  /// extswsli. shifts as extswsli does and sets CR0 from the doubleword and
+  /// XER[SO]. Values from qemu-ppc64 -cpu power10.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] EXTSWSLI. records the result in CR0``() =
     (* extswsli. r6, r8, 5 *)
-    for isa in ppc64s do
-      for rs, xer, ra, field in
-        [ 3UL, 0UL, 0x60UL, 0b0100UL
-          0x7fffffffffffffffUL, 0xe00c0000UL, 0xffffffffffffffe0UL, 0b1001UL
-          0x5555555555555555UL, 0x40080000UL, 0xaaaaaaaa0UL, 0b0100UL
-          0x7fffffffUL, 0x20040000UL, 0xfffffffe0UL, 0b0100UL ] do
-        let after = run isa "7d062ef5" [ R8, rs; XER, xer ]
-        expect ra (after R6) $"{rs:x} {nameOf isa}"
-        expect field (cr0 after) $"{rs:x} {nameOf isa}"
+    expectRecordR6
+      "7d062ef5"
+      [ 3UL, 0UL, 0x60UL, 0b0100UL
+        0x7fffffffffffffffUL, 0xe00c0000UL, 0xffffffffffffffe0UL, 0b1001UL
+        0x5555555555555555UL, 0x40080000UL, 0xaaaaaaaa0UL, 0b0100UL
+        0x7fffffffUL, 0x20040000UL, 0xfffffffe0UL, 0b0100UL ]
 
   /// <summary>
   /// setb gives -1 where the CR field it names says LT, 1 where it says GT
@@ -25077,17 +25563,16 @@ type LifterTests() =
         expect r (run isa "7cac0100" given R5) $"{field} {nameOf isa}"
 
   /// <summary>
-  /// cmprb sets the CR field it names to 0b0100 where the low byte of rA
-  /// lies within the bounds in rB's low two bytes -- or, for L = 1, within
-  /// those or the ones in the two above them -- and to zero where it does
-  /// not; cmpeqb where it equals any byte of rB. Values from qemu-ppc64 -cpu
-  /// power10 (spec p9: isdigit and isalpha ranges, the whitespace bytes).
+  /// cmprb sets the CR field it names to 0b0100 where the low byte of rA lies
+  /// within the bounds in rB's low two bytes -- or, for L = 1, within those
+  /// or the ones in the two above them -- and to zero where it does not.
+  /// Values from qemu-ppc64 -cpu power10 (spec p9: the isdigit and isalpha
+  /// ranges).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC64] CMPRB and CMPEQB test a byte against ranges and bytes``() =
+  member _.``[PPC64] CMPRB tests a byte against one or two ranges``() =
     let digits, letters = 0x3930UL, 0x7a615a41UL
-    let spaces = 0x0909090a0b0c0d20UL
-    (* cmprb cr2,0,r6,r7; cmprb cr2,1,r6,r7; cmpeqb cr2,r6,r7 *)
+    (* cmprb cr2,0,r6,r7; cmprb cr2,1,r6,r7 *)
     let cases =
       [ "7d063980", 0x35UL, digits, 0b0100UL
         "7d063980", 0x30UL, digits, 0b0100UL
@@ -25096,18 +25581,29 @@ type LifterTests() =
         "7d063980", 0x7aUL, letters, 0UL
         "7d263980", 0x7aUL, letters, 0b0100UL
         "7d263980", 0x5bUL, letters, 0UL
-        "7d263980", 0xffffffffffffff61UL, letters, 0b0100UL
-        "7d0639c0", 0x20UL, spaces, 0b0100UL
-        "7d0639c0", 0x41UL, spaces, 0UL
-        "7d0639c0", 0xffffff0bUL, spaces, 0b0100UL
-        "7d0639c0", 0x100UL, spaces, 0UL ]
+        "7d263980", 0xffffffffffffff61UL, letters, 0b0100UL ]
     for isa in ppc64s do
       for hex, ra, rb, field in cases do
         let after = run isa hex [ R6, ra; R7, rb ]
-        let cr2 =
-          (after CR2_0 <<< 3) ||| (after CR2_1 <<< 2) ||| (after CR2_2 <<< 1)
-          ||| after CR2_3
-        expect field cr2 $"{hex} {ra:x} {nameOf isa}"
+        expect field (cr2 after) $"{hex} {ra:x} {nameOf isa}"
+
+  /// <summary>
+  /// cmpeqb sets the CR field it names to 0b0100 where the low byte of rA
+  /// equals any byte of rB and to zero where it equals none. Values from
+  /// qemu-ppc64 -cpu power10 (spec p9: the whitespace bytes).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] CMPEQB tests a byte against eight``() =
+    let spaces = 0x0909090a0b0c0d20UL
+    (* cmpeqb cr2,r6,r7 *)
+    for isa in ppc64s do
+      for ra, field in
+        [ 0x20UL, 0b0100UL
+          0x41UL, 0UL
+          0xffffff0bUL, 0b0100UL
+          0x100UL, 0UL ] do
+        let after = run isa "7d0639c0" [ R6, ra; R7, spaces ]
+        expect field (cr2 after) $"{ra:x} {nameOf isa}"
 
   /// <summary>
   /// mcrxrx copies OV, OV32, CA and CA32 into the CR field it names. Values
@@ -25189,186 +25685,318 @@ type LifterTests() =
         expect UInt64.MaxValue (run isa hex [ R5, 0x1234UL ] R5) hex
 
   /// <summary>
-  /// brd reverses the bytes of rS, brw those of each word and brh those of
-  /// each halfword. Values from qemu-ppc64 -cpu power10 (the words file and
-  /// spec isa31); the 32-bit processor's are the low words of the same, as
-  /// the 7457 has none of them.
+  /// brd reverses the bytes of rS. Values from qemu-ppc64 -cpu power10 (the
+  /// words file and spec isa31).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] BRD, BRW and BRH reverse bytes``() =
-    let a, b = 0x0123456789abcdefUL, 0xffffffff80000000UL
-    (* brd, brw, brh r6, r8 *)
-    let brd, brw, brh = "7d060176", "7d060136", "7d0601b6"
-    let cases =
-      [ brd, a, 0xefcdab8967452301UL
-        brd, 0x80000000000000ffUL, 0xff00000000000080UL
-        brd, b, 0x80ffffffffUL
-        brw, a, 0x67452301efcdab89UL
-        brw, b, 0xffffffff00000080UL
-        brh, a, 0x23016745ab89efcdUL
-        brh, b, 0xffffffff00800000UL ]
-    for isa in ppc64s do
-      for hex, rs, ra in cases do
-        expect ra (run isa hex [ R8, rs ] R6) $"{hex} {rs:x} {nameOf isa}"
-    for hex, rs, ra in
-      [ brw, 0x89abcdefUL, 0xefcdab89UL
-        brh, 0x89abcdefUL, 0xab89efcdUL
-        brw, 0x80000000UL, 0x80UL ] do
-      expect ra (run ppc32 hex [ R8, rs ] R6) $"{hex} {rs:x} ppc32"
+  member _.``[PPC64] BRD reverses the bytes of a doubleword``() =
+    (* brd r6, r8 *)
+    expectUnary
+      ppc64s
+      "7d060176"
+      [ 0x0123456789abcdefUL, 0xefcdab8967452301UL
+        0x80000000000000ffUL, 0xff00000000000080UL
+        0xffffffff80000000UL, 0x80ffffffffUL ]
 
   /// <summary>
-  /// pextd packs the bits of rS under the ones of rB into the low bits of rA
-  /// in their order; pdepd spreads the low bits of rS over those positions;
-  /// cfuged packs the bits under the ones to the right and the rest to the
-  /// left, each in its order. Values from qemu-ppc64 -cpu power10 (the words
+  /// brw reverses the bytes of each word of rS. Values from qemu-ppc64 -cpu
+  /// power10 (the words file and spec isa31); the 32-bit processor's are the
+  /// low words of the same, as the 7457 has no brw.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BRW reverses the bytes of each word``() =
+    (* brw r6, r8 *)
+    expectUnary
+      all3
+      "7d060136"
+      [ 0x0123456789abcdefUL, 0x67452301efcdab89UL
+        0xffffffff80000000UL, 0xffffffff00000080UL ]
+
+  /// <summary>
+  /// brh reverses the bytes of each halfword of rS. Values from qemu-ppc64
+  /// -cpu power10 (the words file and spec isa31); the 32-bit processor's are
+  /// the low words of the same, as the 7457 has no brh.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] BRH reverses the bytes of each halfword``() =
+    (* brh r6, r8 *)
+    expectUnary
+      all3
+      "7d0601b6"
+      [ 0x0123456789abcdefUL, 0x23016745ab89efcdUL
+        0xffffffff80000000UL, 0xffffffff00800000UL ]
+
+  /// <summary>
+  /// pextd packs the bits of rS under the ones of rB into the low bits of
+  /// rA, keeping their order. Values from qemu-ppc64 -cpu power10 (the words
   /// file and spec isa31).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC64] PEXTD, PDEPD and CFUGED move bits under a mask``() =
-    let a, beef = 0x0123456789abcdefUL, 0xdeadbeefcafebabeUL
-    let mixed, ends = 0xff00ff00f0f0f0f0UL, 0x8000000000000001UL
-    (* pextd, pdepd, cfuged r6, r8, r7 *)
-    let pextd, pdepd, cfuged = "7d063978", "7d063938", "7d0639b8"
-    let cases =
-      [ pextd, a, mixed, 0x1458aceUL
-        pextd, beef, ends, 2UL
-        pextd, beef, 0xffff0000UL, 0xcafeUL
-        pextd, 0xfffffffffffffff0UL, 0xff00ff00ff00ffUL, 0xfffffff0UL
-        pextd, 0xf0000000000000UL, 0xff0000000000ff0UL, 0xf00UL
-        pextd, beef, UInt64.MaxValue, beef
-        pextd, 0x1234UL, 0UL, 0UL
-        pdepd, a, mixed, 0x8900ab00c0d0e0f0UL
-        pdepd, beef, ends, 0x8000000000000000UL
-        pdepd, beef, 0xffff0000UL, 0xbabe0000UL
-        pdepd, 0xfffffffffffffff0UL, 0xff00ff00ff00ffUL, 0xff00ff00ff00f0UL
-        pdepd, a, 0xfedcba9876543210UL, 0x88c89a8066503210UL
-        cfuged, a, mixed, 0x23679bdf01458aceUL
-        cfuged, beef, ends, 0xbd5b7ddf95fd757eUL
-        cfuged, beef, 0xffff0000UL, 0xdeadbeefbabecafeUL
-        cfuged, ends, ends, 3UL
-        cfuged, 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL, 0xffffffff00000000UL
-        cfuged, beef, UInt64.MaxValue, beef
-        cfuged, 0x1234UL, 0UL, 0x1234UL ]
-    for isa in ppc64s do
-      for hex, rs, rb, ra in cases do
-        let case = $"{hex} {rs:x} {rb:x} {nameOf isa}"
-        expect ra (run isa hex [ R8, rs; R7, rb ] R6) case
+  member _.``[PPC64] PEXTD packs the bits under a mask``() =
+    let beef = 0xdeadbeefcafebabeUL
+    (* pextd r6, r8, r7 *)
+    expectBinary
+      ppc64s
+      "7d063978"
+      [ 0x0123456789abcdefUL, 0xff00ff00f0f0f0f0UL, 0x1458aceUL
+        beef, 0x8000000000000001UL, 2UL
+        beef, 0xffff0000UL, 0xcafeUL
+        0xfffffffffffffff0UL, 0xff00ff00ff00ffUL, 0xfffffff0UL
+        0xf0000000000000UL, 0xff0000000000ff0UL, 0xf00UL
+        beef, UInt64.MaxValue, beef
+        0x1234UL, 0UL, 0UL ]
 
   /// <summary>
-  /// cntlzdm and cnttzdm count the zeros of rS under the ones of rB from
-  /// the most or the least significant end up to the first one there,
-  /// giving the number of ones in rB where there is none. Values from
+  /// pdepd spreads the low bits of rS over the positions of the ones of rB,
+  /// lowest first, and clears the rest. Values from qemu-ppc64 -cpu power10
+  /// (the words file and spec isa31).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] PDEPD spreads bits over a mask``() =
+    let a, beef = 0x0123456789abcdefUL, 0xdeadbeefcafebabeUL
+    (* pdepd r6, r8, r7 *)
+    expectBinary
+      ppc64s
+      "7d063938"
+      [ a, 0xff00ff00f0f0f0f0UL, 0x8900ab00c0d0e0f0UL
+        beef, 0x8000000000000001UL, 0x8000000000000000UL
+        beef, 0xffff0000UL, 0xbabe0000UL
+        0xfffffffffffffff0UL, 0xff00ff00ff00ffUL, 0xff00ff00ff00f0UL
+        a, 0xfedcba9876543210UL, 0x88c89a8066503210UL ]
+
+  /// <summary>
+  /// cfuged packs the bits of rS under the ones of rB to the right of rA and
+  /// the others to the left, each keeping their order. Values from
   /// qemu-ppc64 -cpu power10 (the words file and spec isa31).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC64] CNTLZDM and CNTTZDM count zeros under a mask``() =
-    let a, beef = 0x0123456789abcdefUL, 0xdeadbeefcafebabeUL
-    let mixed, ends = 0xff00ff00f0f0f0f0UL, 0x8000000000000001UL
-    (* cntlzdm, cnttzdm r6, r8, r7 *)
-    let lz, tz = "7d063876", "7d063c76"
-    let cases =
-      [ lz, a, mixed, 7UL
-        lz, beef, ends, 0UL
-        lz, 0UL, 0xf0fUL, 8UL
-        lz, 0xf0000000000000UL, 0xff0000000000ff0UL, 4UL
-        lz, 0UL, UInt64.MaxValue, 0x40UL
-        lz, 0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL, 0x20UL
-        tz, a, mixed, 1UL
-        tz, beef, ends, 1UL
-        tz, ends, ends, 0UL
-        tz, 0xfffffffffffffff0UL, 0xff00ff00ff00ffUL, 4UL
-        tz, 0xf0000000000000UL, 0xff0000000000ff0UL, 8UL
-        tz, 0x8000000000000000UL, UInt64.MaxValue, 0x3fUL
-        tz, 0UL, UInt64.MaxValue, 0x40UL ]
-    for isa in ppc64s do
-      for hex, rs, rb, ra in cases do
-        let case = $"{hex} {rs:x} {rb:x} {nameOf isa}"
-        expect ra (run isa hex [ R8, rs; R7, rb ] R6) case
+  member _.``[PPC64] CFUGED separates the bits under a mask``() =
+    let beef, ends = 0xdeadbeefcafebabeUL, 0x8000000000000001UL
+    (* cfuged r6, r8, r7 *)
+    expectBinary
+      ppc64s
+      "7d0639b8"
+      [ 0x0123456789abcdefUL, 0xff00ff00f0f0f0f0UL, 0x23679bdf01458aceUL
+        beef, ends, 0xbd5b7ddf95fd757eUL
+        beef, 0xffff0000UL, 0xdeadbeefbabecafeUL
+        ends, ends, 3UL
+        0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL, 0xffffffff00000000UL
+        beef, UInt64.MaxValue, beef
+        0x1234UL, 0UL, 0x1234UL ]
 
   /// <summary>
-  /// setbc gives 1 where the CR bit BI is set and 0 where it is clear,
-  /// setbcr the other way round, and setnbc and setnbcr the same with -1 in
-  /// place of 1. Values from qemu-ppc64 -cpu power10 (the words file, BI =
-  /// 4*cr2+gt); the 32-bit processor's -1 is the low word of the same.
+  /// cntlzdm counts the zeros of rS under the ones of rB from the most
+  /// significant end up to the first one there, giving the number of ones in
+  /// rB where there is none. Values from qemu-ppc64 -cpu power10 (the words
+  /// file and spec isa31).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] SETBC and its kin turn a CR bit into a number``() =
-    (* setbc, setbcr, setnbc, setnbcr r5, 4*cr2+gt *)
-    for isa in [ ppc32; ppc64; ppc64le ] do
-      let cases =
-        [ "7ca90300", 1UL, 0UL
-          "7ca90340", 0UL, 1UL
-          "7ca90380", ones isa, 0UL
-          "7ca903c0", 0UL, ones isa ]
-      for hex, set, clear in cases do
-        let given bit = [ CR2_1, bit; R5, 0xbad0badUL ]
-        expect set (run isa hex (given 1UL) R5) $"{hex} {nameOf isa}"
-        expect clear (run isa hex (given 0UL) R5) $"{hex} {nameOf isa}"
+  member _.``[PPC64] CNTLZDM counts leading zeros under a mask``() =
+    (* cntlzdm r6, r8, r7 *)
+    expectBinary
+      ppc64s
+      "7d063876"
+      [ 0x0123456789abcdefUL, 0xff00ff00f0f0f0f0UL, 7UL
+        0xdeadbeefcafebabeUL, 0x8000000000000001UL, 0UL
+        0UL, 0xf0fUL, 8UL
+        0xf0000000000000UL, 0xff0000000000ff0UL, 4UL
+        0UL, UInt64.MaxValue, 0x40UL
+        0x5555555555555555UL, 0xaaaaaaaaaaaaaaaaUL, 0x20UL ]
 
   /// <summary>
-  /// popcntb, popcntw, prtyw and cmpb work on bytes and words, and the ISA
-  /// gives them to a 32-bit processor as well, which computes on its one
-  /// word what a 64-bit one does on the low word of a register. Values from
-  /// qemu-ppc64 -cpu power10 (the words file and spec gate32); the 7457
-  /// refuses all four, so the 32-bit expectations are the low words.
+  /// cnttzdm counts the zeros of rS under the ones of rB from the least
+  /// significant end up to the first one there, giving the number of ones in
+  /// rB where there is none. Values from qemu-ppc64 -cpu power10 (the words
+  /// file and spec isa31).
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] POPCNTB, POPCNTW, PRTYW and CMPB on either processor``() =
-    let a, b = 0x8000000180ff0f01UL, 0x1234567808ff0f01UL
-    (* popcntb r6,r8; popcntw r6,r8; prtyw r6,r8; cmpb r6,r8,r7 *)
-    let popcntb, popcntw, prtyw, cmpb =
-      "7d0600f4", "7d0602f4", "7d060134", "7d063bf8"
-    let cases =
-      [ popcntb, a, 0UL, 0x100000101080401UL
-        popcntb, b, 0UL, 0x203040401080401UL
-        popcntw, a, 0UL, 0x20000000eUL
-        popcntw, b, 0UL, 0xd0000000eUL
-        prtyw, a, 0UL, 0x100000001UL
-        prtyw, b, 0UL, 1UL
-        cmpb, a, 3UL, 0xffff0000000000UL
-        cmpb, b, a, 0xffffffUL
-        cmpb, 1UL, 0x80000000UL, 0xffffffff00ffff00UL ]
-    for isa in [ ppc32; ppc64; ppc64le ] do
-      for hex, rs, rb, ra in cases do
-        let case = $"{hex} {rs:x} {rb:x} {nameOf isa}"
-        let given = [ R8, rs &&& ones isa; R7, rb &&& ones isa ]
-        expect (ra &&& ones isa) (run isa hex given R6) case
+  member _.``[PPC64] CNTTZDM counts trailing zeros under a mask``() =
+    let ends = 0x8000000000000001UL
+    (* cnttzdm r6, r8, r7 *)
+    expectBinary
+      ppc64s
+      "7d063c76"
+      [ 0x0123456789abcdefUL, 0xff00ff00f0f0f0f0UL, 1UL
+        0xdeadbeefcafebabeUL, ends, 1UL
+        ends, ends, 0UL
+        0xfffffffffffffff0UL, 0xff00ff00ff00ffUL, 4UL
+        0xf0000000000000UL, 0xff0000000000ff0UL, 8UL
+        0x8000000000000000UL, UInt64.MaxValue, 0x3fUL
+        0UL, UInt64.MaxValue, 0x40UL ]
 
   /// <summary>
-  /// lbarx and lharx load a byte or halfword and reserve it, and stbcx. and
-  /// sthcx. store the low byte or halfword of rS while the reservation holds
-  /// and clear it, so a second one stores nothing. The ISA gives all four to
-  /// a 32-bit processor as well. Values from qemu-ppc64 -cpu power10
-  /// running lbarx r5,0,r6; stbcx. r7,0,r6; stbcx. r7,0,r6 and the same with
-  /// lharx and sthcx. in each byte order (specs gate32, gate32le); the 7457
-  /// refuses all four, so the 32-bit expectations are the big-endian 64-bit
+  /// setbc gives 1 where the CR bit BI is set and 0 where it is clear.
+  /// Values from qemu-ppc64 -cpu power10 (the words file, BI = 4*cr2+gt).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] SETBC gives 1 for a set CR bit``() =
+    (* setbc r5, 4*cr2+gt *)
+    expectFromCRBit "7ca90300" one none
+
+  /// <summary>
+  /// setbcr gives 0 where the CR bit BI is set and 1 where it is clear.
+  /// Values from qemu-ppc64 -cpu power10 (the words file, BI = 4*cr2+gt).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] SETBCR gives 1 for a clear CR bit``() =
+    (* setbcr r5, 4*cr2+gt *)
+    expectFromCRBit "7ca90340" none one
+
+  /// <summary>
+  /// setnbc gives -1 where the CR bit BI is set and 0 where it is clear.
+  /// Values from qemu-ppc64 -cpu power10 (the words file, BI = 4*cr2+gt);
+  /// the 32-bit processor's -1 is the low word of the same.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] SETNBC gives -1 for a set CR bit``() =
+    (* setnbc r5, 4*cr2+gt *)
+    expectFromCRBit "7ca90380" ones none
+
+  /// <summary>
+  /// setnbcr gives 0 where the CR bit BI is set and -1 where it is clear.
+  /// Values from qemu-ppc64 -cpu power10 (the words file, BI = 4*cr2+gt);
+  /// the 32-bit processor's -1 is the low word of the same.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] SETNBCR gives -1 for a clear CR bit``() =
+    (* setnbcr r5, 4*cr2+gt *)
+    expectFromCRBit "7ca903c0" none ones
+
+  /// <summary>
+  /// popcntb counts the ones of each byte of rS into that byte of rA. The
+  /// ISA gives it to a 32-bit processor too. Values from qemu-ppc64 -cpu
+  /// power10 (spec gate32); the 7457 refuses it, so the 32-bit expectations
+  /// are the low words.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] POPCNTB counts the ones of each byte``() =
+    (* popcntb r6, r8 *)
+    expectUnary
+      all3
+      "7d0600f4"
+      [ 0x8000000180ff0f01UL, 0x100000101080401UL
+        0x1234567808ff0f01UL, 0x203040401080401UL ]
+
+  /// <summary>
+  /// popcntw counts the ones of each word of rS into that word of rA. The
+  /// ISA gives it to a 32-bit processor too. Values from qemu-ppc64 -cpu
+  /// power10 (spec gate32); the 32-bit expectations are the low words.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] POPCNTW counts the ones of each word``() =
+    (* popcntw r6, r8 *)
+    expectUnary
+      all3
+      "7d0602f4"
+      [ 0x8000000180ff0f01UL, 0x20000000eUL
+        0x1234567808ff0f01UL, 0xd0000000eUL ]
+
+  /// <summary>
+  /// prtyw puts the parity of the low bits of each word's bytes in the low
+  /// bit of that word of rA. The ISA gives it to a 32-bit processor too.
+  /// Values from qemu-ppc64 -cpu power10 (spec gate32); the 32-bit
+  /// expectations are the low words.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] PRTYW gives the parity of each word's bytes``() =
+    (* prtyw r6, r8 *)
+    expectUnary
+      all3
+      "7d060134"
+      [ 0x8000000180ff0f01UL, 0x100000001UL
+        0x1234567808ff0f01UL, 1UL ]
+
+  /// <summary>
+  /// cmpb sets each byte of rA to all ones where the bytes of rS and rB
+  /// there are equal and to zero where they are not. The ISA gives it to a
+  /// 32-bit processor too. Values from qemu-ppc64 -cpu power10 (the words
+  /// file and spec gate32); the 32-bit expectations are the low words.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] CMPB compares bytes``() =
+    let a = 0x8000000180ff0f01UL
+    (* cmpb r6, r8, r7 *)
+    expectBinary
+      all3
+      "7d063bf8"
+      [ a, 3UL, 0xffff0000000000UL
+        0x1234567808ff0f01UL, a, 0xffffffUL
+        1UL, 0x80000000UL, 0xffffffff00ffff00UL ]
+
+  /// <summary>
+  /// lbarx loads a byte and reserves it, so that an stbcx. after it
+  /// succeeds. The ISA gives it to a 32-bit processor too. Values from
+  /// qemu-ppc64 -cpu power10 running lbarx r5,0,r6 and lbarx r5,0,r6;
+  /// stbcx. r7,0,r6 (specs gate32, gate32le); the 7457 refuses it, so the
+  /// 32-bit expectations are the big-endian 64-bit processor's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LBARX loads and reserves a byte``() =
+    (* lbarx r5,0,r6; stbcx. r7,0,r6 *)
+    for isa in all3 do
+      let after, _ = smallReserve isa [ "7ca03068" ]
+      expect 0x88UL (after R5) (nameOf isa)
+      let after, _ = smallReserve isa [ "7ca03068"; "7ce0356d" ]
+      expect 0b0010UL (cr0 after) (nameOf isa)
+
+  /// <summary>
+  /// lharx loads a halfword in the processor's byte order and reserves it,
+  /// so that an sthcx. after it succeeds. The ISA gives it to a 32-bit
+  /// processor too. Values from qemu-ppc64 -cpu power10 running lharx
+  /// r5,0,r6 and lharx r5,0,r6; sthcx. r7,0,r6 (specs gate32, gate32le);
+  /// the 32-bit expectations are the big-endian 64-bit processor's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LHARX loads and reserves a halfword``() =
+    (* lharx r5,0,r6; sthcx. r7,0,r6 *)
+    for isa, half in [ ppc32, 0x8899UL; ppc64, 0x8899UL; ppc64le, 0x9988UL ] do
+      let after, _ = smallReserve isa [ "7ca030e8" ]
+      expect half (after R5) (nameOf isa)
+      let after, _ = smallReserve isa [ "7ca030e8"; "7ce035ad" ]
+      expect 0b0010UL (cr0 after) (nameOf isa)
+
+  /// <summary>
+  /// stbcx. stores the low byte of rS while the reservation lbarx made holds
+  /// and clears it, so a second one stores nothing. The ISA gives it to a
+  /// 32-bit processor too. Values from qemu-ppc64 -cpu power10 running
+  /// lbarx r5,0,r6; stbcx. r7,0,r6; stbcx. r7,0,r6 (specs gate32,
+  /// gate32le); the 32-bit expectations are the big-endian 64-bit
   /// processor's.
   /// </summary>
   [<TestMethod>]
-  member _.``[PPC] LBARX, LHARX, STBCX. and STHCX. on either processor``() =
+  member _.``[PPC] STBCX. stores a reserved byte once``() =
     let ea = 0x20200080UL
-    let memory = [ ea, ByteArray.ofHexString "8899aabbccddeeff" ]
-    let field = [ CR0_0; CR0_1; CR0_2; CR0_3 ]
-    let state = [ R5; R6; R7; RES; ExMonAddr; ExMonVal; XER ] @ field
-    let given = [ R6, ea; R7, 0x80ff0f01UL ]
-    (* lbarx r5,0,r6; stbcx. r7,0,r6 -- lharx r5,0,r6; sthcx. r7,0,r6 *)
-    for isa, half, halfWord in
-      [ ppc32, 0x8899UL, 0x0f01aabbUL
-        ppc64, 0x8899UL, 0x0f01aabbUL
-        ppc64le, 0x9988UL, 0x010faabbUL ] do
-      let cases =
-        [ "7ca03068", "7ce0356d", 0x88UL, 0x0199aabbUL
-          "7ca030e8", "7ce035ad", half, halfWord ]
-      for load, store, loaded, word in cases do
-        let case = $"{load} {nameOf isa}"
-        let after, left = sequence isa [ load; store ] state given memory
-        expect loaded (after R5) case
-        expect 0b0010UL (cr0 after) case
-        expect word (valueAt left ea 4) case
-        let hexes = [ load; store; store ]
-        let after, left = sequence isa hexes state given memory
-        expect 0UL (cr0 after) case
-        expect word (valueAt left ea 4) case
+    (* lbarx r5,0,r6; stbcx. r7,0,r6 *)
+    let load, store = "7ca03068", "7ce0356d"
+    for isa in all3 do
+      let after, left = smallReserve isa [ load; store ]
+      expect 0b0010UL (cr0 after) (nameOf isa)
+      expect 0x0199aabbUL (valueAt left ea 4) (nameOf isa)
+      let after, left = smallReserve isa [ load; store; store ]
+      expect 0UL (cr0 after) (nameOf isa)
+      expect 0x0199aabbUL (valueAt left ea 4) (nameOf isa)
+
+  /// <summary>
+  /// sthcx. stores the low halfword of rS in the processor's byte order
+  /// while the reservation lharx made holds and clears it, so a second one
+  /// stores nothing. The ISA gives it to a 32-bit processor too. Values from
+  /// qemu-ppc64 -cpu power10 running lharx r5,0,r6; sthcx. r7,0,r6; sthcx.
+  /// r7,0,r6 (specs gate32, gate32le); the 32-bit expectations are the
+  /// big-endian 64-bit processor's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STHCX. stores a reserved halfword once``() =
+    let ea = 0x20200080UL
+    (* lharx r5,0,r6; sthcx. r7,0,r6 *)
+    let load, store = "7ca030e8", "7ce035ad"
+    for isa, word in
+      [ ppc32, 0x0f01aabbUL; ppc64, 0x0f01aabbUL; ppc64le, 0x010faabbUL ] do
+      let after, left = smallReserve isa [ load; store ]
+      expect 0b0010UL (cr0 after) (nameOf isa)
+      expect word (valueAt left ea 4) (nameOf isa)
+      let after, left = smallReserve isa [ load; store; store ]
+      expect 0UL (cr0 after) (nameOf isa)
+      expect word (valueAt left ea 4) (nameOf isa)
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
