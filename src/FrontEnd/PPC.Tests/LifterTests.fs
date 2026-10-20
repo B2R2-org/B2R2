@@ -3523,6 +3523,135 @@ type LifterTests() =
     let wanted = [ R5, 0x800000000000000UL ]
     oracle only64 "10bf1e42" given wanted
 
+  /// <summary>
+  /// vstribl vD, vB copies the bytes of vB from the left up to and including
+  /// the first zero one and clears the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSTRIBL keeps bytes from the left up to a zero``() =
+    (* vstribl v1, v3 *)
+    let given = [ V3A, 0x5555555555555555UL; V3B, 0x5555555555555555UL ]
+    let wanted = [ V1A, 0x5555555555555555UL; V1B, 0x5555555555555555UL ]
+    oracle only64 "1020180d" given wanted
+
+  /// <summary>
+  /// vstribl. vD, vB writes vD as vstribl does and sets CR6 to 0b0010 where a
+  /// zero element was found and to zero where none was.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSTRIBLdot isolates a byte string and records it``() =
+    (* vstribl. v1, v3 *)
+    let given = [ V3A, 0x5555555555555555UL; V3B, 0x5555555555555555UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x5555555555555555UL
+        V1B, 0x5555555555555555UL ]
+    oracle only64 "10201c0d" given wanted
+
+  /// <summary>
+  /// vstribr vD, vB copies the bytes of vB from the right up to and including
+  /// the first zero one and clears the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSTRIBR keeps bytes from the right up to a zero``() =
+    (* vstribr v1, v3 *)
+    let given = [ V3A, 0x5555555555555555UL; V3B, 0x5555555555555555UL ]
+    let wanted = [ V1A, 0x5555555555555555UL; V1B, 0x5555555555555555UL ]
+    oracle only64 "1021180d" given wanted
+
+  /// <summary>
+  /// vstribr. vD, vB writes vD as vstribr does and sets CR6 to 0b0010 where a
+  /// zero element was found and to zero where none was.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSTRIBRdot isolates a byte string and records it``() =
+    (* vstribr. v1, v3 *)
+    let given = [ V3A, 0x5555555555555555UL; V3B, 0x5555555555555555UL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x5555555555555555UL
+        V1B, 0x5555555555555555UL ]
+    oracle only64 "10211c0d" given wanted
+
+  /// <summary>
+  /// vstrihl vD, vB copies the halfwords of vB from the left up to and
+  /// including the first zero one and clears the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSTRIHL keeps halfwords from the left up to a zero``() =
+    (* vstrihl v1, v3 *)
+    let given = [ V3A, 0x7fff8000ffff0001UL; V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ V1A, 0x7fff8000ffff0001UL; V1B, 0x7f80ff00017f80ffUL ]
+    oracle only64 "1022180d" given wanted
+
+  /// <summary>
+  /// vstrihl. vD, vB writes vD as vstrihl does and sets CR6 to 0b0010 where a
+  /// zero element was found and to zero where none was.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSTRIHLdot isolates a halfword string and records it``() =
+    (* vstrihl. v1, v3 *)
+    let given = [ V3A, 0x7fff8000ffff0001UL; V3B, 0x7f80ff00017f80ffUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x7fff8000ffff0001UL
+        V1B, 0x7f80ff00017f80ffUL ]
+    oracle only64 "10221c0d" given wanted
+
+  /// <summary>
+  /// vstrihr vD, vB copies the halfwords of vB from the right up to and
+  /// including the first zero one and clears the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSTRIHR keeps halfwords from the right up to a zero``() =
+    (* vstrihr v1, v3 *)
+    let given = [ V3A, 0x7fff8000ffff0001UL; V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ V1A, 0x7fff8000ffff0001UL; V1B, 0x7f80ff00017f80ffUL ]
+    oracle only64 "1023180d" given wanted
+
+  /// <summary>
+  /// vstrihr. vD, vB writes vD as vstrihr does and sets CR6 to 0b0010 where a
+  /// zero element was found and to zero where none was.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSTRIHRdot isolates a halfword string and records it``() =
+    (* vstrihr. v1, v3 *)
+    let given = [ V3A, 0x7fff8000ffff0001UL; V3B, 0x7f80ff00017f80ffUL ]
+    let wanted =
+      [ CR6_0, 0UL
+        CR6_1, 0UL
+        CR6_2, 0UL
+        CR6_3, 0UL
+        V1A, 0x7fff8000ffff0001UL
+        V1B, 0x7f80ff00017f80ffUL ]
+    oracle only64 "10231c0d" given wanted
+
+  /// <summary>
+  /// vpermr vD, vA, vB, vC writes into each byte of vD byte 31 - i of the 32
+  /// bytes of vA || vB, i being the low five bits of the matching byte of vC.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VPERMR permutes bytes counted from the right``() =
+    (* vpermr v1, v2, v3, v4 *)
+    let given =
+      [ V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL
+        V4A, 0x0003000500070009UL
+        V4B, 0x000b000d000f0011UL ]
+    let wanted = [ V1A, 0x00010080007f007fUL; V1B, 0x008000ff00000080UL ]
+    oracle only64 "1022193b" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

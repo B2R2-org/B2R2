@@ -1914,6 +1914,24 @@ let translate (ins: Instruction) bld =
     vecMoveToMask ins bld 128<rt>
   | Op.MTVSRBMI ->
     mtvsrbmi ins bld
+  | Op.VSTRIBL ->
+    vecStringIsolate ins bld 8<rt> true false
+  | Op.VSTRIBLdot ->
+    vecStringIsolate ins bld 8<rt> true true
+  | Op.VSTRIBR ->
+    vecStringIsolate ins bld 8<rt> false false
+  | Op.VSTRIBRdot ->
+    vecStringIsolate ins bld 8<rt> false true
+  | Op.VSTRIHL ->
+    vecStringIsolate ins bld 16<rt> true false
+  | Op.VSTRIHLdot ->
+    vecStringIsolate ins bld 16<rt> true true
+  | Op.VSTRIHR ->
+    vecStringIsolate ins bld 16<rt> false false
+  | Op.VSTRIHRdot ->
+    vecStringIsolate ins bld 16<rt> false true
+  | Op.VPERMR ->
+    vpermr ins bld
   (* End of lane V. *)
   | o ->
 #if DEBUG

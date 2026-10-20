@@ -100,3 +100,43 @@ let vecCountMaskBits ins (bld: ILowUIRBuilder) esize =
     let shift = 56 + System.Numerics.BitOperations.Log2(uint32 esize / 8u)
     rt := count << numI32 shift 64<rt>
   }
+
+/// vstri*: the elements of vB from the left (or the right) up to and including
+/// the first zero one, the rest of vD cleared. The record form sets CR6 to
+/// 0b0010 where a zero element was found and to zero where none was.
+let vecStringIsolate ins bld esize left record =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let e = elementsOf bld esize o2
+    let zero = AST.num0 esize
+    let step (kept, found) x =
+      AST.ite found zero x :: kept, found .| (x == zero)
+    let kept, found =
+      Array.fold step ([], AST.b0) (if left then e else Array.rev e)
+    let kept = List.toArray kept
+    let flag = tmpVar bld 1<rt>
+    flag := found
+    putElements bld o1 (if left then Array.rev kept else kept)
+    if record then
+      regVar bld Register.CR6_0 := AST.b0
+      regVar bld Register.CR6_1 := AST.b0
+      regVar bld Register.CR6_2 := flag
+      regVar bld Register.CR6_3 := AST.b0
+    else
+      ()
+  }
+
+/// vpermr, vperm with the 32 bytes of vA || vB counted from the right: each
+/// byte of vD is byte 31 - i of the pair, i being the low five bits of the
+/// matching byte of vC.
+let vpermr ins bld =
+  lift bld ins {
+    let struct (o1, o2, o3, o4) = getFourOprs ins
+    let pair =
+      Array.append (elementsOf bld 8<rt> o2) (elementsOf bld 8<rt> o3)
+    let picks = elementsOf bld 8<rt> o4
+    picks
+    |> Array.map (fun c ->
+      byteAt pair (numI32 31 8<rt> .- (c .& numI32 31 8<rt>)))
+    |> putElements bld o1
+  }

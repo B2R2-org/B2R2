@@ -339,6 +339,19 @@ let private maskEncoders () =
     Op.VCNTMBD, vxCountMask 30u 1602u
     Op.MTVSRBMI, dxMask ]
 
+/// The string isolates, whose record bit sits above their extended opcode and
+/// whose vA field picks the element and the end they start from; and vpermr.
+let private stringEncoders () =
+  [ Op.VSTRIBL, vxSub 0u 13u
+    Op.VSTRIBLdot, vxSub 0u 1037u
+    Op.VSTRIBR, vxSub 1u 13u
+    Op.VSTRIBRdot, vxSub 1u 1037u
+    Op.VSTRIHL, vxSub 2u 13u
+    Op.VSTRIHLdot, vxSub 2u 1037u
+    Op.VSTRIHR, vxSub 3u 13u
+    Op.VSTRIHRdot, vxSub 3u 1037u
+    Op.VPERMR, va 59u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -354,4 +367,5 @@ let vmxEncoders () =
       sumEncoders ()
       countEncoders ()
       shiftEncoders ()
-      maskEncoders () ]
+      maskEncoders ()
+      stringEncoders () ]
