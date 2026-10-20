@@ -2439,17 +2439,9 @@ let private parse1FDouble fallback bin =
   | 0x03Au -> parseXFormUnary Op.CNTLZD Op.CNTLZDdot bin
   | 0x044u -> parseTD bin
   | 0x049u -> parseXFormArith Op.MULHD Op.MULHDdot bin
-  (* The byte and halfword reservation pairs came with the doubleword ones'
-     generation of the architecture, so they sit alongside them here. *)
-  | 0x034u -> parseReserveIndexed Op.LBARX bin
   | 0x054u -> parseReserveIndexed Op.LDARX bin
-  | 0x074u -> parseReserveIndexed Op.LHARX bin
-  | 0x2B6u -> parseStoreConditional Op.STBCXdot bin
-  | 0x2D6u -> parseStoreConditional Op.STHCXdot bin
   | 0x073u -> parseVsrMove Op.MFVSRWZ bin
-  | 0x07Au -> parseXFormCount Op.POPCNTB bin
   | 0x095u -> parseXFormIndexed Op.STDX bin
-  | 0x09Au -> parseXFormCount Op.PRTYW bin
   | 0x0B3u -> parseVsrMove Op.MTVSRD bin
   | 0x0B5u -> parseXFormIndexed Op.STDUX bin
   | 0x0BAu -> parseXFormCount Op.PRTYD bin
@@ -2467,7 +2459,6 @@ let private parse1FDouble fallback bin =
   | 0x0FCu -> parseXFormPerm Op.BPERMD bin
   | 0x155u -> parseXFormIndexed Op.LWAX bin
   | 0x175u -> parseXFormIndexed Op.LWAUX bin
-  | 0x17Au -> parseXFormCount Op.POPCNTW bin
   | 0x1C9u | 0x3C9u -> parseXOForm [| Op.DIVDU
                                       Op.DIVDUdot
                                       Op.DIVDUO
@@ -2477,7 +2468,6 @@ let private parse1FDouble fallback bin =
                                       Op.DIVDO
                                       Op.DIVDOdot |] bin
   | 0x1FAu -> parseXFormCount Op.POPCNTD bin
-  | 0x1FCu -> parseXFormPerm Op.CMPB bin
   | 0x214u -> parseXFormIndexed Op.LDBRX bin
   | 0x21Bu -> parseXFormLogical Op.SRD Op.SRDdot bin
   | 0x294u -> parseXFormIndexed Op.STDBRX bin
@@ -2740,20 +2730,32 @@ let private parseSETBC op bin =
   else
     struct (op, TwoOperands(rt, bi))
 
+/// <summary>
 /// The lane A forms of primary opcode 31, tried before the word dispatcher
 /// they otherwise fall back to. The forms on doublewords and the quadword
 /// pair need 64-bit registers, and the branch history buffer belongs to the
-/// 64-bit server processors; icbt and the word forms decode on either.
+/// 64-bit server processors; icbt and the word forms decode on either. So do
+/// popcntb, popcntw, prtyw, cmpb and the byte and halfword reservation pairs,
+/// which the ISA gives a 32-bit processor too.
+/// </summary>
 let private parse1FLaneA is64 fallback bin =
   match Bits.extract bin 10u 1u with
   | 0x016u ->
     parseICBT bin
+  | 0x034u ->
+    parseReserveIndexed Op.LBARX bin
   | 0x03Bu when is64 ->
     parseXFormPerm Op.CNTLZDM bin
   | 0x04Au ->
     parseXFormIndexed Op.ADDG6S bin
+  | 0x074u ->
+    parseReserveIndexed Op.LHARX bin
+  | 0x07Au ->
+    parseXFormCount Op.POPCNTB bin
   | 0x080u ->
     parseSETB bin
+  | 0x09Au ->
+    parseXFormCount Op.PRTYW bin
   | 0x09Bu ->
     parseXFormCount Op.BRW bin
   | 0x09Cu when is64 ->
@@ -2786,6 +2788,8 @@ let private parse1FLaneA is64 fallback bin =
     parseMFBHRBE bin
   | 0x13Au ->
     parseXFormCount Op.CBCDTD bin
+  | 0x17Au ->
+    parseXFormCount Op.POPCNTW bin
   | 0x180u ->
     parseSETBC Op.SETBC bin
   | 0x189u | 0x389u when is64 ->
@@ -2804,6 +2808,8 @@ let private parse1FLaneA is64 fallback bin =
     parseSETBC Op.SETNBC bin
   | 0x1E0u ->
     parseSETBC Op.SETNBCR bin
+  | 0x1FCu ->
+    parseXFormPerm Op.CMPB bin
   | 0x21Au ->
     parseXFormUnary Op.CNTTZW Op.CNTTZWdot bin
   | 0x23Au when is64 ->
@@ -2812,6 +2818,10 @@ let private parse1FLaneA is64 fallback bin =
     parseXFormPerm Op.CNTTZDM bin
   | 0x240u ->
     parseMCRXRX bin
+  | 0x2B6u ->
+    parseStoreConditional Op.STBCXdot bin
+  | 0x2D6u ->
+    parseStoreConditional Op.STHCXdot bin
   | 0x2F3u when is64 ->
     parseDARN bin
   | 0x309u when is64 ->

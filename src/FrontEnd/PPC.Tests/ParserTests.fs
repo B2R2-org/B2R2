@@ -3406,6 +3406,60 @@ type ParserTests() =
     for hex in [ "7d063976"; "7d0639b6"; "7d063936"; "7ca90b00"; "7ca90bc0" ] do
       testUnsupported WordSize.Bit64 hex
 
+  [<TestMethod>]
+  member _.``[PPC] POPCNTB (population count bytes)``() =
+    "7d0600f4"
+    ++ (POPCNTB ** [ O.Reg R6; O.Reg R8 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] POPCNTW (population count words)``() =
+    "7d0602f4"
+    ++ (POPCNTW ** [ O.Reg R6; O.Reg R8 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC64] POPCNTD (population count doubleword)``() =
+    "7d0603f4"
+    ++ (POPCNTD ** [ O.Reg R6; O.Reg R8 ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC] PRTYW (parity word)``() =
+    "7d060134"
+    ++ (PRTYW ** [ O.Reg R6; O.Reg R8 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] CMPB (compare bytes)``() =
+    "7d063bf8"
+    ++ (CMPB ** [ O.Reg R6; O.Reg R8; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] LBARX (load byte and reserve indexed)``() =
+    "7ca63868"
+    ++ (LBARX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] LHARX (load halfword and reserve indexed)``() =
+    "7ca638e8"
+    ++ (LHARX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] STBCX. (store byte conditional indexed)``() =
+    "7d063d6d"
+    ++ (STBCXdot ** [ O.Reg R8; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
+  [<TestMethod>]
+  member _.``[PPC] STHCX. (store halfword conditional indexed)``() =
+    "7d063dad"
+    ++ (STHCXdot ** [ O.Reg R8; O.Reg R6; O.Reg R7 ])
+    ||> testAllPPC
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
