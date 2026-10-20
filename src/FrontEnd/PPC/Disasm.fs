@@ -1470,8 +1470,11 @@ let opCodeToString = function
   | Op.XXPERMR -> "xxpermr"
   | Op.XXSETACCZ -> "xxsetaccz"
   (* Lane A: integer, branch, storage and system instructions. *)
+  | Op.ADDG6S -> "addg6s"
   | Op.BCTAR -> "bctar"
   | Op.BCTARL -> "bctarl"
+  | Op.CBCDTD -> "cbcdtd"
+  | Op.CDTBCD -> "cdtbcd"
   | Op.CLRBHRB -> "clrbhrb"
   | Op.DIVDE -> "divde"
   | Op.DIVDEdot -> "divde."

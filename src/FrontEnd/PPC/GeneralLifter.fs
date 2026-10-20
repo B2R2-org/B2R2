@@ -2203,6 +2203,106 @@ let mtvsrw ins bld signed =
 /// of 2^63 and up are converted with 2^63 taken off and put back afterwards.
 (* Lane A: the branch and storage instructions of ISA 2.07 and later. *)
 /// <summary>
+/// addg6s, which adds rA and rB and, for each four-bit digit, puts 6 in the
+/// result where the binary sum did not carry out of that digit and 0 where it
+/// did. The carry into bit 4k of a sum is bit 4k of a ^ b ^ sum; the carry out
+/// of the top digit is the sum's own carry.
+/// </summary>
+let addg6s ins (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rt, ra, rb) = transThreeOprs ins bld
+    let width = int bld.RegType
+    let struct (sum, carries) = tmpVars2 bld bld.RegType
+    let num v = numU64 (v >>> (64 - width)) bld.RegType
+    let ones = num 0x1111111111111111UL
+    let top = AST.zext bld.RegType (sum .< ra)
+    sum := ra .+ rb
+    carries := ((ra <+> rb <+> sum) >> numI32 4 bld.RegType) .& ones
+    carries := carries .| (top << numI32 (width - 4) bld.RegType)
+    rt := (carries <+> ones) .* numU64 6UL bld.RegType
+  }
+
+/// <summary>
+/// The twelve bits of three BCD digits from the ten of a declet, pqr stu v
+/// wxy, by the Boolean equations of Book I Appendix B.2: abcd efgh ijkm.
+/// </summary>
+let private dpdToBCD (dpd: Expr) =
+  let bit n = AST.extract dpd 1<rt> (9 - n)
+  let p, q, r, s, t = bit 0, bit 1, bit 2, bit 3, bit 4
+  let u, v, w, x, y = bit 5, bit 6, bit 7, bit 8, bit 9
+  let n = AST.not
+  let a = (n s .& v .& w) .| (t .& v .& w .& s) .| (v .& w .& n x)
+  let b = (p .& s .& x .& n t) .| (p .& n w) .| (p .& n v)
+  let c = (q .& s .& x .& n t) .| (q .& n w) .| (q .& n v)
+  let e = (v .& n w .& x) .| (s .& v .& w .& x) .| (n t .& v .& x .& w)
+  let f = (p .& t .& v .& w .& x .& n s) .| (s .& n x .& v) .| (s .& n v)
+  let g = (q .& t .& w .& v .& x .& n s) .| (t .& n x .& v) .| (t .& n v)
+  let i = (t .& v .& w .& x) .| (s .& v .& w .& x) .| (v .& n w .& n x)
+  let j =
+    (p .& n s .& n t .& w .& v) .| (s .& v .& n w .& x)
+    .| (p .& w .& n x .& v) .| (w .& n v)
+  let k =
+    (q .& n s .& n t .& v .& w) .| (t .& v .& n w .& x)
+    .| (q .& v .& w .& n x) .| (x .& n v)
+  AST.revConcat [| y; k; j; i; u; g; f; e; r; c; b; a |]
+
+/// <summary>
+/// The ten bits of a declet from the twelve of three BCD digits, abcd efgh
+/// ijkm, by the Boolean equations of Book I Appendix B.1: pqr stu v wxy.
+/// </summary>
+let private bcdToDPD (bcd: Expr) =
+  let bit n = AST.extract bcd 1<rt> (11 - n)
+  let a, b, c, d, e, f = bit 0, bit 1, bit 2, bit 3, bit 4, bit 5
+  let g, h, i, j, k, m = bit 6, bit 7, bit 8, bit 9, bit 10, bit 11
+  let n = AST.not
+  let p = (f .& a .& i .& n e) .| (j .& a .& n i) .| (b .& n a)
+  let q = (g .& a .& i .& n e) .| (k .& a .& n i) .| (c .& n a)
+  let s =
+    (j .& n a .& e .& n i) .| (f .& n i .& n e) .| (f .& n a .& n e)
+    .| (e .& i)
+  let t =
+    (k .& n a .& e .& n i) .| (g .& n i .& n e) .| (g .& n a .& n e)
+    .| (a .& i)
+  let v = a .| e .| i
+  let w = (n e .& j .& n i) .| (e .& i) .| a
+  let x = (n a .& k .& n i) .| (a .& i) .| e
+  AST.revConcat [| m; x; w; v; h; t; s; d; q; p |]
+
+/// <summary>
+/// cdtbcd and cbcdtd, which convert the low bits of each word of rS on their
+/// own -- two declets to six BCD digits, or back -- and zero the rest of the
+/// word. convert takes a word held in a temporary and gives its result.
+/// </summary>
+let private perWord ins (bld: ILowUIRBuilder) convert =
+  lift bld ins {
+    let struct (ra, rs) = transTwoOprs ins bld
+    let words = int bld.RegType / 32
+    let word = tmpVar bld 32<rt>
+    let result = tmpVar bld bld.RegType
+    result := AST.num0 bld.RegType
+    for n in 0 .. words - 1 do
+      word := AST.extract rs 32<rt> (32 * n)
+      AST.extract result 32<rt> (32 * n) := convert word
+    ra := result
+  }
+
+/// A word converted by cdtbcd: the declets in bits 19:10 and 9:0, as BCD in
+/// bits 23:12 and 11:0.
+let private declets word =
+  let high = dpdToBCD (AST.extract word 10<rt> 10)
+  AST.zext 32<rt> (AST.concat high (dpdToBCD (AST.extract word 10<rt> 0)))
+
+let cdtbcd ins bld = perWord ins bld declets
+
+/// A word converted by cbcdtd: the BCD digits in bits 23:12 and 11:0, as
+/// declets in bits 19:10 and 9:0.
+let private digits word =
+  let high = bcdToDPD (AST.extract word 12<rt> 12)
+  AST.zext 32<rt> (AST.concat high (bcdToDPD (AST.extract word 12<rt> 0)))
+
+let cbcdtd ins bld = perWord ins bld digits
+
+/// <summary>
 /// The extended divides, which divide the low word (doubleword) of rA with a
 /// word (doubleword) of zeros below it by the low word (doubleword) of rB, in
 /// a type twice that wide. The quotient is defined only where it fits in a

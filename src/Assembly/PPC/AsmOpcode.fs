@@ -934,5 +934,8 @@ let laneAEncoders () =
     Op.MFBHRBE, historyEntry
     Op.ICBT, cacheTouch
     Op.LQARX, quadReserve 276u 0u
-    Op.STQCXdot, quadReserve 182u 1u ]
+    Op.STQCXdot, quadReserve 182u 1u
+    Op.ADDG6S, xDab 74u 0u
+    Op.CDTBCD, xAs 282u 0u
+    Op.CBCDTD, xAs 314u 0u ]
   @ List.collect divide extendedDivides
