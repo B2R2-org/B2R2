@@ -3597,6 +3597,30 @@ type ParserTests() =
     ++ (MFSPR ** [ O.Reg R5; O.Imm 898UL ])
     ||> testAllPPC
 
+  [<TestMethod>]
+  member _.``[PPC64] LWAT (load word atomic)``() =
+    "7d46048c"
+    ++ (LWAT ** [ O.Reg R10; O.Reg R6; O.Imm 0UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] LDAT (load doubleword atomic)``() =
+    "7d46c4cc"
+    ++ (LDAT ** [ O.Reg R10; O.Reg R6; O.Imm 24UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] STWAT (store word atomic)``() =
+    "7d66058c"
+    ++ (STWAT ** [ O.Reg R11; O.Reg R6; O.Imm 0UL ])
+    ||> testOnlyPPC64
+
+  [<TestMethod>]
+  member _.``[PPC64] STDAT (store doubleword atomic)``() =
+    "7d66c5cc"
+    ++ (STDAT ** [ O.Reg R11; O.Reg R6; O.Imm 24UL ])
+    ||> testOnlyPPC64
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

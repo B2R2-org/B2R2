@@ -1015,6 +1015,12 @@ let private setCondition xo ins =
   | [ Rg d; Bit bi ] -> xForm 31u (gpr d) bi 0u xo 0u
   | _ -> wrongOperands ins
 
+/// lwat, ldat, stwat and stdat, whose function code fills the rB field.
+let private atomicForm xo ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Im fc ] -> xForm 31u (gpr t) (gpr a) (unsigned 5 fc) xo 0u
+  | _ -> wrongOperands ins
+
 /// A sync whose L and SC name one of its barriers.
 let private barrier l sc ins =
   match ins.Operands with
@@ -1062,7 +1068,11 @@ let private power9Encoders bitLen =
     Op.MODUD, xDab 265u 0u
     Op.MODUW, xDab 267u 0u
     Op.MODSD, xDab 777u 0u
-    Op.MODSW, xDab 779u 0u ]
+    Op.MODSW, xDab 779u 0u
+    Op.LWAT, atomicForm 582u
+    Op.LDAT, atomicForm 614u
+    Op.STWAT, atomicForm 710u
+    Op.STDAT, atomicForm 742u ]
   @ recording xAs 538u Op.CNTTZW Op.CNTTZWdot
   @ recording xAs 570u Op.CNTTZD Op.CNTTZDdot
 

@@ -1510,8 +1510,10 @@ let opCodeToString = function
   | Op.EXTSWSLI -> "extswsli"
   | Op.EXTSWSLIdot -> "extswsli."
   | Op.ICBT -> "icbt"
+  | Op.LDAT -> "ldat"
   | Op.LQ -> "lq"
   | Op.LQARX -> "lqarx"
+  | Op.LWAT -> "lwat"
   | Op.MCRXRX -> "mcrxrx"
   | Op.MFBHRBE -> "mfbhrbe"
   | Op.MODSD -> "modsd"
@@ -1530,10 +1532,12 @@ let opCodeToString = function
   | Op.SETNBC -> "setnbc"
   | Op.SETNBCR -> "setnbcr"
   | Op.STCISYNC -> "stcisync"
+  | Op.STDAT -> "stdat"
   | Op.STNCISYNC -> "stncisync"
   | Op.STQ -> "stq"
   | Op.STQCXdot -> "stqcx."
   | Op.STSYNC -> "stsync"
+  | Op.STWAT -> "stwat"
   | _ -> Terminator.impossible ()
 
 let condToString = function

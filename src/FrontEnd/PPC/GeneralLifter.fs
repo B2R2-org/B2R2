@@ -2797,6 +2797,169 @@ let setbc ins (bld: ILowUIRBuilder) negative reverse =
     rt := AST.ite cond value zero
   }
 
+/// Whether a function code is one Figure 3 of Book II lists for the atomic
+/// loads.
+let private isLoadFC fc =
+  fc <= 8UL || fc = 16UL || fc = 24UL || fc = 25UL || fc = 28UL
+
+/// The address an atomic memory operation reaches: (rA|0).
+let private atomicAddress bld = function
+  | OprReg Register.R0 -> AST.num0 64<rt>
+  | OprReg r -> regVar bld r
+  | _ -> raise InvalidOperandException
+
+/// <summary>
+/// The offsets from EA of the first and the last byte an atomic memory
+/// operation of s bytes reaches for a function code: the bounded and equal
+/// increments and store twin reach the operand above as well, and the
+/// bounded decrement the one below.
+/// </summary>
+let private atomicReach isLoad fc (s: int64) =
+  match fc with
+  | 24UL | 25UL -> struct (0L, 2L * s - 1L)
+  | 28UL when isLoad -> struct (-s, s - 1L)
+  | _ -> struct (0L, s - 1L)
+
+/// <summary>
+/// Raises an alignment interrupt, and goes on to the end label, where EA is
+/// not a multiple of the operand's s bytes or the bytes the operation
+/// reaches leave the aligned 32-byte block; and otherwise goes on.
+/// </summary>
+let private alignmentGuard (bld: ILowUIRBuilder) ea s reach lblEnd =
+  let struct (lo, hi) = reach
+  let block (off: int64) = (ea .+ numI64 off 64<rt>) >> numI32 5 64<rt>
+  let odd = (ea .& numI64 (s - 1L) 64<rt>) != AST.num0 64<rt>
+  let faulty = odd .| (block lo != block hi)
+  let lblFault = label bld "Fault"
+  let lblGo = label bld "Go"
+  append bld {
+    AST.cjmp faulty (AST.jmpDest lblFault) (AST.jmpDest lblGo)
+    AST.lmark lblFault
+    AST.sideEffect (Exception MisalignedAccess)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblGo
+  }
+
+/// <summary>
+/// What an atomic memory operation that reads only the operand at EA leaves
+/// there, for a function code, the old value t and the operands a and b
+/// (Book II 4.5, Figures 3 and 4).
+/// </summary>
+let private atomicResult fc t a b =
+  match fc with
+  | 0UL -> t .+ a
+  | 1UL -> t <+> a
+  | 2UL -> t .| a
+  | 3UL -> t .& a
+  | 4UL -> AST.ite (a .> t) a t
+  | 5UL -> AST.ite (a ?> t) a t
+  | 6UL -> AST.ite (a .< t) a t
+  | 7UL -> AST.ite (a ?< t) a t
+  | 8UL -> a
+  | _ -> AST.ite (t != a) b t
+
+/// <summary>
+/// The body of lwat and ldat: the old value t at EA, and for the bounded
+/// and equal codes the neighbour t2, decide what memory and rT get; a
+/// bounded operation that may not go on gives 1 &lt;&lt; (width - 1).
+/// </summary>
+let private fetchAtomic (bld: ILowUIRBuilder) rt fc size ea =
+  let s = numI32 (int size / 8) 64<rt>
+  let operand n = AST.xtlo size (regVar bld (gprAfter rt n))
+  let struct (t, t2) = tmpVars2 bld size
+  let struct (stored, result) = tmpVars2 bld size
+  let one = AST.num1 size
+  let top = numU64 (1UL <<< (int size - 1)) size
+  let neighbour = if fc = 28UL then ea .- s else ea .+ s
+  let bounded cond next = struct (AST.ite cond next t, AST.ite cond t top)
+  let struct (value, back) =
+    match fc with
+    | 24UL -> bounded (t != t2) (t .+ one)
+    | 25UL -> bounded (t == t2) (t .+ one)
+    | 28UL -> bounded (t != t2) (t .- one)
+    | _ -> struct (atomicResult fc t (operand 1) (operand 2), t)
+  append bld {
+    t := loadNative bld size ea
+    if fc >= 24UL then append bld { t2 := loadNative bld size neighbour }
+    else ()
+    stored := value
+    result := back
+    loadNative bld size ea := stored
+    regVar bld rt := widened bld result
+  }
+
+/// <summary>
+/// lwat and ldat rT, rA, FC, which update the word or doubleword at (rA)
+/// atomically as the function code says and return the old value in rT
+/// (Book II 4.5.1). A code Figure 3 does not list invokes the data storage
+/// error handler; an address not a multiple of the size, or operands that
+/// leave the aligned 32-byte block, the alignment error handler.
+/// </summary>
+let loadAtomic (ins: Instruction) (bld: ILowUIRBuilder) size =
+  match ins.Operands with
+  | ThreeOperands(OprReg rt, ra, OprImm fc) when isLoadFC fc ->
+    lift bld ins {
+      let s = int64 size / 8L
+      let ea = tmpVar bld 64<rt>
+      let lblEnd = label bld "End"
+      ea := atomicAddress bld ra
+      alignmentGuard bld ea s (atomicReach true fc s) lblEnd
+      fetchAtomic bld rt fc size ea
+      AST.lmark lblEnd
+    }
+  | ThreeOperands(_, _, OprImm _) ->
+    sideEffects ins bld (Exception ProtectionFault)
+  | _ ->
+    raise InvalidOperandException
+
+/// Whether a function code is one Figure 4 of Book II lists for the atomic
+/// stores.
+let private isStoreFC fc = fc <= 7UL || fc = 24UL
+
+/// <summary>
+/// The body of stwat and stdat: store twin (24) writes rS to both operands
+/// where they are equal, and the other codes update the one at EA.
+/// </summary>
+let private storeAtomicBody (bld: ILowUIRBuilder) rs fc size ea =
+  let next = ea .+ numI32 (int size / 8) 64<rt>
+  let value = AST.xtlo size (regVar bld rs)
+  let struct (t, t2) = tmpVars2 bld size
+  let same = t == t2
+  if fc = 24UL then
+    append bld {
+      t := loadNative bld size ea
+      t2 := loadNative bld size next
+      loadNative bld size ea := AST.ite same value t
+      loadNative bld size next := AST.ite same value t2
+    }
+  else
+    append bld {
+      t := loadNative bld size ea
+      loadNative bld size ea := atomicResult fc t value value
+    }
+
+/// <summary>
+/// stwat and stdat rS, rA, FC, which update the word or doubleword at (rA)
+/// atomically with rS as the function code says (Book II 4.5.2), faulting
+/// as lwat and ldat do.
+/// </summary>
+let storeAtomic (ins: Instruction) (bld: ILowUIRBuilder) size =
+  match ins.Operands with
+  | ThreeOperands(OprReg rs, ra, OprImm fc) when isStoreFC fc ->
+    lift bld ins {
+      let s = int64 size / 8L
+      let ea = tmpVar bld 64<rt>
+      let lblEnd = label bld "End"
+      ea := atomicAddress bld ra
+      alignmentGuard bld ea s (atomicReach false fc s) lblEnd
+      storeAtomicBody bld rs fc size ea
+      AST.lmark lblEnd
+    }
+  | ThreeOperands(_, _, OprImm _) ->
+    sideEffects ins bld (Exception ProtectionFault)
+  | _ ->
+    raise InvalidOperandException
+
 (* The vector unit. A 128-bit vector register is modeled as two 64-bit halves
    (see the Register type), and every operation below works on those halves
    rather than on a 128-bit value, so nothing needs an intermediate wider than a
