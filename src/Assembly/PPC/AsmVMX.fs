@@ -204,6 +204,27 @@ let private multiplyHighEncoders () =
     Op.MADDHDU, vaGpr 49u
     Op.MADDLD, vaGpr 51u ]
 
+/// The divides, the extended divides and the remainders.
+let private divideEncoders () =
+  [ Op.VDIVSW, vx 395u
+    Op.VDIVUW, vx 139u
+    Op.VDIVSD, vx 459u
+    Op.VDIVUD, vx 203u
+    Op.VDIVSQ, vx 267u
+    Op.VDIVUQ, vx 11u
+    Op.VDIVESW, vx 907u
+    Op.VDIVEUW, vx 651u
+    Op.VDIVESD, vx 971u
+    Op.VDIVEUD, vx 715u
+    Op.VDIVESQ, vx 779u
+    Op.VDIVEUQ, vx 523u
+    Op.VMODSW, vx 1931u
+    Op.VMODUW, vx 1675u
+    Op.VMODSD, vx 1995u
+    Op.VMODUD, vx 1739u
+    Op.VMODSQ, vx 1803u
+    Op.VMODUQ, vx 1547u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -214,4 +235,5 @@ let vmxEncoders () =
       decimalEncoders ()
       saturatingEncoders ()
       compareEncoders ()
-      multiplyHighEncoders () ]
+      multiplyHighEncoders ()
+      divideEncoders () ]
