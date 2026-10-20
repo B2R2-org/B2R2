@@ -2746,6 +2746,17 @@ let private parseEXTSWSLI bin =
   let op = if Bits.pick bin 0u = 0u then Op.EXTSWSLI else Op.EXTSWSLIdot
   struct (op, ThreeOperands(ra, rs, OprImm(uint64 sh)))
 
+/// <summary>
+/// lwat, ldat, stwat and stdat rT, rA, FC, whose function code sits where an
+/// X form keeps rB. A code Book II does not list is not an invalid form: the
+/// processor invokes the data storage error handler when it runs.
+/// </summary>
+let private parseAtomic op bin =
+  let struct (rt, ra, _) = xFormRegs bin
+  let fc = Bits.extract bin 15u 11u |> uint64 |> OprImm
+  if Bits.pick bin 0u <> 0u then raise ParsingFailureException
+  else struct (op, ThreeOperands(rt, ra, fc))
+
 /// setbc, setbcr, setnbc and setnbcr rT, BI, which name a CR bit where an X
 /// form keeps rA.
 let private parseSETBC op bin =
@@ -2844,10 +2855,18 @@ let private parse1FLaneA is64 fallback bin =
     parseXFormPerm Op.CNTTZDM bin
   | 0x240u ->
     parseMCRXRX bin
+  | 0x246u when is64 ->
+    parseAtomic Op.LWAT bin
+  | 0x266u when is64 ->
+    parseAtomic Op.LDAT bin
   | 0x2B6u ->
     parseStoreConditional Op.STBCXdot bin
+  | 0x2C6u when is64 ->
+    parseAtomic Op.STWAT bin
   | 0x2D6u ->
     parseStoreConditional Op.STHCXdot bin
+  | 0x2E6u when is64 ->
+    parseAtomic Op.STDAT bin
   | 0x2F3u when is64 ->
     parseDARN bin
   | 0x309u when is64 ->

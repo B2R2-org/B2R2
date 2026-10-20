@@ -2697,6 +2697,14 @@ let translate (ins: Instruction) bld =
     cntlzdm ins bld
   | Op.CNTTZDM ->
     cnttzdm ins bld
+  | Op.LWAT ->
+    loadAtomic ins bld 32<rt>
+  | Op.LDAT ->
+    loadAtomic ins bld 64<rt>
+  | Op.STWAT ->
+    storeAtomic ins bld 32<rt>
+  | Op.STDAT ->
+    storeAtomic ins bld 64<rt>
   | Op.SETBC ->
     setbc ins bld false false
   | Op.SETBCR ->

@@ -509,6 +509,58 @@ type LifterTests() =
       | _ -> false)
 
   /// <summary>
+  /// The 32-byte block at 0x20200080 most atomic memory operation tests
+  /// start from: doublewords 5, 0xfffffff0fffffff0 (at 0x20200088, where
+  /// the operations point), 0x0000000700000000 and 0.
+  /// </summary>
+  let blockA =
+    "0000000000000005fffffff0fffffff00000000700000000" + "0000000000000000"
+
+  /// The other block: doublewords 0x0000000700000007, 0x0000000700000003
+  /// twice, and 0.
+  let blockB =
+    "0000000700000007000000070000000300000007000000030000000000000000"
+
+  /// <summary>
+  /// Runs an atomic memory operation, r6 holding 0x20200088, r10 a marker,
+  /// r11 the value given and r12 0x99, over a block at 0x20200080, and gives
+  /// r10 and the doubleword at 0x20200088 after, read most significant byte
+  /// first.
+  /// </summary>
+  let atomicRun isa hex (r11: uint64) block =
+    let memory = [ 0x20200080UL, ByteArray.ofHexString block ]
+    let given =
+      [ R6, 0x20200088UL; R10, 0x1111111111111111UL; R11, r11; R12, 0x99UL ]
+    let after, left = sequence isa [ hex ] [ R10 ] given memory
+    after R10, doubleword left 0x20200088UL
+
+  /// <summary>
+  /// Asserts r10 and the doubleword at 0x20200088 after an atomic memory
+  /// operation on each processor named, for each function code, r11, block,
+  /// r10 and doubleword: the word is the instruction's with FC zero.
+  /// </summary>
+  let expectAtomic isas (word: uint32) cases =
+    for isa in isas do
+      for fc, r11, block, r10, dw in cases do
+        let hex = $"{word ||| (fc <<< 11):x8}"
+        let r, m = atomicRun isa hex r11 block
+        let case = $"{hex} {r11:x} {nameOf isa}"
+        expect r10 r case
+        expect dw m case
+
+  /// <summary>
+  /// Whether a word run with r6 holding the address given reaches the side
+  /// effect named -- which the runner refuses -- rather than completing.
+  /// </summary>
+  let raisesAt isa hex (ea: uint64) (effect: string) =
+    let memory = [ 0x20200080UL, ByteArray.ofHexString blockA ]
+    try
+      exec isa hex [ R6, ea ] memory |> ignore
+      false
+    with e when e.Message.EndsWith effect ->
+      true
+
+  /// <summary>
   /// add rD, rA, rB writes rA + rB at the width of a register: the sum wraps
   /// at 32 bits on a 32-bit processor and carries into the high word on a
   /// 64-bit one.
@@ -26199,6 +26251,162 @@ type LifterTests() =
         "7ca2e2a6" ]
     for hex in words do
       CollectionAssert.AreEqual([| UndefinedInstruction |], effects ppc32 hex)
+
+  /// <summary>
+  /// lwat applies the function code to the word at (rA) and r11's low word
+  /// and puts the old word in r10, zero-extended (Book II 4.5.1, Figure 3).
+  /// Values from qemu-ppc64 -cpu power10 (specs amo, amole), except where
+  /// QEMU 8.2.2 departs from the manual (deviations/ppc64/lwat.c): it
+  /// compares words unsigned for the signed maximum and minimum (FC 5, 7),
+  /// sign-extends the 0x80000000 a bounded operation gives, and has fetch
+  /// and decrement bounded (FC 28) compare with the word above instead of
+  /// the one below.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] LWAT updates a word atomically``() =
+    let low1, b3 = 0x8000000000000001UL, 0x700000003UL
+    (* lwat r10, r6, FC *)
+    expectAtomic
+      [ ppc64 ]
+      0x7d46048cu
+      [ 0u, 3UL, blockA, 0xfffffff0UL, 0xfffffff3fffffff0UL
+        0u, b3, blockB, 7UL, 0x0000000a00000003UL
+        1u, b3, blockB, 7UL, 0x0000000400000003UL
+        2u, 3UL, blockA, 0xfffffff0UL, 0xfffffff3fffffff0UL
+        3u, 3UL, blockA, 0xfffffff0UL, 0x00000000fffffff0UL
+        4u, 3UL, blockA, 0xfffffff0UL, 0xfffffff0fffffff0UL
+        5u, 3UL, blockA, 0xfffffff0UL, 0x00000003fffffff0UL
+        5u, low1, blockA, 0xfffffff0UL, 0x00000001fffffff0UL
+        6u, 3UL, blockA, 0xfffffff0UL, 0x00000003fffffff0UL
+        7u, 3UL, blockA, 0xfffffff0UL, 0xfffffff0fffffff0UL
+        7u, b3, blockB, 7UL, 0x0000000300000003UL
+        8u, 3UL, blockA, 0xfffffff0UL, 0x00000003fffffff0UL
+        16u, 3UL, blockA, 0xfffffff0UL, 0x00000099fffffff0UL
+        16u, b3, blockB, 7UL, 0x0000009900000003UL
+        24u, 3UL, blockA, 0x80000000UL, 0xfffffff0fffffff0UL
+        24u, b3, blockB, 7UL, 0x0000000800000003UL
+        25u, 3UL, blockA, 0xfffffff0UL, 0xfffffff1fffffff0UL
+        25u, b3, blockB, 0x80000000UL, 0x0000000700000003UL
+        28u, 3UL, blockA, 0xfffffff0UL, 0xffffffeffffffff0UL
+        28u, b3, blockB, 0x80000000UL, 0x0000000700000003UL ]
+    expectAtomic
+      [ ppc64le ]
+      0x7d46048cu
+      [ 0u, 3UL, blockA, 0xf0ffffffUL, 0x020000f1fffffff0UL ]
+
+  /// <summary>
+  /// ldat applies the function code to the doubleword at (rA) and r11 (and
+  /// r12) and puts the old doubleword in r10 (Book II 4.5.1, Figure 3).
+  /// Values from qemu-ppc64 -cpu power10 (specs amo, amole), except where
+  /// QEMU 8.2.2 departs from the manual (deviations/ppc64/lwat.c): it gives
+  /// 0xffffffff80000000 for a bounded operation's 1 &lt;&lt; 63, and has
+  /// fetch and decrement bounded (FC 28) compare with the doubleword above.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] LDAT updates a doubleword atomically``() =
+    let a, b, top = 0xfffffff0fffffff0UL, 0x700000003UL, 1UL <<< 63
+    let low1 = 0x8000000000000001UL
+    (* ldat r10, r6, FC *)
+    expectAtomic
+      [ ppc64 ]
+      0x7d4604ccu
+      [ 0u, 3UL, blockA, a, 0xfffffff0fffffff3UL
+        0u, low1, blockA, a, 0x7ffffff0fffffff1UL
+        1u, b, blockB, b, 0UL
+        2u, 3UL, blockA, a, 0xfffffff0fffffff3UL
+        3u, low1, blockA, a, 0x8000000000000000UL
+        4u, 3UL, blockA, a, a
+        5u, 3UL, blockA, a, 3UL
+        6u, low1, blockA, a, low1
+        7u, low1, blockA, a, low1
+        8u, 3UL, blockA, a, 3UL
+        16u, 3UL, blockA, a, 0x99UL
+        16u, b, blockB, b, b
+        24u, 3UL, blockA, a, 0xfffffff0fffffff1UL
+        24u, b, blockB, top, b
+        25u, b, blockB, b, 0x700000004UL
+        25u, 3UL, blockA, top, a
+        28u, 3UL, blockA, a, 0xfffffff0ffffffefUL
+        28u, b, blockB, b, 0x700000002UL ]
+    expectAtomic
+      [ ppc64le ]
+      0x7d4604ccu
+      [ 0u, 3UL, blockA, 0xf0fffffff0ffffffUL, 0x020000f1fffffff0UL ]
+
+  /// <summary>
+  /// stwat applies the function code to the word at (rA) and r11's low word
+  /// (Book II 4.5.2, Figure 4); store twin (FC 24) stores it to both words
+  /// where they are equal. Values from qemu-ppc64 -cpu power10 (specs amo,
+  /// amole), except the signed maximum and minimum (FC 5, 7), which QEMU
+  /// 8.2.2 compares unsigned (deviations/ppc64/lwat.c).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] STWAT updates a word atomically``() =
+    let mark, b3 = 0x1111111111111111UL, 0x700000003UL
+    (* stwat r11, r6, FC *)
+    expectAtomic
+      [ ppc64 ]
+      0x7d66058cu
+      [ 0u, 3UL, blockA, mark, 0xfffffff3fffffff0UL
+        1u, b3, blockB, mark, 0x0000000400000003UL
+        3u, 3UL, blockA, mark, 0x00000000fffffff0UL
+        4u, 3UL, blockA, mark, 0xfffffff0fffffff0UL
+        5u, 3UL, blockA, mark, 0x00000003fffffff0UL
+        6u, 3UL, blockA, mark, 0x00000003fffffff0UL
+        7u, 3UL, blockA, mark, 0xfffffff0fffffff0UL
+        24u, 3UL, blockA, mark, 0x0000000300000003UL
+        24u, b3, blockB, mark, 0x0000000700000003UL ]
+    expectAtomic
+      [ ppc64le ]
+      0x7d66058cu
+      [ 0u, 3UL, blockA, mark, 0x020000f1fffffff0UL ]
+
+  /// <summary>
+  /// stdat applies the function code to the doubleword at (rA) and r11
+  /// (Book II 4.5.2, Figure 4); store twin (FC 24) stores nothing where the
+  /// two doublewords differ. Values from qemu-ppc64 -cpu power10 (specs amo,
+  /// amole).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] STDAT updates a doubleword atomically``() =
+    let mark, low1 = 0x1111111111111111UL, 0x8000000000000001UL
+    (* stdat r11, r6, FC *)
+    expectAtomic
+      [ ppc64 ]
+      0x7d6605ccu
+      [ 0u, 3UL, blockA, mark, 0xfffffff0fffffff3UL
+        1u, 0x700000003UL, blockB, mark, 0UL
+        3u, low1, blockA, mark, 0x8000000000000000UL
+        5u, 3UL, blockA, mark, 3UL
+        7u, low1, blockA, mark, low1
+        24u, 3UL, blockA, mark, 0xfffffff0fffffff0UL ]
+    expectAtomic
+      [ ppc64le ]
+      0x7d6605ccu
+      [ 0u, 3UL, blockA, mark, 0x020000f1fffffff0UL ]
+
+  /// <summary>
+  /// An atomic memory operation with a function code Figure 3 or 4 does not
+  /// list invokes the data storage error handler, and one whose address is
+  /// not a multiple of its size, or whose operands leave the aligned 32-byte
+  /// block, the alignment error handler (Book II 4.5). QEMU 8.2.2 raises
+  /// SIGSEGV and SIGBUS for the first two (spec amo) but runs the operations
+  /// that leave the block (deviations/ppc64/lwat.c).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC64] The atomic memory operations fault``() =
+    let words = [ 0x7d46048cu; 0x7d4604ccu; 0x7d66058cu; 0x7d6605ccu ]
+    for isa in ppc64s do
+      for word in words do
+        let bad = $"{word ||| (9u <<< 11):x8}"
+        let at = 0x20200088UL
+        Assert.IsTrue(raisesAt isa bad at "Exception(ProtectionFault)", bad)
+        let hex = $"{word:x8}"
+        let odd = 0x2020008aUL
+        Assert.IsTrue(raisesAt isa hex odd "Exception(MisalignedAccess)", hex)
+      (* ldat r10, r6, 24 at 0x20200098; lwat r10, r6, 28 at 0x20200080 *)
+      for hex, at in [ "7d46c4cc", 0x20200098UL; "7d46e48c", 0x20200080UL ] do
+        Assert.IsTrue(raisesAt isa hex at "Exception(MisalignedAccess)", hex)
 
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
