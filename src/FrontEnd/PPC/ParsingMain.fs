@@ -1647,6 +1647,40 @@ let private parseVN bin =
   | ThreeOperands(vd, va, vb) -> struct (op, FourOperands(vd, va, vb, sh))
   | _ -> raise ParsingFailureException
 
+/// A VX-form "vD, vB, UIM" whose four-bit UIM names a byte, the bit above it
+/// reserved.
+let private parseVXByteImm op bin =
+  let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+  let vb = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  let uim = Bits.extract bin 19u 16u |> uint64 |> OprImm
+  if Bits.pick bin 20u <> 0u then raise ParsingFailureException
+  else struct (op, ThreeOperands(vd, vb, uim))
+
+/// vinsw/vinsd "vD, rB, UIM", the source a general register in the vB field.
+let private parseVXGprImm op bin =
+  let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  let uim = Bits.extract bin 19u 16u |> uint64 |> OprImm
+  if Bits.pick bin 20u <> 0u then raise ParsingFailureException
+  else struct (op, ThreeOperands(vd, rb, uim))
+
+/// A VX-form whose three fields are registers of the kinds given, which the
+/// extracts and inserts mix: rD, rA, vB; vD, rA, rB; vD, rA, vB; vD, vA, rB.
+let private parseVXMixed op d a b bin =
+  let reg isVec n = if isVec then getVecRegister n else getRegister n
+  let rd = reg d (Bits.extract bin 25u 21u) |> OprReg
+  let ra = reg a (Bits.extract bin 20u 16u) |> OprReg
+  let rb = reg b (Bits.extract bin 15u 11u) |> OprReg
+  struct (op, ThreeOperands(rd, ra, rb))
+
+/// vext*v*x "vD, vA, vB, rC", a VA form whose fourth register is a general one.
+let private parseVAIndex op bin =
+  let struct (_, oprs) = parseVX op bin
+  let rc = getRegister (Bits.extract bin 10u 6u) |> OprReg
+  match oprs with
+  | ThreeOperands(vd, va, vb) -> struct (op, FourOperands(vd, va, vb, rc))
+  | _ -> raise ParsingFailureException
+
 /// A VX-form "vD, rB" whose vA field holds a further extended opcode.
 let private parseVXVecGpr op bin =
   let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1764,6 +1798,14 @@ let private parse04Wide bitLen bin =
   | 20u | 21u -> parseMTVSRBMI bin
   | 22u -> parseVN bin
   | 23u -> parseVA Op.VMSUMCUD bin
+  | 24u -> parseVAIndex Op.VEXTDUBVLX bin
+  | 25u -> parseVAIndex Op.VEXTDUBVRX bin
+  | 26u -> parseVAIndex Op.VEXTDUHVLX bin
+  | 27u -> parseVAIndex Op.VEXTDUHVRX bin
+  | 28u -> parseVAIndex Op.VEXTDUWVLX bin
+  | 29u -> parseVAIndex Op.VEXTDUWVRX bin
+  | 30u -> parseVAIndex Op.VEXTDDVLX bin
+  | 31u -> parseVAIndex Op.VEXTDDVRX bin
   | 32u -> parseVA Op.VMHADDSHS bin
   | 33u -> parseVA Op.VMHRADDSHS bin
   | 34u -> parseVA Op.VMLADDUHM bin
@@ -2025,6 +2067,38 @@ let private parse04 bitLen bin =
       | 1988u -> parseVX Op.VCTZDM bin
       | 1602u -> parse04Mask bitLen bin
       | 13u | 1037u -> parse04String bin
+      | 525u -> parseVXByteImm Op.VEXTRACTUB bin
+      | 589u -> parseVXByteImm Op.VEXTRACTUH bin
+      | 653u -> parseVXByteImm Op.VEXTRACTUW bin
+      | 717u -> parseVXByteImm Op.VEXTRACTD bin
+      | 781u -> parseVXByteImm Op.VINSERTB bin
+      | 845u -> parseVXByteImm Op.VINSERTH bin
+      | 909u -> parseVXByteImm Op.VINSERTW bin
+      | 973u -> parseVXByteImm Op.VINSERTD bin
+      | 207u -> parseVXGprImm Op.VINSW bin
+      | 463u when bitLen = 64 -> parseVXGprImm Op.VINSD bin
+      | 1549u -> parseVXMixed Op.VEXTUBLX false false true bin
+      | 1613u -> parseVXMixed Op.VEXTUHLX false false true bin
+      | 1677u -> parseVXMixed Op.VEXTUWLX false false true bin
+      | 1805u -> parseVXMixed Op.VEXTUBRX false false true bin
+      | 1869u -> parseVXMixed Op.VEXTUHRX false false true bin
+      | 1933u -> parseVXMixed Op.VEXTUWRX false false true bin
+      | 527u -> parseVXMixed Op.VINSBLX true false false bin
+      | 591u -> parseVXMixed Op.VINSHLX true false false bin
+      | 655u -> parseVXMixed Op.VINSWLX true false false bin
+      | 783u -> parseVXMixed Op.VINSBRX true false false bin
+      | 847u -> parseVXMixed Op.VINSHRX true false false bin
+      | 911u -> parseVXMixed Op.VINSWRX true false false bin
+      | 719u when bitLen = 64 -> parseVXMixed Op.VINSDLX true false false bin
+      | 975u when bitLen = 64 -> parseVXMixed Op.VINSDRX true false false bin
+      | 15u -> parseVXMixed Op.VINSBVLX true false true bin
+      | 79u -> parseVXMixed Op.VINSHVLX true false true bin
+      | 143u -> parseVXMixed Op.VINSWVLX true false true bin
+      | 271u -> parseVXMixed Op.VINSBVRX true false true bin
+      | 335u -> parseVXMixed Op.VINSHVRX true false true bin
+      | 399u -> parseVXMixed Op.VINSWVRX true false true bin
+      | 397u -> parseVXMixed Op.VCLRLB true true false bin
+      | 461u -> parseVXMixed Op.VCLRRB true true false bin
       | 1538u -> parse04Unary bin
       | 133u -> parseVX Op.VRLWMI bin
       | 197u -> parseVX Op.VRLDMI bin

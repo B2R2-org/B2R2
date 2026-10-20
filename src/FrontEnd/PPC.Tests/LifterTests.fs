@@ -4646,6 +4646,603 @@ type LifterTests() =
     let wanted = [ V1A, 0x0000000000000000UL; V1B, 0x0000000000000004UL ]
     oracle only64 "10221841" given wanted
 
+  /// <summary>
+  /// vextractub vD, vB, UIM writes the byte of vB that starts at byte UIM,
+  /// zero-extended, into doubleword 0 of vD and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTUB extracts the byte at a byte``() =
+    (* vextractub v1, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x00000000000000ffUL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10211a0d" given wanted
+
+  /// <summary>
+  /// vextractuh vD, vB, UIM writes the halfword of vB that starts at byte
+  /// UIM, zero-extended, into doubleword 0 of vD and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTUH extracts the halfword at a byte``() =
+    (* vextractuh v1, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x000000000000ffffUL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10211a4d" given wanted
+
+  /// <summary>
+  /// vextractuw vD, vB, UIM writes the word of vB that starts at byte UIM,
+  /// zero-extended, into doubleword 0 of vD and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTUW extracts the word at a byte``() =
+    (* vextractuw v1, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x00000000ffffff80UL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10211a8d" given wanted
+
+  /// <summary>
+  /// vextractd vD, vB, UIM writes the doubleword of vB that starts at byte
+  /// UIM, zero-extended, into doubleword 0 of vD and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTD extracts the doubleword at a byte``() =
+    (* vextractd v1, v3, 1 *)
+    let given = [ V3A, 0x7fffffff80000000UL; V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0xffffff80000000ffUL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10211acd" given wanted
+
+  /// <summary>
+  /// vinsertb vD, vB, UIM writes the low byte of doubleword 0 of vB over vD
+  /// from byte UIM on, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSERTB inserts a byte at a byte``() =
+    (* vinsertb v1, v3, 1 *)
+    let given =
+      [ V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0b000bad0bad0badUL ]
+    oracle only64 "10211b0d" given wanted
+
+  /// <summary>
+  /// vinserth vD, vB, UIM writes the low halfword of doubleword 0 of vB over
+  /// vD from byte UIM on, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSERTH inserts a halfword at a byte``() =
+    (* vinserth v1, v3, 1 *)
+    let given =
+      [ V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0b0000ad0bad0badUL ]
+    oracle only64 "10211b4d" given wanted
+
+  /// <summary>
+  /// vinsertw vD, vB, UIM writes the low word of doubleword 0 of vB over vD
+  /// from byte UIM on, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSERTW inserts a word at a byte``() =
+    (* vinsertw v1, v3, 1 *)
+    let given =
+      [ V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0b80000000ad0badUL ]
+    oracle only64 "10211b8d" given wanted
+
+  /// <summary>
+  /// vinsertd vD, vB, UIM writes the low doubleword of doubleword 0 of vB
+  /// over vD from byte UIM on, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSERTD inserts a doubleword at a byte``() =
+    (* vinsertd v1, v3, 1 *)
+    let given =
+      [ V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x0b7fffffff800000UL; V1B, 0x00ad0bad0bad0badUL ]
+    oracle only64 "10211bcd" given wanted
+
+  /// <summary>
+  /// vinsw vD, rB, UIM writes the low word of rB over vD from byte UIM on,
+  /// keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSW inserts a general word at a byte``() =
+    (* vinsw v1, r7, 1 *)
+    let given =
+      [ R7, 0x7fffffffffffffffUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1A, 0x0bffffffffad0badUL ]
+    oracle only64 "102138cf" given wanted
+
+  /// <summary>
+  /// vinsd vD, rB, UIM writes the low doubleword of rB over vD from byte UIM
+  /// on, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSD inserts a general doubleword at a byte``() =
+    (* vinsd v1, r7, 1 *)
+    let given =
+      [ R7, 0x7fffffffffffffffUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1A, 0x0b7fffffffffffffUL; V1B, 0xffad0bad0bad0badUL ]
+    oracle only64 "102139cf" given wanted
+
+  /// <summary>
+  /// vextublx rD, rA, vB writes into rD, zero-extended, the byte of vB at the
+  /// byte the low four bits of rA count from the left.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTUBLX extracts a byte indexed from the left``() =
+    (* vextublx r5, r6, v3 *)
+    let given =
+      [ R6, 0x7fffffffffffffffUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x1UL ]
+    oracle only64 "10a61e0d" given wanted
+
+  /// <summary>
+  /// vextuhlx rD, rA, vB writes into rD, zero-extended, the halfword of vB at
+  /// the byte the low four bits of rA count from the left.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTUHLX extracts a halfword indexed from the left``() =
+    (* vextuhlx r5, r6, v3 *)
+    let given =
+      [ R6, 0x8000000000000000UL
+        V3A, 0x7fff8000ffff0001UL
+        V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ R5, 0x7fffUL ]
+    oracle only64 "10a61e4d" given wanted
+
+  /// <summary>
+  /// vextuwlx rD, rA, vB writes into rD, zero-extended, the word of vB at the
+  /// byte the low four bits of rA count from the left.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTUWLX extracts a word indexed from the left``() =
+    (* vextuwlx r5, r6, v3 *)
+    let given =
+      [ R6, 0x8000000000000000UL
+        V3A, 0x7fff8000ffff0001UL
+        V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ R5, 0x7fff8000UL ]
+    oracle only64 "10a61e8d" given wanted
+
+  /// <summary>
+  /// vextubrx rD, rA, vB writes into rD, zero-extended, the byte of vB at the
+  /// byte the low four bits of rA count from the right.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTUBRX extracts a byte indexed from the right``() =
+    (* vextubrx r5, r6, v3 *)
+    let given =
+      [ R6, 0x7fffffffffffffffUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+    let wanted = [ R5, 0x7fUL ]
+    oracle only64 "10a61f0d" given wanted
+
+  /// <summary>
+  /// vextuhrx rD, rA, vB writes into rD, zero-extended, the halfword of vB at
+  /// the byte the low four bits of rA count from the right.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTUHRX extracts a halfword indexed from the right``() =
+    (* vextuhrx r5, r6, v3 *)
+    let given =
+      [ R6, 0x8000000000000000UL
+        V3A, 0x7fff8000ffff0001UL
+        V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ R5, 0x80ffUL ]
+    oracle only64 "10a61f4d" given wanted
+
+  /// <summary>
+  /// vextuwrx rD, rA, vB writes into rD, zero-extended, the word of vB at the
+  /// byte the low four bits of rA count from the right.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTUWRX extracts a word indexed from the right``() =
+    (* vextuwrx r5, r6, v3 *)
+    let given =
+      [ R6, 0x8000000000000000UL
+        V3A, 0x7fff8000ffff0001UL
+        V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ R5, 0x17f80ffUL ]
+    oracle only64 "10a61f8d" given wanted
+
+  /// <summary>
+  /// vextdubvlx vD, vA, vB, rC writes into doubleword 0 of vD, zero-extended,
+  /// the byte of the 32-byte vA || vB at the byte the low five bits of rC
+  /// count from the left, and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUBVLX extracts a pair byte from the left``() =
+    (* vextdubvlx v1, v2, v3, r9 *)
+    let given =
+      [ R9, 0x8000000000000000UL
+        V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x000000000000007fUL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221a58" given wanted
+
+  /// <summary>
+  /// vextdubvrx vD, vA, vB, rC writes into doubleword 0 of vD, zero-extended,
+  /// the byte of the 32-byte vA || vB at the byte the low five bits of rC
+  /// count from the right, and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUBVRX extracts a pair byte from the right``() =
+    (* vextdubvrx v1, v2, v3, r9 *)
+    let given =
+      [ R9, 0x7fffffffffffffffUL
+        V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted = [ V1A, 0x000000000000007fUL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221a59" given wanted
+
+  /// <summary>
+  /// vextduhvlx vD, vA, vB, rC writes into doubleword 0 of vD, zero-extended,
+  /// the halfword of the 32-byte vA || vB at the byte the low five bits of rC
+  /// count from the left, and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUHVLX extracts a pair halfword from the left``() =
+    (* vextduhvlx v1, v2, v3, r9 *)
+    let given =
+      [ R9, 0x8000000000000000UL
+        V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x0000000000007fffUL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221a5a" given wanted
+
+  /// <summary>
+  /// vextduhvrx vD, vA, vB, rC writes into doubleword 0 of vD, zero-extended,
+  /// the halfword of the 32-byte vA || vB at the byte the low five bits of rC
+  /// count from the right, and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUHVRX extracts a pair halfword from the right``() =
+    (* vextduhvrx v1, v2, v3, r9 *)
+    let given = [ V3A, 0xffffffffffffffffUL; V3B, 0xffffffffffffffffUL ]
+    let wanted = [ V1A, 0x000000000000ffffUL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221a5b" given wanted
+
+  /// <summary>
+  /// vextduwvlx vD, vA, vB, rC writes into doubleword 0 of vD, zero-extended,
+  /// the word of the 32-byte vA || vB at the byte the low five bits of rC
+  /// count from the left, and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUWVLX extracts a pair word from the left``() =
+    (* vextduwvlx v1, v2, v3, r9 *)
+    let given =
+      [ R9, 0x8000000000000000UL
+        V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x000000007fff8000UL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221a5c" given wanted
+
+  /// <summary>
+  /// vextduwvrx vD, vA, vB, rC writes into doubleword 0 of vD, zero-extended,
+  /// the word of the 32-byte vA || vB at the byte the low five bits of rC
+  /// count from the right, and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUWVRX extracts a pair word from the right``() =
+    (* vextduwvrx v1, v2, v3, r9 *)
+    let given =
+      [ R9, 0x8000000000000000UL
+        V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x0000000001010000UL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221a5d" given wanted
+
+  /// <summary>
+  /// vextddvlx vD, vA, vB, rC writes into doubleword 0 of vD, zero-extended,
+  /// the doubleword of the 32-byte vA || vB at the byte the low five bits of
+  /// rC count from the left, and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTDDVLX extracts a pair doubleword from the left``() =
+    (* vextddvlx v1, v2, v3, r9 *)
+    let given =
+      [ R9, 0x8000000000000000UL
+        V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x7fff8000ffff0001UL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221a5e" given wanted
+
+  /// <summary>
+  /// vextddvrx vD, vA, vB, rC writes into doubleword 0 of vD, zero-extended,
+  /// the doubleword of the 32-byte vA || vB at the byte the low five bits of
+  /// rC count from the right, and clears doubleword 1.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VEXTDDVRX extracts a pair doubleword from the right``() =
+    (* vextddvrx v1, v2, v3, r9 *)
+    let given =
+      [ R9, 0x8000000000000000UL
+        V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL ]
+    let wanted = [ V1A, 0x7f7f808001010000UL; V1B, 0x0000000000000000UL ]
+    oracle only64 "10221a5f" given wanted
+
+  /// <summary>
+  /// vinsblx vD, rA, rB writes the low byte of rB over vD at the byte the low
+  /// four bits of rA count from the left, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSBLX inserts a general byte from the left``() =
+    (* vinsblx v1, r6, r7 *)
+    let given =
+      [ R6, 0x7fffffffffffffffUL
+        R7, 0x1UL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1B, 0x0bad0bad0bad0b01UL ]
+    oracle only64 "10263a0f" given wanted
+
+  /// <summary>
+  /// vinshlx vD, rA, rB writes the low halfword of rB over vD at the byte the
+  /// low four bits of rA count from the left, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSHLX inserts a general halfword from the left``() =
+    (* vinshlx v1, r6, r7 *)
+    let given =
+      [ R6, 0x8000000000000000UL
+        R7, 0xffffffffffffffffUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1A, 0xffff0bad0bad0badUL ]
+    oracle only64 "10263a4f" given wanted
+
+  /// <summary>
+  /// vinswlx vD, rA, rB writes the low word of rB over vD at the byte the low
+  /// four bits of rA count from the left, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSWLX inserts a general word from the left``() =
+    (* vinswlx v1, r6, r7 *)
+    let given =
+      [ R6, 0x5555555555555555UL
+        R7, 0xaaaaaaaaaaaaaaaaUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1A, 0x0bad0bad0baaaaaaUL; V1B, 0xaaad0bad0bad0badUL ]
+    oracle only64 "10263a8f" given wanted
+
+  /// <summary>
+  /// vinsdlx vD, rA, rB writes the low doubleword of rB over vD at the byte
+  /// the low four bits of rA count from the left, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSDLX inserts a general doubleword from the left``() =
+    (* vinsdlx v1, r6, r7 *)
+    let given =
+      [ R6, 0x5555555555555555UL
+        R7, 0xaaaaaaaaaaaaaaaaUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1A, 0x0bad0bad0baaaaaaUL; V1B, 0xaaaaaaaaaaad0badUL ]
+    oracle only64 "10263acf" given wanted
+
+  /// <summary>
+  /// vinsbrx vD, rA, rB writes the low byte of rB over vD at the byte the low
+  /// four bits of rA count from the right, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSBRX inserts a general byte from the right``() =
+    (* vinsbrx v1, r6, r7 *)
+    let given =
+      [ R6, 0x7fffffffffffffffUL
+        R7, 0x1UL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1A, 0x01ad0bad0bad0badUL ]
+    oracle only64 "10263b0f" given wanted
+
+  /// <summary>
+  /// vinshrx vD, rA, rB writes the low halfword of rB over vD at the byte the
+  /// low four bits of rA count from the right, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSHRX inserts a general halfword from the right``() =
+    (* vinshrx v1, r6, r7 *)
+    let given =
+      [ R6, 0x8000000000000000UL
+        R7, 0xffffffffffffffffUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1B, 0x0bad0bad0badffffUL ]
+    oracle only64 "10263b4f" given wanted
+
+  /// <summary>
+  /// vinswrx vD, rA, rB writes the low word of rB over vD at the byte the low
+  /// four bits of rA count from the right, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSWRX inserts a general word from the right``() =
+    (* vinswrx v1, r6, r7 *)
+    let given =
+      [ R6, 0x5555555555555555UL
+        R7, 0xaaaaaaaaaaaaaaaaUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1A, 0x0bad0bad0bad0baaUL; V1B, 0xaaaaaaad0bad0badUL ]
+    oracle only64 "10263b8f" given wanted
+
+  /// <summary>
+  /// vinsdrx vD, rA, rB writes the low doubleword of rB over vD at the byte
+  /// the low four bits of rA count from the right, keeping the rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSDRX inserts a general doubleword from the right``() =
+    (* vinsdrx v1, r6, r7 *)
+    let given =
+      [ R6, 0x5555555555555555UL
+        R7, 0xaaaaaaaaaaaaaaaaUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL ]
+    let wanted = [ V1A, 0x0bad0baaaaaaaaaaUL; V1B, 0xaaaaaaad0bad0badUL ]
+    oracle only64 "10263bcf" given wanted
+
+  /// <summary>
+  /// vinsbvlx vD, rA, vB writes the low byte of doubleword 0 of vB over vD at
+  /// the byte the low four bits of rA count from the left, keeping the rest
+  /// of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSBVLX inserts a vector byte from the left``() =
+    (* vinsbvlx v1, r6, v3 *)
+    let given =
+      [ R6, 0x7fffffffffffffffUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1B, 0x0bad0bad0bad0b00UL ]
+    oracle only64 "1026180f" given wanted
+
+  /// <summary>
+  /// vinshvlx vD, rA, vB writes the low halfword of doubleword 0 of vB over
+  /// vD at the byte the low four bits of rA count from the left, keeping the
+  /// rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSHVLX inserts a vector halfword from the left``() =
+    (* vinshvlx v1, r6, v3 *)
+    let given =
+      [ R6, 0x8000000000000000UL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x7fff8000ffff0001UL
+        V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ V1A, 0x00010bad0bad0badUL ]
+    oracle only64 "1026184f" given wanted
+
+  /// <summary>
+  /// vinswvlx vD, rA, vB writes the low word of doubleword 0 of vB over vD at
+  /// the byte the low four bits of rA count from the left, keeping the rest
+  /// of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSWVLX inserts a vector word from the left``() =
+    (* vinswvlx v1, r6, v3 *)
+    let given =
+      [ R6, 0x5555555555555555UL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x5555555555555555UL
+        V3B, 0x5555555555555555UL ]
+    let wanted = [ V1A, 0x0bad0bad0b555555UL; V1B, 0x55ad0bad0bad0badUL ]
+    oracle only64 "1026188f" given wanted
+
+  /// <summary>
+  /// vinsbvrx vD, rA, vB writes the low byte of doubleword 0 of vB over vD at
+  /// the byte the low four bits of rA count from the right, keeping the rest
+  /// of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSBVRX inserts a vector byte from the right``() =
+    (* vinsbvrx v1, r6, v3 *)
+    let given =
+      [ R6, 0x7fffffffffffffffUL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x7fffffff80000000UL
+        V3B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x00ad0bad0bad0badUL ]
+    oracle only64 "1026190f" given wanted
+
+  /// <summary>
+  /// vinshvrx vD, rA, vB writes the low halfword of doubleword 0 of vB over
+  /// vD at the byte the low four bits of rA count from the right, keeping the
+  /// rest of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSHVRX inserts a vector halfword from the right``() =
+    (* vinshvrx v1, r6, v3 *)
+    let given =
+      [ R6, 0x8000000000000000UL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x7fff8000ffff0001UL
+        V3B, 0x7f80ff00017f80ffUL ]
+    let wanted = [ V1B, 0x0bad0bad0bad0001UL ]
+    oracle only64 "1026194f" given wanted
+
+  /// <summary>
+  /// vinswvrx vD, rA, vB writes the low word of doubleword 0 of vB over vD at
+  /// the byte the low four bits of rA count from the right, keeping the rest
+  /// of vD.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VINSWVRX inserts a vector word from the right``() =
+    (* vinswvrx v1, r6, v3 *)
+    let given =
+      [ R6, 0x5555555555555555UL
+        V1A, 0x0bad0bad0bad0badUL
+        V1B, 0x0bad0bad0bad0badUL
+        V3A, 0x5555555555555555UL
+        V3B, 0x5555555555555555UL ]
+    let wanted = [ V1A, 0x0bad0bad0bad0b55UL; V1B, 0x555555ad0bad0badUL ]
+    oracle only64 "1026198f" given wanted
+
+  /// <summary>
+  /// vclrlb vD, vA, rB writes vA with all but its rightmost N bytes cleared,
+  /// N being rB or 16 where rB is above 15.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCLRLB clears all but the rightmost bytes``() =
+    (* vclrlb v1, v2, r7 *)
+    let given =
+      [ R7, 0x7fffffffffffffffUL
+        V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x7fffffff80000000UL; V1B, 0xffffffff00000001UL ]
+    oracle only64 "1022398d" given wanted
+
+  /// <summary>
+  /// vclrrb vD, vA, rB writes vA with all but its leftmost N bytes cleared, N
+  /// being rB or 16 where rB is above 15.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VCLRRB clears all but the leftmost bytes``() =
+    (* vclrrb v1, v2, r7 *)
+    let given =
+      [ R7, 0x7fffffffffffffffUL
+        V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL ]
+    let wanted = [ V1A, 0x7fffffff80000000UL; V1B, 0xffffffff00000001UL ]
+    oracle only64 "102239cd" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

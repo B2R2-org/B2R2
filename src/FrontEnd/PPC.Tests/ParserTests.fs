@@ -1639,6 +1639,246 @@ type ParserTests() =
     ++ (VMUL10ECUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTUB (Extract Unsigned Byte to VSR using)``() =
+    "10211a0d"
+    ++ (VEXTRACTUB ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTUH (Extract Unsigned Halfword to VSR using)``() =
+    "10211a4d"
+    ++ (VEXTRACTUH ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTUW (Extract Unsigned Word to VSR using)``() =
+    "10211a8d"
+    ++ (VEXTRACTUW ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTRACTD (Extract Doubleword to VSR using)``() =
+    "10211acd"
+    ++ (VEXTRACTD ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSERTB (Insert Byte from VSR using)``() =
+    "10211b0d"
+    ++ (VINSERTB ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSERTH (Insert Halfword from VSR using)``() =
+    "10211b4d"
+    ++ (VINSERTH ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSERTW (Insert Word from VSR using)``() =
+    "10211b8d"
+    ++ (VINSERTW ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSERTD (Insert Doubleword from VSR using)``() =
+    "10211bcd"
+    ++ (VINSERTD ** [ O.Reg V1A; O.Reg V3A; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSW (Insert Word from GPR using immediate-specified)``() =
+    "102138cf"
+    ++ (VINSW ** [ O.Reg V1A; O.Reg R7; O.Imm 0x1UL ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSD (Insert Doubleword from GPR using)``() =
+    "102139cf"
+    ++ (VINSD ** [ O.Reg V1A; O.Reg R7; O.Imm 0x1UL ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTUBLX (Extract Unsigned Byte to GPR using)``() =
+    "10a61e0d"
+    ++ (VEXTUBLX ** [ O.Reg R5; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTUHLX (Extract Unsigned Halfword to GPR using)``() =
+    "10a61e4d"
+    ++ (VEXTUHLX ** [ O.Reg R5; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTUWLX (Extract Unsigned Word to GPR using)``() =
+    "10a61e8d"
+    ++ (VEXTUWLX ** [ O.Reg R5; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTUBRX (Extract Unsigned Byte to GPR using)``() =
+    "10a61f0d"
+    ++ (VEXTUBRX ** [ O.Reg R5; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTUHRX (Extract Unsigned Halfword to GPR using)``() =
+    "10a61f4d"
+    ++ (VEXTUHRX ** [ O.Reg R5; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTUWRX (Extract Unsigned Word to GPR using)``() =
+    "10a61f8d"
+    ++ (VEXTUWRX ** [ O.Reg R5; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUBVLX (Extract Double Unsigned Byte to VSR using)``() =
+    "10221a58"
+    ++ (VEXTDUBVLX ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg R9 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUBVRX (Extract Double Unsigned Byte to VSR using)``() =
+    "10221a59"
+    ++ (VEXTDUBVRX ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg R9 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUHVLX (Extract Double Unsigned Halfword to VSR)``() =
+    "10221a5a"
+    ++ (VEXTDUHVLX ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg R9 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUHVRX (Extract Double Unsigned Halfword to VSR)``() =
+    "10221a5b"
+    ++ (VEXTDUHVRX ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg R9 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUWVLX (Extract Double Unsigned Word to VSR using)``() =
+    "10221a5c"
+    ++ (VEXTDUWVLX ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg R9 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTDUWVRX (Extract Double Unsigned Word to VSR using)``() =
+    "10221a5d"
+    ++ (VEXTDUWVRX ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg R9 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTDDVLX (Extract Double Doubleword to VSR using)``() =
+    "10221a5e"
+    ++ (VEXTDDVLX ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg R9 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VEXTDDVRX (Extract Double Doubleword to VSR using)``() =
+    "10221a5f"
+    ++ (VEXTDDVRX ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg R9 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSBLX (Insert Byte from GPR using GPR-specified)``() =
+    "10263a0f"
+    ++ (VINSBLX ** [ O.Reg V1A; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSHLX (Insert Halfword from GPR using GPR-specified)``() =
+    "10263a4f"
+    ++ (VINSHLX ** [ O.Reg V1A; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSWLX (Insert Word from GPR using GPR-specified)``() =
+    "10263a8f"
+    ++ (VINSWLX ** [ O.Reg V1A; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSDLX (Insert Doubleword from GPR using)``() =
+    "10263acf"
+    ++ (VINSDLX ** [ O.Reg V1A; O.Reg R6; O.Reg R7 ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] VINSBRX (Insert Byte from GPR using GPR-specified)``() =
+    "10263b0f"
+    ++ (VINSBRX ** [ O.Reg V1A; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSHRX (Insert Halfword from GPR using GPR-specified)``() =
+    "10263b4f"
+    ++ (VINSHRX ** [ O.Reg V1A; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSWRX (Insert Word from GPR using GPR-specified)``() =
+    "10263b8f"
+    ++ (VINSWRX ** [ O.Reg V1A; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSDRX (Insert Doubleword from GPR using)``() =
+    "10263bcf"
+    ++ (VINSDRX ** [ O.Reg V1A; O.Reg R6; O.Reg R7 ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] VINSBVLX (Insert Byte from VSR using GPR-specified)``() =
+    "1026180f"
+    ++ (VINSBVLX ** [ O.Reg V1A; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSHVLX (Insert Halfword from VSR using GPR-specified)``() =
+    "1026184f"
+    ++ (VINSHVLX ** [ O.Reg V1A; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSWVLX (Insert Word from VSR using GPR-specified)``() =
+    "1026188f"
+    ++ (VINSWVLX ** [ O.Reg V1A; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSBVRX (Insert Byte from VSR using GPR-specified)``() =
+    "1026190f"
+    ++ (VINSBVRX ** [ O.Reg V1A; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSHVRX (Insert Halfword from VSR using GPR-specified)``() =
+    "1026194f"
+    ++ (VINSHVRX ** [ O.Reg V1A; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VINSWVRX (Insert Word from VSR using GPR-specified)``() =
+    "1026198f"
+    ++ (VINSWVRX ** [ O.Reg V1A; O.Reg R6; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCLRLB (Vector Clear Leftmost Bytes)``() =
+    "1022398d"
+    ++ (VCLRLB ** [ O.Reg V1A; O.Reg V2A; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCLRRB (Vector Clear Rightmost Bytes)``() =
+    "102239cd"
+    ++ (VCLRRB ** [ O.Reg V1A; O.Reg V2A; O.Reg R7 ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

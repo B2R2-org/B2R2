@@ -1875,6 +1875,86 @@ let translate (ins: Instruction) bld =
     vecShiftDoubleBits ins bld true
   | Op.VSRDBI ->
     vecShiftDoubleBits ins bld false
+  | Op.VEXTRACTUB ->
+    vecExtractImm ins bld 1
+  | Op.VEXTRACTUH ->
+    vecExtractImm ins bld 2
+  | Op.VEXTRACTUW ->
+    vecExtractImm ins bld 4
+  | Op.VEXTRACTD ->
+    vecExtractImm ins bld 8
+  | Op.VINSERTB ->
+    vecInsertImm ins bld 1
+  | Op.VINSERTH ->
+    vecInsertImm ins bld 2
+  | Op.VINSERTW ->
+    vecInsertImm ins bld 4
+  | Op.VINSERTD ->
+    vecInsertImm ins bld 8
+  | Op.VEXTUBLX ->
+    vecExtractToGpr ins bld 1 true
+  | Op.VEXTUHLX ->
+    vecExtractToGpr ins bld 2 true
+  | Op.VEXTUWLX ->
+    vecExtractToGpr ins bld 4 true
+  | Op.VEXTUBRX ->
+    vecExtractToGpr ins bld 1 false
+  | Op.VEXTUHRX ->
+    vecExtractToGpr ins bld 2 false
+  | Op.VEXTUWRX ->
+    vecExtractToGpr ins bld 4 false
+  | Op.VEXTDUBVLX ->
+    vecExtractPair ins bld 1 true
+  | Op.VEXTDUBVRX ->
+    vecExtractPair ins bld 1 false
+  | Op.VEXTDUHVLX ->
+    vecExtractPair ins bld 2 true
+  | Op.VEXTDUHVRX ->
+    vecExtractPair ins bld 2 false
+  | Op.VEXTDUWVLX ->
+    vecExtractPair ins bld 4 true
+  | Op.VEXTDUWVRX ->
+    vecExtractPair ins bld 4 false
+  | Op.VEXTDDVLX ->
+    vecExtractPair ins bld 8 true
+  | Op.VEXTDDVRX ->
+    vecExtractPair ins bld 8 false
+  | Op.VINSBLX ->
+    vecInsertAt ins bld 1 true false
+  | Op.VINSHLX ->
+    vecInsertAt ins bld 2 true false
+  | Op.VINSWLX ->
+    vecInsertAt ins bld 4 true false
+  | Op.VINSDLX ->
+    vecInsertAt ins bld 8 true false
+  | Op.VINSBRX ->
+    vecInsertAt ins bld 1 false false
+  | Op.VINSHRX ->
+    vecInsertAt ins bld 2 false false
+  | Op.VINSWRX ->
+    vecInsertAt ins bld 4 false false
+  | Op.VINSDRX ->
+    vecInsertAt ins bld 8 false false
+  | Op.VINSBVLX ->
+    vecInsertAt ins bld 1 true true
+  | Op.VINSHVLX ->
+    vecInsertAt ins bld 2 true true
+  | Op.VINSWVLX ->
+    vecInsertAt ins bld 4 true true
+  | Op.VINSBVRX ->
+    vecInsertAt ins bld 1 false true
+  | Op.VINSHVRX ->
+    vecInsertAt ins bld 2 false true
+  | Op.VINSWVRX ->
+    vecInsertAt ins bld 4 false true
+  | Op.VINSW ->
+    vecInsertGprImm ins bld 4
+  | Op.VINSD ->
+    vecInsertGprImm ins bld 8
+  | Op.VCLRLB ->
+    vecClearBytes ins bld true
+  | Op.VCLRRB ->
+    vecClearBytes ins bld false
   | Op.VEXPANDBM ->
     vecExpandMask ins bld 8<rt>
   | Op.VEXTRACTBM ->

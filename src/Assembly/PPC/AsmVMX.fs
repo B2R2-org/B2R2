@@ -435,6 +435,81 @@ let private decimalMoreEncoders () =
     Op.VMUL10EUQ, vx 577u
     Op.VMUL10ECUQ, vx 65u ]
 
+/// A VX-form "vD, vB, UIM" whose four-bit UIM names a byte.
+let private vxByteImm xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg b; Im u ] -> word 4u (vr d) (unsigned 4 u) (vr b) xo
+  | _ -> wrongOperands ins
+
+/// vinsw/vinsd "vD, rB, UIM", whose source is a general register.
+let private vxGprImm xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg b; Im u ] -> word 4u (vr d) (unsigned 4 u) (gpr b) xo
+  | _ -> wrongOperands ins
+
+/// The number a register of the kind given takes in a field.
+let private regField isVec reg = if isVec then vr reg else gpr reg
+
+/// A VX-form whose three registers are of the kinds given.
+let private vxMixed d a b xo ins =
+  match ins.Operands with
+  | [ Rg rd; Rg ra; Rg rb ] ->
+    word 4u (regField d rd) (regField a ra) (regField b rb) xo
+  | _ ->
+    wrongOperands ins
+
+/// vext*v*x "vD, vA, vB, rC", a VA form whose fourth register is general.
+let private vaIndex xo ins =
+  match ins.Operands with
+  | [ Rg d; Rg a; Rg b; Rg c ] ->
+    word 4u (vr d) (vr a) (vr b) (((gpr c) <<< 6) ||| xo)
+  | _ ->
+    wrongOperands ins
+
+/// The extracts and inserts of an element at a byte, given as an immediate
+/// or by a general register, and the clears of the bytes beyond a count.
+let private insertEncoders () =
+  [ Op.VEXTRACTUB, vxByteImm 525u
+    Op.VEXTRACTUH, vxByteImm 589u
+    Op.VEXTRACTUW, vxByteImm 653u
+    Op.VEXTRACTD, vxByteImm 717u
+    Op.VINSERTB, vxByteImm 781u
+    Op.VINSERTH, vxByteImm 845u
+    Op.VINSERTW, vxByteImm 909u
+    Op.VINSERTD, vxByteImm 973u
+    Op.VINSW, vxGprImm 207u
+    Op.VINSD, vxGprImm 463u
+    Op.VEXTUBLX, vxMixed false false true 1549u
+    Op.VEXTUHLX, vxMixed false false true 1613u
+    Op.VEXTUWLX, vxMixed false false true 1677u
+    Op.VEXTUBRX, vxMixed false false true 1805u
+    Op.VEXTUHRX, vxMixed false false true 1869u
+    Op.VEXTUWRX, vxMixed false false true 1933u
+    Op.VINSBLX, vxMixed true false false 527u
+    Op.VINSHLX, vxMixed true false false 591u
+    Op.VINSWLX, vxMixed true false false 655u
+    Op.VINSDLX, vxMixed true false false 719u
+    Op.VINSBRX, vxMixed true false false 783u
+    Op.VINSHRX, vxMixed true false false 847u
+    Op.VINSWRX, vxMixed true false false 911u
+    Op.VINSDRX, vxMixed true false false 975u
+    Op.VINSBVLX, vxMixed true false true 15u
+    Op.VINSHVLX, vxMixed true false true 79u
+    Op.VINSWVLX, vxMixed true false true 143u
+    Op.VINSBVRX, vxMixed true false true 271u
+    Op.VINSHVRX, vxMixed true false true 335u
+    Op.VINSWVRX, vxMixed true false true 399u
+    Op.VCLRLB, vxMixed true true false 397u
+    Op.VCLRRB, vxMixed true true false 461u
+    Op.VEXTDUBVLX, vaIndex 24u
+    Op.VEXTDUBVRX, vaIndex 25u
+    Op.VEXTDUHVLX, vaIndex 26u
+    Op.VEXTDUHVRX, vaIndex 27u
+    Op.VEXTDUWVLX, vaIndex 28u
+    Op.VEXTDUWVRX, vaIndex 29u
+    Op.VEXTDDVLX, vaIndex 30u
+    Op.VEXTDDVRX, vaIndex 31u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -454,4 +529,5 @@ let vmxEncoders () =
       stringEncoders ()
       bitEncoders ()
       floatEncoders ()
-      decimalMoreEncoders () ]
+      decimalMoreEncoders ()
+      insertEncoders () ]
