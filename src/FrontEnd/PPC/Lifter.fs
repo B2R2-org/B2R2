@@ -1800,6 +1800,16 @@ let translate (ins: Instruction) bld =
     vecDivide ins bld 128<rt> true Remainder
   | Op.VMODUQ ->
     vecDivide ins bld 128<rt> false Remainder
+  | Op.VSUM4UBS ->
+    vecSumWithin ins bld 8<rt> false
+  | Op.VSUM4SBS ->
+    vecSumWithin ins bld 8<rt> true
+  | Op.VSUM4SHS ->
+    vecSumWithin ins bld 16<rt> true
+  | Op.VSUM2SWS ->
+    vecSumAcross ins bld 2
+  | Op.VSUMSWS ->
+    vecSumAcross ins bld 1
   (* End of lane V. *)
   | o ->
 #if DEBUG

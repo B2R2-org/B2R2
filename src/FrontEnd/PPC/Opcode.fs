@@ -1038,7 +1038,12 @@ type Opcode =
   | VSUBUHS = 2122
   | VSUBUQM = 2123
   | VSUBUWS = 2124
-  | VUPKHPX = 2125
-  | VUPKLPX = 2126
+  | VSUM2SWS = 2125
+  | VSUM4SBS = 2126
+  | VSUM4SHS = 2127
+  | VSUM4UBS = 2128
+  | VSUMSWS = 2129
+  | VUPKHPX = 2130
+  | VUPKLPX = 2131
 
 type internal Op = Opcode

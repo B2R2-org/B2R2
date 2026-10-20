@@ -1067,6 +1067,11 @@ let opCodeToString = function
   | Op.VSUBUHS -> "vsubuhs"
   | Op.VSUBUQM -> "vsubuqm"
   | Op.VSUBUWS -> "vsubuws"
+  | Op.VSUM2SWS -> "vsum2sws"
+  | Op.VSUM4SBS -> "vsum4sbs"
+  | Op.VSUM4SHS -> "vsum4shs"
+  | Op.VSUM4UBS -> "vsum4ubs"
+  | Op.VSUMSWS -> "vsumsws"
   | Op.VUPKHPX -> "vupkhpx"
   | Op.VUPKLPX -> "vupklpx"
   | _ -> Terminator.impossible ()

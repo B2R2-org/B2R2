@@ -949,6 +949,36 @@ type ParserTests() =
     ++ (VMODUQ ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VSUM4UBS (Sum across Quarter Unsigned Byte Saturate)``() =
+    "10221e08"
+    ++ (VSUM4UBS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUM4SBS (Sum across Quarter Signed Byte Saturate)``() =
+    "10221f08"
+    ++ (VSUM4SBS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUM4SHS (Sum across Quarter Signed Halfword Saturate)``() =
+    "10221e48"
+    ++ (VSUM4SHS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUM2SWS (Vector Sum across Half Signed Word Saturate)``() =
+    "10221e88"
+    ++ (VSUM2SWS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VSUMSWS (Vector Sum across Signed Word Saturate)``() =
+    "10221f88"
+    ++ (VSUMSWS ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]

@@ -2717,6 +2717,137 @@ type LifterTests() =
     let wanted = [ V1A, 0x00000001a0000000UL; V1B, 0x9ffffffe80000001UL ]
     oracle only64 "10221e0b" given wanted
 
+  /// <summary>
+  /// vsum4ubs vD, vA, vB adds the unsigned bytes of vA within each word to
+  /// the matching unsigned word of vB, clamping the sum to a unsigned word
+  /// and setting VSCR[SAT], which is sticky, where it has to.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUM4UBS sums unsigned bytes into words saturating``() =
+    (* vsum4ubs v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ V1A, 0x0000037dffffffffUL
+        V1B, 0x800003fb80000001UL
+        VSCR, 0x1UL ]
+    oracle everyTarget "10221e08" given wanted
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x0f0e0d120b0a091eUL
+        V1B, 0x0706052a03020136UL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10221e08" given wanted
+
+  /// <summary>
+  /// vsum4sbs vD, vA, vB adds the signed bytes of vA within each word to the
+  /// matching signed word of vB, clamping the sum to a signed word and
+  /// setting VSCR[SAT], which is sticky, where it has to.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUM4SBS sums signed bytes into words saturating``() =
+    (* vsum4sbs v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x0f0e0d120b0a091eUL
+        V1B, 0x0706052a03020136UL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10221f08" given wanted
+
+  /// <summary>
+  /// vsum4shs vD, vA, vB adds the signed halfwords of vA within each word to
+  /// the matching signed word of vB, clamping the sum to a signed word and
+  /// setting VSCR[SAT], which is sticky, where it has to.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUM4SHS sums signed halfwords into words saturating``() =
+    (* vsum4shs v1, v2, v3 *)
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x0f0e0f100b0a1314UL
+        V1B, 0x0706171803021b1cUL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10221e48" given wanted
+
+  /// <summary>
+  /// vsum2sws vD, vA, vB writes into words 1 and 3 of vD the sums of words
+  /// 0-1 and 2-3 of vA plus words 1 and 3 of vB, clamped to a signed word,
+  /// and clears words 0 and 2; a clamp sets VSCR[SAT].
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUM2SWS sums signed word pairs saturating``() =
+    (* vsum2sws v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fff8000ffff0001UL
+        V2B, 0x7f80ff00017f80ffUL
+        V3A, 0x0001ffff80007fffUL
+        V3B, 0x7f7f808001010000UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x00000000ffff0000UL
+        V1B, 0x000000007fffffffUL
+        VSCR, 0x10001UL ]
+    oracle everyTarget "10221e88" given wanted
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x000000000f101112UL
+        V1B, 0x000000001718191aUL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10221e88" given wanted
+
+  /// <summary>
+  /// vsumsws vD, vA, vB writes into word 3 of vD the sum of the four signed
+  /// words of vA and word 3 of vB, clamped to a signed word, and clears the
+  /// other three; a clamp sets VSCR[SAT].
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] VSUMSWS sums all signed words saturating``() =
+    (* vsumsws v1, v2, v3 *)
+    let given =
+      [ V2A, 0x7fffffff80000000UL
+        V2B, 0xffffffff00000001UL
+        V3A, 0x00000001ffffffffUL
+        V3B, 0x7fffffff80000000UL ]
+    let wanted =
+      [ V1A, 0x0000000000000000UL
+        V1B, 0x0000000080000000UL
+        VSCR, 0x1UL ]
+    oracle everyTarget "10221f88" given wanted
+    let given =
+      [ V2A, 0x0001020304050607UL
+        V2B, 0x08090a0b0c0d0e0fUL
+        V3A, 0x0f0e0d0c0b0a0908UL
+        V3B, 0x0706050403020100UL
+        VSCR, 0x10000UL ]
+    let wanted =
+      [ V1A, 0x0000000000000000UL
+        V1B, 0x000000001b1e2124UL
+        VSCR, 0x10000UL ]
+    oracle everyTarget "10221f88" given wanted
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the
