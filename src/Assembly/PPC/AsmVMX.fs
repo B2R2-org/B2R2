@@ -352,6 +352,22 @@ let private stringEncoders () =
     Op.VSTRIHRdot, vxSub 3u 1037u
     Op.VPERMR, va 59u ]
 
+/// vgnb "rD, vB, N", the stride in the low three bits of the vA field.
+let private vxGather ins =
+  match ins.Operands with
+  | [ Rg t; Rg b; Im n ] -> word 4u (gpr t) (unsigned 3 n) (vr b) 1228u
+  | _ -> wrongOperands ins
+
+/// The gathers, scatters and counts of bits under a mask.
+let private bitEncoders () =
+  [ Op.VGNB, vxGather
+    Op.VBPERMD, vx 1484u
+    Op.VCFUGED, vx 1357u
+    Op.VPDEPD, vx 1485u
+    Op.VPEXTD, vx 1421u
+    Op.VCLZDM, vx 1924u
+    Op.VCTZDM, vx 1988u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -368,4 +384,5 @@ let vmxEncoders () =
       countEncoders ()
       shiftEncoders ()
       maskEncoders ()
-      stringEncoders () ]
+      stringEncoders ()
+      bitEncoders () ]

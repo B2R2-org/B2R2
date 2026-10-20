@@ -1932,6 +1932,20 @@ let translate (ins: Instruction) bld =
     vecStringIsolate ins bld 16<rt> false true
   | Op.VPERMR ->
     vpermr ins bld
+  | Op.VGNB ->
+    vgnb ins bld
+  | Op.VBPERMD ->
+    vbpermd ins bld
+  | Op.VCFUGED ->
+    vecMaskedBits ins bld Centrifuge
+  | Op.VPDEPD ->
+    vecMaskedBits ins bld Deposit
+  | Op.VPEXTD ->
+    vecMaskedBits ins bld Extract
+  | Op.VCLZDM ->
+    vecMaskedBits ins bld LeadingZeros
+  | Op.VCTZDM ->
+    vecMaskedBits ins bld TrailingZeros
   (* End of lane V. *)
   | o ->
 #if DEBUG

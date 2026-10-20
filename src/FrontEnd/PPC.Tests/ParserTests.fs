@@ -1339,6 +1339,48 @@ type ParserTests() =
     ++ (VPERMR ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A; O.Reg V4A ])
     ||> testEveryTarget
 
+  [<TestMethod>]
+  member _.``[PPC] VGNB (Vector Gather every Nth Bit)``() =
+    "10a21ccc"
+    ++ (VGNB ** [ O.Reg R5; O.Reg V3A; O.Imm 0x2UL ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] VBPERMD (Vector Bit Permute Doubleword)``() =
+    "10221dcc"
+    ++ (VBPERMD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCFUGED (Vector Centrifuge Doubleword)``() =
+    "10221d4d"
+    ++ (VCFUGED ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPDEPD (Vector Parallel Bits Deposit Doubleword)``() =
+    "10221dcd"
+    ++ (VPDEPD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VPEXTD (Vector Parallel Bits Extract Doubleword)``() =
+    "10221d8d"
+    ++ (VPEXTD ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCLZDM (Count Leading Zeros Doubleword under bit Mask)``() =
+    "10221f84"
+    ++ (VCLZDM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] VCTZDM (Count Trailing Zeros Doubleword under bit Mask)``() =
+    "10221fc4"
+    ++ (VCTZDM ** [ O.Reg V1A; O.Reg V2A; O.Reg V3A ])
+    ||> testEveryTarget
+
 /// What lane F's tests check a word against: one decode per target, from the
 /// bytes as that target holds them.
 [<AutoOpen>]
