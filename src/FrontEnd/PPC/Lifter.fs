@@ -1546,6 +1546,48 @@ let translate (ins: Instruction) bld =
   | Op.DSCRIQdot ->
     shift ins true "DSCRI" true bld
   (* Lane V: the vector facility, primary opcode 4. *)
+  | Op.VADDSBS ->
+    vecSaturating ins bld 8<rt> true true
+  | Op.VADDSHS ->
+    vecSaturating ins bld 16<rt> true true
+  | Op.VADDSWS ->
+    vecSaturating ins bld 32<rt> true true
+  | Op.VADDUHS ->
+    vecSaturating ins bld 16<rt> false true
+  | Op.VADDUWS ->
+    vecSaturating ins bld 32<rt> false true
+  | Op.VSUBSBS ->
+    vecSaturating ins bld 8<rt> true false
+  | Op.VSUBSHS ->
+    vecSaturating ins bld 16<rt> true false
+  | Op.VSUBSWS ->
+    vecSaturating ins bld 32<rt> true false
+  | Op.VSUBUHS ->
+    vecSaturating ins bld 16<rt> false false
+  | Op.VSUBUWS ->
+    vecSaturating ins bld 32<rt> false false
+  | Op.VADDCUW ->
+    vaddcuw ins bld
+  | Op.VSUBCUW ->
+    vsubcuw ins bld
+  | Op.VAVGSB ->
+    vecAverage ins bld 8<rt> true
+  | Op.VAVGSH ->
+    vecAverage ins bld 16<rt> true
+  | Op.VAVGSW ->
+    vecAverage ins bld 32<rt> true
+  | Op.VAVGUB ->
+    vecAverage ins bld 8<rt> false
+  | Op.VAVGUH ->
+    vecAverage ins bld 16<rt> false
+  | Op.VAVGUW ->
+    vecAverage ins bld 32<rt> false
+  | Op.VABSDUB ->
+    vecAbsoluteDifference ins bld 8<rt>
+  | Op.VABSDUH ->
+    vecAbsoluteDifference ins bld 16<rt>
+  | Op.VABSDUW ->
+    vecAbsoluteDifference ins bld 32<rt>
   | Op.VADDUQM ->
     vecQuadAdd ins bld false false
   | Op.VADDCUQ ->

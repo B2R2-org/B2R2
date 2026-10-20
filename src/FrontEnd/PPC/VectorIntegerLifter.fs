@@ -216,3 +216,51 @@ let vecQuadAdd ins bld subtract carryOut =
     else
       putElements bld o1 [| total |]
   }
+
+/// An element-wise "vD, vA, vB": each element of vD is f of the matching
+/// elements of vA and vB.
+let vecMap2 ins bld esize f =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let a = elementsOf bld esize o2
+    let b = elementsOf bld esize o3
+    putElements bld o1 (Array.map2 f a b)
+  }
+
+/// The saturating adds and subtracts: the sum or the difference of each pair
+/// of elements, computed exactly at twice the width and clamped to the
+/// element's range, which sets VSCR[SAT] where it had to be.
+let vecSaturating ins bld esize signed isAdd =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let wide = regTypeOf (int esize * 2)
+    let f a b =
+      let a = widen signed wide a
+      let b = widen signed wide b
+      saturate esize signed (if isAdd then a .+ b else a .- b)
+    let a = elementsOf bld esize o2
+    let b = elementsOf bld esize o3
+    putSaturated bld o1 (Array.map2 f a b)
+  }
+
+/// vaddcuw, the carry out of each unsigned word sum.
+let vaddcuw ins bld =
+  vecMap2 ins bld 32<rt> (fun a b -> AST.zext 32<rt> ((a .+ b) .< a))
+
+/// vsubcuw, the carry out of each word of vA + ~vB + 1, which is set exactly
+/// where vA is not below vB.
+let vsubcuw ins bld =
+  vecMap2 ins bld 32<rt> (fun a b -> AST.zext 32<rt> (a .>= b))
+
+/// vavg*, the average of each pair of elements rounded up: (a + b + 1) / 2,
+/// computed at twice the width so that the sum cannot overflow. The low bits of
+/// the shifted sum are the same whether the shift brings in a sign or a zero.
+let vecAverage ins bld esize signed =
+  let wide = regTypeOf (int esize * 2)
+  vecMap2 ins bld esize (fun a b ->
+    let sum = widen signed wide a .+ widen signed wide b .+ AST.num1 wide
+    AST.xtlo esize (sum >> AST.num1 wide))
+
+/// vabsdu*, the absolute difference of each pair of unsigned elements.
+let vecAbsoluteDifference ins bld esize =
+  vecMap2 ins bld esize (fun a b -> AST.ite (a .> b) (a .- b) (b .- a))

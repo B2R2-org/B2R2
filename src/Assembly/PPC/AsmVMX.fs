@@ -136,6 +136,31 @@ let private decimalEncoders () =
   [ Op.BCDADDdot, vxDecimal 1025u
     Op.BCDSUBdot, vxDecimal 1089u ]
 
+/// The saturating adds and subtracts, the carries, the averages and the
+/// absolute differences.
+let private saturatingEncoders () =
+  [ Op.VADDSBS, vx 768u
+    Op.VADDSHS, vx 832u
+    Op.VADDSWS, vx 896u
+    Op.VADDUHS, vx 576u
+    Op.VADDUWS, vx 640u
+    Op.VSUBSBS, vx 1792u
+    Op.VSUBSHS, vx 1856u
+    Op.VSUBSWS, vx 1920u
+    Op.VSUBUHS, vx 1600u
+    Op.VSUBUWS, vx 1664u
+    Op.VADDCUW, vx 384u
+    Op.VSUBCUW, vx 1408u
+    Op.VAVGSB, vx 1282u
+    Op.VAVGSH, vx 1346u
+    Op.VAVGSW, vx 1410u
+    Op.VAVGUB, vx 1026u
+    Op.VAVGUH, vx 1090u
+    Op.VAVGUW, vx 1154u
+    Op.VABSDUB, vx 1027u
+    Op.VABSDUH, vx 1091u
+    Op.VABSDUW, vx 1155u ]
+
 /// Every instruction of primary opcode 4 the older encoders leave out.
 let vmxEncoders () =
   List.concat
@@ -143,4 +168,5 @@ let vmxEncoders () =
       multiplyEncoders ()
       quadwordEncoders ()
       cryptoEncoders ()
-      decimalEncoders () ]
+      decimalEncoders ()
+      saturatingEncoders () ]
