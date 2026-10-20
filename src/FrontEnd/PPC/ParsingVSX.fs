@@ -69,10 +69,31 @@ let private parseMTVSRWS bin =
   if Bits.extract bin 15u 11u <> 0u then raise ParsingFailureException
   else struct (Op.MTVSRWS, TwoOperands(xt bin, gpr bin 16u))
 
+/// The accumulator an MMA form names in its top three bits, the two bits
+/// below them reserved.
+let private accField bin =
+  if Bits.extract bin 22u 21u <> 0u then
+    raise ParsingFailureException
+  else
+    let n = int Register.ACC0 + int (Bits.extract bin 25u 23u)
+    OprReg(LanguagePrimitives.EnumOfValue n)
+
+/// xxmfacc, xxmtacc and xxsetaccz, "AS" or "AT", told apart by the A field.
+let private parseAccumulatorMove bin =
+  if Bits.extract bin 15u 11u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    match Bits.extract bin 20u 16u with
+    | 0u -> struct (Op.XXMFACC, OneOperand(accField bin))
+    | 1u -> struct (Op.XXMTACC, OneOperand(accField bin))
+    | 3u -> struct (Op.XXSETACCZ, OneOperand(accField bin))
+    | _ -> raise ParsingFailureException
+
 /// <summary>
 /// The VSX loads and stores of primary opcode 31 that ISA 3.0 and 3.1 added,
-/// and mtvsrws, which sits among them. The ten bits above the last one are
-/// the extended opcode; the last bit extends the register number.
+/// and mtvsrws and the accumulator moves, which sit among them. The ten bits
+/// above the last one are the extended opcode; the last bit extends the
+/// register number.
 /// </summary>
 let parse1F fallback bin =
   match Bits.extract bin 10u 1u with
@@ -107,6 +128,7 @@ let parse1F fallback bin =
   | 940u -> parseXIndexed Op.STXVH8X bin
   | 941u -> parseXIndexed Op.STXSIHX bin
   | 1004u -> parseXIndexed Op.STXVB16X bin
+  | 177u -> parseAccumulatorMove bin
   | _ -> fallback bin
 
 /// The displacement of a DS-form, whose two low bits the encoding leaves out.
@@ -514,3 +536,65 @@ let parse3F bin =
     | 836u -> parseXO836 bin
     | 868u -> parseQuad Op.XSIEXPQP bin
     | _ -> raise ParsingFailureException
+
+(* The Matrix-Multiply Assist forms. *)
+/// The rank-k update an eight-bit extended opcode (instruction bits 21:28)
+/// of primary opcode 59 names, or InvalOP.
+let private matrixOp xo =
+  match xo with
+  | 2u -> Op.XVI8GER4PP
+  | 3u -> Op.XVI8GER4
+  | 18u -> Op.XVF16GER2PP
+  | 19u -> Op.XVF16GER2
+  | 26u -> Op.XVF32GERPP
+  | 27u -> Op.XVF32GER
+  | 34u -> Op.XVI4GER8PP
+  | 35u -> Op.XVI4GER8
+  | 42u -> Op.XVI16GER2SPP
+  | 43u -> Op.XVI16GER2S
+  | 50u -> Op.XVBF16GER2PP
+  | 51u -> Op.XVBF16GER2
+  | 58u -> Op.XVF64GERPP
+  | 59u -> Op.XVF64GER
+  | 75u -> Op.XVI16GER2
+  | 82u -> Op.XVF16GER2NP
+  | 90u -> Op.XVF32GERNP
+  | 99u -> Op.XVI8GER4SPP
+  | 107u -> Op.XVI16GER2PP
+  | 114u -> Op.XVBF16GER2NP
+  | 122u -> Op.XVF64GERNP
+  | 146u -> Op.XVF16GER2PN
+  | 154u -> Op.XVF32GERPN
+  | 178u -> Op.XVBF16GER2PN
+  | 186u -> Op.XVF64GERPN
+  | 210u -> Op.XVF16GER2NN
+  | 218u -> Op.XVF32GERNN
+  | 242u -> Op.XVBF16GER2NN
+  | 250u -> Op.XVF64GERNN
+  | _ -> Op.InvalOP
+
+/// Whether a word of primary opcode 59 is one of the rank-k updates.
+let isMatrixForm bin = matrixOp (Bits.extract bin 10u 3u) <> Op.InvalOP
+
+/// Whether a rank-k update reads its xA as a pair: the 64-bit ones.
+let private readsPair op =
+  match op with
+  | Op.XVF64GER | Op.XVF64GERPP | Op.XVF64GERPN | Op.XVF64GERNP
+  | Op.XVF64GERNN -> true
+  | _ -> false
+
+/// <summary>
+/// The rank-k updates, "AT, xA, xB". The form is invalid where xA or xB is
+/// one of the four registers the accumulator overlays, or where the pair a
+/// 64-bit form reads starts at an odd register; the last bit is reserved.
+/// </summary>
+let parse3B bin =
+  let op = matrixOp (Bits.extract bin 10u 3u)
+  let first = 4u * Bits.extract bin 25u 23u
+  let overlaps n = n >= first && n <= first + 3u
+  let na, nb = vsxNumber bin 2u 16u, vsxNumber bin 1u 11u
+  let oddPair = readsPair op && na &&& 1u = 1u
+  if Bits.pick bin 0u <> 0u || overlaps na || overlaps nb || oddPair then
+    raise ParsingFailureException
+  else
+    struct (op, ThreeOperands(accField bin, xa bin, xb bin))

@@ -2525,6 +2525,68 @@ let translate (ins: Instruction) bld =
     VSXQuad.roundToIntegral ins bld
   | Op.XSRQPXP ->
     VSXQuad.roundToX80 ins bld
+  | Op.XXMFACC | Op.XXMTACC ->
+    nop ins bld
+  | Op.XXSETACCZ ->
+    VSXMatrix.setAccumulatorZero ins bld
+  | Op.XVF32GER ->
+    VSXMatrix.singleUpdate ins bld 0
+  | Op.XVF32GERPP ->
+    VSXMatrix.singleUpdate ins bld 1
+  | Op.XVF32GERPN ->
+    VSXMatrix.singleUpdate ins bld 2
+  | Op.XVF32GERNP ->
+    VSXMatrix.singleUpdate ins bld 3
+  | Op.XVF32GERNN ->
+    VSXMatrix.singleUpdate ins bld 4
+  | Op.XVF64GER ->
+    VSXMatrix.doubleUpdate ins bld 0
+  | Op.XVF64GERPP ->
+    VSXMatrix.doubleUpdate ins bld 1
+  | Op.XVF64GERPN ->
+    VSXMatrix.doubleUpdate ins bld 2
+  | Op.XVF64GERNP ->
+    VSXMatrix.doubleUpdate ins bld 3
+  | Op.XVF64GERNN ->
+    VSXMatrix.doubleUpdate ins bld 4
+  | Op.XVF16GER2 ->
+    VSXMatrix.dotUpdate ins bld false 0
+  | Op.XVF16GER2PP ->
+    VSXMatrix.dotUpdate ins bld false 1
+  | Op.XVF16GER2PN ->
+    VSXMatrix.dotUpdate ins bld false 2
+  | Op.XVF16GER2NP ->
+    VSXMatrix.dotUpdate ins bld false 3
+  | Op.XVF16GER2NN ->
+    VSXMatrix.dotUpdate ins bld false 4
+  | Op.XVBF16GER2 ->
+    VSXMatrix.dotUpdate ins bld true 0
+  | Op.XVBF16GER2PP ->
+    VSXMatrix.dotUpdate ins bld true 1
+  | Op.XVBF16GER2PN ->
+    VSXMatrix.dotUpdate ins bld true 2
+  | Op.XVBF16GER2NP ->
+    VSXMatrix.dotUpdate ins bld true 3
+  | Op.XVBF16GER2NN ->
+    VSXMatrix.dotUpdate ins bld true 4
+  | Op.XVI4GER8 ->
+    VSXMatrix.integerUpdate ins bld 4 true false
+  | Op.XVI4GER8PP ->
+    VSXMatrix.integerUpdate ins bld 4 true true
+  | Op.XVI8GER4 ->
+    VSXMatrix.integerUpdate ins bld 8 false false
+  | Op.XVI8GER4PP ->
+    VSXMatrix.integerUpdate ins bld 8 false true
+  | Op.XVI16GER2 ->
+    VSXMatrix.integerUpdate ins bld 16 true false
+  | Op.XVI16GER2PP ->
+    VSXMatrix.integerUpdate ins bld 16 true true
+  | Op.XVI8GER4SPP ->
+    VSXMatrix.saturatingUpdate ins bld 8 false true
+  | Op.XVI16GER2S ->
+    VSXMatrix.saturatingUpdate ins bld 16 true false
+  | Op.XVI16GER2SPP ->
+    VSXMatrix.saturatingUpdate ins bld 16 true true
   | o ->
 #if DEBUG
          eprintfn "%A" o

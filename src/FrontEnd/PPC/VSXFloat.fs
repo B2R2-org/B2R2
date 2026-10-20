@@ -307,7 +307,7 @@ let private fused lane x y z subtract =
 /// quieted; an invalid operation answers with the default quiet NaN; the
 /// negating forms flip the sign of the rounded result, a NaN excepted.
 /// </summary>
-let private mulAddLane bld lane targetIsFactor subtract negate a b t =
+let mulAddLane bld lane targetIsFactor subtract negate a b t =
   let res = tmpVar bld lane.Width
   let x, y, z = if targetIsFactor then a, t, b else a, b, t
   let addend, other = if targetIsFactor then b, t else t, b

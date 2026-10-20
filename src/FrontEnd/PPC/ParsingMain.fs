@@ -3146,6 +3146,8 @@ let private parseDFP bin =
 
 let parse3B bin =
   match Bits.extract bin 5u 1u with
+  | _ when ParsingVSX.isMatrixForm bin ->
+    ParsingVSX.parse3B bin
   | 0x2u | 0x3u ->
     parseDFP bin
   | 0xEu ->

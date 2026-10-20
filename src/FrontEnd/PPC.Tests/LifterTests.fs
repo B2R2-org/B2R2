@@ -20248,6 +20248,3766 @@ type LifterTests() =
       [ V1A, 0x406f000000000000UL; V1B, 0x0UL; FPSCR, 0x4UL ]
       []
 
+  /// <summary>
+  /// xvf32ger AT, xA, xB sets element j of row i of accumulator AT (VSR 4AT +
+  /// i) to word i of xA times word j of xB; the pp, pn, np and nn forms fuse
+  /// the multiply with adding or subtracting the element and negate the rounded
+  /// result for np and nn: exact sums, NaNs in every position in POWER's order,
+  /// infinities, an inexact product and one past the range.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF32GER updates a single accumulator``() =
+    (* dmxvf32ger a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee0218d8"
+      [ F2, 0x3f800000c0000000UL
+        F3, 0x3fc0000040000000UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x3f00000040400000UL
+        VSRL3, 0xbe80000040800000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x3fc0000040000000UL
+        F17, 0xc0400000c0800000UL
+        F18, 0x3f4000003f800000UL
+        F19, 0x4090000040c00000UL
+        VSRL16, 0xbe80000040800000UL
+        VSRL17, 0x3f000000c1000000UL
+        VSRL18, 0xbe00000040000000UL
+        VSRL19, 0xbf40000041400000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee0218d8"
+      [ F2, 0x7fc000017f800000UL
+        F3, 0x3f80000000000000UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x7f800001UL
+        VSRL3, 0xff8000007fc00002UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc000017fc00001UL
+        F17, 0x7f8000007fc00000UL
+        F18, 0x0UL
+        F19, 0x7fc000017fc00001UL
+        VSRL16, 0x7fc000017fc00001UL
+        VSRL17, 0xff8000007fc00002UL
+        VSRL18, 0x7fc000007fc00002UL
+        VSRL19, 0x7fc000017fc00001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee0218d8"
+      [ F2, 0x3eaaaaab3f8ccccdUL
+        F3, 0x404000003f8ccccdUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7149f2ca0da24260UL
+        VSRL3, 0x7149f2ca0da24260UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x3f8000003ebbbbbcUL
+        F17, 0x405333343f9ae148UL
+        F18, 0x72177618715e24abUL
+        F19, 0xe7363900db27c37UL
+        VSRL16, 0x7086a1dc0cd85880UL
+        VSRL17, 0x715e24ab0db27c37UL
+        VSRL18, 0x7f8000003f800000UL
+        VSRL19, 0x3f80000000000000UL ]
+      []
+
+  /// <summary>
+  /// xvf32ger AT, xA, xB sets element j of row i of accumulator AT (VSR 4AT +
+  /// i) to word i of xA times word j of xB; the pp, pn, np and nn forms fuse
+  /// the multiply with adding or subtracting the element and negate the rounded
+  /// result for np and nn: exact sums, NaNs in every position in POWER's order,
+  /// infinities, an inexact product and one past the range.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF32GERPP beside XVF32GER``() =
+    (* dmxvf32gerpp a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee0218d0"
+      [ F2, 0x3f800000c0000000UL
+        F3, 0x3fc0000040000000UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x3f00000040400000UL
+        VSRL3, 0xbe80000040800000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x4020000040800000UL
+        F17, 0xc0200000c0c00000UL
+        F18, 0x412c0000c1100000UL
+        F19, 0x4090000040c00000UL
+        VSRL16, 0x4030000041000000UL
+        VSRL17, 0x3f000000c1000000UL
+        VSRL18, 0x3f60000040400000UL
+        VSRL19, 0xbf40000041400000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee0218d0"
+      [ F2, 0x7fc000017f800000UL
+        F3, 0x3f80000000000000UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x7f800001UL
+        VSRL3, 0xff8000007fc00002UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc000017fc00001UL
+        F17, 0x7f8000007fc00000UL
+        F19, 0x7fc000017fc00001UL
+        VSRL16, 0x7fc000017fc00001UL
+        VSRL18, 0x7fc000007fc00002UL
+        VSRL19, 0x7fc000017fc00001UL
+        F18, 0x7fc0000200000000UL
+        VSRL17, 0xff8000007fc00001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee0218d0"
+      [ F2, 0x3eaaaaab3f8ccccdUL
+        F3, 0x404000003f8ccccdUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7149f2ca0da24260UL
+        VSRL3, 0x7149f2ca0da24260UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x4000000040177778UL
+        F17, 0x40733334bf4a3d70UL
+        F18, 0x72177618715e24abUL
+        F19, 0xe7363900db27c37UL
+        VSRL16, 0x7086a1dc40800000UL
+        VSRL17, 0x715e24ab0db27c37UL
+        VSRL18, 0x7f80000040000000UL
+        VSRL19, 0x3f80000000000000UL ]
+      []
+
+  /// <summary>
+  /// xvf32ger AT, xA, xB sets element j of row i of accumulator AT (VSR 4AT +
+  /// i) to word i of xA times word j of xB; the pp, pn, np and nn forms fuse
+  /// the multiply with adding or subtracting the element and negate the rounded
+  /// result for np and nn: exact sums, NaNs in every position in POWER's order,
+  /// infinities, an inexact product and one past the range.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF32GERPN beside XVF32GER``() =
+    (* dmxvf32gerpn a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021cd0"
+      [ F2, 0x3f800000c0000000UL
+        F3, 0x3fc0000040000000UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x3f00000040400000UL
+        VSRL3, 0xbe80000040800000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x3f00000000000000UL
+        F17, 0xc0600000c0000000UL
+        F18, 0xc114000041300000UL
+        F19, 0x4090000040c00000UL
+        VSRL16, 0xc050000000000000UL
+        VSRL17, 0x3f000000c1000000UL
+        VSRL18, 0xbf9000003f800000UL
+        VSRL19, 0xbf40000041400000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021cd0"
+      [ F2, 0x7fc000017f800000UL
+        F3, 0x3f80000000000000UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x7f800001UL
+        VSRL3, 0xff8000007fc00002UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc000017fc00001UL
+        F17, 0x7fc000007fc00000UL
+        F19, 0x7fc000017fc00001UL
+        VSRL16, 0x7fc000017fc00001UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc000007fc00002UL
+        VSRL19, 0x7fc000017fc00001UL
+        F18, 0x7fc0000200000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021cd0"
+      [ F2, 0x3eaaaaab3f8ccccdUL
+        F3, 0x404000003f8ccccdUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7149f2ca0da24260UL
+        VSRL3, 0x7149f2ca0da24260UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x33000000bfd11111UL
+        F17, 0x40333334404d70a4UL
+        F18, 0x72177617715e24abUL
+        F19, 0xe7363900db27c37UL
+        VSRL16, 0x7086a1dcc0800000UL
+        VSRL17, 0x715e24ab0db27c37UL
+        VSRL18, 0x7f800000329c7f00UL
+        VSRL19, 0x3f80000000000000UL ]
+      []
+
+  /// <summary>
+  /// xvf32ger AT, xA, xB sets element j of row i of accumulator AT (VSR 4AT +
+  /// i) to word i of xA times word j of xB; the pp, pn, np and nn forms fuse
+  /// the multiply with adding or subtracting the element and negate the rounded
+  /// result for np and nn: exact sums, NaNs in every position in POWER's order,
+  /// infinities, an inexact product and one past the range.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF32GERNP beside XVF32GER``() =
+    (* dmxvf32gernp a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021ad0"
+      [ F2, 0x3f800000c0000000UL
+        F3, 0x3fc0000040000000UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x3f00000040400000UL
+        VSRL3, 0xbe80000040800000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xbf00000080000000UL
+        F17, 0x4060000040000000UL
+        F18, 0x41140000c1300000UL
+        F19, 0xc0900000c0c00000UL
+        VSRL16, 0x4050000080000000UL
+        VSRL17, 0xbf00000041000000UL
+        VSRL18, 0x3f900000bf800000UL
+        VSRL19, 0x3f400000c1400000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021ad0"
+      [ F2, 0x7fc000017f800000UL
+        F3, 0x3f80000000000000UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x7f800001UL
+        VSRL3, 0xff8000007fc00002UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc000017fc00001UL
+        F17, 0x7fc000007fc00000UL
+        F18, 0x7fc0000280000000UL
+        F19, 0x7fc000017fc00001UL
+        VSRL16, 0x7fc000017fc00001UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc000007fc00002UL
+        VSRL19, 0x7fc000017fc00001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021ad0"
+      [ F2, 0x3eaaaaab3f8ccccdUL
+        F3, 0x404000003f8ccccdUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7149f2ca0da24260UL
+        VSRL3, 0x7149f2ca0da24260UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xb30000003fd11111UL
+        F17, 0xc0333334c04d70a4UL
+        F18, 0xf2177617f15e24abUL
+        F19, 0x8e7363908db27c37UL
+        VSRL16, 0xf086a1dc40800000UL
+        VSRL17, 0xf15e24ab8db27c37UL
+        VSRL18, 0xff800000b29c7f00UL
+        VSRL19, 0xbf80000080000000UL ]
+      []
+
+  /// <summary>
+  /// xvf32ger AT, xA, xB sets element j of row i of accumulator AT (VSR 4AT +
+  /// i) to word i of xA times word j of xB; the pp, pn, np and nn forms fuse
+  /// the multiply with adding or subtracting the element and negate the rounded
+  /// result for np and nn: exact sums, NaNs in every position in POWER's order,
+  /// infinities, an inexact product and one past the range.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF32GERNN beside XVF32GER``() =
+    (* dmxvf32gernn a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021ed0"
+      [ F2, 0x3f800000c0000000UL
+        F3, 0x3fc0000040000000UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x3f00000040400000UL
+        VSRL3, 0xbe80000040800000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xc0200000c0800000UL
+        F17, 0x4020000040c00000UL
+        F18, 0xc12c000041100000UL
+        F19, 0xc0900000c0c00000UL
+        VSRL16, 0xc0300000c1000000UL
+        VSRL17, 0xbf00000041000000UL
+        VSRL18, 0xbf600000c0400000UL
+        VSRL19, 0x3f400000c1400000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021ed0"
+      [ F2, 0x7fc000017f800000UL
+        F3, 0x3f80000000000000UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x7f800001UL
+        VSRL3, 0xff8000007fc00002UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc000017fc00001UL
+        F17, 0xff8000007fc00000UL
+        F18, 0x7fc0000280000000UL
+        F19, 0x7fc000017fc00001UL
+        VSRL16, 0x7fc000017fc00001UL
+        VSRL17, 0x7f8000007fc00001UL
+        VSRL18, 0x7fc000007fc00002UL
+        VSRL19, 0x7fc000017fc00001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021ed0"
+      [ F2, 0x3eaaaaab3f8ccccdUL
+        F3, 0x404000003f8ccccdUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7149f2ca0da24260UL
+        VSRL3, 0x7149f2ca0da24260UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xc0000000c0177778UL
+        F17, 0xc07333343f4a3d70UL
+        F18, 0xf2177618f15e24abUL
+        F19, 0x8e7363908db27c37UL
+        VSRL16, 0xf086a1dcc0800000UL
+        VSRL17, 0xf15e24ab8db27c37UL
+        VSRL18, 0xff800000c0000000UL
+        VSRL19, 0xbf80000080000000UL ]
+      []
+
+  /// <summary>
+  /// xvf64ger AT, xAp, xB multiplies the four doubles of the pair starting at
+  /// xAp by the two of xB into the 4 by 2 accumulator, each row two
+  /// doublewords; the accumulating forms fuse as xvf32ger's do.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF64GER updates a double accumulator``() =
+    (* dmxvf64ger a4,vs6,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee0619d8"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3ff0000000000000UL
+        F7, 0x3fe0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3fe0000000000000UL
+        VSRL6, 0x4000000000000000UL
+        VSRL7, 0xbff0000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x4008000000000000UL
+        F17, 0x4018000000000000UL
+        F18, 0x3ff8000000000000UL
+        F19, 0xc008000000000000UL
+        VSRL16, 0x3fe0000000000000UL
+        VSRL17, 0x3ff0000000000000UL
+        VSRL18, 0x3fd0000000000000UL
+        VSRL19, 0xbfe0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee0619d8"
+      [ F3, 0x3ff0000000000000UL
+        F6, 0x7ff8000000000001UL
+        F16, 0x7ff0000000000000UL
+        F17, 0x7ff8000000000002UL
+        F18, 0xfff0000000000000UL
+        F19, 0x7ff0000000000001UL
+        VSRL6, 0x7ff0000000000000UL
+        VSRL7, 0x7ff0000000000001UL
+        VSRL16, 0x7ff8000000000001UL
+        VSRL18, 0x3ff0000000000000UL
+        VSRL19, 0x4000000000000000UL ]
+      []
+      [ F16, 0x7ff8000000000001UL
+        F17, 0x7ff0000000000000UL
+        F18, 0x0UL
+        F19, 0x7ff8000000000001UL
+        VSRL17, 0x7ff8000000000000UL
+        VSRL18, 0x0UL
+        VSRL19, 0x7ff8000000000001UL
+        VSRL16, 0x7ff8000000000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee0619d8"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3fd5555555555555UL
+        F7, 0x3ff0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3ff199999999999aUL
+        VSRL6, 0x3ff199999999999aUL
+        VSRL7, 0x4000000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F17, 0x400a666666666667UL
+        F18, 0x4008000000000000UL
+        F19, 0x4018000000000000UL
+        VSRL16, 0x3fd7777777777778UL
+        VSRL17, 0x3ff35c28f5c28f5dUL
+        VSRL18, 0x3ff199999999999aUL
+        VSRL19, 0x400199999999999aUL
+        F16, 0x3ff0000000000000UL ]
+      []
+
+  /// <summary>
+  /// xvf64ger AT, xAp, xB multiplies the four doubles of the pair starting at
+  /// xAp by the two of xB into the 4 by 2 accumulator, each row two
+  /// doublewords; the accumulating forms fuse as xvf32ger's do.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF64GERPP beside XVF64GER``() =
+    (* dmxvf64gerpp a4,vs6,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee0619d0"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3ff0000000000000UL
+        F7, 0x3fe0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3fe0000000000000UL
+        VSRL6, 0x4000000000000000UL
+        VSRL7, 0xbff0000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x4010000000000000UL
+        F17, 0x401a000000000000UL
+        F18, 0x3ff8000000000000UL
+        F19, 0xbff0000000000000UL
+        VSRL16, 0x4004000000000000UL
+        VSRL17, 0xbff0000000000000UL
+        VSRL18, 0x3fd0000000000000UL
+        VSRL19, 0x3fe0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee0619d0"
+      [ F3, 0x3ff0000000000000UL
+        F6, 0x7ff8000000000001UL
+        F16, 0x7ff0000000000000UL
+        F17, 0x7ff8000000000002UL
+        F18, 0xfff0000000000000UL
+        F19, 0x7ff0000000000001UL
+        VSRL6, 0x7ff0000000000000UL
+        VSRL7, 0x7ff0000000000001UL
+        VSRL16, 0x7ff8000000000001UL
+        VSRL18, 0x3ff0000000000000UL
+        VSRL19, 0x4000000000000000UL ]
+      []
+      [ F16, 0x7ff8000000000001UL
+        F19, 0x7ff8000000000001UL
+        VSRL17, 0x7ff8000000000000UL
+        VSRL19, 0x7ff8000000000001UL
+        F17, 0x7ff8000000000002UL
+        F18, 0xfff0000000000000UL
+        VSRL16, 0x7ff8000000000001UL
+        VSRL18, 0x3ff0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee0619d0"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3fd5555555555555UL
+        F7, 0x3ff0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3ff199999999999aUL
+        VSRL6, 0x3ff199999999999aUL
+        VSRL7, 0x4000000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x4000000000000000UL
+        F17, 0x400e666666666667UL
+        F18, 0x4008000000000000UL
+        F19, 0x4020000000000000UL
+        VSRL16, 0x4002eeeeeeeeeeefUL
+        VSRL17, 0xbfe947ae147ae146UL
+        VSRL18, 0x3ff199999999999aUL
+        VSRL19, 0x400999999999999aUL ]
+      []
+
+  /// <summary>
+  /// xvf64ger AT, xAp, xB multiplies the four doubles of the pair starting at
+  /// xAp by the two of xB into the 4 by 2 accumulator, each row two
+  /// doublewords; the accumulating forms fuse as xvf32ger's do.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF64GERPN beside XVF64GER``() =
+    (* dmxvf64gerpn a4,vs6,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee061dd0"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3ff0000000000000UL
+        F7, 0x3fe0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3fe0000000000000UL
+        VSRL6, 0x4000000000000000UL
+        VSRL7, 0xbff0000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x4000000000000000UL
+        F17, 0x4016000000000000UL
+        F18, 0x3ff8000000000000UL
+        F19, 0xc014000000000000UL
+        VSRL16, 0xbff8000000000000UL
+        VSRL17, 0x4008000000000000UL
+        VSRL18, 0x3fd0000000000000UL
+        VSRL19, 0xbff8000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee061dd0"
+      [ F3, 0x3ff0000000000000UL
+        F6, 0x7ff8000000000001UL
+        F16, 0x7ff0000000000000UL
+        F17, 0x7ff8000000000002UL
+        F18, 0xfff0000000000000UL
+        F19, 0x7ff0000000000001UL
+        VSRL6, 0x7ff0000000000000UL
+        VSRL7, 0x7ff0000000000001UL
+        VSRL16, 0x7ff8000000000001UL
+        VSRL18, 0x3ff0000000000000UL
+        VSRL19, 0x4000000000000000UL ]
+      []
+      [ F16, 0x7ff8000000000001UL
+        F18, 0x7ff0000000000000UL
+        F19, 0x7ff8000000000001UL
+        VSRL17, 0x7ff8000000000000UL
+        VSRL18, 0xbff0000000000000UL
+        VSRL19, 0x7ff8000000000001UL
+        F17, 0x7ff8000000000002UL
+        VSRL16, 0x7ff8000000000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee061dd0"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3fd5555555555555UL
+        F7, 0x3ff0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3ff199999999999aUL
+        VSRL6, 0x3ff199999999999aUL
+        VSRL7, 0x4000000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xbc90000000000000UL
+        F17, 0x4006666666666667UL
+        F18, 0x4008000000000000UL
+        F19, 0x4010000000000000UL
+        VSRL16, 0xbffa222222222222UL
+        VSRL17, 0x4009ae147ae147afUL
+        VSRL18, 0x3ff199999999999aUL
+        VSRL19, 0x3ff3333333333334UL ]
+      []
+
+  /// <summary>
+  /// xvf64ger AT, xAp, xB multiplies the four doubles of the pair starting at
+  /// xAp by the two of xB into the 4 by 2 accumulator, each row two
+  /// doublewords; the accumulating forms fuse as xvf32ger's do.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF64GERNP beside XVF64GER``() =
+    (* dmxvf64gernp a4,vs6,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee061bd0"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3ff0000000000000UL
+        F7, 0x3fe0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3fe0000000000000UL
+        VSRL6, 0x4000000000000000UL
+        VSRL7, 0xbff0000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xc000000000000000UL
+        F17, 0xc016000000000000UL
+        F18, 0xbff8000000000000UL
+        F19, 0x4014000000000000UL
+        VSRL16, 0x3ff8000000000000UL
+        VSRL17, 0xc008000000000000UL
+        VSRL18, 0xbfd0000000000000UL
+        VSRL19, 0x3ff8000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee061bd0"
+      [ F3, 0x3ff0000000000000UL
+        F6, 0x7ff8000000000001UL
+        F16, 0x7ff0000000000000UL
+        F17, 0x7ff8000000000002UL
+        F18, 0xfff0000000000000UL
+        F19, 0x7ff0000000000001UL
+        VSRL6, 0x7ff0000000000000UL
+        VSRL7, 0x7ff0000000000001UL
+        VSRL16, 0x7ff8000000000001UL
+        VSRL18, 0x3ff0000000000000UL
+        VSRL19, 0x4000000000000000UL ]
+      []
+      [ F16, 0x7ff8000000000001UL
+        F19, 0x7ff8000000000001UL
+        VSRL17, 0x7ff8000000000000UL
+        VSRL19, 0x7ff8000000000001UL
+        F17, 0x7ff8000000000002UL
+        F18, 0xfff0000000000000UL
+        VSRL16, 0x7ff8000000000001UL
+        VSRL18, 0x3ff0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee061bd0"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3fd5555555555555UL
+        F7, 0x3ff0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3ff199999999999aUL
+        VSRL6, 0x3ff199999999999aUL
+        VSRL7, 0x4000000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x3c90000000000000UL
+        F17, 0xc006666666666667UL
+        F18, 0xc008000000000000UL
+        F19, 0xc010000000000000UL
+        VSRL16, 0x3ffa222222222222UL
+        VSRL17, 0xc009ae147ae147afUL
+        VSRL18, 0xbff199999999999aUL
+        VSRL19, 0xbff3333333333334UL ]
+      []
+
+  /// <summary>
+  /// xvf64ger AT, xAp, xB multiplies the four doubles of the pair starting at
+  /// xAp by the two of xB into the 4 by 2 accumulator, each row two
+  /// doublewords; the accumulating forms fuse as xvf32ger's do.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF64GERNN beside XVF64GER``() =
+    (* dmxvf64gernn a4,vs6,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee061fd0"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3ff0000000000000UL
+        F7, 0x3fe0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3fe0000000000000UL
+        VSRL6, 0x4000000000000000UL
+        VSRL7, 0xbff0000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xc010000000000000UL
+        F17, 0xc01a000000000000UL
+        F18, 0xbff8000000000000UL
+        F19, 0x3ff0000000000000UL
+        VSRL16, 0xc004000000000000UL
+        VSRL17, 0x3ff0000000000000UL
+        VSRL18, 0xbfd0000000000000UL
+        VSRL19, 0xbfe0000000000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee061fd0"
+      [ F3, 0x3ff0000000000000UL
+        F6, 0x7ff8000000000001UL
+        F16, 0x7ff0000000000000UL
+        F17, 0x7ff8000000000002UL
+        F18, 0xfff0000000000000UL
+        F19, 0x7ff0000000000001UL
+        VSRL6, 0x7ff0000000000000UL
+        VSRL7, 0x7ff0000000000001UL
+        VSRL16, 0x7ff8000000000001UL
+        VSRL18, 0x3ff0000000000000UL
+        VSRL19, 0x4000000000000000UL ]
+      []
+      [ F16, 0x7ff8000000000001UL
+        F18, 0x7ff0000000000000UL
+        F19, 0x7ff8000000000001UL
+        VSRL17, 0x7ff8000000000000UL
+        VSRL18, 0xbff0000000000000UL
+        VSRL19, 0x7ff8000000000001UL
+        F17, 0x7ff8000000000002UL
+        VSRL16, 0x7ff8000000000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee061fd0"
+      [ F3, 0x4008000000000000UL
+        F6, 0x3fd5555555555555UL
+        F7, 0x3ff0000000000000UL
+        F16, 0x3ff0000000000000UL
+        F17, 0x3fe0000000000000UL
+        F19, 0x4000000000000000UL
+        VSRL3, 0x3ff199999999999aUL
+        VSRL6, 0x3ff199999999999aUL
+        VSRL7, 0x4000000000000000UL
+        VSRL16, 0x4000000000000000UL
+        VSRL17, 0xc000000000000000UL
+        VSRL18, 0x8000000000000000UL
+        VSRL19, 0x3ff0000000000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xc000000000000000UL
+        F17, 0xc00e666666666667UL
+        F18, 0xc008000000000000UL
+        F19, 0xc020000000000000UL
+        VSRL16, 0xc002eeeeeeeeeeefUL
+        VSRL17, 0x3fe947ae147ae146UL
+        VSRL18, 0xbff199999999999aUL
+        VSRL19, 0xc00999999999999aUL ]
+      []
+
+  /// <summary>
+  /// xvf16ger2 AT, xA, xB sets each element to the two products of matching
+  /// halves of word i of xA and word j of xB summed and rounded to a single in
+  /// the direction FPSCR[RN] names, through FGER2HALF; the accumulating forms
+  /// then add or subtract the element (negating the sum first for np and nn)
+  /// with a second rounding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF16GER2 sums half products``() =
+    (* dmxvf16ger2 a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021898"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x408000003f7ff000UL
+        F17, 0xbf000000beaaa000UL
+        F18, 0x483fe800472a8aacUL
+        F19, 0x3eaaa0043de371cbUL
+        VSRL16, 0xc77fe00040800000UL
+        VSRL17, 0x47ffe000c0400000UL
+        VSRL18, 0x47ffe000UL
+        VSRL19, 0xc6aa8aaa3f2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021898"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x408000003f7ff000UL
+        F17, 0xbf000000beaaa000UL
+        F18, 0x483fe800472a8aacUL
+        F19, 0x3eaaa0043de371caUL
+        VSRL16, 0xc77fe00040800000UL
+        VSRL17, 0x47ffe000c03fffffUL
+        VSRL18, 0x47ffe000UL
+        VSRL19, 0xc6aa8aaa3f2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021898"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x408000003f7ff000UL
+        F17, 0xbf000000beaaa000UL
+        F18, 0x483fe800472a8aacUL
+        F19, 0x3eaaa0043de371cbUL
+        VSRL16, 0xc77fe00040800001UL
+        VSRL17, 0x47ffe000c03fffffUL
+        VSRL18, 0x47ffe001UL
+        VSRL19, 0xc6aa8aaa3f2aa001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021898"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x408000003f7ff000UL
+        F17, 0xbf000000beaaa000UL
+        F18, 0x483fe800472a8aacUL
+        F19, 0x3eaaa0043de371caUL
+        VSRL16, 0xc77fe00040800000UL
+        VSRL17, 0x47ffe000c0400000UL
+        VSRL18, 0x8000000047ffe000UL
+        VSRL19, 0xc6aa8aab3f2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021898"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc040003f800000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007f800000UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021898"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc040003f800000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007f800000UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021898"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc040003f800000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007f800000UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021898"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc040003f800000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007f800000UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+
+  /// <summary>
+  /// xvf16ger2 AT, xA, xB sets each element to the two products of matching
+  /// halves of word i of xA and word j of xB summed and rounded to a single in
+  /// the direction FPSCR[RN] names, through FGER2HALF; the accumulating forms
+  /// then add or subtract the element (negating the sum first for np and nn)
+  /// with a second rounding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF16GER2PP beside XVF16GER2``() =
+    (* dmxvf16ger2pp a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021890"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x40a00000403ffc00UL
+        F17, 0xc0155400UL
+        F18, 0x483fea80472a80acUL
+        F19, 0x3eaaa0043de371cbUL
+        VSRL16, 0xc77fdd0041000000UL
+        VSRL17, 0x47ffe000c0400000UL
+        VSRL18, 0x3f80000047ffe080UL
+        VSRL19, 0xc6aa8aaa3f2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021890"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x40a00000403ffc00UL
+        F17, 0xc0155400UL
+        F18, 0x483fea80472a80acUL
+        F19, 0x3eaaa0043de371caUL
+        VSRL16, 0xc77fdd0041000000UL
+        VSRL17, 0x47ffe000c03fffffUL
+        VSRL18, 0x3f80000047ffe080UL
+        VSRL19, 0xc6aa8aaa3f2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021890"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x40a00000403ffc00UL
+        F17, 0xc0155400UL
+        F18, 0x483fea80472a80acUL
+        F19, 0x3eaaa0043de371cbUL
+        VSRL16, 0xc77fdd0041000001UL
+        VSRL17, 0x47ffe000c03fffffUL
+        VSRL18, 0x3f80000047ffe081UL
+        VSRL19, 0xc6aa8aaa3f2aa001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021890"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x40a00000403ffc00UL
+        F17, 0x80000000c0155400UL
+        F18, 0x483fea80472a80acUL
+        F19, 0x3eaaa0043de371caUL
+        VSRL16, 0xc77fdd0041000000UL
+        VSRL17, 0x47ffe000c0400000UL
+        VSRL18, 0x3f80000047ffe080UL
+        VSRL19, 0xc6aa8aab3f2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021890"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400040000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021890"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400040000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021890"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400040000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021890"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400040000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+
+  /// <summary>
+  /// xvf16ger2 AT, xA, xB sets each element to the two products of matching
+  /// halves of word i of xA and word j of xB summed and rounded to a single in
+  /// the direction FPSCR[RN] names, through FGER2HALF; the accumulating forms
+  /// then add or subtract the element (negating the sum first for np and nn)
+  /// with a second rounding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF16GER2PN beside XVF16GER2``() =
+    (* dmxvf16ger2pn a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021c90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x40400000bf800800UL
+        F17, 0xbf8000003fd55800UL
+        F18, 0x483fe580472a94acUL
+        F19, 0x3eaaa0043de371cbUL
+        VSRL16, 0xc77fe30000000000UL
+        VSRL17, 0x47ffe000c0400000UL
+        VSRL18, 0xbf80000047ffdf80UL
+        VSRL19, 0xc6aa8aaa3f2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021c90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x40400000bf800800UL
+        F17, 0xbf8000003fd55800UL
+        F18, 0x483fe580472a94acUL
+        F19, 0x3eaaa0043de371caUL
+        VSRL16, 0xc77fe30000000000UL
+        VSRL17, 0x47ffe000c03fffffUL
+        VSRL18, 0xbf80000047ffdf80UL
+        VSRL19, 0xc6aa8aaa3f2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021c90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x40400000bf800800UL
+        F17, 0xbf8000003fd55800UL
+        F18, 0x483fe580472a94acUL
+        F19, 0x3eaaa0043de371cbUL
+        VSRL16, 0xc77fe30035000000UL
+        VSRL17, 0x47ffe000c03fffffUL
+        VSRL18, 0xbf80000047ffdf81UL
+        VSRL19, 0xc6aa8aaa3f2aa001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021c90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x40400000bf800800UL
+        F17, 0xbf8000003fd55800UL
+        F18, 0x483fe580472a94acUL
+        F19, 0x3eaaa0043de371caUL
+        VSRL16, 0xc77fe30080000000UL
+        VSRL17, 0x47ffe000c0400000UL
+        VSRL18, 0xbf80000047ffdf80UL
+        VSRL19, 0xc6aa8aab3f2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021c90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400000000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021c90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400000000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021c90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400000000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021c90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400080000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+
+  /// <summary>
+  /// xvf16ger2 AT, xA, xB sets each element to the two products of matching
+  /// halves of word i of xA and word j of xB summed and rounded to a single in
+  /// the direction FPSCR[RN] names, through FGER2HALF; the accumulating forms
+  /// then add or subtract the element (negating the sum first for np and nn)
+  /// with a second rounding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF16GER2NP beside XVF16GER2``() =
+    (* dmxvf16ger2np a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021a90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xc04000003f800800UL
+        F17, 0x3f800000bfd55800UL
+        F18, 0xc83fe580c72a94acUL
+        F19, 0xbeaaa004bde371cbUL
+        VSRL16, 0x477fe30000000000UL
+        VSRL17, 0xc7ffe00040400000UL
+        VSRL18, 0x3f800000c7ffdf80UL
+        VSRL19, 0x46aa8aaabf2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021a90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0xc04000003f800800UL
+        F17, 0x3f800000bfd55800UL
+        F18, 0xc83fe580c72a94acUL
+        F19, 0xbeaaa004bde371caUL
+        VSRL16, 0x477fe30000000000UL
+        VSRL17, 0xc7ffe000403fffffUL
+        VSRL18, 0x3f800000c7ffdf80UL
+        VSRL19, 0x46aa8aaabf2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021a90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0xc04000003f800800UL
+        F17, 0x3f800000bfd55800UL
+        F18, 0xc83fe580c72a94acUL
+        F19, 0xbeaaa004bde371cbUL
+        VSRL16, 0x477fe300b5000000UL
+        VSRL17, 0xc7ffe000403fffffUL
+        VSRL18, 0x3f800000c7ffdf81UL
+        VSRL19, 0x46aa8aaabf2aa001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021a90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0xc04000003f800800UL
+        F17, 0x3f800000bfd55800UL
+        F18, 0xc83fe580c72a94acUL
+        F19, 0xbeaaa004bde371caUL
+        VSRL16, 0x477fe30080000000UL
+        VSRL17, 0xc7ffe00040400000UL
+        VSRL18, 0x3f800000c7ffdf80UL
+        VSRL19, 0x46aa8aabbf2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021a90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400000000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021a90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400000000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021a90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400000000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021a90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc0400080000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+
+  /// <summary>
+  /// xvf16ger2 AT, xA, xB sets each element to the two products of matching
+  /// halves of word i of xA and word j of xB summed and rounded to a single in
+  /// the direction FPSCR[RN] names, through FGER2HALF; the accumulating forms
+  /// then add or subtract the element (negating the sum first for np and nn)
+  /// with a second rounding.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVF16GER2NN beside XVF16GER2``() =
+    (* dmxvf16ger2nn a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021e90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xc0a00000c03ffc00UL
+        F17, 0x40155400UL
+        F18, 0xc83fea80c72a80acUL
+        F19, 0xbeaaa004bde371cbUL
+        VSRL16, 0x477fdd00c1000000UL
+        VSRL17, 0xc7ffe00040400000UL
+        VSRL18, 0xbf800000c7ffe080UL
+        VSRL19, 0x46aa8aaabf2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021e90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0xc0a00000c03ffc00UL
+        F17, 0x40155400UL
+        F18, 0xc83fea80c72a80acUL
+        F19, 0xbeaaa004bde371caUL
+        VSRL16, 0x477fdd00c1000000UL
+        VSRL17, 0xc7ffe000403fffffUL
+        VSRL18, 0xbf800000c7ffe080UL
+        VSRL19, 0x46aa8aaabf2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021e90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0xc0a00000c03ffc00UL
+        F17, 0x40155400UL
+        F18, 0xc83fea80c72a80acUL
+        F19, 0xbeaaa004bde371cbUL
+        VSRL16, 0x477fdd00c1000000UL
+        VSRL17, 0xc7ffe000403fffffUL
+        VSRL18, 0xbf800000c7ffe081UL
+        VSRL19, 0x46aa8aaabf2aa001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021e90"
+      [ F2, 0x3c0040003800be00UL
+        F3, 0x40003c0035553555UL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7bff7bff00013555UL
+        VSRL3, 0x7bfffbff00014000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0xc0a00000c03ffc00UL
+        F17, 0x8000000040155400UL
+        F18, 0xc83fea80c72a80acUL
+        F19, 0xbeaaa004bde371caUL
+        VSRL16, 0x477fdd00c1000000UL
+        VSRL17, 0xc7ffe00040400000UL
+        VSRL18, 0xbf800000c7ffe080UL
+        VSRL19, 0x46aa8aabbf2aa000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021e90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc04000c0000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021e90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc04000c0000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021e90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc04000c0000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021e90"
+      [ F2, 0x7e013c007c000000UL
+        F3, 0x3c007e0200003c00UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3c007c013c003c00UL
+        VSRL3, 0x7c00fc003c003c00UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc020007fc02000UL
+        F17, 0x7fc040007fc00000UL
+        F18, 0x7fc020007fc02000UL
+        F19, 0x7fc04000c0000000UL
+        VSRL16, 0x7fc020007fc02000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc020007fc02000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+
+  /// <summary>
+  /// xvbf16ger2 AT, xA, xB is xvf16ger2 over bfloat16 halves, through
+  /// FGER2BF16: the sum rounded to a single's significand with no bound on the
+  /// exponent, then into a single; products of 2 to the 126 by 2 to the 126 and
+  /// its negation, past the single range, cancel exactly.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVBF16GER2 sums bfloat16 products``() =
+    (* dmxvbf16ger2 a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021998"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x408000003f804000UL
+        F17, 0xbf000000beab0000UL
+        F18, 0x7f4000007e2b0000UL
+        F19, 0x3eab00003de47200UL
+        VSRL16, 0xfe80000040800000UL
+        VSRL17, 0x7f000000c0400000UL
+        VSRL18, 0x7f000000UL
+        VSRL19, 0xfdab00003f2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021998"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x408000003f804000UL
+        F17, 0xbf000000beab0000UL
+        F18, 0x7f4000007e2b0000UL
+        F19, 0x3eab00003de47200UL
+        VSRL16, 0xfe80000040800000UL
+        VSRL17, 0x7f000000c03fffffUL
+        VSRL18, 0x7f000000UL
+        VSRL19, 0xfdaaffff3f2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021998"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x408000003f804000UL
+        F17, 0xbf000000beab0000UL
+        F18, 0x7f4000007e2b0000UL
+        F19, 0x3eab00013de47201UL
+        VSRL16, 0xfe80000040800001UL
+        VSRL17, 0x7f000000c03fffffUL
+        VSRL18, 0x7f000001UL
+        VSRL19, 0xfdaaffff3f2b0001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021998"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x408000003f804000UL
+        F17, 0xbf000000beab0000UL
+        F18, 0x7f4000007e2b0000UL
+        F19, 0x3eab00003de47200UL
+        VSRL16, 0xfe80000040800000UL
+        VSRL17, 0x7f000000c0400000UL
+        VSRL18, 0x800000007f000000UL
+        VSRL19, 0xfdab00003f2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021998"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc200003f800000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007f800000UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021998"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc200003f800000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007f800000UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021998"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc200003f800000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007f800000UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021998"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc200003f800000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007f800000UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+
+  /// <summary>
+  /// xvbf16ger2 AT, xA, xB is xvf16ger2 over bfloat16 halves, through
+  /// FGER2BF16: the sum rounded to a single's significand with no bound on the
+  /// exponent, then into a single; products of 2 to the 126 by 2 to the 126 and
+  /// its negation, past the single range, cancel exactly.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVBF16GER2PP beside XVBF16GER2``() =
+    (* dmxvbf16ger2pp a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021990"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x40a0000040402000UL
+        F17, 0xc0156000UL
+        F18, 0x7f4000007e2b0000UL
+        F19, 0x3eab00003de47200UL
+        VSRL16, 0xfe80000041000000UL
+        VSRL17, 0x7f000000c0400000UL
+        VSRL18, 0x3f8000007f000000UL
+        VSRL19, 0xfdab00003f2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021990"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x40a0000040402000UL
+        F17, 0xc0156000UL
+        F18, 0x7f4000007e2affffUL
+        F19, 0x3eab00003de47200UL
+        VSRL16, 0xfe7fffff41000000UL
+        VSRL17, 0x7f000000c03fffffUL
+        VSRL18, 0x3f8000007f000000UL
+        VSRL19, 0xfdaaffff3f2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021990"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x40a0000040402000UL
+        F17, 0xc0156000UL
+        F18, 0x7f4000017e2b0000UL
+        F19, 0x3eab00013de47201UL
+        VSRL16, 0xfe7fffff41000001UL
+        VSRL17, 0x7f000000c03fffffUL
+        VSRL18, 0x3f8000007f000002UL
+        VSRL19, 0xfdaaffff3f2b0001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021990"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x40a0000040402000UL
+        F17, 0x80000000c0156000UL
+        F18, 0x7f4000007e2affffUL
+        F19, 0x3eab00003de47200UL
+        VSRL16, 0xfe80000041000000UL
+        VSRL17, 0x7f000000c0400000UL
+        VSRL18, 0x3f8000007f000000UL
+        VSRL19, 0xfdab00003f2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021990"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000040000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021990"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000040000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021990"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000040000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021990"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000040000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+
+  /// <summary>
+  /// xvbf16ger2 AT, xA, xB is xvf16ger2 over bfloat16 halves, through
+  /// FGER2BF16: the sum rounded to a single's significand with no bound on the
+  /// exponent, then into a single; products of 2 to the 126 by 2 to the 126 and
+  /// its negation, past the single range, cancel exactly.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVBF16GER2PN beside XVBF16GER2``() =
+    (* dmxvbf16ger2pn a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021d90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x40400000bf7f8000UL
+        F17, 0xbf8000003fd54000UL
+        F18, 0x7f4000007e2b0000UL
+        F19, 0x3eab00003de47200UL
+        VSRL16, 0xfe80000000000000UL
+        VSRL17, 0x7f000000c0400000UL
+        VSRL18, 0xbf8000007f000000UL
+        VSRL19, 0xfdab00003f2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021d90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x40400000bf7f8000UL
+        F17, 0xbf8000003fd54000UL
+        F18, 0x7f3fffff7e2b0000UL
+        F19, 0x3eab00003de47200UL
+        VSRL16, 0xfe80000000000000UL
+        VSRL17, 0x7f000000c03fffffUL
+        VSRL18, 0xbf8000007effffffUL
+        VSRL19, 0xfdaaffff3f2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021d90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x40400000bf7f8000UL
+        F17, 0xbf8000003fd54000UL
+        F18, 0x7f4000007e2b0001UL
+        F19, 0x3eab00013de47201UL
+        VSRL16, 0xfe80000035000000UL
+        VSRL17, 0x7f000000c03fffffUL
+        VSRL18, 0xbf8000007f000001UL
+        VSRL19, 0xfdaaffff3f2b0001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021d90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x40400000bf7f8000UL
+        F17, 0xbf8000003fd54000UL
+        F18, 0x7f3fffff7e2b0000UL
+        F19, 0x3eab00003de47200UL
+        VSRL16, 0xfe80000180000000UL
+        VSRL17, 0x7f000000c0400000UL
+        VSRL18, 0xbf8000007effffffUL
+        VSRL19, 0xfdab00003f2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021d90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000000000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021d90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000000000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021d90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000000000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021d90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000080000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc0000040000000UL ]
+      []
+
+  /// <summary>
+  /// xvbf16ger2 AT, xA, xB is xvf16ger2 over bfloat16 halves, through
+  /// FGER2BF16: the sum rounded to a single's significand with no bound on the
+  /// exponent, then into a single; products of 2 to the 126 by 2 to the 126 and
+  /// its negation, past the single range, cancel exactly.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVBF16GER2NP beside XVBF16GER2``() =
+    (* dmxvbf16ger2np a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021b90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xc04000003f7f8000UL
+        F17, 0x3f800000bfd54000UL
+        F18, 0xff400000fe2b0000UL
+        F19, 0xbeab0000bde47200UL
+        VSRL16, 0x7e80000000000000UL
+        VSRL17, 0xff00000040400000UL
+        VSRL18, 0x3f800000ff000000UL
+        VSRL19, 0x7dab0000bf2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0xc04000003f7f8000UL
+        F17, 0x3f800000bfd54000UL
+        F18, 0xff3ffffffe2b0000UL
+        F19, 0xbeab0000bde47200UL
+        VSRL16, 0x7e80000000000000UL
+        VSRL17, 0xff000000403fffffUL
+        VSRL18, 0x3f800000feffffffUL
+        VSRL19, 0x7daaffffbf2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0xc04000003f7f8000UL
+        F17, 0x3f800000bfd54000UL
+        F18, 0xff3ffffffe2b0000UL
+        F19, 0xbeab0001bde47201UL
+        VSRL16, 0x7e800001b5000000UL
+        VSRL17, 0xff000000403fffffUL
+        VSRL18, 0x3f800000ff000000UL
+        VSRL19, 0x7daaffffbf2b0001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0xc04000003f7f8000UL
+        F17, 0x3f800000bfd54000UL
+        F18, 0xff400000fe2b0001UL
+        F19, 0xbeab0000bde47200UL
+        VSRL16, 0x7e80000080000000UL
+        VSRL17, 0xff00000040400000UL
+        VSRL18, 0x3f800000ff000000UL
+        VSRL19, 0x7dab0000bf2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000000000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000000000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000000000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc2000080000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+
+  /// <summary>
+  /// xvbf16ger2 AT, xA, xB is xvf16ger2 over bfloat16 halves, through
+  /// FGER2BF16: the sum rounded to a single's significand with no bound on the
+  /// exponent, then into a single; products of 2 to the 126 by 2 to the 126 and
+  /// its negation, past the single range, cancel exactly.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVBF16GER2NN beside XVBF16GER2``() =
+    (* dmxvbf16ger2nn a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021f90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xc0a00000c0402000UL
+        F17, 0x40156000UL
+        F18, 0xff400000fe2b0000UL
+        F19, 0xbeab0000bde47200UL
+        VSRL16, 0x7e800000c1000000UL
+        VSRL17, 0xff00000040400000UL
+        VSRL18, 0xbf800000ff000000UL
+        VSRL19, 0x7dab0000bf2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021f90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0xc0a00000c0402000UL
+        F17, 0x40156000UL
+        F18, 0xff400000fe2affffUL
+        F19, 0xbeab0000bde47200UL
+        VSRL16, 0x7e7fffffc1000000UL
+        VSRL17, 0xff000000403fffffUL
+        VSRL18, 0xbf800000ff000000UL
+        VSRL19, 0x7daaffffbf2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021f90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0xc0a00000c0402000UL
+        F17, 0x40156000UL
+        F18, 0xff400000fe2affffUL
+        F19, 0xbeab0001bde47201UL
+        VSRL16, 0x7e800000c1000000UL
+        VSRL17, 0xff000000403fffffUL
+        VSRL18, 0xbf800000ff000001UL
+        VSRL19, 0x7daaffffbf2b0001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021f90"
+      [ F2, 0x3f8040003f00bfc0UL
+        F3, 0x40003f803eab3eabUL
+        F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL2, 0x7e807e8000803eabUL
+        VSRL3, 0x7e80fe8000804000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x1UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0xc0a00000c0402000UL
+        F17, 0x8000000040156000UL
+        F18, 0xff400001fe2b0000UL
+        F19, 0xbeab0000bde47200UL
+        VSRL16, 0x7e7fffffc1000000UL
+        VSRL17, 0xff00000040400000UL
+        VSRL18, 0xbf800000ff000001UL
+        VSRL19, 0x7dab0000bf2b0000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021f90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc20000c0000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021f90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10000UL
+        FPSCR, 0x1UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc20000c0000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021f90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        FPSCR, 0x2UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc20000c0000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021f90"
+      [ F2, 0x7fc13f807f800000UL
+        F3, 0x3f807fc200003f80UL
+        F16, 0xff8000003f800000UL
+        F17, 0x7f8000007f800000UL
+        F18, 0x7fc0000200000000UL
+        F19, 0x13f800000UL
+        VSRL2, 0x3f807f813f803f80UL
+        VSRL3, 0x7f80ff803f803f80UL
+        VSRL16, 0x7fa0000040000000UL
+        VSRL17, 0xff8000007fc00001UL
+        VSRL18, 0x800000003f800000UL
+        VSCR, 0x10001UL
+        FPSCR, 0x3UL ]
+      []
+      [ F16, 0x7fc100007fc10000UL
+        F17, 0x7fc200007fc00000UL
+        F18, 0x7fc100007fc10000UL
+        F19, 0x7fc20000c0000000UL
+        VSRL16, 0x7fc100007fc10000UL
+        VSRL17, 0x7fc000007fc00001UL
+        VSRL18, 0x7fc100007fc10000UL
+        VSRL19, 0x7fc00000c0000000UL ]
+      []
+
+  /// <summary>
+  /// xvi4ger8, xvi8ger4 and xvi16ger2 set each element to the sum of the
+  /// products of matching signed nibbles, signed bytes of xA by unsigned bytes
+  /// of xB, or signed halfwords, plus the element for the pp forms, modulo two
+  /// to the 32.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVI8GER4 sums integer products``() =
+    (* dmxvi4ger8 a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021918"
+      [ F2, 0x102030480808080UL
+        F3, 0x5060708ffffffffUL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x7f7f7f7ffffefdfcUL
+        VSRL3, 0x808080807f7f7f7fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x6fffffff6UL
+        F17, 0x20UL
+        F18, 0xfffffff6ffffffe8UL
+        F19, 0xfffffffa0000000eUL
+        VSRL16, 0xfffffff6UL
+        VSRL17, 0x100ffffff20UL
+        VSRL18, 0xffffff20000000c8UL
+        VSRL19, 0x20ffffffeeUL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021918"
+      [ F2, 0x800080007fff7fffUL
+        F3, 0x8000800080008000UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678ffff0001UL
+        VSRL3, 0x7fff7fff00020003UL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+      [ F16, 0x8000000080UL
+        F17, 0xffffff90ffffff90UL
+        F18, 0xffffffd0ffffffd0UL
+        F19, 0x800000008UL
+        VSRL16, 0xffffff9000000000UL
+        VSRL17, 0x68fffffffbUL
+        VSRL18, 0x1cfffffff0UL
+        VSRL19, 0xfffffffb00000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021918"
+      [ F2, 0x8888888877777777UL
+        F3, 0x8888888888888888UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678fedcba98UL
+        VSRL3, 0x777777770f0f0f0fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x20000000200UL
+        F17, 0xfffffe40fffffe40UL
+        F18, 0xffffff60ffffff60UL
+        F19, 0x12000000120UL
+        VSRL16, 0xfffffe4000000020UL
+        VSRL17, 0x188ffffffe4UL
+        VSRL18, 0x8cfffffffcUL
+        VSRL19, 0xffffff0400000014UL ]
+      []
+
+  /// <summary>
+  /// xvi4ger8, xvi8ger4 and xvi16ger2 set each element to the sum of the
+  /// products of matching signed nibbles, signed bytes of xA by unsigned bytes
+  /// of xB, or signed halfwords, plus the element for the pp forms, modulo two
+  /// to the 32.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVI4GER8PP beside XVI4GER8``() =
+    (* dmxvi4ger8pp a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021910"
+      [ F2, 0x102030480808080UL
+        F3, 0x5060708ffffffffUL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x7f7f7f7ffffefdfcUL
+        VSRL3, 0x808080807f7f7f7fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x800000057ffffff6UL
+        F17, 0x7ffffff080000030UL
+        F18, 0xfffffff6ffffffe8UL
+        F19, 0x3ffffffac000000eUL
+        VSRL16, 0x1fffffff5UL
+        VSRL17, 0x10012345598UL
+        VSRL18, 0xffffff20000000c8UL
+        VSRL19, 0x8000001f7fffffeeUL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021910"
+      [ F2, 0x800080007fff7fffUL
+        F3, 0x8000800080008000UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678ffff0001UL
+        VSRL3, 0x7fff7fff00020003UL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+      [ F16, 0x8000007f80000080UL
+        F17, 0x7fffff807fffffa0UL
+        F18, 0xffffffd0ffffffd0UL
+        F19, 0x40000008c0000008UL
+        VSRL16, 0xffffff91ffffffffUL
+        VSRL17, 0x6812345673UL
+        VSRL18, 0x1cfffffff0UL
+        VSRL19, 0x7ffffffa80000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021910"
+      [ F2, 0x8888888877777777UL
+        F3, 0x8888888888888888UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678fedcba98UL
+        VSRL3, 0x777777770f0f0f0fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x800001ff80000200UL
+        F17, 0x7ffffe307ffffe50UL
+        F18, 0xffffff60ffffff60UL
+        F19, 0x40000120c0000120UL
+        VSRL16, 0xfffffe410000001fUL
+        VSRL17, 0x1881234565cUL
+        VSRL18, 0x8cfffffffcUL
+        VSRL19, 0x7fffff0380000014UL ]
+      []
+
+  /// <summary>
+  /// xvi4ger8, xvi8ger4 and xvi16ger2 set each element to the sum of the
+  /// products of matching signed nibbles, signed bytes of xA by unsigned bytes
+  /// of xB, or signed halfwords, plus the element for the pp forms, modulo two
+  /// to the 32.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVI8GER4 beside XVI4GER8``() =
+    (* dmxvi8ger4 a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021818"
+      [ F2, 0x102030480808080UL
+        F3, 0x5060708ffffffffUL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x7f7f7f7ffffefdfcUL
+        VSRL3, 0x808080807f7f7f7fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x46000009f6UL
+        F17, 0xfffff300fffe0200UL
+        F18, 0xce60001fa04UL
+        F19, 0xffffffbafffff60aUL
+        VSRL16, 0x500000004f6UL
+        VSRL17, 0xffff0000ffff0200UL
+        VSRL18, 0xfe000000fc04UL
+        VSRL19, 0xfffffb00fffffb0aUL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021818"
+      [ F2, 0x800080007fff7fffUL
+        F3, 0x8000800080008000UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678ffff0001UL
+        VSRL3, 0x7fff7fff00020003UL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+      [ F16, 0xffff8000ffff8000UL
+        F17, 0x7f0000007f00UL
+        F18, 0x340000003400UL
+        F19, 0xffffff80ffffff80UL
+        VSRL16, 0xffff810000000000UL
+        VSRL17, 0x7c04fffffffbUL
+        VSRL18, 0xdeec000001d0UL
+        VSRL19, 0xffffff8100000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021818"
+      [ F2, 0x8888888877777777UL
+        F3, 0x8888888888888888UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678fedcba98UL
+        VSRL3, 0x777777770f0f0f0fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xffff0100ffff0100UL
+        F17, 0xfce00000fce0UL
+        F18, 0x92a0000092a0UL
+        F19, 0xffff8f60ffff8f60UL
+        VSRL16, 0xffff20e0ffffe3e0UL
+        VSRL17, 0xdd4400001be4UL
+        VSRL18, 0x804c0000102cUL
+        VSRL19, 0xffff9d74fffff394UL ]
+      []
+
+  /// <summary>
+  /// xvi4ger8, xvi8ger4 and xvi16ger2 set each element to the sum of the
+  /// products of matching signed nibbles, signed bytes of xA by unsigned bytes
+  /// of xB, or signed halfwords, plus the element for the pp forms, modulo two
+  /// to the 32.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVI8GER4PP beside XVI4GER8``() =
+    (* dmxvi8ger4pp a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021810"
+      [ F2, 0x102030480808080UL
+        F3, 0x5060708ffffffffUL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x7f7f7f7ffffefdfcUL
+        VSRL3, 0x808080807f7f7f7fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x80000045800009f6UL
+        F17, 0x7ffff2f07ffe0210UL
+        F18, 0xce60001fa04UL
+        F19, 0x3fffffbabffff60aUL
+        VSRL16, 0x501000004f5UL
+        VSRL17, 0xffff000012335878UL
+        VSRL18, 0xfe000000fc04UL
+        VSRL19, 0x7ffffaff7ffffb0aUL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021810"
+      [ F2, 0x800080007fff7fffUL
+        F3, 0x8000800080008000UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678ffff0001UL
+        VSRL3, 0x7fff7fff00020003UL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+      [ F16, 0x7fff7fff7fff8000UL
+        F17, 0x80007ef080007f10UL
+        F18, 0x340000003400UL
+        F19, 0x3fffff80bfffff80UL
+        VSRL16, 0xffff8101ffffffffUL
+        VSRL17, 0x7c0412345673UL
+        VSRL18, 0xdeec000001d0UL
+        VSRL19, 0x7fffff8080000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021810"
+      [ F2, 0x8888888877777777UL
+        F3, 0x8888888888888888UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678fedcba98UL
+        VSRL3, 0x777777770f0f0f0fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x7fff00ff7fff0100UL
+        F17, 0x8000fcd08000fcf0UL
+        F18, 0x92a0000092a0UL
+        F19, 0x3fff8f60bfff8f60UL
+        VSRL16, 0xffff20e1ffffe3dfUL
+        VSRL17, 0xdd441234725cUL
+        VSRL18, 0x804c0000102cUL
+        VSRL19, 0x7fff9d737ffff394UL ]
+      []
+
+  /// <summary>
+  /// xvi4ger8, xvi8ger4 and xvi16ger2 set each element to the sum of the
+  /// products of matching signed nibbles, signed bytes of xA by unsigned bytes
+  /// of xB, or signed halfwords, plus the element for the pp forms, modulo two
+  /// to the 32.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVI16GER2 beside XVI4GER8``() =
+    (* dmxvi16ger2 a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021a58"
+      [ F2, 0x102030480808080UL
+        F3, 0x5060708ffffffffUL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x7f7f7f7ffffefdfcUL
+        VSRL3, 0x808080807f7f7f7fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x1a442cfffffbfaUL
+        F17, 0xf9ff07000000ff00UL
+        F18, 0x600ecf2ffff0102UL
+        F19, 0xfff1c9d400000206UL
+        VSRL16, 0xfdff03000200f8faUL
+        VSRL17, 0x7f00800081007f00UL
+        VSRL18, 0x81007f007efe8202UL
+        VSRL19, 0x101fd00fefe0506UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021a58"
+      [ F2, 0x800080007fff7fffUL
+        F3, 0x8000800080008000UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678ffff0001UL
+        VSRL3, 0x7fff7fff00020003UL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+      [ F16, 0x8000000080000000UL
+        F17, 0x8001000080010000UL
+        F18, 0xcbaa0000cbaa0000UL
+        F19, 0x0UL
+        VSRL16, 0x80010000fffd8000UL
+        VSRL17, 0x7ffe000200027ffbUL
+        VSRL18, 0x34559754000127d0UL
+        VSRL19, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021a58"
+      [ F2, 0x8888888877777777UL
+        F3, 0x8888888888888888UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678fedcba98UL
+        VSRL3, 0x777777770f0f0f0fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x6f8190806f819080UL
+        F17, 0x907f5e70907f5e70UL
+        F18, 0xcf26fb60cf26fb60UL
+        F19, 0x20ec25a020ec25a0UL
+        VSRL16, 0x907f5e70f1f1eff0UL
+        VSRL17, 0x6f7fb2a20e0df1f2UL
+        VSRL18, 0x30d89bf406283614UL
+        VSRL19, 0xdf1420ecfbd9a9ccUL ]
+      []
+
+  /// <summary>
+  /// xvi4ger8, xvi8ger4 and xvi16ger2 set each element to the sum of the
+  /// products of matching signed nibbles, signed bytes of xA by unsigned bytes
+  /// of xB, or signed halfwords, plus the element for the pp forms, modulo two
+  /// to the 32.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVI16GER2PP beside XVI4GER8``() =
+    (* dmxvi16ger2pp a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021b58"
+      [ F2, 0x102030480808080UL
+        F3, 0x5060708ffffffffUL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x7f7f7f7ffffefdfcUL
+        VSRL3, 0x808080807f7f7f7fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x801a442b7ffffbfaUL
+        F17, 0x79ff06f08000ff10UL
+        F18, 0x600ecf2ffff0102UL
+        F19, 0x3ff1c9d4c0000206UL
+        VSRL16, 0xfdff03010200f8f9UL
+        VSRL17, 0x7f0080009334d578UL
+        VSRL18, 0x81007f007efe8202UL
+        VSRL19, 0x8101fcff7efe0506UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b58"
+      [ F2, 0x800080007fff7fffUL
+        F3, 0x8000800080008000UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678ffff0001UL
+        VSRL3, 0x7fff7fff00020003UL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+      [ F16, 0xffffffff00000000UL
+        F17, 0xfff000010010UL
+        F18, 0xcbaa0000cbaa0000UL
+        VSRL16, 0x80010001fffd7fffUL
+        VSRL17, 0x7ffe00021236d673UL
+        VSRL18, 0x34559754000127d0UL
+        VSRL19, 0x7fffffff80000001UL
+        F19, 0x40000000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b58"
+      [ F2, 0x8888888877777777UL
+        F3, 0x8888888888888888UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678fedcba98UL
+        VSRL3, 0x777777770f0f0f0fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0xef81907fef819080UL
+        F17, 0x107f5e60107f5e80UL
+        F18, 0xcf26fb60cf26fb60UL
+        F19, 0x60ec25a0e0ec25a0UL
+        VSRL16, 0x907f5e71f1f1efefUL
+        VSRL17, 0x6f7fb2a22042486aUL
+        VSRL18, 0x30d89bf406283614UL
+        VSRL19, 0x5f1420eb7bd9a9ccUL ]
+      []
+
+  /// <summary>
+  /// xvi8ger4spp, xvi16ger2s and xvi16ger2spp saturate the sum (plus the
+  /// element for spp) to a signed word, setting VSCR[SAT] where any element
+  /// saturated.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVI16GER2S saturates to a word``() =
+    (* dmxvi8ger4spp a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021b18"
+      [ F2, 0x102030480808080UL
+        F3, 0x5060708ffffffffUL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x7f7f7f7ffffefdfcUL
+        VSRL3, 0x808080807f7f7f7fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x7fffffff800009f6UL
+        F17, 0x7ffff2f080000000UL
+        F18, 0xce60001fa04UL
+        F19, 0x3fffffbabffff60aUL
+        VSRL16, 0x501000004f5UL
+        VSRL17, 0xffff000012335878UL
+        VSRL18, 0xfe000000fc04UL
+        VSRL19, 0x7ffffaff80000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b18"
+      [ F2, 0x800080007fff7fffUL
+        F3, 0x8000800080008000UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678ffff0001UL
+        VSRL3, 0x7fff7fff00020003UL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+      [ F16, 0x7fff7fff80000000UL
+        F17, 0x7fffffff80007f10UL
+        F18, 0x340000003400UL
+        F19, 0x3fffff80bfffff80UL
+        VSRL16, 0xffff8101ffffffffUL
+        VSRL17, 0x7c0412345673UL
+        VSRL18, 0xdeec000001d0UL
+        VSRL19, 0x7fffff8080000001UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021b18"
+      [ F2, 0x8888888877777777UL
+        F3, 0x8888888888888888UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678fedcba98UL
+        VSRL3, 0x777777770f0f0f0fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x7fff00ff80000000UL
+        F17, 0x7fffffff8000fcf0UL
+        F18, 0x92a0000092a0UL
+        F19, 0x3fff8f60bfff8f60UL
+        VSRL16, 0xffff20e1ffffe3dfUL
+        VSRL17, 0xdd441234725cUL
+        VSRL18, 0x804c0000102cUL
+        VSRL19, 0x7fff9d7380000000UL ]
+      []
+
+  /// <summary>
+  /// xvi8ger4spp, xvi16ger2s and xvi16ger2spp saturate the sum (plus the
+  /// element for spp) to a signed word, setting VSCR[SAT] where any element
+  /// saturated.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVI16GER2S beside XVI8GER4SPP``() =
+    (* dmxvi16ger2s a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021958"
+      [ F2, 0x102030480808080UL
+        F3, 0x5060708ffffffffUL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x7f7f7f7ffffefdfcUL
+        VSRL3, 0x808080807f7f7f7fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x1a442cfffffbfaUL
+        F17, 0xf9ff07000000ff00UL
+        F18, 0x600ecf2ffff0102UL
+        F19, 0xfff1c9d400000206UL
+        VSRL16, 0xfdff03000200f8faUL
+        VSRL17, 0x7f00800081007f00UL
+        VSRL18, 0x81007f007efe8202UL
+        VSRL19, 0x101fd00fefe0506UL
+        VSCR, 0x10000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021958"
+      [ F2, 0x800080007fff7fffUL
+        F3, 0x8000800080008000UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678ffff0001UL
+        VSRL3, 0x7fff7fff00020003UL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+      [ F16, 0x7fffffff7fffffffUL
+        F17, 0x8001000080010000UL
+        F18, 0xcbaa0000cbaa0000UL
+        F19, 0x0UL
+        VSRL16, 0x80010000fffd8000UL
+        VSRL17, 0x7ffe000200027ffbUL
+        VSRL18, 0x34559754000127d0UL
+        VSRL19, 0x1UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021958"
+      [ F2, 0x8888888877777777UL
+        F3, 0x8888888888888888UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678fedcba98UL
+        VSRL3, 0x777777770f0f0f0fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x6f8190806f819080UL
+        F17, 0x907f5e70907f5e70UL
+        F18, 0xcf26fb60cf26fb60UL
+        F19, 0x20ec25a020ec25a0UL
+        VSRL16, 0x907f5e70f1f1eff0UL
+        VSRL17, 0x6f7fb2a20e0df1f2UL
+        VSRL18, 0x30d89bf406283614UL
+        VSRL19, 0xdf1420ecfbd9a9ccUL
+        VSCR, 0x10000UL ]
+      []
+
+  /// <summary>
+  /// xvi8ger4spp, xvi16ger2s and xvi16ger2spp saturate the sum (plus the
+  /// element for spp) to a signed word, setting VSCR[SAT] where any element
+  /// saturated.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XVI16GER2SPP beside XVI8GER4SPP``() =
+    (* dmxvi16ger2spp a4,vs2,vs3, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "ee021950"
+      [ F2, 0x102030480808080UL
+        F3, 0x5060708ffffffffUL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x7f7f7f7ffffefdfcUL
+        VSRL3, 0x808080807f7f7f7fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F17, 0x79ff06f08000ff10UL
+        F18, 0x600ecf2ffff0102UL
+        F19, 0x3ff1c9d4c0000206UL
+        VSRL16, 0xfdff03010200f8f9UL
+        VSRL17, 0x7f0080009334d578UL
+        VSRL18, 0x81007f007efe8202UL
+        F16, 0x7fffffff80000000UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021950"
+      [ F2, 0x800080007fff7fffUL
+        F3, 0x8000800080008000UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678ffff0001UL
+        VSRL3, 0x7fff7fff00020003UL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL ]
+      []
+      [ F16, 0x7fffffff00000000UL
+        F17, 0xfff080000000UL
+        F18, 0xcbaa0000cbaa0000UL
+        VSRL16, 0x80010001fffd7fffUL
+        VSRL17, 0x7ffe00021236d673UL
+        VSRL18, 0x34559754000127d0UL
+        VSRL19, 0x7fffffff80000001UL
+        F19, 0x40000000c0000000UL ]
+      []
+    oracleMem
+      ppc64le
+      "ee021950"
+      [ F2, 0x8888888877777777UL
+        F3, 0x8888888888888888UL
+        F16, 0x7fffffff80000000UL
+        F17, 0x7ffffff080000010UL
+        F19, 0x40000000c0000000UL
+        VSRL2, 0x12345678fedcba98UL
+        VSRL3, 0x777777770f0f0f0fUL
+        VSRL16, 0x1ffffffffUL
+        VSRL17, 0x12345678UL
+        VSRL19, 0x7fffffff80000000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x7fffffffef819080UL
+        F17, 0x107f5e6080000000UL
+        F18, 0xcf26fb60cf26fb60UL
+        F19, 0x60ec25a0e0ec25a0UL
+        VSRL16, 0x907f5e71f1f1efefUL
+        VSRL17, 0x6f7fb2a22042486aUL
+        VSRL18, 0x30d89bf406283614UL
+        VSRL19, 0x5f1420eb80000000UL ]
+      []
+
+  /// <summary>
+  /// xxsetaccz AT clears VSR 4AT to 4AT + 3; xxmfacc and xxmtacc move between
+  /// an accumulator and the registers it overlays, which hold the same data, so
+  /// nothing changes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXSETACCZ clears an accumulator``() =
+    (* dmsetaccz a4, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "7e030162"
+      [ F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x0UL
+        F17, 0x0UL
+        F18, 0x0UL
+        VSRL16, 0x0UL
+        VSRL17, 0x0UL
+        VSRL18, 0x0UL
+        F19, 0x0UL
+        VSRL19, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xxsetaccz AT clears VSR 4AT to 4AT + 3; xxmfacc and xxmtacc move between
+  /// an accumulator and the registers it overlays, which hold the same data, so
+  /// nothing changes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXMFACC beside XXSETACCZ``() =
+    (* dmxxmfacc a4, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "7e000162"
+      [ F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        F19, 0x0UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSRL19, 0x0UL ]
+      []
+
+  /// <summary>
+  /// xxsetaccz AT clears VSR 4AT to 4AT + 3; xxmfacc and xxmtacc move between
+  /// an accumulator and the registers it overlays, which hold the same data, so
+  /// nothing changes.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] XXMTACC beside XXSETACCZ``() =
+    (* dmxxmtacc a4, under QEMU: lanes/x-oracle/mma *)
+    oracleMem
+      ppc64le
+      "7e010162"
+      [ F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSCR, 0x10000UL ]
+      []
+      [ F16, 0x3f80000040000000UL
+        F17, 0x3f000000c0000000UL
+        F18, 0x41200000c1200000UL
+        F19, 0x0UL
+        VSRL16, 0x4040000040800000UL
+        VSRL17, 0x80000000UL
+        VSRL18, 0x3f8000003f800000UL
+        VSRL19, 0x0UL ]
+      []
+
 /// <summary>
 /// Lane F's lifting tests: the binary floating-point instructions added
 /// after the first PowerPC, the floating-point register pair accesses, the

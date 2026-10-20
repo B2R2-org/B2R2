@@ -41,10 +41,10 @@ open B2R2.FrontEnd.PPC
 /// the way FPSCR[RN] does.
 /// Of the named calls it knows the fused multiply-add and the exception
 /// query (FEXC64), which IRFloat answers exactly, and the conversions to the
-/// half and bfloat16 formats and the quad-precision operations, worked out
-/// over exact values. It fails on anything else rather than guess what it
-/// means -- a byte nobody gave, a jump out of the instruction and a side
-/// effect included.
+/// half and bfloat16 formats, the quad-precision operations and the rank-2
+/// updates of the matrix forms, worked out over exact values. It fails on
+/// anything else rather than guess what it means -- a byte nobody gave, a
+/// jump out of the instruction and a side effect included.
 /// </summary>
 module internal IRRunner =
   /// What a run leaves behind.
@@ -232,32 +232,59 @@ module internal IRRunner =
   let private modeOf (mode: BitVector) = int (mode.ToUInt64())
 
   /// <summary>
-  /// The exact sum of two finite numbers rounded into a quad. A sum that
-  /// is exactly zero is +0, or -0 rounding toward -Inf, unless both terms
-  /// are zeroes of the same sign, which keep it.
+  /// The exact product of two values: a NaN where either is one or where an
+  /// infinity meets a zero, an infinity where either is one.
   /// </summary>
-  let private sumInto mode (s1, m1: bigint, e1) (s2, m2: bigint, e2) =
-    let e = min e1 e2
-    let v1 = (if s1 then -m1 else m1) <<< (e1 - e)
-    let v2 = (if s2 then -m2 else m2) <<< (e2 - e)
-    let v = v1 + v2
-    if v.IsZero then
-      let bothZero = m1.IsZero && m2.IsZero && s1 = s2
-      signBits binary128 (if bothZero then s1 else mode = 3)
-    else
-      roundInto binary128 mode (v.Sign < 0) (abs v) e
-
-  /// FADD128 (and FSUB128, with b's sign flipped first).
-  let private quadAdd mode a b =
+  let private exactProduct a b =
     match a, b with
-    | NaN _, _ | _, NaN _ ->
-      quadNaN
-    | Inf sa, Inf sb ->
-      if sa = sb then infBits binary128 sa else quadNaN
-    | Inf s, _ | _, Inf s ->
-      infBits binary128 s
+    | NaN _, _
+    | _, NaN _ ->
+      NaN(false, 0I)
+    | Inf _, Finite(_, m, _)
+    | Finite(_, m, _), Inf _ when m.IsZero ->
+      NaN(false, 0I)
+    | Inf sa, Inf sb
+    | Inf sa, Finite(sb, _, _)
+    | Finite(sa, _, _), Inf sb ->
+      Inf(sa <> sb)
+    | Finite(sa, ma, ea), Finite(sb, mb, eb) ->
+      Finite(sa <> sb, ma * mb, ea + eb)
+
+  /// <summary>
+  /// The exact sum of two values. A sum that is exactly zero is +0, or -0
+  /// in direction 3, unless both terms are zeroes of the same sign, which
+  /// keep it; infinities of opposite signs give a NaN.
+  /// </summary>
+  let private exactSum mode a b =
+    match a, b with
+    | NaN _, _
+    | _, NaN _ ->
+      NaN(false, 0I)
+    | Inf sa, Inf sb when sa <> sb ->
+      NaN(false, 0I)
+    | Inf s, _
+    | _, Inf s ->
+      Inf s
     | Finite(s1, m1, e1), Finite(s2, m2, e2) ->
-      sumInto mode (s1, m1, e1) (s2, m2, e2)
+      let e = min e1 e2
+      let v1 = (if s1 then -m1 else m1) <<< (e1 - e)
+      let v2 = (if s2 then -m2 else m2) <<< (e2 - e)
+      let v = v1 + v2
+      if v.IsZero then
+        let keep = m1.IsZero && m2.IsZero && s1 = s2
+        Finite((if keep then s1 else mode = 3), 0I, 0)
+      else
+        Finite(v.Sign < 0, abs v, e)
+
+  /// A value rounded once into a format, a NaN as the format's default one.
+  let private roundExact fmt mode x =
+    match x with
+    | NaN _ ->
+      infBits fmt false ||| (1I <<< (fmt.FracBits - 1))
+    | Inf s ->
+      infBits fmt s
+    | Finite(s, m, e) ->
+      roundInto fmt mode s m e
 
   /// A value with its sign flipped.
   let private negated = function
@@ -265,19 +292,11 @@ module internal IRRunner =
     | Inf s -> Inf(not s)
     | Finite(s, m, e) -> Finite(not s, m, e)
 
+  /// FADD128 (and FSUB128, with b's sign flipped first).
+  let private quadAdd mode a b = roundExact binary128 mode (exactSum mode a b)
+
   /// FMUL128.
-  let private quadMul mode a b =
-    match a, b with
-    | NaN _, _ | _, NaN _ ->
-      quadNaN
-    | Inf _, Finite(_, m, _) | Finite(_, m, _), Inf _ when m.IsZero ->
-      quadNaN
-    | Inf sa, Inf sb ->
-      infBits binary128 (sa <> sb)
-    | Inf sa, Finite(sb, _, _) | Finite(sa, _, _), Inf sb ->
-      infBits binary128 (sa <> sb)
-    | Finite(sa, ma, ea), Finite(sb, mb, eb) ->
-      roundInto binary128 mode (sa <> sb) (ma * mb) (ea + eb)
+  let private quadMul mode a b = roundExact binary128 mode (exactProduct a b)
 
   /// How many bits past the significand a quotient or a root is worked out
   /// to before the remainder is folded into a sticky bit.
@@ -334,24 +353,10 @@ module internal IRRunner =
   /// FMA128: a times b plus c, rounded once; bit 0 of flags negates the
   /// product, bit 1 the addend.
   let private quadFMA mode a b c (flags: uint64) =
-    let product sign = if flags &&& 1UL = 0UL then sign else not sign
+    let p = exactProduct a b
+    let p = if flags &&& 1UL = 0UL then p else negated p
     let c = if flags &&& 2UL = 0UL then c else negated c
-    match a, b, c with
-    | NaN _, _, _ | _, NaN _, _ | _, _, NaN _ ->
-      quadNaN
-    | Inf _, Finite(_, m, _), _ | Finite(_, m, _), Inf _, _ when m.IsZero ->
-      quadNaN
-    | Inf sa, Inf sb, _
-    | Inf sa, Finite(sb, _, _), _
-    | Finite(sa, _, _), Inf sb, _ ->
-      let sp = product (sa <> sb)
-      match c with
-      | Inf sc when sc <> sp -> quadNaN
-      | _ -> infBits binary128 sp
-    | _, _, Inf sc ->
-      infBits binary128 sc
-    | Finite(sa, ma, ea), Finite(sb, mb, eb), Finite(sc, mc, ec) ->
-      sumInto mode (product (sa <> sb), ma * mb, ea + eb) (sc, mc, ec)
+    roundExact binary128 mode (exactSum mode p c)
 
   /// FCVT128TO64: a quad rounded to a double.
   let private quadToDouble mode a =
@@ -413,6 +418,31 @@ module internal IRRunner =
     | "FMUL128" -> quadMul mode a b
     | _ -> quadDiv mode a b
 
+  /// A format with single precision's significand and an exponent range
+  /// no rank-2 update of 16-bit values can leave.
+  let private unboundedSingle = { ExpBits = 20; FracBits = 23 }
+
+  /// <summary>
+  /// FGER2HALF and FGER2BF16: halfword 0 times halfword 0 plus halfword 1
+  /// times halfword 1 of two words, the halves in a 16-bit format, rounded
+  /// to single precision's significand with no bound on the exponent; then,
+  /// by kind, that alone (0), it plus (1) or minus (2) the single acc, or
+  /// its negation plus (3) or minus (4) acc, rounded to a single.
+  /// </summary>
+  let private rank2 fmt mode kind x y acc =
+    let kind = int ((kind: BitVector).ToUInt64())
+    let x, y = (x: BitVector).ToBigInt(), (y: BitVector).ToBigInt()
+    let half (w: bigint) k = decodeAs fmt ((w >>> (16 - 16 * k)) &&& 65535I)
+    let p0 = exactProduct (half x 0) (half y 0)
+    let p1 = exactProduct (half x 1) (half y 1)
+    let r1 = roundExact unboundedSingle mode (exactSum mode p0 p1)
+    let r1 = decodeAs unboundedSingle r1
+    let a = if kind >= 3 then negated r1 else r1
+    let c = decodeAs binary32 ((acc: BitVector).ToBigInt())
+    let c = if kind = 2 || kind = 4 then negated c else c
+    let v = if kind = 0 then a else exactSum mode a c
+    BitVector(roundExact binary32 mode v, 32<rt>)
+
   /// The named calls the wide and the half-precision forms make, which are
   /// answered over exact values and carry their own direction as an argument.
   let private exactApp (name: string) (args: BitVector list) =
@@ -435,6 +465,10 @@ module internal IRRunner =
       Some(quadOf (intToQuad (modeOf mode) isSigned (x.ToBigInt())))
     | "FRINT128", [ a; mode ] ->
       Some(quadOf (quadRint (modeOf mode) (a.ToBigInt()) (exactOf a)))
+    | "FGER2HALF", [ x; y; acc; kind; mode ] ->
+      Some(rank2 binary16 (modeOf mode) kind x y acc)
+    | "FGER2BF16", [ x; y; acc; kind; mode ] ->
+      Some(rank2 bfloat16 (modeOf mode) kind x y acc)
     | "FRND80", [ a; mode ] ->
       Some(quadOf (quadRound80 (modeOf mode) (a.ToBigInt()) (exactOf a)))
     | _ ->
