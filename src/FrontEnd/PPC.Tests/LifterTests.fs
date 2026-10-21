@@ -97273,6 +97273,33 @@ type BackfillLifterTests() =
       """
 
   [<TestMethod>]
+  member _.``[PPC T] XSCVDPSP original values``() =
+    oracle "f0201c24" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fc000003fc00000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+    oracle "241c20f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=3fc000003fc00000 F3=3ff8000000000000 VSRL1=0 LR=20100040
+      CTR=20100080 VSCR=10000 FPSCR=4000
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
   member _.``[PPC T] XSCVDPSPN original values``() =
     oracle "f0201c2c" Endian.Big WordSize.Bit64 """
       F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
@@ -97327,6 +97354,33 @@ type BackfillLifterTests() =
       """
 
   [<TestMethod>]
+  member _.``[PPC T] XSCVDPSXWS original values``() =
+    oracle "f0201960" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=100000001 F3=3ff8000000000000 VSRL1=0 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "601920f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=100000001 F3=3ff8000000000000 VSRL1=0 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
   member _.``[PPC T] XSCVDPUXDS original values``() =
     oracle "f0201d20" Endian.Big WordSize.Bit64 """
       F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
@@ -97346,6 +97400,33 @@ type BackfillLifterTests() =
       ;
       F1=1 F3=3ff8000000000000 VSRL1=0 LR=20100040 CTR=20100080 VSCR=10000
       FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+
+  [<TestMethod>]
+  member _.``[PPC T] XSCVDPUXWS original values``() =
+    oracle "f0201920" Endian.Big WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=100000001 F3=3ff8000000000000 VSRL1=0 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
+      ;
+
+      ;
+
+      |
+      """
+    oracle "201920f0" Endian.Little WordSize.Bit64 """
+      F1=bad0bad0bad0bad F3=3ff8000000000000 VSRL1=bad0bad0bad0bad
+      LR=20100040 CTR=20100080 VSCR=10000 FPSCR=0
+      ;
+      F1=100000001 F3=3ff8000000000000 VSRL1=0 LR=20100040 CTR=20100080
+      VSCR=10000 FPSCR=0
       ;
 
       ;
