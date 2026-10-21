@@ -532,6 +532,7 @@ let private roundSingle bld (a: Arith) raised =
   let atMax = absOf r == FPConst.maxSingle
   append bld {
     t := AST.roundCtrl toZero a.Compute .| sticky
+    t := AST.ite (absOf t == AST.num0 64<rt>) a.Compute t
     r := AST.cast CastKind.FloatCast 64<rt> single
     inexact := r != t
   }
