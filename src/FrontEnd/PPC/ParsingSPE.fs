@@ -221,6 +221,17 @@ let private parseWord bin =
   | 1144u -> rrr Op.EVMWUMIA bin
   | 1145u -> rrr Op.EVMWSMIA bin
   | 1147u -> rrr Op.EVMWSMFA bin
+  | 1216u -> rr Op.EVADDUSIAAW bin
+  | 1217u -> rr Op.EVADDSSIAAW bin
+  | 1218u -> rr Op.EVSUBFUSIAAW bin
+  | 1219u -> rr Op.EVSUBFSSIAAW bin
+  | 1220u -> rr Op.EVMRA bin
+  | 1222u -> rrr Op.EVDIVWS bin
+  | 1223u -> rrr Op.EVDIVWU bin
+  | 1224u -> rr Op.EVADDUMIAAW bin
+  | 1225u -> rr Op.EVADDSMIAAW bin
+  | 1226u -> rr Op.EVSUBFUMIAAW bin
+  | 1227u -> rr Op.EVSUBFSMIAAW bin
   | 1280u -> rrr Op.EVMHEUSIAAW bin
   | 1281u -> rrr Op.EVMHESSIAAW bin
   | 1283u -> rrr Op.EVMHESSFAAW bin

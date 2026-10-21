@@ -332,3 +332,56 @@ let evmwWhole ins bld sign saturation kind accumulate =
     let flags = if saturates then Some(struct (zero, ov .| mov)) else None
     commit bld rt hi lo (accumulate <> Plain) flags
   }
+
+/// evmra, which puts RA in the accumulator and in RT.
+let evmra ins bld =
+  lift bld ins {
+    let struct (rt, ra) = getTwoOprs ins
+    let struct (ah, al) = wordsOf bld ra
+    commit bld rt ah al true None
+  }
+
+/// The adds and subtracts of the elements of RA to and from the accumulator's
+/// words: evaddsmiaaw, evsubfusiaaw and the rest.
+let evaddAccumulate ins bld sign saturation subtract =
+  lift bld ins {
+    let struct (rt, ra) = getTwoOprs ins
+    let struct (ah, al) = wordsOf bld ra
+    let struct (acch, accl) = accumulatorWords bld
+    let struct (hi, ovh) = sumWord bld sign saturation subtract acch ah
+    let struct (lo, ovl) = sumWord bld sign saturation subtract accl al
+    let flags = if reports saturation then Some(struct (ovh, ovl)) else None
+    commit bld rt hi lo true flags
+  }
+
+/// The divide of one element: the quotient, which the manual defines for a
+/// zero divisor and for the one signed quotient that does not fit, and
+/// whether it had to.
+let private divideWord sign (dividend: Expr) (divisor: Expr) =
+  let zero = AST.num0 32<rt>
+  let byZero = divisor == zero
+  match sign with
+  | Unsigned ->
+    let quotient = AST.div dividend divisor
+    struct (AST.ite byZero (num32 0xffffffffu) quotient, byZero)
+  | Signed ->
+    let negative = dividend ?< zero
+    let overflows =
+      (dividend == num32 0x80000000u) .& (divisor == num32 0xffffffffu)
+    let limit = AST.ite negative (num32 0x80000000u) (num32 0x7fffffffu)
+    let exact = AST.sdiv dividend divisor
+    let quotient = AST.ite overflows (num32 0x7fffffffu) exact
+    struct (AST.ite byZero limit quotient, byZero .| overflows)
+
+/// evdivws and evdivwu, which divide each word of RA by that of RB, and
+/// always report an overflow, which in a divide is a zero divisor or a
+/// quotient that does not fit.
+let evdivw ins bld sign =
+  lift bld ins {
+    let struct (rt, ra, rb) = getThreeOprs ins
+    let struct (ah, al) = wordsOf bld ra
+    let struct (bh, bl) = wordsOf bld rb
+    let struct (hi, ovh) = divideWord sign ah bh
+    let struct (lo, ovl) = divideWord sign al bl
+    commit bld rt hi lo false (Some(struct (ovh, ovl)))
+  }

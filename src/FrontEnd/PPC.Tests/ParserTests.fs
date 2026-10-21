@@ -6026,3 +6026,58 @@ type SignalProcessingParserTests() =
   member _.``[PPC] EVMWUMIAN (Multiply Word Unsigned, Modulo, Integer...)``() =
     EVMWUMIAN ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
     |> testEngine "10a63dd8"
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDSMIAAW (Add Signed, Modulo, Integer to...)``() =
+    EVADDSMIAAW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a604c9"
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDSSIAAW (Add Signed, Saturate, Integer to...)``() =
+    EVADDSSIAAW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a604c1"
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDUMIAAW (Add Unsigned, Modulo, Integer to...)``() =
+    EVADDUMIAAW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a604c8"
+
+  [<TestMethod>]
+  member _.``[PPC] EVADDUSIAAW (Add Unsigned, Saturate, Integer to...)``() =
+    EVADDUSIAAW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a604c0"
+
+  [<TestMethod>]
+  member _.``[PPC] EVDIVWS (Divide Word Signed)``() =
+    EVDIVWS ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63cc6"
+
+  [<TestMethod>]
+  member _.``[PPC] EVDIVWU (Divide Word Unsigned)``() =
+    EVDIVWU ** [ O.Reg R5; O.Reg R6; O.Reg R7 ]
+    |> testEngine "10a63cc7"
+
+  [<TestMethod>]
+  member _.``[PPC] EVMRA (Initialize Accumulator)``() =
+    EVMRA ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a604c4"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFSMIAAW (Subtract Signed, Modulo, Integer to...)``() =
+    EVSUBFSMIAAW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a604cb"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFSSIAAW (Subtract Signed, Saturate, Integer to...)``() =
+    EVSUBFSSIAAW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a604c3"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFUMIAAW (Subtract Unsigned, Modulo, Integer to...)``() =
+    EVSUBFUMIAAW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a604ca"
+
+  [<TestMethod>]
+  member _.``[PPC] EVSUBFUSIAAW (Subtract Unsigned, Saturate, Integer...)``() =
+    EVSUBFUSIAAW ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a604c2"
