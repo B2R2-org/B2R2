@@ -7725,3 +7725,370 @@ type PrefixedParserTests() =
     let operands =
       TwoOperands(OprReg F1, OprImm 305419896UL)
     check "0500123480265678" (XXSPLTIW, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2 prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021998" (PMXVBF16GER2, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2NN prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021f90" (PMXVBF16GER2NN, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2NP prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021b90" (PMXVBF16GER2NP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2PN prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021d90" (PMXVBF16GER2PN, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVBF16GER2PP prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021990" (PMXVBF16GER2PP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2 prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021898" (PMXVF16GER2, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2NN prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021e90" (PMXVF16GER2NN, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2NP prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021a90" (PMXVF16GER2NP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2PN prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021c90" (PMXVF16GER2PN, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF16GER2PP prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021890" (PMXVF16GER2PP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GER prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "07900033ee0218d8" (PMXVF32GER, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GERNN prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "07900033ee021ed0" (PMXVF32GERNN, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GERNP prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "07900033ee021ad0" (PMXVF32GERNP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GERPN prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "07900033ee021cd0" (PMXVF32GERPN, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF32GERPP prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "07900033ee0218d0" (PMXVF32GERPP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GER prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F6,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "0790003cee0619d8" (PMXVF64GER, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GERNN prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F6,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "0790003cee061fd0" (PMXVF64GERNN, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GERNP prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F6,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "0790003cee061bd0" (PMXVF64GERNP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GERPN prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F6,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "0790003cee061dd0" (PMXVF64GERPN, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVF64GERPP prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg ACC4,
+        OprReg F6,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL
+      )
+    check "0790003cee0619d0" (PMXVF64GERPP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI16GER2 prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021a58" (PMXVI16GER2, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI16GER2PP prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021b58" (PMXVI16GER2PP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI16GER2S prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021958" (PMXVI16GER2S, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI16GER2SPP prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07904033ee021950" (PMXVI16GER2SPP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI4GER8 prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07900133ee021918" (PMXVI4GER8, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI4GER8PP prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07900133ee021910" (PMXVI4GER8PP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI8GER4 prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07901033ee021818" (PMXVI8GER4, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI8GER4PP prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07901033ee021810" (PMXVI8GER4PP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] PMXVI8GER4SPP prefixed decoding``() =
+    let operands =
+      SixOperands(
+        OprReg ACC4,
+        OprReg F2,
+        OprReg F3,
+        OprImm 3UL,
+        OprImm 3UL,
+        OprImm 1UL
+      )
+    check "07901033ee021b18" (PMXVI8GER4SPP, operands)

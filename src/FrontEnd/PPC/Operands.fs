@@ -32,6 +32,7 @@ type Operands =
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
+  | SixOperands of Operand * Operand * Operand * Operand * Operand * Operand
 
 /// Represents an operand used in a PPC instruction.
 and Operand =

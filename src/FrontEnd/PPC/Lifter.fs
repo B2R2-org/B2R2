@@ -3551,6 +3551,64 @@ let translate (ins: Instruction) bld =
     PrefixedVectorLifter.permute ins bld
   | Op.XXSPLTI32DX | Op.XXSPLTIDP | Op.XXSPLTIW ->
     PrefixedVectorLifter.splat ins bld
+  | Op.PMXVBF16GER2 ->
+    PrefixedMatrixLifter.dotUpdate ins bld true 0
+  | Op.PMXVBF16GER2NN ->
+    PrefixedMatrixLifter.dotUpdate ins bld true 4
+  | Op.PMXVBF16GER2NP ->
+    PrefixedMatrixLifter.dotUpdate ins bld true 3
+  | Op.PMXVBF16GER2PN ->
+    PrefixedMatrixLifter.dotUpdate ins bld true 2
+  | Op.PMXVBF16GER2PP ->
+    PrefixedMatrixLifter.dotUpdate ins bld true 1
+  | Op.PMXVF16GER2 ->
+    PrefixedMatrixLifter.dotUpdate ins bld false 0
+  | Op.PMXVF16GER2NN ->
+    PrefixedMatrixLifter.dotUpdate ins bld false 4
+  | Op.PMXVF16GER2NP ->
+    PrefixedMatrixLifter.dotUpdate ins bld false 3
+  | Op.PMXVF16GER2PN ->
+    PrefixedMatrixLifter.dotUpdate ins bld false 2
+  | Op.PMXVF16GER2PP ->
+    PrefixedMatrixLifter.dotUpdate ins bld false 1
+  | Op.PMXVF32GER ->
+    PrefixedMatrixLifter.singleUpdate ins bld 0
+  | Op.PMXVF32GERNN ->
+    PrefixedMatrixLifter.singleUpdate ins bld 4
+  | Op.PMXVF32GERNP ->
+    PrefixedMatrixLifter.singleUpdate ins bld 3
+  | Op.PMXVF32GERPN ->
+    PrefixedMatrixLifter.singleUpdate ins bld 2
+  | Op.PMXVF32GERPP ->
+    PrefixedMatrixLifter.singleUpdate ins bld 1
+  | Op.PMXVF64GER ->
+    PrefixedMatrixLifter.doubleUpdate ins bld 0
+  | Op.PMXVF64GERNN ->
+    PrefixedMatrixLifter.doubleUpdate ins bld 4
+  | Op.PMXVF64GERNP ->
+    PrefixedMatrixLifter.doubleUpdate ins bld 3
+  | Op.PMXVF64GERPN ->
+    PrefixedMatrixLifter.doubleUpdate ins bld 2
+  | Op.PMXVF64GERPP ->
+    PrefixedMatrixLifter.doubleUpdate ins bld 1
+  | Op.PMXVI16GER2 ->
+    PrefixedMatrixLifter.integerUpdate ins bld 16 true false
+  | Op.PMXVI16GER2PP ->
+    PrefixedMatrixLifter.integerUpdate ins bld 16 true true
+  | Op.PMXVI16GER2S ->
+    PrefixedMatrixLifter.saturatingUpdate ins bld 16 true false
+  | Op.PMXVI16GER2SPP ->
+    PrefixedMatrixLifter.saturatingUpdate ins bld 16 true true
+  | Op.PMXVI4GER8 ->
+    PrefixedMatrixLifter.integerUpdate ins bld 4 true false
+  | Op.PMXVI4GER8PP ->
+    PrefixedMatrixLifter.integerUpdate ins bld 4 true true
+  | Op.PMXVI8GER4 ->
+    PrefixedMatrixLifter.integerUpdate ins bld 8 false false
+  | Op.PMXVI8GER4PP ->
+    PrefixedMatrixLifter.integerUpdate ins bld 8 false true
+  | Op.PMXVI8GER4SPP ->
+    PrefixedMatrixLifter.saturatingUpdate ins bld 8 false true
   (* End of lane P. *)
   | o ->
 #if DEBUG

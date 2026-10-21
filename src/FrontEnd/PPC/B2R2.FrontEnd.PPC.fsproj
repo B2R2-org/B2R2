@@ -39,6 +39,7 @@
     <Compile Include="VLELifter.fs" />
     <Compile Include="PrefixedLifter.fs" />
     <Compile Include="PrefixedVectorLifter.fs" />
+    <Compile Include="PrefixedMatrixLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingVSX.fs" />
     <Compile Include="Category.fs" />

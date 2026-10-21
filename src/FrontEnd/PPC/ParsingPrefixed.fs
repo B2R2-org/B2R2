@@ -124,8 +124,72 @@ let private parseVector prefix suffix =
   | _ ->
     raise ParsingFailureException
 
+let private matrixOpcodes =
+  [
+  51u, Op.PMXVBF16GER2
+  242u, Op.PMXVBF16GER2NN
+  114u, Op.PMXVBF16GER2NP
+  178u, Op.PMXVBF16GER2PN
+  50u, Op.PMXVBF16GER2PP
+  19u, Op.PMXVF16GER2
+  210u, Op.PMXVF16GER2NN
+  82u, Op.PMXVF16GER2NP
+  146u, Op.PMXVF16GER2PN
+  18u, Op.PMXVF16GER2PP
+  27u, Op.PMXVF32GER
+  218u, Op.PMXVF32GERNN
+  90u, Op.PMXVF32GERNP
+  154u, Op.PMXVF32GERPN
+  26u, Op.PMXVF32GERPP
+  59u, Op.PMXVF64GER
+  250u, Op.PMXVF64GERNN
+  122u, Op.PMXVF64GERNP
+  186u, Op.PMXVF64GERPN
+  58u, Op.PMXVF64GERPP
+  75u, Op.PMXVI16GER2
+  107u, Op.PMXVI16GER2PP
+  43u, Op.PMXVI16GER2S
+  42u, Op.PMXVI16GER2SPP
+  35u, Op.PMXVI4GER8
+  34u, Op.PMXVI4GER8PP
+  3u, Op.PMXVI8GER4
+  2u, Op.PMXVI8GER4PP
+  99u, Op.PMXVI8GER4SPP
+  ] |> Map.ofList
+
+/// The prefixed MMA suffix has the same register restrictions as XX3.
+let private parseMatrix prefix suffix =
+  let struct (_, operands) = ParsingVSX.parse3B suffix
+  let xo = Bits.extract suffix 10u 3u
+  let op =
+    match Map.tryFind xo matrixOpcodes with
+    | Some op -> op
+    | None -> raise ParsingFailureException
+  let mask lo width =
+    Bits.extract prefix (lo + width - 1u) lo |> uint64 |> OprImm
+  let xmask = mask 4u 4u
+  let isDouble =
+    op = Op.PMXVF64GER || op = Op.PMXVF64GERPP
+    || op = Op.PMXVF64GERPN || op = Op.PMXVF64GERNP || op = Op.PMXVF64GERNN
+  let ymask = if isDouble then mask 2u 2u else mask 0u 4u
+  let pbits =
+    if op = Op.PMXVI4GER8 || op = Op.PMXVI4GER8PP then 8u
+    elif xo = 2u || xo = 3u || xo = 99u then 4u
+    else 2u
+  let single = xo = 26u || xo = 27u || xo = 90u || xo = 154u || xo = 218u
+  match operands with
+  | ThreeOperands(t, a, b) ->
+    if isDouble || single then
+      struct (op, FiveOperands(t, a, b, xmask, ymask))
+    else
+      struct (op, SixOperands(t, a, b, xmask, ymask, mask (16u - pbits) pbits))
+  | _ ->
+    raise ParsingFailureException
+
 let private decode prefix suffix =
-  if prefix &&& 0xffff0000u = 0x05000000u then
+  if prefix &&& 0xfffc0000u = 0x07900000u && suffix >>> 26 = 59u then
+    parseMatrix prefix suffix
+  elif prefix &&& 0xffff0000u = 0x05000000u then
     parseVector prefix suffix
   elif prefix &&& 0xfff3ffffu = 0x07000000u then
     parseNop suffix
