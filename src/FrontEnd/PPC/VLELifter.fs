@@ -321,6 +321,51 @@ let logicalScaled (ins: Instruction) (bld: ILowUIRBuilder) operation record =
     if record then setCR0Reg bld dst else ()
   }
 
+/// The number of an instruction of a register and a number, shifted left 16
+/// bits if the instruction says so and extended as it says.
+let private shiftedNumber (bld: ILowUIRBuilder) shifted signed imm =
+  if shifted then GeneralLifter.shiftedImm bld signed imm else imm
+
+/// e_add2i. and e_add2is: RA = RA + a signed number, which is shifted left 16
+/// bits in the second; the first records CR0.
+let addToRegister (ins: Instruction) (bld: ILowUIRBuilder) shifted =
+  lift bld ins {
+    let struct (dst, imm) = transTwoOprs ins bld
+    dst := dst .+ shiftedNumber bld shifted true imm
+    if shifted then () else setCR0Reg bld dst
+  }
+
+/// e_and2i. and e_and2is.: RT = RT & an unsigned number, shifted left 16 bits
+/// in the second, which record CR0.
+let andWithRegister (ins: Instruction) (bld: ILowUIRBuilder) shifted =
+  lift bld ins {
+    let struct (dst, imm) = transTwoOprs ins bld
+    dst := dst .& shiftedNumber bld shifted false imm
+    setCR0Reg bld dst
+  }
+
+/// e_or2i and e_or2is: RT = RT | an unsigned number, shifted left 16 bits in
+/// the second, which leave CR0 alone.
+let orWithRegister (ins: Instruction) (bld: ILowUIRBuilder) shifted =
+  lift bld ins {
+    let struct (dst, imm) = transTwoOprs ins bld
+    dst := dst .| shiftedNumber bld shifted false imm
+  }
+
+/// e_lis: RT = an unsigned number shifted left 16 bits, whatever RT held.
+let loadShifted (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, imm) = transTwoOprs ins bld
+    dst := GeneralLifter.shiftedImm bld false imm
+  }
+
+/// e_mull2i: RA = RA x a signed number, as the multiply of two registers and a
+/// number that names RA twice does.
+let multiplyRegister (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(ra, imm) -> asBase ins (ThreeOperands(ra, ra, imm))
+  | _ -> raise InvalidOperandException
+
 /// A load of a size from an address that is a base register plus a
 /// displacement, zero-extended into the register it names. The base register
 /// is whichever the instruction names, register 0 included.
