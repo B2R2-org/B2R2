@@ -6081,3 +6081,48 @@ type SignalProcessingParserTests() =
   member _.``[PPC] EVSUBFUSIAAW (Subtract Unsigned, Saturate, Integer...)``() =
     EVSUBFUSIAAW ** [ O.Reg R5; O.Reg R6 ]
     |> testEngine "10a604c2"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDABS (Value)``() =
+    EFDABS ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a602e4"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDNABS (Absolute Value)``() =
+    EFDNABS ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a602e5"
+
+  [<TestMethod>]
+  member _.``[PPC] EFDNEG (Floating-Point Double-Precision Negate)``() =
+    EFDNEG ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a602e6"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSABS (Floating-Point Absolute Value)``() =
+    EFSABS ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a602c4"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSNABS (Floating-Point Negative Absolute Value)``() =
+    EFSNABS ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a602c5"
+
+  [<TestMethod>]
+  member _.``[PPC] EFSNEG (Floating-Point Negate)``() =
+    EFSNEG ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a602c6"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSABS (Floating-Point Absolute Value)``() =
+    EVFSABS ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a60284"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSNABS (Floating-Point Negative Absolute Value)``() =
+    EVFSNABS ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a60285"
+
+  [<TestMethod>]
+  member _.``[PPC] EVFSNEG (Floating-Point Negate)``() =
+    EVFSNEG ** [ O.Reg R5; O.Reg R6 ]
+    |> testEngine "10a60286"

@@ -294,6 +294,18 @@ let private accumEncoders () =
     Op.EVSUBFUMIAAW, rr 1226u
     Op.EVSUBFUSIAAW, rr 1218u ]
 
+/// The encoders of the "fpsign" theme.
+let private fpsignEncoders () =
+  [ Op.EFDABS, rr 740u
+    Op.EFDNABS, rr 741u
+    Op.EFDNEG, rr 742u
+    Op.EFSABS, rr 708u
+    Op.EFSNABS, rr 709u
+    Op.EFSNEG, rr 710u
+    Op.EVFSABS, rr 644u
+    Op.EVFSNABS, rr 645u
+    Op.EVFSNEG, rr 646u ]
+
 /// The encoders of the Signal Processing Engine.
 let signalProcessingEncoders () =
   List.concat
@@ -303,4 +315,5 @@ let signalProcessingEncoders () =
       memoryEncoders ()
       halfEncoders ()
       wordEncoders ()
-      accumEncoders () ]
+      accumEncoders ()
+      fpsignEncoders () ]

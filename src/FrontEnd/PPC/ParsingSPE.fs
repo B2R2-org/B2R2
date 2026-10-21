@@ -151,6 +151,15 @@ let private parseWord bin =
   | 562u -> crf Op.EVCMPLTU bin
   | 563u -> crf Op.EVCMPLTS bin
   | 564u -> crf Op.EVCMPEQ bin
+  | 644u -> rr Op.EVFSABS bin
+  | 645u -> rr Op.EVFSNABS bin
+  | 646u -> rr Op.EVFSNEG bin
+  | 708u -> rr Op.EFSABS bin
+  | 709u -> rr Op.EFSNABS bin
+  | 710u -> rr Op.EFSNEG bin
+  | 740u -> rr Op.EFDABS bin
+  | 741u -> rr Op.EFDNABS bin
+  | 742u -> rr Op.EFDNEG bin
   | 768u -> rrr Op.EVLDDX bin
   | 769u -> disp Op.EVLDD 8 bin
   | 770u -> rrr Op.EVLDWX bin

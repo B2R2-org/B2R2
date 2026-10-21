@@ -1819,5 +1819,14 @@ type Opcode =
   | EVSUBFSSIAAW = 7170
   | EVSUBFUMIAAW = 7171
   | EVSUBFUSIAAW = 7172
+  | EFDABS = 7173
+  | EFDNABS = 7174
+  | EFDNEG = 7175
+  | EFSABS = 7176
+  | EFSNABS = 7177
+  | EFSNEG = 7178
+  | EVFSABS = 7179
+  | EVFSNABS = 7180
+  | EVFSNEG = 7181
 
 type internal Op = Opcode

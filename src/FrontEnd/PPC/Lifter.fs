@@ -44,6 +44,7 @@ open B2R2.FrontEnd.PPC.VectorPermuteLifter
 open B2R2.FrontEnd.PPC.VectorFloatLifter
 open B2R2.FrontEnd.PPC.SPELifter
 open B2R2.FrontEnd.PPC.SPEMultiplyLifter
+open B2R2.FrontEnd.PPC.SPEFloatLifter
 
 /// Translate IR.
 let translate (ins: Instruction) bld =
@@ -3077,6 +3078,24 @@ let translate (ins: Instruction) bld =
     evaddAccumulate ins bld Unsigned Wrap true
   | Op.EVSUBFUSIAAW ->
     evaddAccumulate ins bld Unsigned Clamp true
+  | Op.EFDABS ->
+    efdabs ins bld
+  | Op.EFDNABS ->
+    efdnabs ins bld
+  | Op.EFDNEG ->
+    efdneg ins bld
+  | Op.EFSABS ->
+    efsabs ins bld
+  | Op.EFSNABS ->
+    efsnabs ins bld
+  | Op.EFSNEG ->
+    efsneg ins bld
+  | Op.EVFSABS ->
+    evfsabs ins bld
+  | Op.EVFSNABS ->
+    evfsnabs ins bld
+  | Op.EVFSNEG ->
+    evfsneg ins bld
   (* End of lane S. *)
   | o ->
 #if DEBUG

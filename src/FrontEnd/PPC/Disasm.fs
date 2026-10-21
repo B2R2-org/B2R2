@@ -1848,6 +1848,15 @@ let opCodeToString = function
   | Op.EVSUBFSSIAAW -> "evsubfssiaaw"
   | Op.EVSUBFUMIAAW -> "evsubfumiaaw"
   | Op.EVSUBFUSIAAW -> "evsubfusiaaw"
+  | Op.EFDABS -> "efdabs"
+  | Op.EFDNABS -> "efdnabs"
+  | Op.EFDNEG -> "efdneg"
+  | Op.EFSABS -> "efsabs"
+  | Op.EFSNABS -> "efsnabs"
+  | Op.EFSNEG -> "efsneg"
+  | Op.EVFSABS -> "evfsabs"
+  | Op.EVFSNABS -> "evfsnabs"
+  | Op.EVFSNEG -> "evfsneg"
   | _ -> Terminator.impossible ()
 
 let condToString = function
