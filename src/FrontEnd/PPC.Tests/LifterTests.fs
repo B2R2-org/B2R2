@@ -42226,6 +42226,45 @@ type VLELifterTests() =
   let expectKinds (expected: BinIR.InterJmpKind) kinds =
     Assert.AreEqual<BinIR.InterJmpKind list>([ expected ], kinds)
 
+  /// XER[SO] and XER[CA], as bits of the register: bits 32 and 34 of the Power
+  /// ISA's XER, kept at bits 31 and 29 of the XER here.
+  let so = 0x80000000UL
+
+  let ca = 0x20000000UL
+
+  /// The four bits of each field of the condition register, from LT down.
+  let fieldBits = function
+    | Register.CR0 -> [ CR0_0; CR0_1; CR0_2; CR0_3 ]
+    | Register.CR1 -> [ CR1_0; CR1_1; CR1_2; CR1_3 ]
+    | Register.CR2 -> [ CR2_0; CR2_1; CR2_2; CR2_3 ]
+    | Register.CR3 -> [ CR3_0; CR3_1; CR3_2; CR3_3 ]
+    | Register.CR4 -> [ CR4_0; CR4_1; CR4_2; CR4_3 ]
+    | Register.CR5 -> [ CR5_0; CR5_1; CR5_2; CR5_3 ]
+    | Register.CR6 -> [ CR6_0; CR6_1; CR6_2; CR6_3 ]
+    | Register.CR7 -> [ CR7_0; CR7_1; CR7_2; CR7_3 ]
+    | _ -> []
+
+  /// The registers given values, with each field of the condition register
+  /// given as the four bits it is.
+  let withBits given =
+    given
+    |> List.collect (fun (r, v: uint64) ->
+      match fieldBits r with
+      | [] -> [ r, v ]
+      | bits -> bits |> List.mapi (fun i b -> b, (v >>> (3 - i)) &&& 1UL))
+
+  /// Runs the instruction of the bytes given as hex over the registers given
+  /// values on the processor an ISA names, and asserts each register wanted: a
+  /// field of the condition register as the four bits it is.
+  let check isa hex given wanted =
+    let after = run isa hex (withBits given)
+    for r, v in wanted do
+      let actual =
+        match fieldBits r with
+        | [] -> after r
+        | bits -> bits |> List.fold (fun acc b -> (acc <<< 1) ||| after b) 0UL
+      expect v actual $"{hex} {r} {nameOf isa}"
+
   /// <summary>
   /// se_illegal asks for an Illegal Instruction exception, which is what the
   /// lift says and all it says.
@@ -42308,3 +42347,718 @@ type VLELifterTests() =
       expect target went (nameOf isa)
       expect 0x1002UL (after LR) (nameOf isa)
       expectKinds BinIR.InterJmpKind.IsCall kinds
+
+  /// <summary>
+  /// se_mr RX,RY puts the contents of RY into RX, the whole register. (Book VLE
+  /// 5.9) It is the base encoding's mr, so the two lift to the same statements.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MR copies RY to RX``() =
+    (* se_mr r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xffffffffffffffffUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12345678UL)
+        (vle32, 0x1UL, 0x9abcdef0UL, 0x9abcdef0UL)
+        (vle32, 0xffffffffUL, 0UL, 0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12345678UL)
+        (vle64, 0x1UL, w1, w1)
+        (vle64, w2, 0UL, 0UL) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "0143" given wanted
+    for isa in vleTargets do sameAs isa "0143" "7c832378"
+
+  /// <summary>
+  /// se_mtar ARX,RY puts the contents of RY into register ARX + 8, so r10 here.
+  /// (Book VLE 5.9) It moves a register as mr does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MTAR copies RY to an alternate register``() =
+    (* se_mtar r10,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    for isa, r4, r10, r10' in
+      [ (vle32, 0x12345678UL, 0x11111111UL, 0x12345678UL)
+        (vle32, 0x9abcdef0UL, 0x1UL, 0x9abcdef0UL)
+        (vle64, 0x12345678UL, 0x11111111UL, 0x12345678UL)
+        (vle64, w1, 0x1UL, w1) ] do
+      let given = [ R4, r4; R10, r10 ]
+      let wanted = [ R4, r4; R10, r10' ]
+      check isa "0242" given wanted
+    for isa in vleTargets do sameAs isa "0242" "7c8a2378"
+
+  /// <summary>
+  /// se_mfar RX,ARY puts the contents of register ARY + 8, so r10 here, into
+  /// RX. (Book VLE 5.9) It moves a register as mr does.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MFAR copies an alternate register to RX``() =
+    (* se_mfar r3,r10 *)
+    let w1 = 0x123456789abcdef0UL
+    for isa, r3, r10, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12345678UL)
+        (vle32, 0x1UL, 0x9abcdef0UL, 0x9abcdef0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12345678UL)
+        (vle64, 0x1UL, w1, w1) ] do
+      let given = [ R3, r3; R10, r10 ]
+      let wanted = [ R3, r3'; R10, r10 ]
+      check isa "0323" given wanted
+    for isa in vleTargets do sameAs isa "0323" "7d435378"
+
+  /// <summary>
+  /// se_mflr RX puts the contents of LR into RX. (Book VLE 5.11) It is mflr.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MFLR reads LR``() =
+    (* se_mflr r3 *)
+    let w1 = 0x123456789abcdef0UL
+    for isa, r3, lr, r3', lr' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12345678UL, 0x12345678UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abcdef0UL, 0x9abcdef0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12345678UL, 0x12345678UL)
+        (vle64, 0x11111111UL, w1, w1, w1) ] do
+      let given = [ R3, r3; LR, lr ]
+      let wanted = [ R3, r3'; LR, lr' ]
+      check isa "0083" given wanted
+    for isa in vleTargets do sameAs isa "0083" "7c6802a6"
+
+  /// <summary>
+  /// se_mtlr RX puts the contents of RX into LR. (Book VLE 5.11) It is mtlr.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MTLR writes LR``() =
+    (* se_mtlr r3 *)
+    let w1 = 0x123456789abcdef0UL
+    for isa, r3, lr, lr' in
+      [ (vle32, 0x12345678UL, 0x11111111UL, 0x12345678UL)
+        (vle32, 0x9abcdef0UL, 0x11111111UL, 0x9abcdef0UL)
+        (vle64, 0x12345678UL, 0x11111111UL, 0x12345678UL)
+        (vle64, w1, 0x11111111UL, w1) ] do
+      let given = [ R3, r3; LR, lr ]
+      let wanted = [ R3, r3; LR, lr' ]
+      check isa "0093" given wanted
+    for isa in vleTargets do sameAs isa "0093" "7c6803a6"
+
+  /// <summary>
+  /// se_mfctr RX puts the contents of CTR into RX. (Book VLE 5.11) It is mfctr.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MFCTR reads CTR``() =
+    (* se_mfctr r3 *)
+    let w1 = 0x123456789abcdef0UL
+    for isa, r3, ctr, r3', ctr' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12345678UL, 0x12345678UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abcdef0UL, 0x9abcdef0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12345678UL, 0x12345678UL)
+        (vle64, 0x11111111UL, w1, w1, w1) ] do
+      let given = [ R3, r3; CTR, ctr ]
+      let wanted = [ R3, r3'; CTR, ctr' ]
+      check isa "00a3" given wanted
+    for isa in vleTargets do sameAs isa "00a3" "7c6902a6"
+
+  /// <summary>
+  /// se_mtctr RX puts the contents of RX into CTR. (Book VLE 5.11) It is mtctr.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MTCTR writes CTR``() =
+    (* se_mtctr r3 *)
+    let w1 = 0x123456789abcdef0UL
+    for isa, r3, ctr, ctr' in
+      [ (vle32, 0x12345678UL, 0x11111111UL, 0x12345678UL)
+        (vle32, 0x9abcdef0UL, 0x11111111UL, 0x9abcdef0UL)
+        (vle64, 0x12345678UL, 0x11111111UL, 0x12345678UL)
+        (vle64, w1, 0x11111111UL, w1) ] do
+      let given = [ R3, r3; CTR, ctr ]
+      let wanted = [ R3, r3; CTR, ctr' ]
+      check isa "00b3" given wanted
+    for isa in vleTargets do sameAs isa "00b3" "7c6903a6"
+
+  /// <summary>
+  /// se_li RX,UI7 puts the zero-extended UI7 into RX, whatever it held. (Book
+  /// VLE 5.9) It is li for a number below 128.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_LI loads a seven-bit number``() =
+    (* se_li r3,100 *)
+    let w1 = 0xffffffffffffffffUL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x64UL)
+        (vle32, 0xffffffffUL, 0x64UL)
+        (vle64, 0x12345678UL, 0x64UL)
+        (vle64, w1, 0x64UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "4e43" given wanted
+    for isa in vleTargets do sameAs isa "4e43" "38600064"
+
+  /// <summary>
+  /// se_extzb RX keeps bits 56:63 of RX and clears the rest. (Book VLE 5.9) It
+  /// is the rotate that clears all but the low byte of the word, clrlwi
+  /// RX,RX,24.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_EXTZB zero-extends a byte``() =
+    (* se_extzb r3 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xffffffffffffffffUL
+    let w3 = 0xdeadbeefffff8001UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x78UL)
+        (vle32, 0x80UL, 0x80UL)
+        (vle32, 0xffUL, 0xffUL)
+        (vle32, 0x7fUL, 0x7fUL)
+        (vle32, 0x8000UL, 0UL)
+        (vle32, 0xffffUL, 0xffUL)
+        (vle32, 0x7fffUL, 0xffUL)
+        (vle32, 0x80000000UL, 0UL)
+        (vle32, 0x9abcdef0UL, 0xf0UL)
+        (vle32, 0xffffffffUL, 0xffUL)
+        (vle32, 0xffff8001UL, 0x1UL)
+        (vle64, 0x12345678UL, 0x78UL)
+        (vle64, 0x80UL, 0x80UL)
+        (vle64, 0xffUL, 0xffUL)
+        (vle64, 0x7fUL, 0x7fUL)
+        (vle64, 0x8000UL, 0UL)
+        (vle64, 0xffffUL, 0xffUL)
+        (vle64, 0x7fffUL, 0xffUL)
+        (vle64, 0x80000000UL, 0UL)
+        (vle64, w1, 0xf0UL)
+        (vle64, w2, 0xffUL)
+        (vle64, w3, 0x1UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "00c3" given wanted
+    for isa in vleTargets do sameAs isa "00c3" "5463063e"
+
+  /// <summary>
+  /// se_extzh RX keeps bits 48:63 of RX and clears the rest. (Book VLE 5.9) It
+  /// is the rotate that clears all but the low halfword, clrlwi RX,RX,16.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_EXTZH zero-extends a halfword``() =
+    (* se_extzh r3 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xffffffffffffffffUL
+    let w3 = 0xdeadbeefffff8001UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x5678UL)
+        (vle32, 0x80UL, 0x80UL)
+        (vle32, 0xffUL, 0xffUL)
+        (vle32, 0x7fUL, 0x7fUL)
+        (vle32, 0x8000UL, 0x8000UL)
+        (vle32, 0xffffUL, 0xffffUL)
+        (vle32, 0x7fffUL, 0x7fffUL)
+        (vle32, 0x80000000UL, 0UL)
+        (vle32, 0x9abcdef0UL, 0xdef0UL)
+        (vle32, 0xffffffffUL, 0xffffUL)
+        (vle32, 0xffff8001UL, 0x8001UL)
+        (vle64, 0x12345678UL, 0x5678UL)
+        (vle64, 0x80UL, 0x80UL)
+        (vle64, 0xffUL, 0xffUL)
+        (vle64, 0x7fUL, 0x7fUL)
+        (vle64, 0x8000UL, 0x8000UL)
+        (vle64, 0xffffUL, 0xffffUL)
+        (vle64, 0x7fffUL, 0x7fffUL)
+        (vle64, 0x80000000UL, 0UL)
+        (vle64, w1, 0xdef0UL)
+        (vle64, w2, 0xffffUL)
+        (vle64, w3, 0x8001UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "00e3" given wanted
+    for isa in vleTargets do sameAs isa "00e3" "5463043e"
+
+  /// <summary>
+  /// se_extsb RX copies bit 56 of RX into bits 0:55. (Book VLE 5.9) It is extsb
+  /// RX,RX.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_EXTSB sign-extends a byte``() =
+    (* se_extsb r3 *)
+    let w1 = 0xffffffffffffff80UL
+    let w2 = 0xffffffffffffffffUL
+    let w3 = 0x123456789abcdef0UL
+    let w4 = 0xfffffffffffffff0UL
+    let w5 = 0xdeadbeefffff8001UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x78UL)
+        (vle32, 0x80UL, 0xffffff80UL)
+        (vle32, 0xffUL, 0xffffffffUL)
+        (vle32, 0x7fUL, 0x7fUL)
+        (vle32, 0x8000UL, 0UL)
+        (vle32, 0xffffUL, 0xffffffffUL)
+        (vle32, 0x7fffUL, 0xffffffffUL)
+        (vle32, 0x80000000UL, 0UL)
+        (vle32, 0x9abcdef0UL, 0xfffffff0UL)
+        (vle32, 0xffffffffUL, 0xffffffffUL)
+        (vle32, 0xffff8001UL, 0x1UL)
+        (vle64, 0x12345678UL, 0x78UL)
+        (vle64, 0x80UL, w1)
+        (vle64, 0xffUL, w2)
+        (vle64, 0x7fUL, 0x7fUL)
+        (vle64, 0x8000UL, 0UL)
+        (vle64, 0xffffUL, w2)
+        (vle64, 0x7fffUL, w2)
+        (vle64, 0x80000000UL, 0UL)
+        (vle64, w3, w4)
+        (vle64, w2, w2)
+        (vle64, w5, 0x1UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "00d3" given wanted
+    for isa in vleTargets do sameAs isa "00d3" "7c630774"
+
+  /// <summary>
+  /// se_extsh RX copies bit 48 of RX into bits 0:47. (Book VLE 5.9) It is extsh
+  /// RX,RX.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_EXTSH sign-extends a halfword``() =
+    (* se_extsh r3 *)
+    let w1 = 0xffffffffffff8000UL
+    let w2 = 0xffffffffffffffffUL
+    let w3 = 0x123456789abcdef0UL
+    let w4 = 0xffffffffffffdef0UL
+    let w5 = 0xdeadbeefffff8001UL
+    let w6 = 0xffffffffffff8001UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x5678UL)
+        (vle32, 0x80UL, 0x80UL)
+        (vle32, 0xffUL, 0xffUL)
+        (vle32, 0x7fUL, 0x7fUL)
+        (vle32, 0x8000UL, 0xffff8000UL)
+        (vle32, 0xffffUL, 0xffffffffUL)
+        (vle32, 0x7fffUL, 0x7fffUL)
+        (vle32, 0x80000000UL, 0UL)
+        (vle32, 0x9abcdef0UL, 0xffffdef0UL)
+        (vle32, 0xffffffffUL, 0xffffffffUL)
+        (vle32, 0xffff8001UL, 0xffff8001UL)
+        (vle64, 0x12345678UL, 0x5678UL)
+        (vle64, 0x80UL, 0x80UL)
+        (vle64, 0xffUL, 0xffUL)
+        (vle64, 0x7fUL, 0x7fUL)
+        (vle64, 0x8000UL, w1)
+        (vle64, 0xffffUL, w2)
+        (vle64, 0x7fffUL, 0x7fffUL)
+        (vle64, 0x80000000UL, 0UL)
+        (vle64, w3, w4)
+        (vle64, w2, w2)
+        (vle64, w5, w6) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "00f3" given wanted
+    for isa in vleTargets do sameAs isa "00f3" "7c630734"
+
+  /// <summary>
+  /// se_add RX,RY puts RX + RY into RX, at the width of a register: the sum
+  /// wraps at 32 bits on a 32-bit processor and carries into the high word on a
+  /// 64-bit one. (Book VLE 5.5) It is add RX,RX,RY.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ADD adds RY to RX``() =
+    (* se_add r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xfedcba987654321UL
+    let w3 = 0x2222222222222211UL
+    let w4 = 0xffffffffffffffffUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x12345678UL, 0x9abcdef0UL, 0xacf13568UL)
+        (vle32, 0xffffffffUL, 0x1UL, 0UL)
+        (vle32, 0x7fffffffUL, 0x1UL, 0x80000000UL)
+        (vle32, 0x9abcdef0UL, 0x87654321UL, 0x22222211UL)
+        (vle32, 0xffffffffUL, 0x2UL, 0x1UL)
+        (vle64, 0x12345678UL, 0x9abcdef0UL, 0xacf13568UL)
+        (vle64, 0xffffffffUL, 0x1UL, 0x100000000UL)
+        (vle64, 0x7fffffffUL, 0x1UL, 0x80000000UL)
+        (vle64, w1, w2, w3)
+        (vle64, w4, 0x2UL, 0x1UL) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "0443" given wanted
+    for isa in vleTargets do sameAs isa "0443" "7c632214"
+
+  /// <summary>
+  /// se_sub RX,RY puts RX + ~RY + 1, which is RX - RY, into RX. (Book VLE 5.5)
+  /// It is subf RX,RY,RX.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SUB subtracts RY from RX``() =
+    (* se_sub r3,r4 *)
+    let w1 = 0xffffffff77777788UL
+    let w2 = 0x123456789abcdef0UL
+    let w3 = 0xfedcba987654321UL
+    let w4 = 0x2468acf13579bcfUL
+    let w5 = 0xffffffffffffffffUL
+    let w6 = 0xfffffffffffffffdUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x12345678UL, 0x9abcdef0UL, 0x77777788UL)
+        (vle32, 0xffffffffUL, 0x1UL, 0xfffffffeUL)
+        (vle32, 0x7fffffffUL, 0x1UL, 0x7ffffffeUL)
+        (vle32, 0x9abcdef0UL, 0x87654321UL, 0x13579bcfUL)
+        (vle32, 0xffffffffUL, 0x2UL, 0xfffffffdUL)
+        (vle64, 0x12345678UL, 0x9abcdef0UL, w1)
+        (vle64, 0xffffffffUL, 0x1UL, 0xfffffffeUL)
+        (vle64, 0x7fffffffUL, 0x1UL, 0x7ffffffeUL)
+        (vle64, w2, w3, w4)
+        (vle64, w5, 0x2UL, w6) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "0643" given wanted
+    for isa in vleTargets do sameAs isa "0643" "7c641850"
+
+  /// <summary>
+  /// se_subf RX,RY puts ~RX + RY + 1, which is RY - RX, into RX. (Book VLE 5.5)
+  /// It is subf RX,RX,RY.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SUBF subtracts RX from RY``() =
+    (* se_subf r3,r4 *)
+    let w1 = 0xffffffff00000002UL
+    let w2 = 0xffffffff80000002UL
+    let w3 = 0x123456789abcdef0UL
+    let w4 = 0xfedcba987654321UL
+    let w5 = 0xfdb97530eca86431UL
+    let w6 = 0xffffffffffffffffUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x12345678UL, 0x9abcdef0UL, 0x88888878UL)
+        (vle32, 0xffffffffUL, 0x1UL, 0x2UL)
+        (vle32, 0x7fffffffUL, 0x1UL, 0x80000002UL)
+        (vle32, 0x9abcdef0UL, 0x87654321UL, 0xeca86431UL)
+        (vle32, 0xffffffffUL, 0x2UL, 0x3UL)
+        (vle64, 0x12345678UL, 0x9abcdef0UL, 0x88888878UL)
+        (vle64, 0xffffffffUL, 0x1UL, w1)
+        (vle64, 0x7fffffffUL, 0x1UL, w2)
+        (vle64, w3, w4, w5)
+        (vle64, w6, 0x2UL, 0x3UL) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "0743" given wanted
+    for isa in vleTargets do sameAs isa "0743" "7c632050"
+
+  /// <summary>
+  /// se_mullw RX,RY puts the 64-bit product of the low words of RX and RY,
+  /// taken as signed numbers, into RX: a product that is negative fills the
+  /// high word of a 64-bit register with ones. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_MULLW multiplies the low words as signed numbers``() =
+    (* se_mullw r3,r4 *)
+    let w1 = 0xf8cc93d6242d2080UL
+    let w2 = 0xfffffffffffffffeUL
+    let w3 = 0x3fffffff00000001UL
+    let w4 = 0x4000000000000000UL
+    let w5 = 0x123456789abcdef0UL
+    let w6 = 0xfedcba987654321UL
+    let w7 = 0x2fb4ac96e5618cf0UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x12345678UL, 0x9abcdef0UL, 0x242d2080UL)
+        (vle32, 0xffffffffUL, 0x2UL, 0xfffffffeUL)
+        (vle32, 0x7fffffffUL, 0x7fffffffUL, 0x1UL)
+        (vle32, 0x80000000UL, 0x80000000UL, 0UL)
+        (vle32, 0x3UL, 0x5UL, 0xfUL)
+        (vle32, 0x9abcdef0UL, 0x87654321UL, 0xe5618cf0UL)
+        (vle64, 0x12345678UL, 0x9abcdef0UL, w1)
+        (vle64, 0xffffffffUL, 0x2UL, w2)
+        (vle64, 0x7fffffffUL, 0x7fffffffUL, w3)
+        (vle64, 0x80000000UL, 0x80000000UL, w4)
+        (vle64, 0x3UL, 0x5UL, 0xfUL)
+        (vle64, w5, w6, w7) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "0543" given wanted
+    for isa in vleTargets do sameAs isa "0543" "7c6321d6"
+
+  /// <summary>
+  /// se_neg RX puts ~RX + 1 into RX at the width of a register; the most
+  /// negative number is its own negation. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_NEG negates a register``() =
+    (* se_neg r3 *)
+    let w1 = 0xffffffffffffffffUL
+    let w2 = 0xffffffff80000000UL
+    let w3 = 0xffffffff80000001UL
+    let w4 = 0xffffffff00000001UL
+    let w5 = 0x8000000000000000UL
+    let w6 = 0x123456789abcdef0UL
+    let w7 = 0xedcba98765432110UL
+    for isa, r3, r3' in
+      [ (vle32, 0x1UL, 0xffffffffUL)
+        (vle32, 0UL, 0UL)
+        (vle32, 0x80000000UL, 0x80000000UL)
+        (vle32, 0x7fffffffUL, 0x80000001UL)
+        (vle32, 0xffffffffUL, 0x1UL)
+        (vle32, 0UL, 0UL)
+        (vle32, 0x9abcdef0UL, 0x65432110UL)
+        (vle64, 0x1UL, w1)
+        (vle64, 0UL, 0UL)
+        (vle64, 0x80000000UL, w2)
+        (vle64, 0x7fffffffUL, w3)
+        (vle64, 0xffffffffUL, w4)
+        (vle64, w5, w5)
+        (vle64, w6, w7) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "0033" given wanted
+    for isa in vleTargets do sameAs isa "0033" "7c6300d0"
+
+  /// <summary>
+  /// se_not RX puts the one's complement of RX into RX, all of its bits. (Book
+  /// VLE 5.9) It is nor RX,RX,RX.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_NOT complements a register``() =
+    (* se_not r3 *)
+    let w1 = 0xffffffffedcba987UL
+    let w2 = 0xffffffffffffff7fUL
+    let w3 = 0xffffffffffffff00UL
+    let w4 = 0xffffffffffffff80UL
+    let w5 = 0xffffffffffff7fffUL
+    let w6 = 0xffffffffffff0000UL
+    let w7 = 0xffffffffffff8000UL
+    let w8 = 0xffffffff7fffffffUL
+    let w9 = 0x123456789abcdef0UL
+    let w10 = 0xedcba9876543210fUL
+    let w11 = 0xffffffffffffffffUL
+    let w12 = 0xdeadbeefffff8001UL
+    let w13 = 0x2152411000007ffeUL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0xedcba987UL)
+        (vle32, 0x80UL, 0xffffff7fUL)
+        (vle32, 0xffUL, 0xffffff00UL)
+        (vle32, 0x7fUL, 0xffffff80UL)
+        (vle32, 0x8000UL, 0xffff7fffUL)
+        (vle32, 0xffffUL, 0xffff0000UL)
+        (vle32, 0x7fffUL, 0xffff8000UL)
+        (vle32, 0x80000000UL, 0x7fffffffUL)
+        (vle32, 0x9abcdef0UL, 0x6543210fUL)
+        (vle32, 0xffffffffUL, 0UL)
+        (vle32, 0xffff8001UL, 0x7ffeUL)
+        (vle64, 0x12345678UL, w1)
+        (vle64, 0x80UL, w2)
+        (vle64, 0xffUL, w3)
+        (vle64, 0x7fUL, w4)
+        (vle64, 0x8000UL, w5)
+        (vle64, 0xffffUL, w6)
+        (vle64, 0x7fffUL, w7)
+        (vle64, 0x80000000UL, w8)
+        (vle64, w9, w10)
+        (vle64, w11, 0UL)
+        (vle64, w12, w13) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "0023" given wanted
+    for isa in vleTargets do sameAs isa "0023" "7c6318f8"
+
+  /// <summary>
+  /// se_and RX,RY puts RX & RY into RX and leaves CR0 alone. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_AND ANDs RY into RX``() =
+    (* se_and r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xfedcba987654321UL
+    let w3 = 0x224422882244220UL
+    let w4 = 0xffffffffffffffffUL
+    let w5 = 0x8000000080000000UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0xf0f0f0f0UL, 0xff00ff00UL, 0xf000f000UL)
+        (vle32, 0x9abcdef0UL, 0x87654321UL, 0x82244220UL)
+        (vle32, 0xffffffffUL, 0x80000000UL, 0x80000000UL)
+        (vle64, 0xf0f0f0f0UL, 0xff00ff00UL, 0xf000f000UL)
+        (vle64, w1, w2, w3)
+        (vle64, w4, w5, w5) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "4643" given wanted
+    for isa in vleTargets do sameAs isa "4643" "7c632038"
+
+  /// <summary>
+  /// se_and. RX,RY puts RX & RY into RX and records it in CR0: LT, GT and EQ
+  /// from a signed comparison of the whole register with zero -- so a word with
+  /// its top bit set is negative on a 32-bit processor and positive on a 64-bit
+  /// one -- and SO copied from XER[SO]. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_AND. ANDs RY into RX and records the result``() =
+    (* se_and. r3,r4 *)
+    let w1 = 0xffffffffffffffffUL
+    let w2 = 0x8000000000000000UL
+    for isa, r3, r4, xer, r3', cr0' in
+      [ (vle32, 0x800000f0UL, 0x8000000fUL, 0UL, 0x80000000UL, 0x8UL)
+        (vle32, 0xf0UL, 0xfUL, 0UL, 0UL, 0x2UL)
+        (vle32, 0xf0f0UL, 0xff00UL, 0UL, 0xf000UL, 0x4UL)
+        (vle32, 0xffffffffUL, 0UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0x800000f0UL, 0x8000000fUL, so, 0x80000000UL, 0x9UL)
+        (vle32, 0xf0UL, 0xfUL, so, 0UL, 0x3UL)
+        (vle32, 0xf0f0UL, 0xff00UL, so, 0xf000UL, 0x5UL)
+        (vle32, 0xffffffffUL, 0UL, so, 0UL, 0x3UL)
+        (vle64, 0x800000f0UL, 0x8000000fUL, 0UL, 0x80000000UL, 0x4UL)
+        (vle64, 0xf0UL, 0xfUL, 0UL, 0UL, 0x2UL)
+        (vle64, 0xf0f0UL, 0xff00UL, 0UL, 0xf000UL, 0x4UL)
+        (vle64, w1, w2, 0UL, w2, 0x8UL)
+        (vle64, 0x800000f0UL, 0x8000000fUL, so, 0x80000000UL, 0x5UL)
+        (vle64, 0xf0UL, 0xfUL, so, 0UL, 0x3UL)
+        (vle64, 0xf0f0UL, 0xff00UL, so, 0xf000UL, 0x5UL)
+        (vle64, w1, w2, so, w2, 0x9UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer; CR0, cr0' ]
+      check isa "4743" given wanted
+    for isa in vleTargets do sameAs isa "4743" "7c632039"
+
+  /// <summary>
+  /// se_andc RX,RY puts RX & ~RY into RX and leaves CR0 alone. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ANDC ANDs the complement of RY into RX``() =
+    (* se_andc r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xfedcba987654321UL
+    let w3 = 0x1010145018989cd0UL
+    let w4 = 0xffffffffffffffffUL
+    let w5 = 0x8000000080000000UL
+    let w6 = 0x7fffffff7fffffffUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0xf0f0f0f0UL, 0xff00ff00UL, 0xf000f0UL)
+        (vle32, 0x9abcdef0UL, 0x87654321UL, 0x18989cd0UL)
+        (vle32, 0xffffffffUL, 0x80000000UL, 0x7fffffffUL)
+        (vle64, 0xf0f0f0f0UL, 0xff00ff00UL, 0xf000f0UL)
+        (vle64, w1, w2, w3)
+        (vle64, w4, w5, w6) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "4543" given wanted
+    for isa in vleTargets do sameAs isa "4543" "7c632078"
+
+  /// <summary>
+  /// se_or RX,RY puts RX | RY into RX and leaves CR0 alone. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_OR ORs RY into RX``() =
+    (* se_or r3,r4 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xfedcba987654321UL
+    let w3 = 0x1ffddff99ffddff1UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0xf0f0f0f0UL, 0xf000f00UL, 0xfff0fff0UL)
+        (vle32, 0x9abcdef0UL, 0x87654321UL, 0x9ffddff1UL)
+        (vle32, 0UL, 0UL, 0UL)
+        (vle64, 0xf0f0f0f0UL, 0xf000f00UL, 0xfff0fff0UL)
+        (vle64, w1, w2, w3)
+        (vle64, 0UL, 0UL, 0UL) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "4443" given wanted
+    for isa in vleTargets do sameAs isa "4443" "7c632378"
+
+  /// <summary>
+  /// se_addi RX,OIMM puts RX + OIMM into RX, where OIMM is the field plus one:
+  /// the sample is 5. The sum wraps at the width of a register. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ADDI adds a number from 1 to 32``() =
+    (* se_addi r3,5 *)
+    let w1 = 0xffffffffffffffffUL
+    let w2 = 0x123456789abcdef0UL
+    let w3 = 0x123456789abcdef5UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x1234567dUL)
+        (vle32, 0xfffffffbUL, 0UL)
+        (vle32, 0xffffffffUL, 0x4UL)
+        (vle32, 0x7ffffffeUL, 0x80000003UL)
+        (vle32, 0x9abcdef0UL, 0x9abcdef5UL)
+        (vle64, 0x12345678UL, 0x1234567dUL)
+        (vle64, 0xfffffffbUL, 0x100000000UL)
+        (vle64, w1, 0x4UL)
+        (vle64, 0x7ffffffeUL, 0x80000003UL)
+        (vle64, w2, w3) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "2043" given wanted
+
+  /// <summary>
+  /// se_subi RX,OIMM puts RX + ~OIMM + 1, which is RX - OIMM, into RX, where
+  /// OIMM is the field plus one: the sample is 5. CR0 is left alone. (Book VLE
+  /// 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SUBI subtracts a number from 1 to 32``() =
+    (* se_subi r3,5 *)
+    let w1 = 0xfffffffffffffffeUL
+    let w2 = 0xfffffffffffffffbUL
+    let w3 = 0x123456789abcdef0UL
+    let w4 = 0x123456789abcdeebUL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0x12345673UL)
+        (vle32, 0x3UL, 0xfffffffeUL)
+        (vle32, 0UL, 0xfffffffbUL)
+        (vle32, 0x80000000UL, 0x7ffffffbUL)
+        (vle32, 0x9abcdef0UL, 0x9abcdeebUL)
+        (vle64, 0x12345678UL, 0x12345673UL)
+        (vle64, 0x3UL, w1)
+        (vle64, 0UL, w2)
+        (vle64, 0x80000000UL, 0x7ffffffbUL)
+        (vle64, w3, w4) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "2443" given wanted
+
+  /// <summary>
+  /// se_subi. RX,OIMM puts RX - OIMM into RX and records it in CR0 as se_and.
+  /// does: a signed comparison of the whole register with zero, and XER[SO].
+  /// (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_SUBI. subtracts a number and records the result``() =
+    (* se_subi. r3,5 *)
+    let w1 = 0xfffffffffffffffeUL
+    for isa, r3, xer, r3', cr0' in
+      [ (vle32, 0x12345678UL, 0UL, 0x12345673UL, 0x4UL)
+        (vle32, 0x5UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0x3UL, 0UL, 0xfffffffeUL, 0x8UL)
+        (vle32, 0x80000004UL, 0UL, 0x7fffffffUL, 0x4UL)
+        (vle32, 0x4UL, 0UL, 0xffffffffUL, 0x8UL)
+        (vle32, 0x12345678UL, so, 0x12345673UL, 0x5UL)
+        (vle32, 0x5UL, so, 0UL, 0x3UL)
+        (vle32, 0x3UL, so, 0xfffffffeUL, 0x9UL)
+        (vle32, 0x80000004UL, so, 0x7fffffffUL, 0x5UL)
+        (vle32, 0x4UL, so, 0xffffffffUL, 0x9UL)
+        (vle64, 0x12345678UL, 0UL, 0x12345673UL, 0x4UL)
+        (vle64, 0x5UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0x3UL, 0UL, w1, 0x8UL)
+        (vle64, 0x80000004UL, 0UL, 0x7fffffffUL, 0x4UL)
+        (vle64, 0x100000004UL, 0UL, 0xffffffffUL, 0x4UL)
+        (vle64, 0x12345678UL, so, 0x12345673UL, 0x5UL)
+        (vle64, 0x5UL, so, 0UL, 0x3UL)
+        (vle64, 0x3UL, so, w1, 0x9UL)
+        (vle64, 0x80000004UL, so, 0x7fffffffUL, 0x5UL)
+        (vle64, 0x100000004UL, so, 0xffffffffUL, 0x5UL) ] do
+      let given = [ R3, r3; XER, xer ]
+      let wanted = [ R3, r3'; XER, xer; CR0, cr0' ]
+      check isa "2643" given wanted
+
+  /// <summary>
+  /// se_andi RX,UI5 puts RX & UI5, with UI5 zero-extended, into RX: the sample
+  /// is 5. CR0 is left alone. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] SE_ANDI ANDs a five-bit number into RX``() =
+    (* se_andi r3,5 *)
+    let w1 = 0xffffffffffffffffUL
+    let w2 = 0x123456789abcdef7UL
+    for isa, r3, r3' in
+      [ (vle32, 0x12345678UL, 0UL)
+        (vle32, 0xffffffffUL, 0x5UL)
+        (vle32, 0xffffffffUL, 0x5UL)
+        (vle32, 0x1fUL, 0x5UL)
+        (vle32, 0x4UL, 0x4UL)
+        (vle32, 0x9abcdef7UL, 0x5UL)
+        (vle64, 0x12345678UL, 0UL)
+        (vle64, 0xffffffffUL, 0x5UL)
+        (vle64, w1, 0x5UL)
+        (vle64, 0x1fUL, 0x5UL)
+        (vle64, 0x4UL, 0x4UL)
+        (vle64, w2, 0x5UL) ] do
+      let given = [ R3, r3 ]
+      let wanted = [ R3, r3' ]
+      check isa "2e53" given wanted

@@ -39,6 +39,80 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.PPC
 open B2R2.FrontEnd.PPC.LiftingUtils
 
+/// What an instruction made only to be lifted holds in place of the lifter of
+/// instructions, which it is never asked for.
+let private noLifter = Unchecked.defaultof<ILiftable>
+
+/// <summary>
+/// The instruction of the base encoding that a VLE instruction is another
+/// encoding of, given the operands that instruction takes. The lifters of the
+/// base encoding read only the address, the length and the operands of what
+/// they lift, so what they lift here is the same operation with the same
+/// statements, which is the Power ISA's own statement that the two mean the
+/// same.
+/// </summary>
+let private asBase (ins: Instruction) operands =
+  let size, ea = ins.OperationSize, ins.EffectiveAddress
+  Instruction(ins.Address, ins.Length, ins.Opcode, operands, size, ea, noLifter)
+
+/// RX = f(RX, RY), as the instruction of three registers that names RX twice
+/// does.
+let dyadic (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(rx, ry) -> asBase ins (ThreeOperands(rx, rx, ry))
+  | _ -> raise InvalidOperandException
+
+/// RX = f(RY, RX), which is what a subtraction of RY from RX asks of the
+/// instruction that subtracts its first source from its second.
+let reversed (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(rx, ry) -> asBase ins (ThreeOperands(rx, ry, rx))
+  | _ -> raise InvalidOperandException
+
+/// RX = f(RX), as the instruction of two registers that names RX twice does.
+let monadic (ins: Instruction) =
+  match ins.Operands with
+  | OneOperand rx -> asBase ins (TwoOperands(rx, rx))
+  | _ -> raise InvalidOperandException
+
+/// RX = f(RX, RX), as the instruction of three registers that names RX three
+/// times does, which is how the base encoding complements a register.
+let repeated (ins: Instruction) =
+  match ins.Operands with
+  | OneOperand rx -> asBase ins (ThreeOperands(rx, rx, rx))
+  | _ -> raise InvalidOperandException
+
+/// RX with all but the bits from n to 31 of its low word cleared, as the
+/// rotate by nothing that keeps those bits does.
+let clearLeft (ins: Instruction) n =
+  match ins.Operands with
+  | OneOperand rx ->
+    asBase ins (FiveOperands(rx, rx, OprImm 0UL, OprImm n, OprImm 31UL))
+  | _ ->
+    raise InvalidOperandException
+
+/// RX = RX + a number.
+let addImmediate (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, imm) = transTwoOprs ins bld
+    dst := dst .+ imm
+  }
+
+/// RX = RX - a number, which records CR0 where the instruction says so.
+let subtractImmediate (ins: Instruction) (bld: ILowUIRBuilder) record =
+  lift bld ins {
+    let struct (dst, imm) = transTwoOprs ins bld
+    dst := dst .- imm
+    if record then setCR0Reg bld dst else ()
+  }
+
+/// RX = RX & a number.
+let andImmediate (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, imm) = transTwoOprs ins bld
+    dst := dst .& imm
+  }
+
 /// se_illegal, which asks for an Illegal Instruction exception.
 let illegal ins bld = sideEffects ins bld UndefinedInstruction
 
