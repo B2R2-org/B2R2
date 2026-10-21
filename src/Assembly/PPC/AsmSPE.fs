@@ -140,8 +140,18 @@ let private shiftEncoders () =
     Op.EVSRWS, rrr 545u
     Op.EVSRWU, rrr 544u ]
 
+/// The encoders of the "compare" theme.
+let private compareEncoders () =
+  [ Op.EVCMPEQ, cmp 564u
+    Op.EVCMPGTS, cmp 561u
+    Op.EVCMPGTU, cmp 560u
+    Op.EVCMPLTS, cmp 563u
+    Op.EVCMPLTU, cmp 562u
+    Op.EVSEL, sel 632u ]
+
 /// The encoders of the Signal Processing Engine.
 let signalProcessingEncoders () =
   List.concat
     [ logicEncoders ()
-      shiftEncoders () ]
+      shiftEncoders ()
+      compareEncoders () ]

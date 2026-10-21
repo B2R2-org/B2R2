@@ -30810,3 +30810,147 @@ type SignalProcessingLifterTests() =
       aaaaaaaa12345678 7fff7fffdeadbeef c0000000c0000000 80008f00
       0 c0000000c0000000 80008f00
       """
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPEQ (Vector Compare Equal)``() =
+    (* evcmpeq cr2, r6, r7 *)
+    compare "11063a34" 2 """
+      80008000ffffffff 3000500000001 0 0
+      1fffffffff 4000000055555555 80008000 0
+      4000000000010001 400000008000ffff 40004000 a
+      1f00030005 1000155555555 1 0
+      123456780000003f 1f00030005 2 0
+      ffff000100007fff 7fff80007fff 3 0
+      40004000ffffffff ffff80007fffffff f01 0
+      112345678 3000555555555 80008f00 0
+      """
+    compare "10063a34" 0 """
+      ffff40004000 1234567855555555 0 0
+      deadbeefaaaaaaaa 5555555500000001 80008000 0
+      80007fffffff8000 400040009abcdef0 40004000 0
+      """
+    compare "13863a34" 7 """
+      30005fffd0005 9abcdef0aaaaaaaa 0 0
+      ffffffff00007fff 8000800000008000 80008000 0
+      deadbeef7fff8000 555555550000ffff 40004000 0
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPGTS (Vector Compare Greater Than Signed)``() =
+    (* evcmpgts cr2, r6, r7 *)
+    compare "11063a31" 2 """
+      55555555 400000007fff8000 0 0
+      1000180007fff ffff0000ffff 80008000 a
+      80007fff7fff8000 7fff800012345678 40004000 6
+      12345678ffff0001 2080007fff 1 f
+      aaaaaaaa00000020 ffffffff8000ffff 2 6
+      ffff80009abcdef0 3000500000000 3 0
+      ffff000180008000 8000fffd0005 f01 0
+      aaaaaaaa80007fff 9abcdef00000003f 80008f00 a
+      """
+    compare "10063a31" 0 """
+      7fff80007fffffff 400000008000ffff 0 f
+      7fff8000ffff0001 3000540004000 80008000 a
+      140000000 fffd000555555555 40004000 a
+      """
+    compare "13863a31" 7 """
+      ffffffff00000020 1234567800010001 0 0
+      4000400040000000 aaaaaaaa80008000 80008000 f
+      9abcdef07fff7fff 80009abcdef0 40004000 6
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPGTU (Vector Compare Greater Than Unsigned)``() =
+    (* evcmpgtu cr2, r6, r7 *)
+    compare "11063a30" 2 """
+      3f55555555 fffd000500000020 0 6
+      fffffffd0005 123456780000001f 80008000 6
+      3fffff8000 8000000080008000 40004000 6
+      4000000080000000 deadbeef00000020 1 6
+      80007fff00000001 7fff7fff80008000 2 a
+      1234567800000001 10001fffd0005 3 a
+      7fff80000000001f 7fffffff00010001 f01 0
+      ffffffff0000003f 7fff7fffffffffff 80008f00 a
+      """
+    compare "10063a30" 0 """
+      3f00000020 7fff9abcdef0 0 0
+      7fff7fff7fffffff 1234567800000020 80008000 f
+      3f7fff8000 ffff800000010001 40004000 6
+      """
+    compare "13863a30" 7 """
+      800000000020 40000000ffff0001 0 0
+      ffff00010000001f 7fff00007fff 80008000 a
+      8000000000000020 9abcdef000000001 40004000 6
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPLTS (Vector Compare Less Than Signed)``() =
+    (* evcmplts cr2, r6, r7 *)
+    compare "11063a33" 2 """
+      10001fffd0005 aaaaaaaa00008000 0 6
+      ffff8000ffffffff 20deadbeef 80008000 a
+      ffff80000000ffff fffffffffffd0005 40004000 a
+      8000ffff40000000 100000001 1 a
+      deadbeefdeadbeef ffff0001ffffffff 2 f
+      ffffffff00000000 8000800080000000 3 0
+      8000000000007fff 7fff7fffaaaaaaaa f01 a
+      8000800012345678 ffff800012345678 80008f00 a
+      """
+    compare "10063a33" 0 """
+      40004000 7fff800055555555 0 f
+      800000000000ffff 300050000001f 80008000 a
+      1f00010001 ffff000100008000 40004000 0
+      """
+    compare "13863a33" 7 """
+      17fff8000 7fff00030005 0 a
+      aaaaaaaadeadbeef 80000000 80008000 a
+      8000ffff80000000 7fff80000000 40004000 a
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVCMPLTU (Vector Compare Less Than Unsigned)``() =
+    (* evcmpltu cr2, r6, r7 *)
+    compare "11063a32" 2 """
+      800080000000 4000000000010001 0 a
+      208000ffff 80007fff80008000 80008000 a
+      3f9abcdef0 180000000 40004000 0
+      40004000ffff0001 3f55555555 1 0
+      400040000000003f deadbeefdeadbeef 2 f
+      800000007fff7fff 400000007fffffff 3 6
+      100030005 7fff800040000000 f01 f
+      20 30005ffff8000 80008f00 f
+      """
+    compare "10063a32" 0 """
+      55555555ffff0001 ffffffff7fff8000 0 a
+      4000000080008000 ffffffff12345678 80008000 a
+      40000000 8000 40004000 0
+      """
+    compare "13863a32" 7 """
+      1faaaaaaaa 7fff80007fffffff 0 a
+      1f0000ffff 7fffffff40000000 80008000 f
+      400040008000ffff 1f0000001f 40004000 0
+      """
+
+  [<TestMethod>]
+  member _.``[PPC] EVSEL (Vector Select)``() =
+    (* evsel r5, r6, r7, cr2 *)
+    select "10a63a7a" 2 """
+      8000800000010001 ffffffff0000ffff 0 ffffffff0000ffff
+      2080007fff 80007fff0000ffff 6 80007fff80007fff
+      4000400000000020 fffffffffffd0005 f 4000400000000020
+      80007fff00010001 7fff7fff00008000 5 7fff7fff00010001
+      deadbeef80000000 ffff800080008000 0 ffff800080008000
+      55555555 4000000000010001 0 4000000000010001
+      19abcdef0 209abcdef0 0 209abcdef0
+      deadbeef00007fff 7fffffff00030005 4 7fffffff00007fff
+      """
+    select "10a63a78" 0 """
+      7fff800055555555 deadbeef40004000 0 deadbeef40004000
+      40000000ffff8000 3000500000020 2 3000500000020
+      30005ffff8000 aaaaaaaa00010001 f 30005ffff8000
+      """
+    select "10a63a7f" 7 """
+      7fff800080000000 ffff00017fff7fff 0 ffff00017fff7fff
+      ffff800080007fff fffd00050000001f 0 fffd00050000001f
+      10001ffff0001 ffff00030005 f 10001ffff0001
+      """
