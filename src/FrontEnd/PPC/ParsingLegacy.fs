@@ -118,11 +118,29 @@ let private parseLegacyMultiply bin =
 let private hasLegacyMultiply category =
   Category.includes Category.LegacyIntegerMultiplyAccumulate category
 
+/// dlmzb and dlmzb., the one instruction of the Legacy Move Assist category:
+/// "rA, rS, rB", rS being the field above rA in the word.
+let private parseDlmzb bin =
+  let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+  let opcode = if Bits.pick bin 0u = 0u then Op.DLMZB else Op.DLMZBdot
+  struct (opcode, ThreeOperands(ra, rs, rb))
+
+/// The instructions of primary opcode 31 that no category reads another way,
+/// by the ten-bit extended opcode.
+let private parse31 bin =
+  match Bits.extract bin 10u 1u with
+  | 78u -> ValueSome(parseDlmzb bin)
+  | _ -> ValueNone
+
 /// The instruction a word is, if it is one this module takes on a processor
 /// implementing the categories given.
 let tryParse category bin =
   match bin >>> 26 with
   | 4u when hasLegacyMultiply category ->
     ValueSome(parseLegacyMultiply bin)
+  | 31u ->
+    parse31 bin
   | _ ->
     ValueNone

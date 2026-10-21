@@ -1600,5 +1600,7 @@ type Opcode =
   | NMACLHWSOdot = 6081
   | NMACLHWSdot = 6082
   | NMACLHWdot = 6083
+  | DLMZB = 6084
+  | DLMZBdot = 6085
 
 type internal Op = Opcode

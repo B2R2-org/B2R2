@@ -240,11 +240,70 @@ let private multiply (ins: Instruction) bld (halves, product, oe, rc) =
     if rc then setCR0Reg bld rt else ()
   }
 
+/// The byte of an eight-byte operand that the manual numbers index + 1 from the
+/// left, so that the first byte is the most significant one.
+let private leftByte operand index = AST.extract operand 8<rt> (56 - 8 * index)
+
+/// The number of the leftmost null byte of the eight bytes of an operand, from
+/// 1, or 8 where none is null.
+let private leftmostNull operand =
+  let isNull i = leftByte operand i == AST.num0 8<rt>
+  List.foldBack (fun i rest -> AST.ite (isNull i) (numI32 (i + 1) 8<rt>) rest)
+    [ 0 .. 7 ] (numI32 8 8<rt>)
+
+/// Whether any of the eight bytes of an operand is null.
+let private anyNull operand =
+  let isNull i = leftByte operand i == AST.num0 8<rt>
+  List.reduce (fun a b -> a .| b) [ for i in 0 .. 7 -> isNull i ]
+
+/// Sets CR0 as dlmzb. does: GT where the leftmost null byte is in the first
+/// four bytes, LT where it is in the last four, EQ where there is none, and
+/// the sticky overflow in SO.
+let private setNullCR0 bld found number =
+  append bld {
+    let xerSO = AST.xthi 1<rt> (regVar bld Register.XER)
+    let cr0LT = regVar bld Register.CR0_0
+    let cr0GT = regVar bld Register.CR0_1
+    let cr0EQ = regVar bld Register.CR0_2
+    let cr0SO = regVar bld Register.CR0_3
+    cr0LT := found .& (number .>= numI32 5 8<rt>)
+    cr0GT := found .& (number .< numI32 5 8<rt>)
+    cr0EQ := AST.not found
+    cr0SO := xerSO
+  }
+
+/// <summary>
+/// Lifts dlmzb: the low words of rS and rB make an eight-byte operand, and the
+/// number of its leftmost null byte (8 where there is none) goes into rA and
+/// the seven low bits of XER.
+/// </summary>
+let private dlmzb (ins: Instruction) bld rc =
+  lift bld ins {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let operand = tmpVar bld 64<rt>
+    let number = tmpVar bld 8<rt>
+    let found = tmpVar bld 1<rt>
+    let xer = regVar bld Register.XER
+    let width = Expr.typeOf xer
+    operand := AST.concat (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> rb)
+    number := leftmostNull operand
+    found := anyNull operand
+    ra := AST.zext bld.RegType number
+    xer := (xer .& AST.not (numI32 0x7f width)) .| AST.zext width number
+    if rc then setNullCR0 bld found number else ()
+  }
+
 /// Whether this module lifts the opcode.
-let lifts op = (multiplyOf op).IsSome
+let lifts op = op = Op.DLMZB || op = Op.DLMZBdot || (multiplyOf op).IsSome
 
 /// Lifts an instruction whose opcode this module lifts.
 let translate (ins: Instruction) bld =
-  match multiplyOf ins.Opcode with
-  | ValueSome spec -> multiply ins bld spec
-  | ValueNone -> raise InvalidOpcodeException
+  match ins.Opcode with
+  | Op.DLMZB ->
+    dlmzb ins bld false
+  | Op.DLMZBdot ->
+    dlmzb ins bld true
+  | op ->
+    match multiplyOf op with
+    | ValueSome spec -> multiply ins bld spec
+    | ValueNone -> raise InvalidOpcodeException
