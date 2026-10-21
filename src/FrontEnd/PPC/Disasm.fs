@@ -1646,6 +1646,17 @@ let opCodeToString = function
   | Op.MTDCRUX -> "mtdcrux"
   | Op.MTPMR -> "mtpmr"
   | Op.XNOP -> "xnop"
+  | Op.DSN -> "dsn"
+  | Op.LBDX -> "lbdx"
+  | Op.LDDX -> "lddx"
+  | Op.LFDDX -> "lfddx"
+  | Op.LHDX -> "lhdx"
+  | Op.LWDX -> "lwdx"
+  | Op.STBDX -> "stbdx"
+  | Op.STDDX -> "stddx"
+  | Op.STFDDX -> "stfddx"
+  | Op.STHDX -> "sthdx"
+  | Op.STWDX -> "stwdx"
   | _ -> Terminator.impossible ()
 
 let condToString = function

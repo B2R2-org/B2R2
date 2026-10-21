@@ -120,6 +120,39 @@ let private miscellaneousEncoders () =
     Op.MTPMR, mtpmr
     Op.XNOP, xnop ]
 
+/// A decorated access, "rT, rA, rB", given its extended opcode and what names
+/// rT.
+let private decorated regField xo ins =
+  match ins.Operands with
+  | [ Rg t; Rg a; Rg b ] ->
+    xForm 31u (regField t) (gpr a) (gpr b) xo 0u
+  | _ ->
+    wrongOperands ins
+
+/// dsn, "rA, rB".
+let private dsn ins =
+  match ins.Operands with
+  | [ Rg a; Rg b ] ->
+    xForm 31u 0u (gpr a) (gpr b) 483u 0u
+  | _ ->
+    wrongOperands ins
+
+/// The decorated loads and stores, and dsn.
+let private decoratedStorageEncoders () =
+  [ Op.DSN, dsn
+    Op.LBDX, decorated gpr 515u
+    Op.LDDX, decorated gpr 611u
+    Op.LFDDX, decorated fpr 803u
+    Op.LHDX, decorated gpr 547u
+    Op.LWDX, decorated gpr 579u
+    Op.STBDX, decorated gpr 643u
+    Op.STDDX, decorated gpr 739u
+    Op.STFDDX, decorated fpr 931u
+    Op.STHDX, decorated gpr 675u
+    Op.STWDX, decorated gpr 707u ]
+
 /// Every instruction the embedded environment adds.
 let embeddedEncoders () =
-  cacheLockEncoders () @ miscellaneousEncoders ()
+  cacheLockEncoders ()
+  @ miscellaneousEncoders ()
+  @ decoratedStorageEncoders ()

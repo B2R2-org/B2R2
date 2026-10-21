@@ -62,12 +62,34 @@ let private mfpmr (ins: Instruction) bld =
     rt := AST.num0 bld.RegType
   }
 
+/// A decorated load of size bits, zero-extended: the address is rB alone and
+/// the decoration rA holds is a request to the storage controller that the
+/// model has no controller to make. The access is the plain one.
+let private decoratedLoad ext size (ins: Instruction) bld =
+  lift bld ins {
+    let struct (rt, _, rb) = transThreeOprs ins bld
+    let ea = tmpVar bld bld.RegType
+    ea := rb
+    rt := ext (Expr.typeOf rt) (loadNative bld size ea)
+  }
+
+/// A decorated store of the low size bits of rS, at the address rB holds.
+let private decoratedStore size (ins: Instruction) bld =
+  lift bld ins {
+    let struct (rs, _, rb) = transThreeOprs ins bld
+    let ea = tmpVar bld bld.RegType
+    ea := rb
+    loadNative bld size ea := AST.xtlo size rs
+  }
+
 /// Whether this module lifts the opcode.
 let lifts = function
   | Op.DCBLC | Op.DCBLQdot | Op.DCBTLS | Op.DCBTSTLS
   | Op.ICBLC | Op.ICBLQdot | Op.ICBTLS
   | Op.DNH | Op.EHPRIV | Op.MBAR | Op.MFDCRUX | Op.MFPMR | Op.MTDCRUX
-  | Op.MTPMR | Op.XNOP -> true
+  | Op.MTPMR | Op.XNOP
+  | Op.DSN | Op.LBDX | Op.LDDX | Op.LFDDX | Op.LHDX | Op.LWDX | Op.STBDX
+  | Op.STDDX | Op.STFDDX | Op.STHDX | Op.STWDX -> true
   | _ -> false
 
 /// <summary>
@@ -83,7 +105,8 @@ let lifts = function
 /// and ehpriv, "analogous to a guaranteed illegal instruction encoding",
 /// invokes the hypervisor, which a user-level program has none of. The device
 /// control registers of mfdcrux and mtdcrux are the state of a device that is
-/// not modeled.
+/// not modeled. dsn sends a decoration to the storage controller, which has no
+/// effect a program can see.
 /// </para>
 /// </summary>
 let translate (ins: Instruction) bld =
@@ -96,5 +119,21 @@ let translate (ins: Instruction) bld =
     sideEffects ins bld UnsupportedInstruction
   | Op.MFPMR ->
     mfpmr ins bld
+  | Op.LBDX ->
+    decoratedLoad AST.zext 8<rt> ins bld
+  | Op.LHDX ->
+    decoratedLoad AST.zext 16<rt> ins bld
+  | Op.LWDX ->
+    decoratedLoad AST.zext 32<rt> ins bld
+  | Op.LDDX | Op.LFDDX ->
+    decoratedLoad AST.zext 64<rt> ins bld
+  | Op.STBDX ->
+    decoratedStore 8<rt> ins bld
+  | Op.STHDX ->
+    decoratedStore 16<rt> ins bld
+  | Op.STWDX ->
+    decoratedStore 32<rt> ins bld
+  | Op.STDDX | Op.STFDDX ->
+    decoratedStore 64<rt> ins bld
   | _ ->
     GeneralLifter.nop ins bld

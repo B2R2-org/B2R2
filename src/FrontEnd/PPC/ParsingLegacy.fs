@@ -130,14 +130,14 @@ let private parseDlmzb bin =
 /// The instructions of primary opcode 31 that no category reads another way,
 /// by the ten-bit extended opcode: dlmzb, and what the embedded environment
 /// adds.
-let private parse31 category bin =
+let private parse31 category bitLen bin =
   match Bits.extract bin 10u 1u with
   | 78u -> ValueSome(parseDlmzb bin)
-  | _ -> ParsingEmbedded.tryParse31 category bin
+  | _ -> ParsingEmbedded.tryParse31 category bitLen bin
 
 /// The instruction a word is, if it is one this module takes on a processor
-/// implementing the categories given.
-let tryParse category bin =
+/// implementing the categories given, with registers of bitLen bits.
+let tryParse category bitLen bin =
   match bin >>> 26 with
   | 4u when hasLegacyMultiply category ->
     ValueSome(parseLegacyMultiply bin)
@@ -146,6 +146,6 @@ let tryParse category bin =
   | 26u when bin = 0x68000000u ->
     ValueSome(struct (Op.XNOP, NoOperand))
   | 31u ->
-    parse31 category bin
+    parse31 category bitLen bin
   | _ ->
     ValueNone
