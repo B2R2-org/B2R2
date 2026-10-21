@@ -3484,6 +3484,60 @@ let translate (ins: Instruction) bld =
   | Op.E_SRWIdot ->
     VLELifter.shiftWord ins bld false true
   (* End of lane L. *)
+  (* Lane P: prefixed instructions. *)
+  | Op.PADDI ->
+    PrefixedLifter.addImmediate ins bld
+  | Op.PNOP ->
+    nop ins bld
+  | Op.PLBZ ->
+    PrefixedLifter.loadInteger ins bld 8<rt> false
+  | Op.PLD ->
+    PrefixedLifter.loadInteger ins bld 64<rt> false
+  | Op.PLFD ->
+    PrefixedLifter.loadFloat ins bld false false
+  | Op.PLFS ->
+    PrefixedLifter.loadFloat ins bld true false
+  | Op.PLHA ->
+    PrefixedLifter.loadInteger ins bld 16<rt> true
+  | Op.PLHZ ->
+    PrefixedLifter.loadInteger ins bld 16<rt> false
+  | Op.PLQ ->
+    PrefixedLifter.gprPair ins bld true
+  | Op.PLWA ->
+    PrefixedLifter.loadInteger ins bld 32<rt> true
+  | Op.PLWZ ->
+    PrefixedLifter.loadInteger ins bld 32<rt> false
+  | Op.PLXSD ->
+    PrefixedLifter.loadFloat ins bld false true
+  | Op.PLXSSP ->
+    PrefixedLifter.loadFloat ins bld true true
+  | Op.PLXV ->
+    PrefixedLifter.vector ins bld true false
+  | Op.PLXVP ->
+    PrefixedLifter.vector ins bld true true
+  | Op.PSTB ->
+    PrefixedLifter.storeInteger ins bld 8<rt>
+  | Op.PSTD ->
+    PrefixedLifter.storeInteger ins bld 64<rt>
+  | Op.PSTFD ->
+    PrefixedLifter.storeFloat ins bld false
+  | Op.PSTFS ->
+    PrefixedLifter.storeFloat ins bld true
+  | Op.PSTH ->
+    PrefixedLifter.storeInteger ins bld 16<rt>
+  | Op.PSTQ ->
+    PrefixedLifter.gprPair ins bld false
+  | Op.PSTW ->
+    PrefixedLifter.storeInteger ins bld 32<rt>
+  | Op.PSTXSD ->
+    PrefixedLifter.storeFloat ins bld false
+  | Op.PSTXSSP ->
+    PrefixedLifter.storeFloat ins bld true
+  | Op.PSTXV ->
+    PrefixedLifter.vector ins bld false false
+  | Op.PSTXVP ->
+    PrefixedLifter.vector ins bld false true
+  (* End of lane P. *)
   | o ->
 #if DEBUG
          eprintfn "%A" o

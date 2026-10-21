@@ -46,6 +46,8 @@ type AsmOperand =
   | AsmImm of uint64
   /// What lies at a written distance from what a register holds.
   | AsmMem of int32 * Register
+  /// A displacement requiring the full 34-bit prefixed field.
+  | AsmMem64 of int64 * Register
   /// One bit of the condition register, written as the field it lies in and
   /// which of that field's four bits it is.
   | AsmBit of uint32

@@ -149,6 +149,9 @@ let assemble (encoders: Lazy<_>) state endian baseAddr sizeOf instrs =
   let addresses = addressesOf sizeOf baseAddr instrs
   instrs
   |> List.mapi (fun index ins ->
-    resolveLabels state addresses count index ins
-    |> encodeInstruction encoders.Value
-    |> toBytes endian (sizeOf ins))
+    let ins = resolveLabels state addresses count index ins
+    if AsmPrefixed.isPrefixed ins.Opcode then
+      let struct (prefix, suffix) = AsmPrefixed.encode ins
+      Array.append (toBytes endian 4 prefix) (toBytes endian 4 suffix)
+    else
+      encodeInstruction encoders.Value ins |> toBytes endian (sizeOf ins))

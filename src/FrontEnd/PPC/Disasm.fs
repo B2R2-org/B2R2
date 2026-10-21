@@ -1991,6 +1991,32 @@ let opCodeToString = function
   | Op.SE_B -> "se_b"
   | Op.SE_BC -> "se_bc"
   | Op.SE_BCLRI -> "se_bclri"
+  | Op.PADDI -> "paddi"
+  | Op.PLBZ -> "plbz"
+  | Op.PLD -> "pld"
+  | Op.PLFD -> "plfd"
+  | Op.PLFS -> "plfs"
+  | Op.PLHA -> "plha"
+  | Op.PLHZ -> "plhz"
+  | Op.PLQ -> "plq"
+  | Op.PLWA -> "plwa"
+  | Op.PLWZ -> "plwz"
+  | Op.PLXSD -> "plxsd"
+  | Op.PLXSSP -> "plxssp"
+  | Op.PLXV -> "plxv"
+  | Op.PLXVP -> "plxvp"
+  | Op.PNOP -> "pnop"
+  | Op.PSTB -> "pstb"
+  | Op.PSTD -> "pstd"
+  | Op.PSTFD -> "pstfd"
+  | Op.PSTFS -> "pstfs"
+  | Op.PSTH -> "psth"
+  | Op.PSTQ -> "pstq"
+  | Op.PSTW -> "pstw"
+  | Op.PSTXSD -> "pstxsd"
+  | Op.PSTXSSP -> "pstxssp"
+  | Op.PSTXV -> "pstxv"
+  | Op.PSTXVP -> "pstxvp"
   | Op.SE_BCTR -> "se_bctr"
   | Op.SE_BCTRL -> "se_bctrl"
   | Op.SE_BGENI -> "se_bgeni"
@@ -2123,6 +2149,12 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   | OprMem(imm, reg) ->
     builder.Accumulate(AsmWordKind.String, delim)
     builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 imm)
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | OprMem64(imm, reg) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 imm)
     builder.Accumulate(AsmWordKind.String, "(")
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
     builder.Accumulate(AsmWordKind.String, ")")

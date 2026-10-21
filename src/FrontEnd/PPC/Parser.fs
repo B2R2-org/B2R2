@@ -65,7 +65,8 @@ type Parser(wordSize: WordSize, category: Category, reader: IBinReader) =
   member _.IsVLE with get() = isVLE and set v = isVLE <- v
 
   interface IInstructionParsable with
-    member _.MaxInstructionSize = 4
+    member _.MaxInstructionSize =
+      if isVLE || wordSize = WordSize.Bit32 then 4 else 8
 
     member _.InstructionAlignment = if isVLE then 2 else 4
 
@@ -76,6 +77,8 @@ type Parser(wordSize: WordSize, category: Category, reader: IBinReader) =
       try
         if isVLE then
           ParsingVLE.parse lifter category span reader addr rt :> IInstruction
+        elif reader.ReadUInt32(span, 0) >>> 26 = 1u then
+          ParsingPrefixed.parse lifter span reader addr rt :> IInstruction
         else
           ParsingMain.parse lifter category span reader addr rt :> IInstruction
       with e when not (Terminator.isCritical e) ->
