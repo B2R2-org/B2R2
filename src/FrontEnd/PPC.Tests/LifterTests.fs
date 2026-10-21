@@ -26668,6 +26668,25 @@ type FloatLifterTests() =
   /// An answer of a named call.
   let answerOf (v: bigint) (t: RegType) = BitVector(v, t)
 
+  [<TestMethod>]
+  member _.``[PPC] Single arithmetic keeps exact zero signs``() =
+    let one, minusOne = 0x3ff0000000000000UL, 0xbff0000000000000UL
+    let cases =
+      [ "ec22182a", one, minusOne, one, 0
+        "ec221828", one, one, one, 0
+        "ec22193a", one, minusOne, one, 0
+        "ec221938", one, one, one, 0
+        "ec22193e", one, minusOne, one, 1 ]
+    for isa in [ ppc32; ppc64; ppc64le ] do
+      for hex, a, b, c, negate in cases do
+        for mode in [ 0UL .. 3UL ] do
+          let given = [ F2, a; F3, b; F4, c; FPSCR, mode ]
+          let after = run isa hex given
+          let sign = if mode = 3UL then 0x8000000000000000UL else 0UL
+          let sign = if negate = 1 then sign ^^^ 0x8000000000000000UL
+                     else sign
+          expect sign (after F1) $"{hex} RN={mode} {nameOf isa}"
+
   /// <summary>
   /// fcpsgn. frD, frA, frB writes frB with the sign of frA and records
   /// FPSCR[FX, FEX, VX, OX] in CR1.
