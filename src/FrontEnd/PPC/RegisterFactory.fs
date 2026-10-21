@@ -1099,8 +1099,15 @@ type RegisterFactory(isa: ISA) =
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetRegType rid =
-      if rid < 0x40<RegisterID.T> then WordSize.toRegType isa.WordSize
-      else 4<rt>
+      if rid = Register.toRegID Register.ACC then
+        64<rt>
+      elif rid >= Register.toRegID Register.R0H
+           && rid <= Register.toRegID Register.SPEFSCR then
+        32<rt>
+      elif rid < 0x40<RegisterID.T> then
+        WordSize.toRegType isa.WordSize
+      else
+        4<rt>
 
     member this.IsProgramCounter regid =
       (this :> IRegisterFactory).ProgramCounter = regid

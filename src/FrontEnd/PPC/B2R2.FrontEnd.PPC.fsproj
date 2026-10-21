@@ -33,6 +33,8 @@
     <Compile Include="TransactionLifter.fs" />
     <Compile Include="SPELifter.fs" />
     <Compile Include="SPEMultiplyLifter.fs" />
+    <Compile Include="SPEFloatCommon.fs" />
+    <Compile Include="SPEFloatArithmetic.fs" />
     <Compile Include="SPEFloatLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingVSX.fs" />

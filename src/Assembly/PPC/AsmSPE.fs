@@ -306,6 +306,87 @@ let private fpsignEncoders () =
     Op.EVFSNABS, rr 645u
     Op.EVFSNEG, rr 646u ]
 
+/// The encoders of the "fpcompare" theme.
+let private fpcompareEncoders () =
+  [ Op.EFDCMPEQ, cmp 750u
+    Op.EFDCMPGT, cmp 748u
+    Op.EFDCMPLT, cmp 749u
+    Op.EFDTSTEQ, cmp 766u
+    Op.EFDTSTGT, cmp 764u
+    Op.EFDTSTLT, cmp 765u
+    Op.EFSCMPEQ, cmp 718u
+    Op.EFSCMPGT, cmp 716u
+    Op.EFSCMPLT, cmp 717u
+    Op.EFSTSTEQ, cmp 734u
+    Op.EFSTSTGT, cmp 732u
+    Op.EFSTSTLT, cmp 733u
+    Op.EVFSCMPEQ, cmp 654u
+    Op.EVFSCMPGT, cmp 652u
+    Op.EVFSCMPLT, cmp 653u
+    Op.EVFSTSTEQ, cmp 670u
+    Op.EVFSTSTGT, cmp 668u
+    Op.EVFSTSTLT, cmp 669u ]
+
+/// The encoders of the "fptofloat" theme.
+let private fptofloatEncoders () =
+  [ Op.EFDCFS, rb 751u
+    Op.EFDCFSF, rb 755u
+    Op.EFDCFSI, rb 753u
+    Op.EFDCFSID, rb 739u
+    Op.EFDCFUF, rb 754u
+    Op.EFDCFUI, rb 752u
+    Op.EFDCFUID, rb 738u
+    Op.EFSCFD, rb 719u
+    Op.EFSCFSF, rb 723u
+    Op.EFSCFSI, rb 721u
+    Op.EFSCFUF, rb 722u
+    Op.EFSCFUI, rb 720u
+    Op.EVFSCFSF, rb 659u
+    Op.EVFSCFSI, rb 657u
+    Op.EVFSCFUF, rb 658u
+    Op.EVFSCFUI, rb 656u ]
+
+/// The encoders of the "fptoint" theme.
+let private fptointEncoders () =
+  [ Op.EFDCTSF, rb 759u
+    Op.EFDCTSI, rb 757u
+    Op.EFDCTSIDZ, rb 747u
+    Op.EFDCTSIZ, rb 762u
+    Op.EFDCTUF, rb 758u
+    Op.EFDCTUI, rb 756u
+    Op.EFDCTUIDZ, rb 746u
+    Op.EFDCTUIZ, rb 760u
+    Op.EFSCTSF, rb 727u
+    Op.EFSCTSI, rb 725u
+    Op.EFSCTSIZ, rb 730u
+    Op.EFSCTUF, rb 726u
+    Op.EFSCTUI, rb 724u
+    Op.EFSCTUIZ, rb 728u
+    Op.EVFSCTSF, rb 663u
+    Op.EVFSCTSI, rb 661u
+    Op.EVFSCTSIZ, rb 666u
+    Op.EVFSCTUF, rb 662u
+    Op.EVFSCTUI, rb 660u
+    Op.EVFSCTUIZ, rb 664u ]
+
+/// The encoders of the "fpsingle" theme.
+let private fpsingleEncoders () =
+  [ Op.EFSADD, rrr 704u
+    Op.EFSDIV, rrr 713u
+    Op.EFSMUL, rrr 712u
+    Op.EFSSUB, rrr 705u
+    Op.EVFSADD, rrr 640u
+    Op.EVFSDIV, rrr 649u
+    Op.EVFSMUL, rrr 648u
+    Op.EVFSSUB, rrr 641u ]
+
+/// The encoders of the "fpdouble" theme.
+let private fpdoubleEncoders () =
+  [ Op.EFDADD, rrr 736u
+    Op.EFDDIV, rrr 745u
+    Op.EFDMUL, rrr 744u
+    Op.EFDSUB, rrr 737u ]
+
 /// The encoders of the Signal Processing Engine.
 let signalProcessingEncoders () =
   List.concat
@@ -316,4 +397,9 @@ let signalProcessingEncoders () =
       halfEncoders ()
       wordEncoders ()
       accumEncoders ()
-      fpsignEncoders () ]
+      fpsignEncoders ()
+      fpcompareEncoders ()
+      fptofloatEncoders ()
+      fptointEncoders ()
+      fpsingleEncoders ()
+      fpdoubleEncoders () ]
