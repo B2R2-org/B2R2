@@ -2052,5 +2052,14 @@ type Opcode =
   | PSTXSSP = 5052
   | PSTXV = 5053
   | PSTXVP = 5054
+  | XXBLENDVB = 5055
+  | XXBLENDVD = 5056
+  | XXBLENDVH = 5057
+  | XXBLENDVW = 5058
+  | XXEVAL = 5059
+  | XXPERMX = 5060
+  | XXSPLTI32DX = 5061
+  | XXSPLTIDP = 5062
+  | XXSPLTIW = 5063
 
 type internal Op = Opcode

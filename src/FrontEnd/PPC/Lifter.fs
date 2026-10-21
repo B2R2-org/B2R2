@@ -3537,6 +3537,20 @@ let translate (ins: Instruction) bld =
     PrefixedLifter.vector ins bld false false
   | Op.PSTXVP ->
     PrefixedLifter.vector ins bld false true
+  | Op.XXBLENDVB ->
+    PrefixedVectorLifter.blend ins bld 8<rt>
+  | Op.XXBLENDVD ->
+    PrefixedVectorLifter.blend ins bld 64<rt>
+  | Op.XXBLENDVH ->
+    PrefixedVectorLifter.blend ins bld 16<rt>
+  | Op.XXBLENDVW ->
+    PrefixedVectorLifter.blend ins bld 32<rt>
+  | Op.XXEVAL ->
+    PrefixedVectorLifter.evaluate ins bld
+  | Op.XXPERMX ->
+    PrefixedVectorLifter.permute ins bld
+  | Op.XXSPLTI32DX | Op.XXSPLTIDP | Op.XXSPLTIW ->
+    PrefixedVectorLifter.splat ins bld
   (* End of lane P. *)
   | o ->
 #if DEBUG

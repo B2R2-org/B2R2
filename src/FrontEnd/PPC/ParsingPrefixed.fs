@@ -93,8 +93,41 @@ let private parseNop suffix =
   if forbidden then raise ParsingFailureException else ()
   struct (Op.PNOP, NoOperand)
 
+/// XX4 stores the high register bits beside the suffix opcode.
+let private parseVector prefix suffix =
+  let operand field bit =
+    let low = Bits.extract suffix (field + 4u) field
+    OprReg(getVsxRegister (low ||| (Bits.pick suffix bit <<< 5)))
+  let t, a = operand 21u 0u, operand 16u 2u
+  let b, c = operand 11u 1u, operand 6u 3u
+  let xo = Bits.extract suffix 5u 4u
+  match suffix >>> 26 with
+  | 33u ->
+    let op = [| Op.XXBLENDVB; Op.XXBLENDVH; Op.XXBLENDVW; Op.XXBLENDVD |]
+    struct (op[int xo], FourOperands(t, a, b, c))
+  | 34u when xo = 0u || xo = 1u ->
+    let op, mask = if xo = 0u then Op.XXPERMX, 7u else Op.XXEVAL, 255u
+    struct (op, FiveOperands(t, a, b, c, OprImm(uint64 (prefix &&& mask))))
+  | 32u ->
+    let t = operand 21u 16u
+    let imm = (uint64 (prefix &&& 0xffffu) <<< 16)
+              ||| uint64 (suffix &&& 0xffffu) |> OprImm
+    match Bits.extract suffix 20u 17u with
+    | 0u | 1u as index ->
+      struct (Op.XXSPLTI32DX, ThreeOperands(t, OprImm(uint64 index), imm))
+    | 2u ->
+      struct (Op.XXSPLTIDP, TwoOperands(t, imm))
+    | 3u ->
+      struct (Op.XXSPLTIW, TwoOperands(t, imm))
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
+
 let private decode prefix suffix =
-  if prefix &&& 0xfff3ffffu = 0x07000000u then
+  if prefix &&& 0xffff0000u = 0x05000000u then
+    parseVector prefix suffix
+  elif prefix &&& 0xfff3ffffu = 0x07000000u then
     parseNop suffix
   else
     let form = prefix &&& 0xffec0000u

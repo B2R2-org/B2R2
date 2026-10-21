@@ -57,8 +57,20 @@ let private accesses =
     Op.PSTXV, (0x04000000u, 0xd8000000u, 3)
     Op.PSTXVP, (0x04000000u, 0xf8000000u, 4) ] |> Map.ofList
 
+let private vectorOps =
+  set [ Op.XXBLENDVB
+        Op.XXBLENDVD
+        Op.XXBLENDVH
+        Op.XXBLENDVW
+        Op.XXEVAL
+        Op.XXPERMX
+        Op.XXSPLTI32DX
+        Op.XXSPLTIDP
+        Op.XXSPLTIW ]
+
 let isPrefixed opcode =
   opcode = Op.PADDI || opcode = Op.PNOP || Map.containsKey opcode accesses
+  || Set.contains opcode vectorOps
 
 /// The displacement must fit the signed 34-bit field before it is split.
 let private displacement (value: int64) =
@@ -109,9 +121,12 @@ let private memoryFields ins =
     if List.length ins.Operands = 2 then ins.Operands @ [ AsmImm 0UL ]
     else ins.Operands
   match operands with
-  | [ AsmReg reg; AsmMem(d, ra); AsmImm r ] -> reg, int64 d, ra, r
-  | [ AsmReg reg; AsmMem64(d, ra); AsmImm r ] -> reg, d, ra, r
-  | _ -> wrongOperands ins
+  | [ AsmReg reg; AsmMem(d, ra); AsmImm r ] ->
+    reg, int64 d, ra, r
+  | [ AsmReg reg; AsmMem64(d, ra); AsmImm r ] ->
+    reg, d, ra, r
+  | _ ->
+    wrongOperands ins
 
 let private memory ins =
   let prefix, suffix, kind = Map.find ins.Opcode accesses
@@ -129,11 +144,59 @@ let private memory ins =
           ||| uint32 (value &&& 0xffffUL)
   struct (p, s)
 
+let private vectorFields ins =
+  let fields t a b c =
+    ((t &&& 31u) <<< 21) ||| ((a &&& 31u) <<< 16)
+    ||| ((b &&& 31u) <<< 11) ||| ((c &&& 31u) <<< 6)
+    ||| (t >>> 5) ||| ((a >>> 5) <<< 2)
+    ||| ((b >>> 5) <<< 1) ||| ((c >>> 5) <<< 3)
+  let encode t a b c imm =
+    let field = fields (vsr t) (vsr a) (vsr b) (vsr c)
+    match ins.Opcode with
+    | Op.XXBLENDVB ->
+      struct (0x05000000u, 0x84000000u ||| field)
+    | Op.XXBLENDVH ->
+      struct (0x05000000u, 0x84000010u ||| field)
+    | Op.XXBLENDVW ->
+      struct (0x05000000u, 0x84000020u ||| field)
+    | Op.XXBLENDVD ->
+      struct (0x05000000u, 0x84000030u ||| field)
+    | Op.XXEVAL ->
+      struct (0x05000000u ||| unsigned 8 imm, 0x88000010u ||| field)
+    | _ ->
+      struct (0x05000000u ||| unsigned 3 imm, 0x88000000u ||| field)
+  match ins.Operands with
+  | [ AsmReg t; AsmReg a; AsmReg b; AsmReg c ] ->
+    encode t a b c 0UL
+  | [ AsmReg t; AsmReg a; AsmReg b; AsmReg c; AsmImm imm ] ->
+    encode t a b c imm
+  | operands ->
+    let t, imm, op =
+      match operands with
+      | [ AsmReg t; AsmImm ix; AsmImm imm ] when ins.Opcode = Op.XXSPLTI32DX ->
+        t, imm, unsigned 1 ix
+      | [ AsmReg t; AsmImm imm ] when ins.Opcode = Op.XXSPLTIDP ->
+        t, imm, 2u
+      | [ AsmReg t; AsmImm imm ] when ins.Opcode = Op.XXSPLTIW ->
+        t, imm, 3u
+      | _ ->
+        wrongOperands ins
+    let n = vsr t
+    let value = unsigned 32 imm
+    let suffix = 0x80000000u ||| ((n &&& 31u) <<< 21)
+                 ||| ((n >>> 5) <<< 16) ||| (op <<< 17) ||| (value &&& 0xffffu)
+    struct (0x05000000u ||| (value >>> 16), suffix)
+
 /// The prefix precedes the suffix even in little-endian byte order.
 let encode (ins: AsmInsInfo) =
   if ins.Address &&& 63UL > 56UL then fail "Prefix crosses a 64-byte boundary"
   else ()
   match ins.Opcode with
-  | Op.PADDI -> addImmediate ins
-  | Op.PNOP when List.isEmpty ins.Operands -> struct (0x07000000u, 0u)
-  | _ -> memory ins
+  | op when Set.contains op vectorOps ->
+    vectorFields ins
+  | Op.PADDI ->
+    addImmediate ins
+  | Op.PNOP when List.isEmpty ins.Operands ->
+    struct (0x07000000u, 0u)
+  | _ ->
+    memory ins

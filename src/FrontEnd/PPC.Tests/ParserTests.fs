@@ -7635,3 +7635,93 @@ type PrefixedParserTests() =
     Assert.Throws<ParsingFailureException>(fun () ->
       parser.Parse(bytes, 60UL) |> ignore)
     |> ignore
+
+  [<TestMethod>]
+  member _.``[PPC] XXBLENDVB prefixed decoding``() =
+    let operands =
+      FourOperands(
+        OprReg F1,
+        OprReg F2,
+        OprReg F3,
+        OprReg F4
+      )
+    check "0500000084221900" (XXBLENDVB, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] XXBLENDVD prefixed decoding``() =
+    let operands =
+      FourOperands(
+        OprReg F1,
+        OprReg F2,
+        OprReg F3,
+        OprReg F4
+      )
+    check "0500000084221930" (XXBLENDVD, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] XXBLENDVH prefixed decoding``() =
+    let operands =
+      FourOperands(
+        OprReg F1,
+        OprReg F2,
+        OprReg F3,
+        OprReg F4
+      )
+    check "0500000084221910" (XXBLENDVH, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] XXBLENDVW prefixed decoding``() =
+    let operands =
+      FourOperands(
+        OprReg F1,
+        OprReg F2,
+        OprReg F3,
+        OprReg F4
+      )
+    check "0500000084221920" (XXBLENDVW, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] XXEVAL prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg F1,
+        OprReg F2,
+        OprReg F3,
+        OprReg F4,
+        OprImm 90UL
+      )
+    check "0500005a88221910" (XXEVAL, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] XXPERMX prefixed decoding``() =
+    let operands =
+      FiveOperands(
+        OprReg F1,
+        OprReg F2,
+        OprReg F3,
+        OprReg F4,
+        OprImm 1UL
+      )
+    check "0500000188221900" (XXPERMX, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] XXSPLTI32DX prefixed decoding``() =
+    let operands =
+      ThreeOperands(
+        OprReg F1,
+        OprImm 1UL,
+        OprImm 305419896UL
+      )
+    check "0500123480225678" (XXSPLTI32DX, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] XXSPLTIDP prefixed decoding``() =
+    let operands =
+      TwoOperands(OprReg F1, OprImm 305419896UL)
+    check "0500123480245678" (XXSPLTIDP, operands)
+
+  [<TestMethod>]
+  member _.``[PPC] XXSPLTIW prefixed decoding``() =
+    let operands =
+      TwoOperands(OprReg F1, OprImm 305419896UL)
+    check "0500123480265678" (XXSPLTIW, operands)
