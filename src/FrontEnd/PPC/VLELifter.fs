@@ -113,6 +113,114 @@ let andImmediate (ins: Instruction) (bld: ILowUIRBuilder) =
     dst := dst .& imm
   }
 
+/// RX shifted left by a number n, which is the rotate by n that keeps the bits
+/// from 0 to 31 - n of the word.
+let shiftLeftImmediate (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(rx, OprImm n) ->
+    asBase ins (FiveOperands(rx, rx, OprImm n, OprImm 0UL, OprImm(31UL - n)))
+  | _ ->
+    raise InvalidOperandException
+
+/// RX shifted right by a number n, which is the rotate by 32 - n that keeps
+/// the bits from n to 31 of the word.
+let shiftRightImmediate (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(rx, OprImm n) ->
+    let sh = OprImm((32UL - n) &&& 31UL)
+    asBase ins (FiveOperands(rx, rx, sh, OprImm n, OprImm 31UL))
+  | _ ->
+    raise InvalidOperandException
+
+/// RX shifted right algebraically by a number, as the instruction of two
+/// registers and a number that names RX twice does.
+let shiftRightAlgebraicImmediate (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(rx, n) -> asBase ins (ThreeOperands(rx, rx, n))
+  | _ -> raise InvalidOperandException
+
+/// A comparison of two operands that puts its result in CR0, which is the
+/// field the instructions of a halfword have no way to name, as the comparison
+/// that names the field does.
+let compareInCR0 (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(rx, ry) ->
+    asBase ins (ThreeOperands(OprReg Register.CR0, rx, ry))
+  | _ ->
+    ins
+
+/// The number an instruction of a register and a number takes.
+let private numberOf (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(_, OprImm n) -> int n
+  | _ -> raise InvalidOperandException
+
+/// The mask that selects bit UI5 + 32 of a register, which is bit 31 - UI5
+/// counted from the least significant.
+let private bitSelected (ins: Instruction) (bld: ILowUIRBuilder) =
+  numU64 (1UL <<< (31 - numberOf ins)) bld.RegType
+
+/// se_bclri, which clears one bit of a register.
+let clearBit (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, _) = transTwoOprs ins bld
+    dst := dst .& AST.not (bitSelected ins bld)
+  }
+
+/// se_bgeni, which puts a one in one bit of a register and zeros in the rest.
+let generateBit (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, _) = transTwoOprs ins bld
+    dst := bitSelected ins bld
+  }
+
+/// se_bseti, which sets one bit of a register.
+let setBit (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, _) = transTwoOprs ins bld
+    dst := dst .| bitSelected ins bld
+  }
+
+/// se_bmaski, which puts ones in as many of the low bits of a register as the
+/// number says, and every bit of it when the number is zero.
+let generateMask (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, _) = transTwoOprs ins bld
+    let n = numberOf ins
+    if n = 0 then
+      dst := AST.not (AST.num0 bld.RegType)
+    else
+      dst := numU64 ((1UL <<< n) - 1UL) bld.RegType
+  }
+
+/// se_btsti, which records one bit of a register in CR0: LT is cleared, GT says
+/// the bit is one, EQ that it is zero, and SO is copied from XER.
+let testBit (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (src, _) = transTwoOprs ins bld
+    let tested = tmpVar bld bld.RegType
+    let zero = AST.num0 bld.RegType
+    tested := src .& bitSelected ins bld
+    regVar bld Register.CR0_0 := AST.b0
+    regVar bld Register.CR0_1 := tested != zero
+    regVar bld Register.CR0_2 := tested == zero
+    regVar bld Register.CR0_3 := AST.xthi 1<rt> (regVar bld Register.XER)
+  }
+
+/// A comparison of the low halfwords of two registers, signed or unsigned,
+/// whose result goes in the CR field the instruction names.
+let compareHalfword (ins: Instruction) (bld: ILowUIRBuilder) signed =
+  lift bld ins {
+    let struct ((lt, gt, eq, so), a, b) = transCmpOprs (compareInCR0 ins) bld
+    let a, b = AST.xtlo 16<rt> a, AST.xtlo 16<rt> b
+    let less = if signed then AST.slt a b else AST.lt a b
+    let greater = if signed then AST.sgt a b else AST.gt a b
+    lt := less
+    gt := greater
+    eq := AST.ite less AST.b0 (AST.not greater)
+    so := AST.xthi 1<rt> (regVar bld Register.XER)
+  }
+
 /// se_illegal, which asks for an Illegal Instruction exception.
 let illegal ins bld = sideEffects ins bld UndefinedInstruction
 

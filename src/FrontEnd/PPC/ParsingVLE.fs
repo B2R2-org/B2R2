@@ -91,6 +91,13 @@ let private parseDyadic half =
   | 0x05u -> struct (Op.SE_MULLW, TwoOperands(rx, ry))
   | 0x06u -> struct (Op.SE_SUB, TwoOperands(rx, ry))
   | 0x07u -> struct (Op.SE_SUBF, TwoOperands(rx, ry))
+  | 0x0Cu -> struct (Op.SE_CMP, TwoOperands(rx, ry))
+  | 0x0Du -> struct (Op.SE_CMPL, TwoOperands(rx, ry))
+  | 0x0Eu -> struct (Op.SE_CMPH, TwoOperands(rx, ry))
+  | 0x0Fu -> struct (Op.SE_CMPHL, TwoOperands(rx, ry))
+  | 0x40u -> struct (Op.SE_SRW, TwoOperands(rx, ry))
+  | 0x41u -> struct (Op.SE_SRAW, TwoOperands(rx, ry))
+  | 0x42u -> struct (Op.SE_SLW, TwoOperands(rx, ry))
   | 0x44u -> struct (Op.SE_OR, TwoOperands(rx, ry))
   | 0x45u -> struct (Op.SE_ANDC, TwoOperands(rx, ry))
   | 0x46u -> struct (Op.SE_AND, TwoOperands(rx, ry))
@@ -105,9 +112,19 @@ let private parseImmediate5 half =
   let oimm = OprImm(ui5 + 1UL)
   match half >>> 9 with
   | 0x10u -> struct (Op.SE_ADDI, TwoOperands(rx, oimm))
+  | 0x11u -> struct (Op.SE_CMPLI, TwoOperands(rx, oimm))
   | 0x12u -> struct (Op.SE_SUBI, TwoOperands(rx, oimm))
   | 0x13u -> struct (Op.SE_SUBIdot, TwoOperands(rx, oimm))
+  | 0x15u -> struct (Op.SE_CMPI, TwoOperands(rx, OprImm ui5))
+  | 0x16u -> struct (Op.SE_BMASKI, TwoOperands(rx, OprImm ui5))
   | 0x17u -> struct (Op.SE_ANDI, TwoOperands(rx, OprImm ui5))
+  | 0x30u -> struct (Op.SE_BCLRI, TwoOperands(rx, OprImm ui5))
+  | 0x31u -> struct (Op.SE_BGENI, TwoOperands(rx, OprImm ui5))
+  | 0x32u -> struct (Op.SE_BSETI, TwoOperands(rx, OprImm ui5))
+  | 0x33u -> struct (Op.SE_BTSTI, TwoOperands(rx, OprImm ui5))
+  | 0x34u -> struct (Op.SE_SRWI, TwoOperands(rx, OprImm ui5))
+  | 0x35u -> struct (Op.SE_SRAWI, TwoOperands(rx, OprImm ui5))
+  | 0x36u -> struct (Op.SE_SLWI, TwoOperands(rx, OprImm ui5))
   | _ -> raise ParsingFailureException
 
 /// se_li, whose seven-bit number sits above RX.
@@ -116,13 +133,18 @@ let private parseLoadImmediate half =
   let ui7 = Bits.extract half 10u 4u |> uint64
   struct (Op.SE_LI, TwoOperands(rx, OprImm ui7))
 
+/// Whether the byte that begins a halfword is the one of an instruction of two
+/// registers.
+let private isDyadic b =
+  (b >= 0x01u && b <= 0x07u) || (b >= 0x0Cu && b <= 0x0Fu)
+  || (b >= 0x40u && b <= 0x42u) || (b >= 0x44u && b <= 0x47u)
+
 /// The instructions that fill a halfword.
 let private parse16 (half: uint32) =
   match half >>> 8 with
   | 0x00u when half < 0x10u -> parseControl half
   | 0x00u -> parseMonadic half
-  | 0x01u | 0x02u | 0x03u | 0x04u | 0x05u | 0x06u | 0x07u | 0x44u | 0x45u
-  | 0x46u | 0x47u -> parseDyadic half
+  | b when isDyadic b -> parseDyadic half
   | _ when half >>> 11 = 0x09u -> parseLoadImmediate half
   | _ -> parseImmediate5 half
 
