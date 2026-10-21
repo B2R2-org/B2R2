@@ -43834,3 +43834,350 @@ type VLELifterTests() =
       let _, memory = execMem isa "d130" given []
       let written = [ for i in 0UL .. 3UL -> memory[0x2004UL + i] ]
       Assert.AreEqual<byte list>([ 0xeeuy; 0xffuy; 0x12uy; 0x34uy ], written)
+
+  /// <summary>
+  /// e_lbz RT,D(RA) loads the byte at the address (RA|0) + D, which is RA + D
+  /// when RA is not zero, and zero-extends it into RT. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LBZ loads a byte from RA plus D``() =
+    (* e_lbz r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0x12uy |] ]
+      let after, _ = execMem isa "3064fff8" given memory
+      expect 0x12UL (after R3) (nameOf isa)
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0xfeuy |] ]
+      let after, _ = execMem isa "3064fff8" given memory
+      expect 0xfeUL (after R3) (nameOf isa)
+    (* e_lbz r31,32767(0) *)
+    for isa in vleTargets do
+      let given = [ R31, ones isa; R0, 0x2000UL ]
+      let memory = [ 0x7fffUL, [| 0x12uy |] ]
+      let after, _ = execMem isa "33e07fff" given memory
+      expect 0x12UL (after R31) (nameOf isa)
+
+  /// <summary>
+  /// e_lbzu RT,D8(RA) loads the byte at the address RA + D8, zero-extends it
+  /// into RT, and puts that address into RA. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LBZU loads a byte and updates RA``() =
+    (* e_lbzu r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0x12uy |] ]
+      let after, _ = execMem isa "186400f8" given memory
+      expect 0x12UL (after R3) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0xfeuy |] ]
+      let after, _ = execMem isa "186400f8" given memory
+      expect 0xfeUL (after R3) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+
+  /// <summary>
+  /// e_lha RT,D(RA) loads the halfword at the address (RA|0) + D, which is RA +
+  /// D when RA is not zero, and sign-extends it into RT. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LHA loads a halfword algebraically``() =
+    (* e_lha r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0x12uy; 0x34uy |] ]
+      let after, _ = execMem isa "3864fff8" given memory
+      expect 0x1234UL (after R3) (nameOf isa)
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0xfeuy; 0xdcuy |] ]
+      let after, _ = execMem isa "3864fff8" given memory
+      let value = 0xfffffffffffffedcUL &&& ones isa
+      expect value (after R3) (nameOf isa)
+    (* e_lha r31,32767(0) *)
+    for isa in vleTargets do
+      let given = [ R31, ones isa; R0, 0x2000UL ]
+      let memory = [ 0x7fffUL, [| 0x12uy; 0x34uy |] ]
+      let after, _ = execMem isa "3be07fff" given memory
+      expect 0x1234UL (after R31) (nameOf isa)
+
+  /// <summary>
+  /// e_lhau RT,D8(RA) loads the halfword at the address RA + D8, sign-extends
+  /// it into RT, and puts that address into RA. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LHAU loads a halfword algebraically, updating``() =
+    (* e_lhau r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0x12uy; 0x34uy |] ]
+      let after, _ = execMem isa "186403f8" given memory
+      expect 0x1234UL (after R3) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0xfeuy; 0xdcuy |] ]
+      let after, _ = execMem isa "186403f8" given memory
+      let value = 0xfffffffffffffedcUL &&& ones isa
+      expect value (after R3) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+
+  /// <summary>
+  /// e_lhz RT,D(RA) loads the halfword at the address (RA|0) + D, which is RA +
+  /// D when RA is not zero, and zero-extends it into RT. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LHZ loads a halfword from RA plus D``() =
+    (* e_lhz r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0x12uy; 0x34uy |] ]
+      let after, _ = execMem isa "5864fff8" given memory
+      expect 0x1234UL (after R3) (nameOf isa)
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0xfeuy; 0xdcuy |] ]
+      let after, _ = execMem isa "5864fff8" given memory
+      expect 0xfedcUL (after R3) (nameOf isa)
+    (* e_lhz r31,32767(0) *)
+    for isa in vleTargets do
+      let given = [ R31, ones isa; R0, 0x2000UL ]
+      let memory = [ 0x7fffUL, [| 0x12uy; 0x34uy |] ]
+      let after, _ = execMem isa "5be07fff" given memory
+      expect 0x1234UL (after R31) (nameOf isa)
+
+  /// <summary>
+  /// e_lhzu RT,D8(RA) loads the halfword at the address RA + D8, zero-extends
+  /// it into RT, and puts that address into RA. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LHZU loads a halfword and updates RA``() =
+    (* e_lhzu r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0x12uy; 0x34uy |] ]
+      let after, _ = execMem isa "186401f8" given memory
+      expect 0x1234UL (after R3) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0xfeuy; 0xdcuy |] ]
+      let after, _ = execMem isa "186401f8" given memory
+      expect 0xfedcUL (after R3) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+
+  /// <summary>
+  /// e_lmw RT,D8(RA) loads the words at (RA|0) + D8 on, into RT through r31,
+  /// each zero-extended. RA is outside the registers loaded in both samples.
+  /// (Book VLE 5.4)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LMW loads words into RT through r31``() =
+    (* e_lmw r28,-8(r4) *)
+    for isa in vleTargets do
+      let bytes = Array.init 16 (fun i -> byte (0x90 + i))
+      let given = [ R4, 0x1008UL ]
+      let memory = [ 0x1000UL, bytes ]
+      let after, _ = execMem isa "1b8408f8" given memory
+      for i in 0 .. 3 do
+        let word = Array.sub bytes (4 * i) 4
+        let expected =
+          word |> Array.fold (fun acc b -> (acc <<< 8) ||| uint64 b) 0UL
+        expect expected (after (enum<Register> (28 + i))) (nameOf isa)
+      expect 0x1008UL (after R4) (nameOf isa)
+    (* e_lmw r24,127(r3) *)
+    for isa in vleTargets do
+      let bytes = Array.init 32 (fun i -> byte (0x90 + i))
+      let given = [ R3, 0x1000UL ]
+      let memory = [ 0x107fUL, bytes ]
+      let after, _ = execMem isa "1b03087f" given memory
+      for i in 0 .. 7 do
+        let word = Array.sub bytes (4 * i) 4
+        let expected =
+          word |> Array.fold (fun acc b -> (acc <<< 8) ||| uint64 b) 0UL
+        expect expected (after (enum<Register> (24 + i))) (nameOf isa)
+      expect 0x1000UL (after R3) (nameOf isa)
+
+  /// <summary>
+  /// e_lwz RT,D(RA) loads the word at the address (RA|0) + D, which is RA + D
+  /// when RA is not zero, and zero-extends it into RT. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LWZ loads a word from RA plus D``() =
+    (* e_lwz r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0x12uy; 0x34uy; 0x56uy; 0x78uy |] ]
+      let after, _ = execMem isa "5064fff8" given memory
+      expect 0x12345678UL (after R3) (nameOf isa)
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0xfeuy; 0xdcuy; 0xbauy; 0x98uy |] ]
+      let after, _ = execMem isa "5064fff8" given memory
+      expect 0xfedcba98UL (after R3) (nameOf isa)
+    (* e_lwz r31,32767(0) *)
+    for isa in vleTargets do
+      let given = [ R31, ones isa; R0, 0x2000UL ]
+      let memory = [ 0x7fffUL, [| 0x12uy; 0x34uy; 0x56uy; 0x78uy |] ]
+      let after, _ = execMem isa "53e07fff" given memory
+      expect 0x12345678UL (after R31) (nameOf isa)
+
+  /// <summary>
+  /// e_lwzu RT,D8(RA) loads the word at the address RA + D8, zero-extends it
+  /// into RT, and puts that address into RA. (Book VLE 5.1)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_LWZU loads a word and updates RA``() =
+    (* e_lwzu r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0x12uy; 0x34uy; 0x56uy; 0x78uy |] ]
+      let after, _ = execMem isa "186402f8" given memory
+      expect 0x12345678UL (after R3) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+      let given = [ R3, ones isa; R4, 0x1008UL ]
+      let memory = [ 0x1000UL, [| 0xfeuy; 0xdcuy; 0xbauy; 0x98uy |] ]
+      let after, _ = execMem isa "186402f8" given memory
+      expect 0xfedcba98UL (after R3) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+
+  /// <summary>
+  /// e_stb RS,D(RA) stores the low byte of RS at the address (RA|0) + D, which
+  /// is RA + D when RA is not zero, most significant byte first, and touches no
+  /// other byte. (Book VLE 5.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STB stores a byte at RA plus D``() =
+    (* e_stb r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, 0xaabbccddeeff1234UL; R4, 0x1008UL ]
+      let after, memory = execMem isa "3464fff8" given []
+      let written = [ for i in 0UL .. 0UL -> memory[0x1000UL + i] ]
+      Assert.AreEqual<byte list>([ 0x34uy ], written)
+      expect 1UL (uint64 memory.Count) (nameOf isa)
+    (* e_stb r31,32767(0) *)
+    for isa in vleTargets do
+      let given = [ R31, 0xaabbccddeeff1234UL; R0, 0x2000UL ]
+      let _, memory = execMem isa "37e07fff" given []
+      let written = [ for i in 0UL .. 0UL -> memory[0x7fffUL + i] ]
+      Assert.AreEqual<byte list>([ 0x34uy ], written)
+      expect 1UL (uint64 memory.Count) (nameOf isa)
+
+  /// <summary>
+  /// e_stbu RS,D8(RA) stores the low byte of RS at the address RA + D8, most
+  /// significant byte first, touches no other byte, and puts that address into
+  /// RA. (Book VLE 5.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STBU stores a byte and updates RA``() =
+    (* e_stbu r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, 0xaabbccddeeff1234UL; R4, 0x1008UL ]
+      let after, memory = execMem isa "186404f8" given []
+      let written = [ for i in 0UL .. 0UL -> memory[0x1000UL + i] ]
+      Assert.AreEqual<byte list>([ 0x34uy ], written)
+      expect 1UL (uint64 memory.Count) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+
+  /// <summary>
+  /// e_sth RS,D(RA) stores the low halfword of RS at the address (RA|0) + D,
+  /// which is RA + D when RA is not zero, most significant byte first, and
+  /// touches no other byte. (Book VLE 5.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STH stores a halfword at RA plus D``() =
+    (* e_sth r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, 0xaabbccddeeff1234UL; R4, 0x1008UL ]
+      let after, memory = execMem isa "5c64fff8" given []
+      let written = [ for i in 0UL .. 1UL -> memory[0x1000UL + i] ]
+      Assert.AreEqual<byte list>([ 0x12uy; 0x34uy ], written)
+      expect 2UL (uint64 memory.Count) (nameOf isa)
+    (* e_sth r31,32767(0) *)
+    for isa in vleTargets do
+      let given = [ R31, 0xaabbccddeeff1234UL; R0, 0x2000UL ]
+      let _, memory = execMem isa "5fe07fff" given []
+      let written = [ for i in 0UL .. 1UL -> memory[0x7fffUL + i] ]
+      Assert.AreEqual<byte list>([ 0x12uy; 0x34uy ], written)
+      expect 2UL (uint64 memory.Count) (nameOf isa)
+
+  /// <summary>
+  /// e_sthu RS,D8(RA) stores the low halfword of RS at the address RA + D8,
+  /// most significant byte first, touches no other byte, and puts that address
+  /// into RA. (Book VLE 5.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STHU stores a halfword and updates RA``() =
+    (* e_sthu r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, 0xaabbccddeeff1234UL; R4, 0x1008UL ]
+      let after, memory = execMem isa "186405f8" given []
+      let written = [ for i in 0UL .. 1UL -> memory[0x1000UL + i] ]
+      Assert.AreEqual<byte list>([ 0x12uy; 0x34uy ], written)
+      expect 2UL (uint64 memory.Count) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)
+
+  /// <summary>
+  /// e_stmw RS,D8(RA) stores the low words of RS through r31 at (RA|0) + D8 on,
+  /// most significant byte first, and touches no other byte. (Book VLE 5.4)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STMW stores words from RS through r31``() =
+    (* e_stmw r28,-8(r4) *)
+    for isa in vleTargets do
+      let words = [ for i in 0 .. 3 -> 0x1000UL * uint64 (i + 1) + 0xabcdUL ]
+      let regs = [ for i in 0 .. 3 -> enum<Register> (28 + i) ]
+      let given = List.zip regs words @ [ R4, 0x1008UL ]
+      let _, memory = execMem isa "1b8409f8" given []
+      for i in 0 .. 3 do
+        let at = 0x1000UL + uint64 (4 * i)
+        let stored = [ for j in 0UL .. 3UL -> memory[at + j] ]
+        let expected = [ for j in 0 .. 3 -> byte (words[i] >>> (8 * (3 - j))) ]
+        Assert.AreEqual<byte list>(expected, stored)
+      expect 16UL (uint64 memory.Count) (nameOf isa)
+    (* e_stmw r24,127(r3) *)
+    for isa in vleTargets do
+      let words = [ for i in 0 .. 7 -> 0x1000UL * uint64 (i + 1) + 0xabcdUL ]
+      let regs = [ for i in 0 .. 7 -> enum<Register> (24 + i) ]
+      let given = List.zip regs words @ [ R3, 0x1000UL ]
+      let _, memory = execMem isa "1b03097f" given []
+      for i in 0 .. 7 do
+        let at = 0x107fUL + uint64 (4 * i)
+        let stored = [ for j in 0UL .. 3UL -> memory[at + j] ]
+        let expected = [ for j in 0 .. 3 -> byte (words[i] >>> (8 * (3 - j))) ]
+        Assert.AreEqual<byte list>(expected, stored)
+      expect 32UL (uint64 memory.Count) (nameOf isa)
+
+  /// <summary>
+  /// e_stw RS,D(RA) stores the low word of RS at the address (RA|0) + D, which
+  /// is RA + D when RA is not zero, most significant byte first, and touches no
+  /// other byte. (Book VLE 5.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STW stores a word at RA plus D``() =
+    (* e_stw r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, 0xaabbccddeeff1234UL; R4, 0x1008UL ]
+      let after, memory = execMem isa "5464fff8" given []
+      let written = [ for i in 0UL .. 3UL -> memory[0x1000UL + i] ]
+      Assert.AreEqual<byte list>([ 0xeeuy; 0xffuy; 0x12uy; 0x34uy ], written)
+      expect 4UL (uint64 memory.Count) (nameOf isa)
+    (* e_stw r31,32767(0) *)
+    for isa in vleTargets do
+      let given = [ R31, 0xaabbccddeeff1234UL; R0, 0x2000UL ]
+      let _, memory = execMem isa "57e07fff" given []
+      let written = [ for i in 0UL .. 3UL -> memory[0x7fffUL + i] ]
+      Assert.AreEqual<byte list>([ 0xeeuy; 0xffuy; 0x12uy; 0x34uy ], written)
+      expect 4UL (uint64 memory.Count) (nameOf isa)
+
+  /// <summary>
+  /// e_stwu RS,D8(RA) stores the low word of RS at the address RA + D8, most
+  /// significant byte first, touches no other byte, and puts that address into
+  /// RA. (Book VLE 5.2)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_STWU stores a word and updates RA``() =
+    (* e_stwu r3,-8(r4) *)
+    for isa in vleTargets do
+      let given = [ R3, 0xaabbccddeeff1234UL; R4, 0x1008UL ]
+      let after, memory = execMem isa "186406f8" given []
+      let written = [ for i in 0UL .. 3UL -> memory[0x1000UL + i] ]
+      Assert.AreEqual<byte list>([ 0xeeuy; 0xffuy; 0x12uy; 0x34uy ], written)
+      expect 4UL (uint64 memory.Count) (nameOf isa)
+      expect 0x1000UL (after R4) (nameOf isa)

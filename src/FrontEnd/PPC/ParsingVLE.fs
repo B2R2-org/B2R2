@@ -184,9 +184,49 @@ let private parse16 bitLen (half: uint32) =
   | _ when half >>> 11 = 0x1Cu || half >>> 9 = 0x74u -> parseBranch bitLen half
   | _ -> parseImmediate5 half
 
+/// The displacement of a D-form instruction: sixteen bits, sign-extended.
+let private disp16 bin =
+  Bits.signExtend 16 32 (uint64 (Bits.extract bin 15u 0u)) |> int32
+
+/// The displacement of a D8-form instruction: eight bits, sign-extended.
+let private disp8 bin =
+  Bits.signExtend 8 32 (uint64 (Bits.extract bin 7u 0u)) |> int32
+
+/// A load or a store of a register at a base register and a displacement, which
+/// is how the D-form and the D8-form both name what they reach.
+let private parseAccess32 op disp bin =
+  let rt = getRegister (Bits.extract bin 25u 21u) |> OprReg
+  let ra = getRegister (Bits.extract bin 20u 16u)
+  struct (op, TwoOperands(rt, OprMem(disp, ra)))
+
+/// The D8-form instructions, which a byte at bits 16 to 23 tells apart: the
+/// loads and stores that update the base register, and the multiple-word ones.
+let private parseD8 bin =
+  let disp = disp8 bin
+  match Bits.extract bin 15u 8u with
+  | 0x00u -> parseAccess32 Op.E_LBZU disp bin
+  | 0x01u -> parseAccess32 Op.E_LHZU disp bin
+  | 0x02u -> parseAccess32 Op.E_LWZU disp bin
+  | 0x03u -> parseAccess32 Op.E_LHAU disp bin
+  | 0x04u -> parseAccess32 Op.E_STBU disp bin
+  | 0x05u -> parseAccess32 Op.E_STHU disp bin
+  | 0x06u -> parseAccess32 Op.E_STWU disp bin
+  | 0x08u -> parseAccess32 Op.E_LMW disp bin
+  | 0x09u -> parseAccess32 Op.E_STMW disp bin
+  | _ -> raise ParsingFailureException
+
 /// The instructions that fill two halfwords and are not the base encoding.
-let private parse32 (_bin: uint32) =
-  raise ParsingFailureException
+let private parse32 (bin: uint32) =
+  match bin >>> 26 with
+  | 0x06u -> parseD8 bin
+  | 0x0Cu -> parseAccess32 Op.E_LBZ (disp16 bin) bin
+  | 0x0Du -> parseAccess32 Op.E_STB (disp16 bin) bin
+  | 0x0Eu -> parseAccess32 Op.E_LHA (disp16 bin) bin
+  | 0x14u -> parseAccess32 Op.E_LWZ (disp16 bin) bin
+  | 0x15u -> parseAccess32 Op.E_STW (disp16 bin) bin
+  | 0x16u -> parseAccess32 Op.E_LHZ (disp16 bin) bin
+  | 0x17u -> parseAccess32 Op.E_STH (disp16 bin) bin
+  | _ -> raise ParsingFailureException
 
 /// <summary>
 /// Reads one instruction, which is a halfword long or two. What VLE keeps of
