@@ -3400,6 +3400,36 @@ let translate (ins: Instruction) bld =
     crxor ins bld
   | Op.E_MCRF ->
     mcrf ins bld
+  | Op.E_ADDI ->
+    VLELifter.addScaled ins bld false
+  | Op.E_ADDIdot ->
+    VLELifter.addScaled ins bld true
+  | Op.E_ADDIC ->
+    addic ins false bld
+  | Op.E_ADDICdot ->
+    addic ins true bld
+  | Op.E_SUBFIC ->
+    subfic ins bld
+  | Op.E_SUBFICdot ->
+    VLELifter.subtractFromScaledRecord ins bld
+  | Op.E_MULLI ->
+    mulli ins bld
+  | Op.E_ANDI ->
+    VLELifter.logicalScaled ins bld (.&) false
+  | Op.E_ANDIdot ->
+    andidot ins bld
+  | Op.E_ORI ->
+    VLELifter.logicalScaled ins bld (.|) false
+  | Op.E_ORIdot ->
+    VLELifter.logicalScaled ins bld (.|) true
+  | Op.E_XORI ->
+    VLELifter.logicalScaled ins bld (<+>) false
+  | Op.E_XORIdot ->
+    VLELifter.logicalScaled ins bld (<+>) true
+  | Op.E_CMPI ->
+    cmp ins bld true
+  | Op.E_CMPLI ->
+    cmpl ins bld true
   (* End of lane L. *)
   | o ->
 #if DEBUG

@@ -44620,3 +44620,758 @@ type VLELifterTests() =
       let given = [ CR1, cr1; CR2, cr2; CR5, cr5 ]
       let wanted = [ CR1, cr1'; CR2, cr2'; CR5, cr5' ]
       check isa "7e880020" given wanted
+
+  /// <summary>
+  /// e_addi RT,RA,SCI8 puts RA + SCI8 into RT, where SCI8 is the number the
+  /// instruction builds from UI8, SCL and F: UI8 at the byte SCL names (shifted
+  /// left by 0, 8, 16 or 24 bits) and F in every other bit, as far as the
+  /// register is wide. The samples are 12, 0x3400, 0x560000, 0x78000000 and the
+  /// negative numbers -100 (UI8 0x9c with F set) and -60673 (UI8 0x12 at byte 1
+  /// with F set). Unlike addi, RA = r0 would be r0 itself. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADDI adds a scaled immediate``() =
+    (* e_addi r3,r4,12 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abcdefcUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12345684UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0xfffffffcUL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x8000000bUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abcdefcUL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12345684UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0xfffffffcUL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x8000000bUL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1864800c" given wanted
+    (* e_addi r3,r4,13312 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abd12f0UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12348a78UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0x33f0UL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x800033ffUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abd12f0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12348a78UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0x1000033f0UL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x800033ffUL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "18648134" given wanted
+    (* e_addi r3,r4,5636096 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789b12def0UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x128a5678UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0x55fff0UL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x8055ffffUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9b12def0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x128a5678UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0x10055fff0UL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x8055ffffUL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "18648256" given wanted
+    (* e_addi r3,r4,2013265920 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x1234567912bcdef0UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x8a345678UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0x77fffff0UL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0xf7ffffffUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x12bcdef0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x8a345678UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0x177fffff0UL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0xf7ffffffUL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "18648378" given wanted
+    (* e_addi r3,r4,-100 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abcde8cUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12345614UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0xffffff8cUL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x7fffff9bUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abcde8cUL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12345614UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0xffffff8cUL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x7fffff9bUL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1864849c" given wanted
+    (* e_addi r3,r4,-60673 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abbf1efUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12336977UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0xffff12efUL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x7fff12feUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abbf1efUL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12336977UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0xffff12efUL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x7fff12feUL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "18648512" given wanted
+
+  /// <summary>
+  /// e_addi. RT,RA,SCI8 puts RA + SCI8 into RT and records it in CR0: LT, GT
+  /// and EQ from a signed comparison of the whole register with zero, and SO
+  /// copied from XER[SO]. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADDI. adds a scaled immediate and records``() =
+    (* e_addi. r3,r4,12 *)
+    let w1 = 0xffffffffffffff00UL
+    let w2 = 0xffffffffffffff0cUL
+    for isa, r3, r4, xer, r3', cr0' in
+      [ (vle32, 0UL, 0xfffffff4UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0UL, 0x7ffffff8UL, 0UL, 0x80000004UL, 0x8UL)
+        (vle32, 0UL, 0x5UL, 0UL, 0x11UL, 0x4UL)
+        (vle32, 0UL, 0xffffff00UL, 0UL, 0xffffff0cUL, 0x8UL)
+        (vle32, 0UL, 0xfffffff4UL, so, 0UL, 0x3UL)
+        (vle32, 0UL, 0x7ffffff8UL, so, 0x80000004UL, 0x9UL)
+        (vle32, 0UL, 0x5UL, so, 0x11UL, 0x5UL)
+        (vle32, 0UL, 0xffffff00UL, so, 0xffffff0cUL, 0x9UL)
+        (vle64, 0UL, 0xfffffff4UL, 0UL, 0x100000000UL, 0x4UL)
+        (vle64, 0UL, 0x7ffffff8UL, 0UL, 0x80000004UL, 0x4UL)
+        (vle64, 0UL, 0x5UL, 0UL, 0x11UL, 0x4UL)
+        (vle64, 0UL, w1, 0UL, w2, 0x8UL)
+        (vle64, 0UL, 0xfffffff4UL, so, 0x100000000UL, 0x5UL)
+        (vle64, 0UL, 0x7ffffff8UL, so, 0x80000004UL, 0x5UL)
+        (vle64, 0UL, 0x5UL, so, 0x11UL, 0x5UL)
+        (vle64, 0UL, w1, so, w2, 0x9UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer; CR0, cr0' ]
+      check isa "1864880c" given wanted
+
+  /// <summary>
+  /// e_addic RT,RA,SCI8 puts RA + SCI8 into RT and sets XER[CA] to the carry
+  /// out of the register: out of bit 32 on a 32-bit processor and out of bit 0
+  /// on a 64-bit one, so a sum that carries only out of the low word leaves it
+  /// clear on a 64-bit processor. (Book VLE 5.5) It is addic with a wider
+  /// number.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADDIC adds a scaled immediate and carries``() =
+    (* e_addic r3,r4,12 *)
+    let w1 = 0xffffffffffffff00UL
+    let w2 = 0xffffffffffffff0cUL
+    let w3 = 0x123456789abcdef0UL
+    let w4 = 0x123456789abcdefcUL
+    for isa, r3, r4, xer, r3', xer' in
+      [ (vle32, 0x11111111UL, 0xfffffff5UL, 0UL, 0x1UL, ca)
+        (vle32, 0x11111111UL, 0x5UL, 0UL, 0x11UL, 0UL)
+        (vle32, 0x11111111UL, 0xffffff00UL, 0UL, 0xffffff0cUL, 0UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0UL, 0x9abcdefcUL, 0UL)
+        (vle32, 0x11111111UL, 0xffffff00UL, 0UL, 0xffffff0cUL, 0UL)
+        (vle32, 0x11111111UL, 0xfffffff5UL, ca, 0x1UL, ca)
+        (vle32, 0x11111111UL, 0x5UL, ca, 0x11UL, 0UL)
+        (vle32, 0x11111111UL, 0xffffff00UL, ca, 0xffffff0cUL, 0UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, ca, 0x9abcdefcUL, 0UL)
+        (vle32, 0x11111111UL, 0xffffff00UL, ca, 0xffffff0cUL, 0UL)
+        (vle64, 0x11111111UL, 0xfffffff5UL, 0UL, 0x100000001UL, 0UL)
+        (vle64, 0x11111111UL, 0x5UL, 0UL, 0x11UL, 0UL)
+        (vle64, 0x11111111UL, w1, 0UL, w2, 0UL)
+        (vle64, 0x11111111UL, w3, 0UL, w4, 0UL)
+        (vle64, 0x11111111UL, 0xffffff00UL, 0UL, 0xffffff0cUL, 0UL)
+        (vle64, 0x11111111UL, 0xfffffff5UL, ca, 0x100000001UL, 0UL)
+        (vle64, 0x11111111UL, 0x5UL, ca, 0x11UL, 0UL)
+        (vle64, 0x11111111UL, w1, ca, w2, 0UL)
+        (vle64, 0x11111111UL, w3, ca, w4, 0UL)
+        (vle64, 0x11111111UL, 0xffffff00UL, ca, 0xffffff0cUL, 0UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer' ]
+      check isa "1864900c" given wanted
+    for isa in vleTargets do sameAs isa "1864900c" "3064000c"
+    (* e_addic r3,r4,-100 *)
+    let w1 = 0xffffffffffffffa1UL
+    let w2 = 0xffffffffffffff00UL
+    let w3 = 0xfffffffffffffe9cUL
+    let w4 = 0x123456789abcdef0UL
+    let w5 = 0x123456789abcde8cUL
+    for isa, r3, r4, xer, r3', xer' in
+      [ (vle32, 0x11111111UL, 0xfffffff5UL, 0UL, 0xffffff91UL, ca)
+        (vle32, 0x11111111UL, 0x5UL, 0UL, 0xffffffa1UL, 0UL)
+        (vle32, 0x11111111UL, 0xffffff00UL, 0UL, 0xfffffe9cUL, ca)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0UL, 0x9abcde8cUL, ca)
+        (vle32, 0x11111111UL, 0xffffff00UL, 0UL, 0xfffffe9cUL, ca)
+        (vle32, 0x11111111UL, 0xfffffff5UL, ca, 0xffffff91UL, ca)
+        (vle32, 0x11111111UL, 0x5UL, ca, 0xffffffa1UL, 0UL)
+        (vle32, 0x11111111UL, 0xffffff00UL, ca, 0xfffffe9cUL, ca)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, ca, 0x9abcde8cUL, ca)
+        (vle32, 0x11111111UL, 0xffffff00UL, ca, 0xfffffe9cUL, ca)
+        (vle64, 0x11111111UL, 0xfffffff5UL, 0UL, 0xffffff91UL, ca)
+        (vle64, 0x11111111UL, 0x5UL, 0UL, w1, 0UL)
+        (vle64, 0x11111111UL, w2, 0UL, w3, ca)
+        (vle64, 0x11111111UL, w4, 0UL, w5, ca)
+        (vle64, 0x11111111UL, 0xffffff00UL, 0UL, 0xfffffe9cUL, ca)
+        (vle64, 0x11111111UL, 0xfffffff5UL, ca, 0xffffff91UL, ca)
+        (vle64, 0x11111111UL, 0x5UL, ca, w1, 0UL)
+        (vle64, 0x11111111UL, w2, ca, w3, ca)
+        (vle64, 0x11111111UL, w4, ca, w5, ca)
+        (vle64, 0x11111111UL, 0xffffff00UL, ca, 0xfffffe9cUL, ca) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer' ]
+      check isa "1864949c" given wanted
+
+  /// <summary>
+  /// e_addic. RT,RA,SCI8 does what e_addic does and records the result in CR0
+  /// as e_addi. does. (Book VLE 5.5) It is addic. with a wider number.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADDIC. adds a scaled immediate and records``() =
+    (* e_addic. r3,r4,12 *)
+    for isa, r3, r4, xer, r3', xer', cr0' in
+      [ (vle32, 0UL, 0xfffffff4UL, 0UL, 0UL, ca, 0x2UL)
+        (vle32, 0UL, 0x7ffffff8UL, 0UL, 0x80000004UL, 0UL, 0x8UL)
+        (vle32, 0UL, 0x5UL, 0UL, 0x11UL, 0UL, 0x4UL)
+        (vle32, 0UL, 0xfffffff4UL, ca, 0UL, ca, 0x2UL)
+        (vle32, 0UL, 0x7ffffff8UL, ca, 0x80000004UL, 0UL, 0x8UL)
+        (vle32, 0UL, 0x5UL, ca, 0x11UL, 0UL, 0x4UL)
+        (vle32, 0UL, 0xfffffff4UL, so, 0UL, 0xa0000000UL, 0x3UL)
+        (vle32, 0UL, 0x7ffffff8UL, so, 0x80000004UL, so, 0x9UL)
+        (vle32, 0UL, 0x5UL, so, 0x11UL, so, 0x5UL)
+        (vle32, 0UL, 0xfffffff4UL, 0xa0000000UL, 0UL, 0xa0000000UL, 0x3UL)
+        (vle32, 0UL, 0x7ffffff8UL, 0xa0000000UL, 0x80000004UL, so, 0x9UL)
+        (vle32, 0UL, 0x5UL, 0xa0000000UL, 0x11UL, so, 0x5UL)
+        (vle64, 0UL, 0xfffffff4UL, 0UL, 0x100000000UL, 0UL, 0x4UL)
+        (vle64, 0UL, 0x7ffffff8UL, 0UL, 0x80000004UL, 0UL, 0x4UL)
+        (vle64, 0UL, 0x5UL, 0UL, 0x11UL, 0UL, 0x4UL)
+        (vle64, 0UL, 0xfffffff4UL, ca, 0x100000000UL, 0UL, 0x4UL)
+        (vle64, 0UL, 0x7ffffff8UL, ca, 0x80000004UL, 0UL, 0x4UL)
+        (vle64, 0UL, 0x5UL, ca, 0x11UL, 0UL, 0x4UL)
+        (vle64, 0UL, 0xfffffff4UL, so, 0x100000000UL, so, 0x5UL)
+        (vle64, 0UL, 0x7ffffff8UL, so, 0x80000004UL, so, 0x5UL)
+        (vle64, 0UL, 0x5UL, so, 0x11UL, so, 0x5UL)
+        (vle64, 0UL, 0xfffffff4UL, 0xa0000000UL, 0x100000000UL, so, 0x5UL)
+        (vle64, 0UL, 0x7ffffff8UL, 0xa0000000UL, 0x80000004UL, so, 0x5UL)
+        (vle64, 0UL, 0x5UL, 0xa0000000UL, 0x11UL, so, 0x5UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer'; CR0, cr0' ]
+      check isa "1864980c" given wanted
+    for isa in vleTargets do sameAs isa "1864980c" "3464000c"
+
+  /// <summary>
+  /// e_andi RA,RS,SCI8 puts RS & SCI8 into RA and leaves CR0 alone. RA is the
+  /// first register and RS the second. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ANDI ANDs with a scaled immediate``() =
+    (* e_andi r3,r4,12 *)
+    let w1 = 0x123456789abcdef0UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x8UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0UL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0xcUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x8UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0UL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0xcUL)
+        (vle64, 0x11111111UL, w1, 0UL) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1883c00c" given wanted
+    (* e_andi r3,r4,-60673 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abc12f0UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12341278UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0xffff12f0UL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x7fff12ffUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abc12f0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12341278UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0xffff12f0UL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x7fff12ffUL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1883c512" given wanted
+
+  /// <summary>
+  /// e_andi. RA,RS,SCI8 puts RS & SCI8 into RA and records it in CR0 as e_addi.
+  /// does. (Book VLE 5.9) It is andi. with a wider number.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ANDI. ANDs with a scaled immediate and records``() =
+    (* e_andi. r3,r4,12 *)
+    let w1 = 0xffffffffffffffffUL
+    for isa, r3, r4, xer, r3', cr0' in
+      [ (vle32, 0UL, 0xffUL, 0UL, 0xcUL, 0x4UL)
+        (vle32, 0UL, 0xf3UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0UL, 0x100UL, 0UL, 0UL, 0x2UL)
+        (vle32, 0UL, 0xffffffffUL, 0UL, 0xcUL, 0x4UL)
+        (vle32, 0UL, 0xffUL, so, 0xcUL, 0x5UL)
+        (vle32, 0UL, 0xf3UL, so, 0UL, 0x3UL)
+        (vle32, 0UL, 0x100UL, so, 0UL, 0x3UL)
+        (vle32, 0UL, 0xffffffffUL, so, 0xcUL, 0x5UL)
+        (vle64, 0UL, 0xffUL, 0UL, 0xcUL, 0x4UL)
+        (vle64, 0UL, 0xf3UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0UL, 0x100UL, 0UL, 0UL, 0x2UL)
+        (vle64, 0UL, w1, 0UL, 0xcUL, 0x4UL)
+        (vle64, 0UL, 0xffUL, so, 0xcUL, 0x5UL)
+        (vle64, 0UL, 0xf3UL, so, 0UL, 0x3UL)
+        (vle64, 0UL, 0x100UL, so, 0UL, 0x3UL)
+        (vle64, 0UL, w1, so, 0xcUL, 0x5UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer; CR0, cr0' ]
+      check isa "1883c80c" given wanted
+    for isa in vleTargets do sameAs isa "1883c80c" "7083000c"
+
+  /// <summary>
+  /// e_ori RA,RS,SCI8 puts RS | SCI8 into RA and leaves CR0 alone. RA is the
+  /// first register and RS the second. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ORI ORs with a scaled immediate``() =
+    (* e_ori r3,r4,12 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abcdefcUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x1234567cUL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0xfffffffcUL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x7fffffffUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abcdefcUL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x1234567cUL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0xfffffffcUL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x7fffffffUL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1883d00c" given wanted
+    (* e_ori r3,r4,13312 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abcfef0UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12347678UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0xfffffff0UL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x7fffffffUL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abcfef0UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12347678UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0xfffffff0UL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x7fffffffUL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1883d134" given wanted
+
+  /// <summary>
+  /// e_ori. RA,RS,SCI8 puts RS | SCI8 into RA and records it in CR0 as e_addi.
+  /// does. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ORI. ORs with a scaled immediate and records``() =
+    (* e_ori. r3,r4,12 *)
+    let w1 = 0x8000000000000000UL
+    let w2 = 0x800000000000000cUL
+    for isa, r3, r4, xer, r3', cr0' in
+      [ (vle32, 0UL, 0UL, 0UL, 0xcUL, 0x4UL)
+        (vle32, 0UL, 0xf0UL, 0UL, 0xfcUL, 0x4UL)
+        (vle32, 0UL, 0x80000000UL, 0UL, 0x8000000cUL, 0x8UL)
+        (vle32, 0UL, 0UL, 0UL, 0xcUL, 0x4UL)
+        (vle32, 0UL, 0UL, so, 0xcUL, 0x5UL)
+        (vle32, 0UL, 0xf0UL, so, 0xfcUL, 0x5UL)
+        (vle32, 0UL, 0x80000000UL, so, 0x8000000cUL, 0x9UL)
+        (vle32, 0UL, 0UL, so, 0xcUL, 0x5UL)
+        (vle64, 0UL, 0UL, 0UL, 0xcUL, 0x4UL)
+        (vle64, 0UL, 0xf0UL, 0UL, 0xfcUL, 0x4UL)
+        (vle64, 0UL, 0x80000000UL, 0UL, 0x8000000cUL, 0x4UL)
+        (vle64, 0UL, w1, 0UL, w2, 0x8UL)
+        (vle64, 0UL, 0UL, so, 0xcUL, 0x5UL)
+        (vle64, 0UL, 0xf0UL, so, 0xfcUL, 0x5UL)
+        (vle64, 0UL, 0x80000000UL, so, 0x8000000cUL, 0x5UL)
+        (vle64, 0UL, w1, so, w2, 0x9UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer; CR0, cr0' ]
+      check isa "1883d80c" given wanted
+
+  /// <summary>
+  /// e_xori RA,RS,SCI8 puts RS ^ SCI8 into RA and leaves CR0 alone. RA is the
+  /// first register and RS the second. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_XORI XORs with a scaled immediate``() =
+    (* e_xori r3,r4,12 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0x123456789abcdefcUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0x12345674UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0xfffffffcUL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x7ffffff3UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x9abcdefcUL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0x12345674UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0xfffffffcUL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x7ffffff3UL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1883e00c" given wanted
+    (* e_xori r3,r4,-60673 *)
+    let w1 = 0xffffffffedcb4487UL
+    let w2 = 0xffffffff0000ed0fUL
+    let w3 = 0xffffffff8000ed00UL
+    let w4 = 0x123456789abcdef0UL
+    let w5 = 0xedcba9876543cc0fUL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0xedcb4487UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0xed0fUL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x8000ed00UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x6543cc0fUL)
+        (vle64, 0x11111111UL, 0x12345678UL, w1)
+        (vle64, 0x11111111UL, 0xfffffff0UL, w2)
+        (vle64, 0x11111111UL, 0x7fffffffUL, w3)
+        (vle64, 0x11111111UL, w4, w5) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1883e512" given wanted
+
+  /// <summary>
+  /// e_xori. RA,RS,SCI8 puts RS ^ SCI8 into RA and records it in CR0 as e_addi.
+  /// does. (Book VLE 5.9)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_XORI. XORs with a scaled immediate and records``() =
+    (* e_xori. r3,r4,12 *)
+    let w1 = 0x8000000000000000UL
+    let w2 = 0x800000000000000cUL
+    for isa, r3, r4, xer, r3', cr0' in
+      [ (vle32, 0UL, 0xcUL, 0UL, 0UL, 0x2UL)
+        (vle32, 0UL, 0xdUL, 0UL, 0x1UL, 0x4UL)
+        (vle32, 0UL, 0x80000000UL, 0UL, 0x8000000cUL, 0x8UL)
+        (vle32, 0UL, 0UL, 0UL, 0xcUL, 0x4UL)
+        (vle32, 0UL, 0xcUL, so, 0UL, 0x3UL)
+        (vle32, 0UL, 0xdUL, so, 0x1UL, 0x5UL)
+        (vle32, 0UL, 0x80000000UL, so, 0x8000000cUL, 0x9UL)
+        (vle32, 0UL, 0UL, so, 0xcUL, 0x5UL)
+        (vle64, 0UL, 0xcUL, 0UL, 0UL, 0x2UL)
+        (vle64, 0UL, 0xdUL, 0UL, 0x1UL, 0x4UL)
+        (vle64, 0UL, 0x80000000UL, 0UL, 0x8000000cUL, 0x4UL)
+        (vle64, 0UL, w1, 0UL, w2, 0x8UL)
+        (vle64, 0UL, 0xcUL, so, 0UL, 0x3UL)
+        (vle64, 0UL, 0xdUL, so, 0x1UL, 0x5UL)
+        (vle64, 0UL, 0x80000000UL, so, 0x8000000cUL, 0x5UL)
+        (vle64, 0UL, w1, so, w2, 0x9UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer; CR0, cr0' ]
+      check isa "1883e80c" given wanted
+
+  /// <summary>
+  /// e_subfic RT,RA,SCI8 puts ~RA + SCI8 + 1, which is SCI8 - RA, into RT and
+  /// sets XER[CA] to the carry out of the register. (Book VLE 5.5) It is subfic
+  /// with a wider number.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SUBFIC subtracts from a scaled immediate``() =
+    (* e_subfic r3,r4,12 *)
+    let w1 = 0xffffffff00000017UL
+    let w2 = 0xffffffffffffff00UL
+    let w3 = 0x123456789abcdef0UL
+    let w4 = 0xedcba9876543211cUL
+    let w5 = 0xffffffff0000010cUL
+    for isa, r3, r4, xer, r3', xer' in
+      [ (vle32, 0x11111111UL, 0xfffffff5UL, 0UL, 0x17UL, 0UL)
+        (vle32, 0x11111111UL, 0x5UL, 0UL, 0x7UL, ca)
+        (vle32, 0x11111111UL, 0xffffff00UL, 0UL, 0x10cUL, 0UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0UL, 0x6543211cUL, 0UL)
+        (vle32, 0x11111111UL, 0xffffff00UL, 0UL, 0x10cUL, 0UL)
+        (vle32, 0x11111111UL, 0xfffffff5UL, ca, 0x17UL, 0UL)
+        (vle32, 0x11111111UL, 0x5UL, ca, 0x7UL, ca)
+        (vle32, 0x11111111UL, 0xffffff00UL, ca, 0x10cUL, 0UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, ca, 0x6543211cUL, 0UL)
+        (vle32, 0x11111111UL, 0xffffff00UL, ca, 0x10cUL, 0UL)
+        (vle64, 0x11111111UL, 0xfffffff5UL, 0UL, w1, 0UL)
+        (vle64, 0x11111111UL, 0x5UL, 0UL, 0x7UL, ca)
+        (vle64, 0x11111111UL, w2, 0UL, 0x10cUL, 0UL)
+        (vle64, 0x11111111UL, w3, 0UL, w4, 0UL)
+        (vle64, 0x11111111UL, 0xffffff00UL, 0UL, w5, 0UL)
+        (vle64, 0x11111111UL, 0xfffffff5UL, ca, w1, 0UL)
+        (vle64, 0x11111111UL, 0x5UL, ca, 0x7UL, ca)
+        (vle64, 0x11111111UL, w2, ca, 0x10cUL, 0UL)
+        (vle64, 0x11111111UL, w3, ca, w4, 0UL)
+        (vle64, 0x11111111UL, 0xffffff00UL, ca, w5, 0UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer' ]
+      check isa "1864b00c" given wanted
+    for isa in vleTargets do sameAs isa "1864b00c" "2064000c"
+    (* e_subfic r3,r4,-100 *)
+    let w1 = 0xfffffffeffffffa7UL
+    let w2 = 0xffffffffffffff97UL
+    let w3 = 0xffffffffffffff00UL
+    let w4 = 0x123456789abcdef0UL
+    let w5 = 0xedcba987654320acUL
+    let w6 = 0xffffffff0000009cUL
+    for isa, r3, r4, xer, r3', xer' in
+      [ (vle32, 0x11111111UL, 0xfffffff5UL, 0UL, 0xffffffa7UL, 0UL)
+        (vle32, 0x11111111UL, 0x5UL, 0UL, 0xffffff97UL, ca)
+        (vle32, 0x11111111UL, 0xffffff00UL, 0UL, 0x9cUL, ca)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0UL, 0x654320acUL, ca)
+        (vle32, 0x11111111UL, 0xffffff00UL, 0UL, 0x9cUL, ca)
+        (vle32, 0x11111111UL, 0xfffffff5UL, ca, 0xffffffa7UL, 0UL)
+        (vle32, 0x11111111UL, 0x5UL, ca, 0xffffff97UL, ca)
+        (vle32, 0x11111111UL, 0xffffff00UL, ca, 0x9cUL, ca)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, ca, 0x654320acUL, ca)
+        (vle32, 0x11111111UL, 0xffffff00UL, ca, 0x9cUL, ca)
+        (vle64, 0x11111111UL, 0xfffffff5UL, 0UL, w1, ca)
+        (vle64, 0x11111111UL, 0x5UL, 0UL, w2, ca)
+        (vle64, 0x11111111UL, w3, 0UL, 0x9cUL, ca)
+        (vle64, 0x11111111UL, w4, 0UL, w5, ca)
+        (vle64, 0x11111111UL, 0xffffff00UL, 0UL, w6, ca)
+        (vle64, 0x11111111UL, 0xfffffff5UL, ca, w1, ca)
+        (vle64, 0x11111111UL, 0x5UL, ca, w2, ca)
+        (vle64, 0x11111111UL, w3, ca, 0x9cUL, ca)
+        (vle64, 0x11111111UL, w4, ca, w5, ca)
+        (vle64, 0x11111111UL, 0xffffff00UL, ca, w6, ca) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer' ]
+      check isa "1864b49c" given wanted
+
+  /// <summary>
+  /// e_subfic. RT,RA,SCI8 does what e_subfic does and records the result in CR0
+  /// as e_addi. does. (Book VLE 5.5)
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SUBFIC. subtracts from a scaled number, records``() =
+    (* e_subfic. r3,r4,12 *)
+    let w1 = 0xffffffffffffffffUL
+    let w2 = 0xffffffff00000018UL
+    for isa, r3, r4, xer, r3', xer', cr0' in
+      [ (vle32, 0UL, 0xcUL, 0UL, 0UL, ca, 0x2UL)
+        (vle32, 0UL, 0xdUL, 0UL, 0xffffffffUL, 0UL, 0x8UL)
+        (vle32, 0UL, 0xbUL, 0UL, 0x1UL, ca, 0x4UL)
+        (vle32, 0UL, 0xfffffff4UL, 0UL, 0x18UL, 0UL, 0x4UL)
+        (vle32, 0UL, 0xcUL, ca, 0UL, ca, 0x2UL)
+        (vle32, 0UL, 0xdUL, ca, 0xffffffffUL, 0UL, 0x8UL)
+        (vle32, 0UL, 0xbUL, ca, 0x1UL, ca, 0x4UL)
+        (vle32, 0UL, 0xfffffff4UL, ca, 0x18UL, 0UL, 0x4UL)
+        (vle32, 0UL, 0xcUL, so, 0UL, 0xa0000000UL, 0x3UL)
+        (vle32, 0UL, 0xdUL, so, 0xffffffffUL, so, 0x9UL)
+        (vle32, 0UL, 0xbUL, so, 0x1UL, 0xa0000000UL, 0x5UL)
+        (vle32, 0UL, 0xfffffff4UL, so, 0x18UL, so, 0x5UL)
+        (vle32, 0UL, 0xcUL, 0xa0000000UL, 0UL, 0xa0000000UL, 0x3UL)
+        (vle32, 0UL, 0xdUL, 0xa0000000UL, 0xffffffffUL, so, 0x9UL)
+        (vle32, 0UL, 0xbUL, 0xa0000000UL, 0x1UL, 0xa0000000UL, 0x5UL)
+        (vle32, 0UL, 0xfffffff4UL, 0xa0000000UL, 0x18UL, so, 0x5UL)
+        (vle64, 0UL, 0xcUL, 0UL, 0UL, ca, 0x2UL)
+        (vle64, 0UL, 0xdUL, 0UL, w1, 0UL, 0x8UL)
+        (vle64, 0UL, 0xbUL, 0UL, 0x1UL, ca, 0x4UL)
+        (vle64, 0UL, 0xfffffff4UL, 0UL, w2, 0UL, 0x8UL)
+        (vle64, 0UL, 0xcUL, ca, 0UL, ca, 0x2UL)
+        (vle64, 0UL, 0xdUL, ca, w1, 0UL, 0x8UL)
+        (vle64, 0UL, 0xbUL, ca, 0x1UL, ca, 0x4UL)
+        (vle64, 0UL, 0xfffffff4UL, ca, w2, 0UL, 0x8UL)
+        (vle64, 0UL, 0xcUL, so, 0UL, 0xa0000000UL, 0x3UL)
+        (vle64, 0UL, 0xdUL, so, w1, so, 0x9UL)
+        (vle64, 0UL, 0xbUL, so, 0x1UL, 0xa0000000UL, 0x5UL)
+        (vle64, 0UL, 0xfffffff4UL, so, w2, so, 0x9UL)
+        (vle64, 0UL, 0xcUL, 0xa0000000UL, 0UL, 0xa0000000UL, 0x3UL)
+        (vle64, 0UL, 0xdUL, 0xa0000000UL, w1, so, 0x9UL)
+        (vle64, 0UL, 0xbUL, 0xa0000000UL, 0x1UL, 0xa0000000UL, 0x5UL)
+        (vle64, 0UL, 0xfffffff4UL, 0xa0000000UL, w2, so, 0x9UL) ] do
+      let given = [ R3, r3; R4, r4; XER, xer ]
+      let wanted = [ R3, r3'; R4, r4; XER, xer'; CR0, cr0' ]
+      check isa "1864b80c" given wanted
+
+  /// <summary>
+  /// e_mulli RT,RA,SCI8 puts the low part of RA x SCI8, the product of the two
+  /// as signed numbers, into RT: the low 32 bits on a 32-bit processor and the
+  /// low 64 on a 64-bit one. (Book VLE 5.5) It is mulli with a wider number.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_MULLI multiplies by a scaled immediate``() =
+    (* e_mulli r3,r4,12 *)
+    let w1 = 0x123456789abcdef0UL
+    let w2 = 0xda740da740da7340UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0xda740da0UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0xffffff40UL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0xfffffff4UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x40da7340UL)
+        (vle64, 0x11111111UL, 0x12345678UL, 0xda740da0UL)
+        (vle64, 0x11111111UL, 0xfffffff0UL, 0xbffffff40UL)
+        (vle64, 0x11111111UL, 0x7fffffffUL, 0x5fffffff4UL)
+        (vle64, 0x11111111UL, w1, w2) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1864a00c" given wanted
+    for isa in vleTargets do sameAs isa "1864a00c" "1c64000c"
+    (* e_mulli r3,r4,-100 *)
+    let w1 = 0xfffffff8e38e3920UL
+    let w2 = 0xffffff9c00000640UL
+    let w3 = 0xffffffce00000064UL
+    let w4 = 0x123456789abcdef0UL
+    let w5 = 0xe38e38e38e38ea40UL
+    for isa, r3, r4, r3' in
+      [ (vle32, 0x11111111UL, 0x12345678UL, 0xe38e3920UL)
+        (vle32, 0x11111111UL, 0xfffffff0UL, 0x640UL)
+        (vle32, 0x11111111UL, 0x7fffffffUL, 0x64UL)
+        (vle32, 0x11111111UL, 0x9abcdef0UL, 0x8e38ea40UL)
+        (vle64, 0x11111111UL, 0x12345678UL, w1)
+        (vle64, 0x11111111UL, 0xfffffff0UL, w2)
+        (vle64, 0x11111111UL, 0x7fffffffUL, w3)
+        (vle64, 0x11111111UL, w4, w5) ] do
+      let given = [ R3, r3; R4, r4 ]
+      let wanted = [ R3, r3'; R4, r4 ]
+      check isa "1864a49c" given wanted
+
+  /// <summary>
+  /// e_cmpi BF,RA,SCI8 compares the low word of RA with the low word of SCI8,
+  /// both as signed numbers, and puts the result in CR field BF: LT, GT or EQ,
+  /// and SO copied from XER[SO]. The samples compare in CR1 and in CR3. (Book
+  /// VLE 5.6) It is cmpwi with a wider number.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPI compares with a scaled immediate``() =
+    (* e_cmpi cr1,r4,12 *)
+    let w1 = 0xffffffffffffff9cUL
+    for isa, r4, xer, cr1' in
+      [ (vle32, 0xcUL, 0UL, 0x2UL)
+        (vle32, 0xbUL, 0UL, 0x8UL)
+        (vle32, 0xdUL, 0UL, 0x4UL)
+        (vle32, 0xfffffff4UL, 0UL, 0x8UL)
+        (vle32, 0xcUL, 0UL, 0x2UL)
+        (vle32, 0x8000000cUL, 0UL, 0x8UL)
+        (vle32, 0xffffff9cUL, 0UL, 0x8UL)
+        (vle32, 0xcUL, so, 0x3UL)
+        (vle32, 0xbUL, so, 0x9UL)
+        (vle32, 0xdUL, so, 0x5UL)
+        (vle32, 0xfffffff4UL, so, 0x9UL)
+        (vle32, 0xcUL, so, 0x3UL)
+        (vle32, 0x8000000cUL, so, 0x9UL)
+        (vle32, 0xffffff9cUL, so, 0x9UL)
+        (vle64, 0xcUL, 0UL, 0x2UL)
+        (vle64, 0xbUL, 0UL, 0x8UL)
+        (vle64, 0xdUL, 0UL, 0x4UL)
+        (vle64, 0xfffffff4UL, 0UL, 0x8UL)
+        (vle64, 0x10000000cUL, 0UL, 0x2UL)
+        (vle64, 0x8000000cUL, 0UL, 0x8UL)
+        (vle64, w1, 0UL, 0x8UL)
+        (vle64, 0xcUL, so, 0x3UL)
+        (vle64, 0xbUL, so, 0x9UL)
+        (vle64, 0xdUL, so, 0x5UL)
+        (vle64, 0xfffffff4UL, so, 0x9UL)
+        (vle64, 0x10000000cUL, so, 0x3UL)
+        (vle64, 0x8000000cUL, so, 0x9UL)
+        (vle64, w1, so, 0x9UL) ] do
+      let given = [ R4, r4; XER, xer ]
+      let wanted = [ R4, r4; XER, xer; CR1, cr1' ]
+      check isa "1824a80c" given wanted
+    for isa in vleTargets do sameAs isa "1824a80c" "2c84000c"
+    (* e_cmpi cr3,r31,-100 *)
+    let w1 = 0xffffffffffffff9cUL
+    for isa, r31, xer, cr3' in
+      [ (vle32, 0xcUL, 0UL, 0x4UL)
+        (vle32, 0xbUL, 0UL, 0x4UL)
+        (vle32, 0xdUL, 0UL, 0x4UL)
+        (vle32, 0xfffffff4UL, 0UL, 0x4UL)
+        (vle32, 0xcUL, 0UL, 0x4UL)
+        (vle32, 0x8000000cUL, 0UL, 0x8UL)
+        (vle32, 0xffffff9cUL, 0UL, 0x2UL)
+        (vle32, 0xcUL, so, 0x5UL)
+        (vle32, 0xbUL, so, 0x5UL)
+        (vle32, 0xdUL, so, 0x5UL)
+        (vle32, 0xfffffff4UL, so, 0x5UL)
+        (vle32, 0xcUL, so, 0x5UL)
+        (vle32, 0x8000000cUL, so, 0x9UL)
+        (vle32, 0xffffff9cUL, so, 0x3UL)
+        (vle64, 0xcUL, 0UL, 0x4UL)
+        (vle64, 0xbUL, 0UL, 0x4UL)
+        (vle64, 0xdUL, 0UL, 0x4UL)
+        (vle64, 0xfffffff4UL, 0UL, 0x4UL)
+        (vle64, 0x10000000cUL, 0UL, 0x4UL)
+        (vle64, 0x8000000cUL, 0UL, 0x8UL)
+        (vle64, w1, 0UL, 0x2UL)
+        (vle64, 0xcUL, so, 0x5UL)
+        (vle64, 0xbUL, so, 0x5UL)
+        (vle64, 0xdUL, so, 0x5UL)
+        (vle64, 0xfffffff4UL, so, 0x5UL)
+        (vle64, 0x10000000cUL, so, 0x5UL)
+        (vle64, 0x8000000cUL, so, 0x9UL)
+        (vle64, w1, so, 0x3UL) ] do
+      let given = [ R31, r31; XER, xer ]
+      let wanted = [ R31, r31; XER, xer; CR3, cr3' ]
+      check isa "187fac9c" given wanted
+
+  /// <summary>
+  /// e_cmpli BF,RA,SCI8 compares the low word of RA with the low word of SCI8,
+  /// both as unsigned numbers, and puts the result in CR field BF as e_cmpi
+  /// does. (Book VLE 5.6) It is cmplwi with a wider number.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPLI compares with a scaled immediate, unsigned``() =
+    (* e_cmpli cr1,r4,12 *)
+    let w1 = 0xffffffffffffff9cUL
+    for isa, r4, xer, cr1' in
+      [ (vle32, 0xcUL, 0UL, 0x2UL)
+        (vle32, 0xbUL, 0UL, 0x8UL)
+        (vle32, 0xdUL, 0UL, 0x4UL)
+        (vle32, 0xfffffff4UL, 0UL, 0x4UL)
+        (vle32, 0xcUL, 0UL, 0x2UL)
+        (vle32, 0x8000000cUL, 0UL, 0x4UL)
+        (vle32, 0xffffff9cUL, 0UL, 0x4UL)
+        (vle32, 0xcUL, so, 0x3UL)
+        (vle32, 0xbUL, so, 0x9UL)
+        (vle32, 0xdUL, so, 0x5UL)
+        (vle32, 0xfffffff4UL, so, 0x5UL)
+        (vle32, 0xcUL, so, 0x3UL)
+        (vle32, 0x8000000cUL, so, 0x5UL)
+        (vle32, 0xffffff9cUL, so, 0x5UL)
+        (vle64, 0xcUL, 0UL, 0x2UL)
+        (vle64, 0xbUL, 0UL, 0x8UL)
+        (vle64, 0xdUL, 0UL, 0x4UL)
+        (vle64, 0xfffffff4UL, 0UL, 0x4UL)
+        (vle64, 0x10000000cUL, 0UL, 0x2UL)
+        (vle64, 0x8000000cUL, 0UL, 0x4UL)
+        (vle64, w1, 0UL, 0x4UL)
+        (vle64, 0xcUL, so, 0x3UL)
+        (vle64, 0xbUL, so, 0x9UL)
+        (vle64, 0xdUL, so, 0x5UL)
+        (vle64, 0xfffffff4UL, so, 0x5UL)
+        (vle64, 0x10000000cUL, so, 0x3UL)
+        (vle64, 0x8000000cUL, so, 0x5UL)
+        (vle64, w1, so, 0x5UL) ] do
+      let given = [ R4, r4; XER, xer ]
+      let wanted = [ R4, r4; XER, xer; CR1, cr1' ]
+      check isa "18a4a80c" given wanted
+    for isa in vleTargets do sameAs isa "18a4a80c" "2884000c"
+    (* e_cmpli cr3,r31,-100 *)
+    let w1 = 0xffffffffffffff9cUL
+    for isa, r31, xer, cr3' in
+      [ (vle32, 0xcUL, 0UL, 0x8UL)
+        (vle32, 0xbUL, 0UL, 0x8UL)
+        (vle32, 0xdUL, 0UL, 0x8UL)
+        (vle32, 0xfffffff4UL, 0UL, 0x4UL)
+        (vle32, 0xcUL, 0UL, 0x8UL)
+        (vle32, 0x8000000cUL, 0UL, 0x8UL)
+        (vle32, 0xffffff9cUL, 0UL, 0x2UL)
+        (vle32, 0xcUL, so, 0x9UL)
+        (vle32, 0xbUL, so, 0x9UL)
+        (vle32, 0xdUL, so, 0x9UL)
+        (vle32, 0xfffffff4UL, so, 0x5UL)
+        (vle32, 0xcUL, so, 0x9UL)
+        (vle32, 0x8000000cUL, so, 0x9UL)
+        (vle32, 0xffffff9cUL, so, 0x3UL)
+        (vle64, 0xcUL, 0UL, 0x8UL)
+        (vle64, 0xbUL, 0UL, 0x8UL)
+        (vle64, 0xdUL, 0UL, 0x8UL)
+        (vle64, 0xfffffff4UL, 0UL, 0x4UL)
+        (vle64, 0x10000000cUL, 0UL, 0x8UL)
+        (vle64, 0x8000000cUL, 0UL, 0x8UL)
+        (vle64, w1, 0UL, 0x2UL)
+        (vle64, 0xcUL, so, 0x9UL)
+        (vle64, 0xbUL, so, 0x9UL)
+        (vle64, 0xdUL, so, 0x9UL)
+        (vle64, 0xfffffff4UL, so, 0x5UL)
+        (vle64, 0x10000000cUL, so, 0x9UL)
+        (vle64, 0x8000000cUL, so, 0x9UL)
+        (vle64, w1, so, 0x3UL) ] do
+      let given = [ R31, r31; XER, xer ]
+      let wanted = [ R31, r31; XER, xer; CR3, cr3' ]
+      check isa "18ffac9c" given wanted

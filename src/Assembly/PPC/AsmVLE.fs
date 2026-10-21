@@ -31,6 +31,7 @@
 /// </summary>
 module internal B2R2.Assembly.PPC.AsmVLE
 
+open System
 open B2R2
 open B2R2.FrontEnd.PPC
 open B2R2.Assembly.PPC.ParserHelper
@@ -210,6 +211,55 @@ let private systemCall ins =
   | [ Im level ] -> 0x7C000048u ||| (unsigned 5 level <<< 11)
   | _ -> wrongOperands ins
 
+/// The F, SCL and UI8 fields of the scaled immediate a number stands for: the
+/// number is UI8 at one of four bytes with F in every other bit of the
+/// register, and one that is not is refused rather than approximated.
+let private scaledFields bitLen (value: uint64) =
+  let all = if bitLen >= 64 then UInt64.MaxValue else (1UL <<< bitLen) - 1UL
+  let v = value &&& all
+  let fields scl =
+    let window = 0xFFUL <<< (8 * scl)
+    let rest = v &&& ~~~window
+    let ui8 = uint32 ((v >>> (8 * scl)) &&& 0xFFUL)
+    let place = (uint32 scl <<< 8) ||| ui8
+    if rest = 0UL then Some place
+    elif rest = (all &&& ~~~window) then Some((1u <<< 10) ||| place)
+    else None
+  match List.tryPick fields [ 0; 1; 2; 3 ] with
+  | Some bits -> bits
+  | None -> fail $"0x{value:x} is not a number an immediate can scale"
+
+/// An instruction of the SCI8-form that takes a register, another register and
+/// a scaled immediate, whose fourth nibble tells it from the rest and whose
+/// bit above the immediate says whether it records.
+let private scaledForm bitLen xo record ins =
+  match ins.Operands with
+  | [ Rg d; Rg a; Im v ] ->
+    0x18000000u ||| (gpr d <<< 21) ||| (gpr a <<< 16) ||| (xo <<< 12)
+    ||| (record <<< 11) ||| scaledFields bitLen v
+  | _ ->
+    wrongOperands ins
+
+/// The logical instructions of the SCI8-form, which write RA from RS and so
+/// write them in the other order.
+let private scaledLogical bitLen xo record ins =
+  match ins.Operands with
+  | [ Rg a; Rg s; Im v ] ->
+    0x18000000u ||| (gpr s <<< 21) ||| (gpr a <<< 16) ||| (xo <<< 12)
+    ||| (record <<< 11) ||| scaledFields bitLen v
+  | _ ->
+    wrongOperands ins
+
+/// The compares of the SCI8-form, which name the field of the condition
+/// register they put their result in; the unsigned one sets a bit above it.
+let private scaledCompare bitLen unsigned ins =
+  match ins.Operands with
+  | [ Rg f; Rg a; Im v ] ->
+    0x1800A800u ||| (unsigned <<< 23) ||| (crf f <<< 21) ||| (gpr a <<< 16)
+    ||| scaledFields bitLen v
+  | _ ->
+    wrongOperands ins
+
 /// The instructions of Variable Length Encoding, by what they are called.
 let vleEncoders bitLen =
   [ Op.SE_ILLEGAL, cForm 0x0000u
@@ -300,4 +350,19 @@ let vleEncoders bitLen =
     Op.E_CROR, crLogic 449u
     Op.E_MCRF, moveField
     Op.E_SC, systemCall
+    Op.E_ADDI, scaledForm bitLen 0x8u 0u
+    Op.E_ADDIdot, scaledForm bitLen 0x8u 1u
+    Op.E_ADDIC, scaledForm bitLen 0x9u 0u
+    Op.E_ADDICdot, scaledForm bitLen 0x9u 1u
+    Op.E_MULLI, scaledForm bitLen 0xAu 0u
+    Op.E_SUBFIC, scaledForm bitLen 0xBu 0u
+    Op.E_SUBFICdot, scaledForm bitLen 0xBu 1u
+    Op.E_ANDI, scaledLogical bitLen 0xCu 0u
+    Op.E_ANDIdot, scaledLogical bitLen 0xCu 1u
+    Op.E_ORI, scaledLogical bitLen 0xDu 0u
+    Op.E_ORIdot, scaledLogical bitLen 0xDu 1u
+    Op.E_XORI, scaledLogical bitLen 0xEu 0u
+    Op.E_XORIdot, scaledLogical bitLen 0xEu 1u
+    Op.E_CMPI, scaledCompare bitLen 0u
+    Op.E_CMPLI, scaledCompare bitLen 1u
     Op.SE_LI, loadImmediate ]

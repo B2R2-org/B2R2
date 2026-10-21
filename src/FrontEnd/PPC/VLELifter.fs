@@ -291,6 +291,36 @@ let branchConditional (ins: Instruction) (bld: ILowUIRBuilder) link =
     AST.interjmp dest (if link then InterJmpKind.IsCall else InterJmpKind.Base)
   }
 
+/// e_addi and e_addi.: RT = RA + a number, which records CR0 where the
+/// instruction says so. Register 0 is an ordinary register here.
+let addScaled (ins: Instruction) (bld: ILowUIRBuilder) record =
+  lift bld ins {
+    let struct (dst, src, imm) = transThreeOprs ins bld
+    dst := src .+ imm
+    if record then setCR0Reg bld dst else ()
+  }
+
+/// e_subfic.: RT = ~RA + a number + 1 with the carry out of the register in
+/// XER[CA], and CR0 recorded.
+let subtractFromScaledRecord (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (dst, src, imm) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := AST.not src
+    t2 := imm
+    addWithCarryOut bld dst t1 t2 (AST.num1 bld.RegType)
+    setCR0Reg bld dst
+  }
+
+/// The logical instructions that take a scaled immediate: RA = RS op a number,
+/// which records CR0 where the instruction says so.
+let logicalScaled (ins: Instruction) (bld: ILowUIRBuilder) operation record =
+  lift bld ins {
+    let struct (dst, src, imm) = transThreeOprs ins bld
+    dst := operation src imm
+    if record then setCR0Reg bld dst else ()
+  }
+
 /// A load of a size from an address that is a base register plus a
 /// displacement, zero-extended into the register it names. The base register
 /// is whichever the instruction names, register 0 included.

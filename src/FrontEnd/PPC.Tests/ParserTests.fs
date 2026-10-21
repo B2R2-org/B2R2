@@ -7113,3 +7113,122 @@ type VLEParserTests() =
     |> testVLE "7c880020"
     E_MCRF ** [ O.Reg CR5; O.Reg CR2 ]
     |> testVLE "7e880020"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADDI (add scaled immediate)``() =
+    E_ADDI ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1864800c"
+    E_ADDI ** [ O.Reg R3; O.Reg R4; O.Imm 0x3400UL ]
+    |> testVLE "18648134"
+    E_ADDI ** [ O.Reg R3; O.Reg R4; O.Imm 0x560000UL ]
+    |> testVLE "18648256"
+    E_ADDI ** [ O.Reg R3; O.Reg R4; O.Imm 0x78000000UL ]
+    |> testVLE "18648378"
+    E_ADDI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffff9cUL ]
+    |> testVLEOn WordSize.Bit32 "1864849c"
+    E_ADDI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffffffffffff9cUL ]
+    |> testVLEOn WordSize.Bit64 "1864849c"
+    E_ADDI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffff12ffUL ]
+    |> testVLEOn WordSize.Bit32 "18648512"
+    E_ADDI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffffffffff12ffUL ]
+    |> testVLEOn WordSize.Bit64 "18648512"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADDI. (add scaled immediate, record)``() =
+    E_ADDIdot ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1864880c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADDIC (add scaled immediate carrying)``() =
+    E_ADDIC ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1864900c"
+    E_ADDIC ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffff9cUL ]
+    |> testVLEOn WordSize.Bit32 "1864949c"
+    E_ADDIC ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffffffffffff9cUL ]
+    |> testVLEOn WordSize.Bit64 "1864949c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ADDIC. (add scaled immediate carrying, record)``() =
+    E_ADDICdot ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1864980c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ANDI (AND scaled immediate)``() =
+    E_ANDI ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1883c00c"
+    E_ANDI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffff12ffUL ]
+    |> testVLEOn WordSize.Bit32 "1883c512"
+    E_ANDI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffffffffff12ffUL ]
+    |> testVLEOn WordSize.Bit64 "1883c512"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ANDI. (AND scaled immediate, record)``() =
+    E_ANDIdot ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1883c80c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ORI (OR scaled immediate)``() =
+    E_ORI ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1883d00c"
+    E_ORI ** [ O.Reg R3; O.Reg R4; O.Imm 0x3400UL ]
+    |> testVLE "1883d134"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_ORI. (OR scaled immediate, record)``() =
+    E_ORIdot ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1883d80c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_XORI (XOR scaled immediate)``() =
+    E_XORI ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1883e00c"
+    E_XORI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffff12ffUL ]
+    |> testVLEOn WordSize.Bit32 "1883e512"
+    E_XORI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffffffffff12ffUL ]
+    |> testVLEOn WordSize.Bit64 "1883e512"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_XORI. (XOR scaled immediate, record)``() =
+    E_XORIdot ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1883e80c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SUBFIC (subtract from scaled immediate carrying)``() =
+    E_SUBFIC ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1864b00c"
+    E_SUBFIC ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffff9cUL ]
+    |> testVLEOn WordSize.Bit32 "1864b49c"
+    E_SUBFIC ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffffffffffff9cUL ]
+    |> testVLEOn WordSize.Bit64 "1864b49c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_SUBFIC. (subtract from scaled immediate, record)``() =
+    E_SUBFICdot ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1864b80c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_MULLI (multiply low scaled immediate)``() =
+    E_MULLI ** [ O.Reg R3; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1864a00c"
+    E_MULLI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffff9cUL ]
+    |> testVLEOn WordSize.Bit32 "1864a49c"
+    E_MULLI ** [ O.Reg R3; O.Reg R4; O.Imm 0xffffffffffffff9cUL ]
+    |> testVLEOn WordSize.Bit64 "1864a49c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPI (compare scaled immediate word)``() =
+    E_CMPI ** [ O.Reg CR1; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "1824a80c"
+    E_CMPI ** [ O.Reg CR3; O.Reg R31; O.Imm 0xffffff9cUL ]
+    |> testVLEOn WordSize.Bit32 "187fac9c"
+    E_CMPI ** [ O.Reg CR3; O.Reg R31; O.Imm 0xffffffffffffff9cUL ]
+    |> testVLEOn WordSize.Bit64 "187fac9c"
+
+  [<TestMethod>]
+  member _.``[PPC VLE] E_CMPLI (compare logical scaled immediate word)``() =
+    E_CMPLI ** [ O.Reg CR1; O.Reg R4; O.Imm 0xcUL ]
+    |> testVLE "18a4a80c"
+    E_CMPLI ** [ O.Reg CR3; O.Reg R31; O.Imm 0xffffff9cUL ]
+    |> testVLEOn WordSize.Bit32 "18ffac9c"
+    E_CMPLI ** [ O.Reg CR3; O.Reg R31; O.Imm 0xffffffffffffff9cUL ]
+    |> testVLEOn WordSize.Bit64 "18ffac9c"
