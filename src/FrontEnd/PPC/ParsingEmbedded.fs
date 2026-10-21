@@ -26,10 +26,11 @@
 /// <summary>
 /// Decodes the instructions the embedded environment adds to primary opcodes
 /// 19 and 31 (Power ISA 2.07B Book II and Book III-E): the cache-locking
-/// instructions, the debug, hypervisor and device moves, and the memory barrier
-/// whose word a server processor reads as eieio. No server instruction shares
-/// the other encodings, so they read the same under every category;
-/// ParsingLegacy hands a word here once its own tables are done with it.
+/// instructions, Decorated Storage, the debug, hypervisor and device moves, and
+/// the memory barrier whose word a server processor reads as eieio. No server
+/// instruction shares the other encodings, so they read the same under every
+/// category; ParsingLegacy hands a word here once its own tables are done with
+/// it.
 /// </summary>
 module internal B2R2.FrontEnd.PPC.ParsingEmbedded
 
@@ -97,10 +98,40 @@ let private parseDcrMove opcode bin =
   else
     struct (opcode, TwoOperands(ra, reg))
 
+/// A decorated load or store of Decorated Storage, "rT, rA, rB", rT named by
+/// the function given. The address is rB alone and rA holds the decoration;
+/// bit 31 is reserved.
+let private parseDecorated opcode regOf bin =
+  if Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    let rt = regOf (Bits.extract bin 25u 21u) |> OprReg
+    let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+    let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+    struct (opcode, ThreeOperands(rt, ra, rb))
+
+/// A decorated doubleword access, which only the 64-bit category has.
+let private parseDecorated64 opcode bitLen bin =
+  if bitLen = 32 then
+    raise ParsingFailureException
+  else
+    parseDecorated opcode getRegister bin
+
+/// dsn, "rA, rB": the field where the other decorated accesses keep their
+/// register is reserved, and so is bit 31.
+let private parseDsn bin =
+  if Bits.extract bin 25u 21u <> 0u || Bits.pick bin 0u <> 0u then
+    raise ParsingFailureException
+  else
+    let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+    let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
+    struct (Op.DSN, TwoOperands(ra, rb))
+
 /// The instruction a word of primary opcode 31 is, if it is one of the
 /// embedded categories', by its ten-bit extended opcode. The categories decide
-/// the one word the server reading gives another meaning.
-let tryParse31 category bin =
+/// the one word the server reading gives another meaning, and the register
+/// width the doubleword forms of Decorated Storage.
+let tryParse31 category bitLen bin =
   match Bits.extract bin 10u 1u with
   | 134u ->
     ValueSome(parseCacheLock Op.DCBTSTLS 0u bin)
@@ -124,10 +155,32 @@ let tryParse31 category bin =
     ValueSome(parseCacheLock Op.DCBLQdot 1u bin)
   | 462u ->
     ValueSome(parsePmrMove Op.MTPMR bin)
+  | 483u ->
+    ValueSome(parseDsn bin)
   | 486u ->
     ValueSome(parseCacheLock Op.ICBTLS 0u bin)
+  | 515u ->
+    ValueSome(parseDecorated Op.LBDX getRegister bin)
+  | 547u ->
+    ValueSome(parseDecorated Op.LHDX getRegister bin)
+  | 579u ->
+    ValueSome(parseDecorated Op.LWDX getRegister bin)
+  | 611u ->
+    ValueSome(parseDecorated64 Op.LDDX bitLen bin)
+  | 643u ->
+    ValueSome(parseDecorated Op.STBDX getRegister bin)
+  | 675u ->
+    ValueSome(parseDecorated Op.STHDX getRegister bin)
+  | 707u ->
+    ValueSome(parseDecorated Op.STWDX getRegister bin)
+  | 739u ->
+    ValueSome(parseDecorated64 Op.STDDX bitLen bin)
+  | 803u ->
+    ValueSome(parseDecorated Op.LFDDX getFPRegister bin)
   | 854u when Category.includes Category.Embedded category ->
     ValueSome(parseMbar bin)
+  | 931u ->
+    ValueSome(parseDecorated Op.STFDDX getFPRegister bin)
   | _ ->
     ValueNone
 

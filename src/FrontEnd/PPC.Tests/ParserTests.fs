@@ -4898,3 +4898,90 @@ type EmbeddedParserTests() =
     "7ca63b6c"
     ++ (ECOWX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
     ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] LBDX (load byte with decoration indexed)``() =
+    "7ca63c06"
+    ++ (LBDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] LHDX (load halfword with decoration indexed)``() =
+    "7ca63c46"
+    ++ (LHDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] LWDX (load word with decoration indexed)``() =
+    "7ca63c86"
+    ++ (LWDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  /// The doubleword forms of decorated storage are the 64-bit category's.
+  [<TestMethod>]
+  member _.``[PPC] LDDX (load doubleword with decoration indexed)``() =
+    "7ca63cc6"
+    ++ (LDDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] LFDDX (load floating doubleword, decorated)``() =
+    "7ca63e46"
+    ++ (LFDDX ** [ O.Reg F5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] STBDX (store byte with decoration indexed)``() =
+    "7ca63d06"
+    ++ (STBDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] STHDX (store halfword with decoration indexed)``() =
+    "7ca63d46"
+    ++ (STHDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] STWDX (store word with decoration indexed)``() =
+    "7ca63d86"
+    ++ (STWDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] STDDX (store doubleword with decoration indexed)``() =
+    "7ca63dc6"
+    ++ (STDDX ** [ O.Reg R5; O.Reg R6; O.Reg R7 ])
+    ||> test64Only
+
+  [<TestMethod>]
+  member _.``[PPC] STFDDX (store floating doubleword, decorated)``() =
+    "7ca63f46"
+    ++ (STFDDX ** [ O.Reg F5; O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  [<TestMethod>]
+  member _.``[PPC] DSN (decorated storage notify)``() =
+    "7c063bc6"
+    ++ (DSN ** [ O.Reg R6; O.Reg R7 ])
+    ||> testEveryTarget
+
+  /// Bit 31 is reserved in every decorated access, and so is the field above
+  /// rA in dsn.
+  [<TestMethod>]
+  member _.``[PPC] decorated storage with a reserved bit set is refused``() =
+    for hex in
+      [ "7ca63c07"
+        "7ca63c47"
+        "7ca63c87"
+        "7ca63cc7"
+        "7ca63e47"
+        "7ca63d07"
+        "7ca63d47"
+        "7ca63d87"
+        "7ca63dc7"
+        "7ca63f47"
+        "7c063bc7"
+        "7ca63bc6" ] do
+      testUnsupported WordSize.Bit32 hex
+      testUnsupported WordSize.Bit64 hex

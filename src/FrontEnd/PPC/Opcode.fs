@@ -1617,5 +1617,16 @@ type Opcode =
   | MTDCRUX = 6098
   | MTPMR = 6099
   | XNOP = 6100
+  | DSN = 6101
+  | LBDX = 6102
+  | LDDX = 6103
+  | LFDDX = 6104
+  | LHDX = 6105
+  | LWDX = 6106
+  | STBDX = 6107
+  | STDDX = 6108
+  | STFDDX = 6109
+  | STHDX = 6110
+  | STWDX = 6111
 
 type internal Op = Opcode

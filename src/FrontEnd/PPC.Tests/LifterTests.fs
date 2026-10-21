@@ -29141,6 +29141,56 @@ type EmbeddedLifterTests() =
   /// drawings.
   let bigEndian = everyProcessor |> List.filter (fun i -> i.Endian = Endian.Big)
 
+  /// The doubleword forms of decorated storage are the 64-bit category's, so
+  /// they run on the 64-bit processors only.
+  let only64Bit =
+    everyProcessor |> List.filter (fun i -> i.WordSize = WordSize.Bit64)
+
+  /// Eight bytes of memory at the address the decorated accesses use, which no
+  /// access reaches by adding rA (holding 0x11, a decoration) to it.
+  let decorated =
+    [| 0x81uy; 0x92uy; 0xa3uy; 0xb4uy; 0xc5uy; 0xd6uy; 0xe7uy; 0xf8uy |]
+
+  /// The value a load of the first size bytes of memory reads on a processor
+  /// of the byte order an ISA names.
+  let readOf (isa: ISA) size =
+    let bytes = Array.take size decorated
+    let ordered = if isa.Endian = Endian.Big then bytes else Array.rev bytes
+    ordered |> Array.fold (fun acc b -> (acc <<< 8) ||| uint64 b) 0UL
+
+  /// Asserts what a decorated load of size bytes puts in rT (r5, or f5 where
+  /// it is a floating-point register) on each processor given: the bytes at
+  /// rB (r7) alone, zero-extended, whatever the decoration in rA (r6) is.
+  let checkDecoratedLoad isas hex target size =
+    for isa in isas do
+      let given = [ target, 0xffffffffUL; R6, 0x11UL; R7, 0x2000UL ]
+      let after, memory = exec isa hex given [ 0x2000UL, decorated ]
+      let case = $"{hex} {isa}"
+      Assert.AreEqual(box (readOf isa size), box (after target), case)
+      Assert.AreEqual(box 8, box memory.Count, $"{hex} memory {isa}")
+
+  /// Asserts what a decorated store of size bytes writes at rB (r7) on each
+  /// processor given: the low size bytes of rS (r5, or f5), in the processor's
+  /// byte order, and nothing else, whatever the decoration in rA (r6) is.
+  let checkDecoratedStore isas hex source size =
+    for isa in isas do
+      let narrow = Expr.typeOf (var isa source) = 32<rt>
+      let value = if narrow then 0x85868788UL else 0x8182838485868788UL
+      let given = [ source, value; R6, 0x11UL; R7, 0x2000UL ]
+      let _, memory = exec isa hex given []
+      let bits = 8 * size
+      let mask = if bits = 64 then UInt64.MaxValue else (1UL <<< bits) - 1UL
+      let low = value &&& mask
+      let wanted =
+        [| for i in 0 .. size - 1 -> byte (low >>> (8 * (size - 1 - i))) |]
+      let ordered = if isa.Endian = Endian.Big then wanted else Array.rev wanted
+      let last = 0x2000UL + uint64 size - 1UL
+      let written = [| for a in 0x2000UL .. last -> memory[a] |]
+      let case = $"{hex} {isa}"
+      let wantedBytes = box (List.ofArray ordered)
+      Assert.AreEqual(wantedBytes, box (List.ofArray written), case)
+      Assert.AreEqual(box size, box memory.Count, case)
+
   /// The side effects a word lifts to on every processor, one list each.
   let effectsOf hex =
     [ for isa in everyProcessor ->
@@ -29388,3 +29438,92 @@ type EmbeddedLifterTests() =
       let _, memory = exec isa "7ca63b6c" given []
       let bytes = [ for a in 0x2000UL .. 0x2003UL -> memory[a] ]
       Assert.AreEqual(expected, box bytes, $"{isa}")
+
+  /// <summary>
+  /// lbdx rT, rA, rB loads the byte at the address rB holds, alone,
+  /// zero-extended into rT, using the decoration rA holds; the decoration is a
+  /// request to the storage controller, which the model has none of, so the
+  /// access is the plain one. The manual's; QEMU 8.2.2 has no decorated storage
+  /// (SIGILL on the e500mc).
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LBDX loads a byte``() =
+    checkDecoratedLoad everyProcessor "7ca63c06" R5 1
+
+  /// <summary>
+  /// lhdx rT, rA, rB loads the halfword at the address rB holds, zero-extended.
+  /// The manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LHDX loads a halfword``() =
+    checkDecoratedLoad everyProcessor "7ca63c46" R5 2
+
+  /// <summary>
+  /// lwdx rT, rA, rB loads the word at the address rB holds, zero-extended. The
+  /// manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LWDX loads a word``() =
+    checkDecoratedLoad everyProcessor "7ca63c86" R5 4
+
+  /// <summary>
+  /// lddx rT, rA, rB loads the doubleword at the address rB holds. The
+  /// manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LDDX loads a doubleword``() =
+    checkDecoratedLoad only64Bit "7ca63cc6" R5 8
+
+  /// <summary>
+  /// lfddx frT, rA, rB loads the doubleword at the address rB holds into a
+  /// floating-point register, bit for bit. The manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] LFDDX loads a floating doubleword``() =
+    checkDecoratedLoad everyProcessor "7ca63e46" F5 8
+
+  /// <summary>
+  /// stbdx rS, rA, rB stores the low byte of rS at the address rB holds,
+  /// alone. The manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STBDX stores a byte``() =
+    checkDecoratedStore everyProcessor "7ca63d06" R5 1
+
+  /// <summary>
+  /// sthdx rS, rA, rB stores the low halfword of rS. The manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STHDX stores a halfword``() =
+    checkDecoratedStore everyProcessor "7ca63d46" R5 2
+
+  /// <summary>
+  /// stwdx rS, rA, rB stores the low word of rS. The manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STWDX stores a word``() =
+    checkDecoratedStore everyProcessor "7ca63d86" R5 4
+
+  /// <summary>
+  /// stddx rS, rA, rB stores rS. The manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STDDX stores a doubleword``() =
+    checkDecoratedStore only64Bit "7ca63dc6" R5 8
+
+  /// <summary>
+  /// stfddx frS, rA, rB stores the floating-point register frS, bit for bit.
+  /// The manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] STFDDX stores a floating doubleword``() =
+    checkDecoratedStore everyProcessor "7ca63f46" F5 8
+
+  /// <summary>
+  /// dsn rA, rB sends the decoration rA holds to the address rB holds, to the
+  /// storage controller, which the model has none of: nothing the model holds
+  /// changes. The manual's.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[PPC] DSN leaves no trace``() =
+    checkNoTrace "7c063bc6"

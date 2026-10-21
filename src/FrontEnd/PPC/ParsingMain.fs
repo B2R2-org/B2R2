@@ -4105,7 +4105,7 @@ let private parseInstruction bitLen bin addr =
 let parse lifter category (span: ByteSpan) (reader: IBinReader) addr rt =
   let bin = reader.ReadUInt32(span, 0)
   let struct (opcode, operands) =
-    match ParsingLegacy.tryParse category bin with
+    match ParsingLegacy.tryParse category (int rt) bin with
     | ValueSome parsed -> parsed
     | ValueNone -> parseInstruction (int rt) bin addr
   Instruction(addr, 4u, opcode, operands, rt, 0UL, lifter)
